@@ -16,7 +16,6 @@
     "@mantine/hooks": "^7.10.2",
     "@qstudio/city-block": "workspace:*",
     "@qstudio/core": "workspace:*",
-    "@qstudio/doge-js-v0": "workspace:*",
     "@qstudio/file-explorer": "workspace:*",
     "@qstudio/flex-layout": "workspace:*",
     "@qstudio/monaco-textmate-lazy": "workspace:*",
