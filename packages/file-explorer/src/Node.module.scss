@@ -1,0 +1,132 @@
+.searchInput {
+  padding: 0px 10px;
+  outline: none;
+  color: white;
+  border-radius: 2px;
+  width: 100%;
+  height: 30px;
+  background: #2d2c2c;
+  border: none;
+  margin: 1rem 0;
+
+}
+$font-size: 13px;
+
+.searchInput:focus {
+  border: 1px solid #878787;
+}
+
+.nodeContainer {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  width: 100%;
+
+  &:global(.isSelected){
+    background: #343434;
+    color: white;
+    border-radius: 0;
+
+  }
+  &.isSelected  {
+    background: #343434;
+    color: white;
+    border-radius: 0;
+
+  }
+
+  .nodeContent {
+
+    display: flex;
+    height: 100%;
+    align-items: center;
+    width: 100%;
+    cursor: pointer;
+
+  }
+
+  .arrow {
+    width: $font-size;
+    font-size: $font-size;
+    display: flex;
+  }
+
+  .fileFolderIcon {
+    margin-right: 7px;
+    display: flex;
+    align-items: center;
+    font-size: $font-size;
+  }
+
+  .nodeText {
+    flex: 1;
+    font-size: 13px;
+
+    input {
+&::selection {
+  background: #c82dac;
+}
+      padding: 0px 4px;
+      outline: none;
+      color: white;
+      border-radius: 2px;
+      width: 97%;
+      border: 1px solid #17addf;
+      background: transparent;
+      height: calc($font-size + 2px);
+    }
+
+    span {}
+  }
+
+  .fileActions {
+
+    height: 100%;
+    display: flex;
+
+    button {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      color: #999999;
+      background-color: inherit;
+      border: none;
+      font-size: 16px;
+      height: 100%;
+      width: 24px;
+    }
+
+    .folderFileActions {
+
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      margin-right: 10px;
+
+      visibility: hidden;
+    }
+  }
+
+  &:hover {
+    .fileActions {
+      .folderFileActions {
+        visibility: visible;
+      }
+    }
+  }
+}
+
+
+[role="treeitem"]:hover {
+  background-color: #343434;
+  color: white;
+}
+
+[role="treeitem"]:focus-within {
+  background-color: rgba(52, 52, 52, 0.4);
+  outline: none;
+}
+
+.nodeContainer {
+
+}

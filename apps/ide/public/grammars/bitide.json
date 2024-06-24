@@ -1,0 +1,235 @@
+
+{
+  "scopeName": "source.bitide",
+  "name": "BitIDE Script",
+  "fileTypes": ["bitide"],
+  "patterns": [
+    { "include": "#main" },
+    { "include": "#comment" },
+    { "include": "#tag" },
+    { "include": "#rollTag" },
+    { "include": "#pickTag" },
+    { "include": "#data" }
+  ],
+  "repository": {
+    "main": {
+      "patterns": [
+        {
+          "begin": "<",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.tag.begin.bitide" }
+          },
+          "end": ">",
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.tag.end.bitide" }
+          },
+          "patterns": [
+            { "include": "#data" }
+          ]
+        },{
+          "match": "\\bOP_ADD\\b",
+          "name": "entity.name.function.arithmetic.bitide"
+        },{
+          "match": "\\bEND_EXAMPLE_WITNESS\\b",
+          "name": "entity.name.witnessmarker.bitide"
+        },
+        {
+          "match": "\\b(OP_SUB|OP_NUMEQUAL)\\b",
+          "name": "entity.name.function.arithmetic.bitide"
+        },
+        {
+          "match": "\\b(OP_IF|OP_ELSE|OP_ENDIF)\\b",
+          "name": "entity.name.function.conditional.bitide"
+        },
+        {
+          "match": "\\b(OP_SWAP|OP_DROP|OP_ROT|OP_2DROP|OP_2SWAP|OP_2ROT|OP_NIP|OP_TUCK|OP_OVER|OP_2OVER|OP_2DUP|OP_DUP)\\b",
+          "name": "entity.name.function.stack.bitide"
+        },
+        {
+          "match": "\\b(OP_0|OP_1|OP_2|OP_3|OP_4|OP_5|OP_6|OP_7|OP_8|OP_9|OP_10|OP_11|OP_12|OP_13|OP_14|OP_15|OP_16)\\b",
+          "name": "entity.name.function.number.bitide"
+        },
+        {
+          "match": "\\b[a-zA-Z0-9_]+\\b",
+          "name": "entity.name.function.generic.bitide"
+        },
+        {
+          "match": "\\s+",
+          "name": "whitespace.bitide"
+        },
+        {
+          "begin": "#",
+          "beginCaptures": {
+            "0": { "name": "keyword.control.tag.bitide" }
+          },
+          "end": "(?=[\\s])",
+          "patterns": [
+            { "include": "#tag" }
+          ]
+        },
+        {
+          "begin": "\\[",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.array.begin.bitide" }
+          },
+          "end": "\\]",
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.array.end.bitide" }
+          },
+          "patterns": [
+            { "include": "#pickTag" }
+          ]
+        },
+        {
+          "begin": "\\{",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.brace.begin.bitide" }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.brace.end.bitide" }
+          },
+          "patterns": [
+            { "include": "#rollTag" }
+          ]
+        }
+      ]
+    },
+    "comment": {
+      "name": "comment.block.dapen",
+      "patterns": [
+        {
+          "name": "comment.block.dapen",
+          "begin": "/\\*",
+          "beginCaptures": {
+            "0": {
+              "name": "comment.main"
+            }
+          },
+          "end": "\\*/",
+          "endCaptures": {
+            "0": {
+              "name": "comment.main"
+            }
+          }
+        },
+        {
+          "begin": "(^[ \\t]+)?(?=//)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.whitespace.comment.leading.dapen"
+            }
+          },
+          "end": "(?=$)",
+          "patterns": [
+            {
+              "name": "comment.line.double-slash.dapen",
+              "begin": "(//)",
+              "beginCaptures": {
+                "1": {
+                  "name": "comment.main"
+                }
+              },
+              "end": "(?=$)"
+            }
+          ]
+        }
+      ]
+    },
+    "tag": {
+      "patterns": [
+        {
+          "begin": "[^#,\\[\\]\\{\\}\\@\\<\\>\\s]+",
+          "beginCaptures": {
+            "0": { "name": "entity.name.tag.bitide" }
+          },
+          "end": "(?=,|\\s|$)"
+        },
+        {
+          "match": ",",
+          "name": "punctuation.separator.comma.bitide"
+        },
+        {
+          "match": "\\s+",
+          "name": "whitespace.bitide"
+        }
+      ]
+    },
+    "rollTag": {
+      "patterns": [
+        {
+          "begin": "[^#,\\[\\]\\{\\}\\@\\<\\>\\s]+",
+          "beginCaptures": {
+            "0": { "name": "entity.name.tag.bitide" }
+          },
+          "end": "(?=,|\\})"
+        },
+        {
+          "match": ",",
+          "name": "punctuation.separator.comma.bitide"
+        },
+        {
+          "match": "\\s+",
+          "name": "whitespace.bitide"
+        }
+      ]
+    },
+    "pickTag": {
+      "patterns": [
+        {
+          "begin": "[^#,\\[\\]\\{\\}\\@\\<\\>\\s]+",
+          "beginCaptures": {
+            "0": { "name": "entity.name.tag.bitide" }
+          },
+          "end": "(?=,|\\])"
+        },
+        {
+          "match": ",",
+          "name": "punctuation.separator.comma.bitide"
+        },
+        {
+          "match": "\\s+",
+          "name": "whitespace.bitide"
+        }
+      ]
+    },
+    "data": {
+      "patterns": [
+        {
+          "begin": "\"",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.bitide" }
+          },
+          "end": "\"",
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.bitide" }
+          },
+          "name": "string.quoted.double.bitide"
+        },
+        {
+          "begin": "'",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.bitide" }
+          },
+          "end": "'",
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.bitide" }
+          },
+          "name": "string.quoted.single.bitide"
+        },
+        {
+          "match": "0x[0-9a-fA-F]+",
+          "name": "constant.numeric.hex.bitide"
+        },
+        {
+          "match": "0b[01]+",
+          "name": "constant.numeric.binary.bitide"
+        },
+        {
+          "match": "-?[0-9]+",
+          "name": "constant.numeric.integer.bitide"
+        }
+      ]
+    }
+  }
+}

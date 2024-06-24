@@ -1,0 +1,29 @@
+{
+  "name": "@qstudio/file-explorer",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "pnpm run clean && pnpm run compile",
+    "clean": "rimraf ./dist",
+    "compile": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm run build"
+  },
+  "peerDependencies": {
+    "react": "~18.2.0"
+  },
+  "dependencies": {
+    "@qstudio/eventhubs": "workspace:*",
+    "@qstudio/storage": "workspace:*",
+    "@qstudio/utils": "workspace:*",
+    "react-arborist": "^3.4.0",
+    "react-contexify": "^6.0.0",
+    "react-icons": "^5.0.1",
+    "use-resize-observer": "^9.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "~18.2.0",
+    "react": "~18.2.0",
+    "react-dom": "~18.2.0",
+    "rimraf": "~5.0.0",
+    "sass": "^1.71.1"
+  }
+}

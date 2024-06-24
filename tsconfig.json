@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.build.json",
+
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@qstudio/components/*": ["packages/components/src/*"],
+      "@qstudio/*": ["packages/*/src"]
+    },
+    "noEmit": true
+  }
+}

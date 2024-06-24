@@ -1,0 +1,298 @@
+{
+  "name": "dapen",
+  "scopeName": "source.dapen",
+  "fileTypes": [".dpen", "dpn", ".dpn"],
+  "patterns": [{ "include": "#fileCtx" }, { "include": "#comment" }],
+  "repository": {
+    "comment": {
+      "name": "comment.block.dapen",
+      "patterns": [
+        {
+          "name": "comment.block.dapen",
+          "begin": "/\\*",
+          "beginCaptures": {
+            "0": {
+              "name": "comment.main"
+            }
+          },
+          "end": "\\*/",
+          "endCaptures": {
+            "0": {
+              "name": "comment.main"
+            }
+          }
+        },
+        {
+          "begin": "(^[ \\t]+)?(?=//)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.whitespace.comment.leading.dapen"
+            }
+          },
+          "end": "(?=$)",
+          "patterns": [
+            {
+              "name": "comment.line.double-slash.dapen",
+              "begin": "(//)",
+              "beginCaptures": {
+                "1": {
+                  "name": "comment.main"
+                }
+              },
+              "end": "(?=$)"
+            }
+          ]
+        }
+      ]
+    },
+    "fileCtx": {
+      "patterns": [
+        { "include": "#dapenVersion" },
+        { "include": "#hashtagDefineConst" },
+        { "include": "#struct" },
+        { "include": "#contractDeclaration" },
+        { "include": "#comment" }
+      ]
+    },
+    "dapenVersion": {
+      "begin": "(#dapenversion)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.dapen" }
+      },
+      "end": "([0-9]+\\.[0-9]+\\.[0-9]+)",
+      "endCaptures": {
+        "1": { "name": "constant.numeric.version.dapen" }
+      }
+    },
+    "hashtagDefineConst": {
+      "begin": "(#define)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.define.dapen" }
+      },
+      "end": "([a-zA-Z_][a-zA-Z0-9_]*)(\\s*)([0-9]+)",
+      "endCaptures": {
+        "1": { "name": "entity.name.constant.dapen" },
+        "3": { "name": "constant.numeric.dapen" }
+      }
+    },
+    "struct": {
+      "name": "meta.struct",
+      "begin": "\\b(struct)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*{",
+      "end": "\\}",
+      "beginCaptures": {
+        "1": {
+          "name": "storage.type.struct.dapen"
+        },
+        "2": {
+          "name": "entity.name.struct.dapen"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.struct.end.dapen"
+        }
+      },
+      "patterns": [{ "include": "#typeField" }, { "include": "#comment" }]
+    },
+    "structDefinitionFields": {
+      "name": "meta.struct-definition-fields",
+      "patterns": [{ "include": "#typeField" }]
+    },
+    "typeField": {
+      "captures": {
+        "1": { "name": "variable.parameter.field.dapen" },
+        "2": { "name": "punctuation.separator.field.dapen" },
+        "3": { "name": "entity.name.type.dapen" }
+      },
+      "begin": "([a-zA-Z_][a-zA-Z0-9_]*)\\s*(:)\\s*([a-zA-Z_][a-zA-Z0-9_]*)?",
+      "beginCaptures": {
+        "1": { "name": "variable.parameter.field.dapen" },
+        "2": { "name": "punctuation.separator.field.dapen" },
+        "3": { "name": "entity.name.type.dapen" }
+      },
+      "patterns": [{ "include": "#multiArraySize" }],
+      "end": "(?=[,|\\)])"
+    },
+    "returnType": {
+      "captures": {
+        "1": { "name": "punctuation.separator.field.dapen" },
+        "2": { "name": "entity.name.type.dapen" }
+      },
+      "begin": "(:)\\s*([a-zA-Z_][a-zA-Z0-9_]*)?",
+      "beginCaptures": {
+        "1": { "name": "punctuation.separator.field.dapen" },
+        "2": { "name": "entity.name.type.dapen" }
+      },
+      "patterns": [{ "include": "#multiArraySize" }],
+      "end": "(?=;)"
+    },
+    "typeFieldEnd": {
+      "captures": {
+        "1": { "name": "variable.parameter.field.dapen" },
+        "2": { "name": "punctuation.separator.field.dapen" },
+        "3": { "name": "entity.name.type.dapen" }
+      },
+      "begin": "([a-zA-Z_][a-zA-Z0-9_]*)\\s*(:)\\s*([a-zA-Z_][a-zA-Z0-9_]*)?",
+      "beginCaptures": {
+        "1": { "name": "variable.parameter.field.dapen" },
+        "2": { "name": "punctuation.separator.field.dapen" },
+        "3": { "name": "entity.name.type.dapen" }
+      },
+      "patterns": [{ "include": "#multiArraySize" }],
+      "end": "(\\))"
+    },
+    "typeRef": {
+      "name": "meta.type-ref",
+      "patterns": [
+        { "include": "#Identifier" },
+        { "include": "#multiArraySize" }
+      ]
+    },
+    "multiArraySize": {
+      "patterns": [
+        { "include": "#arraySize" },
+        { "include": "#merkleArraySize" }
+      ]
+    },
+    "arraySize": {
+      "name": "meta.array-size",
+      "begin": "\\[",
+      "end": "\\]",
+      "patterns": [
+        { "include": "#NumberLiteral" },
+        { "include": "#Identifier" }
+      ]
+    },
+    "merkleArraySize": {
+      "name": "meta.merkle-array-size",
+      "begin": "\\[\\[",
+      "end": "\\]\\]",
+      "patterns": [
+        { "include": "#NumberLiteral" },
+        { "include": "#Identifier" }
+      ]
+    },
+    "event": {
+      "name": "meta.struct",
+      "begin": "\\b(event)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*{",
+      "end": "\\}",
+      "beginCaptures": {
+        "1": {
+          "name": "storage.type.event.dapen"
+        },
+        "2": {
+          "name": "entity.name.event.dapen"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.event.end.dapen"
+        }
+      },
+      "patterns": [{ "include": "#typeField" }, { "include": "#comment" }]
+    },
+    "contractDeclaration": {
+      "begin": "\\b(contract)\\b\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*{",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.dapen" },
+        "2": { "name": "entity.name.contract.dapen" }
+      },
+      "end": "\\}",
+      "patterns": [
+        { "include": "#comment" },
+        { "include": "#gvarDeclaration" },
+        { "include": "#varDeclaration" },
+        { "include": "#fnDeclaration" },
+        { "include": "#viewDeclaration" },
+        { "include": "#struct" },
+        { "include": "#event" }
+      ]
+    },
+    "gvarDeclaration": {
+      "beginCaptures": {
+        "1": { "name": "keyword.control.dapen" },
+        "2": { "name": "variable.other.gvar.dapen" },
+        "3": { "name": "entity.name.type.dapen" }
+      },
+      "begin": "(gvar)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)?",
+
+      "end": "(?=;)",
+      "patterns": [{ "include": "#multiArraySize" }]
+    },
+    "varDeclaration": {
+      "beginCaptures": {
+        "1": { "name": "keyword.control.dapen" },
+        "2": { "name": "variable.other.var.dapen" },
+        "3": { "name": "entity.name.type.dapen" }
+      },
+      "begin": "(var)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)?",
+
+      "end": "(?=;)",
+      "patterns": [{ "include": "#multiArraySize" }]
+    },
+    "fnDeclaration": {
+      "begin": "\\b(fn)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(\\()",
+      "beginCaptures": {
+        "1": { "name": "keyword.definition.fn.dapen" },
+        "2": { "name": "entity.name.function.fn.dapen" }
+      },
+      "end": "(;)",
+      "patterns": [
+        {
+          "include": "#typeField"
+        },
+        {
+          "include": "#returnType"
+        }
+      ]
+    },
+    "viewDeclaration": {
+      "begin": "\\b(view)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(\\()",
+      "beginCaptures": {
+        "1": { "name": "keyword.definition.view.dapen" },
+        "2": { "name": "entity.name.function.view.dapen" }
+      },
+      "end": "(;)",
+      "patterns": [
+        {
+          "include": "#typeField"
+        },
+        {
+          "include": "#returnType"
+        }
+      ]
+    },
+    "Identifier": {
+      "name": "identifier",
+      "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+    },
+    "NumberLiteral": {
+      "name": "constant.numeric",
+      "match": "\\b\\d+\\b"
+    },
+    "Colon": {
+      "name": "punctuation.colon",
+      "match": ":"
+    },
+    "Comma": {
+      "name": "punctuation.comma",
+      "match": ","
+    },
+    "LCurly": {
+      "name": "punctuation.lcurly",
+      "match": "\\{"
+    },
+    "RCurly": {
+      "name": "punctuation.rcurly",
+      "match": "\\}"
+    },
+    "LParen": {
+      "name": "punctuation.lparen",
+      "match": "\\("
+    },
+    "RParen": {
+      "name": "punctuation.rparen",
+      "match": "\\)"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+**/dist
+results
+.nyc_output
+*.tsbuildinfo
+
+# macOS attribute files
+**/.DS_Store
+
+.DS_Store

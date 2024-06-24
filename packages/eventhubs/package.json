@@ -1,0 +1,22 @@
+{
+  "name": "@qstudio/eventhubs",
+  "version": "1.0.0",
+  "main": "dist/index",
+  "types": "dist/index",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm run clean && pnpm run compile",
+    "clean": "rimraf ./dist",
+    "compile": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@qstudio/utils": "workspace:*"
+  },
+  "devDependencies": {
+    "rimraf": "~5.0.0",
+    "typescript": "~5.3.3"
+  }
+}

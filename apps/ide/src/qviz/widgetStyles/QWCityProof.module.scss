@@ -1,0 +1,174 @@
+/*
+
+
+  states: {
+    hidden: string;
+    waiting: string;
+    proving: string;
+    proved: string; 
+  },
+  base: string;
+  outerGroup: string;
+  borderRect: string;
+  label: string;
+  statusGroup: string;
+  statusRect: string;
+  statusText: string;
+
+*/
+
+
+@keyframes dashAnimation {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 80;
+  }
+}
+@keyframes fillProvingAnimation {
+  0% {
+    fill: #fff;
+  }
+  40% {
+    fill: hsl(200deg, 96%, 55%);
+  }
+  80% {
+    fill: hsl(119, 96%, 55%);
+  }
+  100% {
+    fill: #fff;
+  }
+}
+@keyframes fillWojakAnimation {
+  0% {
+    fill: #fff;
+  }
+  50% {
+    fill: hsl(119, 96%, 55%);
+  }
+  100% {
+    fill: #fff;
+  }
+}
+.qwCityProofWidget {
+  :global(.wojak-fill){
+    fill: #FFF;
+  }
+  &.hidden {
+    opacity: 0;
+  }
+
+  .iconFillColor {
+    fill: #FFF;
+  }
+  .iconStrokeColor {
+    stroke: #FFF;
+  }
+  .iconRoot{
+
+  }
+
+  .borderRect {
+    stroke: #D8D129;
+    stroke-width: 2px;
+    fill: none;
+    transition: stroke 500ms linear;
+  }
+  .label {
+    font-size: 22px;
+    font-family: "Open Sans", sans-serif;
+    font-weight: 300;
+    fill: #FBFF31;
+    transition: fill 500ms linear;
+    
+  }
+  .statusRect {
+    stroke: #44BBFE;
+    stroke-width: 2px;
+    fill: #212121;
+    transition: stroke 500ms linear;
+
+  }
+  .statusGroup {
+  }
+  .statusText {
+    font-size: 18px;
+    font-family: "Open Sans", sans-serif;
+    font-weight: 300;
+    fill: #FFF;
+    transition: fill 500ms linear;
+  }
+
+  &.waiting {
+    .borderRect {
+      stroke: #D8D129;
+    }
+    .label {
+      fill: #FBFF31;
+    }
+    .statusRect {
+      stroke: #44BBFE;
+      fill: #212121;
+    }
+    .statusText {
+      fill: #FFF;
+    }
+  }
+  &.proving {
+    .borderRect {
+      stroke: #8329d8;
+    }
+    .label {
+      fill: #b031ff;
+    }
+    .statusRect {
+      stroke: #44BBFE;
+      fill: #212121;
+    }
+    .statusText {
+      fill: #FFF;
+    }
+    .iconFillColor {
+      animation: fillProvingAnimation 3s linear infinite;
+    }
+    .iconStrokeColor {
+      animation: dashAnimation 2s linear infinite;
+    }
+    :global(.wojak-fill){
+      animation: fillWojakAnimation 2s linear infinite;
+    }
+  }
+  &.proved {
+    .borderRect {
+      stroke: #2cd829;
+    }
+    .label {
+      fill: #61ff31;
+    }
+    .statusRect {
+      stroke: #44BBFE;
+      fill: #212121;
+    }
+    .statusText {
+      fill: #FFF;
+    }
+  }
+  $ref-link-waiting-color:  rgba(170, 170, 170, 0.5);
+  &.refLink.waiting {
+    .borderRect {
+      stroke-dasharray: 8;
+      stroke: $ref-link-waiting-color !important;
+    }
+    .label {
+      fill: rgba(170, 170, 170, 0.5);
+    }
+    .statusRect {
+      stroke:none !important;
+    }
+    .statusText {
+      fill:$ref-link-waiting-color !important;
+    }
+    
+  }
+}

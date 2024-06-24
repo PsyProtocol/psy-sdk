@@ -1,0 +1,60 @@
+$file-actions-height: 40px;
+.fileTreeCon {
+  display: block;
+  height:100%;
+  width:100%;
+  padding-top:$file-actions-height;
+}
+.searchInput {    
+  padding: 0px 4px;
+  outline: none;
+  color: white;
+  border-radius: 2px;
+  width: 100%;
+  height: 20px;
+  background: #242424;
+  border: none;
+  margin: 1rem 0;
+  font-size: 12px;
+  font-family: inherit;
+
+}
+
+.searchInput:focus {
+  border: 1px solid #878787;
+}
+
+
+
+
+
+.folderFileActions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding:4px;
+  position: absolute;
+  top:0;
+  left:0;
+  width: 100%;
+  height:$file-actions-height;
+  
+}
+
+.folderFileActions button {
+  display: flex;
+  align-items: center;
+  color: #999999;
+  background-color: inherit;
+  border: none;
+  font-size: 16px;
+  height: 100%;
+  width: 24px;
+}
+.treeCon {
+  position: relative;
+  top:0;
+  left:0;
+  width: 100%;
+  height: 100%;
+}

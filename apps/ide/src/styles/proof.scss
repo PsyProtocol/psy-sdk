@@ -1,0 +1,31 @@
+
+  .qProofWidget {
+    .qProofBorderRect {
+      stroke: #D8D129;
+      stroke-width: 2px;
+      fill: none;
+    }
+    .qProofLabel {
+      font-size: 32px;
+      font-family: "Chakra Petch", sans-serif;
+      fill: #FBFF31;
+      
+    }
+    .qProofStatusRect {
+      stroke: #3A3A3A;
+      stroke-width: 2px;
+      fill: none;
+    }
+    .qProofStatusGroup {
+      transform: translate(0px, 104px);
+    }
+    .qProofStatusText {
+      font-size: 15px;
+      font-family: "Chakra Petch", sans-serif;
+      fill: #FFF;
+    }
+  }
+.qv-simple-edge-1 {
+  stroke: #b2b2b2;
+  stroke-width: 1px;
+}
