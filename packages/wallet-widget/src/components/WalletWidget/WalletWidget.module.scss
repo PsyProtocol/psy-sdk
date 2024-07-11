@@ -1,0 +1,41 @@
+
+
+.walletWidget {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  margin: 0;
+  background-color: var(--wallet-widget-bg);
+  overflow: hidden;
+  font-family: var(--wallet-widget-font-sans) !important;
+  /*
+  h1,h2,h3,h4,h5,h6  {
+    font-family: var(--wallet-widget-font-mono) !important;
+    font-weight: 200;
+  }*/
+  .walletWidgetHeader {
+    position: fixed;
+    top:0;
+    left:0;
+    width: 100%;
+    height: 54px;
+    z-index: 9;
+    background-color: var(--wallet-widget-bg);
+  }
+  .walletWidgetBody {
+    width:100%;
+    height: 100%;
+    overflow-y: scroll;
+    padding-top: 54px;
+  }
+  .wwTransactionCon {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-top:12px;
+  }
+}

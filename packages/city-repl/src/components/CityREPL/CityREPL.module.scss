@@ -1,0 +1,44 @@
+.cityRepl {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  top:0;
+  left:0;
+  margin:0;
+  padding:0px;
+  .cityReplBody {
+    width: 100%;
+    padding-top: 0px;
+    flex-grow: 1;
+    overflow: hidden;
+    background-color: #000;
+    .cityReplBodyInner {
+      display: block;
+      width: 100%;
+      height: 100%;
+
+      overflow: auto;
+      white-space: pre;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 8px;
+      color:#eee;
+    }
+
+  }
+  .cityReplFooter {
+    flex-shrink: 1;
+    width: 100%;
+    display: block;
+
+  }
+  .controlsCon {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 10;
+  }
+
+}

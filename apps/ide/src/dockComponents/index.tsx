@@ -5,7 +5,7 @@ import WelcomeDockComponent from "./Welcome";
 import { IDEDockComponents } from "./types";
 import {Layout, Model} from "@qstudio/flex-layout";
 import { SiHtml5, SiJavascript, SiCss3,SiTypescript, SiBitcoin, SiMarkdown } from "react-icons/si";
-import { VscFiles } from "react-icons/vsc";
+import { VscFiles, VscTerminal } from "react-icons/vsc";
 
 import { GiTheaterCurtains, GiWallet } from "react-icons/gi";
 
@@ -21,6 +21,7 @@ import { IDEContext } from "../utils/ideContext";
 import StageDockComponent from "./Stage";
 import BlockPlannerDockComponent from "./BlockPlanner";
 import WalletDockComponent from "./Wallet";
+import CityReplDockComponent from "./CityRepl";
 /*
 interface IEditorContext {
   fileExplorerConfig: FileExplorerConfig;
@@ -59,6 +60,8 @@ const DockComponentMap : Record<IDEDockComponents, ComponentRenderer<IEditorCont
   [IDEDockComponents.Stage]: (args: { filePath: string; }, { editorContext }) => (<StageDockComponent fileStore={editorContext.fileStorage} fileEventHub={editorContext.fileEventHub} filePath={args.filePath} ctx={editorContext} />),
   [IDEDockComponents.BlockPlanner]: (_, { editorContext }) => (<BlockPlannerDockComponent ctx={editorContext} />),
   [IDEDockComponents.Wallet]: (_, { editorContext }) => (<WalletDockComponent ctx={editorContext} />),
+  [IDEDockComponents.CityRepl]: (_, { editorContext }) => (<CityReplDockComponent ctx={editorContext} />),
+
 
 };
 
@@ -70,6 +73,7 @@ const DockIconMap : Record<IDEDockComponents, JSX.Element> = {
   [IDEDockComponents.Stage]: <GiTheaterCurtains width={16} height={16} />,
   [IDEDockComponents.BlockPlanner]: <GiTheaterCurtains width={16} height={16} />,
   [IDEDockComponents.Wallet]: <GiWallet width={16} height={16} />,
+  [IDEDockComponents.CityRepl]: <VscTerminal width={"1em"} height={"1em"} />,
 };
 
 
@@ -83,6 +87,7 @@ const CoreEditorConfig: IEditorConfig = {
     [IDEDockComponents.Stage]: {icon: GiTheaterCurtains},
     [IDEDockComponents.BlockPlanner]: {icon: GiTheaterCurtains},
     [IDEDockComponents.Wallet]: {icon: GiWallet},
+    [IDEDockComponents.CityRepl]: {icon: VscTerminal},
   },
   tabComponentTitleMap: {
     [IDEDockComponents.CodeEditor]: "Code Editor",
@@ -92,6 +97,7 @@ const CoreEditorConfig: IEditorConfig = {
     [IDEDockComponents.Stage]: "Stage",
     [IDEDockComponents.BlockPlanner]: "Block Planner",
     [IDEDockComponents.Wallet]: "Wallet",
+    [IDEDockComponents.CityRepl]: "City REPL",
   },
   fileExtensionIconMap: FileIconMap,
   panelComponentMap: DockComponentMap,

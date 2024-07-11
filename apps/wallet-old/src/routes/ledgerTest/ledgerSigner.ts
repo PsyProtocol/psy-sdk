@@ -10,6 +10,8 @@ import {
   u8ArrayToHexReversed,
   disassembleScript,
   IDogeSignatureRequest,
+  DogeNetworkId,
+  IWalletProviderAbilities,
 } from "doge-sdk";
 import LedgerBitcoinApp from "@ledgerhq/hw-app-btc";
 
@@ -179,6 +181,21 @@ class LedgerHardwareWalletProvider implements IDogeWalletProvider {
       );
     }
     this.rpc = rpc;
+  }
+  addWalletRandom?(networkId: DogeNetworkId): Promise<IDogeTransactionSigner> {
+    throw new Error("Method not implemented.");
+  }
+  addWalletBIP39?(networkId: DogeNetworkId, seedPhrase: string, password?: string | undefined): Promise<IDogeTransactionSigner> {
+    throw new Error("Method not implemented.");
+  }
+  addWalletBIP44?(networkId: DogeNetworkId, fullDerivationPath: string): Promise<IDogeTransactionSigner> {
+    throw new Error("Method not implemented.");
+  }
+  addWalletBIP178?(networkId: DogeNetworkId, wif: string): Promise<IDogeTransactionSigner> {
+    throw new Error("Method not implemented.");
+  }
+  getAbilities(): IWalletProviderAbilities {
+    throw new Error("Method not implemented.");
   }
 
   getSigners(): Promise<IDogeTransactionSigner[]> {

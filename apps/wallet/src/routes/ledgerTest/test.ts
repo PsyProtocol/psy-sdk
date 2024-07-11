@@ -1,4 +1,4 @@
-import { DogeLinkRPC, DogeMemoryWalletProvider, createP2PKHTransaction, createP2SHTransaction, getP2SHAddress, hashBuffer } from "@qstudio/doge-js";
+import { DogeLinkRPC, DogeMemoryWalletProvider, createP2PKHTransaction, createP2SHTransaction, getP2SHAddress, hashBuffer } from "doge-sdk";
 
 async function exampleP2PKH(){
   // networkId can be doge, dogeTestnet, or dogeRegtest

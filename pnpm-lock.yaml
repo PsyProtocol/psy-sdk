@@ -32,6 +32,12 @@ importers:
       '@qstudio/city-block':
         specifier: workspace:*
         version: link:../../packages/city-block
+      '@qstudio/city-repl':
+        specifier: workspace:*
+        version: link:../../packages/city-repl
+      '@qstudio/city-sdk':
+        specifier: workspace:*
+        version: link:../../packages/city-sdk
       '@qstudio/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -164,7 +170,7 @@ importers:
         version: link:../../packages/components
       '@qstudio/foo':
         specifier: workspace:*
-        version: link:../../packages/foo
+        version: link:../../packages/json-helper
       classnames:
         specifier: ^2.5.1
         version: 2.5.1
@@ -384,6 +390,12 @@ importers:
       '@mantine/hooks':
         specifier: ^7.10.2
         version: 7.10.2(react@18.2.0)
+      '@qstudio/wallet-widget':
+        specifier: workspace:*
+        version: link:../../packages/wallet-widget
+      '@tabler/icons-react':
+        specifier: ^3.7.0
+        version: 3.7.0(react@18.2.0)
       axios:
         specifier: ^1.7.2
         version: 1.7.2
@@ -394,8 +406,8 @@ importers:
         specifier: ^3.3.3
         version: 3.3.3
       doge-sdk:
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: 0.4.1
+        version: 0.4.1
       react:
         specifier: ~18.2.0
         version: 18.2.0
@@ -467,8 +479,8 @@ importers:
         specifier: ^3.3.3
         version: 3.3.3
       doge-sdk:
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: 0.2.1
+        version: 0.2.1
       react:
         specifier: ~18.2.0
         version: 18.2.0
@@ -514,7 +526,7 @@ importers:
     dependencies:
       '@qstudio/foo':
         specifier: workspace:*
-        version: link:../foo
+        version: link:../json-helper
     devDependencies:
       rimraf:
         specifier: ~5.0.0
@@ -522,6 +534,22 @@ importers:
       typescript:
         specifier: ~4.9.0
         version: 4.9.5
+
+  packages/blokies-react:
+    dependencies:
+      react:
+        specifier: ~18.2.0
+        version: 18.2.0
+      react-dom:
+        specifier: ~18.2.0
+        version: 18.2.0(react@18.2.0)
+    devDependencies:
+      '@types/react':
+        specifier: ~18.2.0
+        version: 18.2.21
+      rimraf:
+        specifier: ~5.0.0
+        version: 5.0.7
 
   packages/city-block:
     devDependencies:
@@ -532,21 +560,132 @@ importers:
         specifier: ~4.9.0
         version: 4.9.5
 
-  packages/components:
+  packages/city-repl:
     dependencies:
-      '@qstudio/foo':
+      '@qstudio/city-sdk':
         specifier: workspace:*
-        version: link:../foo
-    devDependencies:
-      '@types/react':
-        specifier: ~18.2.0
-        version: 18.2.79
+        version: link:../city-sdk
+      '@qstudio/one-schema':
+        specifier: workspace:*
+        version: link:../one-schema
+      classnames:
+        specifier: ^2.5.1
+        version: 2.5.1
+      copy-to-clipboard:
+        specifier: ^3.3.3
+        version: 3.3.3
+      doge-sdk:
+        specifier: ^0.4.1
+        version: 0.4.1
       react:
         specifier: ~18.2.0
         version: 18.2.0
       react-dom:
         specifier: ~18.2.0
         version: 18.2.0(react@18.2.0)
+    devDependencies:
+      '@types/react':
+        specifier: ~18.2.0
+        version: 18.2.21
+      rimraf:
+        specifier: ~5.0.0
+        version: 5.0.7
+
+  packages/city-sdk:
+    dependencies:
+      doge-sdk:
+        specifier: ^0.4.1
+        version: 0.4.1
+      lossless-json:
+        specifier: ^4.0.1
+        version: 4.0.1
+      poseidon-goldilocks-lite:
+        specifier: ^0.2.3
+        version: 0.2.3
+    devDependencies:
+      rimraf:
+        specifier: ~5.0.0
+        version: 5.0.7
+      typescript:
+        specifier: ~4.9.0
+        version: 4.9.5
+
+  packages/city-wallet-widget:
+    dependencies:
+      '@mantine/core':
+        specifier: ^7.10.2
+        version: 7.10.2(@mantine/hooks@7.10.2)(@types/react@18.2.21)(react-dom@18.2.0)(react@18.2.0)
+      '@mantine/hooks':
+        specifier: ^7.10.2
+        version: 7.10.2(react@18.2.0)
+      '@qstudio/blokies-react':
+        specifier: workspace:*
+        version: link:../blokies-react
+      '@qstudio/city-sdk':
+        specifier: workspace:*
+        version: link:../city-sdk
+      '@tabler/icons-react':
+        specifier: ^3.7.0
+        version: 3.7.0(react@18.2.0)
+      classnames:
+        specifier: ^2.5.1
+        version: 2.5.1
+      copy-to-clipboard:
+        specifier: ^3.3.3
+        version: 3.3.3
+      doge-sdk:
+        specifier: 0.4.1
+        version: 0.4.1
+      react:
+        specifier: ~18.2.0
+        version: 18.2.0
+      react-dom:
+        specifier: ~18.2.0
+        version: 18.2.0(react@18.2.0)
+      react-icons:
+        specifier: ^5.0.1
+        version: 5.2.1(react@18.2.0)
+      zustand:
+        specifier: ^4.5.2
+        version: 4.5.2(@types/react@18.2.21)(react@18.2.0)
+    devDependencies:
+      '@types/react':
+        specifier: ~18.2.0
+        version: 18.2.21
+      rimraf:
+        specifier: ~5.0.0
+        version: 5.0.7
+
+  packages/components:
+    dependencies:
+      '@mantine/core':
+        specifier: ^7.10.2
+        version: 7.10.2(@mantine/hooks@7.10.2)(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
+      '@mantine/hooks':
+        specifier: ^7.10.2
+        version: 7.10.2(react@18.2.0)
+      classnames:
+        specifier: ^2.5.1
+        version: 2.5.1
+      copy-to-clipboard:
+        specifier: ^3.3.3
+        version: 3.3.3
+      doge-sdk:
+        specifier: 0.2.1
+        version: 0.2.1
+      react:
+        specifier: ~18.2.0
+        version: 18.2.0
+      react-dom:
+        specifier: ~18.2.0
+        version: 18.2.0(react@18.2.0)
+      react-icons:
+        specifier: ^5.0.1
+        version: 5.2.1(react@18.2.0)
+    devDependencies:
+      '@types/react':
+        specifier: ~18.2.0
+        version: 18.2.79
       rimraf:
         specifier: ~5.0.0
         version: 5.0.7
@@ -710,6 +849,15 @@ importers:
         specifier: ~4.9.0
         version: 4.9.5
 
+  packages/json-helper:
+    devDependencies:
+      rimraf:
+        specifier: ~5.0.0
+        version: 5.0.7
+      typescript:
+        specifier: ~4.9.0
+        version: 4.9.5
+
   packages/monaco-textmate-lazy:
     dependencies:
       '@qstudio/eventhubs':
@@ -743,6 +891,15 @@ importers:
       rimraf:
         specifier: ~5.0.0
         version: 5.0.7
+
+  packages/one-schema:
+    devDependencies:
+      rimraf:
+        specifier: ~5.0.0
+        version: 5.0.7
+      typescript:
+        specifier: ~4.9.0
+        version: 4.9.5
 
   packages/qsvg:
     devDependencies:
@@ -840,6 +997,49 @@ importers:
       typescript:
         specifier: ~5.3.3
         version: 5.3.3
+
+  packages/wallet-widget:
+    dependencies:
+      '@mantine/core':
+        specifier: ^7.10.2
+        version: 7.10.2(@mantine/hooks@7.10.2)(@types/react@18.2.21)(react-dom@18.2.0)(react@18.2.0)
+      '@mantine/hooks':
+        specifier: ^7.10.2
+        version: 7.10.2(react@18.2.0)
+      '@qstudio/blokies-react':
+        specifier: workspace:*
+        version: link:../blokies-react
+      '@tabler/icons-react':
+        specifier: ^3.7.0
+        version: 3.7.0(react@18.2.0)
+      classnames:
+        specifier: ^2.5.1
+        version: 2.5.1
+      copy-to-clipboard:
+        specifier: ^3.3.3
+        version: 3.3.3
+      doge-sdk:
+        specifier: 0.4.1
+        version: 0.4.1
+      react:
+        specifier: ~18.2.0
+        version: 18.2.0
+      react-dom:
+        specifier: ~18.2.0
+        version: 18.2.0(react@18.2.0)
+      react-icons:
+        specifier: ^5.0.1
+        version: 5.2.1(react@18.2.0)
+      zustand:
+        specifier: ^4.5.2
+        version: 4.5.2(@types/react@18.2.21)(react@18.2.0)
+    devDependencies:
+      '@types/react':
+        specifier: ~18.2.0
+        version: 18.2.21
+      rimraf:
+        specifier: ~5.0.0
+        version: 5.0.7
 
 packages:
 
@@ -3621,6 +3821,26 @@ packages:
       - '@types/react'
     dev: false
 
+  /@mantine/core@7.10.2(@mantine/hooks@7.10.2)(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-sPqJY2A+zHAhi7/mJKL2EH92jKc6JDACJY17gXS+FcbIQgiaY1rxA/tdcybpq8FbswSgUYZO6CRL6XWEhatw5w==}
+    peerDependencies:
+      '@mantine/hooks': 7.10.2
+      react: ^18.2.0
+      react-dom: ^18.2.0
+    dependencies:
+      '@floating-ui/react': 0.26.17(react-dom@18.2.0)(react@18.2.0)
+      '@mantine/hooks': 7.10.2(react@18.2.0)
+      clsx: 2.1.1
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      react-number-format: 5.4.0(react-dom@18.2.0)(react@18.2.0)
+      react-remove-scroll: 2.5.10(@types/react@18.2.79)(react@18.2.0)
+      react-textarea-autosize: 8.5.3(@types/react@18.2.79)(react@18.2.0)
+      type-fest: 4.20.1
+    transitivePeerDependencies:
+      - '@types/react'
+    dev: false
+
   /@mantine/hooks@7.10.2(react@18.2.0):
     resolution: {integrity: sha512-3m4flbR2yv3Bl21pHl5BKOOnqrInp/gVD72rozLeu/jzIZqQy8yFRTY2bUWCebPwNem//OD1rCORsBXNXvq31g==}
     peerDependencies:
@@ -5503,6 +5723,19 @@ packages:
     resolution: {integrity: sha512-YNlnKRWF2sVojTpIyzwou9XoTNbzbzONwRhOoniEioF1AtaitTvVZblaQRrAzChWQ1bLYyYSWzM18y4WwgzJ+A==}
     dependencies:
       tslib: 2.6.3
+    dev: false
+
+  /@tabler/icons-react@3.7.0(react@18.2.0):
+    resolution: {integrity: sha512-8AU4oO9pgLhHLOSGAJIsRhsTy7w8D7uKBlR0DIFxaILFA1fe2rC4wrNGYUtIFei82y41OuXz9vMk0Oe+IWT3SA==}
+    peerDependencies:
+      react: '>= 16'
+    dependencies:
+      '@tabler/icons': 3.7.0
+      react: 18.2.0
+    dev: false
+
+  /@tabler/icons@3.7.0:
+    resolution: {integrity: sha512-lJGIZLSWrPO6VygRUbaVvQjWgL2EaiBMD8e6leCYUQ8ZPO4LIzKMq358C8KlhXJcyNiRz1Io3YWoc/DNTcWqSg==}
     dev: false
 
   /@textlint/ast-node-types@12.6.1:
@@ -8417,8 +8650,14 @@ packages:
       esutils: 2.0.3
     dev: true
 
-  /doge-sdk@0.1.0:
-    resolution: {integrity: sha512-le1cc5CY/DwVoQVsombul2/Z9js59psJjCc1Gxy+34FF8hqedSxKSnywE5C7mYdxL46bM9x3gTm26RMXOo+R3w==}
+  /doge-sdk@0.2.1:
+    resolution: {integrity: sha512-3ki+Dt/LndgFyKvRFFTWy5D7VWp4ewdR83XCbqD7Wz1DXWG+HwgON7Zn5N/Opim+b2n7tIJxUsfgrEcyBT05tQ==}
+    dependencies:
+      '@noble/secp256k1': 2.1.0
+    dev: false
+
+  /doge-sdk@0.4.1:
+    resolution: {integrity: sha512-LvhCCsubT5TCM3zB4nuyl0FQHFLVbc7naANnu7Y441oftkAEITjC4iOFxzS+4MbfmOtY9bo9tAO6Spzfh7SdXA==}
     dependencies:
       '@noble/secp256k1': 2.1.0
     dev: false
@@ -11902,6 +12141,10 @@ packages:
     dependencies:
       js-tokens: 4.0.0
 
+  /lossless-json@4.0.1:
+    resolution: {integrity: sha512-l0L+ppmgPDnb+JGxNLndPtJZGNf6+ZmVaQzoxQm3u6TXmhdnsA+YtdVR8DjzZd/em58686CQhOFDPewfJ4l7MA==}
+    dev: false
+
   /lower-case@2.0.2:
     resolution: {integrity: sha512-7fm3l3NAF9WfN6W3JOmf5drwpVqX78JtoGJ3A6W0a6ZnldM41w2fV5D490psKFTpMds8TJse/eHLFFsNHHjHgg==}
     dependencies:
@@ -12819,6 +13062,11 @@ packages:
     dependencies:
       find-up: 3.0.0
     dev: true
+
+  /poseidon-goldilocks-lite@0.2.3:
+    resolution: {integrity: sha512-cTIAvlbuwY6mfMT9//0YRtLykC4DNXGRzUe+zJVZuFBBSWmrOKkS+cH1VRuC38sNZ++g1IhhSVDun5an989d7w==}
+    engines: {node: '>=10.4.0'}
+    dev: false
 
   /possible-typed-array-names@1.0.0:
     resolution: {integrity: sha512-d7Uw+eZoloe0EHDIYoe+bQ5WXnGMOpmiZFTuMWCwpjzzkL2nTjcKiAk4hh8TjnGye2TwWOk3UXucZ+3rbmBa8Q==}
@@ -14101,6 +14349,25 @@ packages:
       use-sidecar: 1.1.2(@types/react@18.2.21)(react@18.2.0)
     dev: false
 
+  /react-remove-scroll@2.5.10(@types/react@18.2.79)(react@18.2.0):
+    resolution: {integrity: sha512-m3zvBRANPBw3qxVVjEIPEQinkcwlFZ4qyomuWVpNJdv4c6MvHfXV0C3L9Jx5rr3HeBHKNRX+1jreB5QloDIJjA==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      '@types/react': ^16.8.0 || ^17.0.0 || ^18.0.0
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@types/react': 18.2.79
+      react: 18.2.0
+      react-remove-scroll-bar: 2.3.6(@types/react@18.2.79)(react@18.2.0)
+      react-style-singleton: 2.2.1(@types/react@18.2.79)(react@18.2.0)
+      tslib: 2.6.3
+      use-callback-ref: 1.3.2(@types/react@18.2.79)(react@18.2.0)
+      use-sidecar: 1.1.2(@types/react@18.2.79)(react@18.2.0)
+    dev: false
+
   /react-remove-scroll@2.5.10(@types/react@18.3.3)(react@18.3.1):
     resolution: {integrity: sha512-m3zvBRANPBw3qxVVjEIPEQinkcwlFZ4qyomuWVpNJdv4c6MvHfXV0C3L9Jx5rr3HeBHKNRX+1jreB5QloDIJjA==}
     engines: {node: '>=10'}
@@ -14386,6 +14653,20 @@ packages:
       react: 18.2.0
       use-composed-ref: 1.3.0(react@18.2.0)
       use-latest: 1.2.1(@types/react@18.2.21)(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+    dev: false
+
+  /react-textarea-autosize@8.5.3(@types/react@18.2.79)(react@18.2.0):
+    resolution: {integrity: sha512-XT1024o2pqCuZSuBt9FwHlaDeNtVrtCXu0Rnz88t1jUGheCLa3PhjE1GH8Ctm2axEtvdCl5SUHYschyQ0L5QHQ==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      '@babel/runtime': 7.24.7
+      react: 18.2.0
+      use-composed-ref: 1.3.0(react@18.2.0)
+      use-latest: 1.2.1(@types/react@18.2.79)(react@18.2.0)
     transitivePeerDependencies:
       - '@types/react'
     dev: false
@@ -16341,6 +16622,19 @@ packages:
       react: 18.2.0
     dev: false
 
+  /use-isomorphic-layout-effect@1.1.2(@types/react@18.2.79)(react@18.2.0):
+    resolution: {integrity: sha512-49L8yCO3iGT/ZF9QttjwLF/ZD9Iwto5LnH5LmEdk/6cFmXddqi2ulF0edxTwjj+7mqvpVVGQWvbXZdn32wRSHA==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@types/react': 18.2.79
+      react: 18.2.0
+    dev: false
+
   /use-isomorphic-layout-effect@1.1.2(@types/react@18.3.3)(react@18.3.1):
     resolution: {integrity: sha512-49L8yCO3iGT/ZF9QttjwLF/ZD9Iwto5LnH5LmEdk/6cFmXddqi2ulF0edxTwjj+7mqvpVVGQWvbXZdn32wRSHA==}
     peerDependencies:
@@ -16366,6 +16660,20 @@ packages:
       '@types/react': 18.2.21
       react: 18.2.0
       use-isomorphic-layout-effect: 1.1.2(@types/react@18.2.21)(react@18.2.0)
+    dev: false
+
+  /use-latest@1.2.1(@types/react@18.2.79)(react@18.2.0):
+    resolution: {integrity: sha512-xA+AVm/Wlg3e2P/JiItTziwS7FK92LWrDB0p+hgXloIMuVCeJJ8v6f0eeHyPZaJrM+usM1FkFfbNCrJGs8A/zw==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@types/react': 18.2.79
+      react: 18.2.0
+      use-isomorphic-layout-effect: 1.1.2(@types/react@18.2.79)(react@18.2.0)
     dev: false
 
   /use-latest@1.2.1(@types/react@18.3.3)(react@18.3.1):

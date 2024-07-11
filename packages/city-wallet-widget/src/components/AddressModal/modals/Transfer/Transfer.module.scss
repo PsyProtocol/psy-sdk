@@ -1,0 +1,52 @@
+.faucetFromWallet {
+  position: relative;
+  top:0;
+  left:0;
+
+  width: 100%;
+  .modalTitle {
+    font-size: 20px;
+    font-weight: 300;
+    margin-bottom: 20px;
+  }
+}
+.blokiesCon {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding-top: 8px;
+  padding-bottom: 12px;
+  .blokiesIcon {
+    border-radius: 8px;
+  }
+}
+.faucetFromWalletForm {
+  position: relative;
+  top:0;
+  left:0;
+
+  width: 100%;
+  .formControls {
+    position: relative;
+    top:0;
+    left:0;
+  
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    padding-top:24px;
+    width: 100%;
+  }
+  .inputCon {
+    padding-top:12px;
+    &:first-child {
+      padding-top:0px;
+    }
+    input {
+      font-family: var(--wallet-widget-font-mono) !important;
+    }
+  }
+}

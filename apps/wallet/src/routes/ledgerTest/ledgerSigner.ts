@@ -1,5 +1,4 @@
 import {
-  DogeLinkRPC,
   IDogeTransactionSigner,
   IDogeWalletProvider,
   ISignatureResult,
@@ -10,6 +9,9 @@ import {
   u8ArrayToHexReversed,
   disassembleScript,
   IDogeSignatureRequest,
+  DogeNetworkId,
+  TWalletAbility,
+  IDogeLinkRPC,
 } from "doge-sdk";
 import LedgerBitcoinApp from "@ledgerhq/hw-app-btc";
 
@@ -17,10 +19,10 @@ class LedgerHardwareWalletSigner implements IDogeTransactionSigner {
   walletPath: string;
   ledgerInstance: LedgerBitcoinApp;
   cachedPublicKey: string = "";
-  rpc: DogeLinkRPC;
+  rpc: IDogeLinkRPC;
   constructor(
     walletPath: string,
-    rpc: DogeLinkRPC,
+    rpc: IDogeLinkRPC,
     ledgerInstance: LedgerBitcoinApp
   ) {
     this.walletPath = walletPath;
@@ -160,10 +162,10 @@ class LedgerHardwareWalletProvider implements IDogeWalletProvider {
   numberOfWallets: number;
   ledgerInstance: LedgerBitcoinApp;
   signers: LedgerHardwareWalletSigner[] = [];
-  rpc: DogeLinkRPC;
+  rpc: IDogeLinkRPC;
 
   constructor(
-    rpc: DogeLinkRPC,
+    rpc: IDogeLinkRPC,
     ledgerInstance: LedgerBitcoinApp,
     numberOfWallets = 8
   ) {
@@ -179,6 +181,20 @@ class LedgerHardwareWalletProvider implements IDogeWalletProvider {
       );
     }
     this.rpc = rpc;
+  }
+  addWalletBIP44(networkId: DogeNetworkId, fullDerivationPath: string): Promise<IDogeTransactionSigner> {
+    const existing = this.signers.find(x=>x.walletPath === fullDerivationPath);
+    if(existing){
+      return Promise.resolve(existing);
+    }else{
+      const newSigner = new LedgerHardwareWalletSigner(fullDerivationPath, this.rpc, this.ledgerInstance);
+      this.signers.push(newSigner);
+      return Promise.resolve(newSigner);
+    }
+
+  }
+  getAbilities(): TWalletAbility[] {
+    return ["sign-transaction"];
   }
 
   getSigners(): Promise<IDogeTransactionSigner[]> {

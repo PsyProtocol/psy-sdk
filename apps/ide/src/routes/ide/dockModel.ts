@@ -67,6 +67,12 @@ const DEFAULT_DOCK_MODEL: IJsonModel = {
                     enableRename: false,
                     component: "Wallet",
                 },
+                {
+                    type: "tab",
+                    name: "City REPL",
+                    enableRename: false,
+                    component: "CityRepl",
+                },
                   {
                       "type": "tab",
                       "enableClose": true,

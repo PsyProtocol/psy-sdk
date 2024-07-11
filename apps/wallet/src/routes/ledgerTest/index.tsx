@@ -4,7 +4,7 @@ import AppBtc from '@ledgerhq/hw-app-btc';
 import { Button } from '@mantine/core';
 import styles from './LedgerTest.module.scss';
 import { connectSpeculos } from "../../providers/ledger/speculos";
-import {DogeLinkElectrsRPC, DogeLinkRPC, DogeMemoryWalletProvider, FullDogeWalletProvider, compressPublicKey, createP2PKHTransaction, createP2SHTransaction, decodeAddress, decodeBase58WithChecksum, encodeAddress, encodeBase58WithChecksum, getDogeNetworkById, getP2SHAddress, hashBuffer, hashHex, hexToU8Array, u8ArrayToHex} from 'doge-sdk';
+import {DogeLinkElectrsComboRPC, DogeLinkElectrsRPC, DogeLinkRPC, DogeMemoryWalletProvider, FullDogeWalletProvider, compressPublicKey, createP2PKHTransaction, createP2SHTransaction, decodeAddress, decodeBase58WithChecksum, encodeAddress, encodeBase58WithChecksum, getDogeNetworkById, getP2SHAddress, hashBuffer, hashHex, hexToU8Array, u8ArrayToHex} from 'doge-sdk';
 import { exampleP2PKH, exampleComplexP2SH, exampleP2SH } from "./test";
 import { signSendLedgerTx, exampleComplexP2SHv2 } from "./ledgerEx3";
 import { exampleP2PKHLedger } from "./ledgerEx5";
@@ -94,8 +94,9 @@ function waitMs(duration: number){
   });
 }
 async function runP2PKHTest() {
+  const dogeRPC = new DogeLinkRPC("http://devnet:devnet@localhost:1337/bitcoin-rpc/?network=dogeRegtest");
 
-  const rpc = new DogeLinkElectrsRPC("http://devnet:devnet@localhost:1337/bitcoin-rpc/?network=dogeRegtest", "http://localhost:1337/api");
+  const rpc = new DogeLinkElectrsComboRPC("http://devnet:devnet@localhost:1337/bitcoin-rpc/?network=dogeRegtest", "http://localhost:1337/api");
   const walletProvider = new DogeMemoryWalletProvider();
 
   const wallet1 = walletProvider.addRandomWallet("dogeRegtest", "wallet1");
@@ -113,7 +114,7 @@ async function runP2PKHTest() {
   const wallet1Pub = wallet1.compressedPublicKeyHex;
 
   await rpc.mineBlocks(200);
-  const txid = await rpc.sendFromWallet(wallet1.address, 5);
+  const txid = await dogeRPC.sendFromWallet(wallet1.address, 5);
   console.log("faucet txid: ", txid);
   await rpc.mineBlocks(1);
   await waitMs(1000);
@@ -142,8 +143,9 @@ async function runP2PKHTest() {
   console.log("final: ",ftx);
 }
 async function runP2SHTest() {
+  const dogeRPC = new DogeLinkRPC("http://devnet:devnet@localhost:1337/bitcoin-rpc/?network=dogeRegtest");
 
-  const rpc = new DogeLinkElectrsRPC("http://devnet:devnet@localhost:1337/bitcoin-rpc/?network=dogeRegtest", "http://localhost:1337/api");
+  const rpc = new DogeLinkElectrsComboRPC("http://devnet:devnet@localhost:1337/bitcoin-rpc/?network=dogeRegtest", "http://localhost:1337/api");
   const walletProvider = new DogeMemoryWalletProvider();
 
   const wallet1 = walletProvider.addRandomWallet("dogeRegtest", "wallet1");
@@ -160,7 +162,7 @@ async function runP2SHTest() {
   const wallet1Pub = wallet1.compressedPublicKeyHex
 
   await rpc.mineBlocks(200);
-  const txid = await rpc.sendFromWallet(wallet1.address, 5);
+  const txid = await dogeRPC.sendFromWallet(wallet1.address, 5);
   console.log("faucet txid: ", txid);
   await rpc.mineBlocks(1);
   await waitMs(1000);
@@ -219,8 +221,9 @@ async function runP2SHTest() {
 
 
 async function runP2SHTest2() {
+  const dogeRPC = new DogeLinkRPC("http://devnet:devnet@localhost:1337/bitcoin-rpc/?network=dogeRegtest");
 
-  const rpc = new DogeLinkElectrsRPC("http://devnet:devnet@localhost:1337/bitcoin-rpc/?network=dogeRegtest", "http://localhost:1337/api");
+  const rpc = new DogeLinkElectrsComboRPC("http://devnet:devnet@localhost:1337/bitcoin-rpc/?network=dogeRegtest", "http://localhost:1337/api");
   const walletProvider = new DogeMemoryWalletProvider();
 
   const wallet1 = walletProvider.addRandomWallet("dogeRegtest", "wallet1");
@@ -237,7 +240,7 @@ async function runP2SHTest2() {
   const wallet1Pub = wallet1.getCompressedPublicKey();
 
   await rpc.mineBlocks(200);
-  const txid = await rpc.sendFromWallet(wallet1.address, 5);
+  const txid = await dogeRPC.sendFromWallet(wallet1.address, 5);
   console.log("faucet txid: ", txid);
   await rpc.mineBlocks(1);
   await waitMs(1000);

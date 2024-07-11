@@ -14,7 +14,7 @@ async function exampleP2PKHLedger() {
 
   // create a new instance of the LedgerBitcoinApp provided by @ledgerhq/hw-app-btc
   const ledgerBitcoinApp = new LedgerBitcoinApp({ transport: transport });
-
+  console.log((window as any).ledgerBitcoinApp = ledgerBitcoinApp);
   // networkId can be doge, dogeTestnet, or dogeRegtest
   const networkId = "dogeRegtest";
   const RPC_API_URL =
