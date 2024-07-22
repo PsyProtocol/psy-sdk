@@ -4,7 +4,7 @@ import App from "./App";
 import "./index.css";
 
 import '@mantine/core/styles.css';
-import "@qstudio/wallet-widget/src/themes/dark.scss";
+import "@qstudio/city-wallet-widget/src/themes/dark.scss";
 import {
   RouterProvider,
 } from "react-router-dom";

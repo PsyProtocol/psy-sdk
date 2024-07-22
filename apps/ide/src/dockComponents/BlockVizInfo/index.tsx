@@ -35,13 +35,14 @@ const SynthBlockTab: React.FC<IBlockVizInfoDockComponentProps> = ({ ctx }) => {
       <LoadBlock onLoadBlock={async (checkpointId)=>{
         const result = await getProofStoreConfigForCheckpoint(ctx.rpc, checkpointId, 0);
 
-        const psBlock = new PSCityBlock(ctx.rpc, result);
         const synthBlock = synthPlanner(result);
 
         const simple: ISimpleCityBlock = {
           stateTransitionRoot: depSerializedToProofNodes(synthBlock.root_state_transition),
           sighashProofs: synthBlock.sighash_proofs,
         };
+        const psBlock = new PSCityBlock(ctx.rpc, ctx.dogeRPC, synthBlock, result);
+
         ctx.blockVizDataStore.setBlockScenario(simple, psBlock);
 
 
