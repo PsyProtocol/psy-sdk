@@ -172,7 +172,6 @@ class EventHub<TEventType extends IndexableType, TEvents extends IBaseEvent<TEve
     }
   }
   private notifyInternal<T extends TEventType>(event: TEvents & {type: T}): void{
-    console.log("notifyInternal", event);
     if (
       Object.hasOwnProperty.call(this.eventListeners, event.type) &&
       Array.isArray(this.eventListeners[event.type]) &&

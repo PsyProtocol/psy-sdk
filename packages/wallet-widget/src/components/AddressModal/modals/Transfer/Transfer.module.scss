@@ -40,8 +40,16 @@
     padding-top:24px;
     width: 100%;
   }
+  .singletInputCon {
+    padding-top: 24px;
+    padding-bottom:16px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+  }
   .inputCon {
-    padding-top:12px;
+    padding-top:18px;
     &:first-child {
       padding-top:0px;
     }

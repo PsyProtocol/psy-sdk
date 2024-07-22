@@ -9,14 +9,17 @@ export {
 } from './http/fetchClient';
 
 
+
 export type {
   ICityUserProverProvider,
+  ICityZKSignatureProver,
+  ICitySecp256K1SignatureProver,
+  ICityWalletProver,
 } from './userProverRPC/types';
 export {
   CityUserProverRPCCommand,
 }  from './userProverRPC/types';
-
-
+export * from './userProverRPC';
 
 
 export {
@@ -83,7 +86,29 @@ export type {
 export {
   CityRPCProvider,
 } from './rpc/implementation';
+export {
+  CityRPCProviderWithCache,
+} from './rpc/cached';
 
 export {
   CityRPCCommandProcessor,
 } from './rpc/commandProcessor';
+
+
+export type {
+  ICoreCityUserInfo,
+  ICityCompleteUserInfo,
+  ICityUserWallet,
+  ICityUserWalletProvider,
+} from './wallet/types';
+export * from './wallet/index';
+
+
+export type {
+  ICityTransactionSigner,
+  ICityTransactionSignerProvider,
+  TCityTransactionSignerAbility,
+  TCityTransactionSignerProviderAbility,
+} from './zksigner/types';
+
+export * from './zksigner/memory';

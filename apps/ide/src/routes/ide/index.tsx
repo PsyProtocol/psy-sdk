@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SplitPanelsManaged } from '@qstudio/split-panels';
 import styles from './ide.module.scss';
 import { DEFAULT_DOCK_MODEL } from './dockModel';
@@ -13,13 +13,17 @@ import { GlobalProjectManager } from '../../utils/projectManager';
 import { EditorUIEventType, IEditorUIOpenProjectEvent } from 'packages/eventhubs/src/EditorUI';
 import { CommandBarModal } from '../../components/CommandBarModal';
 import { IDEMenuGenerators } from '../../commands/registry';
+import { Button } from '@mantine/core';
+import { GiMiner } from "react-icons/gi";
+import { MineBlockButton } from '../../components/MineBlockButton';
+import citySmallRectLogo from "../../assets/city-logo-rect-small.png";
 
 
-const debouncedResize = debounce(notifyMonacoResize, 100, {immediate: true});
-function randHex(len: number){
+const debouncedResize = debounce(notifyMonacoResize, 100, { immediate: true });
+function randHex(len: number) {
   let s = "";
-  for(let i=0;i<len;i++){
-    s += Math.floor(Math.random()*16).toString(16);
+  for (let i = 0; i < len; i++) {
+    s += Math.floor(Math.random() * 16).toString(16);
   }
   return s;
 
@@ -27,22 +31,22 @@ function randHex(len: number){
 const IDEPage: React.FC = () => {
   const [ctx, setCtx] = useState<IDEContext>();
   const [projectManager, setProjectManager] = useState<GlobalProjectManager>();
-  const setActiveFile = useActiveFile(s=>s.setActiveFile);
+  const setActiveFile = useActiveFile(s => s.setActiveFile);
 
-  useEffect(()=>{
-    if(!projectManager){
-      GlobalProjectManager.init().then((pm)=>{
+  useEffect(() => {
+    if (!projectManager) {
+      GlobalProjectManager.init().then((pm) => {
         setProjectManager(pm);
         setCtx(pm.activeIDEContext);
 
-      }).catch((e)=>{
-        console.error("ERROR: ",e);
+      }).catch((e) => {
+        console.error("ERROR: ", e);
 
       });
       return () => {
 
       };
-    }else{
+    } else {
       const onOpenProject = (e: IEditorUIOpenProjectEvent) => {
         setCtx(projectManager.activeIDEContext);
       }
@@ -51,26 +55,28 @@ const IDEPage: React.FC = () => {
         projectManager.uiEventHub.remove(EditorUIEventType.OpenProject, onOpenProject);
       };
     }
-  },[projectManager]);
-  if(!ctx) return (<div>Loading...</div>);
-  
-  return(
+  }, [projectManager]);
+  if (!ctx) return (<div>Loading...</div>);
+
+  return (
     <div className={styles.idePage}>
       <div className={styles.idePageTopBar}>
-        Top <button onClick={()=>{
-          if(ctx){
-            const len = Math.pow(Math.random(),1.5)*5000;
-            ctx.println(`length: ${len} ${randHex(len)}`);
-          }
-        }}>Log</button>
+        <div className={styles.left}>
+          <img src={citySmallRectLogo} alt="City Rollup" className={styles.cityLogo} />
+        </div>
+        <div className={styles.right}>
+
+          {ctx ? (
+            <MineBlockButton rpc={ctx.rpc} dogeRPC={ctx.dogeRPC} />) : null}
+        </div>
       </div>
       <div className={styles.idePageContent}>
-        <SplitPanelsManaged modelJson={DEFAULT_DOCK_MODEL} config={CoreEditorConfig as any} editorContext={ctx} onActiveFileChanged={(f)=>{
+        <SplitPanelsManaged modelJson={DEFAULT_DOCK_MODEL} config={CoreEditorConfig as any} editorContext={ctx} onActiveFileChanged={(f) => {
           ctx.setActiveFile(f);
           setActiveFile(f);
-        }} notifyResize={()=>{
+        }} notifyResize={() => {
           debouncedResize();
-        }} /> 
+        }} />
       </div>
       <CommandBarModal ctx={ctx} menuGenerator={IDEMenuGenerators} />
     </div>

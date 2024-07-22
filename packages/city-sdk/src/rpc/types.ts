@@ -15,6 +15,7 @@ import type {
   ICityClaimDepositRPCRequest,
   ICityTokenTransferRPCRequest,
   TProofValueStoreKV,
+  ISimpleKVPair,
 } from './baseTypes';
 
 
@@ -43,8 +44,10 @@ interface ICityRPCProvider {
   getWithdrawalsById(checkpoint_id: number, withdrawal_ids: number[]): Promise<ICityL1Withdrawal[]>;
   getWithdrawalHash(checkpoint_id: number, withdrawal_id: number): Promise<CityHash>;
   getWithdrawalLeafMerkleProof(checkpoint_id: number, withdrawal_id: number): Promise<CityMerkleProof>;
-  getProofStoreValue(key: QProvingJobDataIDSerializedWrapped): Promise<TProofValueStoreKV>;
+  getProofStoreValue(key: QProvingJobDataIDSerializedWrapped): Promise<string>;
   getProofStoreValues(keys: QProvingJobDataIDSerializedWrapped[]): Promise<TProofValueStoreKV[]>;
+  getProofStoreJobWitness(key: QProvingJobDataIDSerializedWrapped): Promise<any>;
+  getProofStoreJobWitnesses(key: QProvingJobDataIDSerializedWrapped[]): Promise<ISimpleKVPair<string, any>[]>;
   registerUser<F>(req: ICityRegisterUserRPCRequest): Promise<void>;
   addWithdrawal(req: ICityAddWithdrawalRPCRequest): Promise<void>;
   claimDeposit(req: ICityClaimDepositRPCRequest): Promise<void>;

@@ -8,7 +8,7 @@ interface ICoreCityUserInfo {
   userId: number;
   publicKeyHex: string;
 }
-interface ICityCompleteUserInfo  extends ICoreCityUserInfo {
+interface ICityCompleteUserInfo extends ICoreCityUserInfo {
   nonce: string;
   balance: bigint;
 }
@@ -17,8 +17,6 @@ interface ICityCompleteUserInfo  extends ICoreCityUserInfo {
 interface ICityUserWallet extends ICoreCityUserInfo {
   signer: ICityTransactionSigner;
   getUserInfo(): Promise<ICityCompleteUserInfo>;
-  getLastNonce(): string;
-  getNextNonce(): string;
   getBalance(): Promise<bigint>;
   getBalanceString(): Promise<string>;
   getClaimDepositMessageHash(txidOrDepositId: string | number): Promise<{hash: string, deposit: ICityL1Deposit}>;

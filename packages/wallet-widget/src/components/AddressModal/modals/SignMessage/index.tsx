@@ -35,7 +35,7 @@ const SigningHelpers: Record<
   },
   "sign-hash-raw": {
     signer: async (signer: IDogeTransactionSigner, message: string) => {
-      const result = await signer.signHash(message, true);
+      const result = await signer.signHash(message, false);
       return result;
     },
     validator: (message) => (message.length === 64 && /^[0-9a-fA-F]{64}$/.test(message)) ? undefined : "Message must be a 32-byte hex string",

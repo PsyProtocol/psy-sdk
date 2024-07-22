@@ -17,6 +17,8 @@ class ReplCommandInputProcessor {
   value: string = "";
   cmdAutoCompleteRefs: ICommandRef[] = commandIndicies;
   autoCompleteCommandIndex: number = -1;
+  lastSentError: string = "";
+  rndId = Math.floor(Math.random()*0x10000).toString(16).padStart(4, "0");
 
 
   input: HTMLInputElement;
@@ -24,13 +26,14 @@ class ReplCommandInputProcessor {
   onSubmitHandler: (command: string, args: string[], request: CityRPCCommandRequest) => Promise<any>;
   onSetCommandInfo: (cmdDef: ICityREPLCommandDef | null) => any;
   setCommandError: (error: string) => any;
-  constructor({input, autoComplete, onSetCommandInfo, onSubmitHandler, setCommandError}: IReplaceCommandInputProcessorConfig) {
+
+  constructor({ input, autoComplete, onSetCommandInfo, onSubmitHandler, setCommandError }: IReplaceCommandInputProcessorConfig) {
     this.input = input;
     this.autoComplete = autoComplete;
     this.onSubmitHandler = onSubmitHandler;
     this.onSetCommandInfo = onSetCommandInfo;
     this.setCommandError = setCommandError;
-    
+
     this.onKeyDown = this.onKeyDown.bind(this);
     this.onChange = this.onChange.bind(this);
     this.onClick = this.onClick.bind(this);
@@ -41,22 +44,33 @@ class ReplCommandInputProcessor {
     this.input.addEventListener("click", this.onClick);
     this.input.addEventListener("mousedown", this.onClick);
   }
+  sendCommandError(error: string) {
+      this.lastSentError = error;
+      this.setCommandError(error);
+  }
   setAutoCompleteValue(value: string) {
     this.autoComplete.value = value;
   }
-  setCommandInfo(cmdDef: ICityREPLCommandDef | null){
-    if(this.lastSentCmdDef !== cmdDef){
+  setCommandInfo(cmdDef: ICityREPLCommandDef | null) {
+    if (this.lastSentCmdDef !== cmdDef) {
       this.lastSentCmdDef = cmdDef;
       //this.cmdDef = cmdDef;
-      console.log(this.onSetCommandInfo);
       this.onSetCommandInfo(cmdDef);
     }
   }
-  setCommandInfoByName(command: string){
+  setCommandInfoByName(command: string) {
     this.setCommandInfo(getCommandByName(command));
   }
-  updateAutoComplete(newValue: string){
-    if(!newValue.length){
+  updateAutoComplete(newValue: string) {
+    console.log("this.command", this.command, newValue, "newValue");
+    if (newValue.indexOf(" ") === -1 && this.command.length < newValue.length) {
+      this.command = "";
+      this.args = [];
+      this.cmdDef = null;
+      this.value = "";
+
+    }
+    if (!newValue.length) {
       this.command = "";
       this.args = [];
       this.cmdDef = null;
@@ -65,51 +79,49 @@ class ReplCommandInputProcessor {
       this.setAutoCompleteValue("");
       this.setCommandInfo(null);
       this.autoCompleteCommandIndex = -1;
-    }else if(this.cmdDef&&newValue.startsWith(this.command)){
-      const {args,command} = parseReplLine(newValue);
+    } else if (this.cmdDef && newValue.startsWith(this.command)) {
+      const { args, command } = parseReplLine(newValue);
       this.command = command;
       this.args = args;
-      const argText = this.cmdDef.arguments.slice(args.length).map(x=>`<${(x.settings.tags||[])[0]||"?"}${x.settings.required?"":(" (optional)")}>`).join(" ");
+      const argText = this.cmdDef.arguments.slice(args.length).map(x => `<${(x.settings.tags || [])[0] || "?"}${x.settings.required ? "" : (" (optional)")}>`).join(" ");
 
-      this.setAutoCompleteValue(newValue.trim()+" "+argText);
-      if(newValue.startsWith(this.command+" ")){
+      this.setAutoCompleteValue(newValue.trim() + " " + argText);
+      if (newValue.startsWith(this.command + " ")) {
         this.autoCompleteCommandIndex = -1;
         this.cmdAutoCompleteRefs = [];
-      }else{
+      } else {
         this.cmdAutoCompleteRefs = autoCompleteCommand(this.command);
-        this.autoCompleteCommandIndex = this.cmdAutoCompleteRefs.length-1;
-        if(this.autoCompleteCommandIndex>=0){
+        this.autoCompleteCommandIndex = this.cmdAutoCompleteRefs.length - 1;
+        if (this.autoCompleteCommandIndex >= 0) {
           this.setCommandInfoByName(this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].command);
         }
       }
-    }else{
-      console.log("here1",newValue);
-      const{args,command} = parseReplLine(newValue);
+    } else {
+      const { args, command } = parseReplLine(newValue);
       this.command = command;
       this.args = args;
       this.cmdDef = getCommandByName(this.command);
       this.setCommandInfo(this.cmdDef);
-      if(!this.cmdDef || newValue.length === 1){
+      if (!this.cmdDef || newValue.length === 1) {
         this.cmdAutoCompleteRefs = autoCompleteCommand(this.command);
-        this.autoCompleteCommandIndex = this.cmdAutoCompleteRefs.length-1;
+        this.autoCompleteCommandIndex = this.cmdAutoCompleteRefs.length - 1;
       }
-      if(!this.cmdDef){
+      if (!this.cmdDef) {
 
-        if(this.autoCompleteCommandIndex>=0){
+        if (this.autoCompleteCommandIndex >= 0) {
           this.setAutoCompleteValue(this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].command);
           this.setCommandInfoByName(this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].command);
-        }else{
+        } else {
           this.setCommandInfo(null);
           this.setAutoCompleteValue("");
         }
-      }else{
+      } else {
         /*
         this.autoCompleteCommandIndex = -1;
         this.cmdAutoCompleteRefs = [];
         */
-        console.log(this.cmdDef.arguments.slice(args.length));
-        const argText = this.cmdDef.arguments.slice(args.length).map(x=>`<${(x.settings.tags||[])[0]||"?"}${x.settings.required?"":(" (optional)")}>`).join(" ");
-        this.setAutoCompleteValue(newValue.trim()+" "+argText);
+        const argText = this.cmdDef.arguments.slice(args.length).map(x => `<${(x.settings.tags || [])[0] || "?"}${x.settings.required ? "" : (" (optional)")}>`).join(" ");
+        this.setAutoCompleteValue(newValue.trim() + " " + argText);
         this.setCommandInfo(this.cmdDef);
 
       }
@@ -117,53 +129,55 @@ class ReplCommandInputProcessor {
   }
   onChange(event: Event) {
     const newValue = (event.target as HTMLInputElement).value;
-    if(!newValue.length){
+    if (!newValue.length) {
       this.command = "";
       this.args = [];
       this.cmdDef = null;
       this.value = "";
       this.cmdAutoCompleteRefs = commandIndicies;
       this.setAutoCompleteValue("");
+      this.sendCommandError("");
       this.autoCompleteCommandIndex = -1;
 
       this.setCommandInfo(null);
-    }else{
+    } else {
       this.updateAutoComplete(newValue);
     }
 
     this.value = newValue;
   }
-  submitCommand(){
-    if(this.input.disabled){
+  submitCommand() {
+    if (this.input.disabled) {
       return;
     }
     const val = this.input.value.trim();
-    if(!val.length){
+    if (!val.length) {
       return;
     }
-    const {args,command} = parseReplLine(val);
+    this.sendCommandError("");
+    const { args, command } = parseReplLine(val);
     this.command = command;
     this.args = args;
     this.cmdDef = getCommandByName(this.command);
-    if(!this.cmdDef){
-      this.setCommandError(`Unknown command: ${this.command}`);
+    if (!this.cmdDef) {
+      this.sendCommandError(`Unknown command: ${this.command}`);
       return;
     }
     this.input.disabled = true;
     try {
       const req = getCommandRequest(this.cmdDef, this.args);
-      this.onSubmitHandler(this.command, this.args, req).then((result)=>{
+      this.onSubmitHandler(this.command, this.args, req).then((result) => {
         console.log("Command Result: ", result);
         this.input.disabled = false;
         this.input.focus();
-      }).catch((e)=>{
+      }).catch((e) => {
 
-    this.input.disabled = false;
-    this.input.focus();
-        this.setCommandError(e+"");
+        this.input.disabled = false;
+        this.input.focus();
+        this.sendCommandError(e + "");
       });
     } catch (e) {
-      this.setCommandError(e+"");
+      this.sendCommandError(e + "");
       this.input.disabled = false;
       this.input.focus();
       return;
@@ -174,33 +188,33 @@ class ReplCommandInputProcessor {
       event.preventDefault();
       event.stopPropagation();
       this.submitCommand();
-    }else if(this.cmdAutoCompleteRefs.length){
+    } else if (this.cmdAutoCompleteRefs.length) {
       const len = this.cmdAutoCompleteRefs.length;
-      if(event.key === "ArrowUp"){
+      if (event.key === "ArrowUp") {
         event.preventDefault();
         event.stopPropagation();
-        this.autoCompleteCommandIndex = (this.autoCompleteCommandIndex-1+len)%len;
-        this.setAutoCompleteValue((this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].command+" "+commandArgs[this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].index].join(" ")).trim());
+        this.autoCompleteCommandIndex = (this.autoCompleteCommandIndex - 1 + len) % len;
+        this.setAutoCompleteValue((this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].command + " " + commandArgs[this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].index].join(" ")).trim());
         this.setCommandInfoByName(this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].command);
-      }else if(event.key === "ArrowDown"){
+      } else if (event.key === "ArrowDown") {
         event.preventDefault();
         event.stopPropagation();
-        this.autoCompleteCommandIndex = (this.autoCompleteCommandIndex+1)%len;
-        this.setAutoCompleteValue((this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].command+" "+commandArgs[this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].index].join(" ")).trim());
+        this.autoCompleteCommandIndex = (this.autoCompleteCommandIndex + 1) % len;
+        this.setAutoCompleteValue((this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].command + " " + commandArgs[this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].index].join(" ")).trim());
         this.setCommandInfoByName(this.cmdAutoCompleteRefs[this.autoCompleteCommandIndex].command);
-      }else if((event.key === "Tab"||event.key === "ArrowRight")){
+      } else if ((event.key === "Tab" || event.key === "ArrowRight")) {
         event.preventDefault();
         event.stopPropagation();
-        if(!this.cmdDef||this.input.value.indexOf(" ")<0){
+        if (!this.cmdDef || this.input.value.indexOf(" ") < 0) {
           const autoValue = this.autoComplete.value.split(" ")[0];
-          if(autoValue === this.input.value && autoValue.length){
-            this.value = this.input.value = this.input.value.trim()+" ";
+          if (autoValue === this.input.value && autoValue.length) {
+            this.value = this.input.value = this.input.value.trim() + " ";
             this.cmdDef = getCommandByName(autoValue);
-          }else{
+          } else {
             this.value = this.input.value = autoValue;
           }
-        }else{
-          this.value = this.input.value = this.input.value.trim()+" ";
+        } else {
+          this.value = this.input.value = this.input.value.trim() + " ";
 
         }
         this.updateAutoComplete(this.value);
@@ -215,7 +229,7 @@ class ReplCommandInputProcessor {
     const caret = this.input.selectionStart;
 
   }
-  dispose(){
+  dispose() {
     this.input.removeEventListener("keydown", this.onKeyDown);
     this.input.removeEventListener("input", this.onInput);
     this.input.removeEventListener("change", this.onChange);

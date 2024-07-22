@@ -7,6 +7,7 @@ enum IDEDockComponents {
   BlockPlanner = "BlockPlanner",
   Wallet = "Wallet",
   CityRepl = "CityRepl",
+  BlockVizInfo = "BlockVizInfo",
 }
 
 export {

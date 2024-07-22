@@ -51,3 +51,17 @@ export type {
   
   IEditorUIEvent,
 } from "./EditorUI";
+
+
+
+export {
+  BlockVizEventType,
+  VizWidgetType,
+} from './BlockViz';
+
+
+export type {
+  IBlockVizEvent,
+  IBlockVizSetBlockScenarioEvent,
+  IBlockVizSelectVizWidgetEvent,
+} from './BlockViz';

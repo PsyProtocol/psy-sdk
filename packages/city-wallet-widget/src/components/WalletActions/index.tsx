@@ -6,21 +6,21 @@ import styles from './WalletActions.module.scss';
 import { AddressModalType, useAddressModal } from "../../hooks/useAddressModal";
 import { useWalletState } from "../../hooks/useWalletState";
 import FaucetIcon from "../icons/FaucetIcon";
+import DepositIcon from "../icons/DepositIcon";
+import WithdrawIcon from "../icons/WithdrawIcon";
 
 
 const WalletActions: React.FC = () => {
   const openModal = useAddressModal((state)=>state.openModal);
-  const [rpc, abilities, signer] = useWalletState(state=>[state.rpc, state.abilities, state.currentWallet?.signer]);
-  if(!signer){
+  const [rpc, walletAbilities, providerAbilities, currentWallet] = useWalletState(state=>[state.rpc, state.walletAbilities, state.providerAbilities, state.currentWallet]);
+  if(!currentWallet){
     return null;
   }
-  const canSignHash = signer.canSignHash();
-  const canFaucet = rpc.canSendFromWallet();
-  const canExportWallet = abilities.includes("export-private-key-wif");
+  const canExportWallet = walletAbilities.includes("export-private-key-hex");
 
 
 
-  const cols = (~~canSignHash) + (~~canFaucet) + (~~canExportWallet) + 1;
+  const cols = (~~canExportWallet) + 3;
 
 
   return (
@@ -29,27 +29,27 @@ const WalletActions: React.FC = () => {
     <SimpleGrid
       type="container"
       cols={{ base: cols, '100px': cols, '400px': cols }}
-      spacing={{ base: 4, '300px': 'xl' }}
+      spacing={{ base: 4, }}
     >
-      {canSignHash?<div>
-        <WalletActionButton disabledText={canSignHash?undefined:"This wallet does not support signing arbitrary messages"} label="Sign Message" icon={<IconCertificate />} onClick={() => {
-          openModal(AddressModalType.SignMessage);
-        }} />
-      </div>:null}
 
+      <div>
+        <WalletActionButton label="Claim Deposit" icon={<DepositIcon size={24} />} onClick={() => {
+          openModal(AddressModalType.ClaimDeposit);
+        }} />
+      </div>
       <div>
         <WalletActionButton label="Transfer" icon={<IconTransfer />} onClick={() => {
           openModal(AddressModalType.Transfer);
         }} />
       </div>
+      <div>
+        <WalletActionButton label="Withdraw to L1" icon={<WithdrawIcon size={24} />} onClick={() => {
+          openModal(AddressModalType.Withdraw);
+        }} />
+      </div>
       {canExportWallet?<div>
         <WalletActionButton label="Export Wallet" icon={<IconBookUpload />} onClick={() => {
-          console.log("Export Wallet");
-        }} />
-      </div>:null}
-      {canFaucet?<div>
-        <WalletActionButton label="Faucet" icon={<FaucetIcon size={24} />} onClick={() => {
-          openModal(AddressModalType.Faucet);
+          openModal(AddressModalType.ExportPrivateKey);
         }} />
       </div>:null}
     </SimpleGrid>

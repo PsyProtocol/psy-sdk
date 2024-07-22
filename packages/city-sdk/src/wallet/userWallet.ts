@@ -1,16 +1,17 @@
-import { DogeNetworkId, u8ArrayToHex } from "doge-sdk/dist/types";
+import { DogeNetworkId, hexToU8ArrayReversed, u8ArrayToHex } from "doge-sdk";
 import { SCNumberLike, ICityTokenTransferRPCRequest, ICityUserState, ICityClaimDepositRPCRequest, ICityAddWithdrawalRPCRequest, ICityL1Deposit } from "../rpc/baseTypes";
 import { ICityTransactionSigner } from "../zksigner/types";
 import { ICityCompleteUserInfo, ICityUserWallet } from "./types";
 import { ICityRPCProvider } from "../rpc/types";
 import { getCityNetworkMagicForNetworkId } from "../action/constants";
 import { DEPOSIT_FEE_AMOUNT, MAX_CHECKPOINT_ID, WITHDRAWAL_FEE_AMOUNT } from "../constants";
-import { cityFelt } from "../utils/felt";
+import { cityFelt, hashOutHex, reverseHexBytes } from "../utils/felt";
 import { ICitySecp256K1SignatureProver } from "../userProverRPC/types";
 import { computeSigActionHash, getClaimDepositSigAction, getTransferSigAction, getWithdrawalSigAction } from "../action/sighash";
-import { hashOutToHex } from "poseidon-goldilocks-lite";
 import { ICitySigAction } from "../action/types";
 import { getDecodedAddress } from "../utils/address";
+import { userWalletCache } from "./cache";
+
 
 class CityUserWallet implements ICityUserWallet {
   signer: ICityTransactionSigner;
@@ -43,42 +44,24 @@ class CityUserWallet implements ICityUserWallet {
 
   }
   async refresh(): Promise<ICityUserState> {
-    const user = await this.rpc.getUserById(MAX_CHECKPOINT_ID, this.userId);
-    const currentBlock = await this.rpc.getLatestBlockState();
-    if(currentBlock.checkpoint_id > this.unprocessedCheckpointId){
-      this.unprocessedCheckpointId = currentBlock.checkpoint_id;
-      this.unprocessedOutflows = BigInt(0);
-      this.unprocessedInflows = BigInt(0);
-      this.localBalance = cityFelt(user.balance);
-    }
-    if(this.lastNonce < BigInt(user.nonce)){
-      this.lastNonce = cityFelt(user.nonce);
-    }
+    const {user, cache} = await userWalletCache.refreshUserFull(this.rpc, this.userId);
+
+    user.balance = cache.localBalance;
+    user.nonce = cache.localNonce;
 
     return user;
   }
   async getUserInfo(): Promise<ICityCompleteUserInfo> {
-    const user = await this.refresh()
+    const user = await this.refresh();
 
     return {
       networkId: this.networkId,
       l2NetworkMagic: this.l2NetworkMagic,
       userId: this.userId,
       publicKeyHex: this.publicKeyHex,
-      nonce: this.lastNonce+"",
-      balance: cityFelt(user.balance),
+      nonce: user.nonce+"",
+      balance: BigInt(user.balance+""),
     }
-  }
-  getLastNonce(): string {
-    return this.lastNonce.toString();
-  }
-  getNextNonce(): string {
-    return (this.lastNonce+BigInt(1)).toString();
-  }
-  async getNextNonceAsync(): Promise<bigint> {
-    await this.refresh();
-    this.lastNonce = this.lastNonce+BigInt(1);
-    return this.lastNonce;
   }
   async getBalance(): Promise<bigint> {
     const b = await this.refresh();
@@ -93,25 +76,26 @@ class CityUserWallet implements ICityUserWallet {
     const sigAction = getClaimDepositSigAction({
       network_magic: this.l2NetworkMagic,
       user: this.userId,
-      transaction_id: deposit.txid,
+      transaction_id: u8ArrayToHex(hexToU8ArrayReversed(deposit.txid)),
       amount: cityFelt(deposit.value),
       deposit_fee: DEPOSIT_FEE_AMOUNT,
     });
     const hash = computeSigActionHash(sigAction);
-    return {hash: hashOutToHex(hash), deposit};
+    return {hash: (hashOutHex(hash)), deposit};
   }
   async zkSignSigAction(sigAction: ICitySigAction): Promise<string> {
+    console.log("sigAction",sigAction);
     const abilities = this.signer.getAbilities();
     if(abilities.includes("sign-sigaction")&&typeof this.signer.signSigAction === 'function'){
       return this.signer.signSigAction(sigAction);
     }else if(abilities.includes("sign-hash") && typeof this.signer.signHash === 'function'){
-      return this.signer.signHash(hashOutToHex(computeSigActionHash(sigAction)));
+      return this.signer.signHash((hashOutHex(computeSigActionHash(sigAction))));
     }else{
       throw new Error("Signer does not support signing sig actions or hashes");
     }
   }
   async prepareTransfer(recipient: SCNumberLike, amount: SCNumberLike, nonce?: SCNumberLike | undefined): Promise<ICityTokenTransferRPCRequest> {
-    const realNonce = typeof nonce !== 'undefined' ? nonce : (await this.getNextNonceAsync());
+    const realNonce = typeof nonce !== 'undefined' ? nonce : (await userWalletCache.processTransfer(this.rpc, this.userId, recipient, amount));
     const sigAction = getTransferSigAction({
       recipient: Number(recipient),
       amount: amount,
@@ -130,7 +114,7 @@ class CityUserWallet implements ICityUserWallet {
   }
   async prepareWithdrawal(l1Address: string, amount: SCNumberLike, nonce?: SCNumberLike | undefined): Promise<ICityAddWithdrawalRPCRequest> {
     const decoded = getDecodedAddress(l1Address);
-    const realNonce = typeof nonce !== 'undefined' ? nonce : (await this.getNextNonceAsync());
+    const realNonce = typeof nonce !== 'undefined' ? nonce : (await userWalletCache.processWithdrawal(this.rpc, this.userId, amount));
     const sigAction = getWithdrawalSigAction({
       amount: amount,
       nonce: realNonce,
@@ -153,10 +137,11 @@ class CityUserWallet implements ICityUserWallet {
   async prepareClaimDeposit(txidOrDepositId: string, signature: string, prover: ICitySecp256K1SignatureProver): Promise<ICityClaimDepositRPCRequest> {
     const {hash, deposit} = await this.getClaimDepositMessageHash(txidOrDepositId);
     const proof = await prover.generateSecp256K1SignatureProof(deposit.public_key, signature, hash);
+    await userWalletCache.processClaimDeposit(this.rpc, this.userId, deposit.value);
     return {
       signature_proof: proof,
       user_id: this.userId,
-      txid: txidOrDepositId,
+      txid: reverseHexBytes(deposit.txid),
       deposit_id: deposit.deposit_id,
       value: deposit.value,
       public_key: deposit.public_key,

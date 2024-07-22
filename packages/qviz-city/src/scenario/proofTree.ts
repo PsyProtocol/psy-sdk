@@ -1,6 +1,7 @@
 import { IQSRenderContext, IQWTreeJunctionConfig, QWTreeJunction, QWidget } from "@qstudio/core";
-import { ICSProofNode, ISimpleCityBlock } from "./types";
 import { CityProofStateType, IQWCityProofState, QWCityProof } from "../widgets";
+import { ICitySighashGroth16ProofResult, ISimpleCityBlock, ICSProofNode } from "@qstudio/city-block";
+
 import { deserializeJobId } from "@qstudio/city-block";
 function waitMs(duration: number){
   return new Promise((resolve)=>{

@@ -4,6 +4,7 @@ export {
   deserializeJobWithDependencies,
 } from './types';
 
+
 export type {
   IQJobWithDependencies,
   IQJobWithDependenciesSerialized,
@@ -16,5 +17,7 @@ export type {
   ICityAggregatedOpJobCircuitType,
   ICitySynthBlockResult,
   ICitySighashGroth16ProofResult,
+  ICSProofNode,
+  ISimpleCityBlock,
 } from './types';
 export * from './dependencyResolver';

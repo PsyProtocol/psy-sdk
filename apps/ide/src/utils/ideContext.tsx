@@ -1,13 +1,16 @@
 
 import {FileExplorerConfig} from "@qstudio/file-explorer";
 import { AsyncFileStore, ISyncFileStore, MemoryFileStore, SyncCombinedFileStore } from "@qstudio/storage";
-import { EditorLogEventType, EditorLogLevel, EditorLogMessageType, EditorUIEventType, IDEMenuId, IEditorLogEvent, IEditorLogEventClear, IEditorLogMessageEvent, IEditorUIEvent, ProjectFilesEvent, ProjectFilesEventType, SplitPanelsEvent, SplitPanelsEventType } from "@qstudio/eventhubs";
+import { BlockVizEventType, EditorLogEventType, EditorLogLevel, EditorLogMessageType, EditorUIEventType, IBlockVizEvent, IDEMenuId, IEditorLogEvent, IEditorLogEventClear, IEditorLogMessageEvent, IEditorUIEvent, ProjectFilesEvent, ProjectFilesEventType, SplitPanelsEvent, SplitPanelsEventType } from "@qstudio/eventhubs";
 import { EventHub } from "@qstudio/utils";
 import localforage from "localforage";
 import { FileIconMap } from "../dockComponents";
 import { SlDoc, SlFolder } from "react-icons/sl";
 import { GlobalProjectManager } from "./projectManager";
 import { MonacoGlobalEventType, monacoGlobalEventHub } from "@qstudio/monaco-textmate-lazy";
+import { CityRPCProvider } from "@qstudio/city-sdk";
+import { DogeLinkElectrsComboRPC, IDogeLinkElectrsRPC } from "doge-sdk";
+import { BlockVizDataStore } from "./blockviz/BlockVizDataStore";
 
 
 class IDEContext {
@@ -17,20 +20,27 @@ class IDEContext {
   splitPanelsEventHub: EventHub<SplitPanelsEventType, SplitPanelsEvent>;
   fileEventHub: EventHub<ProjectFilesEventType, ProjectFilesEvent>;
   logEventHub: EventHub<EditorLogEventType, IEditorLogEvent>;
+  blockVizEventHub: EventHub<BlockVizEventType, IBlockVizEvent>;
   logMessages: IEditorLogMessageEvent[] = [];
   activeFile: string = "";
   projectManager: GlobalProjectManager;
-  constructor(fileExplorerConfig: FileExplorerConfig, fileStorage: ISyncFileStore, splitPanelsEventHub: EventHub<SplitPanelsEventType, SplitPanelsEvent>, logEventHub: EventHub<EditorLogEventType, IEditorLogEvent>, projectManager: GlobalProjectManager) {
+  dogeRPC: DogeLinkElectrsComboRPC = new DogeLinkElectrsComboRPC("http://devnet:devnet@localhost:1337/bitcoin-rpc/?network=dogeRegtest", "http://localhost:1337/api");
+  rpc: CityRPCProvider = new CityRPCProvider("http://localhost:3000");
+  blockVizDataStore: BlockVizDataStore;
+  constructor(fileExplorerConfig: FileExplorerConfig, fileStorage: ISyncFileStore, splitPanelsEventHub: EventHub<SplitPanelsEventType, SplitPanelsEvent>, logEventHub: EventHub<EditorLogEventType, IEditorLogEvent>, blockVizEventHub: EventHub<BlockVizEventType, IBlockVizEvent>, projectManager: GlobalProjectManager) {
     this.fileExplorerConfig = fileExplorerConfig;
     this.fileStorage = fileStorage;
     this.splitPanelsEventHub = splitPanelsEventHub;
     this.fileEventHub = fileExplorerConfig.fileEventHub;
     this.logEventHub = logEventHub;
     this.projectManager = projectManager;
+    this.blockVizEventHub = blockVizEventHub;
+    this.blockVizDataStore = new BlockVizDataStore(this.dogeRPC, this.rpc, blockVizEventHub);
 
     this.onLogMessage = this.onLogMessage.bind(this);
     this.onLogClear = this.onLogClear.bind(this);
     this.onDocumentKeyDown = this.onDocumentKeyDown.bind(this);
+
 
     this.setupEventListeners();
   }
@@ -79,6 +89,7 @@ class IDEContext {
   static async newContext(projectManager: GlobalProjectManager): Promise<IDEContext> {
     const logEventHub = new EventHub<EditorLogEventType, IEditorLogEvent>();
     const fileEventHub = new EventHub<ProjectFilesEventType, ProjectFilesEvent>();
+    const blockVizEventHub = new EventHub<BlockVizEventType, IBlockVizEvent>();
     const keyPrefix = projectManager.activeProject?.id || "NO_PROJECT";
     const localForageInstance = localforage.createInstance({name: "IDE_DEMO"});
     const asyncFileStorage = new AsyncFileStore(keyPrefix, localForageInstance);
@@ -96,7 +107,7 @@ class IDEContext {
 
     const splitPanelsEventHub = new EventHub<SplitPanelsEventType, SplitPanelsEvent>();
 
-    return new IDEContext(fileExplorerConfig, combinedFileStorage, splitPanelsEventHub, logEventHub, projectManager);
+    return new IDEContext(fileExplorerConfig, combinedFileStorage, splitPanelsEventHub, logEventHub, blockVizEventHub, projectManager);
   }
   print(message: string, logLevel: EditorLogLevel = EditorLogLevel.Info) {
     this.logEventHub.notify(EditorLogEventType.Message, {type: EditorLogEventType.Message, messageType: EditorLogMessageType.PlainText, level: logLevel, message});

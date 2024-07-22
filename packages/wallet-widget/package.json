@@ -18,13 +18,14 @@
     "@mantine/hooks": "^7.10.2",
     "classnames": "^2.5.1",
     "copy-to-clipboard": "^3.3.3",
-    "doge-sdk": "0.4.1",
+    "doge-sdk": "0.4.2",
     "react": "~18.2.0",
     "react-dom": "~18.2.0",
     "react-icons": "^5.0.1",
     "@tabler/icons-react": "^3.7.0",
     "zustand": "^4.5.2",
-    "@qstudio/blokies-react": "workspace:*"
+    "@qstudio/blokies-react": "workspace:*",
+    "@qstudio/utils": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "~18.2.0",

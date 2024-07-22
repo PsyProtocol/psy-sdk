@@ -1,4 +1,5 @@
-import { IQJobWithDependencies, IQJobWithDependenciesSerialized } from "./types";
+import { deserializeJobId, getJobWitnessIdHex } from "../job";
+import { ICSProofNode, IQJobWithDependencies, IQJobWithDependenciesSerialized } from "./types";
 function walkIQJobWithDependenciesSerialized(root: IQJobWithDependenciesSerialized, visitor: (node: IQJobWithDependenciesSerialized) => void) {
   visitor(root);
   root.dependencies.forEach(x=>walkIQJobWithDependenciesSerialized(x, visitor));
@@ -21,8 +22,17 @@ function generateDependencyMappingResultSerialized(root: IQJobWithDependenciesSe
   return dMap;
 }
 
+
+function depSerializedToProofNodes(ser: IQJobWithDependenciesSerialized): ICSProofNode {
+  return {
+    id: getJobWitnessIdHex(ser.id),
+    dependencies: ser.dependencies.map(depSerializedToProofNodes),
+  };
+}
+
 export {
   generateDependencyMappingResultSerialized,
   walkIQJobWithDependencies,
   walkIQJobWithDependenciesSerialized,
+  depSerializedToProofNodes,
 }

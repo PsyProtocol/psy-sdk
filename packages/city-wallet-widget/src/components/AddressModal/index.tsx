@@ -3,9 +3,10 @@ import styles from './AddressModal.module.scss';
 import { AddressModalType, useAddressModal } from '../../hooks/useAddressModal';
 import { Button, CloseButton, Group, Modal } from '@mantine/core';
 import { ImportWalletModal } from './modals/ImportWallet';
-import { FaucetFromWalletModal } from './modals/FaucetFromWallet';
+import { ClaimDepositModal } from './modals/ClaimDeposit';
 import { TransferModal } from './modals/Transfer';
-import { SignMessageModal } from './modals/SignMessage';
+import { WithdrawModal } from './modals/Withdraw';
+import { ExportPrivateKeyModal } from './modals/ExportPrivateKey';
 
 interface IAddressModalComponentProps<T>{
   activeModalData: T;
@@ -16,21 +17,23 @@ type TAddressModalComponent = React.FC<IAddressModalComponentProps<any>>;
 const AddressModalComponents: Record<AddressModalType, TAddressModalComponent> = {
   [AddressModalType.Closed]: () => null,
   [AddressModalType.Import]: ImportWalletModal,
-  [AddressModalType.Faucet]: FaucetFromWalletModal,
+  [AddressModalType.ClaimDeposit]: ClaimDepositModal,
   [AddressModalType.Transfer]: TransferModal,
-  [AddressModalType.SignMessage]: SignMessageModal,
+  [AddressModalType.Withdraw]: WithdrawModal,
+  [AddressModalType.ExportPrivateKey]: ExportPrivateKeyModal,
   
 };
 const AddressModalTitles: Record<AddressModalType, string> = {
   [AddressModalType.Closed]: '',
   [AddressModalType.Import]: 'Import Wallet',
-  [AddressModalType.Faucet]: 'Faucet',
+  [AddressModalType.ClaimDeposit]: 'Claim Deposit',
   [AddressModalType.Transfer]: 'Transfer',
-  [AddressModalType.SignMessage]: 'Sign Message',
+  [AddressModalType.Withdraw]: 'Withdraw',
+  [AddressModalType.ExportPrivateKey]: 'Export Private Key',
 };
 
 function getModalSize(type: AddressModalType) {
-  if(type === AddressModalType.SignMessage){
+  if(type === AddressModalType.ClaimDeposit){
     return "lg";
   }else{
     return "md";

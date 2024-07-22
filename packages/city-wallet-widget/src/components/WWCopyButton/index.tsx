@@ -8,10 +8,10 @@ interface IWWCopyButtonProps {
 }
 const WWCopyButton: React.FC<IWWCopyButtonProps> = ({value, className, timeout}) => {
   return (
-    <CopyButton value={value} timeout={typeof timeout === 'number' ? timeout : 2000}>
+    <CopyButton value={value} timeout={typeof timeout === 'number' ? timeout : 2000} >
       {({ copied, copy }) => (
         <Tooltip label={copied ? 'Copied' : 'Copy'} withArrow position="right">
-          <ActionIcon color={copied ? 'teal' : 'gray'} variant="subtle" onClick={copy}>
+          <ActionIcon color={copied ? 'teal' : 'gray'} variant="subtle" onClick={copy} className={className}>
             {copied ? (
               <IconCheck style={{ width: rem(16) }} />
             ) : (

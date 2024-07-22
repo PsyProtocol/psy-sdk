@@ -22,6 +22,7 @@ import StageDockComponent from "./Stage";
 import BlockPlannerDockComponent from "./BlockPlanner";
 import WalletDockComponent from "./Wallet";
 import CityReplDockComponent from "./CityRepl";
+import BlockVizInfoDockComponent from "./BlockVizInfo";
 /*
 interface IEditorContext {
   fileExplorerConfig: FileExplorerConfig;
@@ -61,6 +62,7 @@ const DockComponentMap : Record<IDEDockComponents, ComponentRenderer<IEditorCont
   [IDEDockComponents.BlockPlanner]: (_, { editorContext }) => (<BlockPlannerDockComponent ctx={editorContext} />),
   [IDEDockComponents.Wallet]: (_, { editorContext }) => (<WalletDockComponent ctx={editorContext} />),
   [IDEDockComponents.CityRepl]: (_, { editorContext }) => (<CityReplDockComponent ctx={editorContext} />),
+  [IDEDockComponents.BlockVizInfo]:  (_, { editorContext }) => <BlockVizInfoDockComponent ctx={editorContext} />,
 
 
 };
@@ -74,6 +76,7 @@ const DockIconMap : Record<IDEDockComponents, JSX.Element> = {
   [IDEDockComponents.BlockPlanner]: <GiTheaterCurtains width={16} height={16} />,
   [IDEDockComponents.Wallet]: <GiWallet width={16} height={16} />,
   [IDEDockComponents.CityRepl]: <VscTerminal width={"1em"} height={"1em"} />,
+  [IDEDockComponents.BlockVizInfo]: <VscFiles width={"1em"} height={"1em"} />,
 };
 
 
@@ -82,6 +85,7 @@ const CoreEditorConfig: IEditorConfig = {
   tabComponentIconMap: {
     [IDEDockComponents.CodeEditor]: { icon: SlDoc, iconColor: "#f0f0f0" },
     [IDEDockComponents.FileExplorer]: { icon: VscFiles },
+    [IDEDockComponents.BlockVizInfo]: { icon: VscFiles },
     [IDEDockComponents.Log]: { icon: BsCardText },
     [IDEDockComponents.Welcome]: { icon: BsCardText },
     [IDEDockComponents.Stage]: {icon: GiTheaterCurtains},
@@ -94,10 +98,11 @@ const CoreEditorConfig: IEditorConfig = {
     [IDEDockComponents.FileExplorer]: "File Explorer",
     [IDEDockComponents.Log]: "Log",
     [IDEDockComponents.Welcome]: "Welcome",
-    [IDEDockComponents.Stage]: "Stage",
+    [IDEDockComponents.Stage]: "Block Visualizer",
     [IDEDockComponents.BlockPlanner]: "Block Planner",
     [IDEDockComponents.Wallet]: "Wallet",
     [IDEDockComponents.CityRepl]: "City REPL",
+    [IDEDockComponents.BlockVizInfo]: "Block Viz Info",
   },
   fileExtensionIconMap: FileIconMap,
   panelComponentMap: DockComponentMap,

@@ -117,6 +117,9 @@ abstract class QWidget<C, S, U> {
       "transform",
       `translate(${this.position.x}, ${this.position.y})`
     );
+    container.dataset.qWidgetType = this.getWidgetType();
+    container.dataset.qWidgetId = this.id;
+    container.dataset.qWidgetConfig = JSON.stringify(this.config);
     //container.setAttribute('transform', `translate(${-bboxNew.size.width/2},${-bboxNew.size.height/2})`);
     //`transform-origin: ${this.position.x}px ${this.position.y}px;
     //inner.setAttributeNS(null, "transform", `translate(${this.position.x-bboxNew.size.width/2},${this.position.y-bboxNew.size.height/2})`);

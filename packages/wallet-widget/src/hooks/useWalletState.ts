@@ -101,7 +101,6 @@ async function getWidgetWallet(signer: IDogeTransactionSigner, rpc: WalletWidget
   const stats = (await rpc.getStatsFor(realAddress)) as IAddressStatsResponse;
   const utxos = await rpc.getUTXOs(realAddress);
   const confirmedBalance = stats.chain_stats.funded_txo_sum - stats.chain_stats.spent_txo_sum;
-console.log(utxos, stats, confirmedBalance, stats.mempool_stats.funded_txo_sum, stats.mempool_stats.spent_txo_sum);
   const balance = confirmedBalance+(stats.mempool_stats.funded_txo_sum - stats.mempool_stats.spent_txo_sum);
   return {
     address: realAddress,

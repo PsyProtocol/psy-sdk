@@ -67,7 +67,6 @@ const NodeAnchor = {
   BottomRight: BottomRight as TNodeAnchor,
 };
 
-console.log(JSON.stringify(NodeAnchor));
 
 export type {
   TNodeAnchor,

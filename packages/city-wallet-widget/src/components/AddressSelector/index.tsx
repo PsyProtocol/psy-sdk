@@ -11,9 +11,10 @@ import {
 import { BlokiesIcon } from "@qstudio/blokies-react";
 import { getNetworkNameById } from "../../utils/network";
 import { useWalletState } from "../../hooks/useWalletState";
-import { TfiImport, TfiPlus } from "react-icons/tfi";
+import { TfiImport, TfiPlus, TfiReload } from "react-icons/tfi";
 import { formatBalance } from "../../utils/balance";
 import { AddressModalType, useAddressModal } from "../../hooks/useAddressModal";
+import { sha256Buffer } from "@qstudio/utils";
 
 interface IAddressSelectorBaseProps {
   className?: string;
@@ -25,7 +26,7 @@ interface IAddressSelectorItem {
   networkId: DogeNetworkId;
   balanceString?: string;
 }
-type WalletManagmentAction = "new-wallet" | "import-wallet";
+type WalletManagmentAction = "new-wallet" | "import-wallet" | "refresh-wallets";
 interface IControlledAddressSelectorProps extends IAddressSelectorBaseProps {
   address: string;
   onChange: (address: string) => void;
@@ -44,9 +45,10 @@ function SelectOption({
   networkId,
   balanceString,
 }: IAddressSelectorItem) {
+  sha256Buffer
   return (
     <Group>
-      <BlokiesIcon seed={address} size={8} scale={4} />
+      <BlokiesIcon seed={sha256Buffer(new TextEncoder().encode("city-rollup:"+address), "hex")} size={8} scale={4} />
       <div>
         <Text fz="sm" fw={500}>
           {address}
@@ -82,7 +84,6 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
         <SelectOption {...item} />
       </Combobox.Option>
     ));
-    if (showAddNew || showImport) {
       return addressOptions.concat([
         <Combobox.Group label="Wallet Managment" key="wallet-management">
           {showAddNew ? (
@@ -94,7 +95,7 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
                     New Wallet...
                   </Text>
                   <Text fz="xs" opacity={0.6}>
-                    Create a new Dogecoin wallet.
+                    Create a new City Rollup wallet.
                   </Text>
                 </div>
               </Group>
@@ -115,11 +116,22 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
               </Group>
             </Combobox.Option>
           ) : null}
+
+<Combobox.Option value="refresh-wallets">
+              <Group>
+                <TfiReload size={20} />
+                <div>
+                  <Text fz="sm" fw={500}>
+                    Refresh Wallets
+                  </Text>
+                  <Text fz="xs" opacity={0.6}>
+                    Refresh the list of wallets.
+                  </Text>
+                </div>
+              </Group>
+            </Combobox.Option>
         </Combobox.Group>,
       ]);
-    } else {
-      return addressOptions;
-    }
   }, [options, showAddNew, showImport]);
 
   return (
@@ -127,7 +139,7 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
       store={combobox}
       withinPortal={false}
       onOptionSubmit={(val) => {
-        if(val==="new-wallet" || val==="import-wallet"){
+        if(val==="new-wallet" || val==="import-wallet" || val === "refresh-wallets"){
           if(typeof onWalletManagmentAction === "function"){
             onWalletManagmentAction(val);
             combobox.closeDropdown();
@@ -167,39 +179,42 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
 const StatefulAddressSelector: React.FC<IStatefulAddressSelectorProps> = ({
   className,
 }) => {
-  const [currency, currentWallet, wallets, abilities, setActiveWalletAsync, addRandomWallet] =
+  const [currency, currentWallet, wallets, walletAbilities, providerAbilities, setActiveWalletAsync, addRandomWallet, refreshAllWallets] =
     useWalletState((state) => [
       state.currency,
       state.currentWallet,
       state.wallets,
-      state.abilities,
+      state.walletAbilities,
+      state.providerAbilities,
       state.setActiveWalletAsync,
       state.addRandomWallet,
+      state.refreshAllWallets,
     ]);
   const [openModal]= useAddressModal((state)=>[state.openModal])
   return (
     <ControlledAddressSelector
       className={className}
-      address={currentWallet?.address || ""}
+      address={currentWallet?.userId.toString() || ""}
       onChange={(address) => {
-        setActiveWalletAsync(address);
+        setActiveWalletAsync(parseFloat(address));
       }}
       options={wallets.map((wallet) => ({
-        address: wallet.address,
+        address: wallet.userId+"",
         networkId: wallet.networkId,
         balanceString: formatBalance(wallet.balance, currency),
       }))}
-      showAddNew={abilities.includes("add-wallet-random")}
+      showAddNew={providerAbilities.includes("add-random-private-key")}
       showImport={
-        abilities.includes("add-wallet-bip178") ||
-        abilities.includes("add-wallet-bip39") ||
-        abilities.includes("add-wallet-bip44")
+        providerAbilities.includes("import-private-key") 
       }
       onWalletManagmentAction={(action) => {
         if(action === "new-wallet"){
           addRandomWallet(true);
         }else if(action === "import-wallet"){
           openModal(AddressModalType.Import, {});
+        }else if(action === "refresh-wallets"){
+          refreshAllWallets().catch(err=>console.error("error refreshing wallets", err));
+
         }
       }}
     />

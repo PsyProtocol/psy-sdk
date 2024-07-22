@@ -32,7 +32,6 @@ function SplitPanelsManaged<P extends string, X extends IBaseContext, C extends 
       if(action.type === Actions.ADJUST_BORDER_SPLIT || action.type === Actions.ADJUST_SPLIT || action.type === Actions.MOVE_NODE|| action.type === Actions.SELECT_TAB){
         editorContext.splitPanelsEventHub.notify(SplitPanelsEventType.ResizePanels, {});
       }
-      console.log("action",action);
       setTimeout(notifyResize, 150);
       if (action.type === Actions.SELECT_TAB && action.data && action.data.tabNode) {
 

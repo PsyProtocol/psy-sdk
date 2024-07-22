@@ -1,7 +1,5 @@
 import { IUTXO, ICreateP2PKHParams, Transaction, createP2PKHTransaction, ITransactionOutput, decodeAddressFull, isP2PKHAddress, getP2PKHOutputScript, getP2SHOutputScript } from "doge-sdk";
 //import { ICreateP2PKHParams, Transaction } from "doge-sdk/dist/types";
-import { IQWidgetWallet } from "../types";
-import { WalletWidgetRPC } from "./rpc/walletRPC";
 const P2PKH_INPUT_SCRIPT_LENGTH = 107;
 const P2PKH_OUTPUT_SCRIPT_LENGTH = 25;
 const P2SH_OUTPUT_SCRIPT_LENGTH = 23;
@@ -170,7 +168,6 @@ function coinSelectP2PKH(address: string, feeRate: number, utxos: IUTXO[], outpu
   if((selectedAmount - outputAmount) > costOfChange){
     newOutputs.push({value: Math.floor(selectedAmount - outputAmount - costOfChange), address});
   }
-  console.log(newOutputs);
   const fee = getTxSize(
     inputScriptLength,
     selectedUTXOs.length,

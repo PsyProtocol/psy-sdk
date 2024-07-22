@@ -45,28 +45,27 @@ import { ReplCommandInputProcessor } from "../../cmd/ui";
 
 */
 
-const InputInfo: React.FC<{ replCommandInputProcessor: ReplCommandInputProcessor }> = ({ replCommandInputProcessor }) => {
-  const [errorMessage, setErrorMessage] = useState("");
+const InputInfo: React.FC<{ replCommandInputProcessor?: ReplCommandInputProcessor, errorMessage?: string }> = ({ replCommandInputProcessor, errorMessage }) => {
   const [currentCommand, setCurrentCommand] =
     useState<ICityREPLCommandDef | null>(null);
   useEffect(() => {
-    replCommandInputProcessor.setCommandError = (error) => {
-      setErrorMessage(error);
-    };
-    replCommandInputProcessor.setCommandInfo = (info) => {
-      setCurrentCommand(info);
-    };
+    if (replCommandInputProcessor) {
+      let rnd = replCommandInputProcessor.rndId;
+      replCommandInputProcessor.setCommandInfo = (info) => {
+        setCurrentCommand(info);
+      };
+    }
   }, [replCommandInputProcessor]);
   return (
-    <div className={styles.inputInfo}>
-    {errorMessage ? (
-      <div className={styles.cityReplErrorMessage}>{errorMessage}</div>
-    ) : null}
-    {currentCommand ? (
-      <div className={styles.cityReplCommandInfo}>
-        {currentCommand.description}
-      </div>
-    ) : null}
+    <div className={classNames(styles.inputInfo, currentCommand ? styles.withCurCmd : styles.noCmd)}>
+      {errorMessage ? (
+        <div className={styles.cityReplErrorMessage}>{errorMessage}</div>
+      ) : null}
+      {currentCommand ? (
+        <div className={styles.cityReplCommandInfo}>
+          {currentCommand.description}
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -76,10 +75,9 @@ interface ICityREPLProps {
 }
 const CityREPL: React.FC<ICityREPLProps> = ({ className, cmdProcessor }) => {
   const outputRef = React.useRef<HTMLDivElement>(null);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [currentCommand, setCurrentCommand] =
-    useState<ICityREPLCommandDef | null>(null);
   const [replCommandInputProcessor, setReplCommandInputProcessor] = useState<ReplCommandInputProcessor>();
+  console.log("repl render", replCommandInputProcessor ? replCommandInputProcessor.rndId : "none");
+  const [errorMessage, setErrorMessage] = useState<string>();
   return (
     <div className={classNames(styles.cityRepl, className)}>
       <div className={styles.cityReplBody}>
@@ -87,60 +85,59 @@ const CityREPL: React.FC<ICityREPLProps> = ({ className, cmdProcessor }) => {
           <div className={styles.cityReplOutput} ref={outputRef}></div>
         </div>
         <div className={styles.controlsCon}>
-            <button
+          <button
             className={styles.clearButton}
-              onClick={() => {
-                if (outputRef.current) {
-                  outputRef.current.innerText = "";
-                }
-              }}
-            >
-              Clear
-            </button>
-          </div>
-      </div>
-        <div className={styles.cityReplFooter}>
-          <div className={styles.cityReplInputCon}>
-            <REPLInput
-              onReplCommandInputProcessor={(processor) => setReplCommandInputProcessor(processor)}
-              onSubmit={async (command, args, request) => {
-                if (outputRef.current) {
-                  outputRef.current.innerText += `\n> ${command} ${args.join(
-                    " "
-                  )}\n`;
-                  outputRef.current.parentElement?.scrollTo(0, outputRef.current.scrollHeight);
-                  try {
-                    const result = await cmdProcessor.processRequest(
-                      request as any
-                    );
-                    outputRef.current.innerText += JSON.stringify(
-                      result,
-                      null,
-                      2
-                    );
-                    outputRef.current.parentElement?.scrollTo(0, outputRef.current.scrollHeight);
-                  } catch (e) {
-                    outputRef.current.innerText += `Error processing request: ${
-                      e + ""
-                    }`;
-                    outputRef.current.parentElement?.scrollTo(0, outputRef.current.scrollHeight);
-                    console.error("Error processing request: ", e);
-                  }
-                }
-              }}
-              onCmdError={(error) => {
-                setErrorMessage(error);
-              }}
-              onCmdInfo={(info) => {
-                //setCurrentCommand(info);
-              }}
-            />
-          </div>
-          {replCommandInputProcessor ? (
-            <InputInfo replCommandInputProcessor={replCommandInputProcessor} />
-          ) : null}
+            onClick={() => {
+              if (outputRef.current) {
+                outputRef.current.innerText = "";
+              }
+            }}
+          >
+            Clear
+          </button>
         </div>
       </div>
+      <div className={styles.cityReplFooter}>
+        <div className={styles.cityReplInputCon}>
+          <REPLInput
+            onReplCommandInputProcessor={(processor) => setReplCommandInputProcessor(processor)}
+            onSubmit={async (command, args, request) => {
+              if (outputRef.current) {
+                outputRef.current.innerText += `\n> ${command} ${args.join(
+                  " "
+                )}\n`;
+                outputRef.current.parentElement?.scrollTo(0, outputRef.current.scrollHeight);
+                try {
+                  const result = await cmdProcessor.processRequest(
+                    request as any
+                  );
+                  outputRef.current.innerText += JSON.stringify(
+                    result,
+                    null,
+                    2
+                  );
+                  outputRef.current.parentElement?.scrollTo(0, outputRef.current.scrollHeight);
+                } catch (e) {
+                  outputRef.current.innerText += `Error processing request: ${e + ""
+                    }`;
+                  outputRef.current.parentElement?.scrollTo(0, outputRef.current.scrollHeight);
+                  console.error("Error processing request: ", e);
+                }
+              }
+            }}
+            onCmdError={(error) => {
+              if(error!==errorMessage){
+                setErrorMessage(error);
+              }
+            }}
+            onCmdInfo={(info) => {
+              //setCurrentCommand(info);
+            }}
+          />
+        </div>
+        <InputInfo replCommandInputProcessor={replCommandInputProcessor} errorMessage={errorMessage} />
+      </div>
+    </div>
   );
 };
 

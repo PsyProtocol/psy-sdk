@@ -1,17 +1,9 @@
-import {
-  DogeLinkElectrsRPC,
-  DogeMemoryWalletProvider,
-  DogeNetworkId,
-  IAddressStatsResponse,
-  IDogeTransactionSigner,
-  TWalletAbility,
-  getP2PKHAddressFromPublicKey,
-  hexToU8Array,
-} from "doge-sdk";
+
 import { StoreApi, create } from "zustand";
-import { IQWidgetWallet } from "../types";
-import { WidgetDogeWalletProvider } from "../utils/provider";
-import { WalletWidgetRPC } from "../utils/rpc/walletRPC";
+import { IQCityWidgetWallet } from "../types";
+import { CityUserWalletProvider, ICityRPCProvider, ICityUserProverProvider, TCityTransactionSignerAbility, TCityTransactionSignerProviderAbility } from "@qstudio/city-sdk";
+import { createMemoryWalletProvider } from "../utils/provider";
+import { reverseHexBytes } from "packages/city-sdk/src/utils/felt";
 enum WalletWidgetLoadingState {
   Loading,
   Ready,
@@ -19,22 +11,24 @@ enum WalletWidgetLoadingState {
 }
 interface IWalletStateStore {
   loadingState: WalletWidgetLoadingState;
-  provider: WidgetDogeWalletProvider<any>;
-  abilities: TWalletAbility[];
-  wallets: IQWidgetWallet[];
-  currentWallet?: IQWidgetWallet;
+  provider: CityUserWalletProvider;
+  providerAbilities: TCityTransactionSignerProviderAbility[];
+  walletAbilities: TCityTransactionSignerAbility[];
+  wallets: IQCityWidgetWallet[];
+  currentWallet?: IQCityWidgetWallet;
   currency: string;
-  rpc: WalletWidgetRPC;
-  setRPC(rpc: WalletWidgetRPC): void;
-  addWallet: (wallet: IQWidgetWallet) => any;
-  removeWallet: (address: string) => any;
-  setWallets: (wallets: IQWidgetWallet[]) => any;
-  setActiveWallet: (address: string) => any;
-  setActiveWalletAsync: (address: string) => Promise<any>;
-  setWalletProvider: (provider: WidgetDogeWalletProvider<any>) => any;
-  refreshCurrentWalletUTXOs: () => Promise<any>;
-  addRandomWallet: (changeCurrent?: boolean) => Promise<any>;
-  addWalletFromWIF: (wif: string, changeCurrent?: boolean) => Promise<any>;
+  rpc: ICityRPCProvider;
+  setRPC(rpc: ICityRPCProvider): void;
+  addWallet: (wallet: IQCityWidgetWallet) => any;
+  removeWallet: (userId: number) => any;
+  setWallets: (wallets: IQCityWidgetWallet[]) => any;
+  setActiveWallet: (userId: number) => any;
+  setActiveWalletAsync: (userId: number) => Promise<any>;
+  setWalletProvider: (provider: CityUserWalletProvider) => any;
+  refreshCurrentWallet: () => Promise<any>;
+  refreshAllWallets: () => Promise<any>;
+  addRandomWallet: (registerUser?: boolean) => Promise<any>;
+  addWalletFromPrivateKey: (privateKeyHex: string, registerUser?: boolean, changeCurrent?: boolean) => Promise<any>;
 }
 type Setter = (
   partial:
@@ -55,6 +49,18 @@ type AsyncWidgetStoreAction = (helpers: {
   storeApi: WidgetStoreAPI;
 }) => Promise<Partial<IWalletStateStore> | IWalletStateStore>;
 
+
+async function getAllIQWallets(provider: CityUserWalletProvider): Promise<IQCityWidgetWallet[]> {
+  const users = await provider.getUserWallets();
+  return Promise.all(users.map(async (user) => {
+    const userInfo = await user.getUserInfo();
+    return {
+      ...userInfo,
+      wallet: user,
+    };
+  }));
+
+}
 function setAsyncFactory(set: Setter, get: Getter, api: WidgetStoreAPI) {
   return async (action: AsyncWidgetStoreAction, globalAction = false) => {
     if (globalAction) {
@@ -90,58 +96,31 @@ function waitMs(duration: number){
     setTimeout(resolve, duration);
   });
 }
-
-async function getSignerAddress(networkId: DogeNetworkId, signer: IDogeTransactionSigner){
-  const pubKey = await signer.getCompressedPublicKey();
-  return getP2PKHAddressFromPublicKey(hexToU8Array(pubKey), networkId);
-}
-async function getWidgetWallet(signer: IDogeTransactionSigner, rpc: WalletWidgetRPC, address?: string): Promise<IQWidgetWallet>{
-  const networkId = rpc.getNetwork().networkId;
-  const realAddress = address || (await getSignerAddress(networkId, signer));
-  const stats = (await rpc.getStatsFor(realAddress)) as IAddressStatsResponse;
-  const utxos = await rpc.getUTXOs(realAddress);
-  const confirmedBalance = stats.chain_stats.funded_txo_sum - stats.chain_stats.spent_txo_sum;
-console.log(utxos, stats, confirmedBalance, stats.mempool_stats.funded_txo_sum, stats.mempool_stats.spent_txo_sum);
-  const balance = confirmedBalance+(stats.mempool_stats.funded_txo_sum - stats.mempool_stats.spent_txo_sum);
-  return {
-    address: realAddress,
-    balance,
-    confirmedBalance,
-    stats,
-    utxos,
-    networkId,
-    signer,
-  };
-
-}
 const useWalletState = create<IWalletStateStore>((set, get, api) => {
   const setAsync = setAsyncFactory(set, get, api);
+  const walletProvider = createMemoryWalletProvider("http://localhost:3000?networkId=dogeRegtest", "http://localhost:1447")
   return {
     loadingState: WalletWidgetLoadingState.Ready,
-    provider:WidgetDogeWalletProvider.fromMemoryProvider(
-      new DogeMemoryWalletProvider()
-    ),
+    provider: walletProvider,
     wallets: [],
-    abilities:new DogeMemoryWalletProvider().getAbilities(),
+    providerAbilities:walletProvider.signerProvider.getAbilities(),
+    walletAbilities: [],
     networkId: "dogeRegtest",
     canAddWallet: true,
     currency: "DOGE",
-    rpc: new WalletWidgetRPC(
-      "dogeRegtest",
-      "http://localhost:1337/api",
-      "http://devnet:devnet@localhost:1337/bitcoin-rpc/?network=dogeRegtest"
-    ),
-    refreshCurrentWalletUTXOs: () =>
+    rpc: walletProvider.rpc,
+    refreshCurrentWallet: () =>
       setAsync(async ({ state }) => {
         //await waitMs(2000);
         const { currentWallet, rpc, wallets: currentStateWallets } = state;
         if (!currentWallet) {
           return {};
         }
-        const widgetWallet= await getWidgetWallet(currentWallet.signer, rpc, currentWallet.address);
+        const userInfo = await currentWallet.wallet.getUserInfo();
+
         const wallets = currentStateWallets.map((wallet) => {
-          if (wallet.address === currentWallet.address) {
-            return {...widgetWallet};
+          if (wallet.userId === currentWallet.userId) {
+            return {...userInfo, wallet: currentWallet.wallet};
           } else {
             return wallet;
           }
@@ -149,20 +128,48 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
 
         return {
           wallets,
-          currentWallet: { ...widgetWallet },
+          currentWallet: {...userInfo, wallet: currentWallet.wallet},
         };
       }),
-    addWallet: (wallet: IQWidgetWallet) =>
+      refreshAllWallets: () =>
+        setAsync(async ({ state }) => {
+          //await waitMs(2000);
+          const wallets = await getAllIQWallets(state.provider);
+          if(!state.currentWallet){
+            return {
+              wallets: wallets,
+              currentWallet: wallets[0],
+              walletAbilities: wallets[0]?wallets[0].wallet.signer.getAbilities():[],
+            };
+          }else{
+            const currentWalletId = state.currentWallet?.userId;
+            const currentWallet = (wallets.find((w) => w.userId === currentWalletId));
+            if(currentWallet){
+              return {
+                wallets,
+                currentWallet: currentWallet,
+                walletAbilities: currentWallet.wallet.signer.getAbilities(),
+              };
+            }else{
+              return {
+                wallets,
+                currentWallet: wallets[0],
+                walletAbilities: wallets[0]?wallets[0].wallet.signer.getAbilities():[],
+              };              
+            }
+          }
+        }),
+    addWallet: (wallet: IQCityWidgetWallet) =>
       set((state) => {
         state.wallets.push(wallet);
         return { wallets: state.wallets };
       }),
-    removeWallet: (address: string) =>
+    removeWallet: (userId: number) =>
       set((state) => {
         state.wallets = state.wallets.filter(
-          (wallet) => wallet.address !== address
+          (wallet) => wallet.userId !== userId
         );
-        if (state.currentWallet?.address === address) {
+        if (state.currentWallet?.userId === userId) {
           return {
             currentWallet: state.wallets[0] || undefined,
             wallets: state.wallets,
@@ -170,10 +177,10 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
         }
         return { wallets: state.wallets };
       }),
-    setWallets: (wallets: IQWidgetWallet[]) =>
+    setWallets: (wallets: IQCityWidgetWallet[]) =>
       set((state) => {
         if(state.currentWallet){
-          const currentWallet = wallets.find((w) => w.address === state.currentWallet?.address);
+          const currentWallet = wallets.find((w) => w.userId === state.currentWallet?.userId);
           return {
             wallets,
             currentWallet,
@@ -181,26 +188,27 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
         }
         return { wallets };
       }),
-    setRPC: (rpc: WalletWidgetRPC) =>
+    setRPC: (rpc: ICityRPCProvider) =>
       set((state) => {
         return { rpc };
       }),
-      setActiveWalletAsync: (address: string) =>
+      setActiveWalletAsync: (userId: number) =>
         setAsync(async ({ state }) => {
           //await waitMs(2000);
-          if(state.currentWallet?.address === address){
+          if(state.currentWallet?.userId === userId){
             return {};
           }
           const wallet = state.wallets.find(
-            (wallet) => wallet.address === address
+            (wallet) => wallet.userId === userId
           );
           if (!wallet) {
             return {};
           }
-          const widgetWallet= await getWidgetWallet(wallet.signer, state.rpc, wallet.address);
+          const userInfo = await wallet.wallet.getUserInfo();
+  
           const wallets = state.wallets.map((w) => {
-            if (w.address === wallet.address) {
-              return {...widgetWallet};
+            if (w.userId === wallet.userId) {
+              return {...userInfo, wallet: wallet.wallet};
             } else {
               return w;
             }
@@ -208,16 +216,16 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
   
           return {
             wallets,
-            currentWallet: { ...widgetWallet },
+            currentWallet: {...userInfo, wallet: wallet.wallet},
           };
         }),
-    setActiveWallet: (address: string) =>
+    setActiveWallet: (userId: number) =>
       set((state) => {
-        if(state.currentWallet?.address === address){
+        if(state.currentWallet?.userId === userId){
           return {};
         }
         const wallet = state.wallets.find(
-          (wallet) => wallet.address === address
+          (wallet) => wallet.userId === userId
         );
         if (!wallet) {
           return {};
@@ -225,77 +233,66 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
         return { currentWallet: wallet };
       }),
       
-      addRandomWallet: (changeCurrent?: boolean) => setAsync(async ({ set, get, state }) => {
-        if(!state.abilities.includes("add-wallet-random")){
+      addRandomWallet: (registerUser?: boolean) => setAsync(async ({ set, get, state }) => {
+        if(!state.providerAbilities.includes("add-random-private-key") || typeof state.provider.signerProvider.addRandomPrivateKey !== 'function'){
           return {};
         }
 
 
-        const provider = state.provider;
-        const networkId = state.rpc.getNetwork().networkId;
-        const signer = await provider.addWalletRandom(networkId);
-        const compressedPublicKey = await signer.getCompressedPublicKey();
-        const address = getP2PKHAddressFromPublicKey(hexToU8Array(compressedPublicKey), networkId);
-
-        const widgetWallet = await getWidgetWallet(signer, state.rpc, address);
-        
-        const wallets = [...state.wallets, widgetWallet];
-        if(!state.currentWallet || changeCurrent){
-          return {
-            wallets,
-            currentWallet: {...widgetWallet},
-          };
-        }else{
-          return {
-            wallets,
-          };
+        const signer = await state.provider.signerProvider.addRandomPrivateKey();
+        if(registerUser){
+          const publicKeyHex = (await signer.getPublicKeyHex());
+          await state.rpc.registerUser({public_key: publicKeyHex});
         }
+        return {};
 
       }),
       
-      addWalletFromWIF: (wif: string, changeCurrent?: boolean) => setAsync(async ({ set, get, state }) => {
-        if(!state.abilities.includes("add-wallet-bip178")){
+      addWalletFromPrivateKey: (privateKeyHex: string, registerUser?: boolean, changeCurrent?: boolean) => setAsync(async ({ set, get, state }) => {
+        if(!state.providerAbilities.includes("import-private-key") || typeof state.provider.signerProvider.importPrivateKey !== 'function'){
           return {};
         }
 
 
-        const provider = state.provider;
-        const networkId = state.rpc.getNetwork().networkId;
-        const signer = await provider.addWalletBIP178(networkId, wif);
-        const compressedPublicKey = await signer.getCompressedPublicKey();
-        const address = getP2PKHAddressFromPublicKey(hexToU8Array(compressedPublicKey), networkId);
-        const widgetWallet = await getWidgetWallet(signer, state.rpc, address);
-        const wallets = [...state.wallets, widgetWallet];
-        if(!state.currentWallet || changeCurrent){
-          return {
-            wallets,
-            currentWallet: {...widgetWallet},
-          };
-        }else{
-          return {
-            wallets,
-          };
+      
+
+
+        const signer = await state.provider.signerProvider.importPrivateKey(privateKeyHex);
+        const publicKeyHex = await signer.getPublicKeyHex();
+
+        if(registerUser){
+          await state.rpc.registerUser({public_key: (publicKeyHex)});
         }
 
+        const iqWallets = await getAllIQWallets(state.provider);
+
+        if(changeCurrent){
+          const wallet = iqWallets.filter(x=>x.publicKeyHex === publicKeyHex)[0];
+          if(wallet){
+            return {
+              wallets: iqWallets,
+              currentWallet: wallet,
+            };
+          }
+
+        }
+        return {
+          wallets: iqWallets,
+        };
       }),
-    setWalletProvider: (provider: WidgetDogeWalletProvider<any>) =>
+    setWalletProvider: (provider: CityUserWalletProvider) =>
       setAsync(async ({ set, get, state }) => {
         if (provider === state.provider) {
           return {};
         }
-        const networkId = state.rpc.getNetwork().networkId;
-        const addresses = await provider.getP2PKHAddresses(networkId);
-        const signers: IDogeTransactionSigner[] = [];
-        for(const address of addresses){
-          signers.push(await provider.getSignerForAddress(address.address));
-        }
-        const wallets: IQWidgetWallet[] = await Promise.all(addresses.map((address, i) => {
-          return getWidgetWallet(signers[i], state.rpc, address.address);
-        }));
+        const wallets = await getAllIQWallets(provider);
         return {
           provider,
-          abilities: provider.getAbilities(),
+          signerAbilities: provider.signerProvider.getAbilities(),
+          walletAbilities: (wallets[0]?wallets[0].wallet.signer.getAbilities():[]),
           wallets,
+          networkId: provider.networkId,
+          rpc: provider.rpc,
           currentWallet: wallets[0] || undefined,
         };
       }, true),

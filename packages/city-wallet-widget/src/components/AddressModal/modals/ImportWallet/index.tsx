@@ -1,11 +1,11 @@
 
 import React from 'react';
-import { useWalletState } from "packages/wallet-widget/src/hooks/useWalletState";
+import { useWalletState } from "../../../../hooks/useWalletState";
 import { TAddressModalComponent } from "../../index";
-import { TWalletAbility } from 'doge-sdk';
-import { ImportWIFForm } from '../../forms/ImportWIF';
-type ImportAbility = "add-wallet-bip39" | "add-wallet-bip44" | "add-wallet-bip178";
+import { ImportPrivateKeyForm } from '../../forms/ImportPrivateKey';
+type ImportAbility = "import-private-key";
 import styles from './ImportWallet.module.scss';
+import { TCityTransactionSignerProviderAbility } from '@qstudio/city-sdk';
 interface IImportWalletFormProps {
   onImport: (data: any) => void;
   className?: string;
@@ -22,13 +22,11 @@ const TodoForm = ({ onImport, className }: IImportWalletFormProps) => {
 }
 type TImportWalletForm = React.FC<IImportWalletFormProps>;
 const ImportForms: Record<string, TImportWalletForm> = {
-  'add-wallet-bip39': TodoForm,
-  'add-wallet-bip44': TodoForm,
-  'add-wallet-bip178': ImportWIFForm,
+  'import-private-key': ImportPrivateKeyForm,
 };
 const ImportWalletModal: TAddressModalComponent = ({ onCancel, onComplete }) => {
-  const abilities = useWalletState((state)=>state.abilities);
-  const supportedAbilities = Object.keys(ImportForms).filter((ability)=>abilities.includes(ability as TWalletAbility)) as ImportAbility[];
+  const providerAbilities = useWalletState((state)=>state.providerAbilities);
+  const supportedAbilities = Object.keys(ImportForms).filter((ability)=>providerAbilities.includes(ability as TCityTransactionSignerProviderAbility)) as ImportAbility[];
 
   if(supportedAbilities.length === 0){
     return <div>Importing wallets not supported for this provider.</div>;
@@ -42,7 +40,7 @@ const ImportWalletModal: TAddressModalComponent = ({ onCancel, onComplete }) => 
         <div>
           {supportedAbilities.map((ability)=>{
             const Form = ImportForms[ability];
-            return <Form key={ability} onImport={(wif)=>onComplete({wif})} />;
+            return <Form key={ability} onImport={(privateKey)=>onComplete({privateKey})} />;
           })}
         </div>
       </div>

@@ -15,3 +15,4 @@ export * from './hash/ripemd160';
 
 export * from './uuid';
 export * from './debounce';
+export * from './seedrandom';

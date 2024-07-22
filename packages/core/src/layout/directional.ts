@@ -59,7 +59,6 @@ function layoutHorizontal(
       size: sizes[i],
     });
   }
-  console.log(childBoxes)
 
   return {
     container: {

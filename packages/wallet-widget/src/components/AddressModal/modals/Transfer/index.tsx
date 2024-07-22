@@ -2,14 +2,15 @@ import React, { useEffect, useState } from "react";
 import { useWalletState } from "../../../../hooks/useWalletState";
 import { TAddressModalComponent } from "../../index";
 import styles from "./Transfer.module.scss";
-import { Alert, Box, Button, Combobox, Input, InputBase, LoadingOverlay, TextInput, useCombobox } from "@mantine/core";
+import { Alert, Box, Button, Checkbox, Combobox, Input, InputBase, LoadingOverlay, Switch, TextInput, useCombobox } from "@mantine/core";
 import { DogeInput } from "../../../DogeInput";
 import type {IQWidgetWallet} from '../../../../types';
-import { DogeNetworkId, ICreateP2PKHParams, createP2PKHTransaction, decodeAddressFull, u8ArrayToHex } from "doge-sdk";
+import { DogeNetworkId, ICreateP2PKHParams, createP2PKHTransaction, decodeAddressFull, isP2SHAddress, u8ArrayToHex } from "doge-sdk";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { BlokiesIcon } from "@qstudio/blokies-react";
 import { WalletWidgetRPC } from "../../../../utils/rpc/walletRPC";
-import { coinSelectP2PKH } from "packages/wallet-widget/src/utils/txPlanner";
+import { coinSelectP2PKH, getStandardP2PKHTxSize } from "../../../../utils/txPlanner";
+import { waitMs } from "packages/wallet-widget/src/utils/wait";
 
 interface ITransferFormProps {
   onSubmit: (params: ICreateP2PKHParams) => Promise<string>;
@@ -22,7 +23,13 @@ interface ITransferFormProps {
 function isValidAddress(networkId: DogeNetworkId, address: string): boolean {
   try {
     const parsed = decodeAddressFull(address);
-    return parsed.networkId === networkId;
+    if(parsed.networkId === networkId){
+      return true;
+    }else if(networkId === "dogeRegtest" && parsed.networkId === "dogeTestnet" && parsed.version === 0xc4){
+      return true;
+    }else{
+      return false;
+    }
   } catch (e) {
     return false;
   }
@@ -39,7 +46,6 @@ const FeeRateSelector = ({rpc, onFeeRateChange}: {rpc: WalletWidgetRPC, onFeeRat
   useEffect(()=>{
     if(!feeEstimates.length){
       rpc.getFeeEstimateMap().then((feeMap)=>{
-        console.log("feeMap",feeMap )
         const fe = Object.keys(feeMap).map((key)=>({confirmations: parseInt(key), feeRate: (feeMap as any)[key]})).sort((a,b)=>a.confirmations-b.confirmations);
         setFeeEstimates(fe);
       });
@@ -87,6 +93,56 @@ const FeeRateSelector = ({rpc, onFeeRateChange}: {rpc: WalletWidgetRPC, onFeeRat
   );
 }
 
+async function transferSinglet(wallet: IQWidgetWallet, amount: number, feeRate: number, destination: string, rpc: WalletWidgetRPC, onStatusUpdate: (status: string)=>any = ()=>0){
+  const isP2SH = isP2SHAddress(destination);
+  const tx2Size = getStandardP2PKHTxSize(1, isP2SH?0:1, isP2SH?1:0);
+  const tx2Cost = Math.ceil(tx2Size * feeRate);
+  const totalCost2 = amount + tx2Cost;
+  const result = coinSelectP2PKH(wallet.address, feeRate, wallet.utxos, [{address: wallet.address, value: totalCost2}])
+  const tx1 = createP2PKHTransaction(wallet.signer, result);
+  onStatusUpdate("Signing Self Transfer...");
+  const signed = await tx1.finalizeAndSign();
+  const hexTx = u8ArrayToHex(signed.toBuffer());
+  const txid = await rpc.sendRawTransaction(hexTx);
+  if(wallet.networkId === "dogeRegtest"){
+    await rpc.mineBlocks(10);
+    await waitMs(3000);
+  }
+  onStatusUpdate("Waiting for Self Transfer to be Confirmed...");
+  
+  //await rpc.mineBlocks(10);
+  const resp = await rpc.waitForTx(txid);
+  onStatusUpdate("Self Transfer Complete");
+  let ind = -1;
+  for(let i=0; i<resp.vout.length; i++){
+    if(resp.vout[i].value === totalCost2){
+      ind = i;
+      break;
+    }
+  }
+  
+  return {
+    address: wallet.address,
+    inputs: [{
+      value: totalCost2,
+      txid: txid,
+      vout: ind,
+    }],
+    outputs: [{
+      address: destination,
+      value: amount,
+    }]
+  };
+
+
+
+
+
+
+
+
+}
+
 const TransferForm: React.FC<ITransferFormProps> = ({
   networkId,
   onSubmit,
@@ -98,6 +154,7 @@ const TransferForm: React.FC<ITransferFormProps> = ({
   const [address, setAddress] = useState("");
   const [amount, setAmount] = useState(0);
   const [feeRate, setFeeRate] = useState(0);
+  const [isSinglet, setIsSinglet] = useState(false);
   const [addressError, setAddressError] = useState<string>();
   const [amountError, setAmountError] = useState<string>();
   const [loadingState, setLoadingState] = useState<
@@ -153,7 +210,7 @@ const TransferForm: React.FC<ITransferFormProps> = ({
             <DogeInput
               label="Transfer Amount"
               placeholder="Transfer Amount..."
-              error={addressError}
+              error={amountError}
               useSats={true}
               onChange={(v) => {
                 setAmount(v);
@@ -178,6 +235,21 @@ const TransferForm: React.FC<ITransferFormProps> = ({
               rpc={rpc}
             />
           </div>
+          <div className={styles.singletInputCon}>
+    <Checkbox
+      checked={isSinglet}
+      onChange={(e)=>{
+        setIsSinglet(e.target.checked);
+        if(estimateFeesResult){
+          setEstimateFeesResult(undefined);
+        }
+      }}
+      labelPosition="left"
+      label="Singlet Transaction"
+      description="Send the transaction with a single P2PKH input"
+      size="xs"
+    />
+    </div>
           {estimateFeesResult?<div className={styles.inputCon}>
             <div>Estimated Fees: {(estimateFeesResult.fee/100_000_000).toFixed(3)} DOGE</div>
           </div>:null}
@@ -199,20 +271,10 @@ const TransferForm: React.FC<ITransferFormProps> = ({
                 }
                 if(estimateFeesResult){
                 setLoadingState("loading");
-                onSubmit(estimateFeesResult)
+                const base = isSinglet?transferSinglet(wallet, amount, feeRate, address, rpc, (s)=>console.log(s)):Promise.resolve(estimateFeesResult);
+                base.then((r)=>onSubmit(r))
                   .then((txid) => {
                     onComplete(txid);
-                    /*
-                setLoadingState("success");
-                waitMs(2000).then(() => {
-                  setLoadingState("idle");
-                  setAddress("");
-                  setAmount(0);
-                  setLoadingError(undefined);
-                  setAmountError(undefined);
-                  setAddressError(undefined);
-                  setLoadingState("idle");
-                });*/
                   })
                   .catch((e) => {
                     setLoadingState("error");
@@ -221,7 +283,9 @@ const TransferForm: React.FC<ITransferFormProps> = ({
                 }else{
                   try {
                     const result = coinSelectP2PKH(wallet.address, feeRate, wallet.utxos, [{address, value: amount}]);
-                    setEstimateFeesResult(result);
+                    const isDestP2SH = isP2SHAddress(address); 
+                    const extraFees = isSinglet?(getStandardP2PKHTxSize(1, isDestP2SH?0:1, isDestP2SH?1:0)*feeRate):0;
+                    setEstimateFeesResult({...result, fee: result.fee+extraFees});
                   }catch(err){
                     setLoadingError(err+"");
                     setLoadingState("error");
@@ -259,6 +323,9 @@ const TransferModal: TAddressModalComponent = ({
         const signed = await ftx.finalizeAndSign();
         const hexTx = u8ArrayToHex(signed.toBuffer());
         const txid = await rpc.sendRawTransaction(hexTx);
+        if(networkId === "dogeRegtest"){
+          await rpc.mineBlocks(10);
+        }
         
         //await rpc.mineBlocks(10);
         await rpc.waitForTx(txid);

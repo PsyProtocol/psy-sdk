@@ -40,13 +40,13 @@ const AddressHeader: React.FC<IAddressHeaderProps> = ({ address, balance, onRefr
 }
 
 const StatefulAddressHeader: React.FC = () => {
-  const [currency, currentWallet, refreshCurrentWalletUTXOs] = useWalletState((state)=>[state.currency, state.currentWallet,state.refreshCurrentWalletUTXOs]);
+  const [currency, currentWallet, refreshCurrentWallet] = useWalletState((state)=>[state.currency, state.currentWallet,state.refreshCurrentWallet]);
   if(!currentWallet){
     return <div className={styles.noWalletAddressHeader}>Please select a wallet above or import a wallet to get started.</div>;
   }
 
   return (
-    <AddressHeader address={currentWallet.address} balance={formatBalance(currentWallet.balance, currency)} onRefresh={()=>refreshCurrentWalletUTXOs()} />
+    <AddressHeader address={currentWallet.userId+""} balance={formatBalance(currentWallet.balance, currency)} onRefresh={()=>refreshCurrentWallet()} />
   );
 }
 

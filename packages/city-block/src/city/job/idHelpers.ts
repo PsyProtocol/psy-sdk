@@ -1,5 +1,5 @@
 import { CityJobNames, CityWidgetNames } from "./humanReadable";
-import { IQProvingJobDataID, ProvingJobCircuitType, ProvingJobDataType, QJobTopic, deserializeJobId } from "./id";
+import { IQProvingJobDataID, ProvingJobCircuitType, ProvingJobDataType, QJobTopic, deserializeJobId, getGroupIdForCircuitType, serializeJobId, serializeJobIdHex } from "./id";
 
 function newCoreOpWitnessJobId(
   circuit_type: ProvingJobCircuitType,
@@ -10,7 +10,7 @@ function newCoreOpWitnessJobId(
     topic: QJobTopic.GenerateStandardProof,
     goal_id: checkpoint_id,
     circuit_type,
-    group_id: circuit_type,
+    group_id: getGroupIdForCircuitType(circuit_type),
     sub_group_id: 0,
     task_index,
     data_type: ProvingJobDataType.InputWitness,
@@ -137,7 +137,7 @@ function blockAggStatePart1InputWitnessJobId(
   return {
     topic: QJobTopic.GenerateStandardProof,
     goal_id: block_id,
-    group_id: ProvingJobCircuitType.AggUserRegisterClaimDepositL2Transfer,
+    group_id: getGroupIdForCircuitType(ProvingJobCircuitType.AggUserRegisterClaimDepositL2Transfer),
     circuit_type: ProvingJobCircuitType.AggUserRegisterClaimDepositL2Transfer,
     sub_group_id: 0,
     task_index: 0,
@@ -151,7 +151,7 @@ function blockAggStatePart2InputWitnessJobId(
   return {
     topic: QJobTopic.GenerateStandardProof,
     goal_id: block_id,
-    group_id: ProvingJobCircuitType.AggAddProcessL1WithdrawalAddL1Deposit,
+    group_id: getGroupIdForCircuitType(ProvingJobCircuitType.AggAddProcessL1WithdrawalAddL1Deposit),
     circuit_type: ProvingJobCircuitType.AggAddProcessL1WithdrawalAddL1Deposit,
     sub_group_id: 0,
     task_index: 0,
@@ -165,7 +165,7 @@ function blockStateTransitionInputWitnessJobId(
   return {
     topic: QJobTopic.GenerateStandardProof,
     goal_id: block_id,
-    group_id: ProvingJobCircuitType.GenerateRollupStateTransitionProof,
+    group_id: getGroupIdForCircuitType(ProvingJobCircuitType.GenerateRollupStateTransitionProof),
     circuit_type: ProvingJobCircuitType.GenerateRollupStateTransitionProof,
     sub_group_id: 0,
     task_index: 0,
@@ -180,7 +180,7 @@ function sighashIntrospectionInputWitnessJobId(
   return {
     topic: QJobTopic.GenerateStandardProof,
     goal_id: block_id,
-    group_id: ProvingJobCircuitType.GenerateSigHashIntrospectionProof,
+    group_id: getGroupIdForCircuitType(ProvingJobCircuitType.GenerateSigHashIntrospectionProof),
     circuit_type: ProvingJobCircuitType.GenerateSigHashIntrospectionProof,
     sub_group_id: 0,
     task_index: input_id,
@@ -195,7 +195,7 @@ function sighashFinalInputWitnessJobId(
   return {
     topic: QJobTopic.GenerateStandardProof,
     goal_id: block_id,
-    group_id: ProvingJobCircuitType.GenerateFinalSigHashProof,
+    group_id: getGroupIdForCircuitType(ProvingJobCircuitType.GenerateFinalSigHashProof),
     circuit_type: ProvingJobCircuitType.GenerateFinalSigHashProof,
     sub_group_id: input_id,
     task_index: input_id,
@@ -210,7 +210,7 @@ function wrapSighashFinalBls3812InputWitnessJobId(
   return {
     topic: QJobTopic.GenerateStandardProof,
     goal_id: block_id,
-    group_id: ProvingJobCircuitType.WrapFinalSigHashProofBLS12381,
+    group_id: getGroupIdForCircuitType(ProvingJobCircuitType.WrapFinalSigHashProofBLS12381),
     circuit_type: ProvingJobCircuitType.WrapFinalSigHashProofBLS12381,
     sub_group_id: input_id,
     task_index: input_id,
@@ -343,6 +343,7 @@ function getJobTreeParentProofInputId(id: IQProvingJobDataID): IQProvingJobDataI
   }
   return {
     ...id,
+    //group_id: getGroupIdForCircuitType(parent_type),
     circuit_type: parent_type,
     sub_group_id: id.sub_group_id + 1,
     task_index: id.task_index >> 1,
@@ -360,6 +361,14 @@ function getCircuitWidgetNameForJobId(jobId: IQProvingJobDataID): string {
 }
 function getCircuitWidgetNameForJobIdHex(jobId: string): string {
   return CityWidgetNames[deserializeJobId(jobId).circuit_type];
+}
+function getJobWitnessIdHex(jobIdHex: string): string {
+  const jobId = deserializeJobId(jobIdHex);
+  return serializeJobIdHex({
+    ...jobId,
+    data_type: ProvingJobDataType.InputWitness,
+    data_index: 0,
+  })
 }
 export {
   newCoreOpWitnessJobId,
@@ -388,4 +397,5 @@ export {
   getCircuitNameForJobIdHex,
   getCircuitWidgetNameForJobId,
   getCircuitWidgetNameForJobIdHex,
+  getJobWitnessIdHex,
 }

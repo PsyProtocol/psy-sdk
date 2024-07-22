@@ -82,7 +82,6 @@ function parseReplLine(line: string): ICityReplParsedCommand {
 
 function autoCompleteCommand(line: string): ICommandRef[] {
   const cmd = line.trim().split(" ")[0];
-  console.log("acc",line);
   if(!cmd.length){
     return commandIndicies;
   }else{

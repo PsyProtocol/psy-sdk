@@ -10,6 +10,7 @@ interface ICityTransactionSigner {
   signSigAction?(sigAction: ICitySigAction): Promise<string>;
   getAbilities(): TCityTransactionSignerAbility[];
 }
+
 interface ICityTransactionSignerProvider {
   getSigners(): Promise<ICityTransactionSigner[]>;
   getPublicKeysHex(): Promise<string[]>;

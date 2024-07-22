@@ -1,7 +1,6 @@
 import { IQSRenderContext, IQWTreeJunctionConfig, ITreeJunctionLayout, QEDVizPaper, QSceneManager, QWidget, RectSide } from "@qstudio/core";
-import { ICSProofNode, ISimpleCityBlock } from "../scenario/types";
 import { ProofStateManager, ProofTreeManager, genProofTreeWidgets } from "../scenario/proofTree";
-import { ICitySighashGroth16ProofResult } from "@qstudio/city-block";
+import { ICitySighashGroth16ProofResult, ICSProofNode, ISimpleCityBlock } from "@qstudio/city-block";
 import { QWCityBlockGroup } from "../widgets/CityBlockGroup";
 const baseLayout: ITreeJunctionLayout = {
   direction: RectSide.Bottom,
@@ -43,6 +42,19 @@ class CityBlockSceneManager {
     this.scenario = scenario;
     this.stateManager = new ProofStateManager();
     this.stateTransitionTree = genProofTreeWidgets(this.stateManager, scenario.stateTransitionRoot, treeConfig, qscene.getRenderContext());
+    this.sighashProofs = scenario.sighashProofs.map(x=>createSighashProofTree(this.stateManager, x, treeConfig));
+
+    const blockGroup = QWCityBlockGroup.create({
+      stateTransitionGroup: this.stateTransitionTree.getRootWidget(),
+      sighashGroups: this.sighashProofs.map(x=>x.getRootWidget()),
+    });
+    this.blockGroup = blockGroup;
+  }
+
+  updateScenario(scenario: ISimpleCityBlock) {
+    this.scenario = scenario;
+    this.stateManager = new ProofStateManager();
+    this.stateTransitionTree = genProofTreeWidgets(this.stateManager, scenario.stateTransitionRoot, treeConfig, this.qscene.getRenderContext());
     this.sighashProofs = scenario.sighashProofs.map(x=>createSighashProofTree(this.stateManager, x, treeConfig));
 
     const blockGroup = QWCityBlockGroup.create({

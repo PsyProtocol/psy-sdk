@@ -1,0 +1,108 @@
+.blockVizInfoPane {
+  width: 100%;
+  height:100%;
+  display: flex;
+  padding:4px 8px;
+  flex-direction: column;
+  .bviTop {
+    display: block;
+    width: 100%;
+    position: relative;
+    top:0;
+    left:0;
+  }
+
+}
+
+.jobIdCon {
+  display: block;
+  width: 100%;
+  position: relative;
+  top:0;
+  left:0;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  cursor: pointer;
+  .jobIdTop{
+    display: block;
+    overflow: hidden;
+    width: 100%;
+    position: relative;
+    top:0;
+    left:0;
+    font-family: var(--font-mono);
+    color: rgba(200,200,200,0.5);
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+    .jobIdTopName {
+      font-family: var(--font-sans);
+      font-size: 13px;
+      color:#f2f2f2;
+      display: block;
+      text-align: center;
+      font-style: italic;
+    }
+  .jobIdHex {
+    overflow: hidden;
+    position: relative;
+    top:0;
+    left:0;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+    font-size: 12px;
+
+  }
+  .jobIdTopLabel {
+    font-size: 10px;
+    text-transform: uppercase;
+    color:#eee;
+
+  }
+  }
+  .jobIdInfoCon {
+    display: block;
+    width: 100%;
+    position: relative;
+    top:0;
+    left:0;
+
+  }
+}
+.blockVizInfoPaneNoSel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  .noSelMessage {
+    display: inline;
+    font-size: 14px;
+    font-family: var(--font-sans);
+    color: rgba(200, 200, 200, 0.5);
+    text-align: center;
+  }
+}
+.jobIdInfoField {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding:4px 12px 4px 0px;
+  &:last-child {
+    padding-right: 0px;
+  }
+  .jobIdInfoFieldLabel {
+    font-weight: 400;
+
+    color: rgba(200, 200, 200, 0.694);
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+  .jobIdInfoFieldValue {
+    font-weight: 500;
+
+    color: rgb(255, 255, 255);
+  }
+
+}

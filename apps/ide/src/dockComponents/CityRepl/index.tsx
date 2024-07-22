@@ -11,7 +11,7 @@ interface ICityReplDockComponentProps {
   ctx: IDEContext;
 }
 const CityReplDockComponent: React.FC<ICityReplDockComponentProps> = ({ ctx }) => {
-  const rpcUrl = "http://localhost:8010";
+  const rpcUrl = "http://localhost:3000";
   const rpcProvider = useMemo(()=>{
     return new CityRPCProvider(rpcUrl);
   },[rpcUrl]);

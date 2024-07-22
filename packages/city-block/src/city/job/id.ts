@@ -119,6 +119,9 @@ impl TryFrom<[u8; 24]> for QProvingJobDataID {
 
 
 */
+function getGroupIdForCircuitType(circuitType: ProvingJobCircuitType): number {
+  return circuitType + 0xCF00;
+}
 function deserializeJobId(jobId: Uint8Array | number [] | string): IQProvingJobDataID {
   if(typeof jobId === 'string'){
     return deserializeJobId(hexToU8Array(jobId));
@@ -128,7 +131,7 @@ function deserializeJobId(jobId: Uint8Array | number [] | string): IQProvingJobD
 
   const dataView = new DataView((jobId as Uint8Array).buffer);
   const topic = dataView.getUint8(0);
-  const goal_id = Number(dataView.getBigUint64(1).toString());
+  const goal_id = Number(dataView.getBigUint64(1, true).toString());
   const circuit_type = dataView.getUint8(9);
   const group_id = dataView.getUint32(10, true);
   const sub_group_id = dataView.getUint32(14, true);
@@ -151,7 +154,7 @@ function serializeJobId(jobId: IQProvingJobDataID){
   const buffer = new ArrayBuffer(24);
   const dataView = new DataView(buffer);
   dataView.setUint8(0, jobId.topic);
-  dataView.setBigUint64(1, BigInt(jobId.goal_id));
+  dataView.setBigUint64(1, BigInt(jobId.goal_id), true);
   dataView.setUint8(9, jobId.circuit_type);
   dataView.setUint32(10, jobId.group_id, true);
   dataView.setUint32(14, jobId.sub_group_id, true);
@@ -169,6 +172,7 @@ export {
   deserializeJobId,
   serializeJobId,
   serializeJobIdHex,
+  getGroupIdForCircuitType,
   ProvingJobDataType,
   ProvingJobCircuitType,
   QJobTopic,

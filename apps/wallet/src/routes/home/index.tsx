@@ -1,14 +1,17 @@
 
+import { SeedRandom } from '@qstudio/utils';
 import {WalletWidget, WidgetDogeWalletProvider} from '@qstudio/wallet-widget';
-import { DogeMemoryWalletProvider } from 'doge-sdk';
+import { DogeMemoryWalletProvider, encodePrivateKeyToWIF, hexToU8Array } from 'doge-sdk';
 function getProvider(){
 
   const provider = new DogeMemoryWalletProvider();
-  provider.addRandomWallet("dogeRegtest");
-  provider.addRandomWallet("dogeRegtest");
-  provider.addRandomWallet("dogeRegtest");
-  provider.addRandomWallet("dogeRegtest");
-  provider.addRandomWallet("dogeRegtest");
+  const r = new SeedRandom("cw");
+  encodePrivateKeyToWIF(hexToU8Array(r.randHex(32)), "dogeRegtest")
+  provider.addWalletBIP178("dogeRegtest", encodePrivateKeyToWIF(hexToU8Array(r.randHex(32)), "dogeRegtest"));
+  provider.addWalletBIP178("dogeRegtest", encodePrivateKeyToWIF(hexToU8Array(r.randHex(32)), "dogeRegtest"));
+  provider.addWalletBIP178("dogeRegtest", encodePrivateKeyToWIF(hexToU8Array(r.randHex(32)), "dogeRegtest"));
+  provider.addWalletBIP178("dogeRegtest", encodePrivateKeyToWIF(hexToU8Array(r.randHex(32)), "dogeRegtest"));
+  provider.addWalletBIP178("dogeRegtest", encodePrivateKeyToWIF(hexToU8Array(r.randHex(32)), "dogeRegtest"));
 
   return WidgetDogeWalletProvider.fromMemoryProvider(provider);
 }

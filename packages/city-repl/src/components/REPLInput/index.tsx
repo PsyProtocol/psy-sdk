@@ -20,7 +20,6 @@ const REPLInput: React.FC<IREPLInputProps> = ({ onSubmit, onCmdError, onCmdInfo,
 
   useEffect(()=>{
     if(inputRef.current && autoCompleteRef.current&&!processor){
-      console.log("creating new processor");
       const newProcessor = new ReplCommandInputProcessor({
         input: inputRef.current,
         autoComplete: autoCompleteRef.current,

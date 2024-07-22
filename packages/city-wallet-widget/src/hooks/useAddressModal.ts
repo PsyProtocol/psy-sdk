@@ -3,9 +3,10 @@ import { create } from 'zustand';
 enum AddressModalType {
   Closed = 0,
   Import = 1,
-  Faucet = 2,
+  ClaimDeposit = 2,
   Transfer = 3,
-  SignMessage = 4,
+  Withdraw = 4,
+  ExportPrivateKey = 5,
 }
 type OnCompleteListener = (resultData: any, activeModalData: any, activeModal: AddressModalType) => void;
 type OnCancelListener = (activeModalData: any, activeModal: AddressModalType) => void;

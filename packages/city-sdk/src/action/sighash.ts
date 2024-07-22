@@ -2,8 +2,8 @@ import {IHashOut, hashNoPad} from "poseidon-goldilocks-lite";
 import { ICityClaimDepositRequest, ICitySigAction, ICityTransferRequest, ICityWithdrawalRequest } from "./types";
 import { SIG_ACTION_CLAIM_DEPOSIT_MAGIC, SIG_ACTION_TRANSFER_MAGIC, SIG_ACTION_WITHDRAW_MAGIC } from "./constants";
 import { SCNumberLike } from "../rpc/baseTypes";
-import { readBigIntU48FromBytesLE } from "../utils/data";
-import { cityFelt } from "../utils/felt";
+import { readBigIntU48FromBytesLE, readBigIntU56FromBytesLE } from "../utils/data";
+import { cityFelt, hash256ToHashOut224 } from "../utils/felt";
 import { getDecodedAddress } from "../utils/address";
 
 function getWithdrawalHashFromPublicKeyHash(value: bigint, publicKeyHash: Uint8Array, scriptTypeFlag: SCNumberLike): IHashOut {
@@ -11,8 +11,8 @@ function getWithdrawalHashFromPublicKeyHash(value: bigint, publicKeyHash: Uint8A
 
     return [
         cityFelt(value),
-        cityFelt(readBigIntU48FromBytesLE(publicKeyHash, 0)),
-        cityFelt(readBigIntU48FromBytesLE(publicKeyHash, 7)),
+        cityFelt(readBigIntU56FromBytesLE(publicKeyHash, 0)),
+        cityFelt(readBigIntU56FromBytesLE(publicKeyHash, 7)),
         cityFelt(last48BitsWithFlag)
     ];
 }
@@ -29,7 +29,7 @@ function getClaimDepositSigAction(request: ICityClaimDepositRequest): ICitySigAc
         sig_action: SIG_ACTION_CLAIM_DEPOSIT_MAGIC,
         nonce: "0",
         action_arguments: [
-            request.transaction_id,
+            ...(hash256ToHashOut224(request.transaction_id).map(x=>x.toString())),
             request.amount+"",
             request.deposit_fee+""
         ]
@@ -50,8 +50,8 @@ function getTransferSigAction(request: ICityTransferRequest): ICitySigAction {
 }
 
 function getWithdrawalSigAction(request: ICityWithdrawalRequest): ICitySigAction {
-
     const withdrawalHash = getWithdrawalHashFromAddress(cityFelt(BigInt(request.amount)), request.l1_address);
+
     return {
         network_magic: request.network_magic+"",
         user: request.user+"",
@@ -69,6 +69,7 @@ function getWithdrawalSigAction(request: ICityWithdrawalRequest): ICitySigAction
 
 function computeSigActionHash(sigAction: ICitySigAction): IHashOut {
     const actionArgumentsHash = hashNoPad(sigAction.action_arguments.map(x=>cityFelt(x)));
+   
     return hashNoPad([
         cityFelt(sigAction.network_magic),
         cityFelt(sigAction.user),

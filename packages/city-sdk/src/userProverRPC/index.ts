@@ -1,5 +1,6 @@
 import { FetchHTTPClient } from "../http/fetchClient";
 import { ICityHTTPClient } from "../http/types";
+import { reverseHexBytes } from "../utils/felt";
 import { waitMs } from "../utils/time";
 import { CityUserProverRPCCommand, ICityUserProverProvider } from "./types";
 
@@ -28,7 +29,9 @@ class CityRPCUserProverProvider implements ICityUserProverProvider {
     });
     if (result.statusCode >= 400) {
       throw new Error("Error in RPC call: " + JSON.stringify(result.body));
-    } else {
+    } else if(result.body.error){
+      throw new Error("Error in RPC call: " + JSON.stringify(result.body.error));
+    }else{
       return result.body.result as T;
     }
   }
@@ -54,7 +57,7 @@ class CityRPCUserProverProvider implements ICityUserProverProvider {
     return this.getResultFinal(this.rpc<string>(CityUserProverRPCCommand.ProveZKSignatureEnc, [encryptedPrivateKey, message, salt]), maxAttempts, delay);
   }
   getZKPublicKey(privateKey: string, maxAttempts = 120, delay = 500): Promise<string> {
-    return this.getResultFinal(this.rpc<string>(CityUserProverRPCCommand.GetZKPublicKey, [privateKey]), maxAttempts, delay);
+    return this.getResultFinal(this.rpc<string>(CityUserProverRPCCommand.GetZKPublicKey, [privateKey]), maxAttempts, delay).then(x=>reverseHexBytes(x));
   }
   getZKPublicKeyEnc(encryptedPrivateKey: string, salt: string, maxAttempts = 120, delay = 500): Promise<string> {
     return this.getResultFinal(this.rpc<string>(CityUserProverRPCCommand.GetZKPublicKeyEnc, [encryptedPrivateKey, salt]), maxAttempts, delay);

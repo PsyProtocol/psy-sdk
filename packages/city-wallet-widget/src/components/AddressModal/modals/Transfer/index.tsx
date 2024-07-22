@@ -4,28 +4,17 @@ import { TAddressModalComponent } from "../../index";
 import styles from "./Transfer.module.scss";
 import { Alert, Box, Button, Combobox, Input, InputBase, LoadingOverlay, TextInput, useCombobox } from "@mantine/core";
 import { DogeInput } from "../../../DogeInput";
-import type {IQWidgetWallet} from '../../../../types';
-import { DogeNetworkId, ICreateP2PKHParams, createP2PKHTransaction, decodeAddressFull, u8ArrayToHex } from "doge-sdk";
+import type {IQCityWidgetWallet} from '../../../../types';
 import { IconInfoCircle } from "@tabler/icons-react";
 import { BlokiesIcon } from "@qstudio/blokies-react";
 import { WalletWidgetRPC } from "../../../../utils/rpc/walletRPC";
-import { coinSelectP2PKH } from "packages/wallet-widget/src/utils/txPlanner";
+import { sha256Buffer } from "@qstudio/utils";
 
 interface ITransferFormProps {
-  onSubmit: (params: ICreateP2PKHParams) => Promise<string>;
-  onComplete: (txid: string) => void;
+  onSubmit: (params: {recipient: number, amount: string}) => Promise<any>;
+  onComplete: () => void;
   className?: string;
-  networkId: DogeNetworkId;
-  wallet: IQWidgetWallet;
-  rpc: WalletWidgetRPC;
-}
-function isValidAddress(networkId: DogeNetworkId, address: string): boolean {
-  try {
-    const parsed = decodeAddressFull(address);
-    return parsed.networkId === networkId;
-  } catch (e) {
-    return false;
-  }
+  wallet: IQCityWidgetWallet;
 }
 
 const FeeRateSelector = ({rpc, onFeeRateChange}: {rpc: WalletWidgetRPC, onFeeRateChange: (newFee: number)=>any}) => {
@@ -39,7 +28,6 @@ const FeeRateSelector = ({rpc, onFeeRateChange}: {rpc: WalletWidgetRPC, onFeeRat
   useEffect(()=>{
     if(!feeEstimates.length){
       rpc.getFeeEstimateMap().then((feeMap)=>{
-        console.log("feeMap",feeMap )
         const fe = Object.keys(feeMap).map((key)=>({confirmations: parseInt(key), feeRate: (feeMap as any)[key]})).sort((a,b)=>a.confirmations-b.confirmations);
         setFeeEstimates(fe);
       });
@@ -88,23 +76,19 @@ const FeeRateSelector = ({rpc, onFeeRateChange}: {rpc: WalletWidgetRPC, onFeeRat
 }
 
 const TransferForm: React.FC<ITransferFormProps> = ({
-  networkId,
   onSubmit,
   onComplete,
   className,
-  rpc,
   wallet,
 }) => {
   const [address, setAddress] = useState("");
   const [amount, setAmount] = useState(0);
-  const [feeRate, setFeeRate] = useState(0);
   const [addressError, setAddressError] = useState<string>();
   const [amountError, setAmountError] = useState<string>();
   const [loadingState, setLoadingState] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [loadingError, setLoadingError] = useState<string>();
-  const [estimateFeesResult, setEstimateFeesResult] = useState<ICreateP2PKHParams & {fee: number}>();
 
   return (
     <div
@@ -130,14 +114,14 @@ const TransferForm: React.FC<ITransferFormProps> = ({
               {loadingError}
             </Alert>
           ) : null}
-          {(address&&address.length>=33)?<div className={styles.blokiesCon}>
-            <BlokiesIcon seed={address} size={8} scale={8} className={styles.blokiesIcon} />
+          {(address.length)?<div className={styles.blokiesCon}>
+            <BlokiesIcon seed={sha256Buffer(new TextEncoder().encode("city-rollup:"+address), "hex")} size={8} scale={8} className={styles.blokiesIcon} />
           </div>:null}
 
           <div className={styles.inputCon}>
             <TextInput
-              label="Recipient Address"
-              placeholder="Address to send tokens to..."
+              label="Recipient User ID"
+              placeholder="User ID to send tokens to..."
               error={addressError}
               spellCheck={false}
               value={address}
@@ -160,78 +144,40 @@ const TransferForm: React.FC<ITransferFormProps> = ({
                 if (amountError) {
                   setAmountError(undefined);
                 }
-                if(estimateFeesResult){
-                  setEstimateFeesResult(undefined);
-                }
               }}
               value={amount}
             />
           </div>
-          <div className={styles.inputCon}>
-            <FeeRateSelector
-              onFeeRateChange={(v) => {
-                setFeeRate(v);
-                if(estimateFeesResult){
-                  setEstimateFeesResult(undefined);
-                }
-              }}
-              rpc={rpc}
-            />
-          </div>
-          {estimateFeesResult?<div className={styles.inputCon}>
-            <div>Estimated Fees: {(estimateFeesResult.fee/100_000_000).toFixed(3)} DOGE</div>
-          </div>:null}
         </div>
         <div className={styles.formControls}>
           <Button
             onClick={() => {
               setLoadingError(undefined);
               if (!address.length) {
-                setAddressError("Address is required");
+                setAddressError("User ID is required");
                 return;
-              } else if (!isValidAddress(networkId, address)) {
-                setAddressError("Invalid Address");
+              } else if ((parseInt(address) + "")!==address) {
+                setAddressError("Invalid User ID");
               } else if (!amount) {
                 setAmountError("Amount must be greater than 0");
               } else {
-                if(!feeRate){
-                  setLoadingError("Fee Rate is required");
-                }
-                if(estimateFeesResult){
                 setLoadingState("loading");
-                onSubmit(estimateFeesResult)
-                  .then((txid) => {
-                    onComplete(txid);
-                    /*
-                setLoadingState("success");
-                waitMs(2000).then(() => {
-                  setLoadingState("idle");
-                  setAddress("");
-                  setAmount(0);
-                  setLoadingError(undefined);
-                  setAmountError(undefined);
-                  setAddressError(undefined);
-                  setLoadingState("idle");
-                });*/
+
+
+
+                onSubmit({recipient: parseInt(address), amount: amount+""})
+                  .then(() => {
+                    onComplete();
                   })
                   .catch((e) => {
                     setLoadingState("error");
                     setLoadingError(e.message);
                   });
-                }else{
-                  try {
-                    const result = coinSelectP2PKH(wallet.address, feeRate, wallet.utxos, [{address, value: amount}]);
-                    setEstimateFeesResult(result);
-                  }catch(err){
-                    setLoadingError(err+"");
-                    setLoadingState("error");
-                  }
                 }
-              }
             }}
-            disabled={!amount || address.length < 33 || !feeRate}
+            disabled={!amount || address.length === 0}
           >
-            {estimateFeesResult?"Transfer":"Estimate Fees"}
+            Transfer
           </Button>
         </div>
       </Box>
@@ -242,8 +188,8 @@ const TransferModal: TAddressModalComponent = ({
   onCancel,
   onComplete,
 }) => {
-  const [rpc, currentWallet, refreshCurrentWalletUTXOs] = useWalletState(
-    (state) => [state.rpc, state.currentWallet, state.refreshCurrentWalletUTXOs]
+  const [rpc, currentWallet, refreshAllWallets] = useWalletState(
+    (state) => [state.rpc, state.currentWallet, state.refreshAllWallets]
   );
   if (!currentWallet) {
     return <div>You must select a wallet to perform a transfer.</div>;
@@ -251,25 +197,13 @@ const TransferModal: TAddressModalComponent = ({
   const networkId = currentWallet.networkId;
   return (
     <TransferForm
-      rpc={rpc}
       wallet={currentWallet}
-      networkId={networkId}
       onSubmit={async (params) => {
-        const ftx = createP2PKHTransaction(currentWallet.signer, params);
-        const signed = await ftx.finalizeAndSign();
-        const hexTx = u8ArrayToHex(signed.toBuffer());
-        const txid = await rpc.sendRawTransaction(hexTx);
-        
-        //await rpc.mineBlocks(10);
-        await rpc.waitForTx(txid);
-        //await rpc.mineBlocks(10);
-        await refreshCurrentWalletUTXOs();
-        return txid;
+        await currentWallet.wallet.transfer(params.recipient, BigInt(params.amount));
+        await refreshAllWallets();
       }}
-      onComplete={(txid) => {
-        refreshCurrentWalletUTXOs().then(() => {
-          onComplete({ txid });
-        });
+      onComplete={() => {
+        onComplete({});
       }}
     />
   );

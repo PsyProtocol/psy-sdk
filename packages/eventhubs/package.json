@@ -13,7 +13,8 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@qstudio/utils": "workspace:*"
+    "@qstudio/utils": "workspace:*",
+    "@qstudio/city-block": "workspace:*"
   },
   "devDependencies": {
     "rimraf": "~5.0.0",

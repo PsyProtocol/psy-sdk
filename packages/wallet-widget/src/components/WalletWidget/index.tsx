@@ -7,6 +7,8 @@ import { AddressModal } from '../AddressModal';
 import { AddressHeader, StatefulAddressHeader } from '../AddressHeader';
 import { WalletActions } from '../WalletActions';
 import { WalletTransactions } from '../Transactions';
+import {SeedRandom, hexToU8Array} from "@qstudio/utils";
+import { encodePrivateKeyToWIF } from 'doge-sdk/dist/types';
 interface IWalletWidgetProps {
   className?: string;
   provider: WidgetDogeWalletProvider<any>;

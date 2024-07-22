@@ -68,13 +68,21 @@
   .iconRoot{
 
   }
+  &:hover {
+
+    .borderRect {
+      fill: rgba(80, 77, 77, 0.2);
+    }
+    cursor: pointer;
+  }
 
   .borderRect {
     stroke: #D8D129;
     stroke-width: 2px;
-    fill: none;
+    fill: transparent;
     transition: stroke 500ms linear;
   }
+
   .label {
     font-size: 22px;
     font-family: "Open Sans", sans-serif;

@@ -15,6 +15,7 @@ import type {
   ICityAddWithdrawalRPCRequest,
   ICityClaimDepositRPCRequest,
   ICityTokenTransferRPCRequest,
+  ISimpleKVPair,
 } from "./baseTypes";
 
 import { FetchHTTPClient } from "../http/fetchClient";
@@ -31,7 +32,8 @@ class CityRPCProvider implements ICityRPCProvider {
     const tURL = new URL(url);
     this.networkId = (tURL.searchParams.get("networkId")||"doge") as DogeNetworkId;
     this.l2NetworkMagic =getCityNetworkMagicForNetworkId(this.networkId);
-    this.url = url;
+    tURL.searchParams.delete("networkId");
+    this.url = tURL.toString();
     this.httpClient = httpClient || new FetchHTTPClient();
   }
   getNetworkMagic(): string {
@@ -58,9 +60,32 @@ class CityRPCProvider implements ICityRPCProvider {
     const result = CityJSON.parse(resultBase.body);
 
     if(result.statusCode >= 400){
-      throw new Error("Error in RPC call: "+CityJSON.stringify(result.body));
+      throw new Error("Error in RPC call: "+resultBase.body);
     }else{
-      return result.body.result as T;
+      return result.result as T;
+    }
+  }
+  async rpcMethod<T>(method: string, params: any, id = "1", jsonrpc = "2.0"): Promise<T> {
+    const resultBase = await this.httpClient.sendRequest({
+      method: "POST",
+      url: this.url,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: CityJSON.stringify({
+        jsonrpc,
+        method,
+        params,
+        id,
+      }),
+      responseType: "text",
+    });
+    const result = CityJSON.parse(resultBase.body);
+
+    if(result.statusCode >= 400){
+      throw new Error("Error in RPC call: "+CityJSON.stringify(resultBase.body));
+    }else{
+      return result.result as T;
     }
   }
   async getUserTreeRoot(checkpoint_id: number): Promise<CityHash> {
@@ -183,7 +208,7 @@ class CityRPCProvider implements ICityRPCProvider {
   }
   async getProofStoreValue(
     key: QProvingJobDataIDSerializedWrapped
-  ): Promise<TProofValueStoreKV> {
+  ): Promise<string> {
     return this.rpc("cr_getProofStoreValue", [key]);
   }
   async getProofStoreValues(
@@ -191,21 +216,31 @@ class CityRPCProvider implements ICityRPCProvider {
   ): Promise<TProofValueStoreKV[]> {
     return this.rpc("cr_getProofStoreValues", [keys]);
   }
+  async getProofStoreJobWitness(
+    key: QProvingJobDataIDSerializedWrapped
+  ): Promise<any> {
+    return this.rpc("cr_getProofStoreJobWitness", [key]);
+  }
+  async getProofStoreJobWitnesses(
+    keys: QProvingJobDataIDSerializedWrapped[]
+  ): Promise<ISimpleKVPair<string, any>[]> {
+    return this.rpc("cr_getProofStoreJobWitnesses", [keys]);
+  }
   async registerUser<F>(req: ICityRegisterUserRPCRequest): Promise<void> {
-    return this.rpc("cr_register_user", [req]);
+    return this.rpcMethod("cr_register_user", req.public_key);
   }
   async addWithdrawal(req: ICityAddWithdrawalRPCRequest): Promise<void> {
-    return this.rpc("cr_add_withdrawal", [req]);
+    return this.rpcMethod("cr_add_withdrawal", req);
   }
   async claimDeposit(req: ICityClaimDepositRPCRequest): Promise<void> {
-    return this.rpc("cr_claim_deposit", [req]);
+    return this.rpcMethod("cr_claim_deposit", req);
   }
   async tokenTransfer(req: ICityTokenTransferRPCRequest): Promise<void> {
-    return this.rpc("cr_token_transfer", [req]);
+    return this.rpcMethod("cr_token_transfer", req);
   }
 
   produceBlock(): Promise<void> {
-    return this.rpc("cr_produceBlock", []);
+    return this.rpcMethod("cr_produce_block", null);
   }
 }
 

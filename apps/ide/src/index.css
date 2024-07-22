@@ -24,6 +24,8 @@ body,html,#root,#root > div {
 --contexify-separator-margin: 5px;
 --contexify-itemContent-padding: 6px;
 --contexify-activeItem-radius: 0px;
+
+
 width:100%;
 height: 100%;
 padding:0;
@@ -39,8 +41,12 @@ left:0;
 
 :root {
 
-  --font-sans: 'Inter', --apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Fira Sans,
-    Droid Sans, Helvetica Neue, sans-serif;
+  --font-sans: 'Reddit Sans', --apple-system, ui-sans-serif,system-ui,BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans',
+  'Droid Sans', 'Helvetica Neue',sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji';
+  --font-mono: 'Reddit Mono', 'Fira Code', 'JetBrains Mono', 'SF Mono', 'Roboto Mono', Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+
+    
   --app-bg: var(--gray1);
   --cmdk-shadow: 0 16px 70px rgb(0 0 0 / 20%);
 

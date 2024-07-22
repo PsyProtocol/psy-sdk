@@ -73,13 +73,20 @@ const DEFAULT_DOCK_MODEL: IJsonModel = {
                     enableRename: false,
                     component: "CityRepl",
                 },
-                  {
-                      "type": "tab",
-                      "enableClose": true,
-                      "enableRename": false,
-                      "name": "Stage",
-                      "component": "Stage",
-                  },
+                {
+                    "type": "tab",
+                    "enableClose": true,
+                    "enableRename": false,
+                    "name": "Block Visualizer",
+                    "component": "Stage",
+                },
+                {
+                    "type": "tab",
+                    "enableClose": true,
+                    "enableRename": false,
+                    "name": "Block Viz Info",
+                    "component": "BlockVizInfo",
+                },
               ]
           }
       ]

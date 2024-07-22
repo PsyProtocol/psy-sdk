@@ -57,6 +57,23 @@ interface ICitySighashGroth16ProofResult {
   state_transition_reference: string;
 }
 
+interface ICSProofNode {
+  id: string;
+  dependencies: ICSProofNode[];
+  is_ref?: boolean;
+}
+interface ISimpleCityBlock {
+  stateTransitionRoot: ICSProofNode;
+  sighashProofs: ICitySighashGroth16ProofResult[];
+}
+
+interface ICitySighashGroth16ProofResult {
+  sighash_introspection: string;
+  sighash_final: string;
+  groth16_final: string;
+  state_transition_reference: string;
+}
+
 interface ICitySynthBlockResult {
   root_state_transition: IQJobWithDependenciesSerialized;
   sighash_proofs: ICitySighashGroth16ProofResult[];
@@ -92,4 +109,6 @@ export type {
   ICityAggregatedOpJobCircuitType,
   ICitySynthBlockResult,
   ICitySighashGroth16ProofResult,
+  ICSProofNode,
+  ISimpleCityBlock,
 };

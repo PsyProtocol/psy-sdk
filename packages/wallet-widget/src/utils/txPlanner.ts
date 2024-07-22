@@ -170,7 +170,6 @@ function coinSelectP2PKH(address: string, feeRate: number, utxos: IUTXO[], outpu
   if((selectedAmount - outputAmount) > costOfChange){
     newOutputs.push({value: Math.floor(selectedAmount - outputAmount - costOfChange), address});
   }
-  console.log(newOutputs);
   const fee = getTxSize(
     inputScriptLength,
     selectedUTXOs.length,
@@ -190,4 +189,7 @@ function coinSelectP2PKH(address: string, feeRate: number, utxos: IUTXO[], outpu
 
 export {
   coinSelectP2PKH,
+  getStandardP2PKHTxSize,
+  getValueOfUTXO,
+
 }

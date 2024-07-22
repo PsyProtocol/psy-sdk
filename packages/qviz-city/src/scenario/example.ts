@@ -1,12 +1,13 @@
 import {
   ProvingJobCircuitType,
   createBinaryTreePlanner,
+  depSerializedToProofNodes,
   getDummyTreeOpCircuitJobWithDependencies,
   getDummyTreeProverIdsOpCircuit,
   synthPlanner,
 } from "@qstudio/city-block";
-import { ISimpleCityBlock } from "./types";
-import { depSerializedToProofNodes } from "./convert";
+import { ISimpleCityBlock } from "@qstudio/city-block";
+
 const transferTree = getDummyTreeOpCircuitJobWithDependencies(
   ProvingJobCircuitType.TransferTokensL2,
   ProvingJobCircuitType.DummyTransferTokensL2Aggregate,
