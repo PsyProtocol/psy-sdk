@@ -20,7 +20,7 @@ interface IBlockVizEventBase {
 interface IBlockVizSetBlockScenarioEvent extends IBlockVizEventBase {
   type: BlockVizEventType.SetBlockScenario;
   scenario: ISimpleCityBlock;
-  psBlock?: PSCityBlock;
+  psBlock?: PSCityBlock<any>;
 }
 
 interface IBlockVizSelectVizWidgetEvent extends IBlockVizEventBase {

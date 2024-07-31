@@ -112,3 +112,5 @@ export type {
 } from './zksigner/types';
 
 export * from './zksigner/memory';
+export * from './utils/felt';
+export * from './utils/deposit';

@@ -1,0 +1,32 @@
+.ttContent {
+  display: inline-table;
+  font-size: 12px;
+  .ttField {
+    display: table-row;
+    .ttFieldLabel {
+      display: table-cell;
+      padding-right:12px;
+      font-family: var(--font-mono);       
+      text-align: right;
+      color:light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-2));
+
+    }
+    .ttFieldValue {
+      display: table-cell;
+      font-family: var(--font-mono);    
+      text-align: left;
+
+    }
+    .ttFieldLabel, .ttFieldValue {
+      border-bottom: 1px solid rgba(85, 85, 85, 0.475);
+      padding-top:4px;
+      padding-bottom:4px;
+      
+    }
+    &:last-child {
+      .ttFieldLabel, .ttFieldValue {
+        border-bottom: none;
+      }
+    }
+  }
+}

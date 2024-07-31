@@ -85,7 +85,7 @@
 
   .label {
     font-size: 22px;
-    font-family: "Open Sans", sans-serif;
+    font-family: var(--font-sans);
     font-weight: 300;
     fill: #FBFF31;
     transition: fill 500ms linear;
@@ -102,7 +102,7 @@
   }
   .statusText {
     font-size: 18px;
-    font-family: "Open Sans", sans-serif;
+    font-family: var(--font-sans);
     font-weight: 300;
     fill: #FFF;
     transition: fill 500ms linear;

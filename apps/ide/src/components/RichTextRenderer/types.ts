@@ -5,6 +5,7 @@ enum RichTextElemType {
   TransactionId = "transaction_id",
   L1Address = "l1_address",
   Hash = "hash",
+  LineBreak = "line_break",
 }
 interface IRichTextAnnotation {
   type: RichTextElemType.Annotation;
@@ -34,10 +35,13 @@ interface IRichTextTransactionId {
 interface IRichTextHash {
   type: RichTextElemType.Hash;
   text: string;
-  txid: string;
+  hash: string;
+}
+interface IRichTextLineBreak {
+  type: RichTextElemType.LineBreak;
 }
 
-type IRichTextElem = IRichTextL1Address | IRichTextAnnotation | IRichTextUser | IRichTextDeposit | IRichTextTransactionId | IRichTextHash;
+type IRichTextElem = IRichTextL1Address | IRichTextAnnotation | IRichTextUser | IRichTextDeposit | IRichTextTransactionId | IRichTextHash | IRichTextLineBreak;
 type TRichTextContent = (IRichTextElem | string)[] | string | IRichTextElem;
 
 
@@ -53,4 +57,5 @@ export type {
   IRichTextDeposit,
   IRichTextTransactionId,
   IRichTextHash,
+  IRichTextLineBreak,
 }

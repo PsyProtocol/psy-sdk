@@ -1,5 +1,5 @@
 import { IHashOut, hashOutToHex, hexToHashOut } from "poseidon-goldilocks-lite";
-import { SCNumberLike } from "../rpc/baseTypes";
+import { SCFelt, SCNumberLike } from "../rpc/baseTypes";
 import { cryptoRandomBytes } from "./random";
 import { hexToU8Array, hexToU8ArrayReversed, u8ArrayToHex } from "doge-sdk";
 
@@ -33,9 +33,48 @@ function hash256ToHashOut224(hashHex: string): IHashOut {
   ];
 }
 
+function publicKeyFeltsToBytes33(publicKey: SCNumberLike[]): Uint8Array {
+  const result = new Uint8Array(33);
+  result[0] = Number(publicKey[0]);
+  const dv = new DataView(result.buffer);
+  for(let i=1;i<9;i++){
+    dv.setUint32(i*4+1, Number(publicKey[i]), true);
+  }
+  return result;
+}
+function bytes33ToPublicKeyFelts(bytes: Uint8Array): bigint[] {
+  const result: bigint[] = [
+    BigInt(bytes[0]),
+  ];
+  const dv = new DataView(bytes.buffer);
+
+  for(let i=1;i<9;i++){
+    result[i] = BigInt(dv.getUint32(i*4+1, true));
+  }
+  return result;
+}
+
+
 
 function reverseHexBytes(hex: string): string {
   return u8ArrayToHex(hexToU8ArrayReversed(hex));
+
+}
+function trimTrailingZeroes(hex: string): string {
+  let i = hex.length-1;
+  while(i>=0 && hex[i]==="0") {
+    i--;
+  }
+  return hex.substring(0,i+1);
+}
+function cityFeltSatsToDoge(x: SCNumberLike): string {
+  const decimalPart = BigInt(x)%BigInt(100_000_000);
+  const integerPart = BigInt(x)/BigInt(100_000_000);
+  if(decimalPart===BigInt(0)) {
+    return integerPart.toString();
+  }else{
+    return integerPart+"."+trimTrailingZeroes(decimalPart.toString().padStart(8,"0"));
+  }
 
 }
 
@@ -46,4 +85,7 @@ export {
   cryptoRandomHashOutHex,
   hash256ToHashOut224,
   reverseHexBytes,
+  cityFeltSatsToDoge,
+  publicKeyFeltsToBytes33,
+  bytes33ToPublicKeyFelts,
 }

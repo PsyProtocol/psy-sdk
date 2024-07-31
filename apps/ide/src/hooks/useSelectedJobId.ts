@@ -3,11 +3,12 @@ import { EventHub } from '@qstudio/utils';
 import { ProjectFilesEvent, ProjectFilesEventType, IFileRenamedEvent, BlockVizEventType, IBlockVizSetBlockScenarioEvent, IBlockVizEvent, IBlockVizSelectVizWidgetEvent, VizWidgetType } from '@qstudio/eventhubs';
 import { BlockVizDataStore } from '../utils/blockviz/BlockVizDataStore';
 import { ISimpleCityBlock, PSCityBlock } from '@qstudio/city-block';
+import { IRealBlockVizJobInfo } from '../components/BlockVizInfoPane/content/types';
 
 export function useVizScenario( blockVizDataStore: BlockVizDataStore) {
 
   const [scenario, setScenario] = useState<ISimpleCityBlock>(blockVizDataStore.blockScenario);
-  const [psBlock, setPSBlock] = useState<PSCityBlock>();
+  const [psBlock, setPSBlock] = useState<PSCityBlock<IRealBlockVizJobInfo>>();
   useEffect(() => {
     const onBlock =  (ev: IBlockVizSetBlockScenarioEvent) => {
       setScenario(ev.scenario);
@@ -45,7 +46,7 @@ export function useSelectedJobId ( blockVizDataStore: BlockVizDataStore) {
 
 export function useSelectedJobIdAndVizScenario( blockVizDataStore: BlockVizDataStore) {
 
-  const [{scenario,psBlock}, setScenario] = useState<{scenario: ISimpleCityBlock, psBlock?: PSCityBlock}>({scenario: blockVizDataStore.blockScenario, psBlock: blockVizDataStore.psBlock});
+  const [{scenario,psBlock}, setScenario] = useState<{scenario: ISimpleCityBlock, psBlock?: PSCityBlock<IRealBlockVizJobInfo>}>({scenario: blockVizDataStore.blockScenario, psBlock: blockVizDataStore.psBlock});
   const [selectedJobId, setSelectedJobId] = useState<string>(blockVizDataStore.selectedJobId);
 //
   useEffect(() => {

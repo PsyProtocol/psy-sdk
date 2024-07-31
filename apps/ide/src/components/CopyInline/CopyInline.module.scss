@@ -1,0 +1,11 @@
+.copyInlineCopied {
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-top:2px;
+  .copied {
+    padding-left: 0.5em;
+    padding-right: 0.15em;
+  }
+}

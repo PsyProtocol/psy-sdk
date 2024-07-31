@@ -35,6 +35,10 @@ pub fn read_u56_from_bytes_le(bytes: &[u8], offset: usize) -> u64 {
 
 */
 
+import { hashOutToHex, hexToHashOut } from "poseidon-goldilocks-lite";
+
+
+
 function readU48FromBytesLE(bytes: Uint8Array, offset: number): number {
     let result = 0;
     for (let i = 0; i < 6; i++) {
@@ -61,4 +65,5 @@ export {
   readBigIntU48FromBytesLE,
   readBigIntU56FromBytesLE,
   readU48FromBytesLE,
+  hashOutToHex, hexToHashOut,
 }

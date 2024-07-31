@@ -11,6 +11,8 @@ import { getProofStoreConfigForCheckpoint } from '@qstudio/city-block';
 import SynthBlock from './SynthBlock';
 import LoadBlock from './LoadBlock';
 import { BlockVizInfoPane } from '../../components/BlockVizInfoPane/BlockVizInfoPane';
+import { IRealBlockVizJobInfo } from '../../components/BlockVizInfoPane/content/types';
+import { getCircuitContentInfo } from '../../components/BlockVizInfoPane/content/circuits';
 
 interface IBlockVizInfoDockComponentProps {
   ctx: IDEContext;
@@ -41,7 +43,7 @@ const SynthBlockTab: React.FC<IBlockVizInfoDockComponentProps> = ({ ctx }) => {
           stateTransitionRoot: depSerializedToProofNodes(synthBlock.root_state_transition),
           sighashProofs: synthBlock.sighash_proofs,
         };
-        const psBlock = new PSCityBlock(ctx.rpc, ctx.dogeRPC, synthBlock, result);
+        const psBlock = new PSCityBlock<IRealBlockVizJobInfo>(ctx.rpc, ctx.dogeRPC, synthBlock, result, simple, (ctx, jobIdHex)=>getCircuitContentInfo(ctx, jobIdHex));
 
         ctx.blockVizDataStore.setBlockScenario(simple, psBlock);
 

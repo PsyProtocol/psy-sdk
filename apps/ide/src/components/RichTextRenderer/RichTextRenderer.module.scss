@@ -1,7 +1,63 @@
 .richTextContent {
   display: inline;
+  /*
   word-break: break-all;
   word-wrap: break-word;
+  */
   font-size: inherit;
   font-family: inherit;
+  .inlineIcon {
+    position: relative;
+    top: 0.15em;
+    font-size: 90%;
+  }
+  .elipsis {
+    font-family: var(--font-sans);
+  }
+  .userElem {
+    border-bottom: 1px solid #b4fffa;
+  }
+  .hashElem {
+    border-bottom: 1px dotted rgba(114, 240, 55, 0.362);
+  }
+  .hashElem.hashElemRaw {
+    font-family: var(--font-mono);
+    color: #e3fe79;
+    border-bottom: 1px dotted rgba(114, 240, 55, 0.362);
+  }
+}
+
+.hashToolTipLabel {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.depositElem {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px dotted #cea9ff;
+  .l1DepositIcon {
+    font-size: 90%;
+    margin-right: 0.25em;
+  
+  }
+
+}
+.txidElem {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  .txidIcon {
+    font-size: 90%;
+    margin-right: 0.25em;
+  
+  }
+
+}
+
+.txidElem.txidElemRaw {
+  font-family: var(--font-mono);
 }

@@ -4,6 +4,7 @@ import { CityRPCProvider } from "@qstudio/city-sdk";
 import { EventHub } from "@qstudio/utils";
 import { BlockVizEventType, IBlockVizEvent, IBlockVizSelectVizWidgetEvent, IBlockVizSetBlockScenarioEvent, VizWidgetType } from "@qstudio/eventhubs";
 import { deserializeJobId, ISimpleCityBlock, PSCityBlock } from "@qstudio/city-block";
+import { IRealBlockVizJobInfo } from "../../components/BlockVizInfoPane/content/types";
 
 class BlockVizDataStore {
   checkpointId: number = -1;
@@ -11,7 +12,7 @@ class BlockVizDataStore {
   dogeRPC: DogeLinkElectrsComboRPC;
   rpc: CityRPCProvider;
   blockVizEventHub: EventHub<BlockVizEventType, IBlockVizEvent>;
-  psBlock?: PSCityBlock;
+  psBlock?: PSCityBlock<IRealBlockVizJobInfo>;
   selectedJobId: string = "";
   constructor(dogeRPC: DogeLinkElectrsComboRPC, rpc: CityRPCProvider, blockVizEventHub: EventHub<BlockVizEventType, IBlockVizEvent>) {
     this.dogeRPC = dogeRPC;
@@ -21,7 +22,7 @@ class BlockVizDataStore {
     this.setupHandlers();
   }
 
-  setBlockScenario(scenario: ISimpleCityBlock, psBlock?: PSCityBlock){
+  setBlockScenario(scenario: ISimpleCityBlock, psBlock?: PSCityBlock<IRealBlockVizJobInfo>){
     this.blockScenario = scenario;
     this.psBlock = psBlock;
     console.log("psblock",psBlock);

@@ -68,20 +68,28 @@ const BlockVizComponent: React.FC<IBlockVizProps> = ({ addResizeEventListener, r
           sceneManager.current.qscene.forceResize();
         }
       };
+
       const onClickEv = (ev: MouseEvent)=>{
         const widgetInfo = resolveWidgetInfo(ev.target);
-        console.log("clicked widget: ",widgetInfo);
+        if(typeof onSelectWidget === "function" && widgetInfo){
+          onSelectWidget(widgetInfo);
+        }
+      };
+      const onDoubleClickEv = (ev: MouseEvent)=>{
+        const widgetInfo = resolveWidgetInfo(ev.target);
         if(typeof onSelectWidget === "function"){
           onSelectWidget(widgetInfo);
         }
-      }
+      };
       const svg = sceneManager.current.qscene.vizPaper.svg.node;
       svg.addEventListener("click", onClickEv);
+      svg.addEventListener("dblclick", onDoubleClickEv);
 
       addResizeEventListener(onResizeEv);
       return ()=>{
         removeResizeEventListener(onResizeEv);
         svg.removeEventListener("click", onClickEv);
+        svg.removeEventListener("dblclick", onDoubleClickEv);
       };
     }
   },[sceneManager, addResizeEventListener, removeResizeEventListener, onSelectWidget]);
