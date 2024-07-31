@@ -1,5 +1,5 @@
 {
-  "name": "@qstudio/foo",
+  "name": "@qstudio/json-helper",
   "version": "1.0.0",
   "main": "dist/index",
   "types": "dist/index",
