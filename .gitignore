@@ -1,0 +1,9 @@
+target
+*.log
+*.sublime*
+*~
+*.pyc
+result
+.DS_Store
+**/.DS_Store
+test-db

@@ -1,0 +1,19 @@
+[package]
+edition = "2021"
+name    = "qedlang_ex"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow     = { workspace = true }
+serde      = { workspace = true }
+serde_with = { workspace = true }
+hex = { workspace = true }
+hex-literal = { workspace = true }
+lazy_static = { workspace = true }
+plonky2 = { workspace = true }
+twox-hash = { workspace = true }
+qedlang_core = { path = "../qedlang_core" }
+qedlang_macros = { path = "../qedlang_macros" }
+
