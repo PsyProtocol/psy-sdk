@@ -591,6 +591,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "qedlang_macro2"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "hex-literal",
+ "lazy_static",
+ "plonky2",
+ "proc-macro2",
+ "qedlang_core",
+ "quote",
+ "serde",
+ "serde_with",
+ "syn 2.0.76",
+]
+
+[[package]]
 name = "qedlang_macros"
 version = "0.1.0"
 dependencies = [

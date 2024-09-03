@@ -1,6 +1,6 @@
 use crate::dpn::ops::sym_felt::SymFeltRefValue;
 
-use super::{context_trait::DPNContext, op_types::{DPNBuiltInDataType, DPNOpType}, sym_felt::{SymFeltRef, SymRefAssertion}, sym_felt_store::SymFeltStore};
+use super::{op_types::{DPNBuiltInDataType, DPNOpType}, sym_felt::{SymFeltRef, SymRefAssertion}, sym_felt_store::SymFeltStore};
 
 #[derive(Debug, Clone)]
 pub struct IfConditionStack {
@@ -27,7 +27,24 @@ impl QExecContext {
             current_condition: SymFeltRef::new_valueless(DPNOpType::ConstantTrue),
         }
     }
+    pub fn op_cast_u32(&mut self, a: SymFeltRef) -> SymFeltRef {
+        let op_type = a.get_op_type();
+        if op_type.get_data_type() == DPNBuiltInDataType::U32Target {
+            a
+        }else if op_type == DPNOpType::Constant || op_type == DPNOpType::ConstantTrue || op_type == DPNOpType::ConstantFalse {
+            let value = a.get_constant_value();
+            self.op_const(value&0xFFFFFFFFu64)
+        }else{
+            let value = SymFeltRefValue {
+                op_type: DPNOpType::CastU32,
+                const_param: 0,
+                inputs: vec![a],
+            };
+            self.store.insert(value)
+        }
 
+
+    }
     fn op_std_binary_op(&mut self, op_type: DPNOpType, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         let a_type = a.get_op_type();
         let b_type = b.get_op_type();
@@ -76,41 +93,7 @@ impl QExecContext {
     fn op_valueless(&mut self, op_type: DPNOpType) -> SymFeltRef {
         SymFeltRef::new_valueless(op_type)
     }
-    fn op_target_at(&mut self, parent: SymFeltRef, index: u64) -> SymFeltRef {
-        let value = SymFeltRefValue {
-            op_type: DPNOpType::TargetAt,
-            const_param: index,
-            inputs: vec![parent, SymFeltRef::new_constant(index)],
-        };
-        self.store.insert(value)
-    }
-    fn op_target_at_vec(&mut self, parent: SymFeltRef, length: u64) -> Vec<SymFeltRef> {
-        (0..length).map(|i| self.op_target_at(parent, i)).collect()
-    }
-    fn op_target_at_array<const N: usize>(&mut self, parent: SymFeltRef) -> [SymFeltRef; N] {
-        core::array::from_fn(|i| self.op_target_at(parent, i as u64))
-    }
-}
-impl DPNContext<SymFeltRef> for QExecContext {
-    fn op_cast_u32(&mut self, a: SymFeltRef) -> SymFeltRef {
-        let op_type = a.get_op_type();
-        if op_type.get_data_type() == DPNBuiltInDataType::U32Target {
-            a
-        }else if op_type == DPNOpType::Constant || op_type == DPNOpType::ConstantTrue || op_type == DPNOpType::ConstantFalse {
-            let value = a.get_constant_value();
-            self.op_const(value&0xFFFFFFFFu64)
-        }else{
-            let value = SymFeltRefValue {
-                op_type: DPNOpType::CastU32,
-                const_param: 0,
-                inputs: vec![a],
-            };
-            self.store.insert(value)
-        }
-
-
-    }
-    fn op_select(&mut self, condition: SymFeltRef, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_select(&mut self, condition: SymFeltRef, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         let condition_type = condition.get_op_type();
         if condition_type == DPNOpType::ConstantTrue {
             a
@@ -132,111 +115,116 @@ impl DPNContext<SymFeltRef> for QExecContext {
             self.store.insert(value)
         }
     }
-    fn op_const(&mut self, value: u64) -> SymFeltRef {
+    pub fn op_const(&mut self, value: u64) -> SymFeltRef {
         SymFeltRef::new_constant(value)
     }
-    fn op_bool_not(&mut self, a: SymFeltRef) -> SymFeltRef {
+    pub fn op_bool_not(&mut self, a: SymFeltRef) -> SymFeltRef {
         self.op_std_unary_op(DPNOpType::BoolNot, a)
     }
-    fn op_bool_and(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_bool_and(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::BoolAnd, a, b)
     }
-    fn op_bool_or(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_bool_or(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::BoolOr, a, b)
     }
-    fn op_bool_or_many(&mut self, values: &[SymFeltRef]) -> SymFeltRef {
+    pub fn op_bool_or_many(&mut self, values: &[SymFeltRef]) -> SymFeltRef {
         let mut result = values[0];
         for i in 1..values.len() {
             result = self.op_bool_or(result, values[i]);
         }
         result
     }
-    fn op_bool_and_many(&mut self, values: &[SymFeltRef]) -> SymFeltRef {
+    pub fn op_bool_and_many(&mut self, values: &[SymFeltRef]) -> SymFeltRef {
         let mut result = values[0];
         for i in 1..values.len() {
             result = self.op_bool_and(result, values[i]);
         }
         result
     }
-    fn op_add(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_add(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::Add, a, b)
     }
-    fn op_sub(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_sub(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::Sub, a, b)
     }
-    fn op_mul(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_mul(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::Mul, a, b)
     }
-    fn op_div(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_div(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::Div, a, b)
     }
-    fn op_mod(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_mod(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::Mod, a, b)
     }
-    fn op_exp(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_exp(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::Exp, a, b)
     }
-    fn op_eq(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_eq(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::Eq, a, b)
     }
-    fn op_neq(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_neq(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         let eq = self.op_std_binary_op(DPNOpType::Eq, a, b);
         self.op_bool_not(eq)
     }
-    fn op_lt(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_lt(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::Lt, a, b)
     }
-    fn op_lte(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
-        self.op_std_binary_op(DPNOpType::Lte, a, b)
+    pub fn op_lte(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        let lt = self.op_std_binary_op(DPNOpType::Lt, a, b);
+        let eq = self.op_std_binary_op(DPNOpType::Eq, a, b);
+        self.op_bool_or(lt, eq)
     }
-    fn op_gt(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
-        self.op_std_binary_op(DPNOpType::Gt, a, b)
+    pub fn op_gt(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        let lt = self.op_std_binary_op(DPNOpType::Lt, b, a);
+        self.op_bool_not(lt)
     }
-    fn op_gte(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
-        self.op_std_binary_op(DPNOpType::Gte, a, b)
+    pub fn op_gte(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        let lt = self.op_std_binary_op(DPNOpType::Lt, b, a);
+        let eq = self.op_std_binary_op(DPNOpType::Eq, a, b);
+        self.op_bool_or(lt, eq)
     }
 
     // start u32 ops
-    fn op_u32_xor(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_u32_xor(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op_u32(DPNOpType::U32Xor, a, b)
     }
-    fn op_u32_or(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_u32_or(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op_u32(DPNOpType::U32Or, a, b)
     }
-    fn op_u32_and(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_u32_and(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op_u32(DPNOpType::U32And, a, b)
     }
-    fn op_u32_shl(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_u32_shl(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op_u32(DPNOpType::U32ShiftLeft, a, b)
     }
-    fn op_u32_shr(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    pub fn op_u32_shr(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op_u32(DPNOpType::U32ShiftRight, a, b)
     }
 
     // end u32 ops
-    fn op_true(&mut self) -> SymFeltRef {
+    pub fn op_true(&mut self) -> SymFeltRef {
         self.op_valueless(DPNOpType::ConstantTrue)
     }
 
-    fn op_false(&mut self) -> SymFeltRef {
+    pub fn op_false(&mut self) -> SymFeltRef {
         self.op_valueless(DPNOpType::ConstantFalse)
     }
 
-    fn add_input(&mut self) -> SymFeltRef {
+    pub fn add_input(&mut self) -> SymFeltRef {
         let input = SymFeltRef::new_input(self.input_count);
         self.input_count += 1;
         input
     }
-    fn add_inputs(&mut self, count: u64) -> Vec<SymFeltRef> {
+    pub fn add_inputs(&mut self, count: u64) -> Vec<SymFeltRef> {
         (0..count).map(|_| self.add_input()).collect()
     }
-    fn assert_eq(&mut self, left: SymFeltRef, right: SymFeltRef, message: &'static str) {
+    pub fn assert_eq(&mut self, left: SymFeltRef, right: SymFeltRef, message: &'static str) {
         self.assertions.push(SymRefAssertion { left, right, message });
     }
-    fn assert_true(&mut self, left: SymFeltRef, message: &'static str) {
+    pub fn assert_true(&mut self, left: SymFeltRef, message: &'static str) {
         self.assert_eq(left, SymFeltRef::new_valueless(DPNOpType::ConstantTrue), message);
     }
-    fn cset(&mut self, old_value: SymFeltRef, new_value: SymFeltRef) -> SymFeltRef {
+    pub fn cset(&mut self, old_value: SymFeltRef, new_value: SymFeltRef) -> SymFeltRef {
         if self.condition_stack.is_empty() {
             new_value
         }else{
@@ -251,42 +239,39 @@ impl DPNContext<SymFeltRef> for QExecContext {
             }
         }
     }
-    fn start_if_block(&mut self, condition: SymFeltRef) {
+    pub fn start_if_block(&mut self, condition: SymFeltRef) {
         self.condition_stack.push(IfConditionStack {
             conditions: vec![condition],
             current_condition: condition,
         });
         self.current_condition = self.resolve_current_condition();
     }
-    fn start_else_if_block(&mut self, condition: SymFeltRef) {
-        if self.condition_stack.is_empty() {
+    pub fn start_else_if_block(&mut self, condition: SymFeltRef) {
+        if !self.condition_stack.is_empty() {
             panic!("Cannot add else if block without starting an if block first");
         }
         let last_conditions = self.condition_stack.last().unwrap().conditions.clone();
-        let one_of_prev_true = self.op_bool_or_many(&last_conditions);
-        let all_prev_not_true = self.op_bool_not(one_of_prev_true);
+        let all_prev_true = self.op_bool_and_many(&last_conditions);
+        let all_prev_not_true = self.op_bool_not(all_prev_true);
         let new_condition = self.op_bool_and(all_prev_not_true, condition);
         self.condition_stack.last_mut().unwrap().conditions.push(condition);
         self.condition_stack.last_mut().unwrap().current_condition = new_condition;
         self.current_condition = self.resolve_current_condition();
     }
-    fn start_else_block(&mut self) {
-        if self.condition_stack.is_empty() {
-            panic!("Cannot add else block without starting an if block first");
+    pub fn start_else_block(&mut self) {
+        if !self.condition_stack.is_empty() {
+            panic!("Cannot add else if block without starting an if block first");
         }
         let last_conditions = self.condition_stack.last().unwrap().conditions.clone();
-        let one_of_prev_true = self.op_bool_or_many(&last_conditions);
-        let all_prev_not_true = self.op_bool_not(one_of_prev_true);
+        let all_prev_true = self.op_bool_and_many(&last_conditions);
+        let all_prev_not_true = self.op_bool_not(all_prev_true);
         self.condition_stack.last_mut().unwrap().current_condition = all_prev_not_true;
         self.current_condition = self.resolve_current_condition();
     }
-    fn end_if_block(&mut self) {
-        if self.condition_stack.is_empty() {
-            panic!("Cannot end if block without starting an if block first");
-        }
+    pub fn end_if_block(&mut self) {
         self.condition_stack.pop();
     }
-    fn resolve_current_condition(&mut self) -> SymFeltRef {
+    pub fn resolve_current_condition(&mut self) -> SymFeltRef {
         if self.condition_stack.is_empty() {
             self.op_true()
         }else{
@@ -294,54 +279,8 @@ impl DPNContext<SymFeltRef> for QExecContext {
             self.op_bool_and_many(&conditions)
         }
     }
-    fn pop_condition(&mut self) {
+    pub fn pop_condition(&mut self) {
         self.condition_stack.pop();
-    }
-    
-    fn hash(&mut self, values: &[SymFeltRef]) -> [SymFeltRef; 4] {
-        let op = SymFeltRefValue {
-            op_type: DPNOpType::HashNoPad,
-            const_param: 0,
-            inputs: values.to_vec(),
-        };
-        let parent = self.store.insert(op);
-        self.op_target_at_array::<4>(parent)
-    }
-    
-    fn split_bits(&mut self, value: SymFeltRef, num_bits: u64) -> Vec<SymFeltRef> {
-        let op = SymFeltRefValue {
-            op_type: DPNOpType::SplitBits,
-            const_param: num_bits,
-            inputs: vec![value, SymFeltRef::new_constant(num_bits)],
-        };
-        let parent = self.store.insert(op);
-        self.op_target_at_vec(parent, num_bits)
-    }
-    fn sum_bits(&mut self, bits: &[SymFeltRef]) -> SymFeltRef {
-        let op = SymFeltRefValue {
-            op_type: DPNOpType::SumBits,
-            const_param: 0,
-            inputs: bits.to_vec(),
-        };
-        self.store.insert(op)
-    }
-
-    fn get_user_id(&mut self) -> SymFeltRef {
-        SymFeltRef::new_valueless(DPNOpType::GetUserId)
-    }
-    fn get_contract_id(&mut self) -> SymFeltRef {
-        SymFeltRef::new_valueless(DPNOpType::GetContractId)
-    }
-    fn get_checkpoint_id(&mut self) -> SymFeltRef {
-        SymFeltRef::new_valueless(DPNOpType::GetCheckpointId)
-    }
-    fn get_last_nonce(&mut self) -> SymFeltRef {
-        SymFeltRef::new_valueless(DPNOpType::GetNonce)
-    }
-    
-    fn get_user_public_key_hash(&mut self) -> [SymFeltRef; 4] {
-        self.op_target_at_array(SymFeltRef::new_valueless(DPNOpType::GetUserPublicKeyHash))
-        
     }
     
 }

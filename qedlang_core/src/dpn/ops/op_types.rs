@@ -3,7 +3,7 @@ use core::panic;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::{Field, Field64, PrimeField64}};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-
+use std::ops::Neg;
 const INDEX_BITS: u64 = 32;
 const INDEX_MASK: u64 = (1u64 << INDEX_BITS) - 1u64;
 
@@ -28,9 +28,9 @@ pub enum DPNOpType {
     Sub = 5,
     Mul = 6,
     Div = 7,
-    Not = 8,
-    And = 9,
-    Or = 10,
+    BoolNot = 8,
+    BoolAnd = 9,
+    BoolOr = 10,
     Xor = 11,
     Nor = 12,
     Eq = 13,
@@ -83,9 +83,8 @@ pub enum DPNOpType {
     GetStateQueryResult = 51,
     GetStateQueryResultSingle = 52,
 
-    BoolAnd = 60,
-    BoolOr = 61,
-    BoolNot = 62,
+    UnaryInverse = 64,
+    UnaryNegative = 65,
 }
 
 impl From<u16> for DPNOpType {
@@ -99,9 +98,9 @@ impl From<u16> for DPNOpType {
             5 => DPNOpType::Sub,
             6 => DPNOpType::Mul,
             7 => DPNOpType::Div,
-            8 => DPNOpType::Not,
-            9 => DPNOpType::And,
-            10 => DPNOpType::Or,
+            8 => DPNOpType::BoolNot,
+            9 => DPNOpType::BoolAnd,
+            10 => DPNOpType::BoolOr,
             11 => DPNOpType::Xor,
             12 => DPNOpType::Nor,
             13 => DPNOpType::Eq,
@@ -143,9 +142,8 @@ impl From<u16> for DPNOpType {
             50 => DPNOpType::GetUserPublicKeyHash,
             51 => DPNOpType::GetStateQueryResult,
             52 => DPNOpType::GetStateQueryResultSingle,
-            60 => DPNOpType::BoolAnd,
-            61 => DPNOpType::BoolOr,
-            62 => DPNOpType::BoolNot,
+            64 => DPNOpType::UnaryInverse,
+            65 => DPNOpType::UnaryNegative,
             _ => panic!("Unknown DPNOpType: {}", value),
         }
     }
@@ -163,8 +161,6 @@ impl DPNOpType {
             DPNOpType::Sub => (GoldilocksField::from_canonical_u64(a) - GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
             DPNOpType::Mul =>  (GoldilocksField::from_canonical_u64(a) * GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
             DPNOpType::Div =>  (GoldilocksField::from_canonical_u64(a) / GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
-            DPNOpType::And => GoldilocksField::from_noncanonical_u64(a&b).0,
-            DPNOpType::Or => GoldilocksField::from_noncanonical_u64(a|b).0,
             DPNOpType::Xor => GoldilocksField::from_noncanonical_u64(a^b).0,
             DPNOpType::Eq => if a == b {1} else {0},
             DPNOpType::Lte => if a <= b {1} else {0},
@@ -186,8 +182,9 @@ impl DPNOpType {
     pub fn eval_unary_constant(&self, a: u64) -> u64 {
         assert!(a < GoldilocksField::ORDER, "value {} is not a valid Felt", a);
         match self {
-            DPNOpType::Not => GoldilocksField::from_noncanonical_u64(!a).0,
             DPNOpType::BoolNot => if a == 0 {1} else {0},
+            DPNOpType::UnaryInverse => GoldilocksField::from_noncanonical_u64(a).inverse().to_canonical_u64(),
+            DPNOpType::UnaryNegative => GoldilocksField::from_noncanonical_u64(a).neg().to_canonical_u64(),
             _ => panic!("DPNOpType::eval_unary_constant not implemented for {:?}", self),
         }
     }
@@ -201,9 +198,9 @@ impl DPNOpType {
             DPNOpType::Sub => DPNBuiltInDataType::Target,
             DPNOpType::Mul => DPNBuiltInDataType::Target,
             DPNOpType::Div => DPNBuiltInDataType::Target,
-            DPNOpType::Not => DPNBuiltInDataType::Bool,
-            DPNOpType::And => DPNBuiltInDataType::Target,
-            DPNOpType::Or => DPNBuiltInDataType::Target,
+            DPNOpType::BoolNot => DPNBuiltInDataType::Bool,
+            DPNOpType::BoolAnd => DPNBuiltInDataType::Bool,
+            DPNOpType::BoolOr => DPNBuiltInDataType::Bool,
             DPNOpType::Xor => DPNBuiltInDataType::Target,
             DPNOpType::Nor => DPNBuiltInDataType::Target,
             DPNOpType::Eq => DPNBuiltInDataType::Bool,
@@ -245,9 +242,8 @@ impl DPNOpType {
             DPNOpType::GetUserPublicKeyHash => DPNBuiltInDataType::HashOut,
             DPNOpType::GetStateQueryResult => DPNBuiltInDataType::HashOut,
             DPNOpType::GetStateQueryResultSingle => DPNBuiltInDataType::Target,
-            DPNOpType::BoolAnd => DPNBuiltInDataType::Bool,
-            DPNOpType::BoolOr => DPNBuiltInDataType::Bool,
-            DPNOpType::BoolNot => DPNBuiltInDataType::Bool,
+            DPNOpType::UnaryInverse => DPNBuiltInDataType::Target,
+            DPNOpType::UnaryNegative => DPNBuiltInDataType::Target,
         }
     }
     pub fn is_inputless(&self) -> bool{
@@ -289,9 +285,9 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::Sub => "Sub",
             DPNOpType::Mul => "Mul",
             DPNOpType::Div => "Div",
-            DPNOpType::Not => "Not",
-            DPNOpType::And => "And",
-            DPNOpType::Or => "Or",
+            DPNOpType::BoolNot => "BoolNot",
+            DPNOpType::BoolAnd => "BoolAnd",
+            DPNOpType::BoolOr => "BoolOr",
             DPNOpType::Xor => "Xor",
             DPNOpType::Nor => "Nor",
             DPNOpType::Eq => "Eq",
@@ -333,9 +329,8 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::GetUserPublicKeyHash => "GetUserPublicKeyHash",
             DPNOpType::GetStateQueryResult => "GetStateQueryResult",
             DPNOpType::GetStateQueryResultSingle => "GetStateQueryResultSingle",
-            DPNOpType::BoolAnd => "BoolAnd",
-            DPNOpType::BoolOr => "BoolOr",
-            DPNOpType::BoolNot => "BoolNot",
+            DPNOpType::UnaryInverse => "UnaryInverse",
+            DPNOpType::UnaryNegative => "UnaryNegative",
         };
         write!(f, "DPNOpType::{}", r)
     }

@@ -1,4 +1,4 @@
-use super::sym_felt::{SymFeltRef, SymFeltRefValue};
+use super::sym_felt::{SymFeltDef, SymFeltRef, SymFeltRefValue};
 #[derive(Debug, Clone)]
 pub struct SymFeltStore {
     pub store: hashbrown::HashMap<SymFeltRef, SymFeltRefValue>,
@@ -28,5 +28,17 @@ impl SymFeltStore {
 
     pub fn contains(&self, key: SymFeltRef) -> bool {
         self.store.contains_key(&key)
+    }
+    pub fn get_def(&self, key: SymFeltRef) -> SymFeltDef {
+        if key.needs_store() {
+            let base = self.get(key);
+            SymFeltDef {
+                op_type: base.op_type,
+                const_param: base.const_param,
+                inputs: base.inputs.iter().map(|x| self.get_def(*x)).collect(),
+            }
+        } else {
+            key.get_inline_def()
+        }
     }
 }

@@ -1,6 +1,9 @@
 use std::{ops::{ Add, AddAssign, Mul, MulAssign, Sub, SubAssign}, vec};
 mod ex1;
 mod ex2;
+pub mod ex3;
+pub mod ex5;
+use ex3::ex3_generic::{test_it_3, test_it_3v2};
 use qedlang_core::dpn::ops::exec_context::QExecContext;
 use qedlang_macros::show_streams;
 use serde::{Deserialize, Serialize};
@@ -195,6 +198,8 @@ fn test_function(x: FeltOp, y: FeltOp) -> FeltOp {
 
 fn main() {
     let mut ctx = QExecContext::new();
-    ex2::ExampleContract2::new().inc_counter_small(&mut ctx, 1, 2);
+    ex3::test_contract();
+    test_it_3();
+    test_it_3v2();
 
 }

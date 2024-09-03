@@ -2,7 +2,8 @@
 members = [
   "qedlang_core",
   "qedlang_ex",
-  "qedlang_macros"
+  "qedlang_macros",
+  "qedlang_macro2"
 ]
 resolver = "2"
 

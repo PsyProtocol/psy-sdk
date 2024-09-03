@@ -4,8 +4,9 @@ use std::collections::HashSet as Set;
 use syn::fold::{self, Fold};
 use syn::parse::{Parse, ParseStream, Result};
 use syn::punctuated::Punctuated;
-use syn::{parse_macro_input, parse_quote, BinOp, DeriveInput, Expr, Ident, ItemFn, Local, Pat, Stmt, Token};
-
+use syn::{parse_macro_input, parse_quote, BinOp, DeriveInput, Expr, Ident, ItemFn, ItemImpl, Local, Pat, Stmt, Token};
+mod gm1;
+use gm1::{RewriterVisitor};
 /// Parses a list of variable names separated by commas.
 ///
 ///     a, b, c
@@ -237,6 +238,20 @@ pub fn trace_var(args: TokenStream, input: TokenStream) -> TokenStream {
     TokenStream::from(quote!(#output))
 }
 
+
+#[proc_macro_attribute]
+pub fn qcontract(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as ItemImpl);
+
+    // Parse the list of variables the user wanted to print.
+    let mut vs = RewriterVisitor{};
+
+    // Use a syntax tree traversal to transform the function body.
+    let output = vs.fold_item_impl(input);
+
+    // Hand the resulting function body back to the compiler.
+    TokenStream::from(quote!(#output))
+}
 
 #[proc_macro_attribute]
 pub fn show_streams(attr: TokenStream, item: TokenStream) -> TokenStream {

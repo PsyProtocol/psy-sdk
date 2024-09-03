@@ -1,0 +1,310 @@
+use core::panic;
+
+use plonky2::{
+    field::{
+        goldilocks_field::GoldilocksField,
+        types::{Field, PrimeField64},
+    },
+    hash::poseidon::PoseidonHash,
+    plonk::config::{GenericHashOut, Hasher},
+};
+use std::ops::Neg;
+use crate::dpn::ops::{op_types::DPNOpType, sym_felt::SymFeltRef, sym_felt_store::SymFeltStore};
+
+use super::traits::{ContextEval, ContextInput, EvalCache};
+fn split_bits(x: u64, num_bits: u64) -> Vec<u64> {
+    let mut result = vec![0u64; num_bits as usize];
+    for i in 0..num_bits {
+        result[i as usize] = (x >> i) & 1;
+    }
+    result
+}
+fn sum_bits(bits: &[u64]) -> u64 {
+    assert!(bits.len() <= 64, "cannot sum more than 64 bits");
+    let result = bits.iter().fold(0, |acc, x| acc + x);
+    GoldilocksField::from_noncanonical_u64(result).to_canonical_u64()
+}
+trait EvalHelpers: ContextEval {
+    fn resolve_binary_felt_args<I: ContextInput, C: EvalCache>(
+        &self,
+        parent: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> (u64, u64);
+    fn resolve_unary_felt_arg<I: ContextInput, C: EvalCache>(
+        &self,
+        parent: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> u64;
+    fn resolve_array_args<I: ContextInput, C: EvalCache>(
+        &self,
+        parent: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> Vec<u64>;
+    fn resolve_binary_felt_args_gl<I: ContextInput, C: EvalCache>(
+        &self,
+        parent: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> (GoldilocksField, GoldilocksField) {
+        let (a, b) = self.resolve_binary_felt_args(parent, input, cache);
+        (
+            GoldilocksField::from_noncanonical_u64(a),
+            GoldilocksField::from_noncanonical_u64(b),
+        )
+    }
+    fn resolve_unary_felt_arg_gl<I: ContextInput, C: EvalCache>(
+        &self,
+        parent: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> GoldilocksField {
+        let resolved = self.resolve_unary_felt_arg(parent, input, cache);
+        GoldilocksField::from_noncanonical_u64(resolved)
+    }
+    fn resolve_array_args_gl<I: ContextInput, C: EvalCache>(
+        &self,
+        parent: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> Vec<GoldilocksField> {
+        let resolved = self.resolve_array_args(parent, input, cache);
+        resolved
+            .iter()
+            .map(|x| GoldilocksField::from_noncanonical_u64(*x))
+            .collect()
+    }
+}
+impl EvalHelpers for SymFeltStore {
+    fn resolve_binary_felt_args<I: ContextInput, C: EvalCache>(
+        &self,
+        parent: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> (u64, u64) {
+        let resolved = &self.get(parent).inputs;
+        assert_eq!(resolved.len(), 2);
+        let left = self.resolve_felt_ref_cached(resolved[0], input, cache);
+        let right = self.resolve_felt_ref_cached(resolved[1], input, cache);
+        (left, right)
+    }
+    fn resolve_unary_felt_arg<I: ContextInput, C: EvalCache>(
+        &self,
+        parent: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> u64 {
+        let resolved = &self.get(parent).inputs;
+        assert_eq!(resolved.len(), 1);
+        self.resolve_felt_ref_cached(resolved[0], input, cache)
+    }
+
+    fn resolve_array_args<I: ContextInput, C: EvalCache>(
+        &self,
+        parent: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> Vec<u64> {
+        let resolved = &self.get(parent).inputs;
+        resolved
+            .iter()
+            .map(|felt_ref| self.resolve_felt_ref_cached(*felt_ref, input, cache))
+            .collect()
+    }
+}
+impl ContextEval for SymFeltStore {
+    fn resolve_felt_ref_cached<I: ContextInput, C: EvalCache>(
+        &self,
+        felt_ref: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> u64 {
+        if felt_ref.is_constant_type() {
+            felt_ref.get_constant_value()
+        } else if cache.contains(felt_ref) {
+            cache.get(felt_ref)
+        } else {
+            let op_type = felt_ref.get_op_type();
+            let result = match op_type {
+                DPNOpType::InputTarget => input.get_input(felt_ref.get_input_index()),
+                DPNOpType::Constant => felt_ref.get_constant_value(),
+                DPNOpType::ConstantTrue => 1,
+                DPNOpType::ConstantFalse => 0,
+                DPNOpType::Add => {
+                    let (a, b) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
+                    (a + b).to_canonical_u64()
+                }
+                DPNOpType::Sub => {
+                    let (a, b) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
+                    (a - b).to_canonical_u64()
+                }
+                DPNOpType::Mul => {
+                    let (a, b) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
+                    (a * b).to_canonical_u64()
+                }
+                DPNOpType::Div => {
+                    let (a, b) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
+                    (a / b).to_canonical_u64()
+                }
+                DPNOpType::BoolNot => {
+                    (self.resolve_unary_felt_arg(felt_ref, input, cache) == 0) as u64
+                }
+                DPNOpType::BoolAnd => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    ((a != 0) && (b != 0)) as u64
+                }
+                DPNOpType::BoolOr => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    ((a != 0) || (b != 0)) as u64
+                }
+                DPNOpType::Xor => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a ^ b) & 0xFFFFFFFFu64
+                }
+                DPNOpType::Nor => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (!(a | b)) & 0xFFFFFFFFu64
+                }
+                DPNOpType::Eq => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a == b) as u64
+                }
+                DPNOpType::Lte => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a <= b) as u64
+                }
+                DPNOpType::Gte => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a >= b) as u64
+                }
+                DPNOpType::Gt => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a > b) as u64
+                }
+                DPNOpType::Lt => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a < b) as u64
+                }
+                DPNOpType::SplitBits => panic!("you cannot directly evaluate SumBits"),
+                DPNOpType::SumBits => sum_bits(&self.resolve_array_args(felt_ref, input, cache)),
+                DPNOpType::TargetAt => {
+                    let base = &self.get(felt_ref).inputs;
+                    let index = self.resolve_felt_ref_cached(base[1], input, cache);
+                    let array = self.resolve_array_ref_cached(base[0], input, cache);
+                    assert!(index < array.len() as u64, "index out of bounds");
+                    array[index as usize]
+                }
+                DPNOpType::HashNoPad => panic!("you cannot directly evaluate HashNoPad"),
+                DPNOpType::HashPad => panic!("you cannot directly evaluate HashPad"),
+                DPNOpType::Select => {
+                    let args = self.resolve_array_args(felt_ref, input, cache);
+                    if args[0] != 0 {
+                        args[1]
+                    } else {
+                        args[2]
+                    }
+                },
+                DPNOpType::Exp => {
+                    let (base, exponent) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
+                    base.exp_u64(exponent.to_canonical_u64()).to_canonical_u64()
+                },
+                DPNOpType::ExpConstantPower => panic!("ExpConstantPower is not implemented"),
+                DPNOpType::ExpConstantBase => panic!("ExpConstantBase is not implemented"),
+                DPNOpType::Mod => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    a % b
+                },
+                DPNOpType::ModConstantDividend => panic!("ModConstantDividend is not implemented"),
+                DPNOpType::ModConstantDivisor => panic!("ModConstantDivisor is not implemented"),
+                DPNOpType::DivRem4 => {
+                    todo!("DivRem4 is not implemented");
+                },
+                DPNOpType::CastU32 => {
+                    let value = self.resolve_unary_felt_arg(felt_ref, input, cache);
+                    value & 0xFFFFFFFFu64
+                },
+                DPNOpType::U32And => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a & b)& 0xFFFFFFFFu64
+                },
+                DPNOpType::U32AndConstant => todo!("U32AndConstant is not implemented"),
+                DPNOpType::U32Or => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a | b) & 0xFFFFFFFFu64
+                },
+                DPNOpType::U32OrConstant => todo!("U32OrConstant is not implemented"),
+                DPNOpType::U32Xor => {
+
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a ^ b) & 0xFFFFFFFFu64
+                },
+                DPNOpType::U32XorConstant => todo!("U32XorConstant is not implemented"),
+                DPNOpType::U32ShiftLeft => {
+
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a << b) & 0xFFFFFFFFu64
+                },
+                DPNOpType::U32ShiftLeftConstantBitDistance => todo!("U32ShiftLeftConstantBitDistance is not implemented"),
+                DPNOpType::U32ShiftLeftConstantValue =>todo!("U32ShiftLeftConstantValue is not implemented"),
+                DPNOpType::U32ShiftRight =>{
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a >> b) & 0xFFFFFFFFu64
+                },
+                DPNOpType::U32ShiftRightConstantBitDistance => todo!("U32ShiftLeftConstantValue is not implemented"),
+                DPNOpType::U32ShiftRightConstantValue => todo!("U32ShiftLeftConstantValue is not implemented"),
+                DPNOpType::CalculateMerkleRoot => todo!("CalculateMerkleRoot is not implemented"),
+                DPNOpType::GetUserId => input.get_user_id(),
+                DPNOpType::GetContractId => input.get_contract_id(),
+                DPNOpType::GetCheckpointId => input.get_checkpoint_id(),
+                DPNOpType::GetNonce => input.get_user_nonce(),
+                DPNOpType::GetUserPublicKeyHash => todo!(),
+                DPNOpType::GetStateQueryResult => todo!(),
+                DPNOpType::GetStateQueryResultSingle => todo!(),
+                DPNOpType::UnaryInverse => {
+                    self.resolve_unary_felt_arg_gl(felt_ref, input, cache).inverse().to_canonical_u64()
+                },
+                DPNOpType::UnaryNegative => {
+                    self.resolve_unary_felt_arg_gl(felt_ref, input, cache).neg().to_canonical_u64()
+
+                },
+            };
+            result
+        }
+    }
+
+    fn resolve_array_ref_cached<I: ContextInput, C: EvalCache>(
+        &self,
+        felt_ref: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> Box<Vec<u64>> {
+        if cache.contains_arr(felt_ref) {
+            cache.get_arr_ref(felt_ref)
+        } else {
+            let result = match felt_ref.get_op_type() {
+                DPNOpType::SplitBits => {
+                    let (x, num_bits) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    let bits = split_bits(x, num_bits);
+                    bits
+                }
+                DPNOpType::HashNoPad => {
+                    let data = self.resolve_array_args_gl(felt_ref, input, cache);
+                    let result = PoseidonHash::hash_no_pad(&data).to_vec();
+                    result.iter().map(|x| x.to_canonical_u64()).collect()
+                },
+                DPNOpType::HashPad => {
+                    let data = self.resolve_array_args_gl(felt_ref, input, cache);
+                    let result = PoseidonHash::hash_pad(&data).to_vec();
+                    result.iter().map(|x| x.to_canonical_u64()).collect()
+                },
+                DPNOpType::GetUserPublicKeyHash => input.get_user_public_key_hash().to_vec(),
+                _ => panic!("you cannot directly evaluate an array ref"),
+            };
+
+            cache.insert_arr(felt_ref, result);
+            cache.get_arr_ref(felt_ref)
+        }
+    }
+}
