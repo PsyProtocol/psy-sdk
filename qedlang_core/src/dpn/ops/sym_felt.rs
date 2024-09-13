@@ -8,7 +8,7 @@ use plonky2::field::types::{Field, PrimeField64};
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field64};
 use serde::{Deserialize, Serialize};
 use twox_hash::xxh3::HasherExt;
-use super::context_trait::ContextFelt;
+use super::context_trait::{ContextFelt, DPNContext, FeltSized};
 use super::op_types::DPNOpType;
 
 pub const SYM_FELT_REF_STORE_TYPE_MASK: u128 = 0xffff0000000000000000000000000000u128;
@@ -19,13 +19,12 @@ pub const CONSTANT_FALSE_OP: u128 = (DPNOpType::ConstantFalse as u128)<<112;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
 pub struct SymFeltRef(pub u128);
-
 impl SymFeltRef {
     pub fn new_input(index: u64) -> SymFeltRef {
         SymFeltRef((DPNOpType::InputTarget as u128)<<112 | index as u128)
     }
-    pub fn new_constant(value: u64) -> SymFeltRef {
-        assert!(value < GoldilocksField::ORDER, "Constant value {} is too large", value);
+    pub const fn new_constant(value: u64) -> SymFeltRef {
+        //assert!(value < GoldilocksField::ORDER, "Constant value {} is too large", value);
         SymFeltRef((DPNOpType::Constant as u128)<<112 | (value%GoldilocksField::ORDER) as u128)
     }
     pub fn cns<T: Into<SymFeltRef>>(val: T) -> SymFeltRef {
@@ -566,4 +565,63 @@ pub struct SymRefAssertion {
     pub left: SymFeltRef,
     pub right: SymFeltRef,
     pub message: &'static str,
+}
+
+
+
+
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SetSymFeltRef {
+    pub before_external_function_call: u16,
+    pub index: SymFeltRef,
+    pub value: SymFeltRef,
+}
+
+impl SymFeltRef {
+    pub fn set_state<CTXT: DPNContext<SymFeltRef>>(&self, context: &mut CTXT, value: SymFeltRef) -> SymFeltRef {
+        context.cset_state(*self, value)
+    }
+}
+impl SetSymFeltRef {
+    pub fn new(before_external_function_call: u16, index: SymFeltRef, value: SymFeltRef) -> SetSymFeltRef {
+        SetSymFeltRef {
+            before_external_function_call,
+            index: index,
+            value: value,
+        }
+    }
+}
+
+
+impl FeltSized for SymFeltRef{
+    fn size() -> u64 {
+        1
+    }
+}
+
+
+pub trait QStateInitializable: FeltSized {
+    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(context: &mut CTXT, state_pointer: SymFeltRef, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef) -> Self;
+}
+
+
+impl QStateInitializable for SymFeltRef {
+    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(context: &mut CTXT, state_pointer: SymFeltRef, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef) -> Self {
+        context.op_get_state_felt(contract_state_tree_height, contract_id, user_id, state_pointer)
+    }
+}
+
+impl<T: QStateInitializable, const N: usize> QStateInitializable for [T; N] {
+    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(context: &mut CTXT, state_pointer: SymFeltRef, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef) -> Self {
+        core::array::from_fn(|i|{
+            let offset = if i == 0 {
+                state_pointer
+            }else{
+                let constant_i = SymFeltRef::new_constant((i as u64)*T::size());
+                context.op_add(state_pointer, constant_i)
+            };
+            T::create_stateful_at(context, offset, contract_state_tree_height, contract_id, user_id)
+        })
+    }
 }

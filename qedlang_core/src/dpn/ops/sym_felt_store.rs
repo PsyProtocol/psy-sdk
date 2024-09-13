@@ -29,6 +29,16 @@ impl SymFeltStore {
     pub fn contains(&self, key: SymFeltRef) -> bool {
         self.store.contains_key(&key)
     }
+    pub fn get_direct_children(&self, key: SymFeltRef) -> Vec<SymFeltRef> {
+        let mut result = vec![];
+        if key.needs_store() {
+            let base = self.get(key);
+            for input in base.inputs.iter() {
+                result.push(*input);
+            }
+        }
+        result
+    }
     pub fn get_def(&self, key: SymFeltRef) -> SymFeltDef {
         if key.needs_store() {
             let base = self.get(key);

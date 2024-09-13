@@ -1,6 +1,6 @@
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, Field64, PrimeField64}}, hash::poseidon::PoseidonHash, plonk::config::{GenericHashOut, Hasher}};
 
-use crate::dpn::ops::{context_trait::{ContextFelt, DPNContext}, op_types::DPNOpType, sym_felt::SymFeltRef};
+use crate::dpn::ops::{context_trait::{ContextFelt, DPNContext, ToFelts}, op_types::DPNOpType, sym_felt::SymFeltRef};
 
 
 
@@ -173,10 +173,6 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         assert!(left.get_u64() != 0, "{}", message);
     }
 
-    fn cset(&mut self, _old_value: F, new_value: F) -> F {
-        new_value
-    }
-
     fn start_if_block(&mut self, _condition: F) {
         // no-op
     }
@@ -237,6 +233,31 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     }
     
     fn get_user_public_key_hash(&mut self) -> [F; 4] {
+        todo!()
+    }
+    
+    fn cset<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V {
+        new_value
+    }
+
+    fn cset_str<V: ToFelts<F>>(&mut self, left: &'static str,  old_value: V, new_value: V) -> V {
+        println!("cset_str: {}", left);
+        self.cset(old_value, new_value)
+    }
+    
+    fn op_get_state_felt(&mut self, contract_state_tree_height: u16, contract_id: F, user_id: F, index: F) -> F {
+        todo!()
+    }
+    
+    fn op_set_state_felt(&mut self, index: F, value: F) -> F {
+        todo!()
+    }
+    
+    fn op_set_state_obj<T: ToFelts<F>>(&mut self, index: F, value: T) -> T {
+        todo!()
+    }
+    
+    fn cset_state<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V {
         todo!()
     }
 }

@@ -1,43 +1,52 @@
 use std::marker::PhantomData;
 
+use qedlang_macros::{qcontract, FeltSized, QStateInitializable};
+use qedlang_core::dpn::ops::sym_felt::QStateInitializable;
+use qedlang_core::dpn::ops::utils::SparseArray;
 use qedlang_core::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef};
-use qedlang_macros::qcontract;
 
 type Felt = SymFeltRef;
+use qedlang_core::dpn::ops::context_trait::FeltSized;
+//use qedlang_macros::FeltSized;
 
-pub struct SimpleContractStateless<C: DPNContext<Felt>> {
+#[derive(FeltSized, QStateInitializable)]
+pub struct SimpleContractState {
+    pub x: Felt,
+    pub y: Felt,
+    pub z: SparseArray<Felt, 12>,
+}
+pub struct SimpleContractStateful<C: DPNContext<Felt>> {
+    state: SimpleContractState,
     _phantom: PhantomData<C>,
 }
-impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
-    pub fn new() -> Self {
+impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
+    pub fn new_with_ctx(context: &mut C) -> Self {
+        let contract_state_tree_height = SimpleContractState::size().next_power_of_two().trailing_zeros() as u16;
+
+        let user_id = context.get_user_id();
+        let contract_id = context.get_contract_id();
         Self {
             _phantom: PhantomData,
+            state: SimpleContractState::create_stateful_at(
+                context,
+                SymFeltRef::new_constant(0),
+                contract_state_tree_height,
+                contract_id,
+                user_id,
+            ),
         }
     }
 }
 
 #[qcontract]
-impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
-    pub fn simple_math(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
-        let k = (a + 2) * 4 * b - 3 * (a + b);
-        let z = k + a;
-
-        ctx.assert_true(z > 3, "z must be gt than 3");
-        z
-    }
-    pub fn if_test_2(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
-        let mut c = a * b;
-        let mut k = 123;
-        if a < b {
-            c = a + b;
-        } else if a == b {
-            c = a;
-        } else if a == 1337 {
-            c = b;
-        } else {
-            k = 456;
+impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
+    pub fn simple_set(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
+        if self.state.x > a {
+            self.state.x.set_state(ctx, a*b);
+        }else{
+            self.state.y.set_state(ctx, a*b);
         }
-        c + k
+        self.state.x
     }
 }
 

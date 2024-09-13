@@ -16,7 +16,7 @@ plonky2 = { workspace = true }
 
 qedlang_core = { path = "../qedlang_core" }
 syn = { version = "2.0", features = ["derive", "parsing", "printing", "full", "fold"] }
-
+syn-helpers = "0.5.0"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quote = "1.0"
 

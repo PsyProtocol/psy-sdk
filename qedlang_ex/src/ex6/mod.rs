@@ -1,14 +1,69 @@
 use std::marker::PhantomData;
 
+use qedlang_core::dpn::ops::sym_felt::QStateInitializable;
+use qedlang_core::dpn::ops::utils::SparseArray;
 use qedlang_core::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef};
-use qedlang_macros::qcontract;
+use qedlang_macros::{qcontract, FeltSized};
 
 type Felt = SymFeltRef;
+use qedlang_core::dpn::ops::context_trait::FeltSized;
+//use qedlang_macros::FeltSized;
 
-pub struct SimpleContractStateless<C: DPNContext<Felt>> {
+#[derive(FeltSized)]
+pub struct SimpleContractState {
+    pub x: Felt,
+    pub y: Felt,
+    pub z: SparseArray<Felt, 12>,
+}
+impl qedlang_core::dpn::ops::sym_felt::QStateInitializable for SimpleContractState {
+    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(
+        context: &mut CTXT,
+        state_pointer: SymFeltRef,
+        contract_state_tree_height: u16,
+        contract_id: SymFeltRef,
+        user_id: SymFeltRef,
+    ) -> Self {
+        let mut cur_offset = 0u64;
+        let mut nw_pointer = SymFeltRef::new_constant(cur_offset);
+        nw_pointer = context.op_add(state_pointer, SymFeltRef::new_constant(cur_offset));
+        let r#f_t_0 = <Felt as QStateInitializable>::create_stateful_at(
+            context,
+            nw_pointer,
+            contract_state_tree_height,
+            contract_id,
+            user_id,
+        );
+        cur_offset = cur_offset + <Felt as FeltSized>::size();
+        nw_pointer = context.op_add(state_pointer, SymFeltRef::new_constant(cur_offset));
+        let r#f_t_1 = <Felt as QStateInitializable>::create_stateful_at(
+            context,
+            nw_pointer,
+            contract_state_tree_height,
+            contract_id,
+            user_id,
+        );
+        cur_offset = cur_offset + <Felt as FeltSized>::size();
+        nw_pointer = context.op_add(state_pointer, SymFeltRef::new_constant(cur_offset));
+        let r#f_t_2 = <SparseArray<Felt, 12> as QStateInitializable>::create_stateful_at(
+            context,
+            nw_pointer,
+            contract_state_tree_height,
+            contract_id,
+            user_id,
+        );
+        cur_offset = cur_offset + <SparseArray<Felt, 12> as FeltSized>::size();
+        Self {
+            x: r#f_t_0,
+            y: r#f_t_1,
+            z: r#f_t_2,
+        }
+    }
+}
+
+pub struct SimpleContractStateful<C: DPNContext<Felt>> {
     _phantom: PhantomData<C>,
 }
-impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
+impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -17,7 +72,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
 }
 
 #[qcontract]
-impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
+impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     pub fn simple_math(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
         let k = (a + 2) * 4 * b - 3 * (a + b);
         let z = k + a;

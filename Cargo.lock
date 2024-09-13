@@ -212,6 +212,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60b1af1c220855b6ceac025d3f6ecdd2b7c4894bfe9cd9bda4fbb4bc7c0d4cf0"
 
 [[package]]
+name = "either_n"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c91ae510829160d5cfb19eb4ae7b6e01d44b767ca8f727c6cee936e53cc9ae5"
+
+[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -605,6 +611,25 @@ dependencies = [
  "serde",
  "serde_with",
  "syn 2.0.76",
+ "syn-helpers",
+]
+
+[[package]]
+name = "qedlang_macro3"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "hex-literal",
+ "lazy_static",
+ "plonky2",
+ "proc-macro2",
+ "qedlang_core",
+ "quote",
+ "serde",
+ "serde_with",
+ "syn 2.0.76",
+ "syn-helpers",
 ]
 
 [[package]]
@@ -616,6 +641,7 @@ dependencies = [
  "hex-literal",
  "lazy_static",
  "plonky2",
+ "proc-macro2",
  "qedlang_core",
  "quote",
  "serde",
@@ -799,6 +825,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "syn-helpers"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59c391dcee7e7a1efd7dc921922b97b4be54129a195b6baec95bb2a223203d9d"
+dependencies = [
+ "either_n",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.76",
 ]
 
 [[package]]

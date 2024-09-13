@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name    = "qedlang_macros"
+name    = "qedlang_macro3"
 version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,8 +16,7 @@ plonky2 = { workspace = true }
 
 qedlang_core = { path = "../qedlang_core" }
 syn = { version = "2.0", features = ["derive", "parsing", "printing", "full", "fold", "extra-traits"] }
-quote = "1.0"
+syn-helpers = "0.5.0"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
+quote = "1.0"
 
-[lib]
-proc-macro = true

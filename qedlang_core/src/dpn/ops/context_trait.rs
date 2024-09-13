@@ -2,9 +2,14 @@ use std::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign,
     Mul, MulAssign, Neg, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign,
 };
+use std::fmt::Debug;
 
+use crate::dpn::QContext;
+
+use super::sym_felt::SymFeltRef;
 pub trait ContextFelt:
     Copy
+    + Debug
     + Clone
     + PartialEq
     + Ord
@@ -57,8 +62,85 @@ pub trait ContextFelt:
     fn cns_inverse(value: u64) -> Self;
     fn get_u64(&self) -> u64;
 }
+pub trait FeltSized {
+    fn size() -> u64;
+    fn self_size(&self) -> u64 {
+        Self::size()
+    }
+}
 
-pub trait DPNContext<F: ContextFelt> {
+
+impl<T: FeltSized, const N: usize> FeltSized for [T; N] {
+    fn size() -> u64 {
+        T::size() * N as u64
+    }
+}
+
+pub trait ToFelts<F: ContextFelt> {
+    fn to_felts(&self) -> Vec<F>;
+    fn from_felts(felts: &[F]) -> Self;
+}
+pub trait QContextArray<T: ToFelts<SymFeltRef>> {
+    fn q_size(&self) -> u64;
+    fn q_get(&self, context: &mut QContext, index: SymFeltRef) -> T;
+}
+pub trait QContextArraySized<T: ToFelts<SymFeltRef>> {
+    fn q_sized_size(&self) -> u64;
+    fn q_get_direct(&self, index: u64) -> T;
+}
+impl<T: ToFelts<SymFeltRef> + Clone, const N: usize> QContextArraySized<T> for [T; N] {
+    default fn q_sized_size(&self) -> u64 {
+        N as u64
+    }
+
+    default fn q_get_direct(&self, index: u64) -> T {
+        self[index as usize].to_owned()
+    }
+}
+impl<T: ToFelts<SymFeltRef> + Copy, const N: usize> QContextArraySized<T> for [T; N] {
+    fn q_sized_size(&self) -> u64 {
+        N as u64
+    }
+
+    fn q_get_direct(&self, index: u64) -> T {
+        self[index as usize]
+    }
+}
+
+impl<T: ToFelts<SymFeltRef>, A: QContextArraySized<T>> QContextArray<T> for A {
+    fn q_size(&self) -> u64 {
+        self.q_sized_size()
+    }
+
+    fn q_get(&self, context: &mut QContext, index: SymFeltRef) -> T {
+        if index.is_constant_type() {
+            let index = index.get_constant_value();
+            self.q_get_direct(index)
+        } else {
+            let mut result = self.q_get_direct(0);
+            for i in 1..self.q_size() {
+                let value = self.q_get_direct(i);
+                let eq = context.op_eq(index, SymFeltRef::new_constant(i));
+                result = context.cselect(
+                    eq,
+                    value,
+                    result,
+                );
+            }
+            result
+        }
+    }
+} 
+impl<F: ContextFelt> ToFelts<F> for F {
+    fn to_felts(&self) -> Vec<F> {
+        vec![*self]
+    }
+    
+    fn from_felts(felts: &[F]) -> Self {
+        felts[0]
+    }
+}
+pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn op_cast_u32(&mut self, a: F) -> F;
     fn op_select(&mut self, condition: F, a: F, b: F) -> F;
     fn op_const(&mut self, value: u64) -> F;
@@ -96,7 +178,9 @@ pub trait DPNContext<F: ContextFelt> {
     fn add_inputs(&mut self, count: u64) -> Vec<F>;
     fn assert_eq(&mut self, left: F, right: F, message: &'static str);
     fn assert_true(&mut self, left: F, message: &'static str);
-    fn cset(&mut self, old_value: F, new_value: F) -> F;
+    fn cset<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V;
+    fn cset_state<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V;
+    fn cset_str<V: ToFelts<F>>(&mut self, left: &'static str, old_value: V, new_value: V) -> V;
     fn start_if_block(&mut self, condition: F);
     fn start_else_if_block(&mut self, condition: F);
     fn start_else_block(&mut self);
@@ -114,5 +198,19 @@ pub trait DPNContext<F: ContextFelt> {
     fn get_checkpoint_id(&mut self) -> F;
     fn get_last_nonce(&mut self) -> F;
     fn get_user_public_key_hash(&mut self) -> [F; 4];
+
+    // state operations
+    fn op_get_state_felt(&mut self, contract_state_tree_height: u16, contract_id: F, user_id: F, index: F) -> F;
+    fn op_set_state_felt(&mut self, index: F, value: F) -> F;
+    fn op_set_state_obj<T: ToFelts<F>>(&mut self, index: F, value: T) -> T;
+    fn cselect<V: ToFelts<F>>(&mut self, condition: F, if_true: V, if_false: V) -> V {
+        let if_true = if_true.to_felts();
+        let if_false = if_false.to_felts();
+        let mut result = vec![];
+        for i in 0..if_true.len() {
+            result.push(self.op_select(condition, if_true[i], if_false[i]));
+        }
+        ToFelts::from_felts(&result)
+    }
 }
 

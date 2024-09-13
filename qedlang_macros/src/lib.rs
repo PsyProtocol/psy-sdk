@@ -1,12 +1,18 @@
+use felt_sized::derive_felt_sized;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
+use state_init::derive_state_init;
 use std::collections::HashSet as Set;
 use syn::fold::{self, Fold};
 use syn::parse::{Parse, ParseStream, Result};
 use syn::punctuated::Punctuated;
 use syn::{parse_macro_input, parse_quote, BinOp, DeriveInput, Expr, Ident, ItemFn, ItemImpl, Local, Pat, Stmt, Token};
 mod gm1;
+mod heap2;
+mod felt_sized;
+mod state_init;
 use gm1::{RewriterVisitor};
+use qedlang_core::dpn::ops::context_trait::FeltSized;
 /// Parses a list of variable names separated by commas.
 ///
 ///     a, b, c
@@ -264,4 +270,18 @@ pub fn show_streams(attr: TokenStream, item: TokenStream) -> TokenStream {
         x
     }".parse().unwrap()
 
+}
+
+
+
+#[proc_macro_derive(QStateInitializable)]
+pub fn derive_state(input: TokenStream) -> TokenStream {
+    derive_state_init(input.into()).into()
+}
+
+
+
+#[proc_macro_derive(FeltSized)]
+pub fn derive_feltsz(input: TokenStream) -> TokenStream {
+    derive_felt_sized(input.into()).into()
 }

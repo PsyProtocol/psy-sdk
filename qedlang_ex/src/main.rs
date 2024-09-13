@@ -3,8 +3,12 @@ mod ex1;
 mod ex2;
 pub mod ex3;
 pub mod ex5;
+pub mod tok;
+pub mod ex6;
+pub mod ex7;
 use ex3::ex3_generic::{test_it_3, test_it_3v2};
-use qedlang_core::dpn::ops::exec_context::QExecContext;
+use ex6::SimpleContractState;
+use qedlang_core::dpn::ops::{context_trait::FeltSized, exec_context::QExecContext};
 use qedlang_macros::show_streams;
 use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Copy, Serialize, Deserialize)]
@@ -197,6 +201,9 @@ fn test_function(x: FeltOp, y: FeltOp) -> FeltOp {
 }
 
 fn main() {
+
+    let simple_size = SimpleContractState::size();
+    println!("SimpleContractState size: {}", simple_size);
     let mut ctx = QExecContext::new();
     ex3::test_contract();
     test_it_3();
