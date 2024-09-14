@@ -1,131 +1,76 @@
+use proc_macro2::TokenTree;
 use quote::{ToTokens, TokenStreamExt};
 
 use syn::{
-    fold::{self, Fold},
-    parse_quote,
-    punctuated::Punctuated,
-    Attribute, BinOp, Block, Expr, ExprBinary, ExprBlock, ExprIf, ExprMethodCall, ImplItem,
-    ImplItemFn, Item, ItemImpl, Local, Stmt, Token,
+    fold::{self, Fold}, parse_quote, punctuated::Punctuated, token::Token, Attribute, BinOp, Block, Expr, ExprBinary, ExprBlock, ExprIf, ExprIndex, ExprMethodCall, ImplItem, ImplItemFn, Item, ItemImpl, Local, Stmt, Token
 };
 
-fn ctx_bin_op(op: &ExprBinary) -> Expr {
-    let bop = op.op;
-    let left = &op.left;
-    let right = &op.right;
-    match bop {
-        BinOp::Add(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_add(tmp_left, tmp_right)
-        }),
-        BinOp::Sub(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_sub(tmp_left, tmp_right)
-        }),
-        BinOp::Mul(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_mul(tmp_left, tmp_right)
-        }),
-        BinOp::Div(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_div(tmp_left, tmp_right)
-        }),
-        BinOp::Eq(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_eq(tmp_left, tmp_right)
-        }),
-        BinOp::Lt(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_lt(tmp_left, tmp_right)
-        }),
-        BinOp::Le(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_lte(tmp_left, tmp_right)
-        }),
-        BinOp::Ne(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_neq(tmp_left, tmp_right)
-        }),
-        BinOp::Gt(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_gt(tmp_left, tmp_right)
-        }),
-        BinOp::Ge(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_gte(tmp_left, tmp_right)
-        }),
-        BinOp::Rem(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_mod(tmp_left, tmp_right)
-        }),
-        BinOp::And(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_bool_and(tmp_left, tmp_right)
-        }),
-        BinOp::Or(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_bool_or(tmp_left, tmp_right)
-        }),
-        BinOp::BitXor(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_xor_u32(tmp_left, tmp_right)
-        }),
-        BinOp::BitAnd(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_and_u32(tmp_left, tmp_right)
-        }),
-        BinOp::BitOr(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_or_u32(tmp_left, tmp_right)
-        }),
-        BinOp::Shl(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_shl_u32(tmp_left, tmp_right)
-        }),
-        BinOp::Shr(_) => parse_quote!({
-            let tmp_left = (#left);
-            let tmp_right = (#right);
-            ctx.op_shr_u32(tmp_left, tmp_right)
-        }),
-
-        _ => Expr::Binary(op.clone()),
-        /*
-        BinOp::AddAssign(_) => todo!(),
-        BinOp::SubAssign(_) => todo!(),
-        BinOp::MulAssign(_) => todo!(),
-        BinOp::DivAssign(_) => todo!(),
-        BinOp::RemAssign(_) => todo!(),
-        BinOp::BitXorAssign(_) => todo!(),
-        BinOp::BitAndAssign(_) => todo!(),
-        BinOp::BitOrAssign(_) => todo!(),
-        BinOp::ShlAssign(_) => todo!(),
-        BinOp::ShrAssign(_) => todo!(),
-        _ => todo!(),*/
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash)]
+pub enum QRefMode {
+    Normal = 0,
+    ImmutableRef = 1,
+    MutableRef = 2,
+}
+pub struct RewriterVisitor {
+    pub mode_stack: Vec<QRefMode>,
+    pub contract_state_mode_stack: Vec<bool>,
+}
+impl RewriterVisitor {
+    pub fn new() -> Self {
+        Self {
+            mode_stack: vec![QRefMode::Normal],
+            contract_state_mode_stack: vec![false],
+        }
+    }
+    pub fn push_ref_mode(&mut self, mode: QRefMode) {
+        self.mode_stack.push(mode);
+    }
+    pub fn pop_ref_mode(&mut self) -> QRefMode {
+        self.mode_stack.pop().unwrap()
+    }
+    pub fn get_ref_mode(&self) -> QRefMode {
+        *self.mode_stack.last().unwrap()
+    }
+    pub fn push_contract_state_mode(&mut self, mode: bool){
+        self.contract_state_mode_stack.push(mode);
+    }
+    pub fn pop_contract_state_mode(&mut self) -> bool {
+        self.contract_state_mode_stack.pop().unwrap()
+    }
+    pub fn get_contract_state_mode(&self) -> bool {
+        *self.contract_state_mode_stack.last().unwrap()
     }
 }
-pub struct RewriterVisitor {}
 
 fn is_else_if(e: Option<(Token![else], Box<Expr>)>) -> bool {
     if e.is_some() {
         let (_, e) = e.unwrap();
         if let Expr::If(_) = *e {
             return true;
+        }
+    }
+    false
+}
+fn is_self_state_var(e: &Expr) -> bool {
+    println!("is_self_state_var: {:#?}", e.to_token_stream());
+    let tokens = e.to_token_stream();
+    let token_vec = tokens.into_iter().take(4).collect::<Vec<_>>();
+    if token_vec.len() > 3 {
+        if let TokenTree::Ident(x) = &token_vec[0] {
+            println!("x0: {}", x.to_string());
+            if x.to_string() == "self" {
+                if let TokenTree::Punct(x) = &token_vec[1] {
+                    println!("x1: {}", x.to_string());
+                    if x.as_char() == '.' {
+                        if let TokenTree::Ident(x) = &token_vec[2] {
+                            println!("x2: {}", x.to_string());
+                            if x.to_string() == "state" {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     false
@@ -211,6 +156,200 @@ impl RewriterVisitor {
             self.exprify_else_ifs(ifs, else_block)
         }
     }
+
+    fn ctx_bin_op(&mut self, op: Box<ExprBinary>) -> Expr {
+        let bop = op.op;
+        let left = self.fold_expr(*op.left.clone());
+        let right = self.fold_expr(*op.right.clone());
+        match bop {
+            BinOp::Add(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_add(tmp_left, tmp_right)
+            }),
+            BinOp::Sub(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_sub(tmp_left, tmp_right)
+            }),
+            BinOp::Mul(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_mul(tmp_left, tmp_right)
+            }),
+            BinOp::Div(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_div(tmp_left, tmp_right)
+            }),
+            BinOp::Eq(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_eq(tmp_left, tmp_right)
+            }),
+            BinOp::Lt(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_lt(tmp_left, tmp_right)
+            }),
+            BinOp::Le(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_lte(tmp_left, tmp_right)
+            }),
+            BinOp::Ne(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_neq(tmp_left, tmp_right)
+            }),
+            BinOp::Gt(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_gt(tmp_left, tmp_right)
+            }),
+            BinOp::Ge(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_gte(tmp_left, tmp_right)
+            }),
+            BinOp::Rem(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_mod(tmp_left, tmp_right)
+            }),
+            BinOp::And(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_bool_and(tmp_left, tmp_right)
+            }),
+            BinOp::Or(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_bool_or(tmp_left, tmp_right)
+            }),
+            BinOp::BitXor(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_xor_u32(tmp_left, tmp_right)
+            }),
+            BinOp::BitAnd(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_and_u32(tmp_left, tmp_right)
+            }),
+            BinOp::BitOr(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_or_u32(tmp_left, tmp_right)
+            }),
+            BinOp::Shl(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_shl_u32(tmp_left, tmp_right)
+            }),
+            BinOp::Shr(_) => parse_quote!({
+                let tmp_left = (#left);
+                let tmp_right = (#right);
+                ctx.op_shr_u32(tmp_left, tmp_right)
+            }),
+    
+            _ => Expr::Binary(*op.clone()),
+            /*
+            BinOp::AddAssign(_) => todo!(),
+            BinOp::SubAssign(_) => todo!(),
+            BinOp::MulAssign(_) => todo!(),
+            BinOp::DivAssign(_) => todo!(),
+            BinOp::RemAssign(_) => todo!(),
+            BinOp::BitXorAssign(_) => todo!(),
+            BinOp::BitAndAssign(_) => todo!(),
+            BinOp::BitOrAssign(_) => todo!(),
+            BinOp::ShlAssign(_) => todo!(),
+            BinOp::ShrAssign(_) => todo!(),
+            _ => todo!(),*/
+        }
+    }
+    fn ctx_bin_op_maybe_assign(&mut self, op: Box<ExprBinary>) -> Expr {
+        let bop = op.op;
+        let left = &op.left;
+        let right = &op.right;
+        match bop {
+            BinOp::AddAssign(_) => {
+                self.fold_expr(parse_quote!({
+                    let tmp_val = #left + #right;
+                    #left = tmp_val;
+                }))
+            }
+
+            BinOp::SubAssign(_) => {
+                self.fold_expr(parse_quote!({
+                    let tmp_val = #left - #right;
+                    #left = tmp_val;
+                }))
+            }
+            BinOp::MulAssign(_) => {
+                self.fold_expr(parse_quote!({
+                    let tmp_val = #left * #right;
+                    #left = tmp_val;
+                }))
+            }
+            BinOp::DivAssign(_) => {
+                self.fold_expr(parse_quote!({
+                    let tmp_val = #left / #right;
+                    #left = tmp_val;
+                }))
+            }
+            BinOp::RemAssign(_) => {
+                self.fold_expr(parse_quote!({
+                    let tmp_val = #left % #right;
+                    #left = tmp_val;
+                }))
+            }
+            BinOp::BitXorAssign(_) => {
+                self.fold_expr(parse_quote!({
+                    let tmp_val = #left ^ #right;
+                    #left = tmp_val;
+                }))
+            }
+            BinOp::BitAndAssign(_) => {
+                self.fold_expr(parse_quote!({
+                    let tmp_val = #left & #right;
+                    #left = tmp_val;
+                }))
+            }
+            BinOp::BitOrAssign(_) => {
+                self.fold_expr(parse_quote!({
+                    let tmp_val = #left | #right;
+                    #left = tmp_val;
+                }))
+            }
+            BinOp::ShlAssign(_) => {
+                self.fold_expr(parse_quote!({
+                    let tmp_val = #left << #right;
+                    #left = tmp_val;
+                }))
+            }
+            BinOp::ShrAssign(_) => {
+                self.fold_expr(parse_quote!({
+                    let tmp_val = #left >> #right;
+                    #left = tmp_val;
+                }))
+            }
+    
+            _ => self.ctx_bin_op(op),
+            /*
+            BinOp::AddAssign(_) => todo!(),
+            BinOp::SubAssign(_) => todo!(),
+            BinOp::MulAssign(_) => todo!(),
+            BinOp::DivAssign(_) => todo!(),
+            BinOp::RemAssign(_) => todo!(),
+            BinOp::BitXorAssign(_) => todo!(),
+            BinOp::BitAndAssign(_) => todo!(),
+            BinOp::BitOrAssign(_) => todo!(),
+            BinOp::ShlAssign(_) => todo!(),
+            BinOp::ShrAssign(_) => todo!(),
+            _ => todo!(),*/
+        }
+    }
 }
 impl Fold for RewriterVisitor {
     fn fold_expr(&mut self, e: Expr) -> Expr {
@@ -223,25 +362,72 @@ impl Fold for RewriterVisitor {
                 panic!("loop {{ ... }} expressions are not allowed in qedlang");
             }
             Expr::If(e) => self.collasce_else_if(e),
+            /* 
+            Expr::Field(_)=>{
+                if is_self_state_var(&e){
+                    self.push_contract_state_mode(true);
+
+                    let result = fold::fold_expr(self, e);
+                    self.pop_contract_state_mode();
+                    result
+
+                }else{
+                    e
+                }
+            }*/
+            Expr::Index(ex)=>{
+                println!("index: {}",ex.to_token_stream().to_string());
+                if is_self_state_var(&Expr::Index(ex.clone())){
+                    self.push_contract_state_mode(true);
+                    let expr_result = self.fold_expr(*ex.expr.clone());
+                    self.pop_contract_state_mode();
+                    self.push_contract_state_mode(false);
+                    let index_result = self.fold_expr(*ex.index.clone());
+                    self.pop_contract_state_mode();
+                    println!("here: {}",expr_result.to_token_stream().to_string());
+                    parse_quote!({
+                        let q_tmp_index_result = #index_result;
+                        #expr_result.q_get(ctx, q_tmp_index_result)
+                    })
+                    //Expr::Index(ExprIndex { attrs: ex.attrs, expr: Box::new(expr_result), bracket_token: ex.bracket_token, index: Box::new(index_result) })
+
+                }else{
+                    Expr::Index(ex)
+                }
+            }
             Expr::Assign(ex) => {
+                let is_state = is_self_state_var(&ex.left);
                 let left = self.fold_expr(*ex.left);
                 let right = self.fold_expr(*ex.right);
-                parse_quote!({
-                    let qed_rwv_old_value = (#left).clone();
-                    let qed_rwv_new_value = (#right).clone();
-                    #left = ctx.cset(qed_rwv_old_value, qed_rwv_new_value);
-                })
+
+                if is_state {
+                    parse_quote!({
+                        let qed_rwv_old_value = (#left).clone();
+                        let qed_rwv_new_value = (#right).clone();
+                        ctx.cset_state(qed_rwv_old_value, qed_rwv_new_value);
+                    })
+
+                }else{
+                    parse_quote!({
+                        let qed_rwv_old_value = (#left).clone();
+                        let qed_rwv_new_value = (#right).clone();
+                        #left = ctx.cset(qed_rwv_old_value, qed_rwv_new_value);
+                    })
+                }
             }
             Expr::Binary(e) => {
                 println!("Binary expression: {:#?}", e.to_token_stream());
-                let left = Box::new(self.fold_expr(*e.left));
-                let right = Box::new(self.fold_expr(*e.right));
-                ctx_bin_op(&ExprBinary {
-                    attrs: e.attrs,
-                    left,
-                    op: e.op,
-                    right,
-                })
+                self.ctx_bin_op(Box::new(e))
+            }
+            Expr::Reference(e) => {
+                if e.mutability.is_some() {
+                    self.push_ref_mode(QRefMode::MutableRef);
+                } else {
+                    self.push_ref_mode(QRefMode::ImmutableRef);
+                }
+                let result = self.fold_expr(*e.expr);
+                self.pop_ref_mode();
+                result
             }
             Expr::Unary(e) => match &e.op {
                 syn::UnOp::Not(_) => {

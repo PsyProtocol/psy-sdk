@@ -89,6 +89,9 @@ impl<T: QStateInitializable, const N: usize> SparseArray<T, N>{
         T::create_stateful_at(context, item_pointer, self.contract_state_tree_height, self.contract_id, self.user_id)
 
     }
+    pub fn q_get<CTXT: DPNContext<SymFeltRef>>(&self, context: &mut CTXT, index: SymFeltRef) -> T {
+        self.get(context, index)
+    }
 }
 impl<T: QStateInitializable + ToFelts<SymFeltRef>, const N: usize> SparseArray<T, N> {
     pub fn set<CTXT: DPNContext<SymFeltRef>>(&self, context: &mut CTXT, index: SymFeltRef, value: T) {

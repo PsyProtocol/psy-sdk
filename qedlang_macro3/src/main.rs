@@ -23,11 +23,25 @@ static FOO_2: &str = r#"
 impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     pub fn simple_set(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
         if self.state.x > a {
-            self.state.x.set_state(ctx, a*b);
+            self.state.x = a*b;
         }else{
             self.state.y.set_state(ctx, a*b);
         }
         self.state.x
+    }
+}
+
+"#;
+
+static FOO_3: &str = r#"
+impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
+    pub fn simple_set(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
+        if self.state.z[a] > a {
+            self.state.z[2*b] = a*b;
+        }else{
+            self.state.y.set_state(ctx, a*b);
+        }
+        self.state.z[a+b]
     }
 }
 
@@ -42,9 +56,9 @@ fn main() {
     println!("{}", res.to_token_stream().to_string());
 
 
-    let res = syn::parse_str::<ItemImpl>(FOO_2).unwrap();
+    let res = syn::parse_str::<ItemImpl>(FOO_3).unwrap();
 
-    let mut visitor = RewriterVisitor {};
+    let mut visitor = RewriterVisitor::new();
     let res = visitor.fold_item_impl(res);
 
     println!("{}", res.to_token_stream().to_string());

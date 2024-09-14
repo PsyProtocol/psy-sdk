@@ -1,6 +1,5 @@
 use std::ops::{
-    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign,
-    Mul, MulAssign, Neg, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign,
+    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign, Index, Mul, MulAssign, Neg, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign
 };
 use std::fmt::Debug;
 
@@ -76,17 +75,23 @@ impl<T: FeltSized, const N: usize> FeltSized for [T; N] {
     }
 }
 
-pub trait ToFelts<F: ContextFelt> {
+pub trait ToFelts<F: ContextFelt>: Clone {
     fn to_felts(&self) -> Vec<F>;
     fn from_felts(felts: &[F]) -> Self;
 }
 pub trait QContextArray<T: ToFelts<SymFeltRef>> {
     fn q_size(&self) -> u64;
     fn q_get(&self, context: &mut QContext, index: SymFeltRef) -> T;
+    fn q_get_ref(&self, context: &mut QContext, index: SymFeltRef) -> &T;
+    fn q_get_mut(&mut self, context: &mut QContext, index: SymFeltRef) -> &mut T;
+    fn q_set_at_index(&mut self, context: &mut QContext, index: SymFeltRef) -> T;
 }
 pub trait QContextArraySized<T: ToFelts<SymFeltRef>> {
     fn q_sized_size(&self) -> u64;
     fn q_get_direct(&self, index: u64) -> T;
+    fn q_get_direct_ref(&self, index: u64) -> &T;
+    fn q_get_direct_mut(&mut self, index: u64) -> &mut T;
+    fn q_put_direct(&mut self, index: u64, value: T);
 }
 impl<T: ToFelts<SymFeltRef> + Clone, const N: usize> QContextArraySized<T> for [T; N] {
     default fn q_sized_size(&self) -> u64 {
@@ -96,6 +101,15 @@ impl<T: ToFelts<SymFeltRef> + Clone, const N: usize> QContextArraySized<T> for [
     default fn q_get_direct(&self, index: u64) -> T {
         self[index as usize].to_owned()
     }
+    default fn q_get_direct_ref(&self, index: u64) -> &T {
+        &self[index as usize]
+    }
+    default fn q_get_direct_mut(&mut self, index: u64) -> &mut T {
+        self.get_mut(index as usize).unwrap()
+    }
+    default fn q_put_direct(&mut self, index: u64, value: T) {
+        self[index as usize] = value;
+    }
 }
 impl<T: ToFelts<SymFeltRef> + Copy, const N: usize> QContextArraySized<T> for [T; N] {
     fn q_sized_size(&self) -> u64 {
@@ -104,6 +118,16 @@ impl<T: ToFelts<SymFeltRef> + Copy, const N: usize> QContextArraySized<T> for [T
 
     fn q_get_direct(&self, index: u64) -> T {
         self[index as usize]
+    } 
+    fn q_get_direct_ref(&self, index: u64) -> &T {
+        &self[index as usize]
+    }
+    fn q_get_direct_mut(&mut self, index: u64) -> &mut T {
+        self.get_mut(index as usize).unwrap()
+    }
+
+    fn q_put_direct(&mut self, index: u64, value: T) {
+        self[index as usize] = value;
     }
 }
 
@@ -118,6 +142,17 @@ impl<T: ToFelts<SymFeltRef>, A: QContextArraySized<T>> QContextArray<T> for A {
             self.q_get_direct(index)
         } else {
             let mut result = self.q_get_direct(0);
+            let i = 1;
+
+            let value = self.q_get_direct(i);
+            let eq = context.op_eq(index, SymFeltRef::new_constant(i));
+            result = context.cselect(
+                eq,
+                value,
+                result,
+            );
+
+
             for i in 1..self.q_size() {
                 let value = self.q_get_direct(i);
                 let eq = context.op_eq(index, SymFeltRef::new_constant(i));
@@ -130,6 +165,17 @@ impl<T: ToFelts<SymFeltRef>, A: QContextArraySized<T>> QContextArray<T> for A {
             result
         }
     }
+    fn q_get_ref(&self, context: &mut QContext, index: SymFeltRef) -> &T {
+        todo!("q_get_ref")
+    }
+    
+    fn q_get_mut(&mut self, context: &mut QContext, index: SymFeltRef) -> &mut T {
+        todo!()
+    }
+    
+    fn q_set_at_index(&mut self, context: &mut QContext, index: SymFeltRef) -> T {
+        todo!()
+    }
 } 
 impl<F: ContextFelt> ToFelts<F> for F {
     fn to_felts(&self) -> Vec<F> {
@@ -138,6 +184,17 @@ impl<F: ContextFelt> ToFelts<F> for F {
     
     fn from_felts(felts: &[F]) -> Self {
         felts[0]
+    }
+}
+
+impl<T, const N: usize> Index<SymFeltRef> for [T; N] {
+    type Output = T;
+
+    fn index(&self, index: SymFeltRef) -> &Self::Output {
+        if !index.is_constant_type() {
+            panic!("arrays can only be indexed by constants");
+        }
+        &self[index.get_constant_value() as usize]
     }
 }
 pub trait DPNContext<F: ContextFelt>: Debug + Clone {
