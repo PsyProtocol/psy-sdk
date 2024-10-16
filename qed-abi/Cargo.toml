@@ -1,0 +1,8 @@
+[package]
+edition = "2021"
+name    = "qed-abi"
+version = "0.1.0"
+
+[dependencies]
+serde_json = { workspace = true }
+serde = { workspace = true }
