@@ -1,0 +1,8 @@
+---
+source: qed-interpreter/src/lib.rs
+assertion_line: 41
+expression: "Interpreter::run_example(&path).unwrap()"
+input_file: tests/008.qed
+---
+Context 0:
+  Scope 0:

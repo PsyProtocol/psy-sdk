@@ -1,0 +1,7 @@
+[package]
+edition = "2021"
+name    = "qed-repl"
+version = "0.1.0"
+
+[dependencies]
+thiserror = { workspace = true }

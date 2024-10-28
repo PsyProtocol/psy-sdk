@@ -1,7 +1,0 @@
-[package]
-edition = "2021"
-name    = "qed-cirgen"
-version = "0.1.0"
-
-[dependencies]
-plonky2 = { workspace = true}

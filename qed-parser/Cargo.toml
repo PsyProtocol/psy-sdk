@@ -4,3 +4,14 @@ name    = "qed-parser"
 version = "0.1.0"
 
 [dependencies]
+qed-ast = { workspace = true }
+qed-lexer = { workspace = true }
+lalrpop-util = { workspace = true }
+anyhow = { workspace = true }
+qed-builder = { workspace = true }
+
+[build-dependencies]
+lalrpop = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

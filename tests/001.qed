@@ -1,0 +1,19 @@
+let mut a: i64 = 1;
+'outer: loop {
+    if a == 42 {
+        a >>= 1;
+        a %= 2;
+    } else if a == 84 {
+        a /= 2;
+        continue 'outer;
+    } else if a == 7 {
+        a *= 3 + a + 2;
+    } else {
+        a = 3 + a + 3;
+    }
+
+    if a == 1 {
+      a += 1;
+      break 'outer;
+    }
+}

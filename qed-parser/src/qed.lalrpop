@@ -1,0 +1,436 @@
+use lalrpop_util::ErrorRecovery;
+
+grammar<'input, 'err, F, Ctx>(
+    input: &'input str,
+    arena: &mut Arena<F>,
+    ctx: &mut Ctx,
+    errors: &'err mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>
+) where F: ContextFelt, Ctx: Context<F>;
+
+use super::*;
+use std::convert::TryFrom;
+use std::collections::HashMap;
+
+pub Program: Vec<StmtNode> = {
+    <stmts:Statement*> => stmts
+}
+
+Statement: StmtNode = {
+    VarDeclStatement,
+    AssignmentStatement,
+    ReturnStatement,
+    WhileStatement,
+    BlockStatement,
+    IfStatement,
+    Impl,
+    EnumDecl,
+    StructDecl,
+    FunctionDecl => StmtNode::FunctionDecl(<>),
+}
+
+Impl: StmtNode = {
+   <l:@L> IMPL <generic_parameters:GenericParameters?> <ty:Ty> "{" <body:FunctionDecl*> "}" <r:@R> => StmtNode::Impl(
+       ImplNode {
+           generic_parameters: arena.alloc_idents(generic_parameters.unwrap_or(Vec::new())),
+           ty,
+           body
+       }
+   )
+}
+
+EnumDecl: StmtNode = {
+    <l:@L> ENUM <name:IDENT> <generic_parameters:GenericParameters?> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => StmtNode::EnumDecl(
+        EnumNode {
+            name: arena.alloc_ident(name),
+            generic_parameters: arena.alloc_idents(generic_parameters.unwrap_or(Vec::new())),
+            variants,
+            functions: HashMap::new()
+        }
+    )
+}
+
+StructDecl: StmtNode = {
+    <l:@L> STRUCT <name:IDENT> <generic_parameters:GenericParameters?> "{" <fields:Comma<TypeAnnotation>> "}" <r:@R> => StmtNode::StructDecl(
+        StructNode {
+            name: arena.alloc_ident(name),
+            generic_parameters: arena.alloc_idents(generic_parameters.unwrap_or(Vec::new())),
+            fields,
+            functions: HashMap::new()
+        }
+    )
+}
+
+FunctionDecl: FunctionNode = {
+    <l:@L> FN <name:IDENT> <generic_parameters:GenericParameters?> "(" <parameters:Comma<TypeAnnotation>> ")" <return_type:FunctionReturn?> "{" <stmts:Statement*> "}" <r:@R> => FunctionNode {
+        name: arena.alloc_ident(name),
+        parameters,
+        generic_parameters: arena.alloc_idents(generic_parameters.unwrap_or(Vec::new())),
+        body: BlockNode { stmts: arena.alloc_stmts(stmts) },
+        return_type
+    }
+}
+
+FunctionReturn: Type = {
+    <l:@L> "->" <return_type:Ty> <r:@R> => return_type
+}
+
+EnumVariant: EnumVariant = {
+    <l:@L> <name:IDENT> <r:@R> => EnumVariant::Basic(arena.alloc_ident(name)),
+    <l:@L> <name:IDENT> "{" <fields:Comma<TypeAnnotation>> "}" <r:@R> => EnumVariant::Struct(arena.alloc_ident(name), fields)
+}
+
+TypeAnnotation: (IdentId, Type) = {
+    <l:@L> <name:IDENT> ":" <ty:Ty> <r:@R> => (arena.alloc_ident(name), ty)
+}
+
+GenericParameters: Vec<Ident> = {
+    <l:@L> "<" <params:Comma<IDENT>> ">" <r:@R> => params.into_iter().map(Ident::from).collect::<Vec<_>>()
+}
+
+BlockStatement: StmtNode = {
+    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => StmtNode::Block(BlockNode { stmts: arena.alloc_stmts(stmts)  }),
+}
+
+WhileStatement: StmtNode = {
+    <l:@L> WHILE <predicate:Expression> "{" <stmts:Statement*> "}" <r:@R>  => StmtNode::While(WhileNode { predicate: arena.alloc_expr(predicate), body: BlockNode { stmts: arena.alloc_stmts(stmts)  }}),
+}
+
+IfStatement: StmtNode = {
+    <l:@L> <if_branch:IfBranch> <elseif_branch:ElseIfBranch*> <else_branch:ElseBranch?> <r:@R> => StmtNode::If(
+        IfNode {
+            if_branch,
+            elseif_branch,
+            else_branch
+        }
+    ),
+}
+
+IfBranch: Case = {
+    <l:@L> IF <predicate:Expression> "{" <stmts:Statement*> "}" <r:@R> => Case::new(arena.alloc_expr(predicate), BlockNode { stmts: arena.alloc_stmts(stmts) }),
+}
+
+ElseIfBranch: Case = {
+    <l:@L> ELSE IF <predicate:Expression> "{" <stmts:Statement*> "}" <r:@R> => Case::new(arena.alloc_expr(predicate), BlockNode { stmts: arena.alloc_stmts(stmts) }),
+}
+
+ElseBranch: BlockNode = {
+    <l:@L> ELSE "{" <stmts:Statement*> "}" <r:@R> => BlockNode { stmts: arena.alloc_stmts(stmts) },
+}
+
+ReturnStatement: StmtNode = {
+    <l:@L> RETURN ";" <r:@R> => StmtNode::Return(ReturnNode(None))
+}
+
+VarDeclStatement: StmtNode = {
+    <l:@L> LET <name:IDENT> ":" <ty:Ty> "=" <value:Expression> ";" <r:@R>  => StmtNode::VarDecl(
+        VarDeclNode {
+            name: arena.alloc_ident(name),
+            ty,
+            mutable: false,
+            value: arena.alloc_expr(value)
+        }
+    ),
+    <l:@L> CONST <name:IDENT> ":" <ty:Ty> "=" <value:Expression> ";" <r:@R>  => StmtNode::VarDecl(
+        VarDeclNode {
+            name: arena.alloc_ident(name),
+            ty,
+            mutable: false,
+            value: arena.alloc_expr(value)
+        }
+    ),
+    <l:@L> LET MUT <name:IDENT> ":" <ty:Ty> "=" <value:Expression> ";" <r:@R>  => StmtNode::VarDecl(
+        VarDeclNode {
+            name: arena.alloc_ident(name),
+            ty,
+            mutable: true,
+            value: arena.alloc_expr(value)
+        }
+    )
+}
+
+AssignmentStatement: StmtNode = {
+    <l:@L> <name:VariableExpression> "=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(name, AssignmentOperator::Eq, arena.alloc_expr(value))
+    ),
+    <l:@L> <name:VariableExpression> "+=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(name, AssignmentOperator::AddAssign, arena.alloc_expr(value))
+    ),
+    <l:@L> <name:VariableExpression> "-=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(name, AssignmentOperator::SubAssign, arena.alloc_expr(value))
+    ),
+    <l:@L> <name:VariableExpression> "*=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(name, AssignmentOperator::MulAssign, arena.alloc_expr(value))
+    ),
+    <l:@L> <name:VariableExpression> "/=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(name, AssignmentOperator::DivAssign, arena.alloc_expr(value))
+    ),
+    <l:@L> <name:VariableExpression> "%=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(name, AssignmentOperator::ModAssign, arena.alloc_expr(value))
+    ),
+    <l:@L> <name:VariableExpression> "&=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(name, AssignmentOperator::BitAndAssign, arena.alloc_expr(value))
+    ),
+    <l:@L> <name:VariableExpression> "|=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(name, AssignmentOperator::BitOrAssign, arena.alloc_expr(value))
+    ),
+    <l:@L> <name:VariableExpression> "^=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(name, AssignmentOperator::BitXorAssign, arena.alloc_expr(value))
+    ),
+    <l:@L> <name:VariableExpression> "<<=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(name, AssignmentOperator::BitShlAssign, arena.alloc_expr(value))
+    ),
+    <l:@L> <name:VariableExpression> ">>=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(name, AssignmentOperator::BitShrAssign, arena.alloc_expr(value))
+    )
+}
+
+Expression: ExprNode<F> = {
+    #[precedence(level="0")]
+    ValueExpression,
+    VariableExpression => ExprNode::<F>::Variable(<>),
+    CallExpression,
+
+    #[precedence(level="1")]
+    <l:@L> "!" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
+        UnaryNode{operator: UnaryOperator::Not, rhs: arena.alloc_expr(rhs)}
+    ),
+    <l:@L> "-" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
+        UnaryNode{operator: UnaryOperator::Neg, rhs: arena.alloc_expr(rhs)}
+    ),
+
+    #[precedence(level="2")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> "*" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::Mul, arena.alloc_expr(rhs))
+    ),
+    <l:@L> <lhs:Expression> "/" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::Div, arena.alloc_expr(rhs))
+    ),
+    <l:@L> <lhs:Expression> "%" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::Mod, arena.alloc_expr(rhs))
+    ),
+
+    #[precedence(level="3")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> "+" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::Add, arena.alloc_expr(rhs))
+    ),
+    <l:@L> <lhs:Expression> "-" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::Sub, arena.alloc_expr(rhs))
+    ),
+
+    #[precedence(level="4")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> "<<" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::BitShl, arena.alloc_expr(rhs))
+    ),
+    <l:@L> <lhs:Expression> ">>" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::BitShr, arena.alloc_expr(rhs))
+    ),
+
+    #[precedence(level="5")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> "&" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::BitAnd, arena.alloc_expr(rhs))
+    ),
+
+    #[precedence(level="6")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> "^" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::BitXor, arena.alloc_expr(rhs))
+    ),
+
+    #[precedence(level="7")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> "|" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::BitOr, arena.alloc_expr(rhs))
+    ),
+
+    #[precedence(level="8")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> ">" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::Gt, arena.alloc_expr(rhs))
+    ),
+    <l:@L> <lhs:Expression> "<" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::Lt, arena.alloc_expr(rhs))
+    ),
+    <l:@L> <lhs:Expression> ">=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::Gte, arena.alloc_expr(rhs))
+    ),
+    <l:@L> <lhs:Expression> "<=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::Lte, arena.alloc_expr(rhs))
+    ),
+
+    #[precedence(level="9")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> "==" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::Eq, arena.alloc_expr(rhs))
+    ),
+    <l:@L> <lhs:Expression> "!=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::Neq, arena.alloc_expr(rhs))
+    ),
+
+    #[precedence(level="10")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> "&&" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::And, arena.alloc_expr(rhs))
+    ),
+
+    #[precedence(level="11")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> "||" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(arena.alloc_expr(lhs), BinaryOperator::Or, arena.alloc_expr(rhs))
+    ),
+}
+
+ValueExpression: ExprNode<F> = {
+    FeltExpression,
+    BoolExpression,
+}
+
+FeltExpression: ExprNode<F> = {
+    <l:@L> <n:FELT> <r:@R> => ExprNode::<F>::Value(ValueNode::Felt(ctx.op_const(n))),
+}
+
+BoolExpression: ExprNode<F> = {
+    <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Felt(ctx.op_bool(b)))
+}
+
+CallExpression: ExprNode<F> = {
+    <l:@L> <fname:VariableExpression> <generic_parameters:Monomorphization?> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
+        CallNode {
+            variable: fname,
+            generic_parameters: generic_parameters.unwrap_or(Vec::new()),
+            args: arena.alloc_exprs(args)
+        }
+    ),
+}
+
+Monomorphization: Vec<Type> = {
+    <l:@L> "::" "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => generic_parameters
+}
+
+VariableExpression: VariableNode = {
+    <l:@L> <v:IDENT> <path:PathSegment*> <r:@R> => VariableNode { name: arena.alloc_ident(v), path }
+}
+
+PathSegment: PathSegment = {
+    <l:@L> "." <name:IDENT> <r:@R> => PathSegment::MemberAccess(arena.alloc_ident(name)),
+    <l:@L> "[" <expr:Expression> "]" <r:@R> => PathSegment::IndexAccess(arena.alloc_expr(expr)),
+}
+
+Ty: Type = {
+    BasicType,
+    ArrayType,
+    GenericType
+}
+
+GenericType: Type = {
+    <l:@L> <name:IDENT> "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => Type::Generic(arena.alloc_ident(name), generic_parameters)
+}
+
+ArrayType: Type = {
+    <l:@L> "[" <ty:Ty> ";" <n:FELT> "]" <r:@R> => Type::Array(Box::new(ty), usize::try_from(n).unwrap())
+}
+
+BasicType: Type = {
+    <l:@L> <ty:TYPE_FELT> <r:@R> => Type::Basic(arena.alloc_ident(ty)),
+    <l:@L> <ty:TYPE_BOOL> <r:@R> => Type::Basic(arena.alloc_ident(ty)),
+    <l:@L> <ty:IDENT>     <r:@R> => Type::Basic(arena.alloc_ident(ty))
+}
+
+DoubleColon<T>: Vec<T> = {
+    <mut v:(<T> "::")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+Sep<E,S>: Vec<E> =
+    <v0:(<E> S)*> <e1:E?> =>
+        v0.into_iter().chain(e1).collect();
+
+
+Dot<E>: Vec<E> = Sep<E, ".">;
+Comma<E>: Vec<E> = Sep<E, ",">;
+Plus<E>: Vec<E> = Sep<E, "+">;
+
+extern {
+    type Location = Loc;
+    type Error = LexicalError;
+
+    enum Token<'input> {
+      CONST => Token::KeywordConst,
+      LET => Token::KeywordLet,
+
+      FN => Token::KeywordFn,
+      STRUCT => Token::KeywordStruct,
+      ENUM => Token::KeywordEnum,
+      IMPL => Token::KeywordImpl,
+      RETURN => Token::KeywordReturn,
+      IF => Token::KeywordIf,
+      ELSE => Token::KeywordElse,
+      WHILE => Token::KeywordWhile,
+      FOR => Token::KeywordFor,
+
+      MOD => Token::KeywordMod,
+
+      MUT => Token::KeywordMut,
+      PUB => Token::KeywordPub,
+
+      IDENT => Token::Ident(<&'input str>),
+
+      BOOL => Token::Bool(<bool>),
+      FELT => Token::Felt(<u64>),
+
+      TYPE_BOOL => Token::TypeBool(<&'input str>),
+      TYPE_FELT => Token::TypeFelt(<&'input str>),
+
+      QUOTE => Token::Quote,
+
+      "(" => Token::LParen,
+      ")" => Token::RParen,
+      "{" => Token::LBrace,
+      "}" => Token::RBrace,
+      "[" => Token::LBracket,
+      "]" => Token::RBracket,
+
+      "=" => Token::Assign,
+      ";" => Token::Semicolon,
+      "," => Token::Comma,
+      "." => Token::Dot,
+      ":" => Token::Colon,
+      "::" => Token::DoubleColon,
+      "->" => Token::Arrow,
+
+      "+" => Token::OperatorAdd,
+      "-" => Token::OperatorSub,
+      "*" => Token::OperatorMul,
+      "/" => Token::OperatorDiv,
+      "%" => Token::OperatorMod,
+
+      "==" => Token::OperatorEq,
+      "!=" => Token::OperatorNeq,
+      "<" => Token::OperatorLt,
+      "<=" => Token::OperatorLte,
+      ">" => Token::OperatorGt,
+      ">=" => Token::OperatorGte,
+      "&&" => Token::OperatorAnd,
+      "||" => Token::OperatorOr,
+
+      "&" => Token::OperatorBitAnd,
+      "|" => Token::OperatorBitOr,
+      "^" => Token::OperatorBitXor,
+
+      "<<" => Token::OperatorShl,
+      ">>" => Token::OperatorShr,
+
+      "!" => Token::OperatorNot,
+
+      "+=" => Token::OperatorAddAssign,
+      "-=" => Token::OperatorSubAssign,
+      "*=" => Token::OperatorMulAssign,
+      "/=" => Token::OperatorDivAssign,
+      "%=" => Token::OperatorModAssign,
+
+      "|=" => Token::OperatorBitOrAssign,
+      "&=" => Token::OperatorBitAndAssign,
+      "^=" => Token::OperatorBitXorAssign,
+
+      "<<=" => Token::OperatorBitShlAssign,
+      ">>=" => Token::OperatorBitShrAssign,
+    }
+}

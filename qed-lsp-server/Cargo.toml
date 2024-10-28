@@ -4,3 +4,4 @@ name    = "qed-lsp-server"
 version = "0.1.0"
 
 [dependencies]
+thiserror = { workspace = true }

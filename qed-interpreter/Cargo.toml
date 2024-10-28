@@ -1,0 +1,15 @@
+[package]
+edition = "2021"
+name    = "qed-interpreter"
+version = "0.1.0"
+
+[dependencies]
+qed-ast = { workspace = true }
+qed-parser = { workspace = true }
+anyhow = { workspace = true }
+strum = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+qed-common = { workspace = true }
+insta = { workspace = true }
+qed-builder = { workspace = true }

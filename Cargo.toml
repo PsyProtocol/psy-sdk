@@ -1,45 +1,138 @@
 [workspace]
 members = [
     "qed-abi",
-    "qed-cirgen",
+    "qed-builder",
     "qed-fmt",
     "qed-cli",
     "qed-ir",
     "qed-lsp-server",
     "qed-parser",
     "qed-utils",
-    "qed-vm"
+    "qed-common",
+    "qed-vm",
+    "qed-repl",
+    "qed-ast",
+    "qed-opt",
+    "qed-derive",
+    # "qed-sema",
+    "qed-irgen",
+    "qed-codegen",
+    "qed-lexer",
+    "qed-interpreter",
 ]
 resolver = "2"
 
 [workspace.dependencies]
-anyhow = "1.0.75"
-once_cell = "1.19.0"
+anyhow = "1.0"
+miette = { version = "7.2", features = ["fancy"] }
+thiserror = "1.0"
+dotenv = "0.15"
 
-num-traits = "0.2.18"
-num-bigint = { version = "0.4.6" }
-num = { version = "0.4.0", default-features = false }
+once_cell = "1.19"
+smol_str = "0.3"
+thin-vec = "0.2"
+smallvec = { version = "1.7", default-features = false, features = [
+    "union",
+    "const_new",
+    "const_generics",
+] }
+indexmap = "2.6"
+bitflags = { version = "2.0", default-features = false }
+id-arena = "2.2"
+unescaper = "0.1"
+
+petgraph = "0.6"
+chalk = "0.1"
+
+syn = { version = "2.0", features = ["full"] }
+proc-macro2 = "1.0"
+quote = "1.0"
+
+num-traits = "0.2"
+num-bigint = { version = "0.4" }
+num = { version = "0.4", default-features = false }
 num-integer = { version = "0.1", default-features = false }
-ruint = { version = "1.12", default-features = false, features = ["serde", "num-bigint"] }
-clap = { version = "4.4.6", features = ["derive", "env"] }
+ruint = { version = "1.12", default-features = false, features = [
+    "serde",
+    "num-bigint",
+] }
+clap = { version = "4.4", features = ["derive", "env"] }
 
 rayon = { version = "1.10" }
 
-bincode = "1.3.3"
-strum = { version = "0.26.3", features = ["derive"] }
+hex = "0.4"
+bytes = "1.7.0"
+
+bincode = "1.3"
+strum = { version = "0.26", features = ["derive"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_json = { version = "1.0.114",  default-features = false, features = ["arbitrary_precision", "alloc"] }
-serde_with = { version = "3.8.3",  default-features = false, features = ["macros", "hex"] }
-serde_repr = "0.1.19"
+serde_json = { version = "1.0", default-features = false, features = [
+    "arbitrary_precision",
+    "alloc",
+] }
+serde_with = { version = "3.8", default-features = false, features = [
+    "macros",
+    "hex",
+] }
+serde_repr = "0.1"
 
 plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "6a8ca008da97890b67a84f64784cfbc488b5238d" }
 plonky2_maybe_rayon = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "6a8ca008da97890b67a84f64784cfbc488b5238d", default-features = false }
 
-tracing = "0.1.40"
-tracing-log = "0.2.0"
-tracing-subscriber = { version = "0.3.18", features = ["std", "env-filter"] }
+tracing = "0.1"
+tracing-log = "0.2"
+tracing-subscriber = { version = "0.3", features = ["std", "env-filter"] }
 
-sha3 = { version = "0.10.8",  default-features = false }
-blake2 = { version = "0.10.6",  default-features = false }
+sha3 = { version = "0.10", default-features = false }
+blake2 = { version = "0.10", default-features = false }
 blake3 = { version = "1.5", default-features = false }
 tiny-keccak = { version = "2.0", features = ["sha3", "keccak"] }
+twox-hash = "1.6"
+k256 = { version = "0.13", features = [
+    "arithmetic",
+    "ecdsa",
+    "pkcs8",
+    "precomputed-tables",
+    "schnorr",
+    "signature",
+    "std",
+    "serde",
+] }
+
+lalrpop-util = { version = "0.22", features = ["lexer", "unicode"] }
+lalrpop = "0.22"
+
+walkdir = "2.5"
+insta = { version = "1.40", features = ["glob"] }
+
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }
+tower-lsp = "0.20"
+lsp-server = "0.7"
+lsp-types = "0.97"
+
+nom = "7.1"
+logos = "0.14"
+
+llvm-sys = "191.0.0"
+melior = { version = "0.19.0", features = ["ods-dialects"] }
+mlir-sys = { version = "0.3.0" }
+
+qed-abi = { path = "./qed-abi" }
+qed-ast = { path = "./qed-ast" }
+qed-builder = { path = "./qed-builder" }
+qed-cli = { path = "./qed-cli" }
+qed-codegen = { path = "./qed-codegen" }
+qed-derive = { path = "./qed-derive" }
+qed-fmt = { path = "./qed-fmt" }
+qed-ir = { path = "./qed-ir" }
+qed-lsp-server = { path = "./qed-lsp-server" }
+qed-parser = { path = "./qed-parser" }
+qed-utils = { path = "./qed-utils" }
+qed-common = { path = "./qed-common" }
+qed-vm = { path = "./qed-vm" }
+qed-irgen = { path = "./qed-irgen" }
+qed-opt = { path = "./qed-opt" }
+qed-sema = { path = "./qed-sema" }
+qed-repl = { path = "./qed-repl" }
+qed-lexer = { path = "./qed-lexer" }
+qed-interpreter = { path = "./qed-interpreter" }
