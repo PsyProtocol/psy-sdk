@@ -9,6 +9,10 @@ pub enum Token<'input> {
     KeywordConst,
     #[token("let")]
     KeywordLet,
+
+    #[token("mut")]
+    KeywordMut,
+
     #[token("fn")]
     KeywordFn,
     #[token("struct")]
@@ -30,24 +34,30 @@ pub enum Token<'input> {
 
     #[token("mod")]
     KeywordMod,
+    #[token("use")]
+    KeywordUse,
+    #[token("self")]
+    KeywordSelf,
+    #[token("crate")]
+    KeywordCrate,
+    #[token("super")]
+    KeywordSuper,
 
     #[token("pub")]
     KeywordPub,
-    #[token("mut")]
-    KeywordMut,
 
     #[token("bool")]
-    TypeBool(&'input str),
-    #[token("felt")]
-    TypeFelt(&'input str),
-    #[token("'")]
-    Quote,
+    TypeBool,
+    #[token("Felt")]
+    TypeFelt,
+    #[token("Self")]
+    TypeSelf,
 
     #[regex("[_a-zA-Z][_0-9a-zA-Z]*", |lex| lex.slice())]
     Ident(&'input str),
 
     #[regex(r"(?:0|[1-9]\d*)", |lex| lex.slice().parse())]
-    Felt(u64),
+    Number(u64),
     #[token("false", |_| false)]
     #[token("true", |_| true)]
     Bool(bool),
@@ -158,7 +168,7 @@ fn test_lex_comment() {
     assert_eq!(lex.next(), Some(Ok(Token::KeywordLet)));
     assert_eq!(lex.next(), Some(Ok(Token::Ident("x"))));
     assert_eq!(lex.next(), Some(Ok(Token::Assign)));
-    assert_eq!(lex.next(), Some(Ok(Token::Felt(5))));
+    assert_eq!(lex.next(), Some(Ok(Token::Number(5))));
     assert_eq!(lex.next(), Some(Ok(Token::Semicolon)));
     assert_eq!(lex.next(), None);
 
@@ -166,7 +176,7 @@ fn test_lex_comment() {
     assert_eq!(lex.next(), Some(Ok(Token::KeywordLet)));
     assert_eq!(lex.next(), Some(Ok(Token::Ident("y"))));
     assert_eq!(lex.next(), Some(Ok(Token::Assign)));
-    assert_eq!(lex.next(), Some(Ok(Token::Felt(10))));
+    assert_eq!(lex.next(), Some(Ok(Token::Number(10))));
     assert_eq!(lex.next(), Some(Ok(Token::Semicolon)));
     assert_eq!(lex.next(), None);
 }
@@ -174,8 +184,8 @@ fn test_lex_comment() {
 #[test]
 fn test_lex_integer() {
     let mut lex = Token::lexer("42 0 1234567890");
-    assert_eq!(lex.next(), Some(Ok(Token::Felt(42))));
-    assert_eq!(lex.next(), Some(Ok(Token::Felt(0))));
-    assert_eq!(lex.next(), Some(Ok(Token::Felt(1234567890))));
+    assert_eq!(lex.next(), Some(Ok(Token::Number(42))));
+    assert_eq!(lex.next(), Some(Ok(Token::Number(0))));
+    assert_eq!(lex.next(), Some(Ok(Token::Number(1234567890))));
     assert_eq!(lex.next(), None);
 }

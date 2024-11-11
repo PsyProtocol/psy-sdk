@@ -1,10 +1,21 @@
-use crate::{arena::ExprId, visitor::AstVisitor};
+use std::fmt::Display;
 
-#[derive(Debug, Clone, PartialEq)]
+use crate::{AstVisitor, ExprId};
+
+#[derive(Copy, Debug, Clone, PartialEq)]
 pub enum UnaryOperator {
     Neg,
     Not,
     // BitNot,
+}
+
+impl Display for UnaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UnaryOperator::Neg => write!(f, "-"),
+            UnaryOperator::Not => write!(f, "!"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,7 +25,10 @@ pub struct UnaryNode {
 }
 
 impl UnaryNode {
-    pub fn accept_visitor<F, V: AstVisitor<F>>(&mut self, visitor: &mut V) -> V::ExprResult {
+    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+        &mut self,
+        visitor: &mut V,
+    ) -> V::ExprResult {
         visitor.visit_unary(self)
     }
 }

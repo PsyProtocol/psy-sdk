@@ -2,17 +2,18 @@ use std::collections::HashMap;
 
 use strum::{EnumIs, EnumTryAs};
 
-use crate::{arena::IdentId, visitor::AstVisitor};
+use crate::{AstVisitor, ExprId, IdentId, UncheckedType};
 
 #[derive(Clone, Debug, PartialEq, EnumIs, EnumTryAs)]
-pub enum ValueNode<F> {
+pub enum ValueNode<F: Clone> {
     Felt(F),
-    Array(Vec<ValueNode<F>>, usize),
-    Struct(HashMap<IdentId, ValueNode<F>>),
+    Bool(F),
+    Array(usize, Vec<ExprId>),
+    Struct(IdentId, Vec<UncheckedType>, HashMap<IdentId, ExprId>),
 }
 
-impl<F> ValueNode<F> {
-    pub fn accept_visitor<V: AstVisitor<F>>(&mut self, visitor: &mut V) {
+impl<F: Clone> ValueNode<F> {
+    pub fn accept_visitor<C, V: AstVisitor<F, C>>(&self, visitor: &mut V) {
         visitor.visit_value(self);
     }
 }

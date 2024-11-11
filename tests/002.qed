@@ -1,2 +1,44 @@
-let mut a: i64 = 1;
-a = 2 + 1 + a;
+struct Person {
+    age: Felt
+}
+
+impl Person {
+    fn get_age(self: Person) -> Felt {
+        return self.age;
+    }
+}
+
+fn max(a: Felt, b: Felt) -> Felt {
+    if a > b {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+fn min(a: Felt, b: Felt) -> Felt {
+    if a < b {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+fn main() {
+    let a: Felt = 1;
+    let b: Felt = 2;
+
+    let c: Felt = a + -b;
+
+    let t: bool = true;
+    let f: bool = false;
+
+    let r: bool = !t && f;
+
+    min(a, b);
+
+    let person: Person = (Person{
+        age: 10
+    });
+    let age: Felt = person.get_age();
+}

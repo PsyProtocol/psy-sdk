@@ -1,14 +1,18 @@
-use crate::{arena::ExprId, visitor::AstVisitor, Type, VariableNode};
+use crate::{AstVisitor, ExprId, PathNode, UncheckedType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CallNode {
-    pub variable: VariableNode,
-    pub generic_parameters: Vec<Type>,
+    pub variable: ExprId,
+    pub receiver: Option<ExprId>,
+    pub generic_parameters: Vec<UncheckedType>,
     pub args: Vec<ExprId>,
 }
 
 impl CallNode {
-    pub fn accept_visitor<F, V: AstVisitor<F>>(&mut self, visitor: &mut V) -> V::ExprResult {
+    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+        &self,
+        visitor: &mut V,
+    ) -> V::ExprResult {
         visitor.visit_call(self)
     }
 }

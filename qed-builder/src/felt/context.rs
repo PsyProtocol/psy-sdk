@@ -2,6 +2,8 @@ use crate::{circuit_builder::ToFelts, felt::context_felt::ContextFelt};
 
 pub trait Context<F: ContextFelt> {
     fn add_input(&mut self) -> F;
+    fn get_value(&mut self, a: F) -> u64;
+    fn get_bool_value(&mut self, a: F) -> bool;
 
     fn op_const(&mut self, value: u64) -> F;
     fn op_bool(&mut self, value: bool) -> F;

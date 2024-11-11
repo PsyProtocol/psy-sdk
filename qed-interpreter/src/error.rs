@@ -1,3 +1,4 @@
+use qed_sema::Error as SemaError;
 use std::io::Error as IoError;
 use thiserror::Error;
 
@@ -7,6 +8,10 @@ pub enum Error {
     ParseError(String),
     #[error("io error: {0}")]
     IoError(#[from] IoError),
+    #[error("sema error: {0}")]
+    SemaError(#[from] SemaError),
+    #[error("undefined main")]
+    UndefinedMain,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

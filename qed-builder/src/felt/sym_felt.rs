@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::hash::Hasher;
 use std::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign,
@@ -24,6 +25,14 @@ pub const CONSTANT_FALSE_OP: u128 = (OpType::ConstantFalse as u128) << 112;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
 pub struct SymFeltRef(pub u128);
+
+// TODO: remove this
+impl Display for SymFeltRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:x}", self.0)
+    }
+}
+
 impl SymFeltRef {
     pub fn new_input(index: u64) -> SymFeltRef {
         SymFeltRef((OpType::InputTarget as u128) << 112 | index as u128)
