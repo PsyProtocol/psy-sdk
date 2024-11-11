@@ -1,4 +1,4 @@
-use crate::{visitor::AstVisitor, BlockNode, ExprId};
+use crate::{AstVisitor, BlockNode, ExprId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WhileNode {
@@ -7,7 +7,10 @@ pub struct WhileNode {
 }
 
 impl WhileNode {
-    pub fn accept_visitor<F, V: AstVisitor<F>>(&mut self, visitor: &mut V) -> V::StmtResult {
+    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+        &self,
+        visitor: &mut V,
+    ) -> V::StmtResult {
         visitor.visit_while(self)
     }
 }

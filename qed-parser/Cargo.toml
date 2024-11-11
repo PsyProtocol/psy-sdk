@@ -9,6 +9,9 @@ qed-lexer = { workspace = true }
 lalrpop-util = { workspace = true }
 anyhow = { workspace = true }
 qed-builder = { workspace = true }
+qed-common = { workspace = true }
+petgraph = { workspace = true }
+thiserror = { workspace = true }
 
 [build-dependencies]
 lalrpop = { workspace = true }

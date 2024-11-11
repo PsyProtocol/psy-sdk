@@ -1,11 +1,10 @@
-use crate::arena::IdentId;
+use crate::IdentId;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Type {
-    Basic(IdentId),              // u8, T
-    Generic(IdentId, Vec<Type>), // HashMap<K, V>
-    Array(Box<Type>, usize),     // [u8; 10]
-    Tuple(Vec<Type>),
-    // Option(Box<Type<'a>>),
-    // Result(Box<Type<'a>>, Box<Type<'a>>),
+pub enum UncheckedType {
+    Basic(IdentId),                       // u8, T
+    Generic(IdentId, Vec<UncheckedType>), // HashMap<K, V>
+    Array(Box<UncheckedType>, usize),     // [u8; 10]
+    // Tuple(Vec<UncheckedType>),
+    Unknown,
 }

@@ -1,25 +1,19 @@
 use std::collections::HashMap;
 
-use crate::{arena::IdentId, AstVisitor, DefId, FunctionNode, Type, ValueNode};
+use crate::{AstVisitor, FunctionNode, IdentId, UncheckedType, ValueNode};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructNode {
     pub name: IdentId,
     pub generic_parameters: Vec<IdentId>,
-    pub fields: Vec<(IdentId, Type)>,
-    pub functions: HashMap<IdentId, FunctionNode>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct StructInstance<F> {
-    pub name: IdentId,
-    pub def_id: DefId,
-    pub generic_parameters: Vec<DefId>,
-    pub fields: HashMap<IdentId, ValueNode<F>>,
+    pub fields: Vec<(IdentId, UncheckedType)>,
 }
 
 impl StructNode {
-    pub fn accept_visitor<F, V: AstVisitor<F>>(&mut self, visitor: &mut V) -> V::StmtResult {
+    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+        &self,
+        visitor: &mut V,
+    ) -> V::StmtResult {
         visitor.visit_struct(self)
     }
 }

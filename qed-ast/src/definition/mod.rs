@@ -8,7 +8,7 @@ pub use r#enum::*;
 pub use r#impl::*;
 pub use r#struct::*;
 
-use crate::AstVisitor;
+use crate::{AstVisitor, IdentId};
 use strum::EnumIs;
 
 #[derive(Debug, Clone, PartialEq, EnumIs)]
@@ -20,7 +20,19 @@ pub enum DefinitionNode {
 }
 
 impl DefinitionNode {
-    pub fn accept_visitor<F, V: AstVisitor<F>>(&mut self, visitor: &mut V) {
+    pub fn id(&self) -> IdentId {
+        match self {
+            DefinitionNode::Function(f) => f.name,
+            DefinitionNode::Struct(s) => s.name,
+            DefinitionNode::Enum(e) => e.name,
+            DefinitionNode::Impl(i) => i.ty,
+        }
+    }
+
+    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+        &self,
+        visitor: &mut V,
+    ) -> V::StmtResult {
         visitor.visit_definition(self)
     }
 }

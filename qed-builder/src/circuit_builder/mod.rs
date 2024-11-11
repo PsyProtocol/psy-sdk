@@ -371,4 +371,12 @@ impl Context<SymFeltRef> for ExecContext {
         };
         self.store.insert(value)
     }
+
+    fn get_value(&mut self, a: SymFeltRef) -> u64 {
+        a.get_constant_value()
+    }
+
+    fn get_bool_value(&mut self, a: SymFeltRef) -> bool {
+        a.get_constant_bool_value_multi()
+    }
 }

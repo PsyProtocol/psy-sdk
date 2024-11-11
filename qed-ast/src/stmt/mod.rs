@@ -12,25 +12,23 @@ pub use r#return::*;
 pub use r#while::*;
 pub use variable::*;
 
-use crate::{visitor::AstVisitor, EnumNode, FunctionNode, ImplNode, StructNode};
+use crate::{AstVisitor, DefinitionNode, ExprNode};
 use strum::EnumIs;
 
 #[derive(Debug, Clone, PartialEq, EnumIs)]
-pub enum StmtNode {
+pub enum StmtNode<F: Clone> {
     If(IfNode),
     While(WhileNode),
     Block(BlockNode),
     Assignment(AssignmentNode),
-    VarDecl(VarDeclNode),
-    StructDecl(StructNode),
-    EnumDecl(EnumNode),
-    FunctionDecl(FunctionNode),
-    Impl(ImplNode),
+    Variable(VariableNode),
+    Definition(DefinitionNode),
+    Expression(ExprNode<F>),
     Return(ReturnNode),
 }
 
-impl StmtNode {
-    pub fn accept_visitor<F, V: AstVisitor<F>>(&mut self, visitor: &mut V) -> V::StmtResult {
+impl<F: Clone> StmtNode<F> {
+    pub fn accept_visitor<C, V: AstVisitor<F, C>>(&self, visitor: &mut V) -> V::StmtResult {
         visitor.visit_stmt(self)
     }
 }

@@ -1,6 +1,8 @@
-use crate::{arena::ExprId, visitor::AstVisitor, VariableNode};
+use std::fmt::Display;
 
-#[derive(Clone, Debug, PartialEq)]
+use crate::{AstVisitor, ExprId, PathNode};
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum AssignmentOperator {
     Eq,
 
@@ -19,15 +21,33 @@ pub enum AssignmentOperator {
     BitShrAssign,
 }
 
+impl Display for AssignmentOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AssignmentOperator::Eq => write!(f, "="),
+            AssignmentOperator::AddAssign => write!(f, "+="),
+            AssignmentOperator::SubAssign => write!(f, "-="),
+            AssignmentOperator::MulAssign => write!(f, "*="),
+            AssignmentOperator::DivAssign => write!(f, "/="),
+            AssignmentOperator::ModAssign => write!(f, "%="),
+            AssignmentOperator::BitAndAssign => write!(f, "&="),
+            AssignmentOperator::BitOrAssign => write!(f, "|="),
+            AssignmentOperator::BitXorAssign => write!(f, "^="),
+            AssignmentOperator::BitShlAssign => write!(f, "<<="),
+            AssignmentOperator::BitShrAssign => write!(f, ">>="),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct AssignmentNode {
-    pub variable: VariableNode,
+    pub variable: ExprId,
     pub operator: AssignmentOperator,
     pub value: ExprId,
 }
 
 impl<'a> AssignmentNode {
-    pub fn new(variable: VariableNode, operator: AssignmentOperator, value: ExprId) -> Self {
+    pub fn new(variable: ExprId, operator: AssignmentOperator, value: ExprId) -> Self {
         Self {
             variable,
             operator,
@@ -35,7 +55,10 @@ impl<'a> AssignmentNode {
         }
     }
 
-    pub fn accept_visitor<F, V: AstVisitor<F>>(&mut self, visitor: &mut V) -> V::StmtResult {
+    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+        &self,
+        visitor: &mut V,
+    ) -> V::StmtResult {
         visitor.visit_assignment(self)
     }
 }

@@ -6,3 +6,5 @@ version = "0.1.0"
 [dependencies]
 strum = { workspace = true }
 smol_str = { workspace =true }
+thiserror = { workspace = true }
+qed-common = { workspace = true }

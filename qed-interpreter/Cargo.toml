@@ -6,6 +6,7 @@ version = "0.1.0"
 [dependencies]
 qed-ast = { workspace = true }
 qed-parser = { workspace = true }
+qed-sema = { workspace = true }
 anyhow = { workspace = true }
 strum = { workspace = true }
 tracing = { workspace = true }
@@ -13,3 +14,4 @@ thiserror = { workspace = true }
 qed-common = { workspace = true }
 insta = { workspace = true }
 qed-builder = { workspace = true }
+qed-fmt = { workspace = true }

@@ -1,4 +1,4 @@
-use crate::{arena::ExprId, visitor::AstVisitor, BlockNode};
+use crate::{AstVisitor, BlockNode, ExprId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Case {
@@ -20,7 +20,10 @@ pub struct IfNode {
 }
 
 impl IfNode {
-    pub fn accept_visitor<F, V: AstVisitor<F>>(&mut self, visitor: &mut V) -> V::StmtResult {
+    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+        &self,
+        visitor: &mut V,
+    ) -> V::StmtResult {
         visitor.visit_if(self)
     }
 }

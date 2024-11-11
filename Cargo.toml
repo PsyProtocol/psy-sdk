@@ -14,7 +14,7 @@ members = [
     "qed-ast",
     "qed-opt",
     "qed-derive",
-    # "qed-sema",
+    "qed-sema",
     "qed-irgen",
     "qed-codegen",
     "qed-lexer",
@@ -43,6 +43,7 @@ unescaper = "0.1"
 
 petgraph = "0.6"
 chalk = "0.1"
+ena = "0.14"
 
 syn = { version = "2.0", features = ["full"] }
 proc-macro2 = "1.0"

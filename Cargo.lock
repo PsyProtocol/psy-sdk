@@ -899,8 +899,10 @@ dependencies = [
 name = "qed-ast"
 version = "0.1.0"
 dependencies = [
+ "qed-common",
  "smol_str",
  "strum",
+ "thiserror",
 ]
 
 [[package]]
@@ -945,6 +947,11 @@ version = "0.1.0"
 [[package]]
 name = "qed-fmt"
 version = "0.1.0"
+dependencies = [
+ "qed-ast",
+ "qed-builder",
+ "qed-parser",
+]
 
 [[package]]
 name = "qed-interpreter"
@@ -955,7 +962,9 @@ dependencies = [
  "qed-ast",
  "qed-builder",
  "qed-common",
+ "qed-fmt",
  "qed-parser",
+ "qed-sema",
  "strum",
  "thiserror",
  "tracing",
@@ -1001,15 +1010,30 @@ dependencies = [
  "insta",
  "lalrpop",
  "lalrpop-util",
+ "petgraph",
  "qed-ast",
  "qed-builder",
+ "qed-common",
  "qed-lexer",
+ "thiserror",
 ]
 
 [[package]]
 name = "qed-repl"
 version = "0.1.0"
 dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "qed-sema"
+version = "0.1.0"
+dependencies = [
+ "qed-ast",
+ "qed-common",
+ "qed-parser",
+ "smol_str",
+ "strum",
  "thiserror",
 ]
 
