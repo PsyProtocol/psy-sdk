@@ -1,0 +1,366 @@
+use kvq::traits::KVQSerializable;
+use plonky2::hash::hash_types::{HashOut, RichField};
+use qed_core::{config::network_constants::DA_CHALLENGE_WINDOW, data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
+use qed_crypto::hash::traits::{hasher::FieldHasher, qhashable::QFieldHashable};
+use serde::{Deserialize, Serialize};
+
+use super::pm_reward_commitment::PMRewardCommitment;
+
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct QEDCheckpointLeafStats<F: RichField> {
+    pub fees_collected: F,
+
+    pub user_ops_processed: F,
+    pub total_transactions: F,
+
+    pub slots_modified: F,
+    pub pm_jobs_completed: F,
+
+    pub block_time: F,
+
+    pub random_seed: QHashOut<F>,
+    pub pm_rewards_commitment: PMRewardCommitment<F>,
+
+    // data availability miner proofs successfully completed for the previous 16 blocks
+    pub da_challenges_claimed: [F; DA_CHALLENGE_WINDOW],
+    
+}
+
+impl<F: RichField> QEDCheckpointLeafStats<F> {
+    pub fn new_empty() -> Self {
+        Self { fees_collected: F::ZERO, user_ops_processed: F::ZERO, total_transactions: F::ZERO, slots_modified: F::ZERO, pm_jobs_completed: F::ZERO, block_time: F::ZERO, random_seed: QHashOut::ZERO, pm_rewards_commitment: PMRewardCommitment::default(), da_challenges_claimed: [F::ZERO; DA_CHALLENGE_WINDOW] }
+
+    }
+}
+impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafStats<F> {
+    fn to_qfelts(&self) -> Vec<F> {
+        let mut result = vec![
+            self.fees_collected,
+            self.user_ops_processed,
+            self.total_transactions,
+
+            self.slots_modified,
+            self.pm_jobs_completed,
+            self.block_time,
+            self.random_seed.0.elements[0],
+            self.random_seed.0.elements[1],
+            self.random_seed.0.elements[2],
+            self.random_seed.0.elements[3],
+        ];
+        result.extend_from_slice(&self.pm_rewards_commitment.to_qfelts());
+        result.extend_from_slice(&self.da_challenges_claimed);
+        result
+    }
+
+    fn from_qfelts(felts: &[F]) -> Self {
+        let reward_com_size = PMRewardCommitment::<F>::q_felt_size();
+        if felts.len() != 10 + reward_com_size + DA_CHALLENGE_WINDOW {
+            panic!("Invalid number of elements for QEDCheckpointLeafStats");
+        }
+        QEDCheckpointLeafStats {
+            fees_collected: felts[0],
+            user_ops_processed: felts[1],
+            total_transactions: felts[2],
+            slots_modified: felts[3],
+            pm_jobs_completed: felts[4],
+            block_time: felts[5],
+            random_seed: QHashOut(HashOut {
+                elements: [
+                    felts[6],
+                    felts[7],
+                    felts[8],
+                    felts[9],
+                ]
+            }),
+            pm_rewards_commitment: PMRewardCommitment::from_qfelts(&felts[10..(10+reward_com_size)]),
+            da_challenges_claimed: felts[(10+reward_com_size)..].try_into().unwrap(),
+            
+        }
+    }
+}
+impl<F: RichField> KVQSerializable for QEDCheckpointLeafStats<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+impl<F: RichField> QFeltSized for QEDCheckpointLeafStats<F> {
+    fn q_felt_size() -> usize {
+        10 + DA_CHALLENGE_WINDOW
+    }
+}
+impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafStats<F> {
+    fn qfhash<H: FieldHasher<QHashOut<F>, F>>(&self) -> QHashOut<F> {
+        let felts = self.to_qfelts();
+        H::hash_many(&felts)
+    }
+}
+
+
+
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct QEDCheckpointGlobalStateRoots<F: RichField> {
+    pub contract_tree_root: QHashOut<F>,
+    pub deposit_tree_root: QHashOut<F>,
+    pub user_tree_root: QHashOut<F>,
+    pub withdrawal_tree_root: QHashOut<F>,
+}
+
+impl<F: RichField> KVQSerializable for QEDCheckpointGlobalStateRoots<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+impl<F: RichField> QFeltSized for QEDCheckpointGlobalStateRoots<F> {
+    fn q_felt_size() -> usize {
+        16
+    }
+}
+impl<F: RichField> ToQFelts<F> for QEDCheckpointGlobalStateRoots<F> {
+    fn to_qfelts(&self) -> Vec<F> {
+        let mut result = Vec::with_capacity(Self::q_felt_size());
+        result.extend_from_slice(&self.contract_tree_root.0.elements);
+        result.extend_from_slice(&self.deposit_tree_root.0.elements);
+        result.extend_from_slice(&self.user_tree_root.0.elements);
+        result.extend_from_slice(&self.withdrawal_tree_root.0.elements);
+    
+        result
+    }
+
+    fn from_qfelts(felts: &[F]) -> Self {
+        if felts.len() != Self::q_felt_size() {
+            panic!("Invalid number of elements for QEDCheckpointGlobalStateRoots");
+        }
+        let contract_tree_root = QHashOut(HashOut {
+            elements: [
+                felts[0],
+                felts[1],
+                felts[2],
+                felts[3]
+            ]
+        });
+        let deposit_tree_root = QHashOut(HashOut {
+            elements: [
+                felts[4],
+                felts[5],
+                felts[6],
+                felts[7]
+            ]
+        });
+        let user_tree_root = QHashOut(HashOut {
+            elements: [
+                felts[8],
+                felts[9],
+                felts[10],
+                felts[11]
+            ]
+        });
+        let withdrawal_tree_root = QHashOut(HashOut {
+            elements: [
+                felts[12],
+                felts[13],
+                felts[14],
+                felts[15]
+            ]
+        });
+        QEDCheckpointGlobalStateRoots {
+            contract_tree_root,
+            deposit_tree_root,
+            user_tree_root,
+            withdrawal_tree_root
+        }
+    }
+}
+
+impl<F: RichField> QFieldHashable<F> for QEDCheckpointGlobalStateRoots<F> {
+    fn qfhash<H: FieldHasher<QHashOut<F>, F>>(&self) -> QHashOut<F> {
+        let left = H::hash_many(&[
+            self.contract_tree_root.0.elements[0],
+            self.contract_tree_root.0.elements[1],
+            self.contract_tree_root.0.elements[2],
+            self.contract_tree_root.0.elements[3],
+            self.deposit_tree_root.0.elements[0],
+            self.deposit_tree_root.0.elements[1],
+            self.deposit_tree_root.0.elements[2],
+            self.deposit_tree_root.0.elements[3],
+        ]);
+        let right = H::hash_many(&[
+            self.user_tree_root.0.elements[0],
+            self.user_tree_root.0.elements[1],
+            self.user_tree_root.0.elements[2],
+            self.user_tree_root.0.elements[3],
+            self.withdrawal_tree_root.0.elements[0],
+            self.withdrawal_tree_root.0.elements[1],
+            self.withdrawal_tree_root.0.elements[2],
+            self.withdrawal_tree_root.0.elements[3],
+        ]);
+        H::hash_many(&[
+            left.0.elements[0],
+            left.0.elements[1],
+            left.0.elements[2],
+            left.0.elements[3],
+            right.0.elements[0],
+            right.0.elements[1],
+            right.0.elements[2],
+            right.0.elements[3],
+        ])
+    }
+}
+
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct QEDCheckpointLeaf<F: RichField> {
+    pub global_chain_root: QHashOut<F>,
+    pub stats: QEDCheckpointLeafStats<F>,
+}
+
+impl<F: RichField> KVQSerializable for QEDCheckpointLeaf<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+impl<F: RichField> QFeltSized for QEDCheckpointLeaf<F> {
+    fn q_felt_size() -> usize {
+        4 + QEDCheckpointLeafStats::<F>::q_felt_size()
+    }
+}
+impl<F: RichField> ToQFelts<F> for QEDCheckpointLeaf<F> {
+    fn to_qfelts(&self) -> Vec<F> {
+        let mut result = Vec::with_capacity(Self::q_felt_size());
+        result.extend_from_slice(&self.global_chain_root.0.elements);
+        result.extend_from_slice(&self.stats.to_qfelts());
+        result
+    }
+
+    fn from_qfelts(felts: &[F]) -> Self {
+        if felts.len() != Self::q_felt_size() {
+            panic!("Invalid number of elements for QEDCheckpointLeaf");
+        }
+        let global_chain_root = QHashOut(HashOut {
+            elements: [
+                felts[0],
+                felts[1],
+                felts[2],
+                felts[3]
+            ]
+        });
+        let stats = QEDCheckpointLeafStats::from_qfelts(&felts[4..]);
+        QEDCheckpointLeaf {
+            global_chain_root,
+            stats,
+        }
+    }
+}
+
+impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeaf<F> {
+    fn qfhash<H: FieldHasher<QHashOut<F>, F>>(&self) -> QHashOut<F> {
+        let stats_hash = self.stats.qfhash::<H>();
+        H::hash_many(&[
+            self.global_chain_root.0.elements[0],
+            self.global_chain_root.0.elements[1],
+            self.global_chain_root.0.elements[2],
+            self.global_chain_root.0.elements[3],
+            stats_hash.0.elements[0],
+            stats_hash.0.elements[1],
+            stats_hash.0.elements[2],
+            stats_hash.0.elements[3],
+        ])
+    }
+}
+
+
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Copy, Hash, Eq, PartialEq)]
+pub struct QEDL2BlockState {
+    pub checkpoint_id: u64,
+
+    pub next_add_withdrawal_id: u64,
+    pub next_process_withdrawal_id: u64,
+
+    pub next_deposit_id: u64,
+    pub total_deposits_claimed_epoch: u64,
+
+    pub next_user_id: u64,
+
+    pub end_balance: u64,
+
+
+    pub next_contract_id: u32,
+}
+impl KVQSerializable for QEDL2BlockState {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        // 7 * 8 + 4 = 60 bytes
+        let mut result = Vec::with_capacity(60);
+        result.extend(self.checkpoint_id.to_be_bytes());
+        result.extend(self.next_add_withdrawal_id.to_le_bytes());
+        result.extend(self.next_process_withdrawal_id.to_le_bytes());
+        result.extend(self.next_deposit_id.to_le_bytes());
+        result.extend(self.total_deposits_claimed_epoch.to_le_bytes());
+        result.extend(self.next_user_id.to_le_bytes());
+        result.extend(self.end_balance.to_le_bytes());
+        result.extend(self.next_contract_id.to_le_bytes());
+        Ok(result)
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        if bytes.len() != 60 {
+            anyhow::bail!(
+                "expected 60 bytes for deserializing QEDL2BlockState, got {} bytes",
+                bytes.len()
+            );
+        }
+        let checkpoint_id = u64::from_be_bytes([
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+        ]);
+        let next_add_withdrawal_id = u64::from_le_bytes([
+            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
+        ]);
+        let next_process_withdrawal_id = u64::from_le_bytes([
+            bytes[16], bytes[17], bytes[18], bytes[19], bytes[20], bytes[21], bytes[22], bytes[23],
+        ]);
+        let next_deposit_id = u64::from_le_bytes([
+            bytes[24], bytes[25], bytes[26], bytes[27], bytes[28], bytes[29], bytes[30], bytes[31],
+        ]);
+        let total_deposits_claimed_epoch = u64::from_le_bytes([
+            bytes[32], bytes[33], bytes[34], bytes[35], bytes[36], bytes[37], bytes[38], bytes[39],
+        ]);
+        let next_user_id = u64::from_le_bytes([
+            bytes[40], bytes[41], bytes[42], bytes[43], bytes[44], bytes[45], bytes[46], bytes[47],
+        ]);
+        let end_balance = u64::from_le_bytes([
+            bytes[48], bytes[49], bytes[50], bytes[51], bytes[52], bytes[53], bytes[54], bytes[55],
+        ]);
+        let next_contract_id = u32::from_le_bytes([
+            bytes[56], bytes[57], bytes[58], bytes[59],
+        ]);
+        Ok(Self {
+            checkpoint_id,
+            next_add_withdrawal_id,
+            next_process_withdrawal_id,
+            next_deposit_id,
+            total_deposits_claimed_epoch,
+            next_user_id,
+            end_balance,
+            next_contract_id,
+        })
+    }
+}

@@ -51,7 +51,65 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         self.state.x
     }
 }*/
-impl < C : DPNContext < Felt > > SimpleContractStateful < C > { pub fn simple_set (& mut self , ctx : & mut C , a : Felt , b : Felt) -> Felt { { { let qed_rwv_cond = { let tmp_left = ({ let q_tmp_index_result = a ; self . state . z . q_get (ctx , q_tmp_index_result) }) ; let tmp_right = (a) ; ctx . op_gt (tmp_left , tmp_right) } ; ctx . start_if_block (qed_rwv_cond) ; { { let qed_rwv_old_value = ({ let q_tmp_index_result = { let tmp_left = (SymFeltRef :: cns (2)) ; let tmp_right = (b) ; ctx . op_mul (tmp_left , tmp_right) } ; self . state . z . q_get (ctx , q_tmp_index_result) }) . clone () ; let qed_rwv_new_value = ({ let tmp_left = (a) ; let tmp_right = (b) ; ctx . op_mul (tmp_left , tmp_right) }) . clone () ; ctx . cset_state (qed_rwv_old_value , qed_rwv_new_value) ; } ; } } { ctx . start_else_block () ; { { let tmp_arg_1 = ({ let tmp_left = (a) ; let tmp_right = (b) ; ctx . op_mul (tmp_left , tmp_right) }) ; self . state . y . set_state (ctx , tmp_arg_1) } ; } } ctx . end_if_block () ; } { let q_tmp_index_result = { let tmp_left = (a) ; let tmp_right = (b) ; ctx . op_add (tmp_left , tmp_right) } ; self . state . z . q_get (ctx , q_tmp_index_result) } } }
+impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
+    pub fn simple_set(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
+        {
+            {
+                let qed_rwv_cond = {
+                    let tmp_left = ({
+                        let q_tmp_index_result = a;
+                        self.state.z.q_get(ctx, q_tmp_index_result)
+                    });
+                    let tmp_right = (a);
+                    ctx.op_gt(tmp_left, tmp_right)
+                };
+                ctx.start_if_block(qed_rwv_cond);
+                {
+                    {
+                        let qed_rwv_old_value = ({
+                            let q_tmp_index_result = {
+                                let tmp_left = (SymFeltRef::cns(2));
+                                let tmp_right = (b);
+                                ctx.op_mul(tmp_left, tmp_right)
+                            };
+                            self.state.z.q_get(ctx, q_tmp_index_result)
+                        })
+                        .clone();
+                        let qed_rwv_new_value = ({
+                            let tmp_left = (a);
+                            let tmp_right = (b);
+                            ctx.op_mul(tmp_left, tmp_right)
+                        })
+                        .clone();
+                        ctx.cset_state(qed_rwv_old_value, qed_rwv_new_value);
+                    };
+                }
+            }
+            {
+                ctx.start_else_block();
+                {
+                    {
+                        let tmp_arg_1 = ({
+                            let tmp_left = (a);
+                            let tmp_right = (b);
+                            ctx.op_mul(tmp_left, tmp_right)
+                        });
+                        self.state.y.set_state(ctx, tmp_arg_1)
+                    };
+                }
+            }
+            ctx.end_if_block();
+        }
+        {
+            let q_tmp_index_result = {
+                let tmp_left = (a);
+                let tmp_right = (b);
+                ctx.op_add(tmp_left, tmp_right)
+            };
+            self.state.z.q_get(ctx, q_tmp_index_result)
+        }
+    }
+}
 /*
 impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
     pub fn simple_math(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
