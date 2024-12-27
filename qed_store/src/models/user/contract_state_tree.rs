@@ -1,4 +1,4 @@
-use kvq::traits::{KVQBinaryStoreImmutable, KVQBinaryStoreReader};
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreImmutable, KVQBinaryStoreReader};
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
@@ -40,6 +40,12 @@ impl UserContractStateTreeId {
     }
     pub fn injest_merkle_proof_ucs_imm<S: KVQBinaryStoreImmutable>(&self, store: &S, checkpoint_id: u64, merkle_proof: &QEDMerkleProof) -> anyhow::Result<()> {
         BaseContractStateTreeStore::<S>::injest_merkle_proof(store, CONTRACT_STATE_TREE_ID, self.user_id, self.contract_id, checkpoint_id, merkle_proof)
+    }
+    pub fn set_leaf_ucs<S: KVQBinaryStore>(&self, store: &mut S, checkpoint_id: u64, index: u64, value: QEDHash) -> anyhow::Result<QEDDeltaMerkleProof> {
+        <BaseContractStateTreeStore::<S> as crate::models::kvq_merkle::model::KVQMerkleTreeModelCore<USER_CONTRACT_STATE_TREE_TABLE_TYPE,false,_,_,_,_>>::set_leaf(store, &self.get_leaf_key(checkpoint_id, index), value)
+    }
+    pub fn injest_merkle_proof_ucs<S: KVQBinaryStore>(&self, store: &mut S, checkpoint_id: u64, merkle_proof: &QEDMerkleProof) -> anyhow::Result<()> {
+        <BaseContractStateTreeStore::<S> as crate::models::kvq_merkle::model::KVQMerkleTreeModelCore<USER_CONTRACT_STATE_TREE_TABLE_TYPE,false,_,_,_,_>>::injest_merkle_proof(store, CONTRACT_STATE_TREE_ID, self.user_id, self.contract_id, checkpoint_id, merkle_proof)
     }
     pub fn get_root<S: KVQBinaryStoreReader>(&self, store: &S, checkpoint_id: u64) -> anyhow::Result<QEDHash> {
         BaseContractStateTreeStore::<S>::get_node(store, self.height.into(), &KVQMerkleNodeKey{

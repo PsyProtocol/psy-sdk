@@ -2,6 +2,8 @@ use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::{ DeltaMerkleProofCore, MerkleProofCore};
 
+use super::qmetadata::QMetaDataStoreReaderSync;
+
 
 pub trait ActiveCheckpointReaderSync<F: RichField> {
     fn get_active_checkpoint(&self) -> anyhow::Result<u64>;
@@ -86,6 +88,8 @@ pub trait QTreeDataStoreReaderSync<F: RichField> {
     fn get_checkpoint_tree_merkle_proof(&self, checkpoint_id: u64, leaf_checkpoint_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
 }
+
+pub trait QEDComboDataStoreReaderSync<F: RichField>: QMetaDataStoreReaderSync<F> + QTreeDataStoreReaderSync<F> {}
 
 pub trait QTreeDataStoreWriterSync<F: RichField> {
     fn set_user_state_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, contract_id: u32, height: u8, leaf_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;

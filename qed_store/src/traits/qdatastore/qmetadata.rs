@@ -20,6 +20,7 @@ pub trait QMetaDataStoreReaderSync<F: RichField> {
     fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState>;
     fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<QEDL2BlockState>;
 }
+
 pub trait QMetaDataStoreReaderSyncMut<F: RichField> {
     fn get_user_leaf_data_mut(&mut self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QEDUserLeaf<F>>;
     fn get_user_leaf_data_f_mut(&mut self, checkpoint_id: F, user_id: F) -> anyhow::Result<QEDUserLeaf<F>>;

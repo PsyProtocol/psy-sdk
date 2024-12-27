@@ -192,6 +192,63 @@ pub trait KVQMerkleTreeModelCore<
             index: key.index,
         })
     }
+
+    fn injest_merkle_proof(
+        store: &mut S,
+        tree_id: u8,
+        primary_id: u64,
+        secondary_id: u32,
+        checkpoint_id: u64,
+        merkle_proof: &MerkleProofCore<Hash>,
+    ) -> anyhow::Result<()> {
+        let base_leaf_key = KVQMerkleNodeKey::<TABLE_TYPE> {
+            tree_id,
+            primary_id,
+            secondary_id,
+            level: merkle_proof.siblings.len() as u8,
+            index: merkle_proof.index,
+            checkpoint_id,
+        };
+
+
+        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> =
+            Vec::with_capacity(merkle_proof.siblings.len()*2+1);
+        let mut k = base_leaf_key;
+        let mut last_hash = merkle_proof.value;
+            
+        for sibling in merkle_proof.siblings.iter() {
+            updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
+                key: k,
+                value: last_hash,
+            });
+            updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
+                key: k.sibling(),
+                value: *sibling,
+            });
+
+            last_hash = if k.index & 1 == 0 {
+                if MARK_LEAVES {
+                    Hasher::two_to_one_marked_leaf(&last_hash, &sibling)
+                } else {
+                    Hasher::two_to_one(&last_hash, &sibling)
+                }
+            } else {
+                if MARK_LEAVES {
+                    Hasher::two_to_one_marked_leaf(&sibling, &last_hash)
+                } else {
+                    Hasher::two_to_one(&sibling, &last_hash)
+                }
+            };
+            k = k.parent();
+        }
+        
+        updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
+            key: k,
+            value: last_hash,
+        });
+        Self::set_nodes(store, &updates)?;
+        Ok(())
+    }
 }
 
 
@@ -571,6 +628,22 @@ pub trait KVQSemiFixedConfigMerkleTreeModelCore<
     ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
         Self::set_leaf(store, &Self::new_leaf_key_sfc(checkpoint_id, primary_id, index), value)
     }
+
+    fn injest_merkle_proof_sfc(store: &mut S, 
+        primary_id: u64, checkpoint_id: u64, merkle_proof: &MerkleProofCore<Hash>) -> anyhow::Result<()> {
+        Self::injest_merkle_proof(store, TREE_ID, primary_id, SECONDARY_ID, checkpoint_id, merkle_proof)
+    }
+    fn injest_merkle_proof_set_leaf_sfc(
+        store: &mut S, 
+        primary_id: u64,
+        old_checkpoint_id: u64, 
+        merkle_proof: &MerkleProofCore<Hash>, 
+        new_checkpoint_id: u64,
+        new_value: Hash
+    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+        Self::injest_merkle_proof_sfc(store, primary_id, old_checkpoint_id, merkle_proof)?;
+        Self::set_leaf(store, &Self::new_leaf_key_sfc(new_checkpoint_id, primary_id, merkle_proof.index), new_value)
+    }
 }
 pub trait KVQSemiFixedConfigMerkleTreeModelCoreImmutable<
     const TREE_ID: u8,
@@ -648,6 +721,20 @@ pub trait KVQFixedConfigMerkleTreeModelCore<
         Hasher,
     >
 {
+
+    fn injest_merkle_proof_fc(store: &mut S, checkpoint_id: u64, merkle_proof: &MerkleProofCore<Hash>) -> anyhow::Result<()> {
+        Self::injest_merkle_proof(store, TREE_ID, PRIMARY_ID, SECONDARY_ID, checkpoint_id, merkle_proof)
+    }
+    fn injest_merkle_proof_set_leaf_fc(
+        store: &mut S, 
+        old_checkpoint_id: u64, 
+        merkle_proof: &MerkleProofCore<Hash>, 
+        new_checkpoint_id: u64,
+        new_value: Hash
+    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+        Self::injest_merkle_proof_fc(store, old_checkpoint_id, merkle_proof)?;
+        Self::set_leaf(store, &Self::new_leaf_key_fc(new_checkpoint_id, merkle_proof.index), new_value)
+    }
     fn set_leaf_fc(
         store: &mut S,
         checkpoint_id: u64,

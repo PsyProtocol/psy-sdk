@@ -34,7 +34,7 @@ use crate::{
     },
     traits::qdatastore::{
         qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync},
-        qtreedata::{QTreeDataStoreReaderSync, QTreeDataStoreWriterSync},
+        qtreedata::{QEDComboDataStoreReaderSync, QTreeDataStoreReaderSync, QTreeDataStoreWriterSync},
     },
 };
 
@@ -872,4 +872,9 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
         CheckpointTreeStore::set_leaf_fc_imm(self, checkpoint_id.to_canonical_u64(), 0, leaf_hash)
     }
+}
+
+
+impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreReaderSync<F> for T {
+    
 }

@@ -5,6 +5,7 @@ use crate::traits::KVQBinaryStoreReader;
 use crate::traits::KVQBinaryStoreWriter;
 use crate::traits::KVQPair;
 
+#[derive(Debug, Clone)]
 pub struct KVQSimpleMemoryBackingStore {
     map: BTreeMap<Vec<u8>, Vec<u8>>,
 }
@@ -13,6 +14,9 @@ impl KVQSimpleMemoryBackingStore {
         Self {
             map: BTreeMap::new(),
         }
+    }
+    pub fn clear(&mut self) {
+        self.map.clear();
     }
 }
 
