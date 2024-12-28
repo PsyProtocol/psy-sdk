@@ -1,13 +1,19 @@
 use super::sym_felt::{SymFeltDef, SymFeltRef, SymFeltRefValue};
+
+
 #[derive(Debug, Clone)]
 pub struct SymFeltStore {
     pub store: hashbrown::HashMap<SymFeltRef, SymFeltRefValue>,
+    /* 
+    pub ref_points: Vec<Vec<SymFeltRef>>,
+    pub current_phase_ref_points: Vec<SymFeltRef>,*/
 }
 
 impl SymFeltStore {
     pub fn new() -> SymFeltStore {
         SymFeltStore {
             store: hashbrown::HashMap::new(),
+            //ref_points: Vec::new(),
         }
     }
     pub fn get_opt(&self, key: SymFeltRef) -> Option<&SymFeltRefValue> {

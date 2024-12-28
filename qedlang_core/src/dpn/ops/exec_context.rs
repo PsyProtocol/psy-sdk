@@ -1,3 +1,5 @@
+use hashbrown::HashSet;
+
 use crate::dpn::ops::sym_felt::SymFeltRefValue;
 
 use super::{context_trait::{DPNContext, ToFelts}, op_types::{DPNBuiltInDataType, DPNOpType}, sym_felt::{SetSymFeltRef, SymFeltRef, SymRefAssertion}, sym_felt_store::SymFeltStore};
@@ -13,11 +15,13 @@ pub struct QExecContext {
     pub input_count: u64,
     pub assertions: Vec<SymRefAssertion>,
     pub set_state_commands: Vec<SetSymFeltRef>,
+    pub get_self_contract_state_commands: Vec<Vec<SymFeltRef>>,
+    pub current_get_self_contract_state_commands: HashSet<SymFeltRef>,
     condition_stack: Vec<IfConditionStack>,
     current_condition: SymFeltRef,
     external_function_call_count: u16,
     contract_state_tree_height: u16,
-    set_state_command_count: u32,
+    pub set_state_command_count: u32,
 
 }
 
@@ -28,12 +32,18 @@ impl QExecContext {
             input_count: 0,
             assertions: vec![],
             set_state_commands: vec![],
+            get_self_contract_state_commands: vec![],
+            current_get_self_contract_state_commands: HashSet::default(),
             condition_stack: vec![],
             current_condition: SymFeltRef::new_valueless(DPNOpType::ConstantTrue),
             external_function_call_count: 0,
             contract_state_tree_height: 32,
             set_state_command_count: 0,
         }
+    }
+    pub fn finalize(&mut self) {
+        let r = self.current_get_self_contract_state_commands.drain().collect::<Vec<_>>();
+        self.get_self_contract_state_commands.push(r);
     }
 
     fn create_contract_state_ref(&mut self, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef, index: SymFeltRef) -> SymFeltRef {
@@ -46,7 +56,9 @@ impl QExecContext {
     }
 
     fn create_self_contract_state_ref(&mut self, index: SymFeltRef) -> SymFeltRef {
-        self.create_contract_state_ref(self.contract_state_tree_height, SymFeltRef::new_valueless(DPNOpType::GetContractId), SymFeltRef::new_valueless(DPNOpType::GetUserId), index)
+        let r = self.create_contract_state_ref(self.contract_state_tree_height, SymFeltRef::new_valueless(DPNOpType::GetContractId), SymFeltRef::new_valueless(DPNOpType::GetUserId), index);
+        self.current_get_self_contract_state_commands.insert(r);
+        r
     }
 
     fn cset_felt(&mut self, old_value: SymFeltRef, new_value: SymFeltRef) -> SymFeltRef {
@@ -423,7 +435,11 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
     
     fn op_get_state_felt(&mut self, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef, index: SymFeltRef) -> SymFeltRef {
-       self.create_contract_state_ref(contract_state_tree_height, contract_id, user_id, index)
+        if contract_id.get_op_type() == DPNOpType::GetContractId && user_id.get_op_type() == DPNOpType::GetUserId {
+            self.create_self_contract_state_ref(index)
+        }else{
+            self.create_contract_state_ref(contract_state_tree_height, contract_id, user_id, index)
+        }
     }
     
     fn op_set_state_felt(&mut self, index: SymFeltRef, value: SymFeltRef) -> SymFeltRef {
@@ -434,6 +450,9 @@ impl DPNContext<SymFeltRef> for QExecContext {
         let set_sym = SetSymFeltRef::new(self.external_function_call_count, index, value);
         self.set_state_commands.push(set_sym);
         self.set_state_command_count += 1;
+        let r = self.current_get_self_contract_state_commands.drain().collect::<Vec<_>>();
+        self.get_self_contract_state_commands.push(r);
+
         value
     }
     
@@ -451,6 +470,8 @@ impl DPNContext<SymFeltRef> for QExecContext {
             let set_sym = SetSymFeltRef::new(self.external_function_call_count, old_value, new_value);
             self.set_state_commands.push(set_sym);
             self.set_state_command_count += 1;
+            let r = self.current_get_self_contract_state_commands.drain().collect::<Vec<_>>();
+            self.get_self_contract_state_commands.push(r);
         }
         value
     }

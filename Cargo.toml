@@ -9,6 +9,7 @@ members = [
   "qed_core",
   "qed_crypto",
   "qed_store",
+  "qed_prover",
   "qed_data"
 ]
 resolver = "2"
