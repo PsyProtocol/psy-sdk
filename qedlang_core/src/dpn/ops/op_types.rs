@@ -83,8 +83,15 @@ pub enum DPNOpType {
     GetStateQueryResult = 51,
     GetStateQueryResultSingle = 52,
 
+    GetStateCommandResultHash = 53,
+    GetStateCommandResultSingle = 54,
+    GetStateCommandResultArray = 55,
+
     UnaryInverse = 64,
     UnaryNegative = 65,
+
+
+
 }
 
 impl From<u16> for DPNOpType {
@@ -142,6 +149,9 @@ impl From<u16> for DPNOpType {
             50 => DPNOpType::GetUserPublicKeyHash,
             51 => DPNOpType::GetStateQueryResult,
             52 => DPNOpType::GetStateQueryResultSingle,
+            53 => DPNOpType::GetStateCommandResultHash,
+            54 => DPNOpType::GetStateCommandResultSingle,
+            55 => DPNOpType::GetStateCommandResultArray,
             64 => DPNOpType::UnaryInverse,
             65 => DPNOpType::UnaryNegative,
             _ => panic!("Unknown DPNOpType: {}", value),
@@ -242,6 +252,9 @@ impl DPNOpType {
             DPNOpType::GetUserPublicKeyHash => DPNBuiltInDataType::HashOut,
             DPNOpType::GetStateQueryResult => DPNBuiltInDataType::HashOut,
             DPNOpType::GetStateQueryResultSingle => DPNBuiltInDataType::Target,
+            DPNOpType::GetStateCommandResultHash => DPNBuiltInDataType::HashOut,
+            DPNOpType::GetStateCommandResultSingle => DPNBuiltInDataType::Target,
+            DPNOpType::GetStateCommandResultArray => DPNBuiltInDataType::TargetArray,
             DPNOpType::UnaryInverse => DPNBuiltInDataType::Target,
             DPNOpType::UnaryNegative => DPNBuiltInDataType::Target,
         }
@@ -270,6 +283,30 @@ impl DPNOpType {
             DPNOpType::GetNonce => false,
             DPNOpType::GetUserPublicKeyHash => false,
             _ => true,
+        }
+    }
+    pub fn has_constant_param(&self) -> bool {
+        match self {
+            DPNOpType::Constant => true,
+            DPNOpType::ConstantTrue => true,
+            DPNOpType::ConstantFalse => true,
+            DPNOpType::ExpConstantPower => true,
+            DPNOpType::ExpConstantBase => true,
+            DPNOpType::ModConstantDividend => true,
+            DPNOpType::ModConstantDivisor => true,
+            DPNOpType::U32AndConstant => true,
+            DPNOpType::U32OrConstant => true,
+            DPNOpType::U32XorConstant => true,
+            DPNOpType::U32ShiftLeftConstantBitDistance => true,
+            DPNOpType::U32ShiftLeftConstantValue => true,
+            DPNOpType::U32ShiftRightConstantBitDistance => true,
+            DPNOpType::U32ShiftRightConstantValue => true,
+            DPNOpType::SplitBits => true,
+            DPNOpType::GetStateCommandResultSingle => true,
+            DPNOpType::GetStateCommandResultArray => true,
+            DPNOpType::GetStateCommandResultHash => true,
+            
+            _ => false,
         }
     }
 }
@@ -329,6 +366,9 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::GetUserPublicKeyHash => "GetUserPublicKeyHash",
             DPNOpType::GetStateQueryResult => "GetStateQueryResult",
             DPNOpType::GetStateQueryResultSingle => "GetStateQueryResultSingle",
+            DPNOpType::GetStateCommandResultHash => "GetStateCommandResultHash",
+            DPNOpType::GetStateCommandResultSingle => "GetStateCommandResultSingle",
+            DPNOpType::GetStateCommandResultArray => "GetStateCommandResultArray",
             DPNOpType::UnaryInverse => "UnaryInverse",
             DPNOpType::UnaryNegative => "UnaryNegative",
         };

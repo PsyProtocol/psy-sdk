@@ -269,6 +269,9 @@ impl ContextEval for SymFeltStore {
                     self.resolve_unary_felt_arg_gl(felt_ref, input, cache).neg().to_canonical_u64()
 
                 },
+                DPNOpType::GetStateCommandResultHash => todo!(),
+                DPNOpType::GetStateCommandResultSingle => todo!(),
+                DPNOpType::GetStateCommandResultArray => todo!(),
             };
             result
         }

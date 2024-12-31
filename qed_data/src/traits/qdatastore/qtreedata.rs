@@ -103,7 +103,7 @@ pub trait QTreeDataStoreWriterSync<F: RichField> {
     fn set_withdrawal_tree_leaf_hash(&self, checkpoint_id: u64, withdrawal_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
     fn set_withdrawal_tree_leaf_hash_f(&self, checkpoint_id: F, withdrawal_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
     
-
+    // note that each function has two leaves -- left is the hash of the verifier key and right is [method_id, (num_outputs<<32)|num_inputs, 0, 0]
     fn set_contract_function_whitelist(&self, checkpoint_id: u64, contract_id: u64, leaves: &[QHashOut<F>]) -> anyhow::Result<QHashOut<F>>;
     fn set_contract_function_whitelist_f(&self, checkpoint_id: F, contract_id: F, leaves: &[QHashOut<F>]) -> anyhow::Result<QHashOut<F>>;
     

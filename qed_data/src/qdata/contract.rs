@@ -76,7 +76,10 @@ impl<F: RichField> QFieldHashable<F> for QEDContractLeaf<F> {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct ContractFunctionCodeDefinition {
-    pub call_signature: [u8; 20],
+    // method id = sha256(functionName(arg0[arg0_size],arg1[arg1_size]))&0xffffffff
+    pub method_id: u32,
+    pub num_inputs: u32,
+    pub num_outputs: u32,
     pub vm_type: u32,
     pub code: Vec<u8>,
 }

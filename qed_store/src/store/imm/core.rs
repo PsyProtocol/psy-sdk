@@ -801,7 +801,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
             leaf_hash,
         )
     }
-
+    // note that each function has two leaves -- left is the hash of the verifier key and right is [method_id, (num_outputs<<32)|num_inputs, 0, 0]
     fn set_contract_function_whitelist(
         &self,
         checkpoint_id: u64,
