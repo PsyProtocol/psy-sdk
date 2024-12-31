@@ -1,6 +1,6 @@
-use crate::dpn::ops::{op_types::DPNBuiltInDataType, state_cmd::{data::DPNStateCmd, types::DPNStateCmdCore}, sym_felt::SymFeltRef, sym_felt_store::SymFeltStore};
+use crate::dpn::ops::{exec_context::QExecContext, op_types::DPNBuiltInDataType, state_cmd::{data::DPNStateCmd, types::DPNStateCmdCore}, sym_felt::SymFeltRef, sym_felt_store::SymFeltStore};
 
-use super::def::{encode_indexed_op_id, DPNAssertEqInfoIndexed, DPNIndexedVarDef};
+use super::def::{encode_indexed_op_id, DPNAssertEqInfoIndexed, DPNFunctionCircuitDefinition, DPNIndexedVarDef};
 
 pub struct QEDCompileResult {
     pub circuit_inputs: Vec<u64>,
@@ -36,6 +36,11 @@ pub struct QEDCompileResult {
 
 
 impl QEDCompileResult {
+    pub fn compile_exec(name: String, sym_store: &SymFeltStore, ctx: &QExecContext, outputs: &[SymFeltRef]) -> DPNFunctionCircuitDefinition {
+        let mut result = QEDCompileResult::new();
+        result.compile(sym_store, ctx, outputs);
+        result.finalize(name)
+    }
     pub fn new() -> Self {
         QEDCompileResult {
             circuit_inputs: vec![],
@@ -145,6 +150,42 @@ impl QEDCompileResult {
         self.state_command_resolution_indices.push(def_count);
         let converted = cmd.convert_to_u64(&inputs_resolved);
         self.state_commands.push(converted);
+    }
+
+
+    pub fn compile(&mut self, sym_store: &SymFeltStore, ctx: &QExecContext, outputs: &[SymFeltRef]) {
+        for i in 0..ctx.input_count {
+            let inp = self.injest_sfr(sym_store, SymFeltRef::new_input(i));
+            self.circuit_inputs.push(inp);
+        }
+        for cmd in ctx.state_cmd_store.commands.iter() {
+            self.injest_state_cmd(sym_store, cmd.clone());
+        }
+        for assertion in ctx.assertions.iter() {
+            let left = self.injest_sfr(sym_store, assertion.left);
+            let right = self.injest_sfr(sym_store, assertion.right);
+            self.assertions.push(DPNAssertEqInfoIndexed{
+                message: assertion.message.to_string(),
+                left,
+                right,
+            });
+        }
+        for output in outputs.iter() {
+            let o = self.injest_sfr(sym_store, *output);
+            self.circuit_outputs.push(o);
+        }
+
+    }
+    pub fn finalize(self, name: String) ->DPNFunctionCircuitDefinition {
+        DPNFunctionCircuitDefinition{
+            name,
+            circuit_inputs: self.circuit_inputs,
+            circuit_outputs: self.circuit_outputs,
+            state_commands: self.state_commands,
+            state_command_resolution_indices: self.state_command_resolution_indices,
+            assertions: self.assertions,
+            definitions: self.definitions,
+        }
     }
 }
 
