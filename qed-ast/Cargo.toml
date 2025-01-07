@@ -8,3 +8,4 @@ strum = { workspace = true }
 smol_str = { workspace =true }
 thiserror = { workspace = true }
 qed-common = { workspace = true }
+tracing = { workspace = true }

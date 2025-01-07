@@ -42,7 +42,6 @@ pub struct Scope<T> {
     pub children: Vec<ScopeId>,
     pub variables: HashMap<IdentId, CheckedVariable<T>>,
     pub types: HashMap<TypeKey, TypeId>,
-    pub uses: HashMap<IdentId, TypeId>,
 }
 
 #[derive(Clone, Debug)]
@@ -85,7 +84,6 @@ impl<T> Scope<T> {
             children: vec![],
             variables: HashMap::with_capacity(10),
             types: HashMap::new(),
-            uses: HashMap::new(),
         }
     }
 }
@@ -242,9 +240,7 @@ impl<T> SymbolTable<T> {
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect::<Vec<_>>();
         for (ident, type_id) in type_ids {
-            if !self[current_scope_id].uses.contains_key(&ident.id()) {
-                self[current_scope_id].uses.insert(ident.id(), type_id);
-            }
+            self.add_type_id(None, ident, type_id);
         }
         Ok(())
     }

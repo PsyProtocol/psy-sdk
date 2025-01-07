@@ -903,6 +903,7 @@ dependencies = [
  "smol_str",
  "strum",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
