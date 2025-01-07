@@ -18,7 +18,8 @@ use std::{
 
 pub use definition::*;
 pub use expr::*;
-use qed_common::{Arena, Hook};
+use once_cell::sync::OnceCell;
+use qed_common::{Arena, TraverseOrder};
 pub use r#type::*;
 pub use stmt::*;
 pub use symbol_table::*;
@@ -86,6 +87,8 @@ impl<F: Clone, C> ParsingArtifact<F, C> {
     }
 }
 
+static STD_PRELUDE_MODULE_ID: OnceCell<ModuleId> = OnceCell::new();
+
 impl<F: Clone, C> TypeChecker<F, C> {
     pub fn new() -> Self {
         Self {
@@ -106,13 +109,13 @@ impl<F: Clone, C> TypeChecker<F, C> {
             None,
             &mut |file_id, parent_file_id, hook| {
                 let module = artifact.program.modules.get(&file_id).unwrap();
-                if hook == Hook::PreVisit {
+                if hook == TraverseOrder::Enter {
                     if let Some(&module_id) = module_registry.get(&file_id) {
                         symbols.start_existing_module(module_id);
                     } else {
-                        symbols.start_module(module.module_name, module.file_id);
+                        symbols.start_module(module.name, *file_id);
                     }
-                } else if hook == Hook::PostVisit {
+                } else if hook == TraverseOrder::Exit {
                     symbols.end_module();
                 } else {
                     if !module_registry.contains_key(file_id) {
@@ -137,8 +140,22 @@ impl<F: Clone, C> TypeChecker<F, C> {
             },
         );
 
-        self.print_module(symbols, artifact, ModuleId(0));
+        self.print_module(symbols, artifact, ModuleId::root());
 
+        Ok(())
+    }
+
+    pub fn typecheck_std_prelude_module(
+        &mut self,
+        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        artifact: &ParsingArtifact<F, C>,
+        module: &RawModule,
+    ) -> Result<()> {
+        STD_PRELUDE_MODULE_ID.set(symbols.current_module_id().unwrap());
+        symbols.add_type_id(None, IdentId::TYPE_UNKNOWN, UNKOWN_TYPE);
+        symbols.add_type_id(None, IdentId::TYPE_BOOL, BOOL_TYPE);
+        symbols.add_type_id(None, IdentId::TYPE_FELT, FELT_TYPE);
+        symbols.add_type_id(None, IdentId::TYPE_VOID, VOID_TYPE);
         Ok(())
     }
 
@@ -146,25 +163,19 @@ impl<F: Clone, C> TypeChecker<F, C> {
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
         artifact: &ParsingArtifact<F, C>,
-        // module_name: &IdentId,
         module: &RawModule,
     ) -> Result<()> {
-        // symbols.start_module(module_name.clone(), module.file_id);
-        if symbols.current_module_id().unwrap() == ModuleId(0) {
-            symbols.add_type_id(None, IdentId::TYPE_UNKNOWN, UNKOWN_TYPE);
-            symbols.add_type_id(None, IdentId::TYPE_BOOL, BOOL_TYPE);
-            symbols.add_type_id(None, IdentId::TYPE_FELT, FELT_TYPE);
-            symbols.add_type_id(None, IdentId::TYPE_VOID, VOID_TYPE);
+        if module.is_std && module.is_self_prelude {
+            self.typecheck_std_prelude_module(symbols, artifact, module)?;
         }
+
         for use_path in &module.uses {
-            // TODO: this wont be able to resolve
             self.typecheck_use(symbols, artifact, use_path)?;
         }
 
         for definition in &module.definitions {
             self.typecheck_definition(symbols, artifact, definition)?;
         }
-        // symbols.end_module();
         Ok(())
     }
 
@@ -732,7 +743,20 @@ impl<F: Clone, C> TypeChecker<F, C> {
             ExprNode::Value(value_node) => match value_node {
                 ValueNode::Felt(f) => Ok(CheckedExprNode::Value(CheckedValueNode::Felt(f.clone()))),
                 ValueNode::Bool(b) => Ok(CheckedExprNode::Value(CheckedValueNode::Bool(b.clone()))),
-                ValueNode::Array(_, _) => todo!(),
+                ValueNode::Array(size, arr) => {
+                    if size != &arr.len() {
+                        return Err(Error::TypeMismatch);
+                    }
+
+                    // for element in arr {
+                    //     let checked_expr = self.typecheck_expr(symbols, artifact, &artifact[element])?;
+                    //     if checked_expr.ty() != FELT_TYPE {
+                    //         return Err(Error::TypeMismatch);
+                    //     }
+                    // }
+
+                    todo!()
+                }
                 ValueNode::Struct(name, generic_parameters, data) => Ok({
                     let generic_parameters = generic_parameters
                         .into_iter()

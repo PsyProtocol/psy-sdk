@@ -48,7 +48,7 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         println!("ast:\n{:#?}", program);
         let mut artifact = ParsingArtifact::new(parser, program);
         typechecker.typecheck_program(&mut self.symbols, &mut artifact)?;
-        let scope_id = self.symbols[ModuleId(0)].scope_id;
+        let scope_id = self.symbols[ModuleId::root()].scope_id;
         if let Some(type_id) = self.symbols[scope_id].types.get(&IdentId::MAIN.into()) {
             if let Type::Function(ref f) = self.symbols[type_id.clone()] {
                 return Ok(self.interpret_function(

@@ -15,12 +15,6 @@ use qed_ast::{ExprNode, IdentId};
 use crate::{CheckedValueNode, TypeId, TypeKey, BOOL_TYPE, FELT_TYPE};
 use strum::{EnumIs, EnumTryAs};
 
-#[derive(Clone, Debug)]
-pub struct CheckedExpr<F: Clone> {
-    pub expr: ExprNode<F>,
-    pub ty: TypeId,
-}
-
 #[derive(Debug, Clone, PartialEq, EnumIs, EnumTryAs)]
 pub enum CheckedExprNode<F> {
     Path(CheckedPathNode),
@@ -39,7 +33,7 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Value(v) => match v {
                 CheckedValueNode::Felt(_) => FELT_TYPE,
                 CheckedValueNode::Bool(_) => BOOL_TYPE,
-                CheckedValueNode::Array(_, _) => todo!(),
+                CheckedValueNode::Array(type_id, _, _) => type_id.clone(),
                 CheckedValueNode::Struct(type_id, _) => type_id.clone(),
                 CheckedValueNode::Type(type_id) => type_id.clone(),
             },

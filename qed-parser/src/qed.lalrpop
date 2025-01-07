@@ -5,14 +5,14 @@ use qed_lexer::{Token, Error};
 
 grammar<'input, F, C>(
     src: &'input str,
-    file_id: FileId,
     module_name: IdentId,
     parent_file_id: Option<FileId>,
     expr_nodes: &mut Arena<ExprId, ExprNode<F>>,
     stmt_nodes: &mut Arena<StmtId, StmtNode<F>>,
     interner: &mut Interner,
     is_std: bool,
-    is_prelude: bool,
+    is_self_std: bool,
+    is_self_prelude: bool,
     ctx: &mut C
 ) where F: ContextFelt, C: Context<F>;
 
@@ -22,8 +22,7 @@ use std::collections::HashMap;
 
 pub Module: RawModule = {
     <l:@L> <mut modules:ModuleDecl*> <mut uses:ModuleUse*> <definitions:Definition*> <r:@R> => RawModule {
-        file_id,
-        module_name,
+        name: module_name,
         parent_file_id,
         modules: {
             if !is_std {
@@ -32,16 +31,25 @@ pub Module: RawModule = {
             modules
         },
         uses: {
-            if !is_prelude && !is_std {
+            if !is_std  {
                 uses.insert(0, UsePath {
                     kind: UseKind::MODULE(IdentId::STD),
                     segments: vec![IdentId::PRELUDE],
+                    target: None,
+                });
+            } else if !is_self_std && !is_self_prelude {
+                uses.insert(0, UsePath {
+                    kind: UseKind::MODULE(IdentId::PRELUDE),
+                    segments: vec![],
                     target: None,
                 });
             }
             uses
         },
         definitions,
+        is_std,
+        is_self_std,
+        is_self_prelude,
     }
 }
 
@@ -462,6 +470,8 @@ extern {
       SELF => Token::KeywordSelf,
 
       PUB => Token::KeywordPub,
+
+      STD => Token::KeywordStd,
 
       IDENT => Token::Ident(<&'input str>),
 

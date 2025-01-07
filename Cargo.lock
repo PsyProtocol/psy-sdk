@@ -1029,6 +1029,7 @@ dependencies = [
 name = "qed-sema"
 version = "0.1.0"
 dependencies = [
+ "once_cell",
  "qed-ast",
  "qed-common",
  "qed-parser",

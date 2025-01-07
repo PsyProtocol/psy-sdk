@@ -9,7 +9,7 @@ use crate::TypeId;
 pub enum CheckedValueNode<F> {
     Felt(F),
     Bool(F),
-    Array(usize, Vec<ExprId>),
+    Array(TypeId, usize, Vec<ExprId>),
     Struct(TypeId, HashMap<IdentId, ExprId>),
     Type(TypeId),
 }

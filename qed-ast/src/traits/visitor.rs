@@ -48,6 +48,7 @@ pub trait AstVisitor<F: Clone, C> {
     fn visit_use(&mut self, u: &UsePath);
 
     fn visit_module(&mut self, module: &RawModule) {
+        eprintln!("DEBUGPRINT[9]: visitor.rs:51 (after fn visit_module(&mut self, module: &RawM…)");
         for u in &module.uses {
             self.visit_use(u);
         }

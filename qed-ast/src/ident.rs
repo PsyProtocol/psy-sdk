@@ -46,6 +46,20 @@ impl IdentId {
     pub const MAIN: IdentId = IdentId(10);
 }
 
+pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
+    (IdentId::TYPE_UNKNOWN, "unknown"),
+    (IdentId::TYPE_BOOL, "bool"),
+    (IdentId::TYPE_FELT, "Felt"),
+    (IdentId::TYPE_VOID, "void"),
+    (IdentId::TYPE_SELF, "Self"),
+    (IdentId::SELF, "self"),
+    (IdentId::SUPER, "super"),
+    (IdentId::CRATE, "crate"),
+    (IdentId::STD, "std"),
+    (IdentId::PRELUDE, "prelude"),
+    (IdentId::MAIN, "main"),
+];
+
 #[derive(Clone, Debug, Default)]
 pub struct Interner {
     pool: Arena<IdentId, Ident>,
@@ -59,10 +73,7 @@ impl Interner {
             index: HashMap::default(),
         };
 
-        interner.intern_idents(vec![
-            "unknown", "bool", "Felt", "void", "Self", "self", "super", "crate", "std", "prelude",
-            "main",
-        ]);
+        interner.intern_idents(IDENT_MAPPING.iter().map(|(_, name)| *name));
 
         interner
     }

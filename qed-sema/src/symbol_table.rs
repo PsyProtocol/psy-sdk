@@ -18,6 +18,12 @@ use crate::{Error, Result};
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ScopeId(pub usize);
 
+impl ScopeId {
+    pub const fn root() -> Self {
+        Self(0)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ScopeKind {
     Module,

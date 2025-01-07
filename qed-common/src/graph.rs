@@ -16,10 +16,10 @@ pub struct Graph<T> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Hook {
-    PreVisit,
+pub enum TraverseOrder {
+    Enter,
     Visit,
-    PostVisit,
+    Exit,
 }
 
 impl<T> Deref for Graph<T> {
@@ -52,11 +52,11 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         &'a self,
         node: &'a T,
         parent: Option<&'a T>,
-        visitor: &mut impl FnMut(&'a T, Option<&'a T>, Hook),
+        visitor: &mut impl FnMut(&'a T, Option<&'a T>, TraverseOrder),
     ) {
-        visitor(node, parent, Hook::PreVisit);
+        visitor(node, parent, TraverseOrder::Enter);
 
-        visitor(node, parent, Hook::Visit);
+        visitor(node, parent, TraverseOrder::Visit);
 
         if let Some(neighbors) = self.nodes.get(&node) {
             for neighbor in neighbors {
@@ -64,7 +64,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
             }
         }
 
-        visitor(node, parent, Hook::PostVisit);
+        visitor(node, parent, TraverseOrder::Exit);
     }
 
     pub fn bfs<'a>(

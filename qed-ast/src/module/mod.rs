@@ -6,6 +6,12 @@ use crate::{AstVisitor, DefinitionNode, IdentId};
 
 define_arena_id!(ModuleId);
 
+impl ModuleId {
+    pub const fn root() -> Self {
+        Self(0)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ModuleKind {
     File { file_id: FileId, is_dir: bool },
@@ -56,12 +62,14 @@ impl From<UseKind> for IdentId {
 
 #[derive(Clone, Debug)]
 pub struct RawModule {
-    pub file_id: FileId,
-    pub module_name: IdentId,
+    pub name: IdentId,
     pub parent_file_id: Option<FileId>,
     pub modules: Vec<IdentId>,
     pub uses: Vec<UsePath>,
     pub definitions: Vec<DefinitionNode>,
+    pub is_std: bool,
+    pub is_self_std: bool,
+    pub is_self_prelude: bool,
 }
 
 impl RawModule {

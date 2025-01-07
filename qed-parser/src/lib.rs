@@ -47,7 +47,7 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
     //     std/
     //         prelude
     pub fn parse<'input>(&'input mut self, ctx: &mut C, entry: PathBuf) -> Result<'input, Program> {
-        let mut parsed_modules = HashMap::new();
+        let mut parsed_modules: HashMap<FileId, RawModule> = HashMap::new();
         let mut dependency_graph: Graph<FileId> = Graph::new();
         let mut module_stack = vec![(entry.clone(), None)];
 
@@ -71,17 +71,25 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
                 .resolve_content(&file_id)
                 .ok_or(Error::FileUnresolved)?;
 
+            let is_self_std = module_name == IdentId::STD;
+            let is_self_prelude = module_name == IdentId::PRELUDE;
+            let is_std = parent_file_id
+                .and_then(|id| parsed_modules.get(&id))
+                .map(|m| m.name == IdentId::STD)
+                .unwrap_or(false)
+                || is_self_std;
+
             let lexer = Lexer::new(file_content);
             let module = qed::ModuleParser::new().parse(
                 file_content,
-                file_id,
                 module_name,
                 parent_file_id,
                 &mut self.exprs,
                 &mut self.stmts,
                 &mut self.interner,
-                module_name == IdentId::STD || module_name == IdentId::PRELUDE,
-                module_name == IdentId::PRELUDE,
+                is_std,
+                is_self_std,
+                is_self_prelude,
                 ctx,
                 lexer,
             )?;
