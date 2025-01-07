@@ -31,6 +31,8 @@ use qed_ast::*;
 
 use qed_parser::Parser;
 
+use tracing::{debug, error, info, instrument, span, Level};
+
 #[derive(Debug)]
 pub struct TypeChecker<F: Clone, C> {
     pub exprs: Arena<ExprId, CheckedExprNode<F>>,
@@ -87,7 +89,7 @@ impl<F: Clone, C> ParsingArtifact<F, C> {
     }
 }
 
-static STD_PRELUDE_MODULE_ID: OnceCell<ModuleId> = OnceCell::new();
+static STD_PRELUDE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
 
 impl<F: Clone, C> TypeChecker<F, C> {
     pub fn new() -> Self {
@@ -98,6 +100,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_program(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -145,20 +148,21 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_std_prelude_module(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
         artifact: &ParsingArtifact<F, C>,
         module: &RawModule,
     ) -> Result<()> {
-        STD_PRELUDE_MODULE_ID.set(symbols.current_module_id().unwrap());
-        symbols.add_type_id(None, IdentId::TYPE_UNKNOWN, UNKOWN_TYPE);
-        symbols.add_type_id(None, IdentId::TYPE_BOOL, BOOL_TYPE);
-        symbols.add_type_id(None, IdentId::TYPE_FELT, FELT_TYPE);
-        symbols.add_type_id(None, IdentId::TYPE_VOID, VOID_TYPE);
+        STD_PRELUDE_SCOPE_ID.set(symbols.current_scope_id().unwrap());
+        for (ident, ty) in TYPE_MAPPING {
+            symbols.add_type_id(None, ident.clone(), *ty);
+        }
         Ok(())
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_module(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -179,6 +183,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn print_module(
         &self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -189,6 +194,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         self.print_module_hierarchy(symbols, artifact, id, 0);
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn print_module_hierarchy(
         &self,
         symbols: &SymbolTable<CheckedValueNode<F>>,
@@ -208,6 +214,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn print_scope_hierarchy(
         &self,
         symbols: &SymbolTable<CheckedValueNode<F>>,
@@ -256,6 +263,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -297,11 +305,21 @@ impl<F: Clone, C> TypeChecker<F, C> {
                     }
                 }
             }
-            UncheckedType::Array(inner, size) => todo!(),
+            UncheckedType::Array(inner, size) => {
+                let inner_ty = self.typecheck(symbols, artifact, inner)?;
+                let type_id = symbols
+                    .get_type_id(
+                        STD_PRELUDE_SCOPE_ID.get().cloned(),
+                        Type::Array(inner_ty, size.clone()).key(),
+                    )
+                    .unwrap();
+                Ok(type_id)
+            }
             UncheckedType::Unknown => Ok(UNKOWN_TYPE),
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_struct(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -337,6 +355,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(checked_struct)
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_use(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -346,6 +365,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(symbols.add_use(use_path)?)
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_definition(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -368,6 +388,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_method(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -412,6 +433,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(checked_function)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_function(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -458,6 +480,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(checked_function)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_enum(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -493,6 +516,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(checked_enum)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_impl(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -530,6 +554,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(checked_impl)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_block(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -548,6 +573,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         })
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_stmt(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -584,6 +610,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_if(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -630,6 +657,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         })
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_while(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -648,6 +676,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         })
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_assignment(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -671,6 +700,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         });
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_ret(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -688,6 +718,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(CheckedReturnNode { ret })
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_variable(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -715,6 +746,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(checked_variable)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_expr(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -748,21 +780,38 @@ impl<F: Clone, C> TypeChecker<F, C> {
                         return Err(Error::TypeMismatch);
                     }
 
-                    // for element in arr {
-                    //     let checked_expr = self.typecheck_expr(symbols, artifact, &artifact[element])?;
-                    //     if checked_expr.ty() != FELT_TYPE {
-                    //         return Err(Error::TypeMismatch);
-                    //     }
-                    // }
+                    let mut inner_ty: Option<TypeId> = None;
+                    let mut elements = Vec::with_capacity(arr.len());
+                    for el in arr {
+                        let checked_expr =
+                            self.typecheck_expr(symbols, artifact, &artifact[el.clone()])?;
+                        if let Some(inner_ty) = inner_ty {
+                            if checked_expr.ty() != inner_ty {
+                                return Err(Error::TypeMismatch);
+                            }
+                        } else {
+                            inner_ty = Some(checked_expr.ty());
+                        }
+                        elements.push(self.exprs.alloc_item(checked_expr));
+                    }
 
-                    todo!()
+                    let type_id = symbols.add_type(
+                        STD_PRELUDE_SCOPE_ID.get().cloned(),
+                        Type::Array(inner_ty.unwrap(), size.clone()),
+                    );
+
+                    Ok(CheckedExprNode::Value(CheckedValueNode::Array(
+                        type_id,
+                        size.clone(),
+                        elements,
+                    )))
                 }
                 ValueNode::Struct(name, generic_parameters, data) => Ok({
                     let generic_parameters = generic_parameters
                         .into_iter()
                         .map(|x| self.typecheck(symbols, artifact, x).unwrap())
                         .collect::<Vec<_>>();
-                    let type_key = TypeKey::new(name.clone(), generic_parameters);
+                    let type_key = TypeKey::new(name.clone(), generic_parameters, vec![]);
                     let type_id = symbols.get_type_id(None, type_key).unwrap();
 
                     let mut new_data = HashMap::new();
@@ -866,7 +915,24 @@ impl<F: Clone, C> TypeChecker<F, C> {
                     return Err(Error::InvalidFunctionCall);
                 }
             }
-            ExprNode::IndexAccess(index_access_node) => todo!(),
+            ExprNode::IndexAccess(index_access_node) => {
+                let checked_expr =
+                    self.typecheck_expr(symbols, artifact, &artifact[index_access_node.value])?;
+
+                let type_id = checked_expr.ty();
+                let ty = &symbols[type_id];
+
+                match ty {
+                    Type::Array(inner_ty, size) => {
+                        Ok(CheckedExprNode::IndexAccess(CheckedIndexAccessNode {
+                            value: self.exprs.alloc_item(checked_expr),
+                            index: index_access_node.index,
+                            type_id: inner_ty.clone(),
+                        }))
+                    }
+                    _ => todo!(),
+                }
+            }
             ExprNode::MemberAccess(member_access_node) => {
                 let checked_expr =
                     self.typecheck_expr(symbols, artifact, &artifact[member_access_node.value])?;

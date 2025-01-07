@@ -10,6 +10,8 @@ use qed_sema::Error as SemaError;
 use qed_sema::*;
 use std::{fmt::Display, ops::Index, path::PathBuf};
 
+use tracing::{debug, error, info, instrument, span, Level};
+
 #[derive(Debug)]
 pub struct Interpreter<F: Clone, C> {
     inputs: Vec<u64>,
@@ -32,6 +34,7 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret(
         &mut self,
         typechecker: &mut TypeChecker<F, C>,
@@ -62,6 +65,7 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         Err(Error::UndefinedMain)
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_function(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -92,6 +96,7 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         Ok(ret)
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_if(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -129,6 +134,7 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_while(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -151,6 +157,7 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_block(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -163,6 +170,7 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_statement(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -192,6 +200,7 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_expr(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -366,7 +375,25 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                     unreachable!()
                 }
             }
-            CheckedExprNode::IndexAccess(index_access_node) => todo!(),
+            CheckedExprNode::IndexAccess(index_access_node) => {
+                let expr = self
+                    .interpret_expr(typechecker, artifact, &typechecker[index_access_node.value])?
+                    .unwrap();
+
+                if expr.is_array() {
+                    if let CheckedValueNode::Array(_, _, elements) = expr {
+                        if let Some(expr) = elements.get(index_access_node.index) {
+                            return self.interpret_expr(typechecker, artifact, &typechecker[*expr]);
+                        } else {
+                            unreachable!()
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
             CheckedExprNode::MemberAccess(member_access_node) => {
                 if let Type::Function(ref f) = &self.symbols[member_access_node.type_id] {
                     return Ok(Some(CheckedValueNode::Type(member_access_node.type_id)));
@@ -400,6 +427,7 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_assignment(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -608,6 +636,7 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn interpret_variable(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -634,6 +663,8 @@ mod test {
 
     #[test]
     fn test_interpreter() {
+        qed_utils::setup_env_logger();
+
         insta::glob!("../../tests", "002.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(ExecContext::new());
             let cache = SymFeltEvalCache::new();

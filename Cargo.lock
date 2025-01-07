@@ -965,6 +965,7 @@ dependencies = [
  "qed-fmt",
  "qed-parser",
  "qed-sema",
+ "qed-utils",
  "strum",
  "thiserror",
  "tracing",
@@ -1036,6 +1037,7 @@ dependencies = [
  "smol_str",
  "strum",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]

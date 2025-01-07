@@ -215,7 +215,7 @@ impl<T> SymbolTable<T> {
         let type_id = TypeId(self.types.len());
         let key = ty.key();
         self.add_type_id(scope_id.or(self.current_scope_id()), key.id(), type_id);
-        if key.has_generics() {
+        if key.has_generics() || key.has_consts() {
             self.add_type_id(scope_id.or(self.current_scope_id()), key, type_id);
         }
         self.types.push(ty);

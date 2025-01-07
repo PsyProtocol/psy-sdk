@@ -9,7 +9,7 @@ use subcommand::Commands;
 
 fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
-    qed_utils::logging::setup_env_logger();
+    qed_utils::setup_env_logger();
 
     let cli = Cli::parse();
     match cli.command {

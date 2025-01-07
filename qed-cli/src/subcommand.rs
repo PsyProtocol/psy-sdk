@@ -12,5 +12,5 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    Interpret(qed_utils::args::InterpreterArgs),
+    Interpret(qed_utils::InterpreterArgs),
 }

@@ -29,6 +29,8 @@ fn main() {
     let b: Felt = 2;
 
     let c: Felt = a + -b;
+    let d: [Felt; 2] = [a, b];
+    let e: Felt = d[0];
 
     let t: bool = true;
     let f: bool = false;
