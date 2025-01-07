@@ -18,7 +18,7 @@ use std::{
 
 pub use definition::*;
 pub use expr::*;
-use qed_common::Arena;
+use qed_common::{Arena, Hook};
 pub use r#type::*;
 pub use stmt::*;
 pub use symbol_table::*;
@@ -100,27 +100,42 @@ impl<F: Clone, C> TypeChecker<F, C> {
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
         artifact: &ParsingArtifact<F, C>,
     ) -> Result<()> {
-        let mut visited = HashMap::new();
-        let mut stack = vec![(
+        let mut module_registry = HashMap::new();
+        artifact.program.dependency_graph.dfs(
             &artifact.program.root_file_id,
-            &artifact.program.root_module_name,
-        )];
-
-        while let Some((file_id, module_name)) = stack.pop() {
-            if visited.contains_key(&file_id) {
-                continue;
-            }
-
-            visited.insert(file_id, true);
-            let module = artifact.program.modules.get(&file_id).unwrap();
-            self.typecheck_module(symbols, artifact, module_name, module)?;
-
-            if let Some(neighbors) = artifact.program.dependency_graph.get(&module.file_id) {
-                for (i, neighbor) in neighbors.into_iter().enumerate().rev() {
-                    stack.push((neighbor, &module.modules[i]));
+            None,
+            &mut |file_id, parent_file_id, hook| {
+                let module = artifact.program.modules.get(&file_id).unwrap();
+                if hook == Hook::PreVisit {
+                    if let Some(&module_id) = module_registry.get(&file_id) {
+                        symbols.start_existing_module(module_id);
+                    } else {
+                        symbols.start_module(module.module_name, module.file_id);
+                    }
+                } else if hook == Hook::PostVisit {
+                    symbols.end_module();
+                } else {
+                    if !module_registry.contains_key(file_id) {
+                        module_registry.insert(file_id, symbols.current_module_id().unwrap());
+                    }
                 }
-            }
-        }
+            },
+        );
+
+        let mut colors = HashMap::new();
+        artifact.program.dependency_graph.ts(
+            &artifact.program.root_file_id,
+            &mut colors,
+            &mut |file_id| {
+                let module = artifact.program.modules.get(&file_id).unwrap();
+                let module_id = module_registry.get(file_id).unwrap().clone();
+                symbols.push_scope(symbols[module_id].scope_id);
+                symbols.push_module(module_id);
+                self.typecheck_module(symbols, artifact, module).unwrap();
+                symbols.pop_scope();
+                symbols.pop_module();
+            },
+        );
 
         self.print_module(symbols, artifact, ModuleId(0));
 
@@ -131,10 +146,10 @@ impl<F: Clone, C> TypeChecker<F, C> {
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
         artifact: &ParsingArtifact<F, C>,
-        module_name: &IdentId,
+        // module_name: &IdentId,
         module: &RawModule,
     ) -> Result<()> {
-        symbols.start_module(module_name.clone(), module.file_id);
+        // symbols.start_module(module_name.clone(), module.file_id);
         if symbols.current_module_id().unwrap() == ModuleId(0) {
             symbols.add_type_id(None, IdentId::TYPE_UNKNOWN, UNKOWN_TYPE);
             symbols.add_type_id(None, IdentId::TYPE_BOOL, BOOL_TYPE);
@@ -143,13 +158,13 @@ impl<F: Clone, C> TypeChecker<F, C> {
         }
         for use_path in &module.uses {
             // TODO: this wont be able to resolve
-            self.typecheck_use(symbols, artifact, use_path);
+            self.typecheck_use(symbols, artifact, use_path)?;
         }
 
         for definition in &module.definitions {
             self.typecheck_definition(symbols, artifact, definition)?;
         }
-        symbols.end_module();
+        // symbols.end_module();
         Ok(())
     }
 

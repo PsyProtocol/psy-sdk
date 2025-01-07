@@ -4,10 +4,11 @@ pub mod error;
 use error::{Error, Result};
 use qed_ast::*;
 use qed_builder::{Context, ContextFelt, ContextInput};
+use qed_fmt::Formatter;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
-use std::{ops::Index, path::PathBuf};
+use std::{fmt::Display, ops::Index, path::PathBuf};
 
 #[derive(Debug)]
 pub struct Interpreter<F: Clone, C> {
@@ -22,7 +23,7 @@ impl<F: ContextFelt, C: Context<F>> ContextInput for Interpreter<F, C> {
     }
 }
 
-impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
+impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
     pub fn new(context: C) -> Self {
         Self {
             inputs: vec![],
@@ -41,6 +42,10 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
         let program = parser
             .parse(&mut self.context, entry)
             .map_err(|err| Error::ParseError(err.to_string()))?;
+        let mut formatter = Formatter::new(&parser);
+        formatter.visit_program(&program);
+        println!("formatted:\n{}", formatter.get_output());
+        println!("ast:\n{:#?}", program);
         let mut artifact = ParsingArtifact::new(parser, program);
         typechecker.typecheck_program(&mut self.symbols, &mut artifact)?;
         let scope_id = self.symbols[ModuleId(0)].scope_id;
@@ -200,12 +205,6 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
                 scope_id,
             }) => {
                 if let Some(variable) = self.symbols.get_variable(Some(scope_id.clone()), &name) {
-                    typechecker.print_scope_hierarchy(
-                        &self.symbols,
-                        artifact,
-                        variable.scope_id,
-                        1,
-                    );
                     return Ok(Some(variable.value.clone().unwrap()));
                 } else if let Some(type_id) = self
                     .symbols

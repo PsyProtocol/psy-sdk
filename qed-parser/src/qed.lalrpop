@@ -11,6 +11,8 @@ grammar<'input, F, C>(
     expr_nodes: &mut Arena<ExprId, ExprNode<F>>,
     stmt_nodes: &mut Arena<StmtId, StmtNode<F>>,
     interner: &mut Interner,
+    is_std: bool,
+    is_prelude: bool,
     ctx: &mut C
 ) where F: ContextFelt, C: Context<F>;
 
@@ -24,18 +26,21 @@ pub Module: RawModule = {
         module_name,
         parent_file_id,
         modules: {
-            modules.insert(0, IdentId::STD);
+            if !is_std {
+                modules.insert(0, IdentId::STD);
+            }
             modules
         },
         uses: {
-            uses.insert(0, UsePath {
-                kind: UseKind::MODULE(IdentId::STD),
-                segments: vec![IdentId::PRELUDE],
-                target: None,
-            });
+            if !is_prelude && !is_std {
+                uses.insert(0, UsePath {
+                    kind: UseKind::MODULE(IdentId::STD),
+                    segments: vec![IdentId::PRELUDE],
+                    target: None,
+                });
+            }
             uses
         },
-        module_id: ModuleId(0),
         definitions,
     }
 }

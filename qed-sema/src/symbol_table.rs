@@ -150,6 +150,17 @@ impl<T> SymbolTable<T> {
         self.module_stack.last().cloned()
     }
 
+    pub fn start_existing_module(&mut self, module_id: ModuleId) {
+        self.scope_stack.push(self[module_id].scope_id);
+
+        let current_module_id = self.current_module_id();
+        self.module_stack.push(module_id);
+
+        if let Some(current_module_id) = current_module_id {
+            self[current_module_id].children.push(module_id);
+        }
+    }
+
     pub fn start_module(&mut self, name: IdentId, file_id: FileId) {
         let scope_id = ScopeId(self.scopes.len());
         self.scopes
@@ -167,6 +178,10 @@ impl<T> SymbolTable<T> {
             file_id,
             current_module_id,
         ));
+
+        if let Some(current_module_id) = current_module_id {
+            self[current_module_id].children.push(module_id);
+        }
     }
 
     pub fn end_module(&mut self) {
@@ -210,6 +225,10 @@ impl<T> SymbolTable<T> {
 
     pub fn add_use(&mut self, use_path: &UsePath) -> Result<()> {
         let current_scope_id = self.current_scope_id().unwrap();
+        eprintln!(
+            "DEBUGPRINT[3]: symbol_table.rs:214: use_path={:#?}",
+            use_path
+        );
         let type_ids = self
             .resolve_use(&use_path)
             .ok_or(Error::UnresolvedUse)?
@@ -255,6 +274,10 @@ impl<T> SymbolTable<T> {
     }
 
     pub fn resolve_use(&self, use_path: &UsePath) -> Option<Vec<(&TypeKey, &TypeId)>> {
+        eprintln!(
+            "DEBUGPRINT[8]: symbol_table.rs:260: self.modules={:#?}",
+            self.modules
+        );
         let mut src_module = match use_path.kind {
             UseKind::MODULE(name) => ModuleId(self.modules.iter().position(|x| x.name == name)?),
             UseKind::SELF => self.current_module_id()?,
@@ -273,6 +296,14 @@ impl<T> SymbolTable<T> {
 
         let mut path = use_path.segments.iter();
         while let Some(segment) = path.next() {
+            eprintln!(
+                "DEBUGPRINT[6]: symbol_table.rs:277: self[src_module].children={:#?}",
+                self[src_module].children
+            );
+            eprintln!(
+                "DEBUGPRINT[7]: symbol_table.rs:278: src_module={:#?}",
+                src_module
+            );
             let target_module_id = self[src_module].children.iter().find(|&id| {
                 let module = &self[*id];
                 module.name == *segment

@@ -19,10 +19,6 @@ pub struct UsePath {
 }
 
 impl UsePath {
-    pub fn id(&self) -> Option<IdentId> {
-        self.target
-    }
-
     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(&mut self, visitor: &mut V) {
         visitor.visit_use(self)
     }
@@ -65,7 +61,6 @@ pub struct RawModule {
     pub parent_file_id: Option<FileId>,
     pub modules: Vec<IdentId>,
     pub uses: Vec<UsePath>,
-    pub module_id: ModuleId,
     pub definitions: Vec<DefinitionNode>,
 }
 
