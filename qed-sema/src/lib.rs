@@ -1,7 +1,5 @@
 mod definition;
 mod expr;
-mod module;
-mod program;
 mod stmt;
 mod symbol_table;
 mod r#type;
@@ -184,86 +182,6 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn print_module(
-        &self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
-        artifact: &ParsingArtifact<F, C>,
-        id: ModuleId,
-    ) {
-        println!("Symbol Table Hierarchy:");
-        self.print_module_hierarchy(symbols, artifact, id, 0);
-    }
-
-    #[instrument(level = "debug", skip_all)]
-    pub fn print_module_hierarchy(
-        &self,
-        symbols: &SymbolTable<CheckedValueNode<F>>,
-        artifact: &ParsingArtifact<F, C>,
-        module_id: ModuleId,
-        indent: usize,
-    ) {
-        let module = &symbols[module_id];
-        let indent_str = "  ".repeat(indent);
-
-        println!("{}Module: {:?}", indent_str, module.name);
-
-        self.print_scope_hierarchy(symbols, artifact, module.scope_id, indent + 1);
-
-        for &child_module_id in &module.children {
-            self.print_module_hierarchy(symbols, artifact, child_module_id, indent + 1);
-        }
-    }
-
-    #[instrument(level = "debug", skip_all)]
-    pub fn print_scope_hierarchy(
-        &self,
-        symbols: &SymbolTable<CheckedValueNode<F>>,
-        artifact: &ParsingArtifact<F, C>,
-        scope_id: ScopeId,
-        indent: usize,
-    ) {
-        let scope = &symbols[scope_id];
-        let indent_str = "  ".repeat(indent);
-
-        println!("{}Scope: {:?}", indent_str, scope.kind);
-
-        if !scope.variables.is_empty() {
-            println!("{}  Variables:", indent_str);
-            for (ident, var) in &scope.variables {
-                println!(
-                    "{}    {:?}",
-                    indent_str,
-                    artifact.parser.interner[ident.clone()],
-                    // symbols[var.ty]
-                );
-            }
-        }
-
-        if !scope.types.is_empty() {
-            println!("{}  Types:", indent_str);
-            for (type_key, type_id) in &scope.types {
-                println!(
-                    "{}    {:?}",
-                    indent_str,
-                    artifact.parser.interner[type_key.id.clone()],
-                    // symbols[type_id.clone()]
-                );
-            }
-        }
-
-        // if !scope.uses.is_empty() {
-        //     println!("{}  Uses:", indent_str);
-        //     for (ident, type_id) in &scope.uses {
-        //         println!("{}    {:?}: {:?}", indent_str, ident, type_id);
-        //     }
-        // }
-
-        for &child_scope_id in &scope.children {
-            self.print_scope_hierarchy(symbols, artifact, child_scope_id, indent + 1);
-        }
-    }
-
-    #[instrument(level = "debug", skip_all)]
     pub fn typecheck(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -307,12 +225,11 @@ impl<F: Clone, C> TypeChecker<F, C> {
             }
             UncheckedType::Array(inner, size) => {
                 let inner_ty = self.typecheck(symbols, artifact, inner)?;
-                let type_id = symbols
-                    .get_type_id(
-                        STD_PRELUDE_SCOPE_ID.get().cloned(),
-                        Type::Array(inner_ty, size.clone()).key(),
-                    )
-                    .unwrap();
+                let scope_id = STD_PRELUDE_SCOPE_ID.get().cloned();
+                let type_id = symbols.add_type(
+                    scope_id,
+                    Type::Array(inner_ty, size.clone(), scope_id.unwrap()),
+                );
                 Ok(type_id)
             }
             UncheckedType::Unknown => Ok(UNKOWN_TYPE),
@@ -344,8 +261,10 @@ impl<F: Clone, C> TypeChecker<F, C> {
         };
 
         for (field_name, field_type) in &node.fields {
-            let filed_type = self.typecheck(symbols, artifact, field_type)?;
-            checked_struct.fields.push((field_name.clone(), filed_type));
+            let field_type = self.typecheck(symbols, artifact, field_type)?;
+            checked_struct.fields.push((field_name.clone(), field_type));
+
+            symbols.add_type_id(None, field_name.clone(), field_type);
         }
 
         let ty = Type::Struct(checked_struct.clone());
@@ -414,16 +333,32 @@ impl<F: Clone, C> TypeChecker<F, C> {
             parameters.push((parameter.clone(), *mutable, parameter_type));
         }
 
+        let checked_body = self.typecheck_block(symbols, artifact, &function.body)?;
+
+        let return_type = {
+            let expected = if let Some(ref ret) = function.return_type {
+                Some(self.typecheck(symbols, artifact, ret)?)
+            } else {
+                None
+            };
+
+            for stmt in checked_body.stmts.iter() {
+                if let CheckedStmtNode::Return(CheckedReturnNode { ret }) = &self[*stmt] {
+                    if ret.map(|(_, type_id)| type_id) != expected {
+                        return Err(Error::TypeMismatch);
+                    }
+                }
+            }
+
+            expected
+        };
+
         let checked_function = CheckedFunctionNode {
             name: function.name,
             parameters,
             generic_parameters,
-            body: self.typecheck_block(symbols, artifact, &function.body)?,
-            return_type: if let Some(ref ret) = function.return_type {
-                Some(self.typecheck(symbols, artifact, ret)?)
-            } else {
-                None
-            },
+            body: checked_body,
+            return_type,
             scope_id: current_scope_id,
         };
         let ty = Type::Function(checked_function.clone());
@@ -795,9 +730,10 @@ impl<F: Clone, C> TypeChecker<F, C> {
                         elements.push(self.exprs.alloc_item(checked_expr));
                     }
 
+                    let scope_id = STD_PRELUDE_SCOPE_ID.get().cloned();
                     let type_id = symbols.add_type(
-                        STD_PRELUDE_SCOPE_ID.get().cloned(),
-                        Type::Array(inner_ty.unwrap(), size.clone()),
+                        scope_id,
+                        Type::Array(inner_ty.unwrap(), size.clone(), scope_id.unwrap()),
                     );
 
                     Ok(CheckedExprNode::Value(CheckedValueNode::Array(
@@ -813,11 +749,31 @@ impl<F: Clone, C> TypeChecker<F, C> {
                         .collect::<Vec<_>>();
                     let type_key = TypeKey::new(name.clone(), generic_parameters, vec![]);
                     let type_id = symbols.get_type_id(None, type_key).unwrap();
-
                     let mut new_data = HashMap::new();
-                    for (k, v) in data {
+                    if let Type::Struct(checked_struct) = &symbols[type_id] {
+                        if checked_struct.fields.len() != data.len() {
+                            return Err(Error::TypeMismatch);
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                    for (i, (k, v)) in data.iter().enumerate() {
                         let expr = self.typecheck_expr(symbols, artifact, &artifact[v.clone()])?;
+                        let t = expr.ty();
                         new_data.insert(k.clone(), self.exprs.alloc_item(expr));
+
+                        if let Type::Struct(checked_struct) = &symbols[type_id] {
+                            if Some(&(k.clone(), t))
+                                != checked_struct
+                                    .fields
+                                    .iter()
+                                    .find(|(field_name, field_type)| field_name == k)
+                            {
+                                return Err(Error::TypeMismatch);
+                            }
+                        } else {
+                            unreachable!()
+                        }
                     }
                     CheckedExprNode::Value(CheckedValueNode::Struct(type_id, new_data))
                 }),
@@ -923,14 +879,14 @@ impl<F: Clone, C> TypeChecker<F, C> {
                 let ty = &symbols[type_id];
 
                 match ty {
-                    Type::Array(inner_ty, size) => {
+                    Type::Array(inner_ty, size, _) => {
                         Ok(CheckedExprNode::IndexAccess(CheckedIndexAccessNode {
                             value: self.exprs.alloc_item(checked_expr),
                             index: index_access_node.index,
                             type_id: inner_ty.clone(),
                         }))
                     }
-                    _ => todo!(),
+                    _ => unreachable!(),
                 }
             }
             ExprNode::MemberAccess(member_access_node) => {
@@ -952,23 +908,99 @@ impl<F: Clone, C> TypeChecker<F, C> {
                             }
                         }
 
-                        if let Some(type_id) = symbols
+                        let type_id = symbols
                             .resolve_method(checked_struct_node.scope_id, member_access_node.field)
-                        {
-                            return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
-                                value: self.exprs.alloc_item(checked_expr),
-                                field: member_access_node.field,
-                                type_id,
-                            }));
-                        }
+                            .ok_or(Error::UnresolvedMember)?;
 
-                        return Err(Error::UnresolvedMember);
+                        return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
+                            value: self.exprs.alloc_item(checked_expr),
+                            field: member_access_node.field,
+                            type_id,
+                        }));
                     }
-                    _ => {
-                        return Err(Error::UnresolvedMember);
-                    }
+                    _ => unreachable!(),
                 }
             }
+        }
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    pub fn print_module(
+        &self,
+        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        artifact: &ParsingArtifact<F, C>,
+        id: ModuleId,
+    ) {
+        println!("Symbol Table Hierarchy:");
+        self.print_module_hierarchy(symbols, artifact, id, 0);
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    pub fn print_module_hierarchy(
+        &self,
+        symbols: &SymbolTable<CheckedValueNode<F>>,
+        artifact: &ParsingArtifact<F, C>,
+        module_id: ModuleId,
+        indent: usize,
+    ) {
+        let module = &symbols[module_id];
+        let indent_str = "  ".repeat(indent);
+
+        println!("{}Module: {:?}", indent_str, module.name);
+
+        self.print_scope_hierarchy(symbols, artifact, module.scope_id, indent + 1);
+
+        for &child_module_id in &module.children {
+            self.print_module_hierarchy(symbols, artifact, child_module_id, indent + 1);
+        }
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    pub fn print_scope_hierarchy(
+        &self,
+        symbols: &SymbolTable<CheckedValueNode<F>>,
+        artifact: &ParsingArtifact<F, C>,
+        scope_id: ScopeId,
+        indent: usize,
+    ) {
+        let scope = &symbols[scope_id];
+        let indent_str = "  ".repeat(indent);
+
+        println!("{}Scope: {:?}", indent_str, scope.kind);
+
+        if !scope.variables.is_empty() {
+            println!("{}  Variables:", indent_str);
+            for (ident, var) in &scope.variables {
+                println!(
+                    "{}    {:?}",
+                    indent_str,
+                    artifact.parser.interner[ident.clone()],
+                    // symbols[var.ty]
+                );
+            }
+        }
+
+        if !scope.types.is_empty() {
+            println!("{}  Types:", indent_str);
+            for (type_key, type_id) in &scope.types {
+                println!(
+                    "{}    {:?}",
+                    indent_str,
+                    artifact.parser.interner[type_key.id.clone()],
+                    // symbols[type_id.clone()]
+                );
+            }
+        }
+
+        // if !scope.uses.is_empty() {
+        //     println!("{}  Uses:", indent_str);
+        //     for (ident, type_id) in &scope.uses {
+        //         println!("{}    {:?}: {:?}", indent_str, ident, type_id);
+        //     }
+        // }
+
+        for &child_scope_id in &scope.children {
+            self.print_scope_hierarchy(symbols, artifact, child_scope_id, indent + 1);
         }
     }
 }

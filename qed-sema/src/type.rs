@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use qed_ast::IdentId;
 
-use crate::{CheckedEnumNode, CheckedFunctionNode, CheckedImplNode, CheckedStructNode};
+use crate::{CheckedEnumNode, CheckedFunctionNode, CheckedImplNode, CheckedStructNode, ScopeId};
 use qed_common::define_arena_id;
 use strum::{EnumIs, EnumTryAs};
 
@@ -33,7 +33,7 @@ pub enum Type {
     Unknown,
     Felt,
     Bool,
-    Array(TypeId, usize),
+    Array(TypeId, usize, ScopeId),
     Struct(CheckedStructNode),
     Enum(CheckedEnumNode),
     Function(CheckedFunctionNode),
@@ -56,18 +56,6 @@ impl TypeKey {
             consts,
         }
     }
-
-    pub fn id(&self) -> IdentId {
-        self.id
-    }
-
-    pub fn has_generics(&self) -> bool {
-        !self.generic_parameters.is_empty()
-    }
-
-    pub fn has_consts(&self) -> bool {
-        !self.consts.is_empty()
-    }
 }
 
 impl From<IdentId> for TypeKey {
@@ -82,7 +70,7 @@ impl Type {
             Type::Unknown => (IdentId::TYPE_UNKNOWN, vec![], vec![]),
             Type::Felt => (IdentId::TYPE_FELT, vec![], vec![]),
             Type::Bool => (IdentId::TYPE_BOOL, vec![], vec![]),
-            Type::Array(type_id, size) => (
+            Type::Array(type_id, size, _) => (
                 IdentId::TYPE_ARRAY,
                 vec![type_id.clone()],
                 vec![size.clone()],

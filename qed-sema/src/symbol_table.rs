@@ -210,12 +210,13 @@ impl<T> SymbolTable<T> {
     }
 
     pub fn add_type(&mut self, scope_id: Option<ScopeId>, ty: Type) -> TypeId {
-        let type_id = TypeId(self.types.len());
         let key = ty.key();
-        self.add_type_id(scope_id.or(self.current_scope_id()), key.id(), type_id);
-        if key.has_generics() || key.has_consts() {
-            self.add_type_id(scope_id.or(self.current_scope_id()), key, type_id);
+        if let Some(type_id) = self.get_type_id(scope_id, key.clone()) {
+            return type_id;
         }
+
+        let type_id = TypeId(self.types.len());
+        self.add_type_id(scope_id, key, type_id);
         self.types.push(ty);
         type_id
     }
@@ -398,16 +399,16 @@ impl<T> SymbolTable<T> {
     }
 
     pub fn get_variable(
-        &self,
+        &mut self,
         start_scope: Option<ScopeId>,
         key: &IdentId,
-    ) -> Option<&CheckedVariable<T>> {
+    ) -> Option<&mut CheckedVariable<T>> {
         let scope_id = self.find_scope(
             start_scope,
             vec![ScopeKind::Function, ScopeKind::ImplMethod],
             |scope| scope.variables.contains_key(key),
         )?;
-        self[scope_id].variables.get(key)
+        self[scope_id].variables.get_mut(key)
     }
 
     pub fn set_variable(
@@ -497,14 +498,14 @@ mod tests {
         table.start_module(IdentId(0), FileId(0));
         table.start_scope(ScopeKind::Block);
         table.define_variable(IdentId(0), value(42));
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
 
         table.start_scope(ScopeKind::Block);
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
         table.define_variable(IdentId(0), value(24));
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(24)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(24)));
         table.end_scope();
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
         table.end_scope();
         table.end_module();
     }
@@ -515,13 +516,13 @@ mod tests {
         table.start_module(IdentId(0), FileId(0));
         table.start_function();
         table.define_variable(IdentId(0), value(42));
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
         table.start_function();
         assert_eq!(table.get_variable(None, &IdentId(0)), None);
         table.set_variable(None, &IdentId(0), 24);
         assert_eq!(table.get_variable(None, &IdentId(0)), None);
         table.end_function();
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
         table.end_function();
         table.end_module();
     }
@@ -532,15 +533,15 @@ mod tests {
         table.start_module(IdentId(0), FileId(0));
         table.define_variable(IdentId(0), value(42));
         table.start_scope(ScopeKind::Block);
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
         table.end_scope();
         table.start_function();
         assert_eq!(table.get_variable(None, &IdentId(0)), None);
         table.define_variable(IdentId(0), value(42));
         table.set_variable(None, &IdentId(0), 24);
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(24)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(24)));
         table.end_function();
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
         table.end_module();
     }
 }
