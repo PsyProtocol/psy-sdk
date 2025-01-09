@@ -959,6 +959,7 @@ name = "qed-interpreter"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "either",
  "insta",
  "qed-ast",
  "qed-builder",
@@ -1031,6 +1032,7 @@ dependencies = [
 name = "qed-sema"
 version = "0.1.0"
 dependencies = [
+ "either",
  "once_cell",
  "qed-ast",
  "qed-common",

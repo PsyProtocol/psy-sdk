@@ -99,9 +99,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_program(
+    pub fn typecheck_program<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
     ) -> Result<()> {
         let mut module_registry = HashMap::new();
@@ -147,9 +147,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_std_prelude_module(
+    pub fn typecheck_std_prelude_module<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         module: &RawModule,
     ) -> Result<()> {
@@ -161,9 +161,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_module(
+    pub fn typecheck_module<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         module: &RawModule,
     ) -> Result<()> {
@@ -182,9 +182,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck(
+    pub fn typecheck<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         ty: &UncheckedType,
     ) -> Result<TypeId> {
@@ -237,9 +237,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_struct(
+    pub fn typecheck_struct<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         node: &StructNode,
     ) -> Result<CheckedStructNode> {
@@ -275,9 +275,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_use(
+    pub fn typecheck_use<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         use_path: &UsePath,
     ) -> Result<()> {
@@ -285,9 +285,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_definition(
+    pub fn typecheck_definition<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         definition: &DefinitionNode,
     ) -> Result<CheckedDefinitionNode> {
@@ -308,9 +308,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn typecheck_method(
+    fn typecheck_method<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         function: &FunctionNode,
     ) -> Result<CheckedFunctionNode> {
@@ -369,9 +369,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn typecheck_function(
+    fn typecheck_function<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         function: &FunctionNode,
     ) -> Result<CheckedFunctionNode> {
@@ -416,9 +416,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn typecheck_enum(
+    fn typecheck_enum<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         r#enum: &EnumNode,
     ) -> Result<CheckedEnumNode> {
@@ -452,9 +452,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn typecheck_impl(
+    fn typecheck_impl<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         r#impl: &ImplNode,
     ) -> Result<CheckedImplNode> {
@@ -490,9 +490,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn typecheck_block(
+    fn typecheck_block<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         body: &BlockNode,
     ) -> Result<CheckedBlockNode> {
@@ -509,9 +509,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn typecheck_stmt(
+    fn typecheck_stmt<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         stmt: &StmtNode<F>,
     ) -> Result<CheckedStmtNode<F>> {
@@ -546,9 +546,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn typecheck_if(
+    fn typecheck_if<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         r#if: &IfNode,
     ) -> Result<CheckedIfNode> {
@@ -593,9 +593,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn typecheck_while(
+    fn typecheck_while<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         r#while: &WhileNode,
     ) -> Result<CheckedWhileNode> {
@@ -612,9 +612,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn typecheck_assignment(
+    fn typecheck_assignment<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         r#assignment: &AssignmentNode,
     ) -> Result<CheckedAssignmentNode> {
@@ -636,9 +636,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn typecheck_ret(
+    fn typecheck_ret<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         r#ret: &ReturnNode,
     ) -> Result<CheckedReturnNode> {
@@ -654,9 +654,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn typecheck_variable(
+    fn typecheck_variable<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         variable: &VariableNode,
     ) -> Result<CheckedVariableNode> {
@@ -682,9 +682,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn typecheck_expr(
+    fn typecheck_expr<T: From<CheckedValueNode<F>>>(
         &mut self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         expr: &ExprNode<F>,
     ) -> Result<CheckedExprNode<F>> {
@@ -925,9 +925,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn print_module(
+    pub fn print_module<T: From<CheckedValueNode<F>>>(
         &self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        symbols: &mut SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         id: ModuleId,
     ) {
@@ -936,9 +936,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn print_module_hierarchy(
+    pub fn print_module_hierarchy<T: From<CheckedValueNode<F>>>(
         &self,
-        symbols: &SymbolTable<CheckedValueNode<F>>,
+        symbols: &SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         module_id: ModuleId,
         indent: usize,
@@ -956,9 +956,9 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn print_scope_hierarchy(
+    pub fn print_scope_hierarchy<T: From<CheckedValueNode<F>>>(
         &self,
-        symbols: &SymbolTable<CheckedValueNode<F>>,
+        symbols: &SymbolTable<T>,
         artifact: &ParsingArtifact<F, C>,
         scope_id: ScopeId,
         indent: usize,
