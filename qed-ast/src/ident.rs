@@ -34,17 +34,33 @@ impl IdentId {
     pub const TYPE_BOOL: IdentId = IdentId(1);
     pub const TYPE_FELT: IdentId = IdentId(2);
     pub const TYPE_VOID: IdentId = IdentId(3);
-    pub const TYPE_SELF: IdentId = IdentId(4);
+    pub const TYPE_ARRAY: IdentId = IdentId(4);
+    pub const TYPE_SELF: IdentId = IdentId(5);
 
-    pub const SELF: IdentId = IdentId(5);
-    pub const SUPER: IdentId = IdentId(6);
-    pub const CRATE: IdentId = IdentId(7);
+    pub const SELF: IdentId = IdentId(6);
+    pub const SUPER: IdentId = IdentId(7);
+    pub const CRATE: IdentId = IdentId(8);
 
-    pub const STD: IdentId = IdentId(8);
-    pub const PRELUDE: IdentId = IdentId(9);
+    pub const STD: IdentId = IdentId(9);
+    pub const PRELUDE: IdentId = IdentId(10);
 
-    pub const MAIN: IdentId = IdentId(10);
+    pub const MAIN: IdentId = IdentId(11);
 }
+
+pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
+    (IdentId::TYPE_UNKNOWN, "unknown"),
+    (IdentId::TYPE_BOOL, "bool"),
+    (IdentId::TYPE_FELT, "Felt"),
+    (IdentId::TYPE_VOID, "void"),
+    (IdentId::TYPE_ARRAY, "Array"),
+    (IdentId::TYPE_SELF, "Self"),
+    (IdentId::SELF, "self"),
+    (IdentId::SUPER, "super"),
+    (IdentId::CRATE, "crate"),
+    (IdentId::STD, "std"),
+    (IdentId::PRELUDE, "prelude"),
+    (IdentId::MAIN, "main"),
+];
 
 #[derive(Clone, Debug, Default)]
 pub struct Interner {
@@ -59,10 +75,7 @@ impl Interner {
             index: HashMap::default(),
         };
 
-        interner.intern_idents(vec![
-            "unknown", "bool", "Felt", "void", "Self", "self", "super", "crate", "std", "prelude",
-            "main",
-        ]);
+        interner.intern_idents(IDENT_MAPPING.iter().map(|(_, name)| *name));
 
         interner
     }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 use std::ops::Deref;
 
@@ -13,6 +13,13 @@ pub enum Color {
 #[derive(Clone, Debug)]
 pub struct Graph<T> {
     nodes: HashMap<T, Vec<T>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum TraverseOrder {
+    Enter,
+    Visit,
+    Exit,
 }
 
 impl<T> Deref for Graph<T> {
@@ -44,22 +51,47 @@ impl<T: Clone + Eq + Hash> Graph<T> {
     pub fn dfs<'a>(
         &'a self,
         node: &'a T,
-        visited: &mut HashMap<&'a T, bool>,
-        visitor: &mut impl FnMut(&'a T),
+        parent: Option<&'a T>,
+        visitor: &mut impl FnMut(&'a T, Option<&'a T>, TraverseOrder),
     ) {
-        visited.insert(node, true);
-        visitor(node);
+        visitor(node, parent, TraverseOrder::Enter);
+
+        visitor(node, parent, TraverseOrder::Visit);
 
         if let Some(neighbors) = self.nodes.get(&node) {
             for neighbor in neighbors {
-                if !visited.contains_key(neighbor) {
-                    self.dfs(neighbor, visited, visitor);
+                self.dfs(neighbor, Some(node), visitor);
+            }
+        }
+
+        visitor(node, parent, TraverseOrder::Exit);
+    }
+
+    pub fn bfs<'a>(
+        &'a self,
+        node: &'a T,
+        visited: &mut HashMap<&'a T, bool>,
+        visitor: &mut impl FnMut(&'a T),
+    ) {
+        let mut queue = VecDeque::new();
+        queue.push_back(node);
+        visited.insert(node, true);
+
+        while let Some(node) = queue.pop_front() {
+            visitor(node);
+
+            if let Some(neighbors) = self.nodes.get(node) {
+                for neighbor in neighbors {
+                    if !visited.contains_key(neighbor) {
+                        visited.insert(neighbor, true);
+                        queue.push_back(neighbor);
+                    }
                 }
             }
         }
     }
 
-    fn toporder<'a>(
+    pub fn ts<'a>(
         &'a self,
         node: &'a T,
         colors: &mut HashMap<&'a T, Color>,
@@ -72,7 +104,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
                 match colors.get(neighbor) {
                     Some(Color::Grey) => return Err(()),
                     None => {
-                        self.toporder(neighbor, colors, visitor)?;
+                        self.ts(neighbor, colors, visitor)?;
                     }
                     _ => {}
                 }
@@ -90,23 +122,11 @@ impl<T: Clone + Eq + Hash> Graph<T> {
             let mut colors = HashMap::new();
             let mut visitor = |_: &T| {};
 
-            if self.toporder(node, &mut colors, &mut visitor).is_err() {
+            if self.ts(node, &mut colors, &mut visitor).is_err() {
                 return true;
             }
         }
 
         false
-    }
-
-    pub fn topsort<'a>(&'a self, node: &'a T) -> Result<Vec<&'a T>, ()> {
-        let mut colors = HashMap::new();
-        let mut result = Vec::new();
-        let mut visitor = |node: &'a T| {
-            result.push(node);
-        };
-
-        self.toporder(node, &mut colors, &mut visitor)?;
-
-        Ok(result)
     }
 }

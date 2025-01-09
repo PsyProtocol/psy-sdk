@@ -48,6 +48,7 @@ pub trait AstVisitor<F: Clone, C> {
     fn visit_use(&mut self, u: &UsePath);
 
     fn visit_module(&mut self, module: &RawModule) {
+        eprintln!("DEBUGPRINT[9]: visitor.rs:51 (after fn visit_module(&mut self, module: &RawM…)");
         for u in &module.uses {
             self.visit_use(u);
         }
@@ -61,8 +62,8 @@ pub trait AstVisitor<F: Clone, C> {
         let mut visited = HashMap::new();
         program
             .dependency_graph
-            .dfs(&program.root_file_id, &mut visited, &mut |module| {
-                self.visit_module(&program.modules.get(module).unwrap());
+            .ts(&program.root_file_id, &mut visited, &mut |file_id| {
+                self.visit_module(&program.modules.get(file_id).unwrap());
             });
     }
 

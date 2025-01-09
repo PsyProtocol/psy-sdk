@@ -1,0 +1,15 @@
+fn max(a: Felt, b: Felt) -> Felt {
+    if a > b {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+fn min(a: Felt, b: Felt) -> Felt {
+    if a < b {
+        return a;
+    } else {
+        return b;
+    }
+}

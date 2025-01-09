@@ -1,26 +1,27 @@
+mod math;
+
+use math::*;
+
 struct Person {
-    age: Felt
+    age_height: [Felt; 2],
+    year_of_birth: Felt
 }
 
 impl Person {
+    fn set_age(self: Person, new_age: Felt) {
+        self.age_height[0] = new_age;
+    }
+
     fn get_age(self: Person) -> Felt {
-        return self.age;
+        return self.age_height[0];
     }
-}
 
-fn max(a: Felt, b: Felt) -> Felt {
-    if a > b {
-        return a;
-    } else {
-        return b;
+    fn set_height(self: Person, new_height: Felt) {
+        self.age_height[1] = new_height;
     }
-}
 
-fn min(a: Felt, b: Felt) -> Felt {
-    if a < b {
-        return a;
-    } else {
-        return b;
+    fn get_height(self: Person) -> Felt {
+        return self.age_height[1];
     }
 }
 
@@ -29,6 +30,8 @@ fn main() {
     let b: Felt = 2;
 
     let c: Felt = a + -b;
+    let d: [Felt; 2] = [a, b];
+    let e: Felt = d[0];
 
     let t: bool = true;
     let f: bool = false;
@@ -38,7 +41,11 @@ fn main() {
     min(a, b);
 
     let person: Person = (Person{
-        age: 10
+        year_of_birth: 1990,
+        age_height: [1, 1]
     });
+    person.set_age(10);
+    person.set_height(20);
     let age: Felt = person.get_age();
+    let height: Felt = person.get_height();
 }

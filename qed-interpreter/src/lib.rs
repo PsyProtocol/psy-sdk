@@ -1,13 +1,15 @@
 pub mod error;
-// pub mod state;
 
 use error::{Error, Result};
 use qed_ast::*;
 use qed_builder::{Context, ContextFelt, ContextInput};
+use qed_fmt::Formatter;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
-use std::{ops::Index, path::PathBuf};
+use std::{fmt::Display, ops::Index, path::PathBuf};
+
+use tracing::{debug, error, info, instrument, span, Level};
 
 #[derive(Debug)]
 pub struct Interpreter<F: Clone, C> {
@@ -22,7 +24,7 @@ impl<F: ContextFelt, C: Context<F>> ContextInput for Interpreter<F, C> {
     }
 }
 
-impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
+impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
     pub fn new(context: C) -> Self {
         Self {
             inputs: vec![],
@@ -31,6 +33,7 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret(
         &mut self,
         typechecker: &mut TypeChecker<F, C>,
@@ -41,9 +44,13 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
         let program = parser
             .parse(&mut self.context, entry)
             .map_err(|err| Error::ParseError(err.to_string()))?;
+        let mut formatter = Formatter::new(&parser);
+        formatter.visit_program(&program);
+        println!("formatted:\n{}", formatter.get_output());
+        println!("ast:\n{:#?}", program);
         let mut artifact = ParsingArtifact::new(parser, program);
         typechecker.typecheck_program(&mut self.symbols, &mut artifact)?;
-        let scope_id = self.symbols[ModuleId(0)].scope_id;
+        let scope_id = self.symbols[ModuleId::root()].scope_id;
         if let Some(type_id) = self.symbols[scope_id].types.get(&IdentId::MAIN.into()) {
             if let Type::Function(ref f) = self.symbols[type_id.clone()] {
                 return Ok(self.interpret_function(
@@ -57,6 +64,7 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
         Err(Error::UndefinedMain)
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_function(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -75,6 +83,7 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
                 ret: Some((expr, _)),
             }) = typechecker[stmt]
             {
+                eprintln!("DEBUGPRINT[37]: lib.rs:85 (after ) = typechecker[stmt])");
                 ret = Some(
                     self.interpret_expr(typechecker, artifact, &typechecker[expr])?
                         .unwrap(),
@@ -87,6 +96,7 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
         Ok(ret)
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_if(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -124,6 +134,7 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_while(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -146,6 +157,7 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_block(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -158,6 +170,7 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_statement(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -187,6 +200,7 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_expr(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -200,12 +214,7 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
                 scope_id,
             }) => {
                 if let Some(variable) = self.symbols.get_variable(Some(scope_id.clone()), &name) {
-                    typechecker.print_scope_hierarchy(
-                        &self.symbols,
-                        artifact,
-                        variable.scope_id,
-                        1,
-                    );
+                    // TODO: avoid clone
                     return Ok(Some(variable.value.clone().unwrap()));
                 } else if let Some(type_id) = self
                     .symbols
@@ -367,7 +376,25 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
                     unreachable!()
                 }
             }
-            CheckedExprNode::IndexAccess(index_access_node) => todo!(),
+            CheckedExprNode::IndexAccess(index_access_node) => {
+                let expr = self
+                    .interpret_expr(typechecker, artifact, &typechecker[index_access_node.value])?
+                    .unwrap();
+
+                if expr.is_array() {
+                    if let CheckedValueNode::Array(_, _, elements) = expr {
+                        return self.interpret_expr(
+                            typechecker,
+                            artifact,
+                            &typechecker[elements[index_access_node.index]],
+                        );
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
             CheckedExprNode::MemberAccess(member_access_node) => {
                 if let Type::Function(ref f) = &self.symbols[member_access_node.type_id] {
                     return Ok(Some(CheckedValueNode::Type(member_access_node.type_id)));
@@ -401,6 +428,7 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_assignment(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -410,6 +438,7 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
         let value = self
             .interpret_expr(typechecker, artifact, &typechecker[node.value])?
             .unwrap();
+
         match &typechecker[node.variable] {
             CheckedExprNode::Path(checked_path_node) => {
                 let start_scope = Some(checked_path_node.scope_id.clone());
@@ -533,7 +562,7 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
                         &typechecker[member_access_node.value],
                     )?
                     .unwrap();
-                if let CheckedValueNode::Struct(_, mut field_values) = lhs {
+                if let CheckedValueNode::Struct(type_id, mut field_values) = lhs {
                     if let Some(expr) = field_values.get_mut(&member_access_node.field) {
                         let old_value = self
                             .interpret_expr(typechecker, artifact, &typechecker[*expr])?
@@ -601,14 +630,45 @@ impl<F: ContextFelt, C: Context<F>> Interpreter<F, C> {
                                 ))
                             }
                         };
+
+                        if let Type::Struct(s) = &self.symbols[type_id] {
+                            self.symbols.set_variable(
+                                Some(s.scope_id),
+                                &member_access_node.field,
+                                new_value,
+                            );
+                        } else {
+                            unreachable!()
+                        }
                     }
                 }
             }
-            _ => todo!(),
+            CheckedExprNode::IndexAccess(index_access_node) => {
+                let lhs = self
+                    .interpret_expr(typechecker, artifact, &typechecker[index_access_node.value])?
+                    .unwrap();
+
+                // todo!()
+                // if let CheckedValueNode::Array(type_id, _, _) = lhs {
+                //     if let Type::Array(_, _, scope_id) = &self.symbols[type_id] {
+                //         self.symbols.set_variable(
+                //             Some(*scope_id),
+                //             &member_access_node.field,
+                //             value,
+                //         );
+                //     } else {
+                //         unreachable!()
+                //     }
+                // } else {
+                //     unreachable!()
+                // }
+            }
+            _ => unimplemented!(),
         }
         Ok(())
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn interpret_variable(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -635,6 +695,8 @@ mod test {
 
     #[test]
     fn test_interpreter() {
+        qed_utils::setup_env_logger();
+
         insta::glob!("../../tests", "002.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(ExecContext::new());
             let cache = SymFeltEvalCache::new();

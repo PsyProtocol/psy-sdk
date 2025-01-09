@@ -37,13 +37,30 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
         }
     }
 
+    // std/
+    //     prelude
+    //
+    // modA/
+    //     std/
+    //         prelude
+    // modB/
+    //     std/
+    //         prelude
     pub fn parse<'input>(&'input mut self, ctx: &mut C, entry: PathBuf) -> Result<'input, Program> {
-        let mut parsed_modules = HashMap::new();
+        let mut parsed_modules: HashMap<FileId, RawModule> = HashMap::new();
         let mut dependency_graph: Graph<FileId> = Graph::new();
         let mut module_stack = vec![(entry.clone(), None)];
 
         while let Some((current_path, parent_file_id)) = module_stack.pop() {
             let file_id = self.file_resolver.resolve_file(current_path.clone())?;
+            let module_name = self
+                .interner
+                .intern_ident(current_path.file_stem().and_then(|s| s.to_str()).unwrap());
+            eprintln!("DEBUGPRINT[1]: lib.rs:55: current_path={:#?}", current_path);
+
+            if let Some(parent) = parent_file_id {
+                dependency_graph.add_edge(parent, file_id);
+            }
 
             if parsed_modules.contains_key(&file_id) {
                 continue;
@@ -54,19 +71,29 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
                 .resolve_content(&file_id)
                 .ok_or(Error::FileUnresolved)?;
 
+            let is_self_std = module_name == IdentId::STD;
+            let is_self_prelude = module_name == IdentId::PRELUDE;
+            let is_std = parent_file_id
+                .and_then(|id| parsed_modules.get(&id))
+                .map(|m| m.name == IdentId::STD)
+                .unwrap_or(false)
+                || is_self_std;
+
             let lexer = Lexer::new(file_content);
             let module = qed::ModuleParser::new().parse(
                 file_content,
-                file_id,
-                self.interner
-                    .intern_ident(current_path.file_stem().and_then(|s| s.to_str()).unwrap()),
+                module_name,
                 parent_file_id,
                 &mut self.exprs,
                 &mut self.stmts,
                 &mut self.interner,
+                is_std,
+                is_self_std,
+                is_self_prelude,
                 ctx,
                 lexer,
             )?;
+            eprintln!("DEBUGPRINT[2]: lib.rs:69: module={:#?}", module);
 
             for dep_module in &module.modules {
                 let dep_path = self.resolve_module_path(dep_module, &current_path).unwrap();
@@ -74,10 +101,6 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
             }
 
             parsed_modules.insert(file_id, module);
-
-            if let Some(parent) = parent_file_id {
-                dependency_graph.add_edge(parent, file_id);
-            }
         }
 
         if dependency_graph.has_cycle() {

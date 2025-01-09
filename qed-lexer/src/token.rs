@@ -46,6 +46,9 @@ pub enum Token<'input> {
     #[token("pub")]
     KeywordPub,
 
+    #[token("std")]
+    KeywordStd,
+
     #[token("bool")]
     TypeBool,
     #[token("Felt")]

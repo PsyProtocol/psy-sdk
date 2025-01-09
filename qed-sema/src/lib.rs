@@ -1,7 +1,5 @@
 mod definition;
 mod expr;
-mod module;
-mod program;
 mod stmt;
 mod symbol_table;
 mod r#type;
@@ -18,7 +16,8 @@ use std::{
 
 pub use definition::*;
 pub use expr::*;
-use qed_common::Arena;
+use once_cell::sync::OnceCell;
+use qed_common::{Arena, TraverseOrder};
 pub use r#type::*;
 pub use stmt::*;
 pub use symbol_table::*;
@@ -29,6 +28,8 @@ pub use error::*;
 use qed_ast::*;
 
 use qed_parser::Parser;
+
+use tracing::{debug, error, info, instrument, span, Level};
 
 #[derive(Debug)]
 pub struct TypeChecker<F: Clone, C> {
@@ -86,6 +87,8 @@ impl<F: Clone, C> ParsingArtifact<F, C> {
     }
 }
 
+static STD_PRELUDE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
+
 impl<F: Clone, C> TypeChecker<F, C> {
     pub fn new() -> Self {
         Self {
@@ -95,141 +98,90 @@ impl<F: Clone, C> TypeChecker<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_program(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
         artifact: &ParsingArtifact<F, C>,
     ) -> Result<()> {
-        let mut visited = HashMap::new();
-        let mut stack = vec![(
+        let mut module_registry = HashMap::new();
+        artifact.program.dependency_graph.dfs(
             &artifact.program.root_file_id,
-            &artifact.program.root_module_name,
-        )];
-
-        while let Some((file_id, module_name)) = stack.pop() {
-            if visited.contains_key(&file_id) {
-                continue;
-            }
-
-            visited.insert(file_id, true);
-            let module = artifact.program.modules.get(&file_id).unwrap();
-            self.typecheck_module(symbols, artifact, module_name, module)?;
-
-            if let Some(neighbors) = artifact.program.dependency_graph.get(&module.file_id) {
-                for (i, neighbor) in neighbors.into_iter().enumerate().rev() {
-                    stack.push((neighbor, &module.modules[i]));
+            None,
+            &mut |file_id, parent_file_id, hook| {
+                let module = artifact.program.modules.get(&file_id).unwrap();
+                if hook == TraverseOrder::Enter {
+                    if let Some(&module_id) = module_registry.get(&file_id) {
+                        symbols.start_existing_module(module_id);
+                    } else {
+                        symbols.start_module(module.name, *file_id);
+                    }
+                } else if hook == TraverseOrder::Exit {
+                    symbols.end_module();
+                } else {
+                    if !module_registry.contains_key(file_id) {
+                        module_registry.insert(file_id, symbols.current_module_id().unwrap());
+                    }
                 }
-            }
-        }
+            },
+        );
 
-        self.print_module(symbols, artifact, ModuleId(0));
+        let mut colors = HashMap::new();
+        artifact.program.dependency_graph.ts(
+            &artifact.program.root_file_id,
+            &mut colors,
+            &mut |file_id| {
+                let module = artifact.program.modules.get(&file_id).unwrap();
+                let module_id = module_registry.get(file_id).unwrap().clone();
+                symbols.push_scope(symbols[module_id].scope_id);
+                symbols.push_module(module_id);
+                self.typecheck_module(symbols, artifact, module).unwrap();
+                symbols.pop_scope();
+                symbols.pop_module();
+            },
+        );
+
+        self.print_module(symbols, artifact, ModuleId::root());
 
         Ok(())
     }
 
+    #[instrument(level = "debug", skip_all)]
+    pub fn typecheck_std_prelude_module(
+        &mut self,
+        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        artifact: &ParsingArtifact<F, C>,
+        module: &RawModule,
+    ) -> Result<()> {
+        STD_PRELUDE_SCOPE_ID.set(symbols.current_scope_id().unwrap());
+        for (ident, ty) in TYPE_MAPPING {
+            symbols.add_type_id(None, ident.clone(), *ty);
+        }
+        Ok(())
+    }
+
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_module(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
         artifact: &ParsingArtifact<F, C>,
-        module_name: &IdentId,
         module: &RawModule,
     ) -> Result<()> {
-        symbols.start_module(module_name.clone(), module.file_id);
-        if symbols.current_module_id().unwrap() == ModuleId(0) {
-            symbols.add_type_id(None, IdentId::TYPE_UNKNOWN, UNKOWN_TYPE);
-            symbols.add_type_id(None, IdentId::TYPE_BOOL, BOOL_TYPE);
-            symbols.add_type_id(None, IdentId::TYPE_FELT, FELT_TYPE);
-            symbols.add_type_id(None, IdentId::TYPE_VOID, VOID_TYPE);
+        if module.is_std && module.is_self_prelude {
+            self.typecheck_std_prelude_module(symbols, artifact, module)?;
         }
+
         for use_path in &module.uses {
-            // TODO: this wont be able to resolve
-            self.typecheck_use(symbols, artifact, use_path);
+            self.typecheck_use(symbols, artifact, use_path)?;
         }
 
         for definition in &module.definitions {
             self.typecheck_definition(symbols, artifact, definition)?;
         }
-        symbols.end_module();
         Ok(())
     }
 
-    pub fn print_module(
-        &self,
-        symbols: &mut SymbolTable<CheckedValueNode<F>>,
-        artifact: &ParsingArtifact<F, C>,
-        id: ModuleId,
-    ) {
-        println!("Symbol Table Hierarchy:");
-        self.print_module_hierarchy(symbols, artifact, id, 0);
-    }
-
-    pub fn print_module_hierarchy(
-        &self,
-        symbols: &SymbolTable<CheckedValueNode<F>>,
-        artifact: &ParsingArtifact<F, C>,
-        module_id: ModuleId,
-        indent: usize,
-    ) {
-        let module = &symbols[module_id];
-        let indent_str = "  ".repeat(indent);
-
-        println!("{}Module: {:?}", indent_str, module.name);
-
-        self.print_scope_hierarchy(symbols, artifact, module.scope_id, indent + 1);
-
-        for &child_module_id in &module.children {
-            self.print_module_hierarchy(symbols, artifact, child_module_id, indent + 1);
-        }
-    }
-
-    pub fn print_scope_hierarchy(
-        &self,
-        symbols: &SymbolTable<CheckedValueNode<F>>,
-        artifact: &ParsingArtifact<F, C>,
-        scope_id: ScopeId,
-        indent: usize,
-    ) {
-        let scope = &symbols[scope_id];
-        let indent_str = "  ".repeat(indent);
-
-        println!("{}Scope: {:?}", indent_str, scope.kind);
-
-        if !scope.variables.is_empty() {
-            println!("{}  Variables:", indent_str);
-            for (ident, var) in &scope.variables {
-                println!(
-                    "{}    {:?}",
-                    indent_str,
-                    artifact.parser.interner[ident.clone()],
-                    // symbols[var.ty]
-                );
-            }
-        }
-
-        if !scope.types.is_empty() {
-            println!("{}  Types:", indent_str);
-            for (type_key, type_id) in &scope.types {
-                println!(
-                    "{}    {:?}",
-                    indent_str,
-                    artifact.parser.interner[type_key.id.clone()],
-                    // symbols[type_id.clone()]
-                );
-            }
-        }
-
-        // if !scope.uses.is_empty() {
-        //     println!("{}  Uses:", indent_str);
-        //     for (ident, type_id) in &scope.uses {
-        //         println!("{}    {:?}: {:?}", indent_str, ident, type_id);
-        //     }
-        // }
-
-        for &child_scope_id in &scope.children {
-            self.print_scope_hierarchy(symbols, artifact, child_scope_id, indent + 1);
-        }
-    }
-
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -271,11 +223,20 @@ impl<F: Clone, C> TypeChecker<F, C> {
                     }
                 }
             }
-            UncheckedType::Array(inner, size) => todo!(),
+            UncheckedType::Array(inner, size) => {
+                let inner_ty = self.typecheck(symbols, artifact, inner)?;
+                let scope_id = STD_PRELUDE_SCOPE_ID.get().cloned();
+                let type_id = symbols.add_type(
+                    scope_id,
+                    Type::Array(inner_ty, size.clone(), scope_id.unwrap()),
+                );
+                Ok(type_id)
+            }
             UncheckedType::Unknown => Ok(UNKOWN_TYPE),
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_struct(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -300,8 +261,10 @@ impl<F: Clone, C> TypeChecker<F, C> {
         };
 
         for (field_name, field_type) in &node.fields {
-            let filed_type = self.typecheck(symbols, artifact, field_type)?;
-            checked_struct.fields.push((field_name.clone(), filed_type));
+            let field_type = self.typecheck(symbols, artifact, field_type)?;
+            checked_struct.fields.push((field_name.clone(), field_type));
+
+            symbols.add_type_id(None, field_name.clone(), field_type);
         }
 
         let ty = Type::Struct(checked_struct.clone());
@@ -311,6 +274,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(checked_struct)
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_use(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -320,6 +284,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(symbols.add_use(use_path)?)
     }
 
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_definition(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -342,6 +307,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_method(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -367,16 +333,32 @@ impl<F: Clone, C> TypeChecker<F, C> {
             parameters.push((parameter.clone(), *mutable, parameter_type));
         }
 
+        let checked_body = self.typecheck_block(symbols, artifact, &function.body)?;
+
+        let return_type = {
+            let expected = if let Some(ref ret) = function.return_type {
+                Some(self.typecheck(symbols, artifact, ret)?)
+            } else {
+                None
+            };
+
+            for stmt in checked_body.stmts.iter() {
+                if let CheckedStmtNode::Return(CheckedReturnNode { ret }) = &self[*stmt] {
+                    if ret.map(|(_, type_id)| type_id) != expected {
+                        return Err(Error::TypeMismatch);
+                    }
+                }
+            }
+
+            expected
+        };
+
         let checked_function = CheckedFunctionNode {
             name: function.name,
             parameters,
             generic_parameters,
-            body: self.typecheck_block(symbols, artifact, &function.body)?,
-            return_type: if let Some(ref ret) = function.return_type {
-                Some(self.typecheck(symbols, artifact, ret)?)
-            } else {
-                None
-            },
+            body: checked_body,
+            return_type,
             scope_id: current_scope_id,
         };
         let ty = Type::Function(checked_function.clone());
@@ -386,6 +368,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(checked_function)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_function(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -432,6 +415,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(checked_function)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_enum(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -467,6 +451,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(checked_enum)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_impl(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -504,6 +489,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(checked_impl)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_block(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -522,6 +508,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         })
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_stmt(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -558,6 +545,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         }
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_if(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -604,6 +592,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         })
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_while(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -622,6 +611,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         })
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_assignment(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -645,6 +635,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         });
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_ret(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -662,6 +653,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(CheckedReturnNode { ret })
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_variable(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -689,6 +681,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         Ok(checked_variable)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_expr(
         &mut self,
         symbols: &mut SymbolTable<CheckedValueNode<F>>,
@@ -717,19 +710,70 @@ impl<F: Clone, C> TypeChecker<F, C> {
             ExprNode::Value(value_node) => match value_node {
                 ValueNode::Felt(f) => Ok(CheckedExprNode::Value(CheckedValueNode::Felt(f.clone()))),
                 ValueNode::Bool(b) => Ok(CheckedExprNode::Value(CheckedValueNode::Bool(b.clone()))),
-                ValueNode::Array(_, _) => todo!(),
+                ValueNode::Array(size, arr) => {
+                    if size != &arr.len() {
+                        return Err(Error::TypeMismatch);
+                    }
+
+                    let mut inner_ty: Option<TypeId> = None;
+                    let mut elements = Vec::with_capacity(arr.len());
+                    for el in arr {
+                        let checked_expr =
+                            self.typecheck_expr(symbols, artifact, &artifact[el.clone()])?;
+                        if let Some(inner_ty) = inner_ty {
+                            if checked_expr.ty() != inner_ty {
+                                return Err(Error::TypeMismatch);
+                            }
+                        } else {
+                            inner_ty = Some(checked_expr.ty());
+                        }
+                        elements.push(self.exprs.alloc_item(checked_expr));
+                    }
+
+                    let scope_id = STD_PRELUDE_SCOPE_ID.get().cloned();
+                    let type_id = symbols.add_type(
+                        scope_id,
+                        Type::Array(inner_ty.unwrap(), size.clone(), scope_id.unwrap()),
+                    );
+
+                    Ok(CheckedExprNode::Value(CheckedValueNode::Array(
+                        type_id,
+                        size.clone(),
+                        elements,
+                    )))
+                }
                 ValueNode::Struct(name, generic_parameters, data) => Ok({
                     let generic_parameters = generic_parameters
                         .into_iter()
                         .map(|x| self.typecheck(symbols, artifact, x).unwrap())
                         .collect::<Vec<_>>();
-                    let type_key = TypeKey::new(name.clone(), generic_parameters);
+                    let type_key = TypeKey::new(name.clone(), generic_parameters, vec![]);
                     let type_id = symbols.get_type_id(None, type_key).unwrap();
-
                     let mut new_data = HashMap::new();
-                    for (k, v) in data {
+                    if let Type::Struct(checked_struct) = &symbols[type_id] {
+                        if checked_struct.fields.len() != data.len() {
+                            return Err(Error::TypeMismatch);
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                    for (i, (k, v)) in data.iter().enumerate() {
                         let expr = self.typecheck_expr(symbols, artifact, &artifact[v.clone()])?;
+                        let t = expr.ty();
                         new_data.insert(k.clone(), self.exprs.alloc_item(expr));
+
+                        if let Type::Struct(checked_struct) = &symbols[type_id] {
+                            if Some(&(k.clone(), t))
+                                != checked_struct
+                                    .fields
+                                    .iter()
+                                    .find(|(field_name, field_type)| field_name == k)
+                            {
+                                return Err(Error::TypeMismatch);
+                            }
+                        } else {
+                            unreachable!()
+                        }
                     }
                     CheckedExprNode::Value(CheckedValueNode::Struct(type_id, new_data))
                 }),
@@ -827,7 +871,24 @@ impl<F: Clone, C> TypeChecker<F, C> {
                     return Err(Error::InvalidFunctionCall);
                 }
             }
-            ExprNode::IndexAccess(index_access_node) => todo!(),
+            ExprNode::IndexAccess(index_access_node) => {
+                let checked_expr =
+                    self.typecheck_expr(symbols, artifact, &artifact[index_access_node.value])?;
+
+                let type_id = checked_expr.ty();
+                let ty = &symbols[type_id];
+
+                match ty {
+                    Type::Array(inner_ty, size, _) => {
+                        Ok(CheckedExprNode::IndexAccess(CheckedIndexAccessNode {
+                            value: self.exprs.alloc_item(checked_expr),
+                            index: index_access_node.index,
+                            type_id: inner_ty.clone(),
+                        }))
+                    }
+                    _ => unreachable!(),
+                }
+            }
             ExprNode::MemberAccess(member_access_node) => {
                 let checked_expr =
                     self.typecheck_expr(symbols, artifact, &artifact[member_access_node.value])?;
@@ -847,23 +908,99 @@ impl<F: Clone, C> TypeChecker<F, C> {
                             }
                         }
 
-                        if let Some(type_id) = symbols
+                        let type_id = symbols
                             .resolve_method(checked_struct_node.scope_id, member_access_node.field)
-                        {
-                            return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
-                                value: self.exprs.alloc_item(checked_expr),
-                                field: member_access_node.field,
-                                type_id,
-                            }));
-                        }
+                            .ok_or(Error::UnresolvedMember)?;
 
-                        return Err(Error::UnresolvedMember);
+                        return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
+                            value: self.exprs.alloc_item(checked_expr),
+                            field: member_access_node.field,
+                            type_id,
+                        }));
                     }
-                    _ => {
-                        return Err(Error::UnresolvedMember);
-                    }
+                    _ => unreachable!(),
                 }
             }
+        }
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    pub fn print_module(
+        &self,
+        symbols: &mut SymbolTable<CheckedValueNode<F>>,
+        artifact: &ParsingArtifact<F, C>,
+        id: ModuleId,
+    ) {
+        println!("Symbol Table Hierarchy:");
+        self.print_module_hierarchy(symbols, artifact, id, 0);
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    pub fn print_module_hierarchy(
+        &self,
+        symbols: &SymbolTable<CheckedValueNode<F>>,
+        artifact: &ParsingArtifact<F, C>,
+        module_id: ModuleId,
+        indent: usize,
+    ) {
+        let module = &symbols[module_id];
+        let indent_str = "  ".repeat(indent);
+
+        println!("{}Module: {:?}", indent_str, module.name);
+
+        self.print_scope_hierarchy(symbols, artifact, module.scope_id, indent + 1);
+
+        for &child_module_id in &module.children {
+            self.print_module_hierarchy(symbols, artifact, child_module_id, indent + 1);
+        }
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    pub fn print_scope_hierarchy(
+        &self,
+        symbols: &SymbolTable<CheckedValueNode<F>>,
+        artifact: &ParsingArtifact<F, C>,
+        scope_id: ScopeId,
+        indent: usize,
+    ) {
+        let scope = &symbols[scope_id];
+        let indent_str = "  ".repeat(indent);
+
+        println!("{}Scope: {:?}", indent_str, scope.kind);
+
+        if !scope.variables.is_empty() {
+            println!("{}  Variables:", indent_str);
+            for (ident, var) in &scope.variables {
+                println!(
+                    "{}    {:?}",
+                    indent_str,
+                    artifact.parser.interner[ident.clone()],
+                    // symbols[var.ty]
+                );
+            }
+        }
+
+        if !scope.types.is_empty() {
+            println!("{}  Types:", indent_str);
+            for (type_key, type_id) in &scope.types {
+                println!(
+                    "{}    {:?}",
+                    indent_str,
+                    artifact.parser.interner[type_key.id.clone()],
+                    // symbols[type_id.clone()]
+                );
+            }
+        }
+
+        // if !scope.uses.is_empty() {
+        //     println!("{}  Uses:", indent_str);
+        //     for (ident, type_id) in &scope.uses {
+        //         println!("{}    {:?}: {:?}", indent_str, ident, type_id);
+        //     }
+        // }
+
+        for &child_scope_id in &scope.children {
+            self.print_scope_hierarchy(symbols, artifact, child_scope_id, indent + 1);
         }
     }
 }

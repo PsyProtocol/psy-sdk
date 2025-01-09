@@ -18,6 +18,12 @@ use crate::{Error, Result};
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ScopeId(pub usize);
 
+impl ScopeId {
+    pub const fn root() -> Self {
+        Self(0)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ScopeKind {
     Module,
@@ -36,7 +42,6 @@ pub struct Scope<T> {
     pub children: Vec<ScopeId>,
     pub variables: HashMap<IdentId, CheckedVariable<T>>,
     pub types: HashMap<TypeKey, TypeId>,
-    pub uses: HashMap<IdentId, TypeId>,
 }
 
 #[derive(Clone, Debug)]
@@ -79,7 +84,6 @@ impl<T> Scope<T> {
             children: vec![],
             variables: HashMap::with_capacity(10),
             types: HashMap::new(),
-            uses: HashMap::new(),
         }
     }
 }
@@ -150,6 +154,17 @@ impl<T> SymbolTable<T> {
         self.module_stack.last().cloned()
     }
 
+    pub fn start_existing_module(&mut self, module_id: ModuleId) {
+        self.scope_stack.push(self[module_id].scope_id);
+
+        let current_module_id = self.current_module_id();
+        self.module_stack.push(module_id);
+
+        if let Some(current_module_id) = current_module_id {
+            self[current_module_id].children.push(module_id);
+        }
+    }
+
     pub fn start_module(&mut self, name: IdentId, file_id: FileId) {
         let scope_id = ScopeId(self.scopes.len());
         self.scopes
@@ -167,6 +182,10 @@ impl<T> SymbolTable<T> {
             file_id,
             current_module_id,
         ));
+
+        if let Some(current_module_id) = current_module_id {
+            self[current_module_id].children.push(module_id);
+        }
     }
 
     pub fn end_module(&mut self) {
@@ -191,12 +210,13 @@ impl<T> SymbolTable<T> {
     }
 
     pub fn add_type(&mut self, scope_id: Option<ScopeId>, ty: Type) -> TypeId {
-        let type_id = TypeId(self.types.len());
         let key = ty.key();
-        self.add_type_id(scope_id.or(self.current_scope_id()), key.id(), type_id);
-        if key.has_generics() {
-            self.add_type_id(scope_id.or(self.current_scope_id()), key, type_id);
+        if let Some(type_id) = self.get_type_id(scope_id, key.clone()) {
+            return type_id;
         }
+
+        let type_id = TypeId(self.types.len());
+        self.add_type_id(scope_id, key, type_id);
         self.types.push(ty);
         type_id
     }
@@ -210,6 +230,10 @@ impl<T> SymbolTable<T> {
 
     pub fn add_use(&mut self, use_path: &UsePath) -> Result<()> {
         let current_scope_id = self.current_scope_id().unwrap();
+        eprintln!(
+            "DEBUGPRINT[3]: symbol_table.rs:214: use_path={:#?}",
+            use_path
+        );
         let type_ids = self
             .resolve_use(&use_path)
             .ok_or(Error::UnresolvedUse)?
@@ -217,9 +241,7 @@ impl<T> SymbolTable<T> {
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect::<Vec<_>>();
         for (ident, type_id) in type_ids {
-            if !self[current_scope_id].uses.contains_key(&ident.id()) {
-                self[current_scope_id].uses.insert(ident.id(), type_id);
-            }
+            self.add_type_id(None, ident, type_id);
         }
         Ok(())
     }
@@ -255,6 +277,10 @@ impl<T> SymbolTable<T> {
     }
 
     pub fn resolve_use(&self, use_path: &UsePath) -> Option<Vec<(&TypeKey, &TypeId)>> {
+        eprintln!(
+            "DEBUGPRINT[8]: symbol_table.rs:260: self.modules={:#?}",
+            self.modules
+        );
         let mut src_module = match use_path.kind {
             UseKind::MODULE(name) => ModuleId(self.modules.iter().position(|x| x.name == name)?),
             UseKind::SELF => self.current_module_id()?,
@@ -273,6 +299,14 @@ impl<T> SymbolTable<T> {
 
         let mut path = use_path.segments.iter();
         while let Some(segment) = path.next() {
+            eprintln!(
+                "DEBUGPRINT[6]: symbol_table.rs:277: self[src_module].children={:#?}",
+                self[src_module].children
+            );
+            eprintln!(
+                "DEBUGPRINT[7]: symbol_table.rs:278: src_module={:#?}",
+                src_module
+            );
             let target_module_id = self[src_module].children.iter().find(|&id| {
                 let module = &self[*id];
                 module.name == *segment
@@ -365,16 +399,16 @@ impl<T> SymbolTable<T> {
     }
 
     pub fn get_variable(
-        &self,
+        &mut self,
         start_scope: Option<ScopeId>,
         key: &IdentId,
-    ) -> Option<&CheckedVariable<T>> {
+    ) -> Option<&mut CheckedVariable<T>> {
         let scope_id = self.find_scope(
             start_scope,
             vec![ScopeKind::Function, ScopeKind::ImplMethod],
             |scope| scope.variables.contains_key(key),
         )?;
-        self[scope_id].variables.get(key)
+        self[scope_id].variables.get_mut(key)
     }
 
     pub fn set_variable(
@@ -464,14 +498,14 @@ mod tests {
         table.start_module(IdentId(0), FileId(0));
         table.start_scope(ScopeKind::Block);
         table.define_variable(IdentId(0), value(42));
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
 
         table.start_scope(ScopeKind::Block);
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
         table.define_variable(IdentId(0), value(24));
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(24)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(24)));
         table.end_scope();
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
         table.end_scope();
         table.end_module();
     }
@@ -482,13 +516,13 @@ mod tests {
         table.start_module(IdentId(0), FileId(0));
         table.start_function();
         table.define_variable(IdentId(0), value(42));
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
         table.start_function();
         assert_eq!(table.get_variable(None, &IdentId(0)), None);
         table.set_variable(None, &IdentId(0), 24);
         assert_eq!(table.get_variable(None, &IdentId(0)), None);
         table.end_function();
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
         table.end_function();
         table.end_module();
     }
@@ -499,15 +533,15 @@ mod tests {
         table.start_module(IdentId(0), FileId(0));
         table.define_variable(IdentId(0), value(42));
         table.start_scope(ScopeKind::Block);
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
         table.end_scope();
         table.start_function();
         assert_eq!(table.get_variable(None, &IdentId(0)), None);
         table.define_variable(IdentId(0), value(42));
         table.set_variable(None, &IdentId(0), 24);
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(24)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(24)));
         table.end_function();
-        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&value(42)));
+        assert_eq!(table.get_variable(None, &IdentId(0)), Some(&mut value(42)));
         table.end_module();
     }
 }

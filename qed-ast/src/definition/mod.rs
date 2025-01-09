@@ -20,15 +20,6 @@ pub enum DefinitionNode {
 }
 
 impl DefinitionNode {
-    pub fn id(&self) -> IdentId {
-        match self {
-            DefinitionNode::Function(f) => f.name,
-            DefinitionNode::Struct(s) => s.name,
-            DefinitionNode::Enum(e) => e.name,
-            DefinitionNode::Impl(i) => i.ty,
-        }
-    }
-
     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
         &self,
         visitor: &mut V,
