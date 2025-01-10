@@ -17,7 +17,7 @@ use std::{
 pub use definition::*;
 pub use expr::*;
 use once_cell::sync::OnceCell;
-use qed_common::{Arena, TraverseOrder};
+use qed_common::{Arena, VisitPhase};
 pub use r#type::*;
 pub use stmt::*;
 pub use symbol_table::*;
@@ -108,15 +108,15 @@ impl<F: Clone, C> TypeChecker<F, C> {
         artifact.program.dependency_graph.dfs(
             &artifact.program.root_file_id,
             None,
-            &mut |file_id, parent_file_id, hook| {
+            &mut |file_id, parent_file_id, phase| {
                 let module = artifact.program.modules.get(&file_id).unwrap();
-                if hook == TraverseOrder::Enter {
+                if phase == VisitPhase::Enter {
                     if let Some(&module_id) = module_registry.get(&file_id) {
                         symbols.start_existing_module(module_id);
                     } else {
                         symbols.start_module(module.name, *file_id);
                     }
-                } else if hook == TraverseOrder::Exit {
+                } else if phase == VisitPhase::Exit {
                     symbols.end_module();
                 } else {
                     if !module_registry.contains_key(file_id) {
@@ -972,10 +972,10 @@ impl<F: Clone, C> TypeChecker<F, C> {
             println!("{}  Variables:", indent_str);
             for (ident, var) in &scope.variables {
                 println!(
-                    "{}    {:?}",
+                    "{}    {:?}: {:?}",
                     indent_str,
-                    artifact.parser.interner[ident.clone()],
-                    // symbols[var.ty]
+                    artifact[ident.clone()],
+                    symbols[var.ty]
                 );
             }
         }
@@ -984,20 +984,13 @@ impl<F: Clone, C> TypeChecker<F, C> {
             println!("{}  Types:", indent_str);
             for (type_key, type_id) in &scope.types {
                 println!(
-                    "{}    {:?}",
+                    "{}    {:?}: {:?}",
                     indent_str,
-                    artifact.parser.interner[type_key.id.clone()],
-                    // symbols[type_id.clone()]
+                    artifact[type_key.id.clone()],
+                    symbols[type_id.clone()]
                 );
             }
         }
-
-        // if !scope.uses.is_empty() {
-        //     println!("{}  Uses:", indent_str);
-        //     for (ident, type_id) in &scope.uses {
-        //         println!("{}    {:?}: {:?}", indent_str, ident, type_id);
-        //     }
-        // }
 
         for &child_scope_id in &scope.children {
             self.print_scope_hierarchy(symbols, artifact, child_scope_id, indent + 1);

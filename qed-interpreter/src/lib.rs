@@ -52,17 +52,15 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         let mut artifact = ParsingArtifact::new(parser, program);
         typechecker.typecheck_program(&mut self.symbols, &mut artifact)?;
         let scope_id = self.symbols[ModuleId::root()].scope_id;
-        if let Some(type_id) = self.symbols[scope_id].types.get(&IdentId::MAIN.into()) {
-            if let Type::Function(ref f) = self.symbols[type_id.clone()] {
-                return Ok(self.interpret_function(
-                    typechecker,
-                    &artifact,
-                    &f.clone(),
-                    parameters,
-                )?);
-            }
+        let type_id = self.symbols[scope_id]
+            .types
+            .get(&IdentId::MAIN.into())
+            .ok_or(Error::UndefinedMain)?;
+        if let Type::Function(ref f) = self.symbols[type_id.clone()] {
+            return Ok(self.interpret_function(typechecker, &artifact, &f.clone(), parameters)?);
+        } else {
+            unreachable!()
         }
-        Err(Error::UndefinedMain)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -442,14 +440,12 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
             }) => {
                 if let Some(variable) = self.symbols.get_variable(Some(scope_id.clone()), &name) {
                     let value_node = variable.value.clone().unwrap();
-                    if value_node.is_right() {
-                        return Ok(Some(value_node.right().unwrap()));
+                    if let Either::Right(right) = value_node {
+                        return Ok(Some(right));
+                    } else if let Either::Left(left) = value_node {
+                        return Ok(Some(self.interpret_value(typechecker, artifact, &left)?));
                     } else {
-                        return Ok(Some(self.interpret_value(
-                            typechecker,
-                            artifact,
-                            &value_node.left().unwrap(),
-                        )?));
+                        unreachable!()
                     }
                 } else if let Some(type_id) = self
                     .symbols
@@ -476,10 +472,10 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                 unary_node,
             )?)),
             CheckedExprNode::Call(call_node) => {
-                let expr = self
+                let f = self
                     .interpret_expr(typechecker, artifact, &typechecker[call_node.variable])?
                     .unwrap();
-                if let CheckedValue::Type(type_id) = expr {
+                if let CheckedValue::Type(type_id) = f {
                     let mut parameters = Vec::new();
                     if let Some(receiver) = call_node.receiver {
                         let receiver =
@@ -502,11 +498,11 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                 }
             }
             CheckedExprNode::IndexAccess(index_access_node) => {
-                let expr = self
+                let a = self
                     .interpret_expr(typechecker, artifact, &typechecker[index_access_node.value])?
                     .unwrap();
 
-                if let CheckedValue::Array(_, _, elements) = expr {
+                if let CheckedValue::Array(_, _, elements) = a {
                     return Ok(Some(elements[index_access_node.index].clone()));
                 } else {
                     unreachable!()
@@ -516,20 +512,15 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                 if let Type::Function(ref f) = &self.symbols[member_access_node.type_id] {
                     return Ok(Some(CheckedValue::Type(member_access_node.type_id)));
                 } else {
-                    let expr = self
+                    let s = self
                         .interpret_expr(
                             typechecker,
                             artifact,
                             &typechecker[member_access_node.value],
                         )?
                         .unwrap();
-                    if let CheckedValue::Struct(_, field_values) = expr {
-                        return Ok(Some(
-                            field_values
-                                .get(&member_access_node.field)
-                                .cloned()
-                                .unwrap(),
-                        ));
+                    if let CheckedValue::Struct(_, field_values) = s {
+                        return Ok(field_values.get(&member_access_node.field).cloned());
                     } else {
                         unreachable!()
                     }
@@ -552,17 +543,17 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         match &typechecker[node.variable] {
             CheckedExprNode::Path(checked_path_node) => {
                 let start_scope = Some(checked_path_node.scope_id.clone());
-                let old_value = self
+                let variable = self
                     .symbols
                     .get_variable(start_scope, &checked_path_node.name)
                     .unwrap()
                     .value
-                    .clone()
-                    .map(|x| x.right().unwrap());
+                    .clone();
+                let old_value = variable.and_then(|x| x.right()).unwrap();
                 let new_value = self.interpret_assignment_value(
                     typechecker,
                     artifact,
-                    old_value.unwrap(),
+                    old_value,
                     node.operator,
                     value,
                 )?;
@@ -573,54 +564,122 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                 )?;
             }
             CheckedExprNode::MemberAccess(member_access_node) => {
-                let lhs = self
+                let (name, scope_id) =
+                    if let CheckedExprNode::Path(CheckedPathNode { name, scope_id, .. }) =
+                        &typechecker[member_access_node.value]
+                    {
+                        (name, scope_id)
+                    } else {
+                        unreachable!()
+                    };
+                let mut s = self
                     .interpret_expr(
                         typechecker,
                         artifact,
                         &typechecker[member_access_node.value],
                     )?
                     .unwrap();
-                if let CheckedValue::Struct(type_id, mut field_values) = lhs {
-                    if let Some(expr) = field_values.get_mut(&member_access_node.field) {
-                        let old_value = expr.clone();
-                        let new_value = self.interpret_assignment_value(
+                if let CheckedValue::Struct(type_id, field_values) = &mut s {
+                    let old_value = field_values
+                        .get(&member_access_node.field)
+                        .cloned()
+                        .unwrap();
+                    field_values.insert(
+                        member_access_node.field,
+                        self.interpret_assignment_value(
                             typechecker,
                             artifact,
                             old_value,
                             node.operator,
                             value,
-                        )?;
-                        if let Type::Struct(s) = &self.symbols[type_id] {
-                            self.symbols.set_variable(
-                                Some(s.scope_id),
-                                &member_access_node.field,
-                                CheckedValueOrNode::from(new_value),
-                            );
+                        )?,
+                    );
+                } else {
+                    unreachable!()
+                }
+
+                self.symbols.set_variable(
+                    Some(scope_id.clone()),
+                    name,
+                    CheckedValueOrNode::from(s),
+                );
+                return Ok(());
+            }
+            CheckedExprNode::IndexAccess(index_access_node) => {
+                if let CheckedExprNode::MemberAccess(member_access_node) =
+                    &typechecker[index_access_node.value]
+                {
+                    let (name, scope_id) =
+                        if let CheckedExprNode::Path(CheckedPathNode { name, scope_id, .. }) =
+                            &typechecker[member_access_node.value]
+                        {
+                            (name, scope_id)
+                        } else {
+                            unreachable!()
+                        };
+                    let mut s = self
+                        .interpret_expr(
+                            typechecker,
+                            artifact,
+                            &typechecker[member_access_node.value],
+                        )?
+                        .unwrap();
+
+                    if let CheckedValue::Struct(type_id, field_values) = &mut s {
+                        if let Some(CheckedValue::Array(_, _, elements)) =
+                            field_values.get_mut(&member_access_node.field)
+                        {
+                            elements[index_access_node.index] = self.interpret_assignment_value(
+                                typechecker,
+                                artifact,
+                                elements[index_access_node.index].clone(),
+                                node.operator,
+                                value,
+                            )?;
                         } else {
                             unreachable!()
                         }
+                    } else {
+                        unreachable!()
                     }
-                }
-            }
-            CheckedExprNode::IndexAccess(index_access_node) => {
-                let lhs = self
-                    .interpret_expr(typechecker, artifact, &typechecker[index_access_node.value])?
-                    .unwrap();
 
-                // todo!()
-                // if let CheckedValueNode::Array(type_id, _, _) = lhs {
-                //     if let Type::Array(_, _, scope_id) = &self.symbols[type_id] {
-                //         self.symbols.set_variable(
-                //             Some(*scope_id),
-                //             &member_access_node.field,
-                //             value,
-                //         );
-                //     } else {
-                //         unreachable!()
-                //     }
-                // } else {
-                //     unreachable!()
-                // }
+                    self.symbols.set_variable(
+                        Some(scope_id.clone()),
+                        name,
+                        CheckedValueOrNode::from(s),
+                    );
+                } else if let CheckedExprNode::Path(CheckedPathNode {
+                    name,
+                    type_id,
+                    scope_id,
+                }) = &typechecker[index_access_node.value]
+                {
+                    let mut s = self
+                        .interpret_expr(
+                            typechecker,
+                            artifact,
+                            &typechecker[index_access_node.value],
+                        )?
+                        .unwrap();
+
+                    if let CheckedValue::Array(_, _, elements) = &mut s {
+                        elements[index_access_node.index] = self.interpret_assignment_value(
+                            typechecker,
+                            artifact,
+                            elements[index_access_node.index].clone(),
+                            node.operator,
+                            value,
+                        )?;
+                    } else {
+                        unreachable!()
+                    }
+
+                    self.symbols.set_variable(
+                        Some(scope_id.clone()),
+                        name,
+                        CheckedValueOrNode::from(s),
+                    );
+                };
             }
             _ => unimplemented!(),
         }
