@@ -16,3 +16,4 @@ insta = { workspace = true }
 qed-builder = { workspace = true }
 qed-fmt = { workspace = true }
 qed-utils = { workspace = true }
+either = { workspace = true }
