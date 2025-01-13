@@ -1,15 +1,7 @@
 fn max(a: Felt, b: Felt) -> Felt {
-    if a > b {
-        return a;
-    } else {
-        return b;
-    }
+    return a * (a > b) as Felt + b * (a <= b) as Felt;
 }
 
 fn min(a: Felt, b: Felt) -> Felt {
-    if a < b {
-        return a;
-    } else {
-        return b;
-    }
+    return a * (a < b) as Felt + b * (a >=b) as Felt;
 }

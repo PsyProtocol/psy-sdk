@@ -10,6 +10,7 @@ pub trait MutAstVisitor<F: Clone, C> {
             ExprNode::Binary(binary) => self.visit_binary(binary),
             ExprNode::Unary(unary) => self.visit_unary(unary),
             ExprNode::Call(call) => self.visit_call(call),
+            ExprNode::Cast(cast) => self.visit_cast(cast),
             ExprNode::IndexAccess(index_access_node) => self.visit_index_access(index_access_node),
             ExprNode::MemberAccess(member_access_node) => {
                 self.visit_member_access(member_access_node)
@@ -66,6 +67,7 @@ pub trait MutAstVisitor<F: Clone, C> {
     fn visit_binary(&mut self, node: &mut BinaryNode);
     fn visit_unary(&mut self, node: &mut UnaryNode);
     fn visit_call(&mut self, node: &mut CallNode);
+    fn visit_cast(&mut self, node: &mut CastNode);
 
     fn visit_if(&mut self, node: &mut IfNode);
     fn visit_while(&mut self, node: &mut WhileNode);

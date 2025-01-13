@@ -32,6 +32,12 @@ pub enum Token<'input> {
     #[token("for")]
     KeywordFor,
 
+    #[token("as")]
+    KeywordAs,
+
+    #[token("new")]
+    KeywordNew,
+
     #[token("mod")]
     KeywordMod,
     #[token("use")]

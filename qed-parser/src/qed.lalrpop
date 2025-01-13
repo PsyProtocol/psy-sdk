@@ -246,10 +246,17 @@ AssignmentStatement: StmtNode<F> = {
     )
 }
 
-Expression: ExprNode<F> = {
-    #[precedence(level="0")]
+Term: ExprNode<F> = {
+    <l:@L> "(" <expr:Expression> ")" <r:@R> => expr,
     ValueExpression,
     <l:@L> <name:IdentifierOrSelf> <r:@R> => ExprNode::<F>::Path(PathNode(name)),
+}
+
+Expression: ExprNode<F> = {
+    #[precedence(level="1")]
+    Term,
+
+    #[precedence(level="2")]
     <l:@L> <variable:Expression> <generic_parameters:Monomorphization?> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
         CallNode {
             receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
@@ -267,7 +274,7 @@ Expression: ExprNode<F> = {
         field
     }),
 
-    #[precedence(level="1")]
+    #[precedence(level="3")]
     <l:@L> "!" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
         UnaryNode{operator: UnaryOperator::Not, rhs: expr_nodes.alloc_item(rhs)}
     ),
@@ -275,7 +282,15 @@ Expression: ExprNode<F> = {
         UnaryNode{operator: UnaryOperator::Neg, rhs: expr_nodes.alloc_item(rhs)}
     ),
 
-    #[precedence(level="2")] #[assoc(side="left")]
+    #[precedence(level="4")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> AS <ty:TYPE_FELT> <r:@R> => ExprNode::<F>::Cast(
+        CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_FELT))
+    ),
+    <l:@L> <lhs:Expression> AS <ty:TYPE_BOOL> <r:@R> => ExprNode::<F>::Cast(
+        CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_BOOL))
+    ),
+
+    #[precedence(level="5")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "*" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mul, expr_nodes.alloc_item(rhs))
     ),
@@ -286,7 +301,7 @@ Expression: ExprNode<F> = {
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mod, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="3")] #[assoc(side="left")]
+    #[precedence(level="6")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "+" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Add, expr_nodes.alloc_item(rhs))
     ),
@@ -294,7 +309,7 @@ Expression: ExprNode<F> = {
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Sub, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="4")] #[assoc(side="left")]
+    #[precedence(level="7")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "<<" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitShl, expr_nodes.alloc_item(rhs))
     ),
@@ -302,22 +317,22 @@ Expression: ExprNode<F> = {
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitShr, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="5")] #[assoc(side="left")]
+    #[precedence(level="8")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "&" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitAnd, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="6")] #[assoc(side="left")]
+    #[precedence(level="9")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "^" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitXor, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="7")] #[assoc(side="left")]
+    #[precedence(level="10")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "|" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitOr, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="8")] #[assoc(side="left")]
+    #[precedence(level="11")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> ">" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Gt, expr_nodes.alloc_item(rhs))
     ),
@@ -331,7 +346,7 @@ Expression: ExprNode<F> = {
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Lte, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="9")] #[assoc(side="left")]
+    #[precedence(level="12")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "==" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Eq, expr_nodes.alloc_item(rhs))
     ),
@@ -339,12 +354,12 @@ Expression: ExprNode<F> = {
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Neq, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="10")] #[assoc(side="left")]
+    #[precedence(level="13")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "&&" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::And, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="11")] #[assoc(side="left")]
+    #[precedence(level="14")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "||" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Or, expr_nodes.alloc_item(rhs))
     ),
@@ -354,7 +369,7 @@ ValueExpression: ExprNode<F> = {
     FeltExpression,
     BoolExpression,
     ArrayExpression,
-    "(" <StructExpression> ")"
+    NEW <StructExpression>
 }
 
 FeltExpression: ExprNode<F> = {
@@ -448,90 +463,93 @@ extern {
     type Error = Error;
 
     enum Token<'input> {
-      CONST => Token::KeywordConst,
-      LET => Token::KeywordLet,
+        CONST => Token::KeywordConst,
+        LET => Token::KeywordLet,
 
-      MUT => Token::KeywordMut,
+        MUT => Token::KeywordMut,
 
-      FN => Token::KeywordFn,
-      STRUCT => Token::KeywordStruct,
-      ENUM => Token::KeywordEnum,
-      IMPL => Token::KeywordImpl,
-      RETURN => Token::KeywordReturn,
-      IF => Token::KeywordIf,
-      ELSE => Token::KeywordElse,
-      WHILE => Token::KeywordWhile,
-      FOR => Token::KeywordFor,
+        FN => Token::KeywordFn,
+        STRUCT => Token::KeywordStruct,
+        ENUM => Token::KeywordEnum,
+        IMPL => Token::KeywordImpl,
+        RETURN => Token::KeywordReturn,
+        IF => Token::KeywordIf,
+        ELSE => Token::KeywordElse,
+        WHILE => Token::KeywordWhile,
+        FOR => Token::KeywordFor,
 
-      MOD => Token::KeywordMod,
-      USE => Token::KeywordUse,
-      SUPER => Token::KeywordSuper,
-      CRATE => Token::KeywordCrate,
-      SELF => Token::KeywordSelf,
+        MOD => Token::KeywordMod,
+        USE => Token::KeywordUse,
+        SUPER => Token::KeywordSuper,
+        CRATE => Token::KeywordCrate,
+        SELF => Token::KeywordSelf,
 
-      PUB => Token::KeywordPub,
+        PUB => Token::KeywordPub,
 
-      STD => Token::KeywordStd,
+        STD => Token::KeywordStd,
 
-      IDENT => Token::Ident(<&'input str>),
+        IDENT => Token::Ident(<&'input str>),
 
-      BOOL => Token::Bool(<bool>),
-      NUMBER => Token::Number(<u64>),
+        BOOL => Token::Bool(<bool>),
+        NUMBER => Token::Number(<u64>),
 
-      TYPE_BOOL => Token::TypeBool,
-      TYPE_FELT => Token::TypeFelt,
-      TYPE_SELF => Token::TypeSelf,
+        TYPE_BOOL => Token::TypeBool,
+        TYPE_FELT => Token::TypeFelt,
+        TYPE_SELF => Token::TypeSelf,
 
-      "(" => Token::LParen,
-      ")" => Token::RParen,
-      "{" => Token::LBrace,
-      "}" => Token::RBrace,
-      "[" => Token::LBracket,
-      "]" => Token::RBracket,
+        AS => Token::KeywordAs,
+        NEW => Token::KeywordNew,
 
-      "=" => Token::Assign,
-      ";" => Token::Semicolon,
-      "," => Token::Comma,
-      "." => Token::Dot,
-      ":" => Token::Colon,
-      "::" => Token::DoubleColon,
-      "->" => Token::Arrow,
+        "(" => Token::LParen,
+        ")" => Token::RParen,
+        "{" => Token::LBrace,
+        "}" => Token::RBrace,
+        "[" => Token::LBracket,
+        "]" => Token::RBracket,
 
-      "+" => Token::OperatorAdd,
-      "-" => Token::OperatorSub,
-      "*" => Token::OperatorMul,
-      "/" => Token::OperatorDiv,
-      "%" => Token::OperatorMod,
+        "=" => Token::Assign,
+        ";" => Token::Semicolon,
+        "," => Token::Comma,
+        "." => Token::Dot,
+        ":" => Token::Colon,
+        "::" => Token::DoubleColon,
+        "->" => Token::Arrow,
 
-      "==" => Token::OperatorEq,
-      "!=" => Token::OperatorNeq,
-      "<" => Token::OperatorLt,
-      "<=" => Token::OperatorLte,
-      ">" => Token::OperatorGt,
-      ">=" => Token::OperatorGte,
-      "&&" => Token::OperatorAnd,
-      "||" => Token::OperatorOr,
+        "+" => Token::OperatorAdd,
+        "-" => Token::OperatorSub,
+        "*" => Token::OperatorMul,
+        "/" => Token::OperatorDiv,
+        "%" => Token::OperatorMod,
 
-      "&" => Token::OperatorBitAnd,
-      "|" => Token::OperatorBitOr,
-      "^" => Token::OperatorBitXor,
+        "==" => Token::OperatorEq,
+        "!=" => Token::OperatorNeq,
+        "<" => Token::OperatorLt,
+        "<=" => Token::OperatorLte,
+        ">" => Token::OperatorGt,
+        ">=" => Token::OperatorGte,
+        "&&" => Token::OperatorAnd,
+        "||" => Token::OperatorOr,
 
-      "<<" => Token::OperatorShl,
-      ">>" => Token::OperatorShr,
+        "&" => Token::OperatorBitAnd,
+        "|" => Token::OperatorBitOr,
+        "^" => Token::OperatorBitXor,
 
-      "!" => Token::OperatorNot,
+        "<<" => Token::OperatorShl,
+        ">>" => Token::OperatorShr,
 
-      "+=" => Token::OperatorAddAssign,
-      "-=" => Token::OperatorSubAssign,
-      "*=" => Token::OperatorMulAssign,
-      "/=" => Token::OperatorDivAssign,
-      "%=" => Token::OperatorModAssign,
+        "!" => Token::OperatorNot,
 
-      "|=" => Token::OperatorBitOrAssign,
-      "&=" => Token::OperatorBitAndAssign,
-      "^=" => Token::OperatorBitXorAssign,
+        "+=" => Token::OperatorAddAssign,
+        "-=" => Token::OperatorSubAssign,
+        "*=" => Token::OperatorMulAssign,
+        "/=" => Token::OperatorDivAssign,
+        "%=" => Token::OperatorModAssign,
 
-      "<<=" => Token::OperatorBitShlAssign,
-      ">>=" => Token::OperatorBitShrAssign,
+        "|=" => Token::OperatorBitOrAssign,
+        "&=" => Token::OperatorBitAndAssign,
+        "^=" => Token::OperatorBitXorAssign,
+
+        "<<=" => Token::OperatorBitShlAssign,
+        ">>=" => Token::OperatorBitShrAssign,
     }
 }

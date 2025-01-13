@@ -1,11 +1,13 @@
 mod binary;
 mod call;
+mod cast;
 mod index;
 mod path;
 mod unary;
 
 pub use binary::*;
 pub use call::*;
+pub use cast::*;
 pub use index::*;
 pub use path::*;
 pub use unary::*;
@@ -21,6 +23,7 @@ pub enum CheckedExprNode<F> {
     Value(CheckedValueNode<F>),
     Binary(CheckedBinaryNode),
     Unary(CheckedUnaryNode),
+    Cast(CheckedCastNode),
     Call(CheckedCallNode),
     IndexAccess(CheckedIndexAccessNode),
     MemberAccess(CheckedMemberAccessNode),
@@ -39,6 +42,7 @@ impl<F> CheckedExprNode<F> {
             },
             CheckedExprNode::Binary(b) => b.type_id,
             CheckedExprNode::Unary(u) => u.type_id,
+            CheckedExprNode::Cast(c) => c.target_type,
             CheckedExprNode::Call(c) => c.type_id,
             CheckedExprNode::IndexAccess(i) => i.type_id,
             CheckedExprNode::MemberAccess(m) => m.type_id,

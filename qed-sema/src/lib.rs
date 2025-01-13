@@ -836,6 +836,23 @@ impl<F: Clone, C> TypeChecker<F, C> {
                     type_id,
                 }))
             }
+            ExprNode::Cast(cast_node) => {
+                let src_expr =
+                    self.typecheck_expr(symbols, artifact, &artifact[cast_node.value])?;
+                let src_type = src_expr.ty();
+                let target_type = self.typecheck(symbols, artifact, &cast_node.target_type)?;
+
+                if src_type == FELT_TYPE && target_type == BOOL_TYPE
+                    || src_type == BOOL_TYPE && target_type == FELT_TYPE
+                {
+                    return Ok(CheckedExprNode::Cast(CheckedCastNode {
+                        value: self.exprs.alloc_item(src_expr),
+                        target_type,
+                    }));
+                } else {
+                    return Err(Error::TypeMismatch);
+                };
+            }
             ExprNode::Call(call_node) => {
                 let expr = self.typecheck_expr(symbols, artifact, &artifact[call_node.variable])?;
                 let ty = expr.ty();
