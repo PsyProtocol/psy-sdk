@@ -1,4 +1,7 @@
-pub mod error;
+#![feature(try_trait_v2)]
+
+mod control;
+mod error;
 
 use either::Either;
 use error::{Error, Result};
@@ -11,6 +14,8 @@ use qed_sema::*;
 use std::{collections::HashMap, fmt::Display, ops::Index, path::PathBuf};
 
 use tracing::{debug, error, info, instrument, span, Level};
+
+use crate::control::ControlState;
 
 #[derive(Debug)]
 pub struct Interpreter<F: Clone, C> {
@@ -76,23 +81,13 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                 .set_variable(Some(node.scope_id), parameter, parameters[i].clone())?;
         }
 
-        let mut ret: Option<CheckedValue<F>> = None;
-        for &stmt in &node.body.stmts {
-            if let CheckedStmtNode::Return(CheckedReturnNode {
-                ret: Some((expr, _)),
-            }) = typechecker[stmt]
-            {
-                eprintln!("DEBUGPRINT[37]: lib.rs:85 (after ) = typechecker[stmt])");
-                ret = Some(
-                    self.interpret_expr(typechecker, artifact, &typechecker[expr])?
-                        .unwrap(),
-                );
-            } else {
-                self.interpret_statement(typechecker, artifact, &typechecker[stmt])?;
+        match self.interpret_block(typechecker, artifact, &node.body)? {
+            ControlState::Return(value) => Ok(Some(value)),
+            ControlState::Normal => Ok(None),
+            ControlState::Break(_) | ControlState::Continue(_) => {
+                unreachable!()
             }
         }
-
-        Ok(ret)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -162,11 +157,14 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         artifact: &ParsingArtifact<F, C>,
         node: &CheckedBlockNode,
-    ) -> Result<()> {
+    ) -> Result<ControlState<CheckedValue<F>>> {
         for &stmt in &node.stmts {
-            self.interpret_statement(typechecker, artifact, &typechecker[stmt])?;
+            match self.interpret_statement(typechecker, artifact, &typechecker[stmt])? {
+                ControlState::Normal => continue,
+                state => return Ok(state),
+            }
         }
-        Ok(())
+        Ok(ControlState::Normal)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -175,14 +173,14 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         artifact: &ParsingArtifact<F, C>,
         node: &CheckedStmtNode<F>,
-    ) -> Result<()> {
+    ) -> Result<ControlState<CheckedValue<F>>> {
         match node {
             CheckedStmtNode::If(r#if) => self.interpret_if(typechecker, artifact, r#if)?,
             CheckedStmtNode::While(r#while) => {
                 self.interpret_while(typechecker, artifact, r#while)?
             }
             CheckedStmtNode::Block(block) => {
-                self.interpret_block(typechecker, artifact, r#block)?
+                return self.interpret_block(typechecker, artifact, r#block);
             }
             CheckedStmtNode::Assignment(r#assignment) => {
                 self.interpret_assignment(typechecker, artifact, r#assignment)?
@@ -194,9 +192,18 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
             CheckedStmtNode::Expression(expr) => {
                 self.interpret_expr(typechecker, artifact, expr)?;
             }
-            CheckedStmtNode::Return(return_node) => {}
+            CheckedStmtNode::Return(return_node) => {
+                if let Some((expr, _)) = &return_node.ret {
+                    let value = self
+                        .interpret_expr(typechecker, artifact, &typechecker[*expr])?
+                        .unwrap();
+                    return Ok(ControlState::Return(value));
+                } else {
+                    return Ok(ControlState::Normal);
+                }
+            }
         }
-        Ok(())
+        Ok(ControlState::Normal)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -327,8 +334,8 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                     )
                 } else {
                     self.context.op_eq(
-                        lhs_value.try_as_felt().unwrap(),
-                        rhs_value.try_as_felt().unwrap(),
+                        lhs_value.try_as_bool().unwrap(),
+                        rhs_value.try_as_bool().unwrap(),
                     )
                 }
             }
@@ -340,8 +347,8 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                     )
                 } else {
                     self.context.op_neq(
-                        lhs_value.try_as_felt().unwrap(),
-                        rhs_value.try_as_felt().unwrap(),
+                        lhs_value.try_as_bool().unwrap(),
+                        rhs_value.try_as_bool().unwrap(),
                     )
                 }
             }
@@ -490,6 +497,26 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                     }
                     if let Type::Function(f) = self.symbols[type_id].clone() {
                         return self.interpret_function(typechecker, artifact, &f, parameters);
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
+            CheckedExprNode::Cast(cast_node) => {
+                let value = self
+                    .interpret_expr(typechecker, artifact, &typechecker[cast_node.value])?
+                    .unwrap();
+                if value.is_felt() && cast_node.target_type == BOOL_TYPE {
+                    if let CheckedValue::Felt(value) = value {
+                        return Ok(Some(CheckedValue::Bool(value)));
+                    } else {
+                        unreachable!()
+                    }
+                } else if value.is_bool() && cast_node.target_type == FELT_TYPE {
+                    if let CheckedValue::Bool(value) = value {
+                        return Ok(Some(CheckedValue::Felt(value)));
                     } else {
                         unreachable!()
                     }

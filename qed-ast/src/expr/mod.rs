@@ -1,11 +1,13 @@
 mod binary;
 mod call;
+mod cast;
 mod index;
 mod path;
 mod unary;
 
 pub use binary::*;
 pub use call::*;
+pub use cast::*;
 pub use index::*;
 pub use path::*;
 pub use unary::*;
@@ -20,6 +22,7 @@ pub enum ExprNode<F: Clone> {
     Binary(BinaryNode),
     Unary(UnaryNode),
     Call(CallNode),
+    Cast(CastNode),
     IndexAccess(IndexAccessNode),
     MemberAccess(MemberAccessNode),
 }

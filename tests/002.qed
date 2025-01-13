@@ -3,25 +3,31 @@ mod math;
 use math::*;
 
 struct Person {
-    age_height: [Felt; 2],
+    age_height: [[Felt; 2]; 2],
     year_of_birth: Felt
+}
+
+struct Family {
+    father: Person,
+    mother: Person,
+    children: [Person; 2]
 }
 
 impl Person {
     fn set_age(self: Person, new_age: Felt) {
-        self.age_height[0] = new_age;
+        self.age_height[0][0] = new_age;
     }
 
     fn get_age(self: Person) -> Felt {
-        return self.age_height[0];
+        return self.age_height[0][0];
     }
 
     fn set_height(self: Person, new_height: Felt) {
-        self.age_height[1] = new_height;
+        self.age_height[0][1] = new_height;
     }
 
     fn get_height(self: Person) -> Felt {
-        return self.age_height[1];
+        return self.age_height[0][1];
     }
 
     fn get_year_of_birth(self: Person) -> Felt {
@@ -37,26 +43,55 @@ fn main() {
     let a: Felt = 1;
     let b: Felt = 2;
 
-    let c: Felt = a + -b;
-    let d: [Felt; 2] = [a, b];
-    d[0] = c;
-    let e: Felt = d[0];
+    let c: Felt = (a + -b);
+    let d: [[Felt; 2]; 2] = [[a, b], [a, b]];
+    d[0] = [a + 1, b + 1];
+    d[0][0] = c;
+    let e: Felt = d[0][1];
 
-    let t: bool = true;
+    let t: bool = a as bool;
     let f: bool = false;
+
+    let t_eq_f: bool = f == t;
+    let t_neq_f: bool = f != t;
 
     let r: bool = !t && f;
 
-    min(a, b);
+    fn max_2(a: Felt, b: Felt) -> Felt {
+        return a * (a > b) as Felt + b * (a <= b) as Felt;
+    }
+    let min_a_b: Felt = min(a, b);
+    let max2_a_b: Felt = max_2(a, b);
 
-    let person: Person = (Person{
+    let person: Person = new Person{
         year_of_birth: 1990,
-        age_height: [1, 1]
-    });
-    person.set_age(10);
+        age_height: [[1, 1], [1, 1]]
+    };
+    let persons: [Person; 1] = [person];
+    persons[0] = person;
+
+    let family: Family = new Family{
+        father: person,
+        mother: person,
+        children: [person, person]
+    };
+
+    (person.set_age)(10);
     person.set_height(20);
     person.set_year_of_birth(2000);
     let age: Felt = person.get_age();
-    let height: Felt = person.get_height();
+    let height: Felt = ((person.get_height)());
     let year_of_birth: Felt = person.get_year_of_birth();
 }
+
+// contract ABC {
+//     state_pointer: SymFeltRef,
+//     contract_state_tree_height: u16,
+//     contract_id: SymFeltRef,
+//     user_id: SymFeltRef,
+//
+//
+//     // vars
+//     // constants
+//     // functions
+// }

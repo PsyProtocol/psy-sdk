@@ -205,6 +205,14 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
         )
     }
 
+    fn visit_cast(&mut self, node: &CastNode) -> Self::ExprResult {
+        format!(
+            "({} as {})",
+            self.visit_expr(&self.parser.exprs[node.value]),
+            self.visit_unchecked_type(&node.target_type)
+        )
+    }
+
     fn visit_if(&mut self, node: &IfNode) -> Self::StmtResult {
         let mut result = format!(
             "if {} {{",
