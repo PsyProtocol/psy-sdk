@@ -236,6 +236,10 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn assert_eq(&mut self, left: F, right: F, message: &'static str);
     fn assert_true(&mut self, left: F, message: &'static str);
     fn cset<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V;
+    fn cset_state_at<V: ToFelts<F>>(&mut self, sub_index: F, new_value: V) -> V;
+    fn cset_state_hash_at(&mut self, slot_index: F, new_value: [F; 4]) -> [F; 4];
+    fn get_state_hash_at(&mut self, slot_index: F) -> [F; 4];
+    
     fn cset_state<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V;
     fn cset_str<V: ToFelts<F>>(&mut self, left: &'static str, old_value: V, new_value: V) -> V;
     fn start_if_block(&mut self, condition: F);

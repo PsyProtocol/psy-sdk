@@ -76,7 +76,7 @@ impl SymFeltRef {
         ((self.0>>112) as u16).into()
     }
     pub fn needs_store(&self) -> bool {
-        ((self.0 >> 112) as u16) > 1 
+        ((self.0 >> 112) as u16) > 3 
     }
     pub fn constant_true() -> SymFeltRef {
         SymFeltRef((DPNOpType::ConstantTrue as u128)<<112)

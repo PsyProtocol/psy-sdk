@@ -260,4 +260,16 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     fn cset_state<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V {
         todo!()
     }
+    
+    fn cset_state_at<V: ToFelts<F>>(&mut self, sub_index: F, new_value: V) -> V {
+        todo!()
+    }
+    
+    fn cset_state_hash_at(&mut self, slot_index: F, new_value: [F; 4]) -> [F; 4] {
+        todo!()
+    }
+    
+    fn get_state_hash_at(&mut self, slot_index: F) -> [F; 4] {
+        todo!()
+    }
 }

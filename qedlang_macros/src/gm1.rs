@@ -300,6 +300,23 @@ impl Fold for RewriterVisitor {
                     let stmt: Stmt = parse_quote! {
                         let #tmp_ident = (#arg);
                     };
+
+                    if let Expr::Path(x) = arg.clone() {
+                        if x.path.segments.len() == 1 {
+                            let seg = x.path.segments.first().unwrap();
+                            if seg.ident == "ctx" {
+                                new_args.push(seg.ident.clone().into());
+                                continue;
+                            }
+                        }
+                        stmts.push(stmt);
+                        new_args.push(tmp_ident);
+
+                    } else {
+                        stmts.push(stmt);
+                        new_args.push(tmp_ident);
+                    }
+                    /* 
                     if let Expr::Path(x) = arg.clone() {
                         if x.path.segments.len() == 1 {
                             let seg = x.path.segments.first().unwrap();
@@ -311,7 +328,7 @@ impl Fold for RewriterVisitor {
                     } else {
                         stmts.push(stmt);
                         new_args.push(tmp_ident);
-                    }
+                    }*/
                 }
 
                 let new_method_call: Expr = parse_quote! {

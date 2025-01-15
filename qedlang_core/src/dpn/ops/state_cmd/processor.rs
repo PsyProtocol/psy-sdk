@@ -1,4 +1,5 @@
 use plonky2::hash::hash_types::RichField;
+use serde::{Deserialize, Serialize};
 
 use super::data::DPNStateCmd;
 pub trait QDPNTargetResolver<F,U,B> {
@@ -12,6 +13,9 @@ pub trait QDPNTargetResolver<F,U,B> {
     fn resolve_u32_array(&self, target: &DPNStateCmd<u64>) -> Vec<U>;
 
 }
+
 pub trait QDPNStateCommandProcessor<F,U,B> {
+    //fn process_command_vec<R: QDPNTargetResolver<F,U,B>>(&mut self, cmd: &DPNStateCmd<u64>, resolver: &R) -> anyhow::Result<Vec<F>>;
     fn process_command_vec<R: QDPNTargetResolver<F,U,B>>(&mut self, cmd: &DPNStateCmd<u64>, resolver: &R) -> anyhow::Result<Vec<F>>;
 }
+

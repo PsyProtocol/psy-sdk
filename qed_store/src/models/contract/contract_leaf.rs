@@ -21,7 +21,7 @@ pub trait ContractLeafModelReaderCore<
             &CheckpointTableIdKey::new(checkpoint_id, contract_id),
             CHECKPOINT_ID_FUZZY_SIZE,
         )?
-        .ok_or_else(|| anyhow::anyhow!("User not found"))
+        .ok_or_else(|| anyhow::anyhow!("Contract not found"))
     }
     fn get_contracts_by_id(
         store: &S,

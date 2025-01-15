@@ -1,14 +1,14 @@
-use std::{marker::PhantomData, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}};
 
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::MerkleProofCore;
+use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use qed_data::qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf};
 use serde::{Deserialize, Serialize};
 
-use crate::traits::qdatastore::qtreedata::QEDComboDataStoreReaderSync;
 
 use super::cmd::{QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetL2BlockState, QSRCmdGetUserLeafData, QSRHashCmd, QSRMerkleCmd};
+
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct QEDReadCommandBatchInput {
@@ -79,6 +79,17 @@ pub struct QEDReadCommandBatchOutput<F: RichField> {
     pub get_l2_block_state: Vec<QEDL2BlockState>,
     pub get_merkle_proof: Vec<MerkleProofCore<QHashOut<F>>>,
     pub get_hash: Vec<QHashOut<F>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub enum DPNStateCmdWitness<F: RichField> {
+    MerkleProof(MerkleProofCore<QHashOut<F>>),
+    DeltaMerkleProof(DeltaMerkleProofCore<QHashOut<F>>),
+    MerkleProofArray(Vec<MerkleProofCore<QHashOut<F>>>),
+    DeltaMerkleProofArray(Vec<DeltaMerkleProofCore<QHashOut<F>>>),
+    TargetArray(Vec<F>),
+    TargetArray2D(Vec<Vec<F>>),
 }
 
 impl<F: RichField> QEDReadCommandBatchOutput<F> {

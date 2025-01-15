@@ -23,3 +23,4 @@ qedlang_core = { path = "../qedlang_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
 qed_store = { path = "../qed_store" }
+qedlang_macros = { path = "../qedlang_macros" }

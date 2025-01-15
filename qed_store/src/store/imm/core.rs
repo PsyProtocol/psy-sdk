@@ -39,6 +39,9 @@ use crate::{
 };
 
 pub trait QEDStorageAdapterImmutable: KVQBinaryStoreImmutable {}
+impl<T: KVQBinaryStoreImmutable> QEDStorageAdapterImmutable for T {
+    
+}
 type F = QEDFelt;
 
 impl<T: QEDStorageAdapterImmutable> QMetaDataStoreReaderSync<F> for T {
