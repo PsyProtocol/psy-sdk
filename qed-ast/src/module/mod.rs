@@ -25,8 +25,12 @@ pub struct UsePath {
 }
 
 impl UsePath {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(&mut self, visitor: &mut V) {
-        visitor.visit_use(self)
+    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+        &mut self,
+        visitor: &mut V,
+        ctx: &mut V::Context,
+    ) -> Result<(), V::Error> {
+        visitor.visit_use(self, ctx)
     }
 }
 
@@ -73,7 +77,11 @@ pub struct RawModule {
 }
 
 impl RawModule {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(&self, visitor: &mut V) {
-        visitor.visit_module(self)
+    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+        &self,
+        visitor: &mut V,
+        ctx: &mut V::Context,
+    ) -> Result<(), V::Error> {
+        visitor.visit_module(self, ctx)
     }
 }

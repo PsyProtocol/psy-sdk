@@ -2,9 +2,19 @@ mod math;
 
 use math::*;
 
+trait PersonLike {
+    fn age(self: Self) -> Felt;
+}
+
 struct Person {
     age_height: [[Felt; 2]; 2],
     year_of_birth: Felt
+}
+
+impl PersonLike for Person {
+    fn age(self: Person) -> Felt {
+        return self.age_height[0][0];
+    }
 }
 
 struct Family {
@@ -80,6 +90,7 @@ fn main() {
     person.set_height(20);
     person.set_year_of_birth(2000);
     let age: Felt = person.get_age();
+    let age_via_trait: Felt = person.age();
     let height: Felt = ((person.get_height)());
     let year_of_birth: Felt = person.get_year_of_birth();
 }

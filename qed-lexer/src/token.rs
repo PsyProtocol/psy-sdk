@@ -21,6 +21,8 @@ pub enum Token<'input> {
     KeywordEnum,
     #[token("impl")]
     KeywordImpl,
+    #[token("trait")]
+    KeywordTrait,
     #[token("return")]
     KeywordReturn,
     #[token("if")]

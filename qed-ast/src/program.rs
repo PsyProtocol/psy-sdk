@@ -27,7 +27,11 @@ impl Program {
         }
     }
 
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(&self, visitor: &mut V) {
-        visitor.visit_program(self)
+    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+        &self,
+        visitor: &mut V,
+        ctx: &mut V::Context,
+    ) -> Result<(), V::Error> {
+        visitor.visit_program(self, ctx)
     }
 }

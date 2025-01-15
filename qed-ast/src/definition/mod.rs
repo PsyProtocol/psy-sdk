@@ -1,12 +1,14 @@
-pub mod r#enum;
-pub mod function;
-pub mod r#impl;
-pub mod r#struct;
+mod r#enum;
+mod function;
+mod r#impl;
+mod r#struct;
+mod r#trait;
 
 pub use function::*;
 pub use r#enum::*;
 pub use r#impl::*;
 pub use r#struct::*;
+pub use r#trait::*;
 
 use crate::{AstVisitor, IdentId};
 use strum::EnumIs;
@@ -17,13 +19,15 @@ pub enum DefinitionNode {
     Struct(StructNode),
     Enum(EnumNode),
     Impl(ImplNode),
+    Trait(TraitNode),
 }
 
 impl DefinitionNode {
     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
         &self,
         visitor: &mut V,
-    ) -> V::StmtResult {
-        visitor.visit_definition(self)
+        ctx: &mut V::Context,
+    ) -> Result<V::StmtResult, V::Error> {
+        visitor.visit_definition(self, ctx)
     }
 }

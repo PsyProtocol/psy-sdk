@@ -21,7 +21,7 @@ use crate::control::ControlState;
 pub struct Interpreter<F: Clone, C> {
     inputs: Vec<u64>,
     context: C,
-    symbols: SymbolTable<CheckedValueOrNode<F>>,
+    _marker: std::marker::PhantomData<F>,
 }
 
 impl<F: ContextFelt, C: Context<F>> ContextInput for Interpreter<F, C> {
@@ -35,93 +35,100 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         Self {
             inputs: vec![],
             context,
-            symbols: SymbolTable::new(),
+            _marker: std::marker::PhantomData,
         }
     }
 
     #[instrument(level = "debug", skip_all)]
     pub fn interpret(
         &mut self,
-        typechecker: &mut TypeChecker<F, C>,
+        typechecker: &mut TypeChecker<F, CheckedValueOrNode<F>, C>,
         entry: PathBuf,
         parameters: Vec<CheckedValueOrNode<F>>,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<Option<CheckedValue<F>>> {
         let mut parser = Parser::new();
         let program = parser
             .parse(&mut self.context, entry)
             .map_err(|err| Error::ParseError(err.to_string()))?;
         let mut formatter = Formatter::new(&parser);
-        formatter.visit_program(&program);
+        formatter.visit_program(&program, &mut ());
         println!("formatted:\n{}", formatter.get_output());
         println!("ast:\n{:#?}", program);
-        let mut artifact = ParsingArtifact::new(parser, program);
-        typechecker.typecheck_program(&mut self.symbols, &mut artifact)?;
-        let scope_id = self.symbols[ModuleId::root()].scope_id;
-        let type_id = self.symbols[scope_id]
+        let mut artifact = Artifact::new(parser, program);
+        typechecker.typecheck_program(symbols, &mut artifact)?;
+        let scope_id = symbols[ModuleId::root()].scope_id;
+        let type_id = symbols[scope_id]
             .types
             .get(&IdentId::MAIN.into())
             .ok_or(Error::UndefinedMain)?;
-        if let Type::Function(ref f) = self.symbols[type_id.clone()] {
-            return Ok(self.interpret_function(typechecker, &artifact, &f.clone(), parameters)?);
-        } else {
-            unreachable!()
-        }
+        return Ok(self.interpret_function(
+            typechecker,
+            &artifact,
+            symbols[type_id.clone()].clone().as_ref(),
+            parameters,
+            symbols,
+        )?);
     }
 
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_function(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        artifact: &ParsingArtifact<F, C>,
+        typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
+        artifact: &Artifact<F, C>,
         node: &CheckedFunctionNode,
         parameters: Vec<CheckedValueOrNode<F>>,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<Option<CheckedValue<F>>> {
         for (i, (parameter, _, _)) in node.parameters.iter().enumerate() {
-            self.symbols
-                .set_variable(Some(node.scope_id), parameter, parameters[i].clone())?;
+            symbols.set_variable(Some(node.scope_id), parameter, parameters[i].clone())?;
         }
 
-        match self.interpret_block(typechecker, artifact, &node.body)? {
+        match self.interpret_block(typechecker, artifact, node.body.as_ref().unwrap(), symbols)? {
             ControlState::Return(value) => Ok(Some(value)),
             ControlState::Normal => Ok(None),
-            ControlState::Break(_) | ControlState::Continue(_) => {
-                unreachable!()
-            }
         }
     }
 
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_if(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        artifact: &ParsingArtifact<F, C>,
+        typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
+        artifact: &Artifact<F, C>,
         node: &CheckedIfNode,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<()> {
         let predicate = self
             .interpret_expr(
                 typechecker,
                 artifact,
                 &typechecker[node.if_branch.predicate],
+                symbols,
             )?
             .unwrap()
             .try_as_bool()
             .unwrap();
         self.context.start_if_block(predicate);
-        self.interpret_block(typechecker, artifact, &node.if_branch.body);
+        self.interpret_block(typechecker, artifact, &node.if_branch.body, symbols);
 
         for condition in &node.elseif_branch {
             let predicate = self
-                .interpret_expr(typechecker, artifact, &typechecker[condition.predicate])?
+                .interpret_expr(
+                    typechecker,
+                    artifact,
+                    &typechecker[condition.predicate],
+                    symbols,
+                )?
                 .unwrap()
                 .try_as_bool()
                 .unwrap();
             self.context.start_else_if_block(predicate);
-            self.interpret_block(typechecker, artifact, &condition.body);
+            self.interpret_block(typechecker, artifact, &condition.body, symbols);
         }
 
         if let Some(else_branch) = &node.else_branch {
             self.context.start_else_block();
-            self.interpret_block(typechecker, artifact, &else_branch);
+            self.interpret_block(typechecker, artifact, &else_branch, symbols);
         }
 
         self.context.end_if_block();
@@ -131,19 +138,20 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_while(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        artifact: &ParsingArtifact<F, C>,
+        typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
+        artifact: &Artifact<F, C>,
         node: &CheckedWhileNode,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<()> {
         loop {
             let predicate = self
-                .interpret_expr(typechecker, artifact, &typechecker[node.predicate])?
+                .interpret_expr(typechecker, artifact, &typechecker[node.predicate], symbols)?
                 .unwrap()
                 .try_as_bool()
                 .unwrap();
             if self.context.get_bool_value(predicate) {
                 self.context.start_if_block(predicate);
-                self.interpret_block(typechecker, artifact, &node.body);
+                self.interpret_block(typechecker, artifact, &node.body, symbols);
                 self.context.end_if_block();
             } else {
                 break Ok(());
@@ -154,12 +162,13 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_block(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        artifact: &ParsingArtifact<F, C>,
+        typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
+        artifact: &Artifact<F, C>,
         node: &CheckedBlockNode,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<ControlState<CheckedValue<F>>> {
         for &stmt in &node.stmts {
-            match self.interpret_statement(typechecker, artifact, &typechecker[stmt])? {
+            match self.interpret_statement(typechecker, artifact, &typechecker[stmt], symbols)? {
                 ControlState::Normal => continue,
                 state => return Ok(state),
             }
@@ -170,32 +179,33 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_statement(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        artifact: &ParsingArtifact<F, C>,
+        typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
+        artifact: &Artifact<F, C>,
         node: &CheckedStmtNode<F>,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<ControlState<CheckedValue<F>>> {
         match node {
-            CheckedStmtNode::If(r#if) => self.interpret_if(typechecker, artifact, r#if)?,
+            CheckedStmtNode::If(r#if) => self.interpret_if(typechecker, artifact, r#if, symbols)?,
             CheckedStmtNode::While(r#while) => {
-                self.interpret_while(typechecker, artifact, r#while)?
+                self.interpret_while(typechecker, artifact, r#while, symbols)?
             }
             CheckedStmtNode::Block(block) => {
-                return self.interpret_block(typechecker, artifact, r#block);
+                return self.interpret_block(typechecker, artifact, r#block, symbols);
             }
             CheckedStmtNode::Assignment(r#assignment) => {
-                self.interpret_assignment(typechecker, artifact, r#assignment)?
+                self.interpret_assignment(typechecker, artifact, r#assignment, symbols)?
             }
             CheckedStmtNode::Variable(variable) => {
-                self.interpret_variable(typechecker, artifact, variable)?
+                self.interpret_variable(typechecker, artifact, variable, symbols)?
             }
             CheckedStmtNode::Definition(definition) => {}
             CheckedStmtNode::Expression(expr) => {
-                self.interpret_expr(typechecker, artifact, expr)?;
+                self.interpret_expr(typechecker, artifact, expr, symbols)?;
             }
             CheckedStmtNode::Return(return_node) => {
                 if let Some((expr, _)) = &return_node.ret {
                     let value = self
-                        .interpret_expr(typechecker, artifact, &typechecker[*expr])?
+                        .interpret_expr(typechecker, artifact, &typechecker[*expr], symbols)?
                         .unwrap();
                     return Ok(ControlState::Return(value));
                 } else {
@@ -209,29 +219,39 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_value(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        artifact: &ParsingArtifact<F, C>,
-        value_node: &CheckedValueNode<F>,
+        typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
+        artifact: &Artifact<F, C>,
+        value_node: &CheckedValueOrNode<F>,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<CheckedValue<F>> {
-        Ok(match value_node {
+        if let Either::Right(right) = value_node {
+            return Ok(right.clone());
+        }
+
+        Ok(match value_node.as_ref().left().unwrap() {
             CheckedValueNode::Felt(value) => CheckedValue::Felt(*value),
             CheckedValueNode::Bool(value) => CheckedValue::Bool(*value),
-            CheckedValueNode::Array(type_id, _, elements) => {
+            CheckedValueNode::Array(type_id, elements) => {
                 let mut values = Vec::new();
                 for element in elements {
                     values.push(
-                        self.interpret_expr(typechecker, artifact, &typechecker[*element])?
-                            .unwrap(),
+                        self.interpret_expr(
+                            typechecker,
+                            artifact,
+                            &typechecker[*element],
+                            symbols,
+                        )?
+                        .unwrap(),
                     );
                 }
-                CheckedValue::Array(*type_id, values.len(), values)
+                CheckedValue::Array(*type_id, values)
             }
             CheckedValueNode::Struct(type_id, field_values) => {
                 let mut values = HashMap::new();
                 for (field, expr) in field_values {
                     values.insert(
                         field.clone(),
-                        self.interpret_expr(typechecker, artifact, &typechecker[*expr])?
+                        self.interpret_expr(typechecker, artifact, &typechecker[*expr], symbols)?
                             .unwrap(),
                     );
                 }
@@ -244,12 +264,13 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_unary(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        artifact: &ParsingArtifact<F, C>,
+        typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
+        artifact: &Artifact<F, C>,
         unary_node: &CheckedUnaryNode,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<CheckedValue<F>> {
         let rhs_value = self
-            .interpret_expr(typechecker, artifact, &typechecker[unary_node.rhs])?
+            .interpret_expr(typechecker, artifact, &typechecker[unary_node.rhs], symbols)?
             .unwrap();
 
         Ok(match unary_node.operator {
@@ -269,16 +290,27 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_binary(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        artifact: &ParsingArtifact<F, C>,
+        typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
+        artifact: &Artifact<F, C>,
         binary_node: &CheckedBinaryNode,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<CheckedValue<F>> {
         use BinaryOperator::*;
         let lhs_value = self
-            .interpret_expr(typechecker, artifact, &typechecker[binary_node.lhs])?
+            .interpret_expr(
+                typechecker,
+                artifact,
+                &typechecker[binary_node.lhs],
+                symbols,
+            )?
             .unwrap();
         let rhs_value = self
-            .interpret_expr(typechecker, artifact, &typechecker[binary_node.rhs])?
+            .interpret_expr(
+                typechecker,
+                artifact,
+                &typechecker[binary_node.rhs],
+                symbols,
+            )?
             .unwrap();
 
         let value = match binary_node.operator {
@@ -380,11 +412,12 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_assignment_value(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        artifact: &ParsingArtifact<F, C>,
+        typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
+        artifact: &Artifact<F, C>,
         old_value: CheckedValue<F>,
         operator: AssignmentOperator,
         value: CheckedValue<F>,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<CheckedValue<F>> {
         let new_value = match operator {
             AssignmentOperator::Eq => value,
@@ -435,9 +468,10 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_expr(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        artifact: &ParsingArtifact<F, C>,
+        typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
+        artifact: &Artifact<F, C>,
         node: &CheckedExprNode<F>,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<Option<CheckedValue<F>>> {
         match node {
             CheckedExprNode::Path(CheckedPathNode {
@@ -445,18 +479,15 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                 type_id,
                 scope_id,
             }) => {
-                if let Some(variable) = self.symbols.get_variable(Some(scope_id.clone()), &name) {
-                    let value_node = variable.value.clone().unwrap();
-                    if let Either::Right(right) = value_node {
-                        return Ok(Some(right));
-                    } else if let Either::Left(left) = value_node {
-                        return Ok(Some(self.interpret_value(typechecker, artifact, &left)?));
-                    } else {
-                        unreachable!()
-                    }
-                } else if let Some(type_id) = self
-                    .symbols
-                    .get_type_id(Some(scope_id.clone()), name.clone())
+                if let Some(variable) = symbols.get_variable(Some(scope_id.clone()), &name) {
+                    return Ok(Some(self.interpret_value(
+                        typechecker,
+                        artifact,
+                        variable.clone().value.as_ref().unwrap(),
+                        symbols,
+                    )?));
+                } else if let Some(type_id) =
+                    symbols.get_type_id(Some(scope_id.clone()), name.clone())
                 {
                     return Ok(Some(CheckedValue::Type(type_id)));
                 } else {
@@ -466,77 +497,91 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
             CheckedExprNode::Value(value_node) => Ok(Some(self.interpret_value(
                 typechecker,
                 artifact,
-                value_node,
+                &CheckedValueOrNode::from(value_node.clone()),
+                symbols,
             )?)),
             CheckedExprNode::Binary(binary_node) => Ok(Some(self.interpret_binary(
                 typechecker,
                 artifact,
                 binary_node,
+                symbols,
             )?)),
             CheckedExprNode::Unary(unary_node) => Ok(Some(self.interpret_unary(
                 typechecker,
                 artifact,
                 unary_node,
+                symbols,
             )?)),
             CheckedExprNode::Call(call_node) => {
                 let f = self
-                    .interpret_expr(typechecker, artifact, &typechecker[call_node.variable])?
+                    .interpret_expr(
+                        typechecker,
+                        artifact,
+                        &typechecker[call_node.variable],
+                        symbols,
+                    )?
                     .unwrap();
-                if let CheckedValue::Type(type_id) = f {
-                    let mut parameters = Vec::new();
-                    if let Some(receiver) = call_node.receiver {
-                        let receiver =
-                            self.interpret_expr(typechecker, artifact, &typechecker[receiver])?;
-                        parameters.push(CheckedValueOrNode::from(receiver.unwrap()));
-                    };
-                    for arg in &call_node.args {
-                        parameters.push(CheckedValueOrNode::from(
-                            self.interpret_expr(typechecker, artifact, &typechecker[arg.clone()])?
-                                .unwrap(),
-                        ));
-                    }
-                    if let Type::Function(f) = self.symbols[type_id].clone() {
-                        return self.interpret_function(typechecker, artifact, &f, parameters);
-                    } else {
-                        unreachable!()
-                    }
-                } else {
-                    unreachable!()
+                let type_id = f.type_id();
+                let mut parameters = Vec::new();
+                if let Some(receiver) = call_node.receiver {
+                    let receiver = self.interpret_expr(
+                        typechecker,
+                        artifact,
+                        &typechecker[receiver],
+                        symbols,
+                    )?;
+                    parameters.push(CheckedValueOrNode::from(receiver.unwrap()));
+                };
+                for arg in &call_node.args {
+                    parameters.push(CheckedValueOrNode::from(
+                        self.interpret_expr(
+                            typechecker,
+                            artifact,
+                            &typechecker[arg.clone()],
+                            symbols,
+                        )?
+                        .unwrap(),
+                    ));
                 }
+                return self.interpret_function(
+                    typechecker,
+                    artifact,
+                    &symbols[type_id].clone().as_ref(),
+                    parameters,
+                    symbols,
+                );
             }
             CheckedExprNode::Cast(cast_node) => {
                 let value = self
-                    .interpret_expr(typechecker, artifact, &typechecker[cast_node.value])?
+                    .interpret_expr(
+                        typechecker,
+                        artifact,
+                        &typechecker[cast_node.value],
+                        symbols,
+                    )?
                     .unwrap();
                 if value.is_felt() && cast_node.target_type == BOOL_TYPE {
-                    if let CheckedValue::Felt(value) = value {
-                        return Ok(Some(CheckedValue::Bool(value)));
-                    } else {
-                        unreachable!()
-                    }
+                    return Ok(Some(CheckedValue::Bool(value.try_as_felt().unwrap())));
                 } else if value.is_bool() && cast_node.target_type == FELT_TYPE {
-                    if let CheckedValue::Bool(value) = value {
-                        return Ok(Some(CheckedValue::Felt(value)));
-                    } else {
-                        unreachable!()
-                    }
+                    return Ok(Some(CheckedValue::Felt(value.try_as_bool().unwrap())));
                 } else {
-                    unreachable!()
+                    unimplemented!()
                 }
             }
             CheckedExprNode::IndexAccess(index_access_node) => {
                 let a = self
-                    .interpret_expr(typechecker, artifact, &typechecker[index_access_node.value])?
+                    .interpret_expr(
+                        typechecker,
+                        artifact,
+                        &typechecker[index_access_node.value],
+                        symbols,
+                    )?
                     .unwrap();
 
-                if let CheckedValue::Array(_, _, elements) = a {
-                    return Ok(Some(elements[index_access_node.index].clone()));
-                } else {
-                    unreachable!()
-                }
+                return Ok(Some(a[index_access_node.index].clone()));
             }
             CheckedExprNode::MemberAccess(member_access_node) => {
-                if let Type::Function(ref f) = &self.symbols[member_access_node.type_id] {
+                if symbols[member_access_node.type_id].is_function() {
                     return Ok(Some(CheckedValue::Type(member_access_node.type_id)));
                 } else {
                     let s = self
@@ -544,13 +589,11 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                             typechecker,
                             artifact,
                             &typechecker[member_access_node.value],
+                            symbols,
                         )?
                         .unwrap();
-                    if let CheckedValue::Struct(_, field_values) = s {
-                        return Ok(field_values.get(&member_access_node.field).cloned());
-                    } else {
-                        unreachable!()
-                    }
+
+                    return Ok(s.get_field(member_access_node.field).cloned());
                 }
             }
         }
@@ -559,19 +602,19 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_assignment(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        artifact: &ParsingArtifact<F, C>,
+        typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
+        artifact: &Artifact<F, C>,
         node: &CheckedAssignmentNode,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<()> {
         let value = self
-            .interpret_expr(typechecker, artifact, &typechecker[node.value])?
+            .interpret_expr(typechecker, artifact, &typechecker[node.value], symbols)?
             .unwrap();
 
         match &typechecker[node.variable] {
             CheckedExprNode::Path(checked_path_node) => {
                 let start_scope = Some(checked_path_node.scope_id.clone());
-                let variable = self
-                    .symbols
+                let variable = symbols
                     .get_variable(start_scope, &checked_path_node.name)
                     .unwrap()
                     .value
@@ -583,129 +626,94 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                     old_value,
                     node.operator,
                     value,
+                    symbols,
                 )?;
-                self.symbols.set_variable(
+                symbols.set_variable(
                     start_scope,
                     &checked_path_node.name,
                     CheckedValueOrNode::from(new_value),
                 )?;
             }
             CheckedExprNode::MemberAccess(member_access_node) => {
-                let (name, scope_id) =
-                    if let CheckedExprNode::Path(CheckedPathNode { name, scope_id, .. }) =
-                        &typechecker[member_access_node.value]
-                    {
-                        (name, scope_id)
-                    } else {
-                        unreachable!()
-                    };
+                let name = typechecker[member_access_node.value].name();
+                let scope_id = typechecker[member_access_node.value].scope_id();
                 let mut s = self
                     .interpret_expr(
                         typechecker,
                         artifact,
                         &typechecker[member_access_node.value],
+                        symbols,
                     )?
                     .unwrap();
-                if let CheckedValue::Struct(type_id, field_values) = &mut s {
-                    let old_value = field_values
-                        .get(&member_access_node.field)
-                        .cloned()
-                        .unwrap();
-                    field_values.insert(
-                        member_access_node.field,
-                        self.interpret_assignment_value(
-                            typechecker,
-                            artifact,
-                            old_value,
-                            node.operator,
-                            value,
-                        )?,
-                    );
-                } else {
-                    unreachable!()
-                }
+                let old_value = s.get_field(member_access_node.field).cloned().unwrap();
+                let new_value = self.interpret_assignment_value(
+                    typechecker,
+                    artifact,
+                    old_value,
+                    node.operator,
+                    value,
+                    symbols,
+                )?;
+                s.set_field(member_access_node.field, new_value);
 
-                self.symbols.set_variable(
-                    Some(scope_id.clone()),
-                    name,
-                    CheckedValueOrNode::from(s),
-                );
+                symbols.set_variable(scope_id, &name, CheckedValueOrNode::from(s));
                 return Ok(());
             }
             CheckedExprNode::IndexAccess(index_access_node) => {
                 if let CheckedExprNode::MemberAccess(member_access_node) =
                     &typechecker[index_access_node.value]
                 {
-                    let (name, scope_id) =
-                        if let CheckedExprNode::Path(CheckedPathNode { name, scope_id, .. }) =
-                            &typechecker[member_access_node.value]
-                        {
-                            (name, scope_id)
-                        } else {
-                            unreachable!()
-                        };
+                    let name = typechecker[member_access_node.value].name();
+                    let scope_id = typechecker[member_access_node.value].scope_id();
                     let mut s = self
                         .interpret_expr(
                             typechecker,
                             artifact,
                             &typechecker[member_access_node.value],
+                            symbols,
                         )?
                         .unwrap();
 
-                    if let CheckedValue::Struct(type_id, field_values) = &mut s {
-                        if let Some(CheckedValue::Array(_, _, elements)) =
-                            field_values.get_mut(&member_access_node.field)
-                        {
-                            elements[index_access_node.index] = self.interpret_assignment_value(
-                                typechecker,
-                                artifact,
-                                elements[index_access_node.index].clone(),
-                                node.operator,
-                                value,
-                            )?;
-                        } else {
-                            unreachable!()
-                        }
-                    } else {
-                        unreachable!()
-                    }
+                    let a = s.get_mut_field(member_access_node.field).unwrap();
+                    let old_value = a[index_access_node.index].clone();
+                    let new_value = self.interpret_assignment_value(
+                        typechecker,
+                        artifact,
+                        old_value,
+                        node.operator,
+                        value,
+                        symbols,
+                    )?;
+                    a[index_access_node.index] = new_value;
 
-                    self.symbols.set_variable(
-                        Some(scope_id.clone()),
-                        name,
-                        CheckedValueOrNode::from(s),
-                    );
+                    symbols.set_variable(scope_id, &name, CheckedValueOrNode::from(s));
                 } else if let CheckedExprNode::Path(CheckedPathNode {
                     name,
                     type_id,
                     scope_id,
                 }) = &typechecker[index_access_node.value]
                 {
-                    let mut s = self
+                    let mut a = self
                         .interpret_expr(
                             typechecker,
                             artifact,
                             &typechecker[index_access_node.value],
+                            symbols,
                         )?
                         .unwrap();
+                    let old_value = a[index_access_node.index].clone();
+                    let new_value = self.interpret_assignment_value(
+                        typechecker,
+                        artifact,
+                        old_value,
+                        node.operator,
+                        value,
+                        symbols,
+                    )?;
 
-                    if let CheckedValue::Array(_, _, elements) = &mut s {
-                        elements[index_access_node.index] = self.interpret_assignment_value(
-                            typechecker,
-                            artifact,
-                            elements[index_access_node.index].clone(),
-                            node.operator,
-                            value,
-                        )?;
-                    } else {
-                        unreachable!()
-                    }
+                    a[index_access_node.index] = new_value;
 
-                    self.symbols.set_variable(
-                        Some(scope_id.clone()),
-                        name,
-                        CheckedValueOrNode::from(s),
-                    );
+                    symbols.set_variable(Some(scope_id.clone()), name, CheckedValueOrNode::from(a));
                 };
             }
             _ => unimplemented!(),
@@ -716,16 +724,17 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     fn interpret_variable(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        artifact: &ParsingArtifact<F, C>,
+        typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
+        artifact: &Artifact<F, C>,
         node: &CheckedVariableNode,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<()> {
         let value = self
-            .interpret_expr(typechecker, artifact, &typechecker[node.value])?
+            .interpret_expr(typechecker, artifact, &typechecker[node.value], symbols)?
             .unwrap();
-        typechecker.print_scope_hierarchy(&self.symbols, artifact, node.scope_id, 0);
+        typechecker.print_scope_hierarchy(node.scope_id, 0, &symbols, artifact);
 
-        self.symbols.set_variable(
+        symbols.set_variable(
             Some(node.scope_id),
             &node.name,
             CheckedValueOrNode::from(value),
@@ -749,9 +758,10 @@ mod test {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(ExecContext::new());
             let cache = SymFeltEvalCache::new();
             let store = SymFeltStore::new();
+            let mut symbols = SymbolTable::new();
             let mut typecheker = TypeChecker::new();
             interpreter
-                .interpret(&mut typecheker, path.to_path_buf(), vec![])
+                .interpret(&mut typecheker, path.to_path_buf(), vec![], &mut symbols)
                 .unwrap();
         });
     }

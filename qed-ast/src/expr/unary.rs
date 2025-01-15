@@ -6,7 +6,6 @@ use crate::{AstVisitor, ExprId};
 pub enum UnaryOperator {
     Neg,
     Not,
-    // BitNot,
 }
 
 impl Display for UnaryOperator {
@@ -28,7 +27,8 @@ impl UnaryNode {
     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
         &mut self,
         visitor: &mut V,
-    ) -> V::ExprResult {
-        visitor.visit_unary(self)
+        ctx: &mut V::Context,
+    ) -> Result<V::ExprResult, V::Error> {
+        visitor.visit_unary(self, ctx)
     }
 }

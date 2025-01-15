@@ -28,7 +28,11 @@ pub enum StmtNode<F: Clone> {
 }
 
 impl<F: Clone> StmtNode<F> {
-    pub fn accept_visitor<C, V: AstVisitor<F, C>>(&self, visitor: &mut V) -> V::StmtResult {
-        visitor.visit_stmt(self)
+    pub fn accept_visitor<C, V: AstVisitor<F, C>>(
+        &self,
+        visitor: &mut V,
+        ctx: &mut V::Context,
+    ) -> Result<V::StmtResult, V::Error> {
+        visitor.visit_stmt(self, ctx)
     }
 }

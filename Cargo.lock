@@ -1037,6 +1037,7 @@ dependencies = [
  "qed-ast",
  "qed-common",
  "qed-parser",
+ "qed-utils",
  "smol_str",
  "strum",
  "thiserror",

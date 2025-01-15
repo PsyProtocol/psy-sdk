@@ -7,7 +7,7 @@ pub struct CheckedFunctionNode {
     pub name: IdentId,
     pub parameters: Vec<(IdentId, bool, TypeId)>,
     pub generic_parameters: Vec<TypeId>,
-    pub body: CheckedBlockNode,
+    pub body: Option<CheckedBlockNode>,
     pub return_type: Option<TypeId>,
     pub scope_id: ScopeId,
 }

@@ -10,7 +10,8 @@ impl WhileNode {
     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
         &self,
         visitor: &mut V,
-    ) -> V::StmtResult {
-        visitor.visit_while(self)
+        ctx: &mut V::Context,
+    ) -> Result<V::StmtResult, V::Error> {
+        visitor.visit_while(self, ctx)
     }
 }

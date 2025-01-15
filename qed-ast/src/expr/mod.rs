@@ -28,7 +28,11 @@ pub enum ExprNode<F: Clone> {
 }
 
 impl<F: Clone> ExprNode<F> {
-    pub fn accept_visitor<C, V: AstVisitor<F, C>>(&self, visitor: &mut V) -> V::ExprResult {
-        visitor.visit_expr(self)
+    pub fn accept_visitor<C, V: AstVisitor<F, C>>(
+        &self,
+        visitor: &mut V,
+        ctx: &mut V::Context,
+    ) -> Result<V::ExprResult, V::Error> {
+        visitor.visit_expr(self, ctx)
     }
 }

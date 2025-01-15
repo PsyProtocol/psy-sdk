@@ -56,7 +56,6 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
             let module_name = self
                 .interner
                 .intern_ident(current_path.file_stem().and_then(|s| s.to_str()).unwrap());
-            eprintln!("DEBUGPRINT[1]: lib.rs:55: current_path={:#?}", current_path);
 
             if let Some(parent) = parent_file_id {
                 dependency_graph.add_edge(parent, file_id);
@@ -93,7 +92,6 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
                 ctx,
                 lexer,
             )?;
-            eprintln!("DEBUGPRINT[2]: lib.rs:69: module={:#?}", module);
 
             for dep_module in &module.modules {
                 let dep_path = self.resolve_module_path(dep_module, &current_path).unwrap();
