@@ -19,8 +19,8 @@ use crate::control::ControlState;
 
 #[derive(Debug)]
 pub struct Interpreter<F: Clone, C> {
-    inputs: Vec<u64>,
-    context: C,
+    pub inputs: Vec<u64>,
+    pub context: C,
     symbols: SymbolTable<CheckedValueOrNode<F>>,
 }
 
@@ -259,7 +259,9 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
             UnaryOperator::Not => {
                 if unary_node.type_id == BOOL_TYPE {
                     CheckedValue::Bool(self.context.op_bool_not(rhs_value.try_as_bool().unwrap()))
-                } else {
+                } else if unary_node.type_id == FELT_TYPE{
+                    CheckedValue::Bool(self.context.op_bool_not(rhs_value.try_as_felt().unwrap()))
+                } else{
                     todo!()
                 }
             }
@@ -302,27 +304,31 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                 lhs_value.try_as_felt().unwrap(),
                 rhs_value.try_as_felt().unwrap(),
             ),
-            BitShr => self.context.op_bit_shr(
+            BitShr => self.context.op_u32_shr(
                 lhs_value.try_as_felt().unwrap(),
                 rhs_value.try_as_felt().unwrap(),
             ),
-            BitShl => self.context.op_bit_shl(
+            BitShl => self.context.op_u32_shl(
                 lhs_value.try_as_felt().unwrap(),
                 rhs_value.try_as_felt().unwrap(),
             ),
-            BitAnd => self.context.op_bit_and(
+            BitAnd => self.context.op_u32_and(
                 lhs_value.try_as_felt().unwrap(),
                 rhs_value.try_as_felt().unwrap(),
             ),
-            BitOr => self.context.op_bit_or(
+            BitOr => self.context.op_u32_or(
                 lhs_value.try_as_felt().unwrap(),
                 rhs_value.try_as_felt().unwrap(),
             ),
-            BitXor => self.context.op_bit_xor(
+            BitXor => self.context.op_u32_xor(
                 lhs_value.try_as_felt().unwrap(),
                 rhs_value.try_as_felt().unwrap(),
             ),
-            And | Or => self.context.op_bool_and(
+            And => self.context.op_bool_and(
+                lhs_value.try_as_bool().unwrap(),
+                rhs_value.try_as_bool().unwrap(),
+            ),
+            Or => self.context.op_bool_or(
                 lhs_value.try_as_bool().unwrap(),
                 rhs_value.try_as_bool().unwrap(),
             ),
@@ -408,23 +414,23 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
                 old_value.try_as_felt().unwrap(),
                 value.try_as_felt().unwrap(),
             )),
-            AssignmentOperator::BitAndAssign => CheckedValue::Felt(self.context.op_bit_and(
+            AssignmentOperator::BitAndAssign => CheckedValue::Felt(self.context.op_u32_and(
                 old_value.try_as_felt().unwrap(),
                 value.try_as_felt().unwrap(),
             )),
-            AssignmentOperator::BitOrAssign => CheckedValue::Felt(self.context.op_bit_or(
+            AssignmentOperator::BitOrAssign => CheckedValue::Felt(self.context.op_u32_or(
                 old_value.try_as_felt().unwrap(),
                 value.try_as_felt().unwrap(),
             )),
-            AssignmentOperator::BitXorAssign => CheckedValue::Felt(self.context.op_bit_xor(
+            AssignmentOperator::BitXorAssign => CheckedValue::Felt(self.context.op_u32_xor(
                 old_value.try_as_felt().unwrap(),
                 value.try_as_felt().unwrap(),
             )),
-            AssignmentOperator::BitShlAssign => CheckedValue::Felt(self.context.op_bit_shl(
+            AssignmentOperator::BitShlAssign => CheckedValue::Felt(self.context.op_u32_shl(
                 old_value.try_as_felt().unwrap(),
                 value.try_as_felt().unwrap(),
             )),
-            AssignmentOperator::BitShrAssign => CheckedValue::Felt(self.context.op_bit_shr(
+            AssignmentOperator::BitShrAssign => CheckedValue::Felt(self.context.op_u32_shr(
                 old_value.try_as_felt().unwrap(),
                 value.try_as_felt().unwrap(),
             )),
@@ -723,7 +729,7 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         let value = self
             .interpret_expr(typechecker, artifact, &typechecker[node.value])?
             .unwrap();
-        typechecker.print_scope_hierarchy(&self.symbols, artifact, node.scope_id, 0);
+        // typechecker.print_scope_hierarchy(&self.symbols, artifact, node.scope_id, 0);
 
         self.symbols.set_variable(
             Some(node.scope_id),

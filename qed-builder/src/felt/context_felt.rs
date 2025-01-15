@@ -19,7 +19,7 @@ pub trait ContextFelt:
     + Shl
     + Shr
     + Not
-    + Neg
+    + Neg<Output = Self>
     + AddAssign
     + SubAssign
     + MulAssign

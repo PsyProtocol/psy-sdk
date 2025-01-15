@@ -141,7 +141,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
             },
         );
 
-        self.print_module(symbols, artifact, ModuleId::root());
+        // self.print_module(symbols, artifact, ModuleId::root());
 
         Ok(())
     }
