@@ -1,0 +1,57 @@
+
+fn main(a: Felt, b: Felt) -> Felt {
+    let mut bool0 : bool = false;
+    let mut bool1 : bool = true;
+
+    let mut binop: Felt = a + b;
+    let mut binop: Felt = a - b;
+    let mut binop: Felt = a * b;
+    let mut binop: Felt = a / b;
+    let mut binop: Felt = a % b;
+
+
+    let mut binopbool: bool = bool0 && bool1;
+    let mut binopbool: bool = bool0 || bool1;
+
+    let mut binop: Felt = a ^ b;
+    let mut binop: Felt = a & b;
+    let mut binop: Felt = a | b;
+    let mut binop: Felt = a << b;
+    let mut binop: Felt = a >> b;
+
+    let mut binop: Felt = 1;
+
+    let mut binopbool: bool = a == b;
+    let mut binopbool: bool = a < b;
+    let mut binopbool: bool = a <= b;
+    let mut binopbool: bool = a > b;
+    let mut binopbool: bool = a >= b;
+    let mut binopbool: bool = a != b;
+
+    binop += b;
+    binop -= b;
+    binop *= b;
+    binop /= b;
+    binop %= b;
+    binop ^= b;
+    binop &= b;
+    binop |= b;
+    binop <<=b;
+    binop >>= b;
+
+    let mut unop: Felt = !a;
+    let mut unop: Felt = -a;
+
+    // error
+    // let mut k: Felt = (a + 2);
+
+    let mut k: Felt = a + 2;
+    k *= 4;
+    k *= b;
+    let mut k2: Felt = a + 2;
+    k2 = 3 * k2;
+    k -= k2;
+    let z: Felt = k + a;
+
+    return z;
+}

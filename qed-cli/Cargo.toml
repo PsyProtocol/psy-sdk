@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name    = "qed-cli"
+name = "qed-cli"
 version = "0.1.0"
 
 [dependencies]
@@ -11,3 +11,6 @@ dotenv = { workspace = true }
 qed-interpreter = { workspace = true }
 qed-vm = { workspace = true }
 thiserror = { workspace = true }
+qed-builder = { workspace = true }
+qed-sema = { workspace = true }
+plonky2 = { workspace = true }

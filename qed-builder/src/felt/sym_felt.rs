@@ -13,7 +13,7 @@ use plonky2::plonk::config::{GenericHashOut, Hasher as PoseidonHasher};
 use serde::{Deserialize, Serialize};
 use twox_hash::xxh3::HasherExt;
 
-use crate::eval::{ContextEval, ContextInput, EvalCache};
+use crate::eval::{ContextEval, ContextInput, EvalCache, EvalHelpers};
 use crate::felt::context_felt::ContextFelt;
 use crate::ops::OpType;
 
@@ -630,6 +630,28 @@ impl SymFeltRefValue {
 pub struct SymRefAssertion {
     pub left: SymFeltRef,
     pub right: SymFeltRef,
+    pub message: &'static str,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SetSymFeltRef {
+    pub before_external_function_call: u16,
+    pub index: SymFeltRef,
+    pub value: SymFeltRef,
+}
+
+impl SetSymFeltRef {
+    pub fn new(
+        before_external_function_call: u16,
+        index: SymFeltRef,
+        value: SymFeltRef,
+    ) -> SetSymFeltRef {
+        SetSymFeltRef {
+            before_external_function_call,
+            index: index,
+            value: value,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq)]
@@ -705,6 +727,45 @@ fn sum_bits(bits: &[u64]) -> u64 {
     let result = bits.iter().fold(0, |acc, x| acc + x);
     GoldilocksField::from_noncanonical_u64(result).to_canonical_u64()
 }
+
+impl EvalHelpers for SymFeltStore {
+    fn resolve_binary_felt_args<I: ContextInput, C: EvalCache>(
+        &self,
+        parent: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> (u64, u64) {
+        let resolved = &self.get(parent).inputs;
+        assert_eq!(resolved.len(), 2);
+        let left = self.resolve_felt_ref_cached(resolved[0], input, cache);
+        let right = self.resolve_felt_ref_cached(resolved[1], input, cache);
+        (left, right)
+    }
+    fn resolve_unary_felt_arg<I: ContextInput, C: EvalCache>(
+        &self,
+        parent: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> u64 {
+        let resolved = &self.get(parent).inputs;
+        assert_eq!(resolved.len(), 1);
+        self.resolve_felt_ref_cached(resolved[0], input, cache)
+    }
+
+    fn resolve_array_args<I: ContextInput, C: EvalCache>(
+        &self,
+        parent: SymFeltRef,
+        input: &I,
+        cache: &mut C,
+    ) -> Vec<u64> {
+        let resolved = &self.get(parent).inputs;
+        resolved
+            .iter()
+            .map(|felt_ref| self.resolve_felt_ref_cached(*felt_ref, input, cache))
+            .collect()
+    }
+}
+
 impl ContextEval for SymFeltStore {
     fn resolve_felt_ref_cached<I: ContextInput, C: EvalCache>(
         &self,
@@ -739,6 +800,9 @@ impl ContextEval for SymFeltStore {
                     let (a, b) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
                     (a / b).to_canonical_u64()
                 }
+                OpType::BoolNot => {
+                    (self.resolve_unary_felt_arg(felt_ref, input, cache) == 0) as u64
+                }
                 OpType::BoolAnd => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     ((a != 0) && (b != 0)) as u64
@@ -747,13 +811,13 @@ impl ContextEval for SymFeltStore {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     ((a != 0) || (b != 0)) as u64
                 }
-                OpType::BitXor => {
+                OpType::Xor => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
-                    (a ^ b) & GoldilocksField::ORDER
+                    (a ^ b) & 0xFFFFFFFFu64
                 }
-                OpType::BitOr => {
+                OpType::Nor => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
-                    (a | b) & GoldilocksField::ORDER
+                    (!(a | b)) & 0xFFFFFFFFu64
                 }
                 OpType::Eq => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
@@ -775,50 +839,7 @@ impl ContextEval for SymFeltStore {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a < b) as u64
                 }
-                OpType::Select => {
-                    let args = self.resolve_array_args(felt_ref, input, cache);
-                    if args[0] != 0 {
-                        args[1]
-                    } else {
-                        args[2]
-                    }
-                }
-                OpType::Mod => {
-                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
-                    a % b
-                }
-                OpType::BitAnd => {
-                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
-                    a & b
-                }
-                OpType::BitShl => {
-                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
-                    (a << b) & GoldilocksField::ORDER
-                }
-                OpType::BitShr => {
-                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
-                    (a >> b) & GoldilocksField::ORDER
-                }
-                OpType::BoolNot => {
-                    (self.resolve_unary_felt_arg(felt_ref, input, cache) == 0) as u64
-                }
-                OpType::Neg => self
-                    .resolve_unary_felt_arg_gl(felt_ref, input, cache)
-                    .neg()
-                    .to_canonical_u64(),
-                OpType::Inverse => self
-                    .resolve_unary_felt_arg_gl(felt_ref, input, cache)
-                    .inverse()
-                    .to_canonical_u64(),
-                OpType::HashNoPad => {
-                    panic!("you cannot directly evaluate HashNoPad")
-                }
-                OpType::HashPad => {
-                    panic!("you cannot directly evaluate HashPad")
-                }
-                OpType::SplitBits => {
-                    panic!("you cannot directly evaluate SplitBits")
-                }
+                OpType::SplitBits => panic!("you cannot directly evaluate SumBits"),
                 OpType::SumBits => sum_bits(&self.resolve_array_args(felt_ref, input, cache)),
                 OpType::TargetAt => {
                     let base = &self.get(felt_ref).inputs;
@@ -827,46 +848,92 @@ impl ContextEval for SymFeltStore {
                     assert!(index < array.len() as u64, "index out of bounds");
                     array[index as usize]
                 }
+                OpType::HashNoPad => panic!("you cannot directly evaluate HashNoPad"),
+                OpType::HashPad => panic!("you cannot directly evaluate HashPad"),
+                OpType::Select => {
+                    let args = self.resolve_array_args(felt_ref, input, cache);
+                    if args[0] != 0 {
+                        args[1]
+                    } else {
+                        args[2]
+                    }
+                }
+                OpType::Exp => {
+                    let (base, exponent) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
+                    base.exp_u64(exponent.to_canonical_u64()).to_canonical_u64()
+                }
+                OpType::ExpConstantPower => panic!("ExpConstantPower is not implemented"),
+                OpType::ExpConstantBase => panic!("ExpConstantBase is not implemented"),
+                OpType::Mod => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    a % b
+                }
+                OpType::ModConstantDividend => panic!("ModConstantDividend is not implemented"),
+                OpType::ModConstantDivisor => panic!("ModConstantDivisor is not implemented"),
+                OpType::DivRem4 => {
+                    todo!("DivRem4 is not implemented");
+                }
+                OpType::CastU32 => {
+                    let value = self.resolve_unary_felt_arg(felt_ref, input, cache);
+                    value & 0xFFFFFFFFu64
+                }
+                OpType::U32And => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a & b) & 0xFFFFFFFFu64
+                }
+                OpType::U32AndConstant => todo!("U32AndConstant is not implemented"),
+                OpType::U32Or => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a | b) & 0xFFFFFFFFu64
+                }
+                OpType::U32OrConstant => todo!("U32OrConstant is not implemented"),
+                OpType::U32Xor => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a ^ b) & 0xFFFFFFFFu64
+                }
+                OpType::U32XorConstant => todo!("U32XorConstant is not implemented"),
+                OpType::U32ShiftLeft => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a << b) & 0xFFFFFFFFu64
+                }
+                OpType::U32ShiftLeftConstantBitDistance => {
+                    todo!("U32ShiftLeftConstantBitDistance is not implemented")
+                }
+                OpType::U32ShiftLeftConstantValue => {
+                    todo!("U32ShiftLeftConstantValue is not implemented")
+                }
+                OpType::U32ShiftRight => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    (a >> b) & 0xFFFFFFFFu64
+                }
+                OpType::U32ShiftRightConstantBitDistance => {
+                    todo!("U32ShiftLeftConstantValue is not implemented")
+                }
+                OpType::U32ShiftRightConstantValue => {
+                    todo!("U32ShiftLeftConstantValue is not implemented")
+                }
+                OpType::CalculateMerkleRoot => todo!("CalculateMerkleRoot is not implemented"),
+                OpType::GetUserId => todo!(),
+                OpType::GetContractId => todo!(),
+                OpType::GetCheckpointId => todo!(),
+                OpType::GetNonce => todo!(),
+                OpType::GetUserPublicKeyHash => todo!(),
+                OpType::GetStateQueryResult => todo!(),
+                OpType::GetStateQueryResultSingle => todo!(),
+                OpType::UnaryInverse => self
+                    .resolve_unary_felt_arg_gl(felt_ref, input, cache)
+                    .inverse()
+                    .to_canonical_u64(),
+                OpType::UnaryNegative => self
+                    .resolve_unary_felt_arg_gl(felt_ref, input, cache)
+                    .neg()
+                    .to_canonical_u64(),
+                OpType::GetStateCommandResultHash => todo!(),
+                OpType::GetStateCommandResultSingle => todo!(),
+                OpType::GetStateCommandResultArray => todo!(),
             };
             result
         }
-    }
-
-    fn resolve_binary_felt_args<I: ContextInput, C: EvalCache>(
-        &self,
-        parent: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> (u64, u64) {
-        let resolved = &self.get(parent).inputs;
-        assert_eq!(resolved.len(), 2);
-        let left = self.resolve_felt_ref_cached(resolved[0], input, cache);
-        let right = self.resolve_felt_ref_cached(resolved[1], input, cache);
-        (left, right)
-    }
-
-    fn resolve_unary_felt_arg<I: ContextInput, C: EvalCache>(
-        &self,
-        parent: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> u64 {
-        let resolved = &self.get(parent).inputs;
-        assert_eq!(resolved.len(), 1);
-        self.resolve_felt_ref_cached(resolved[0], input, cache)
-    }
-
-    fn resolve_array_args<I: ContextInput, C: EvalCache>(
-        &self,
-        parent: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> Vec<u64> {
-        let resolved = &self.get(parent).inputs;
-        resolved
-            .iter()
-            .map(|felt_ref| self.resolve_felt_ref_cached(*felt_ref, input, cache))
-            .collect()
     }
 
     fn resolve_array_ref_cached<I: ContextInput, C: EvalCache>(
@@ -894,6 +961,7 @@ impl ContextEval for SymFeltStore {
                     let result = PoseidonHash::hash_pad(&data).to_vec();
                     result.iter().map(|x| x.to_canonical_u64()).collect()
                 }
+                OpType::GetUserPublicKeyHash => todo!(),
                 _ => panic!("you cannot directly evaluate an array ref"),
             };
 

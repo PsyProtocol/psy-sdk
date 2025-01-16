@@ -30,7 +30,9 @@ pub trait ContextEval {
         input: &I,
         cache: &mut C,
     ) -> Box<Vec<u64>>;
+}
 
+pub trait EvalHelpers: ContextEval {
     fn resolve_binary_felt_args<I: ContextInput, C: EvalCache>(
         &self,
         parent: SymFeltRef,
