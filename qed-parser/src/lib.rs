@@ -122,8 +122,8 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
         current_path: &PathBuf,
     ) -> Option<PathBuf> {
         if module_name == &IdentId::STD {
-            let cargo_dir = std::env::var("CARGO_MANIFEST_DIR").ok()?;
-            let mut std_path = PathBuf::from(cargo_dir);
+            let cargo_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or("./qed-cli".to_string());
+            let std_path = PathBuf::from(cargo_dir);
             return Some(std_path.join("../qed-std/std.qed"));
         }
 

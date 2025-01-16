@@ -3,6 +3,7 @@ pub mod crypto;
 pub mod eval;
 pub mod felt;
 pub mod ops;
+pub mod vm;
 
 pub use felt::context::Context;
 pub use felt::context_felt::ContextFelt;
