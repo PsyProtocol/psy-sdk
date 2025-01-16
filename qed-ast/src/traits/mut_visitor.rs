@@ -6,22 +6,11 @@ pub trait MutAstVisitor<F: Clone, C> {
     type Context;
     type Error: std::fmt::Debug;
 
-    fn enter_expr(&mut self, node: &mut ExprNode<F>) -> Result<(), Self::Error>;
-    fn exit_expr(&mut self, node: &mut ExprNode<F>) -> Result<(), Self::Error>;
-
-    fn enter_statement(&mut self, node: &mut StmtNode<F>) -> Result<(), Self::Error>;
-    fn exit_statement(&mut self, node: &mut StmtNode<F>) -> Result<(), Self::Error>;
-
-    fn enter_definition(&mut self, node: &mut DefinitionNode) -> Result<(), Self::Error>;
-    fn exit_definition(&mut self, node: &mut DefinitionNode) -> Result<(), Self::Error>;
-
     fn visit_expr(
         &mut self,
         expr: &mut ExprNode<F>,
         ctx: &mut Self::Context,
     ) -> Result<(), Self::Error> {
-        self.enter_expr(expr)?;
-
         match expr {
             ExprNode::Path(ident) => self.visit_path(ident, ctx)?,
             ExprNode::Value(literal) => self.visit_value(literal, ctx)?,
@@ -37,7 +26,7 @@ pub trait MutAstVisitor<F: Clone, C> {
             }
         }
 
-        self.exit_expr(expr)
+        Ok(())
     }
 
     fn visit_definition(
@@ -45,8 +34,6 @@ pub trait MutAstVisitor<F: Clone, C> {
         definition: &mut DefinitionNode,
         ctx: &mut Self::Context,
     ) -> Result<(), Self::Error> {
-        self.enter_definition(definition)?;
-
         match definition {
             DefinitionNode::Function(function) => self.visit_function(function, ctx)?,
             DefinitionNode::Struct(r#struct) => self.visit_struct(r#struct, ctx)?,
@@ -54,8 +41,7 @@ pub trait MutAstVisitor<F: Clone, C> {
             DefinitionNode::Impl(r#impl) => self.visit_impl(r#impl, ctx)?,
             DefinitionNode::Trait(r#trait) => self.visit_trait(r#trait, ctx)?,
         }
-
-        self.exit_definition(definition)
+        Ok(())
     }
 
     fn visit_stmt(
@@ -63,8 +49,6 @@ pub trait MutAstVisitor<F: Clone, C> {
         stmt: &mut StmtNode<F>,
         ctx: &mut Self::Context,
     ) -> Result<(), Self::Error> {
-        self.enter_statement(stmt)?;
-
         match stmt {
             StmtNode::If(if_node) => self.visit_if(if_node, ctx)?,
             StmtNode::While(while_node) => self.visit_while(while_node, ctx)?,
@@ -75,8 +59,7 @@ pub trait MutAstVisitor<F: Clone, C> {
             StmtNode::Definition(definition) => self.visit_definition(definition, ctx)?,
             StmtNode::Expression(expr) => self.visit_expr(expr, ctx)?,
         }
-
-        self.exit_statement(stmt)
+        Ok(())
     }
 
     fn visit_use(&mut self, u: &mut UsePath, ctx: &mut Self::Context) -> Result<(), Self::Error>;

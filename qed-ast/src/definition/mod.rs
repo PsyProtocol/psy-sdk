@@ -1,9 +1,11 @@
+mod attr;
 mod r#enum;
 mod function;
 mod r#impl;
 mod r#struct;
 mod r#trait;
 
+pub use attr::*;
 pub use function::*;
 pub use r#enum::*;
 pub use r#impl::*;

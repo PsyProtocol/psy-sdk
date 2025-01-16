@@ -49,6 +49,13 @@ impl Person {
     }
 }
 
+#[derive(storage)]
+struct Storage {
+    a: Felt,
+    b: [Felt; 2],
+    c: Person
+}
+
 fn main() {
     let a: Felt = 1;
     let b: Felt = 2;

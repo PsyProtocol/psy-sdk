@@ -2,9 +2,11 @@
 
 mod control;
 mod error;
+mod preprocess;
 
 use either::Either;
 use error::{Error, Result};
+use preprocess::{PreprocessorContext, StorageProcessor};
 use qed_ast::*;
 use qed_builder::{Context, ContextFelt, ContextInput};
 use qed_fmt::Formatter;
@@ -48,13 +50,19 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<Option<CheckedValue<F>>> {
         let mut parser = Parser::new();
-        let program = parser
+        let mut program = parser
             .parse(&mut self.context, entry)
             .map_err(|err| Error::ParseError(err.to_string()))?;
+
+        let mut storage_preprocessor: StorageProcessor<F, C> = StorageProcessor::new();
+        let mut preprocessor_context = PreprocessorContext::new();
+        storage_preprocessor.visit_program(&mut program, &mut preprocessor_context);
+
         let mut formatter = Formatter::new(&parser);
         formatter.visit_program(&program, &mut ());
         println!("formatted:\n{}", formatter.get_output());
         println!("ast:\n{:#?}", program);
+
         let mut artifact = Artifact::new(parser, program);
         typechecker.typecheck_program(symbols, &mut artifact)?;
         let scope_id = symbols[ModuleId::root()].scope_id;

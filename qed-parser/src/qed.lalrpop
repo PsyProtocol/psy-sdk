@@ -127,11 +127,16 @@ EnumDef: EnumNode = {
     }
 }
 
+Attribute: AttrNode = {
+    <l:@L> "#" "[" DERIVE "(" <name:Identifier> ")" "]" <r:@R> => AttrNode { name }
+}
+
 StructDef: StructNode = {
-    <l:@L> STRUCT <name:Identifier> <generic_parameters:GenericParameters?> "{" <fields:Comma<TypeAnnotation>> "}" <r:@R> => StructNode {
+    <l:@L> <attrs:Attribute*> STRUCT <name:Identifier> <generic_parameters:GenericParameters?> "{" <fields:Comma<TypeAnnotation>> "}" <r:@R> => StructNode {
         name,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
-        fields
+        fields,
+        attrs
     }
 }
 
@@ -509,6 +514,7 @@ extern {
         ELSE => Token::KeywordElse,
         WHILE => Token::KeywordWhile,
         FOR => Token::KeywordFor,
+        WHERE => Token::KeywordWhere,
 
         MOD => Token::KeywordMod,
         USE => Token::KeywordUse,
@@ -529,8 +535,12 @@ extern {
         TYPE_FELT => Token::TypeFelt,
         TYPE_SELF => Token::TypeSelf,
 
+        DERIVE => Token::KeywordDerive,
+
         AS => Token::KeywordAs,
         NEW => Token::KeywordNew,
+
+        "#" => Token::Pound,
 
         "(" => Token::LParen,
         ")" => Token::RParen,

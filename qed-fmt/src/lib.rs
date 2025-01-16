@@ -436,6 +436,9 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
         node: &StructNode,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
+        for attr in &node.attrs {
+            self.write_line(&format!("#[derive({})]", self.parser.interner[attr.name]));
+        }
         self.write_line(&format!(
             "struct {}{} {{",
             &self.parser.interner[node.name],
