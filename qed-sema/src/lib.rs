@@ -110,7 +110,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
             },
         );
 
-        self.print_module(ModuleId::root(), symbols, artifact);
+        // self.print_module(ModuleId::root(), symbols, artifact);
 
         Ok(())
     }

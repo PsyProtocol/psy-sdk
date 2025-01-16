@@ -746,7 +746,7 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         let value = self
             .interpret_expr(typechecker, artifact, &typechecker[node.value], symbols)?
             .unwrap();
-        typechecker.print_scope_hierarchy(node.scope_id, 0, &symbols, artifact);
+        // typechecker.print_scope_hierarchy(node.scope_id, 0, &symbols, artifact);
 
         symbols.set_variable(
             Some(node.scope_id),
