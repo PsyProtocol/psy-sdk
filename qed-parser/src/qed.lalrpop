@@ -20,8 +20,8 @@ use super::Loc;
 use std::convert::TryFrom;
 use std::collections::HashMap;
 
-pub Module: RawModule = {
-    <l:@L> <mut modules:ModuleDecl*> <mut uses:ModuleUse*> <definitions:Definition*> <r:@R> => RawModule {
+pub Module: ModuleNode = {
+    <l:@L> <mut modules:ModuleDecl*> <mut uses:ModuleUse*> <definitions:Definition*> <r:@R> => ModuleNode {
         name: module_name,
         file_id,
         modules: {

@@ -3,17 +3,17 @@ use std::collections::HashMap;
 use qed_common::{Arena, FileId, Graph, Tree};
 
 use crate::{
-    AstVisitor, ExprId, ExprNode, IdentId, Interner, ModuleId, RawModule, StmtId, StmtNode,
+    AstVisitor, ExprId, ExprNode, IdentId, Interner, ModuleId, ModuleNode, StmtId, StmtNode,
 };
 
 #[derive(Clone, Debug)]
 pub struct Program {
-    pub modules: Tree<ModuleId, RawModule>,
+    pub modules: Tree<ModuleId, ModuleNode>,
     pub dependency_graph: Graph<ModuleId>,
 }
 
 impl Program {
-    pub fn new(modules: Tree<ModuleId, RawModule>, dependency_graph: Graph<ModuleId>) -> Self {
+    pub fn new(modules: Tree<ModuleId, ModuleNode>, dependency_graph: Graph<ModuleId>) -> Self {
         Self {
             modules,
             dependency_graph,

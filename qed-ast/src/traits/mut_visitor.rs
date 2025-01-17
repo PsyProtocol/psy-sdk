@@ -66,7 +66,7 @@ pub trait MutAstVisitor<F: Clone, C> {
 
     fn visit_module(
         &mut self,
-        module: &mut RawModule,
+        module: &mut ModuleNode,
         ctx: &mut Self::Context,
     ) -> Result<(), Self::Error> {
         for u in &mut module.uses {

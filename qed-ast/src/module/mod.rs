@@ -65,7 +65,7 @@ impl From<UseKind> for IdentId {
 }
 
 #[derive(Clone, Debug)]
-pub struct RawModule {
+pub struct ModuleNode {
     pub name: IdentId,
     pub file_id: FileId,
     pub modules: Vec<IdentId>,
@@ -77,7 +77,7 @@ pub struct RawModule {
     pub is_self_prelude: bool,
 }
 
-impl RawModule {
+impl ModuleNode {
     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
         &self,
         visitor: &mut V,

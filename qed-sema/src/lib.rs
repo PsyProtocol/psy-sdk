@@ -94,7 +94,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn typecheck_std_prelude_module(
         &mut self,
-        module: &RawModule,
+        module: &ModuleNode,
         symbols: &mut SymbolTable<T>,
         artifact: &Artifact<F, C>,
     ) -> Result<()> {
@@ -108,7 +108,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn typecheck_module(
         &mut self,
-        module: &RawModule,
+        module: &ModuleNode,
         symbols: &mut SymbolTable<T>,
         artifact: &Artifact<F, C>,
     ) -> Result<()> {

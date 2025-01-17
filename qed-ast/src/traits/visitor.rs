@@ -65,7 +65,7 @@ pub trait AstVisitor<F: Clone, C> {
 
     fn visit_module(
         &mut self,
-        module: &RawModule,
+        module: &ModuleNode,
         ctx: &mut Self::Context,
     ) -> Result<(), Self::Error> {
         for u in &module.uses {

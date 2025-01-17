@@ -7,8 +7,8 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use qed_ast::RawModule;
-use qed_common::{FileId, TreeNode};
+use qed_ast::ModuleNode;
+use qed_common::{define_arena_id, FileId, TreeNode};
 use strum::{EnumIs, EnumTryAs};
 
 use crate::{
@@ -17,8 +17,7 @@ use crate::{
 };
 use crate::{Error, Result};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct ScopeId(pub usize);
+define_arena_id!(ScopeId);
 
 impl ScopeId {
     pub const fn root() -> Self {
@@ -145,7 +144,7 @@ impl<T> SymbolTable<T> {
 
     pub fn load_modules<'a>(
         &mut self,
-        modules: impl IntoIterator<Item = &'a TreeNode<ModuleId, RawModule>>,
+        modules: impl IntoIterator<Item = &'a TreeNode<ModuleId, ModuleNode>>,
     ) {
         for module in modules {
             let data = module.data();
