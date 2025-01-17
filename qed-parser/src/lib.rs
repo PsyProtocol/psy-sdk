@@ -54,7 +54,7 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
         ctx: &mut C,
         root_module_path: PathBuf,
     ) -> Result<'input, Program> {
-        let mut modules: Tree<ModuleId, RawModule> = Tree::new(Some(ModuleId::root()));
+        let mut modules: Tree<ModuleId, RawModule> = Tree::new();
         let mut module_stack: Vec<(PathBuf, Option<ModuleId>)> =
             vec![(root_module_path.clone(), None)];
         let mut visited = HashMap::new();

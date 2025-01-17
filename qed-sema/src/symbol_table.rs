@@ -7,7 +7,8 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use qed_common::FileId;
+use qed_ast::RawModule;
+use qed_common::{FileId, TreeNode};
 use strum::{EnumIs, EnumTryAs};
 
 use crate::{
@@ -90,11 +91,11 @@ impl<T> Scope<T> {
 
 #[derive(Clone, Debug)]
 pub struct SymbolTable<T> {
-    pub scopes: Vec<Scope<T>>,
+    scopes: Vec<Scope<T>>,
     scope_stack: Vec<ScopeId>,
 
     types: Vec<Type>,
-    pub modules: Vec<Module>,
+    modules: Vec<Module>,
     module_stack: Vec<ModuleId>,
 }
 
@@ -142,6 +143,36 @@ impl<T> SymbolTable<T> {
         }
     }
 
+    pub fn load_modules<'a>(
+        &mut self,
+        modules: impl IntoIterator<Item = &'a TreeNode<ModuleId, RawModule>>,
+    ) {
+        for module in modules {
+            let data = module.data();
+            self.modules.push(Module {
+                name: data.name.clone(),
+                id: module.id(),
+                scope_id: ScopeId(module.id().into()),
+                kind: ModuleKind::File {
+                    file_id: data.file_id,
+                },
+                parent: module.parent(),
+                children: module.children().to_vec(),
+            });
+            self.scopes.push(Scope {
+                kind: ScopeKind::Module,
+                parent: module.parent().map(|x| ScopeId(x.into())),
+                children: module
+                    .children()
+                    .into_iter()
+                    .map(|&x| ScopeId(x.into()))
+                    .collect(),
+                variables: HashMap::with_capacity(10),
+                types: HashMap::new(),
+            })
+        }
+    }
+
     pub fn current_scope_id(&self) -> Option<ScopeId> {
         self.scope_stack.last().cloned()
     }
@@ -152,17 +183,6 @@ impl<T> SymbolTable<T> {
 
     pub fn current_module_id(&self) -> Option<ModuleId> {
         self.module_stack.last().cloned()
-    }
-
-    pub fn start_existing_module(&mut self, module_id: ModuleId) {
-        self.scope_stack.push(self[module_id].scope_id);
-
-        let current_module_id = self.current_module_id();
-        self.module_stack.push(module_id);
-
-        if let Some(current_module_id) = current_module_id {
-            self[current_module_id].children.push(module_id);
-        }
     }
 
     pub fn start_module(&mut self, name: IdentId, file_id: FileId) {
@@ -337,10 +357,12 @@ impl<T> SymbolTable<T> {
     }
 
     pub fn push_module(&mut self, module_id: ModuleId) {
+        self.push_scope(self[module_id].scope_id);
         self.module_stack.push(module_id);
     }
 
     pub fn pop_module(&mut self) {
+        self.pop_scope();
         self.module_stack.pop();
     }
 

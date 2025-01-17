@@ -44,14 +44,12 @@ impl<I: From<usize> + Into<usize> + Copy, T> TreeNode<I, T> {
 
 #[derive(Debug, Clone)]
 pub struct Tree<I: From<usize> + Into<usize> + Copy, T> {
-    root: Option<I>,
     nodes: Arena<I, TreeNode<I, T>>,
 }
 
 impl<I: From<usize> + Into<usize> + Copy, T> Tree<I, T> {
-    pub fn new(root: Option<I>) -> Self {
+    pub fn new() -> Self {
         Self {
-            root,
             nodes: Arena::new(),
         }
     }
@@ -83,10 +81,6 @@ impl<I: From<usize> + Into<usize> + Copy, T> Tree<I, T> {
         }
 
         child_id
-    }
-
-    pub fn root(&self) -> Option<I> {
-        self.root
     }
 
     pub fn dfs(&self, node: I, visitor: &mut impl FnMut(&TreeNode<I, T>)) {

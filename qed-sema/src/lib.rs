@@ -68,56 +68,21 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_init(
-        &mut self,
-        symbols: &mut SymbolTable<T>,
-        artifact: &Artifact<F, C>,
-    ) -> Result<()> {
-        for module in artifact.program.modules.iter() {
-            let data = module.data();
-            symbols.modules.push(Module {
-                name: data.name.clone(),
-                id: module.id(),
-                scope_id: ScopeId(module.id().into()),
-                kind: ModuleKind::File {
-                    file_id: data.file_id,
-                },
-                parent: module.parent(),
-                children: module.children().to_vec(),
-            });
-            symbols.scopes.push(Scope {
-                kind: ScopeKind::Module,
-                parent: module.parent().map(|x| ScopeId(x.into())),
-                children: module
-                    .children()
-                    .into_iter()
-                    .map(|&x| ScopeId(x.into()))
-                    .collect(),
-                variables: HashMap::with_capacity(10),
-                types: HashMap::new(),
-            })
-        }
-        Ok(())
-    }
-
-    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_program(
         &mut self,
         symbols: &mut SymbolTable<T>,
         artifact: &Artifact<F, C>,
     ) -> Result<()> {
-        self.typecheck_init(symbols, artifact)?;
+        symbols.load_modules(artifact.program.modules.iter());
         let mut colors = HashMap::new();
         artifact
             .program
             .dependency_graph
             .ts(&ModuleId::root(), &mut colors, &mut |&module_id| {
                 let module = &artifact.program.modules[module_id];
-                symbols.push_scope(symbols[module_id].scope_id);
                 symbols.push_module(module_id);
                 self.typecheck_module(module.data(), symbols, artifact)
                     .unwrap();
-                symbols.pop_scope();
                 symbols.pop_module();
             });
 
