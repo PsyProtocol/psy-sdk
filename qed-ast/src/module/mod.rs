@@ -14,7 +14,7 @@ impl ModuleId {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ModuleKind {
-    File { file_id: FileId, is_dir: bool },
+    File { file_id: FileId },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -67,10 +67,11 @@ impl From<UseKind> for IdentId {
 #[derive(Clone, Debug)]
 pub struct RawModule {
     pub name: IdentId,
-    pub parent_file_id: Option<FileId>,
+    pub file_id: FileId,
     pub modules: Vec<IdentId>,
     pub uses: Vec<UsePath>,
     pub definitions: Vec<DefinitionNode>,
+
     pub is_std: bool,
     pub is_self_std: bool,
     pub is_self_prelude: bool,

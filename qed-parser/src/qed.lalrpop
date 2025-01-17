@@ -4,9 +4,9 @@ use qed_ast::*;
 use qed_lexer::{Token, Error};
 
 grammar<'input, F, C>(
-    src: &'input str,
+    file_content: &'input str,
+    file_id: FileId,
     module_name: IdentId,
-    parent_file_id: Option<FileId>,
     expr_nodes: &mut Arena<ExprId, ExprNode<F>>,
     stmt_nodes: &mut Arena<StmtId, StmtNode<F>>,
     interner: &mut Interner,
@@ -23,7 +23,7 @@ use std::collections::HashMap;
 pub Module: RawModule = {
     <l:@L> <mut modules:ModuleDecl*> <mut uses:ModuleUse*> <definitions:Definition*> <r:@R> => RawModule {
         name: module_name,
-        parent_file_id,
+        file_id,
         modules: {
             if !is_std {
                 modules.insert(0, IdentId::STD);
@@ -128,7 +128,11 @@ EnumDef: EnumNode = {
 }
 
 Attribute: AttrNode = {
-    <l:@L> "#" "[" DERIVE "(" <name:Identifier> ")" "]" <r:@R> => AttrNode { name }
+    <l:@L> "#" "[" <name:IdentifierOrDerive>  <properties:AttributeProperties?> "]" <r:@R> => AttrNode { name, properties: properties.unwrap_or(Vec::new()) }
+}
+
+AttributeProperties: Vec<IdentId> = {
+    <l:@L> "(" <properties:Comma<Identifier>> ")" <r:@R> => properties
 }
 
 StructDef: StructNode = {
@@ -479,6 +483,11 @@ IdentifierOrAll: Option<IdentId> = {
 IdentifierOrSelf: IdentId = {
     Identifier,
     <l:@L> <name:SELF> <r:@R> => IdentId::SELF
+}
+
+IdentifierOrDerive: IdentId = {
+    Identifier,
+    <l:@L> <name:DERIVE> <r:@R> => IdentId::DERIVE
 }
 
 Identifier: IdentId = {

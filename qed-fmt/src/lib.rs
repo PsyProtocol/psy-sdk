@@ -437,7 +437,19 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         for attr in &node.attrs {
-            self.write_line(&format!("#[derive({})]", self.parser.interner[attr.name]));
+            if !attr.properties.is_empty() {
+                self.write_line(&format!(
+                    "#[{}({})]",
+                    self.parser.interner[attr.name],
+                    attr.properties
+                        .iter()
+                        .map(|p| self.parser.interner[p.clone()].to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            } else {
+                self.write_line(&format!("#[{}]", self.parser.interner[attr.name],));
+            }
         }
         self.write_line(&format!(
             "struct {}{} {{",

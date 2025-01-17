@@ -1,6 +1,9 @@
 pub mod error;
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use lalrpop_util::lalrpop_mod;
 
@@ -46,72 +49,73 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
     // modB/
     //     std/
     //         prelude
-    pub fn parse<'input>(&'input mut self, ctx: &mut C, entry: PathBuf) -> Result<'input, Program> {
-        let mut parsed_modules: HashMap<FileId, RawModule> = HashMap::new();
-        let mut dependency_graph: Graph<FileId> = Graph::new();
-        let mut module_stack = vec![(entry.clone(), None)];
+    pub fn parse<'input>(
+        &'input mut self,
+        ctx: &mut C,
+        root_module_path: PathBuf,
+    ) -> Result<'input, Program> {
+        let mut modules: Tree<ModuleId, RawModule> = Tree::new(Some(ModuleId::root()));
+        let mut module_stack: Vec<(PathBuf, Option<ModuleId>)> =
+            vec![(root_module_path.clone(), None)];
+        let mut visited = HashMap::new();
 
-        while let Some((current_path, parent_file_id)) = module_stack.pop() {
+        while let Some((current_path, parent_module_id)) = module_stack.pop() {
             let file_id = self.file_resolver.resolve_file(current_path.clone())?;
-            let module_name = self
-                .interner
-                .intern_ident(current_path.file_stem().and_then(|s| s.to_str()).unwrap());
+            let module_name = Self::resolve_module_name(&mut self.interner, &current_path);
 
-            if let Some(parent) = parent_file_id {
-                dependency_graph.add_edge(parent, file_id);
+            if let Some(&module_id) = visited.get(&file_id) {
+                modules.add_child(parent_module_id, module_id);
+            } else {
+                let file_content = self
+                    .file_resolver
+                    .resolve_content(&file_id)
+                    .ok_or(Error::FileUnresolved)?;
+
+                let is_self_std = module_name == IdentId::STD;
+                let is_self_prelude = module_name == IdentId::PRELUDE;
+                let is_std = parent_module_id
+                    .map(|id| modules[id].data().name == IdentId::STD)
+                    .unwrap_or(false)
+                    || is_self_std;
+
+                let lexer = Lexer::new(file_content);
+                let module = qed::ModuleParser::new().parse(
+                    file_content,
+                    file_id,
+                    module_name,
+                    &mut self.exprs,
+                    &mut self.stmts,
+                    &mut self.interner,
+                    is_std,
+                    is_self_std,
+                    is_self_prelude,
+                    ctx,
+                    lexer,
+                )?;
+                let module_id = modules.next_idx();
+
+                for dep_module in &module.modules {
+                    let dep_path = self.resolve_module_path(dep_module, &current_path).unwrap();
+                    module_stack.push((dep_path, Some(module_id)));
+                }
+                modules.add_node(module);
+                modules.add_child(parent_module_id, module_id);
+
+                visited.insert(file_id, module_id);
             }
-
-            if parsed_modules.contains_key(&file_id) {
-                continue;
-            }
-
-            let file_content = self
-                .file_resolver
-                .resolve_content(&file_id)
-                .ok_or(Error::FileUnresolved)?;
-
-            let is_self_std = module_name == IdentId::STD;
-            let is_self_prelude = module_name == IdentId::PRELUDE;
-            let is_std = parent_file_id
-                .and_then(|id| parsed_modules.get(&id))
-                .map(|m| m.name == IdentId::STD)
-                .unwrap_or(false)
-                || is_self_std;
-
-            let lexer = Lexer::new(file_content);
-            let module = qed::ModuleParser::new().parse(
-                file_content,
-                module_name,
-                parent_file_id,
-                &mut self.exprs,
-                &mut self.stmts,
-                &mut self.interner,
-                is_std,
-                is_self_std,
-                is_self_prelude,
-                ctx,
-                lexer,
-            )?;
-
-            for dep_module in &module.modules {
-                let dep_path = self.resolve_module_path(dep_module, &current_path).unwrap();
-                module_stack.push((dep_path, Some(file_id)));
-            }
-
-            parsed_modules.insert(file_id, module);
         }
+
+        let dependency_graph = modules.to_graph();
 
         if dependency_graph.has_cycle() {
             return Err(Error::CycleDependency);
         }
 
-        Ok(Program::new(
-            self.interner
-                .intern_ident(entry.file_stem().and_then(|s| s.to_str()).unwrap()),
-            self.file_resolver.resolve_id(&entry).cloned().unwrap(),
-            parsed_modules,
-            dependency_graph,
-        ))
+        Ok(Program::new(modules, dependency_graph))
+    }
+
+    fn resolve_module_name(interner: &mut Interner, file_path: &Path) -> IdentId {
+        interner.intern_ident(file_path.file_stem().and_then(|s| s.to_str()).unwrap())
     }
 
     fn resolve_module_path(

@@ -19,7 +19,7 @@ pub use artifact::*;
 pub use definition::*;
 pub use expr::*;
 use once_cell::sync::OnceCell;
-use qed_common::{Arena, VisitPhase};
+use qed_common::Arena;
 pub use r#type::*;
 pub use stmt::*;
 pub use symbol_table::*;
@@ -68,47 +68,58 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
+    pub fn typecheck_init(
+        &mut self,
+        symbols: &mut SymbolTable<T>,
+        artifact: &Artifact<F, C>,
+    ) -> Result<()> {
+        for module in artifact.program.modules.iter() {
+            let data = module.data();
+            symbols.modules.push(Module {
+                name: data.name.clone(),
+                id: module.id(),
+                scope_id: ScopeId(module.id().into()),
+                kind: ModuleKind::File {
+                    file_id: data.file_id,
+                },
+                parent: module.parent(),
+                children: module.children().to_vec(),
+            });
+            symbols.scopes.push(Scope {
+                kind: ScopeKind::Module,
+                parent: module.parent().map(|x| ScopeId(x.into())),
+                children: module
+                    .children()
+                    .into_iter()
+                    .map(|&x| ScopeId(x.into()))
+                    .collect(),
+                variables: HashMap::with_capacity(10),
+                types: HashMap::new(),
+            })
+        }
+        Ok(())
+    }
+
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_program(
         &mut self,
         symbols: &mut SymbolTable<T>,
         artifact: &Artifact<F, C>,
     ) -> Result<()> {
-        let mut module_registry = HashMap::new();
-        artifact.program.dependency_graph.dfs(
-            &artifact.program.root_file_id,
-            None,
-            &mut |file_id, parent_file_id, phase| {
-                let module = artifact.program.modules.get(&file_id).unwrap();
-                if phase == VisitPhase::Enter {
-                    if let Some(&module_id) = module_registry.get(&file_id) {
-                        symbols.start_existing_module(module_id);
-                    } else {
-                        symbols.start_module(module.name, *file_id);
-                    }
-                } else if phase == VisitPhase::Exit {
-                    symbols.end_module();
-                } else {
-                    if !module_registry.contains_key(file_id) {
-                        module_registry.insert(file_id, symbols.current_module_id().unwrap());
-                    }
-                }
-            },
-        );
-
+        self.typecheck_init(symbols, artifact)?;
         let mut colors = HashMap::new();
-        artifact.program.dependency_graph.ts(
-            &artifact.program.root_file_id,
-            &mut colors,
-            &mut |file_id| {
-                let module = artifact.program.modules.get(&file_id).unwrap();
-                let module_id = module_registry.get(file_id).unwrap().clone();
+        artifact
+            .program
+            .dependency_graph
+            .ts(&ModuleId::root(), &mut colors, &mut |&module_id| {
+                let module = &artifact.program.modules[module_id];
                 symbols.push_scope(symbols[module_id].scope_id);
                 symbols.push_module(module_id);
-                self.typecheck_module(module, symbols, artifact).unwrap();
+                self.typecheck_module(module.data(), symbols, artifact)
+                    .unwrap();
                 symbols.pop_scope();
                 symbols.pop_module();
-            },
-        );
+            });
 
         // self.print_module(ModuleId::root(), symbols, artifact);
 

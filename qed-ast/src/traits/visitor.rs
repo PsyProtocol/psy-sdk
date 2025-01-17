@@ -87,8 +87,8 @@ pub trait AstVisitor<F: Clone, C> {
         let mut visited = HashMap::new();
         program
             .dependency_graph
-            .ts(&program.root_file_id, &mut visited, &mut |file_id| {
-                self.visit_module(&program.modules.get(file_id).unwrap(), ctx);
+            .ts(&ModuleId::root(), &mut visited, &mut |&module_id| {
+                self.visit_module(program.modules[module_id].data(), ctx);
             });
 
         Ok(())

@@ -49,8 +49,9 @@ impl Person {
     }
 }
 
-#[derive(storage)]
-struct Storage {
+#[derive(Storage)]
+#[storage]
+struct ContractStorage {
     a: Felt,
     b: [Felt; 2],
     c: Person

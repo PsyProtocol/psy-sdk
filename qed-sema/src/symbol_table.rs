@@ -69,10 +69,7 @@ impl Module {
             name,
             id,
             scope_id,
-            kind: ModuleKind::File {
-                file_id,
-                is_dir: false,
-            },
+            kind: ModuleKind::File { file_id },
             parent,
             children: vec![],
         }
@@ -93,11 +90,11 @@ impl<T> Scope<T> {
 
 #[derive(Clone, Debug)]
 pub struct SymbolTable<T> {
-    scopes: Vec<Scope<T>>,
+    pub scopes: Vec<Scope<T>>,
     scope_stack: Vec<ScopeId>,
 
     types: Vec<Type>,
-    modules: Vec<Module>,
+    pub modules: Vec<Module>,
     module_stack: Vec<ModuleId>,
 }
 
