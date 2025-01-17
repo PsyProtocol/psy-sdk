@@ -24,6 +24,8 @@ pub enum Error {
     FunctionParameterMismatch,
     #[error("invalid function call")]
     InvalidFunctionCall,
+    #[error("invalid return")]
+    InvalidReturn,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -333,7 +333,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
             parameters.push((parameter.clone(), *mutable, parameter_type));
         }
 
-        let checked_body = self.typecheck_block(symbols, artifact, &function.body)?;
+        let checked_body = self.typecheck_function_body(symbols, artifact, &function.body)?;
 
         let return_type = {
             let expected = if let Some(ref ret) = function.return_type {
@@ -342,12 +342,21 @@ impl<F: Clone, C> TypeChecker<F, C> {
                 None
             };
 
+            let mut return_type_checked = false;
+
             for stmt in checked_body.stmts.iter() {
                 if let CheckedStmtNode::Return(CheckedReturnNode { ret }) = &self[*stmt] {
                     if ret.map(|(_, type_id)| type_id) != expected {
                         return Err(Error::TypeMismatch);
+                    }else {
+                        return_type_checked = true;
+                        break;
                     }
                 }
+            }
+
+            if !return_type_checked && expected.is_some()  {
+                return Err(Error::InvalidReturn);
             }
 
             expected
@@ -393,17 +402,40 @@ impl<F: Clone, C> TypeChecker<F, C> {
             parameters.push((parameter.clone(), *mutable, parameter_type));
         }
 
-        let return_type = if let Some(ref ret) = function.return_type {
-            Some(self.typecheck(symbols, artifact, ret)?)
-        } else {
-            None
+        let checked_body = self.typecheck_function_body(symbols, artifact, &function.body)?;
+
+        let return_type = {
+            let expected = if let Some(ref ret) = function.return_type {
+                Some(self.typecheck(symbols, artifact, ret)?)
+            } else {
+                None
+            };
+
+            let mut return_type_checked = false;
+
+            for stmt in checked_body.stmts.iter() {
+                if let CheckedStmtNode::Return(CheckedReturnNode { ret }) = &self[*stmt] {
+                    if ret.map(|(_, type_id)| type_id) != expected {
+                        return Err(Error::TypeMismatch);
+                    }else {
+                        return_type_checked = true;
+                        break;
+                    }
+                }
+            }
+
+            if !return_type_checked && expected.is_some(){
+                return Err(Error::InvalidReturn);
+            }
+
+            expected
         };
 
         let checked_function = CheckedFunctionNode {
             name: function.name.clone(),
             parameters,
             generic_parameters,
-            body: self.typecheck_block(symbols, artifact, &function.body)?,
+            body: checked_body,
             return_type,
             scope_id: current_scope_id,
         };
@@ -509,6 +541,64 @@ impl<F: Clone, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
+    fn typecheck_function_body<T: From<CheckedValueNode<F>>>(
+        &mut self,
+        symbols: &mut SymbolTable<T>,
+        artifact: &ParsingArtifact<F, C>,
+        body: &BlockNode,
+    ) -> Result<CheckedBlockNode> {
+        symbols.start_scope(ScopeKind::Block);
+        let mut new_stmts = Vec::with_capacity(body.stmts.len());
+        for (i, stmt) in body.stmts.iter().enumerate() {
+            let statement = &artifact[stmt.clone()];
+
+            let new_stmt = match statement {
+                StmtNode::If(r#if) => Ok(CheckedStmtNode::If(
+                    self.typecheck_if(symbols, artifact, r#if)?,
+                )),
+                StmtNode::While(r#while) => Ok(CheckedStmtNode::While(
+                    self.typecheck_while(symbols, artifact, r#while)?,
+                )),
+                StmtNode::Block(block) => Ok(CheckedStmtNode::Block(
+                    self.typecheck_block(symbols, artifact, r#block)?,
+                )),
+                StmtNode::Assignment(r#assignment) => Ok(CheckedStmtNode::Assignment(
+                    self.typecheck_assignment(symbols, artifact, r#assignment)?,
+                )),
+                StmtNode::Variable(variable) => Ok(CheckedStmtNode::Variable(
+                    self.typecheck_variable(symbols, artifact, variable)?,
+                )),
+                StmtNode::Definition(definition) => Ok(CheckedStmtNode::Definition(
+                    self.typecheck_definition(symbols, artifact, definition)?,
+                )),
+                StmtNode::Expression(expr) => Ok(CheckedStmtNode::Expression(
+                    self.typecheck_expr(symbols, artifact, expr)?,
+                )),
+                StmtNode::Return(return_node) => {
+                    match i == body.stmts.len() - 1 {
+                        true => {
+                            Ok(CheckedStmtNode::Return(self.typecheck_ret(
+                                symbols,
+                                artifact,
+                                return_node,
+                            )?))
+                        },
+                        false => {
+                            Err(Error::InvalidReturn)
+                        },
+                    }
+                        
+                },
+            };
+            new_stmts.push(new_stmt?);
+        }
+        symbols.end_scope();
+        Ok(CheckedBlockNode {
+            stmts: self.stmts.alloc_items(new_stmts),
+        })
+    }
+
+    #[instrument(level = "debug", skip_all)]
     fn typecheck_stmt<T: From<CheckedValueNode<F>>>(
         &mut self,
         symbols: &mut SymbolTable<T>,
@@ -537,11 +627,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
             StmtNode::Expression(expr) => Ok(CheckedStmtNode::Expression(
                 self.typecheck_expr(symbols, artifact, expr)?,
             )),
-            StmtNode::Return(return_node) => Ok(CheckedStmtNode::Return(self.typecheck_ret(
-                symbols,
-                artifact,
-                return_node,
-            )?)),
+            StmtNode::Return(return_node) => Err(Error::InvalidReturn),
         }
     }
 
