@@ -80,7 +80,7 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
                 || is_self_std;
 
             let lexer = Lexer::new(file_content);
-            let module = qed::ModuleParser::new().parse(
+            let module = match qed::ModuleParser::new().parse(
                 file_content,
                 module_name,
                 parent_file_id,
@@ -92,7 +92,14 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
                 is_self_prelude,
                 ctx,
                 lexer,
-            )?;
+            ){
+                Ok(module) => module,
+                Err(e) => {
+                  
+                    print_parse_error(file_content, &e);
+                    panic!("Parsing failed:");
+                }
+            };
             eprintln!("DEBUGPRINT[2]: lib.rs:69: module={:#?}", module);
 
             for dep_module in &module.modules {
@@ -131,5 +138,107 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
         let ext = current_path.extension()?.to_str()?;
         path.push(format!("{}.{}", self.interner[module_name.clone()], ext));
         Some(path)
+    }
+}
+fn format_error_message(message: &str) -> String {
+    message
+        .replace("\"", "") 
+}
+fn print_parse_error<'input>(
+    file_content: &'input str,
+    error: &lalrpop_util::ParseError<Loc, Token<'input>, LexicalError>,
+) {
+    match error {
+        lalrpop_util::ParseError::InvalidToken { location } => {
+            eprintln!(
+                "Error: Invalid token at position {}.\nContext:\n{}",
+                location,
+                extract_context(file_content, *location, 2)
+            );
+        }
+        lalrpop_util::ParseError::UnrecognizedToken { token, expected } => {
+            let formatted_expected = expected
+                .iter()
+                .map(|t| format_error_message(&t))
+                .collect::<Vec<_>>()
+                .join(", ");
+            eprintln!(
+                "Error: Unrecognized token '{:?}' at position {}. Expected one of: {:?}\nContext:\n{}",
+                token.1,
+                token.0,
+                formatted_expected,
+                extract_context(file_content, token.0, 2)
+            );
+        }
+        lalrpop_util::ParseError::ExtraToken { token } => {
+            eprintln!(
+                "Error: Extra token '{:?}' found at position {}.\nContext:\n{}",
+                token.1,
+                token.0,
+                extract_context(file_content, token.0, 2)
+            );
+        }
+        lalrpop_util::ParseError::User { error } => {
+            eprintln!(
+                "Error: Lexical error {:?}.\nContext:\n{}",
+                error,
+                extract_context(file_content, 0, 2) 
+            );
+        }
+        _ => {
+            eprintln!("Error: Parsing failed.\nContext:\n{}", extract_context(file_content, 0, 2));
+        }
+    }
+}
+fn extract_context(file_content: &str, position: usize, context_lines: usize) -> String {
+    let lines: Vec<_> = file_content.lines().collect(); 
+    let error_line = file_content[..position].lines().count(); 
+
+    let start_line: usize = error_line.saturating_sub(context_lines); 
+    let end_line = (error_line + context_lines).min(lines.len()); 
+
+
+    lines[start_line..end_line]
+        .iter()
+        .enumerate()
+        .map(|(i, line)| {
+            let line_number = start_line + i + 1;
+            if line_number == error_line {
+                format!("{:>4}: {} <-- ERROR HERE", line_number, line)
+            } else {
+                format!("{:>4}: {}", line_number, line)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use qed_builder::ExecContext;
+    use super::{Parser}; // 替换为你的 crate 名称和上下文实现模块路径
+
+    #[test]
+    fn test_qed_parser() {
+
+        let mut parser = Parser::new();
+
+
+        let mut ctx = ExecContext::new();
+
+
+        let entry_file = PathBuf::from("../tests/003.qed");
+
+
+        let result = parser.parse(&mut ctx, entry_file);
+
+        match result {
+            Ok(program) => {
+                println!("{:#?}", program);
+            }
+            Err(e) => {
+                panic!("Parsing failed: {:?}", e);
+            }
+        }
     }
 }
