@@ -30,12 +30,4 @@ impl<F: Clone> Program<F> {
             interner: Interner::new(),
         }
     }
-
-    // pub fn accept_visitor<C, V: AstVisitor<F, C>>(
-    //     &self,
-    //     visitor: &mut V,
-    //     ctx: &mut V::Context,
-    // ) -> Result<(), V::Error> {
-    //     visitor.visit_program(self, ctx)
-    // }
 }

@@ -8,13 +8,3 @@ pub struct FunctionNode {
     pub body: Option<StmtId>,
     pub return_type: Option<UncheckedType>,
 }
-
-// impl FunctionNode {
-//     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-//         &self,
-//         visitor: &mut V,
-//         ctx: &mut V::Context,
-//     ) -> Result<V::StmtResult, V::Error> {
-//         visitor.visit_function(self, ctx)
-//     }
-// }

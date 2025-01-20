@@ -1,3 +1,4 @@
+use enum_as_inner::EnumAsInner;
 use qed_common::Graph;
 
 use crate::{
@@ -5,11 +6,12 @@ use crate::{
     StmtNode,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum NodeId {
     Expr(ExprId),
     Stmt(StmtId),
     Def(DefId),
+    Module(ModuleId),
 }
 
 impl From<ExprId> for NodeId {
@@ -30,7 +32,13 @@ impl From<DefId> for NodeId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+impl From<ModuleId> for NodeId {
+    fn from(value: ModuleId) -> Self {
+        Self::Module(value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum NodeType {
     PathExpr,
     ValueExpr,
@@ -55,6 +63,8 @@ pub enum NodeType {
     EnumDef,
     ImplDef,
     TraitDef,
+
+    Module,
 }
 
 pub trait VisitorContext<F: Clone, C> {

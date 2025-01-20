@@ -7,13 +7,3 @@ pub struct ImplNode {
     pub ty: IdentId,
     pub body: Vec<DefId>,
 }
-
-// impl ImplNode {
-//     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-//         &self,
-//         visitor: &mut V,
-//         ctx: &mut V::Context,
-//     ) -> Result<V::StmtResult, V::Error> {
-//         visitor.visit_impl(self, ctx)
-//     }
-// }

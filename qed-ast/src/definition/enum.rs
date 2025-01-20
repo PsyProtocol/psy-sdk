@@ -15,13 +15,3 @@ pub struct EnumNode {
     pub generic_parameters: Vec<IdentId>,
     pub variants: Vec<EnumVariant>,
 }
-
-// impl EnumNode {
-//     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-//         &self,
-//         visitor: &mut V,
-//         ctx: &mut V::Context,
-//     ) -> Result<V::StmtResult, V::Error> {
-//         visitor.visit_enum(self, ctx)
-//     }
-// }

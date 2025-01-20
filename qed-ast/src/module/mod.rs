@@ -24,16 +24,6 @@ pub struct UsePath {
     pub target: Option<IdentId>,
 }
 
-impl UsePath {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-        &mut self,
-        visitor: &mut V,
-        ctx: &mut V::Context,
-    ) -> Result<(), V::Error> {
-        visitor.visit_use(self, ctx)
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum UseKind {
     MODULE(IdentId),
@@ -76,13 +66,3 @@ pub struct ModuleNode {
     pub is_self_std: bool,
     pub is_self_prelude: bool,
 }
-
-// impl ModuleNode {
-//     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-//         &self,
-//         visitor: &mut V,
-//         ctx: &mut V::Context,
-//     ) -> Result<(), V::Error> {
-//         visitor.visit_module(self, ctx)
-//     }
-// }

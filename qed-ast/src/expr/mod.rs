@@ -41,12 +41,4 @@ impl<F: Clone> ExprNode<F> {
             ExprNode::MemberAccess(_) => NodeType::MemberAccessExpr,
         }
     }
-
-    // pub fn accept_visitor<C, V: AstVisitor<F, C>>(
-    //     &self,
-    //     visitor: &mut V,
-    //     ctx: &mut V::Context,
-    // ) -> Result<V::ExprResult, V::Error> {
-    //     visitor.visit_expr(self, ctx)
-    // }
 }

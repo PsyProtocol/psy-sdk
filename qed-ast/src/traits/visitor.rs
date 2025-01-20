@@ -31,14 +31,17 @@ pub trait AstVisitor<F: Clone, C> {
         def_id: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        match ctx.definition(def_id).node_type() {
-            NodeType::FunctionDef => Ok(self.visit_function(def_id, ctx)?),
-            NodeType::StructDef => Ok(self.visit_struct(def_id, ctx)?),
-            NodeType::EnumDef => Ok(self.visit_enum(def_id, ctx)?),
-            NodeType::ImplDef => Ok(self.visit_impl(def_id, ctx)?),
-            NodeType::TraitDef => Ok(self.visit_trait(def_id, ctx)?),
+        ctx.push_node_id(NodeId::from(def_id));
+        let res = match ctx.definition(def_id).node_type() {
+            NodeType::FunctionDef => self.visit_function(def_id, ctx)?,
+            NodeType::StructDef => self.visit_struct(def_id, ctx)?,
+            NodeType::EnumDef => self.visit_enum(def_id, ctx)?,
+            NodeType::ImplDef => self.visit_impl(def_id, ctx)?,
+            NodeType::TraitDef => self.visit_trait(def_id, ctx)?,
             _ => unreachable!(),
-        }
+        };
+        ctx.pop_node_id();
+        Ok(res)
     }
 
     fn visit_stmt(
@@ -70,6 +73,7 @@ pub trait AstVisitor<F: Clone, C> {
         module_id: ModuleId,
         ctx: &mut Self::Context,
     ) -> Result<(), Self::Error> {
+        ctx.push_node_id(NodeId::from(module_id));
         // TODO: remove clone
         for u in &ctx.module(module_id).uses.clone() {
             self.visit_use(u, ctx)?;
@@ -79,6 +83,7 @@ pub trait AstVisitor<F: Clone, C> {
         for &definition in &ctx.module(module_id).definitions.clone() {
             self.visit_definition(definition, ctx)?;
         }
+        ctx.pop_node_id();
 
         Ok(())
     }

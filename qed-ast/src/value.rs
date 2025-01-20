@@ -12,9 +12,3 @@ pub enum ValueNode<F: Clone> {
     Array(usize, Vec<ExprId>),
     Struct(IdentId, Vec<UncheckedType>, HashMap<IdentId, ExprId>),
 }
-
-// impl<F: Clone> ValueNode<F> {
-//     pub fn accept_visitor<C, V: AstVisitor<F, C>>(&self, visitor: &mut V, ctx: &mut V::Context) {
-//         visitor.visit_value(self, ctx);
-//     }
-// }
