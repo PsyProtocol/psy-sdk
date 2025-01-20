@@ -13,17 +13,20 @@ pub trait AstVisitor<F: Clone, C> {
         expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        match ctx.expression(expr_id).node_type() {
-            NodeType::PathExpr => Ok(self.visit_path(expr_id, ctx)?),
-            NodeType::ValueExpr => Ok(self.visit_value(expr_id, ctx)?),
-            NodeType::BinaryExpr => Ok(self.visit_binary(expr_id, ctx)?),
-            NodeType::UnaryExpr => Ok(self.visit_unary(expr_id, ctx)?),
-            NodeType::CallExpr => Ok(self.visit_call(expr_id, ctx)?),
-            NodeType::CastExpr => Ok(self.visit_cast(expr_id, ctx)?),
-            NodeType::IndexAccessExpr => Ok(self.visit_index_access(expr_id, ctx)?),
-            NodeType::MemberAccessExpr => Ok(self.visit_member_access(expr_id, ctx)?),
+        ctx.push_node_id(NodeId::from(expr_id));
+        let res = match ctx.expression(expr_id).node_type() {
+            NodeType::PathExpr => self.visit_path(expr_id, ctx)?,
+            NodeType::ValueExpr => self.visit_value(expr_id, ctx)?,
+            NodeType::BinaryExpr => self.visit_binary(expr_id, ctx)?,
+            NodeType::UnaryExpr => self.visit_unary(expr_id, ctx)?,
+            NodeType::CallExpr => self.visit_call(expr_id, ctx)?,
+            NodeType::CastExpr => self.visit_cast(expr_id, ctx)?,
+            NodeType::IndexAccessExpr => self.visit_index_access(expr_id, ctx)?,
+            NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
             _ => unreachable!(),
-        }
+        };
+        ctx.pop_node_id();
+        Ok(res)
     }
 
     fn visit_definition(
@@ -49,20 +52,24 @@ pub trait AstVisitor<F: Clone, C> {
         stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        match ctx.statement(stmt_id).node_type() {
-            NodeType::IfStmt => Ok(self.visit_if(stmt_id, ctx)?),
-            NodeType::WhileStmt => Ok(self.visit_while(stmt_id, ctx)?),
-            NodeType::BlockStmt => Ok(self.visit_block(stmt_id, ctx)?),
-            NodeType::AssignmentStmt => Ok(self.visit_assignment(stmt_id, ctx)?),
-            NodeType::VariableStmt => Ok(self.visit_variable(stmt_id, ctx)?),
-            NodeType::ReturnStmt => Ok(self.visit_return(stmt_id, ctx)?),
-            NodeType::DefinitionStmt => Ok(self
-                .visit_definition(ctx.statement(stmt_id).as_definition().unwrap().clone(), ctx)?),
-            NodeType::ExpressionStmt => Ok(Self::StmtResult::from(
+        ctx.push_node_id(NodeId::from(stmt_id));
+        let res = match ctx.statement(stmt_id).node_type() {
+            NodeType::IfStmt => self.visit_if(stmt_id, ctx)?,
+            NodeType::WhileStmt => self.visit_while(stmt_id, ctx)?,
+            NodeType::BlockStmt => self.visit_block(stmt_id, ctx)?,
+            NodeType::AssignmentStmt => self.visit_assignment(stmt_id, ctx)?,
+            NodeType::VariableStmt => self.visit_variable(stmt_id, ctx)?,
+            NodeType::ReturnStmt => self.visit_return(stmt_id, ctx)?,
+            NodeType::DefinitionStmt => {
+                self.visit_definition(ctx.statement(stmt_id).as_definition().unwrap().clone(), ctx)?
+            }
+            NodeType::ExpressionStmt => Self::StmtResult::from(
                 self.visit_expr(ctx.statement(stmt_id).as_expression().unwrap().clone(), ctx)?,
-            )),
+            ),
             _ => unreachable!(),
-        }
+        };
+        ctx.pop_node_id();
+        Ok(res)
     }
 
     fn visit_use(&mut self, use_path: &UsePath, ctx: &mut Self::Context)
