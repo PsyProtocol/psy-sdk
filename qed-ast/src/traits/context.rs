@@ -1,5 +1,7 @@
+use qed_common::Graph;
+
 use crate::{
-    DefId, DefinitionNode, ExprId, ExprNode, IdentId, ModuleId, ModuleNode, Program, StmtId,
+    DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, ModuleId, ModuleNode, Program, StmtId,
     StmtNode,
 };
 
@@ -56,15 +58,16 @@ pub enum NodeType {
 }
 
 pub trait VisitorContext<F: Clone, C> {
-    type Artifact;
-
     fn node_id(&self) -> NodeId;
     fn parent_node_id(&self) -> NodeId;
     fn node_path(&self) -> &[NodeId];
     fn push_node_id(&mut self, node_id: NodeId);
     fn pop_node_id(&mut self);
     fn node_type(&self) -> NodeType;
-    fn ident(&self, id: IdentId) -> &str;
+    fn ident(&self, id: IdentId) -> &Ident;
+    fn module(&self, module_id: ModuleId) -> &ModuleNode;
+    fn program(&self) -> &Program<F>;
+    fn dependency_graph(&self) -> Graph<ModuleId>;
     fn expression(&self, expr_id: ExprId) -> &ExprNode<F>;
     fn statement(&self, stmt_id: StmtId) -> &StmtNode;
     fn definition(&self, def_id: DefId) -> &DefinitionNode;

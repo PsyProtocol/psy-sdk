@@ -77,12 +77,12 @@ pub struct ModuleNode {
     pub is_self_prelude: bool,
 }
 
-impl ModuleNode {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-        &self,
-        visitor: &mut V,
-        ctx: &mut V::Context,
-    ) -> Result<(), V::Error> {
-        visitor.visit_module(self, ctx)
-    }
-}
+// impl ModuleNode {
+//     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+//         &self,
+//         visitor: &mut V,
+//         ctx: &mut V::Context,
+//     ) -> Result<(), V::Error> {
+//         visitor.visit_module(self, ctx)
+//     }
+// }

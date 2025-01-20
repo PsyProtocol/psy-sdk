@@ -1,13 +1,14 @@
 use std::marker::PhantomData;
 
 use qed_ast::*;
+use qed_common::Graph;
 
-#[derive(Clone, Debug)]
-pub struct StorageProcessor<F: Clone, C> {
-    _marker: PhantomData<(F, C)>,
+#[derive(Debug)]
+pub struct StorageProcessor<'a> {
+    _marker: std::marker::PhantomData<&'a ()>,
 }
 
-impl<F: Clone, C> StorageProcessor<F, C> {
+impl<'a> StorageProcessor<'a> {
     pub fn new() -> Self {
         Self {
             _marker: PhantomData,
@@ -15,61 +16,79 @@ impl<F: Clone, C> StorageProcessor<F, C> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct PreprocessorContext {}
+#[derive(Debug)]
+pub struct PreprocessorContext<'a, F: Clone, C> {
+    path_stack: Vec<NodeId>,
+    program: &'a mut Program<F>,
+    _marker: std::marker::PhantomData<(&'a (), F, C)>,
+}
 
-impl PreprocessorContext {
-    pub fn new() -> Self {
-        Self {}
+impl<'a, F: Clone, C> PreprocessorContext<'a, F, C> {
+    pub fn new(program: &'a mut Program<F>) -> Self {
+        Self {
+            path_stack: Vec::new(),
+            program,
+            _marker: PhantomData,
+        }
     }
 }
 
-impl<F: Clone, C> VisitorContext<F, C> for PreprocessorContext {
-    type Artifact = ();
-
+impl<'a, F: Clone, C> VisitorContext<F, C> for PreprocessorContext<'a, F, C> {
     fn node_id(&self) -> NodeId {
-        todo!()
+        self.path_stack.last().unwrap().clone()
     }
 
     fn parent_node_id(&self) -> NodeId {
-        todo!()
+        self.path_stack[self.path_stack.len() - 2].clone()
     }
 
     fn node_path(&self) -> &[NodeId] {
-        todo!()
+        &self.path_stack
     }
 
     fn push_node_id(&mut self, node_id: NodeId) {
-        todo!()
+        self.path_stack.push(node_id);
     }
 
     fn pop_node_id(&mut self) {
-        todo!()
+        self.path_stack.pop();
     }
 
     fn node_type(&self) -> NodeType {
         todo!()
     }
 
-    fn ident(&self, id: IdentId) -> &str {
-        todo!()
+    fn ident(&self, id: IdentId) -> &Ident {
+        &self.program.interner[id]
+    }
+
+    fn module(&self, module_id: ModuleId) -> &ModuleNode {
+        self.program.modules[module_id].data()
+    }
+
+    fn program(&self) -> &Program<F> {
+        &self.program
     }
 
     fn expression(&self, expr_id: ExprId) -> &ExprNode<F> {
-        todo!()
+        &self.program.exprs[expr_id]
     }
 
     fn statement(&self, stmt_id: StmtId) -> &StmtNode {
-        todo!()
+        &self.program.stmts[stmt_id]
     }
 
     fn definition(&self, def_id: DefId) -> &DefinitionNode {
-        todo!()
+        &self.program.defs[def_id]
+    }
+
+    fn dependency_graph(&self) -> Graph<ModuleId> {
+        self.program.dependency_graph.clone()
     }
 }
 
-impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
-    type Context = PreprocessorContext;
+impl<'a, F: Clone + 'static, C> AstVisitor<F, C> for StorageProcessor<'a> {
+    type Context = PreprocessorContext<'a, F, C>;
     type ExprResult = ();
     type StmtResult = ();
     type Error = ();
@@ -79,7 +98,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         use_path: &UsePath,
         ctx: &mut Self::Context,
     ) -> Result<(), Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_path(
@@ -87,7 +106,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_index_access(
@@ -95,7 +114,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_member_access(
@@ -103,7 +122,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_value(
@@ -111,7 +130,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_binary(
@@ -119,7 +138,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_unary(
@@ -127,7 +146,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_call(
@@ -135,7 +154,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_cast(
@@ -143,7 +162,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_if(
@@ -151,7 +170,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_while(
@@ -159,7 +178,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_block(
@@ -167,7 +186,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_assignment(
@@ -175,7 +194,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_variable(
@@ -183,7 +202,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_return(
@@ -191,7 +210,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         expr: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_impl(
@@ -199,7 +218,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_trait(
@@ -207,7 +226,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_function(
@@ -215,7 +234,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_struct(
@@ -223,7 +242,7 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_enum(
@@ -231,6 +250,6 @@ impl<F: Clone, C> AstVisitor<F, C> for StorageProcessor<F, C> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 }

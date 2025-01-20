@@ -32,7 +32,7 @@ impl<F: ContextFelt, C: Context<F>> ContextInput for Interpreter<F, C> {
     }
 }
 
-impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
+impl<F: ContextFelt + Display + 'static, C: Context<F>> Interpreter<F, C> {
     pub fn new(context: C) -> Self {
         Self {
             inputs: vec![],
@@ -49,24 +49,26 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         parameters: Vec<CheckedValueOrNode<F>>,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<Option<CheckedValue<F>>> {
-        let mut parser = Parser::new();
-        let mut program = parser
+        let mut program = Program::new();
+        let mut parser = Parser::new(&mut program);
+        parser
             .parse(&mut self.context, entry)
             .map_err(|err| Error::ParseError(err.to_string()))?;
 
-        let mut storage_preprocessor: StorageProcessor<F, C> = StorageProcessor::new();
-        let mut preprocessor_context = PreprocessorContext::new();
-        storage_preprocessor.visit_program(&mut program, &mut preprocessor_context);
+        let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
+        let mut preprocessor_context: PreprocessorContext<'_, F, C> =
+            PreprocessorContext::new(&mut program);
+        storage_preprocessor.visit_program(&mut preprocessor_context);
 
         // TODO: remove clone
-        let mut formatter_context: FormatterContext<F, C> = FormatterContext::new();
+        let mut formatter_context: FormatterContext<F, C> = FormatterContext::new(&program);
 
         let mut formatter = Formatter::new();
-        formatter.visit_program(&program, &mut formatter_context);
+        formatter.visit_program(&mut formatter_context);
         println!("formatted:\n{}", formatter.get_output());
         println!("ast:\n{:#?}", program);
 
-        let mut artifact = Artifact::new(parser, program);
+        let mut artifact = Artifact::new(program);
         typechecker.typecheck_program(symbols, &mut artifact)?;
         let scope_id = symbols[ModuleId::root()].scope_id;
         let type_id = symbols[scope_id]

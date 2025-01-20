@@ -5,13 +5,16 @@ use qed_parser::Parser;
 
 #[derive(Debug)]
 pub struct Artifact<F: Clone, C> {
-    pub parser: Parser<F, C>,
-    pub program: Program,
+    pub program: Program<F>,
+    _marker: std::marker::PhantomData<C>,
 }
 
 impl<F: Clone, C> Artifact<F, C> {
-    pub fn new(parser: Parser<F, C>, program: Program) -> Self {
-        Self { parser, program }
+    pub fn new(program: Program<F>) -> Self {
+        Self {
+            program,
+            _marker: std::marker::PhantomData,
+        }
     }
 }
 
@@ -20,13 +23,13 @@ macro_rules! impl_index {
         impl<F: Clone, C> Index<$index_type> for Artifact<F, C> {
             type Output = $output_type;
             fn index(&self, index: $index_type) -> &Self::Output {
-                &self.parser.$field[index]
+                &self.program.$field[index]
             }
         }
 
         impl<F: Clone, C> IndexMut<$index_type> for Artifact<F, C> {
             fn index_mut(&mut self, index: $index_type) -> &mut Self::Output {
-                &mut self.parser.$field[index]
+                &mut self.program.$field[index]
             }
         }
     };

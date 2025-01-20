@@ -53,10 +53,8 @@ pub trait AstVisitor<F: Clone, C> {
             NodeType::AssignmentStmt => Ok(self.visit_assignment(stmt_id, ctx)?),
             NodeType::VariableStmt => Ok(self.visit_variable(stmt_id, ctx)?),
             NodeType::ReturnStmt => Ok(self.visit_return(stmt_id, ctx)?),
-            // TODO: remove clone
             NodeType::DefinitionStmt => Ok(self
                 .visit_definition(ctx.statement(stmt_id).as_definition().unwrap().clone(), ctx)?),
-            // TODO: remove clone
             NodeType::ExpressionStmt => Ok(Self::StmtResult::from(
                 self.visit_expr(ctx.statement(stmt_id).as_expression().unwrap().clone(), ctx)?,
             )),
@@ -69,30 +67,27 @@ pub trait AstVisitor<F: Clone, C> {
 
     fn visit_module(
         &mut self,
-        module: &ModuleNode,
+        module_id: ModuleId,
         ctx: &mut Self::Context,
     ) -> Result<(), Self::Error> {
-        for u in &module.uses {
+        // TODO: remove clone
+        for u in &ctx.module(module_id).uses.clone() {
             self.visit_use(u, ctx)?;
         }
 
-        for &definition in &module.definitions {
+        // TODO: remove clone
+        for &definition in &ctx.module(module_id).definitions.clone() {
             self.visit_definition(definition, ctx)?;
         }
 
         Ok(())
     }
 
-    fn visit_program(
-        &mut self,
-        program: &Program,
-        ctx: &mut Self::Context,
-    ) -> Result<(), Self::Error> {
+    fn visit_program(&mut self, ctx: &mut Self::Context) -> Result<(), Self::Error> {
         let mut visited = HashMap::new();
-        program
-            .dependency_graph
+        ctx.dependency_graph()
             .ts(&ModuleId::root(), &mut visited, &mut |&module_id| {
-                self.visit_module(program.modules[module_id].data(), ctx);
+                self.visit_module(module_id, ctx);
             });
 
         Ok(())

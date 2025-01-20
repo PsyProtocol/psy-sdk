@@ -1,74 +1,87 @@
 use qed_ast::*;
 use qed_builder::{Context, ContextFelt};
+use qed_common::Graph;
 use qed_parser::Parser;
 use std::fmt::{Display, Write};
 
-pub struct FormatterContext<F: Clone, C> {
-    path: Vec<NodeId>,
+pub struct FormatterContext<'a, F: Clone, C> {
+    path_stack: Vec<NodeId>,
+    program: &'a Program<F>,
     _marker: std::marker::PhantomData<(F, C)>,
 }
 
-impl<F: Clone, C> FormatterContext<F, C> {
-    pub fn new() -> Self {
+impl<'a, F: Clone, C> FormatterContext<'a, F, C> {
+    pub fn new(program: &'a Program<F>) -> Self {
         FormatterContext {
-            path: vec![],
+            path_stack: vec![],
+            program,
             _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<F: Clone, C> VisitorContext<F, C> for FormatterContext<F, C> {
-    type Artifact = ();
-
+impl<'a, F: Clone, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
     fn node_id(&self) -> NodeId {
-        todo!()
+        self.path_stack.last().unwrap().clone()
     }
 
     fn parent_node_id(&self) -> NodeId {
-        todo!()
+        self.path_stack[self.path_stack.len() - 2].clone()
     }
 
     fn node_path(&self) -> &[NodeId] {
-        todo!()
+        &self.path_stack
     }
 
     fn push_node_id(&mut self, node_id: NodeId) {
-        todo!()
+        self.path_stack.push(node_id);
     }
 
     fn pop_node_id(&mut self) {
-        todo!()
+        self.path_stack.pop();
     }
 
     fn node_type(&self) -> NodeType {
         todo!()
     }
 
-    fn ident(&self, id: IdentId) -> &str {
-        todo!()
+    fn ident(&self, id: IdentId) -> &Ident {
+        &self.program.interner[id]
+    }
+
+    fn module(&self, module_id: ModuleId) -> &ModuleNode {
+        self.program.modules[module_id].data()
+    }
+
+    fn program(&self) -> &Program<F> {
+        &self.program
     }
 
     fn expression(&self, expr_id: ExprId) -> &ExprNode<F> {
-        todo!()
+        &self.program.exprs[expr_id]
     }
 
     fn statement(&self, stmt_id: StmtId) -> &StmtNode {
-        todo!()
+        &self.program.stmts[stmt_id]
     }
 
     fn definition(&self, def_id: DefId) -> &DefinitionNode {
-        todo!()
+        &self.program.defs[def_id]
+    }
+
+    fn dependency_graph(&self) -> Graph<ModuleId> {
+        self.program.dependency_graph.clone()
     }
 }
 
 #[derive(Debug)]
-pub struct Formatter<F: Clone, C> {
+pub struct Formatter<'a, F: Clone, C> {
     output: String,
     indent: usize,
-    _marker: std::marker::PhantomData<(F, C)>,
+    _marker: std::marker::PhantomData<(&'a (), F, C)>,
 }
 
-impl<F: Clone + Display, C> Formatter<F, C> {
+impl<'a, F: Clone + Display, C> Formatter<'a, F, C> {
     pub fn new() -> Self {
         Formatter {
             output: String::new(),
@@ -158,10 +171,12 @@ impl<F: Clone + Display, C> Formatter<F, C> {
     }
 }
 
-impl<F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter<F, C> {
+impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
+    for Formatter<'a, F, C>
+{
     type ExprResult = String;
     type StmtResult = String;
-    type Context = FormatterContext<F, C>;
+    type Context = FormatterContext<'a, F, C>;
     type Error = ();
 
     fn visit_use(&mut self, u: &UsePath, ctx: &mut Self::Context) -> Result<(), Self::Error> {

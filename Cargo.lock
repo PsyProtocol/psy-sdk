@@ -985,6 +985,7 @@ version = "0.1.0"
 dependencies = [
  "qed-ast",
  "qed-builder",
+ "qed-common",
  "qed-parser",
 ]
 
