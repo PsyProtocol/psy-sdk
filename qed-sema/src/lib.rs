@@ -688,23 +688,112 @@ impl<F: Clone, C> TypeChecker<F, C> {
         artifact: &ParsingArtifact<F, C>,
         expr: &ExprNode<F>,
     ) -> Result<CheckedExprNode<F>> {
+        //tyree 3
         match expr {
-            ExprNode::Path(PathNode(ident)) => {
+            ExprNode::Path(p) => {
+                let PathNode {
+                    root,
+                    segments,
+                    target,
+                    ..
+                } = p;
+
+                //get current scope_id
                 let scope_id = symbols.current_scope_id().unwrap();
-                if let Some(variable) = symbols.get_variable(None, &ident) {
+
+                if let Some(variable) = symbols.get_variable(None, &target) {
+
                     Ok(CheckedExprNode::Path(CheckedPathNode {
-                        name: ident.clone(),
+                        name: target.clone(),
                         type_id: variable.ty,
                         scope_id: variable.scope_id,
                     }))
-                } else if let Some(type_id) = symbols.get_type_id(None, ident.clone()) {
+                } else if let Some(type_id) = symbols.get_type_id(None, target.clone()) {
+
                     return Ok(CheckedExprNode::Path(CheckedPathNode {
-                        name: ident.clone(),
+                        name: target.clone(),
                         type_id,
                         scope_id,
                     }));
                 } else {
-                    return Err(Error::UnresolvedVariable);
+                    if root.is_none() && segments.is_empty(){
+                        return Err(Error::UnresolvedVariable);
+                    }
+
+                    let root_scope = {
+                        //try to search in the whole type table
+                        let root_checked_type = symbols.search_type_table(root.unwrap());
+
+                        if root_checked_type.len() == 0 {
+                            //cannot find it from type table, then search it
+                            match symbols.get_scope(Some(scope_id), &root.unwrap()) {
+                                Some(s) => s,
+                                None => {
+                                    return Err(Error::UnresolvedVariable);
+                                }
+                            }
+                        }else {
+                            //maybe have not only one with the same name,but we assume it is a struct
+                            root_checked_type.iter().find_map(|x| {
+                                match x {
+                                    //Struct::fun()
+                                    Type::Struct(checked_struct) => {
+                                        Some(checked_struct.scope_id)
+                                    }
+                                    //Enum::fun()
+                                    Type::Enum(checked_enum) => {
+                                        Some(checked_enum.scope_id)
+                                    }
+                                    _ => {
+                                        //todo!: add other type support
+                                        None
+                                    }
+                                }
+                            }).expect("cannot find path's root")
+                        }
+
+                    };
+
+                    //compare segments one by one to find the most close one
+                    let method_scope = symbols.find_path_scope(segments, root_scope);
+                    if method_scope.is_empty(){
+                        return Err(Error::UnresolvedPath);
+                    }
+
+                    let mut method_type_with_path = Vec::new();
+                    for ms in method_scope {
+                        match symbols.resolve_method_with_path(ms, *target){
+                            Some(r) => {method_type_with_path.extend(r)}
+                            None => {
+                                continue;
+                            }
+                        };
+                    }
+
+                    if method_type_with_path.is_empty() {
+                        return Err(Error::UnresolvedPath);
+                    }
+                    return match method_type_with_path.len() {
+                        0 => {
+                            Err(Error::UnresolvedPath)
+                        }
+                        1 => {
+                            let (method_type, method_path) = &method_type_with_path[0];
+                            println!("method_type: {:?}", method_type);
+                            println!("method_path: {:?}", method_path);
+                            let type_id = method_type.clone();
+                            let name = target.clone();
+                            let scope_id = method_path.last().unwrap().clone();
+                            Ok(CheckedExprNode::Path(CheckedPathNode {
+                                name,
+                                type_id,
+                                scope_id,
+                            }))
+                        }
+                        _ => {
+                            Err(Error::UnresolvedPath)
+                        }
+                    }
                 }
             }
             ExprNode::Value(value_node) => match value_node {
@@ -999,7 +1088,11 @@ impl<F: Clone, C> TypeChecker<F, C> {
 
         if !scope.types.is_empty() {
             println!("{}  Types:", indent_str);
+            let symbols_type_len = symbols.get_types_len();
             for (type_key, type_id) in &scope.types {
+                if type_id.0 >= symbols_type_len {
+                    continue;
+                }
                 println!(
                     "{}    {:?}: {:?}",
                     indent_str,

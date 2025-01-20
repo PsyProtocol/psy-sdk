@@ -116,8 +116,9 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
         self.write_line(&format!("use {}::{};", path.join("::"), target));
     }
 
+    //todo: implement this
     fn visit_path(&mut self, node: &PathNode) -> Self::ExprResult {
-        self.parser.interner[node.0].to_string()
+        self.parser.interner[node.target].to_string()
     }
 
     fn visit_index_access(&mut self, node: &IndexAccessNode) -> Self::ExprResult {

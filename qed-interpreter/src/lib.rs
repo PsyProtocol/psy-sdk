@@ -751,14 +751,20 @@ mod test {
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
-        insta::glob!("../../tests", "002.qed", |path| {
+        insta::glob!("../../tests", "003.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(ExecContext::new());
             let cache = SymFeltEvalCache::new();
             let store = SymFeltStore::new();
             let mut typecheker = TypeChecker::new();
-            interpreter
+            match interpreter
                 .interpret(&mut typecheker, path.to_path_buf(), vec![])
-                .unwrap();
+                {
+                    Ok(t) => () ,
+                    Err(e) => {
+                        println!("Err {}", e);
+                    panic!();
+                }
+                }
         });
     }
 }

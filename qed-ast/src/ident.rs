@@ -47,6 +47,13 @@ impl IdentId {
     pub const MAIN: IdentId = IdentId(11);
 }
 
+impl Display for IdentId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+
 pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
     (IdentId::TYPE_UNKNOWN, "unknown"),
     (IdentId::TYPE_BOOL, "bool"),

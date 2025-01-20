@@ -58,7 +58,7 @@ ModuleDecl: IdentId = {
 }
 
 ModuleUse: UsePath = {
-    <l:@L> USE <path:Path> ";" <r:@R> => UsePath {
+    <l:@L> USE <path:PathOld> ";" <r:@R> => UsePath {
         kind: UseKind::from(path.0),
         target: path.2,
         segments: path.1,
@@ -249,26 +249,96 @@ AssignmentStatement: StmtNode<F> = {
 Term: ExprNode<F> = {
     <l:@L> "(" <expr:Expression> ")" <r:@R> => expr,
     ValueExpression,
-    <l:@L> <name:IdentifierOrSelf> <r:@R> => ExprNode::<F>::Path(PathNode(name)),
+    PathExpression,
+   
 }
+//tyree 1
+PathExpression: ExprNode<F> = {
+    // Single
+    <variable: Identifier> => ExprNode::Path(PathNode {
+        path_type: PathType::Basic,
+        root: None,
+        segments: vec![],
+        target: variable,
+    }),
 
+    // Multi: root + segments + target
+    <root: Identifier> "::" <segments: (<Identifier> "::")*> <target: Identifier> => {
+        let mut segment_ids = segments.into_iter().map(|(seg)| seg).collect::<Vec<_>>();
+        ExprNode::Path(PathNode {
+            path_type: PathType::Nested,
+            root: Some(root),
+            segments: segment_ids,
+            target,
+        })
+    },
+};
 Expression: ExprNode<F> = {
     #[precedence(level="1")]
     Term,
 
+
+    //#[precedence(level="2")]
+    //todo: Temporarily disable generic capabilities
+    //<l:@L> <variable:Expression> <generic_parameters:Monomorphization?> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
+    //    CallNode {
+    //        receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
+    //        variable: expr_nodes.alloc_item(variable),
+    //        generic_parameters: generic_parameters.unwrap_or(Vec::new()),
+    //        args: expr_nodes.alloc_items(args)
+    //    }
+    //),
+
     #[precedence(level="2")]
-    <l:@L> <variable:Expression> <generic_parameters:Monomorphization?> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
-        CallNode {
-            receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
-            variable: expr_nodes.alloc_item(variable),
-            generic_parameters: generic_parameters.unwrap_or(Vec::new()),
-            args: expr_nodes.alloc_items(args)
+    <l:@L> <path:Expression> "(" <args:Comma<Expression>> ")" <r:@R> => {
+        match path.clone() {
+            ExprNode::<F>::Path(PathNode { root, segments, target, path_type }) => {
+                match path_type {
+                    PathType::Basic => {
+                        ExprNode::<F>::Call(
+                            CallNode {
+                                receiver: None,
+                                variable: expr_nodes.alloc_item(path),
+                                generic_parameters:Vec::new(),
+                                args: expr_nodes.alloc_items(args)
+                            }
+                        )
+                    },
+                    PathType::Nested => {
+                        ExprNode::<F>::Call(
+                            CallNode {
+                                receiver: None,
+                                variable: expr_nodes.alloc_item(path),
+                                //todo: need generic para
+                                generic_parameters:Vec::new(),
+                                args: expr_nodes.alloc_items(args)
+                            }
+                        )
+                    },
+                    //todo: deal with error more gracefully
+                    _ => panic!("Unexpected expression {:?}", path)
+                }
+            },
+            ExprNode::<F>::MemberAccess(MemberAccessNode { value, field }) => {
+                ExprNode::<F>::Call(
+                    CallNode {
+                        receiver: Some(value),
+                        variable: expr_nodes.alloc_item(path),
+                        generic_parameters:Vec::new(),
+                        args: expr_nodes.alloc_items(args)
+                    }
+                )
+            },
+              //todo: deal with error more gracefully
+            _ => panic!("Unexpected expression {:?}", path)
         }
-    ),
+    },
+    #[precedence(level="2")]
     <l:@L> <variable:Expression> "[" <index:NUMBER> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
         value: expr_nodes.alloc_item(variable),
         index: usize::try_from(index).unwrap()
     }),
+    #[precedence(level="2")]
     <l:@L> <variable:Expression> "." <field:Identifier> <r:@R> => ExprNode::<F>::MemberAccess(MemberAccessNode {
         value: expr_nodes.alloc_item(variable),
         field
@@ -278,6 +348,7 @@ Expression: ExprNode<F> = {
     <l:@L> "!" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
         UnaryNode{operator: UnaryOperator::Not, rhs: expr_nodes.alloc_item(rhs)}
     ),
+    #[precedence(level="3")]
     <l:@L> "-" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
         UnaryNode{operator: UnaryOperator::Neg, rhs: expr_nodes.alloc_item(rhs)}
     ),
@@ -294,9 +365,11 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> "*" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mul, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="5")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "/" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Div, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="5")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "%" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mod, expr_nodes.alloc_item(rhs))
     ),
@@ -305,6 +378,7 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> "+" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Add, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="6")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "-" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Sub, expr_nodes.alloc_item(rhs))
     ),
@@ -313,6 +387,7 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> "<<" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitShl, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="7")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> ">>" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitShr, expr_nodes.alloc_item(rhs))
     ),
@@ -336,12 +411,15 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> ">" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Gt, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="11")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "<" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Lt, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="11")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> ">=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Gte, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="11")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "<=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Lte, expr_nodes.alloc_item(rhs))
     ),
@@ -350,6 +428,7 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> "==" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Eq, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="12")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "!=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Neq, expr_nodes.alloc_item(rhs))
     ),
@@ -380,10 +459,18 @@ BoolExpression: ExprNode<F> = {
     <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Bool(ctx.op_bool(b)))
 }
 
+//todo: Temporarily disable generic capabilities
+//StructExpression: ExprNode<F> = {
+//    <l:@L> <name:Identifier> <generic_parameters:Monomorphization?> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
+//        name,
+//        generic_parameters.unwrap_or(Vec::new()),
+//        kv.into_iter().collect()
+//    )),
+//}
 StructExpression: ExprNode<F> = {
-    <l:@L> <name:Identifier> <generic_parameters:Monomorphization?> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
+    <l:@L> <name:Identifier>  "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
         name,
-        generic_parameters.unwrap_or(Vec::new()),
+        Vec::new(),
         kv.into_iter().collect()
     )),
 }
@@ -398,7 +485,7 @@ ArrayExpression: ExprNode<F> = {
     ),
 }
 
-Path: (IdentId, Vec<IdentId>, Option<IdentId>) =
+PathOld: (IdentId, Vec<IdentId>, Option<IdentId>) =
     <a:ModuleUseKind> "::" <h:(<Identifier> "::")*> <t:IdentifierOrAll> => {
         (a, h, t)
     };

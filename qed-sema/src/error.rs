@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum Error {
     #[error("type mismatch")]
     TypeMismatch,
+    #[error("unresolved path")]
+    UnresolvedPath,
     #[error("unresolved value")]
     UnresolvedVariable,
     #[error("unresolved type")]

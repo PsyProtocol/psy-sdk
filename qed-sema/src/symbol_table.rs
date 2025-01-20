@@ -275,7 +275,29 @@ impl<T> SymbolTable<T> {
         }
         None
     }
+    pub fn resolve_method_with_path(
+        &self,
+        scope_id: ScopeId,
+        method_name: IdentId,
+    ) -> Option<Vec<(TypeId, Vec<ScopeId>)>> {
+        let method_name: TypeKey = method_name.into();
 
+        println!("scope_id = {:?}", scope_id);
+        println!("method_name = {:?}", method_name);
+
+
+        let res = self.find_type_recursive(scope_id, &method_name);
+        println!("res = {:?}", res);
+        let r = res.iter().map(|x| {
+            let type_id = self[*x].types.get(&method_name).cloned();
+            (type_id.unwrap(), res.clone())
+        }).collect::<Vec<_>>();
+        if r.is_empty(){
+            return None;
+        }else {
+            return Some(r);
+        }
+    }
     pub fn resolve_use(&self, use_path: &UsePath) -> Option<Vec<(&TypeKey, &TypeId)>> {
         eprintln!(
             "DEBUGPRINT[8]: symbol_table.rs:260: self.modules={:#?}",
@@ -376,6 +398,60 @@ impl<T> SymbolTable<T> {
         })?;
         self[scope_id].types.get(&name).cloned()
     }
+    pub fn get_type_id_with_scope<S: Into<TypeKey>>(
+        &self,
+        start_scope: Option<ScopeId>,
+        name: S,
+    ) -> Option<TypeId> {
+        let name: TypeKey = name.into();
+        let scope_id = self.find_scope(start_scope, vec![ScopeKind::Module], |scope| {
+            scope.types.contains_key(&name)
+        })?;
+        self[scope_id].types.get(&name).cloned()
+    }
+
+    pub fn get_function_type(&self, idx: IdentId) -> Vec<CheckedFunctionNode> {
+        let ret = self.types.iter().filter_map(|i| match i {
+            Type::Function(f) => {
+                if f.name == idx {
+                    Some(f.clone())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }).collect::<Vec<_>>();
+        ret
+    }
+    pub fn search_type_table(&self, idx: IdentId) -> Vec<Type> {
+        //todo use macro to optimize below code
+        let ret = self.types.iter().filter_map(|i| match i {
+            Type::Function(f) => {
+                if f.name == idx {
+                    Some(Type::Function(f.clone()))
+                } else {
+                    None
+                }
+            }
+            Type::Struct(s) => {
+                if s.name == idx {
+                    Some(Type::Struct(s.clone()))
+                } else {
+                    None
+                }
+            }
+            Type::Enum(e) => {
+                if e.name == idx {
+                    Some(Type::Enum(e.clone()))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }).collect::<Vec<_>>();
+        ret
+    }
+
 
     fn find_scope(
         &self,
@@ -398,6 +474,84 @@ impl<T> SymbolTable<T> {
         return None;
     }
 
+    fn find_type_recursive(
+        &self,
+        start_scope: ScopeId,
+        type_key: &TypeKey,
+    ) -> Vec<ScopeId> {
+        let mut current_scope_id = start_scope;
+
+        let mut r = self[current_scope_id].children.iter().map(|x| {
+            self.find_type_recursive(*x, type_key)
+        })
+            .filter(|x| !x.is_empty())
+            .flatten()
+            .collect::<Vec<_>>();
+
+        if self[current_scope_id].types.contains_key(type_key) {
+            r.push(current_scope_id);
+        }
+        r
+
+    }
+    pub fn find_path_scope(
+        &self,
+        path_vec: &Vec<IdentId>,
+        start_scope: ScopeId,
+    ) -> Vec<ScopeId> {
+        //if path_vec is empty, return the start_scope
+        if path_vec.is_empty(){
+            return vec![start_scope];
+        }
+
+
+        let mut idx = 0 ;
+        let mut scopes = self.find_type_recursive(start_scope, &path_vec[idx].into());
+
+        if scopes.is_empty() {
+            return vec![];
+        }
+        
+        'outer: loop {
+
+            idx += 1;
+
+            if idx == path_vec.len(){
+               break 'outer;
+            }
+            let mut new_scopes = vec![];
+            'inner: loop {
+                let s = match scopes.pop(){
+                    Some(s) => s,
+                    None => break 'inner,
+                };
+                let ss = self.find_type_recursive(s, &path_vec[idx].into());
+                new_scopes.extend(ss);
+            }
+            if new_scopes.is_empty(){
+                break 'outer;
+            }
+            scopes = new_scopes;
+
+        }
+
+        scopes
+    }
+    pub fn get_scope(
+        &self,
+        start_scope: Option<ScopeId>,
+        target: &IdentId,
+    )-> Option<ScopeId>{
+        let type_key: TypeKey = (*target).into();
+        let scope_id = self.find_scope(
+            start_scope,
+            //note: maybe should be fewer options below
+            vec![],//use none so that it will search all the way
+            |scope| {
+            scope.types.contains_key(&type_key)
+        });
+        scope_id
+    }
     pub fn get_variable(
         &mut self,
         start_scope: Option<ScopeId>,
@@ -410,7 +564,20 @@ impl<T> SymbolTable<T> {
         )?;
         self[scope_id].variables.get_mut(key)
     }
+    pub fn find_variable_scope(
+        &mut self,
+        start_scope: Option<ScopeId>,
+        key: &IdentId,
+    ) -> Option<ScopeId> {
+        let scope_id = self.find_scope(
+            start_scope,
+            vec![ScopeKind::Function, ScopeKind::ImplMethod],
+            |scope| scope.variables.contains_key(key),
+        );
 
+        scope_id
+
+    }
     pub fn set_variable(
         &mut self,
         start_scope: Option<ScopeId>,
@@ -444,6 +611,11 @@ impl<T> SymbolTable<T> {
         self[current_scope_id].variables.insert(key, value);
         Ok(())
     }
+
+    pub fn get_types_len(&self) -> usize {
+        self.types.len()
+    }
+    
 }
 
 #[cfg(test)]

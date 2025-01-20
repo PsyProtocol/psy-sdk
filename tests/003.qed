@@ -1,0 +1,49 @@
+mod math;
+
+fn test_path(a: Felt, b: Felt) -> Felt {
+            let c: Felt = a + b;
+            return c;
+}
+struct Person {
+    age: Felt,
+    height: Felt,
+    weight: Felt,
+}
+impl Person {
+    fn calculate2(a: Felt, b: Felt) -> Felt {
+        let c: Felt = a + b;
+        return c;
+    }
+    fn cal14355234(name: Felt, age: Felt, height: Felt, weight: Felt) -> Felt {
+        let c: Felt = age + height + weight;
+        let d: Felt = 10;
+        return c;
+    }
+}
+
+
+struct Person1 {
+    age: Felt,
+    height: Felt,
+    weight: Felt,
+}
+impl Person1 {
+    fn calculate2(a: Felt, b: Felt) -> Felt {
+        let c: Felt = a + b;
+        return c;
+    }
+    fn cal11234(name: Felt, age: Felt, height: Felt, weight: Felt) -> Felt {
+        let c: Felt = age + height + weight;
+        let d: Felt = 10;
+        return c;
+    }
+
+}
+
+fn main() {
+    let mut c: Felt = 10;
+    c = 5;
+    let e: Felt =  Person::calculate2(3, 4);
+    let f: Felt =  Person1::calculate2(3, 4);
+
+}
