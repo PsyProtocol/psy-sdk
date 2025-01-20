@@ -9,7 +9,7 @@ use error::{Error, Result};
 use preprocess::{PreprocessorContext, StorageProcessor};
 use qed_ast::*;
 use qed_builder::{Context, ContextFelt, ContextInput};
-use qed_fmt::Formatter;
+use qed_fmt::{Formatter, FormatterContext};
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
@@ -58,8 +58,11 @@ impl<F: ContextFelt + Display, C: Context<F>> Interpreter<F, C> {
         let mut preprocessor_context = PreprocessorContext::new();
         storage_preprocessor.visit_program(&mut program, &mut preprocessor_context);
 
-        let mut formatter = Formatter::new(&parser);
-        formatter.visit_program(&program, &mut ());
+        // TODO: remove clone
+        let mut formatter_context: FormatterContext<F, C> = FormatterContext::new();
+
+        let mut formatter = Formatter::new();
+        formatter.visit_program(&program, &mut formatter_context);
         println!("formatted:\n{}", formatter.get_output());
         println!("ast:\n{:#?}", program);
 

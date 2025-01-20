@@ -53,8 +53,10 @@ pub trait AstVisitor<F: Clone, C> {
             NodeType::AssignmentStmt => Ok(self.visit_assignment(stmt_id, ctx)?),
             NodeType::VariableStmt => Ok(self.visit_variable(stmt_id, ctx)?),
             NodeType::ReturnStmt => Ok(self.visit_return(stmt_id, ctx)?),
+            // TODO: remove clone
             NodeType::DefinitionStmt => Ok(self
                 .visit_definition(ctx.statement(stmt_id).as_definition().unwrap().clone(), ctx)?),
+            // TODO: remove clone
             NodeType::ExpressionStmt => Ok(Self::StmtResult::from(
                 self.visit_expr(ctx.statement(stmt_id).as_expression().unwrap().clone(), ctx)?,
             )),

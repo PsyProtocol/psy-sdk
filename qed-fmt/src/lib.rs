@@ -5,11 +5,21 @@ use std::fmt::{Display, Write};
 
 pub struct FormatterContext<F: Clone, C> {
     path: Vec<NodeId>,
-    parser: Parser<F, C>,
-    program: Program,
+    _marker: std::marker::PhantomData<(F, C)>,
+}
+
+impl<F: Clone, C> FormatterContext<F, C> {
+    pub fn new() -> Self {
+        FormatterContext {
+            path: vec![],
+            _marker: std::marker::PhantomData,
+        }
+    }
 }
 
 impl<F: Clone, C> VisitorContext<F, C> for FormatterContext<F, C> {
+    type Artifact = ();
+
     fn node_id(&self) -> NodeId {
         todo!()
     }

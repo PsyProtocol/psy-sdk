@@ -1,9 +1,31 @@
-use crate::{DefId, DefinitionNode, ExprId, ExprNode, IdentId, StmtId, StmtNode};
+use crate::{
+    DefId, DefinitionNode, ExprId, ExprNode, IdentId, ModuleId, ModuleNode, Program, StmtId,
+    StmtNode,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeId {
     Expr(ExprId),
     Stmt(StmtId),
+    Def(DefId),
+}
+
+impl From<ExprId> for NodeId {
+    fn from(value: ExprId) -> Self {
+        Self::Expr(value)
+    }
+}
+
+impl From<StmtId> for NodeId {
+    fn from(value: StmtId) -> Self {
+        Self::Stmt(value)
+    }
+}
+
+impl From<DefId> for NodeId {
+    fn from(value: DefId) -> Self {
+        Self::Def(value)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,6 +56,8 @@ pub enum NodeType {
 }
 
 pub trait VisitorContext<F: Clone, C> {
+    type Artifact;
+
     fn node_id(&self) -> NodeId;
     fn parent_node_id(&self) -> NodeId;
     fn node_path(&self) -> &[NodeId];
