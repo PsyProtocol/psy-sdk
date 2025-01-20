@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use qed_common::{define_arena_id, FileId};
 
-use crate::{AstVisitor, DefinitionNode, IdentId};
+use crate::{AstVisitor, DefId, DefinitionNode, IdentId};
 
 define_arena_id!(ModuleId);
 
@@ -70,7 +70,7 @@ pub struct ModuleNode {
     pub file_id: FileId,
     pub modules: Vec<IdentId>,
     pub uses: Vec<UsePath>,
-    pub definitions: Vec<DefinitionNode>,
+    pub definitions: Vec<DefId>,
 
     pub is_std: bool,
     pub is_self_std: bool,

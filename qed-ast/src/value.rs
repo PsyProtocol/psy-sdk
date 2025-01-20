@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
+use enum_as_inner::EnumAsInner;
 use strum::{EnumIs, EnumTryAs};
 
 use crate::{AstVisitor, ExprId, IdentId, UncheckedType};
 
-#[derive(Clone, Debug, PartialEq, EnumIs, EnumTryAs)]
+#[derive(Clone, Debug, PartialEq, EnumAsInner)]
 pub enum ValueNode<F: Clone> {
     Felt(F),
     Bool(F),
@@ -12,8 +13,8 @@ pub enum ValueNode<F: Clone> {
     Struct(IdentId, Vec<UncheckedType>, HashMap<IdentId, ExprId>),
 }
 
-impl<F: Clone> ValueNode<F> {
-    pub fn accept_visitor<C, V: AstVisitor<F, C>>(&self, visitor: &mut V, ctx: &mut V::Context) {
-        visitor.visit_value(self, ctx);
-    }
-}
+// impl<F: Clone> ValueNode<F> {
+//     pub fn accept_visitor<C, V: AstVisitor<F, C>>(&self, visitor: &mut V, ctx: &mut V::Context) {
+//         visitor.visit_value(self, ctx);
+//     }
+// }

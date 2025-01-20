@@ -23,12 +23,12 @@ pub struct UnaryNode {
     pub rhs: ExprId,
 }
 
-impl UnaryNode {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-        &mut self,
-        visitor: &mut V,
-        ctx: &mut V::Context,
-    ) -> Result<V::ExprResult, V::Error> {
-        visitor.visit_unary(self, ctx)
-    }
-}
+// impl UnaryNode {
+//     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+//         &mut self,
+//         visitor: &mut V,
+//         ctx: &mut V::Context,
+//     ) -> Result<V::ExprResult, V::Error> {
+//         visitor.visit_unary(self, ctx)
+//     }
+// }

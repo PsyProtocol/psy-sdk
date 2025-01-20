@@ -11,11 +11,11 @@ impl CastNode {
         Self { value, target_type }
     }
 
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-        &self,
-        visitor: &mut V,
-        ctx: &mut V::Context,
-    ) -> Result<V::ExprResult, V::Error> {
-        visitor.visit_cast(self, ctx)
-    }
+    // pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+    //     &self,
+    //     visitor: &mut V,
+    //     ctx: &mut V::Context,
+    // ) -> Result<V::ExprResult, V::Error> {
+    //     visitor.visit_cast(self, ctx)
+    // }
 }

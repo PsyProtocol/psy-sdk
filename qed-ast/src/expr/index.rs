@@ -12,22 +12,22 @@ pub struct MemberAccessNode {
     pub field: IdentId,
 }
 
-impl IndexAccessNode {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-        &self,
-        visitor: &mut V,
-        ctx: &mut V::Context,
-    ) -> Result<V::ExprResult, V::Error> {
-        visitor.visit_index_access(self, ctx)
-    }
-}
-
-impl MemberAccessNode {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-        &self,
-        visitor: &mut V,
-        ctx: &mut V::Context,
-    ) -> Result<V::ExprResult, V::Error> {
-        visitor.visit_member_access(self, ctx)
-    }
-}
+// impl IndexAccessNode {
+//     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+//         &self,
+//         visitor: &mut V,
+//         ctx: &mut V::Context,
+//     ) -> Result<V::ExprResult, V::Error> {
+//         visitor.visit_index_access(self, ctx)
+//     }
+// }
+//
+// impl MemberAccessNode {
+//     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+//         &self,
+//         visitor: &mut V,
+//         ctx: &mut V::Context,
+//     ) -> Result<V::ExprResult, V::Error> {
+//         visitor.visit_member_access(self, ctx)
+//     }
+// }

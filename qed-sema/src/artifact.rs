@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use qed_ast::{ExprId, ExprNode, Ident, IdentId, Program, StmtId, StmtNode};
+use qed_ast::{DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, Program, StmtId, StmtNode};
 use qed_parser::Parser;
 
 #[derive(Debug)]
@@ -33,5 +33,6 @@ macro_rules! impl_index {
 }
 
 impl_index!(ExprId, ExprNode<F>, exprs);
-impl_index!(StmtId, StmtNode<F>, stmts);
+impl_index!(StmtId, StmtNode, stmts);
+impl_index!(DefId, DefinitionNode, defs);
 impl_index!(IdentId, Ident, interner);

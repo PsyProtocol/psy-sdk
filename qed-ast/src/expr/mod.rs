@@ -12,10 +12,11 @@ pub use index::*;
 pub use path::*;
 pub use unary::*;
 
-use crate::{AstVisitor, ValueNode};
+use crate::{AstVisitor, NodeType, ValueNode};
+use enum_as_inner::EnumAsInner;
 use strum::EnumIs;
 
-#[derive(Debug, Clone, PartialEq, EnumIs)]
+#[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum ExprNode<F: Clone> {
     Path(PathNode),
     Value(ValueNode<F>),
@@ -28,11 +29,24 @@ pub enum ExprNode<F: Clone> {
 }
 
 impl<F: Clone> ExprNode<F> {
-    pub fn accept_visitor<C, V: AstVisitor<F, C>>(
-        &self,
-        visitor: &mut V,
-        ctx: &mut V::Context,
-    ) -> Result<V::ExprResult, V::Error> {
-        visitor.visit_expr(self, ctx)
+    pub fn node_type(&self) -> NodeType {
+        match self {
+            ExprNode::Path(_) => NodeType::PathExpr,
+            ExprNode::Value(_) => NodeType::ValueExpr,
+            ExprNode::Binary(_) => NodeType::BinaryExpr,
+            ExprNode::Unary(_) => NodeType::UnaryExpr,
+            ExprNode::Call(_) => NodeType::CallExpr,
+            ExprNode::Cast(_) => NodeType::CastExpr,
+            ExprNode::IndexAccess(_) => NodeType::IndexAccessExpr,
+            ExprNode::MemberAccess(_) => NodeType::MemberAccessExpr,
+        }
     }
+
+    // pub fn accept_visitor<C, V: AstVisitor<F, C>>(
+    //     &self,
+    //     visitor: &mut V,
+    //     ctx: &mut V::Context,
+    // ) -> Result<V::ExprResult, V::Error> {
+    //     visitor.visit_expr(self, ctx)
+    // }
 }

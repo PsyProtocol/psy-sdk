@@ -3,19 +3,67 @@ use qed_builder::{Context, ContextFelt};
 use qed_parser::Parser;
 use std::fmt::{Display, Write};
 
-#[derive(Debug)]
-pub struct Formatter<'a, F: Clone, C> {
-    output: String,
-    indent: usize,
-    parser: &'a Parser<F, C>,
+pub struct FormatterContext<F: Clone, C> {
+    path: Vec<NodeId>,
+    parser: Parser<F, C>,
+    program: Program,
 }
 
-impl<'a, F: Clone + Display, C> Formatter<'a, F, C> {
-    pub fn new(parser: &'a Parser<F, C>) -> Self {
+impl<F: Clone, C> VisitorContext<F, C> for FormatterContext<F, C> {
+    fn node_id(&self) -> NodeId {
+        todo!()
+    }
+
+    fn parent_node_id(&self) -> NodeId {
+        todo!()
+    }
+
+    fn node_path(&self) -> &[NodeId] {
+        todo!()
+    }
+
+    fn push_node_id(&mut self, node_id: NodeId) {
+        todo!()
+    }
+
+    fn pop_node_id(&mut self) {
+        todo!()
+    }
+
+    fn node_type(&self) -> NodeType {
+        todo!()
+    }
+
+    fn ident(&self, id: IdentId) -> &str {
+        todo!()
+    }
+
+    fn expression(&self, expr_id: ExprId) -> &ExprNode<F> {
+        todo!()
+    }
+
+    fn statement(&self, stmt_id: StmtId) -> &StmtNode {
+        todo!()
+    }
+
+    fn definition(&self, def_id: DefId) -> &DefinitionNode {
+        todo!()
+    }
+}
+
+#[derive(Debug)]
+pub struct Formatter<F: Clone, C> {
+    output: String,
+    indent: usize,
+    _marker: std::marker::PhantomData<(F, C)>,
+}
+
+impl<F: Clone + Display, C> Formatter<F, C> {
+    pub fn new() -> Self {
         Formatter {
             output: String::new(),
             indent: 0,
-            parser,
+            _marker: std::marker::PhantomData,
         }
     }
 
@@ -63,21 +111,25 @@ impl<'a, F: Clone + Display, C> Formatter<'a, F, C> {
         self.output.push('\n');
     }
 
-    fn visit_unchecked_type(&self, node: &UncheckedType) -> String {
+    fn visit_unchecked_type(
+        &self,
+        node: &UncheckedType,
+        ctx: &impl VisitorContext<F, C>,
+    ) -> String {
         match node {
-            UncheckedType::Basic(name) => self.parser.interner[name.clone()].to_string(),
+            UncheckedType::Basic(name) => ctx.ident(name.clone()).to_string(),
             UncheckedType::Generic(name, generic_parameters) => format!(
                 "{}{}",
-                &self.parser.interner[name.clone()],
+                &ctx.ident(name.clone()),
                 self.visit_generic_parameters(
                     generic_parameters
                         .into_iter()
-                        .map(|x| self.visit_unchecked_type(x))
+                        .map(|ty| self.visit_unchecked_type(ty, ctx))
                         .collect::<Vec<_>>()
                 )
             ),
             UncheckedType::Array(ty, size) => {
-                format!("[{};{}]", self.visit_unchecked_type(ty), size)
+                format!("[{};{}]", self.visit_unchecked_type(ty, ctx), size)
             }
             UncheckedType::Unknown => "unknown".to_string(),
         }
@@ -96,23 +148,23 @@ impl<'a, F: Clone + Display, C> Formatter<'a, F, C> {
     }
 }
 
-impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter<'a, F, C> {
+impl<F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter<F, C> {
     type ExprResult = String;
     type StmtResult = String;
-    type Context = ();
+    type Context = FormatterContext<F, C>;
     type Error = ();
 
     fn visit_use(&mut self, u: &UsePath, ctx: &mut Self::Context) -> Result<(), Self::Error> {
-        let mut path = vec![self.parser.interner[u.kind.clone().into()].to_string()];
+        let mut path = vec![ctx.ident(u.kind.clone().into()).to_string()];
         let mut segments = u
             .segments
             .iter()
-            .map(|&s| self.parser.interner[s].to_string())
+            .map(|&s| ctx.ident(s).to_string())
             .collect::<Vec<_>>();
         path.extend(segments);
         let target = u
             .target
-            .map(|t| self.parser.interner[t].to_string())
+            .map(|t| ctx.ident(t).to_string())
             .unwrap_or("*".to_string());
 
         self.write_line(&format!("use {}::{};", path.join("::"), target));
@@ -121,68 +173,72 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
 
     fn visit_path(
         &mut self,
-        node: &PathNode,
+        expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        Ok(self.parser.interner[node.0].to_string())
+        let node = ctx.expression(expr_id).as_path().unwrap();
+        Ok(ctx.ident(node.0).to_string())
     }
 
     fn visit_index_access(
         &mut self,
-        node: &IndexAccessNode,
+        expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        Ok(format!(
-            "{}[{}]",
-            self.visit_expr(&self.parser.exprs[node.value], ctx)?,
-            node.index
-        ))
+        let &IndexAccessNode { value, index } = ctx.expression(expr_id).as_index_access().unwrap();
+        Ok(format!("{}[{}]", self.visit_expr(value, ctx)?, index))
     }
 
     fn visit_member_access(
         &mut self,
-        node: &MemberAccessNode,
+        expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
+        let &MemberAccessNode { value, field } =
+            ctx.expression(expr_id).as_member_access().unwrap();
         Ok(format!(
             "{}.{}",
-            self.visit_expr(&self.parser.exprs[node.value], ctx)?,
-            self.parser.interner[node.field]
+            self.visit_expr(value, ctx)?,
+            ctx.ident(field)
         ))
     }
 
     fn visit_value(
         &mut self,
-        node: &ValueNode<F>,
+        expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
+        // TODO: remove clone
+        let node = ctx.expression(expr_id).as_value().unwrap().clone();
         Ok(match node {
             ValueNode::Felt(f) => f.to_string(),
             ValueNode::Bool(b) => b.to_string(),
             ValueNode::Array(_, values) => format!(
                 "[{}]",
                 values
+                    // TODO: remove clone
+                    .clone()
                     .into_iter()
-                    .map(|&v| self.visit_expr(&self.parser.exprs[v], ctx))
+                    .map(|v| self.visit_expr(v, ctx))
                     .collect::<Result<Vec<_>, Self::Error>>()?
                     .join(", ")
             ),
             ValueNode::Struct(name, generic_parameters, field_values) => {
-                let name = &self.parser.interner[name.clone()];
+                let name = ctx.ident(name.clone());
                 let generic_parameters = self.visit_generic_parameters(
                     generic_parameters
                         .iter()
-                        .map(|p| self.visit_unchecked_type(p))
+                        .map(|p| self.visit_unchecked_type(p, ctx))
                         .collect::<Vec<_>>(),
                 );
                 let mut result = format!("{}{} {{\n", name, generic_parameters);
 
-                for (&field, value) in field_values {
+                for (field, value) in field_values {
                     result.push_str(&self.read_indent(1));
                     result.push_str(&format!(
                         "{}: {},\n",
-                        self.parser.interner[field],
-                        self.visit_expr(&self.parser.exprs[*value], ctx)?
+                        ctx.ident(field).to_owned(),
+                        self.visit_expr(value, ctx)?
                     ));
                 }
 
@@ -195,90 +251,105 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
 
     fn visit_binary(
         &mut self,
-        node: &BinaryNode,
+        expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
+        let &BinaryNode { lhs, operator, rhs } = ctx.expression(expr_id).as_binary().unwrap();
         Ok(format!(
             "{} {} {}",
-            self.visit_expr(&self.parser.exprs[node.lhs], ctx)?,
-            node.operator,
-            self.visit_expr(&self.parser.exprs[node.rhs], ctx)?
+            self.visit_expr(lhs, ctx)?,
+            operator,
+            self.visit_expr(rhs, ctx)?
         ))
     }
 
     fn visit_unary(
         &mut self,
-        node: &UnaryNode,
+        expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        Ok(format!(
-            "{}{}",
-            node.operator,
-            self.visit_expr(&self.parser.exprs[node.rhs], ctx)?
-        ))
+        let &UnaryNode { operator, rhs } = ctx.expression(expr_id).as_unary().unwrap();
+        Ok(format!("{}{}", operator, self.visit_expr(rhs, ctx)?))
     }
 
     fn visit_call(
         &mut self,
-        node: &CallNode,
+        expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let args = node
-            .args
+        let &CallNode {
+            variable,
+            ref args,
+            receiver,
+            ref generic_parameters,
+        } = ctx.expression(expr_id).as_call().unwrap();
+        let args = args
+            // TOOD: remove clone
+            .clone()
             .iter()
-            .map(|&arg| self.visit_expr(&self.parser.exprs[arg], ctx))
+            .map(|&arg| self.visit_expr(arg, ctx))
             .collect::<Result<Vec<_>, Self::Error>>()?
             .join(", ");
-        Ok(format!(
-            "{}({})",
-            self.visit_expr(&self.parser.exprs[node.variable], ctx)?,
-            args
-        ))
+        Ok(format!("{}({})", self.visit_expr(variable, ctx)?, args))
     }
 
     fn visit_cast(
         &mut self,
-        node: &CastNode,
+        expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
+        let &CastNode {
+            value,
+            ref target_type,
+        } = ctx.expression(expr_id).as_cast().unwrap();
+        // TODO: remove clone
+        let target_type = target_type.clone();
         Ok(format!(
             "({} as {})",
-            self.visit_expr(&self.parser.exprs[node.value], ctx)?,
-            self.visit_unchecked_type(&node.target_type)
+            self.visit_expr(value, ctx)?,
+            self.visit_unchecked_type(&target_type, ctx)
         ))
     }
 
     fn visit_if(
         &mut self,
-        node: &IfNode,
+        stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let mut result = format!(
             "if {} {{",
-            self.visit_expr(&self.parser.exprs[node.if_branch.predicate], ctx)?
+            self.visit_expr(
+                ctx.statement(stmt_id).as_if().unwrap().if_branch.predicate,
+                ctx
+            )?
         );
         self.write_line(&result);
         self.indent();
-        self.visit_block(&node.if_branch.body, ctx);
+        self.visit_block(ctx.statement(stmt_id).as_if().unwrap().if_branch.body, ctx);
         self.dedent();
         self.write("}");
 
-        for branch in &node.elseif_branch {
-            let s = format!(
-                " else if {} {{",
-                self.visit_expr(&self.parser.exprs[branch.predicate], ctx)?
-            );
+        // TODO: remove clone
+        for branch in ctx
+            .statement(stmt_id)
+            .as_if()
+            .unwrap()
+            .elseif_branch
+            .clone()
+            .into_iter()
+        {
+            let s = format!(" else if {} {{", self.visit_expr(branch.predicate, ctx)?);
             self.append_line(&s);
             self.indent();
-            self.visit_block(&branch.body, ctx);
+            self.visit_block(branch.body, ctx);
             self.dedent();
             self.write("}");
         }
 
-        if let Some(else_branch) = &node.else_branch {
+        if let Some(else_branch) = ctx.statement(stmt_id).as_if().unwrap().else_branch {
             self.append_line(" else {");
             self.indent();
-            self.visit_block(else_branch, ctx);
+            self.visit_block(else_branch.clone(), ctx);
             self.dedent();
             self.write("}");
         }
@@ -289,16 +360,14 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
 
     fn visit_while(
         &mut self,
-        node: &WhileNode,
+        stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        let mut s = format!(
-            "while {} {{",
-            self.visit_expr(&self.parser.exprs[node.predicate], ctx)?
-        );
+        let &WhileNode { predicate, body } = ctx.statement(stmt_id).as_while().unwrap();
+        let mut s = format!("while {} {{", self.visit_expr(predicate, ctx)?);
         self.write_line(&s);
         self.indent();
-        self.visit_block(&node.body, ctx);
+        self.visit_block(body, ctx);
         self.dedent();
         self.write_line("};");
         Ok(Default::default())
@@ -306,24 +375,31 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
 
     fn visit_block(
         &mut self,
-        node: &BlockNode,
+        stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        for stmt in &node.stmts {
-            self.visit_stmt(&self.parser.stmts[stmt.clone()], ctx)?;
+        let BlockNode { stmts } = ctx.statement(stmt_id).as_block().unwrap();
+        // TODO: remove clone
+        for stmt in stmts.clone() {
+            self.visit_stmt(stmt, ctx)?;
         }
         Ok(Default::default())
     }
 
     fn visit_assignment(
         &mut self,
-        node: &AssignmentNode,
+        stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
+        let &AssignmentNode {
+            variable,
+            operator,
+            value,
+        } = ctx.statement(stmt_id).as_assignment().unwrap();
         let s = format!(
             "{} = {};",
-            self.visit_expr(&self.parser.exprs[node.variable], ctx)?,
-            self.visit_expr(&self.parser.exprs[node.value], ctx)?
+            self.visit_expr(variable, ctx)?,
+            self.visit_expr(value, ctx)?
         );
         self.write_line(&s);
         Ok(Default::default())
@@ -331,16 +407,29 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
 
     fn visit_variable(
         &mut self,
-        node: &VariableNode,
+        stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let s = format!(
             "{}{} {}: {} = {};",
-            if node.cnst { "const" } else { "let" },
-            if node.mutable { " mut" } else { "" },
-            &self.parser.interner[node.name],
-            self.visit_unchecked_type(&node.ty),
-            self.visit_expr(&self.parser.exprs[node.value], ctx)?
+            if ctx.statement(stmt_id).as_variable().unwrap().cnst {
+                "const"
+            } else {
+                "let"
+            },
+            if ctx.statement(stmt_id).as_variable().unwrap().mutable {
+                " mut"
+            } else {
+                ""
+            },
+            // TODO: remove to_owned
+            ctx.ident(ctx.statement(stmt_id).as_variable().unwrap().name)
+                .to_owned(),
+            self.visit_unchecked_type(
+                &ctx.statement(stmt_id).as_variable().unwrap().ty.clone(),
+                ctx
+            ),
+            self.visit_expr(ctx.statement(stmt_id).as_variable().unwrap().value, ctx)?
         );
         self.write_line(&s);
         Ok(Default::default())
@@ -348,13 +437,14 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
 
     fn visit_return(
         &mut self,
-        node: &ReturnNode,
+        stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
+        let ReturnNode(expr_id) = ctx.statement(stmt_id).as_return().unwrap();
         let s = format!(
             "return{};",
-            if let Some(ret) = node.0 {
-                format!(" {}", self.visit_expr(&self.parser.exprs[ret], ctx)?)
+            if let Some(ret) = expr_id {
+                format!(" {}", self.visit_expr(ret.clone(), ctx)?)
             } else {
                 "".to_string()
             }
@@ -365,23 +455,31 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
 
     fn visit_impl(
         &mut self,
-        node: &ImplNode,
+        def_id: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        let generic_parameters = node
-            .generic_parameters
+        let ImplNode {
+            generic_parameters,
+            trait_name,
+            ty,
+            body,
+        } = ctx.definition(def_id).as_impl().unwrap();
+        let generic_parameters = generic_parameters
             .iter()
-            .map(|&generic_parameter| self.parser.interner[generic_parameter].to_string())
+            .map(|&generic_parameter| ctx.ident(generic_parameter).to_string())
             .collect::<Vec<_>>();
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
         let mut s = format!(
             "impl{} {}{} {{",
-            generic_parameters, &self.parser.interner[node.ty], generic_parameters
+            generic_parameters,
+            &ctx.ident(ty.clone()),
+            generic_parameters
         );
         self.write_line(&s);
         self.indent();
-        for func in &node.body {
+        // TODO: remove clone
+        for func in body.clone() {
             self.visit_function(func, ctx)?;
         }
         self.dedent();
@@ -391,41 +489,46 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
 
     fn visit_function(
         &mut self,
-        node: &FunctionNode,
+        def_id: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        let parameters = node
-            .parameters
+        let FunctionNode {
+            name,
+            parameters,
+            generic_parameters,
+            body,
+            return_type,
+        } = ctx.definition(def_id).as_function().unwrap();
+        let parameters = parameters
             .iter()
             .map(|p| {
                 format!(
                     "{}{}: {}",
                     if p.1 { "mut " } else { "" },
-                    &self.parser.interner[p.0],
-                    self.visit_unchecked_type(&p.2)
+                    &ctx.ident(p.0),
+                    self.visit_unchecked_type(&p.2, ctx)
                 )
             })
             .collect::<Vec<_>>()
             .join(", ");
-        let generic_parameters = node
-            .generic_parameters
+        let generic_parameters = generic_parameters
             .iter()
-            .map(|x| self.parser.interner[x.clone()].to_string())
+            .map(|x| ctx.ident(x.clone()).to_string())
             .collect::<Vec<_>>();
         let mut s = format!(
             "fn {}{}({}){} {{",
-            self.parser.interner[node.name.clone()],
+            ctx.ident(name.clone()),
             self.visit_generic_parameters(generic_parameters),
             parameters,
-            if let Some(ref ret) = node.return_type {
-                format!(" -> {}", self.visit_unchecked_type(&ret))
+            if let Some(ref ret) = return_type {
+                format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
             } else {
                 "".to_string()
             }
         );
         self.write_line(&s);
         self.indent();
-        self.visit_block(node.body.as_ref().unwrap(), ctx);
+        self.visit_block(body.unwrap(), ctx);
         self.dedent();
         self.write_line("}");
         Ok(Default::default())
@@ -433,40 +536,46 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
 
     fn visit_struct(
         &mut self,
-        node: &StructNode,
+        def_id: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        for attr in &node.attrs {
+        let StructNode {
+            name,
+            fields,
+            generic_parameters,
+            attrs,
+        } = ctx.definition(def_id).as_struct().unwrap();
+        for attr in attrs {
             if !attr.properties.is_empty() {
                 self.write_line(&format!(
                     "#[{}({})]",
-                    self.parser.interner[attr.name],
+                    ctx.ident(attr.name),
                     attr.properties
                         .iter()
-                        .map(|p| self.parser.interner[p.clone()].to_string())
+                        .map(|p| ctx.ident(p.clone()).to_string())
                         .collect::<Vec<_>>()
                         .join(", ")
                 ));
             } else {
-                self.write_line(&format!("#[{}]", self.parser.interner[attr.name],));
+                self.write_line(&format!("#[{}]", ctx.ident(attr.name),));
             }
         }
         self.write_line(&format!(
             "struct {}{} {{",
-            &self.parser.interner[node.name],
+            &ctx.ident(name.clone()),
             self.visit_generic_parameters(
-                node.generic_parameters
+                generic_parameters
                     .iter()
-                    .map(|p| self.parser.interner[p.clone()].to_string())
+                    .map(|p| ctx.ident(p.clone()).to_string())
                     .collect::<Vec<_>>()
             )
         ));
         self.indent();
-        for (field, value) in &node.fields {
+        for (field, value) in fields {
             let s = format!(
                 "{}: {},",
-                self.parser.interner[field.clone()],
-                self.visit_unchecked_type(&value)
+                ctx.ident(field.clone()),
+                self.visit_unchecked_type(&value, ctx)
             );
             self.write_line(&s);
         }
@@ -477,43 +586,48 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
 
     fn visit_enum(
         &mut self,
-        node: &EnumNode,
+        def_id: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
+        let EnumNode {
+            name,
+            generic_parameters,
+            variants,
+        } = ctx.definition(def_id).as_enum().unwrap();
         self.write_line(&format!(
             "enum {}{} {{",
-            &self.parser.interner[node.name],
+            &ctx.ident(name.clone()),
             self.visit_generic_parameters(
-                node.generic_parameters
+                generic_parameters
                     .iter()
-                    .map(|p| self.parser.interner[p.clone()].to_string())
+                    .map(|p| ctx.ident(p.clone()).to_string())
                     .collect::<Vec<_>>()
             )
         ));
         self.indent();
-        for variant in &node.variants {
+        for variant in variants {
             match variant {
                 EnumVariant::Basic(ident_id) => {
-                    let s = format!("{}", self.parser.interner[ident_id.clone()]);
+                    let s = format!("{}", ctx.ident(ident_id.clone()));
                     self.write_line(&s);
                 }
                 EnumVariant::Tuple(ident_id, types) => {
                     let types = types
                         .iter()
-                        .map(|x| self.visit_unchecked_type(x))
+                        .map(|x| self.visit_unchecked_type(x, ctx))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    let s = format!("{}({})", self.parser.interner[ident_id.clone()], types);
+                    let s = format!("{}({})", ctx.ident(ident_id.clone()), types);
                     self.write_line(&s);
                 }
                 EnumVariant::Struct(ident_id, fields) => {
-                    self.write_line(&format!("{} {{", self.parser.interner[ident_id.clone()]));
+                    self.write_line(&format!("{} {{", ctx.ident(ident_id.clone())));
                     self.indent();
                     for (field, ty) in fields {
                         self.write_line(&format!(
                             "{}: {},",
-                            self.parser.interner[field.clone()],
-                            self.visit_unchecked_type(ty)
+                            ctx.ident(field.clone()),
+                            self.visit_unchecked_type(&ty, ctx)
                         ));
                     }
                     self.dedent();
@@ -528,21 +642,26 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
 
     fn visit_trait(
         &mut self,
-        node: &TraitNode,
+        def_id: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
+        let TraitNode {
+            name,
+            generic_parameters,
+            body,
+        } = ctx.definition(def_id).as_trait().unwrap();
         self.write_line(&format!(
             "trait {}{} {{",
-            &self.parser.interner[node.name],
+            &ctx.ident(name.clone()),
             self.visit_generic_parameters(
-                node.generic_parameters
+                generic_parameters
                     .iter()
-                    .map(|p| self.parser.interner[p.clone()].to_string())
+                    .map(|p| ctx.ident(p.clone()).to_string())
                     .collect::<Vec<_>>()
             )
         ));
         self.indent();
-        for func in &node.body {
+        for func in body {
             let parameters = func
                 .parameters
                 .iter()
@@ -550,18 +669,18 @@ impl<'a, F: ContextFelt + Display, C: Context<F>> AstVisitor<F, C> for Formatter
                     format!(
                         "{}{}: {}",
                         if p.1 { "mut " } else { "" },
-                        &self.parser.interner[p.0],
-                        self.visit_unchecked_type(&p.2)
+                        &ctx.ident(p.0),
+                        self.visit_unchecked_type(&p.2, ctx)
                     )
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
             let s = format!(
                 "fn {}({}){};",
-                self.parser.interner[func.name.clone()],
+                ctx.ident(func.name.clone()),
                 parameters,
                 if let Some(ref ret) = func.return_type {
-                    format!(" -> {}", self.visit_unchecked_type(&ret))
+                    format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
                 } else {
                     "".to_string()
                 }

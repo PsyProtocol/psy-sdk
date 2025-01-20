@@ -120,8 +120,8 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
             self.typecheck_use(use_path, symbols, artifact)?;
         }
 
-        for definition in &module.definitions {
-            self.typecheck_definition(definition, symbols, artifact)?;
+        for &def_id in &module.definitions {
+            self.typecheck_definition(&artifact[def_id], symbols, artifact)?;
         }
         Ok(())
     }
@@ -331,7 +331,11 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
         };
 
         let checked_body = if let Some(body) = &function.body {
-            let checked_body = self.typecheck_block(body, symbols, artifact)?;
+            let checked_body = self.typecheck_block(
+                artifact[body.clone()].as_block().unwrap(),
+                symbols,
+                artifact,
+            )?;
 
             if expected_return_type.is_some() {
                 for stmt in checked_body.stmts.iter() {
@@ -421,7 +425,11 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
         }
 
         for function in &r#impl.body {
-            methods.push(self.typecheck_method(function, symbols, artifact)?);
+            methods.push(self.typecheck_method(
+                artifact[function.clone()].as_function().unwrap(),
+                symbols,
+                artifact,
+            )?);
         }
         let checked_impl = CheckedImplNode {
             generic_parameters,
@@ -467,7 +475,11 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
         }
 
         for function in &r#impl.body {
-            methods.push(self.typecheck_method(function, symbols, artifact)?);
+            methods.push(self.typecheck_method(
+                artifact[function.clone()].as_function().unwrap(),
+                symbols,
+                artifact,
+            )?);
         }
         let checked_impl = CheckedImplNode {
             generic_parameters,
@@ -540,7 +552,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
     #[instrument(level = "debug", skip_all)]
     fn typecheck_stmt(
         &mut self,
-        stmt: &StmtNode<F>,
+        stmt: &StmtNode,
         symbols: &mut SymbolTable<T>,
         artifact: &Artifact<F, C>,
     ) -> Result<CheckedStmtNode<F>> {
@@ -560,12 +572,14 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
             StmtNode::Variable(variable) => Ok(CheckedStmtNode::Variable(
                 self.typecheck_variable(variable, symbols, artifact)?,
             )),
-            StmtNode::Definition(definition) => Ok(CheckedStmtNode::Definition(
-                self.typecheck_definition(definition, symbols, artifact)?,
+            StmtNode::Definition(def_id) => Ok(CheckedStmtNode::Definition(
+                self.typecheck_definition(&artifact[def_id.clone()], symbols, artifact)?,
             )),
-            StmtNode::Expression(expr) => Ok(CheckedStmtNode::Expression(
-                self.typecheck_expr(expr, symbols, artifact)?,
-            )),
+            StmtNode::Expression(expr) => Ok(CheckedStmtNode::Expression(self.typecheck_expr(
+                &artifact[expr.clone()],
+                symbols,
+                artifact,
+            )?)),
             StmtNode::Return(return_node) => Ok(CheckedStmtNode::Return(self.typecheck_ret(
                 return_node,
                 symbols,
@@ -586,7 +600,11 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
         if checked_expr.ty() != BOOL_TYPE {
             return Err(Error::TypeMismatch);
         }
-        let checked_block = self.typecheck_block(&r#if.if_branch.body, symbols, artifact)?;
+        let checked_block = self.typecheck_block(
+            artifact[r#if.if_branch.body].as_block().unwrap(),
+            symbols,
+            artifact,
+        )?;
         let if_branch = CheckedCase {
             predicate: self.exprs.alloc_item(checked_expr),
             type_id: BOOL_TYPE,
@@ -600,7 +618,8 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
             if checked_expr.ty() != BOOL_TYPE {
                 return Err(Error::TypeMismatch);
             }
-            let checked_block = self.typecheck_block(&branch.body, symbols, artifact)?;
+            let checked_block =
+                self.typecheck_block(artifact[branch.body].as_block().unwrap(), symbols, artifact)?;
             elseif_branch.push(CheckedCase {
                 predicate: self.exprs.alloc_item(checked_expr),
                 type_id: BOOL_TYPE,
@@ -609,7 +628,11 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
         }
 
         let else_branch = if let Some(ref else_branch) = r#if.else_branch {
-            Some(self.typecheck_block(else_branch, symbols, artifact)?)
+            Some(self.typecheck_block(
+                artifact[else_branch.clone()].as_block().unwrap(),
+                symbols,
+                artifact,
+            )?)
         } else {
             None
         };
@@ -632,7 +655,11 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
         if predicate.ty() != BOOL_TYPE {
             return Err(Error::TypeMismatch);
         }
-        let checked_block = self.typecheck_block(&r#while.body, symbols, artifact)?;
+        let checked_block = self.typecheck_block(
+            artifact[r#while.body].as_block().unwrap(),
+            symbols,
+            artifact,
+        )?;
         Ok(CheckedWhileNode {
             predicate: self.exprs.alloc_item(predicate),
             type_id: BOOL_TYPE,

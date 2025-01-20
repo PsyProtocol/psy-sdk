@@ -1,0 +1,47 @@
+use crate::{DefId, DefinitionNode, ExprId, ExprNode, IdentId, StmtId, StmtNode};
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodeId {
+    Expr(ExprId),
+    Stmt(StmtId),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodeType {
+    PathExpr,
+    ValueExpr,
+    BinaryExpr,
+    UnaryExpr,
+    CallExpr,
+    CastExpr,
+    MemberAccessExpr,
+    IndexAccessExpr,
+
+    IfStmt,
+    WhileStmt,
+    BlockStmt,
+    AssignmentStmt,
+    VariableStmt,
+    DefinitionStmt,
+    ExpressionStmt,
+    ReturnStmt,
+
+    FunctionDef,
+    StructDef,
+    EnumDef,
+    ImplDef,
+    TraitDef,
+}
+
+pub trait VisitorContext<F: Clone, C> {
+    fn node_id(&self) -> NodeId;
+    fn parent_node_id(&self) -> NodeId;
+    fn node_path(&self) -> &[NodeId];
+    fn push_node_id(&mut self, node_id: NodeId);
+    fn pop_node_id(&mut self);
+    fn node_type(&self) -> NodeType;
+    fn ident(&self, id: IdentId) -> &str;
+    fn expression(&self, expr_id: ExprId) -> &ExprNode<F>;
+    fn statement(&self, stmt_id: StmtId) -> &StmtNode;
+    fn definition(&self, def_id: DefId) -> &DefinitionNode;
+}

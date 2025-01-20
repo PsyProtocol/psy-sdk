@@ -8,7 +8,8 @@ grammar<'input, F, C>(
     file_id: FileId,
     module_name: IdentId,
     expr_nodes: &mut Arena<ExprId, ExprNode<F>>,
-    stmt_nodes: &mut Arena<StmtId, StmtNode<F>>,
+    stmt_nodes: &mut Arena<StmtId, StmtNode>,
+    def_nodes: &mut Arena<DefId, DefinitionNode>,
     interner: &mut Interner,
     is_std: bool,
     is_self_std: bool,
@@ -46,7 +47,7 @@ pub Module: ModuleNode = {
             }
             uses
         },
-        definitions,
+        definitions: def_nodes.alloc_items(definitions),
         is_std,
         is_self_std,
         is_self_prelude,
@@ -65,19 +66,19 @@ ModuleUse: UsePath = {
     }
 }
 
-Statement: StmtNode<F> = {
+Statement: StmtNode = {
     VariableStatement,
     AssignmentStatement,
     ReturnStatement,
     WhileStatement,
     BlockStatement,
     IfStatement,
-    Definition => StmtNode::Definition(<>),
+    Definition => StmtNode::Definition(def_nodes.alloc_item(<>)),
     ExpressionStatement
 }
 
-ExpressionStatement: StmtNode<F> = {
-    <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr)
+ExpressionStatement: StmtNode = {
+    <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr))
 }
 
 Definition: DefinitionNode = {
@@ -85,7 +86,7 @@ Definition: DefinitionNode = {
     TraitDef => DefinitionNode::Trait(<>),
     EnumDef => DefinitionNode::Enum(<>),
     StructDef => DefinitionNode::Struct(<>),
-    FunctionDef => DefinitionNode::Function(<>),
+    FunctionDef => <>,
 }
 
 ImplDef: ImplNode = {
@@ -95,7 +96,7 @@ ImplDef: ImplNode = {
            generic_parameters: generic_parameters_lhs.unwrap_or(Vec::new()),
            trait_name: None,
            ty,
-           body
+           body: def_nodes.alloc_items(body)
        }
    },
    <l:@L> IMPL <generic_parameters_lhs:GenericParameters?> <trait_name:Identifier> FOR <ty:Identifier> <generic_parameters_rhs:GenericParameters?> "{" <body:FunctionDef*> "}" <r:@R> => {
@@ -104,7 +105,7 @@ ImplDef: ImplNode = {
            generic_parameters: generic_parameters_lhs.unwrap_or(Vec::new()),
            trait_name: Some(trait_name),
            ty,
-           body
+           body: def_nodes.alloc_items(body)
        }
    }
 }
@@ -144,14 +145,14 @@ StructDef: StructNode = {
     }
 }
 
-FunctionDef: FunctionNode = {
-    <l:@L> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> "{" <stmts:Statement*> "}" <r:@R> => FunctionNode {
+FunctionDef: DefinitionNode = {
+    <l:@L> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
-        body: Some(BlockNode { stmts: stmt_nodes.alloc_items(stmts) }),
+        body: Some(stmt_nodes.alloc_item(block_stmt)),
         return_type
-    }
+    })
 }
 
 FunctionDecl: FunctionNode = {
@@ -186,18 +187,18 @@ GenericParameters: Vec<IdentId> = {
     <l:@L> "<" <generic_parameters:Comma<Identifier>> ">" <r:@R> => generic_parameters
 }
 
-BlockStatement: StmtNode<F> = {
-    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => StmtNode::Block(BlockNode { stmts: stmt_nodes.alloc_items(stmts)  }),
+BlockStatement: StmtNode = {
+    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => StmtNode::Block(BlockNode { stmts: stmt_nodes.alloc_items(stmts) }),
 }
 
-WhileStatement: StmtNode<F> = {
-    <l:@L> WHILE <predicate:Expression> "{" <stmts:Statement*> "}" <r:@R>  => StmtNode::While(WhileNode {
+WhileStatement: StmtNode = {
+    <l:@L> WHILE <predicate:Expression> <block_stmt:BlockStatement> <r:@R>  => StmtNode::While(WhileNode {
         predicate: expr_nodes.alloc_item(predicate),
-        body: BlockNode { stmts: stmt_nodes.alloc_items(stmts)  }
+        body: stmt_nodes.alloc_item(block_stmt)
     }),
 }
 
-IfStatement: StmtNode<F> = {
+IfStatement: StmtNode = {
     <l:@L> <if_branch:IfBranch> <elseif_branch:ElseIfBranch*> <else_branch:ElseBranch?> <r:@R> => StmtNode::If(
         IfNode {
             if_branch,
@@ -208,28 +209,28 @@ IfStatement: StmtNode<F> = {
 }
 
 IfBranch: Case = {
-    <l:@L> IF <predicate:Expression> "{" <stmts:Statement*> "}" <r:@R> => Case::new(
+    <l:@L> IF <predicate:Expression> <block_stmt:BlockStatement> <r:@R> => Case::new(
         expr_nodes.alloc_item(predicate),
-        BlockNode { stmts: stmt_nodes.alloc_items(stmts) }
+        stmt_nodes.alloc_item(block_stmt)
     ),
 }
 
 ElseIfBranch: Case = {
-    <l:@L> ELSE IF <predicate:Expression> "{" <stmts:Statement*> "}" <r:@R> => Case::new(
+    <l:@L> ELSE IF <predicate:Expression> <block_stmt:BlockStatement> <r:@R> => Case::new(
         expr_nodes.alloc_item(predicate),
-        BlockNode { stmts: stmt_nodes.alloc_items(stmts) }
+        stmt_nodes.alloc_item(block_stmt)
     ),
 }
 
-ElseBranch: BlockNode = {
-    <l:@L> ELSE "{" <stmts:Statement*> "}" <r:@R> => BlockNode { stmts: stmt_nodes.alloc_items(stmts) },
+ElseBranch: StmtId = {
+    <l:@L> ELSE <block_stmt:BlockStatement> <r:@R> => stmt_nodes.alloc_item(block_stmt),
 }
 
-ReturnStatement: StmtNode<F> = {
+ReturnStatement: StmtNode = {
     <l:@L> RETURN <ret:Expression?> ";" <r:@R> => StmtNode::Return(ReturnNode(ret.map(|x| expr_nodes.alloc_item(x))))
 }
 
-VariableStatement: StmtNode<F> = {
+VariableStatement: StmtNode = {
     <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {
             name: decl.0,
@@ -250,7 +251,7 @@ VariableStatement: StmtNode<F> = {
     ),
 }
 
-AssignmentStatement: StmtNode<F> = {
+AssignmentStatement: StmtNode = {
     <l:@L> <variable:Expression> "=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
         AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::Eq, expr_nodes.alloc_item(value))
     ),

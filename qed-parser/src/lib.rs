@@ -24,7 +24,8 @@ lalrpop_mod!(pub qed);
 pub struct Parser<F: Clone, C> {
     pub file_resolver: FileResolver,
     pub exprs: Arena<ExprId, ExprNode<F>>,
-    pub stmts: Arena<StmtId, StmtNode<F>>,
+    pub stmts: Arena<StmtId, StmtNode>,
+    pub defs: Arena<DefId, DefinitionNode>,
     pub interner: Interner,
     _marker: std::marker::PhantomData<C>,
 }
@@ -35,6 +36,7 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
             file_resolver: FileResolver::new(),
             exprs: Arena::new(),
             stmts: Arena::new(),
+            defs: Arena::new(),
             interner: Interner::new(),
             _marker: std::marker::PhantomData,
         }
@@ -85,6 +87,7 @@ impl<F: ContextFelt, C: Context<F>> Parser<F, C> {
                     module_name,
                     &mut self.exprs,
                     &mut self.stmts,
+                    &mut self.defs,
                     &mut self.interner,
                     is_std,
                     is_self_std,
