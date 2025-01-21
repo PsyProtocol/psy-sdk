@@ -5,8 +5,6 @@ use strum::EnumIs;
 #[derive(Clone, Debug, PartialEq, EnumIs)]
 pub enum ControlState<T> {
     Normal,
-    Break(IdentId),
-    Continue(IdentId),
     Return(T),
 }
 

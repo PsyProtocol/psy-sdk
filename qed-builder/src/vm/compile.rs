@@ -1,6 +1,8 @@
 use crate::{ops::DPNBuiltInDataType, ExecContext, SymFeltRef, SymFeltStore};
 
-use super::def::{encode_indexed_op_id, DPNAssertEqInfoIndexed, DPNIndexedVarDef, DPNFunctionCircuitDefinition};
+use super::def::{
+    encode_indexed_op_id, DPNAssertEqInfoIndexed, DPNFunctionCircuitDefinition, DPNIndexedVarDef,
+};
 
 pub struct QEDCompileResult {
     pub circuit_inputs: Vec<u64>,
@@ -11,8 +13,8 @@ pub struct QEDCompileResult {
     pub definitions: Vec<DPNIndexedVarDef>,
 
     /*
-    
-    
+
+
     Target = 0,
     Bool = 1,
     U32Target = 2,
@@ -21,7 +23,6 @@ pub struct QEDCompileResult {
     TargetArray = 5,
     BoolArray = 6,
     U32TargetArray = 7, */
-    
     pub total_targets: usize,
     pub total_bools: usize,
     pub total_u32s: usize,
@@ -34,9 +35,13 @@ pub struct QEDCompileResult {
     pub indexed_map: hashbrown::HashMap<SymFeltRef, u64>,
 }
 
-
 impl QEDCompileResult {
-    pub fn compile_exec(name: String, sym_store: &SymFeltStore, ctx: &ExecContext, outputs: &[SymFeltRef]) -> DPNFunctionCircuitDefinition {
+    pub fn compile_exec(
+        name: String,
+        sym_store: &SymFeltStore,
+        ctx: &ExecContext,
+        outputs: &[SymFeltRef],
+    ) -> DPNFunctionCircuitDefinition {
         let mut result = QEDCompileResult::new();
         result.compile(sym_store, ctx, outputs);
         result.finalize(name)
@@ -62,79 +67,80 @@ impl QEDCompileResult {
     }
 
     pub fn injest_sfr(&mut self, sym_store: &SymFeltStore, value: SymFeltRef) -> u64 {
-        if self.indexed_map.contains_key(&value){
+        if self.indexed_map.contains_key(&value) {
             return *self.indexed_map.get(&value).unwrap();
         }
 
-
-
-        let mut children_inds = sym_store.get_direct_children(value).into_iter().map(|c| self.injest_sfr(sym_store, c)).collect::<Vec<_>>();
-
+        let mut children_inds = sym_store
+            .get_direct_children(value)
+            .into_iter()
+            .map(|c| self.injest_sfr(sym_store, c))
+            .collect::<Vec<_>>();
 
         let new_base_index = match value.get_op_type().get_data_type() {
             DPNBuiltInDataType::Target => {
                 let v = self.total_targets;
-                self.total_targets+=1;
+                self.total_targets += 1;
                 v
-            },
+            }
             DPNBuiltInDataType::Bool => {
                 let v = self.total_bools;
-                self.total_bools+=1;
+                self.total_bools += 1;
                 v
-            },
+            }
             DPNBuiltInDataType::U32Target => {
                 let v = self.total_u32s;
-                self.total_u32s+=1;
+                self.total_u32s += 1;
                 v
-            },
+            }
             DPNBuiltInDataType::HashOut => {
                 let v = self.total_hashes;
-                self.total_hashes+=1;
+                self.total_hashes += 1;
                 v
-            },
+            }
             DPNBuiltInDataType::HashOut160 => {
                 let v = self.total_hash160s;
-                self.total_hash160s+=1;
+                self.total_hash160s += 1;
                 v
-            },
+            }
             DPNBuiltInDataType::TargetArray => {
                 let v = self.total_target_arrays;
-                self.total_target_arrays+=1;
+                self.total_target_arrays += 1;
                 v
-            },
+            }
             DPNBuiltInDataType::BoolArray => {
                 let v = self.total_bool_arrays;
-                self.total_bool_arrays+=1;
+                self.total_bool_arrays += 1;
                 v
-            },
+            }
             DPNBuiltInDataType::U32TargetArray => {
                 let v = self.total_u32_arrays;
-                self.total_u32_arrays+=1;
+                self.total_u32_arrays += 1;
                 v
-            },
-            DPNBuiltInDataType::Unknown => panic!("unsupported data type")
+            }
+            DPNBuiltInDataType::Unknown => panic!("unsupported data type"),
         };
         if !value.needs_store() {
             let idef = value.get_inline_def();
-            self.definitions.push(DPNIndexedVarDef{
+            self.definitions.push(DPNIndexedVarDef {
                 data_type: idef.op_type.get_data_type(),
                 index: new_base_index,
                 op_type: idef.op_type,
-                inputs: vec![idef.const_param]
+                inputs: vec![idef.const_param],
             });
-        }else {
+        } else {
             let vdef = sym_store.get(value);
             let mut inputs = if value.get_op_type().has_constant_param() {
                 vec![vdef.const_param]
-            }else{
+            } else {
                 vec![]
             };
             inputs.append(&mut children_inds);
-            self.definitions.push(DPNIndexedVarDef{
+            self.definitions.push(DPNIndexedVarDef {
                 data_type: vdef.op_type.get_data_type(),
                 index: new_base_index,
                 op_type: vdef.op_type,
-                inputs
+                inputs,
             });
         }
 
@@ -152,7 +158,6 @@ impl QEDCompileResult {
     //     self.state_commands.push(converted);
     // }
 
-
     pub fn compile(&mut self, sym_store: &SymFeltStore, ctx: &ExecContext, outputs: &[SymFeltRef]) {
         for i in 0..ctx.input_count {
             let inp = self.injest_sfr(sym_store, SymFeltRef::new_input(i));
@@ -164,7 +169,7 @@ impl QEDCompileResult {
         for assertion in ctx.assertions.iter() {
             let left = self.injest_sfr(sym_store, assertion.left);
             let right = self.injest_sfr(sym_store, assertion.right);
-            self.assertions.push(DPNAssertEqInfoIndexed{
+            self.assertions.push(DPNAssertEqInfoIndexed {
                 message: assertion.message.to_string(),
                 left,
                 right,
@@ -174,10 +179,9 @@ impl QEDCompileResult {
             let o = self.injest_sfr(sym_store, *output);
             self.circuit_outputs.push(o);
         }
-
     }
-    pub fn finalize(self, name: String) ->DPNFunctionCircuitDefinition {
-        DPNFunctionCircuitDefinition{
+    pub fn finalize(self, name: String) -> DPNFunctionCircuitDefinition {
+        DPNFunctionCircuitDefinition {
             name,
             circuit_inputs: self.circuit_inputs,
             circuit_outputs: self.circuit_outputs,

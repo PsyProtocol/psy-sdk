@@ -28,3 +28,9 @@ pub enum CheckedStmtNode<F> {
     Expression(CheckedExprNode<F>),
     Return(CheckedReturnNode),
 }
+
+impl<F> From<CheckedExprNode<F>> for CheckedStmtNode<F> {
+    fn from(value: CheckedExprNode<F>) -> Self {
+        Self::Expression(value)
+    }
+}

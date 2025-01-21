@@ -43,7 +43,7 @@ fn main(a: Felt, b: Felt) -> Felt {
     let mut unop: Felt = -a;
 
     // error
-    // let mut k: Felt = (a + 2); 
+    // let mut k: Felt = (a + 2);
 
     let mut k: Felt = a + 2;
     k *= 4;

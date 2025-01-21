@@ -65,11 +65,4 @@ impl BinaryNode {
     pub fn new(lhs: ExprId, operator: BinaryOperator, rhs: ExprId) -> Self {
         Self { lhs, operator, rhs }
     }
-
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-        &self,
-        visitor: &mut V,
-    ) -> V::ExprResult {
-        visitor.visit_binary(self)
-    }
 }

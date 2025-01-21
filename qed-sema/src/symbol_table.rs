@@ -1,22 +1,23 @@
 use std::{
     borrow::Borrow,
     collections::HashMap,
+    convert::AsMut,
     fmt::{Display, Formatter},
     hash::Hash,
     ops::{Index, IndexMut},
 };
 
-use qed_common::FileId;
+use qed_ast::ModuleNode;
+use qed_common::{define_arena_id, FileId, TreeNode};
 use strum::{EnumIs, EnumTryAs};
 
 use crate::{
-    variable::CheckedVariable, CheckedFunctionNode, DefinitionNode, IdentId, ModuleId, ModuleKind,
-    Type, TypeId, TypeKey, UseKind, UsePath,
+    variable::CheckedVariable, CheckedFunctionNode, CheckedTraitNode, DefinitionNode, IdentId,
+    ModuleId, ModuleKind, Type, TypeId, TypeKey, UseKind, UsePath,
 };
 use crate::{Error, Result};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct ScopeId(pub usize);
+define_arena_id!(ScopeId);
 
 impl ScopeId {
     pub const fn root() -> Self {
@@ -33,6 +34,8 @@ pub enum ScopeKind {
     Enum,
     Impl,
     ImplMethod,
+    Trait,
+    TraitMethod,
 }
 
 #[derive(Clone, Debug)]
@@ -66,10 +69,7 @@ impl Module {
             name,
             id,
             scope_id,
-            kind: ModuleKind::File {
-                file_id,
-                is_dir: false,
-            },
+            kind: ModuleKind::File { file_id },
             parent,
             children: vec![],
         }
@@ -163,6 +163,36 @@ impl<T> SymbolTable<T> {
         }
     }
 
+    pub fn load_modules<'a>(
+        &mut self,
+        modules: impl IntoIterator<Item = &'a TreeNode<ModuleId, ModuleNode>>,
+    ) {
+        for module in modules {
+            let data = module.data();
+            self.modules.push(Module {
+                name: data.name.clone(),
+                id: module.id(),
+                scope_id: ScopeId(module.id().into()),
+                kind: ModuleKind::File {
+                    file_id: data.file_id,
+                },
+                parent: module.parent(),
+                children: module.children().to_vec(),
+            });
+            self.scopes.push(Scope {
+                kind: ScopeKind::Module,
+                parent: module.parent().map(|x| ScopeId(x.into())),
+                children: module
+                    .children()
+                    .into_iter()
+                    .map(|&x| ScopeId(x.into()))
+                    .collect(),
+                variables: HashMap::with_capacity(10),
+                types: HashMap::new(),
+            })
+        }
+    }
+
     pub fn current_scope_id(&self) -> Option<ScopeId> {
         self.scope_stack.last().cloned()
     }
@@ -173,17 +203,6 @@ impl<T> SymbolTable<T> {
 
     pub fn current_module_id(&self) -> Option<ModuleId> {
         self.module_stack.last().cloned()
-    }
-
-    pub fn start_existing_module(&mut self, module_id: ModuleId) {
-        self.scope_stack.push(self[module_id].scope_id);
-
-        let current_module_id = self.current_module_id();
-        self.module_stack.push(module_id);
-
-        if let Some(current_module_id) = current_module_id {
-            self[current_module_id].children.push(module_id);
-        }
     }
 
     pub fn start_module(&mut self, name: IdentId, file_id: FileId) {
@@ -251,10 +270,6 @@ impl<T> SymbolTable<T> {
 
     pub fn add_use(&mut self, use_path: &UsePath) -> Result<()> {
         let current_scope_id = self.current_scope_id().unwrap();
-        eprintln!(
-            "DEBUGPRINT[3]: symbol_table.rs:214: use_path={:#?}",
-            use_path
-        );
         let type_ids = self
             .resolve_use(&use_path)
             .ok_or(Error::UnresolvedUse)?
@@ -270,30 +285,47 @@ impl<T> SymbolTable<T> {
     pub fn resolve_implementor(&mut self, ty: IdentId) -> Result<(ScopeId, TypeId)> {
         let current_scope_id = self.current_scope_id().unwrap();
         if let Some(&type_id) = self[current_scope_id].types.get(&ty.into()) {
-            let scope_id = match &self[type_id] {
-                Type::Struct(x) => x.scope_id,
-                Type::Enum(x) => x.scope_id,
-                _ => todo!(),
-            };
-            return Ok((scope_id, type_id));
+            return Ok((self[type_id].scope_id(), type_id));
         }
         Err(Error::UnresolvedImplementor)
     }
 
-    pub fn resolve_method(&self, scope_id: ScopeId, method_name: IdentId) -> Option<TypeId> {
-        let method_name: TypeKey = method_name.into();
-        for &scope in &self[scope_id].children {
-            if self[scope].kind == ScopeKind::Impl {
-                for &scope in &self[scope].children {
-                    if let Some(&type_id) = self[scope].types.get(&method_name) {
-                        match &self[type_id] {
-                            Type::Function(f) => return Some(type_id),
-                            _ => unreachable!(),
+    pub fn resolve_trait(&mut self, r#trait: IdentId) -> Result<(ScopeId, TypeId)> {
+        let current_scope_id = self.current_scope_id().unwrap();
+        if let Some(&type_id) = self[current_scope_id].types.get(&r#trait.into()) {
+            return Ok((self[type_id].scope_id(), type_id));
+        }
+        Err(Error::UnresolvedTrait)
+    }
+
+    pub fn resolve_method(&self, type_id: TypeId, method_name: IdentId) -> Option<TypeId> {
+        let method_name_key: TypeKey = method_name.into();
+
+        let find_method = |type_id: TypeId| -> Option<TypeId> {
+            let scope_id = self[type_id].scope_id();
+
+            for &scope in &self[scope_id].children {
+                if self[scope].kind == ScopeKind::Impl {
+                    for &scope in &self[scope].children {
+                        if let Some(&type_id) = self[scope].types.get(&method_name_key) {
+                            if self[type_id].is_function() {
+                                return Some(type_id);
+                            }
                         }
                     }
                 }
             }
+
+            None
+        };
+
+        for &type_id in std::iter::once(&type_id).chain(self[type_id].implementations().into_iter())
+        {
+            if let Some(type_id) = find_method(type_id) {
+                return Some(type_id);
+            }
         }
+
         None
     }
     pub fn resolve_method_with_path(
@@ -327,10 +359,6 @@ impl<T> SymbolTable<T> {
         self.modules.iter().position(|x| x.name == name).map(ModuleId)
     }
     pub fn resolve_use(&self, use_path: &UsePath) -> Option<Vec<(&TypeKey, &TypeId)>> {
-        eprintln!(
-            "DEBUGPRINT[8]: symbol_table.rs:260: self.modules={:#?}",
-            self.modules
-        );
         let mut src_module = match use_path.kind {
             UseKind::MODULE(name) => ModuleId(self.modules.iter().position(|x| x.name == name)?),
             UseKind::SELF => self.current_module_id()?,
@@ -349,14 +377,6 @@ impl<T> SymbolTable<T> {
 
         let mut path = use_path.segments.iter();
         while let Some(segment) = path.next() {
-            eprintln!(
-                "DEBUGPRINT[6]: symbol_table.rs:277: self[src_module].children={:#?}",
-                self[src_module].children
-            );
-            eprintln!(
-                "DEBUGPRINT[7]: symbol_table.rs:278: src_module={:#?}",
-                src_module
-            );
             let target_module_id = self[src_module].children.iter().find(|&id| {
                 let module = &self[*id];
                 module.name == *segment
@@ -379,11 +399,19 @@ impl<T> SymbolTable<T> {
         }
     }
 
+    pub fn impl_trait_for_type(&mut self, trait_type_id: TypeId, implementor: TypeId) {
+        self[implementor].add_implementation(trait_type_id);
+
+        (self[trait_type_id].as_mut() as &mut CheckedTraitNode).add_implementor(implementor);
+    }
+
     pub fn push_module(&mut self, module_id: ModuleId) {
+        self.push_scope(self[module_id].scope_id);
         self.module_stack.push(module_id);
     }
 
     pub fn pop_module(&mut self) {
+        self.pop_scope();
         self.module_stack.pop();
     }
 

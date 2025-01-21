@@ -8,12 +8,3 @@ pub struct VariableNode {
     pub cnst: bool,
     pub value: ExprId,
 }
-
-impl VariableNode {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-        &self,
-        visitor: &mut V,
-    ) -> V::StmtResult {
-        visitor.visit_variable(self)
-    }
-}

@@ -641,7 +641,11 @@ pub struct SetSymFeltRef {
 }
 
 impl SetSymFeltRef {
-    pub fn new(before_external_function_call: u16, index: SymFeltRef, value: SymFeltRef) -> SetSymFeltRef {
+    pub fn new(
+        before_external_function_call: u16,
+        index: SymFeltRef,
+        value: SymFeltRef,
+    ) -> SetSymFeltRef {
         SetSymFeltRef {
             before_external_function_call,
             index: index,
@@ -853,55 +857,61 @@ impl ContextEval for SymFeltStore {
                     } else {
                         args[2]
                     }
-                },
+                }
                 OpType::Exp => {
                     let (base, exponent) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
                     base.exp_u64(exponent.to_canonical_u64()).to_canonical_u64()
-                },
+                }
                 OpType::ExpConstantPower => panic!("ExpConstantPower is not implemented"),
                 OpType::ExpConstantBase => panic!("ExpConstantBase is not implemented"),
                 OpType::Mod => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     a % b
-                },
+                }
                 OpType::ModConstantDividend => panic!("ModConstantDividend is not implemented"),
                 OpType::ModConstantDivisor => panic!("ModConstantDivisor is not implemented"),
                 OpType::DivRem4 => {
                     todo!("DivRem4 is not implemented");
-                },
+                }
                 OpType::CastU32 => {
                     let value = self.resolve_unary_felt_arg(felt_ref, input, cache);
                     value & 0xFFFFFFFFu64
-                },
+                }
                 OpType::U32And => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
-                    (a & b)& 0xFFFFFFFFu64
-                },
+                    (a & b) & 0xFFFFFFFFu64
+                }
                 OpType::U32AndConstant => todo!("U32AndConstant is not implemented"),
                 OpType::U32Or => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a | b) & 0xFFFFFFFFu64
-                },
+                }
                 OpType::U32OrConstant => todo!("U32OrConstant is not implemented"),
                 OpType::U32Xor => {
-
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a ^ b) & 0xFFFFFFFFu64
-                },
+                }
                 OpType::U32XorConstant => todo!("U32XorConstant is not implemented"),
                 OpType::U32ShiftLeft => {
-
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a << b) & 0xFFFFFFFFu64
-                },
-                OpType::U32ShiftLeftConstantBitDistance => todo!("U32ShiftLeftConstantBitDistance is not implemented"),
-                OpType::U32ShiftLeftConstantValue =>todo!("U32ShiftLeftConstantValue is not implemented"),
-                OpType::U32ShiftRight =>{
+                }
+                OpType::U32ShiftLeftConstantBitDistance => {
+                    todo!("U32ShiftLeftConstantBitDistance is not implemented")
+                }
+                OpType::U32ShiftLeftConstantValue => {
+                    todo!("U32ShiftLeftConstantValue is not implemented")
+                }
+                OpType::U32ShiftRight => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a >> b) & 0xFFFFFFFFu64
-                },
-                OpType::U32ShiftRightConstantBitDistance => todo!("U32ShiftLeftConstantValue is not implemented"),
-                OpType::U32ShiftRightConstantValue => todo!("U32ShiftLeftConstantValue is not implemented"),
+                }
+                OpType::U32ShiftRightConstantBitDistance => {
+                    todo!("U32ShiftLeftConstantValue is not implemented")
+                }
+                OpType::U32ShiftRightConstantValue => {
+                    todo!("U32ShiftLeftConstantValue is not implemented")
+                }
                 OpType::CalculateMerkleRoot => todo!("CalculateMerkleRoot is not implemented"),
                 OpType::GetUserId => todo!(),
                 OpType::GetContractId => todo!(),
@@ -910,12 +920,14 @@ impl ContextEval for SymFeltStore {
                 OpType::GetUserPublicKeyHash => todo!(),
                 OpType::GetStateQueryResult => todo!(),
                 OpType::GetStateQueryResultSingle => todo!(),
-                OpType::UnaryInverse => {
-                    self.resolve_unary_felt_arg_gl(felt_ref, input, cache).inverse().to_canonical_u64()
-                },
-                OpType::UnaryNegative => {
-                    self.resolve_unary_felt_arg_gl(felt_ref, input, cache).neg().to_canonical_u64()
-                },
+                OpType::UnaryInverse => self
+                    .resolve_unary_felt_arg_gl(felt_ref, input, cache)
+                    .inverse()
+                    .to_canonical_u64(),
+                OpType::UnaryNegative => self
+                    .resolve_unary_felt_arg_gl(felt_ref, input, cache)
+                    .neg()
+                    .to_canonical_u64(),
                 OpType::GetStateCommandResultHash => todo!(),
                 OpType::GetStateCommandResultSingle => todo!(),
                 OpType::GetStateCommandResultArray => todo!(),

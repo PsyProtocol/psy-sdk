@@ -1,17 +1,9 @@
-use crate::{AstVisitor, FunctionNode, IdentId, UncheckedType};
+use crate::{AstVisitor, DefId, FunctionNode, IdentId, UncheckedType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImplNode {
     pub generic_parameters: Vec<IdentId>,
+    pub trait_name: Option<IdentId>,
     pub ty: IdentId,
-    pub body: Vec<FunctionNode>,
-}
-
-impl ImplNode {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-        &self,
-        visitor: &mut V,
-    ) -> V::StmtResult {
-        visitor.visit_impl(self)
-    }
+    pub body: Vec<DefId>,
 }

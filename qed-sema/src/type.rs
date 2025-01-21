@@ -1,8 +1,14 @@
+use std::convert::AsMut;
+use std::convert::AsRef;
 use std::fmt::{Display, Formatter};
 
 use qed_ast::IdentId;
+use qed_utils::impl_ref;
 
-use crate::{CheckedEnumNode, CheckedFunctionNode, CheckedImplNode, CheckedStructNode, ScopeId};
+use crate::{
+    CheckedArrayNode, CheckedEnumNode, CheckedFunctionNode, CheckedImplNode, CheckedStructNode,
+    CheckedTraitNode, ScopeId,
+};
 use qed_common::define_arena_id;
 use strum::{EnumIs, EnumTryAs};
 
@@ -33,11 +39,12 @@ pub enum Type {
     Unknown,
     Felt,
     Bool,
-    Array(TypeId, usize, ScopeId),
+    Array(CheckedArrayNode),
     Struct(CheckedStructNode),
     Enum(CheckedEnumNode),
     Function(CheckedFunctionNode),
     Impl(CheckedImplNode),
+    Trait(CheckedTraitNode),
     TypeVariable(IdentId),
 }
 
@@ -58,6 +65,15 @@ impl TypeKey {
     }
 }
 
+impl_ref!(Type,
+    Array => CheckedArrayNode,
+    Struct => CheckedStructNode,
+    Enum => CheckedEnumNode,
+    Function => CheckedFunctionNode,
+    Impl => CheckedImplNode,
+    Trait => CheckedTraitNode
+);
+
 impl From<IdentId> for TypeKey {
     fn from(value: IdentId) -> Self {
         TypeKey::new(value, vec![], vec![])
@@ -70,9 +86,13 @@ impl Type {
             Type::Unknown => (IdentId::TYPE_UNKNOWN, vec![], vec![]),
             Type::Felt => (IdentId::TYPE_FELT, vec![], vec![]),
             Type::Bool => (IdentId::TYPE_BOOL, vec![], vec![]),
-            Type::Array(type_id, size, _) => (
+            Type::Array(CheckedArrayNode {
+                inner_ty,
+                size,
+                scope_id,
+            }) => (
                 IdentId::TYPE_ARRAY,
-                vec![type_id.clone()],
+                vec![inner_ty.clone()],
                 vec![size.clone()],
             ),
             Type::Struct(CheckedStructNode {
@@ -95,8 +115,55 @@ impl Type {
                 ty,
                 ..
             }) => (ty.clone(), generic_parameters.clone(), vec![]),
+            Type::Trait(CheckedTraitNode {
+                generic_parameters,
+                name,
+                ..
+            }) => (name.clone(), generic_parameters.clone(), vec![]),
             Type::TypeVariable(id) => panic!("Type::id called on TypeVariable type"),
         };
         TypeKey::new(id, generic_parameters, consts)
+    }
+
+    pub fn scope_id(&self) -> ScopeId {
+        match self {
+            Type::Array(CheckedArrayNode { scope_id, .. }) => *scope_id,
+            Type::Struct(CheckedStructNode { scope_id, .. }) => *scope_id,
+            Type::Enum(CheckedEnumNode { scope_id, .. }) => *scope_id,
+            Type::Function(CheckedFunctionNode { scope_id, .. }) => *scope_id,
+            Type::Impl(CheckedImplNode { scope_id, .. }) => *scope_id,
+            Type::Trait(CheckedTraitNode { scope_id, .. }) => *scope_id,
+            _ => panic!("Type::scope_id called on non-composite type"),
+        }
+    }
+
+    pub fn add_implementation(&mut self, trait_type_id: TypeId) {
+        match self {
+            Type::Struct(CheckedStructNode {
+                ref mut implementations,
+                ..
+            }) => {
+                implementations.push(trait_type_id);
+            }
+            Type::Enum(CheckedEnumNode {
+                ref mut implementations,
+                ..
+            }) => {
+                implementations.push(trait_type_id);
+            }
+            _ => panic!("Type::add_implementation called on non-composite type"),
+        }
+    }
+
+    pub fn implementations(&self) -> &Vec<TypeId> {
+        match self {
+            Type::Struct(CheckedStructNode {
+                implementations, ..
+            }) => implementations,
+            Type::Enum(CheckedEnumNode {
+                implementations, ..
+            }) => implementations,
+            _ => panic!("Type::implementations called on non-composite type"),
+        }
     }
 }

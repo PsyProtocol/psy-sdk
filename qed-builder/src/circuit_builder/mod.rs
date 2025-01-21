@@ -108,10 +108,21 @@ impl ExecContext {
         };
         self.store.insert(value)
     }
-    fn op_std_binary_op_u32(&mut self, op_type: OpType, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+    fn op_std_binary_op_u32(
+        &mut self,
+        op_type: OpType,
+        a: SymFeltRef,
+        b: SymFeltRef,
+    ) -> SymFeltRef {
         let a_type = a.get_op_type();
         let b_type = b.get_op_type();
-        if (a_type == OpType::Constant || a_type == OpType::ConstantTrue || a_type == OpType::ConstantFalse) && (b_type == OpType::Constant || b_type == OpType::ConstantTrue || b_type == OpType::ConstantFalse) {
+        if (a_type == OpType::Constant
+            || a_type == OpType::ConstantTrue
+            || a_type == OpType::ConstantFalse)
+            && (b_type == OpType::Constant
+                || b_type == OpType::ConstantTrue
+                || b_type == OpType::ConstantFalse)
+        {
             let a_val = a.get_constant_value();
             let b_val = b.get_constant_value();
             return self.op_const(op_type.eval_binary_constant(a_val, b_val));
@@ -163,17 +174,30 @@ impl ExecContext {
         core::array::from_fn(|i| self.op_target_at(parent, i as u64))
     }
 
-    fn create_contract_state_ref(&mut self, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef, index: SymFeltRef) -> SymFeltRef {
+    fn create_contract_state_ref(
+        &mut self,
+        contract_state_tree_height: u16,
+        contract_id: SymFeltRef,
+        user_id: SymFeltRef,
+        index: SymFeltRef,
+    ) -> SymFeltRef {
         let value = SymFeltRefValue {
             op_type: OpType::GetStateQueryResultSingle,
-            const_param: ((contract_state_tree_height as u64)<<48) | (self.external_function_call_count as u64)<<32 | (self.set_state_command_count as u64),
+            const_param: ((contract_state_tree_height as u64) << 48)
+                | (self.external_function_call_count as u64) << 32
+                | (self.set_state_command_count as u64),
             inputs: vec![contract_id, user_id, index],
         };
         self.store.insert(value)
     }
 
     fn create_self_contract_state_ref(&mut self, index: SymFeltRef) -> SymFeltRef {
-        self.create_contract_state_ref(self.contract_state_tree_height, SymFeltRef::new_valueless(OpType::GetContractId), SymFeltRef::new_valueless(OpType::GetUserId), index)
+        self.create_contract_state_ref(
+            self.contract_state_tree_height,
+            SymFeltRef::new_valueless(OpType::GetContractId),
+            SymFeltRef::new_valueless(OpType::GetUserId),
+            index,
+        )
     }
 
     fn cset_felt(&mut self, old_value: SymFeltRef, new_value: SymFeltRef) -> SymFeltRef {
@@ -222,10 +246,13 @@ impl Context<SymFeltRef> for ExecContext {
         let op_type = a.get_op_type();
         if op_type.get_data_type() == DPNBuiltInDataType::U32Target {
             a
-        }else if op_type == OpType::Constant || op_type == OpType::ConstantTrue || op_type == OpType::ConstantFalse {
+        } else if op_type == OpType::Constant
+            || op_type == OpType::ConstantTrue
+            || op_type == OpType::ConstantFalse
+        {
             let value = a.get_constant_value();
-            self.op_const(value&0xFFFFFFFFu64)
-        }else{
+            self.op_const(value & 0xFFFFFFFFu64)
+        } else {
             let value = SymFeltRefValue {
                 op_type: OpType::CastU32,
                 const_param: 0,
@@ -233,8 +260,6 @@ impl Context<SymFeltRef> for ExecContext {
             };
             self.store.insert(value)
         }
-
-
     }
 
     fn op_const(&mut self, value: u64) -> SymFeltRef {
@@ -328,7 +353,7 @@ impl Context<SymFeltRef> for ExecContext {
     fn op_inverse(&mut self, a: SymFeltRef) -> SymFeltRef {
         self.op_std_unary_op(OpType::UnaryInverse, a)
     }
- 
+
     fn op_exp(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(OpType::Exp, a, b)
     }
@@ -383,11 +408,19 @@ impl Context<SymFeltRef> for ExecContext {
     }
 
     fn assert_eq(&mut self, left: SymFeltRef, right: SymFeltRef, message: &'static str) {
-        self.assertions.push(SymRefAssertion { left, right, message });
+        self.assertions.push(SymRefAssertion {
+            left,
+            right,
+            message,
+        });
     }
 
     fn assert_true(&mut self, left: SymFeltRef, message: &'static str) {
-        self.assert_eq(left, SymFeltRef::new_valueless(OpType::ConstantTrue), message);
+        self.assert_eq(
+            left,
+            SymFeltRef::new_valueless(OpType::ConstantTrue),
+            message,
+        );
     }
 
     fn start_if_block(&mut self, condition: SymFeltRef) {
@@ -461,7 +494,12 @@ impl Context<SymFeltRef> for ExecContext {
         }
     }
 
-    fn cset_str<V: ToFelts<SymFeltRef>>(&mut self, left: &'static str,  old_value: V, new_value: V) -> V {
+    fn cset_str<V: ToFelts<SymFeltRef>>(
+        &mut self,
+        left: &'static str,
+        old_value: V,
+        new_value: V,
+    ) -> V {
         println!("cset_str: {}", left);
         self.cset(old_value, new_value)
     }
@@ -469,7 +507,7 @@ impl Context<SymFeltRef> for ExecContext {
     fn pop_condition(&mut self) {
         self.condition_stack.pop();
     }
-    
+
     fn hash(&mut self, values: &[SymFeltRef]) -> [SymFeltRef; 4] {
         let op = SymFeltRefValue {
             op_type: OpType::HashNoPad,
@@ -479,7 +517,7 @@ impl Context<SymFeltRef> for ExecContext {
         let parent = self.store.insert(op);
         self.op_target_at_array::<4>(parent)
     }
-    
+
     fn split_bits(&mut self, value: SymFeltRef, num_bits: u64) -> Vec<SymFeltRef> {
         let op = SymFeltRefValue {
             op_type: OpType::SplitBits,
@@ -510,14 +548,19 @@ impl Context<SymFeltRef> for ExecContext {
     fn get_last_nonce(&mut self) -> SymFeltRef {
         SymFeltRef::new_valueless(OpType::GetNonce)
     }
-    
+
     fn get_user_public_key_hash(&mut self) -> [SymFeltRef; 4] {
         self.op_target_at_array(SymFeltRef::new_valueless(OpType::GetUserPublicKeyHash))
-        
     }
-    
-    fn op_get_state_felt(&mut self, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef, index: SymFeltRef) -> SymFeltRef {
-       self.create_contract_state_ref(contract_state_tree_height, contract_id, user_id, index)
+
+    fn op_get_state_felt(
+        &mut self,
+        contract_state_tree_height: u16,
+        contract_id: SymFeltRef,
+        user_id: SymFeltRef,
+        index: SymFeltRef,
+    ) -> SymFeltRef {
+        self.create_contract_state_ref(contract_state_tree_height, contract_id, user_id, index)
     }
 
     fn get_value(&mut self, a: SymFeltRef) -> u64 {
@@ -530,7 +573,7 @@ impl Context<SymFeltRef> for ExecContext {
 
     fn op_set_state_felt(&mut self, index: SymFeltRef, value: SymFeltRef) -> SymFeltRef {
         let core_ref = self.create_self_contract_state_ref(index);
-        if core_ref.eq(&value){
+        if core_ref.eq(&value) {
             return value;
         }
         let set_sym = SetSymFeltRef::new(self.external_function_call_count, index, value);
@@ -538,25 +581,30 @@ impl Context<SymFeltRef> for ExecContext {
         self.set_state_command_count += 1;
         value
     }
-    
+
     fn op_set_state_obj<T: ToFelts<SymFeltRef>>(&mut self, index: SymFeltRef, value: T) -> T {
         let felts = value.to_felts();
-        let existing_refs = felts.into_iter().enumerate().map(|(i, x)|{
-            let ind = self.op_add(index, SymFeltRef::new_constant(i as u64));
-            let v = self.create_self_contract_state_ref(ind);
-            (v, x)
-        }).collect::<Vec<_>>();
+        let existing_refs = felts
+            .into_iter()
+            .enumerate()
+            .map(|(i, x)| {
+                let ind = self.op_add(index, SymFeltRef::new_constant(i as u64));
+                let v = self.create_self_contract_state_ref(ind);
+                (v, x)
+            })
+            .collect::<Vec<_>>();
         for (old_value, new_value) in existing_refs {
-            if old_value.eq(&new_value){
+            if old_value.eq(&new_value) {
                 continue;
             }
-            let set_sym = SetSymFeltRef::new(self.external_function_call_count, old_value, new_value);
+            let set_sym =
+                SetSymFeltRef::new(self.external_function_call_count, old_value, new_value);
             self.set_state_commands.push(set_sym);
             self.set_state_command_count += 1;
         }
         value
     }
-    
+
     fn cset_state<V: ToFelts<SymFeltRef>>(&mut self, old_value: V, new_value: V) -> V {
         let old_felts = old_value.to_felts();
         for old in old_felts.iter() {
@@ -567,5 +615,4 @@ impl Context<SymFeltRef> for ExecContext {
         let start_index = self.store.get_direct_children(old_felts[0])[2];
         self.op_set_state_obj(start_index, new_value)
     }
-    
 }

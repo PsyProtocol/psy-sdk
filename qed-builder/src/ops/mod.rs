@@ -1,4 +1,7 @@
-use plonky2::field::{goldilocks_field::GoldilocksField, types::{Field, Field64, PrimeField64}};
+use plonky2::field::{
+    goldilocks_field::GoldilocksField,
+    types::{Field, Field64, PrimeField64},
+};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::ops::Neg;
 
@@ -151,37 +154,100 @@ impl OpType {
         *self as u16
     }
     pub fn eval_binary_constant(&self, a: u64, b: u64) -> u64 {
-        assert!(a < GoldilocksField::ORDER, "value {} is not a valid Felt", a);
-        assert!(b < GoldilocksField::ORDER, "value {} is not a valid Felt", b);
+        assert!(
+            a < GoldilocksField::ORDER,
+            "value {} is not a valid Felt",
+            a
+        );
+        assert!(
+            b < GoldilocksField::ORDER,
+            "value {} is not a valid Felt",
+            b
+        );
         match self {
-            OpType::Add =>(GoldilocksField::from_canonical_u64(a) + GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
-            OpType::Sub => (GoldilocksField::from_canonical_u64(a) - GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
-            OpType::Mul =>  (GoldilocksField::from_canonical_u64(a) * GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
-            OpType::Div =>  (GoldilocksField::from_canonical_u64(a) / GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
-            OpType::Xor => GoldilocksField::from_noncanonical_u64(a^b).0,
-            OpType::Eq => if a == b {1} else {0},
-            OpType::Lte => if a <= b {1} else {0},
-            OpType::Gte => if a >= b {1} else {0},
-            OpType::Gt => if a > b {1} else {0},
-            OpType::Lt => if a < b {1} else {0},
+            OpType::Add => (GoldilocksField::from_canonical_u64(a)
+                + GoldilocksField::from_canonical_u64(b))
+            .to_canonical_u64(),
+            OpType::Sub => (GoldilocksField::from_canonical_u64(a)
+                - GoldilocksField::from_canonical_u64(b))
+            .to_canonical_u64(),
+            OpType::Mul => (GoldilocksField::from_canonical_u64(a)
+                * GoldilocksField::from_canonical_u64(b))
+            .to_canonical_u64(),
+            OpType::Div => (GoldilocksField::from_canonical_u64(a)
+                / GoldilocksField::from_canonical_u64(b))
+            .to_canonical_u64(),
+            OpType::Xor => GoldilocksField::from_noncanonical_u64(a ^ b).0,
+            OpType::Eq => {
+                if a == b {
+                    1
+                } else {
+                    0
+                }
+            }
+            OpType::Lte => {
+                if a <= b {
+                    1
+                } else {
+                    0
+                }
+            }
+            OpType::Gte => {
+                if a >= b {
+                    1
+                } else {
+                    0
+                }
+            }
+            OpType::Gt => {
+                if a > b {
+                    1
+                } else {
+                    0
+                }
+            }
+            OpType::Lt => {
+                if a < b {
+                    1
+                } else {
+                    0
+                }
+            }
             OpType::Exp => (GoldilocksField::from_canonical_u64(a).exp_u64(b)).to_canonical_u64(),
-            OpType::Mod => a%b,
-            OpType::U32And => (a&b)&0xffffffffu64,
-            OpType::U32Or => (a|b)&0xffffffffu64,
-            OpType::U32Xor => (a^b)&0xffffffffu64,
-            OpType::U32ShiftLeft => (a<<b)&0xffffffffu64,
-            OpType::U32ShiftRight => (a>>b)&0xffffffffu64,
-            OpType::BoolAnd => (a&b)&1,
-            OpType::BoolOr => (a|b)&1,
-            _ => panic!("OpType::eval_binary_constant not implemented for {:?}", self),
+            OpType::Mod => a % b,
+            OpType::U32And => (a & b) & 0xffffffffu64,
+            OpType::U32Or => (a | b) & 0xffffffffu64,
+            OpType::U32Xor => (a ^ b) & 0xffffffffu64,
+            OpType::U32ShiftLeft => (a << b) & 0xffffffffu64,
+            OpType::U32ShiftRight => (a >> b) & 0xffffffffu64,
+            OpType::BoolAnd => (a & b) & 1,
+            OpType::BoolOr => (a | b) & 1,
+            _ => panic!(
+                "OpType::eval_binary_constant not implemented for {:?}",
+                self
+            ),
         }
     }
     pub fn eval_unary_constant(&self, a: u64) -> u64 {
-        assert!(a < GoldilocksField::ORDER, "value {} is not a valid Felt", a);
+        assert!(
+            a < GoldilocksField::ORDER,
+            "value {} is not a valid Felt",
+            a
+        );
         match self {
-            OpType::BoolNot => if a == 0 {1} else {0},
-            OpType::UnaryInverse => GoldilocksField::from_noncanonical_u64(a).inverse().to_canonical_u64(),
-            OpType::UnaryNegative => GoldilocksField::from_noncanonical_u64(a).neg().to_canonical_u64(),
+            OpType::BoolNot => {
+                if a == 0 {
+                    1
+                } else {
+                    0
+                }
+            }
+            OpType::UnaryInverse => GoldilocksField::from_noncanonical_u64(a)
+                .inverse()
+                .to_canonical_u64(),
+            OpType::UnaryNegative => GoldilocksField::from_noncanonical_u64(a)
+                .neg()
+                .to_canonical_u64(),
             _ => panic!("OpType::eval_unary_constant not implemented for {:?}", self),
         }
     }
@@ -246,7 +312,7 @@ impl OpType {
             OpType::UnaryNegative => DPNBuiltInDataType::Target,
         }
     }
-    pub fn is_inputless(&self) -> bool{
+    pub fn is_inputless(&self) -> bool {
         match self {
             OpType::ConstantTrue => true,
             OpType::ConstantFalse => true,
@@ -292,7 +358,7 @@ impl OpType {
             OpType::GetStateCommandResultSingle => true,
             OpType::GetStateCommandResultArray => true,
             OpType::GetStateCommandResultHash => true,
-            
+
             _ => false,
         }
     }
@@ -363,7 +429,9 @@ impl std::fmt::Display for OpType {
     }
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(
+    Serialize_repr, Deserialize_repr, Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd,
+)]
 #[repr(u8)]
 pub enum DPNBuiltInDataType {
     Target = 0,

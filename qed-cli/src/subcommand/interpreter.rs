@@ -1,8 +1,11 @@
-use qed_utils::InterpreterArgs;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_builder::{vm::{compile::QEDCompileResult, exec::IExecutionContext, runner::exec_circuit_function_vm}, Context, ExecContext, SymFeltRef};
+use qed_builder::{
+    vm::{compile::QEDCompileResult, exec::IExecutionContext, runner::exec_circuit_function_vm},
+    Context, ExecContext, SymFeltRef,
+};
 use qed_interpreter::Interpreter;
-use qed_sema::{CheckedValueNode, CheckedValueOrNode, TypeChecker};
+use qed_sema::{CheckedValueNode, CheckedValueOrNode, SymbolTable, TypeChecker};
+use qed_utils::InterpreterArgs;
 
 pub fn run(args: InterpreterArgs) -> anyhow::Result<()> {
     let path = args.file;
@@ -11,10 +14,16 @@ pub fn run(args: InterpreterArgs) -> anyhow::Result<()> {
         // let cache = SymFeltEvalCache::new();
         // let store = SymFeltStore::new();
         let mut typecheker = TypeChecker::new();
+        let mut symbols = SymbolTable::new();
         let a = CheckedValueNode::Felt(interpreter.context.add_input());
         let b = CheckedValueNode::Felt(interpreter.context.add_input());
         let res = interpreter
-            .interpret(&mut typecheker, path.into(), vec![CheckedValueOrNode::from(a), CheckedValueOrNode::from(b)])
+            .interpret(
+                &mut typecheker,
+                path.into(),
+                vec![CheckedValueOrNode::from(a), CheckedValueOrNode::from(b)],
+                &mut symbols,
+            )
             .expect("interpret failed")
             .expect("return value not found");
         interpreter.inputs.push(2);

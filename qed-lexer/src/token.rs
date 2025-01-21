@@ -21,6 +21,8 @@ pub enum Token<'input> {
     KeywordEnum,
     #[token("impl")]
     KeywordImpl,
+    #[token("trait")]
+    KeywordTrait,
     #[token("return")]
     KeywordReturn,
     #[token("if")]
@@ -31,9 +33,14 @@ pub enum Token<'input> {
     KeywordWhile,
     #[token("for")]
     KeywordFor,
+    #[token("where")]
+    KeywordWhere,
 
     #[token("as")]
     KeywordAs,
+
+    #[token("derive")]
+    KeywordDerive,
 
     #[token("new")]
     KeywordNew,
@@ -70,6 +77,9 @@ pub enum Token<'input> {
     #[token("false", |_| false)]
     #[token("true", |_| true)]
     Bool(bool),
+
+    #[token("#")]
+    Pound,
 
     #[token("(")]
     LParen,

@@ -1,8 +1,7 @@
-use std::fmt::Display;
 use crate::{
     AstVisitor, {ExprId, IdentId},
 };
-
+use std::fmt::Display;
 #[derive(Clone, Debug, PartialEq)]
 pub enum  PathType{
     Basic,
@@ -26,14 +25,14 @@ impl PathNode {
         }
     }
 }
-impl PathNode {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-        &self,
-        visitor: &mut V,
-    ) -> V::ExprResult {
-        visitor.visit_path(self)
-    }
-}
+// impl PathNode {
+//     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+//         &self,
+//         visitor: &mut V,
+//     ) -> V::ExprResult {
+//         visitor.visit_path(self)
+//     }
+// }
 
 impl Display for PathNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
