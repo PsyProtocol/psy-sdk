@@ -6,3 +6,4 @@ version = "0.1.0"
 [dependencies]
 logos = { workspace = true }
 thiserror = { workspace = true }
+home = { workspace = true }

@@ -1,5 +1,19 @@
 trait Storage {
     fn size() -> Felt;
-    fn read(self: Self, offset: Felt) -> Felt;
-    fn write(self: Self, offset: Felt, value: Felt) -> Felt;
+    extern fn read(self: Self, offset: Felt) -> Felt;
+    extern fn write(self: Self, offset: Felt, value: Felt);
+}
+
+impl Storage for Felt {
+    fn size() -> Felt {
+        return 1;
+    }
+
+    extern fn read(self: Self, offset: Felt) -> Felt {
+        return 1;
+    }
+
+    extern fn write(self: Self, offset: Felt, value: Felt) {
+
+    }
 }

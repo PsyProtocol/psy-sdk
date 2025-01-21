@@ -216,12 +216,12 @@ mod tests {
     use crate::Token;
     use std::fs::File;
     use std::io::{self, Read};
-    const FILE_PATH: &str = "/Users/jason/git/qas/qed-lang/tests/003.qed";
+    use std::path::PathBuf;
 
     #[test]
     fn test_lex_from_file() -> io::Result<()> {
         // 1. read file content
-        let mut file = File::open(FILE_PATH)?;
+        let mut file = File::open(PathBuf::from("../tests/003.qed"))?;
         let mut content = String::new();
         file.read_to_string(&mut content)?;
 

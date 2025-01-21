@@ -56,7 +56,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> Index<StmtId> for TypeChecker<F,
     }
 }
 
-static STD_PRELUDE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
+pub static STD_PRELUDE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
 
 impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
     pub fn new() -> Self {
@@ -100,7 +100,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
     ) -> Result<()> {
         STD_PRELUDE_SCOPE_ID.set(symbols.current_scope_id().unwrap());
         for (ident, ty) in TYPE_MAPPING {
-            symbols.add_type_id(None, ident.clone(), *ty);
+            symbols.add_type(None, ty.clone());
         }
         Ok(())
     }
