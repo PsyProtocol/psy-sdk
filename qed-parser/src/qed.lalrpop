@@ -146,13 +146,13 @@ StructDef: StructNode = {
 }
 
 FunctionDef: DefinitionNode = {
-    <l:@L> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
         body: Some(stmt_nodes.alloc_item(block_stmt)),
         return_type,
-        is_extern: false
+        is_extern: is_extern.is_some()
     })
 }
 
@@ -293,7 +293,6 @@ Term: ExprNode<F> = {
     <l:@L> "(" <expr:Expression> ")" <r:@R> => expr,
     ValueExpression,
     PathExpression,
-   
 }
 //tyree 1
 PathExpression: ExprNode<F> = {
