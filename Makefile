@@ -1,5 +1,5 @@
 PROFILE                 := release
-LOG_LEVE                := debug
+LOG_LEVE                := info
 
 check:
 	@cargo check --all-targets --examples
@@ -15,7 +15,7 @@ fmt:
 	@cargo fmt
 
 run:
-	@RUST_LOG=${LOG_LEVE} cargo run --package qed-cli
+	@RUST_LOG=${LOG_LEVE} cargo run --package qed-cli interpret --file tests/opcode_test.qed
 
 test:
 	@RUST_LOG=${LOG_LEVE} cargo test -- --nocapture

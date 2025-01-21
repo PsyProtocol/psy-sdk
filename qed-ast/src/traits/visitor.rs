@@ -4,89 +4,202 @@ use crate::*;
 
 pub trait AstVisitor<F: Clone, C> {
     type ExprResult;
-    type StmtResult: Default;
+    type StmtResult: From<Self::ExprResult>;
+    type Context: VisitorContext<F, C>;
+    type Error;
 
-    fn visit_expr(&mut self, expr: &ExprNode<F>) -> Self::ExprResult {
-        match expr {
-            ExprNode::Path(ident) => self.visit_path(ident),
-            ExprNode::Value(literal) => self.visit_value(literal),
-            ExprNode::Binary(binary) => self.visit_binary(binary),
-            ExprNode::Unary(unary) => self.visit_unary(unary),
-            ExprNode::Call(call) => self.visit_call(call),
-            ExprNode::Cast(cast) => self.visit_cast(cast),
-            ExprNode::IndexAccess(index_access_node) => self.visit_index_access(index_access_node),
-            ExprNode::MemberAccess(member_access_node) => {
-                self.visit_member_access(member_access_node)
+    fn visit_expr(
+        &mut self,
+        expr_id: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        ctx.push_node_id(NodeId::from(expr_id));
+        let res = match ctx.expression(expr_id).node_type() {
+            NodeType::PathExpr => self.visit_path(expr_id, ctx)?,
+            NodeType::ValueExpr => self.visit_value(expr_id, ctx)?,
+            NodeType::BinaryExpr => self.visit_binary(expr_id, ctx)?,
+            NodeType::UnaryExpr => self.visit_unary(expr_id, ctx)?,
+            NodeType::CallExpr => self.visit_call(expr_id, ctx)?,
+            NodeType::CastExpr => self.visit_cast(expr_id, ctx)?,
+            NodeType::IndexAccessExpr => self.visit_index_access(expr_id, ctx)?,
+            NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
+            _ => unreachable!(),
+        };
+        ctx.pop_node_id();
+        Ok(res)
+    }
+
+    fn visit_definition(
+        &mut self,
+        def_id: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        ctx.push_node_id(NodeId::from(def_id));
+        let res = match ctx.definition(def_id).node_type() {
+            NodeType::FunctionDef => self.visit_function(def_id, ctx)?,
+            NodeType::StructDef => self.visit_struct(def_id, ctx)?,
+            NodeType::EnumDef => self.visit_enum(def_id, ctx)?,
+            NodeType::ImplDef => self.visit_impl(def_id, ctx)?,
+            NodeType::TraitDef => self.visit_trait(def_id, ctx)?,
+            _ => unreachable!(),
+        };
+        ctx.pop_node_id();
+        Ok(res)
+    }
+
+    fn visit_stmt(
+        &mut self,
+        stmt_id: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        ctx.push_node_id(NodeId::from(stmt_id));
+        let res = match ctx.statement(stmt_id).node_type() {
+            NodeType::IfStmt => self.visit_if(stmt_id, ctx)?,
+            NodeType::WhileStmt => self.visit_while(stmt_id, ctx)?,
+            NodeType::BlockStmt => self.visit_block(stmt_id, ctx)?,
+            NodeType::AssignmentStmt => self.visit_assignment(stmt_id, ctx)?,
+            NodeType::VariableStmt => self.visit_variable(stmt_id, ctx)?,
+            NodeType::ReturnStmt => self.visit_return(stmt_id, ctx)?,
+            NodeType::DefinitionStmt => {
+                self.visit_definition(ctx.statement(stmt_id).as_definition().unwrap().clone(), ctx)?
             }
-        }
+            NodeType::ExpressionStmt => Self::StmtResult::from(
+                self.visit_expr(ctx.statement(stmt_id).as_expression().unwrap().clone(), ctx)?,
+            ),
+            _ => unreachable!(),
+        };
+        ctx.pop_node_id();
+        Ok(res)
     }
 
-    fn visit_definition(&mut self, module: &DefinitionNode) -> Self::StmtResult {
-        match module {
-            DefinitionNode::Function(function) => self.visit_function(function),
-            DefinitionNode::Struct(r#struct) => self.visit_struct(r#struct),
-            DefinitionNode::Enum(r#enum) => self.visit_enum(r#enum),
-            DefinitionNode::Impl(r#impl) => self.visit_impl(r#impl),
+    fn visit_use(&mut self, use_path: &UsePath, ctx: &mut Self::Context)
+        -> Result<(), Self::Error>;
+
+    fn visit_module(
+        &mut self,
+        module_id: ModuleId,
+        ctx: &mut Self::Context,
+    ) -> Result<(), Self::Error> {
+        ctx.push_node_id(NodeId::from(module_id));
+        // TODO: remove clone
+        for u in &ctx.module(module_id).uses.clone() {
+            self.visit_use(u, ctx)?;
         }
+
+        // TODO: remove clone
+        for &definition in &ctx.module(module_id).definitions.clone() {
+            self.visit_definition(definition, ctx)?;
+        }
+        ctx.pop_node_id();
+
+        Ok(())
     }
 
-    fn visit_stmt(&mut self, stmt: &StmtNode<F>) -> Self::StmtResult {
-        match stmt {
-            StmtNode::If(if_node) => self.visit_if(if_node),
-            StmtNode::While(while_node) => self.visit_while(while_node),
-            StmtNode::Block(block) => self.visit_block(block),
-            StmtNode::Assignment(assignment) => self.visit_assignment(assignment),
-            StmtNode::Variable(variable) => self.visit_variable(variable),
-            StmtNode::Return(expr) => self.visit_return(expr),
-            StmtNode::Definition(definition) => self.visit_definition(definition),
-            StmtNode::Expression(expr) => {
-                self.visit_expr(expr);
-                Self::StmtResult::default()
-            }
-        }
-    }
-
-    fn visit_use(&mut self, u: &UsePath);
-
-    fn visit_module(&mut self, module: &RawModule) {
-        eprintln!("DEBUGPRINT[9]: visitor.rs:51 (after fn visit_module(&mut self, module: &RawM…)");
-        for u in &module.uses {
-            self.visit_use(u);
-        }
-
-        for definition in &module.definitions {
-            self.visit_definition(definition);
-        }
-    }
-
-    fn visit_program(&mut self, program: &Program) {
+    fn visit_program(&mut self, ctx: &mut Self::Context) -> Result<(), Self::Error> {
         let mut visited = HashMap::new();
-        program
-            .dependency_graph
-            .ts(&program.root_file_id, &mut visited, &mut |file_id| {
-                self.visit_module(&program.modules.get(file_id).unwrap());
+        ctx.dependency_graph()
+            .ts(&ModuleId::root(), &mut visited, &mut |&module_id| {
+                self.visit_module(module_id, ctx);
             });
+
+        Ok(())
     }
 
-    fn visit_path(&mut self, node: &PathNode) -> Self::ExprResult;
-    fn visit_index_access(&mut self, node: &IndexAccessNode) -> Self::ExprResult;
-    fn visit_member_access(&mut self, node: &MemberAccessNode) -> Self::ExprResult;
+    fn visit_path(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_index_access(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_member_access(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_value(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_binary(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_unary(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_call(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_cast(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
 
-    fn visit_value(&mut self, node: &ValueNode<F>) -> Self::ExprResult;
-    fn visit_binary(&mut self, node: &BinaryNode) -> Self::ExprResult;
-    fn visit_unary(&mut self, node: &UnaryNode) -> Self::ExprResult;
-    fn visit_call(&mut self, node: &CallNode) -> Self::ExprResult;
-    fn visit_cast(&mut self, node: &CastNode) -> Self::ExprResult;
+    fn visit_if(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_while(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_block(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_assignment(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_variable(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_return(
+        &mut self,
+        expr: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
 
-    fn visit_if(&mut self, node: &IfNode) -> Self::StmtResult;
-    fn visit_while(&mut self, node: &WhileNode) -> Self::StmtResult;
-    fn visit_block(&mut self, node: &BlockNode) -> Self::StmtResult;
-    fn visit_assignment(&mut self, node: &AssignmentNode) -> Self::StmtResult;
-    fn visit_variable(&mut self, node: &VariableNode) -> Self::StmtResult;
-    fn visit_return(&mut self, expr: &ReturnNode) -> Self::StmtResult;
-
-    fn visit_impl(&mut self, node: &ImplNode) -> Self::StmtResult;
-    fn visit_function(&mut self, node: &FunctionNode) -> Self::StmtResult;
-    fn visit_struct(&mut self, node: &StructNode) -> Self::StmtResult;
-    fn visit_enum(&mut self, node: &EnumNode) -> Self::StmtResult;
+    fn visit_impl(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_trait(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_function(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_struct(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_enum(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
 }

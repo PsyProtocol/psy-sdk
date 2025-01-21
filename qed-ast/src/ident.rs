@@ -45,6 +45,7 @@ impl IdentId {
     pub const PRELUDE: IdentId = IdentId(10);
 
     pub const MAIN: IdentId = IdentId(11);
+    pub const DERIVE: IdentId = IdentId(12);
 }
 
 pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
@@ -60,6 +61,7 @@ pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
     (IdentId::STD, "std"),
     (IdentId::PRELUDE, "prelude"),
     (IdentId::MAIN, "main"),
+    (IdentId::DERIVE, "derive"),
 ];
 
 #[derive(Clone, Debug, Default)]

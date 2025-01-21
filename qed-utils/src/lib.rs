@@ -1,5 +1,7 @@
 mod args;
 mod logging;
+mod macros;
 
 pub use args::*;
-pub use logging::setup_env_logger;
+pub use logging::*;
+pub use macros::*;

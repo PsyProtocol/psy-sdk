@@ -20,13 +20,15 @@ impl FileResolver {
     }
 
     pub fn resolve_id(&self, file_path: &PathBuf) -> Option<&FileId> {
+        let file_path = file_path.canonicalize().ok()?;
         unsafe {
             let file_ids = &mut *self.file_ids.get();
-            file_ids.get(file_path)
+            file_ids.get(&file_path)
         }
     }
 
     pub fn resolve_file(&self, file_path: PathBuf) -> std::io::Result<FileId> {
+        let file_path = file_path.canonicalize()?;
         unsafe {
             let file_ids = &mut *self.file_ids.get();
             if let Some(&file_id) = file_ids.get(&file_path) {

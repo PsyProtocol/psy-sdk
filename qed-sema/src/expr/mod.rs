@@ -14,7 +14,7 @@ pub use unary::*;
 
 use qed_ast::{ExprNode, IdentId};
 
-use crate::{CheckedValueNode, TypeId, TypeKey, BOOL_TYPE, FELT_TYPE};
+use crate::{CheckedValueNode, ScopeId, TypeId, TypeKey, BOOL_TYPE, FELT_TYPE};
 use strum::{EnumIs, EnumTryAs};
 
 #[derive(Debug, Clone, PartialEq, EnumIs, EnumTryAs)]
@@ -36,7 +36,7 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Value(v) => match v {
                 CheckedValueNode::Felt(_) => FELT_TYPE,
                 CheckedValueNode::Bool(_) => BOOL_TYPE,
-                CheckedValueNode::Array(type_id, _, _) => type_id.clone(),
+                CheckedValueNode::Array(type_id, _) => type_id.clone(),
                 CheckedValueNode::Struct(type_id, _) => type_id.clone(),
                 CheckedValueNode::Type(type_id) => type_id.clone(),
             },
@@ -46,6 +46,20 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Call(c) => c.type_id,
             CheckedExprNode::IndexAccess(i) => i.type_id,
             CheckedExprNode::MemberAccess(m) => m.type_id,
+        }
+    }
+
+    pub fn scope_id(&self) -> Option<ScopeId> {
+        match self {
+            CheckedExprNode::Path(p) => Some(p.scope_id),
+            _ => None,
+        }
+    }
+
+    pub fn name(&self) -> IdentId {
+        match self {
+            CheckedExprNode::Path(p) => p.name,
+            _ => panic!("Expected path node"),
         }
     }
 }

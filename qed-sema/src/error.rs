@@ -18,6 +18,8 @@ pub enum Error {
     ImmutableVariable,
     #[error("unresolved implementor")]
     UnresolvedImplementor,
+    #[error("unresolved trait")]
+    UnresolvedTrait,
     #[error("unresolved member")]
     UnresolvedMember,
     #[error("function parameter mismatch")]

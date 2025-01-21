@@ -15,13 +15,6 @@ pub struct Graph<T> {
     nodes: HashMap<T, Vec<T>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum VisitPhase {
-    Enter,
-    Visit,
-    Exit,
-}
-
 impl<T> Deref for Graph<T> {
     type Target = HashMap<T, Vec<T>>;
     fn deref(&self) -> &Self::Target {
@@ -52,19 +45,15 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         &'a self,
         node: &'a T,
         parent: Option<&'a T>,
-        visitor: &mut impl FnMut(&'a T, Option<&'a T>, VisitPhase),
+        visitor: &mut impl FnMut(&'a T, Option<&'a T>),
     ) {
-        visitor(node, parent, VisitPhase::Enter);
-
-        visitor(node, parent, VisitPhase::Visit);
+        visitor(node, parent);
 
         if let Some(neighbors) = self.nodes.get(&node) {
             for neighbor in neighbors {
                 self.dfs(neighbor, Some(node), visitor);
             }
         }
-
-        visitor(node, parent, VisitPhase::Exit);
     }
 
     pub fn bfs<'a>(

@@ -1,7 +1,6 @@
 use crate::{circuit_builder::ToFelts, felt::context_felt::ContextFelt};
 
 pub trait Context<F: ContextFelt> {
-
     fn get_value(&mut self, a: F) -> u64;
     fn get_bool_value(&mut self, a: F) -> bool;
     fn op_cast_u32(&mut self, a: F) -> F;
@@ -68,7 +67,13 @@ pub trait Context<F: ContextFelt> {
     fn get_user_public_key_hash(&mut self) -> [F; 4];
 
     // state operations
-    fn op_get_state_felt(&mut self, contract_state_tree_height: u16, contract_id: F, user_id: F, index: F) -> F;
+    fn op_get_state_felt(
+        &mut self,
+        contract_state_tree_height: u16,
+        contract_id: F,
+        user_id: F,
+        index: F,
+    ) -> F;
     fn op_set_state_felt(&mut self, index: F, value: F) -> F;
     fn op_set_state_obj<T: ToFelts<F>>(&mut self, index: F, value: T) -> T;
     fn cselect<V: ToFelts<F>>(&mut self, condition: F, if_true: V, if_false: V) -> V {

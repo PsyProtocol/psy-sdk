@@ -1,4 +1,4 @@
-use crate::{ExprId, IdentId};
+use crate::{AstVisitor, ExprId, IdentId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexAccessNode {
