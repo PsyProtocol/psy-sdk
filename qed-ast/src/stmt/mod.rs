@@ -6,6 +6,7 @@ mod storage;
 mod variable;
 mod r#while;
 
+use std::fmt::Display;
 pub use assignment::*;
 pub use block::*;
 use enum_as_inner::EnumAsInner;
@@ -43,6 +44,23 @@ impl<F> StmtNode<F> {
             StmtNode::Expression(_) => NodeType::ExpressionStmt,
             StmtNode::Return(_) => NodeType::ReturnStmt,
             StmtNode::Storage(_) => NodeType::StorageStmt,
+        }
+    }
+}
+
+impl Display for StmtNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StmtNode::If(_) => write!(f, "If"),
+            StmtNode::While(_) => write!(f, "While"),
+            StmtNode::Block(_) => write!(f, "Block"),
+            StmtNode::Assignment(_) => write!(f, "Assignment"),
+            StmtNode::Variable(_) => write!(f, "Variable"),
+            StmtNode::Definition(_) => write!(f, "Definition"),
+            StmtNode::Expression(_) => write!(f, "Expression"),
+            StmtNode::Return(_) => write!(f, "Return"),
+
+
         }
     }
 }

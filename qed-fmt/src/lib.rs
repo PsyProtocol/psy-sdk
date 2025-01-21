@@ -220,7 +220,7 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         let node = ctx.expression(expr_id).as_path().unwrap();
-        Ok(ctx.ident(node.0).to_string())
+        Ok(ctx.ident(node.target).to_string())
     }
 
     fn visit_index_access(
