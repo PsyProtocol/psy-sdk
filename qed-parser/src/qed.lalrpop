@@ -99,7 +99,7 @@ ImplDef: ImplNode = {
            body: def_nodes.alloc_items(body)
        }
    },
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters?> <trait_name:Identifier> FOR <ty:Identifier> <generic_parameters_rhs:GenericParameters?> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters?> <trait_name:Identifier> FOR <ty:IdentifierOrBasicType> <generic_parameters_rhs:GenericParameters?> "{" <body:FunctionDef*> "}" <r:@R> => {
        assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplNode {
            generic_parameters: generic_parameters_lhs.unwrap_or(Vec::new()),
@@ -297,7 +297,7 @@ Term: ExprNode<F> = {
 //tyree 1
 PathExpression: ExprNode<F> = {
     // Single
-    <variable: Identifier> => ExprNode::Path(PathNode {
+    <variable: IdentifierOrSelf> => ExprNode::Path(PathNode {
         path_type: PathType::Basic,
         root: None,
         segments: vec![],
@@ -572,6 +572,13 @@ IdentifierOrAll: Option<IdentId> = {
 IdentifierOrSelf: IdentId = {
     Identifier,
     <l:@L> <name:SELF> <r:@R> => IdentId::SELF
+}
+
+IdentifierOrBasicType: IdentId = {
+    Identifier,
+    <l:@L> <ty:TYPE_FELT> <r:@R> => IdentId::TYPE_FELT,
+    <l:@L> <ty:TYPE_BOOL> <r:@R> => IdentId::TYPE_BOOL,
+    <l:@L> <ty:TYPE_SELF> <r:@R> => IdentId::TYPE_SELF,
 }
 
 IdentifierOrDerive: IdentId = {
