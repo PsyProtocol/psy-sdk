@@ -13,7 +13,6 @@ use std::{
     ops::{Index, IndexMut},
     rc::Rc,
 };
-
 pub use definition::*;
 pub use expr::*;
 use once_cell::sync::OnceCell;
@@ -691,6 +690,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
         //tyree 3
         match expr {
             ExprNode::Path(p) => {
+                //println!("trying to find path {}", p);
                 let PathNode {
                     root,
                     segments,
@@ -699,7 +699,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
                 } = p;
 
                 //get current scope_id
-                let scope_id = symbols.current_scope_id().unwrap();
+                let current_scope_id = symbols.current_scope_id().unwrap();
 
                 if let Some(variable) = symbols.get_variable(None, &target) {
 
@@ -713,7 +713,7 @@ impl<F: Clone, C> TypeChecker<F, C> {
                     return Ok(CheckedExprNode::Path(CheckedPathNode {
                         name: target.clone(),
                         type_id,
-                        scope_id,
+                        scope_id: current_scope_id,
                     }));
                 } else {
                     if root.is_none() && segments.is_empty(){
@@ -721,42 +721,79 @@ impl<F: Clone, C> TypeChecker<F, C> {
                     }
 
                     let root_scope = {
-                        //try to search in the whole type table
-                        let root_checked_type = symbols.search_type_table(root.unwrap());
-
-                        if root_checked_type.len() == 0 {
-                            //cannot find it from type table, then search it
-                            match symbols.get_scope(Some(scope_id), &root.unwrap()) {
-                                Some(s) => s,
-                                None => {
-                                    return Err(Error::UnresolvedVariable);
+                        match root {
+                            //if it's self, get the current module id
+                            Some(IdentId::SELF) | None => {
+                                match symbols.current_module_id(){
+                                    Some(m) => symbols[m].scope_id,
+                                    None =>  return Err(Error::UnresolvedVariable)
                                 }
                             }
-                        }else {
-                            //maybe have not only one with the same name,but we assume it is a struct
-                            root_checked_type.iter().find_map(|x| {
-                                match x {
-                                    //Struct::fun()
-                                    Type::Struct(checked_struct) => {
-                                        Some(checked_struct.scope_id)
+                            Some(IdentId::SUPER) => {
+                                match symbols.current_module_id(){
+                                    Some(m) => {
+                                        let parent = symbols[m].parent.unwrap_or(m);
+                                        symbols[parent].scope_id
                                     }
-                                    //Enum::fun()
-                                    Type::Enum(checked_enum) => {
-                                        Some(checked_enum.scope_id)
-                                    }
-                                    _ => {
-                                        //todo!: add other type support
-                                        None
-                                    }
+                                    None => return Err(Error::UnresolvedVariable)
                                 }
-                            }).expect("cannot find path's root")
+                            }
+                            Some(IdentId::CRATE) => {
+                                let mut module_id = match symbols.current_module_id(){
+                                    Some(m) => m,
+                                    None => return Err(Error::UnresolvedVariable)
+                                };
+                                while let Some(parent) = symbols[module_id].parent {
+                                    module_id = parent;
+                                }
+                                symbols[module_id].scope_id
+                            }
+                            Some(r) => {
+                                let r = r.clone();
+                                //try to find the root in the module table
+                                let scope_id = match symbols.find_module(r) {
+                                    //if it's a module, get the scope_id
+                                    Some(m) => {
+                                        let t = symbols[m].scope_id;
+                                        //println!("find_module module id {:?}, scope id {:?}", m, a);
+                                        t
+                                    },
+                                    None => {
+                                        //if not a module, try to find it in type table
+                                        let root_checked_type = symbols.search_type_table(r);
+
+                                        match root_checked_type.iter().find_map(|x| {
+                                            match x {
+                                                Type::Struct(t)  => {
+                                                    Some(t.scope_id)
+                                                }
+                                                Type::Enum(t) => {
+                                                    Some(t.scope_id)
+                                                }
+                                                _ => {
+                                                    None
+                                                }
+                                            }
+                                        }) {
+                                            Some(s) => s,
+                                            None => {
+                                                return Err(Error::UnresolvedPath);
+                                            }
+                                        }
+
+                                    }
+                                };
+                                //println!("path root scope id = {:?}", scope_id);
+                                scope_id
+                            }
                         }
-
                     };
-
                     //compare segments one by one to find the most close one
+
                     let method_scope = symbols.find_path_scope(segments, root_scope);
+
                     if method_scope.is_empty(){
+                        println!("cannot find any path in the scope {:?}", root_scope);
                         return Err(Error::UnresolvedPath);
                     }
 
@@ -779,8 +816,8 @@ impl<F: Clone, C> TypeChecker<F, C> {
                         }
                         1 => {
                             let (method_type, method_path) = &method_type_with_path[0];
-                            println!("method_type: {:?}", method_type);
-                            println!("method_path: {:?}", method_path);
+                            //println!("method_type: {:?}", method_type);
+                            //println!("method_path: {:?}", method_path);
                             let type_id = method_type.clone();
                             let name = target.clone();
                             let scope_id = method_path.last().unwrap().clone();
@@ -790,7 +827,12 @@ impl<F: Clone, C> TypeChecker<F, C> {
                                 scope_id,
                             }))
                         }
-                        _ => {
+                        x => {
+                            for (t, v) in &method_type_with_path {
+                                println!("method_type: {:?}, method_scope_path :{:?}", t, v);
+                            }
+                            println!("Error: there are multiple paths with the same scope. The number of paths is {}", x);
+
                             Err(Error::UnresolvedPath)
                         }
                     }

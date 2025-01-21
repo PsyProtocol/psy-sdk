@@ -123,8 +123,29 @@ impl<T> Display for SymbolTable<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for (i, scope) in self.scopes.iter().enumerate() {
             writeln!(f, "ScopeId({})", i)?;
+            writeln!(f, "  kind: {:?}", scope.kind)?;
             writeln!(f, "  parent: {:?}", scope.parent)?;
             writeln!(f, "  children: {:?}", scope.children)?;
+            writeln!(f, "  types:")?;
+            //print scope type
+            for (k,v) in &scope.types {
+                writeln!(f, "  {:?} : {:?}", k, v)?;
+            }
+        }
+        //print type
+        for (i, ty) in self.types.iter().enumerate() {
+            writeln!(f, "TypeId({})", i)?;
+            writeln!(f, "  {:?}", ty)?;
+        }
+        //print module
+        for (i, module) in self.modules.iter().enumerate() {
+            writeln!(f, "ModuleId({})", i)?;
+            writeln!(f, "  name: {:?}", module.name)?;
+            writeln!(f, "  id: {:?}", module.id)?;
+            writeln!(f, "  scope_id: {:?}", module.scope_id)?;
+            writeln!(f, "  kind: {:?}", module.kind)?;
+            writeln!(f, "  parent: {:?}", module.parent)?;
+            writeln!(f, "  children: {:?}", module.children)?;
         }
         Ok(())
     }
@@ -281,22 +302,29 @@ impl<T> SymbolTable<T> {
         method_name: IdentId,
     ) -> Option<Vec<(TypeId, Vec<ScopeId>)>> {
         let method_name: TypeKey = method_name.into();
-
-        println!("scope_id = {:?}", scope_id);
-        println!("method_name = {:?}", method_name);
-
-
         let res = self.find_type_recursive(scope_id, &method_name);
-        println!("res = {:?}", res);
+        if res.is_empty() {
+            println!("cannot find type of {:?}", scope_id);
+            return None;
+        }
         let r = res.iter().map(|x| {
             let type_id = self[*x].types.get(&method_name).cloned();
             (type_id.unwrap(), res.clone())
         }).collect::<Vec<_>>();
+        //println!("symbol =\n{}", self);
+
+        // for i in &r {
+        //     println!("{}:{}", file!(), line!());
+        //     println!("i = {:?}", i);
+        // }
         if r.is_empty(){
             return None;
         }else {
             return Some(r);
         }
+    }
+    pub fn find_module(&self, name: IdentId) -> Option<ModuleId> {
+        self.modules.iter().position(|x| x.name == name).map(ModuleId)
     }
     pub fn resolve_use(&self, use_path: &UsePath) -> Option<Vec<(&TypeKey, &TypeId)>> {
         eprintln!(
@@ -503,7 +531,6 @@ impl<T> SymbolTable<T> {
         if path_vec.is_empty(){
             return vec![start_scope];
         }
-
 
         let mut idx = 0 ;
         let mut scopes = self.find_type_recursive(start_scope, &path_vec[idx].into());
