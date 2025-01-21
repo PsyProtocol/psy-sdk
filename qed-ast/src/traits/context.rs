@@ -74,6 +74,7 @@ pub trait VisitorContext<F: Clone, C> {
     fn push_node_id(&mut self, node_id: NodeId);
     fn pop_node_id(&mut self);
     fn node_type(&self) -> NodeType;
+    fn parent_node_type(&self) -> NodeType;
     fn ident(&self, id: IdentId) -> &Ident;
     fn module(&self, module_id: ModuleId) -> &ModuleNode;
     fn program(&self) -> &Program<F>;
@@ -81,4 +82,5 @@ pub trait VisitorContext<F: Clone, C> {
     fn expression(&self, expr_id: ExprId) -> &ExprNode<F>;
     fn statement(&self, stmt_id: StmtId) -> &StmtNode;
     fn definition(&self, def_id: DefId) -> &DefinitionNode;
+    fn append_definition(&mut self, definition: DefinitionNode);
 }

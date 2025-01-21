@@ -50,6 +50,15 @@ impl<'a, F: Clone, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
         }
     }
 
+    fn parent_node_type(&self) -> NodeType {
+        match self.parent_node_id() {
+            NodeId::Expr(expr_id) => self.expression(expr_id).node_type(),
+            NodeId::Stmt(stmt_id) => self.statement(stmt_id).node_type(),
+            NodeId::Def(def_id) => self.definition(def_id).node_type(),
+            NodeId::Module(_) => NodeType::Module,
+        }
+    }
+
     fn ident(&self, id: IdentId) -> &Ident {
         &self.program.interner[id]
     }
@@ -76,6 +85,10 @@ impl<'a, F: Clone, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
 
     fn dependency_graph(&self) -> Graph<ModuleId> {
         self.program.dependency_graph.clone()
+    }
+
+    fn append_definition(&mut self, definition: DefinitionNode) {
+        unimplemented!()
     }
 }
 
