@@ -7,4 +7,5 @@ pub struct FunctionNode {
     pub generic_parameters: Vec<IdentId>,
     pub body: Option<StmtId>,
     pub return_type: Option<UncheckedType>,
+    pub is_extern: bool,
 }

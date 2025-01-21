@@ -541,6 +541,7 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
             generic_parameters,
             body,
             return_type,
+            is_extern,
         } = ctx.definition(def_id).as_function().unwrap();
         let parameters = parameters
             .iter()

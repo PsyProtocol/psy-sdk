@@ -151,17 +151,19 @@ FunctionDef: DefinitionNode = {
         parameters,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
         body: Some(stmt_nodes.alloc_item(block_stmt)),
-        return_type
+        return_type,
+        is_extern: false
     })
 }
 
 FunctionDecl: FunctionNode = {
-    <l:@L> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
+    <l:@L> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
         name,
         parameters,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
         body: None,
-        return_type
+        return_type,
+        is_extern: is_extern.is_some()
     }
 }
 
@@ -548,6 +550,7 @@ extern {
         DERIVE => Token::KeywordDerive,
 
         AS => Token::KeywordAs,
+        EXTERN => Token::KeywordExtern,
         NEW => Token::KeywordNew,
 
         "#" => Token::Pound,

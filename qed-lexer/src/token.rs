@@ -44,6 +44,8 @@ pub enum Token<'input> {
 
     #[token("new")]
     KeywordNew,
+    #[token("extern")]
+    KeywordExtern,
 
     #[token("mod")]
     KeywordMod,
