@@ -760,46 +760,40 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
                 let current_scope_id = symbols.current_scope_id().unwrap();
 
                 if let Some(variable) = symbols.get_variable(None, &target) {
-
                     Ok(CheckedExprNode::Path(CheckedPathNode {
                         name: target.clone(),
                         type_id: variable.ty,
                         scope_id: variable.scope_id,
                     }))
                 } else if let Some(type_id) = symbols.get_type_id(None, target.clone()) {
-
                     return Ok(CheckedExprNode::Path(CheckedPathNode {
                         name: target.clone(),
                         type_id,
                         scope_id: current_scope_id,
                     }));
                 } else {
-                    if root.is_none() && segments.is_empty(){
+                    if root.is_none() && segments.is_empty() {
                         return Err(Error::UnresolvedVariable);
                     }
 
                     let root_scope = {
                         match root {
                             //if it's self, get the current module id
-                            Some(IdentId::SELF) | None => {
-                                match symbols.current_module_id(){
-                                    Some(m) => symbols[m].scope_id,
-                                    None =>  return Err(Error::UnresolvedVariable)
+                            Some(IdentId::SELF) | None => match symbols.current_module_id() {
+                                Some(m) => symbols[m].scope_id,
+                                None => return Err(Error::UnresolvedVariable),
+                            },
+                            Some(IdentId::SUPER) => match symbols.current_module_id() {
+                                Some(m) => {
+                                    let parent = symbols[m].parent.unwrap_or(m);
+                                    symbols[parent].scope_id
                                 }
-                            }
-                            Some(IdentId::SUPER) => {
-                                match symbols.current_module_id(){
-                                    Some(m) => {
-                                        let parent = symbols[m].parent.unwrap_or(m);
-                                        symbols[parent].scope_id
-                                    }
-                                    None => return Err(Error::UnresolvedVariable)
-                                }
-                            }
+                                None => return Err(Error::UnresolvedVariable),
+                            },
                             Some(IdentId::CRATE) => {
-                                let mut module_id = match symbols.current_module_id(){
+                                let mut module_id = match symbols.current_module_id() {
                                     Some(m) => m,
-                                    None => return Err(Error::UnresolvedVariable)
+                                    None => return Err(Error::UnresolvedVariable),
                                 };
                                 while let Some(parent) = symbols[module_id].parent {
                                     module_id = parent;
@@ -815,30 +809,21 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
                                         let t = symbols[m].scope_id;
                                         //println!("find_module module id {:?}, scope id {:?}", m, a);
                                         t
-                                    },
+                                    }
                                     None => {
                                         //if not a module, try to find it in type table
                                         let root_checked_type = symbols.search_type_table(r);
 
-                                        match root_checked_type.iter().find_map(|x| {
-                                            match x {
-                                                Type::Struct(t)  => {
-                                                    Some(t.scope_id)
-                                                }
-                                                Type::Enum(t) => {
-                                                    Some(t.scope_id)
-                                                }
-                                                _ => {
-                                                    None
-                                                }
-                                            }
+                                        match root_checked_type.iter().find_map(|x| match x {
+                                            Type::Struct(t) => Some(t.scope_id),
+                                            Type::Enum(t) => Some(t.scope_id),
+                                            _ => None,
                                         }) {
                                             Some(s) => s,
                                             None => {
                                                 return Err(Error::UnresolvedPath);
                                             }
                                         }
-
                                     }
                                 };
                                 //println!("path root scope id = {:?}", scope_id);
@@ -850,15 +835,15 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
 
                     let method_scope = symbols.find_path_scope(segments, root_scope);
 
-                    if method_scope.is_empty(){
+                    if method_scope.is_empty() {
                         println!("cannot find any path in the scope {:?}", root_scope);
                         return Err(Error::UnresolvedPath);
                     }
 
                     let mut method_type_with_path = Vec::new();
                     for ms in method_scope {
-                        match symbols.resolve_method_with_path(ms, *target){
-                            Some(r) => {method_type_with_path.extend(r)}
+                        match symbols.resolve_method_with_path(ms, *target) {
+                            Some(r) => method_type_with_path.extend(r),
                             None => {
                                 continue;
                             }
@@ -869,9 +854,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
                         return Err(Error::UnresolvedPath);
                     }
                     return match method_type_with_path.len() {
-                        0 => {
-                            Err(Error::UnresolvedPath)
-                        }
+                        0 => Err(Error::UnresolvedPath),
                         1 => {
                             let (method_type, method_path) = &method_type_with_path[0];
                             //println!("method_type: {:?}", method_type);
@@ -893,7 +876,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
 
                             Err(Error::UnresolvedPath)
                         }
-                    }
+                    };
                 }
             }
             ExprNode::Value(value_node) => match value_node {

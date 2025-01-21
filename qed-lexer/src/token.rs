@@ -212,10 +212,10 @@ fn test_lex_integer() {
 }
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::Token;
     use std::fs::File;
     use std::io::{self, Read};
-    use crate::Token;
-    use super::*;
     const FILE_PATH: &str = "/Users/jason/git/qas/qed-lang/tests/003.qed";
 
     #[test]
@@ -238,9 +238,13 @@ mod tests {
             let start = span.start;
             let end = span.end;
 
-            println!("{:<10} | {:<20} | {:<10}", start, format!("{:?}", token), end);
+            println!(
+                "{:<10} | {:<20} | {:<10}",
+                start,
+                format!("{:?}", token),
+                end
+            );
         }
-
 
         Ok(())
     }

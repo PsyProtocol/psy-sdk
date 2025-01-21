@@ -6,13 +6,13 @@ mod storage;
 mod variable;
 mod r#while;
 
-use std::fmt::Display;
 pub use assignment::*;
 pub use block::*;
 use enum_as_inner::EnumAsInner;
 pub use r#if::*;
 pub use r#return::*;
 pub use r#while::*;
+use std::fmt::Display;
 pub use storage::*;
 pub use variable::*;
 
@@ -48,7 +48,7 @@ impl<F> StmtNode<F> {
     }
 }
 
-impl Display for StmtNode {
+impl<F> Display for StmtNode<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             StmtNode::If(_) => write!(f, "If"),
@@ -59,8 +59,8 @@ impl Display for StmtNode {
             StmtNode::Definition(_) => write!(f, "Definition"),
             StmtNode::Expression(_) => write!(f, "Expression"),
             StmtNode::Return(_) => write!(f, "Return"),
-
-
+            StmtNode::Storage(StorageNode::Read(_)) => write!(f, "Storage::Read"),
+            StmtNode::Storage(StorageNode::Write(_, _)) => write!(f, "Storage::Write"),
         }
     }
 }

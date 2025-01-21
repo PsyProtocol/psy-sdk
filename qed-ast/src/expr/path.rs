@@ -3,7 +3,7 @@ use crate::{
 };
 use std::fmt::Display;
 #[derive(Clone, Debug, PartialEq)]
-pub enum  PathType{
+pub enum PathType {
     Basic,
     Nested,
 }
@@ -16,7 +16,12 @@ pub struct PathNode {
     pub target: IdentId,
 }
 impl PathNode {
-    pub fn new(root: Option<IdentId>, target: IdentId, segments: Vec<IdentId>, path_type: PathType) -> Self {
+    pub fn new(
+        root: Option<IdentId>,
+        target: IdentId,
+        segments: Vec<IdentId>,
+        path_type: PathType,
+    ) -> Self {
         Self {
             root,
             segments,

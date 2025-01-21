@@ -89,10 +89,9 @@ impl<'a, F: ContextFelt, C: Context<F>> Parser<'a, F, C> {
                     is_self_prelude,
                     ctx,
                     lexer,
-                ){
+                ) {
                     Ok(module) => module,
                     Err(e) => {
-
                         print_parse_error(file_content, &e);
                         panic!("Parsing failed:");
                     }
@@ -145,8 +144,7 @@ impl<'a, F: ContextFelt, C: Context<F>> Parser<'a, F, C> {
     }
 }
 fn format_error_message(message: &str) -> String {
-    message
-        .replace("\"", "")
+    message.replace("\"", "")
 }
 fn print_parse_error<'input>(
     file_content: &'input str,
@@ -190,7 +188,10 @@ fn print_parse_error<'input>(
             );
         }
         _ => {
-            eprintln!("Error: Parsing failed.\nContext:\n{}", extract_context(file_content, 0, 2));
+            eprintln!(
+                "Error: Parsing failed.\nContext:\n{}",
+                extract_context(file_content, 0, 2)
+            );
         }
     }
 }
@@ -200,7 +201,6 @@ fn extract_context(file_content: &str, position: usize, context_lines: usize) ->
 
     let start_line: usize = error_line.saturating_sub(context_lines);
     let end_line = (error_line + context_lines).min(lines.len());
-
 
     lines[start_line..end_line]
         .iter()
@@ -216,23 +216,21 @@ fn extract_context(file_content: &str, position: usize, context_lines: usize) ->
         .collect::<Vec<_>>()
         .join("\n")
 }
+
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use super::Parser;
     use qed_ast::Program;
     use qed_builder::ExecContext;
-    use super::{Parser};
+    use std::path::PathBuf;
     #[test]
     fn test_qed_parser() {
         let mut program = Program::new();
         let mut parser = Parser::new(&mut program);
 
-
         let mut ctx = ExecContext::new();
 
-
-        let entry_file = PathBuf::from("../tests/003.qed");
-
+        let entry_file = PathBuf::from("../tests/002.qed");
 
         let result = parser.parse(&mut ctx, entry_file);
 
