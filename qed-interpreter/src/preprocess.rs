@@ -88,7 +88,7 @@ impl<'a, F: Clone, C> VisitorContext<F, C> for PreprocessorContext<'a, F, C> {
         &self.program.exprs[expr_id]
     }
 
-    fn statement(&self, stmt_id: StmtId) -> &StmtNode {
+    fn statement(&self, stmt_id: StmtId) -> &StmtNode<F> {
         &self.program.stmts[stmt_id]
     }
 
@@ -266,6 +266,14 @@ impl<'a, F: Clone + 'static, C> AstVisitor<F, C> for StorageProcessor<'a> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
+        let s: StructNode = ctx.definition(node).as_struct().unwrap().clone();
+
+        // for attr in s {
+        //     if attr.is_derive() {
+        //         ctx.append_definition(DefinitionNode::Impl)
+        //     }
+        // }
+
         Ok(())
     }
 

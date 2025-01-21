@@ -1,0 +1,5 @@
+trait Storage {
+    fn size() -> Felt;
+    fn read(self: Self, offset: Felt) -> Felt;
+    fn write(self: Self, offset: Felt, value: Felt) -> Felt;
+}

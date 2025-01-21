@@ -36,6 +36,6 @@ macro_rules! impl_index {
 }
 
 impl_index!(ExprId, ExprNode<F>, exprs);
-impl_index!(StmtId, StmtNode, stmts);
+impl_index!(StmtId, StmtNode<F>, stmts);
 impl_index!(DefId, DefinitionNode, defs);
 impl_index!(IdentId, Ident, interner);

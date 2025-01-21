@@ -75,7 +75,7 @@ impl<'a, F: Clone, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
         &self.program.exprs[expr_id]
     }
 
-    fn statement(&self, stmt_id: StmtId) -> &StmtNode {
+    fn statement(&self, stmt_id: StmtId) -> &StmtNode<F> {
         &self.program.stmts[stmt_id]
     }
 

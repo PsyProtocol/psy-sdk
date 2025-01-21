@@ -2,6 +2,7 @@ mod assignment;
 mod block;
 mod r#if;
 mod r#return;
+mod storage;
 mod variable;
 mod r#while;
 
@@ -11,13 +12,14 @@ use enum_as_inner::EnumAsInner;
 pub use r#if::*;
 pub use r#return::*;
 pub use r#while::*;
+pub use storage::*;
 pub use variable::*;
 
 use crate::{AstVisitor, DefId, DefinitionNode, ExprId, ExprNode, NodeType};
 use strum::{EnumIs, EnumTryAs};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
-pub enum StmtNode {
+pub enum StmtNode<F> {
     If(IfNode),
     While(WhileNode),
     Block(BlockNode),
@@ -26,9 +28,10 @@ pub enum StmtNode {
     Definition(DefId),
     Expression(ExprId),
     Return(ReturnNode),
+    Storage(StorageNode<F>),
 }
 
-impl StmtNode {
+impl<F> StmtNode<F> {
     pub fn node_type(&self) -> NodeType {
         match self {
             StmtNode::If(_) => NodeType::IfStmt,
@@ -39,6 +42,7 @@ impl StmtNode {
             StmtNode::Definition(_) => NodeType::DefinitionStmt,
             StmtNode::Expression(_) => NodeType::ExpressionStmt,
             StmtNode::Return(_) => NodeType::ReturnStmt,
+            StmtNode::Storage(_) => NodeType::StorageStmt,
         }
     }
 }

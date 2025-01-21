@@ -8,7 +8,7 @@ grammar<'input, F, C>(
     file_id: FileId,
     module_name: IdentId,
     expr_nodes: &mut Arena<ExprId, ExprNode<F>>,
-    stmt_nodes: &mut Arena<StmtId, StmtNode>,
+    stmt_nodes: &mut Arena<StmtId, StmtNode<F>>,
     def_nodes: &mut Arena<DefId, DefinitionNode>,
     interner: &mut Interner,
     is_std: bool,
@@ -66,7 +66,7 @@ ModuleUse: UsePath = {
     }
 }
 
-Statement: StmtNode = {
+Statement: StmtNode<F> = {
     VariableStatement,
     AssignmentStatement,
     ReturnStatement,
@@ -77,7 +77,7 @@ Statement: StmtNode = {
     ExpressionStatement
 }
 
-ExpressionStatement: StmtNode = {
+ExpressionStatement: StmtNode<F> = {
     <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr))
 }
 
@@ -187,18 +187,18 @@ GenericParameters: Vec<IdentId> = {
     <l:@L> "<" <generic_parameters:Comma<Identifier>> ">" <r:@R> => generic_parameters
 }
 
-BlockStatement: StmtNode = {
+BlockStatement: StmtNode<F> = {
     <l:@L> "{" <stmts:Statement*> "}" <r:@R> => StmtNode::Block(BlockNode { stmts: stmt_nodes.alloc_items(stmts) }),
 }
 
-WhileStatement: StmtNode = {
+WhileStatement: StmtNode<F> = {
     <l:@L> WHILE <predicate:Expression> <block_stmt:BlockStatement> <r:@R>  => StmtNode::While(WhileNode {
         predicate: expr_nodes.alloc_item(predicate),
         body: stmt_nodes.alloc_item(block_stmt)
     }),
 }
 
-IfStatement: StmtNode = {
+IfStatement: StmtNode<F> = {
     <l:@L> <if_branch:IfBranch> <elseif_branch:ElseIfBranch*> <else_branch:ElseBranch?> <r:@R> => StmtNode::If(
         IfNode {
             if_branch,
@@ -226,11 +226,11 @@ ElseBranch: StmtId = {
     <l:@L> ELSE <block_stmt:BlockStatement> <r:@R> => stmt_nodes.alloc_item(block_stmt),
 }
 
-ReturnStatement: StmtNode = {
+ReturnStatement: StmtNode<F> = {
     <l:@L> RETURN <ret:Expression?> ";" <r:@R> => StmtNode::Return(ReturnNode(ret.map(|x| expr_nodes.alloc_item(x))))
 }
 
-VariableStatement: StmtNode = {
+VariableStatement: StmtNode<F> = {
     <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {
             name: decl.0,
@@ -251,7 +251,7 @@ VariableStatement: StmtNode = {
     ),
 }
 
-AssignmentStatement: StmtNode = {
+AssignmentStatement: StmtNode<F> = {
     <l:@L> <variable:Expression> "=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
         AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::Eq, expr_nodes.alloc_item(value))
     ),

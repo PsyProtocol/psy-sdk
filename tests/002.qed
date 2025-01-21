@@ -78,6 +78,7 @@ fn main() {
     fn max_2(a: Felt, b: Felt) -> Felt {
         return a * (a > b) as Felt + b * (a <= b) as Felt;
     }
+
     let min_a_b: Felt = min(a, b);
     let max2_a_b: Felt = max_2(a, b);
 

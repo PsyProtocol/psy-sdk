@@ -13,7 +13,7 @@ pub struct Program<F: Clone> {
     pub dependency_graph: Graph<ModuleId>,
     pub file_resolver: FileResolver,
     pub exprs: Arena<ExprId, ExprNode<F>>,
-    pub stmts: Arena<StmtId, StmtNode>,
+    pub stmts: Arena<StmtId, StmtNode<F>>,
     pub defs: Arena<DefId, DefinitionNode>,
     pub interner: Interner,
 }

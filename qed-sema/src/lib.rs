@@ -552,7 +552,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
     #[instrument(level = "debug", skip_all)]
     fn typecheck_stmt(
         &mut self,
-        stmt: &StmtNode,
+        stmt: &StmtNode<F>,
         symbols: &mut SymbolTable<T>,
         artifact: &Artifact<F, C>,
     ) -> Result<CheckedStmtNode<F>> {
@@ -585,6 +585,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
                 symbols,
                 artifact,
             )?)),
+            StmtNode::Storage(_) => unimplemented!(),
         }
     }
 

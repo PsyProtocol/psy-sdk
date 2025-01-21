@@ -57,6 +57,7 @@ pub enum NodeType {
     DefinitionStmt,
     ExpressionStmt,
     ReturnStmt,
+    StorageStmt,
 
     FunctionDef,
     StructDef,
@@ -80,7 +81,7 @@ pub trait VisitorContext<F: Clone, C> {
     fn program(&self) -> &Program<F>;
     fn dependency_graph(&self) -> Graph<ModuleId>;
     fn expression(&self, expr_id: ExprId) -> &ExprNode<F>;
-    fn statement(&self, stmt_id: StmtId) -> &StmtNode;
+    fn statement(&self, stmt_id: StmtId) -> &StmtNode<F>;
     fn definition(&self, def_id: DefId) -> &DefinitionNode;
     fn append_definition(&mut self, definition: DefinitionNode);
 }
