@@ -457,7 +457,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> AstVisit
         for stmt in stmts.clone() {
             let res = self.visit_stmt(stmt, ctx)?;
             if !res.is_empty() {
-                self.write_line(&res);
+                self.write_line(&format!("{};", res));
             }
         }
         Ok(Default::default())
