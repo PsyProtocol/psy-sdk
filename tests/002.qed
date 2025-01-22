@@ -15,11 +15,11 @@ impl Storage for Person {
     }
 
     fn read(offset: Felt) -> Self {
-        Person {
+        return new Person {
             age: Felt::read(offset),
             height: Felt::read(offset + Felt::size()),
             year_of_birth: Felt::read(offset + Felt::size() + Felt::size())
-        }
+        };
     }
 
     fn write(offset: Felt, value: Self) {
@@ -49,7 +49,7 @@ impl Storage for ContractStorage {
         let c = Felt::read(offset + Felt::size() + Person::size());
         let d = Person::read(offset + Felt::size() + Person::size() + Felt::size());
 
-        ContractStorage { a, b, c, d }
+        return ContractStorage { a: a, b: b, c: c, d: d };
     }
 
     fn write(offset: Felt, value: Self) {
@@ -79,15 +79,15 @@ impl ContractStorage {
     }
 
     fn get_a(self: Self) -> Felt {
-        Felt::read(0)
+        return Felt::read(0);
     }
 
     fn get_b(self: Self) -> Person {
-        Person::read(Felt::size())
+        return Person::read(Felt::size())
     }
 
     fn get_c(self: Self) -> Felt {
-        Felt::read(Felt::size() + Person::size())
+        return Felt::read(Felt::size() + Person::size());
     }
 
     fn set_a(self: Self, value: Felt) {

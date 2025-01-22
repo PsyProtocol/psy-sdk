@@ -305,7 +305,7 @@ PathExpression: ExprNode<F> = {
     }),
 
     // Multi: root + segments + target
-    <root: Identifier> "::" <segments: (<Identifier> "::")*> <target: Identifier> => {
+    <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: Identifier> => {
         let mut segment_ids = segments.into_iter().map(|(seg)| seg).collect::<Vec<_>>();
         ExprNode::Path(PathNode {
             path_type: PathType::Nested,
