@@ -220,11 +220,12 @@ impl<'a> StorageProcessor<'a> {
         field_type: &UncheckedType,
         ctx: &mut V,
     ) -> ExprId {
+        let size_ident = ctx.intern("size");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            path_type: PathType::Basic,
+            path_type: PathType::Nested,
             root: None,
-            segments: vec![],
-            target: field_type.as_basic().unwrap().clone(),
+            segments: vec![field_type.as_basic().unwrap().clone()],
+            target: size_ident,
         }));
         let node = CallNode {
             variable,
@@ -242,11 +243,12 @@ impl<'a> StorageProcessor<'a> {
         offset: ExprId,
         ctx: &mut V,
     ) -> (IdentId, ExprId) {
+        let read_ident = ctx.intern("read");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            path_type: PathType::Basic,
+            path_type: PathType::Nested,
             root: None,
-            segments: vec![],
-            target: field_type.as_basic().unwrap().clone(),
+            segments: vec![field_type.as_basic().unwrap().clone()],
+            target: read_ident,
         }));
         let node = CallNode {
             variable,
@@ -267,27 +269,29 @@ impl<'a> StorageProcessor<'a> {
         offset: ExprId,
         ctx: &mut V,
     ) -> StmtId {
+        let value_ident = ctx.intern("value");
+        let write_ident = ctx.intern("write");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
+            path_type: PathType::Nested,
+            root: None,
+            segments: vec![field_type.as_basic().unwrap().clone()],
+            target: write_ident,
+        }));
+        let value = ctx.alloc_expression(ExprNode::Path(PathNode {
             path_type: PathType::Basic,
             root: None,
             segments: vec![],
-            target: field_type.as_basic().unwrap().clone(),
+            target: value_ident,
         }));
-        let value_ident = ctx.intern("value");
-        let value = MemberAccessNode {
-            value: ctx.alloc_expression(ExprNode::Path(PathNode {
-                path_type: PathType::Basic,
-                root: None,
-                segments: vec![],
-                target: value_ident,
-            })),
+        let field = ctx.alloc_expression(ExprNode::MemberAccess(MemberAccessNode {
+            value: value,
             field: field_name.clone(),
-        };
+        }));
         let node = CallNode {
             variable,
             receiver: None,
             generic_parameters: Vec::new(),
-            args: vec![offset],
+            args: vec![offset, field],
         };
         let node_id = ctx.alloc_expression(ExprNode::Call(node));
         ctx.alloc_statement(StmtNode::Expression(node_id))

@@ -236,7 +236,22 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> AstVisit
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         let node = ctx.expression(expr_id).as_path().unwrap();
-        Ok(ctx.ident(node.target).to_string())
+        if node.path_type == PathType::Basic {
+            Ok(ctx.ident(node.target).to_string())
+        } else {
+            Ok(format!(
+                "{}{}::{}",
+                node.root
+                    .map(|r| format!("{}::", ctx.ident(r)))
+                    .unwrap_or("".to_string()),
+                node.segments
+                    .iter()
+                    .map(|&s| ctx.ident(s).to_string())
+                    .collect::<Vec<_>>()
+                    .join("::"),
+                ctx.ident(node.target).to_string()
+            ))
+        }
     }
 
     fn visit_index_access(
@@ -290,7 +305,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> AstVisit
                         .map(|p| self.visit_unchecked_type(p, ctx))
                         .collect::<Vec<_>>(),
                 );
-                let mut result = format!("{}{} {{\n", name, generic_parameters);
+                let mut result = format!("new {}{} {{\n", name, generic_parameters);
 
                 for (field, value) in field_values {
                     result.push_str(&self.read_indent(1));
@@ -576,7 +591,8 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> AstVisit
             .map(|x| ctx.ident(x.clone()).to_string())
             .collect::<Vec<_>>();
         let mut s = format!(
-            "fn {}{}({}){} {{",
+            "{}fn {}{}({}){} {{",
+            if *is_extern { "extern " } else { "" },
             ctx.ident(name.clone()),
             self.visit_generic_parameters(generic_parameters),
             parameters,
@@ -736,7 +752,8 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> AstVisit
                 .collect::<Vec<_>>()
                 .join(", ");
             let s = format!(
-                "fn {}({}){};",
+                "{}fn {}({}){};",
+                if func.is_extern { "extern " } else { "" },
                 ctx.ident(func.name.clone()),
                 parameters,
                 if let Some(ref ret) = func.return_type {
