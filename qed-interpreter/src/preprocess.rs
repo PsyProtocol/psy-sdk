@@ -173,6 +173,9 @@ impl<'a> StorageProcessor<'a> {
             };
             offset = ctx.alloc_expression(ExprNode::Binary(node));
         }
+        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
+            stmts: field_writes,
+        }));
 
         let f = FunctionNode {
             name: ctx.intern("write"),
@@ -185,9 +188,7 @@ impl<'a> StorageProcessor<'a> {
                 (value_ident, false, UncheckedType::Basic(IdentId::TYPE_SELF)),
             ],
             generic_parameters: vec![],
-            body: Some(ctx.alloc_statement(StmtNode::Block(BlockNode {
-                stmts: field_writes,
-            }))),
+            body: Some(block),
             return_type: None,
             is_extern: false,
         };

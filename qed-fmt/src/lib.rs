@@ -455,7 +455,10 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> AstVisit
         let BlockNode { stmts } = ctx.statement(stmt_id).as_block().unwrap();
         // TODO: remove clone
         for stmt in stmts.clone() {
-            self.visit_stmt(stmt, ctx)?;
+            let res = self.visit_stmt(stmt, ctx)?;
+            if !res.is_empty() {
+                self.write_line(&res);
+            }
         }
         Ok(Default::default())
     }
