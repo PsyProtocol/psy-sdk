@@ -9,12 +9,8 @@ impl Storage for Felt {
         return 1;
     }
 
-    extern fn read(offset: Felt) -> Self {
-    }
-
-    extern fn write(offset: Felt, value: Self) {
-
-    }
+    extern fn read(offset: Felt) -> Self {}
+    extern fn write(offset: Felt, value: Self) {}
 }
 
 impl Storage for bool {
@@ -22,10 +18,6 @@ impl Storage for bool {
         return 1;
     }
 
-    extern fn read(offset: Felt) -> Self {
-    }
-
-    extern fn write(offset: Felt, value: Self) {
-
-    }
+    extern fn read(offset: Felt) -> Self {}
+    extern fn write(offset: Felt, value: Self) {}
 }
