@@ -106,6 +106,14 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for FormatterContext<'a, 
     fn alloc_definition(&mut self, definition: DefinitionNode) -> DefId {
         unimplemented!()
     }
+
+    fn insert_definition_before(&mut self, definition: DefinitionNode, def_id: DefId) {
+        todo!()
+    }
+
+    fn insert_definition_after(&mut self, definition: DefinitionNode, def_id: DefId) {
+        todo!()
+    }
 }
 
 #[derive(Debug)]

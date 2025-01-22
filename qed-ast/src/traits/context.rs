@@ -94,4 +94,6 @@ pub trait VisitorContext<F: Clone + From<u32>, C> {
     fn statement(&self, stmt_id: StmtId) -> &StmtNode<F>;
     fn definition(&self, def_id: DefId) -> &DefinitionNode;
     fn append_definition(&mut self, definition: DefinitionNode);
+    fn insert_definition_before(&mut self, definition: DefinitionNode, def_id: DefId);
+    fn insert_definition_after(&mut self, definition: DefinitionNode, def_id: DefId);
 }

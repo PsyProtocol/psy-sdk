@@ -102,3 +102,24 @@ impl ContractStorage {
     //     Felt::write(Felt::size() + Person::size(), value);
     // }
 }
+
+fn main() {
+    let storage: ContractStorage = ContractStorage::constructor();
+    storage.set_a(10);
+    storage.set_b(new Person {
+        age: 20,
+        height: 180,
+        year_of_birth: 2000
+    });
+    storage.set_c(30);
+    storage.set_d(new Person {
+        age: 40,
+        height: 170,
+        year_of_birth: 1980
+    });
+
+    let a: Felt = storage.get_a();
+    let b: Person = storage.get_b();
+    let c: Felt = storage.get_c();
+    let d: Person = storage.get_d();
+}

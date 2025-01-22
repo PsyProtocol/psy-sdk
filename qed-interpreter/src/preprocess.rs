@@ -230,7 +230,11 @@ impl<'a> StorageProcessor<'a> {
 
         let function = FunctionNode {
             name: getter_ident,
-            parameters: vec![],
+            parameters: vec![(
+                ctx.intern("self"),
+                false,
+                UncheckedType::Basic(IdentId::TYPE_SELF),
+            )],
             generic_parameters: vec![],
             body: Some(block),
             return_type: Some(field_type.clone()),
@@ -282,7 +286,14 @@ impl<'a> StorageProcessor<'a> {
 
         let function = FunctionNode {
             name: setter_ident,
-            parameters: vec![(value_ident, false, field_type.clone())],
+            parameters: vec![
+                (
+                    ctx.intern("self"),
+                    false,
+                    UncheckedType::Basic(IdentId::TYPE_SELF),
+                ),
+                (value_ident, false, field_type.clone()),
+            ],
             generic_parameters: vec![],
             body: Some(block),
             return_type: None,
@@ -484,6 +495,36 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for PreprocessorContext<'
     fn alloc_definition(&mut self, definition: DefinitionNode) -> DefId {
         self.program.defs.alloc_item(definition)
     }
+
+    fn insert_definition_before(&mut self, definition: DefinitionNode, pos: DefId) {
+        let def_id = self.program.defs.alloc_item(definition);
+        assert!(self.parent_node_type() == NodeType::Module);
+        let module_id = self.parent_node_id().as_module().unwrap().clone();
+        let idx = self.program.modules[module_id]
+            .data()
+            .definitions
+            .iter()
+            .position(|d| *d == pos);
+        self.program.modules[module_id]
+            .data_mut()
+            .definitions
+            .insert(idx.unwrap(), def_id);
+    }
+
+    fn insert_definition_after(&mut self, definition: DefinitionNode, pos: DefId) {
+        let def_id = self.program.defs.alloc_item(definition);
+        assert!(self.parent_node_type() == NodeType::Module);
+        let module_id = self.parent_node_id().as_module().unwrap().clone();
+        let idx = self.program.modules[module_id]
+            .data()
+            .definitions
+            .iter()
+            .position(|d| *d == pos);
+        self.program.modules[module_id]
+            .data_mut()
+            .definitions
+            .insert(idx.unwrap() + 1, def_id);
+    }
 }
 
 impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcessor<'a> {
@@ -648,12 +689,14 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         for attr in &s.attrs {
             if attr.is_derive() && attr.properties.iter().any(|p| p == &storage_trait_id) {
                 let impl_node = self.generate_storage_impl(&s, ctx);
-                ctx.append_definition(DefinitionNode::Impl(impl_node));
+                let pos = ctx.node_id().as_def().unwrap().clone();
+                ctx.insert_definition_after(DefinitionNode::Impl(impl_node), pos);
             }
 
             if attr.name == storage_attribute_id {
                 let impl_node = self.generate_accessor_impl(&s, ctx);
-                ctx.append_definition(DefinitionNode::Impl(impl_node));
+                let pos = ctx.node_id().as_def().unwrap().clone();
+                ctx.insert_definition_after(DefinitionNode::Impl(impl_node), pos);
             }
         }
 
