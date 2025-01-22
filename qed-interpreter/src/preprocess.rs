@@ -82,12 +82,15 @@ impl<'a> StorageProcessor<'a> {
         }
 
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(sum))));
+        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
+            stmts: vec![return_stmt],
+        }));
 
         let f = FunctionNode {
             name: ctx.intern("size"),
             parameters: vec![],
             generic_parameters: vec![],
-            body: Some(return_stmt),
+            body: Some(block),
             return_type: Some(UncheckedType::Basic(IdentId::TYPE_FELT)),
             is_extern: false,
         };
@@ -126,6 +129,9 @@ impl<'a> StorageProcessor<'a> {
             field_reads,
         )));
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(value_node))));
+        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
+            stmts: vec![return_stmt],
+        }));
         let f = FunctionNode {
             name: ctx.intern("read"),
             parameters: vec![(
@@ -134,7 +140,7 @@ impl<'a> StorageProcessor<'a> {
                 UncheckedType::Basic(IdentId::TYPE_FELT),
             )],
             generic_parameters: vec![],
-            body: Some(return_stmt),
+            body: Some(block),
             return_type: Some(UncheckedType::Basic(IdentId::TYPE_SELF)),
             is_extern: false,
         };
@@ -214,7 +220,19 @@ impl<'a> StorageProcessor<'a> {
         field_type: &UncheckedType,
         ctx: &mut V,
     ) -> ExprId {
-        todo!()
+        let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
+            path_type: PathType::Basic,
+            root: None,
+            segments: vec![],
+            target: field_type.as_basic().unwrap().clone(),
+        }));
+        let node = CallNode {
+            variable,
+            receiver: None,
+            generic_parameters: Vec::new(),
+            args: Vec::new(),
+        };
+        ctx.alloc_expression(ExprNode::Call(node))
     }
 
     fn generate_field_read<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
@@ -224,7 +242,22 @@ impl<'a> StorageProcessor<'a> {
         offset: ExprId,
         ctx: &mut V,
     ) -> (IdentId, ExprId) {
-        todo!()
+        let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
+            path_type: PathType::Basic,
+            root: None,
+            segments: vec![],
+            target: field_type.as_basic().unwrap().clone(),
+        }));
+        let node = CallNode {
+            variable,
+            receiver: None,
+            generic_parameters: Vec::new(),
+            args: vec![offset],
+        };
+        (
+            field_name.clone(),
+            ctx.alloc_expression(ExprNode::Call(node)),
+        )
     }
 
     fn generate_field_write<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
@@ -234,7 +267,30 @@ impl<'a> StorageProcessor<'a> {
         offset: ExprId,
         ctx: &mut V,
     ) -> StmtId {
-        todo!()
+        let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
+            path_type: PathType::Basic,
+            root: None,
+            segments: vec![],
+            target: field_type.as_basic().unwrap().clone(),
+        }));
+        let value_ident = ctx.intern("value");
+        let value = MemberAccessNode {
+            value: ctx.alloc_expression(ExprNode::Path(PathNode {
+                path_type: PathType::Basic,
+                root: None,
+                segments: vec![],
+                target: value_ident,
+            })),
+            field: field_name.clone(),
+        };
+        let node = CallNode {
+            variable,
+            receiver: None,
+            generic_parameters: Vec::new(),
+            args: vec![offset],
+        };
+        let node_id = ctx.alloc_expression(ExprNode::Call(node));
+        ctx.alloc_statement(StmtNode::Expression(node_id))
     }
 }
 
@@ -514,10 +570,10 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
                 ctx.append_definition(DefinitionNode::Impl(impl_node));
             }
 
-            if attr.name == storage_attribute_id {
-                let impl_node = self.generate_accessor_impl(&s, ctx);
-                ctx.append_definition(DefinitionNode::Impl(impl_node));
-            }
+            // if attr.name == storage_attribute_id {
+            //     let impl_node = self.generate_accessor_impl(&s, ctx);
+            //     ctx.append_definition(DefinitionNode::Impl(impl_node));
+            // }
         }
 
         Ok(())

@@ -341,7 +341,7 @@ Expression: ExprNode<F> = {
                             CallNode {
                                 receiver: None,
                                 variable: expr_nodes.alloc_item(path),
-                                generic_parameters:Vec::new(),
+                                generic_parameters: Vec::new(),
                                 args: expr_nodes.alloc_items(args)
                             }
                         )
@@ -352,7 +352,7 @@ Expression: ExprNode<F> = {
                                 receiver: None,
                                 variable: expr_nodes.alloc_item(path),
                                 //todo: need generic para
-                                generic_parameters:Vec::new(),
+                                generic_parameters: Vec::new(),
                                 args: expr_nodes.alloc_items(args)
                             }
                         )
