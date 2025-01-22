@@ -19,3 +19,4 @@ qed-utils = { workspace = true }
 either = { workspace = true }
 hashbrown = { workspace = true }
 plonky2 = { workspace = true }
+indexmap = { workspace = true }

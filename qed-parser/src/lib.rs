@@ -21,12 +21,12 @@ pub type ParseError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, Lexic
 lalrpop_mod!(pub qed);
 
 #[derive(Debug)]
-pub struct Parser<'a, F: Clone, C> {
+pub struct Parser<'a, F: Clone + From<u32>, C> {
     program: &'a mut Program<F>,
     _marker: std::marker::PhantomData<C>,
 }
 
-impl<'a, F: ContextFelt, C: Context<F>> Parser<'a, F, C> {
+impl<'a, F: ContextFelt + From<u32>, C: Context<F>> Parser<'a, F, C> {
     pub fn new(program: &'a mut Program<F>) -> Self {
         Self {
             program,

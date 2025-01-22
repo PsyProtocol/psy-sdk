@@ -31,7 +31,7 @@ impl PathNode {
     }
 }
 // impl PathNode {
-//     pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
+//     pub fn accept_visitor<F: Clone + From<u32>, C, V: AstVisitor<F, C>>(
 //         &self,
 //         visitor: &mut V,
 //     ) -> V::ExprResult {

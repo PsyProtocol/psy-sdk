@@ -929,6 +929,7 @@ name = "qed-ast"
 version = "0.1.0"
 dependencies = [
  "enum-as-inner",
+ "indexmap",
  "qed-common",
  "smol_str",
  "strum",
@@ -996,6 +997,7 @@ dependencies = [
  "anyhow",
  "either",
  "hashbrown 0.15.0",
+ "indexmap",
  "insta",
  "plonky2",
  "qed-ast",
@@ -1071,6 +1073,7 @@ name = "qed-sema"
 version = "0.1.0"
 dependencies = [
  "either",
+ "indexmap",
  "once_cell",
  "qed-ast",
  "qed-common",

@@ -1,7 +1,7 @@
 trait Storage {
     fn size() -> Felt;
-    extern fn read(self: Self, offset: Felt) -> Felt;
-    extern fn write(self: Self, offset: Felt, value: Felt);
+    extern fn read(offset: Felt) -> Self;
+    extern fn write(offset: Felt, value: Self);
 }
 
 impl Storage for Felt {
@@ -9,11 +9,23 @@ impl Storage for Felt {
         return 1;
     }
 
-    extern fn read(self: Self, offset: Felt) -> Felt {
+    extern fn read(offset: Felt) -> Self {
+    }
+
+    extern fn write(offset: Felt, value: Self) {
+
+    }
+}
+
+impl Storage for bool {
+    fn size() -> Felt {
         return 1;
     }
 
-    extern fn write(self: Self, offset: Felt, value: Felt) {
+    extern fn read(offset: Felt) -> Self {
+    }
+
+    extern fn write(offset: Felt, value: Self) {
 
     }
 }

@@ -4,13 +4,13 @@ use qed_common::Graph;
 use qed_parser::Parser;
 use std::fmt::{Display, Write};
 
-pub struct FormatterContext<'a, F: Clone, C> {
+pub struct FormatterContext<'a, F: Clone + From<u32>, C> {
     path_stack: Vec<NodeId>,
     program: &'a Program<F>,
     _marker: std::marker::PhantomData<(F, C)>,
 }
 
-impl<'a, F: Clone, C> FormatterContext<'a, F, C> {
+impl<'a, F: Clone + From<u32>, C> FormatterContext<'a, F, C> {
     pub fn new(program: &'a Program<F>) -> Self {
         FormatterContext {
             path_stack: vec![],
@@ -20,7 +20,7 @@ impl<'a, F: Clone, C> FormatterContext<'a, F, C> {
     }
 }
 
-impl<'a, F: Clone, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
+impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
     fn node_id(&self) -> NodeId {
         self.path_stack.last().unwrap().clone()
     }
@@ -63,12 +63,20 @@ impl<'a, F: Clone, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
         &self.program.interner[id]
     }
 
+    fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId {
+        unreachable!()
+    }
+
     fn module(&self, module_id: ModuleId) -> &ModuleNode {
         self.program.modules[module_id].data()
     }
 
     fn program(&self) -> &Program<F> {
         &self.program
+    }
+
+    fn dependency_graph(&self) -> Graph<ModuleId> {
+        self.program.dependency_graph.clone()
     }
 
     fn expression(&self, expr_id: ExprId) -> &ExprNode<F> {
@@ -83,23 +91,31 @@ impl<'a, F: Clone, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
         &self.program.defs[def_id]
     }
 
-    fn dependency_graph(&self) -> Graph<ModuleId> {
-        self.program.dependency_graph.clone()
+    fn append_definition(&mut self, definition: DefinitionNode) {
+        unimplemented!()
     }
 
-    fn append_definition(&mut self, definition: DefinitionNode) {
+    fn alloc_expression(&mut self, expr: ExprNode<F>) -> ExprId {
+        unimplemented!()
+    }
+
+    fn alloc_statement(&mut self, stmt: StmtNode<F>) -> StmtId {
+        unimplemented!()
+    }
+
+    fn alloc_definition(&mut self, definition: DefinitionNode) -> DefId {
         unimplemented!()
     }
 }
 
 #[derive(Debug)]
-pub struct Formatter<'a, F: Clone, C> {
+pub struct Formatter<'a, F: Clone + From<u32>, C> {
     output: String,
     indent: usize,
     _marker: std::marker::PhantomData<(&'a (), F, C)>,
 }
 
-impl<'a, F: Clone + Display, C> Formatter<'a, F, C> {
+impl<'a, F: Clone + From<u32> + Display, C> Formatter<'a, F, C> {
     pub fn new() -> Self {
         Formatter {
             output: String::new(),
@@ -189,7 +205,7 @@ impl<'a, F: Clone + Display, C> Formatter<'a, F, C> {
     }
 }
 
-impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
+impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> AstVisitor<F, C>
     for Formatter<'a, F, C>
 {
     type ExprResult = String;

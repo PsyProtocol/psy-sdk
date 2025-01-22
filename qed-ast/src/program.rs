@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Program<F: Clone> {
+pub struct Program<F: Clone + From<u32>> {
     pub modules: Tree<ModuleId, ModuleNode>,
     pub dependency_graph: Graph<ModuleId>,
     pub file_resolver: FileResolver,
@@ -18,7 +18,7 @@ pub struct Program<F: Clone> {
     pub interner: Interner,
 }
 
-impl<F: Clone> Program<F> {
+impl<F: Clone + From<u32>> Program<F> {
     pub fn new() -> Self {
         Self {
             modules: Tree::new(),

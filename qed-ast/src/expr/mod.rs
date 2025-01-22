@@ -17,7 +17,7 @@ use enum_as_inner::EnumAsInner;
 use strum::EnumIs;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
-pub enum ExprNode<F: Clone> {
+pub enum ExprNode<F: Clone + From<u32>> {
     Path(PathNode),
     Value(ValueNode<F>),
     Binary(BinaryNode),
@@ -28,7 +28,7 @@ pub enum ExprNode<F: Clone> {
     MemberAccess(MemberAccessNode),
 }
 
-impl<F: Clone> ExprNode<F> {
+impl<F: Clone + From<u32>> ExprNode<F> {
     pub fn node_type(&self) -> NodeType {
         match self {
             ExprNode::Path(_) => NodeType::PathExpr,

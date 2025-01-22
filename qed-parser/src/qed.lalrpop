@@ -15,7 +15,7 @@ grammar<'input, F, C>(
     is_self_std: bool,
     is_self_prelude: bool,
     ctx: &mut C
-) where F: ContextFelt, C: Context<F>;
+) where F: ContextFelt + From<u32>, C: Context<F>;
 
 use super::Loc;
 use std::convert::TryFrom;

@@ -4,12 +4,12 @@ use qed_ast::{DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, Program, 
 use qed_parser::Parser;
 
 #[derive(Debug)]
-pub struct Artifact<F: Clone, C> {
+pub struct Artifact<F: Clone + From<u32>, C> {
     pub program: Program<F>,
     _marker: std::marker::PhantomData<C>,
 }
 
-impl<F: Clone, C> Artifact<F, C> {
+impl<F: Clone + From<u32>, C> Artifact<F, C> {
     pub fn new(program: Program<F>) -> Self {
         Self {
             program,
@@ -20,14 +20,14 @@ impl<F: Clone, C> Artifact<F, C> {
 
 macro_rules! impl_index {
     ($index_type:ty, $output_type:ty, $field:ident) => {
-        impl<F: Clone, C> Index<$index_type> for Artifact<F, C> {
+        impl<F: Clone + From<u32>, C> Index<$index_type> for Artifact<F, C> {
             type Output = $output_type;
             fn index(&self, index: $index_type) -> &Self::Output {
                 &self.program.$field[index]
             }
         }
 
-        impl<F: Clone, C> IndexMut<$index_type> for Artifact<F, C> {
+        impl<F: Clone + From<u32>, C> IndexMut<$index_type> for Artifact<F, C> {
             fn index_mut(&mut self, index: $index_type) -> &mut Self::Output {
                 &mut self.program.$field[index]
             }

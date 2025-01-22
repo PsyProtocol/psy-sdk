@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::*;
 
-pub trait AstVisitor<F: Clone, C> {
+pub trait AstVisitor<F: Clone + From<u32>, C> {
     type ExprResult;
     type StmtResult: From<Self::ExprResult>;
     type Context: VisitorContext<F, C>;

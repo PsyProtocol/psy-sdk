@@ -6,6 +6,7 @@ mod preprocess;
 
 use either::Either;
 use error::{Error, Result};
+use indexmap::IndexMap;
 use preprocess::{PreprocessorContext, StorageProcessor};
 use qed_ast::*;
 use qed_builder::{Context, ContextFelt, ContextInput};
@@ -20,19 +21,19 @@ use tracing::{debug, error, info, instrument, span, Level};
 use crate::control::ControlState;
 
 #[derive(Debug)]
-pub struct Interpreter<F: Clone, C> {
+pub struct Interpreter<F: Clone + From<u32>, C> {
     pub inputs: Vec<u64>,
     pub context: C,
     _marker: std::marker::PhantomData<F>,
 }
 
-impl<F: ContextFelt, C: Context<F>> ContextInput for Interpreter<F, C> {
+impl<F: ContextFelt + From<u32>, C: Context<F>> ContextInput for Interpreter<F, C> {
     fn get_input(&self, index: u64) -> u64 {
         self.inputs[index as usize]
     }
 }
 
-impl<F: ContextFelt + Display + 'static, C: Context<F>> Interpreter<F, C> {
+impl<F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> Interpreter<F, C> {
     pub fn new(context: C) -> Self {
         Self {
             inputs: vec![],
@@ -60,7 +61,6 @@ impl<F: ContextFelt + Display + 'static, C: Context<F>> Interpreter<F, C> {
             PreprocessorContext::new(&mut program);
         storage_preprocessor.visit_program(&mut preprocessor_context);
 
-        // TODO: remove clone
         let mut formatter_context: FormatterContext<F, C> = FormatterContext::new(&program);
 
         let mut formatter = Formatter::new();
@@ -260,7 +260,7 @@ impl<F: ContextFelt + Display + 'static, C: Context<F>> Interpreter<F, C> {
                 CheckedValue::Array(*type_id, values)
             }
             CheckedValueNode::Struct(type_id, field_values) => {
-                let mut values = HashMap::new();
+                let mut values = IndexMap::new();
                 for (field, expr) in field_values {
                     values.insert(
                         field.clone(),

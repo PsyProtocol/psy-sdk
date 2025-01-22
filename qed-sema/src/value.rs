@@ -4,7 +4,8 @@ use std::{
 };
 
 use either::Either;
-use qed_ast::{ExprId, IdentId};
+use indexmap::IndexMap;
+use qed_ast::{ExprId, IdentId, NodeType};
 pub use strum::{EnumIs, EnumTryAs};
 
 use crate::{TypeId, BOOL_TYPE, FELT_TYPE};
@@ -14,7 +15,7 @@ pub enum CheckedValueNode<F> {
     Felt(F),
     Bool(F),
     Array(TypeId, Vec<ExprId>),
-    Struct(TypeId, HashMap<IdentId, ExprId>),
+    Struct(TypeId, IndexMap<IdentId, ExprId>),
     Type(TypeId),
 }
 
@@ -23,8 +24,71 @@ pub enum CheckedValue<F> {
     Felt(F),
     Bool(F),
     Array(TypeId, Vec<CheckedValue<F>>),
-    Struct(TypeId, HashMap<IdentId, CheckedValue<F>>),
+    Struct(TypeId, IndexMap<IdentId, CheckedValue<F>>),
     Type(TypeId),
+}
+
+impl<F: Clone + From<u32>> CheckedValue<F> {
+    pub fn to_array(&self) -> Vec<F> {
+        match self {
+            CheckedValue::Felt(f) => vec![f.clone()],
+            CheckedValue::Bool(b) => vec![b.clone()],
+            CheckedValue::Array(type_id, values) => {
+                let mut result = Vec::new();
+                for value in values {
+                    result.extend(value.to_array());
+                }
+                result
+            }
+            CheckedValue::Struct(type_id, fields) => {
+                let mut result = Vec::new();
+                for (_, value) in fields {
+                    result.extend(value.to_array());
+                }
+                result
+            }
+            CheckedValue::Type(type_id) => {
+                unreachable!()
+            }
+        }
+    }
+
+    pub fn from_array(self, arr: &[F]) -> (Self, &[F]) {
+        todo!()
+        // match &self {
+        //     CheckedValue::Felt(_) => (CheckedValue::Felt(arr[0].clone()), &[]),
+        //     CheckedValue::Bool(_) => (CheckedValue::Bool(arr[0].clone()), &[]),
+        //     CheckedValue::Array(, v) => {
+        //         let mut values = Vec::with_capacity(template_values.len());
+        //         let mut remaining = arr;
+        //
+        //         // 使用模板数组的长度和元素类型
+        //         for template_value in template_values {
+        //             let (value, new_remaining) = Self::from_array(remaining, template_value)?;
+        //             values.push(value);
+        //             remaining = new_remaining;
+        //         }
+        //
+        //         Ok((CheckedValue::Array(*type_id, values), remaining))
+        //     }
+        //     CheckedValue::Struct(type_id, template_fields) => {
+        //         let mut fields = IndexMap::new();
+        //         let mut remaining = arr;
+        //
+        //         // 使用模板结构体的字段顺序和类型
+        //         for (field_name, template_value) in template_fields {
+        //             let (value, new_remaining) = Self::from_array(remaining, template_value)?;
+        //             fields.insert(*field_name, value);
+        //             remaining = new_remaining;
+        //         }
+        //
+        //         Ok((CheckedValue::Struct(*type_id, fields), remaining))
+        //     }
+        //     CheckedValue::Type(_) => {
+        //         unreachable!("Type cannot be serialized")
+        //     }
+        // }
+    }
 }
 
 impl<F> Index<usize> for CheckedValue<F> {

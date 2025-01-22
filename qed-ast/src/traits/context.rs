@@ -66,9 +66,15 @@ pub enum NodeType {
     TraitDef,
 
     Module,
+
+    FeltValue,
+    BoolValue,
+    ArrayValue,
+    StructValue,
+    TypeValue,
 }
 
-pub trait VisitorContext<F: Clone, C> {
+pub trait VisitorContext<F: Clone + From<u32>, C> {
     fn node_id(&self) -> NodeId;
     fn parent_node_id(&self) -> NodeId;
     fn node_path(&self) -> &[NodeId];
@@ -77,9 +83,13 @@ pub trait VisitorContext<F: Clone, C> {
     fn node_type(&self) -> NodeType;
     fn parent_node_type(&self) -> NodeType;
     fn ident(&self, id: IdentId) -> &Ident;
+    fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId;
     fn module(&self, module_id: ModuleId) -> &ModuleNode;
     fn program(&self) -> &Program<F>;
     fn dependency_graph(&self) -> Graph<ModuleId>;
+    fn alloc_expression(&mut self, expr: ExprNode<F>) -> ExprId;
+    fn alloc_statement(&mut self, stmt: StmtNode<F>) -> StmtId;
+    fn alloc_definition(&mut self, definition: DefinitionNode) -> DefId;
     fn expression(&self, expr_id: ExprId) -> &ExprNode<F>;
     fn statement(&self, stmt_id: StmtId) -> &StmtNode<F>;
     fn definition(&self, def_id: DefId) -> &DefinitionNode;

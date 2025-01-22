@@ -18,6 +18,7 @@ use std::{
 pub use artifact::*;
 pub use definition::*;
 pub use expr::*;
+use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use qed_common::Arena;
 pub use r#type::*;
@@ -34,13 +35,13 @@ use qed_parser::Parser;
 use tracing::{debug, error, info, instrument, span, Level};
 
 #[derive(Debug)]
-pub struct TypeChecker<F: Clone, T: From<CheckedValueNode<F>>, C> {
+pub struct TypeChecker<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> {
     pub exprs: Arena<ExprId, CheckedExprNode<F>>,
     pub stmts: Arena<StmtId, CheckedStmtNode<F>>,
     _marker: std::marker::PhantomData<(T, C)>,
 }
 
-impl<F: Clone, T: From<CheckedValueNode<F>>, C> Index<ExprId> for TypeChecker<F, T, C> {
+impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> Index<ExprId> for TypeChecker<F, T, C> {
     type Output = CheckedExprNode<F>;
 
     fn index(&self, index: ExprId) -> &Self::Output {
@@ -48,7 +49,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> Index<ExprId> for TypeChecker<F,
     }
 }
 
-impl<F: Clone, T: From<CheckedValueNode<F>>, C> Index<StmtId> for TypeChecker<F, T, C> {
+impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> Index<StmtId> for TypeChecker<F, T, C> {
     type Output = CheckedStmtNode<F>;
 
     fn index(&self, index: StmtId) -> &Self::Output {
@@ -58,7 +59,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> Index<StmtId> for TypeChecker<F,
 
 pub static STD_PRELUDE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
 
-impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
+impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
     pub fn new() -> Self {
         Self {
             exprs: Arena::new(),
@@ -923,7 +924,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
                         .collect::<Vec<_>>();
                     let type_key = TypeKey::new(name.clone(), generic_parameters, vec![]);
                     let type_id = symbols.get_type_id(None, type_key).unwrap();
-                    let mut new_data = HashMap::new();
+                    let mut new_data = IndexMap::new();
                     if let Type::Struct(checked_struct) = &symbols[type_id] {
                         if checked_struct.fields.len() != data.len() {
                             return Err(Error::TypeMismatch);

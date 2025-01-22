@@ -2,6 +2,7 @@ mod math;
 
 use math::*;
 
+#[derive(Storage)]
 struct Person {
     age: Felt,
     height: Felt,
@@ -10,82 +11,94 @@ struct Person {
 
 // impl Storage for Person {
 //     fn size() -> Felt {
-//         return 5;
+//         return Felt::size() + Felt::size() + Felt::size();
 //     }
 //
-//     fn read(self: Self, offset: Felt) -> Felt {
+//     fn read(offset: Felt) -> Self {
+//         Person {
+//             age: Felt::read(offset),
+//             height: Felt::read(offset + Felt::size()),
+//             year_of_birth: Felt::read(offset + Felt::size() + Felt::size())
+//         }
 //     }
 //
-//     fn write(self: Self, offset: Felt, value: Felt) {
+//     fn write(offset: Felt, value: Self) {
+//         Felt::write(offset, value.age);
+//         Felt::write(offset + Felt::size(), value.height);
+//         Felt::write(offset + Felt::size() + Felt::size(), value.year_of_birth);
 //     }
-// }
-
-struct Family {
-    father: Person,
-    mother: Person,
-    children: [Person; 2]
-}
-
-impl Person {
-    fn set_age(self: Person, new_age: Felt) {
-        self.age = new_age;
-    }
-
-    fn get_age(self: Person) -> Felt {
-        return self.age;
-    }
-
-    fn set_height(self: Person, new_height: Felt) {
-        self.height = new_height;
-    }
-
-    fn get_height(self: Person) -> Felt {
-        return self.height;
-    }
-
-    fn get_year_of_birth(self: Person) -> Felt {
-        return self.year_of_birth;
-    }
-
-    fn set_year_of_birth(self: Person, new_year_of_birth: Felt) {
-        self.year_of_birth = new_year_of_birth;
-    }
-}
-
-// impl Storage for Person {
-//     fn size() -> Felt {
-//         return 1;
-//     }
-//
-//     fn read(self: Self) -> Felt {
-//     }
-//
-//     fn write(self: Self, offset: Felt, value: Felt) {
-//     }
-// }
-//
-// struct Person {
-//     year_of_birth: Felt
 // }
 
 #[derive(Storage)]
 #[storage]
 struct ContractStorage {
-    a: Felt,
-    b: Person,
-    c: Felt
+    a: Felt, // 0
+    b: Person, // 1
+    c: Felt, // 4
+    d: Person // 7
 }
 
-// impl Storage for ContractStorage {
-//     fn size() -> Felt {
-//     }
-//
-//     fn read(self: Self) -> Felt {
-//     }
-//
-//     fn write(self: Self, offset: Felt, value: Felt) {
-//     }
-// }
+impl Storage for ContractStorage {
+    fn size() -> Felt {
+        return Felt::size() + Person::size() + Felt::size() + Person::size();
+    }
 
-fn main() {
+    fn read(offset: Felt) -> Self {
+        let a = Felt::read(offset);
+        let b = Person::read(offset + Felt::size());
+        let c = Felt::read(offset + Felt::size() + Person::size());
+        let d = Person::read(offset + Felt::size() + Person::size() + Felt::size());
+
+        ContractStorage { a, b, c, d }
+    }
+
+    fn write(offset: Felt, value: Self) {
+        Felt::write(offset, value.a);
+        Person::write(offset + Felt::size(), value.b);
+        Felt::write(offset + Felt::size() + Person::size(), value.c);
+        Person::write(offset + Felt::size() + Person::size() + Felt::size(), value.d);
+    }
+}
+
+impl ContractStorage {
+    fn new() -> Self {
+        return new ContractStorage {
+            a: 0,
+            b: new Person {
+                age: 0,
+                height: 0,
+                year_of_birth: 0
+            },
+            c: 0,
+            d: new Person {
+                age: 0,
+                height: 0,
+                year_of_birth: 0
+            }
+        };
+    }
+
+    fn get_a(self: Self) -> Felt {
+        Felt::read(0)
+    }
+
+    fn get_b(self: Self) -> Person {
+        Person::read(Felt::size())
+    }
+
+    fn get_c(self: Self) -> Felt {
+        Felt::read(Felt::size() + Person::size())
+    }
+
+    fn set_a(self: Self, value: Felt) {
+        Felt::write(0, value);
+    }
+
+    fn set_b(self: Self, value: Person) {
+        Person::write(Felt::size(), value);
+    }
+
+    fn set_c(self: Self, value: Felt) {
+        Felt::write(Felt::size() + Person::size(), value);
+    }
 }
