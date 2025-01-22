@@ -47,7 +47,7 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> Interpreter<
         &mut self,
         typechecker: &mut TypeChecker<F, CheckedValueOrNode<F>, C>,
         entry: PathBuf,
-        parameters: Vec<CheckedValueOrNode<F>>,
+        parameters: Vec<CheckedValue<F>>,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<Option<CheckedValue<F>>> {
         let mut program = Program::new();
@@ -90,11 +90,15 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> Interpreter<
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
         artifact: &Artifact<F, C>,
         node: &CheckedFunctionNode,
-        parameters: Vec<CheckedValueOrNode<F>>,
+        parameters: Vec<CheckedValue<F>>,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<Option<CheckedValue<F>>> {
         for (i, (parameter, _, _)) in node.parameters.iter().enumerate() {
-            symbols.set_variable(Some(node.scope_id), parameter, parameters[i].clone())?;
+            symbols.set_variable(
+                Some(node.scope_id),
+                parameter,
+                CheckedValueOrNode::from(parameters[i].clone()),
+            )?;
         }
 
         match self.interpret_block(typechecker, artifact, node.body.as_ref().unwrap(), symbols)? {
@@ -549,10 +553,10 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> Interpreter<
                         &typechecker[receiver],
                         symbols,
                     )?;
-                    parameters.push(CheckedValueOrNode::from(receiver.unwrap()));
+                    parameters.push(receiver.unwrap());
                 };
                 for arg in &call_node.args {
-                    parameters.push(CheckedValueOrNode::from(
+                    parameters.push(
                         self.interpret_expr(
                             typechecker,
                             artifact,
@@ -560,7 +564,7 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> Interpreter<
                             symbols,
                         )?
                         .unwrap(),
-                    ));
+                    );
                 }
                 return self.interpret_function(
                     typechecker,

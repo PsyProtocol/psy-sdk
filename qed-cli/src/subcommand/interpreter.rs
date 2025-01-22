@@ -4,7 +4,7 @@ use qed_builder::{
     Context, ExecContext, SymFeltRef,
 };
 use qed_interpreter::Interpreter;
-use qed_sema::{CheckedValueNode, CheckedValueOrNode, SymbolTable, TypeChecker};
+use qed_sema::{CheckedValue, CheckedValueNode, CheckedValueOrNode, SymbolTable, TypeChecker};
 use qed_utils::InterpreterArgs;
 
 pub fn run(args: InterpreterArgs) -> anyhow::Result<()> {
@@ -15,15 +15,10 @@ pub fn run(args: InterpreterArgs) -> anyhow::Result<()> {
         // let store = SymFeltStore::new();
         let mut typecheker = TypeChecker::new();
         let mut symbols = SymbolTable::new();
-        let a = CheckedValueNode::Felt(interpreter.context.add_input());
-        let b = CheckedValueNode::Felt(interpreter.context.add_input());
+        let a = CheckedValue::Felt(interpreter.context.add_input());
+        let b = CheckedValue::Felt(interpreter.context.add_input());
         let res = interpreter
-            .interpret(
-                &mut typecheker,
-                path.into(),
-                vec![CheckedValueOrNode::from(a), CheckedValueOrNode::from(b)],
-                &mut symbols,
-            )
+            .interpret(&mut typecheker, path.into(), vec![a, b], &mut symbols)
             .expect("interpret failed")
             .expect("return value not found");
         interpreter.inputs.push(2);
