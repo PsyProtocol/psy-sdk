@@ -203,7 +203,41 @@ impl<'a> StorageProcessor<'a> {
         offset: ExprId,
         ctx: &mut V,
     ) -> DefId {
-        todo!("Generate getter method AST node")
+        let mut getter_name = format!("get_{}", ctx.ident(*field_name));
+        let getter_ident = ctx.intern(getter_name.as_str());
+
+        let read_ident = ctx.intern("read");
+        let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
+            path_type: PathType::Nested,
+            root: None,
+            segments: vec![field_type.as_basic().unwrap().clone()],
+            target: read_ident,
+        }));
+
+        let read_call = CallNode {
+            variable,
+            receiver: None,
+            generic_parameters: Vec::new(),
+            args: vec![offset],
+        };
+        let read_expr = ctx.alloc_expression(ExprNode::Call(read_call));
+
+        let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(read_expr))));
+
+        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
+            stmts: vec![return_stmt],
+        }));
+
+        let function = FunctionNode {
+            name: getter_ident,
+            parameters: vec![],
+            generic_parameters: vec![],
+            body: Some(block),
+            return_type: Some(field_type.clone()),
+            is_extern: false,
+        };
+
+        ctx.alloc_definition(DefinitionNode::Function(function))
     }
 
     fn generate_setter<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
@@ -213,7 +247,49 @@ impl<'a> StorageProcessor<'a> {
         offset: ExprId,
         ctx: &mut V,
     ) -> DefId {
-        todo!("Generate setter method AST node")
+        let mut setter_name = format!("set_{}", ctx.ident(*field_name));
+        let setter_ident = ctx.intern(setter_name.as_str());
+
+        let value_ident = ctx.intern("value");
+
+        let write_ident = ctx.intern("write");
+        let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
+            path_type: PathType::Nested,
+            root: None,
+            segments: vec![field_type.as_basic().unwrap().clone()],
+            target: write_ident,
+        }));
+
+        let value = ctx.alloc_expression(ExprNode::Path(PathNode {
+            path_type: PathType::Basic,
+            root: None,
+            segments: vec![],
+            target: value_ident,
+        }));
+
+        let write_call = CallNode {
+            variable,
+            receiver: None,
+            generic_parameters: Vec::new(),
+            args: vec![offset, value],
+        };
+        let write_expr = ctx.alloc_expression(ExprNode::Call(write_call));
+
+        let write_stmt = ctx.alloc_statement(StmtNode::Expression(write_expr));
+        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
+            stmts: vec![write_stmt],
+        }));
+
+        let function = FunctionNode {
+            name: setter_ident,
+            parameters: vec![(value_ident, false, field_type.clone())],
+            generic_parameters: vec![],
+            body: Some(block),
+            return_type: None,
+            is_extern: false,
+        };
+
+        ctx.alloc_definition(DefinitionNode::Function(function))
     }
 
     fn generate_field_size<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
@@ -575,10 +651,10 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
                 ctx.append_definition(DefinitionNode::Impl(impl_node));
             }
 
-            // if attr.name == storage_attribute_id {
-            //     let impl_node = self.generate_accessor_impl(&s, ctx);
-            //     ctx.append_definition(DefinitionNode::Impl(impl_node));
-            // }
+            if attr.name == storage_attribute_id {
+                let impl_node = self.generate_accessor_impl(&s, ctx);
+                ctx.append_definition(DefinitionNode::Impl(impl_node));
+            }
         }
 
         Ok(())
