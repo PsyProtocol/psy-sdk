@@ -603,7 +603,25 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
                     )?)),
                     false => Err(Error::InvalidReturn),
                 },
-                StmtNode::Storage(_) => todo!(),
+                StmtNode::Storage(storage_node) => {
+                    let offset = self.typecheck_expr(
+                        &artifact[storage_node.offset.clone()],
+                        symbols,
+                        artifact,
+                    )?;
+                    let value = self.typecheck_expr(
+                        &artifact[storage_node.value.clone()],
+                        symbols,
+                        artifact,
+                    )?;
+                    if offset.ty() != FELT_TYPE || value.ty() != FELT_TYPE {
+                        return Err(Error::TypeMismatch);
+                    }
+                    Ok(CheckedStmtNode::Storage(CheckedStorageWriteNode {
+                        offset: self.exprs.alloc_item(offset),
+                        value: self.exprs.alloc_item(value),
+                    }))
+                }
             };
             new_stmts.push(new_stmt?);
         }
