@@ -10,4 +10,5 @@ pub struct CheckedFunctionNode {
     pub body: Option<CheckedBlockNode>,
     pub return_type: Option<TypeId>,
     pub scope_id: ScopeId,
+    pub is_pub: bool,
 }

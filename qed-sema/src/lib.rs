@@ -207,11 +207,12 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
             fields: Vec::new(),
             implementations: Vec::new(),
             scope_id: symbols.current_scope_id().unwrap(),
+            is_pub: node.is_pub,
         };
 
-        for (field_name, field_type) in &node.fields {
+        for (field_name, field_type, is_pub) in &node.fields {
             let field_type = self.typecheck(field_type, symbols, artifact)?;
-            checked_struct.fields.push((field_name.clone(), field_type));
+            checked_struct.fields.push((field_name.clone(), field_type, *is_pub));
 
             symbols.add_type_id(None, field_name.clone(), field_type);
         }
@@ -366,6 +367,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
             body: checked_body,
             return_type: expected_return_type,
             scope_id: current_scope_id,
+            is_pub: function.is_pub,
         };
 
         Ok(checked_function)
@@ -400,6 +402,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
             variants: todo!(),
             scope_id: todo!(),
             implementations: Vec::new(),
+            is_pub: r#enum.is_pub,
         };
         let ty = Type::Enum(checked_enum.clone());
         symbols.add_type(symbols.parent_scope_id(), ty);
@@ -810,6 +813,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
         match expr {
             ExprNode::Path(p) => {
                 //println!("trying to find path {}", p);
+                // assert!(symbols.check_visibility(&p), "path is not visible");
                 let PathNode {
                     root,
                     segments,
@@ -1000,7 +1004,7 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
                         .map(|x| self.typecheck(x, symbols, artifact).unwrap())
                         .collect::<Vec<_>>();
                     let type_key = TypeKey::new(name.clone(), generic_parameters, vec![]);
-                    let type_id = symbols.get_type_id(None, type_key).unwrap();
+                    let type_id = symbols.get_type_id(None, type_key).expect("cannot find type");
                     let mut new_data = HashMap::new();
                     if let Type::Struct(checked_struct) = &symbols[type_id] {
                         if checked_struct.fields.len() != data.len() {
@@ -1015,13 +1019,20 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
                         new_data.insert(k.clone(), self.exprs.alloc_item(expr));
 
                         if let Type::Struct(checked_struct) = &symbols[type_id] {
-                            if Some(&(k.clone(), t))
-                                != checked_struct
-                                    .fields
-                                    .iter()
-                                    .find(|(field_name, field_type)| field_name == k)
+                            let checked_struct_node_parent_scope_id = symbols[checked_struct.scope_id].parent;
+
+                            let finded = symbols.find_scope(symbols.current_scope_id(), vec![ScopeKind::Module], |scope| {
+                                {
+                                    scope.parent == checked_struct_node_parent_scope_id
+                                }
+                            });
+                            let (field_name, fild_type, is_pub) =  checked_struct.fields.iter().find(|(field_name, field_type, _is_pub)| field_name == k).unwrap();
+                            if (k.clone(), t) != (*field_name, *fild_type)
                             {
                                 return Err(Error::TypeMismatch);
+                            }
+                            if !is_pub && finded.is_none() {
+                                return Err(Error::UnresolvedMember);
                             }
                         } else {
                             unreachable!()
@@ -1165,15 +1176,27 @@ impl<F: Clone, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
                 let ty = &symbols[type_id];
                 match ty {
                     Type::Struct(checked_struct_node) => {
-                        for (field_name, field_type) in &checked_struct_node.fields {
+                        for (field_name, field_type, is_pub) in &checked_struct_node.fields {
+                            let checked_struct_node_parent_scope_id = symbols[checked_struct_node.scope_id].parent;
+
+                            let finded = symbols.find_scope(symbols.current_scope_id(), vec![ScopeKind::Module], |scope| {
+                                {
+                                    scope.parent == checked_struct_node_parent_scope_id
+                                }
+                            });
+
                             if field_name == &member_access_node.field {
-                                return Ok(CheckedExprNode::MemberAccess(
-                                    CheckedMemberAccessNode {
-                                        value: self.exprs.alloc_item(checked_expr),
-                                        field: field_name.clone(),
-                                        type_id: field_type.clone(),
-                                    },
-                                ));
+                                if *is_pub || finded.is_some(){
+                                    return Ok(CheckedExprNode::MemberAccess(
+                                        CheckedMemberAccessNode {
+                                            value: self.exprs.alloc_item(checked_expr),
+                                            field: field_name.clone(),
+                                            type_id: field_type.clone(),
+                                        },
+                                    ));
+                                }else {
+                                    return Err(Error::UnresolvedMember);
+                                }
                             }
                         }
 

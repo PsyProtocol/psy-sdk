@@ -27,7 +27,7 @@ pub Module: ModuleNode = {
         file_id,
         modules: {
             if !is_std {
-                modules.insert(0, IdentId::STD);
+                modules.insert(0, (IdentId::STD, true));
             }
             modules
         },
@@ -54,8 +54,10 @@ pub Module: ModuleNode = {
     }
 }
 
-ModuleDecl: IdentId = {
-    <l:@L> MOD <name:Identifier> ";" <r:@R> => name
+ModuleDecl: (IdentId, bool) = {
+    <l:@L> <is_pub: PUB?> MOD <name:Identifier> ";" <r:@R> => {
+        (name, is_pub.is_some())
+    },
 }
 
 ModuleUse: UsePath = {
@@ -121,10 +123,11 @@ TraitDef: TraitNode = {
 }
 
 EnumDef: EnumNode = {
-    <l:@L> ENUM <name:Identifier> <generic_parameters:GenericParameters?> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => EnumNode {
+    <l:@L> <is_pub: PUB?> ENUM <name:Identifier> <generic_parameters:GenericParameters?> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => EnumNode {
         name,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
-        variants
+        variants,
+        is_pub: is_pub.is_some()
     }
 }
 
@@ -137,31 +140,34 @@ AttributeProperties: Vec<IdentId> = {
 }
 
 StructDef: StructNode = {
-    <l:@L> <attrs:Attribute*> STRUCT <name:Identifier> <generic_parameters:GenericParameters?> "{" <fields:Comma<TypeAnnotation>> "}" <r:@R> => StructNode {
+    <l:@L> <attrs:Attribute*> <is_pub: PUB?> STRUCT <name:Identifier> <generic_parameters:GenericParameters?> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => StructNode {
         name,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
         fields,
-        attrs
+        attrs,
+        is_pub: is_pub.is_some(),
     }
 }
 
 FunctionDef: DefinitionNode = {
-    <l:@L> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <is_pub:PUB?> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
         body: Some(stmt_nodes.alloc_item(block_stmt)),
-        return_type
+        return_type,
+        is_pub: is_pub.is_some(),
     })
 }
 
 FunctionDecl: FunctionNode = {
-    <l:@L> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
+    <l:@L> <is_pub:PUB?> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
         name,
         parameters,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
         body: None,
-        return_type
+        return_type,
+        is_pub: is_pub.is_some(),
     }
 }
 
@@ -172,7 +178,7 @@ FunctionReturn: UncheckedType = {
 EnumVariant: EnumVariant = {
     <l:@L> <name:Identifier> <r:@R> => EnumVariant::Basic(name),
     <l:@L> <name:Identifier> "(" <members:Comma<Ty>> ")" <r:@R> => EnumVariant::Tuple(name, members),
-    <l:@L> <name:Identifier> "{" <fields:Comma<TypeAnnotation>> "}" <r:@R> => EnumVariant::Struct(name, fields)
+    <l:@L> <name:Identifier> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => EnumVariant::Struct(name, fields)
 }
 
 FunctionParameter: (IdentId, bool, UncheckedType) = {
@@ -181,6 +187,10 @@ FunctionParameter: (IdentId, bool, UncheckedType) = {
 
 TypeAnnotation: (IdentId, UncheckedType) = {
     <l:@L> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty)
+}
+
+FieldTypeAnnotation: (IdentId, UncheckedType, bool) = {
+    <l:@L>  <is_pub: PUB?> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty, is_pub.is_some())
 }
 
 GenericParameters: Vec<IdentId> = {
@@ -590,6 +600,8 @@ DoubleColon<E>: Vec<E> = Sep<E, "::">;
 Dot<E>: Vec<E> = Sep<E, ".">;
 Comma<E>: Vec<E> = Sep<E, ",">;
 Plus<E>: Vec<E> = Sep<E, "+">;
+
+
 
 extern {
     type Location = Loc;
