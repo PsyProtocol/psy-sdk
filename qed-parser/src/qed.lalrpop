@@ -4,11 +4,12 @@ use qed_ast::*;
 use qed_lexer::{Token, Error};
 
 grammar<'input, F, C>(
-    src: &'input str,
+    file_content: &'input str,
+    file_id: FileId,
     module_name: IdentId,
-    parent_file_id: Option<FileId>,
     expr_nodes: &mut Arena<ExprId, ExprNode<F>>,
-    stmt_nodes: &mut Arena<StmtId, StmtNode<F>>,
+    stmt_nodes: &mut Arena<StmtId, StmtNode>,
+    def_nodes: &mut Arena<DefId, DefinitionNode>,
     interner: &mut Interner,
     is_std: bool,
     is_self_std: bool,
@@ -20,10 +21,10 @@ use super::Loc;
 use std::convert::TryFrom;
 use std::collections::HashMap;
 
-pub Module: RawModule = {
-    <l:@L> <mut modules:ModuleDecl*> <mut uses:ModuleUse*> <definitions:Definition*> <r:@R> => RawModule {
+pub Module: ModuleNode = {
+    <l:@L> <mut modules:ModuleDecl*> <mut uses:ModuleUse*> <definitions:Definition*> <r:@R> => ModuleNode {
         name: module_name,
-        parent_file_id,
+        file_id,
         modules: {
             if !is_std {
                 modules.insert(0, IdentId::STD);
@@ -46,7 +47,7 @@ pub Module: RawModule = {
             }
             uses
         },
-        definitions,
+        definitions: def_nodes.alloc_items(definitions),
         is_std,
         is_self_std,
         is_self_prelude,
@@ -58,47 +59,68 @@ ModuleDecl: IdentId = {
 }
 
 ModuleUse: UsePath = {
-    <l:@L> USE <path:Path> ";" <r:@R> => UsePath {
+    <l:@L> USE <path:PathOld> ";" <r:@R> => UsePath {
         kind: UseKind::from(path.0),
         target: path.2,
         segments: path.1,
     }
 }
 
-Statement: StmtNode<F> = {
+Statement: StmtNode = {
     VariableStatement,
     AssignmentStatement,
     ReturnStatement,
     WhileStatement,
     BlockStatement,
     IfStatement,
-    Definition => StmtNode::Definition(<>),
+    Definition => StmtNode::Definition(def_nodes.alloc_item(<>)),
     ExpressionStatement
 }
 
-ExpressionStatement: StmtNode<F> = {
-    <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr)
+ExpressionStatement: StmtNode = {
+    <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr))
 }
 
 Definition: DefinitionNode = {
-    ImplDecl => DefinitionNode::Impl(<>),
-    EnumDecl => DefinitionNode::Enum(<>),
-    StructDecl => DefinitionNode::Struct(<>),
-    FunctionDecl => DefinitionNode::Function(<>),
+    ImplDef => DefinitionNode::Impl(<>),
+    TraitDef => DefinitionNode::Trait(<>),
+    EnumDef => DefinitionNode::Enum(<>),
+    StructDef => DefinitionNode::Struct(<>),
+    FunctionDef => <>,
 }
 
-ImplDecl: ImplNode = {
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters?> <ty:Identifier> <generic_parameters_rhs:GenericParameters?> "{" <body:FunctionDecl*> "}" <r:@R> => {
+ImplDef: ImplNode = {
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters?> <ty:Identifier> <generic_parameters_rhs:GenericParameters?> "{" <body:FunctionDef*> "}" <r:@R> => {
        assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplNode {
            generic_parameters: generic_parameters_lhs.unwrap_or(Vec::new()),
+           trait_name: None,
            ty,
+           body: def_nodes.alloc_items(body)
+       }
+   },
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters?> <trait_name:Identifier> FOR <ty:Identifier> <generic_parameters_rhs:GenericParameters?> "{" <body:FunctionDef*> "}" <r:@R> => {
+       assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
+       ImplNode {
+           generic_parameters: generic_parameters_lhs.unwrap_or(Vec::new()),
+           trait_name: Some(trait_name),
+           ty,
+           body: def_nodes.alloc_items(body)
+       }
+   }
+}
+
+TraitDef: TraitNode = {
+   <l:@L> TRAIT <name:Identifier> <generic_parameters:GenericParameters?> "{" <body:FunctionDecl*> "}" <r:@R> => {
+       TraitNode {
+           generic_parameters: generic_parameters.unwrap_or(Vec::new()),
+           name,
            body
        }
    }
 }
 
-EnumDecl: EnumNode = {
+EnumDef: EnumNode = {
     <l:@L> ENUM <name:Identifier> <generic_parameters:GenericParameters?> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => EnumNode {
         name,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
@@ -106,20 +128,39 @@ EnumDecl: EnumNode = {
     }
 }
 
-StructDecl: StructNode = {
-    <l:@L> STRUCT <name:Identifier> <generic_parameters:GenericParameters?> "{" <fields:Comma<TypeAnnotation>> "}" <r:@R> => StructNode {
+Attribute: AttrNode = {
+    <l:@L> "#" "[" <name:IdentifierOrDerive>  <properties:AttributeProperties?> "]" <r:@R> => AttrNode { name, properties: properties.unwrap_or(Vec::new()) }
+}
+
+AttributeProperties: Vec<IdentId> = {
+    <l:@L> "(" <properties:Comma<Identifier>> ")" <r:@R> => properties
+}
+
+StructDef: StructNode = {
+    <l:@L> <attrs:Attribute*> STRUCT <name:Identifier> <generic_parameters:GenericParameters?> "{" <fields:Comma<TypeAnnotation>> "}" <r:@R> => StructNode {
         name,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
-        fields
+        fields,
+        attrs
     }
 }
 
-FunctionDecl: FunctionNode = {
-    <l:@L> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> "{" <stmts:Statement*> "}" <r:@R> => FunctionNode {
+FunctionDef: DefinitionNode = {
+    <l:@L> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
-        body: BlockNode { stmts: stmt_nodes.alloc_items(stmts) },
+        body: Some(stmt_nodes.alloc_item(block_stmt)),
+        return_type
+    })
+}
+
+FunctionDecl: FunctionNode = {
+    <l:@L> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
+        name,
+        parameters,
+        generic_parameters: generic_parameters.unwrap_or(Vec::new()),
+        body: None,
         return_type
     }
 }
@@ -146,18 +187,18 @@ GenericParameters: Vec<IdentId> = {
     <l:@L> "<" <generic_parameters:Comma<Identifier>> ">" <r:@R> => generic_parameters
 }
 
-BlockStatement: StmtNode<F> = {
-    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => StmtNode::Block(BlockNode { stmts: stmt_nodes.alloc_items(stmts)  }),
+BlockStatement: StmtNode = {
+    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => StmtNode::Block(BlockNode { stmts: stmt_nodes.alloc_items(stmts) }),
 }
 
-WhileStatement: StmtNode<F> = {
-    <l:@L> WHILE <predicate:Expression> "{" <stmts:Statement*> "}" <r:@R>  => StmtNode::While(WhileNode {
+WhileStatement: StmtNode = {
+    <l:@L> WHILE <predicate:Expression> <block_stmt:BlockStatement> <r:@R>  => StmtNode::While(WhileNode {
         predicate: expr_nodes.alloc_item(predicate),
-        body: BlockNode { stmts: stmt_nodes.alloc_items(stmts)  }
+        body: stmt_nodes.alloc_item(block_stmt)
     }),
 }
 
-IfStatement: StmtNode<F> = {
+IfStatement: StmtNode = {
     <l:@L> <if_branch:IfBranch> <elseif_branch:ElseIfBranch*> <else_branch:ElseBranch?> <r:@R> => StmtNode::If(
         IfNode {
             if_branch,
@@ -168,28 +209,28 @@ IfStatement: StmtNode<F> = {
 }
 
 IfBranch: Case = {
-    <l:@L> IF <predicate:Expression> "{" <stmts:Statement*> "}" <r:@R> => Case::new(
+    <l:@L> IF <predicate:Expression> <block_stmt:BlockStatement> <r:@R> => Case::new(
         expr_nodes.alloc_item(predicate),
-        BlockNode { stmts: stmt_nodes.alloc_items(stmts) }
+        stmt_nodes.alloc_item(block_stmt)
     ),
 }
 
 ElseIfBranch: Case = {
-    <l:@L> ELSE IF <predicate:Expression> "{" <stmts:Statement*> "}" <r:@R> => Case::new(
+    <l:@L> ELSE IF <predicate:Expression> <block_stmt:BlockStatement> <r:@R> => Case::new(
         expr_nodes.alloc_item(predicate),
-        BlockNode { stmts: stmt_nodes.alloc_items(stmts) }
+        stmt_nodes.alloc_item(block_stmt)
     ),
 }
 
-ElseBranch: BlockNode = {
-    <l:@L> ELSE "{" <stmts:Statement*> "}" <r:@R> => BlockNode { stmts: stmt_nodes.alloc_items(stmts) },
+ElseBranch: StmtId = {
+    <l:@L> ELSE <block_stmt:BlockStatement> <r:@R> => stmt_nodes.alloc_item(block_stmt),
 }
 
-ReturnStatement: StmtNode<F> = {
+ReturnStatement: StmtNode = {
     <l:@L> RETURN <ret:Expression?> ";" <r:@R> => StmtNode::Return(ReturnNode(ret.map(|x| expr_nodes.alloc_item(x))))
 }
 
-VariableStatement: StmtNode<F> = {
+VariableStatement: StmtNode = {
     <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {
             name: decl.0,
@@ -210,7 +251,7 @@ VariableStatement: StmtNode<F> = {
     ),
 }
 
-AssignmentStatement: StmtNode<F> = {
+AssignmentStatement: StmtNode = {
     <l:@L> <variable:Expression> "=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
         AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::Eq, expr_nodes.alloc_item(value))
     ),
@@ -249,26 +290,96 @@ AssignmentStatement: StmtNode<F> = {
 Term: ExprNode<F> = {
     <l:@L> "(" <expr:Expression> ")" <r:@R> => expr,
     ValueExpression,
-    <l:@L> <name:IdentifierOrSelf> <r:@R> => ExprNode::<F>::Path(PathNode(name)),
+    PathExpression,
+   
 }
+//tyree 1
+PathExpression: ExprNode<F> = {
+    // Single
+    <variable: Identifier> => ExprNode::Path(PathNode {
+        path_type: PathType::Basic,
+        root: None,
+        segments: vec![],
+        target: variable,
+    }),
 
+    // Multi: root + segments + target
+    <root: Identifier> "::" <segments: (<Identifier> "::")*> <target: Identifier> => {
+        let mut segment_ids = segments.into_iter().map(|(seg)| seg).collect::<Vec<_>>();
+        ExprNode::Path(PathNode {
+            path_type: PathType::Nested,
+            root: Some(root),
+            segments: segment_ids,
+            target,
+        })
+    },
+};
 Expression: ExprNode<F> = {
     #[precedence(level="1")]
     Term,
 
+
+    //#[precedence(level="2")]
+    //todo: Temporarily disable generic capabilities
+    //<l:@L> <variable:Expression> <generic_parameters:Monomorphization?> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
+    //    CallNode {
+    //        receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
+    //        variable: expr_nodes.alloc_item(variable),
+    //        generic_parameters: generic_parameters.unwrap_or(Vec::new()),
+    //        args: expr_nodes.alloc_items(args)
+    //    }
+    //),
+
     #[precedence(level="2")]
-    <l:@L> <variable:Expression> <generic_parameters:Monomorphization?> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
-        CallNode {
-            receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
-            variable: expr_nodes.alloc_item(variable),
-            generic_parameters: generic_parameters.unwrap_or(Vec::new()),
-            args: expr_nodes.alloc_items(args)
+    <l:@L> <path:Expression> "(" <args:Comma<Expression>> ")" <r:@R> => {
+        match path.clone() {
+            ExprNode::<F>::Path(PathNode { root, segments, target, path_type }) => {
+                match path_type {
+                    PathType::Basic => {
+                        ExprNode::<F>::Call(
+                            CallNode {
+                                receiver: None,
+                                variable: expr_nodes.alloc_item(path),
+                                generic_parameters:Vec::new(),
+                                args: expr_nodes.alloc_items(args)
+                            }
+                        )
+                    },
+                    PathType::Nested => {
+                        ExprNode::<F>::Call(
+                            CallNode {
+                                receiver: None,
+                                variable: expr_nodes.alloc_item(path),
+                                //todo: need generic para
+                                generic_parameters:Vec::new(),
+                                args: expr_nodes.alloc_items(args)
+                            }
+                        )
+                    },
+                    //todo: deal with error more gracefully
+                    _ => panic!("Unexpected expression {:?}", path)
+                }
+            },
+            ExprNode::<F>::MemberAccess(MemberAccessNode { value, field }) => {
+                ExprNode::<F>::Call(
+                    CallNode {
+                        receiver: Some(value),
+                        variable: expr_nodes.alloc_item(path),
+                        generic_parameters:Vec::new(),
+                        args: expr_nodes.alloc_items(args)
+                    }
+                )
+            },
+              //todo: deal with error more gracefully
+            _ => panic!("Unexpected expression {:?}", path)
         }
-    ),
+    },
+    #[precedence(level="2")]
     <l:@L> <variable:Expression> "[" <index:NUMBER> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
         value: expr_nodes.alloc_item(variable),
         index: usize::try_from(index).unwrap()
     }),
+    #[precedence(level="2")]
     <l:@L> <variable:Expression> "." <field:Identifier> <r:@R> => ExprNode::<F>::MemberAccess(MemberAccessNode {
         value: expr_nodes.alloc_item(variable),
         field
@@ -278,6 +389,7 @@ Expression: ExprNode<F> = {
     <l:@L> "!" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
         UnaryNode{operator: UnaryOperator::Not, rhs: expr_nodes.alloc_item(rhs)}
     ),
+    #[precedence(level="3")]
     <l:@L> "-" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
         UnaryNode{operator: UnaryOperator::Neg, rhs: expr_nodes.alloc_item(rhs)}
     ),
@@ -294,9 +406,11 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> "*" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mul, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="5")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "/" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Div, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="5")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "%" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mod, expr_nodes.alloc_item(rhs))
     ),
@@ -305,6 +419,7 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> "+" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Add, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="6")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "-" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Sub, expr_nodes.alloc_item(rhs))
     ),
@@ -313,6 +428,7 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> "<<" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitShl, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="7")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> ">>" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitShr, expr_nodes.alloc_item(rhs))
     ),
@@ -336,12 +452,15 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> ">" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Gt, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="11")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "<" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Lt, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="11")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> ">=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Gte, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="11")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "<=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Lte, expr_nodes.alloc_item(rhs))
     ),
@@ -350,6 +469,7 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> "==" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Eq, expr_nodes.alloc_item(rhs))
     ),
+    #[precedence(level="12")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "!=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Neq, expr_nodes.alloc_item(rhs))
     ),
@@ -380,10 +500,18 @@ BoolExpression: ExprNode<F> = {
     <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Bool(ctx.op_bool(b)))
 }
 
+//todo: Temporarily disable generic capabilities
+//StructExpression: ExprNode<F> = {
+//    <l:@L> <name:Identifier> <generic_parameters:Monomorphization?> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
+//        name,
+//        generic_parameters.unwrap_or(Vec::new()),
+//        kv.into_iter().collect()
+//    )),
+//}
 StructExpression: ExprNode<F> = {
-    <l:@L> <name:Identifier> <generic_parameters:Monomorphization?> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
+    <l:@L> <name:Identifier>  "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
         name,
-        generic_parameters.unwrap_or(Vec::new()),
+        Vec::new(),
         kv.into_iter().collect()
     )),
 }
@@ -398,7 +526,7 @@ ArrayExpression: ExprNode<F> = {
     ),
 }
 
-Path: (IdentId, Vec<IdentId>, Option<IdentId>) =
+PathOld: (IdentId, Vec<IdentId>, Option<IdentId>) =
     <a:ModuleUseKind> "::" <h:(<Identifier> "::")*> <t:IdentifierOrAll> => {
         (a, h, t)
     };
@@ -445,6 +573,11 @@ IdentifierOrSelf: IdentId = {
     <l:@L> <name:SELF> <r:@R> => IdentId::SELF
 }
 
+IdentifierOrDerive: IdentId = {
+    Identifier,
+    <l:@L> <name:DERIVE> <r:@R> => IdentId::DERIVE
+}
+
 Identifier: IdentId = {
     <l:@L> <name:IDENT> <r:@R> => interner.intern_ident(name)
 }
@@ -472,11 +605,13 @@ extern {
         STRUCT => Token::KeywordStruct,
         ENUM => Token::KeywordEnum,
         IMPL => Token::KeywordImpl,
+        TRAIT => Token::KeywordTrait,
         RETURN => Token::KeywordReturn,
         IF => Token::KeywordIf,
         ELSE => Token::KeywordElse,
         WHILE => Token::KeywordWhile,
         FOR => Token::KeywordFor,
+        WHERE => Token::KeywordWhere,
 
         MOD => Token::KeywordMod,
         USE => Token::KeywordUse,
@@ -497,8 +632,12 @@ extern {
         TYPE_FELT => Token::TypeFelt,
         TYPE_SELF => Token::TypeSelf,
 
+        DERIVE => Token::KeywordDerive,
+
         AS => Token::KeywordAs,
         NEW => Token::KeywordNew,
+
+        "#" => Token::Pound,
 
         "(" => Token::LParen,
         ")" => Token::RParen,

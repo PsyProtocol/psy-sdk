@@ -1,19 +1,11 @@
 use std::collections::HashMap;
 
-use crate::{AstVisitor, FunctionNode, IdentId, UncheckedType, ValueNode};
+use crate::{AstVisitor, AttrNode, FunctionNode, IdentId, UncheckedType, ValueNode};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructNode {
     pub name: IdentId,
     pub generic_parameters: Vec<IdentId>,
     pub fields: Vec<(IdentId, UncheckedType)>,
-}
-
-impl StructNode {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(
-        &self,
-        visitor: &mut V,
-    ) -> V::StmtResult {
-        visitor.visit_struct(self)
-    }
+    pub attrs: Vec<AttrNode>,
 }

@@ -10,5 +10,5 @@ pub struct CheckedStructNode {
     pub generic_parameters: Vec<TypeId>,
     pub fields: Vec<(IdentId, TypeId)>,
     pub scope_id: ScopeId,
-    pub impls: HashMap<IdentId, TypeId>,
+    pub implementations: Vec<TypeId>,
 }

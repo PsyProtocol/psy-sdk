@@ -45,7 +45,15 @@ impl IdentId {
     pub const PRELUDE: IdentId = IdentId(10);
 
     pub const MAIN: IdentId = IdentId(11);
+    pub const DERIVE: IdentId = IdentId(12);
 }
+
+impl Display for IdentId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 
 pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
     (IdentId::TYPE_UNKNOWN, "unknown"),
@@ -60,6 +68,7 @@ pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
     (IdentId::STD, "std"),
     (IdentId::PRELUDE, "prelude"),
     (IdentId::MAIN, "main"),
+    (IdentId::DERIVE, "derive"),
 ];
 
 #[derive(Clone, Debug, Default)]

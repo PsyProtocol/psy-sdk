@@ -15,4 +15,5 @@ pub struct CheckedEnumNode {
     pub generic_parameters: Vec<TypeId>,
     pub variants: Vec<CheckedEnumVariant>,
     pub scope_id: ScopeId,
+    pub implementations: Vec<TypeId>,
 }

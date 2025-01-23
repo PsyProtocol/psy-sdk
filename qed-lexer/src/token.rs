@@ -21,6 +21,8 @@ pub enum Token<'input> {
     KeywordEnum,
     #[token("impl")]
     KeywordImpl,
+    #[token("trait")]
+    KeywordTrait,
     #[token("return")]
     KeywordReturn,
     #[token("if")]
@@ -31,9 +33,14 @@ pub enum Token<'input> {
     KeywordWhile,
     #[token("for")]
     KeywordFor,
+    #[token("where")]
+    KeywordWhere,
 
     #[token("as")]
     KeywordAs,
+
+    #[token("derive")]
+    KeywordDerive,
 
     #[token("new")]
     KeywordNew,
@@ -70,6 +77,9 @@ pub enum Token<'input> {
     #[token("false", |_| false)]
     #[token("true", |_| true)]
     Bool(bool),
+
+    #[token("#")]
+    Pound,
 
     #[token("(")]
     LParen,
@@ -197,4 +207,39 @@ fn test_lex_integer() {
     assert_eq!(lex.next(), Some(Ok(Token::Number(0))));
     assert_eq!(lex.next(), Some(Ok(Token::Number(1234567890))));
     assert_eq!(lex.next(), None);
+}
+#[cfg(test)]
+mod tests {
+    use std::fs::File;
+    use std::io::{self, Read};
+    use crate::Token;
+    use super::*;
+    const FILE_PATH: &str = "/Users/jason/git/qas/qed-lang/tests/003.qed";
+
+    #[test]
+    fn test_lex_from_file() -> io::Result<()> {
+        // 1. read file content
+        let mut file = File::open(FILE_PATH)?;
+        let mut content = String::new();
+        file.read_to_string(&mut content)?;
+
+        // 2. create Lexer
+        let mut lexer = Token::lexer(&content);
+
+        // 3. print Token table header
+        println!("{:<10} | {:<20} | {:<10}", "Start", "Token", "End");
+        println!("{:-<10}-+-{:-<20}-+-{:-<10}", "-", "-", "-");
+
+        // 4. recursive Lexer output Token
+        while let Some(token) = lexer.next() {
+            let span = lexer.span();
+            let start = span.start;
+            let end = span.end;
+
+            println!("{:<10} | {:<20} | {:<10}", start, format!("{:?}", token), end);
+        }
+
+
+        Ok(())
+    }
 }

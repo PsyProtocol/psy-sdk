@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use qed_common::{define_arena_id, FileId};
 
-use crate::{AstVisitor, DefinitionNode, IdentId};
+use crate::{AstVisitor, DefId, DefinitionNode, IdentId};
 
 define_arena_id!(ModuleId);
 
@@ -14,7 +14,7 @@ impl ModuleId {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ModuleKind {
-    File { file_id: FileId, is_dir: bool },
+    File { file_id: FileId },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,12 +22,6 @@ pub struct UsePath {
     pub kind: UseKind,
     pub segments: Vec<IdentId>,
     pub target: Option<IdentId>,
-}
-
-impl UsePath {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(&mut self, visitor: &mut V) {
-        visitor.visit_use(self)
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -61,19 +55,14 @@ impl From<UseKind> for IdentId {
 }
 
 #[derive(Clone, Debug)]
-pub struct RawModule {
+pub struct ModuleNode {
     pub name: IdentId,
-    pub parent_file_id: Option<FileId>,
+    pub file_id: FileId,
     pub modules: Vec<IdentId>,
     pub uses: Vec<UsePath>,
-    pub definitions: Vec<DefinitionNode>,
+    pub definitions: Vec<DefId>,
+
     pub is_std: bool,
     pub is_self_std: bool,
     pub is_self_prelude: bool,
-}
-
-impl RawModule {
-    pub fn accept_visitor<F: Clone, C, V: AstVisitor<F, C>>(&self, visitor: &mut V) {
-        visitor.visit_module(self)
-    }
 }
