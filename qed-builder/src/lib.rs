@@ -1,18 +1,15 @@
-pub mod circuit_builder;
-pub mod crypto;
-pub mod eval;
-pub mod felt;
-pub mod ops;
-pub mod vm;
+mod circuit_builder;
+mod crypto;
+mod eval;
+mod felt;
+mod ops;
+mod vm;
 
-pub use felt::context::Context;
-pub use felt::context_felt::ContextFelt;
-pub use felt::runtime_felt::RuntimeFelt;
-pub use felt::sym_felt::SymFeltRef;
-pub use felt::sym_felt::SymFeltStore;
+pub use felt::*;
 
-pub use circuit_builder::ExecContext;
-pub use eval::{ContextEval, ContextInput};
-pub use ops::OpType;
+pub use circuit_builder::*;
+pub use eval::*;
+pub use ops::*;
 
-pub use eval::cache::SymFeltEvalCache;
+pub use eval::*;
+pub use vm::*;

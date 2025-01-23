@@ -2,7 +2,8 @@ use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 
 use crate::SymFeltRef;
 
-pub mod cache;
+mod cache;
+pub use cache::*;
 
 pub trait EvalCache {
     fn contains(&self, key: SymFeltRef) -> bool;

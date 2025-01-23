@@ -1,5 +1,5 @@
 use qed_ast::*;
-use qed_builder::{Context, ContextFelt};
+use qed_builder::{ContextFelt, DPNContext};
 use qed_common::Graph;
 use qed_parser::Parser;
 use std::fmt::{Display, Write};
@@ -221,7 +221,7 @@ impl<'a, F: Clone + From<u32> + Display, C> Formatter<'a, F, C> {
     }
 }
 
-impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> AstVisitor<F, C>
+impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVisitor<F, C>
     for Formatter<'a, F, C>
 {
     type ExprResult = String;

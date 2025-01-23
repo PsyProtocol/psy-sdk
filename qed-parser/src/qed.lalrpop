@@ -1,5 +1,5 @@
 use qed_common::{FileId, Arena};
-use qed_builder::{Context, ContextFelt};
+use qed_builder::{DPNContext, ContextFelt};
 use qed_ast::*;
 use qed_lexer::{Token, Error};
 
@@ -15,7 +15,7 @@ grammar<'input, F, C>(
     is_self_std: bool,
     is_self_prelude: bool,
     ctx: &mut C
-) where F: ContextFelt + From<u32>, C: Context<F>;
+) where F: ContextFelt + From<u32>, C: DPNContext<F>;
 
 use super::Loc;
 use std::convert::TryFrom;

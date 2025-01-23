@@ -9,7 +9,7 @@ use error::{Error, Result};
 use indexmap::IndexMap;
 use preprocess::{PreprocessorContext, StorageProcessor};
 use qed_ast::*;
-use qed_builder::{Context, ContextFelt, ContextInput};
+use qed_builder::{ContextFelt, ContextInput, DPNContext};
 use qed_fmt::{Formatter, FormatterContext};
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
@@ -30,13 +30,13 @@ pub struct Interpreter<F: Clone + From<u32>, C> {
     _marker: std::marker::PhantomData<F>,
 }
 
-impl<F: ContextFelt + From<u32>, C: Context<F>> ContextInput for Interpreter<F, C> {
+impl<F: ContextFelt + From<u32>, C: DPNContext<F>> ContextInput for Interpreter<F, C> {
     fn get_input(&self, index: u64) -> u64 {
         self.inputs[index as usize]
     }
 }
 
-impl<F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> Interpreter<F, C> {
+impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpreter<F, C> {
     pub fn new(context: C, contract_state_tree_height: u16, contract_id: F, user_id: F) -> Self {
         Self {
             inputs: vec![],
@@ -803,7 +803,7 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> Interpreter<
 
 #[cfg(test)]
 mod test {
-    use qed_builder::{ExecContext, SymFeltEvalCache, SymFeltRef, SymFeltStore};
+    use qed_builder::{QExecContext, SymFeltEvalCache, SymFeltRef, SymFeltStore};
     use qed_fmt::Formatter;
 
     use super::*;
@@ -814,7 +814,7 @@ mod test {
 
         insta::glob!("../../tests", "002.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(
-                ExecContext::new(),
+                QExecContext::new(),
                 0,
                 SymFeltRef::from(0),
                 SymFeltRef::from(0),

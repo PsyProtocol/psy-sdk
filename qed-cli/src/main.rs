@@ -1,5 +1,6 @@
 mod subcommand;
 
+use crate::subcommand::compiler;
 use crate::subcommand::interpreter;
 
 use clap::Parser;
@@ -14,6 +15,7 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Commands::Interpret(args) => interpreter::run(args)?,
+        Commands::Compile(args) => compiler::run(args)?,
     }
     Ok(())
 }

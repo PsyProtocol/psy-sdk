@@ -1,7 +1,7 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_builder::{
-    vm::{compile::QEDCompileResult, exec::IExecutionContext, runner::exec_circuit_function_vm},
-    Context, ExecContext, SymFeltRef,
+    exec_circuit_function_vm, DPNContext, IExecutionContext, QEDCompileResult, QExecContext,
+    SymFeltRef,
 };
 use qed_interpreter::Interpreter;
 use qed_sema::{CheckedValue, CheckedValueNode, CheckedValueOrNode, SymbolTable, TypeChecker};
@@ -9,7 +9,7 @@ use qed_utils::InterpreterArgs;
 
 pub fn run(args: InterpreterArgs) -> anyhow::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(
-        ExecContext::new(),
+        QExecContext::new(),
         0,
         SymFeltRef::from(0),
         SymFeltRef::from(0),

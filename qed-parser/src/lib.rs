@@ -9,7 +9,7 @@ use lalrpop_util::lalrpop_mod;
 
 use error::{Error, Result};
 use qed_ast::*;
-use qed_builder::{Context, ContextFelt};
+use qed_builder::{ContextFelt, DPNContext};
 use qed_common::*;
 use qed_lexer::{Error as LexicalError, *};
 
@@ -26,7 +26,7 @@ pub struct Parser<'a, F: Clone + From<u32>, C> {
     _marker: std::marker::PhantomData<C>,
 }
 
-impl<'a, F: ContextFelt + From<u32>, C: Context<F>> Parser<'a, F, C> {
+impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
     pub fn new(program: &'a mut Program<F>) -> Self {
         Self {
             program,
@@ -221,14 +221,14 @@ fn extract_context(file_content: &str, position: usize, context_lines: usize) ->
 mod tests {
     use super::Parser;
     use qed_ast::Program;
-    use qed_builder::ExecContext;
+    use qed_builder::QExecContext;
     use std::path::PathBuf;
     #[test]
     fn test_qed_parser() {
         let mut program = Program::new();
         let mut parser = Parser::new(&mut program);
 
-        let mut ctx = ExecContext::new();
+        let mut ctx = QExecContext::new();
 
         let entry_file = PathBuf::from("../tests/002.qed");
 

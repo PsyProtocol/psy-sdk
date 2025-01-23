@@ -78,6 +78,13 @@ impl ContractStorage {
         };
     }
 
+    fn set_abcd(self: Self, a: Felt, b: Person, c: Felt, d: Person) {
+        self.set_a(a);
+        self.set_b(b);
+        self.set_c(c);
+        self.set_d(d);
+    }
+
     // fn get_a(self: Self) -> Felt {
     //     return Felt::read(0);
     // }
