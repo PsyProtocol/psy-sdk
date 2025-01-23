@@ -708,24 +708,28 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
                 segments: vec![],
                 target: offset_ident,
             }));
-            let value = ctx.alloc_expression(ExprNode::Path(PathNode {
+            let mut value = ctx.alloc_expression(ExprNode::Path(PathNode {
                 path_type: PathType::Basic,
                 root: None,
                 segments: vec![],
                 target: value_ident,
             }));
-            let mut offset_expr_id =
+            let mut storage_expr_id =
                 ctx.alloc_expression(ExprNode::Storage(StorageReadNode { offset }));
             if ty_name == IdentId::TYPE_BOOL {
-                offset_expr_id = ctx.alloc_expression(ExprNode::Cast(CastNode {
-                    value: offset_expr_id,
+                storage_expr_id = ctx.alloc_expression(ExprNode::Cast(CastNode {
+                    value: storage_expr_id,
                     target_type: UncheckedType::Basic(IdentId::TYPE_BOOL),
+                }));
+                value = ctx.alloc_expression(ExprNode::Cast(CastNode {
+                    value: value,
+                    target_type: UncheckedType::Basic(IdentId::TYPE_FELT),
                 }));
             }
 
             let body = ctx.definition(node).as_function().unwrap().body.unwrap();
             let stmt = if function_name == read_ident {
-                StmtNode::Return(ReturnNode(Some(offset_expr_id)))
+                StmtNode::Return(ReturnNode(Some(storage_expr_id)))
             } else if function_name == write_ident {
                 StmtNode::Storage(StorageWriteNode { offset, value })
             } else {
