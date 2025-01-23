@@ -3,6 +3,7 @@ mod call;
 mod cast;
 mod index;
 mod path;
+mod storage;
 mod unary;
 
 pub use binary::*;
@@ -10,6 +11,7 @@ pub use call::*;
 pub use cast::*;
 pub use index::*;
 pub use path::*;
+pub use storage::*;
 pub use unary::*;
 
 use qed_ast::{ExprNode, IdentId};
@@ -27,6 +29,7 @@ pub enum CheckedExprNode<F> {
     Call(CheckedCallNode),
     IndexAccess(CheckedIndexAccessNode),
     MemberAccess(CheckedMemberAccessNode),
+    Storage(CheckedStorageReadNode),
 }
 
 impl<F> CheckedExprNode<F> {
@@ -46,6 +49,7 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Call(c) => c.type_id,
             CheckedExprNode::IndexAccess(i) => i.type_id,
             CheckedExprNode::MemberAccess(m) => m.type_id,
+            CheckedExprNode::Storage(s) => s.type_id,
         }
     }
 

@@ -24,6 +24,9 @@ use crate::control::ControlState;
 pub struct Interpreter<F: Clone + From<u32>, C> {
     pub inputs: Vec<u64>,
     pub context: C,
+    pub contract_state_tree_height: u16,
+    pub contract_id: F,
+    pub user_id: F,
     _marker: std::marker::PhantomData<F>,
 }
 
@@ -34,10 +37,13 @@ impl<F: ContextFelt + From<u32>, C: Context<F>> ContextInput for Interpreter<F, 
 }
 
 impl<F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> Interpreter<F, C> {
-    pub fn new(context: C) -> Self {
+    pub fn new(context: C, contract_state_tree_height: u16, contract_id: F, user_id: F) -> Self {
         Self {
             inputs: vec![],
             context,
+            contract_state_tree_height,
+            contract_id,
+            user_id,
             _marker: std::marker::PhantomData,
         }
     }
@@ -228,6 +234,17 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> Interpreter<
                 } else {
                     return Ok(ControlState::Normal);
                 }
+            }
+            CheckedStmtNode::Storage(storage) => {
+                let offset = self
+                    .interpret_expr(typechecker, artifact, &typechecker[storage.offset], symbols)?
+                    .unwrap();
+                let value = self
+                    .interpret_expr(typechecker, artifact, &typechecker[storage.value], symbols)?
+                    .unwrap();
+                self.context
+                    .op_set_state_felt(offset.try_as_felt().unwrap(), value.try_as_felt().unwrap());
+                return Ok(ControlState::Normal);
             }
         }
         Ok(ControlState::Normal)
@@ -517,6 +534,23 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> Interpreter<
                     return Err(SemaError::UnresolvedVariable.into());
                 }
             }
+            CheckedExprNode::Storage(storage_read) => {
+                let offset = self
+                    .interpret_expr(
+                        typechecker,
+                        artifact,
+                        &typechecker[storage_read.offset],
+                        symbols,
+                    )?
+                    .unwrap();
+                let value = self.context.op_get_state_felt(
+                    self.contract_state_tree_height,
+                    self.contract_id,
+                    self.user_id,
+                    offset.try_as_felt().unwrap(),
+                );
+                return Ok(Some(CheckedValue::Felt(value)));
+            }
             CheckedExprNode::Value(value_node) => Ok(Some(self.interpret_value(
                 typechecker,
                 artifact,
@@ -619,6 +653,7 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> Interpreter<
                     return Ok(s.get_field(member_access_node.field).cloned());
                 }
             }
+            CheckedExprNode::Storage(checked_storage_node) => todo!(),
         }
     }
 
@@ -778,7 +813,12 @@ mod test {
         qed_utils::setup_env_logger();
 
         insta::glob!("../../tests", "002.qed", |path| {
-            let mut interpreter = Interpreter::<SymFeltRef, _>::new(ExecContext::new());
+            let mut interpreter = Interpreter::<SymFeltRef, _>::new(
+                ExecContext::new(),
+                0,
+                SymFeltRef::from(0),
+                SymFeltRef::from(0),
+            );
             let cache = SymFeltEvalCache::new();
             let store = SymFeltStore::new();
             let mut symbols = SymbolTable::new();

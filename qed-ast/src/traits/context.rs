@@ -48,6 +48,7 @@ pub enum NodeType {
     CastExpr,
     MemberAccessExpr,
     IndexAccessExpr,
+    StorageExpr,
 
     IfStmt,
     WhileStmt,
@@ -88,12 +89,14 @@ pub trait VisitorContext<F: Clone + From<u32>, C> {
     fn program(&self) -> &Program<F>;
     fn dependency_graph(&self) -> Graph<ModuleId>;
     fn alloc_expression(&mut self, expr: ExprNode<F>) -> ExprId;
-    fn alloc_statement(&mut self, stmt: StmtNode<F>) -> StmtId;
+    fn alloc_statement(&mut self, stmt: StmtNode) -> StmtId;
     fn alloc_definition(&mut self, definition: DefinitionNode) -> DefId;
     fn expression(&self, expr_id: ExprId) -> &ExprNode<F>;
-    fn statement(&self, stmt_id: StmtId) -> &StmtNode<F>;
+    fn statement(&self, stmt_id: StmtId) -> &StmtNode;
     fn definition(&self, def_id: DefId) -> &DefinitionNode;
     fn append_definition(&mut self, definition: DefinitionNode);
     fn insert_definition_before(&mut self, definition: DefinitionNode, def_id: DefId);
     fn insert_definition_after(&mut self, definition: DefinitionNode, def_id: DefId);
+    fn replace_definition(&mut self, def_id: DefId, definition: DefinitionNode);
+    fn replace_statement(&mut self, stmt_id: StmtId, statement: StmtNode);
 }

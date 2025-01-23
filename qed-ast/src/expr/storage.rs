@@ -1,7 +1,6 @@
 use crate::ExprId;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct StorageWriteNode {
+pub struct StorageReadNode {
     pub offset: ExprId,
-    pub value: ExprId,
 }

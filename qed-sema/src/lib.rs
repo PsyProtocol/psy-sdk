@@ -553,7 +553,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
     #[instrument(level = "debug", skip_all)]
     fn typecheck_stmt(
         &mut self,
-        stmt: &StmtNode<F>,
+        stmt: &StmtNode,
         symbols: &mut SymbolTable<T>,
         artifact: &Artifact<F, C>,
     ) -> Result<CheckedStmtNode<F>> {
@@ -586,7 +586,19 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
                 symbols,
                 artifact,
             )?)),
-            StmtNode::Storage(_) => unimplemented!(),
+            StmtNode::Storage(storage_node) => {
+                let offset =
+                    self.typecheck_expr(&artifact[storage_node.offset.clone()], symbols, artifact)?;
+                let value =
+                    self.typecheck_expr(&artifact[storage_node.value.clone()], symbols, artifact)?;
+                if offset.ty() != FELT_TYPE || value.ty() != FELT_TYPE {
+                    return Err(Error::TypeMismatch);
+                }
+                Ok(CheckedStmtNode::Storage(CheckedStorageWriteNode {
+                    offset: self.exprs.alloc_item(offset),
+                    value: self.exprs.alloc_item(value),
+                }))
+            }
         }
     }
 
@@ -748,6 +760,16 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
     ) -> Result<CheckedExprNode<F>> {
         //tyree 3
         match expr {
+            ExprNode::Storage(p) => {
+                let offset = self.typecheck_expr(&artifact[p.offset], symbols, artifact)?;
+                if offset.ty() != FELT_TYPE {
+                    return Err(Error::TypeMismatch);
+                }
+                return Ok(CheckedExprNode::Storage(CheckedStorageReadNode {
+                    offset: self.exprs.alloc_item(offset),
+                    type_id: FELT_TYPE,
+                }));
+            }
             ExprNode::Path(p) => {
                 //println!("trying to find path {}", p);
                 let PathNode {

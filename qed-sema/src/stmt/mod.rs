@@ -2,6 +2,7 @@ mod assignment;
 mod block;
 mod r#if;
 mod r#return;
+mod storage;
 mod variable;
 mod r#while;
 
@@ -10,6 +11,7 @@ pub use block::*;
 pub use r#if::*;
 pub use r#return::*;
 pub use r#while::*;
+pub use storage::*;
 pub use variable::*;
 
 use qed_ast::StmtNode;
@@ -26,6 +28,7 @@ pub enum CheckedStmtNode<F> {
     Variable(CheckedVariableNode),
     Definition(CheckedDefinitionNode),
     Expression(CheckedExprNode<F>),
+    Storage(CheckedStorageWriteNode),
     Return(CheckedReturnNode),
 }
 

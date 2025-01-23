@@ -3,6 +3,7 @@ mod call;
 mod cast;
 mod index;
 mod path;
+mod storage;
 mod unary;
 
 pub use binary::*;
@@ -10,6 +11,7 @@ pub use call::*;
 pub use cast::*;
 pub use index::*;
 pub use path::*;
+pub use storage::*;
 pub use unary::*;
 
 use crate::{AstVisitor, NodeType, ValueNode};
@@ -26,6 +28,7 @@ pub enum ExprNode<F: Clone + From<u32>> {
     Cast(CastNode),
     IndexAccess(IndexAccessNode),
     MemberAccess(MemberAccessNode),
+    Storage(StorageReadNode),
 }
 
 impl<F: Clone + From<u32>> ExprNode<F> {
@@ -39,6 +42,7 @@ impl<F: Clone + From<u32>> ExprNode<F> {
             ExprNode::Cast(_) => NodeType::CastExpr,
             ExprNode::IndexAccess(_) => NodeType::IndexAccessExpr,
             ExprNode::MemberAccess(_) => NodeType::MemberAccessExpr,
+            ExprNode::Storage(_) => NodeType::StorageExpr,
         }
     }
 }

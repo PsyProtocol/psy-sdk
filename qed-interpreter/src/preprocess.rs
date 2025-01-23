@@ -466,7 +466,7 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for PreprocessorContext<'
         &self.program.exprs[expr_id]
     }
 
-    fn statement(&self, stmt_id: StmtId) -> &StmtNode<F> {
+    fn statement(&self, stmt_id: StmtId) -> &StmtNode {
         &self.program.stmts[stmt_id]
     }
 
@@ -488,7 +488,7 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for PreprocessorContext<'
         self.program.exprs.alloc_item(expr)
     }
 
-    fn alloc_statement(&mut self, stmt: StmtNode<F>) -> StmtId {
+    fn alloc_statement(&mut self, stmt: StmtNode) -> StmtId {
         self.program.stmts.alloc_item(stmt)
     }
 
@@ -524,6 +524,14 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for PreprocessorContext<'
             .data_mut()
             .definitions
             .insert(idx.unwrap() + 1, def_id);
+    }
+
+    fn replace_definition(&mut self, def_id: DefId, definition: DefinitionNode) {
+        self.program.defs.replace_item(def_id, definition);
+    }
+
+    fn replace_statement(&mut self, stmt_id: StmtId, statement: StmtNode) {
+        self.program.stmts.replace_item(stmt_id, statement);
     }
 }
 
@@ -658,6 +666,10 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
+        let defs: Vec<DefId> = ctx.definition(node).as_impl().unwrap().body.clone();
+        for def_id in defs {
+            self.visit_definition(def_id, ctx)?;
+        }
         Ok(())
     }
 
@@ -674,6 +686,59 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
+        let is_extern = ctx.definition(node).as_function().unwrap().is_extern;
+        let function_name = ctx.definition(node).as_function().unwrap().name;
+        if !is_extern || ctx.parent_node_type() != NodeType::ImplDef {
+            return Ok(());
+        }
+
+        let parent_node_id = ctx.parent_node_id().as_def().unwrap().clone();
+        let trait_name = ctx.definition(parent_node_id).as_impl().unwrap().trait_name;
+        let ty_name = ctx.definition(parent_node_id).as_impl().unwrap().ty;
+        let storage_trait_id = ctx.intern("Storage");
+        let offset_ident = ctx.intern("offset");
+        let value_ident = ctx.intern("value");
+        let read_ident = ctx.intern("read");
+        let write_ident = ctx.intern("write");
+
+        if trait_name == Some(storage_trait_id) {
+            let offset = ctx.alloc_expression(ExprNode::Path(PathNode {
+                path_type: PathType::Basic,
+                root: None,
+                segments: vec![],
+                target: offset_ident,
+            }));
+            let value = ctx.alloc_expression(ExprNode::Path(PathNode {
+                path_type: PathType::Basic,
+                root: None,
+                segments: vec![],
+                target: value_ident,
+            }));
+            let mut offset_expr_id =
+                ctx.alloc_expression(ExprNode::Storage(StorageReadNode { offset }));
+            if ty_name == IdentId::TYPE_BOOL {
+                offset_expr_id = ctx.alloc_expression(ExprNode::Cast(CastNode {
+                    value: offset_expr_id,
+                    target_type: UncheckedType::Basic(IdentId::TYPE_BOOL),
+                }));
+            }
+
+            let body = ctx.definition(node).as_function().unwrap().body.unwrap();
+            let stmt = if function_name == read_ident {
+                StmtNode::Return(ReturnNode(Some(offset_expr_id)))
+            } else if function_name == write_ident {
+                StmtNode::Storage(StorageWriteNode { offset, value })
+            } else {
+                return Ok(());
+            };
+
+            let block = BlockNode {
+                stmts: vec![ctx.alloc_statement(stmt)],
+            };
+
+            ctx.replace_statement(body, StmtNode::Block(block));
+        }
+
         Ok(())
     }
 
@@ -709,5 +774,21 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
+    }
+
+    fn visit_storage_read(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        todo!()
+    }
+
+    fn visit_storage_write(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        todo!()
     }
 }

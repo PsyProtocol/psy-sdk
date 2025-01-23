@@ -83,7 +83,7 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for FormatterContext<'a, 
         &self.program.exprs[expr_id]
     }
 
-    fn statement(&self, stmt_id: StmtId) -> &StmtNode<F> {
+    fn statement(&self, stmt_id: StmtId) -> &StmtNode {
         &self.program.stmts[stmt_id]
     }
 
@@ -99,7 +99,7 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for FormatterContext<'a, 
         unimplemented!()
     }
 
-    fn alloc_statement(&mut self, stmt: StmtNode<F>) -> StmtId {
+    fn alloc_statement(&mut self, stmt: StmtNode) -> StmtId {
         unimplemented!()
     }
 
@@ -112,6 +112,14 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for FormatterContext<'a, 
     }
 
     fn insert_definition_after(&mut self, definition: DefinitionNode, def_id: DefId) {
+        todo!()
+    }
+
+    fn replace_definition(&mut self, def_id: DefId, definition: DefinitionNode) {
+        todo!()
+    }
+
+    fn replace_statement(&mut self, stmt_id: StmtId, statement: StmtNode) {
         todo!()
     }
 }
@@ -777,6 +785,26 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: Context<F>> AstVisit
         }
         self.dedent();
         self.write_line("}");
+        Ok(Default::default())
+    }
+
+    fn visit_storage_read(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let offset = ctx.expression(node).as_storage().unwrap().offset;
+        Ok(format!("storage::read({})", self.visit_expr(offset, ctx)?))
+    }
+
+    fn visit_storage_write(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let offset = self.visit_expr(ctx.statement(node).as_storage().unwrap().offset, ctx)?;
+        let value = self.visit_expr(ctx.statement(node).as_storage().unwrap().value, ctx)?;
+        self.write_line(&format!("storage::write({}, {});", offset, value));
         Ok(Default::default())
     }
 }

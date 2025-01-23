@@ -20,7 +20,7 @@ use crate::{AstVisitor, DefId, DefinitionNode, ExprId, ExprNode, NodeType};
 use strum::{EnumIs, EnumTryAs};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
-pub enum StmtNode<F> {
+pub enum StmtNode {
     If(IfNode),
     While(WhileNode),
     Block(BlockNode),
@@ -29,10 +29,10 @@ pub enum StmtNode<F> {
     Definition(DefId),
     Expression(ExprId),
     Return(ReturnNode),
-    Storage(StorageNode<F>),
+    Storage(StorageWriteNode),
 }
 
-impl<F> StmtNode<F> {
+impl StmtNode {
     pub fn node_type(&self) -> NodeType {
         match self {
             StmtNode::If(_) => NodeType::IfStmt,
@@ -48,7 +48,7 @@ impl<F> StmtNode<F> {
     }
 }
 
-impl<F> Display for StmtNode<F> {
+impl Display for StmtNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             StmtNode::If(_) => write!(f, "If"),
@@ -59,8 +59,7 @@ impl<F> Display for StmtNode<F> {
             StmtNode::Definition(_) => write!(f, "Definition"),
             StmtNode::Expression(_) => write!(f, "Expression"),
             StmtNode::Return(_) => write!(f, "Return"),
-            StmtNode::Storage(StorageNode::Read(_)) => write!(f, "Storage::Read"),
-            StmtNode::Storage(StorageNode::Write(_, _)) => write!(f, "Storage::Write"),
+            StmtNode::Storage(_) => write!(f, "Storage::Write"),
         }
     }
 }
