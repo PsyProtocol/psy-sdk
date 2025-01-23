@@ -8,4 +8,5 @@ pub struct FunctionNode {
     pub body: Option<StmtId>,
     pub return_type: Option<UncheckedType>,
     pub is_extern: bool,
+    pub is_pub: bool,
 }

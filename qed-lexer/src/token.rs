@@ -3,7 +3,7 @@ use logos::Logos;
 use std::fmt;
 
 #[derive(Logos, Clone, Debug, PartialEq)]
-#[logos(skip r"[\s\t\r\n\f]+", skip r"//[^\n\r]*[\n\r]", skip r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/", error = Error)]
+#[logos(skip r"[\s\t\r\n\f]+", skip r"//[^\n\r]*", skip r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/", error = Error)]
 pub enum Token<'input> {
     #[token("const")]
     KeywordConst,

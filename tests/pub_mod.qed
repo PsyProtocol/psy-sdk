@@ -1,0 +1,19 @@
+pub struct Add{
+    x: Felt,
+    y: Felt
+}
+
+impl Add{
+    pub fn get_sum(this: Add) -> Felt{
+        return this.x + this.y;
+    }
+
+    pub fn new_(x: Felt, y: Felt) -> Add{
+        return new Add{
+            x: x,
+            y: y
+        };
+    }
+}
+
+pub fn void_fn(){}

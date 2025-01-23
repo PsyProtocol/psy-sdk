@@ -16,4 +16,5 @@ pub struct CheckedEnumNode {
     pub variants: Vec<CheckedEnumVariant>,
     pub scope_id: ScopeId,
     pub implementations: Vec<TypeId>,
+    pub is_pub: bool,
 }

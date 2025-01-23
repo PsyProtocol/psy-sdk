@@ -208,11 +208,14 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
             fields: Vec::new(),
             implementations: Vec::new(),
             scope_id: symbols.current_scope_id().unwrap(),
+            is_pub: node.is_pub,
         };
 
-        for (field_name, field_type) in &node.fields {
+        for (field_name, field_type, is_pub) in &node.fields {
             let field_type = self.typecheck(field_type, symbols, artifact)?;
-            checked_struct.fields.push((field_name.clone(), field_type));
+            checked_struct
+                .fields
+                .push((field_name.clone(), field_type, *is_pub));
 
             symbols.add_type_id(None, field_name.clone(), field_type);
         }
@@ -332,19 +335,26 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
         };
 
         let checked_body = if let Some(body) = &function.body {
-            let checked_body = self.typecheck_block(
+            let checked_body = self.typecheck_function_body(
                 artifact[body.clone()].as_block().unwrap(),
                 symbols,
                 artifact,
             )?;
 
+            let mut return_type_checked = false;
             if expected_return_type.is_some() {
                 for stmt in checked_body.stmts.iter() {
                     if let CheckedStmtNode::Return(CheckedReturnNode { ret }) = &self[*stmt] {
                         if ret.map(|(_, type_id)| type_id) != expected_return_type {
                             return Err(Error::TypeMismatch);
+                        } else {
+                            return_type_checked = true;
+                            break;
                         }
                     }
+                }
+                if !return_type_checked {
+                    return Err(Error::InvalidReturn);
                 }
             }
 
@@ -360,6 +370,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
             body: checked_body,
             return_type: expected_return_type,
             scope_id: current_scope_id,
+            is_pub: function.is_pub,
         };
 
         Ok(checked_function)
@@ -394,6 +405,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
             variants: todo!(),
             scope_id: todo!(),
             implementations: Vec::new(),
+            is_pub: r#enum.is_pub,
         };
         let ty = Type::Enum(checked_enum.clone());
         symbols.add_type(symbols.parent_scope_id(), ty);
@@ -550,6 +562,57 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
         })
     }
 
+    fn typecheck_function_body(
+        &mut self,
+        body: &BlockNode,
+        symbols: &mut SymbolTable<T>,
+        artifact: &Artifact<F, C>,
+    ) -> Result<CheckedBlockNode> {
+        symbols.start_scope(ScopeKind::Block);
+        let mut new_stmts = Vec::with_capacity(body.stmts.len());
+        for (i, stmt) in body.stmts.iter().enumerate() {
+            let statement = &artifact[stmt.clone()];
+
+            let new_stmt = match statement {
+                StmtNode::If(r#if) => Ok(CheckedStmtNode::If(
+                    self.typecheck_if(r#if, symbols, artifact)?,
+                )),
+                StmtNode::While(r#while) => Ok(CheckedStmtNode::While(
+                    self.typecheck_while(r#while, symbols, artifact)?,
+                )),
+                StmtNode::Block(block) => Ok(CheckedStmtNode::Block(
+                    self.typecheck_block(r#block, symbols, artifact)?,
+                )),
+                StmtNode::Assignment(r#assignment) => Ok(CheckedStmtNode::Assignment(
+                    self.typecheck_assignment(r#assignment, symbols, artifact)?,
+                )),
+                StmtNode::Variable(variable) => Ok(CheckedStmtNode::Variable(
+                    self.typecheck_variable(variable, symbols, artifact)?,
+                )),
+                StmtNode::Definition(def_id) => Ok(CheckedStmtNode::Definition(
+                    self.typecheck_definition(&artifact[def_id.clone()], symbols, artifact)?,
+                )),
+                StmtNode::Expression(expr) => Ok(CheckedStmtNode::Expression(
+                    self.typecheck_expr(&artifact[expr.clone()], symbols, artifact)?,
+                )),
+                StmtNode::Return(return_node) => match i == body.stmts.len() - 1 {
+                    true => Ok(CheckedStmtNode::Return(self.typecheck_ret(
+                        return_node,
+                        symbols,
+                        artifact,
+                    )?)),
+                    false => Err(Error::InvalidReturn),
+                },
+                StmtNode::Storage(_) => todo!(),
+            };
+            new_stmts.push(new_stmt?);
+        }
+        symbols.end_scope();
+        Ok(CheckedBlockNode {
+            stmts: self.stmts.alloc_items(new_stmts),
+        })
+    }
+
     #[instrument(level = "debug", skip_all)]
     fn typecheck_stmt(
         &mut self,
@@ -581,11 +644,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
                 symbols,
                 artifact,
             )?)),
-            StmtNode::Return(return_node) => Ok(CheckedStmtNode::Return(self.typecheck_ret(
-                return_node,
-                symbols,
-                artifact,
-            )?)),
+            StmtNode::Return(return_node) => Err(Error::InvalidReturn),
             StmtNode::Storage(storage_node) => {
                 let offset =
                     self.typecheck_expr(&artifact[storage_node.offset.clone()], symbols, artifact)?;
@@ -772,6 +831,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
             }
             ExprNode::Path(p) => {
                 //println!("trying to find path {}", p);
+                // assert!(symbols.check_visibility(&p), "path is not visible");
                 let PathNode {
                     root,
                     segments,
@@ -945,7 +1005,9 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
                         .map(|x| self.typecheck(x, symbols, artifact).unwrap())
                         .collect::<Vec<_>>();
                     let type_key = TypeKey::new(name.clone(), generic_parameters, vec![]);
-                    let type_id = symbols.get_type_id(None, type_key).unwrap();
+                    let type_id = symbols
+                        .get_type_id(None, type_key)
+                        .expect("cannot find type");
                     let mut new_data = IndexMap::new();
                     if let Type::Struct(checked_struct) = &symbols[type_id] {
                         if checked_struct.fields.len() != data.len() {
@@ -960,13 +1022,24 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
                         new_data.insert(k.clone(), self.exprs.alloc_item(expr));
 
                         if let Type::Struct(checked_struct) = &symbols[type_id] {
-                            if Some(&(k.clone(), t))
-                                != checked_struct
-                                    .fields
-                                    .iter()
-                                    .find(|(field_name, field_type)| field_name == k)
-                            {
+                            let checked_struct_node_parent_scope_id =
+                                symbols[checked_struct.scope_id].parent;
+
+                            let finded = symbols.find_scope(
+                                symbols.current_scope_id(),
+                                vec![ScopeKind::Module],
+                                |scope| scope.parent == checked_struct_node_parent_scope_id,
+                            );
+                            let (field_name, fild_type, is_pub) = checked_struct
+                                .fields
+                                .iter()
+                                .find(|(field_name, field_type, _is_pub)| field_name == k)
+                                .unwrap();
+                            if (k.clone(), t) != (*field_name, *fild_type) {
                                 return Err(Error::TypeMismatch);
+                            }
+                            if !is_pub && finded.is_none() {
+                                return Err(Error::UnresolvedMember);
                             }
                         } else {
                             unreachable!()
@@ -1110,15 +1183,28 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
                 let ty = &symbols[type_id];
                 match ty {
                     Type::Struct(checked_struct_node) => {
-                        for (field_name, field_type) in &checked_struct_node.fields {
+                        for (field_name, field_type, is_pub) in &checked_struct_node.fields {
+                            let checked_struct_node_parent_scope_id =
+                                symbols[checked_struct_node.scope_id].parent;
+
+                            let finded = symbols.find_scope(
+                                symbols.current_scope_id(),
+                                vec![ScopeKind::Module],
+                                |scope| scope.parent == checked_struct_node_parent_scope_id,
+                            );
+
                             if field_name == &member_access_node.field {
-                                return Ok(CheckedExprNode::MemberAccess(
-                                    CheckedMemberAccessNode {
-                                        value: self.exprs.alloc_item(checked_expr),
-                                        field: field_name.clone(),
-                                        type_id: field_type.clone(),
-                                    },
-                                ));
+                                if *is_pub || finded.is_some() {
+                                    return Ok(CheckedExprNode::MemberAccess(
+                                        CheckedMemberAccessNode {
+                                            value: self.exprs.alloc_item(checked_expr),
+                                            field: field_name.clone(),
+                                            type_id: field_type.clone(),
+                                        },
+                                    ));
+                                } else {
+                                    return Err(Error::UnresolvedMember);
+                                }
                             }
                         }
 

@@ -58,7 +58,7 @@ impl From<UseKind> for IdentId {
 pub struct ModuleNode {
     pub name: IdentId,
     pub file_id: FileId,
-    pub modules: Vec<IdentId>,
+    pub modules: Vec<(IdentId, bool)>,
     pub uses: Vec<UsePath>,
     pub definitions: Vec<DefId>,
 

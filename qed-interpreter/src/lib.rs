@@ -191,7 +191,10 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<ControlState<CheckedValue<F>>> {
         for &stmt in &node.stmts {
-            match self.interpret_statement(typechecker, artifact, &typechecker[stmt], symbols)? {
+            match self
+                .interpret_statement(typechecker, artifact, &typechecker[stmt], symbols)
+                .expect("interpret statement failed")
+            {
                 ControlState::Normal => continue,
                 state => return Ok(state),
             }
@@ -638,19 +641,30 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
                 return Ok(Some(a[index_access_node.index].clone()));
             }
             CheckedExprNode::MemberAccess(member_access_node) => {
-                if symbols[member_access_node.type_id].is_function() {
-                    return Ok(Some(CheckedValue::Type(member_access_node.type_id)));
+                let s = self
+                    .interpret_expr(
+                        typechecker,
+                        artifact,
+                        &typechecker[member_access_node.value],
+                        symbols,
+                    )?
+                    .unwrap();
+                if let CheckedValue::Struct(type_id, field_values) = s {
+                    if let Some(value) = field_values.get(&member_access_node.field) {
+                        return Ok(Some(value.clone()));
+                    } else {
+                        if let Type::Function(f) = &symbols[member_access_node.type_id] {
+                            if f.name == member_access_node.field {
+                                return Ok(Some(CheckedValue::Type(member_access_node.type_id)));
+                            } else {
+                                return Err(Error::SemaError(qed_sema::Error::UnresolvedMember));
+                            }
+                        } else {
+                            return Err(Error::SemaError(qed_sema::Error::UnresolvedMember));
+                        }
+                    }
                 } else {
-                    let s = self
-                        .interpret_expr(
-                            typechecker,
-                            artifact,
-                            &typechecker[member_access_node.value],
-                            symbols,
-                        )?
-                        .unwrap();
-
-                    return Ok(s.get_field(member_access_node.field).cloned());
+                    unreachable!()
                 }
             }
             CheckedExprNode::Storage(checked_storage_node) => todo!(),

@@ -592,6 +592,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
             body,
             return_type,
             is_extern,
+            is_pub,
         } = ctx.definition(def_id).as_function().unwrap();
         let parameters = parameters
             .iter()
@@ -639,6 +640,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
             fields,
             generic_parameters,
             attrs,
+            is_pub,
         } = ctx.definition(def_id).as_struct().unwrap();
         for attr in attrs {
             if !attr.properties.is_empty() {
@@ -666,7 +668,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
             )
         ));
         self.indent();
-        for (field, value) in fields {
+        for (field, value, is_pub) in fields {
             let s = format!(
                 "{}: {},",
                 ctx.ident(field.clone()),
@@ -688,6 +690,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
             name,
             generic_parameters,
             variants,
+            is_pub,
         } = ctx.definition(def_id).as_enum().unwrap();
         self.write_line(&format!(
             "enum {}{} {{",
@@ -718,7 +721,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
                 EnumVariant::Struct(ident_id, fields) => {
                     self.write_line(&format!("{} {{", ctx.ident(ident_id.clone())));
                     self.indent();
-                    for (field, ty) in fields {
+                    for (field, ty, _is_pub) in fields {
                         self.write_line(&format!(
                             "{}: {},",
                             ctx.ident(field.clone()),
