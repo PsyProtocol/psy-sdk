@@ -541,6 +541,7 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
             generic_parameters,
             body,
             return_type,
+            is_pub,
         } = ctx.definition(def_id).as_function().unwrap();
         let parameters = parameters
             .iter()
@@ -587,6 +588,7 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
             fields,
             generic_parameters,
             attrs,
+            is_pub,
         } = ctx.definition(def_id).as_struct().unwrap();
         for attr in attrs {
             if !attr.properties.is_empty() {
@@ -614,7 +616,7 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
             )
         ));
         self.indent();
-        for (field, value) in fields {
+        for (field, value, is_pub) in fields {
             let s = format!(
                 "{}: {},",
                 ctx.ident(field.clone()),
@@ -636,6 +638,7 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
             name,
             generic_parameters,
             variants,
+            is_pub,
         } = ctx.definition(def_id).as_enum().unwrap();
         self.write_line(&format!(
             "enum {}{} {{",
@@ -666,7 +669,7 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
                 EnumVariant::Struct(ident_id, fields) => {
                     self.write_line(&format!("{} {{", ctx.ident(ident_id.clone())));
                     self.indent();
-                    for (field, ty) in fields {
+                    for (field, ty, _is_pub) in fields {
                         self.write_line(&format!(
                             "{}: {},",
                             ctx.ident(field.clone()),

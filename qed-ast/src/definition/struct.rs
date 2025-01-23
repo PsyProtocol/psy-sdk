@@ -6,6 +6,7 @@ use crate::{AstVisitor, AttrNode, FunctionNode, IdentId, UncheckedType, ValueNod
 pub struct StructNode {
     pub name: IdentId,
     pub generic_parameters: Vec<IdentId>,
-    pub fields: Vec<(IdentId, UncheckedType)>,
+    pub fields: Vec<(IdentId, UncheckedType, bool)>,
     pub attrs: Vec<AttrNode>,
+    pub is_pub: bool,
 }
