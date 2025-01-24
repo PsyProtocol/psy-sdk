@@ -313,8 +313,7 @@ impl<T> SymbolTable<T> {
             // todo!()
             _ => unreachable!("other types can be imported"),
         };
-
-        is_same_module || is_pub
+        true
     }
 
     pub fn start_existing_module(&mut self, module_id: ModuleId) {
@@ -518,7 +517,7 @@ impl<T> SymbolTable<T> {
         let mut current_module_ids = self.crate_module_ids(current_module_id);
         let mut src_module_ids = self.crate_module_ids(src_module);
 
-        let mut same_ancestor_id = self.crate_module_id()?;
+        let mut same_ancestor_id = current_module_id;
         while let (Some(current_module_id), Some(src_module_id)) =
             (current_module_ids.pop(), src_module_ids.pop())
         {
@@ -530,21 +529,19 @@ impl<T> SymbolTable<T> {
         }
 
         let mut can_visit = true;
-
         while let Some(child_id) = src_module_ids.pop() {
             let mut parent_id = self[child_id].parent?;
 
-            let find_visit = self[parent_id]
+            let &(_, is_pub) = self[parent_id]
                 .children_visibility
                 .iter()
-                .find(|(id, _is_pub)| self[child_id].name == *id)
-                .expect("find visit error");
-            can_visit = find_visit.1;
+                .find(|(id, _is_pub)| self[child_id].name == *id)?;
+            can_visit = is_pub;
             parent_id = child_id;
         }
 
         if !can_visit {
-            panic!("Unresolved use");
+            return None;
         }
 
         let is_same_module = src_module == same_ancestor_id;
@@ -584,9 +581,9 @@ impl<T> SymbolTable<T> {
                             Type::Struct(t) => t.is_pub,
                             Type::Enum(t) => t.is_pub,
                             Type::Unknown => panic!("Unknown type"),
-                            Type::Function(checked_function_node) => checked_function_node.is_pub,
+                            Type::Function(t) => t.is_pub,
                             // todo!()
-                            _ => true,
+                            _ => unreachable!("other types can be imported"),
                         };
                         is_same_module || is_pub
                     })

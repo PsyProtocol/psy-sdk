@@ -15,7 +15,7 @@ fmt:
 	@cargo fmt
 
 interpret:
-	@RUST_LOG=${LOG_LEVE} cargo run --package qed-cli interpret --file tests/opcode_test.qed
+	@RUST_LOG=${LOG_LEVE} cargo run --package qed-cli interpret --file tests/opcode_test.qed --params 2 3
 
 compile:
 	@RUST_LOG=${LOG_LEVE} cargo run --package qed-cli compile --file tests/002.qed
