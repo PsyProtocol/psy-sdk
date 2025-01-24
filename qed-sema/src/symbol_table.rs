@@ -650,35 +650,7 @@ impl<T> SymbolTable<T> {
         })?;
         self[scope_id].types.get(&name).cloned()
     }
-    pub fn get_type_id_with_scope<S: Into<TypeKey>>(
-        &self,
-        start_scope: Option<ScopeId>,
-        name: S,
-    ) -> Option<TypeId> {
-        let name: TypeKey = name.into();
-        let scope_id = self.find_scope(start_scope, vec![ScopeKind::Module], |scope| {
-            scope.types.contains_key(&name)
-        })?;
-        self[scope_id].types.get(&name).cloned()
-    }
 
-    pub fn get_function_type(&self, idx: IdentId) -> Vec<CheckedFunctionNode> {
-        let ret = self
-            .types
-            .iter()
-            .filter_map(|i| match i {
-                Type::Function(f) => {
-                    if f.name == idx {
-                        Some(f.clone())
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        ret
-    }
     pub fn search_type_table(&self, idx: IdentId) -> Vec<Type> {
         //todo use macro to optimize below code
         let ret = self
