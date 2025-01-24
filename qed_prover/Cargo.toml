@@ -19,8 +19,10 @@ tracing = { workspace = true }
 
 kvq = { path = "../kvq" }
 qed_core = { path = "../qed_core" }
+qed_common_circuit = { path = "../qed_common_circuit" }
 qedlang_core = { path = "../qedlang_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
 qed_store = { path = "../qed_store" }
+qed_exec = { path = "../qed_exec" }
 qedlang_macros = { path = "../qedlang_macros" }

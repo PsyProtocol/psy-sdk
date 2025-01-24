@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::dpn::ops::{op_types::{DPNBuiltInDataType, DPNOpType}, state_cmd::data::DPNStateCmd};
+use crate::dpn::ops::{op_types::{DPNAssertEqInfoIndexed, DPNBuiltInDataType, DPNIndexedVarDef, DPNOpType}, state_cmd::data::DPNStateCmd};
 
-
+/* 
 const INDEX_BITS: u64 = 32;
 const INDEX_MASK: u64 = (1u64<<INDEX_BITS)-1u64;
 
@@ -32,6 +32,7 @@ pub struct DPNAssertEqInfoIndexed {
   pub right: u64,
   pub message: String,
 }
+*/
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct DPNFunctionCircuitDefinition {

@@ -1,8 +1,7 @@
 use plonky2::hash::hash_types::RichField;
 
-use crate::dpn::ops::op_types::{DPNBuiltInDataType, DPNOpType};
+use crate::dpn::ops::op_types::{decode_indexed_op_id, DPNBuiltInDataType, DPNIndexedVarDef, DPNOpType};
 
-use super::def::{decode_indexed_op_id, DPNFunctionCircuitDefinition, DPNIndexedVarDef};
 
 pub struct SimpleDPNExecutor<F: RichField> {
     pub targets: Vec<F>,
@@ -184,7 +183,12 @@ impl<F: RichField> SimpleDPNExecutor<F> {
     }
     pub fn resolve_target_array_ref(&self, id: u64, index_id: u64) -> F {
         let (t, index) = decode_indexed_op_id(id);
+        println!("array_data_type: {:?}, arr_index: {}", t, index);
+        println!("in_array_index_target_id: {}",index_id);
+
         let ind_real = self.resolve_target(index_id);
+        println!("in_array_index_target_id: {} (equals {})",index_id, ind_real.to_canonical_u64());
+        
         match t {
             DPNBuiltInDataType::HashOut => {
                 assert!(ind_real.to_canonical_u64() < 4, "Invalid index in hash");
@@ -236,8 +240,23 @@ impl<F: RichField> SimpleDPNExecutor<F> {
         }
     }
 
+    fn print_current_op(&self, op: &DPNIndexedVarDef) {
+        match op.data_type {
+            DPNBuiltInDataType::Target => println!("d_target[{}] -> {:?}", self.targets.len(), op),
+            DPNBuiltInDataType::Bool => println!("d_bool[{}] -> {:?}", self.u32_arrays.len(), op),
+            DPNBuiltInDataType::U32Target => println!("d_u32[{}] -> {:?}", self.u32s.len(), op),
+            DPNBuiltInDataType::HashOut => println!("d_hashout[{}] -> {:?}", self.hashes.len(), op),
+            DPNBuiltInDataType::HashOut160 => println!("d_hash160[{}] -> {:?}", self.hash160s.len(), op),
+            DPNBuiltInDataType::TargetArray => println!("d_target_array[{}] -> {:?}", self.target_arrays.len(), op),
+            DPNBuiltInDataType::BoolArray => println!("d_bool_array[{}] -> {:?}", self.bool_arrays.len(), op),
+            DPNBuiltInDataType::U32TargetArray => println!("d_u32_array[{}] -> {:?}", self.u32_arrays.len(), op),
+            DPNBuiltInDataType::Unknown => println!("d_unknown: {:?}", op),
+        }
+    }
+
 
     pub fn process_var_def(&mut self, op: &DPNIndexedVarDef) {
+        self.print_current_op(op);
         
         match op.op_type {
             //DPNOpType::InputTarget => todo!("this shouldn't ever get called probably"),

@@ -1,6 +1,7 @@
-use crate::dpn::ops::{exec_context::QExecContext, op_types::DPNBuiltInDataType, state_cmd::{data::DPNStateCmd, types::DPNStateCmdCore}, sym_felt::SymFeltRef, sym_felt_store::SymFeltStore};
+use crate::dpn::ops::{exec_context::QExecContext, op_types::{encode_indexed_op_id, DPNAssertEqInfoIndexed, DPNBuiltInDataType, DPNIndexedVarDef}, state_cmd::{data::DPNStateCmd, types::DPNStateCmdCore}, sym_felt::SymFeltRef, sym_felt_store::SymFeltStore};
 
-use super::def::{encode_indexed_op_id, DPNAssertEqInfoIndexed, DPNFunctionCircuitDefinition, DPNIndexedVarDef};
+use super::def::DPNFunctionCircuitDefinition;
+
 
 pub struct QEDCompileResult {
     pub circuit_inputs: Vec<u64>,

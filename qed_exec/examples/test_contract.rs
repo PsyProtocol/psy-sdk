@@ -5,7 +5,7 @@ use kvq::{cache::KVQBinaryStoreCached, memory::{arc_imm::KVQArcImmutableStoreWra
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use qed_core::data::qhashout::QHashOut;
 use qed_data::qdata::contract::QEDContractLeaf;
-use qed_prover::vm::exec::QEDEvalSessionResult;
+use qed_exec::vm::exec::QEDEvalSessionResult;
 use qed_store::{controllers::local::proving_session::QEDLocalProvingSessionStore, models::kvq_merkle::model::KVQFixedConfigMerkleTreeModel, store::imm::{cmd_processor::QEDReadCommandProcessorSync, core::QEDStorageAdapterImmutable}, traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::{QEDComboDataStoreReaderSync, QTreeDataStoreWriterSync}}};
 use qedlang_core::dpn::{ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef}, vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition}};
 use qedlang_macros::qcontract;
@@ -27,7 +27,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
 #[qcontract]
 impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
     pub fn simple_math(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
-        let k = (a + 2) * 4 * b - 3 * (a + b);
+        let k = (a + 2) * (2*2) * b - 3 * (a + b);
         let z = k + a;
         
         ctx.assert_true(z > 12, "z must be gt than 12");
