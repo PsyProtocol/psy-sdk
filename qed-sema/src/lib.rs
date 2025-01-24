@@ -884,9 +884,14 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
                                 symbols[module_id].scope_id
                             }
                             Some(r) => {
+                                let mut module_id = match symbols.current_module_id() {
+                                    Some(m) => m,
+                                    None => return Err(Error::UnresolvedVariable),
+                                };
+                                let current_module_scope = symbols[module_id].scope_id;
                                 let r = r.clone();
                                 //try to find the root in the module table
-                                let scope_id = match symbols.find_module(r) {
+                                let root_scope = match symbols.find_module(r) {
                                     //if it's a module, get the scope_id
                                     Some(m) => {
                                         let t = symbols[m].scope_id;
@@ -897,23 +902,47 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
                                         //if not a module, try to find it in type table
                                         let root_checked_type = symbols.search_type_table(r);
 
-                                        match root_checked_type.iter().find_map(|x| match x {
+                                        match root_checked_type.iter().enumerate().find_map(|(id, x)| match &symbols[*x] {
                                             Type::Struct(t) => Some(t.scope_id),
                                             Type::Enum(t) => Some(t.scope_id),
+                                            Type::Felt(t) => {
+
+                                                let scopes = symbols.find_felt_scope(current_module_scope);
+                                                //todo! if there are multiple implementation for felt
+                                                // maybe change the grammar to specific, like Felt::<Storage>::size
+                                                if scopes.len() == 1 {
+                                                    Some(scopes[0])
+                                                } else {
+                                                    println!("find multi felt scope");
+                                                    None
+                                                }
+
+                                            }
+                                            Type::Bool(t) => {
+                                                let scopes = symbols.find_bool_scope(current_module_scope);
+                                                if scopes.len() == 1 {
+                                                    Some(scopes[0])
+                                                } else {
+                                                    println!("find multi bool scope");
+                                                    None
+                                                }
+                                            }
                                             _ => None,
                                         }) {
                                             Some(s) => s,
                                             None => {
+                                                println!("cannot find a valid root scope for path");
                                                 return Err(Error::UnresolvedPath);
                                             }
                                         }
                                     }
                                 };
-                                //println!("path root scope id = {:?}", scope_id);
-                                scope_id
+                                root_scope
                             }
                         }
                     };
+                    //println!("path root scope id = {:?}", root_scope);
+
                     //compare segments one by one to find the most close one
 
                     let method_scope = symbols.find_path_scope(segments, root_scope);
@@ -932,6 +961,9 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
                             }
                         };
                     }
+                    method_type_with_path.sort();
+                    method_type_with_path.dedup();
+                  
 
                     if method_type_with_path.is_empty() {
                         return Err(Error::UnresolvedPath);
