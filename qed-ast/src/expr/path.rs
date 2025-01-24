@@ -30,14 +30,6 @@ impl PathNode {
         }
     }
 }
-// impl PathNode {
-//     pub fn accept_visitor<F: Clone + From<u32>, C, V: AstVisitor<F, C>>(
-//         &self,
-//         visitor: &mut V,
-//     ) -> V::ExprResult {
-//         visitor.visit_path(self)
-//     }
-// }
 
 impl Display for PathNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
