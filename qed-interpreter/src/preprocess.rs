@@ -212,8 +212,8 @@ impl<'a> StorageProcessor<'a> {
         let read_ident = ctx.intern("read");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
             path_type: PathType::Nested,
-            root: None,
-            segments: vec![field_type.as_basic().unwrap().clone()],
+            root: Some(field_type.as_basic().unwrap().clone()),
+            segments: vec![],
             target: read_ident,
         }));
 
@@ -263,8 +263,8 @@ impl<'a> StorageProcessor<'a> {
         let write_ident = ctx.intern("write");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
             path_type: PathType::Nested,
-            root: None,
-            segments: vec![field_type.as_basic().unwrap().clone()],
+            root: Some(field_type.as_basic().unwrap().clone()),
+            segments: vec![],
             target: write_ident,
         }));
 
@@ -316,8 +316,8 @@ impl<'a> StorageProcessor<'a> {
         let size_ident = ctx.intern("size");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
             path_type: PathType::Nested,
-            root: None,
-            segments: vec![field_type.as_basic().unwrap().clone()],
+            root: Some(field_type.as_basic().unwrap().clone()),
+            segments: vec![],
             target: size_ident,
         }));
         let node = CallNode {
@@ -339,8 +339,8 @@ impl<'a> StorageProcessor<'a> {
         let read_ident = ctx.intern("read");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
             path_type: PathType::Nested,
-            root: None,
-            segments: vec![field_type.as_basic().unwrap().clone()],
+            root: Some(field_type.as_basic().unwrap().clone()),
+            segments: vec![],
             target: read_ident,
         }));
         let node = CallNode {
@@ -366,8 +366,8 @@ impl<'a> StorageProcessor<'a> {
         let write_ident = ctx.intern("write");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
             path_type: PathType::Nested,
-            root: None,
-            segments: vec![field_type.as_basic().unwrap().clone()],
+            root: Some(field_type.as_basic().unwrap().clone()),
+            segments: vec![],
             target: write_ident,
         }));
         let value = ctx.alloc_expression(ExprNode::Path(PathNode {

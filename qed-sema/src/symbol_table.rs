@@ -133,11 +133,17 @@ impl<T> Display for SymbolTable<T> {
             for (k, v) in &scope.types {
                 writeln!(f, "  {:?} : {:?}", k, v)?;
             }
+            //variables
+            writeln!(f, "  variables:")?;
+            for (k, v) in &scope.variables {
+                writeln!(f, "    {:?} : ty: {}, mut: {}, cnst: {}, scope_id: {:?}, value is_some: {}",
+                         k, v.ty, v.mutable, v.cnst, v.scope_id, v.value.is_some())?;
+            }
         }
         //print type
         for (i, ty) in self.types.iter().enumerate() {
-            writeln!(f, "TypeId({})", i)?;
-            writeln!(f, "  {:?}", ty)?;
+            writeln!(f, "TypeId({}) ： {:?}", i, ty)?;
+
         }
         //print module
         for (i, module) in self.modules.iter().enumerate() {
@@ -488,6 +494,26 @@ impl<T> SymbolTable<T> {
             .position(|x| x.name == name)
             .map(ModuleId)
     }
+    pub fn find_felt_scope(&self, start_scope: ScopeId) -> Vec<ScopeId> {
+        let felt_key: TypeKey = IdentId::TYPE_SELF.into();
+        let felt_value = self.types.iter().enumerate().find_map(|(id, x)| {
+            match x {
+                Type::Felt(_) => Some(TypeId(id)),
+                _ => None,
+            }
+        }).unwrap();
+        self.find_type_recursive_with_value(start_scope, &felt_key, felt_value)
+    }
+    pub fn find_bool_scope(&self, start_scope: ScopeId) -> Vec<ScopeId> {
+        let key: TypeKey = IdentId::TYPE_SELF.into();
+        let value = self.types.iter().enumerate().find_map(|(id, x)| {
+            match x {
+                Type::Bool(_) => Some(TypeId(id)),
+                _ => None,
+            }
+        }).unwrap();
+        self.find_type_recursive_with_value(start_scope, &key, value)
+    }
     pub fn resolve_use(&self, use_path: &UsePath) -> Option<Vec<(&TypeKey, &TypeId)>> {
         let mut src_module = match use_path.kind {
             UseKind::MODULE(name) => ModuleId(self.modules.iter().position(|x| x.name == name)?),
@@ -679,37 +705,55 @@ impl<T> SymbolTable<T> {
             .collect::<Vec<_>>();
         ret
     }
-    pub fn search_type_table(&self, idx: IdentId) -> Vec<Type> {
-        //todo use macro to optimize below code
-        let ret = self
-            .types
-            .iter()
-            .filter_map(|i| match i {
-                Type::Function(f) => {
-                    if f.name == idx {
-                        Some(Type::Function(f.clone()))
-                    } else {
-                        None
-                    }
-                }
-                Type::Struct(s) => {
-                    if s.name == idx {
-                        Some(Type::Struct(s.clone()))
-                    } else {
-                        None
-                    }
-                }
-                Type::Enum(e) => {
-                    if e.name == idx {
-                        Some(Type::Enum(e.clone()))
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        ret
+
+    pub fn search_type_table(&self, idx: IdentId) -> Vec<TypeId> {
+        println!("search_type_table idx = {:?}", idx);
+
+        // Special case for Felt and Bool
+        match idx {
+            IdentId::TYPE_FELT => {
+                return self
+                    .types
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(id, x)| match x {
+                        Type::Felt(_) => Some(TypeId(id)),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+            }
+            IdentId::TYPE_BOOL => {
+                return self
+                    .types
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(id, x)| match x {
+                        Type::Bool(_) => Some(TypeId(id)),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+            }
+            _ => {}
+        }
+
+        // Macro to simplify filtering for other types
+        macro_rules! match_and_collect {
+        ($($variant:ident),*) => {{
+            self.types
+                .iter()
+                .enumerate()
+                .filter_map(|(id, i)| match i {
+                    $(
+                        Type::$variant(v) if v.name == idx => Some(TypeId(id)),
+                    )*
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        }};
+    }
+
+        // Use macro to simplify code for types like Function, Struct, and Enum
+        match_and_collect!(Function, Struct, Enum)
     }
 
     pub fn find_scope(
@@ -735,18 +779,42 @@ impl<T> SymbolTable<T> {
 
     fn find_type_recursive(&self, start_scope: ScopeId, type_key: &TypeKey) -> Vec<ScopeId> {
         let mut current_scope_id = start_scope;
-
-        let mut r = self[current_scope_id]
+        let mut r = Vec::new();
+        if self[current_scope_id].types.contains_key(type_key) {
+            r.push(current_scope_id);
+        }
+        r.extend(self[current_scope_id]
             .children
             .iter()
             .map(|x| self.find_type_recursive(*x, type_key))
             .filter(|x| !x.is_empty())
             .flatten()
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+        );
 
+        r.sort();
+        r.dedup();
+        r
+    }
+    fn find_type_recursive_with_value(&self, start_scope: ScopeId, type_key: &TypeKey, value: TypeId) -> Vec<ScopeId> {
+        let mut current_scope_id = start_scope;
+        let mut r = Vec::new();
         if self[current_scope_id].types.contains_key(type_key) {
-            r.push(current_scope_id);
+            if self[current_scope_id].types[type_key] == value {
+                r.push(current_scope_id);
+            }
         }
+        r.extend(self[current_scope_id]
+            .children
+            .iter()
+            .map(|x| self.find_type_recursive_with_value(*x, type_key, value))
+            .filter(|x| !x.is_empty())
+            .flatten()
+            .collect::<Vec<_>>()
+        );
+
+        r.sort();
+        r.dedup();
         r
     }
     pub fn find_path_scope(&self, path_vec: &Vec<IdentId>, start_scope: ScopeId) -> Vec<ScopeId> {
@@ -757,7 +825,10 @@ impl<T> SymbolTable<T> {
 
         let mut idx = 0;
         let mut scopes = self.find_type_recursive(start_scope, &path_vec[idx].into());
-
+        scopes.sort(); 
+        scopes.dedup(); 
+        println!("{}:{}", file!(), line!());
+        println!("scopes initial = {:?}", scopes);
         if scopes.is_empty() {
             return vec![];
         }
