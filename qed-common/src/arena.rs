@@ -109,7 +109,7 @@ impl<'a, I: From<usize> + Into<usize> + Copy, T> IntoIterator for &'a mut Arena<
 #[macro_export]
 macro_rules! define_arena_id {
     ($name:ident) => {
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
         pub struct $name(pub usize);
 
         impl From<usize> for $name {
