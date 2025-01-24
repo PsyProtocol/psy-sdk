@@ -4,9 +4,11 @@ use std::{
     convert::AsMut,
     fmt::{format, Display, Formatter},
     hash::Hash,
+    iter::once,
     ops::{Index, IndexMut},
 };
 
+use once_cell::sync::OnceCell;
 use qed_ast::{ModuleNode, PathNode, PathType};
 use qed_common::{define_arena_id, FileId, TreeNode};
 use strum::{EnumIs, EnumTryAs};
@@ -18,6 +20,8 @@ use crate::{
 use crate::{Error, Result};
 
 define_arena_id!(ScopeId);
+
+pub static STD_PRELUDE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
 
 impl ScopeId {
     pub const fn root() -> Self {
@@ -442,8 +446,7 @@ impl<T> SymbolTable<T> {
             None
         };
 
-        for &type_id in std::iter::once(&type_id).chain(self[type_id].implementations().into_iter())
-        {
+        for &type_id in once(&type_id).chain(self[type_id].implementations().into_iter()) {
             if let Some(type_id) = find_method(type_id) {
                 return Some(type_id);
             }
@@ -782,16 +785,7 @@ impl<T> SymbolTable<T> {
 
         scopes
     }
-    pub fn get_scope(&self, start_scope: Option<ScopeId>, target: &IdentId) -> Option<ScopeId> {
-        let type_key: TypeKey = (*target).into();
-        let scope_id = self.find_scope(
-            start_scope,
-            //note: maybe should be fewer options below
-            vec![], //use none so that it will search all the way
-            |scope| scope.types.contains_key(&type_key),
-        );
-        scope_id
-    }
+
     pub fn get_variable(
         &mut self,
         start_scope: Option<ScopeId>,
@@ -804,19 +798,7 @@ impl<T> SymbolTable<T> {
         )?;
         self[scope_id].variables.get_mut(key)
     }
-    pub fn find_variable_scope(
-        &mut self,
-        start_scope: Option<ScopeId>,
-        key: &IdentId,
-    ) -> Option<ScopeId> {
-        let scope_id = self.find_scope(
-            start_scope,
-            vec![ScopeKind::Function, ScopeKind::ImplMethod],
-            |scope| scope.variables.contains_key(key),
-        );
 
-        scope_id
-    }
     pub fn set_variable(
         &mut self,
         start_scope: Option<ScopeId>,
@@ -849,10 +831,6 @@ impl<T> SymbolTable<T> {
         }
         self[current_scope_id].variables.insert(key, value);
         Ok(())
-    }
-
-    pub fn get_types_len(&self) -> usize {
-        self.types.len()
     }
 }
 

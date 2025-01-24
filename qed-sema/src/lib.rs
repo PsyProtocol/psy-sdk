@@ -57,8 +57,6 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> Index<StmtId> for Ty
     }
 }
 
-pub static STD_PRELUDE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
-
 impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
     pub fn new() -> Self {
         Self {
@@ -1248,7 +1246,10 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
 
         if !scope.types.is_empty() {
             println!("{}  Types:", indent_str);
-            let symbols_type_len = symbols.get_types_len();
+            let symbols_type_len = {
+                let this = &symbols;
+                this.types.len()
+            };
             for (type_key, type_id) in &scope.types {
                 if type_id.0 >= symbols_type_len {
                     continue;
