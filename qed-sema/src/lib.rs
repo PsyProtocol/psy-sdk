@@ -1244,24 +1244,24 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> TypeChecker<F, T, C>
             }
         }
 
-        if !scope.types.is_empty() {
-            println!("{}  Types:", indent_str);
-            let symbols_type_len = {
-                let this = &symbols;
-                this.types.len()
-            };
-            for (type_key, type_id) in &scope.types {
-                if type_id.0 >= symbols_type_len {
-                    continue;
-                }
-                println!(
-                    "{}    {:?}: {:?}",
-                    indent_str,
-                    artifact[type_key.id.clone()],
-                    symbols[type_id.clone()]
-                );
-            }
-        }
+        // if !scope.types.is_empty() {
+        //     println!("{}  Types:", indent_str);
+        //     let symbols_type_len = {
+        //         let this = &symbols;
+        //         this.types.len()
+        //     };
+        //     for (type_key, type_id) in &scope.types {
+        //         if type_id.0 >= symbols_type_len {
+        //             continue;
+        //         }
+        //         println!(
+        //             "{}    {:?}: {:?}",
+        //             indent_str,
+        //             artifact[type_key.id.clone()],
+        //             symbols[type_id.clone()]
+        //         );
+        //     }
+        // }
 
         for &child_scope_id in &scope.children {
             self.print_scope_hierarchy(child_scope_id, indent + 1, symbols, artifact);

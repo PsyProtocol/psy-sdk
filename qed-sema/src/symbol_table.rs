@@ -14,8 +14,8 @@ use qed_common::{define_arena_id, FileId, TreeNode};
 use strum::{EnumIs, EnumTryAs};
 
 use crate::{
-    variable::CheckedVariable, CheckedFunctionNode, CheckedTraitNode, DefinitionNode, IdentId,
-    ModuleId, ModuleKind, Type, TypeId, TypeKey, UseKind, UsePath,
+    variable::CheckedVariable, CheckedFunctionNode, CheckedTraitNode, CheckedValueOrNode,
+    DefinitionNode, IdentId, ModuleId, ModuleKind, Type, TypeId, TypeKey, UseKind, UsePath,
 };
 use crate::{Error, Result};
 
@@ -96,11 +96,11 @@ impl<T> Scope<T> {
 
 #[derive(Clone, Debug)]
 pub struct SymbolTable<T> {
-    pub scopes: Vec<Scope<T>>,
+    scopes: Vec<Scope<T>>,
     scope_stack: Vec<ScopeId>,
 
-    pub types: Vec<Type>,
-    pub modules: Vec<Module>,
+    types: Vec<Type>,
+    modules: Vec<Module>,
     module_stack: Vec<ModuleId>,
 }
 
@@ -212,15 +212,6 @@ impl<T> SymbolTable<T> {
         self.module_stack.last().cloned()
     }
 
-    pub fn crate_module_id(&self) -> Option<ModuleId> {
-        let mut module_id = self.current_module_id()?;
-
-        while let Some(parent) = self[module_id].parent.clone() {
-            module_id = parent;
-        }
-        Some(module_id)
-    }
-
     pub fn crate_module_ids(&self, module_id: ModuleId) -> Vec<ModuleId> {
         let mut module_id = module_id;
         let mut ids = Vec::new();
@@ -231,104 +222,6 @@ impl<T> SymbolTable<T> {
             module_id = parent;
         }
         ids
-    }
-
-    // only for usepath
-    pub fn check_visibility(&self, use_path: &PathNode) -> bool {
-        if use_path.root.is_none() {
-            return true;
-        }
-
-        let src_module_name = use_path.root.expect("path root is none");
-        let mut src_module = match self.find_module(src_module_name) {
-            Some(id) => id,
-            None => {
-                unimplemented!(
-                    "module: {:?} in path: {:?} not found",
-                    src_module_name,
-                    use_path
-                );
-            }
-        };
-
-        let mut path = use_path.segments.iter();
-        while let Some(segment) = path.next() {
-            let target_module_id = self[src_module]
-                .children
-                .iter()
-                .find(|&id| {
-                    let module = &self[*id];
-                    module.name == *segment
-                })
-                .expect(&format!(
-                    "module: {:?} in path: {:?} not found",
-                    *segment, use_path
-                ));
-            src_module = *target_module_id;
-        }
-
-        let current_module_id = self.current_module_id().unwrap();
-        let mut current_module_ids = self.crate_module_ids(current_module_id);
-        let mut src_module_ids = self.crate_module_ids(src_module);
-
-        let mut same_ancestor_id = self.crate_module_id().unwrap();
-        while let (Some(current_module_id), Some(src_module_id)) =
-            (current_module_ids.pop(), src_module_ids.pop())
-        {
-            if current_module_id == src_module_id {
-                same_ancestor_id = current_module_id;
-            } else {
-                break;
-            }
-        }
-
-        let mut can_visit = true;
-
-        while let Some(child_id) = src_module_ids.pop() {
-            let mut parent_id = self[child_id].parent.unwrap();
-
-            let find_visit = self[parent_id]
-                .children_visibility
-                .iter()
-                .find(|(id, _is_pub)| self[child_id].name == *id)
-                .expect("find visit error");
-            can_visit = find_visit.1;
-            parent_id = child_id;
-        }
-
-        if !can_visit {
-            panic!("Unresolved use");
-        }
-
-        let is_same_module = src_module == same_ancestor_id;
-
-        // mod_name::target;
-        let (_, type_id) = self[self[src_module].scope_id]
-            .types
-            .get_key_value(&use_path.target.into())
-            .unwrap();
-
-        let ty = self.types[type_id.clone().0].clone();
-        let is_pub = match ty {
-            Type::Struct(t) => t.is_pub,
-            Type::Enum(t) => t.is_pub,
-            Type::Unknown => panic!("Unknown type"),
-            Type::Function(t) => t.is_pub,
-            // todo!()
-            _ => unreachable!("other types can be imported"),
-        };
-        true
-    }
-
-    pub fn start_existing_module(&mut self, module_id: ModuleId) {
-        self.scope_stack.push(self[module_id].scope_id);
-
-        let current_module_id = self.current_module_id();
-        self.module_stack.push(module_id);
-
-        if let Some(current_module_id) = current_module_id {
-            self[current_module_id].children.push(module_id);
-        }
     }
 
     pub fn start_module(&mut self, name: IdentId, file_id: FileId) -> ModuleId {
@@ -765,7 +658,11 @@ impl<T> SymbolTable<T> {
     ) -> Option<&mut CheckedVariable<T>> {
         let scope_id = self.find_scope(
             start_scope,
-            vec![ScopeKind::Function, ScopeKind::ImplMethod],
+            vec![
+                ScopeKind::Function,
+                ScopeKind::ImplMethod,
+                ScopeKind::TraitMethod,
+            ],
             |scope| scope.variables.contains_key(key),
         )?;
         self[scope_id].variables.get_mut(key)
@@ -780,7 +677,11 @@ impl<T> SymbolTable<T> {
         if let Some(v) = self
             .find_scope(
                 start_scope,
-                vec![ScopeKind::Function, ScopeKind::ImplMethod],
+                vec![
+                    ScopeKind::Function,
+                    ScopeKind::ImplMethod,
+                    ScopeKind::TraitMethod,
+                ],
                 |scope| scope.variables.contains_key(key),
             )
             .and_then(|scope_id| self[scope_id].variables.get_mut(key))
