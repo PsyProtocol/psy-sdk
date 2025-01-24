@@ -75,6 +75,13 @@ impl<F: ContextFelt + Display + 'static, C: Context<F>> Interpreter<F, C> {
             .types
             .get(&IdentId::MAIN.into())
             .ok_or(Error::UndefinedMain)?;
+        let main_function = &symbols[*type_id];
+        match main_function {
+            Type::Function(function) => {
+                assert_eq!(parameters.len(), function.parameters.len(), "expceted {} parameters for main function, got {}", function.parameters.len(), parameters.len());
+            }
+            _ => panic!("IdentId::MAIN is not a function"),
+        }
         return Ok(self.interpret_function(
             typechecker,
             &artifact,
@@ -653,15 +660,16 @@ impl<F: ContextFelt + Display + 'static, C: Context<F>> Interpreter<F, C> {
                 let new_value = self.interpret_assignment_value(
                     typechecker,
                     artifact,
-                    old_value,
+                    old_value.clone(),
                     node.operator,
                     value,
                     symbols,
                 )?;
+                let new_value = self.context.cset(old_value.try_as_felt().unwrap(), new_value.try_as_felt().unwrap());
                 symbols.set_variable(
                     start_scope,
                     &checked_path_node.name,
-                    CheckedValueOrNode::from(new_value),
+                    CheckedValueOrNode::from(CheckedValue::Felt(new_value)),
                 )?;
             }
             CheckedExprNode::MemberAccess(member_access_node) => {
