@@ -7,7 +7,7 @@ mod preprocess;
 use either::Either;
 use error::{Error, Result};
 use indexmap::IndexMap;
-use preprocess::{PreprocessorContext, StorageProcessor};
+pub use preprocess::{PreprocessorContext, StorageProcessor};
 use qed_ast::*;
 use qed_builder::{ContextFelt, ContextInput, DPNContext};
 use qed_fmt::{Formatter, FormatterContext};

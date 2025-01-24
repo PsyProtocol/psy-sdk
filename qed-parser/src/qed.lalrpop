@@ -340,33 +340,14 @@ Expression: ExprNode<F> = {
     //),
 
     #[precedence(level="2")]
-    <l:@L> <path:Expression> "(" <args:Comma<Expression>> ")" <r:@R> => {
-        match path.clone() {
-            ExprNode::<F>::Path(PathNode { root, segments, target }) => {
-                        ExprNode::<F>::Call(
-                            CallNode {
-                                receiver: None,
-                                variable: expr_nodes.alloc_item(path),
-                                //todo: need generic para
-                                generic_parameters: Vec::new(),
-                                args: expr_nodes.alloc_items(args)
-                            }
-                        )
-            },
-            ExprNode::<F>::MemberAccess(MemberAccessNode { value, field }) => {
-                ExprNode::<F>::Call(
-                    CallNode {
-                        receiver: Some(value),
-                        variable: expr_nodes.alloc_item(path),
-                        generic_parameters:Vec::new(),
-                        args: expr_nodes.alloc_items(args)
-                    }
-                )
-            },
-              //todo: deal with error more gracefully
-            _ => panic!("Unexpected expression {:?}", path)
-        }
-    },
+    <l:@L> <variable:Expression> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
+       CallNode {
+           receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
+           variable: expr_nodes.alloc_item(variable),
+           generic_parameters: Vec::new(),
+           args: expr_nodes.alloc_items(args)
+       }
+    ),
     #[precedence(level="2")]
     <l:@L> <variable:Expression> "[" <index:NUMBER> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
         value: expr_nodes.alloc_item(variable),
@@ -501,6 +482,7 @@ BoolExpression: ExprNode<F> = {
 //        kv.into_iter().collect()
 //    )),
 //}
+
 StructExpression: ExprNode<F> = {
     <l:@L> <name:Identifier>  "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
         name,

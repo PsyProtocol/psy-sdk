@@ -26,10 +26,9 @@ pub const CONSTANT_FALSE_OP: u128 = (DPNOpType::ConstantFalse as u128) << 112;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
 pub struct SymFeltRef(pub u128);
 
-// TODO: remove this
 impl Display for SymFeltRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:x}", self.0)
+        write!(f, "{}", self.get_target_hash_value())
     }
 }
 

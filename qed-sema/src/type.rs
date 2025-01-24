@@ -2,9 +2,15 @@ use std::convert::AsMut;
 use std::convert::AsRef;
 use std::fmt::{Display, Formatter};
 
+use indexmap::IndexMap;
 use qed_ast::IdentId;
+use qed_builder::ContextFelt;
+use qed_builder::DPNContext;
 use qed_utils::impl_ref;
 
+use crate::CheckedValue;
+use crate::CheckedValueOrNode;
+use crate::SymbolTable;
 use crate::STD_PRELUDE_SCOPE_ID;
 use crate::{
     CheckedArrayNode, CheckedEnumNode, CheckedFunctionNode, CheckedImplNode, CheckedStructNode,
@@ -205,6 +211,41 @@ impl Type {
                 implementations, ..
             }) => implementations,
             _ => panic!("Type::implementations called on non-composite type"),
+        }
+    }
+
+    pub fn to_value<F: ContextFelt + From<u32>, C: DPNContext<F>>(
+        &self,
+        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
+        ctx: &mut C,
+    ) -> CheckedValue<F> {
+        match self {
+            Type::Felt(f) => CheckedValue::Felt(ctx.add_input()),
+            Type::Bool(b) => CheckedValue::Bool(ctx.add_input()),
+            Type::Array(a) => {
+                let mut result = Vec::new();
+                let inner_ty = symbols[a.inner_ty].clone();
+                for value in 0..a.size {
+                    result.push(inner_ty.to_value(symbols, ctx));
+                }
+                let type_id = symbols
+                    .get_type_id(
+                        Some(STD_PRELUDE_SCOPE_ID.get().unwrap().clone()),
+                        self.key(),
+                    )
+                    .unwrap();
+                CheckedValue::Array(type_id, result)
+            }
+            Type::Struct(s) => {
+                let mut result = IndexMap::new();
+                for (field_name, field_type, _) in &s.fields {
+                    let field_type = symbols[field_type.clone()].clone();
+                    result.insert(field_name.clone(), field_type.to_value(symbols, ctx));
+                }
+                let type_id = symbols.get_type_id(Some(s.scope_id), self.key()).unwrap();
+                CheckedValue::Struct(type_id, result)
+            }
+            _ => unreachable!(),
         }
     }
 }
