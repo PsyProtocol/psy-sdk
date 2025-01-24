@@ -6,6 +6,14 @@ use crate::{
     StmtNode,
 };
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum InsertPosition {
+    Before(NodeId),
+    After(NodeId),
+    Front,
+    End,
+}
+
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum NodeId {
     Expr(ExprId),
@@ -94,9 +102,7 @@ pub trait VisitorContext<F: Clone + From<u32>, C> {
     fn expression(&self, expr_id: ExprId) -> &ExprNode<F>;
     fn statement(&self, stmt_id: StmtId) -> &StmtNode;
     fn definition(&self, def_id: DefId) -> &DefinitionNode;
-    fn append_definition(&mut self, definition: DefinitionNode);
-    fn insert_definition_before(&mut self, definition: DefinitionNode, def_id: DefId);
-    fn insert_definition_after(&mut self, definition: DefinitionNode, def_id: DefId);
+    fn insert_definition(&mut self, definition: DefinitionNode, pos: InsertPosition);
     fn replace_definition(&mut self, def_id: DefId, definition: DefinitionNode);
     fn replace_statement(&mut self, stmt_id: StmtId, statement: StmtNode);
 }

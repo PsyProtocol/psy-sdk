@@ -106,7 +106,6 @@ impl<'a> StorageProcessor<'a> {
     ) -> DefId {
         let offset_ident = ctx.intern("offset");
         let mut offset = ctx.alloc_expression(ExprNode::Path(PathNode {
-            path_type: PathType::Basic,
             root: None,
             segments: vec![],
             target: offset_ident,
@@ -158,7 +157,6 @@ impl<'a> StorageProcessor<'a> {
         let offset_ident = ctx.intern("offset");
         let value_ident = ctx.intern("value");
         let mut offset = ctx.alloc_expression(ExprNode::Path(PathNode {
-            path_type: PathType::Basic,
             root: None,
             segments: vec![],
             target: offset_ident,
@@ -211,9 +209,8 @@ impl<'a> StorageProcessor<'a> {
 
         let read_ident = ctx.intern("read");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            path_type: PathType::Nested,
-            root: None,
-            segments: vec![field_type.as_basic().unwrap().clone()],
+            root: Some(field_type.as_basic().unwrap().clone()),
+            segments: vec![],
             target: read_ident,
         }));
 
@@ -262,14 +259,12 @@ impl<'a> StorageProcessor<'a> {
 
         let write_ident = ctx.intern("write");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            path_type: PathType::Nested,
-            root: None,
-            segments: vec![field_type.as_basic().unwrap().clone()],
+            root: Some(field_type.as_basic().unwrap().clone()),
+            segments: vec![],
             target: write_ident,
         }));
 
         let value = ctx.alloc_expression(ExprNode::Path(PathNode {
-            path_type: PathType::Basic,
             root: None,
             segments: vec![],
             target: value_ident,
@@ -315,9 +310,8 @@ impl<'a> StorageProcessor<'a> {
     ) -> ExprId {
         let size_ident = ctx.intern("size");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            path_type: PathType::Nested,
-            root: None,
-            segments: vec![field_type.as_basic().unwrap().clone()],
+            root: Some(field_type.as_basic().unwrap().clone()),
+            segments: vec![],
             target: size_ident,
         }));
         let node = CallNode {
@@ -338,9 +332,8 @@ impl<'a> StorageProcessor<'a> {
     ) -> (IdentId, ExprId) {
         let read_ident = ctx.intern("read");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            path_type: PathType::Nested,
-            root: None,
-            segments: vec![field_type.as_basic().unwrap().clone()],
+            root: Some(field_type.as_basic().unwrap().clone()),
+            segments: vec![],
             target: read_ident,
         }));
         let node = CallNode {
@@ -365,13 +358,11 @@ impl<'a> StorageProcessor<'a> {
         let value_ident = ctx.intern("value");
         let write_ident = ctx.intern("write");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            path_type: PathType::Nested,
-            root: None,
-            segments: vec![field_type.as_basic().unwrap().clone()],
+            root: Some(field_type.as_basic().unwrap().clone()),
+            segments: vec![],
             target: write_ident,
         }));
         let value = ctx.alloc_expression(ExprNode::Path(PathNode {
-            path_type: PathType::Basic,
             root: None,
             segments: vec![],
             target: value_ident,
@@ -479,14 +470,49 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for PreprocessorContext<'
         &self.program.defs[def_id]
     }
 
-    fn append_definition(&mut self, definition: DefinitionNode) {
+    fn insert_definition(&mut self, definition: DefinitionNode, pos: InsertPosition) {
         let def_id = self.program.defs.alloc_item(definition);
         assert!(self.parent_node_type() == NodeType::Module);
         let module_id = self.parent_node_id().as_module().unwrap().clone();
-        self.program.modules[module_id]
-            .data_mut()
-            .definitions
-            .push(def_id);
+
+        match pos {
+            InsertPosition::Front => {
+                self.program.modules[module_id]
+                    .data_mut()
+                    .definitions
+                    .insert(0, def_id);
+            }
+            InsertPosition::End => {
+                self.program.modules[module_id]
+                    .data_mut()
+                    .definitions
+                    .push(def_id);
+            }
+            InsertPosition::Before(before) => {
+                let idx = self.program.modules[module_id]
+                    .data()
+                    .definitions
+                    .iter()
+                    .position(|d| d == before.as_def().unwrap())
+                    .unwrap();
+                self.program.modules[module_id]
+                    .data_mut()
+                    .definitions
+                    .insert(idx, def_id);
+            }
+            InsertPosition::After(after) => {
+                let idx = self.program.modules[module_id]
+                    .data()
+                    .definitions
+                    .iter()
+                    .position(|d| d == after.as_def().unwrap())
+                    .unwrap();
+                self.program.modules[module_id]
+                    .data_mut()
+                    .definitions
+                    .insert(idx + 1, def_id);
+            }
+        };
     }
 
     fn alloc_expression(&mut self, expr: ExprNode<F>) -> ExprId {
@@ -499,36 +525,6 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for PreprocessorContext<'
 
     fn alloc_definition(&mut self, definition: DefinitionNode) -> DefId {
         self.program.defs.alloc_item(definition)
-    }
-
-    fn insert_definition_before(&mut self, definition: DefinitionNode, pos: DefId) {
-        let def_id = self.program.defs.alloc_item(definition);
-        assert!(self.parent_node_type() == NodeType::Module);
-        let module_id = self.parent_node_id().as_module().unwrap().clone();
-        let idx = self.program.modules[module_id]
-            .data()
-            .definitions
-            .iter()
-            .position(|d| *d == pos);
-        self.program.modules[module_id]
-            .data_mut()
-            .definitions
-            .insert(idx.unwrap(), def_id);
-    }
-
-    fn insert_definition_after(&mut self, definition: DefinitionNode, pos: DefId) {
-        let def_id = self.program.defs.alloc_item(definition);
-        assert!(self.parent_node_type() == NodeType::Module);
-        let module_id = self.parent_node_id().as_module().unwrap().clone();
-        let idx = self.program.modules[module_id]
-            .data()
-            .definitions
-            .iter()
-            .position(|d| *d == pos);
-        self.program.modules[module_id]
-            .data_mut()
-            .definitions
-            .insert(idx.unwrap() + 1, def_id);
     }
 
     fn replace_definition(&mut self, def_id: DefId, definition: DefinitionNode) {
@@ -708,13 +704,11 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
 
         if trait_name == Some(storage_trait_id) {
             let offset = ctx.alloc_expression(ExprNode::Path(PathNode {
-                path_type: PathType::Basic,
                 root: None,
                 segments: vec![],
                 target: offset_ident,
             }));
             let mut value = ctx.alloc_expression(ExprNode::Path(PathNode {
-                path_type: PathType::Basic,
                 root: None,
                 segments: vec![],
                 target: value_ident,
@@ -764,13 +758,19 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             if attr.is_derive() && attr.properties.iter().any(|p| p == &storage_trait_id) {
                 let impl_node = self.generate_storage_impl(&s, ctx);
                 let pos = ctx.node_id().as_def().unwrap().clone();
-                ctx.insert_definition_after(DefinitionNode::Impl(impl_node), pos);
+                ctx.insert_definition(
+                    DefinitionNode::Impl(impl_node),
+                    InsertPosition::After(pos.into()),
+                );
             }
 
             if attr.name == storage_attribute_id {
                 let impl_node = self.generate_accessor_impl(&s, ctx);
                 let pos = ctx.node_id().as_def().unwrap().clone();
-                ctx.insert_definition_after(DefinitionNode::Impl(impl_node), pos);
+                ctx.insert_definition(
+                    DefinitionNode::Impl(impl_node),
+                    InsertPosition::After(pos.into()),
+                );
             }
         }
 

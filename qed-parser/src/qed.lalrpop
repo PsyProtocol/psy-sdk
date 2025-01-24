@@ -308,7 +308,6 @@ Term: ExprNode<F> = {
 PathExpression: ExprNode<F> = {
     // Single
     <variable: IdentifierOrSelf> => ExprNode::Path(PathNode {
-        path_type: PathType::Basic,
         root: None,
         segments: vec![],
         target: variable,
@@ -318,7 +317,6 @@ PathExpression: ExprNode<F> = {
     <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: Identifier> => {
         let mut segment_ids = segments.into_iter().map(|(seg)| seg).collect::<Vec<_>>();
         ExprNode::Path(PathNode {
-            path_type: PathType::Nested,
             root: Some(root),
             segments: segment_ids,
             target,
@@ -344,19 +342,7 @@ Expression: ExprNode<F> = {
     #[precedence(level="2")]
     <l:@L> <path:Expression> "(" <args:Comma<Expression>> ")" <r:@R> => {
         match path.clone() {
-            ExprNode::<F>::Path(PathNode { root, segments, target, path_type }) => {
-                match path_type {
-                    PathType::Basic => {
-                        ExprNode::<F>::Call(
-                            CallNode {
-                                receiver: None,
-                                variable: expr_nodes.alloc_item(path),
-                                generic_parameters: Vec::new(),
-                                args: expr_nodes.alloc_items(args)
-                            }
-                        )
-                    },
-                    PathType::Nested => {
+            ExprNode::<F>::Path(PathNode { root, segments, target }) => {
                         ExprNode::<F>::Call(
                             CallNode {
                                 receiver: None,
@@ -366,10 +352,6 @@ Expression: ExprNode<F> = {
                                 args: expr_nodes.alloc_items(args)
                             }
                         )
-                    },
-                    //todo: deal with error more gracefully
-                    _ => panic!("Unexpected expression {:?}", path)
-                }
             },
             ExprNode::<F>::MemberAccess(MemberAccessNode { value, field }) => {
                 ExprNode::<F>::Call(

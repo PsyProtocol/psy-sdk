@@ -9,7 +9,7 @@ use std::{
 };
 
 use once_cell::sync::OnceCell;
-use qed_ast::{ModuleNode, PathNode, PathType};
+use qed_ast::{ModuleNode, PathNode};
 use qed_common::{define_arena_id, FileId, TreeNode};
 use strum::{EnumIs, EnumTryAs};
 
@@ -235,7 +235,7 @@ impl<T> SymbolTable<T> {
 
     // only for usepath
     pub fn check_visibility(&self, use_path: &PathNode) -> bool {
-        if use_path.path_type == PathType::Basic {
+        if use_path.root.is_none() {
             return true;
         }
 

@@ -91,7 +91,7 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for FormatterContext<'a, 
         &self.program.defs[def_id]
     }
 
-    fn append_definition(&mut self, definition: DefinitionNode) {
+    fn insert_definition(&mut self, definition: DefinitionNode, pos: InsertPosition) {
         unimplemented!()
     }
 
@@ -107,20 +107,12 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for FormatterContext<'a, 
         unimplemented!()
     }
 
-    fn insert_definition_before(&mut self, definition: DefinitionNode, def_id: DefId) {
-        todo!()
-    }
-
-    fn insert_definition_after(&mut self, definition: DefinitionNode, def_id: DefId) {
-        todo!()
-    }
-
     fn replace_definition(&mut self, def_id: DefId, definition: DefinitionNode) {
-        todo!()
+        unimplemented!()
     }
 
     fn replace_statement(&mut self, stmt_id: StmtId, statement: StmtNode) {
-        todo!()
+        unimplemented!()
     }
 }
 
@@ -252,22 +244,19 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         let node = ctx.expression(expr_id).as_path().unwrap();
-        if node.path_type == PathType::Basic {
-            Ok(ctx.ident(node.target).to_string())
-        } else {
-            Ok(format!(
-                "{}{}::{}",
-                node.root
-                    .map(|r| format!("{}::", ctx.ident(r)))
-                    .unwrap_or("".to_string()),
-                node.segments
-                    .iter()
-                    .map(|&s| ctx.ident(s).to_string())
-                    .collect::<Vec<_>>()
-                    .join("::"),
-                ctx.ident(node.target).to_string()
-            ))
-        }
+        Ok(format!(
+            "{}{}{}{}",
+            node.root
+                .map(|r| format!("{}::", ctx.ident(r)))
+                .unwrap_or("".to_string()),
+            node.segments
+                .iter()
+                .map(|&s| ctx.ident(s).to_string())
+                .collect::<Vec<_>>()
+                .join("::"),
+            if node.root.is_some() { "::" } else { "" },
+            ctx.ident(node.target).to_string()
+        ))
     }
 
     fn visit_index_access(
