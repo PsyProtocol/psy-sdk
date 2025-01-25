@@ -12,7 +12,8 @@ members = [
   "qed_prover",
   "qed_exec",
   "qed_data",
-  "qed_common_circuit"
+  "qed_common_circuit",
+  "qed_rollup_circuit"
 ]
 resolver = "2"
 

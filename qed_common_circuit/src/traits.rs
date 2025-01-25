@@ -8,7 +8,7 @@ use plonky2::{
         target::{BoolTarget, Target},
         witness::Witness,
     },
-    plonk::circuit_builder::CircuitBuilder,
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::field::qfield::QRichField;
@@ -40,6 +40,7 @@ pub trait CreatableTarget {
     ) -> Self;
 }
 
+/* 
 pub trait HashableTarget<Hash> {
     fn to_hash_target<F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -54,10 +55,13 @@ impl<T: Copy> HashableTarget<T> for T {
     ) -> Self {
         *self
     }
-}
+}*/
 
+pub trait AlgebraicHashableTarget {
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget;
+}
 pub trait WitnessValueFor<T, F: RichField, const BIG_ENDIAN: bool = true> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: T);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &T);
 }
 
 // HashOutTarget
@@ -89,14 +93,14 @@ impl SwappableTarget for HashOutTarget {
 }
 
 impl<F: RichField> WitnessValueFor<HashOutTarget, F, true> for HashOut<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: HashOutTarget) {
-        witness.set_hash_target(target, *self)
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &HashOutTarget) {
+        witness.set_hash_target(*target, *self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<HashOutTarget, F, true> for QHashOut<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: HashOutTarget) {
-        witness.set_hash_target(target, self.0)
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &HashOutTarget) {
+        witness.set_hash_target(*target, self.0)
     }
 }
 
@@ -128,20 +132,20 @@ impl SwappableTarget for Target {
     }
 }
 impl<F: RichField> WitnessValueFor<Target, F, true> for F {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: Target) {
-        witness.set_target(target, *self)
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Target) {
+        witness.set_target(*target, *self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<U32Target, F, true> for u32 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: U32Target) {
-        witness.set_u32_target(target, *self)
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &U32Target) {
+        witness.set_u32_target(*target, *self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<BoolTarget, F, true> for bool {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: BoolTarget) {
-        witness.set_bool_target(target, *self)
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &BoolTarget) {
+        witness.set_bool_target(*target, *self)
     }
 }
 
@@ -223,6 +227,10 @@ impl GenericCircuitMerkleHasher<HashOutTarget> for PoseidonHash {
 
 pub trait ToTargets {
     fn to_targets(&self) -> Vec<Target>;
+}
+
+pub trait FromTargets {
+    fn from_targets(targets: &[Target]) -> Self;
 }
 
 pub trait GenericHashTarget:

@@ -1245,6 +1245,28 @@ dependencies = [
  "qedlang_macros",
  "serde",
  "serde_json",
+ "serde_repr",
+ "serde_with",
+ "tracing",
+ "twox-hash",
+]
+
+[[package]]
+name = "qed_rollup_circuit"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "hex-literal",
+ "lazy_static",
+ "plonky2",
+ "qed_common_circuit",
+ "qed_core",
+ "qed_crypto",
+ "qed_data",
+ "serde",
+ "serde_json",
+ "serde_repr",
  "serde_with",
  "tracing",
  "twox-hash",

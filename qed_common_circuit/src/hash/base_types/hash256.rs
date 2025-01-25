@@ -186,12 +186,12 @@ impl MerkleProofSha256Gadget {
     }
 }
 impl<F: RichField> WitnessValueFor<Hash256Target, F> for Hash256 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: Hash256Target) {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash256Target) {
         witness.set_hash256_target(&target, &self.0);
     }
 }
 impl<F: RichField> WitnessValueFor<Hash256Target, F, false> for Hash256 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: Hash256Target) {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash256Target) {
         witness.set_hash256_target_le(&target, &self.0);
     }
 }

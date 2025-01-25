@@ -104,10 +104,10 @@ impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
         siblings: &[HashValue],
     ) {
         witness.set_target(self.index, index);
-        old_value.set_for_witness(witness, self.old_value);
-        new_value.set_for_witness(witness, self.new_value);
+        old_value.set_for_witness(witness, &self.old_value);
+        new_value.set_for_witness(witness, &self.new_value);
         siblings.iter().enumerate().for_each(|(i, sibling)| {
-            sibling.set_for_witness(witness, self.siblings[i]);
+            sibling.set_for_witness(witness, &self.siblings[i]);
         });
     }
     pub fn set_witness_le<F: QRichField, HashValue: WitnessValueFor<H, F, false>>(

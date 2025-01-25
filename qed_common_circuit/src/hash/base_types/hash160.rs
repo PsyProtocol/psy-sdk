@@ -123,13 +123,13 @@ impl ConnectableTarget for Hash160Target {
 }
 
 impl<F: RichField> WitnessValueFor<Hash160Target, F, false> for Hash160 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: Hash160Target) {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash160Target) {
         witness.set_hash160_target_le(&target, &self.0);
     }
 }
 
 impl<F: RichField> WitnessValueFor<Hash160Target, F, true> for Hash160 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: Hash160Target) {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash160Target) {
         witness.set_hash160_target(&target, &self.0);
     }
 }

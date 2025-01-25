@@ -200,13 +200,13 @@ impl DeltaMerkleProofTruncatedSha256Gadget {
 }
 
 impl<F: RichField> WitnessValueFor<Hash192Target, F, false> for Hash192 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: Hash192Target) {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash192Target) {
         witness.set_hash192_target_le(&target, &self.0);
     }
 }
 
 impl<F: RichField> WitnessValueFor<Hash192Target, F, true> for Hash192 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: Hash192Target) {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash192Target) {
         witness.set_hash192_target(&target, &self.0);
     }
 }
