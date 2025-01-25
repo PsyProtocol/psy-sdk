@@ -85,7 +85,7 @@ impl SimpleBlockProcessor {
             };
             witness_register_users.push(user_reg_witness);
         }
-        let boundry_user_id = new_block_state.next_user_id as u32;
+        let boundry_user_id = new_block_state.next_user_id;
         let boundry_user_registration_merkle_proof = store.get_user_tree_merkle_proof(new_checkpoint_id, boundry_user_id)?;
         new_block_state.next_user_id += cmds.register_users.len() as u64;
 

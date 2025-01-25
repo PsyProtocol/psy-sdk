@@ -41,9 +41,9 @@ pub trait QTreeDataStoreReaderSync<F: RichField> {
 
     fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
     fn get_user_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
-    fn get_user_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u32) -> anyhow::Result<QHashOut<F>>;
+    fn get_user_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QHashOut<F>>;
     fn get_user_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F) -> anyhow::Result<QHashOut<F>>;
-    fn get_user_tree_merkle_proof(&self, checkpoint_id: u64, user_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
+    fn get_user_tree_merkle_proof(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     fn get_user_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
 
 

@@ -1,11 +1,11 @@
 use kvq::memory::{arc_imm::KVQArcImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore};
-use plonky2::{field::{goldilocks_field::GoldilocksField, types::PrimeField64}, hash::hash_types::RichField};
+use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, hash::hash_types::RichField};
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
 use serde::{Deserialize, Serialize};
 
-use crate::{config::store_config::QEDDeltaMerkleProof, models::{kvq_merkle::model::KVQMerkleTreeModelCore, user::contract_state_tree::UserContractStateTreeId}, store::imm::{cache::QEDCmdStoreWithCache, cmd::{QSRCmdGetContractLeafData, QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof}, cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderSync};
+use crate::{config::store_config::{QEDDeltaMerkleProof, UserContractTreeStore}, models::{kvq_merkle::model::{KVQMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelReaderCore}, user::contract_state_tree::UserContractStateTreeId}, store::imm::{cache::QEDCmdStoreWithCache, cmd::{QSRCmdGetContractLeafData, QSRCmdGetUserLeafData, QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{DPNReadOtherUserLeafMerkleProof, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderSync};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -128,6 +128,41 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>> QEDLocalProvingSessionStor
         id.injest_merkle_proof_ucs(&mut self.state_tree_store, self.start_checkpoint_u64, &base_mp)?;
         id.get_leaf_ucs(&self.state_tree_store, self.write_checkpoint_u64, slot.to_canonical_u64())
        // self.state_tree_store.map.insert((self.user_id_u64, contract, slot), value);
+    }
+    pub fn get_self_user_contract_tree_leaf(&mut self, contract_id: GF) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
+
+        let old_upper_merkle_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractTreeMerkleProof(QSRMerkleCmdGetUserContractTreeMerkleProof{
+            checkpoint_id: self.start_checkpoint_u64,
+            user_id: self.user_id_u64,
+            contract_id: contract_id.to_canonical_u64() as u32,
+        }))?;
+        
+        UserContractTreeStore::injest_merkle_proof_sfc(&mut self.state_tree_store, self.user_id_u64, self.start_checkpoint_u64, &old_upper_merkle_proof)?;
+        UserContractTreeStore::get_leaf_sfc(&self.state_tree_store, self.write_checkpoint_u64, self.user_id_u64, contract_id.to_canonical_u64())
+    }
+
+    pub fn update_contract_state_root_in_user_contract_tree(&mut self, contract_id: GF) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
+        let latest_root = self.get_contract_state_slot(contract_id, GF::ZERO)?.root;
+
+        let old_upper_merkle_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractTreeMerkleProof(QSRMerkleCmdGetUserContractTreeMerkleProof{
+            checkpoint_id: self.start_checkpoint_u64,
+            user_id: self.user_id_u64,
+            contract_id: contract_id.to_canonical_u64() as u32,
+        }))?;
+        
+        UserContractTreeStore::injest_merkle_proof_sfc(&mut self.state_tree_store, self.user_id_u64, self.start_checkpoint_u64, &old_upper_merkle_proof)?;
+        UserContractTreeStore::set_leaf_sfc(&mut self.state_tree_store, self.write_checkpoint_u64, self.user_id_u64, contract_id.to_canonical_u64(), latest_root)
+    }
+    pub fn get_external_user_leaf_proof(&mut self, user_id: GF) -> anyhow::Result<DPNReadOtherUserLeafMerkleProof<GF>> {
+        let user_tree_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserTreeMerkleProof(QSRMerkleCmdGetUserTreeMerkleProof{checkpoint_id: self.start_checkpoint_u64, user_id: user_id.to_canonical_u64()}))?;
+        let user_leaf = self.cmd_store.resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData{checkpoint_id: self.start_checkpoint_u64, user_id: user_id.to_canonical_u64()})?;
+        Ok(
+            DPNReadOtherUserLeafMerkleProof{
+                user_tree_proof,
+                user_leaf,
+            }
+        )
+
     }
 }
 

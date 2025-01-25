@@ -10,7 +10,7 @@ use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use qed_store::{
     controllers::local::proving_session::QEDLocalProvingSessionStore,
-    store::imm::cmd_processor::{DPNStateCmdWitness, QEDReadCommandProcessorSync},
+    store::imm::{cmd::{QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof}, cmd_processor::{DPNReadOtherUserContractStateLeafMerkleProof, DPNStateCmdWitness, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}},
 };
 use qedlang_core::dpn::{
     ops::{
@@ -289,11 +289,149 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                     })
                 }
             }
-            DPNStateCmd::GetSelfUserExternalContractStateSlotHash(c) => todo!(),
-            DPNStateCmd::GetSelfUserExternalContractStateSlotSingle(c) => todo!(),
-            DPNStateCmd::GetSelfUserExternalContractStateSlotRange(c) => todo!(),
-            DPNStateCmd::GetOtherUserContractStateSlotHash(c) => todo!(),
-            DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => todo!(),
+            DPNStateCmd::GetSelfUserExternalContractStateSlotHash(c) => {
+                let contract_id = GF::from_noncanonical_u64(c.contract_id);
+                
+                let uct_witness_upper = self.get_self_user_contract_tree_leaf(contract_id)?;
+                
+                let state_slot_witness_lower = self.get_contract_state_slot(
+                    contract_id,
+                    GF::from_canonical_u64(c.slot_index),
+                )?;
+                Ok(QEDCmdWithInputAndWitness {
+                    state_cmd: state_cmd.clone(),
+                    result: state_slot_witness_lower.value.0.elements.to_vec(),
+                    witness: DPNStateCmdWitness::MerkleProofArray(vec![
+                        uct_witness_upper,
+                        state_slot_witness_lower,
+                    ]),
+                })
+            },
+            DPNStateCmd::GetSelfUserExternalContractStateSlotSingle(c) => {
+                let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                let slot_offset = c.sub_slot_index % 4u64;
+                let contract_id = GF::from_noncanonical_u64(c.contract_id);
+
+                let uct_witness_upper = self.get_self_user_contract_tree_leaf(contract_id)?;
+                let state_slot_witness_lower = self.get_contract_state_slot(contract_id, slot_index)?;
+
+                Ok(QEDCmdWithInputAndWitness {
+                    state_cmd: state_cmd.clone(),
+                    result: vec![state_slot_witness_lower.value.0.elements[slot_offset as usize]],
+                    witness: DPNStateCmdWitness::MerkleProofArray(vec![
+                        uct_witness_upper,
+                        state_slot_witness_lower,
+                    ]),
+                })
+            },
+            DPNStateCmd::GetSelfUserExternalContractStateSlotRange(c) => {
+
+                let contract_id = GF::from_noncanonical_u64(c.contract_id);
+
+                let uct_witness_upper = self.get_self_user_contract_tree_leaf(contract_id)?;
+
+                if c.length == 1 {
+                    let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let n = (c.sub_slot_index & 0b11) as usize;
+                    let cur = self.get_contract_state_slot(contract_id, slot_index)?;
+                    let el = cur.value.0.elements[n];
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result: vec![el],
+                        witness: DPNStateCmdWitness::MerkleProofArray(vec![uct_witness_upper, cur]),
+                    })
+                } else {
+                    let base_offset = c.sub_slot_index % 4u64;
+                    let end_sub_index = (c.length as u64) + c.sub_slot_index;
+                    let end_offset = end_sub_index % 4u64;
+                    let slot_index = c.sub_slot_index / 4u64;
+                    //let pre_pad_left = base_offset as usize;
+                    //let post_pad_right = 4-(end_offset as usize);
+                    let end_slot_index = end_sub_index / 4u64;
+                    let mut mps = vec![uct_witness_upper];
+                    let mut result = Vec::<GF>::with_capacity(c.length as usize);
+                    for i in slot_index..end_slot_index {
+                        let mp = self.get_contract_state_slot(
+                            contract_id,
+                            GF::from_canonical_u64(i),
+                        )?;
+                        if base_offset != 0 && i == slot_index {
+                            result
+                                .extend_from_slice(&mp.value.0.elements[(base_offset as usize)..]);
+                        }
+                        mps.push(mp);
+                    }
+                    if end_offset != 0 {
+                        let mp = self.get_contract_state_slot(
+                            contract_id,
+                            GF::from_canonical_u64(end_slot_index),
+                        )?;
+                        result.extend_from_slice(&mp.value.0.elements[..(end_offset as usize)]);
+                        mps.push(mp);
+                    }
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result,
+                        witness: DPNStateCmdWitness::MerkleProofArray(mps),
+                    })
+                }
+            },
+            DPNStateCmd::GetOtherUserContractStateSlotHash(c) => {
+                let user_id = GF::from_noncanonical_u64(c.user_id);
+
+                let user_leaf_witness = self.get_external_user_leaf_proof(user_id)?;
+                let contract_state_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractTreeMerkleProof(QSRMerkleCmdGetUserContractTreeMerkleProof{
+                    checkpoint_id: self.start_checkpoint_u64,
+                    user_id: c.user_id,
+                    contract_id: c.contract_id as u32,
+                }))?;
+
+                let state_slot_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(QSRMerkleCmdGetUserContractStateTreeMerkleProof{
+                    checkpoint_id: self.start_checkpoint_u64,
+                    user_id: c.user_id,
+                    contract_id: c.contract_id as u32,
+                    height: c.contract_state_tree_height,
+                    leaf_id: c.slot_index,
+                }))?;
+                Ok(QEDCmdWithInputAndWitness {
+                    state_cmd: state_cmd.clone(),
+                    result: state_slot_proof.value.0.elements.to_vec(),
+                    witness: DPNStateCmdWitness::ReadOtherUserContractState(DPNReadOtherUserContractStateLeafMerkleProof{
+                        user_leaf_witness,
+                        contract_state_proof,
+                        state_slot_proofs: vec![state_slot_proof],
+                    })
+                })
+            },
+            DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => {
+                let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                let slot_offset = c.sub_slot_index % 4u64;
+                let user_id = GF::from_noncanonical_u64(c.user_id);
+
+                let user_leaf_witness = self.get_external_user_leaf_proof(user_id)?;
+                let contract_state_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractTreeMerkleProof(QSRMerkleCmdGetUserContractTreeMerkleProof{
+                    checkpoint_id: self.start_checkpoint_u64,
+                    user_id: c.user_id,
+                    contract_id: c.contract_id as u32,
+                }))?;
+
+                let state_slot_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(QSRMerkleCmdGetUserContractStateTreeMerkleProof{
+                    checkpoint_id: self.start_checkpoint_u64,
+                    user_id: c.user_id,
+                    contract_id: c.contract_id as u32,
+                    height: c.contract_state_tree_height,
+                    leaf_id: slot_index.to_canonical_u64(),
+                }))?;
+                Ok(QEDCmdWithInputAndWitness {
+                    state_cmd: state_cmd.clone(),
+                    result: vec![state_slot_proof.value.0.elements[slot_offset as usize]],
+                    witness: DPNStateCmdWitness::ReadOtherUserContractState(DPNReadOtherUserContractStateLeafMerkleProof{
+                        user_leaf_witness,
+                        contract_state_proof,
+                        state_slot_proofs: vec![state_slot_proof],
+                    })
+                })
+            },
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => todo!(),
         }
     }

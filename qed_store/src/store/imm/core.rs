@@ -358,7 +358,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
     fn get_user_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
-        user_id: u32,
+        user_id: u64,
     ) -> anyhow::Result<QHashOut<F>> {
         UserTreeStore::get_leaf_value_fc(self, checkpoint_id, user_id.into())
     }
@@ -370,14 +370,14 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
     ) -> anyhow::Result<QHashOut<F>> {
         self.get_user_tree_leaf_hash(
             checkpoint_id.to_canonical_u64(),
-            user_id.to_canonical_u64() as u32,
+            user_id.to_canonical_u64(),
         )
     }
 
     fn get_user_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
-        user_id: u32,
+        user_id: u64,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
         UserTreeStore::get_leaf_fc(self, checkpoint_id, user_id.into())
     }
@@ -389,7 +389,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
         self.get_user_tree_merkle_proof(
             checkpoint_id.to_canonical_u64(),
-            user_id.to_canonical_u64() as u32,
+            user_id.to_canonical_u64(),
         )
     }
 

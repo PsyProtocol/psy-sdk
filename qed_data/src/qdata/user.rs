@@ -5,7 +5,7 @@ use qed_crypto::hash::traits::{hasher::FieldHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDUserLeaf<F: RichField> {
     pub public_key: QHashOut<F>,

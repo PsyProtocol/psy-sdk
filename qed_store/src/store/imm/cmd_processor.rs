@@ -83,11 +83,29 @@ pub struct QEDReadCommandBatchOutput<F: RichField> {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+
+pub struct DPNReadOtherUserLeafMerkleProof<F: RichField> {
+    pub user_tree_proof: MerkleProofCore<QHashOut<F>>,
+    pub user_leaf: QEDUserLeaf<F>,
+
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+
+pub struct DPNReadOtherUserContractStateLeafMerkleProof<F: RichField> {
+    pub user_leaf_witness: DPNReadOtherUserLeafMerkleProof<F>,
+    pub contract_state_proof: MerkleProofCore<QHashOut<F>>,
+    pub state_slot_proofs: Vec<MerkleProofCore<QHashOut<F>>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub enum DPNStateCmdWitness<F: RichField> {
     MerkleProof(MerkleProofCore<QHashOut<F>>),
     DeltaMerkleProof(DeltaMerkleProofCore<QHashOut<F>>),
     MerkleProofArray(Vec<MerkleProofCore<QHashOut<F>>>),
     DeltaMerkleProofArray(Vec<DeltaMerkleProofCore<QHashOut<F>>>),
+    ReadOtherUserContractState(DPNReadOtherUserContractStateLeafMerkleProof<F>),
     TargetArray(Vec<F>),
     TargetArray2D(Vec<Vec<F>>),
 }

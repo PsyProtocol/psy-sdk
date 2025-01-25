@@ -71,7 +71,7 @@ pub struct QSRHashCmdGetUserTreeRoot {
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct QSRHashCmdGetUserTreeLeafHash {
   pub checkpoint_id: u64,
-  pub user_id: u32
+  pub user_id: u64,
 }
 
 
@@ -185,7 +185,7 @@ pub struct QSRMerkleCmdGetUserContractTreeMerkleProof {
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct QSRMerkleCmdGetUserTreeMerkleProof {
   pub checkpoint_id: u64,
-  pub user_id: u32
+  pub user_id: u64
 }
 
 

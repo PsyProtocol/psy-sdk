@@ -105,7 +105,7 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafStats<F> {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointGlobalStateRoots<F: RichField> {
     pub contract_tree_root: QHashOut<F>,
