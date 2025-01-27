@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::{HashOut, RichField};
 use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::QFeltSized};
-use qed_crypto::hash::traits::{hasher::FieldHasher, qhashable::QFieldHashable};
+use qed_crypto::hash::{merkle::core::MerkleProofCore, traits::{hasher::FieldHasher, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 
 use crate::qdata::contract;
@@ -62,12 +62,18 @@ impl<F: RichField> QFieldHashable<F> for DPNContractFunctionInputPreCallInfo<F> 
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct DPNContractFunctionInput<F: RichField> {
+pub struct DPNContractFunctionCallResult<F: RichField> {
     pre_call_info: DPNContractFunctionInputPreCallInfo<F>,
     end_contract_state_root: QHashOut<F>,
-    
-    inputs: Vec<F>,
-    outputs: Vec<F>,
+    inputs_hash: QHashOut<F>,
+    inputs_length: F,
+    outputs_hash: QHashOut<F>,
+    outputs_length: F,
+    deferred_tx_tree_cut_proof: MerkleProofCore<QHashOut<F>>,
+
 }
+
+
+

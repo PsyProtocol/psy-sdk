@@ -86,7 +86,7 @@ impl DPNStateCmdCore for DPNStateCmdSetContractStateSlotRange {
 
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq)]
-pub struct DPNStateCmdInvokeExternalContractFunction {
+pub struct DPNStateCmdInvokeExternalContractFunctionSync {
     pub condition: SymFeltRef,
     pub contract_id: SymFeltRef,
     pub method_id: SymFeltRef,
@@ -94,7 +94,7 @@ pub struct DPNStateCmdInvokeExternalContractFunction {
     pub num_outputs: u32,
 }
 
-impl DPNStateCmdCore for DPNStateCmdInvokeExternalContractFunction {
+impl DPNStateCmdCore for DPNStateCmdInvokeExternalContractFunctionSync {
     fn get_inputs(&self) -> Vec<SymFeltRef> {
         let mut base = Vec::with_capacity(self.input_args.len()+3);
         base.push(self.condition);
@@ -105,7 +105,7 @@ impl DPNStateCmdCore for DPNStateCmdInvokeExternalContractFunction {
     }
 
     fn get_state_command_type(&self) -> DPNStateCommandType {
-        DPNStateCommandType::InvokeExternalContractFunction
+        DPNStateCommandType::InvokeExternalContractFunctionSync
     }
 
     fn get_output_felt_size(&self) -> usize {
@@ -390,7 +390,7 @@ pub enum DPNStateCmd {
     SetContractStateSlotHash(DPNStateCmdSetContractStateSlotHash),
     SetContractStateSlotSingle(DPNStateCmdSetContractStateSlotSingle),
     SetContractStateSlotRange(DPNStateCmdSetContractStateSlotRange),
-    InvokeExternalContractFunction(DPNStateCmdInvokeExternalContractFunction),
+    InvokeExternalContractFunctionSync(DPNStateCmdInvokeExternalContractFunctionSync),
     GetSelfUserCurrentContractStateSlotHash(DPNStateCmdGetSelfUserCurrentContractStateSlotHash),
     GetSelfUserCurrentContractStateSlotSingle(DPNStateCmdGetSelfUserCurrentContractStateSlotSingle),
     GetSelfUserCurrentContractStateSlotRange(DPNStateCmdGetSelfUserCurrentContractStateSlotRange),
@@ -424,7 +424,7 @@ impl DPNStateCmd {
         })
     }
     pub fn invoke_external_contract_function(condition: SymFeltRef, contract_id: SymFeltRef, method_id: SymFeltRef, input_args: Vec<SymFeltRef>, num_outputs: u32) -> Self {
-        DPNStateCmd::InvokeExternalContractFunction(DPNStateCmdInvokeExternalContractFunction {
+        DPNStateCmd::InvokeExternalContractFunctionSync(DPNStateCmdInvokeExternalContractFunctionSync {
             condition,
             contract_id,
             method_id,
@@ -467,7 +467,7 @@ impl DPNStateCmdCore for DPNStateCmd {
             DPNStateCmd::SetContractStateSlotHash(c) => c.get_inputs(),
             DPNStateCmd::SetContractStateSlotSingle(c) => c.get_inputs(),
             DPNStateCmd::SetContractStateSlotRange(c) => c.get_inputs(),
-            DPNStateCmd::InvokeExternalContractFunction(c) => c.get_inputs(),
+            DPNStateCmd::InvokeExternalContractFunctionSync(c) => c.get_inputs(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => c.get_inputs(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(c) => c.get_inputs(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => c.get_inputs(),
@@ -485,7 +485,7 @@ impl DPNStateCmdCore for DPNStateCmd {
             DPNStateCmd::SetContractStateSlotHash(c) => c.get_state_command_type(),
             DPNStateCmd::SetContractStateSlotSingle(c) => c.get_state_command_type(),
             DPNStateCmd::SetContractStateSlotRange(c) => c.get_state_command_type(),
-            DPNStateCmd::InvokeExternalContractFunction(c) => c.get_state_command_type(),
+            DPNStateCmd::InvokeExternalContractFunctionSync(c) => c.get_state_command_type(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => c.get_state_command_type(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(c) => c.get_state_command_type(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => c.get_state_command_type(),
@@ -503,7 +503,7 @@ impl DPNStateCmdCore for DPNStateCmd {
             DPNStateCmd::SetContractStateSlotHash(c) => c.get_output_felt_size(),
             DPNStateCmd::SetContractStateSlotSingle(c) => c.get_output_felt_size(),
             DPNStateCmd::SetContractStateSlotRange(c) => c.get_output_felt_size(),
-            DPNStateCmd::InvokeExternalContractFunction(c) => c.get_output_felt_size(),
+            DPNStateCmd::InvokeExternalContractFunctionSync(c) => c.get_output_felt_size(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => c.get_output_felt_size(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(c) => c.get_output_felt_size(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => c.get_output_felt_size(),

@@ -1240,6 +1240,7 @@ dependencies = [
  "qed_crypto",
  "qed_data",
  "qed_exec",
+ "qed_rollup_circuit",
  "qed_store",
  "qedlang_core",
  "qedlang_macros",

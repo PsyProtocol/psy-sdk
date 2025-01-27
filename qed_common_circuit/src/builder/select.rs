@@ -7,6 +7,8 @@ use plonky2::{
 
 use crate::hash::base_types::hash256bytes::Hash256BytesTarget;
 
+use super::core::CircuitBuilderHelpersCore;
+
 pub trait CircuitBuilderSelectHelpers<F: RichField + Extendable<D>, const D: usize> {
     fn select_or_zero(
         &mut self,
@@ -14,6 +16,16 @@ pub trait CircuitBuilderSelectHelpers<F: RichField + Extendable<D>, const D: usi
         condition: BoolTarget,
         true_value: Target,
         false_value: Target,
+    ) -> Target;
+    fn select_in_hash(
+        &mut self,
+        hash: HashOutTarget,
+        index: Target,
+    ) -> Target;
+    fn select_in_array(
+        &mut self,
+        array: &[Target],
+        index: Target,
     ) -> Target;
     fn select_hash(
         &mut self,
@@ -125,5 +137,45 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSelectHelpers<F
         }
         result
 
+    }
+    
+    fn select_in_hash(
+        &mut self,
+        hash: HashOutTarget,
+        index: Target,
+    ) -> Target {
+        
+
+        let constant_0 = self.constant_u64(0);
+        let constant_1 = self.constant_u64(1);
+        let constant_2 = self.constant_u64(2);
+        let constant_3 = self.constant_u64(3);
+
+        let index_is_0 = self.is_equal(index, constant_0).target;
+        let index_is_1 = self.is_equal(index, constant_1).target;
+        let index_is_2 = self.is_equal(index, constant_2).target;
+        let index_is_3 = self.is_equal(index, constant_3).target;
+
+        let mut value = self.mul(hash.elements[0], index_is_0);
+        value = self.mul_add(hash.elements[1], index_is_1, value);
+        value = self.mul_add(hash.elements[2], index_is_2, value);
+        value = self.mul_add(hash.elements[3], index_is_3, value);
+
+        value
+    }
+    
+    fn select_in_array(
+        &mut self,
+        array: &[Target],
+        index: Target,
+    ) -> Target {
+        let mut running_sum = self.zero();
+
+        for (i, val) in array.iter().enumerate() {
+            let const_index = self.constant_u64(i as u64);
+            let index_eq_i = self.is_equal(index, const_index).target;
+            running_sum = self.mul_add(*val, index_eq_i, running_sum);
+        }
+        running_sum
     }
 }

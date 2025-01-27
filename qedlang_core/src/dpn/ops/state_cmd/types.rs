@@ -12,7 +12,8 @@ pub enum DPNStateCommandType {
     SetContractStateSlotRange = 2,
 
     // external contract call commands (8-15)
-    InvokeExternalContractFunction = 8,
+    InvokeExternalContractFunctionSync = 8,
+    InvokeExternalContractFunctionDeferred = 9,
 
 
 
@@ -41,7 +42,7 @@ impl From<u8> for DPNStateCommandType {
             1 => DPNStateCommandType::SetContractStateSlotSingle,
             2 => DPNStateCommandType::SetContractStateSlotRange,
             
-            8 => DPNStateCommandType::InvokeExternalContractFunction,
+            8 => DPNStateCommandType::InvokeExternalContractFunctionSync,
             
             16 => DPNStateCommandType::GetSelfUserCurrentContractStateSlotHash,
             17 => DPNStateCommandType::GetSelfUserCurrentContractStateSlotSingle,
@@ -69,7 +70,8 @@ impl DPNStateCommandType {
             DPNStateCommandType::SetContractStateSlotSingle => DPNBuiltInDataType::TargetArray,
             DPNStateCommandType::SetContractStateSlotRange => DPNBuiltInDataType::TargetArray,
 
-            DPNStateCommandType::InvokeExternalContractFunction => DPNBuiltInDataType::TargetArray,
+            DPNStateCommandType::InvokeExternalContractFunctionSync => DPNBuiltInDataType::TargetArray,
+            DPNStateCommandType::InvokeExternalContractFunctionDeferred => DPNBuiltInDataType::TargetArray,
 
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotHash => DPNBuiltInDataType::HashOut,
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotSingle => DPNBuiltInDataType::Target,
@@ -89,7 +91,8 @@ impl DPNStateCommandType {
             DPNStateCommandType::SetContractStateSlotHash => false,
             DPNStateCommandType::SetContractStateSlotSingle => false,
             DPNStateCommandType::SetContractStateSlotRange => false,
-            DPNStateCommandType::InvokeExternalContractFunction => false,
+            DPNStateCommandType::InvokeExternalContractFunctionSync => false,
+            DPNStateCommandType::InvokeExternalContractFunctionDeferred => true,
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotHash => true,
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotSingle => true,
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotRange => true,
@@ -109,7 +112,8 @@ impl DPNStateCommandType {
             DPNStateCommandType::SetContractStateSlotHash => true,
             DPNStateCommandType::SetContractStateSlotSingle => true,
             DPNStateCommandType::SetContractStateSlotRange => true,
-            DPNStateCommandType::InvokeExternalContractFunction => true,
+            DPNStateCommandType::InvokeExternalContractFunctionSync => true,
+            DPNStateCommandType::InvokeExternalContractFunctionDeferred => true,
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotHash => true,
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotSingle => true,
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotRange => true,
@@ -127,7 +131,9 @@ impl DPNStateCommandType {
             DPNStateCommandType::SetContractStateSlotHash => true,
             DPNStateCommandType::SetContractStateSlotSingle => true,
             DPNStateCommandType::SetContractStateSlotRange => true,
-            DPNStateCommandType::InvokeExternalContractFunction => true,
+            DPNStateCommandType::InvokeExternalContractFunctionSync => true,
+            DPNStateCommandType::InvokeExternalContractFunctionDeferred => false,
+
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotHash => true,
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotSingle => true,
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotRange => true,
@@ -142,7 +148,7 @@ impl DPNStateCommandType {
     }
     pub fn is_inline_external_call_cmd(&self) -> bool {
         match self {
-            DPNStateCommandType::InvokeExternalContractFunction => true,
+            DPNStateCommandType::InvokeExternalContractFunctionSync => true,
             _ => false,
         }
     }
@@ -162,7 +168,9 @@ impl std::fmt::Display for DPNStateCommandType {
             DPNStateCommandType::SetContractStateSlotHash => "SetContractStateSlotHash",
             DPNStateCommandType::SetContractStateSlotSingle => "SetContractStateSlotSingle",
             DPNStateCommandType::SetContractStateSlotRange => "SetContractStateSlotRange",
-            DPNStateCommandType::InvokeExternalContractFunction => "InvokeExternalContractFunction",
+            DPNStateCommandType::InvokeExternalContractFunctionSync => "InvokeExternalContractFunctionSync",
+            DPNStateCommandType::InvokeExternalContractFunctionDeferred => "InvokeExternalContractFunctionDeferred",
+
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotHash => "GetSelfUserCurrentContractStateSlotHash",
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotSingle => "GetSelfUserCurrentContractStateSlotSingle",
             DPNStateCommandType::GetSelfUserCurrentContractStateSlotRange => "GetSelfUserCurrentContractStateSlotRange",

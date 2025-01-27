@@ -97,6 +97,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             _ => panic!("Invalid data type for hash160"),
         }
     }
+    pub fn resolve_targets_sized<const N: usize>(&self, ids: &[u64; N]) -> [Target; N] {
+        core::array::from_fn(|i| {
+            self.resolve_target(ids[i])
+        })
+    }
+    pub fn resolve_targets(&self, ids: &[u64]) -> Vec<Target> {
+        ids.iter().map(|id| self.resolve_target(*id)).collect::<Vec<Target>>()
+    }
     pub fn resolve_target(&self, id: u64) -> Target {
         let (t, index) = decode_indexed_op_id(id);
         match t {

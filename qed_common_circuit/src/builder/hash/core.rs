@@ -1,3 +1,4 @@
+use plonky2::iop::target::Target;
 use qed_core::data::qhashout::QHashOut;
 use plonky2::hash::hash_types::HashOut;
 use plonky2::hash::hashing::PlonkyPermutation;
@@ -8,6 +9,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 
+use crate::builder::core::CircuitBuilderHelpersCore;
 use crate::builder::select::CircuitBuilderSelectHelpers;
 use crate::hash::base_types::hash256::Hash256Target;
 use crate::u32::arithmetic_u32::U32Target;
@@ -38,6 +40,12 @@ pub trait CircuitBuilderHashCore<F: RichField + Extendable<D>, const D: usize> {
         x: HashOutTarget,
         y: HashOutTarget,
     );
+
+    // sets the n-th element of a hash to a value
+    // index is assumed to be range checked where: 0 <= index <= 3
+    fn set_target_in_hash(&mut self, hash: HashOutTarget, index: Target, value: Target) -> HashOutTarget;
+
+    fn set_target_in_hash_bit_indexed(&mut self, hash: HashOutTarget, index_low_bit: BoolTarget, index_high_bit: BoolTarget, value: Target) -> HashOutTarget;
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
@@ -154,5 +162,69 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
             U32Target(a_high),
             U32Target(a_low),
         ]
+    }
+    
+    fn set_target_in_hash(&mut self, hash: HashOutTarget, index: Target, value: Target) -> HashOutTarget {
+
+        /* 
+        TODO/OPT: is using the bitsplit method more efficient?
+
+        let results = self.split_le(index, 2);
+        self.set_target_in_hash_bit_indexed(hash, results[0], results[1], value)
+        */
+
+        let constant_0 = self.constant_u64(0);
+        let constant_1 = self.constant_u64(1);
+        let constant_2 = self.constant_u64(2);
+        let constant_3 = self.constant_u64(3);
+
+        let index_is_0 = self.is_equal(index, constant_0);
+        let index_is_1 = self.is_equal(index, constant_1);
+        let index_is_2 = self.is_equal(index, constant_2);
+        let index_is_3 = self.is_equal(index, constant_3);
+        
+
+        let elements_0 = self.select(index_is_0, value, hash.elements[0]);
+        let elements_1 = self.select(index_is_1, value, hash.elements[1]);
+        let elements_2 = self.select(index_is_2, value, hash.elements[2]);
+        let elements_3 = self.select(index_is_3, value, hash.elements[3]);
+
+        HashOutTarget {
+            elements: [
+                elements_0,
+                elements_1,
+                elements_2,
+                elements_3,
+            ]
+        }
+    }
+    
+    fn set_target_in_hash_bit_indexed(&mut self, hash: HashOutTarget, index_low_bit: BoolTarget, index_high_bit: BoolTarget, value: Target) -> HashOutTarget {
+
+
+        let not_high_bit = self.not(index_high_bit);
+        let not_low_bit = self.not(index_high_bit);
+
+        let index_is_0 = self.and(not_low_bit, not_high_bit);
+        let index_is_1 = self.and(index_low_bit, not_high_bit);
+        let index_is_2 = self.and(not_low_bit, index_high_bit);
+        let index_is_3 = self.and(index_low_bit, index_high_bit);
+
+        let elements_0 = self.select(index_is_0, value, hash.elements[0]);
+        let elements_1 = self.select(index_is_1, value, hash.elements[1]);
+        let elements_2 = self.select(index_is_2, value, hash.elements[2]);
+        let elements_3 = self.select(index_is_3, value, hash.elements[3]);
+
+        HashOutTarget {
+            elements: [
+                elements_0,
+                elements_1,
+                elements_2,
+                elements_3,
+            ]
+        }
+
+
+         
     }
 }

@@ -39,3 +39,7 @@ pub const MAX_CONTRACT_STATE_TREE_HEIGHT: u8 = 32;
 
 // Number of blocks that a data availability mining challenge is open for
 pub const DA_CHALLENGE_WINDOW: usize = 14;
+
+
+pub const DEFERRED_CALL_MAGIC: u64 = 0xDEFE1212EDCA11u64;
+pub const DEFERRED_TRANSACTION_TREE_HEIGHT: u8 = 16;

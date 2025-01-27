@@ -7,10 +7,10 @@ use plonky2::{
     hash::hash_types::{HashOut, RichField},
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
+use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable};
+use qed_data::dpn::proving_session::DPNProvingSessionDeferredMethodCall;
 use qed_store::{
-    controllers::local::proving_session::QEDLocalProvingSessionStore,
-    store::imm::{cmd::{QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof}, cmd_processor::{DPNReadOtherUserContractStateLeafMerkleProof, DPNStateCmdWitness, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}},
+    config::store_config::QEDHasher, controllers::local::proving_session::QEDLocalProvingSessionStore, store::imm::{cmd::{QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof}, cmd_processor::{DPNInvokeDeferredMethodCallWitness, DPNReadOtherUserContractStateLeafMerkleProof, DPNStateCmdWitness, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
 };
 use qedlang_core::dpn::{
     ops::{
@@ -220,7 +220,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                     })
                 }
             }
-            DPNStateCmd::InvokeExternalContractFunction(c) => todo!(),
+            DPNStateCmd::InvokeExternalContractFunctionSync(c) => todo!(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => {
                 let witness = self.get_contract_state_slot(
                     self.current_contract_id,
@@ -433,6 +433,37 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                 })
             },
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => todo!(),
+            DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
+                let call_data = DPNProvingSessionDeferredMethodCall{
+                    contract_id: GF::from_canonical_u64(c.contract_id),
+                    method_id: GF::from_canonical_u64(c.method_id),
+                    inputs: c.input_args.iter().map(|x| GF::from_canonical_u64(*x)).collect::<Vec<GF>>(),
+                };
+                if c.condition == 0 {
+                    let insertion_proof_placeholder = mp_to_dmp(self.get_latest_deferred_tx_leaf()?);
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result: call_data.qfhash::<QEDHasher>().0.elements.to_vec(),
+                        witness: DPNStateCmdWitness::InvokeExternalContractFunctionDeferred(DPNInvokeDeferredMethodCallWitness{
+                            call_data,
+                            insertion_proof: insertion_proof_placeholder,
+                        })
+                    })    
+                }else{
+                    let insertion_proof = self.add_deferred_tx_to_debt(call_data.clone())?;
+
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result: call_data.qfhash::<QEDHasher>().0.elements.to_vec(),
+                        witness: DPNStateCmdWitness::InvokeExternalContractFunctionDeferred(DPNInvokeDeferredMethodCallWitness{
+                            call_data,
+                            insertion_proof,
+                        })
+                    })    
+                }
+
+
+            },
         }
     }
 }

@@ -7,3 +7,4 @@ pub mod pad_circuit;
 pub mod select;
 pub mod signature;
 pub mod verify;
+pub mod math;
