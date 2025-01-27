@@ -1,16 +1,16 @@
 use qed_ast::*;
-use qed_builder::{Context, ContextFelt};
+use qed_builder::{ContextFelt, DPNContext};
 use qed_common::Graph;
 use qed_parser::Parser;
 use std::fmt::{Display, Write};
 
-pub struct FormatterContext<'a, F: Clone, C> {
+pub struct FormatterContext<'a, F: Clone + From<u32>, C> {
     path_stack: Vec<NodeId>,
     program: &'a Program<F>,
     _marker: std::marker::PhantomData<(F, C)>,
 }
 
-impl<'a, F: Clone, C> FormatterContext<'a, F, C> {
+impl<'a, F: Clone + From<u32>, C> FormatterContext<'a, F, C> {
     pub fn new(program: &'a Program<F>) -> Self {
         FormatterContext {
             path_stack: vec![],
@@ -20,7 +20,7 @@ impl<'a, F: Clone, C> FormatterContext<'a, F, C> {
     }
 }
 
-impl<'a, F: Clone, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
+impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
     fn node_id(&self) -> NodeId {
         self.path_stack.last().unwrap().clone()
     }
@@ -63,12 +63,20 @@ impl<'a, F: Clone, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
         &self.program.interner[id]
     }
 
+    fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId {
+        unreachable!()
+    }
+
     fn module(&self, module_id: ModuleId) -> &ModuleNode {
         self.program.modules[module_id].data()
     }
 
     fn program(&self) -> &Program<F> {
         &self.program
+    }
+
+    fn dependency_graph(&self) -> Graph<ModuleId> {
+        self.program.dependency_graph.clone()
     }
 
     fn expression(&self, expr_id: ExprId) -> &ExprNode<F> {
@@ -83,23 +91,39 @@ impl<'a, F: Clone, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
         &self.program.defs[def_id]
     }
 
-    fn dependency_graph(&self) -> Graph<ModuleId> {
-        self.program.dependency_graph.clone()
+    fn insert_definition(&mut self, definition: DefinitionNode, pos: InsertPosition) {
+        unimplemented!()
     }
 
-    fn append_definition(&mut self, definition: DefinitionNode) {
+    fn alloc_expression(&mut self, expr: ExprNode<F>) -> ExprId {
+        unimplemented!()
+    }
+
+    fn alloc_statement(&mut self, stmt: StmtNode) -> StmtId {
+        unimplemented!()
+    }
+
+    fn alloc_definition(&mut self, definition: DefinitionNode) -> DefId {
+        unimplemented!()
+    }
+
+    fn replace_definition(&mut self, def_id: DefId, definition: DefinitionNode) {
+        unimplemented!()
+    }
+
+    fn replace_statement(&mut self, stmt_id: StmtId, statement: StmtNode) {
         unimplemented!()
     }
 }
 
 #[derive(Debug)]
-pub struct Formatter<'a, F: Clone, C> {
+pub struct Formatter<'a, F: Clone + From<u32>, C> {
     output: String,
     indent: usize,
     _marker: std::marker::PhantomData<(&'a (), F, C)>,
 }
 
-impl<'a, F: Clone + Display, C> Formatter<'a, F, C> {
+impl<'a, F: Clone + From<u32> + Display, C> Formatter<'a, F, C> {
     pub fn new() -> Self {
         Formatter {
             output: String::new(),
@@ -189,7 +213,7 @@ impl<'a, F: Clone + Display, C> Formatter<'a, F, C> {
     }
 }
 
-impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
+impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVisitor<F, C>
     for Formatter<'a, F, C>
 {
     type ExprResult = String;
@@ -220,7 +244,18 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         let node = ctx.expression(expr_id).as_path().unwrap();
-        Ok(ctx.ident(node.target).to_string())
+        Ok(format!(
+            "{}{}{}",
+            node.root
+                .map(|r| format!("{}::", ctx.ident(r)))
+                .unwrap_or("".to_string()),
+            node.segments
+                .iter()
+                .map(|&s| ctx.ident(s).to_string())
+                .collect::<Vec<_>>()
+                .join("::"),
+            ctx.ident(node.target).to_string()
+        ))
     }
 
     fn visit_index_access(
@@ -274,7 +309,7 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
                         .map(|p| self.visit_unchecked_type(p, ctx))
                         .collect::<Vec<_>>(),
                 );
-                let mut result = format!("{}{} {{\n", name, generic_parameters);
+                let mut result = format!("new {}{} {{\n", name, generic_parameters);
 
                 for (field, value) in field_values {
                     result.push_str(&self.read_indent(1));
@@ -424,7 +459,10 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
         let BlockNode { stmts } = ctx.statement(stmt_id).as_block().unwrap();
         // TODO: remove clone
         for stmt in stmts.clone() {
-            self.visit_stmt(stmt, ctx)?;
+            let res = self.visit_stmt(stmt, ctx)?;
+            if !res.is_empty() {
+                self.write_line(&format!("{};", res));
+            }
         }
         Ok(Default::default())
     }
@@ -514,7 +552,12 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
         let mut s = format!(
-            "impl{} {}{} {{",
+            "impl{} {}{}{} {{",
+            if let Some(trait_name) = trait_name {
+                format!(" {} for", &ctx.ident(trait_name.clone()))
+            } else {
+                "".to_string()
+            },
             generic_parameters,
             &ctx.ident(ty.clone()),
             generic_parameters
@@ -541,6 +584,7 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
             generic_parameters,
             body,
             return_type,
+            is_extern,
             is_pub,
         } = ctx.definition(def_id).as_function().unwrap();
         let parameters = parameters
@@ -560,7 +604,8 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
             .map(|x| ctx.ident(x.clone()).to_string())
             .collect::<Vec<_>>();
         let mut s = format!(
-            "fn {}{}({}){} {{",
+            "{}fn {}{}({}){} {{",
+            if *is_extern { "extern " } else { "" },
             ctx.ident(name.clone()),
             self.visit_generic_parameters(generic_parameters),
             parameters,
@@ -722,7 +767,8 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
                 .collect::<Vec<_>>()
                 .join(", ");
             let s = format!(
-                "fn {}({}){};",
+                "{}fn {}({}){};",
+                if func.is_extern { "extern " } else { "" },
                 ctx.ident(func.name.clone()),
                 parameters,
                 if let Some(ref ret) = func.return_type {
@@ -735,6 +781,26 @@ impl<'a, F: ContextFelt + Display + 'static, C: Context<F>> AstVisitor<F, C>
         }
         self.dedent();
         self.write_line("}");
+        Ok(Default::default())
+    }
+
+    fn visit_storage_read(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let offset = ctx.expression(node).as_storage().unwrap().offset;
+        Ok(format!("storage::read({})", self.visit_expr(offset, ctx)?))
+    }
+
+    fn visit_storage_write(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let offset = self.visit_expr(ctx.statement(node).as_storage().unwrap().offset, ctx)?;
+        let value = self.visit_expr(ctx.statement(node).as_storage().unwrap().value, ctx)?;
+        self.write_line(&format!("storage::write({}, {});", offset, value));
         Ok(Default::default())
     }
 }

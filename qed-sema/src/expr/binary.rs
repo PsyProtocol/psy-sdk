@@ -1,4 +1,4 @@
-use qed_ast::{BinaryOperator, ExprId};
+use qed_ast::{BinaryOperator, ExprId, NodeType};
 
 use crate::TypeId;
 
@@ -8,4 +8,10 @@ pub struct CheckedBinaryNode {
     pub operator: BinaryOperator,
     pub rhs: ExprId,
     pub type_id: TypeId,
+}
+
+impl CheckedBinaryNode {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::BinaryExpr
+    }
 }

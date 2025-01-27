@@ -1,4 +1,4 @@
-use qed_ast::IdentId;
+use qed_ast::{IdentId, NodeType};
 
 use crate::{ScopeId, TypeId};
 
@@ -17,4 +17,10 @@ pub struct CheckedEnumNode {
     pub scope_id: ScopeId,
     pub implementations: Vec<TypeId>,
     pub is_pub: bool,
+}
+
+impl CheckedEnumNode {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::EnumDef
+    }
 }

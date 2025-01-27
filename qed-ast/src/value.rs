@@ -1,14 +1,27 @@
 use std::collections::HashMap;
 
 use enum_as_inner::EnumAsInner;
-use strum::{EnumIs, EnumTryAs};
+use indexmap::IndexMap;
+use strum::EnumTryAs;
 
-use crate::{AstVisitor, ExprId, IdentId, UncheckedType};
+use crate::{AstVisitor, ExprId, IdentId, NodeType, UncheckedType};
 
 #[derive(Clone, Debug, PartialEq, EnumAsInner)]
-pub enum ValueNode<F: Clone> {
+pub enum ValueNode<F: Clone + From<u32>> {
     Felt(F),
     Bool(F),
     Array(usize, Vec<ExprId>),
-    Struct(IdentId, Vec<UncheckedType>, HashMap<IdentId, ExprId>),
+    Struct(IdentId, Vec<UncheckedType>, IndexMap<IdentId, ExprId>),
+}
+
+impl<F: Clone + From<u32>> ValueNode<F> {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::ValueExpr
+        // match self {
+        //     ValueNode::Felt(_) => NodeType::FeltValue,
+        //     ValueNode::Bool(_) => NodeType::BoolValue,
+        //     ValueNode::Array(_, _) => NodeType::ArrayValue,
+        //     ValueNode::Struct(_, _, _) => NodeType::StructValue,
+        // }
+    }
 }

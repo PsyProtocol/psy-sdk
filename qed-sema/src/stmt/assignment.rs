@@ -1,4 +1,4 @@
-use qed_ast::{AssignmentOperator, ExprId};
+use qed_ast::{AssignmentOperator, ExprId, NodeType};
 
 use crate::TypeId;
 
@@ -8,4 +8,10 @@ pub struct CheckedAssignmentNode {
     pub operator: AssignmentOperator,
     pub value: ExprId,
     pub type_id: TypeId,
+}
+
+impl CheckedAssignmentNode {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::AssignmentStmt
+    }
 }

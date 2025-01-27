@@ -1,6 +1,8 @@
+use enum_as_inner::EnumAsInner;
+
 use crate::IdentId;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum UncheckedType {
     Basic(IdentId),                       // u8, T
     Generic(IdentId, Vec<UncheckedType>), // HashMap<K, V>

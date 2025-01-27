@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{ops::DPNBuiltInDataType, OpType};
+use crate::{ops::DPNBuiltInDataType, DPNOpType, DPNStateCmd};
 
 const INDEX_BITS: u64 = 32;
 const INDEX_MASK: u64 = (1u64 << INDEX_BITS) - 1u64;
@@ -19,7 +19,7 @@ pub fn encode_indexed_op_id(data_type: DPNBuiltInDataType, index: usize) -> u64 
 pub struct DPNIndexedVarDef {
     pub data_type: DPNBuiltInDataType,
     pub index: usize,
-    pub op_type: OpType,
+    pub op_type: DPNOpType,
     pub inputs: Vec<u64>,
 }
 impl DPNIndexedVarDef {
@@ -40,8 +40,8 @@ pub struct DPNFunctionCircuitDefinition {
     pub name: String,
     pub circuit_inputs: Vec<u64>,
     pub circuit_outputs: Vec<u64>,
-    //   pub state_commands: Vec<DPNStateCmd<u64>>,
-    //   pub state_command_resolution_indices: Vec<usize>,
+    pub state_commands: Vec<DPNStateCmd<u64>>,
+    pub state_command_resolution_indices: Vec<usize>,
     pub assertions: Vec<DPNAssertEqInfoIndexed>,
     pub definitions: Vec<DPNIndexedVarDef>,
 }

@@ -1,4 +1,6 @@
-use crate::{ops::DPNBuiltInDataType, ExecContext, SymFeltRef, SymFeltStore};
+use crate::{
+    ops::DPNBuiltInDataType, DPNStateCmd, DPNStateCmdCore, QExecContext, SymFeltRef, SymFeltStore,
+};
 
 use super::def::{
     encode_indexed_op_id, DPNAssertEqInfoIndexed, DPNFunctionCircuitDefinition, DPNIndexedVarDef,
@@ -7,8 +9,8 @@ use super::def::{
 pub struct QEDCompileResult {
     pub circuit_inputs: Vec<u64>,
     pub circuit_outputs: Vec<u64>,
-    // pub state_commands: Vec<DPNStateCmd<u64>>,
-    // pub state_command_resolution_indices: Vec<usize>,
+    pub state_commands: Vec<DPNStateCmd<u64>>,
+    pub state_command_resolution_indices: Vec<usize>,
     pub assertions: Vec<DPNAssertEqInfoIndexed>,
     pub definitions: Vec<DPNIndexedVarDef>,
 
@@ -39,7 +41,7 @@ impl QEDCompileResult {
     pub fn compile_exec(
         name: String,
         sym_store: &SymFeltStore,
-        ctx: &ExecContext,
+        ctx: &QExecContext,
         outputs: &[SymFeltRef],
     ) -> DPNFunctionCircuitDefinition {
         let mut result = QEDCompileResult::new();
@@ -50,8 +52,8 @@ impl QEDCompileResult {
         QEDCompileResult {
             circuit_inputs: vec![],
             circuit_outputs: vec![],
-            // state_commands: vec![],
-            // state_command_resolution_indices: vec![],
+            state_commands: vec![],
+            state_command_resolution_indices: vec![],
             assertions: vec![],
             definitions: vec![],
             total_targets: 0,
@@ -149,23 +151,31 @@ impl QEDCompileResult {
         new_op_id
     }
 
-    // pub fn injest_state_cmd(&mut self, sym_store: &SymFeltStore, cmd: DPNStateCmd<SymFeltRef>) {
-    //     let inputs = cmd.get_inputs();
-    //     let inputs_resolved = inputs.iter().map(|c| self.injest_sfr(sym_store, *c)).collect::<Vec<_>>();
-    //     let def_count = self.definitions.len();
-    //     self.state_command_resolution_indices.push(def_count);
-    //     let converted = cmd.convert_to_u64(&inputs_resolved);
-    //     self.state_commands.push(converted);
-    // }
+    pub fn injest_state_cmd(&mut self, sym_store: &SymFeltStore, cmd: DPNStateCmd<SymFeltRef>) {
+        let inputs = cmd.get_inputs();
+        let inputs_resolved = inputs
+            .iter()
+            .map(|c| self.injest_sfr(sym_store, *c))
+            .collect::<Vec<_>>();
+        let def_count = self.definitions.len();
+        self.state_command_resolution_indices.push(def_count);
+        let converted = cmd.convert_to_u64(&inputs_resolved);
+        self.state_commands.push(converted);
+    }
 
-    pub fn compile(&mut self, sym_store: &SymFeltStore, ctx: &ExecContext, outputs: &[SymFeltRef]) {
+    pub fn compile(
+        &mut self,
+        sym_store: &SymFeltStore,
+        ctx: &QExecContext,
+        outputs: &[SymFeltRef],
+    ) {
         for i in 0..ctx.input_count {
             let inp = self.injest_sfr(sym_store, SymFeltRef::new_input(i));
             self.circuit_inputs.push(inp);
         }
-        // for cmd in ctx.state_cmd_store.commands.iter() {
-        //     self.injest_state_cmd(sym_store, cmd.clone());
-        // }
+        for cmd in ctx.state_cmd_store.commands.iter() {
+            self.injest_state_cmd(sym_store, cmd.clone());
+        }
         for assertion in ctx.assertions.iter() {
             let left = self.injest_sfr(sym_store, assertion.left);
             let right = self.injest_sfr(sym_store, assertion.right);
@@ -185,8 +195,8 @@ impl QEDCompileResult {
             name,
             circuit_inputs: self.circuit_inputs,
             circuit_outputs: self.circuit_outputs,
-            // state_commands: self.state_commands,
-            // state_command_resolution_indices: self.state_command_resolution_indices,
+            state_commands: self.state_commands,
+            state_command_resolution_indices: self.state_command_resolution_indices,
             assertions: self.assertions,
             definitions: self.definitions,
         }

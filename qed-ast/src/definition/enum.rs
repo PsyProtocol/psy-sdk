@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{AstVisitor, FunctionNode, IdentId, UncheckedType};
+use crate::{AstVisitor, FunctionNode, IdentId, NodeType, UncheckedType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EnumVariant {
@@ -15,4 +15,10 @@ pub struct EnumNode {
     pub generic_parameters: Vec<IdentId>,
     pub variants: Vec<EnumVariant>,
     pub is_pub: bool,
+}
+
+impl EnumNode {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::EnumDef
+    }
 }

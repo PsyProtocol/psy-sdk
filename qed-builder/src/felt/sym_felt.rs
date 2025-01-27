@@ -15,52 +15,52 @@ use twox_hash::xxh3::HasherExt;
 
 use crate::eval::{ContextEval, ContextInput, EvalCache, EvalHelpers};
 use crate::felt::context_felt::ContextFelt;
-use crate::ops::OpType;
+use crate::ops::DPNOpType;
 
 pub const SYM_FELT_REF_STORE_TYPE_MASK: u128 = 0xffff0000000000000000000000000000u128;
 pub const SYM_FELT_REF_STORE_VALUE_MASK: u128 = 0x0000ffffffffffffffffffffffffffffu128;
 
-pub const CONSTANT_TRUE_OP: u128 = (OpType::ConstantTrue as u128) << 112;
-pub const CONSTANT_FALSE_OP: u128 = (OpType::ConstantFalse as u128) << 112;
+pub const CONSTANT_TRUE_OP: u128 = (DPNOpType::ConstantTrue as u128) << 112;
+pub const CONSTANT_FALSE_OP: u128 = (DPNOpType::ConstantFalse as u128) << 112;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
 pub struct SymFeltRef(pub u128);
 
-// TODO: remove this
 impl Display for SymFeltRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:x}", self.0)
+        write!(f, "{}", self.get_target_hash_value())
     }
 }
 
 impl SymFeltRef {
     pub fn new_input(index: u64) -> SymFeltRef {
-        SymFeltRef((OpType::InputTarget as u128) << 112 | index as u128)
+        SymFeltRef((DPNOpType::InputTarget as u128) << 112 | index as u128)
     }
     pub const fn new_constant(value: u64) -> SymFeltRef {
         //assert!(value < GoldilocksField::ORDER, "Constant value {} is too large", value);
-        SymFeltRef((OpType::Constant as u128) << 112 | (value % GoldilocksField::ORDER) as u128)
+        SymFeltRef((DPNOpType::Constant as u128) << 112 | (value % GoldilocksField::ORDER) as u128)
     }
     pub fn cns<T: Into<SymFeltRef>>(val: T) -> SymFeltRef {
         val.into()
     }
     pub fn new_constant_reduce(value: u128) -> SymFeltRef {
         SymFeltRef(
-            (OpType::Constant as u128) << 112 | (value % (GoldilocksField::ORDER as u128)) as u128,
+            (DPNOpType::Constant as u128) << 112
+                | (value % (GoldilocksField::ORDER as u128)) as u128,
         )
     }
     pub fn is_constant_type(&self) -> bool {
         let op_type = self.get_op_type();
-        op_type == OpType::Constant
-            || op_type == OpType::ConstantTrue
-            || op_type == OpType::ConstantFalse
+        op_type == DPNOpType::Constant
+            || op_type == DPNOpType::ConstantTrue
+            || op_type == DPNOpType::ConstantFalse
     }
     pub fn get_constant_value_multi(&self) -> u64 {
         let op_type = self.get_op_type();
         match op_type {
-            OpType::Constant => (self.0 & 0xffffffffffffffffu128) as u64,
-            OpType::ConstantTrue => 1,
-            OpType::ConstantFalse => 0,
+            DPNOpType::Constant => (self.0 & 0xffffffffffffffffu128) as u64,
+            DPNOpType::ConstantTrue => 1,
+            DPNOpType::ConstantFalse => 0,
             _ => panic!("Not a constant type"),
         }
     }
@@ -86,21 +86,21 @@ impl SymFeltRef {
     pub fn get_target_hash_value(&self) -> u128 {
         self.0 & SYM_FELT_REF_STORE_VALUE_MASK
     }
-    pub fn new_valueless(op_type: OpType) -> SymFeltRef {
+    pub fn new_valueless(op_type: DPNOpType) -> SymFeltRef {
         SymFeltRef((op_type as u128) << 112)
     }
 
-    pub fn get_op_type(&self) -> OpType {
+    pub fn get_op_type(&self) -> DPNOpType {
         ((self.0 >> 112) as u16).into()
     }
     pub fn needs_store(&self) -> bool {
         ((self.0 >> 112) as u16) > 1
     }
     pub fn constant_true() -> SymFeltRef {
-        SymFeltRef((OpType::ConstantTrue as u128) << 112)
+        SymFeltRef((DPNOpType::ConstantTrue as u128) << 112)
     }
     pub fn constant_false() -> SymFeltRef {
-        SymFeltRef((OpType::ConstantFalse as u128) << 112)
+        SymFeltRef((DPNOpType::ConstantFalse as u128) << 112)
     }
     pub fn constant_bool(val: bool) -> SymFeltRef {
         if val {
@@ -549,36 +549,36 @@ impl PartialOrd<u64> for SymFeltRef {
 }
 impl From<u8> for SymFeltRef {
     fn from(val: u8) -> SymFeltRef {
-        SymFeltRef((val as u128) | ((OpType::Constant as u128) << 112))
+        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128) << 112))
     }
 }
 impl From<u16> for SymFeltRef {
     fn from(val: u16) -> SymFeltRef {
-        SymFeltRef((val as u128) | ((OpType::Constant as u128) << 112))
+        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128) << 112))
     }
 }
 impl From<u32> for SymFeltRef {
     fn from(val: u32) -> SymFeltRef {
-        SymFeltRef((val as u128) | ((OpType::Constant as u128) << 112))
+        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128) << 112))
     }
 }
 
 impl From<u64> for SymFeltRef {
     fn from(val: u64) -> SymFeltRef {
-        SymFeltRef((val as u128) | ((OpType::Constant as u128) << 112))
+        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128) << 112))
     }
 }
 
 impl From<i32> for SymFeltRef {
     fn from(val: i32) -> SymFeltRef {
         assert!(val >= 0, "Negative values are not supported");
-        SymFeltRef((val as u128) | ((OpType::Constant as u128) << 112))
+        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128) << 112))
     }
 }
 impl From<i64> for SymFeltRef {
     fn from(val: i64) -> SymFeltRef {
         assert!(val >= 0, "Negative values are not supported");
-        SymFeltRef((val as u128) | ((OpType::Constant as u128) << 112))
+        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128) << 112))
     }
 }
 impl From<bool> for SymFeltRef {
@@ -606,14 +606,14 @@ impl ContextFelt for SymFeltRef {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq)]
 pub struct SymFeltRefValue {
-    pub op_type: OpType,
+    pub op_type: DPNOpType,
     pub const_param: u64,
     pub inputs: Vec<SymFeltRef>,
 }
 
 impl SymFeltRefValue {
     pub fn get_ref_key(&self) -> SymFeltRef {
-        if self.op_type == OpType::Constant || self.op_type == OpType::InputTarget {
+        if self.op_type == DPNOpType::Constant || self.op_type == DPNOpType::InputTarget {
             return SymFeltRef(((self.op_type as u128) << 112) | self.const_param as u128);
         } else {
             let mut hasher = twox_hash::Xxh3Hash128::default();
@@ -656,7 +656,7 @@ impl SetSymFeltRef {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq)]
 pub struct SymFeltDef {
-    pub op_type: OpType,
+    pub op_type: DPNOpType,
     pub const_param: u64,
     pub inputs: Vec<SymFeltDef>,
 }
@@ -780,77 +780,77 @@ impl ContextEval for SymFeltStore {
         } else {
             let op_type = felt_ref.get_op_type();
             let result = match op_type {
-                OpType::InputTarget => input.get_input(felt_ref.get_input_index()),
-                OpType::Constant => felt_ref.get_constant_value(),
-                OpType::ConstantTrue => 1,
-                OpType::ConstantFalse => 0,
-                OpType::Add => {
+                DPNOpType::InputTarget => input.get_input(felt_ref.get_input_index()),
+                DPNOpType::Constant => felt_ref.get_constant_value(),
+                DPNOpType::ConstantTrue => 1,
+                DPNOpType::ConstantFalse => 0,
+                DPNOpType::Add => {
                     let (a, b) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
                     (a + b).to_canonical_u64()
                 }
-                OpType::Sub => {
+                DPNOpType::Sub => {
                     let (a, b) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
                     (a - b).to_canonical_u64()
                 }
-                OpType::Mul => {
+                DPNOpType::Mul => {
                     let (a, b) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
                     (a * b).to_canonical_u64()
                 }
-                OpType::Div => {
+                DPNOpType::Div => {
                     let (a, b) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
                     (a / b).to_canonical_u64()
                 }
-                OpType::BoolNot => {
+                DPNOpType::BoolNot => {
                     (self.resolve_unary_felt_arg(felt_ref, input, cache) == 0) as u64
                 }
-                OpType::BoolAnd => {
+                DPNOpType::BoolAnd => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     ((a != 0) && (b != 0)) as u64
                 }
-                OpType::BoolOr => {
+                DPNOpType::BoolOr => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     ((a != 0) || (b != 0)) as u64
                 }
-                OpType::Xor => {
+                DPNOpType::Xor => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a ^ b) & 0xFFFFFFFFu64
                 }
-                OpType::Nor => {
+                DPNOpType::Nor => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (!(a | b)) & 0xFFFFFFFFu64
                 }
-                OpType::Eq => {
+                DPNOpType::Eq => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a == b) as u64
                 }
-                OpType::Lte => {
+                DPNOpType::Lte => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a <= b) as u64
                 }
-                OpType::Gte => {
+                DPNOpType::Gte => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a >= b) as u64
                 }
-                OpType::Gt => {
+                DPNOpType::Gt => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a > b) as u64
                 }
-                OpType::Lt => {
+                DPNOpType::Lt => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a < b) as u64
                 }
-                OpType::SplitBits => panic!("you cannot directly evaluate SumBits"),
-                OpType::SumBits => sum_bits(&self.resolve_array_args(felt_ref, input, cache)),
-                OpType::TargetAt => {
+                DPNOpType::SplitBits => panic!("you cannot directly evaluate SumBits"),
+                DPNOpType::SumBits => sum_bits(&self.resolve_array_args(felt_ref, input, cache)),
+                DPNOpType::TargetAt => {
                     let base = &self.get(felt_ref).inputs;
                     let index = self.resolve_felt_ref_cached(base[1], input, cache);
                     let array = self.resolve_array_ref_cached(base[0], input, cache);
                     assert!(index < array.len() as u64, "index out of bounds");
                     array[index as usize]
                 }
-                OpType::HashNoPad => panic!("you cannot directly evaluate HashNoPad"),
-                OpType::HashPad => panic!("you cannot directly evaluate HashPad"),
-                OpType::Select => {
+                DPNOpType::HashNoPad => panic!("you cannot directly evaluate HashNoPad"),
+                DPNOpType::HashPad => panic!("you cannot directly evaluate HashPad"),
+                DPNOpType::Select => {
                     let args = self.resolve_array_args(felt_ref, input, cache);
                     if args[0] != 0 {
                         args[1]
@@ -858,79 +858,79 @@ impl ContextEval for SymFeltStore {
                         args[2]
                     }
                 }
-                OpType::Exp => {
+                DPNOpType::Exp => {
                     let (base, exponent) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
                     base.exp_u64(exponent.to_canonical_u64()).to_canonical_u64()
                 }
-                OpType::ExpConstantPower => panic!("ExpConstantPower is not implemented"),
-                OpType::ExpConstantBase => panic!("ExpConstantBase is not implemented"),
-                OpType::Mod => {
+                DPNOpType::ExpConstantPower => panic!("ExpConstantPower is not implemented"),
+                DPNOpType::ExpConstantBase => panic!("ExpConstantBase is not implemented"),
+                DPNOpType::Mod => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     a % b
                 }
-                OpType::ModConstantDividend => panic!("ModConstantDividend is not implemented"),
-                OpType::ModConstantDivisor => panic!("ModConstantDivisor is not implemented"),
-                OpType::DivRem4 => {
+                DPNOpType::ModConstantDividend => panic!("ModConstantDividend is not implemented"),
+                DPNOpType::ModConstantDivisor => panic!("ModConstantDivisor is not implemented"),
+                DPNOpType::DivRem4 => {
                     todo!("DivRem4 is not implemented");
                 }
-                OpType::CastU32 => {
+                DPNOpType::CastU32 => {
                     let value = self.resolve_unary_felt_arg(felt_ref, input, cache);
                     value & 0xFFFFFFFFu64
                 }
-                OpType::U32And => {
+                DPNOpType::U32And => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a & b) & 0xFFFFFFFFu64
                 }
-                OpType::U32AndConstant => todo!("U32AndConstant is not implemented"),
-                OpType::U32Or => {
+                DPNOpType::U32AndConstant => todo!("U32AndConstant is not implemented"),
+                DPNOpType::U32Or => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a | b) & 0xFFFFFFFFu64
                 }
-                OpType::U32OrConstant => todo!("U32OrConstant is not implemented"),
-                OpType::U32Xor => {
+                DPNOpType::U32OrConstant => todo!("U32OrConstant is not implemented"),
+                DPNOpType::U32Xor => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a ^ b) & 0xFFFFFFFFu64
                 }
-                OpType::U32XorConstant => todo!("U32XorConstant is not implemented"),
-                OpType::U32ShiftLeft => {
+                DPNOpType::U32XorConstant => todo!("U32XorConstant is not implemented"),
+                DPNOpType::U32ShiftLeft => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a << b) & 0xFFFFFFFFu64
                 }
-                OpType::U32ShiftLeftConstantBitDistance => {
+                DPNOpType::U32ShiftLeftConstantBitDistance => {
                     todo!("U32ShiftLeftConstantBitDistance is not implemented")
                 }
-                OpType::U32ShiftLeftConstantValue => {
+                DPNOpType::U32ShiftLeftConstantValue => {
                     todo!("U32ShiftLeftConstantValue is not implemented")
                 }
-                OpType::U32ShiftRight => {
+                DPNOpType::U32ShiftRight => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a >> b) & 0xFFFFFFFFu64
                 }
-                OpType::U32ShiftRightConstantBitDistance => {
+                DPNOpType::U32ShiftRightConstantBitDistance => {
                     todo!("U32ShiftLeftConstantValue is not implemented")
                 }
-                OpType::U32ShiftRightConstantValue => {
+                DPNOpType::U32ShiftRightConstantValue => {
                     todo!("U32ShiftLeftConstantValue is not implemented")
                 }
-                OpType::CalculateMerkleRoot => todo!("CalculateMerkleRoot is not implemented"),
-                OpType::GetUserId => todo!(),
-                OpType::GetContractId => todo!(),
-                OpType::GetCheckpointId => todo!(),
-                OpType::GetNonce => todo!(),
-                OpType::GetUserPublicKeyHash => todo!(),
-                OpType::GetStateQueryResult => todo!(),
-                OpType::GetStateQueryResultSingle => todo!(),
-                OpType::UnaryInverse => self
+                DPNOpType::CalculateMerkleRoot => todo!("CalculateMerkleRoot is not implemented"),
+                DPNOpType::GetUserId => todo!(),
+                DPNOpType::GetContractId => todo!(),
+                DPNOpType::GetCheckpointId => todo!(),
+                DPNOpType::GetNonce => todo!(),
+                DPNOpType::GetUserPublicKeyHash => todo!(),
+                DPNOpType::GetStateQueryResult => todo!(),
+                DPNOpType::GetStateQueryResultSingle => todo!(),
+                DPNOpType::UnaryInverse => self
                     .resolve_unary_felt_arg_gl(felt_ref, input, cache)
                     .inverse()
                     .to_canonical_u64(),
-                OpType::UnaryNegative => self
+                DPNOpType::UnaryNegative => self
                     .resolve_unary_felt_arg_gl(felt_ref, input, cache)
                     .neg()
                     .to_canonical_u64(),
-                OpType::GetStateCommandResultHash => todo!(),
-                OpType::GetStateCommandResultSingle => todo!(),
-                OpType::GetStateCommandResultArray => todo!(),
+                DPNOpType::GetStateCommandResultHash => todo!(),
+                DPNOpType::GetStateCommandResultSingle => todo!(),
+                DPNOpType::GetStateCommandResultArray => todo!(),
             };
             result
         }
@@ -946,22 +946,22 @@ impl ContextEval for SymFeltStore {
             cache.get_arr_ref(felt_ref)
         } else {
             let result = match felt_ref.get_op_type() {
-                OpType::SplitBits => {
+                DPNOpType::SplitBits => {
                     let (x, num_bits) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     let bits = split_bits(x, num_bits);
                     bits
                 }
-                OpType::HashNoPad => {
+                DPNOpType::HashNoPad => {
                     let data = self.resolve_array_args_gl(felt_ref, input, cache);
                     let result = PoseidonHash::hash_no_pad(&data).to_vec();
                     result.iter().map(|x| x.to_canonical_u64()).collect()
                 }
-                OpType::HashPad => {
+                DPNOpType::HashPad => {
                     let data = self.resolve_array_args_gl(felt_ref, input, cache);
                     let result = PoseidonHash::hash_pad(&data).to_vec();
                     result.iter().map(|x| x.to_canonical_u64()).collect()
                 }
-                OpType::GetUserPublicKeyHash => todo!(),
+                DPNOpType::GetUserPublicKeyHash => todo!(),
                 _ => panic!("you cannot directly evaluate an array ref"),
             };
 

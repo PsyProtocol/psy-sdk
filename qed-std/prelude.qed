@@ -1,0 +1,23 @@
+trait Storage {
+    fn size() -> Felt;
+    extern fn read(offset: Felt) -> Self;
+    extern fn write(offset: Felt, value: Self);
+}
+
+impl Storage for Felt {
+    fn size() -> Felt {
+        return 1;
+    }
+
+    extern fn read(offset: Felt) -> Self {}
+    extern fn write(offset: Felt, value: Self) {}
+}
+
+impl Storage for bool {
+    fn size() -> Felt {
+        return 1;
+    }
+
+    extern fn read(offset: Felt) -> Self {}
+    extern fn write(offset: Felt, value: Self) {}
+}

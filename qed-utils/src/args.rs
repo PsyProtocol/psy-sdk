@@ -8,3 +8,9 @@ pub struct InterpreterArgs {
     #[clap(short, env, long, num_args = 1.., default_values = &["2", "3"])]
     pub params: Vec<u64>,
 }
+
+#[derive(Clone, Args)]
+pub struct CompilerArgs {
+    #[clap(short, env, long)]
+    pub file: String,
+}

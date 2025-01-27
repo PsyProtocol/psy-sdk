@@ -108,6 +108,7 @@ lalrpop = "0.22"
 
 walkdir = "2.5"
 insta = { version = "1.40", features = ["glob"] }
+home = { version = "0.5" }
 
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }
 tower-lsp = "0.20"

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::*;
 
-pub trait AstVisitor<F: Clone, C> {
+pub trait AstVisitor<F: Clone + From<u32>, C> {
     type ExprResult;
     type StmtResult: From<Self::ExprResult>;
     type Context: VisitorContext<F, C>;
@@ -14,7 +14,7 @@ pub trait AstVisitor<F: Clone, C> {
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         ctx.push_node_id(NodeId::from(expr_id));
-        let res = match ctx.expression(expr_id).node_type() {
+        let res = match dbg!(ctx.expression(expr_id).node_type()) {
             NodeType::PathExpr => self.visit_path(expr_id, ctx)?,
             NodeType::ValueExpr => self.visit_value(expr_id, ctx)?,
             NodeType::BinaryExpr => self.visit_binary(expr_id, ctx)?,
@@ -23,6 +23,7 @@ pub trait AstVisitor<F: Clone, C> {
             NodeType::CastExpr => self.visit_cast(expr_id, ctx)?,
             NodeType::IndexAccessExpr => self.visit_index_access(expr_id, ctx)?,
             NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
+            NodeType::StorageExpr => self.visit_storage_read(expr_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -66,6 +67,7 @@ pub trait AstVisitor<F: Clone, C> {
             NodeType::ExpressionStmt => Self::StmtResult::from(
                 self.visit_expr(ctx.statement(stmt_id).as_expression().unwrap().clone(), ctx)?,
             ),
+            NodeType::StorageStmt => self.visit_storage_write(stmt_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -120,6 +122,11 @@ pub trait AstVisitor<F: Clone, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_storage_read(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
     fn visit_value(
         &mut self,
         node: ExprId,
@@ -167,6 +174,11 @@ pub trait AstVisitor<F: Clone, C> {
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error>;
     fn visit_variable(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_storage_write(
         &mut self,
         node: StmtId,
         ctx: &mut Self::Context,

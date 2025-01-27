@@ -1,4 +1,4 @@
-use crate::{AstVisitor, ExprId, IdentId};
+use crate::{AstVisitor, ExprId, IdentId, NodeType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexAccessNode {
@@ -6,8 +6,20 @@ pub struct IndexAccessNode {
     pub index: usize,
 }
 
+impl IndexAccessNode {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::IndexAccessExpr
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct MemberAccessNode {
     pub value: ExprId,
     pub field: IdentId,
+}
+
+impl MemberAccessNode {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::MemberAccessExpr
+    }
 }

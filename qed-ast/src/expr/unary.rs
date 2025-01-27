@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{AstVisitor, ExprId};
+use crate::{AstVisitor, ExprId, NodeType};
 
 #[derive(Copy, Debug, Clone, PartialEq)]
 pub enum UnaryOperator {
@@ -21,4 +21,10 @@ impl Display for UnaryOperator {
 pub struct UnaryNode {
     pub operator: UnaryOperator,
     pub rhs: ExprId,
+}
+
+impl UnaryNode {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::UnaryExpr
+    }
 }

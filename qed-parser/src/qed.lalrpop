@@ -1,5 +1,5 @@
 use qed_common::{FileId, Arena};
-use qed_builder::{Context, ContextFelt};
+use qed_builder::{DPNContext, ContextFelt};
 use qed_ast::*;
 use qed_lexer::{Token, Error};
 
@@ -15,7 +15,7 @@ grammar<'input, F, C>(
     is_self_std: bool,
     is_self_prelude: bool,
     ctx: &mut C
-) where F: ContextFelt, C: Context<F>;
+) where F: ContextFelt + From<u32>, C: DPNContext<F>;
 
 use super::Loc;
 use std::convert::TryFrom;
@@ -101,7 +101,7 @@ ImplDef: ImplNode = {
            body: def_nodes.alloc_items(body)
        }
    },
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters?> <trait_name:Identifier> FOR <ty:Identifier> <generic_parameters_rhs:GenericParameters?> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters?> <trait_name:Identifier> FOR <ty:IdentifierOrBasicType> <generic_parameters_rhs:GenericParameters?> "{" <body:FunctionDef*> "}" <r:@R> => {
        assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplNode {
            generic_parameters: generic_parameters_lhs.unwrap_or(Vec::new()),
@@ -150,24 +150,26 @@ StructDef: StructNode = {
 }
 
 FunctionDef: DefinitionNode = {
-    <l:@L> <is_pub:PUB?> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <is_pub:PUB?> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
         body: Some(stmt_nodes.alloc_item(block_stmt)),
         return_type,
-        is_pub: is_pub.is_some(),
+        is_extern: is_extern.is_some(),
+        is_pub: is_pub.is_some()
     })
 }
 
 FunctionDecl: FunctionNode = {
-    <l:@L> <is_pub:PUB?> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
+    <l:@L> <is_pub:PUB?> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
         name,
         parameters,
         generic_parameters: generic_parameters.unwrap_or(Vec::new()),
         body: None,
         return_type,
-        is_pub: is_pub.is_some(),
+        is_extern: is_extern.is_some(),
+        is_pub: is_pub.is_some()
     }
 }
 
@@ -301,23 +303,16 @@ Term: ExprNode<F> = {
     <l:@L> "(" <expr:Expression> ")" <r:@R> => expr,
     ValueExpression,
     PathExpression,
-   
 }
-//tyree 1
 PathExpression: ExprNode<F> = {
-    // Single
-    <variable: Identifier> => ExprNode::Path(PathNode {
-        path_type: PathType::Basic,
+    <variable: IdentifierOrSelf> => ExprNode::Path(PathNode {
         root: None,
         segments: vec![],
         target: variable,
     }),
-
-    // Multi: root + segments + target
-    <root: Identifier> "::" <segments: (<Identifier> "::")*> <target: Identifier> => {
-        let mut segment_ids = segments.into_iter().map(|(seg)| seg).collect::<Vec<_>>();
+    <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: Identifier> => {
+        let mut segment_ids = segments.into_iter().map(|seg| seg).collect::<Vec<_>>();
         ExprNode::Path(PathNode {
-            path_type: PathType::Nested,
             root: Some(root),
             segments: segment_ids,
             target,
@@ -327,7 +322,6 @@ PathExpression: ExprNode<F> = {
 Expression: ExprNode<F> = {
     #[precedence(level="1")]
     Term,
-
 
     //#[precedence(level="2")]
     //todo: Temporarily disable generic capabilities
@@ -341,49 +335,14 @@ Expression: ExprNode<F> = {
     //),
 
     #[precedence(level="2")]
-    <l:@L> <path:Expression> "(" <args:Comma<Expression>> ")" <r:@R> => {
-        match path.clone() {
-            ExprNode::<F>::Path(PathNode { root, segments, target, path_type }) => {
-                match path_type {
-                    PathType::Basic => {
-                        ExprNode::<F>::Call(
-                            CallNode {
-                                receiver: None,
-                                variable: expr_nodes.alloc_item(path),
-                                generic_parameters:Vec::new(),
-                                args: expr_nodes.alloc_items(args)
-                            }
-                        )
-                    },
-                    PathType::Nested => {
-                        ExprNode::<F>::Call(
-                            CallNode {
-                                receiver: None,
-                                variable: expr_nodes.alloc_item(path),
-                                //todo: need generic para
-                                generic_parameters:Vec::new(),
-                                args: expr_nodes.alloc_items(args)
-                            }
-                        )
-                    },
-                    //todo: deal with error more gracefully
-                    _ => panic!("Unexpected expression {:?}", path)
-                }
-            },
-            ExprNode::<F>::MemberAccess(MemberAccessNode { value, field }) => {
-                ExprNode::<F>::Call(
-                    CallNode {
-                        receiver: Some(value),
-                        variable: expr_nodes.alloc_item(path),
-                        generic_parameters:Vec::new(),
-                        args: expr_nodes.alloc_items(args)
-                    }
-                )
-            },
-              //todo: deal with error more gracefully
-            _ => panic!("Unexpected expression {:?}", path)
-        }
-    },
+    <l:@L> <variable:Expression> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
+       CallNode {
+           receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
+           variable: expr_nodes.alloc_item(variable),
+           generic_parameters: Vec::new(),
+           args: expr_nodes.alloc_items(args)
+       }
+    ),
     #[precedence(level="2")]
     <l:@L> <variable:Expression> "[" <index:NUMBER> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
         value: expr_nodes.alloc_item(variable),
@@ -518,6 +477,7 @@ BoolExpression: ExprNode<F> = {
 //        kv.into_iter().collect()
 //    )),
 //}
+
 StructExpression: ExprNode<F> = {
     <l:@L> <name:Identifier>  "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
         name,
@@ -581,6 +541,13 @@ IdentifierOrAll: Option<IdentId> = {
 IdentifierOrSelf: IdentId = {
     Identifier,
     <l:@L> <name:SELF> <r:@R> => IdentId::SELF
+}
+
+IdentifierOrBasicType: IdentId = {
+    Identifier,
+    <l:@L> <ty:TYPE_FELT> <r:@R> => IdentId::TYPE_FELT,
+    <l:@L> <ty:TYPE_BOOL> <r:@R> => IdentId::TYPE_BOOL,
+    <l:@L> <ty:TYPE_SELF> <r:@R> => IdentId::TYPE_SELF,
 }
 
 IdentifierOrDerive: IdentId = {
@@ -647,6 +614,7 @@ extern {
         DERIVE => Token::KeywordDerive,
 
         AS => Token::KeywordAs,
+        EXTERN => Token::KeywordExtern,
         NEW => Token::KeywordNew,
 
         "#" => Token::Pound,

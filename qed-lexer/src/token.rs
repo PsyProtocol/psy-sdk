@@ -44,6 +44,8 @@ pub enum Token<'input> {
 
     #[token("new")]
     KeywordNew,
+    #[token("extern")]
+    KeywordExtern,
 
     #[token("mod")]
     KeywordMod,
@@ -210,16 +212,16 @@ fn test_lex_integer() {
 }
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::Token;
     use std::fs::File;
     use std::io::{self, Read};
-    use crate::Token;
-    use super::*;
-    const FILE_PATH: &str = "/Users/jason/git/qas/qed-lang/tests/003.qed";
+    use std::path::PathBuf;
 
     #[test]
     fn test_lex_from_file() -> io::Result<()> {
         // 1. read file content
-        let mut file = File::open(FILE_PATH)?;
+        let mut file = File::open(PathBuf::from("../tests/003.qed"))?;
         let mut content = String::new();
         file.read_to_string(&mut content)?;
 
@@ -236,9 +238,13 @@ mod tests {
             let start = span.start;
             let end = span.end;
 
-            println!("{:<10} | {:<20} | {:<10}", start, format!("{:?}", token), end);
+            println!(
+                "{:<10} | {:<20} | {:<10}",
+                start,
+                format!("{:?}", token),
+                end
+            );
         }
-
 
         Ok(())
     }

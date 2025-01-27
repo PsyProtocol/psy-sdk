@@ -3,21 +3,24 @@ mod call;
 mod cast;
 mod index;
 mod path;
+mod storage;
 mod unary;
 
 pub use binary::*;
 pub use call::*;
 pub use cast::*;
+use enum_as_inner::EnumAsInner;
 pub use index::*;
 pub use path::*;
+pub use storage::*;
 pub use unary::*;
 
-use qed_ast::{ExprNode, IdentId};
+use qed_ast::{ExprNode, IdentId, NodeType};
 
 use crate::{CheckedValueNode, ScopeId, TypeId, TypeKey, BOOL_TYPE, FELT_TYPE};
-use strum::{EnumIs, EnumTryAs};
+use strum::EnumTryAs;
 
-#[derive(Debug, Clone, PartialEq, EnumIs, EnumTryAs)]
+#[derive(Debug, Clone, PartialEq, EnumAsInner, EnumTryAs)]
 pub enum CheckedExprNode<F> {
     Path(CheckedPathNode),
     Value(CheckedValueNode<F>),
@@ -27,9 +30,24 @@ pub enum CheckedExprNode<F> {
     Call(CheckedCallNode),
     IndexAccess(CheckedIndexAccessNode),
     MemberAccess(CheckedMemberAccessNode),
+    Storage(CheckedStorageReadNode),
 }
 
 impl<F> CheckedExprNode<F> {
+    pub fn node_type(&self) -> NodeType {
+        match self {
+            CheckedExprNode::Path(node) => node.node_type(),
+            CheckedExprNode::Value(node) => node.node_type(),
+            CheckedExprNode::Binary(node) => node.node_type(),
+            CheckedExprNode::Unary(node) => node.node_type(),
+            CheckedExprNode::Cast(node) => node.node_type(),
+            CheckedExprNode::Call(node) => node.node_type(),
+            CheckedExprNode::IndexAccess(node) => node.node_type(),
+            CheckedExprNode::MemberAccess(node) => node.node_type(),
+            CheckedExprNode::Storage(node) => node.node_type(),
+        }
+    }
+
     pub fn ty(&self) -> TypeId {
         match self {
             CheckedExprNode::Path(p) => p.type_id,
@@ -46,6 +64,7 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Call(c) => c.type_id,
             CheckedExprNode::IndexAccess(i) => i.type_id,
             CheckedExprNode::MemberAccess(m) => m.type_id,
+            CheckedExprNode::Storage(s) => s.type_id,
         }
     }
 

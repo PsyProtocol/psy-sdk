@@ -1,19 +1,102 @@
-let mut a: i64 = 1;
-'outer: loop {
-    if a == 42 {
-        a >>= 1;
-        a %= 2;
-    } else if a == 84 {
-        a /= 2;
-        continue 'outer;
-    } else if a == 7 {
-        a *= 3 + a + 2;
-    } else {
-        a = 3 + a + 3;
+mod math;
+
+use math::*;
+
+trait PersonLike {
+    fn age(self: Self) -> Felt;
+}
+
+struct Person {
+    age_height: [[Felt; 2]; 2],
+    year_of_birth: Felt
+}
+
+impl PersonLike for Person {
+    fn age(self: Person) -> Felt {
+        return self.age_height[0][0];
+    }
+}
+
+struct Family {
+    father: Person,
+    mother: Person,
+    children: [Person; 2]
+}
+
+impl Person {
+    fn set_age(self: Person, new_age: Felt) {
+        self.age_height[0][0] = new_age;
     }
 
-    if a == 1 {
-      a += 1;
-      break 'outer;
+    fn get_age(self: Person) -> Felt {
+        return self.age_height[0][0];
     }
+
+    fn set_height(self: Person, new_height: Felt) {
+        self.age_height[0][1] = new_height;
+    }
+
+    fn get_height(self: Person) -> Felt {
+        return self.age_height[0][1];
+    }
+
+    fn get_year_of_birth(self: Person) -> Felt {
+        return self.year_of_birth;
+    }
+
+    fn set_year_of_birth(self: Person, new_year_of_birth: Felt) {
+        self.year_of_birth = new_year_of_birth;
+    }
+}
+
+struct ContractStorage {
+    a: Felt,
+    b: [Felt; 2],
+    c: Person
+}
+
+fn main() {
+    let a: Felt = 1;
+    let b: Felt = 2;
+
+    let c: Felt = (a + -b);
+    let d: [[Felt; 2]; 2] = [[a, b], [a, b]];
+    d[0] = [a + 1, b + 1];
+    d[0][0] = c;
+    let e: Felt = d[0][1];
+
+    let t: bool = a as bool;
+    let f: bool = false;
+
+    let t_eq_f: bool = f == t;
+    let t_neq_f: bool = f != t;
+
+    let r: bool = !t && f;
+
+    fn max_2(a: Felt, b: Felt) -> Felt {
+        return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
+    }
+    let min_a_b: Felt = min(a, b);
+    let max2_a_b: Felt = max_2(a, b);
+
+    let person: Person = new Person{
+        year_of_birth: 1990,
+        age_height: [[1, 1], [1, 1]]
+    };
+    let persons: [Person; 1] = [person];
+    persons[0] = person;
+
+    let family: Family = new Family{
+        father: person,
+        mother: person,
+        children: [person, person]
+    };
+
+    (person.set_age)(10);
+    person.set_height(20);
+    person.set_year_of_birth(2000);
+    let age: Felt = person.get_age();
+    let age_via_trait: Felt = person.age();
+    let height: Felt = ((person.get_height)());
+    let year_of_birth: Felt = person.get_year_of_birth();
 }

@@ -54,7 +54,6 @@ impl Display for IdentId {
     }
 }
 
-
 pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
     (IdentId::TYPE_UNKNOWN, "unknown"),
     (IdentId::TYPE_BOOL, "bool"),

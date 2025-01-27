@@ -14,7 +14,6 @@ pub use r#struct::*;
 pub use r#trait::*;
 
 use crate::{AstVisitor, IdentId, NodeType};
-use strum::EnumIs;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum DefinitionNode {
@@ -28,11 +27,11 @@ pub enum DefinitionNode {
 impl DefinitionNode {
     pub fn node_type(&self) -> NodeType {
         match self {
-            DefinitionNode::Function(_) => NodeType::FunctionDef,
-            DefinitionNode::Struct(_) => NodeType::StructDef,
-            DefinitionNode::Enum(_) => NodeType::EnumDef,
-            DefinitionNode::Impl(_) => NodeType::ImplDef,
-            DefinitionNode::Trait(_) => NodeType::TraitDef,
+            Self::Function(node) => node.node_type(),
+            Self::Struct(node) => node.node_type(),
+            Self::Enum(node) => node.node_type(),
+            Self::Impl(node) => node.node_type(),
+            Self::Trait(node) => node.node_type(),
         }
     }
 }

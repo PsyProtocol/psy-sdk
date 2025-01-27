@@ -929,6 +929,7 @@ name = "qed-ast"
 version = "0.1.0"
 dependencies = [
  "enum-as-inner",
+ "indexmap",
  "qed-common",
  "smol_str",
  "strum",
@@ -956,8 +957,11 @@ dependencies = [
  "clap",
  "dotenv",
  "plonky2",
+ "qed-ast",
  "qed-builder",
+ "qed-fmt",
  "qed-interpreter",
+ "qed-parser",
  "qed-sema",
  "qed-utils",
  "qed-vm",
@@ -995,7 +999,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "either",
+ "enum-as-inner",
  "hashbrown 0.15.0",
+ "indexmap",
  "insta",
  "plonky2",
  "qed-ast",
@@ -1027,6 +1033,7 @@ dependencies = [
 name = "qed-lexer"
 version = "0.1.0"
 dependencies = [
+ "home",
  "logos",
  "thiserror",
 ]
@@ -1070,8 +1077,11 @@ name = "qed-sema"
 version = "0.1.0"
 dependencies = [
  "either",
+ "enum-as-inner",
+ "indexmap",
  "once_cell",
  "qed-ast",
+ "qed-builder",
  "qed-common",
  "qed-parser",
  "qed-utils",

@@ -1,6 +1,6 @@
-use crate::{circuit_builder::ToFelts, felt::context_felt::ContextFelt};
+use crate::{circuit_builder::ToFelts, felt::ContextFelt};
 
-pub trait Context<F: ContextFelt> {
+pub trait DPNContext<F: ContextFelt> {
     fn get_value(&mut self, a: F) -> u64;
     fn get_bool_value(&mut self, a: F) -> bool;
     fn op_cast_u32(&mut self, a: F) -> F;
@@ -47,6 +47,9 @@ pub trait Context<F: ContextFelt> {
     fn assert_true(&mut self, left: F, message: &'static str);
     fn cset<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V;
     fn cset_state<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V;
+    fn cset_state_at<V: ToFelts<F>>(&mut self, sub_index: F, new_value: V) -> V;
+    fn cset_state_hash_at(&mut self, slot_index: F, new_value: [F; 4]) -> [F; 4];
+    fn get_state_hash_at(&mut self, slot_index: F) -> [F; 4];
     fn cset_str<V: ToFelts<F>>(&mut self, left: &'static str, old_value: V, new_value: V) -> V;
     fn start_if_block(&mut self, condition: F);
     fn start_else_if_block(&mut self, condition: F);

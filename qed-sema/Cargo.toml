@@ -14,3 +14,6 @@ once_cell = { workspace = true }
 tracing = { workspace = true }
 either = { workspace = true }
 qed-utils = { workspace = true }
+indexmap = { workspace = true }
+qed-builder = { workspace = true }
+enum-as-inner = { workspace = true }

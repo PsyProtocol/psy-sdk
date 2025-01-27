@@ -1,4 +1,4 @@
-use crate::{AstVisitor, BlockNode, ExprId, StmtId};
+use crate::{AstVisitor, BlockNode, ExprId, NodeType, StmtId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Case {
@@ -17,4 +17,10 @@ pub struct IfNode {
     pub if_branch: Case,
     pub elseif_branch: Vec<Case>,
     pub else_branch: Option<StmtId>,
+}
+
+impl IfNode {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::IfStmt
+    }
 }
