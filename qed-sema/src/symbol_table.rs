@@ -370,13 +370,6 @@ impl<T: Clone> SymbolTable<T> {
         None
     }
 
-    pub fn find_module(&self, name: IdentId) -> Option<ModuleId> {
-        self.modules
-            .iter()
-            .position(|x| x.name == name)
-            .map(ModuleId)
-    }
-
     pub fn resolve_use(&self, use_path: &UsePath) -> Option<Vec<(&TypeKey, &TypeId)>> {
         let mut src_module = match use_path.kind {
             UseKind::MODULE(name) => ModuleId(self.modules.iter().position(|x| x.name == name)?),
