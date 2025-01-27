@@ -1,4 +1,4 @@
-use qed_ast::IdentId;
+use qed_ast::{IdentId, NodeType};
 
 use crate::{CheckedFunctionNode, ScopeId, TypeId};
 
@@ -9,4 +9,10 @@ pub struct CheckedImplNode {
     pub ty: IdentId,
     pub body: Vec<CheckedFunctionNode>,
     pub scope_id: ScopeId,
+}
+
+impl CheckedImplNode {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::ImplDef
+    }
 }

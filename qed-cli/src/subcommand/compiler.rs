@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_ast::{AstVisitor, IdentId, ModuleId, Program};
+use qed_ast::{AstVisitor, IdentId, ModuleId, NodeType, Program};
 use qed_builder::{
     exec_circuit_function_vm, DPNContext, IExecutionContext, QEDCompileResult, QExecContext,
-    SymFeltRef,
+    SymFeltRef, ToFelts,
 };
 use qed_fmt::{Formatter, FormatterContext};
 use qed_interpreter::{Interpreter, PreprocessorContext, StorageProcessor};
@@ -61,13 +61,20 @@ pub fn run(args: CompilerArgs) -> anyhow::Result<()> {
     }
 
     let res = interpreter
-        .interpret_function(&mut typechecker, &artifact, &node, parameters, &mut symbols)?
+        .interpret_function(
+            &mut typechecker,
+            &artifact,
+            &node,
+            parameters,
+            &mut symbols,
+            Some(NodeType::Module),
+        )?
         .expect("return value not found");
 
     let ctx = interpreter.context.clone();
 
     let compile_result =
-        QEDCompileResult::compile_exec("test".to_owned(), &ctx.store, &ctx, &res.to_array());
+        QEDCompileResult::compile_exec("test".to_owned(), &ctx.store, &ctx, &res.to_felts());
 
     println!("compile_result: {:?}", compile_result);
     Ok(())

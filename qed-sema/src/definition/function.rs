@@ -1,4 +1,4 @@
-use qed_ast::{BlockNode, IdentId};
+use qed_ast::{BlockNode, IdentId, NodeType};
 
 use crate::{CheckedBlockNode, ScopeId, TypeId};
 
@@ -11,4 +11,10 @@ pub struct CheckedFunctionNode {
     pub return_type: Option<TypeId>,
     pub scope_id: ScopeId,
     pub is_pub: bool,
+}
+
+impl CheckedFunctionNode {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::FunctionDef
+    }
 }

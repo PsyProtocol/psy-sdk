@@ -17,7 +17,7 @@ pub use storage::*;
 pub use variable::*;
 
 use crate::{AstVisitor, DefId, DefinitionNode, ExprId, ExprNode, NodeType};
-use strum::{EnumIs, EnumTryAs};
+use strum::EnumTryAs;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum StmtNode {
@@ -35,15 +35,15 @@ pub enum StmtNode {
 impl StmtNode {
     pub fn node_type(&self) -> NodeType {
         match self {
-            StmtNode::If(_) => NodeType::IfStmt,
-            StmtNode::While(_) => NodeType::WhileStmt,
-            StmtNode::Block(_) => NodeType::BlockStmt,
-            StmtNode::Assignment(_) => NodeType::AssignmentStmt,
-            StmtNode::Variable(_) => NodeType::VariableStmt,
+            StmtNode::If(node) => node.node_type(),
+            StmtNode::While(node) => node.node_type(),
+            StmtNode::Block(node) => node.node_type(),
+            StmtNode::Assignment(node) => node.node_type(),
+            StmtNode::Variable(node) => node.node_type(),
             StmtNode::Definition(_) => NodeType::DefinitionStmt,
             StmtNode::Expression(_) => NodeType::ExpressionStmt,
-            StmtNode::Return(_) => NodeType::ReturnStmt,
-            StmtNode::Storage(_) => NodeType::StorageStmt,
+            StmtNode::Return(node) => node.node_type(),
+            StmtNode::Storage(node) => node.node_type(),
         }
     }
 }

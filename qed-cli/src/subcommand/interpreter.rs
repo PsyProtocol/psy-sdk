@@ -1,7 +1,7 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_builder::{
     exec_circuit_function_vm, DPNContext, IExecutionContext, QEDCompileResult, QExecContext,
-    SymFeltRef,
+    SymFeltRef, ToFelts,
 };
 use qed_interpreter::Interpreter;
 use qed_sema::{CheckedValue, CheckedValueNode, CheckedValueOrNode, SymbolTable, TypeChecker};
@@ -27,20 +27,14 @@ pub fn run(args: InterpreterArgs) -> anyhow::Result<()> {
             args.file.into(),
             params_interpret,
             &mut symbols,
-        )
-        .expect("interpret failed")
+        )?
         .expect("return value not found");
-    interpreter.inputs.push(2);
-    interpreter.inputs.push(3);
+    interpreter.inputs.extend(args.params);
 
     let ctx = interpreter.context.clone();
 
-    let compile_result = QEDCompileResult::compile_exec(
-        "test".to_owned(),
-        &ctx.store,
-        &ctx,
-        &[res.try_as_felt().unwrap()],
-    );
+    let compile_result =
+        QEDCompileResult::compile_exec("test".to_owned(), &ctx.store, &ctx, &res.to_felts());
 
     for (i, def) in compile_result.definitions.iter().enumerate() {
         println!("def{}: {:?}", i, def);

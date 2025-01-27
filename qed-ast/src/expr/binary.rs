@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{AstVisitor, ExprId};
+use crate::{AstVisitor, ExprId, NodeType};
 
 #[derive(Copy, Debug, Clone, PartialEq)]
 pub enum BinaryOperator {
@@ -64,5 +64,9 @@ impl Display for BinaryOperator {
 impl BinaryNode {
     pub fn new(lhs: ExprId, operator: BinaryOperator, rhs: ExprId) -> Self {
         Self { lhs, operator, rhs }
+    }
+
+    pub fn node_type(&self) -> NodeType {
+        NodeType::BinaryExpr
     }
 }

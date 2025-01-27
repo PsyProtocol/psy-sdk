@@ -46,7 +46,7 @@ impl From<ModuleId> for NodeId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumAsInner)]
+#[derive(Copy, Debug, Clone, PartialEq, EnumAsInner)]
 pub enum NodeType {
     PathExpr,
     ValueExpr,

@@ -304,18 +304,14 @@ Term: ExprNode<F> = {
     ValueExpression,
     PathExpression,
 }
-//tyree 1
 PathExpression: ExprNode<F> = {
-    // Single
     <variable: IdentifierOrSelf> => ExprNode::Path(PathNode {
         root: None,
         segments: vec![],
         target: variable,
     }),
-
-    // Multi: root + segments + target
     <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: Identifier> => {
-        let mut segment_ids = segments.into_iter().map(|(seg)| seg).collect::<Vec<_>>();
+        let mut segment_ids = segments.into_iter().map(|seg| seg).collect::<Vec<_>>();
         ExprNode::Path(PathNode {
             root: Some(root),
             segments: segment_ids,
@@ -326,7 +322,6 @@ PathExpression: ExprNode<F> = {
 Expression: ExprNode<F> = {
     #[precedence(level="1")]
     Term,
-
 
     //#[precedence(level="2")]
     //todo: Temporarily disable generic capabilities

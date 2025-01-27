@@ -2,6 +2,7 @@ use std::convert::AsMut;
 use std::convert::AsRef;
 use std::fmt::{Display, Formatter};
 
+use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::IdentId;
 use qed_builder::ContextFelt;
@@ -17,7 +18,7 @@ use crate::{
     CheckedTraitNode, ScopeId,
 };
 use qed_common::define_arena_id;
-use strum::{EnumIs, EnumTryAs};
+use strum::EnumTryAs;
 
 define_arena_id!(TypeId);
 
@@ -59,7 +60,7 @@ pub struct CheckedFeltNode {
     pub implementations: Vec<TypeId>,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumIs, EnumTryAs)]
+#[derive(Debug, Clone, PartialEq, EnumAsInner, EnumTryAs)]
 pub enum Type {
     Unknown,
     VOID,

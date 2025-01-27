@@ -1,4 +1,4 @@
-use crate::{AstVisitor, BlockNode, IdentId, StmtId, UncheckedType};
+use crate::{AstVisitor, BlockNode, IdentId, NodeType, StmtId, UncheckedType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionNode {
@@ -9,4 +9,10 @@ pub struct FunctionNode {
     pub return_type: Option<UncheckedType>,
     pub is_extern: bool,
     pub is_pub: bool,
+}
+
+impl FunctionNode {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::FunctionDef
+    }
 }

@@ -4,13 +4,15 @@ use std::{
 };
 
 use either::Either;
+use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::{ExprId, IdentId, NodeType};
-pub use strum::{EnumIs, EnumTryAs};
+use qed_builder::{ContextFelt, ToFelts};
+pub use strum::EnumTryAs;
 
 use crate::{TypeId, BOOL_TYPE, FELT_TYPE};
 
-#[derive(Clone, Debug, PartialEq, EnumIs, EnumTryAs)]
+#[derive(Clone, Debug, PartialEq, EnumAsInner, EnumTryAs)]
 pub enum CheckedValueNode<F> {
     Felt(F),
     Bool(F),
@@ -19,7 +21,20 @@ pub enum CheckedValueNode<F> {
     Type(TypeId),
 }
 
-#[derive(Clone, Debug, PartialEq, EnumIs, EnumTryAs)]
+impl<F> CheckedValueNode<F> {
+    pub fn node_type(&self) -> NodeType {
+        NodeType::ValueExpr
+        // match self {
+        //     CheckedValueNode::Felt(_) => NodeType::FeltValue,
+        //     CheckedValueNode::Bool(_) => NodeType::BoolValue,
+        //     CheckedValueNode::Array(_, _) => NodeType::ArrayValue,
+        //     CheckedValueNode::Struct(_, _) => NodeType::StructValue,
+        //     CheckedValueNode::Type(_) => NodeType::TypeValue,
+        // }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, EnumAsInner, EnumTryAs)]
 pub enum CheckedValue<F> {
     Felt(F),
     Bool(F),
@@ -28,22 +43,22 @@ pub enum CheckedValue<F> {
     Type(TypeId),
 }
 
-impl<F: Clone + From<u32>> CheckedValue<F> {
-    pub fn to_array(&self) -> Vec<F> {
+impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValue<F> {
+    fn to_felts(&self) -> Vec<F> {
         match self {
             CheckedValue::Felt(f) => vec![f.clone()],
             CheckedValue::Bool(b) => vec![b.clone()],
             CheckedValue::Array(type_id, values) => {
                 let mut result = Vec::new();
                 for value in values {
-                    result.extend(value.to_array());
+                    result.extend(value.to_felts());
                 }
                 result
             }
             CheckedValue::Struct(type_id, fields) => {
                 let mut result = Vec::new();
                 for (_, value) in fields {
-                    result.extend(value.to_array());
+                    result.extend(value.to_felts());
                 }
                 result
             }
@@ -51,6 +66,10 @@ impl<F: Clone + From<u32>> CheckedValue<F> {
                 unreachable!()
             }
         }
+    }
+
+    fn from_felts(felts: &[F]) -> Self {
+        todo!()
     }
 }
 

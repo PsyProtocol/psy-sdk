@@ -999,6 +999,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "either",
+ "enum-as-inner",
  "hashbrown 0.15.0",
  "indexmap",
  "insta",
@@ -1076,6 +1077,7 @@ name = "qed-sema"
 version = "0.1.0"
 dependencies = [
  "either",
+ "enum-as-inner",
  "indexmap",
  "once_cell",
  "qed-ast",

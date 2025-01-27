@@ -14,7 +14,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         ctx.push_node_id(NodeId::from(expr_id));
-        let res = match ctx.expression(expr_id).node_type() {
+        let res = match dbg!(ctx.expression(expr_id).node_type()) {
             NodeType::PathExpr => self.visit_path(expr_id, ctx)?,
             NodeType::ValueExpr => self.visit_value(expr_id, ctx)?,
             NodeType::BinaryExpr => self.visit_binary(expr_id, ctx)?,

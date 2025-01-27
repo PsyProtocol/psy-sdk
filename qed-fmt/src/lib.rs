@@ -245,7 +245,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
     ) -> Result<Self::ExprResult, Self::Error> {
         let node = ctx.expression(expr_id).as_path().unwrap();
         Ok(format!(
-            "{}{}{}{}",
+            "{}{}{}",
             node.root
                 .map(|r| format!("{}::", ctx.ident(r)))
                 .unwrap_or("".to_string()),
@@ -254,7 +254,6 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
                 .map(|&s| ctx.ident(s).to_string())
                 .collect::<Vec<_>>()
                 .join("::"),
-            if node.root.is_some() { "::" } else { "" },
             ctx.ident(node.target).to_string()
         ))
     }
@@ -553,7 +552,12 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
         let mut s = format!(
-            "impl{} {}{} {{",
+            "impl{} {}{}{} {{",
+            if let Some(trait_name) = trait_name {
+                format!(" {} for", &ctx.ident(trait_name.clone()))
+            } else {
+                "".to_string()
+            },
             generic_parameters,
             &ctx.ident(ty.clone()),
             generic_parameters

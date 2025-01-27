@@ -13,6 +13,4 @@ pub struct InterpreterArgs {
 pub struct CompilerArgs {
     #[clap(short, env, long)]
     pub file: String,
-    #[clap(short, env, long)]
-    pub function: String,
 }

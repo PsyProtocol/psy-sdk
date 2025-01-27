@@ -1,8 +1,8 @@
+use enum_as_inner::EnumAsInner;
 use qed_ast::IdentId;
 use std::ops::{ControlFlow, FromResidual, Try};
-use strum::EnumIs;
 
-#[derive(Clone, Debug, PartialEq, EnumIs)]
+#[derive(Clone, Debug, PartialEq, EnumAsInner)]
 pub enum ControlState<T> {
     Normal,
     Return(T),
