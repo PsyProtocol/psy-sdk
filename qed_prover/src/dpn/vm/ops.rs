@@ -169,8 +169,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
 
     }
     pub fn resolve_target_array_ref(&self, id: u64, index_id: u64) -> Target {
+
         let (t, index) = decode_indexed_op_id(id);
-        let ind_real = self.constant_targets.get(&index).unwrap();
+        println!("t: {}, index: {}",t, index);
+        let (t1, index1) = decode_indexed_op_id(index_id);
+        println!("t1: {}, index1: {}",t1, index1);
+        let ind_real = self.constant_targets.get(&index1).unwrap();
         //let ind_real = self.resolve_target(index_id);
         match t {
             DPNBuiltInDataType::HashOut => {

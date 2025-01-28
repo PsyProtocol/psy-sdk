@@ -8,6 +8,10 @@ use plonky2::{
 use super::select::CircuitBuilderSelectHelpers;
 
 pub trait CircuitBuilderConnectHelpers<F: RichField + Extendable<D>, const D: usize> {
+    // does nothing, used for debugging
+    fn connect_nop(&mut self, x: Target, y: Target);
+    // does nothing, used for debugging
+    fn connect_hashes_nop(&mut self, x: HashOutTarget, y: HashOutTarget);
     fn connect_if_true(&mut self, condition: BoolTarget, x: Target, y: Target);
     fn connect_if_false(&mut self, condition: BoolTarget, x: Target, y: Target);
     fn connect_hashes_if_true(&mut self, condition: BoolTarget, x: HashOutTarget, y: HashOutTarget);
@@ -192,5 +196,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderConnectHelpers<
             .collect::<Vec<_>>();
         let combined = [tpl_start, template_middle.to_vec(), tpl_end].concat();
         self.connect_vec(target_array, &combined);
+    }
+    
+    fn connect_nop(&mut self, x: Target, y: Target) {
+        
+    }
+    
+    fn connect_hashes_nop(&mut self, x: HashOutTarget, y: HashOutTarget) {
+        
     }
 }

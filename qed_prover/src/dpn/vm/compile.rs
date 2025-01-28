@@ -32,15 +32,6 @@ pub struct QEDContractFunctionBuilderGadget {
     pub tx_ctx_header: DapenCFCUserTransactionInputContextGadget,
     pub outputs: Vec<Target>,
 }
-/*
-impl QEDContractFunctionBuilderGadget {
-    pub fn new() -> Self {
-        Self {
-            cmd_results: Vec::new(),
-            state_reader
-        }
-    }
-}*/
 impl QEDContractFunctionBuilderGadget {
     pub fn add_virtual_to<
         H: AlgebraicHasher<F>,

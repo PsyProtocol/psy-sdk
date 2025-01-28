@@ -29,7 +29,7 @@ where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     pub fn new(
-        coset_gate: &GateRef<C::F, D>,
+        //coset_gate: &GateRef<C::F, D>,
         fn_def: &DPNFunctionCircuitDefinition,
         contract_state_tree_height: usize,
     ) -> Self {
@@ -48,7 +48,7 @@ where
 
         
         builder.register_public_inputs(&final_hash.elements);
-        builder.add_city_common_gates(Some(coset_gate.clone()));
+        //builder.add_city_common_gates(Some(coset_gate.clone()));
         pad_circuit_degree::<C::F, D>(&mut builder, 12);
 
         let circuit_data = builder.build::<C>();
@@ -71,10 +71,8 @@ where
         
         pw.set_target_arr(&self.inputs, &cfc_input.inputs);
         self.fn_builder_gadget.tx_ctx_header.set_witness(&mut pw, &cfc_input.tx_input_ctx);
-
-
         self.fn_builder_gadget.state_reader.set_witness(&mut pw, cfc_input, &self.fn_def);
-        //todo!("implement set witness for state commands");
+        
         self.circuit_data.prove(pw).unwrap()
     }
 }
