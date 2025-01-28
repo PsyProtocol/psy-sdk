@@ -257,7 +257,7 @@ impl QEDContractFunctionBuilderGadget {
                 .call_data
                 .inputs_length,
         );
-        builder.connect_hashes_nop(
+        builder.connect_hashes(
             inputs_hash,
             self.tx_ctx_header
                 .transaction_call_start_ctx
