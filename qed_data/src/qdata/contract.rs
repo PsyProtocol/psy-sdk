@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
-use qed_crypto::hash::traits::{hasher::FieldHasher, qhashable::QFieldHashable};
+use qed_crypto::hash::traits::{hasher::{FieldHasher, FieldQHasher}, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
@@ -59,7 +59,7 @@ impl<F: RichField> ToQFelts<F> for QEDContractLeaf<F> {
 
 
 impl<F: RichField> QFieldHashable<F> for QEDContractLeaf<F> {
-    fn qfhash<H: FieldHasher<QHashOut<F>, F>>(&self) -> QHashOut<F> {
+    fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         H::hash_many(&[
             self.deployer.0.elements[0],
             self.deployer.0.elements[1],

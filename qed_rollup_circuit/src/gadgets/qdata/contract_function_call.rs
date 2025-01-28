@@ -1,16 +1,16 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_common_circuit::{builder::core::CircuitBuilderHelpersCore, traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor}};
 use qed_core::config::network_constants::DEFERRED_CALL_MAGIC;
-use qed_data::dpn::proving_session::DPNProvingSessionDeferredMethodCall;
+use qed_data::dpn::proving_session::DPNProvingSessionSimpleMethodCall;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct DPNProvingSessionDeferredMethodCallGadget {
+pub struct DPNProvingSessionSimpleMethodCallGadget {
     pub contract_id: Target,
     pub method_id: Target,
     pub inputs: Vec<Target>,
 }
 
-impl DPNProvingSessionDeferredMethodCallGadget {
+impl DPNProvingSessionSimpleMethodCallGadget {
     pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         input_count: usize,
@@ -26,7 +26,7 @@ impl DPNProvingSessionDeferredMethodCallGadget {
         }
         
     }
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &DPNProvingSessionDeferredMethodCall<F>) {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &DPNProvingSessionSimpleMethodCall<F>) {
         witness.set_target(self.contract_id, target.contract_id);
         witness.set_target(self.method_id, target.method_id);
         witness.set_target_arr(&self.inputs, &target.inputs);
@@ -57,12 +57,12 @@ impl DPNProvingSessionDeferredMethodCallGadget {
         final_hash
     }
 }
-impl AlgebraicHashableTarget for DPNProvingSessionDeferredMethodCallGadget {
+impl AlgebraicHashableTarget for DPNProvingSessionSimpleMethodCallGadget {
     fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }
-impl ToTargets for DPNProvingSessionDeferredMethodCallGadget {
+impl ToTargets for DPNProvingSessionSimpleMethodCallGadget {
     fn to_targets(&self) -> Vec<Target> {  
         let mut targets = Vec::with_capacity(2+self.inputs.len());
         targets.push(self.contract_id);
@@ -71,10 +71,10 @@ impl ToTargets for DPNProvingSessionDeferredMethodCallGadget {
         targets
     }
 }
-impl FromTargets for DPNProvingSessionDeferredMethodCallGadget {
+impl FromTargets for DPNProvingSessionSimpleMethodCallGadget {
     fn from_targets(targets: &[Target]) -> Self {
         if targets.len() < 2 {
-            panic!("Invalid number of elements for DPNProvingSessionDeferredMethodCall");
+            panic!("Invalid number of elements for DPNProvingSessionSimpleMethodCall");
         }
         Self {
             contract_id: targets[0],
@@ -85,14 +85,14 @@ impl FromTargets for DPNProvingSessionDeferredMethodCallGadget {
 }
 
 
-impl<F: RichField> WitnessValueFor<DPNProvingSessionDeferredMethodCallGadget, F, true> for DPNProvingSessionDeferredMethodCall<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &DPNProvingSessionDeferredMethodCallGadget) {
+impl<F: RichField> WitnessValueFor<DPNProvingSessionSimpleMethodCallGadget, F, true> for DPNProvingSessionSimpleMethodCall<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &DPNProvingSessionSimpleMethodCallGadget) {
         target.set_witness(witness, self);
     }
 }
 
-impl<F: RichField> WitnessValueFor<DPNProvingSessionDeferredMethodCallGadget, F, false> for DPNProvingSessionDeferredMethodCall<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &DPNProvingSessionDeferredMethodCallGadget) {
+impl<F: RichField> WitnessValueFor<DPNProvingSessionSimpleMethodCallGadget, F, false> for DPNProvingSessionSimpleMethodCall<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &DPNProvingSessionSimpleMethodCallGadget) {
         target.set_witness(witness, self);
     }
 }

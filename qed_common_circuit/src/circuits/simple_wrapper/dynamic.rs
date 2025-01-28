@@ -36,7 +36,7 @@ where
         let verifier_data_target = builder.add_virtual_verifier_data(inner_verifier_data_cap_height);
         builder.verify_proof::<C>(&proof_target, &verifier_data_target, &inner_common_data);
         
-        let expected_fingerprint = builder.constant_whash(inner_fingerprint);
+        let expected_fingerprint = builder.constant_qhash(inner_fingerprint);
         let actual_fingerprint = builder.get_circuit_fingerprint::<C::Hasher>(&verifier_data_target);
         builder.connect_hashes(expected_fingerprint, actual_fingerprint);
         builder.register_public_inputs(&proof_target.public_inputs);

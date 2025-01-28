@@ -2,7 +2,7 @@ use kvq::memory::{arc_imm::KVQArcImmutableStoreWrapper, simple::KVQSimpleMemoryB
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, hash::hash_types::RichField};
 use qed_core::{config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT, data::qhashout::QHashOut};
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
-use qed_data::{dpn::proving_session::DPNProvingSessionDeferredMethodCall, qdata::checkpoint::QEDCheckpointLeaf};
+use qed_data::{dpn::proving_session::DPNProvingSessionSimpleMethodCall, qdata::checkpoint::QEDCheckpointLeaf};
 use serde::{Deserialize, Serialize};
 
 use crate::{config::store_config::{QEDDeltaMerkleProof, UserContractTreeStore}, models::{kvq_merkle::model::{KVQMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelReaderCore}, user::contract_state_tree::UserContractStateTreeId}, store::imm::{cache::QEDCmdStoreWithCache, cmd::{QSRCmdGetContractLeafData, QSRCmdGetUserLeafData, QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{DPNReadOtherUserLeafMerkleProof, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderSync};
@@ -50,7 +50,7 @@ pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorS
     pub state_tree_store: KVQSimpleMemoryBackingStore,
     pub active_tx_session_data_store: KVQSimpleMemoryBackingStore,
 
-    pub deferred_tx_debt_store: TransactionDebtTreeRef<DPNProvingSessionDeferredMethodCall<F>, F, DEFERRED_TRANSACTION_TREE_HEIGHT, LPS_DEFERRED_TRANSACTION_TREE_ID>,
+    pub deferred_tx_debt_store: TransactionDebtTreeRef<DPNProvingSessionSimpleMethodCall<F>, F, DEFERRED_TRANSACTION_TREE_HEIGHT, LPS_DEFERRED_TRANSACTION_TREE_ID>,
 
     //pub delta_merkle_proof_cache: Vec<QEDLocalStateSet<F>>,
 
@@ -172,7 +172,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>> QEDLocalProvingSessionStor
         )
 
     }
-    pub fn add_deferred_tx_to_debt(&mut self, tx: DPNProvingSessionDeferredMethodCall<GF>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
+    pub fn add_deferred_tx_to_debt(&mut self, tx: DPNProvingSessionSimpleMethodCall<GF>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
         self.deferred_tx_debt_store.add_tx_debt(&mut self.active_tx_session_data_store, tx)
     }
     pub fn get_deferred_tx_leaf(&self, leaf_index: GF) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>>{

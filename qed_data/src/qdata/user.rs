@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
-use qed_crypto::hash::traits::{hasher::FieldHasher, qhashable::QFieldHashable};
+use qed_crypto::hash::traits::{hasher::{FieldHasher, FieldQHasher}, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 
 
@@ -75,7 +75,7 @@ impl<F: RichField> ToQFelts<F> for QEDUserLeaf<F> {
 }
 
 impl<F: RichField> QFieldHashable<F> for QEDUserLeaf<F> {
-    fn qfhash<H: FieldHasher<QHashOut<F>, F>>(&self) -> QHashOut<F> {
+    fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         H::hash_many(&[
             self.public_key.0.elements[0],
             self.public_key.0.elements[1],

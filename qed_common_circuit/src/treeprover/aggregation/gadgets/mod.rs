@@ -229,14 +229,14 @@ impl AggStateTransitionProofValidityGadget {
         fingerprint: &TPCircuitFingerprintConfig<F>,
     ) -> HashOutTarget {
         let allowed_fingerprints = [
-            builder.constant_whash(fingerprint.aggregator_fingerprint),
-            builder.constant_whash(fingerprint.leaf_fingerprint),
-            builder.constant_whash(fingerprint.dummy_fingerprint),
+            builder.constant_qhash(fingerprint.aggregator_fingerprint),
+            builder.constant_qhash(fingerprint.leaf_fingerprint),
+            builder.constant_qhash(fingerprint.dummy_fingerprint),
         ];
         let actual_fingerprint = builder.get_circuit_fingerprint::<H>(verifier_data_target);
         builder.connect_hashes_enum(actual_fingerprint, &allowed_fingerprints);
         let allowed_circuit_hashes_root =
-            builder.constant_whash(fingerprint.allowed_circuit_hashes_root);
+            builder.constant_qhash(fingerprint.allowed_circuit_hashes_root);
         let pub_gadget = AggStateTransitionProofPublicInputsGadget::from_public_inputs(
             &proof_target.public_inputs,
         );
@@ -262,14 +262,14 @@ impl AggStateTransitionWithEventsProofValidityGadget {
         fingerprint: &TPCircuitFingerprintConfig<F>,
     ) -> Self {
         let allowed_fingerprints = [
-            builder.constant_whash(fingerprint.aggregator_fingerprint),
-            builder.constant_whash(fingerprint.leaf_fingerprint),
-            builder.constant_whash(fingerprint.dummy_fingerprint),
+            builder.constant_qhash(fingerprint.aggregator_fingerprint),
+            builder.constant_qhash(fingerprint.leaf_fingerprint),
+            builder.constant_qhash(fingerprint.dummy_fingerprint),
         ];
         let actual_fingerprint = builder.get_circuit_fingerprint::<H>(verifier_data_target);
         builder.connect_hashes_enum(actual_fingerprint, &allowed_fingerprints);
         let allowed_circuit_hashes_root =
-            builder.constant_whash(fingerprint.allowed_circuit_hashes_root);
+            builder.constant_qhash(fingerprint.allowed_circuit_hashes_root);
         let pub_gadget = AggStateTransitionWithEventsProofPublicInputsGadget::from_public_inputs(
             &proof_target.public_inputs,
         );

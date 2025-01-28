@@ -19,7 +19,7 @@ use qed_common_circuit::{
 use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::base_types::hash256::Hash256};
 use qed_crypto::hash::core::sha256;
 use qed_rollup_circuit::gadgets::qdata::{
-    checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_function_call::DPNProvingSessionDeferredMethodCallGadget, user::QEDUserLeafGadget
+    checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::QEDUserLeafGadget
 };
 use qedlang_core::dpn::ops::state_cmd::data::DPNStateCmd;
 use serde::{Deserialize, Serialize};
@@ -705,7 +705,7 @@ impl StateReaderGadget {
         builder: &mut CircuitBuilder<F, D>,
         dpn: &SimpleDPNBuilder<F, D>,
         cmd: &DPNStateCmd<u64>,
-    ) {
+    ) -> Vec<Target> {
         let value = match cmd {
             DPNStateCmd::SetContractStateSlotHash(c) => {
                 let dmp = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(
@@ -956,7 +956,7 @@ impl StateReaderGadget {
                 let contract_id_target = dpn.resolve_target(c.contract_id);
                 let method_id_target = dpn.resolve_target(c.method_id);
                 let input_targets = dpn.resolve_targets(&c.input_args);
-                let deferred_method_call_gadget = DPNProvingSessionDeferredMethodCallGadget {
+                let deferred_method_call_gadget = DPNProvingSessionSimpleMethodCallGadget {
                     contract_id: contract_id_target,
                     method_id: method_id_target,
                     inputs: input_targets,
@@ -979,5 +979,6 @@ impl StateReaderGadget {
                 
             },
         };
+        value
     }
 }

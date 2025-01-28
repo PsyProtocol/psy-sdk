@@ -60,17 +60,41 @@ pub trait FieldHasher<Hash, F> {
 }
 
 pub trait FieldQHasher<F: RichField> {
-    fn w_hash_many(elements: &[F]) -> QHashOut<F>;
-    fn w_hash_many_pad(elements: &[F]) -> QHashOut<F>;
+    fn q_hash_many(elements: &[F]) -> QHashOut<F>;
+    fn q_hash_many_pad(elements: &[F]) -> QHashOut<F>;
+    fn q_two_to_one(left: QHashOut<F>, right: QHashOut<F>) -> QHashOut<F> {
+        Self::q_hash_many(&[
+            left.0.elements[0],
+            left.0.elements[1],
+            left.0.elements[2],
+            left.0.elements[3],
+
+
+            right.0.elements[0],
+            right.0.elements[1],
+            right.0.elements[2],
+            right.0.elements[3],
+        ])
+    }
 }
 impl<F: RichField, FH: FieldHasher<HashOut<F>, F>> FieldQHasher<F> for FH {
-    fn w_hash_many(elements: &[F]) -> QHashOut<F> {
+    fn q_hash_many(elements: &[F]) -> QHashOut<F> {
         QHashOut(FH::hash_many(elements))
     }
 
-    fn w_hash_many_pad(elements: &[F]) -> QHashOut<F> {
+    fn q_hash_many_pad(elements: &[F]) -> QHashOut<F> {
         QHashOut(FH::hash_many_pad(elements))
     }
+}
+
+impl<FQH: FieldQHasher<F>, F: RichField> FieldHasher<QHashOut<F>, F> for FQH {
+    fn hash_many(elements: &[F]) -> QHashOut<F> {
+        Self::q_hash_many(elements)
+    }
+    fn hash_many_pad(elements: &[F]) -> QHashOut<F> {
+        Self::q_hash_many_pad(elements)
+    }
+
 }
 pub struct PoseidonHasher;
 
@@ -191,7 +215,7 @@ impl<F: RichField> FieldHasher<HashOut<F>, F> for PoseidonHash {
         PoseidonHash::hash_pad(elements)
     }
 }
-impl<F: RichField> FieldHasher<QHashOut<F>, F> for PoseidonHash {
+impl<F: RichField> FieldQHasher<F> for PoseidonHash {
     fn hash_many(elements: &[F]) -> QHashOut<F> {
         QHashOut(PoseidonHash::hash_no_pad(elements))
     }
@@ -219,7 +243,8 @@ impl<F: RichField, H: Hasher<F, Hash = HashOut<F>>> FieldHasher<HashOut<F>, F> f
         H::hash_pad(elements)
     }
 }
-impl<F: RichField, H: Hasher<F, Hash = HashOut<F>>> FieldHasher<QHashOut<F>, F> for H {
+/* 
+impl<F: RichField, H: Hasher<F, Hash = HashOut<F>>> FieldQHasher<F> for H {
     fn hash_many(elements: &[F]) -> QHashOut<F> {
         QHashOut(H::hash_no_pad(elements))
     }
@@ -228,7 +253,7 @@ impl<F: RichField, H: Hasher<F, Hash = HashOut<F>>> FieldHasher<QHashOut<F>, F> 
         QHashOut(H::hash_pad(elements))
     }
 }
-
+*/
 fn iterate_merkle_hasher<Hash: PartialEq, Hasher: MerkleHasher<Hash>>(
     mut current: Hash,
     reverse_level: usize,

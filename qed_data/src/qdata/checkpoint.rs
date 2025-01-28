@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::{HashOut, RichField};
 use qed_core::{config::network_constants::DA_CHALLENGE_WINDOW, data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
-use qed_crypto::hash::traits::{hasher::FieldHasher, qhashable::QFieldHashable};
+use qed_crypto::hash::traits::{hasher::{FieldHasher, FieldQHasher}, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 
 use super::pm_reward_commitment::PMRewardCommitment;
@@ -96,7 +96,7 @@ impl<F: RichField> QFeltSized for QEDCheckpointLeafStats<F> {
     }
 }
 impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafStats<F> {
-    fn qfhash<H: FieldHasher<QHashOut<F>, F>>(&self) -> QHashOut<F> {
+    fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         let felts = self.to_qfelts();
         H::hash_many(&felts)
     }
@@ -186,7 +186,7 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointGlobalStateRoots<F> {
 }
 
 impl<F: RichField> QFieldHashable<F> for QEDCheckpointGlobalStateRoots<F> {
-    fn qfhash<H: FieldHasher<QHashOut<F>, F>>(&self) -> QHashOut<F> {
+    fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         let left = H::hash_many(&[
             self.contract_tree_root.0.elements[0],
             self.contract_tree_root.0.elements[1],
@@ -272,7 +272,7 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeaf<F> {
 }
 
 impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeaf<F> {
-    fn qfhash<H: FieldHasher<QHashOut<F>, F>>(&self) -> QHashOut<F> {
+    fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         let stats_hash = self.stats.qfhash::<H>();
         H::hash_many(&[
             self.global_chain_root.0.elements[0],

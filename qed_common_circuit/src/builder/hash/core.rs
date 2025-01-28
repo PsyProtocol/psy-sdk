@@ -18,7 +18,7 @@ const NUM_HASH_OUT_ELEMENTS: usize = 4;
 pub trait CircuitBuilderHashCore<F: RichField + Extendable<D>, const D: usize> {
     fn ensure_hash_is_zero(&mut self, hash: HashOutTarget);
     fn ensure_hash_is_non_zero(&mut self, hash: HashOutTarget);
-    fn constant_whash(&mut self, value: QHashOut<F>) -> HashOutTarget;
+    fn constant_qhash(&mut self, value: QHashOut<F>) -> HashOutTarget;
     fn constant_hash_str(&mut self, value: &str) -> HashOutTarget;
     fn hashout_to_hash256_le(&mut self, value: HashOutTarget) -> Hash256Target;
     fn hashout_to_hash256_be(&mut self, value: HashOutTarget) -> Hash256Target;
@@ -55,12 +55,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
         let a = self.cons
     }*/
 
-    fn constant_whash(&mut self, value: QHashOut<F>) -> HashOutTarget {
+    fn constant_qhash(&mut self, value: QHashOut<F>) -> HashOutTarget {
         self.constant_hash(value.0)
     }
 
     fn constant_hash_str(&mut self, value: &str) -> HashOutTarget {
-        self.constant_whash(QHashOut::from_string_or_panic(value))
+        self.constant_qhash(QHashOut::from_string_or_panic(value))
     }
 
     fn two_to_one_swapped<H: AlgebraicHasher<F>>(

@@ -2,7 +2,7 @@
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
-use qed_data::{dpn::proving_session::DPNProvingSessionDeferredMethodCall, qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}};
+use qed_data::{dpn::proving_session::DPNProvingSessionSimpleMethodCall, qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}};
 use serde::{Deserialize, Serialize};
 
 
@@ -104,7 +104,7 @@ pub struct DPNReadOtherUserContractStateLeafMerkleProof<F: RichField> {
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 
 pub struct DPNInvokeDeferredMethodCallWitness<F: RichField> {
-    pub call_data: DPNProvingSessionDeferredMethodCall<F>,
+    pub call_data: DPNProvingSessionSimpleMethodCall<F>,
     pub insertion_proof: DeltaMerkleProofCore<QHashOut<F>>,
 }
 

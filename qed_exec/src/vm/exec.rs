@@ -8,7 +8,7 @@ use plonky2::{
 };
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable};
-use qed_data::dpn::proving_session::DPNProvingSessionDeferredMethodCall;
+use qed_data::dpn::proving_session::DPNProvingSessionSimpleMethodCall;
 use qed_store::{
     config::store_config::QEDHasher, controllers::local::proving_session::QEDLocalProvingSessionStore, store::imm::{cmd::{QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof}, cmd_processor::{DPNInvokeDeferredMethodCallWitness, DPNReadOtherUserContractStateLeafMerkleProof, DPNStateCmdWitness, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
 };
@@ -434,7 +434,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
             },
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => todo!(),
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
-                let call_data = DPNProvingSessionDeferredMethodCall{
+                let call_data = DPNProvingSessionSimpleMethodCall{
                     contract_id: GF::from_canonical_u64(c.contract_id),
                     method_id: GF::from_canonical_u64(c.method_id),
                     inputs: c.input_args.iter().map(|x| GF::from_canonical_u64(*x)).collect::<Vec<GF>>(),
