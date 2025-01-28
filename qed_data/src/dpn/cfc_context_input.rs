@@ -160,4 +160,42 @@ impl<F: RichField> KVQSerializable for DapenCFCUserTransactionEndContext<F> {
 
 
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct DapenCFCUserTransactionInputContext<F: RichField> {
+    pub proving_session_start_ctx: DapenCFCProvingSessionStartContext<F>,
+    pub transaction_call_start_ctx: DapenCFCUserTransactionCallStartContext<F>,
+    pub transaction_end_ctx: DapenCFCUserTransactionEndContext<F>,
+}
+
+
+impl<F: RichField> QFieldHashable<F> for DapenCFCUserTransactionInputContext<F> {
+    fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
+
+        let proving_session_start_ctx_hash = self.proving_session_start_ctx.qfhash::<H>();
+        
+        let transaction_call_start_ctx_hash = self.transaction_call_start_ctx.qfhash::<H>();
+        let transaction_end_ctx_hash = self.transaction_end_ctx.qfhash::<H>();
+        let tx_start_end_combo = H::q_two_to_one(transaction_call_start_ctx_hash, transaction_end_ctx_hash);
+
+        let session_start_tx_combo = H::q_two_to_one(proving_session_start_ctx_hash, tx_start_end_combo);
+
+        session_start_tx_combo
+    }
+}
+
+
+impl<F: RichField> KVQSerializable for DapenCFCUserTransactionInputContext<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+
+
+
 
