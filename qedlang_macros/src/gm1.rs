@@ -233,7 +233,7 @@ impl Fold for RewriterVisitor {
                 })
             }
             Expr::Binary(e) => {
-                println!("Binary expression: {:#?}", e.to_token_stream());
+                //println!("Binary expression: {:#?}", e.to_token_stream());
                 let left = Box::new(self.fold_expr(*e.left));
                 let right = Box::new(self.fold_expr(*e.right));
                 ctx_bin_op(&ExprBinary {
@@ -284,7 +284,7 @@ impl Fold for RewriterVisitor {
                     ctx.example(tmp_arg_0, tmp_arg_1)
                 }
                  */
-                println!("Method call expression: {:#?}", e.to_token_stream());
+                //println!("Method call expression: {:#?}", e.to_token_stream());
                 let receiver = Box::new(self.fold_expr(*e.receiver));
                 let args: Vec<Expr> = e.args.into_iter().map(|arg| self.fold_expr(arg)).collect();
                 let method = e.method;

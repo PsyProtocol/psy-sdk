@@ -36,10 +36,10 @@ use qedlang_macros::qcontract;
 
 type Felt = SymFeltRef;
 
-pub struct SimpleContractStateless<C: DPNContext<Felt>> {
+pub struct SimpleContractStateful<C: DPNContext<Felt>> {
     _phantom: PhantomData<C>,
 }
-impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
+impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -48,7 +48,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
 }
 
 #[qcontract]
-impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
+impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     pub fn simple_math(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
         let k = (a + 2) * (2 * 2) * b - 3 * (a + b);
         let z = k + a;
@@ -62,16 +62,20 @@ impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
         read_index: Felt,
         write_index: Felt,
         write_value: Felt,
-    ) -> Felt {
-        //let read_value = ctx.get_state_hash_at(read_index);
-        
+    ) -> Felt {        
         let read_value = ctx.get_state_hash_at(read_index);
         let read_vv = read_value[0];
+        
+        let mut test_value = write_value;
+        ctx.assert_true(read_index > 1337, "read index must be greater than 1337");
+        for _ in 0..10000 {
+            test_value = test_value + 1337;
+        }
+        
         if write_value > 100 {
-            ctx.cset_state_hash_at(write_index, [write_value, 0, 0, 0]);
+            ctx.cset_state_hash_at(write_index, [write_value, 0, test_value, 0]);
         }
         read_vv
-        //read_index*write_index+read_value[0]
     }
     pub fn if_test_2(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
         let mut c = a * b;
@@ -167,7 +171,7 @@ fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField>>(
 }
 fn test_compile_contract() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let mut ctx = QExecContext::new();
-    let mut contract = SimpleContractStateless::new();
+    let mut contract = SimpleContractStateful::new();
     let a = ctx.add_input();
     let b = ctx.add_input();
     let c = ctx.add_input();
@@ -224,7 +228,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
         &compiled,
         &mut lps,
         &[
-            GoldilocksField::from_canonical_u64(1),   // read index
+            GoldilocksField::from_canonical_u64(1338),   // read index
             GoldilocksField::from_canonical_u64(2),   // write index
             GoldilocksField::from_canonical_u64(123), // write value
         ],
@@ -233,6 +237,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     println!("witnesss_json:\n{:?}",&result);
     //println!("witnesss_json:\n{}",serde_json::to_string(&result).unwrap());
     let proof = cf_circuit.prove_base(&result);
+    
     timer.lap("proved");
     println!("public_inputs: {:?}",&proof.public_inputs);
 

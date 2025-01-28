@@ -416,7 +416,7 @@ impl Fold for RewriterVisitor {
                 }
             }
             Expr::Binary(e) => {
-                println!("Binary expression: {:#?}", e.to_token_stream());
+                //println!("Binary expression: {:#?}", e.to_token_stream());
                 self.ctx_bin_op(Box::new(e))
             }
             Expr::Reference(e) => {
