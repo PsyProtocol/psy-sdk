@@ -1,7 +1,7 @@
 use kvq::memory::{arc_imm::KVQArcImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore};
 use plonky2::{field::{goldilocks_field::GoldilocksField, packed::PackedField, types::{Field, PrimeField64}}, hash::hash_types::RichField};
 use qed_core::{config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT, data::qhashout::QHashOut};
-use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, utils::safe_hash_fixed_length};
+use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::hasher::MerkleZeroHasher, utils::safe_hash_fixed_length};
 use qed_data::{dpn::{cfc_context_input::{DapenCFCProvingSessionStartContext, DapenCFCUserTransactionCallStartContext}, proving_session::{DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall}}, qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf}};
 use serde::{Deserialize, Serialize};
 
@@ -110,7 +110,14 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>> QEDLocalProvingSessionStor
 
         
         let start_user_contract_tree_root  = contract_state_root_proof.root;
-        let start_contract_state_tree_root = contract_state_root_proof.value;
+        let start_contract_state_tree_root = 
+        if contract_state_root_proof.value.eq(&QHashOut::ZERO) {
+            let state_tree_height = self.cmd_store.resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData{contract_id: contract_id.to_canonical_u64()})?.state_tree_height.to_canonical_u64() as usize;
+            QEDHasher::get_zero_hash(state_tree_height)
+        }else{
+            contract_state_root_proof.value
+        };
+        println!("start_contract_state_tree_root: {:?}",start_contract_state_tree_root);
 
         let call_data = DPNProvingSessionCompactMethodCall{
             contract_id,
@@ -176,6 +183,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>> QEDLocalProvingSessionStor
             checkpoint_id: self.start_checkpoint_u64+1000,
             user_id: user.to_canonical_u64(),
         })?;
+        println!("got user_leaf: {}", serde_json::to_string_pretty(&user_leaf).unwrap());
 
         if user_leaf.last_checkpoint_id.to_canonical_u64() > checkpoint_id {
             anyhow::bail!("the user's checkpoint is ahead of the proving session (user sync'd to {}, proving session on checkpoint {})", user_leaf.last_checkpoint_id.to_canonical_u64(), checkpoint_id);

@@ -5,7 +5,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_common_circuit::{
-    builder::hash::core::CircuitBuilderHashCore,
+    builder::{connect::CircuitBuilderConnectHelpers, hash::core::CircuitBuilderHashCore},
     traits::{
         AlgebraicHashableTarget, CreatableTarget, CreatableWithHasherTarget, FromTargets,
         ToTargets, WitnessValueFor,

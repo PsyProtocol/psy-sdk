@@ -710,6 +710,7 @@ impl StateReaderGadget {
         dpn: &SimpleDPNBuilder<F, D>,
         cmd: &DPNStateCmd<u64>,
     ) -> Vec<Target> {
+        println!("state cmd: {:?}",cmd);
         let value = match cmd {
             DPNStateCmd::SetContractStateSlotHash(c) => {
                 let dmp = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(
@@ -735,18 +736,18 @@ impl StateReaderGadget {
                     builder.select_hash(condition, dmp.new_root, self.end_contract_state_root);
                 self.end_contract_state_root = new_end_state_root;
 
-                self.write_epoch += 1;
 
                 let ck = StateCommandCacheKey::new_write_current_contract_slot(
                     c.slot_index,
                     c.condition,
                     self.write_epoch,
                 );
+                self.write_epoch += 1;
 
                 let ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
 
                 value.elements.to_vec()
-            }
+            },
             DPNStateCmd::SetContractStateSlotSingle(c) => {
                 let dmp = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(
                     builder,
@@ -772,7 +773,6 @@ impl StateReaderGadget {
                     builder.select_hash(condition, dmp.new_root, self.end_contract_state_root);
                 self.end_contract_state_root = new_end_state_root;
 
-                self.write_epoch += 1;
 
                 let ck = StateCommandCacheKey::new_write_current_contract_single(
                     c.sub_slot_index,
@@ -780,10 +780,11 @@ impl StateReaderGadget {
                     self.write_epoch,
                 );
 
+                self.write_epoch += 1;
                 let ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
 
                 vec![value]
-            }
+            },
             DPNStateCmd::SetContractStateSlotRange(c) => todo!(),
             DPNStateCmd::InvokeExternalContractFunctionSync(c) => todo!(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => {

@@ -17,7 +17,7 @@ use qed_data::{
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
-use qed_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
+use qed_prover::dpn::circuits::dpntst1::DapenContractFunctionCircuit;
 use qed_store::{
     controllers::local::proving_session::QEDLocalProvingSessionStore,
     qblock::process::simple::SimpleBlockProcessor,
@@ -63,12 +63,15 @@ impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
         write_index: Felt,
         write_value: Felt,
     ) -> Felt {
+        //let read_value = ctx.get_state_hash_at(read_index);
+        
         let read_value = ctx.get_state_hash_at(read_index);
         let read_vv = read_value[0];
         if write_value > 100 {
             ctx.cset_state_hash_at(write_index, [write_value, 0, 0, 0]);
         }
         read_vv
+        //read_index*write_index+read_value[0]
     }
     pub fn if_test_2(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
         let mut c = a * b;
@@ -227,9 +230,11 @@ fn test_prove_simple() -> anyhow::Result<()> {
         ],
     )?;
     timer.lap("generated witness input");
-
+    println!("witnesss_json:\n{:?}",&result);
+    //println!("witnesss_json:\n{}",serde_json::to_string(&result).unwrap());
     let proof = cf_circuit.prove_base(&result);
     timer.lap("proved");
+    println!("public_inputs: {:?}",&proof.public_inputs);
 
     Ok(())
 }

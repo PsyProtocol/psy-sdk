@@ -5,7 +5,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_common_circuit::builder::{
-    core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore,
+    connect::CircuitBuilderConnectHelpers, core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore
 };
 use qed_rollup_circuit::gadgets::qdata::cfc_context_input::DapenCFCUserTransactionInputContextGadget;
 use qedlang_core::dpn::{
@@ -80,6 +80,90 @@ impl QEDContractFunctionBuilderGadget {
             state_cmd: cmd.clone(),
             result,
         });
+    }
+    fn eval_session_nop<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+        fn_def: &DPNFunctionCircuitDefinition,
+        inputs: Vec<Target>,
+    ) -> Vec<Target> {
+        let inputs_length_target = builder.constant_u64(inputs.len() as u64);
+        let inputs_hash = builder.safe_hash_fixed_length::<H>(&inputs);
+
+        let mut executor = SimpleDPNBuilder::<F, D>::new_with_contract_ctx(
+            inputs,
+            self.tx_ctx_header
+                .proving_session_start_ctx
+                .start_session_user_leaf
+                .user_id,
+            self.tx_ctx_header
+                .transaction_call_start_ctx
+                .call_data
+                .contract_id,
+            self.tx_ctx_header.proving_session_start_ctx.checkpoint_id,
+            self.tx_ctx_header
+                .proving_session_start_ctx
+                .start_session_user_leaf
+                .nonce,
+        );
+        let state_cmd_len = fn_def.state_command_resolution_indices.len();
+        let mut next_state_cmd_id = 0;
+        let mut next_state_cmd_index = if state_cmd_len == 0 {
+            fn_def.definitions.len() + 10
+        } else {
+            fn_def.state_command_resolution_indices[0]
+        };
+        for (i, def) in fn_def.definitions.iter().enumerate() {
+            if def.op_type.eq(&DPNOpType::GetStateCommandResultSingle) {
+                let ind = def.inputs[0] as usize;
+                executor.push_external_target(self.cmd_results[ind].result[0]);
+            } else if def.op_type.eq(&DPNOpType::GetStateCommandResultArray) {
+                let ind = def.inputs[0] as usize;
+                executor.push_external_target_array(self.cmd_results[ind].result.clone());
+            } else if def.op_type.eq(&DPNOpType::GetStateCommandResultHash) {
+                let ind = def.inputs[0] as usize;
+                executor.push_external_hash(HashOutTarget {
+                    elements: [
+                        self.cmd_results[ind].result[0],
+                        self.cmd_results[ind].result[1],
+                        self.cmd_results[ind].result[2],
+                        self.cmd_results[ind].result[3],
+                    ],
+                });
+            } else {
+                executor.process_var_def(builder, &def);
+            }
+            while (i + 1) >= next_state_cmd_index {
+                self.process_state_cmd::<H, F, D>(
+                    builder,
+                    &executor,
+                    &fn_def.state_commands[next_state_cmd_id],
+                );
+                next_state_cmd_id += 1;
+                if next_state_cmd_id >= state_cmd_len {
+                    next_state_cmd_index = fn_def.definitions.len() + 10;
+                } else {
+                    next_state_cmd_index =
+                        fn_def.state_command_resolution_indices[next_state_cmd_id];
+                }
+            }
+        }
+        for assertion in fn_def.assertions.iter() {
+            let left = executor.resolve_target(assertion.left);
+            let right = executor.resolve_target(assertion.right);
+            builder.connect(left, right);
+        }
+
+        let outputs = fn_def
+            .circuit_outputs
+            .iter()
+            .map(|x| executor.resolve_target(*x))
+            .collect::<Vec<Target>>();
+
+        let outputs_length_target = builder.constant_u64(outputs.len() as u64);
+        let outputs_hash = builder.safe_hash_fixed_length::<H>(&outputs);
+
+        outputs
     }
 
     fn eval_session<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
@@ -173,7 +257,7 @@ impl QEDContractFunctionBuilderGadget {
                 .call_data
                 .inputs_length,
         );
-        builder.connect_hashes(
+        builder.connect_hashes_nop(
             inputs_hash,
             self.tx_ctx_header
                 .transaction_call_start_ctx
@@ -190,8 +274,13 @@ impl QEDContractFunctionBuilderGadget {
             outputs_hash,
             self.tx_ctx_header.transaction_end_ctx.outputs_hash,
         );
+/*
+        // ensure the end state is correct -- ERROR IS HERE
+        builder.register_public_inputs(&self.state_reader.end_contract_state_root.elements);
+        builder.register_public_inputs(&self.tx_ctx_header
+            .transaction_end_ctx
+            .end_contract_state_tree_root.elements);*/
 
-        // ensure the end state is correct
         builder.connect_hashes(
             self.state_reader.end_contract_state_root,
             self.tx_ctx_header
@@ -204,7 +293,7 @@ impl QEDContractFunctionBuilderGadget {
             self.state_reader.end_deferred_tx_tree_root,
             self.tx_ctx_header
                 .transaction_end_ctx
-                .end_contract_state_tree_root,
+                .end_deferred_tx_debt_tree_root,
         );
 
         outputs

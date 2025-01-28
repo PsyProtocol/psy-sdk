@@ -137,15 +137,24 @@ pub type ContractFunctionTreeStore<S> = KVQSemiFixedConfigMerkleTreeModel<
 pub type DepositTreeStore<S> = ProtocolTreeStore<S, DEPOSIT_TREE_ID, GLOBAL_DEPOSIT_TREE_HEIGHT>;
 pub type WithdrawalTreeStore<S> = ProtocolTreeStore<S, WITHDRAWAL_TREE_ID, GLOBAL_WITHDRAWAL_TREE_HEIGHT>;
 
-
+// GLOBAL_CONTRACT_TREE_HEIGHT-th zero hash
 pub const DEFAULT_USER_STATE_TREE_ROOT: QHashOut<GoldilocksField> = QHashOut::<QEDFelt>(
     HashOut {
         elements: [
-            GoldilocksField(0),
-            GoldilocksField(0),
-            GoldilocksField(0),
-            GoldilocksField(0),
-
-        ]
+            GoldilocksField(12364052984629808614),
+            GoldilocksField(13066500727264825316),
+            GoldilocksField(6321076066274078148),
+            GoldilocksField(11393071566019822187),
+        ],
     }
 );
+
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn check_default_user_state_tree_root() {
+        // TODO: make sure the default user tree root is correct
+    }
+}
