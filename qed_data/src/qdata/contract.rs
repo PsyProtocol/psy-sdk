@@ -74,7 +74,7 @@ impl<F: RichField> QFieldHashable<F> for QEDContractLeaf<F> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 pub struct ContractFunctionCodeDefinition {
     // TODO: in the future method id = sha256(functionName(arg0[arg0_size],arg1[arg1_size]))&0xffffffff
     // CURRENT: sha256(functionName + "-|-" + args_count)&0xffffffff

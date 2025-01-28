@@ -162,6 +162,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>> QEDLocalProvingSessionStor
     pub fn get_fresh_start_ctx_for_user(&mut self, user: GF) -> anyhow::Result<DapenCFCProvingSessionStartContext<GF>> {
 
         let checkpoint_id = self.start_checkpoint_u64;
+        println!("[get_fresh_start_ctx_for_user]: checkpoint_id = {}",checkpoint_id);
         let checkpoint_leaf = self.cmd_store.resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData{
             checkpoint_id,
         })?;

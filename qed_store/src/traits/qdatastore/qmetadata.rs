@@ -51,7 +51,8 @@ pub trait QMetaDataStoreWriterSync<F: RichField> {
     fn set_contract_code_definition(&self, checkpoint_id: u64, contract_id: u64, definition: &ContractCodeDefinition) -> anyhow::Result<()>;
     fn set_contract_code_definition_f(&self, checkpoint_id: F, contract_id: F, definition: &ContractCodeDefinition) -> anyhow::Result<()>;
 
-    fn set_l2_block_state(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()>;}
+    fn set_l2_block_state(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()>;
+}
 pub trait QMetaDataStoreWriterSyncMut<F: RichField> {
     fn set_user_leaf_data_mut(&mut self, leaf_data: &QEDUserLeaf<F>) -> anyhow::Result<()>;
 

@@ -1,8 +1,11 @@
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::{ DeltaMerkleProofCore, MerkleProofCore};
+use qed_crypto::hash::{merkle::core::{ DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable};
+use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState};
 
-use super::qmetadata::QMetaDataStoreReaderSync;
+use crate::config::store_config::QEDHasher;
+
+use super::qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync};
 
 
 pub trait ActiveCheckpointReaderSync<F: RichField> {
@@ -87,9 +90,23 @@ pub trait QTreeDataStoreReaderSync<F: RichField> {
     fn get_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
     fn get_checkpoint_tree_merkle_proof(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
+
+    fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>> {
+        let contract_tree_root = self.get_contract_tree_root(checkpoint_id)?;
+        let deposit_tree_root = self.get_deposit_tree_root(checkpoint_id)?;
+        let user_tree_root = self.get_user_tree_root(checkpoint_id)?;
+        let withdrawal_tree_root = self.get_withdrawal_tree_root(checkpoint_id)?;
+
+        Ok(QEDCheckpointGlobalStateRoots{
+            contract_tree_root,
+            deposit_tree_root,
+            user_tree_root,
+            withdrawal_tree_root,
+        })
+        
+    }
 }
 
-pub trait QEDComboDataStoreReaderSync<F: RichField>: QMetaDataStoreReaderSync<F> + QTreeDataStoreReaderSync<F> {}
 
 pub trait QTreeDataStoreWriterSync<F: RichField> {
     fn set_user_state_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, contract_id: u32, height: u8, leaf_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
@@ -117,4 +134,36 @@ pub trait QTreeDataStoreWriterSync<F: RichField> {
     
     fn set_checkpoint_tree_leaf_hash(&self, checkpoint_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
     fn set_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
+}
+
+
+
+pub trait QEDComboDataStoreReaderSync<F: RichField>: QMetaDataStoreReaderSync<F> + QTreeDataStoreReaderSync<F> {}
+pub trait QEDComboDataStoreWriterSync<F: RichField>: QMetaDataStoreWriterSync<F> + QTreeDataStoreWriterSync<F> {}
+pub trait QEDComboDataStoreReaderWriterSync<F: RichField>: QEDComboDataStoreReaderSync<F> + QEDComboDataStoreWriterSync<F> {
+    fn initialize_store(&self) -> anyhow::Result<u64> {
+
+        let latest_l2_block_state_or_err = self.get_latest_l2_block_state();
+        if latest_l2_block_state_or_err.is_ok() {
+            let v = latest_l2_block_state_or_err.unwrap();
+            Ok(v.checkpoint_id)
+        }else{
+            // database not initialized with data for the genesis block
+
+            let genesis_l2_block_state = QEDL2BlockState::get_genesis_value();
+            
+            let genesis_checkpoint_stats = QEDCheckpointLeafStats::get_genesis_value();
+            let genesis_global_state_roots = self.get_checkpoint_global_state_roots(0)?;
+            let genesis_checkpoint_leaf = QEDCheckpointLeaf{
+                global_chain_root: genesis_global_state_roots.qfhash::<QEDHasher>(),
+                stats: genesis_checkpoint_stats,
+            };
+            self.set_l2_block_state(&genesis_l2_block_state)?;
+            self.set_checkpoint_leaf_data(0, &genesis_checkpoint_leaf)?;
+
+            Ok(0)
+
+        }
+        
+    }
 }

@@ -34,7 +34,7 @@ use crate::{
     },
     traits::qdatastore::{
         qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync},
-        qtreedata::{QEDComboDataStoreReaderSync, QTreeDataStoreReaderSync, QTreeDataStoreWriterSync},
+        qtreedata::{QEDComboDataStoreReaderSync, QEDComboDataStoreReaderWriterSync, QEDComboDataStoreWriterSync, QTreeDataStoreReaderSync, QTreeDataStoreWriterSync},
     },
 };
 
@@ -878,6 +878,14 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
 }
 
 
+impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreWriterSync<F> for T {
+    
+}
+
 impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreReaderSync<F> for T {
+    
+}
+
+impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreReaderWriterSync<F> for T {
     
 }
