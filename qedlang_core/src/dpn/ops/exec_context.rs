@@ -7,14 +7,7 @@ use super::{
     op_types::{DPNBuiltInDataType, DPNOpType},
     state_cmd::{
         data::{
-            DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash,
-            DPNStateCmdGetOtherUserContractStateSlotRange,
-            DPNStateCmdGetOtherUserContractStateSlotSingle,
-            DPNStateCmdGetSelfUserCurrentContractStateSlotHash,
-            DPNStateCmdGetSelfUserCurrentContractStateSlotSingle,
-            DPNStateCmdGetSelfUserExternalContractStateSlotSingle,
-            DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange,
-            DPNStateCmdSetContractStateSlotSingle,
+            DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotSingle, DPNStateCmdGetSelfUserExternalContractStateSlotSingle, DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle
         },
         store::DPNStateCommandStore,
         types::DPNStateCmdCore,
@@ -756,6 +749,30 @@ impl DPNContext<SymFeltRef> for QExecContext {
 
     fn cset_state_at<V: ToFelts<SymFeltRef>>(&mut self, sub_index: SymFeltRef, new_value: V) -> V {
         self.op_set_state_obj(sub_index, new_value)
+    }
+
+    fn cinvoke_external_contract_function_deferred(
+        &mut self,
+        contract_id: SymFeltRef,
+        method_id: SymFeltRef,
+        input_args: Vec<SymFeltRef>,
+    ) -> [SymFeltRef; 4] {
+        let condition = self.get_set_invoke_current_condition();
+
+        let b = self.resolve_state_cmd_base(DPNStateCmd::InvokeExternalContractFunctionDeferred(
+            DPNStateCmdInvokeExternalContractFunctionDeferred {
+                condition,
+                contract_id,
+                method_id,
+                input_args,
+            },
+        ));
+        [
+            self.op_target_at(b, 0),
+            self.op_target_at(b, 1),
+            self.op_target_at(b, 2),
+            self.op_target_at(b, 3),
+        ]
     }
 
     fn cset_state_hash_at(

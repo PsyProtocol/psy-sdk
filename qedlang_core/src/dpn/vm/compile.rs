@@ -37,10 +37,10 @@ pub struct QEDCompileResult {
 
 
 impl QEDCompileResult {
-    pub fn compile_exec(name: String, sym_store: &SymFeltStore, ctx: &QExecContext, outputs: &[SymFeltRef]) -> DPNFunctionCircuitDefinition {
+    pub fn compile_exec(name: String, method_id: u32, sym_store: &SymFeltStore, ctx: &QExecContext, outputs: &[SymFeltRef]) -> DPNFunctionCircuitDefinition {
         let mut result = QEDCompileResult::new();
         result.compile(sym_store, ctx, outputs);
-        result.finalize(name)
+        result.finalize(name, method_id)
     }
     pub fn new() -> Self {
         QEDCompileResult {
@@ -178,9 +178,10 @@ impl QEDCompileResult {
         }
 
     }
-    pub fn finalize(self, name: String) ->DPNFunctionCircuitDefinition {
+    pub fn finalize(self, name: String, method_id: u32) ->DPNFunctionCircuitDefinition {
         DPNFunctionCircuitDefinition{
             name,
+            method_id: method_id,
             circuit_inputs: self.circuit_inputs,
             circuit_outputs: self.circuit_outputs,
             state_commands: self.state_commands,

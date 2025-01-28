@@ -272,4 +272,13 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     fn get_state_hash_at(&mut self, slot_index: F) -> [F; 4] {
         todo!()
     }
+    
+    fn cinvoke_external_contract_function_deferred(
+        &mut self,
+        contract_id: SymFeltRef,
+        method_id: SymFeltRef,
+        inputs: Vec<SymFeltRef>,
+    ) -> [SymFeltRef; 4] {
+        todo!()
+    }
 }

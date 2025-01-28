@@ -7,8 +7,8 @@ use plonky2::{
     hash::hash_types::{HashOut, RichField},
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable};
-use qed_data::dpn::proving_session::DPNProvingSessionSimpleMethodCall;
+use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable, utils::safe_hash_fixed_length};
+use qed_data::dpn::{cfc_context_input::{DapenCFCUserTransactionEndContext, DapenCFCUserTransactionInputContext}, proving_session::DPNProvingSessionSimpleMethodCall};
 use qed_store::{
     config::store_config::QEDHasher, controllers::local::proving_session::QEDLocalProvingSessionStore, store::imm::{cmd::{QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof}, cmd_processor::{DPNInvokeDeferredMethodCallWitness, DPNReadOtherUserContractStateLeafMerkleProof, DPNStateCmdWitness, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
 };
@@ -20,6 +20,8 @@ use qedlang_core::dpn::{
     vm::{def::DPNFunctionCircuitDefinition, exec::SimpleDPNExecutor},
 };
 use serde::{Deserialize, Serialize};
+
+use super::cfc_input::DapenContractFunctionCircuitInput;
 fn mp_to_dmp<H: PartialEq + Copy>(mp: MerkleProofCore<H>) -> DeltaMerkleProofCore<H> {
     DeltaMerkleProofCore {
         old_root: mp.root,
@@ -510,11 +512,16 @@ impl QEDEvalSessionResult<GF> {
     }
 
     pub fn eval_session<R: QEDReadCommandProcessorSync<GF>>(
-        &mut self,
+        mut self,
         fn_def: &DPNFunctionCircuitDefinition,
         sesh: &mut QEDLocalProvingSessionStore<GF, R>,
         inputs: Vec<GF>,
-    ) -> anyhow::Result<Vec<GF>> {
+    ) -> anyhow::Result<DapenContractFunctionCircuitInput<GF>> {
+
+        let start_session_ctx = sesh.get_fresh_start_ctx_for_user(sesh.user_id)?;
+        let call_data_ctx = sesh.get_call_start_data(sesh.current_contract_id, GF::from_canonical_u32(fn_def.method_id), &inputs)?;
+
+        let inputs_clone = inputs.clone();
         let mut executor = SimpleDPNExecutor::<GF>::new_with_contract_ctx(
             inputs,
             sesh.user_id,
@@ -579,7 +586,26 @@ impl QEDEvalSessionResult<GF> {
             .iter()
             .map(|x| executor.resolve_target(*x))
             .collect::<Vec<GF>>();
+        let end_ctx = DapenCFCUserTransactionEndContext{
+            end_contract_state_tree_root: sesh.get_contract_state_slot(sesh.current_contract_id, GF::ZERO)?.root,
+            end_deferred_tx_debt_tree_root: sesh.get_latest_deferred_tx_leaf()?.root,
+            outputs_hash: safe_hash_fixed_length::<QEDHasher, GF>(&outputs),
+            outputs_length: GF::from_noncanonical_u64(outputs.len() as u64),
+            total_events_emitted: GF::from_noncanonical_u64(0),
+            total_balance_spent: GF::from_noncanonical_u64(0),
+        };
+        let input_ctx = DapenCFCUserTransactionInputContext{
+            proving_session_start_ctx: start_session_ctx,
+            transaction_call_start_ctx: call_data_ctx,
+            transaction_end_ctx: end_ctx,
+        };
 
-        Ok(outputs)
+        
+        Ok(DapenContractFunctionCircuitInput{
+            inputs: inputs_clone,
+            outputs,
+            cmd_witnesses: self.cmd_witnesses,
+            tx_input_ctx: input_ctx,
+        })
     }
 }

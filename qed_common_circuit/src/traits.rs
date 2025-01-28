@@ -39,6 +39,19 @@ pub trait CreatableTarget {
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self;
 }
+pub trait CreatableWithHasherTarget {
+    fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self;
+}
+
+impl<T: CreatableTarget> CreatableWithHasherTarget for T {
+    fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        Self::create_virtual::<F, D>(builder)
+    }
+}
 
 /* 
 pub trait HashableTarget<Hash> {

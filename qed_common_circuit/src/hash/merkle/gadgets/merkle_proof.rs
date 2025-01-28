@@ -5,7 +5,7 @@ use plonky2::{
     hash::hash_types::{HashOutTarget, RichField},
     iop::{
         target::{BoolTarget, Target},
-        witness::{PartialWitness, WitnessWrite},
+        witness::{PartialWitness, Witness, WitnessWrite},
     },
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
@@ -177,9 +177,9 @@ impl MerkleProofGadget {
         }
         state
     }
-    pub fn set_witness<F: RichField>(
+    pub fn set_witness_generic<W: Witness<F>, F: RichField>(
         &self,
-        witness: &mut PartialWitness<F>,
+        witness: &mut W,
         index: F,
         value: QHashOut<F>,
         siblings: &[QHashOut<F>],
@@ -204,6 +204,15 @@ impl MerkleProofGadget {
                 witness.set_hash_target(*sibling, siblings[i].0);
             }
         }
+    }
+    pub fn set_witness<F: RichField>(
+        &self,
+        witness: &mut PartialWitness<F>,
+        index: F,
+        value: QHashOut<F>,
+        siblings: &[QHashOut<F>],
+    ) {
+      self.set_witness_generic(witness, index, value, siblings);
     }
     pub fn set_witness_proof<F: RichField>(
         &self,

@@ -138,7 +138,7 @@ pub struct QSRHashCmdGetCheckpointTreeRoot {
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct QSRHashCmdGetCheckpointTreeLeafHash {
   pub checkpoint_id: u64,
-  pub leaf_checkpoint_id: u32
+  pub leaf_checkpoint_id: u64
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -221,7 +221,7 @@ pub struct QSRMerkleCmdGetWithdrawalTreeMerkleProof {
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct QSRMerkleCmdGetCheckpointTreeMerkleProof {
   pub checkpoint_id: u64,
-  pub leaf_checkpoint_id: u32
+  pub leaf_checkpoint_id: u64
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]

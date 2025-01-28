@@ -33,6 +33,10 @@ pub trait CircuitBuilderHashCore<F: RichField + Extendable<D>, const D: usize> {
         left: HashOutTarget,
         right: HashOutTarget,
     ) -> HashOutTarget;
+
+    fn safe_hash_fixed_length<H: AlgebraicHasher<F>>(&mut self, targets: &[Target]) -> HashOutTarget;
+
+
     fn ensure_hash_not_equal(&mut self, x: HashOutTarget, y: HashOutTarget);
     fn ensure_hash_not_equal_if(
         &mut self,
@@ -226,5 +230,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
 
 
          
+    }
+    
+    fn safe_hash_fixed_length<H: AlgebraicHasher<F>>(&mut self, targets: &[Target]) -> HashOutTarget {
+        
+        let targets_length = targets.len();
+        let targets_length_target = self.constant_u64(targets_length as u64);
+
+        let mut targets_hash_preimage = Vec::with_capacity(targets_length + 2);
+
+        targets_hash_preimage.push(targets_length_target);
+        targets_hash_preimage.extend_from_slice(targets);
+        targets_hash_preimage.push(targets_length_target);
+        let targets_hash = self.hash_n_to_hash_no_pad::<H>(targets_hash_preimage);
+        targets_hash
     }
 }

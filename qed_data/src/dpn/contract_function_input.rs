@@ -1,11 +1,6 @@
-use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
-use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::core::MerkleProofCore, traits::{hasher::{FieldHasher, FieldQHasher}, qhashable::QFieldHashable}};
-use serde::{Deserialize, Serialize};
 
 
-
+/* 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct DPNContractFunctionInputPreCallInfo<F: RichField> {
@@ -91,4 +86,4 @@ pub struct DPNContractFunctionCallFullInput<F: RichField> {
 }
 
 
-
+*/

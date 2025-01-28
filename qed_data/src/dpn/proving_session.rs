@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use qed_core::{config::network_constants::DEFERRED_CALL_MAGIC, data::qhashout::QHashOut, traits::to_qfelts::ToQFelts};
-use qed_crypto::hash::traits::{hasher::{FieldHasher, FieldQHasher}, qhashable::QFieldHashable};
+use qed_crypto::hash::{traits::{hasher::{FieldHasher, FieldQHasher}, qhashable::QFieldHashable}, utils::safe_hash_fixed_length};
 use serde::{Deserialize, Serialize};
 
 use crate::qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf}, user::QEDUserLeaf};
@@ -30,23 +30,13 @@ pub struct DPNProvingSessionCompactMethodCall<F: RichField> {
 }
 impl<F: RichField> DPNProvingSessionCompactMethodCall<F> {
     pub fn new_from_inputs<H: FieldQHasher<F>>(contract_id: F, method_id: F, inputs: &[F]) -> Self {
-        let inputs_length = inputs.len();
-        let inputs_length_felt = F::from_canonical_u64(inputs_length as u64);
-        let mut inputs_hash_preimage = Vec::with_capacity(inputs_length+2);
+        let inputs_length = F::from_canonical_u64(inputs.len() as u64);
+        let inputs_hash = safe_hash_fixed_length::<H, F>(inputs);
 
-
-        /*
-          to prevent length attacks on poseidon, use input length in preimage 
-          let inputs_hash = hash([inputs_length, ...inputs, inputs_length])
-        */
-        inputs_hash_preimage.push(inputs_length_felt);
-        inputs_hash_preimage.extend_from_slice(inputs);
-        inputs_hash_preimage.push(inputs_length_felt);
-        let inputs_hash = H::hash_many(&inputs_hash_preimage);
         Self {
             contract_id,
             method_id,
-            inputs_length: inputs_length_felt,
+            inputs_length,
             inputs_hash,
         }
         

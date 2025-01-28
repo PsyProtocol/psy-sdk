@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 use kvq::{cache::KVQBinaryStoreCached, memory::{arc_imm::KVQArcImmutableStoreWrapper, immutable::KVQImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore}};
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use qed_core::data::qhashout::QHashOut;
+use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use qed_data::qdata::contract::QEDContractLeaf;
 use qed_exec::vm::exec::QEDEvalSessionResult;
 use qed_store::{controllers::local::proving_session::QEDLocalProvingSessionStore, models::kvq_merkle::model::KVQFixedConfigMerkleTreeModel, store::imm::{cmd_processor::QEDReadCommandProcessorSync, core::QEDStorageAdapterImmutable}, traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::{QEDComboDataStoreReaderSync, QTreeDataStoreWriterSync}}};
@@ -82,12 +83,10 @@ fn prepare_environment_with_contract(state_tree_height: u8, whitelist: &[QHashOu
 
 fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField>>(fn_circuit_def: &DPNFunctionCircuitDefinition, lps: &mut QEDLocalProvingSessionStore<GoldilocksField, R>, inputs: &[GoldilocksField]) -> anyhow::Result<Vec<GoldilocksField>> {
     
-    let mut exec_sesh = QEDEvalSessionResult::new();
-    let outputs = exec_sesh.eval_session(&fn_circuit_def, lps, inputs.to_vec())?;
+    let outputs = QEDEvalSessionResult::new().eval_session(&fn_circuit_def, lps, inputs.to_vec())?.outputs;
 
     //fn_circuit_def.
 
-    println!("exec_sesh: {:?}", exec_sesh.cmd_witnesses);
     Ok(outputs)
 
 
@@ -104,7 +103,14 @@ fn test_compile_contract() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let c = ctx.add_input();
     let z = contract.simple_state_update(&mut ctx, a, b, c);
     let outputs = vec![z];
-    let fn_circuit_def = QEDCompileResult::compile_exec("simple_math".to_string(), &ctx.store, &ctx, &outputs);
+    let method_args  = [
+        ("a".to_string(), 1usize),
+        ("b".to_string(), 1),
+        ("c".to_string(), 1),
+    ];
+    let method_name = "simple_math".to_string();
+    let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
+    let fn_circuit_def = QEDCompileResult::compile_exec("simple_math".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     
 
