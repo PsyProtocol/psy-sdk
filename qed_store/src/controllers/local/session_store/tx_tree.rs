@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{config::store_config::{QEDFelt, QEDHasher}, models::kvq_merkle::model::{KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelCoreImmutable, KVQFixedConfigMerkleTreeModelReaderCore}};
 
-use super::config::{LPSDeferredTransactionTreeStore, LocalProvingSessionTreeStore};
+use super::config::LocalProvingSessionTreeStore;
 
 type GF = QEDFelt;
 type QHasher = QEDHasher;

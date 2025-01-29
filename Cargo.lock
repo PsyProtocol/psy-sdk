@@ -1162,6 +1162,7 @@ dependencies = [
  "anyhow",
  "bitflags",
  "bs58",
+ "hashbrown 0.14.5",
  "hex",
  "hex-literal",
  "itertools 0.10.5",

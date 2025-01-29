@@ -1,10 +1,8 @@
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::{HashOut, RichField};
-use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::QFeltSized};
-use qed_crypto::hash::{merkle::core::MerkleProofCore, traits::{hasher::{FieldHasher, FieldQHasher}, qhashable::QFieldHashable}};
+use plonky2::hash::hash_types::RichField;
+use qed_core::data::qhashout::QHashOut;
+use qed_crypto::hash::traits::{hasher::{FieldHasher, FieldQHasher}, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
-
-use crate::qdata::contract;
 
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]

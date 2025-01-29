@@ -198,11 +198,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderConnectHelpers<
         self.connect_vec(target_array, &combined);
     }
     
-    fn connect_nop(&mut self, x: Target, y: Target) {
+    fn connect_nop(&mut self, _x: Target, _y: Target) {
         
     }
     
-    fn connect_hashes_nop(&mut self, x: HashOutTarget, y: HashOutTarget) {
+    fn connect_hashes_nop(&mut self, _x: HashOutTarget, _y: HashOutTarget) {
         
     }
 }

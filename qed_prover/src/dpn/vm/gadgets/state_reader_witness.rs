@@ -3,18 +3,18 @@ use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDCmdWithInputAndWitness};
-use qed_store::store::imm::cmd_processor::DPNStateCmdWitness;
 use qedlang_core::dpn::{ops::state_cmd::data::DPNStateCmd, vm::def::DPNFunctionCircuitDefinition};
 
 use super::state_readers::{CKInvokeDeferredMethodCall, StateCommandCacheKey, StateReaderGadget, StateReaderReferenceKeyType};
 
-
+/* 
 fn some_or_error<T>(v: Option<T>) -> anyhow::Result<T> {
     match v {
         Some(x) => Ok(x),
         None => anyhow::bail!("unwrapped None value"),
     }
 }
+*/
 
 #[derive(Clone, Debug, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct StateReaderGadgetWitnessBuilderState {
@@ -147,8 +147,8 @@ impl StateReaderGadget {
                 )?;
                 wb_state.inc_write_epoch();
             }
-            DPNStateCmd::SetContractStateSlotRange(c) => todo!(),
-            DPNStateCmd::InvokeExternalContractFunctionSync(c) => todo!(),
+            DPNStateCmd::SetContractStateSlotRange(_c) => todo!(),
+            DPNStateCmd::InvokeExternalContractFunctionSync(_c) => todo!(),
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
                 let ck = StateCommandCacheKey::InvokeDeferredMethodCall(CKInvokeDeferredMethodCall::new(
                     c.condition, 
@@ -188,7 +188,7 @@ impl StateReaderGadget {
                     cmd_witness.witness.get_merkle_proof_ref(),
                 )?;
             },
-            DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => todo!(),
+            DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(_c) => todo!(),
             DPNStateCmd::GetSelfUserExternalContractStateSlotHash(c) => {
 
                 let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(
@@ -209,8 +209,8 @@ impl StateReaderGadget {
                 
                 self.set_witness_for_key_mp(witness, &contract_state_tree_ck, &proofs[1])?;
             },
-            DPNStateCmd::GetSelfUserExternalContractStateSlotSingle(c) => todo!(),
-            DPNStateCmd::GetSelfUserExternalContractStateSlotRange(c) => todo!(),
+            DPNStateCmd::GetSelfUserExternalContractStateSlotSingle(_c) => todo!(),
+            DPNStateCmd::GetSelfUserExternalContractStateSlotRange(_c) => todo!(),
             DPNStateCmd::GetOtherUserContractStateSlotHash(c) => {
 /* 
         let user_tree_ck =
@@ -266,8 +266,8 @@ impl StateReaderGadget {
                     &read_witness.state_slot_proofs[0]
                 )?;
             },
-            DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => todo!(),
-            DPNStateCmd::GetOtherUserContractStateSlotRange(c) => todo!(),
+            DPNStateCmd::GetOtherUserContractStateSlotSingle(_c) => todo!(),
+            DPNStateCmd::GetOtherUserContractStateSlotRange(_c) => todo!(),
         };
         Ok(())
     }

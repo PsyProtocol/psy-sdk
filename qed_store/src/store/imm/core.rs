@@ -25,7 +25,7 @@ use crate::{
             contract_leaf::{ContractLeafModelCoreImmutable, ContractLeafModelReaderCore},
         },
         kvq_merkle::model::{
-            KVQFixedConfigMerkleTreeModelCoreImmutable, KVQFixedConfigMerkleTreeModelReaderCore, KVQSemiFixedConfigMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelCoreImmutable, KVQSemiFixedConfigMerkleTreeModelReaderCore
+            KVQFixedConfigMerkleTreeModelCoreImmutable, KVQFixedConfigMerkleTreeModelReaderCore, KVQSemiFixedConfigMerkleTreeModelCoreImmutable, KVQSemiFixedConfigMerkleTreeModelReaderCore
         },
         user::{
             contract_state_tree::UserContractStateTreeId,

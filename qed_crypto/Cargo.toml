@@ -23,6 +23,7 @@ kvq = { path = "../kvq" }
 qed_core = { path = "../qed_core" }
 
 
+
 ripemd = "0.1.3"
 num = { version = "0.4.0", default-features = false }
 bitflags = "2.5.0"
@@ -42,3 +43,5 @@ k256 = { version = "0.13.2", features = [
   "std",
   "serde",
 ] }
+
+hashbrown = { workspace = true }

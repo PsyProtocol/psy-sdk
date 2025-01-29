@@ -223,7 +223,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                     })
                 }
             }
-            DPNStateCmd::InvokeExternalContractFunctionSync(c) => todo!(),
+            DPNStateCmd::InvokeExternalContractFunctionSync(_c) => todo!(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => {
                 let witness = self.get_contract_state_slot(
                     current_contract_id,
@@ -435,7 +435,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                     })
                 })
             },
-            DPNStateCmd::GetOtherUserContractStateSlotRange(c) => todo!(),
+            DPNStateCmd::GetOtherUserContractStateSlotRange(_c) => todo!(),
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
                 let call_data = DPNProvingSessionSimpleMethodCall{
                     contract_id: GF::from_canonical_u64(c.contract_id),
@@ -555,13 +555,13 @@ impl QEDEvalSessionResult<GF> {
         };
         for (i, def) in fn_def.definitions.iter().enumerate() {
             if def.op_type.eq(&DPNOpType::GetStateCommandResultSingle) {
-                let ind = (def.inputs[0] as usize);
+                let ind = def.inputs[0] as usize;
                 executor.push_external_target(self.cmd_witnesses[ind].result[0]);
             } else if def.op_type.eq(&DPNOpType::GetStateCommandResultArray) {
-                let ind = (def.inputs[0] as usize);
+                let ind = def.inputs[0] as usize;
                 executor.push_external_target_array(self.cmd_witnesses[ind].result.clone());
             } else if def.op_type.eq(&DPNOpType::GetStateCommandResultHash) {
-                let ind = (def.inputs[0] as usize);
+                let ind = def.inputs[0] as usize;
                 executor.push_external_hash([
                     self.cmd_witnesses[ind].result[0],
                     self.cmd_witnesses[ind].result[1],

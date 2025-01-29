@@ -1,12 +1,10 @@
-use std::{hash::Hash, sync::Arc};
 use std::time::SystemTime;
 
 use plonky2::field::types::{Field, PrimeField64};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::traits::{
-    hasher::{FieldQHasher, PoseidonHasher},
-    qhashable::QFieldHashable,
-};
+use qed_crypto::hash::traits::
+    qhashable::QFieldHashable
+;
 use qed_data::qblock::process::witnesses::QEDCheckpointStateTransitionCircuitInput;
 use qed_data::{
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,

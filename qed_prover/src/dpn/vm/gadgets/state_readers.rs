@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOut, HashOutTarget, RichField},
-    iop::{target::Target, witness::Witness},
+    iop::target::Target,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_common_circuit::{
@@ -18,11 +18,10 @@ use qed_common_circuit::{
 };
 use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::base_types::hash256::Hash256};
 use qed_crypto::hash::core::sha256;
-use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qed_rollup_circuit::gadgets::qdata::{
     checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::QEDUserLeafGadget
 };
-use qedlang_core::dpn::{ops::state_cmd::data::DPNStateCmd, vm::def::DPNFunctionCircuitDefinition};
+use qedlang_core::dpn::ops::state_cmd::data::DPNStateCmd;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -744,7 +743,7 @@ impl StateReaderGadget {
                 );
                 self.write_epoch += 1;
 
-                let ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
+                let _ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
 
                 value.elements.to_vec()
             },
@@ -781,7 +780,7 @@ impl StateReaderGadget {
                 );
 
                 self.write_epoch += 1;
-                let ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
+                let _ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
 
                 vec![value]
             },

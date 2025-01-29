@@ -1,5 +1,5 @@
 use kvq::adapters::standard::KVQStandardAdapter;
-use plonky2::{field::{goldilocks_field::GoldilocksField, types::Field}, hash::{hash_types::HashOut, poseidon::PoseidonHash}};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::{hash_types::HashOut, poseidon::PoseidonHash}};
 use qed_core::{
     config::network_constants::{
         CHECKPOINT_TREE_HEIGHT, CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,
@@ -7,7 +7,7 @@ use qed_core::{
     },
     data::qhashout::QHashOut,
 };
-use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::hasher::PoseidonHasher};
+use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use qed_data::qdata::{
     checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
     checkpoint_id_key::CheckpointTableIdKey,

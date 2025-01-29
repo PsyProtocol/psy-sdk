@@ -1,6 +1,5 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
-use qed_core::data::qhashout::QHashOut;
 use qed_data::dpn::cfc_context_input::DapenCFCUserTransactionInputContext;
 use serde::{Deserialize, Serialize};
 
