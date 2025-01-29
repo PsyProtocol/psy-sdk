@@ -17,7 +17,7 @@ use qed_data::{
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
-use qed_prover::dpn::circuits::dpntst1::DapenContractFunctionCircuit;
+use qed_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
 use qed_store::{
     controllers::local::proving_session::QEDLocalProvingSessionStore,
     qblock::process::simple::SimpleBlockProcessor,
