@@ -46,11 +46,12 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
         &mut self,
         state_cmd: &DPNStateCmd<u64>,
     ) -> anyhow::Result<QEDCmdWithInputAndWitness<GF>> {
+        let current_contract_id = self.get_current_contract_id();
         match state_cmd {
             DPNStateCmd::SetContractStateSlotHash(c) => {
                 if c.condition == 0 {
                     let mp = self.get_contract_state_slot(
-                        self.current_contract_id,
+                        current_contract_id,
                         GoldilocksField::from_noncanonical_u64(c.slot_index),
                     )?;
                     let dmp = mp_to_dmp(mp);
@@ -64,7 +65,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                     })
                 } else {
                     let dmp = self.set_contract_state_slot(
-                        self.current_contract_id,
+                        current_contract_id,
                         GF::from_canonical_u64(c.slot_index),
                         QHashOut::from_values(c.value[0], c.value[1], c.value[2], c.value[3]),
                     )?;
@@ -80,7 +81,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
             DPNStateCmd::SetContractStateSlotSingle(c) => {
                 let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
                 let n = (c.sub_slot_index & 0b11) as usize;
-                let mp = self.get_contract_state_slot(self.current_contract_id, slot_index)?;
+                let mp = self.get_contract_state_slot(current_contract_id, slot_index)?;
 
                 let cur = mp.value.0.elements;
                 if c.condition == 0 {
@@ -98,7 +99,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                     new_elements[n] = GF::from_canonical_u64(c.value);
 
                     let dmp = self.set_contract_state_slot(
-                        self.current_contract_id,
+                        current_contract_id,
                         slot_index,
                         QHashOut(HashOut {
                             elements: new_elements,
@@ -141,7 +142,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                     let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
                     let n = (c.sub_slot_index & 0b11) as usize;
                     let cur = self
-                        .get_contract_state_slot(self.current_contract_id, slot_index)?
+                        .get_contract_state_slot(current_contract_id, slot_index)?
                         .value
                         .0
                         .elements;
@@ -149,7 +150,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                     new_elements[n] = GF::from_canonical_u64(c.value[0]);
 
                     let dmp = self.set_contract_state_slot(
-                        self.current_contract_id,
+                        current_contract_id,
                         slot_index,
                         QHashOut(HashOut {
                             elements: new_elements,
@@ -172,7 +173,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                     let end_slot_index = end_sub_index / 4u64;
                     let left_values = self
                         .get_contract_state_slot(
-                            self.current_contract_id,
+                            current_contract_id,
                             GF::from_canonical_u64(slot_index),
                         )?
                         .value
@@ -180,7 +181,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                         .elements;
                     let right_values = self
                         .get_contract_state_slot(
-                            self.current_contract_id,
+                            current_contract_id,
                             GF::from_canonical_u64(end_slot_index),
                         )?
                         .value
@@ -201,7 +202,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                         .enumerate()
                         .map(|(i, x)| {
                             self.set_contract_state_slot(
-                                self.current_contract_id,
+                                current_contract_id,
                                 GF::from_canonical_u64((i as u64) + slot_index),
                                 QHashOut(HashOut {
                                     elements: [x[0], x[1], x[2], x[3]],
@@ -225,7 +226,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
             DPNStateCmd::InvokeExternalContractFunctionSync(c) => todo!(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => {
                 let witness = self.get_contract_state_slot(
-                    self.current_contract_id,
+                    current_contract_id,
                     GF::from_canonical_u64(c.slot_index),
                 )?;
                 Ok(QEDCmdWithInputAndWitness {
@@ -237,7 +238,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
             DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(c) => {
                 let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
                 let slot_offset = c.sub_slot_index % 4u64;
-                let witness = self.get_contract_state_slot(self.current_contract_id, slot_index)?;
+                let witness = self.get_contract_state_slot(current_contract_id, slot_index)?;
                 Ok(QEDCmdWithInputAndWitness {
                     state_cmd: state_cmd.clone(),
                     result: vec![witness.value.0.elements[slot_offset as usize]],
@@ -248,7 +249,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                 if c.length == 1 {
                     let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
                     let n = (c.sub_slot_index & 0b11) as usize;
-                    let cur = self.get_contract_state_slot(self.current_contract_id, slot_index)?;
+                    let cur = self.get_contract_state_slot(current_contract_id, slot_index)?;
                     let el = cur.value.0.elements[n];
                     Ok(QEDCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
@@ -267,7 +268,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                     let mut result = Vec::<GF>::with_capacity(c.length as usize);
                     for i in slot_index..end_slot_index {
                         let mp = self.get_contract_state_slot(
-                            self.current_contract_id,
+                            current_contract_id,
                             GF::from_canonical_u64(i),
                         )?;
                         if base_offset != 0 && i == slot_index {
@@ -278,7 +279,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                     }
                     if end_offset != 0 {
                         let mp = self.get_contract_state_slot(
-                            self.current_contract_id,
+                            current_contract_id,
                             GF::from_canonical_u64(end_slot_index),
                         )?;
                         result.extend_from_slice(&mp.value.0.elements[..(end_offset as usize)]);
@@ -383,13 +384,13 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
 
                 let user_leaf_witness = self.get_external_user_leaf_proof(user_id)?;
                 let contract_state_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractTreeMerkleProof(QSRMerkleCmdGetUserContractTreeMerkleProof{
-                    checkpoint_id: self.start_checkpoint_u64,
+                    checkpoint_id: self.get_current_start_checkpoint_id_u64(),
                     user_id: c.user_id,
                     contract_id: c.contract_id as u32,
                 }))?;
 
                 let state_slot_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(QSRMerkleCmdGetUserContractStateTreeMerkleProof{
-                    checkpoint_id: self.start_checkpoint_u64,
+                    checkpoint_id: self.get_current_start_checkpoint_id_u64(),
                     user_id: c.user_id,
                     contract_id: c.contract_id as u32,
                     height: c.contract_state_tree_height,
@@ -412,13 +413,13 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
 
                 let user_leaf_witness = self.get_external_user_leaf_proof(user_id)?;
                 let contract_state_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractTreeMerkleProof(QSRMerkleCmdGetUserContractTreeMerkleProof{
-                    checkpoint_id: self.start_checkpoint_u64,
+                    checkpoint_id: self.get_current_start_checkpoint_id_u64(),
                     user_id: c.user_id,
                     contract_id: c.contract_id as u32,
                 }))?;
 
                 let state_slot_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(QSRMerkleCmdGetUserContractStateTreeMerkleProof{
-                    checkpoint_id: self.start_checkpoint_u64,
+                    checkpoint_id: self.get_current_start_checkpoint_id_u64(),
                     user_id: c.user_id,
                     contract_id: c.contract_id as u32,
                     height: c.contract_state_tree_height,
@@ -511,23 +512,39 @@ impl QEDEvalSessionResult<GF> {
         Ok(())
     }
 
-    pub fn eval_session<R: QEDReadCommandProcessorSync<GF>>(
+
+    pub fn exec_contract_call<R: QEDReadCommandProcessorSync<GF>>(
+        self,
+        sesh: &mut QEDLocalProvingSessionStore<GF, R>,
+        contract_id: GF,
+        fn_def: &DPNFunctionCircuitDefinition,
+        inputs: Vec<GF>,
+    ) -> anyhow::Result<DapenContractFunctionCircuitInput<GF>> {
+        sesh.init_transaction(DPNProvingSessionSimpleMethodCall{
+            contract_id,
+            method_id: GF::from_canonical_u32(fn_def.method_id),
+            inputs: inputs.clone(),
+        })?;
+        self.eval_session(fn_def, sesh, inputs)
+    }
+
+    fn eval_session<R: QEDReadCommandProcessorSync<GF>>(
         mut self,
         fn_def: &DPNFunctionCircuitDefinition,
         sesh: &mut QEDLocalProvingSessionStore<GF, R>,
         inputs: Vec<GF>,
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<GF>> {
 
-        let start_session_ctx = sesh.get_fresh_start_ctx_for_user(sesh.user_id)?;
-        let call_data_ctx = sesh.get_call_start_data(sesh.current_contract_id, GF::from_canonical_u32(fn_def.method_id), &inputs)?;
+        let start_session_ctx = sesh.get_fresh_start_ctx_for_user(sesh.get_current_user_id())?;
+        let call_data_ctx = sesh.get_call_start_data(sesh.get_current_contract_id(), GF::from_canonical_u32(fn_def.method_id), &inputs)?;
 
         let inputs_clone = inputs.clone();
         let mut executor = SimpleDPNExecutor::<GF>::new_with_contract_ctx(
             inputs,
-            sesh.user_id,
-            sesh.current_contract_id,
-            sesh.start_checkpoint,
-            sesh.nonce,
+            sesh.get_current_user_id(),
+            sesh.get_current_contract_id(),
+            sesh.get_current_start_checkpoint_id(),
+            sesh.get_nonce(),
         );
         let state_cmd_len = fn_def.state_command_resolution_indices.len();
         let mut next_state_cmd_id = 0;
@@ -587,7 +604,7 @@ impl QEDEvalSessionResult<GF> {
             .map(|x| executor.resolve_target(*x))
             .collect::<Vec<GF>>();
         let end_ctx = DapenCFCUserTransactionEndContext{
-            end_contract_state_tree_root: sesh.get_contract_state_slot(sesh.current_contract_id, GF::ZERO)?.root,
+            end_contract_state_tree_root: sesh.get_contract_state_slot(sesh.get_current_contract_id(), GF::ZERO)?.root,
             end_deferred_tx_debt_tree_root: sesh.get_latest_deferred_tx_leaf()?.root,
             outputs_hash: safe_hash_fixed_length::<QEDHasher, GF>(&outputs),
             outputs_length: GF::from_noncanonical_u64(outputs.len() as u64),
@@ -599,6 +616,8 @@ impl QEDEvalSessionResult<GF> {
             transaction_call_start_ctx: call_data_ctx,
             transaction_end_ctx: end_ctx,
         };
+
+        sesh.finalize_transaction()?;
 
         
         Ok(DapenContractFunctionCircuitInput{

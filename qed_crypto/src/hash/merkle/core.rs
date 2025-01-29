@@ -165,6 +165,26 @@ impl<Hash: PartialEq + Copy> MerkleProofCore<Hash> {
     pub fn verify_marked<Hasher: MerkleHasherWithMarkedLeaf<Hash>>(&self) -> bool {
         verify_merkle_proof_marked_leaves_core::<Hash, Hasher>(self)
     }
+    pub fn to_delta_merkle_proof_inplace(self) -> DeltaMerkleProofCore<Hash> {
+        DeltaMerkleProofCore {
+            old_root: self.root,
+            new_root: self.root,
+            old_value: self.value,
+            new_value: self.value,
+            index: self.index,
+            siblings: self.siblings
+        }
+    }
+    pub fn to_delta_merkle_proof(&self) -> DeltaMerkleProofCore<Hash> {
+        DeltaMerkleProofCore {
+            old_root: self.root,
+            new_root: self.root,
+            old_value: self.value,
+            new_value: self.value,
+            index: self.index,
+            siblings: self.siblings.clone()
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -186,6 +206,19 @@ pub struct DeltaMerkleProofCore<Hash: PartialEq + Copy> {
 
     pub index: u64,
     pub siblings: Vec<Hash>,
+}
+
+impl<Hash: PartialEq + Copy + Default> Default for DeltaMerkleProofCore<Hash> {
+    fn default() -> Self {
+        Self {
+            old_root: Default::default(),
+            old_value: Default::default(),
+            new_root: Default::default(),
+            new_value: Default::default(),
+            index: Default::default(),
+            siblings: Default::default(),
+        }
+    }
 }
 impl<Hash: PartialEq + Copy> DeltaMerkleProofCore<Hash> {
     pub fn verify<Hasher: MerkleHasher<Hash>>(&self) -> bool {

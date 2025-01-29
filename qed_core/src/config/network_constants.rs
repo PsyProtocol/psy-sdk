@@ -26,6 +26,14 @@ impl QEDTreeConfig for QEDTestnetTreeConfig {
 }
 */
 
+
+// Network Magic
+pub const QED_NETWORK_MAGIC_MAINNET: u64 = 0x1337CF514544C069u64;
+pub const QED_NETWORK_MAGIC_TESTNET: u64 = 0x1337CF514544C169u64;
+pub const QED_NETWORK_MAGIC_REGTEST: u64 = 0x1337CF514544CF69u64;
+
+
+
 pub const CHECKPOINT_TREE_HEIGHT: u8 = 32;
 pub const GLOBAL_USER_TREE_HEIGHT: u8 = 24;
 pub const GLOBAL_CONTRACT_TREE_HEIGHT: u8 = 24;
@@ -43,3 +51,7 @@ pub const DA_CHALLENGE_WINDOW: usize = 14;
 
 pub const DEFERRED_CALL_MAGIC: u64 = 0xDEFE1212EDCA11u64;
 pub const DEFERRED_TRANSACTION_TREE_HEIGHT: u8 = 16;
+
+
+// used for signing a transaction/contract function call 0xCA11_<ascii'TXCALL'>
+pub const SIGN_SIMPLE_TRANSACTION_MAGIC: u64 = 0xCA11_545843414C4C;

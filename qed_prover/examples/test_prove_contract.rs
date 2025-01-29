@@ -155,19 +155,19 @@ fn prepare_environment_with_contract(
         GoldilocksField::ONE,
         GoldilocksField::ONE,
         GoldilocksField::ONE,
-        GoldilocksField::ONE,
     );
 
     Ok(lps)
 }
 
 fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField>>(
+    contract_id: GoldilocksField,
     fn_circuit_def: &DPNFunctionCircuitDefinition,
     lps: &mut QEDLocalProvingSessionStore<GoldilocksField, R>,
     inputs: &[GoldilocksField],
 ) -> anyhow::Result<DapenContractFunctionCircuitInput<GoldilocksField>> {
     QEDEvalSessionResult::new()
-        .eval_session(&fn_circuit_def, lps, inputs.to_vec())
+        .exec_contract_call( lps,contract_id, fn_circuit_def, inputs.to_vec())
 }
 fn test_compile_contract() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let mut ctx = QExecContext::new();
@@ -213,6 +213,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
 
 
 
+    let contract_id = GoldilocksField::from_canonical_u64(1);
     let mut lps = prepare_environment_with_contract(
         contract_state_tree_height as u8,
         &[
@@ -225,6 +226,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("prepared environement");
 
     let result = test_run_contract_fn(
+        contract_id,
         &compiled,
         &mut lps,
         &[

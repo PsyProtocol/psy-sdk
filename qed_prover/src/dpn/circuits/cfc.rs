@@ -49,7 +49,7 @@ where
         
         builder.register_public_inputs(&final_hash.elements);
         //builder.add_city_common_gates(Some(coset_gate.clone()));
-        pad_circuit_degree::<C::F, D>(&mut builder, 12);
+        //pad_circuit_degree::<C::F, D>(&mut builder, 12);
 
         let circuit_data = builder.build::<C>();
 
