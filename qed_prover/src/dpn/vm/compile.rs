@@ -5,7 +5,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_common_circuit::builder::{
-    connect::CircuitBuilderConnectHelpers, core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore
+    core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore
 };
 use qed_rollup_circuit::gadgets::qdata::cfc_context_input::DapenCFCUserTransactionInputContextGadget;
 use qedlang_core::dpn::{
@@ -274,12 +274,6 @@ impl QEDContractFunctionBuilderGadget {
             outputs_hash,
             self.tx_ctx_header.transaction_end_ctx.outputs_hash,
         );
-/*
-        // ensure the end state is correct -- ERROR IS HERE
-        builder.register_public_inputs(&self.state_reader.end_contract_state_root.elements);
-        builder.register_public_inputs(&self.tx_ctx_header
-            .transaction_end_ctx
-            .end_contract_state_tree_root.elements);*/
 
         builder.connect_hashes(
             self.state_reader.end_contract_state_root,
