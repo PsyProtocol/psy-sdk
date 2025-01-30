@@ -1,17 +1,58 @@
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, interpolation::barycentric_weights},
     gates::{
         arithmetic_base::ArithmeticGate, arithmetic_extension::ArithmeticExtensionGate,
-        base_sum::BaseSumGate, constant::ConstantGate, gate::GateRef,
-        multiplication_extension::MulExtensionGate, noop::NoopGate, poseidon::PoseidonGate,
-        poseidon_mds::PoseidonMdsGate, random_access::RandomAccessGate, reducing::ReducingGate,
-        reducing_extension::ReducingExtensionGate,
+        base_sum::BaseSumGate, constant::ConstantGate, coset_interpolation::CosetInterpolationGate,
+        gate::GateRef, multiplication_extension::MulExtensionGate, noop::NoopGate,
+        poseidon::PoseidonGate, poseidon_mds::PoseidonMdsGate, random_access::RandomAccessGate,
+        reducing::ReducingGate, reducing_extension::ReducingExtensionGate,
     },
     hash::hash_types::RichField,
     plonk::circuit_builder::CircuitBuilder,
 };
 
 use crate::u32::gates::comparison::ComparisonGate;
+
+/*
+[Common Gate Types List]
+======================================
+Identifier: **Type A**
+NOTE: TYPE A IS DEPRECATED FOR NEW USE, MAKE A NEW TYPE INSTEAD OF USING TYPE A
+<description>
+Circuits which need to have the same common circuit data as:
+    - a circuit that recursively verifies other proofs
+</description>
+======================================
+*/
+
+pub fn new_coset_gate_with_max_degree<F: RichField + Extendable<D>, const D: usize>(
+    subgroup_bits: usize,
+    max_degree: usize,
+) -> CosetInterpolationGate<F, D> {
+    let mut base_gate = CosetInterpolationGate::<F, D>::default();
+
+    assert!(max_degree > 1, "need at least quadratic constraints");
+
+    let n_points = 1 << subgroup_bits;
+
+    // Number of intermediate values required to compute interpolation with degree bound
+    let n_intermediates = (n_points - 2) / (max_degree - 1);
+
+    // Find minimum degree such that (n_points - 2) / (degree - 1) < n_intermediates + 1
+    // Minimizing the degree this way allows the gate to be in a larger selector group
+    let degree = (n_points - 2) / (n_intermediates + 1) + 2;
+
+    let barycentric_weights = barycentric_weights(
+        &F::two_adic_subgroup(subgroup_bits)
+            .into_iter()
+            .map(|x| (x, F::ZERO))
+            .collect::<Vec<_>>(),
+    );
+    base_gate.subgroup_bits = subgroup_bits;
+    base_gate.degree = degree;
+    base_gate.barycentric_weights = barycentric_weights;
+    base_gate
+}
 
 pub fn pad_circuit_degree<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
@@ -21,14 +62,16 @@ pub fn pad_circuit_degree<F: RichField + Extendable<D>, const D: usize>(
         builder.add_gate(NoopGate, vec![]);
     }
 }
-pub trait CircuitBuilderCityCommonGates<F: RichField + Extendable<D>, const D: usize> {
-    fn add_city_common_gates(&mut self, coset_gate: Option<GateRef<F, D>>);
+
+pub trait CircuitBuilderQEDCommonGates<F: RichField + Extendable<D>, const D: usize> {
+    fn add_qed_type_a_common_gates(&mut self, coset_gate: Option<GateRef<F, D>>);
+    fn add_qed_type_a_common_gates_with_coset(&mut self, subgroup_bits: usize, max_degree: usize);
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCityCommonGates<F, D>
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<F, D>
     for CircuitBuilder<F, D>
 {
-    fn add_city_common_gates(&mut self, coset_gate: Option<GateRef<F, D>>) {
+    fn add_qed_type_a_common_gates(&mut self, coset_gate: Option<GateRef<F, D>>) {
         self.add_gate_to_gate_set(GateRef::new(ConstantGate::new(self.config.num_constants)));
         self.add_gate_to_gate_set(GateRef::new(ComparisonGate::new(32, 16)));
         self.add_gate_to_gate_set(GateRef::new(RandomAccessGate::new_from_config(
@@ -52,5 +95,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCityCommonGates
         if coset_gate.is_some() {
             self.add_gate_to_gate_set(coset_gate.unwrap());
         }
+    }
+
+    fn add_qed_type_a_common_gates_with_coset(&mut self, subgroup_bits: usize, max_degree: usize) {
+        let coset_gate = GateRef::new(new_coset_gate_with_max_degree::<F, D>(
+            subgroup_bits,
+            max_degree,
+        ));
+        self.add_qed_type_a_common_gates(Some(coset_gate));
     }
 }

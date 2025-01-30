@@ -15,7 +15,7 @@ use qed_crypto::hash::merkle::treeprover::DummyAggStateTransition;
 use crate::{
     builder::{
         hash::core::CircuitBuilderHashCore,
-        pad_circuit::{pad_circuit_degree, CircuitBuilderCityCommonGates},
+        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
     },
     circuits::traits::qstandard::{
         provable::QStandardCircuitProvable, QStandardCircuit,
@@ -53,7 +53,7 @@ where
         builder.register_public_inputs(&allowed_circuit_hashes_root.elements);
         builder.register_public_inputs(&transition.elements);
 
-        builder.add_city_common_gates(Some(coset_gate.clone()));
+        builder.add_qed_type_a_common_gates(Some(coset_gate.clone()));
         pad_circuit_degree::<C::F, D>(&mut builder, 12);
         let circuit_data = builder.build::<C>();
 

@@ -20,7 +20,7 @@ use qed_crypto::hash::merkle::treeprover::AggStateTransitionWithEventsInput;
 
 use crate::{
     builder::{
-        hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderCityCommonGates,
+        hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates,
         verify::CircuitBuilderVerifyProofHelpers,
     },
     circuits::traits::qstandard::QStandardCircuit,
@@ -274,7 +274,7 @@ where
         builder.register_public_inputs(&header_gadget.state_transition_hash.elements);
         builder.register_public_inputs(&header_gadget.event_transition_hash.elements);
 
-        builder.add_city_common_gates(None);
+        builder.add_qed_type_a_common_gates(None);
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));

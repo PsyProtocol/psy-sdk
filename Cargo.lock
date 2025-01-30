@@ -278,6 +278,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67ba02a97a2bd10f4b59b25c7973101c79642302776489e030cd13cdab09ed15"
 
 [[package]]
+name = "colored"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
+dependencies = [
+ "lazy_static",
+ "windows-sys",
+]
+
+[[package]]
 name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1100,6 +1110,68 @@ dependencies = [
 ]
 
 [[package]]
+name = "qcircuit_config_db"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "criterion",
+ "env_logger",
+ "hashbrown 0.14.5",
+ "hex",
+ "hex-literal",
+ "itertools 0.10.5",
+ "lazy_static",
+ "log",
+ "num",
+ "plonky2",
+ "postcard",
+ "qed_core",
+ "qed_crypto",
+ "rand",
+ "rand_chacha",
+ "ripemd",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "sha2",
+ "tracing",
+ "unroll",
+]
+
+[[package]]
+name = "qcircuit_config_db_generator"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "colored",
+ "criterion",
+ "env_logger",
+ "hashbrown 0.14.5",
+ "hex",
+ "hex-literal",
+ "itertools 0.10.5",
+ "lazy_static",
+ "log",
+ "num",
+ "plonky2",
+ "postcard",
+ "qcircuit_config_db",
+ "qed_core",
+ "qed_crypto",
+ "rand",
+ "rand_chacha",
+ "ripemd",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "sha2",
+ "tracing",
+ "unroll",
+]
+
+[[package]]
 name = "qed_common_circuit"
 version = "0.1.0"
 dependencies = [
@@ -1127,6 +1199,7 @@ dependencies = [
  "ripemd",
  "serde",
  "serde_json",
+ "serde_repr",
  "serde_with",
  "sha2",
  "tracing",
@@ -1160,6 +1233,7 @@ name = "qed_crypto"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "bitflags",
  "bs58",
  "hashbrown 0.14.5",
@@ -1177,6 +1251,7 @@ dependencies = [
  "ripemd",
  "serde",
  "serde_json",
+ "serde_repr",
  "serde_with",
  "sha2",
  "sha3",

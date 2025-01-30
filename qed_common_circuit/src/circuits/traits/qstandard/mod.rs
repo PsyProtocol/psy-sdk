@@ -108,3 +108,8 @@ pub trait QStandardCircuitProvableWithProofStoreAsync<
         input: &I,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 }
+
+
+pub trait VerifierDataStore<C: GenericConfig<D>, const D: usize> {
+    fn get_verifier_data_by_fingerprint(&self, fingerprint: QHashOut<C::F>) -> Option<&VerifierOnlyCircuitData<C, D>>;
+}

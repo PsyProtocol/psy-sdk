@@ -7,6 +7,7 @@ use kvq::
     }
 ;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::Field}, plonk::config::PoseidonGoldilocksConfig};
+use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use qed_data::{
@@ -238,6 +239,8 @@ fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("generated witness input");
     println!("witnesss_json:\n{:?}",&result);
     //println!("witnesss_json:\n{}",serde_json::to_string(&result).unwrap());
+    
+    println!("common_looks_like: \n{:?}\n\n\n", cf_circuit.get_common_circuit_data_ref());
     let proof = cf_circuit.prove_base(&result);
     
     timer.lap("proved");

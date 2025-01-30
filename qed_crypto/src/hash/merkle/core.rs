@@ -186,6 +186,16 @@ impl<Hash: PartialEq + Copy> MerkleProofCore<Hash> {
         }
     }
 }
+impl<F: RichField> From<MerkleProofCore<HashOut<F>>> for MerkleProofCore<QHashOut<F>> {
+    fn from(value: MerkleProofCore<HashOut<F>>) -> Self {
+        Self {
+            root: QHashOut(value.root),
+            value: QHashOut(value.value),
+            index: value.index,
+            siblings: value.siblings.into_iter().map(|s| QHashOut(s)).collect::<Vec<_>>(),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DeltaMerkleProofCorePartial<Hash: PartialEq + Copy> {
@@ -208,6 +218,18 @@ pub struct DeltaMerkleProofCore<Hash: PartialEq + Copy> {
     pub siblings: Vec<Hash>,
 }
 
+impl<F: RichField> From<DeltaMerkleProofCore<HashOut<F>>> for DeltaMerkleProofCore<QHashOut<F>> {
+    fn from(value: DeltaMerkleProofCore<HashOut<F>>) -> Self {
+        Self {
+            old_root: QHashOut(value.old_root),
+            old_value: QHashOut(value.old_value),
+            new_root: QHashOut(value.new_root),
+            new_value: QHashOut(value.new_value),
+            index: value.index,
+            siblings: value.siblings.into_iter().map(|s| QHashOut(s)).collect::<Vec<_>>(),
+        }
+    }
+}
 impl<Hash: PartialEq + Copy + Default> Default for DeltaMerkleProofCore<Hash> {
     fn default() -> Self {
         Self {
