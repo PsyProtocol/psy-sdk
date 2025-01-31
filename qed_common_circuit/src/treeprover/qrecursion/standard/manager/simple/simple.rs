@@ -138,6 +138,9 @@ where
     pub fn get_proof_tree_height_u8(&self) -> u8 {
         self.q_recursion_tree_height as u8
     }
+    pub fn get_proof_tree_root(&self) -> QHashOut<C::F> {
+        self.proof_tree.get_root()
+    }
     pub fn get_leaf_merkle_proof(&self, index: u64) -> MerkleProofCore<QHashOut<C::F>> {
         self.proof_tree.get_leaf(index)
     }
@@ -268,7 +271,7 @@ where
 
         let record = AggProofRecord {
             circuit_type: QStandardBinaryTreeCircuitType::SingleLeaf,
-            fingerprint: self.circuit_set.two_leaf_circuit.get_fingerprint(),
+            fingerprint: self.circuit_set.single_leaf_circuit.get_fingerprint(),
             agg_header: QRecursionAggStandardHeader {
                 state_transition_start: leaf.insertion_proof.old_root,
                 state_transition_end: leaf.insertion_proof.new_root,
@@ -300,7 +303,7 @@ where
 
         let record = AggProofRecord {
             circuit_type: QStandardBinaryTreeCircuitType::LeftAggRightLeaf,
-            fingerprint: self.circuit_set.two_leaf_circuit.get_fingerprint(),
+            fingerprint: self.circuit_set.left_agg_right_leaf_circuit.get_fingerprint(),
             agg_header: QRecursionAggStandardHeader {
                 state_transition_start: left.agg_header.state_transition_start,
                 state_transition_end: right.insertion_proof.new_root,
@@ -356,6 +359,7 @@ where
             &left.proof,
             self.circuit_set
                 .get_verifier_data_by_type(left.circuit_type),
+
             self.circuit_inclusion_proofs
                 .get_inclusion_proof_for_type(right.circuit_type),
             &right.agg_header,
@@ -364,8 +368,8 @@ where
                 .get_verifier_data_by_type(right.circuit_type),
         );
         let record = AggProofRecord {
-            circuit_type: QStandardBinaryTreeCircuitType::TwoLeaf,
-            fingerprint: self.circuit_set.two_leaf_circuit.get_fingerprint(),
+            circuit_type: QStandardBinaryTreeCircuitType::TwoAgg,
+            fingerprint: self.circuit_set.two_agg_circuit.get_fingerprint(),
             agg_header: QRecursionAggStandardHeader {
                 state_transition_start: left.agg_header.state_transition_start,
                 state_transition_end: right.agg_header.state_transition_end,
@@ -380,6 +384,7 @@ where
     pub fn prove_one_step_simple_serial(&mut self) -> bool {
         let leaf_proofs_len = self.leaf_proofs.len();
         let agg_proofs_len = self.agg_proofs.len();
+
         if leaf_proofs_len >= 2 {
             let left = self.leaf_proofs.pop_front().unwrap();
             let right = self.leaf_proofs.pop_front().unwrap();
@@ -394,7 +399,7 @@ where
             true
         } else if agg_proofs_len != 0 && leaf_proofs_len != 0 {
             let left_agg = self.agg_proofs.pop().unwrap();
-            let right_leaf = self.leaf_proofs.pop_back().unwrap();
+            let right_leaf = self.leaf_proofs.pop_front().unwrap();
             let record = self.prove_left_agg_right_leaf(&left_agg, &right_leaf);
             self.agg_proofs.push(record);
             true
@@ -424,6 +429,8 @@ where
             assert_eq!(leaf_proofs_len, 1, "the only way leaf_proofs_len!=0 after while self.prove_one_step_simple_serial() should be if agg_proofs is empty and there is a single leaf proof");
             assert!(self.agg_proofs.is_empty(), "agg proofs should be empty if there is still a leaf proof in the queue after while self.prove_one_step_simple_serial()");
             let dangling_leaf = self.leaf_proofs.pop_front().unwrap();
+            println!("prove_single_leaf");
+
             let record = self.prove_single_leaf(&dangling_leaf);
             self.agg_proofs.push(record);
         }

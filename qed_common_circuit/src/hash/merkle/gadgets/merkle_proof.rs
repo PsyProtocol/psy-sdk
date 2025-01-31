@@ -10,7 +10,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::{MerkleProof, MerkleProofBase};
+use qed_crypto::hash::merkle::core::{MerkleProof, MerkleProofBase, MerkleProofCore};
 
 use crate::builder::optional_inputs::CircuitBuilderOptionalInputs;
 
@@ -227,6 +227,13 @@ impl MerkleProofGadget {
         input: &MerkleProofBase<F>,
     ) {
         self.set_witness(witness, input.index, input.value, &input.siblings);
+    }
+    pub fn set_witness_core_proof_q<F: RichField>(
+        &self,
+        witness: &mut PartialWitness<F>,
+        input: &MerkleProofCore<QHashOut<F>>,
+    ) {
+        self.set_witness(witness, F::from_noncanonical_u64(input.index), input.value, &input.siblings);
     }
 }
 

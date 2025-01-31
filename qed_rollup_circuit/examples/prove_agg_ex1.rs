@@ -47,6 +47,7 @@ fn run_prove_placeholder_example_1() -> anyhow::Result<()> {
 fn run_prove_agg_example_1() -> anyhow::Result<()> {
     let placeholder_cfc_circuit = CFCPlaceholderCircuit::<C, D>::new_with_minifier();
 
+
     let verifier_data_size = placeholder_cfc_circuit.get_verifier_config_ref().constants_sigmas_cap.0.len();
     println!("verifier_data_size: {}",verifier_data_size);
     //let agg_circuits = 

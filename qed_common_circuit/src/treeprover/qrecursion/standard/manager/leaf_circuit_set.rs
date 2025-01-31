@@ -6,7 +6,10 @@ use plonky2::{
     },
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::{common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType, hash::traits::hasher::MerkleZeroHasher};
+use qed_crypto::{
+    common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType,
+    hash::traits::hasher::MerkleZeroHasher,
+};
 
 use crate::{
     circuits::traits::qstandard::QStandardCircuit,
@@ -94,34 +97,95 @@ where
     }
 
     pub fn print_common_data(&self) {
-        println!("\n\n\n\n[single_leaf_circuit]:\n{:?}\n\n\n\n", self.single_leaf_circuit.get_common_circuit_data_ref());
-        println!("\n\n\n\n[two_leaf_circuit]:\n{:?}\n\n\n\n", self.two_leaf_circuit.get_common_circuit_data_ref());
-        println!("\n\n\n\n[two_agg_circuit]:\n{:?}\n\n\n\n", self.two_agg_circuit.get_common_circuit_data_ref());
-        println!("\n\n\n\n[left_leaf_right_agg_circuit]:\n{:?}\n\n\n\n", self.left_leaf_right_agg_circuit.get_common_circuit_data_ref());
-        println!("\n\n\n\n[left_agg_right_leaf_circuit]:\n{:?}\n\n\n\n", self.left_agg_right_leaf_circuit.get_common_circuit_data_ref());
+        println!(
+            "\n\n\n\n[single_leaf_circuit -> height = {}]:\n{:?}\n\n\n\n",
+            self.single_leaf_circuit
+                .get_verifier_config_ref()
+                .constants_sigmas_cap
+                .height(),
+            self.single_leaf_circuit.get_common_circuit_data_ref()
+        );
+        println!(
+            "\n\n\n\n[two_leaf_circuit -> height = {}]:\n{:?}\n\n\n\n",
+            self.two_leaf_circuit
+                .get_verifier_config_ref()
+                .constants_sigmas_cap
+                .height(),
+            self.two_leaf_circuit.get_common_circuit_data_ref()
+        );
+        println!(
+            "\n\n\n\n[two_agg_circuit -> height = {}]:\n{:?}\n\n\n\n",
+            self.two_agg_circuit
+                .get_verifier_config_ref()
+                .constants_sigmas_cap
+                .height(),
+            self.two_agg_circuit.get_common_circuit_data_ref()
+        );
+        println!(
+            "\n\n\n\n[left_leaf_right_agg_circuit -> height = {}]:\n{:?}\n\n\n\n",
+            self.left_leaf_right_agg_circuit
+                .get_verifier_config_ref()
+                .constants_sigmas_cap
+                .height(),
+            self.left_leaf_right_agg_circuit
+                .get_common_circuit_data_ref()
+        );
+        println!(
+            "\n\n\n\n[left_agg_right_leaf_circuit -> height = {}]:\n{:?}\n\n\n\n",
+            self.left_agg_right_leaf_circuit
+                .get_verifier_config_ref()
+                .constants_sigmas_cap
+                .height(),
+            self.left_agg_right_leaf_circuit
+                .get_common_circuit_data_ref()
+        );
     }
 
-    pub fn get_fingerprint_by_type(&self, circuit_type: QStandardBinaryTreeCircuitType) -> QHashOut<C::F> {
+    pub fn get_fingerprint_by_type(
+        &self,
+        circuit_type: QStandardBinaryTreeCircuitType,
+    ) -> QHashOut<C::F> {
         match circuit_type {
-            QStandardBinaryTreeCircuitType::None => panic!("tried to get verifier data for a circuit with type None"),
-            QStandardBinaryTreeCircuitType::SingleLeaf => self.single_leaf_circuit.get_fingerprint(),
+            QStandardBinaryTreeCircuitType::None => {
+                panic!("tried to get verifier data for a circuit with type None")
+            }
+            QStandardBinaryTreeCircuitType::SingleLeaf => {
+                self.single_leaf_circuit.get_fingerprint()
+            }
             QStandardBinaryTreeCircuitType::TwoLeaf => self.two_leaf_circuit.get_fingerprint(),
             QStandardBinaryTreeCircuitType::TwoAgg => self.two_agg_circuit.get_fingerprint(),
-            QStandardBinaryTreeCircuitType::LeftLeafRightAgg => self.left_leaf_right_agg_circuit.get_fingerprint(),
-            QStandardBinaryTreeCircuitType::LeftAggRightLeaf => self.left_agg_right_leaf_circuit.get_fingerprint(),
+            QStandardBinaryTreeCircuitType::LeftLeafRightAgg => {
+                self.left_leaf_right_agg_circuit.get_fingerprint()
+            }
+            QStandardBinaryTreeCircuitType::LeftAggRightLeaf => {
+                self.left_agg_right_leaf_circuit.get_fingerprint()
+            }
         }
-
     }
 
-    pub fn get_verifier_data_by_type(&self, circuit_type: QStandardBinaryTreeCircuitType) -> &VerifierOnlyCircuitData<C, D> {
+    pub fn get_verifier_data_by_type(
+        &self,
+        circuit_type: QStandardBinaryTreeCircuitType,
+    ) -> &VerifierOnlyCircuitData<C, D> {
         match circuit_type {
-            QStandardBinaryTreeCircuitType::None => panic!("tried to get verifier data for a circuit with type None"),
-            QStandardBinaryTreeCircuitType::SingleLeaf => self.single_leaf_circuit.get_verifier_config_ref(),
-            QStandardBinaryTreeCircuitType::TwoLeaf => self.two_leaf_circuit.get_verifier_config_ref(),
-            QStandardBinaryTreeCircuitType::TwoAgg => self.two_agg_circuit.get_verifier_config_ref(),
-            QStandardBinaryTreeCircuitType::LeftLeafRightAgg => self.left_leaf_right_agg_circuit.get_verifier_config_ref(),
-            QStandardBinaryTreeCircuitType::LeftAggRightLeaf => self.left_agg_right_leaf_circuit.get_verifier_config_ref(),
+            QStandardBinaryTreeCircuitType::None => {
+                panic!("tried to get verifier data for a circuit with type None")
+            }
+            QStandardBinaryTreeCircuitType::SingleLeaf => {
+                self.single_leaf_circuit.get_verifier_config_ref()
+            }
+            QStandardBinaryTreeCircuitType::TwoLeaf => {
+                self.two_leaf_circuit.get_verifier_config_ref()
+            }
+            QStandardBinaryTreeCircuitType::TwoAgg => {
+                self.two_agg_circuit.get_verifier_config_ref()
+            }
+            QStandardBinaryTreeCircuitType::LeftLeafRightAgg => {
+                self.left_leaf_right_agg_circuit.get_verifier_config_ref()
+            }
+            QStandardBinaryTreeCircuitType::LeftAggRightLeaf => {
+                self.left_agg_right_leaf_circuit.get_verifier_config_ref()
+            }
         }
-
     }
 }
