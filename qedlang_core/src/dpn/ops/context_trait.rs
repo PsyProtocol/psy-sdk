@@ -165,15 +165,15 @@ impl<T: ToFelts<SymFeltRef>, A: QContextArraySized<T>> QContextArray<T> for A {
             result
         }
     }
-    fn q_get_ref(&self, context: &mut QContext, index: SymFeltRef) -> &T {
+    fn q_get_ref(&self, _context: &mut QContext, _index: SymFeltRef) -> &T {
         todo!("q_get_ref")
     }
     
-    fn q_get_mut(&mut self, context: &mut QContext, index: SymFeltRef) -> &mut T {
+    fn q_get_mut(&mut self, _context: &mut QContext, _index: SymFeltRef) -> &mut T {
         todo!()
     }
     
-    fn q_set_at_index(&mut self, context: &mut QContext, index: SymFeltRef) -> T {
+    fn q_set_at_index(&mut self, _context: &mut QContext, _index: SymFeltRef) -> T {
         todo!()
     }
 } 

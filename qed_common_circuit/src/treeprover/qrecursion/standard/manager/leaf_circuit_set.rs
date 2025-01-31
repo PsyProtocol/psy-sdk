@@ -1,7 +1,7 @@
 use plonky2::{
     hash::hash_types::HashOut,
     plonk::{
-        circuit_data::{CommonCircuitData, VerifierCircuitData, VerifierOnlyCircuitData},
+        circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
     },
 };

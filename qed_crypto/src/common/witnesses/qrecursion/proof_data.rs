@@ -1,4 +1,4 @@
-use plonky2::{hash::hash_types::RichField, plonk::{circuit_data::{VerifierCircuitData, VerifierOnlyCircuitData}, config::GenericConfig, proof::ProofWithPublicInputs}};
+use plonky2::{hash::hash_types::RichField, plonk::{circuit_data::VerifierOnlyCircuitData, config::GenericConfig, proof::ProofWithPublicInputs}};
 use qed_core::data::qhashout::QHashOut;
 use crate::{common::witnesses::qrecursion::header::QRecursionAggStandardHeader, hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore}};
 use serde::{Deserialize, Serialize};

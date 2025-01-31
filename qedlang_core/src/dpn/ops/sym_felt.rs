@@ -1,7 +1,7 @@
 use std::hash::Hasher;
 
 use std::ops::{
-    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Deref, Div, DivAssign, Mul, MulAssign, Neg, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign
+    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign, Mul, MulAssign, Neg, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign
 };
 
 use plonky2::field::types::{Field, PrimeField64};
@@ -368,32 +368,32 @@ impl DivAssign<SymFeltRef> for u64 {
 }
 impl RemAssign<SymFeltRef> for u64 {
     fn rem_assign(&mut self, other: SymFeltRef) {
-        *self = (*self % other.get_u64())
+        *self = *self % other.get_u64()
     }
 }
 impl BitAndAssign<SymFeltRef> for u64 {
     fn bitand_assign(&mut self, other: SymFeltRef) {
-        *self = ((*self & other.get_u64())&0xFFFFFFFFu64)
+        *self = (*self & other.get_u64())&0xFFFFFFFFu64
     }
 }
 impl BitOrAssign<SymFeltRef> for u64 {
     fn bitor_assign(&mut self, other: SymFeltRef) {
-        *self = ((*self | other.get_u64())&0xFFFFFFFFu64)
+        *self = (*self | other.get_u64())&0xFFFFFFFFu64
     }
 }
 impl BitXorAssign<SymFeltRef> for u64 {
     fn bitxor_assign(&mut self, other: SymFeltRef) {
-        *self = ((*self ^ other.get_u64())&0xFFFFFFFFu64)
+        *self = (*self ^ other.get_u64())&0xFFFFFFFFu64
     }
 }
 impl ShlAssign<SymFeltRef> for u64 {
     fn shl_assign(&mut self, other: SymFeltRef) {
-        *self = ((*self << other.get_u64())&0xFFFFFFFFu64)
+        *self = (*self << other.get_u64())&0xFFFFFFFFu64
     }
 }
 impl ShrAssign<SymFeltRef> for u64 {
     fn shr_assign(&mut self, other: SymFeltRef) {
-        *self = ((*self >> other.get_u64())&0xFFFFFFFFu64)
+        *self = (*self >> other.get_u64())&0xFFFFFFFFu64
     }
 }
 impl AddAssign<u64> for SymFeltRef {

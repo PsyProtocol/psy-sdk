@@ -3,9 +3,8 @@ use std::collections::VecDeque;
 use plonky2::{
     hash::hash_types::HashOut,
     plonk::{
-        circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
+        circuit_data::CommonCircuitData,
         config::{AlgebraicHasher, GenericConfig},
-        proof::ProofWithPublicInputs,
     },
 };
 use qed_core::data::qhashout::QHashOut;
@@ -15,8 +14,11 @@ use qed_crypto::{
         proof_data::{InputLeafProof, LeafProofRecord},
     },
     hash::{
-        merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, utils::simple_merkle_tree::SimpleMerkleTree},
-        traits::hasher::{FieldHasher, FieldQHasher, MerkleHasher, MerkleZeroHasher},
+        merkle::{
+            core::MerkleProofCore,
+            utils::simple_merkle_tree::SimpleMerkleTree,
+        },
+        traits::hasher::{FieldQHasher, MerkleZeroHasher},
     },
 };
 
@@ -44,7 +46,6 @@ where
     pub agg_proofs: Vec<AggProofRecord<C, D>>,
     pub leaf_proofs: VecDeque<LeafProofRecord<C, D>>,
     pub root_history: Vec<QHashOut<C::F>>,
-
 
     leaf_to_index_map: hashbrown::HashMap<QHashOut<C::F>, u64>,
 
@@ -131,13 +132,22 @@ where
             q_recursion_tree_height,
         }
     }
+    pub fn get_proof_tree_height(&self) -> usize {
+        self.q_recursion_tree_height
+    }
+    pub fn get_proof_tree_height_u8(&self) -> u8 {
+        self.q_recursion_tree_height as u8
+    }
     pub fn get_leaf_merkle_proof(&self, index: u64) -> MerkleProofCore<QHashOut<C::F>> {
         self.proof_tree.get_leaf(index)
     }
-    fn find_zero_hash_proof_for_historical_root(&self, root_hash: QHashOut<C::F>) -> Option<MerkleProofCore<QHashOut<C::F>>>{
+    pub fn find_zero_hash_proof_for_historical_root(
+        &self,
+        root_hash: QHashOut<C::F>,
+    ) -> Option<MerkleProofCore<QHashOut<C::F>>> {
         let index = if root_hash.eq(&self.proof_tree.get_root()) {
             Some(self.next_proof_index as usize)
-        }else{
+        } else {
             self.root_history.iter().position(|x| x.eq(&root_hash))
         };
 
@@ -146,10 +156,11 @@ where
                 let result = self.proof_tree.get_leaf(v as u64);
 
                 Some(result)
-            },
+            }
             None => None,
         }
     }
+    /*
     fn generate_dmps_for_proofs(
         &mut self,
         leaf_proofs: &[(
@@ -175,7 +186,7 @@ where
             self.next_proof_index += 1;
         }
         witnesses
-    }
+    }*/
     pub fn injest_single_leaf_proof(&mut self, leaf_proof: InputLeafProof<C, D>) -> u64 {
         let index = self.next_proof_index;
         let public_inputs_hash = QHashOut(HashOut {
@@ -199,10 +210,11 @@ where
         };
         self.leaf_proofs.push_back(record);
         self.next_proof_index += 1;
+        assert!(self.next_proof_index < self.max_proofs_in_tree, "added more proofs than the tree has capacity for");
         index
     }
 
-    fn prove_simple_serial_even_pairs(
+    /*fn prove_simple_serial_even_pairs(
         &mut self,
         leaf_proofs: &[(
             &ProofWithPublicInputs<C::F, C, D>,
@@ -243,11 +255,8 @@ where
             two_leaf_proofs.push(record);
         }
         two_leaf_proofs
-    }
-    pub fn prove_single_leaf(
-        &self,
-        leaf: &LeafProofRecord<C, D>,
-    ) -> AggProofRecord<C, D> {
+    }*/
+    fn prove_single_leaf(&self, leaf: &LeafProofRecord<C, D>) -> AggProofRecord<C, D> {
         let agg_circuit_whitelist_root = self.circuit_inclusion_proofs.circuit_whitelist_tree_root;
 
         let proof = self.circuit_set.single_leaf_circuit.prove_base(
@@ -271,7 +280,7 @@ where
         record
     }
 
-    pub fn prove_left_agg_right_leaf(
+    fn prove_left_agg_right_leaf(
         &self,
         left: &AggProofRecord<C, D>,
         right: &LeafProofRecord<C, D>,
@@ -333,8 +342,7 @@ where
         record
     }
 
-
-    pub fn prove_two_agg(
+    fn prove_two_agg(
         &self,
         left: &AggProofRecord<C, D>,
         right: &AggProofRecord<C, D>,
@@ -348,12 +356,12 @@ where
             &left.proof,
             self.circuit_set
                 .get_verifier_data_by_type(left.circuit_type),
-                self.circuit_inclusion_proofs
-                    .get_inclusion_proof_for_type(right.circuit_type),
-                &right.agg_header,
-                &right.proof,
-                self.circuit_set
-                    .get_verifier_data_by_type(right.circuit_type),
+            self.circuit_inclusion_proofs
+                .get_inclusion_proof_for_type(right.circuit_type),
+            &right.agg_header,
+            &right.proof,
+            self.circuit_set
+                .get_verifier_data_by_type(right.circuit_type),
         );
         let record = AggProofRecord {
             circuit_type: QStandardBinaryTreeCircuitType::TwoLeaf,
@@ -378,20 +386,19 @@ where
             let record = self.prove_two_leaf(&left, &right);
             self.agg_proofs.push(record);
             true
-        }else if agg_proofs_len >= 2 {
-            
+        } else if agg_proofs_len >= 2 {
             let right = self.agg_proofs.pop().unwrap();
             let left = self.agg_proofs.pop().unwrap();
             let record = self.prove_two_agg(&left, &right);
             self.agg_proofs.push(record);
             true
-        }else if agg_proofs_len != 0 && leaf_proofs_len != 0 {
+        } else if agg_proofs_len != 0 && leaf_proofs_len != 0 {
             let left_agg = self.agg_proofs.pop().unwrap();
             let right_leaf = self.leaf_proofs.pop_back().unwrap();
             let record = self.prove_left_agg_right_leaf(&left_agg, &right_leaf);
             self.agg_proofs.push(record);
             true
-        }else{
+        } else {
             false
         }
     }
@@ -404,5 +411,25 @@ where
             inds.push(self.injest_single_leaf_proof(lp))
         }
         inds
+    }
+
+    pub fn finalize_tree(&mut self) -> anyhow::Result<()> {
+        while self.prove_one_step_simple_serial() {
+            // prove remaining tasks (if any)
+        }
+
+        // handle the case where there is one leaf proof
+        let leaf_proofs_len = self.leaf_proofs.len();
+        if leaf_proofs_len != 0 {
+            assert_eq!(leaf_proofs_len, 1, "the only way leaf_proofs_len!=0 after while self.prove_one_step_simple_serial() should be if agg_proofs is empty and there is a single leaf proof");
+            assert!(self.agg_proofs.is_empty(), "agg proofs should be empty if there is still a leaf proof in the queue after while self.prove_one_step_simple_serial()");
+            let dangling_leaf = self.leaf_proofs.pop_front().unwrap();
+            let record = self.prove_single_leaf(&dangling_leaf);
+            self.agg_proofs.push(record);
+        }
+
+
+
+        Ok(())
     }
 }

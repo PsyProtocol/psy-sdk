@@ -1,5 +1,5 @@
-use plonky2::{gates::gate::GateRef, hash::hash_types::HashOut, iop::{target::Target, witness::{PartialWitness, WitnessWrite}}, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
-use qed_common_circuit::{builder::pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::pm_core::get_circuit_fingerprint_generic};
+use plonky2::{hash::hash_types::HashOut, iop::{target::Target, witness::{PartialWitness, WitnessWrite}}, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
+use qed_common_circuit::{builder::pad_circuit::pad_circuit_degree, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::pm_core::get_circuit_fingerprint_generic};
 use qed_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;

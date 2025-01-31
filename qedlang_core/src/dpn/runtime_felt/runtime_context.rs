@@ -161,7 +161,7 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         panic!("add_input not implemented in QRuntimeContext")
     }
 
-    fn add_inputs(&mut self, count: u64) -> Vec<F> {
+    fn add_inputs(&mut self, _count: u64) -> Vec<F> {
         panic!("add_inputs not implemented in QRuntimeContext")
     }
 
@@ -236,7 +236,7 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         todo!()
     }
     
-    fn cset<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V {
+    fn cset<V: ToFelts<F>>(&mut self, _old_value: V, new_value: V) -> V {
         new_value
     }
 
@@ -245,39 +245,39 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         self.cset(old_value, new_value)
     }
     
-    fn op_get_state_felt(&mut self, contract_state_tree_height: u16, contract_id: F, user_id: F, index: F) -> F {
+    fn op_get_state_felt(&mut self, _contract_state_tree_height: u16, _contract_id: F, _user_id: F, _index: F) -> F {
         todo!()
     }
     
-    fn op_set_state_felt(&mut self, index: F, value: F) -> F {
+    fn op_set_state_felt(&mut self, _index: F, _value: F) -> F {
         todo!()
     }
     
-    fn op_set_state_obj<T: ToFelts<F>>(&mut self, index: F, value: T) -> T {
+    fn op_set_state_obj<T: ToFelts<F>>(&mut self, _index: F, _value: T) -> T {
         todo!()
     }
     
-    fn cset_state<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V {
+    fn cset_state<V: ToFelts<F>>(&mut self, _old_value: V, _new_value: V) -> V {
         todo!()
     }
     
-    fn cset_state_at<V: ToFelts<F>>(&mut self, sub_index: F, new_value: V) -> V {
+    fn cset_state_at<V: ToFelts<F>>(&mut self, _sub_index: F, _new_value: V) -> V {
         todo!()
     }
     
-    fn cset_state_hash_at(&mut self, slot_index: F, new_value: [F; 4]) -> [F; 4] {
+    fn cset_state_hash_at(&mut self, _slot_index: F, _new_value: [F; 4]) -> [F; 4] {
         todo!()
     }
     
-    fn get_state_hash_at(&mut self, slot_index: F) -> [F; 4] {
+    fn get_state_hash_at(&mut self, _slot_index: F) -> [F; 4] {
         todo!()
     }
     
     fn cinvoke_external_contract_function_deferred(
         &mut self,
-        contract_id: SymFeltRef,
-        method_id: SymFeltRef,
-        inputs: Vec<SymFeltRef>,
+        _contract_id: SymFeltRef,
+        _method_id: SymFeltRef,
+        _inputs: Vec<SymFeltRef>,
     ) -> [SymFeltRef; 4] {
         todo!()
     }

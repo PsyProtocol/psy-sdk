@@ -1,8 +1,7 @@
-use std::{marker::PhantomData, ops::{Index, IndexMut}, sync::RwLock};
+use std::marker::PhantomData;
 
-use hashbrown::HashMap;
 
-use super::{context_trait::{ContextFelt, DPNContext, FeltSized, ToFelts}, exec_context::QExecContext, sym_felt::{QStateInitializable, SymFeltRef}};
+use super::{context_trait::{DPNContext, FeltSized, ToFelts}, sym_felt::{QStateInitializable, SymFeltRef}};
 
 pub struct SparseArrayTrackerDef {
     pub state_pointer: SymFeltRef,
@@ -102,7 +101,7 @@ impl<T: QStateInitializable + ToFelts<SymFeltRef>, const N: usize> SparseArray<T
     }
 }
 impl<T: QStateInitializable, const N: usize> QStateInitializable for SparseArray<T, N> {
-    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(context: &mut CTXT, state_pointer: SymFeltRef, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef) -> Self {
+    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(_context: &mut CTXT, state_pointer: SymFeltRef, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef) -> Self {
         Self {
             state_pointer,
             contract_state_tree_height,

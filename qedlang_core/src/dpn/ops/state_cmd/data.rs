@@ -565,7 +565,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmd<T> {
 
     pub fn convert_to_u64(&self, inputs_as_u64: &[u64]) -> DPNStateCmd<u64> {
         match self {
-            DPNStateCmd::SetContractStateSlotHash(c) => {
+            DPNStateCmd::SetContractStateSlotHash(_c) => {
                 DPNStateCmd::SetContractStateSlotHash(DPNStateCmdSetContractStateSlotHash {
                     condition: inputs_as_u64[0],
                     slot_index: inputs_as_u64[1],
@@ -577,14 +577,14 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmd<T> {
                     ],
                 })
             },
-            DPNStateCmd::SetContractStateSlotSingle(c) => {
+            DPNStateCmd::SetContractStateSlotSingle(_c) => {
                 DPNStateCmd::SetContractStateSlotSingle(DPNStateCmdSetContractStateSlotSingle {
                     condition: inputs_as_u64[0],
                     sub_slot_index: inputs_as_u64[1],
                     value: inputs_as_u64[2],
                 })
             },
-            DPNStateCmd::SetContractStateSlotRange(c) => {
+            DPNStateCmd::SetContractStateSlotRange(_c) => {
                 DPNStateCmd::SetContractStateSlotRange(DPNStateCmdSetContractStateSlotRange {
                     condition: inputs_as_u64[0],
                     sub_slot_index: inputs_as_u64[1],
@@ -600,7 +600,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmd<T> {
                     num_outputs: c.num_outputs,
                 })
             },
-            DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
+            DPNStateCmd::InvokeExternalContractFunctionDeferred(_c) => {
                 DPNStateCmd::InvokeExternalContractFunctionDeferred(DPNStateCmdInvokeExternalContractFunctionDeferred {
                     condition: inputs_as_u64[0],
                     contract_id: inputs_as_u64[1],
@@ -608,10 +608,10 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmd<T> {
                     input_args: inputs_as_u64[3..].to_vec(),
                 })
             },
-            DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => {
+            DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(_c) => {
                 DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(DPNStateCmdGetSelfUserCurrentContractStateSlotHash::<u64>::new(inputs_as_u64[0]))
             },
-            DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(c) => {
+            DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(_c) => {
                 DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(DPNStateCmdGetSelfUserCurrentContractStateSlotSingle::<u64>::new(inputs_as_u64[0]))
             },
             DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => {

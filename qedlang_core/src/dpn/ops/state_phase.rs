@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     op_types::DPNOpType,
-    sym_felt::{SymFeltDef, SymFeltRef, SymFeltRefValue},
+    sym_felt::SymFeltRef,
     sym_felt_store::SymFeltStore,
 };
 

@@ -3,7 +3,7 @@ use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
-use crate::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
+use crate::hash::{merkle::core::{compute_historical_and_current_merkle_roots_core, MerkleProofCore}, traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
@@ -36,3 +36,65 @@ impl<F: RichField> QFieldHashable<F> for QRecursionAggStandardHeader<F> {
     }
 }
 
+
+
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct AttestProofInTreeInput<F: RichField> {
+    pub fingerprint: QHashOut<F>,
+    pub public_inputs_hash: QHashOut<F>,
+    pub inclusion_proof: MerkleProofCore<QHashOut<F>>,
+}
+
+impl<F: RichField> KVQSerializable for AttestProofInTreeInput<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+
+
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct AttestTreeAwareProofInTreeInput<F: RichField> {
+    pub fingerprint: QHashOut<F>,
+    pub inner_public_inputs_hash: QHashOut<F>,
+    pub historical_root_proof: MerkleProofCore<QHashOut<F>>,
+    pub inclusion_proof: MerkleProofCore<QHashOut<F>>,
+}
+impl<F: RichField> AttestTreeAwareProofInTreeInput<F> {
+    pub fn get_public_inputs_hash<H: MerkleZeroHasher<QHashOut<F>>>(&self) -> QHashOut<F> {
+        let (historical_root, _) = compute_historical_and_current_merkle_roots_core::<QHashOut<F>, H>(
+            &self.historical_root_proof
+        );
+        H::two_to_one(&historical_root, &self.inner_public_inputs_hash)
+    }
+    pub fn verify<H: MerkleZeroHasher<QHashOut<F>>>(&self) -> bool {
+        if self.historical_root_proof.verify::<H>() && self.inclusion_proof.verify::<H>() && self.historical_root_proof.root == self.inclusion_proof.root {
+            let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core::<QHashOut<F>, H>(
+                &self.historical_root_proof,
+            );
+            let public_inputs_hash = H::two_to_one(&historical_root, &self.inner_public_inputs_hash);
+            let expected_leaf_value = H::two_to_one(&self.fingerprint, &public_inputs_hash);
+            if expected_leaf_value == self.inclusion_proof.value && current_root == self.historical_root_proof.root {
+                return true;
+            }
+        }
+        false
+    }
+} 
+impl<F: RichField> KVQSerializable for AttestTreeAwareProofInTreeInput<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}

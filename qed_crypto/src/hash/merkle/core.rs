@@ -6,7 +6,7 @@ use plonky2::{
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
-use crate::hash::traits::hasher::{MerkleHasher, MerkleHasherWithMarkedLeaf, QHasher};
+use crate::hash::traits::hasher::{MerkleHasher, MerkleHasherWithMarkedLeaf, MerkleZeroHasher, QHasher};
 
 pub fn compute_partial_merkle_root_from_leaves_algebraic<F: RichField, H: AlgebraicHasher<F>>(
     leaves: &[HashOut<F>],
@@ -262,6 +262,24 @@ pub fn verify_merkle_proof_core<Hash: PartialEq + Copy, Hasher: MerkleHasher<Has
         }
     }
     current == proof.root
+}
+
+
+pub fn compute_historical_and_current_merkle_roots_core<Hash: PartialEq + Copy, Hasher: MerkleZeroHasher<Hash>>(
+    proof: &MerkleProofCore<Hash>,
+) -> (Hash, Hash) {
+    let mut current = proof.value;
+    let mut historical = Hasher::get_zero_hash(0);
+    for (i, sibling) in proof.siblings.iter().enumerate() {
+        if proof.index & (1 << i) == 0 {
+            current = Hasher::two_to_one(&current, sibling);
+            historical = Hasher::two_to_one(&historical, &Hasher::get_zero_hash(i));
+        } else {
+            current = Hasher::two_to_one(sibling, &current);
+            historical = Hasher::two_to_one(sibling, &historical);
+        }
+    }
+    (historical, current)
 }
 pub fn verify_delta_merkle_proof_core<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(
     proof: &DeltaMerkleProofCore<Hash>,

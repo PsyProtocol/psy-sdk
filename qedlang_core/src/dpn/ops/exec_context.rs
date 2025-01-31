@@ -1,5 +1,3 @@
-use hashbrown::HashSet;
-
 use crate::dpn::ops::sym_felt::SymFeltRefValue;
 
 use super::{
@@ -7,12 +5,12 @@ use super::{
     op_types::{DPNBuiltInDataType, DPNOpType},
     state_cmd::{
         data::{
-            DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotSingle, DPNStateCmdGetSelfUserExternalContractStateSlotSingle, DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle
+            DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotSingle, DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle
         },
         store::DPNStateCommandStore,
         types::DPNStateCmdCore,
     },
-    sym_felt::{SetSymFeltRef, SymFeltRef, SymRefAssertion},
+    sym_felt::{SymFeltRef, SymRefAssertion},
     sym_felt_store::SymFeltStore,
 };
 

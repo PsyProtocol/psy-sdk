@@ -1,6 +1,3 @@
-use plonky2::hash::hash_types::RichField;
-use serde::{Deserialize, Serialize};
-
 use super::data::DPNStateCmd;
 pub trait QDPNTargetResolver<F,U,B> {
     fn resolve_target(&self, target: &DPNStateCmd<u64>) -> F;

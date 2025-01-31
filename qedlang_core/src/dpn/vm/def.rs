@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::dpn::ops::{op_types::{DPNAssertEqInfoIndexed, DPNBuiltInDataType, DPNIndexedVarDef, DPNOpType}, state_cmd::data::DPNStateCmd};
+use crate::dpn::ops::{op_types::{DPNAssertEqInfoIndexed, DPNIndexedVarDef}, state_cmd::data::DPNStateCmd};
 
 /* 
 const INDEX_BITS: u64 = 32;

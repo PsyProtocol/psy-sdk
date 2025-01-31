@@ -1,6 +1,6 @@
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use crate::dpn::ops::{op_types::DPNBuiltInDataType, sym_felt::SymFeltRef};
+use crate::dpn::ops::op_types::DPNBuiltInDataType;
 
 #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 #[repr(u8)]

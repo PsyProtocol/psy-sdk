@@ -976,7 +976,7 @@ impl StateReaderGadget {
 
                 builder.connect_hashes_if_true(condition_target, dmp.old_value, zero_hash);
 
-                let ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
+                let _ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
 
                 tx_hash.elements.to_vec()
 
