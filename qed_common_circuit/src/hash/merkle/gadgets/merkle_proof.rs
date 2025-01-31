@@ -212,7 +212,7 @@ impl MerkleProofGadget {
         value: QHashOut<F>,
         siblings: &[QHashOut<F>],
     ) {
-      self.set_witness_generic(witness, index, value, siblings);
+        self.set_witness_generic(witness, index, value, siblings);
     }
     pub fn set_witness_proof<F: RichField>(
         &self,
@@ -228,12 +228,29 @@ impl MerkleProofGadget {
     ) {
         self.set_witness(witness, input.index, input.value, &input.siblings);
     }
+    pub fn set_witness_core_proof_q_generic<W: Witness<F>, F: RichField>(
+        &self,
+        witness: &mut W,
+        input: &MerkleProofCore<QHashOut<F>>,
+    ) {
+        self.set_witness_generic(
+            witness,
+            F::from_noncanonical_u64(input.index),
+            input.value,
+            &input.siblings,
+        );
+    }
     pub fn set_witness_core_proof_q<F: RichField>(
         &self,
         witness: &mut PartialWitness<F>,
         input: &MerkleProofCore<QHashOut<F>>,
     ) {
-        self.set_witness(witness, F::from_noncanonical_u64(input.index), input.value, &input.siblings);
+        self.set_witness(
+            witness,
+            F::from_noncanonical_u64(input.index),
+            input.value,
+            &input.siblings,
+        );
     }
 }
 

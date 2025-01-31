@@ -51,6 +51,7 @@ pub const DA_CHALLENGE_WINDOW: usize = 14;
 
 pub const DEFERRED_CALL_MAGIC: u64 = 0xDEFE1212EDCA11u64;
 pub const DEFERRED_TRANSACTION_TREE_HEIGHT: u8 = 16;
+pub const INLINE_TRANSACTION_TREE_HEIGHT: u8 = 16;
 
 
 // used for signing a transaction/contract function call 0xCA11_<ascii'TXCALL'>

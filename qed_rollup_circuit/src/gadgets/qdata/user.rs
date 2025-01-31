@@ -29,6 +29,90 @@ impl QEDUserLeafGadget {
     pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
     }
+    pub fn connect_to_other<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, other: QEDUserLeafGadget) {
+        builder.connect_hashes(
+            self.public_key,
+            other.public_key,
+        );
+
+        builder.connect_hashes(
+            self.user_state_tree_root,
+            other.user_state_tree_root,
+        );
+
+        builder.connect(
+            self.balance,
+            other.balance,
+        );
+
+        builder.connect(
+            self.nonce,
+            other.nonce,
+        );
+
+
+        builder.connect(
+            self.last_checkpoint_id,
+            other.last_checkpoint_id,
+        );
+
+        builder.connect(
+            self.event_index,
+            other.event_index,
+        );
+
+        builder.connect(
+            self.user_id,
+            other.user_id,
+        );
+    }
+    
+    pub fn connect_to_all_except_state_balance_event_index<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, other: QEDUserLeafGadget) {
+        builder.connect_hashes(
+            self.public_key,
+            other.public_key,
+        );
+
+        /*
+        // allow update to state root, hence this is commented out
+        builder.connect_hashes(
+            self.user_state_tree_root,
+            other.user_state_tree_root,
+        );
+        */
+
+        /*
+        // allow update to balance, hence this is commented out
+        builder.connect(
+            self.balance,
+            other.balance,
+        );
+        */
+
+        builder.connect(
+            self.nonce,
+            other.nonce,
+        );
+
+
+        builder.connect(
+            self.last_checkpoint_id,
+            other.last_checkpoint_id,
+        );
+
+        /*
+        // allow update to event index, hence this is commented out
+        builder.connect(
+            self.event_index,
+            other.event_index,
+        );
+        */
+
+        builder.connect(
+            self.user_id,
+            other.user_id,
+        );
+    }
 }
 impl AlgebraicHashableTarget for QEDUserLeafGadget {
     fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {

@@ -3,6 +3,7 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::HashOut;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::poseidon::PoseidonHash;
+use plonky2::plonk::config::AlgebraicHasher;
 use plonky2::plonk::config::Hasher;
 use qed_core::data::qhashout::QHashOut;
 
@@ -254,7 +255,17 @@ impl<F: RichField, H: Hasher<F, Hash = HashOut<F>>> FieldQHasher<F> for H {
     }
 }
 */
-fn iterate_merkle_hasher<Hash: PartialEq, Hasher: MerkleHasher<Hash>>(
+pub fn iterate_merkle_hasher_alg<H: AlgebraicHasher<F>, F: RichField>(
+    current: QHashOut<F>,
+    reverse_level: usize,
+) -> QHashOut<F> {
+    let mut value = current;
+    for _ in 0..reverse_level {
+        value = H::q_two_to_one(value, value)
+    }
+    value
+}
+pub fn iterate_merkle_hasher<Hash: PartialEq, Hasher: MerkleHasher<Hash>>(
     mut current: Hash,
     reverse_level: usize,
 ) -> Hash {
