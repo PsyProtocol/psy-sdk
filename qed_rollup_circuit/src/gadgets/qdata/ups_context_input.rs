@@ -260,6 +260,37 @@ pub struct UserProvingSessionHeaderGadget {
 }
 
 impl UserProvingSessionHeaderGadget {
+    pub fn new_from_existing_ups_context<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        ups_step_circuit_whitelist_root: HashOutTarget,
+        session_start_context: UserProvingSessionStartContextGadget,
+        current_state: UserProvingSessionCurrentStateGadget,
+    ) -> Self {
+        // sanity check: make sure we are on the same user as we started with
+        builder.connect(
+            session_start_context.start_session_user_leaf.user_id,
+            current_state.user_leaf.user_id,
+        );
+        builder.connect_hashes(
+            session_start_context.start_session_user_leaf.public_key,
+            current_state.user_leaf.public_key,
+        );
+
+
+        let session_start_context_hash = session_start_context.to_hash::<H, F, D>(builder);
+        let current_state_hash = current_state.to_hash::<H, F, D>(builder);
+        
+
+
+        Self {
+            ups_step_circuit_whitelist_root,
+            session_start_context,
+            current_state,
+            
+            session_start_context_hash,
+            current_state_hash,
+        }
+    }
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {

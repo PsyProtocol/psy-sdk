@@ -10,6 +10,37 @@ use crate::qdata::user::QEDUserLeaf;
 
 
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct UserProvingSessionHeaderCompact<F: RichField> {
+    pub ups_step_circuit_whitelist_root: QHashOut<F>,
+    pub session_start_context_hash: QHashOut<F>,
+    pub current_state: UserProvingSessionCurrentState<F>,
+}
+
+
+impl<F: RichField> QFieldHashable<F> for UserProvingSessionHeaderCompact<F> {
+    fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
+
+        let current_state_hash = self.current_state.qfhash::<H>();
+
+        let start_current_combo = H::q_two_to_one(self.session_start_context_hash, current_state_hash);
+
+        H::q_two_to_one(self.ups_step_circuit_whitelist_root, start_current_combo)
+    }
+}
+
+
+impl<F: RichField> KVQSerializable for UserProvingSessionHeaderCompact<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
 
 
 
@@ -20,6 +51,19 @@ pub struct UserProvingSessionHeader<F: RichField> {
     pub ups_step_circuit_whitelist_root: QHashOut<F>,
     pub session_start_context: UserProvingSessionStartContext<F>,
     pub current_state: UserProvingSessionCurrentState<F>,
+}
+
+impl<F: RichField> UserProvingSessionHeader<F> {
+    pub fn to_compact<H: FieldQHasher<F>>(&self) -> UserProvingSessionHeaderCompact<F> {
+        let session_start_context_hash = self.session_start_context.qfhash::<H>();
+
+        UserProvingSessionHeaderCompact {
+            ups_step_circuit_whitelist_root: self.ups_step_circuit_whitelist_root,
+            session_start_context_hash,
+            current_state: self.current_state,
+        }
+
+    }
 }
 
 
