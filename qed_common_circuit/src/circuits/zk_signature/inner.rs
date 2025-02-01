@@ -23,7 +23,7 @@ use super::{
 #[derive(Debug)]
 pub struct ZKSignatureCircuitInner<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub private_key: HashOutTarget,
     pub action_hash: HashOutTarget,
@@ -34,7 +34,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> Clone for ZKSignatureCircuitInner<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         Self::new()
@@ -42,7 +42,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> ZKSignatureCircuitInner<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
         //let public_key = SimpleL2PrivateKey::new(private_key).get_public_key();
@@ -119,7 +119,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for ZKSignatureCircuitInner<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -136,7 +136,7 @@ where
 impl<C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvable<ZKSignatureCircuitInput<C::F>, C, D> for ZKSignatureCircuitInner<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_standard(
         &self,

@@ -17,12 +17,12 @@ impl PMRewardCommitmentGadget {
         witness.set_target(self.commitment[2], target.commitment[2]);
         witness.set_target(self.commitment[3], target.commitment[3]);
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
     }
 }
 impl AlgebraicHashableTarget for PMRewardCommitmentGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }

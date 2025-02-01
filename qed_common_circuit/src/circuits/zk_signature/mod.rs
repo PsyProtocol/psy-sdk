@@ -27,7 +27,7 @@ pub struct ZKSignatureCircuitInput<F: RichField> {
 #[derive(Debug)]
 pub struct ZKSignatureCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub inner_circuit: ZKSignatureCircuitInner<C, D>,
     pub fixed_circuit: ZKSignatureCircuitSimpleFixedPublicKey<C, D>,
@@ -36,7 +36,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> Clone for ZKSignatureCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         let inner_clone = self.inner_circuit.clone();
@@ -54,7 +54,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> ZKSignatureCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new(public_key: QHashOut<C::F>) -> Self {
         let inner_circuit = ZKSignatureCircuitInner::<C, D>::new();
@@ -82,7 +82,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for ZKSignatureCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fixed_circuit.get_fingerprint()
@@ -99,7 +99,7 @@ where
 impl<C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvable<ZKSignatureCircuitInput<C::F>, C, D> for ZKSignatureCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_standard(
         &self,
@@ -114,7 +114,7 @@ pub fn gen_standard_wrapped_zk_signature_proof<C: GenericConfig<D> + 'static, co
     action_hash: QHashOut<C::F>,
 ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     let public_key = SimpleL2PrivateKey::new(private_key).get_public_key::<C::Hasher>();
     let sig_circuit = ZKSignatureCircuit::<C, D>::new(public_key);
@@ -126,7 +126,7 @@ pub fn verify_standard_wrapped_zk_signature_proof<C: GenericConfig<D> + 'static,
     signature_proof: Vec<u8>,
 ) -> anyhow::Result<()>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     let circuit = ZKSignatureCircuit::<C, D>::new(public_key);
     let proof = ProofWithPublicInputs::<C::F, C, D>::from_bytes(

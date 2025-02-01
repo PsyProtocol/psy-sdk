@@ -39,7 +39,7 @@ impl<const D: usize> VerifyAggProofGadget<D> {
         verifier_data_cap_height: usize,
     ) -> Self
     where
-        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
+        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
     {
         let verifier_data = builder.add_virtual_verifier_data(verifier_data_cap_height);
         let proof_target = builder.add_virtual_proof_with_pis(proof_common_data);
@@ -97,7 +97,7 @@ impl<const D: usize> VerifyAggProofGadget<D> {
         proof: &ProofWithPublicInputs<F, C, D>,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>, {
+    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
         witness.set_hash_target(self.start_proof_tree_root, start_proof_tree_root.0);
         witness.set_hash_target(self.end_proof_tree_root, end_proof_tree_root.0);
         self.agg_whitelist_merkle_proof.set_witness_generic(

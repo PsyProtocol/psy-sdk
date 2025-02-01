@@ -23,7 +23,7 @@ pub struct DPNProvingSessionCompactMethodCallGadget {
 }
 
 impl DPNProvingSessionCompactMethodCallGadget {
-    pub fn new_from_inputs<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn new_from_inputs<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         contract_id: Target,
         method_id: Target,
@@ -63,7 +63,7 @@ impl DPNProvingSessionCompactMethodCallGadget {
         witness.set_target(self.inputs_length, target.inputs_length);
         witness.set_hash_target(self.inputs_hash, target.inputs_hash.0);
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -90,7 +90,7 @@ impl CreatableTarget for DPNProvingSessionCompactMethodCallGadget {
     }
 }
 impl AlgebraicHashableTarget for DPNProvingSessionCompactMethodCallGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -174,7 +174,7 @@ impl DPNProvingSessionSimpleMethodCallGadget {
             inputs,
         }
     }
-    fn to_compact<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_compact<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> DPNProvingSessionCompactMethodCallGadget {
@@ -189,7 +189,7 @@ impl DPNProvingSessionSimpleMethodCallGadget {
         witness.set_target(self.method_id, target.method_id);
         witness.set_target_arr(&self.inputs, &target.inputs);
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -223,7 +223,7 @@ impl DPNProvingSessionSimpleMethodCallGadget {
     }
 }
 impl AlgebraicHashableTarget for DPNProvingSessionSimpleMethodCallGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {

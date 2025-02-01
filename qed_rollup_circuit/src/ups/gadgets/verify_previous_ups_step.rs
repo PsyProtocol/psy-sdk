@@ -28,7 +28,7 @@ pub struct VerifyPreviousUPSStepProofInProofTreeGadget {
 
 impl VerifyPreviousUPSStepProofInProofTreeGadget {
     pub fn add_virtual_to<
-        H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
+        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(

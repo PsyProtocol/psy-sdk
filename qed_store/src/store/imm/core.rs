@@ -818,7 +818,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
                 checkpoint_id,
                 contract_id,
                 i as u64,
-                leaf.clone(),
+                *leaf,
             )?.new_root;
         }
         Ok(root)

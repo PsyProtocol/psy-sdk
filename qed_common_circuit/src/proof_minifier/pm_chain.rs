@@ -17,7 +17,7 @@ pub struct QEDProofMinifierChain<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
 > where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
 {
     pub minifiers: Vec<QEDProofMinifier<D, F, C>>,
 }
@@ -25,7 +25,7 @@ pub struct QEDProofMinifierChain<
 impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>
     QEDProofMinifierChain<D, F, C>
 where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
 {
     pub fn new_with_cfg(
         base_circuit_verifier_data: &VerifierOnlyCircuitData<C, D>,

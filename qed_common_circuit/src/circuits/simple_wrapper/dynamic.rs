@@ -16,7 +16,7 @@ use crate::{builder::{hash::core::CircuitBuilderHashCore, verify::CircuitBuilder
 use super::super::traits::qstandard::QStandardCircuit;
 #[derive(Debug)]
 pub struct SimpleWrapperDynamic<C: GenericConfig<D> + 'static, const D: usize>
-where C::Hasher: AlgebraicHasher<C::F>
+where C::Hasher:AlgebraicHasher<C::F>
 {
   pub proof_target: ProofWithPublicInputsTarget<D>,
   pub verifier_data_target: VerifierCircuitTarget,
@@ -25,7 +25,7 @@ where C::Hasher: AlgebraicHasher<C::F>
 }
 impl<C: GenericConfig<D>, const D: usize> SimpleWrapperDynamic<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new(inner_common_data: &CommonCircuitData<C::F, D>, inner_fingerprint: QHashOut<C::F>, inner_verifier_data_cap_height: usize) -> Self {
         let config = CircuitConfig::standard_recursion_config();
@@ -62,7 +62,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for SimpleWrapperDynamic<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint

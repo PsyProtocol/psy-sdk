@@ -96,6 +96,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
 
 fn prepare_environment_with_contract(
     state_tree_height: u8,
+    session_proof_tree_height: usize,
     whitelist: &[QHashOut<GoldilocksField>],
 ) -> anyhow::Result<
     QEDLocalProvingSessionStore<
@@ -156,6 +157,7 @@ fn prepare_environment_with_contract(
         GoldilocksField::ONE,
         GoldilocksField::ONE,
         GoldilocksField::ONE,
+        session_proof_tree_height
     );
 
     Ok(lps)
@@ -205,9 +207,10 @@ fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("compiled");
 
     let contract_state_tree_height = 16;
+    let session_proof_tree_height = 16;
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
-    let cf_circuit = DapenContractFunctionCircuit::<C, D>::new(&compiled, contract_state_tree_height);
+    let cf_circuit = DapenContractFunctionCircuit::<C, D>::new(&compiled, contract_state_tree_height, session_proof_tree_height);
     
     timer.lap("built circuit");
     
@@ -217,6 +220,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     let contract_id = GoldilocksField::from_canonical_u64(1);
     let mut lps = prepare_environment_with_contract(
         contract_state_tree_height as u8,
+        session_proof_tree_height,
         &[
             QHashOut::rand(),
             QHashOut::rand(),

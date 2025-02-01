@@ -41,12 +41,12 @@ impl QEDCheckpointLeafStatsGadget {
 
         witness.set_target_arr(&self.da_challenges_claimed, &target.da_challenges_claimed);
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
     }
 }
 impl AlgebraicHashableTarget for QEDCheckpointLeafStatsGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }

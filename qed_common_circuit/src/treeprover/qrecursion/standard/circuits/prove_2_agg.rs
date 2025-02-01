@@ -6,7 +6,7 @@ use qed_crypto::{common::witnesses::qrecursion::header::QRecursionAggStandardHea
 #[derive(Debug)]
 pub struct QRecursionStandardTwoAggCircuit<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub left_agg_gadget: VerifyAggProofGadget<D>,
     pub right_agg_gadget: VerifyAggProofGadget<D>,
@@ -20,7 +20,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QRecursionStandardTwoAggCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     pub fn new(
         //coset_gate: &GateRef<C::F, D>,
@@ -118,7 +118,7 @@ where
 
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for QRecursionStandardTwoAggCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -139,7 +139,7 @@ impl<C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvable<QRecursionStandardTwoAggCircuitInput<C::F>, C, D>
     for QRecursionStandardTwoAggCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_standard(
         &self,
@@ -155,7 +155,7 @@ impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvableWithProofStoreSync<S, QRecursionStandardTwoAggCircuitInput<C::F>, C, D>
     for QRecursionStandardTwoAggCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_with_proof_store_sync(
         &self,

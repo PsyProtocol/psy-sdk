@@ -40,7 +40,7 @@ pub struct OptionalMerkleProofGadget {
     pub index: Option<Target>,
     pub siblings: Option<Vec<HashOutTarget>>,
 }
-pub fn hash_merkle_leaves<F: RichField + Extendable<D>, const D: usize, H: AlgebraicHasher<F>>(
+pub fn hash_merkle_leaves<F: RichField + Extendable<D>, const D: usize, H:AlgebraicHasher<F>>(
     builder: &mut CircuitBuilder<F, D>,
     leaves: &[HashOutTarget],
 ) -> HashOutTarget {
@@ -70,7 +70,7 @@ pub fn hash_merkle_leaves<F: RichField + Extendable<D>, const D: usize, H: Algeb
     state[0]
 }
 impl MerkleProofGadget {
-    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
     ) -> Self {
@@ -89,7 +89,7 @@ impl MerkleProofGadget {
         }
     }
     pub fn add_virtual_to_with_options<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -127,7 +127,7 @@ impl MerkleProofGadget {
             option_flags: MerkleProofGadgetOptionFlags::from_bits(option_flags).unwrap(),
         }
     }
-    pub fn compute_root<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn compute_root<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         index: Target,
         value: HashOutTarget,
@@ -140,7 +140,7 @@ impl MerkleProofGadget {
         Self::compute_root_bits::<H, F, D>(builder, &index_bits, value, siblings)
     }
     pub fn compute_root_bits<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(

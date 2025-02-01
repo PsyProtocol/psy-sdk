@@ -90,6 +90,11 @@ pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorS
     user_id: F,
     user_id_u64: u64,
     nonce: F,
+
+    todo_remove_q_recursion_tree_height: usize,
+    // replace with the correct implementation of the proof tree
+    todo_remove_q_recursion_tree_root: QHashOut<F>,
+
 }
 
 // read helpers
@@ -129,6 +134,12 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
     pub fn get_nonce_u64(&self) -> u64 {
         self.nonce.to_canonical_u64()
     }
+    pub fn get_q_recursion_proof_tree_height(&self) -> usize {
+        self.todo_remove_q_recursion_tree_height
+    }
+    pub fn get_q_recursion_proof_tree_root(&self) -> QHashOut<F> {
+        self.todo_remove_q_recursion_tree_root
+    }
 
 
 
@@ -139,6 +150,7 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
         start_checkpoint: F,
         user_id: F,
         nonce: F,
+        q_recursion_tree_height: usize,
     ) -> Self {
         Self {
             cmd_store: QEDCmdStoreWithCache::new(start_checkpoint.to_canonical_u64(), read_store),
@@ -159,12 +171,15 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
             //user_id_u32: user_id.to_canonical_u64() as u32,
             nonce,
             active_transaction_record: Default::default(),
+            todo_remove_q_recursion_tree_height: q_recursion_tree_height,
+            todo_remove_q_recursion_tree_root: QHashOut::ZERO,
         }
     }
     pub fn new_at_head(
         read_store: R,
         user_id: F,
         nonce: F,
+        q_recursion_tree_height: usize,
     ) -> anyhow::Result<Self> {
         let start_checkpoint = read_store.resolve_get_latest_l2_block_state()?;
 
@@ -173,6 +188,7 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
             F::from_noncanonical_u64(start_checkpoint.checkpoint_id),
             user_id,
             nonce,
+            q_recursion_tree_height,
         ))
     }
     pub fn clear(&mut self) {

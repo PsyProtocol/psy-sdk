@@ -3,7 +3,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::traits::{hasher::{FieldHasher, FieldQHasher}, qhashable::QFieldHashable};
+use qed_crypto::hash::traits::{hasher::{ FieldQHasher}, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 
 use crate::qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf}, user::QEDUserLeaf};
@@ -30,7 +30,7 @@ impl<F: RichField> QFieldHashable<F> for DapenCFCProvingSessionStartContext<F> {
         let user_leaf_hash = self.start_session_user_leaf.qfhash::<H>();
 
         let checkpoint_user_combo  = H::q_two_to_one(checkpoint_combo, user_leaf_hash);
-        H::hash_many(&[
+        H::q_hash_many(&[
             self.checkpoint_id,
 
             checkpoint_user_combo.0.elements[0],
@@ -84,7 +84,7 @@ impl<F: RichField> QFieldHashable<F> for DapenCFCUserTransactionCallStartContext
 
         let state_call_combo = H::q_two_to_one(uct_cst_combo, call_data_debt_combo);
 
-        H::hash_many(&[
+        H::q_hash_many(&[
 
             state_call_combo.0.elements[0],
             state_call_combo.0.elements[1],
@@ -116,7 +116,6 @@ pub struct DapenCFCUserTransactionEndContext<F: RichField> {
     pub end_contract_state_tree_root: QHashOut<F>,
     pub end_deferred_tx_debt_tree_root: QHashOut<F>,
 
-
     pub outputs_hash: QHashOut<F>,
     pub outputs_length: F,
     pub total_events_emitted: F,
@@ -132,7 +131,7 @@ impl<F: RichField> QFieldHashable<F> for DapenCFCUserTransactionEndContext<F> {
         let state_debt_combo = H::q_two_to_one(self.end_contract_state_tree_root, debt_combo);
 
 
-        let output_info_hash = H::hash_many(&[
+        let output_info_hash = H::q_hash_many(&[
             self.outputs_hash.0.elements[0],
             self.outputs_hash.0.elements[1],
             self.outputs_hash.0.elements[2],

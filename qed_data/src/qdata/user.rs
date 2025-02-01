@@ -76,7 +76,7 @@ impl<F: RichField> ToQFelts<F> for QEDUserLeaf<F> {
 
 impl<F: RichField> QFieldHashable<F> for QEDUserLeaf<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-        H::hash_many(&[
+        H::q_hash_many(&[
             self.public_key.0.elements[0],
             self.public_key.0.elements[1],
             self.public_key.0.elements[2],

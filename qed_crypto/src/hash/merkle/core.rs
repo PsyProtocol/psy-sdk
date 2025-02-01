@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::hash::traits::hasher::{MerkleHasher, MerkleHasherWithMarkedLeaf, MerkleZeroHasher, QHasher};
 
-pub fn compute_partial_merkle_root_from_leaves_algebraic<F: RichField, H: AlgebraicHasher<F>>(
+pub fn compute_partial_merkle_root_from_leaves_algebraic<F: RichField, H:AlgebraicHasher<F>>(
     leaves: &[HashOut<F>],
 ) -> HashOut<F> {
     let mut current = leaves.to_vec();

@@ -18,7 +18,7 @@ use crate::circuits::{
 #[derive(Debug)]
 pub struct SimpleZKSignatureWalletKey<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub circuit_fingerprint_public_key: QHashOut<C::F>,
     pub hash_public_key: QHashOut<C::F>,
@@ -60,7 +60,7 @@ pub trait ZKSignatureWalletProvider<C: GenericConfig<D> + 'static, const D: usiz
 
 pub struct SimpleZKSignatureWallet<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub inner_circuit: ZKSignatureCircuitInner<C, D>,
     pub wrapper_circuit: ZKSignatureWrapperCircuit<C, D>,
@@ -70,7 +70,7 @@ where
 
 impl<C: GenericConfig<D> + 'static, const D: usize> Clone for SimpleZKSignatureWallet<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         let mut key_map: HashMap<QHashOut<C::F>, SimpleZKSignatureWalletKey<C, D>> = HashMap::new();
@@ -101,7 +101,7 @@ where
 }
 impl<C: GenericConfig<D> + 'static, const D: usize> SimpleZKSignatureWallet<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
         let inner_circuit = ZKSignatureCircuitInner::new();
@@ -139,7 +139,7 @@ where
 impl<C: GenericConfig<D> + 'static, const D: usize> ZKSignatureBasicWalletProvider<C, D>
     for SimpleZKSignatureWallet<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn zk_sign(
         &self,
@@ -253,7 +253,7 @@ pub struct MemoryZKSignatureWallet<
     const D: usize,
     BP: ZKSignatureBasicWalletProvider<C, D>,
 > where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub basic_wallet: BP,
     fingerprint_public_key_to_private_key: HashMap<QHashOut<C::F>, QHashOut<C::F>>,
@@ -262,7 +262,7 @@ pub struct MemoryZKSignatureWallet<
 impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D>
     for MemoryZKSignatureWallet<C, D, SimpleZKSignatureWallet<C, D>>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.basic_wallet.wrapper_circuit.get_fingerprint()
@@ -284,7 +284,7 @@ impl<
         BP: ZKSignatureBasicWalletProvider<C, D> + Clone,
     > Clone for MemoryZKSignatureWallet<C, D, BP>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -298,7 +298,7 @@ where
 impl<C: GenericConfig<D> + 'static, const D: usize, BP: ZKSignatureBasicWalletProvider<C, D>>
     MemoryZKSignatureWallet<C, D, BP>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new(basic_wallet: BP) -> Self {
         Self {
@@ -316,7 +316,7 @@ where
 impl<C: GenericConfig<D> + 'static, const D: usize, BP: ZKSignatureBasicWalletProvider<C, D>>
     ZKSignatureBasicWalletProvider<C, D> for MemoryZKSignatureWallet<C, D, BP>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn zk_sign(
         &self,
@@ -369,7 +369,7 @@ where
 impl<C: GenericConfig<D> + 'static, const D: usize, BP: ZKSignatureBasicWalletProvider<C, D>>
     ZKSignatureWalletProvider<C, D> for MemoryZKSignatureWallet<C, D, BP>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn sign(
         &self,

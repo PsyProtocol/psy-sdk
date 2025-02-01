@@ -43,7 +43,7 @@ pub struct TreeAggInput<IO: Serialize + Clone + Debug, C: GenericConfig<D>, cons
 }
 pub struct TreeProverAggCircuitWrapper<AC, C: 'static + GenericConfig<D>, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub circuit: AC,
     pub minifier: QEDProofMinifierChain<D, C::F, C>,
@@ -51,7 +51,7 @@ where
 impl<AC: QStandardCircuit<C, D> + Clone, C: 'static + GenericConfig<D>, const D: usize> Clone
     for TreeProverAggCircuitWrapper<AC, C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         let circuit = self.circuit.clone();
@@ -66,7 +66,7 @@ where
 impl<AC: QStandardCircuit<C, D>, C: 'static + GenericConfig<D>, const D: usize>
     QStandardCircuit<C, D> for TreeProverAggCircuitWrapper<AC, C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         QHashOut(self.minifier.get_fingerprint())
@@ -90,7 +90,7 @@ impl<
         const D: usize,
     > TPLeafAggregator<IL, IO> for TreeProverAggCircuitWrapper<AC, C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_output_from_inputs(&self, left: &IO, right: &IO) -> IO {
         self.circuit.get_output_from_inputs(left, right)
@@ -116,7 +116,7 @@ impl<
         const D: usize,
     > TreeProverAggCircuit<IO, C, D> for TreeProverAggCircuitWrapper<AC, C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn new(child_common_data: &CommonCircuitData<C::F, D>, verifier_cap_height: usize) -> Self {
         let circuit = AC::new(child_common_data, verifier_cap_height);

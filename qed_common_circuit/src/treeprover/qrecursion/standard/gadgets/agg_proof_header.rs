@@ -28,7 +28,7 @@ impl QRecursionAggStandardHeaderGadget {
     }
 
     pub fn get_combined_hash<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(

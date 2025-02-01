@@ -26,7 +26,7 @@ impl QEDUserLeafGadget {
         witness.set_target(self.event_index, target.event_index);
         witness.set_target(self.user_id, target.user_id);
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
     }
     pub fn connect_to_other<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, other: QEDUserLeafGadget) {
@@ -115,7 +115,7 @@ impl QEDUserLeafGadget {
     }
 }
 impl AlgebraicHashableTarget for QEDUserLeafGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }

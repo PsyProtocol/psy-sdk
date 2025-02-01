@@ -25,7 +25,7 @@ use crate::{
 #[derive(Debug)]
 pub struct QStandardBinaryRecursionTreeCircuitSet<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     pub single_leaf_circuit: QRecursionStandardSingleLeafCircuit<C, D>,
     pub two_leaf_circuit: QRecursionStandardTwoLeafCircuit<C, D>,
@@ -39,7 +39,7 @@ where
 
 impl<C: GenericConfig<D>, const D: usize> QStandardBinaryRecursionTreeCircuitSet<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     pub fn new(
         q_recursion_tree_height: usize,

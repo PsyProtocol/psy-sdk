@@ -28,7 +28,7 @@ pub struct ZKSignatureCircuitInput<F: RichField> {
 #[derive(Debug)]
 pub struct ZKSignatureCircuitSimpleFixedPublicKey<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub proof_target: ProofWithPublicInputsTarget<D>,
     // end circuit targets
@@ -38,7 +38,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> ZKSignatureCircuitSimpleFixedPublicKey<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new_from_isc<ISC: QStandardCircuit<C, D>>(
         inner_sig_circuit: &ISC,
@@ -109,7 +109,7 @@ where
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
     for ZKSignatureCircuitSimpleFixedPublicKey<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -127,7 +127,7 @@ impl<C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvable<ProofWithPublicInputs<C::F, C, D>, C, D>
     for ZKSignatureCircuitSimpleFixedPublicKey<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_standard(
         &self,

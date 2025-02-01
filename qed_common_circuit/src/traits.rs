@@ -40,13 +40,13 @@ pub trait CreatableTarget {
     ) -> Self;
 }
 pub trait CreatableWithHasherTarget {
-    fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn create_virtual_with_hasher<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self;
 }
 
 impl<T: CreatableTarget> CreatableWithHasherTarget for T {
-    fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn create_virtual_with_hasher<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         Self::create_virtual::<F, D>(builder)
@@ -71,7 +71,7 @@ impl<T: Copy> HashableTarget<T> for T {
 }*/
 
 pub trait AlgebraicHashableTarget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget;
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget;
 }
 pub trait WitnessValueFor<T, F: RichField, const BIG_ENDIAN: bool = true> {
     fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &T);

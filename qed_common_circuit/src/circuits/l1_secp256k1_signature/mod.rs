@@ -1,5 +1,5 @@
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
-use qed_crypto::signature::secp256k1::core::{QEDCompressedSecp256K1Signature, QEDPreparedSecp256K1Signature};
+use qed_crypto::{hash::traits::hasher::QAlgebraicHasher, signature::secp256k1::core::{QEDCompressedSecp256K1Signature, QEDPreparedSecp256K1Signature}};
 use plonky2::{
     iop::witness::PartialWitness,
     plonk::{
@@ -20,7 +20,7 @@ use super::traits::qstandard::QStandardCircuit;
 #[derive(Debug)]
 pub struct L1Secp256K1SignatureCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub signature_gadget: DogeQEDSignatureGadget,
     pub base_circuit_data: CircuitData<C::F, C, D>,
@@ -28,7 +28,7 @@ where
 }
 impl<C: GenericConfig<D> + 'static, const D: usize> Clone for L1Secp256K1SignatureCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         Self::new()
@@ -36,7 +36,7 @@ where
 }
 impl<C: GenericConfig<D> + 'static, const D: usize> L1Secp256K1SignatureCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
         let config = CircuitConfig::standard_ecc_config();
@@ -88,7 +88,7 @@ where
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
     for L1Secp256K1SignatureCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         QHashOut(self.minifier_chain.get_fingerprint())

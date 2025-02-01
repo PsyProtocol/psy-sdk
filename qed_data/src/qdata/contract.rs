@@ -60,7 +60,7 @@ impl<F: RichField> ToQFelts<F> for QEDContractLeaf<F> {
 
 impl<F: RichField> QFieldHashable<F> for QEDContractLeaf<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-        H::hash_many(&[
+        H::q_hash_many(&[
             self.deployer.0.elements[0],
             self.deployer.0.elements[1],
             self.deployer.0.elements[2],

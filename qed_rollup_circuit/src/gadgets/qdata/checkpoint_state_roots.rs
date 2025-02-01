@@ -17,14 +17,14 @@ impl QEDCheckpointGlobalStateRootsGadget {
         witness.set_hash_target(self.user_tree_root, target.user_tree_root.0);
         witness.set_hash_target(self.withdrawal_tree_root, target.withdrawal_tree_root.0);
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         let left = builder.hash_two_to_one::<H>(self.contract_tree_root, self.deposit_tree_root);
         let right = builder.hash_two_to_one::<H>(self.user_tree_root, self.withdrawal_tree_root);
         builder.hash_two_to_one::<H>(left, right)
     }
 }
 impl AlgebraicHashableTarget for QEDCheckpointGlobalStateRootsGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }
@@ -129,3 +129,6 @@ impl<F: RichField> WitnessValueFor<QEDCheckpointGlobalStateRootsGadget, F, false
         target.set_witness(witness, self);
     }
 }
+
+
+

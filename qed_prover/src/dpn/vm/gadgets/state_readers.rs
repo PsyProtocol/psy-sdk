@@ -300,6 +300,8 @@ pub struct StateReaderGadget {
     pub start_deferred_tx_tree_root: HashOutTarget,
     pub end_deferred_tx_tree_root: HashOutTarget,
 
+    pub session_proof_tree_root: HashOutTarget,
+
     pub state_cmd_results: Vec<Vec<Target>>,
 
     pub gadget_map: HashMap<StateCommandCacheKey, StateReaderReferenceKey>,
@@ -310,6 +312,7 @@ pub struct StateReaderGadget {
     pub write_epoch: u32,
 
     pub contract_state_tree_height: usize,
+    pub session_proof_tree_height: usize,
 }
 
 
@@ -320,6 +323,9 @@ impl StateReaderGadget {
         deferred_tx_tree_root: HashOutTarget,
         contract_state_root: HashOutTarget,
         contract_state_tree_height: usize,
+        session_proof_tree_root: HashOutTarget,
+        session_proof_tree_height: usize,
+        
     ) -> Self {
         Self {
             merkle_proofs: vec![],
@@ -338,6 +344,9 @@ impl StateReaderGadget {
             contract_state_tree_height,
             user_contract_tree_state_root,
             deferred_tx_count: 0,
+            
+            session_proof_tree_root,
+            session_proof_tree_height,
         }
     }
 
@@ -367,7 +376,7 @@ impl StateReaderGadget {
     }
 
     pub fn resolve_or_insert_merkle_proof_gadget<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -411,7 +420,7 @@ impl StateReaderGadget {
         ref_key
     }
     pub fn resolve_or_insert_delta_merkle_proof_gadget<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -473,7 +482,7 @@ impl StateReaderGadget {
     // end resolvers
 
     pub fn get_self_user_external_contract_root<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -510,7 +519,7 @@ impl StateReaderGadget {
     }
 
     pub fn get_self_user_external_contract_slot_hash<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -558,7 +567,7 @@ impl StateReaderGadget {
 
 
     pub fn get_other_user_leaf_hash<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -597,7 +606,7 @@ impl StateReaderGadget {
 
 
     pub fn get_other_user_leaf<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -629,7 +638,7 @@ impl StateReaderGadget {
 
 
     pub fn get_other_user_contract_state_root<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -661,7 +670,7 @@ impl StateReaderGadget {
         mp_uct.value
     }
     pub fn get_other_user_contract_state_slot_hash<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -700,7 +709,7 @@ impl StateReaderGadget {
 
 
     pub fn injest_symbolic_state_command<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(

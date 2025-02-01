@@ -40,7 +40,7 @@ impl<const D: usize> VerifyLeafProofGadget<D> {
         verifier_data_cap_height: usize,
     ) -> Self
     where
-        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
+        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
     {
         let verifier_data = builder.add_virtual_verifier_data(verifier_data_cap_height);
         let proof_target = builder.add_virtual_proof_with_pis(proof_common_data);
@@ -98,7 +98,7 @@ impl<const D: usize> VerifyLeafProofGadget<D> {
         proof: &ProofWithPublicInputs<F, C, D>,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>, {
+    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
         self.insert_leaf_proof.set_witness(
             witness,
             F::from_noncanonical_u64(insert_leaf_proof.index),

@@ -31,7 +31,7 @@ pub struct DapenCFCProvingSessionStartContextGadget {
 }
 
 impl DapenCFCProvingSessionStartContextGadget {
-    fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let checkpoint_id = builder.add_virtual_target();
@@ -55,7 +55,7 @@ impl DapenCFCProvingSessionStartContextGadget {
     }
 
     /*
-    pub fn ensure_self_consistent<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn ensure_self_consistent<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) {
@@ -79,7 +79,7 @@ impl DapenCFCProvingSessionStartContextGadget {
         self.start_session_user_leaf
             .set_witness(witness, &target.start_session_user_leaf);
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -103,7 +103,7 @@ impl DapenCFCProvingSessionStartContextGadget {
 }
 impl CreatableWithHasherTarget for DapenCFCProvingSessionStartContextGadget {
     fn create_virtual_with_hasher<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -113,7 +113,7 @@ impl CreatableWithHasherTarget for DapenCFCProvingSessionStartContextGadget {
     }
 }
 impl AlgebraicHashableTarget for DapenCFCProvingSessionStartContextGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -201,7 +201,7 @@ impl DapenCFCUserTransactionCallStartContextGadget {
         witness.set_target(self.start_user_balance, target.start_user_balance);
         witness.set_target(self.start_user_event_index, target.start_user_event_index);
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -235,7 +235,7 @@ impl CreatableTarget for DapenCFCUserTransactionCallStartContextGadget {
     }
 }
 impl AlgebraicHashableTarget for DapenCFCUserTransactionCallStartContextGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -316,7 +316,7 @@ impl DapenCFCUserTransactionEndContextGadget {
         witness.set_target(self.total_events_emitted, target.total_events_emitted);
         witness.set_target(self.total_balance_spent, target.total_balance_spent);
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -348,7 +348,7 @@ impl CreatableTarget for DapenCFCUserTransactionEndContextGadget {
     }
 }
 impl AlgebraicHashableTarget for DapenCFCUserTransactionEndContextGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -441,7 +441,7 @@ pub struct DapenCFCUserTransactionInputContextGadget {
 }
 
 impl DapenCFCUserTransactionInputContextGadget {
-    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let proving_session_start_ctx = DapenCFCProvingSessionStartContextGadget::create_virtual_with_hasher::<H, F, D>(builder);
@@ -464,7 +464,7 @@ impl DapenCFCUserTransactionInputContextGadget {
         self.transaction_end_ctx.set_witness(witness, &target.transaction_end_ctx);
 
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -482,14 +482,14 @@ impl DapenCFCUserTransactionInputContextGadget {
     }
 }
 impl CreatableWithHasherTarget for DapenCFCUserTransactionInputContextGadget {
-    fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn create_virtual_with_hasher<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
             builder: &mut CircuitBuilder<F, D>,
         ) -> Self {
         Self::add_virtual_to::<H, F, D>(builder)
     }
 }
 impl AlgebraicHashableTarget for DapenCFCUserTransactionInputContextGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {

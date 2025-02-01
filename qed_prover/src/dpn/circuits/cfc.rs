@@ -11,7 +11,7 @@ use crate::dpn::vm::compile::QEDContractFunctionBuilderGadget;
 #[derive(Debug)]
 pub struct DapenContractFunctionCircuit<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub inputs: Vec<Target>,
     pub fn_builder_gadget: QEDContractFunctionBuilderGadget,
@@ -26,12 +26,13 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> DapenContractFunctionCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     pub fn new(
         //coset_gate: &GateRef<C::F, D>,
         fn_def: &DPNFunctionCircuitDefinition,
         contract_state_tree_height: usize,
+        session_proof_tree_height: usize,
     ) -> Self {
         
         let config = CircuitConfig::standard_recursion_config();
@@ -41,6 +42,7 @@ where
             &mut builder, 
             fn_def, 
             contract_state_tree_height, 
+            session_proof_tree_height,
             inputs.clone(),
         );
         let final_hash = fn_builder_gadget.tx_ctx_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
@@ -70,6 +72,10 @@ where
         let mut pw = PartialWitness::<C::F>::new();
         
         pw.set_target_arr(&self.inputs, &cfc_input.inputs);
+        
+        pw.set_hash_target(self.fn_builder_gadget.session_proof_tree_root, cfc_input.session_proof_tree_root.0);
+        
+
         self.fn_builder_gadget.tx_ctx_header.set_witness(&mut pw, &cfc_input.tx_input_ctx);
         self.fn_builder_gadget.state_reader.set_witness(&mut pw, cfc_input, &self.fn_def);
         
@@ -79,7 +85,7 @@ where
 
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for DapenContractFunctionCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -97,7 +103,7 @@ impl<C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvable<DapenContractFunctionCircuitInput<C::F>, C, D>
     for DapenContractFunctionCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_standard(
         &self,
@@ -113,7 +119,7 @@ impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvableWithProofStoreSync<S, DapenContractFunctionCircuitInput<C::F>, C, D>
     for DapenContractFunctionCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_with_proof_store_sync(
         &self,

@@ -35,7 +35,7 @@ impl AggStateTransitionGadget {
     }
 
     pub fn get_combined_hash<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -45,7 +45,7 @@ impl AggStateTransitionGadget {
         builder.hash_two_to_one::<H>(self.state_transition_start, self.state_transition_end)
     }
 
-    pub fn combine_many<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn combine_many<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         transitions: &[Self],
     ) -> Self {
@@ -222,7 +222,7 @@ pub struct AggStateTransitionProofValidityGadget {
 }
 
 impl AggStateTransitionProofValidityGadget {
-    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         proof_target: &ProofWithPublicInputsTarget<D>,
         verifier_data_target: &VerifierCircuitTarget,
@@ -255,7 +255,7 @@ pub struct AggStateTransitionWithEventsProofValidityGadget {
 }
 
 impl AggStateTransitionWithEventsProofValidityGadget {
-    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         proof_target: &ProofWithPublicInputsTarget<D>,
         verifier_data_target: &VerifierCircuitTarget,

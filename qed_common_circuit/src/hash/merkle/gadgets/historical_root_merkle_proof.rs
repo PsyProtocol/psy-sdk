@@ -25,7 +25,7 @@ pub struct HistoricalRootMerkleProofGadget {
 }
 impl HistoricalRootMerkleProofGadget {
     pub fn add_virtual_to<
-        H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
+        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -52,7 +52,7 @@ impl HistoricalRootMerkleProofGadget {
         }
     }
     pub fn compute_root_and_historical_root<
-        H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
+        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -73,7 +73,7 @@ impl HistoricalRootMerkleProofGadget {
         )
     }
     fn compute_root_and_historical_root_bits<
-        H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
+        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(

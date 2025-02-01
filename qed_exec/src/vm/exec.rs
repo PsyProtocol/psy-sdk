@@ -624,6 +624,7 @@ impl QEDEvalSessionResult<GF> {
             inputs: inputs_clone,
             outputs,
             cmd_witnesses: self.cmd_witnesses,
+            session_proof_tree_root: sesh.get_q_recursion_proof_tree_root(),
             tx_input_ctx: input_ctx,
         })
     }

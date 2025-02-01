@@ -6,7 +6,7 @@ use qed_crypto::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::Merkl
 #[derive(Debug)]
 pub struct QRecursionStandardSingleLeafCircuit<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub agg_circuit_whitelist_root: HashOutTarget,
     pub single_leaf_gadget: VerifyLeafProofGadget<D>,
@@ -19,7 +19,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QRecursionStandardSingleLeafCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     pub fn new(
         //coset_gate: &GateRef<C::F, D>,
@@ -87,7 +87,7 @@ where
 
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for QRecursionStandardSingleLeafCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -108,7 +108,7 @@ impl<C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvable<QRecursionStandardSingleLeafCircuitInput<C::F>, C, D>
     for QRecursionStandardSingleLeafCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_standard(
         &self,
@@ -124,7 +124,7 @@ impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvableWithProofStoreSync<S, QRecursionStandardSingleLeafCircuitInput<C::F>, C, D>
     for QRecursionStandardSingleLeafCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_with_proof_store_sync(
         &self,

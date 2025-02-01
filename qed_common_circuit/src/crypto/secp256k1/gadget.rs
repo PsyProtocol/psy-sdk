@@ -78,7 +78,7 @@ pub struct Secp256K1CircuitGadget {
 impl Secp256K1CircuitGadget {
     /* see
      */
-    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize, H: AlgebraicHasher<F>>(
+    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize, H:AlgebraicHasher<F>>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         type CURVE = Secp256K1;
@@ -161,7 +161,7 @@ pub struct DogeQEDSignatureCombinedHashGadget {
     pub combined_hash: HashOutTarget,
 }
 impl DogeQEDSignatureCombinedHashGadget {
-    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let compressed_public_key = builder.add_virtual_target_arr();
@@ -170,7 +170,7 @@ impl DogeQEDSignatureCombinedHashGadget {
     }
 
     pub fn add_virtual_to_known<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -223,7 +223,7 @@ pub struct DogeQEDSignatureGadget {
 }
 
 impl DogeQEDSignatureGadget {
-    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         type CURVE = Secp256K1;

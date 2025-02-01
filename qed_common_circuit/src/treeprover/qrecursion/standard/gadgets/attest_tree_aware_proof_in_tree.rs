@@ -4,7 +4,7 @@ use qed_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTr
 
 use crate::{builder::hash::core::CircuitBuilderHashCore, hash::merkle::gadgets::{historical_root_merkle_proof::HistoricalRootMerkleProofGadget, merkle_proof::MerkleProofGadget}};
 
-pub fn compute_tree_aware_proof_public_inputs<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+pub fn compute_tree_aware_proof_public_inputs<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     proof_tree_root: HashOutTarget,
     inner_public_inputs_hash: HashOutTarget,
@@ -26,7 +26,7 @@ pub struct AttestTreeAwareProofInTreeGadget {
 }
 
 impl AttestTreeAwareProofInTreeGadget {
-    pub fn add_virtual_to<H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         q_recursion_tree_height: usize,
     ) -> Self {

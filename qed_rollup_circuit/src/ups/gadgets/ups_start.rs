@@ -28,7 +28,7 @@ pub struct UPSStartStepGadget {
     pub checkpoint_tree_proof: MerkleProofGadget,
     pub user_tree_proof: MerkleProofGadget,
 }
-pub fn get_empty_tree_root_for_tx_debt_trees<H: AlgebraicHasher<F>, F: RichField>() -> (QHashOut<F>, QHashOut<F>){
+pub fn get_empty_tree_root_for_tx_debt_trees<H:AlgebraicHasher<F>, F: RichField>() -> (QHashOut<F>, QHashOut<F>){
     let base_zero_hash = QHashOut::ZERO;
     let deferred_tx_debt_tree_root = iterate_merkle_hasher_alg::<H, F>(base_zero_hash, DEFERRED_TRANSACTION_TREE_HEIGHT as usize);
     let inline_tx_debt_tree_root = iterate_merkle_hasher_alg::<H, F>(base_zero_hash, INLINE_TRANSACTION_TREE_HEIGHT as usize);
@@ -39,7 +39,7 @@ pub fn get_empty_tree_root_for_tx_debt_trees<H: AlgebraicHasher<F>, F: RichField
     )
 }
 impl UPSStartStepGadget {
-    fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let header_gadget = UserProvingSessionHeaderGadget::add_virtual_to::<H, F, D>(builder);
@@ -62,7 +62,7 @@ impl UPSStartStepGadget {
         gadget
     }
     fn ensure_start_session_ctx_properly_constrainted<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -156,7 +156,7 @@ impl UPSStartStepGadget {
         */
     }
     fn ensure_current_state_properly_constrainted<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -234,7 +234,7 @@ impl UPSStartStepGadget {
 }
 impl CreatableWithHasherTarget for UPSStartStepGadget {
     fn create_virtual_with_hasher<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(

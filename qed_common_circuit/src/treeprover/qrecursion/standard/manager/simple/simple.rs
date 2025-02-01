@@ -4,7 +4,7 @@ use plonky2::{
     hash::hash_types::HashOut,
     plonk::{
         circuit_data::CommonCircuitData,
-        config::{AlgebraicHasher, GenericConfig},
+        config::{AlgebraicHasher, GenericConfig, Hasher},
     },
 };
 use qed_core::data::qhashout::QHashOut;
@@ -18,7 +18,7 @@ use qed_crypto::{
             core::MerkleProofCore,
             utils::simple_merkle_tree::SimpleMerkleTree,
         },
-        traits::hasher::{FieldQHasher, MerkleZeroHasher},
+        traits::hasher::{FieldQHasher, MerkleZeroHasher, QAlgebraicHasher},
     },
 };
 
@@ -37,7 +37,7 @@ use qed_crypto::common::witnesses::qrecursion::proof_data::{
 pub struct SimpleQTreeRecursionManager<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+       AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
     pub circuit_set: QStandardBinaryRecursionTreeCircuitSet<C, D>,
     pub circuit_inclusion_proofs: SimpleQTreeRecursionManagerInclusionProofs<C::F>,
@@ -57,7 +57,7 @@ where
 impl<C: GenericConfig<D>, const D: usize> SimpleQTreeRecursionManager<C, D>
 where
     C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+       AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
     pub fn new(
         q_recursion_tree_height: usize,
@@ -201,7 +201,7 @@ where
             ],
         });
 
-        let value = C::Hasher::q_two_to_one(leaf_proof.fingerprint, public_inputs_hash);
+        let value = QHashOut(<C::Hasher as Hasher<C::F>>::two_to_one(leaf_proof.fingerprint.0, public_inputs_hash.0));
         self.leaf_to_index_map.insert(value, index);
         let insertion_proof = self.proof_tree.set_leaf(index, value);
         self.root_history.push(insertion_proof.old_root);

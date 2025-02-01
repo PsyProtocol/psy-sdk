@@ -94,7 +94,7 @@ impl<F: RichField> QEDSigAction<F> {
             user: F::from_noncanonical_u64(user),
         }
     }
-    pub fn get_hash<H: AlgebraicHasher<F>>(&self) -> HashOut<F> {
+    pub fn get_hash<H:AlgebraicHasher<F>>(&self) -> HashOut<F> {
         let arguments_hash = H::hash_no_pad(&self.action_arguments);
         let final_hash = H::hash_no_pad(&[
             self.network_magic,
@@ -109,7 +109,7 @@ impl<F: RichField> QEDSigAction<F> {
         final_hash
     }
 
-    pub fn get_qhash<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
+    pub fn get_qhash<H:AlgebraicHasher<F>>(&self) -> QHashOut<F> {
         QHashOut(self.get_hash::<H>())
     }
 }
@@ -146,7 +146,7 @@ impl<F: RichField> SimpleL2PrivateKey<F> {
     pub fn new(private_key: QHashOut<F>) -> Self {
         Self { private_key }
     }
-    pub fn get_public_key<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
+    pub fn get_public_key<H:AlgebraicHasher<F>>(&self) -> QHashOut<F> {
         QHashOut(H::hash_no_pad(&[
             F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[0]),
             F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[1]),

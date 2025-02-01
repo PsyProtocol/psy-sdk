@@ -12,7 +12,7 @@ use plonky2::{
 use super::connect::CircuitBuilderConnectHelpers;
 
 pub trait CircuitBuilderVerifyProofHelpers<F: RichField + Extendable<D>, const D: usize> {
-    fn get_circuit_fingerprint<H: AlgebraicHasher<F>>(
+    fn get_circuit_fingerprint<H:AlgebraicHasher<F>>(
         &mut self,
         verifier_data: &VerifierCircuitTarget,
     ) -> HashOutTarget;
@@ -23,7 +23,7 @@ pub trait CircuitBuilderVerifyProofHelpers<F: RichField + Extendable<D>, const D
         inner_common_data: &CommonCircuitData<F, D>,
         fingerprint: HashOutTarget,
     ) where
-        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>;
+        <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>;
 
     fn verify_proof_with_fingerprint_enum<C: GenericConfig<D, F = F>>(
         &mut self,
@@ -32,13 +32,13 @@ pub trait CircuitBuilderVerifyProofHelpers<F: RichField + Extendable<D>, const D
         inner_common_data: &CommonCircuitData<F, D>,
         allowed_fingerprints: &[HashOutTarget],
     ) where
-        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>;
+        <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>;
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderVerifyProofHelpers<F, D>
     for CircuitBuilder<F, D>
 {
-    fn get_circuit_fingerprint<H: AlgebraicHasher<F>>(
+    fn get_circuit_fingerprint<H:AlgebraicHasher<F>>(
         &mut self,
         verifier_data: &VerifierCircuitTarget,
     ) -> HashOutTarget {
@@ -59,7 +59,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderVerifyProofHelp
         inner_common_data: &CommonCircuitData<F, D>,
         fingerprint: HashOutTarget,
     ) where
-        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+        <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
     {
         let calculated_fingerprint = self.get_circuit_fingerprint::<C::Hasher>(inner_verifier_data);
         self.connect_hashes(calculated_fingerprint, fingerprint);
@@ -72,7 +72,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderVerifyProofHelp
         inner_common_data: &CommonCircuitData<F, D>,
         allowed_fingerprints: &[HashOutTarget],
     ) where
-        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+        <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
     {
         let calculated_fingerprint: HashOutTarget =
             self.get_circuit_fingerprint::<C::Hasher>(inner_verifier_data);

@@ -109,7 +109,7 @@ impl<F: RichField> QFieldHashable<F> for UserProvingSessionStartContext<F> {
         let user_leaf_hash = self.start_session_user_leaf.qfhash::<H>();
 
         let checkpoint_user_combo  = H::q_two_to_one(checkpoint_combo, user_leaf_hash);
-        H::hash_many(&[
+        H::q_hash_many(&[
             self.checkpoint_id,
 
             checkpoint_user_combo.0.elements[0],
@@ -156,7 +156,7 @@ impl<F: RichField> QFieldHashable<F> for UserProvingSessionCurrentState<F> {
 
 
         let debt_combo = H::q_two_to_one(self.deferred_tx_debt_tree_root, self.inline_tx_debt_tree_root);
-        let tx_combo = H::hash_many(&[
+        let tx_combo = H::q_hash_many(&[
             self.tx_hash_stack.0.elements[0],
             self.tx_hash_stack.0.elements[1],
             self.tx_hash_stack.0.elements[2],

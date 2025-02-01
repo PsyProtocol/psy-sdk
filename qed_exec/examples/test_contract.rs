@@ -147,6 +147,7 @@ fn prepare_environment_with_contract(
         GoldilocksField::ONE,
         GoldilocksField::ONE,
         GoldilocksField::ONE,
+        16
     );
 
     Ok(lps)

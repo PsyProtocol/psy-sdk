@@ -26,35 +26,42 @@ pub struct QEDCmdWithInputAndResultTargets {
 
 #[derive(Clone, Debug)]
 pub struct QEDContractFunctionBuilderGadget {
-    //output: Vec<F>,
     pub cmd_results: Vec<QEDCmdWithInputAndResultTargets>,
     pub state_reader: StateReaderGadget,
+    pub session_proof_tree_root: HashOutTarget,
     pub tx_ctx_header: DapenCFCUserTransactionInputContextGadget,
     pub outputs: Vec<Target>,
 }
 impl QEDContractFunctionBuilderGadget {
     pub fn add_virtual_to<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
         builder: &mut CircuitBuilder<F, D>,
         fn_def: &DPNFunctionCircuitDefinition,
         contract_state_tree_height: usize,
+        session_proof_tree_height: usize,
         inputs: Vec<Target>,
     ) -> Self {
 
         let tx_ctx_header = DapenCFCUserTransactionInputContextGadget::add_virtual_to::<H,F,D>(builder);
+        let session_proof_tree_root = builder.add_virtual_hash();
+        
         let state_reader = StateReaderGadget::new(
             tx_ctx_header.proving_session_start_ctx.state_roots,
             tx_ctx_header.transaction_call_start_ctx.start_user_contract_tree_root,
             tx_ctx_header.transaction_call_start_ctx.start_deferred_tx_debt_tree_root,
             tx_ctx_header.transaction_call_start_ctx.start_contract_state_tree_root,
             contract_state_tree_height,
+            session_proof_tree_root,
+            session_proof_tree_height,
         );
+        
         let mut g = Self {
             cmd_results: Vec::new(),
             state_reader,
+            session_proof_tree_root,
             tx_ctx_header,
             outputs: Vec::new(),
         };
@@ -64,7 +71,7 @@ impl QEDContractFunctionBuilderGadget {
         g
     }
      fn process_state_cmd<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -82,7 +89,7 @@ impl QEDContractFunctionBuilderGadget {
         });
     }
     
-    fn eval_session<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn eval_session<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         fn_def: &DPNFunctionCircuitDefinition,

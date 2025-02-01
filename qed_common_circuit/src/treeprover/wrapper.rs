@@ -16,7 +16,7 @@ use std::fmt::Debug;
 
 pub struct TreeProverLeafCircuitWrapper<AC, C: 'static + GenericConfig<D>, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub circuit: AC,
     pub minifier: QEDProofMinifierDynamicChain<D, C::F, C>,
@@ -26,7 +26,7 @@ where
 impl<AC: QStandardCircuit<C, D>, C: 'static + GenericConfig<D>, const D: usize>
     TreeProverLeafCircuitWrapper<AC, C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new(circuit: AC, network_magic: u64, n_minifiers: usize) -> Self {
         let minifier = QEDProofMinifierDynamicChain::new(
@@ -44,7 +44,7 @@ where
 impl<AC, C: 'static + GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
     for TreeProverLeafCircuitWrapper<AC, C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         QHashOut(self.minifier.get_fingerprint())
@@ -65,7 +65,7 @@ impl<
         const D: usize,
     > QStandardCircuitWithDefaultMinified for TreeProverLeafCircuitWrapper<AC, C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn new_default_with_minifiers(network_magic: u64, n_minifiers: usize) -> Self {
         let circuit = AC::new_default(network_magic);
@@ -87,7 +87,7 @@ impl<
         const D: usize,
     > Clone for TreeProverLeafCircuitWrapper<AC, C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         let circuit = AC::new_default(self.network_magic);
@@ -113,7 +113,7 @@ impl<
     > QStandardCircuitProvableWithProofStoreSync<S, I, C, D>
     for TreeProverLeafCircuitWrapper<SC, C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn prove_with_proof_store_sync(
         &self,

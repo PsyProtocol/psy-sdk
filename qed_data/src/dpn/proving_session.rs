@@ -102,7 +102,7 @@ impl<F: RichField> QFieldHashable<F> for DPNProvingSessionCompactMethodCall<F> {
             - the hash of the inputs
         */
 
-        H::hash_many(&[
+        H::q_hash_many(&[
             magic_felt,
             self.contract_id,
             self.method_id,
@@ -223,7 +223,7 @@ impl<F: RichField> QFieldHashable<F> for DPNProvingSessionSignableCompactMethodC
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         let call_data_hash = self.call_data.qfhash::<H>();
 
-        H::hash_many(&[
+        H::q_hash_many(&[
             F::from_noncanonical_u64(SIGN_SIMPLE_TRANSACTION_MAGIC),
             self.checkpoint_id,
             self.user_id,

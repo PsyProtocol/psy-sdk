@@ -43,11 +43,11 @@ impl<F: RichField> QFieldHashable<F> for DapenContractFunctionContextHeader<F> {
             self.start_contract_state_root.0.elements[3],
         ]);
 
-        let final_hash =  H::hash_many(&[
-            state_combo.0.elements[0],
-            state_combo.0.elements[1],
-            state_combo.0.elements[2],
-            state_combo.0.elements[3],
+        let final_hash =  H::q_hash_many(&[
+            state_combo.elements[0],
+            state_combo.elements[1],
+            state_combo.elements[2],
+            state_combo.elements[3],
 
             self.contract_id,
             self.method_id,

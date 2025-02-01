@@ -52,7 +52,7 @@ pub struct OptionalDeltaMerkleProofGadget {
 
 impl DeltaMerkleProofGadget {
     pub fn add_virtual_to_u8h<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -61,7 +61,7 @@ impl DeltaMerkleProofGadget {
     ) -> Self {
         Self::add_virtual_to::<H, F, D>(builder, height as usize)
     }
-    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
     ) -> Self {
@@ -97,7 +97,7 @@ impl DeltaMerkleProofGadget {
         }
     }
     pub fn add_virtual_to_append_only<
-        H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
+        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -147,7 +147,7 @@ impl DeltaMerkleProofGadget {
         }
     }
     pub fn add_virtual_to_push_sparse_list<
-        H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
+        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -198,7 +198,7 @@ impl DeltaMerkleProofGadget {
         }
     }
     pub fn add_virtual_to_pop_right<
-        H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
+        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -252,7 +252,7 @@ impl DeltaMerkleProofGadget {
         }
     }
     pub fn add_virtual_to_dequeue_left<
-        H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
+        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -306,7 +306,7 @@ impl DeltaMerkleProofGadget {
         }
     }
     pub fn add_virtual_to_append_only_skip_left<
-        H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
+        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -363,7 +363,7 @@ impl DeltaMerkleProofGadget {
         }
     }
     pub fn add_virtual_to_with_options<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(

@@ -26,7 +26,7 @@ pub struct QEDProofMinifierDynamic<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
 > where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
 {
     pub circuit_data: CircuitData<F, C, D>,
     pub circuit_fingerprint: HashOut<F>,
@@ -38,7 +38,7 @@ pub struct QEDProofMinifierDynamic<
 impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>
     QEDProofMinifierDynamic<D, F, C>
 where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
 {
     pub fn new(
         base_circuit_verifier_data: &VerifierOnlyCircuitData<C, D>,

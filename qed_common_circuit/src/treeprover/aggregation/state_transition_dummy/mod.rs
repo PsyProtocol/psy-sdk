@@ -27,7 +27,7 @@ use crate::{
 #[derive(Debug)]
 pub struct AggStateTransitionDummyCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub state_transition_hash: HashOutTarget,
     pub allowed_circuit_hashes_root: HashOutTarget,
@@ -38,7 +38,7 @@ where
 }
 impl<C: GenericConfig<D> + 'static, const D: usize> AggStateTransitionDummyCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new(coset_gate: &GateRef<C::F, D>) -> Self {
         let config = CircuitConfig::standard_recursion_config();
@@ -87,7 +87,7 @@ where
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
     for AggStateTransitionDummyCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         QHashOut(self.minifier_chain.get_fingerprint())
@@ -104,7 +104,7 @@ where
 impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D>
     for AggStateTransitionDummyCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -121,7 +121,7 @@ impl<C: GenericConfig<D> + 'static, const D: usize>
     QStandardCircuitProvable<DummyAggStateTransition<C::F>, C, D>
     for AggStateTransitionDummyCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn prove_standard(
         &self,
@@ -138,7 +138,7 @@ impl<S: QProofStoreReaderSync, C: GenericConfig<D> + 'static, const D: usize>
     QStandardCircuitProvableWithProofStoreSync<S, DummyAggStateTransition<C::F>, C, D>
     for AggStateTransitionDummyCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn prove_with_proof_store_sync(
         &self,

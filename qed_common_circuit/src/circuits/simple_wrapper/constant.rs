@@ -8,6 +8,7 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
+use qed_crypto::hash::traits::hasher::QAlgebraicHasher;
 
 use crate::
     proof_minifier::pm_core::get_circuit_fingerprint_generic
@@ -52,7 +53,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for SimpleWrapper<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint

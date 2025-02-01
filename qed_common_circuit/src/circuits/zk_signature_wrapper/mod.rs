@@ -24,7 +24,7 @@ use super::{traits::qstandard::QStandardCircuit, zk_signature::ZKSignatureCircui
 #[derive(Debug)]
 pub struct ZKSignatureWrapperCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub verifier_data_target: VerifierCircuitTarget,
     pub proof_target: ProofWithPublicInputsTarget<D>,
@@ -34,7 +34,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> Clone for ZKSignatureWrapperCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         Self::new()
@@ -42,7 +42,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> ZKSignatureWrapperCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
         let child_circuit_data =
@@ -116,7 +116,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for ZKSignatureWrapperCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint

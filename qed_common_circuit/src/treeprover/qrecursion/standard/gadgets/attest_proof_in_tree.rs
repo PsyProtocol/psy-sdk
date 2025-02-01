@@ -16,7 +16,7 @@ pub struct AttestProofInTreeGadget {
 }
 
 impl AttestProofInTreeGadget {
-    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         q_recursion_tree_height: usize,
     ) -> Self {

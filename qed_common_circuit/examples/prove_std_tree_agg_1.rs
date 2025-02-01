@@ -26,7 +26,7 @@ use qed_crypto::{
 
 pub struct SimpleLeafCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub mp_gadget: MerkleProofGadget,
     pub base_circuit_data: CircuitData<C::F, C, D>,
@@ -34,7 +34,7 @@ where
 }
 impl<C: GenericConfig<D> + 'static, const D: usize> SimpleLeafCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new(merkle_tree_height: usize) -> Self {
         let config = CircuitConfig::standard_recursion_config();

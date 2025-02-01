@@ -25,7 +25,7 @@ pub struct Secp256K1SignatureCircuit<
     C: GenericConfig<D, F = F> + 'static,
     const D: usize,
 > where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
 {
     pub signature_gadget: Secp256K1CircuitGadget,
     pub base_circuit_data: CircuitData<F, C, D>,
@@ -35,7 +35,7 @@ pub struct Secp256K1SignatureCircuit<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
     Secp256K1SignatureCircuit<F, C, D>
 where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
 {
     pub fn new() -> Self {
         let config = CircuitConfig::standard_ecc_config();

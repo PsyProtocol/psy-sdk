@@ -31,7 +31,7 @@ pub struct UserProvingSessionStartContextGadget {
 }
 
 impl UserProvingSessionStartContextGadget {
-    fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let checkpoint_id = builder.add_virtual_target();
@@ -51,7 +51,7 @@ impl UserProvingSessionStartContextGadget {
     }
 
     /*
-    pub fn ensure_self_consistent<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn ensure_self_consistent<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) {
@@ -73,7 +73,7 @@ impl UserProvingSessionStartContextGadget {
         self.start_session_user_leaf
             .set_witness(witness, &target.start_session_user_leaf);
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -96,7 +96,7 @@ impl UserProvingSessionStartContextGadget {
 }
 impl CreatableWithHasherTarget for UserProvingSessionStartContextGadget {
     fn create_virtual_with_hasher<
-        H: AlgebraicHasher<F>,
+        H:AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -106,7 +106,7 @@ impl CreatableWithHasherTarget for UserProvingSessionStartContextGadget {
     }
 }
 impl AlgebraicHashableTarget for UserProvingSessionStartContextGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -183,7 +183,7 @@ impl UserProvingSessionCurrentStateGadget {
         witness.set_hash_target(self.tx_hash_stack, target.tx_hash_stack.0);
         witness.set_target(self.tx_count, target.tx_count);
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -213,7 +213,7 @@ impl CreatableTarget for UserProvingSessionCurrentStateGadget {
     }
 }
 impl AlgebraicHashableTarget for UserProvingSessionCurrentStateGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -260,7 +260,7 @@ pub struct UserProvingSessionHeaderGadget {
 }
 
 impl UserProvingSessionHeaderGadget {
-    pub fn new_from_existing_ups_context<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn new_from_existing_ups_context<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         ups_step_circuit_whitelist_root: HashOutTarget,
         session_start_context: UserProvingSessionStartContextGadget,
@@ -291,7 +291,7 @@ impl UserProvingSessionHeaderGadget {
             current_state_hash,
         }
     }
-    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let ups_step_circuit_whitelist_root = builder.add_virtual_hash();
@@ -335,7 +335,7 @@ impl UserProvingSessionHeaderGadget {
         self.session_start_context.set_witness(witness, &target.session_start_context);
         self.current_state.set_witness(witness, &target.current_state);
     }
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -351,14 +351,14 @@ impl UserProvingSessionHeaderGadget {
     }
 }
 impl CreatableWithHasherTarget for UserProvingSessionHeaderGadget {
-    fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn create_virtual_with_hasher<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         Self::add_virtual_to::<H, F, D>(builder)
     }
 }
 impl AlgebraicHashableTarget for UserProvingSessionHeaderGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {

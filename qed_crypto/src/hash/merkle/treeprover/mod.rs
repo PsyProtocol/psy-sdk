@@ -48,7 +48,7 @@ impl<F: RichField> AggStateTransition<F> {
             state_transition_end,
         }
     }
-    pub fn get_combined_hash<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
+    pub fn get_combined_hash<H:AlgebraicHasher<F>>(&self) -> QHashOut<F> {
         QHashOut(H::two_to_one(
             self.state_transition_start.0,
             self.state_transition_end.0,
@@ -334,7 +334,7 @@ pub struct TPCircuitFingerprintConfig<F: RichField> {
 }
 
 impl<F: RichField> TPCircuitFingerprintConfig<F> {
-    pub fn from_leaf_and_agg_fingerprints<H: AlgebraicHasher<F>>(
+    pub fn from_leaf_and_agg_fingerprints<H:AlgebraicHasher<F>>(
         leaf_fingerprint: QHashOut<F>,
         aggregator_fingerprint: QHashOut<F>,
         dummy_fingerprint: QHashOut<F>,
@@ -350,7 +350,7 @@ impl<F: RichField> TPCircuitFingerprintConfig<F> {
             aggregator_circuit_type: 255,
         }
     }
-    pub fn from_leaf_and_agg_fingerprints_with_type<H: AlgebraicHasher<F>>(
+    pub fn from_leaf_and_agg_fingerprints_with_type<H:AlgebraicHasher<F>>(
         leaf_fingerprint: QHashOut<F>,
         aggregator_fingerprint: QHashOut<F>,
         dummy_fingerprint: QHashOut<F>,

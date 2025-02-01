@@ -22,19 +22,19 @@ pub trait CircuitBuilderHashCore<F: RichField + Extendable<D>, const D: usize> {
     fn constant_hash_str(&mut self, value: &str) -> HashOutTarget;
     fn hashout_to_hash256_le(&mut self, value: HashOutTarget) -> Hash256Target;
     fn hashout_to_hash256_be(&mut self, value: HashOutTarget) -> Hash256Target;
-    fn two_to_one_swapped<H: AlgebraicHasher<F>>(
+    fn two_to_one_swapped<H:AlgebraicHasher<F>>(
         &mut self,
         left: HashOutTarget,
         right: HashOutTarget,
         swap: BoolTarget,
     ) -> HashOutTarget;
-    fn hash_two_to_one<H: AlgebraicHasher<F>>(
+    fn hash_two_to_one<H:AlgebraicHasher<F>>(
         &mut self,
         left: HashOutTarget,
         right: HashOutTarget,
     ) -> HashOutTarget;
 
-    fn safe_hash_fixed_length<H: AlgebraicHasher<F>>(&mut self, targets: &[Target]) -> HashOutTarget;
+    fn safe_hash_fixed_length<H:AlgebraicHasher<F>>(&mut self, targets: &[Target]) -> HashOutTarget;
 
 
     fn ensure_hash_not_equal(&mut self, x: HashOutTarget, y: HashOutTarget);
@@ -67,7 +67,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
         self.constant_qhash(QHashOut::from_string_or_panic(value))
     }
 
-    fn two_to_one_swapped<H: AlgebraicHasher<F>>(
+    fn two_to_one_swapped<H:AlgebraicHasher<F>>(
         &mut self,
         left: HashOutTarget,
         right: HashOutTarget,
@@ -105,7 +105,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
         ]
     }
 
-    fn hash_two_to_one<H: AlgebraicHasher<F>>(
+    fn hash_two_to_one<H:AlgebraicHasher<F>>(
         &mut self,
         left: HashOutTarget,
         right: HashOutTarget,
@@ -232,7 +232,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
          
     }
     
-    fn safe_hash_fixed_length<H: AlgebraicHasher<F>>(&mut self, targets: &[Target]) -> HashOutTarget {
+    fn safe_hash_fixed_length<H:AlgebraicHasher<F>>(&mut self, targets: &[Target]) -> HashOutTarget {
         
         let targets_length = targets.len();
         let targets_length_target = self.constant_u64(targets_length as u64);

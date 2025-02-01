@@ -45,7 +45,7 @@ pub struct AggStateTrackableCircuitHeaderGadget {
     pub state_transition_hash: HashOutTarget,
 }
 impl AggStateTrackableCircuitHeaderGadget {
-    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let left_state_transition_start = builder.add_virtual_hash();
@@ -131,7 +131,7 @@ pub struct AggStateTransitionCircuit<C: GenericConfig<D>, const D: usize> {
 }
 impl<C: GenericConfig<D>, const D: usize> Clone for AggStateTransitionCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         Self::new(
@@ -145,7 +145,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> AggStateTransitionCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new_base(
         child_common_data: &CommonCircuitData<C::F, D>,
@@ -321,7 +321,7 @@ impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
 impl<C: GenericConfig<D>, const D: usize> TreeProverAggCircuit<AggStateTransitionInput<C::F>, C, D>
     for AggStateTransitionCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn new(child_common_data: &CommonCircuitData<C::F, D>, verifier_cap_height: usize) -> Self {
         Self::new_base(child_common_data, verifier_cap_height)

@@ -70,7 +70,7 @@ fn biguint_from_array(arr: [u64; 4]) -> BigUint {
 impl Secp256K1CircuitGadget {
     /* see
      */
-    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize, H: AlgebraicHasher<F>>(
+    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize, H:AlgebraicHasher<F>>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         type CURVE = Secp256K1;

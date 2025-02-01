@@ -22,7 +22,7 @@ use qed_crypto::hash::{merkle::{core::DeltaMerkleProofCore, utils::simple_merkle
 #[derive(Debug)]
 pub struct CFCPlaceholderCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub delta_merkle_proofs: Vec<DeltaMerkleProofGadget>,
 
@@ -36,7 +36,7 @@ where
 
 impl<C: GenericConfig<D> + 'static, const D: usize> CFCPlaceholderCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> {
+    C::Hasher:AlgebraicHasher<C::F> {
     pub fn new_with_minifier() -> Self {
         Self::new_with_config(30, 128, true)
     }
@@ -136,7 +136,7 @@ where
     
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> CFCPlaceholderCircuit<C, D> where C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>, {
+impl<C: GenericConfig<D> + 'static, const D: usize> CFCPlaceholderCircuit<C, D> where C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>, {
     pub fn prove_seq_filler(&self) -> ProofWithPublicInputs<C::F, C, D> {
         let height = self.delta_merkle_proofs[0].siblings.len();
 
@@ -156,7 +156,7 @@ impl<C: GenericConfig<D> + 'static, const D: usize> CFCPlaceholderCircuit<C, D> 
 impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D>
     for CFCPlaceholderCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         if self.is_minifier_enabled() {
@@ -188,7 +188,7 @@ impl<C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvable<CFCPlaceholderCircuitInput<C::F>, C, D>
     for CFCPlaceholderCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_standard(
         &self,
@@ -204,7 +204,7 @@ impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvableWithProofStoreSync<S, CFCPlaceholderCircuitInput<C::F>, C, D>
     for CFCPlaceholderCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_with_proof_store_sync(
         &self,
