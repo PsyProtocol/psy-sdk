@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::contract::QEDContractLeaf;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDContractInclusionProof<F: RichField> {
     pub contract_leaf: QEDContractLeaf<F>,

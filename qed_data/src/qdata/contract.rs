@@ -4,7 +4,7 @@ use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelt
 use qed_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDContractLeaf<F: RichField> {
     pub deployer: QHashOut<F>,
