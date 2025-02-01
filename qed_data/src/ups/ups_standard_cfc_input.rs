@@ -5,10 +5,10 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}}};
+use qed_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore}};
 use serde::{Deserialize, Serialize};
 
-use crate::{dpn::cfc_context_input::DapenCFCUserTransactionInputContext, qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, contract_inclusion::QEDContractFunctionInclusionProof, user::QEDUserLeaf}};
+use crate::{dpn::cfc_context_input::DapenCFCUserTransactionInputContext, qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, contract_inclusion::QEDContractFunctionInclusionProof}};
 
 
 

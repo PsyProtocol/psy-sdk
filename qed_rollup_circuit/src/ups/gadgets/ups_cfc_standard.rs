@@ -4,21 +4,18 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::{
-    builder::hash::core::CircuitBuilderHashCore, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, traits::{CreatableTarget, CreatableWithHasherTarget, WitnessValueFor}, treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::AttestTreeAwareProofInTreeGadget
-};
-use qed_core::{
-    config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT},
-    data::qhashout::QHashOut,
-};
-use qed_crypto::hash::traits::hasher::{iterate_merkle_hasher_alg, MerkleZeroHasher};
-use qed_data::ups::{start_step::UPSStartStepInput, ups_standard_cfc_input::UPSVerifyCFCStandardStepInput};
+use qed_common_circuit::
+    traits::WitnessValueFor
+;
+use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+use qed_data::ups::ups_standard_cfc_input::UPSVerifyCFCStandardStepInput;
 
-use crate::gadgets::qdata::{
-    cfc_context_input::UPSInspectDapenCFCUserTransactionInputContextGadget, checkpoint::QEDCheckpointLeafGadget, checkpoint_compact_with_state::QEDCheckpointLeafCompactWithStateRootsGadget, checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_inclusion::QEDContractFunctionInclusionProofGadget, ups_context_input::{UserProvingSessionCurrentStateGadget, UserProvingSessionHeaderGadget}
-};
+use crate::gadgets::qdata::
+    ups_context_input::UserProvingSessionHeaderGadget
+;
 
-use super::{ups_cfc_verify_inclusion::UPSVerifyCFCProofExistsAndValidGadget, ups_standard_cfc_state_delta::UPSCFCStandardStateDeltaGadget, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeGadget};
+use super::{ups_cfc_verify_inclusion::UPSVerifyCFCProofExistsAndValidGadget, ups_standard_cfc_state_delta::UPSCFCStandardStateDeltaGadget};
+
 
 #[derive(Clone, Debug)]
 pub struct UPSVerifyCFCStandardStepGadget {
@@ -32,7 +29,7 @@ pub struct UPSVerifyCFCStandardStepGadget {
     
 }
 impl UPSVerifyCFCStandardStepGadget {
-    fn add_virtual_to<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         previous_step_header_gadget: &UserProvingSessionHeaderGadget,
         current_proof_tree_root: HashOutTarget,
@@ -117,14 +114,14 @@ impl UPSVerifyCFCStandardStepGadget {
 }
 
 
-impl<F: RichField> WitnessValueFor<UPSVerifyCFCStandardStepGadget, F, true> for UPSStartStepInput<F> {
+impl<F: RichField> WitnessValueFor<UPSVerifyCFCStandardStepGadget, F, true> for UPSVerifyCFCStandardStepInput<F> {
     fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyCFCStandardStepGadget) {
         target.set_witness(witness, self);
     }
 }
 
-impl<F: RichField> WitnessValueFor<UPSStartStepGadget, F, false> for UPSStartStepInput<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSStartStepGadget) {
+impl<F: RichField> WitnessValueFor<UPSVerifyCFCStandardStepGadget, F, false> for UPSVerifyCFCStandardStepInput<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyCFCStandardStepGadget) {
         target.set_witness(witness, self);
     }
 }

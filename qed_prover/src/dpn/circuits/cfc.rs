@@ -47,7 +47,7 @@ where
         );
 
         let inner_public_inputs_hash = fn_builder_gadget.tx_ctx_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
-        let public_inputs_hash = builder.hash_two_to_one(
+        let public_inputs_hash = builder.hash_two_to_one::<C::Hasher>(
             fn_builder_gadget.session_proof_tree_root,
             inner_public_inputs_hash,
         );

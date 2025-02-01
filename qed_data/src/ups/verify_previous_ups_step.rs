@@ -3,10 +3,9 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::{merkle::core::MerkleProofCore, traits::{hasher::{FieldHasher, FieldQHasher}, qhashable::QFieldHashable}}};
+use qed_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::merkle::core::MerkleProofCore};
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::user::QEDUserLeaf;
 
 use super::ups_context_input::UserProvingSessionCurrentState;
 
