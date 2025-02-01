@@ -6,7 +6,7 @@ use qed_core::{
     traits::to_qfelts::{QFeltSized, ToQFelts},
 };
 use qed_crypto::hash::traits::{
-    hasher::{FieldHasher, FieldQHasher},
+    hasher::FieldQHasher,
     qhashable::QFieldHashable,
 };
 use serde::{Deserialize, Serialize};

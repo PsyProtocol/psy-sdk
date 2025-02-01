@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
-use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
-use qed_crypto::hash::{merkle::core::MerkleProofCore, traits::{hasher::{FieldHasher, FieldQHasher, MerkleHasher}, qhashable::QFieldHashable}};
+use qed_core::data::qhashout::QHashOut;
+use qed_crypto::hash::{merkle::core::MerkleProofCore, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 
 use super::contract::QEDContractLeaf;
@@ -41,7 +41,7 @@ pub struct QEDContractFunctionInclusionProof<F: RichField> {
 
 impl<F: RichField> QEDContractFunctionInclusionProof<F> {
     pub fn verify<H: FieldQHasher<F>>(&self) -> bool {
-        true
+        self.contract_inclusion_proof.verify::<H>() && self.contract_function_merkle_proof.verify::<H>()
     }
 }
 

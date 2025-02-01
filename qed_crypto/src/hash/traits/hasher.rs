@@ -93,15 +93,6 @@ impl<F: RichField> BasicFieldHasher<F> for PoseidonHash{
         <PoseidonHash as Hasher<F>>::two_to_one(left, right)
     }
 }
-trait InternalFieldQHasher<F: RichField> {
-    fn hash_many(elements: &[F]) -> HashOut<F>;
-    fn hash_many_pad(elements: &[F]) -> HashOut<F>;
-    fn two_to_one(left: HashOut<F>, right: HashOut<F>) -> HashOut<F>;
-
-    fn q_hash_many(elements: &[F]) -> QHashOut<F>;
-    fn q_hash_many_pad(elements: &[F]) -> QHashOut<F>;
-    fn q_two_to_one(left: QHashOut<F>, right: QHashOut<F>) -> QHashOut<F>;
-}
 pub trait FieldQHasher<F: RichField> {
     fn hash_many(elements: &[F]) -> HashOut<F>;
     fn hash_many_pad(elements: &[F]) -> HashOut<F>;

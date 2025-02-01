@@ -18,7 +18,7 @@ use qed_crypto::{
             core::MerkleProofCore,
             utils::simple_merkle_tree::SimpleMerkleTree,
         },
-        traits::hasher::{FieldQHasher, MerkleZeroHasher, QAlgebraicHasher},
+        traits::hasher::MerkleZeroHasher,
     },
 };
 
