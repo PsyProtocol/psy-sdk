@@ -16,9 +16,7 @@ use qed_data::dpn::cfc_context_input::{
 };
 
 use super::{
-    checkpoint::QEDCheckpointLeafGadget,
-    checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget,
-    contract_function_call::DPNProvingSessionCompactMethodCallGadget, user::QEDUserLeafGadget,
+    checkpoint::QEDCheckpointLeafGadget, checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_function_call::DPNProvingSessionCompactMethodCallGadget, ups_context_input::UserProvingSessionStartContextGadget, user::QEDUserLeafGadget
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,6 +51,23 @@ impl DapenCFCProvingSessionStartContextGadget {
             start_session_user_leaf,
         }
     }
+    pub fn to_user_proving_session_start_context<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+
+    ) -> UserProvingSessionStartContextGadget {
+        let start_session_user_leaf_hash = self.start_session_user_leaf.to_hash::<H, F, D>(builder);
+        let checkpoint_leaf_hash = self.checkpoint_leaf.to_hash::<H, F, D>(builder);
+        // we need to ensure that these are interchangable and most importantly have interchangable hashes with UserProvingSessionStartContextGadget 
+
+        UserProvingSessionStartContextGadget {
+            checkpoint_id: self.checkpoint_id,
+            checkpoint_tree_root: self.checkpoint_tree_root,
+            checkpoint_leaf_hash,
+            start_session_user_leaf: self.start_session_user_leaf,
+            start_session_user_leaf_hash,
+        }
+    }
 
     /*
     pub fn ensure_self_consistent<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
@@ -83,6 +98,7 @@ impl DapenCFCProvingSessionStartContextGadget {
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
+        // IMPORTANT: Must be the same hash result/algo as UserProvingSessionStartContextGadget
         let checkpoint_leaf_hash = self.checkpoint_leaf.to_hash_target::<H, F, D>(builder);
 
         let checkpoint_combo =
@@ -433,6 +449,23 @@ impl<F: RichField> WitnessValueFor<DapenCFCUserTransactionEndContextGadget, F, f
 
 
 
+
+
+pub fn hash_transaction_input_context<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    proving_session_start_ctx_hash: HashOutTarget,
+    transaction_call_start_ctx: &DapenCFCUserTransactionCallStartContextGadget,
+    transaction_end_ctx: &DapenCFCUserTransactionEndContextGadget,
+) -> HashOutTarget {
+    // shared by UPSInspectDapenCFCUserTransactionInputContextGadget and UPSInspectDapenCFCUserTransactionInputContextGadget
+    let transaction_call_start_ctx_hash =transaction_call_start_ctx.to_hash::<H, F, D>(builder);
+    let transaction_end_ctx_hash = transaction_end_ctx.to_hash::<H, F, D>(builder);
+    let tx_start_end_combo = builder.hash_two_to_one::<H>(transaction_call_start_ctx_hash, transaction_end_ctx_hash);
+
+    let session_start_tx_combo = builder.hash_two_to_one::<H>(proving_session_start_ctx_hash, tx_start_end_combo);
+
+    session_start_tx_combo
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DapenCFCUserTransactionInputContextGadget {    
     pub proving_session_start_ctx: DapenCFCProvingSessionStartContextGadget,
@@ -469,16 +502,14 @@ impl DapenCFCUserTransactionInputContextGadget {
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
 
+        let proving_session_start_ctx_hash =  self.proving_session_start_ctx.to_hash::<H,F,D>(builder);
 
-        let proving_session_start_ctx_hash = self.proving_session_start_ctx.to_hash::<H, F, D>(builder);
-        
-        let transaction_call_start_ctx_hash = self.transaction_call_start_ctx.to_hash::<H, F, D>(builder);
-        let transaction_end_ctx_hash = self.transaction_end_ctx.to_hash::<H, F, D>(builder);
-        let tx_start_end_combo = builder.hash_two_to_one::<H>(transaction_call_start_ctx_hash, transaction_end_ctx_hash);
-
-        let session_start_tx_combo = builder.hash_two_to_one::<H>(proving_session_start_ctx_hash, tx_start_end_combo);
-
-        session_start_tx_combo
+        hash_transaction_input_context::<H, F, D>(
+            builder,
+            proving_session_start_ctx_hash,
+            &self.transaction_call_start_ctx,
+            &self.transaction_end_ctx,
+        )
     }
 }
 impl CreatableWithHasherTarget for DapenCFCUserTransactionInputContextGadget {
@@ -518,5 +549,92 @@ impl<F: RichField> WitnessValueFor<DapenCFCUserTransactionInputContextGadget, F,
         target: &DapenCFCUserTransactionInputContextGadget,
     ) {
         target.set_witness(witness, self);
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct UPSInspectDapenCFCUserTransactionInputContextGadget {
+    pub transaction_call_start_ctx: DapenCFCUserTransactionCallStartContextGadget,
+    pub transaction_end_ctx: DapenCFCUserTransactionEndContextGadget,
+
+    // start computed
+    pub proving_session_start_ctx_hash: HashOutTarget,
+}
+
+impl UPSInspectDapenCFCUserTransactionInputContextGadget {
+    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        proving_session_start_ctx_hash: HashOutTarget,
+    ) -> Self {
+        let transaction_call_start_ctx = DapenCFCUserTransactionCallStartContextGadget::create_virtual(builder);
+        let transaction_end_ctx = DapenCFCUserTransactionEndContextGadget::create_virtual(builder);
+
+        Self {
+            proving_session_start_ctx_hash,
+            transaction_call_start_ctx,
+            transaction_end_ctx,
+        }
+    }
+    pub fn set_witness_params<F: RichField>(
+        &self,
+        witness: &mut impl Witness<F>,
+        transaction_call_start_ctx: &DapenCFCUserTransactionCallStartContext<F>,
+        transaction_end_ctx: &DapenCFCUserTransactionEndContext<F>,
+    ) {
+        self.transaction_call_start_ctx.set_witness(witness, &transaction_call_start_ctx);
+        self.transaction_end_ctx.set_witness(witness, &transaction_end_ctx);
+
+    }
+    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> HashOutTarget {
+
+        hash_transaction_input_context::<H, F, D>(
+            builder,
+            self.proving_session_start_ctx_hash,
+            &self.transaction_call_start_ctx,
+            &self.transaction_end_ctx,
+        )
+    }
+}
+impl AlgebraicHashableTarget for UPSInspectDapenCFCUserTransactionInputContextGadget {
+    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> HashOutTarget {
+        self.to_hash::<H, F, D>(builder)
+    }
+}
+
+impl<F: RichField> WitnessValueFor<UPSInspectDapenCFCUserTransactionInputContextGadget, F, true>
+    for DapenCFCUserTransactionInputContext<F>
+{
+    fn set_for_witness(
+        &self,
+        witness: &mut impl Witness<F>,
+        target: &UPSInspectDapenCFCUserTransactionInputContextGadget,
+    ) {
+        target.set_witness_params(
+            witness,
+            &self.transaction_call_start_ctx,
+            &self.transaction_end_ctx
+        );
+    }
+}
+
+impl<F: RichField> WitnessValueFor<UPSInspectDapenCFCUserTransactionInputContextGadget, F, false>
+    for DapenCFCUserTransactionInputContext<F>
+{
+    fn set_for_witness(
+        &self,
+        witness: &mut impl Witness<F>,
+        target: &UPSInspectDapenCFCUserTransactionInputContextGadget,
+    ) {
+        target.set_witness_params(
+            witness,
+            &self.transaction_call_start_ctx,
+            &self.transaction_end_ctx
+        );
     }
 }

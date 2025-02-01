@@ -78,6 +78,7 @@ impl UserProvingSessionStartContextGadget {
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
 
+        // IMPORTANT: Must be the same hash result/algo as DapenCFCProvingSessionStartContextGadget
         let checkpoint_combo =
             builder.hash_two_to_one::<H>(self.checkpoint_tree_root, self.checkpoint_leaf_hash);
         let user_leaf_hash = self

@@ -8,3 +8,4 @@ pub mod contract_function_call;
 pub mod cfc_context_input;
 pub mod ups_context_input;
 pub mod checkpoint_compact_with_state;
+pub mod contract_inclusion;

@@ -60,7 +60,7 @@ impl<F: RichField> KVQSerializable for AttestProofInTreeInput<F> {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct AttestTreeAwareProofInTreeInput<F: RichField> {
     pub fingerprint: QHashOut<F>,

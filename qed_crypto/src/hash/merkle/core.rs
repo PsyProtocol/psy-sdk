@@ -158,6 +158,16 @@ pub struct MerkleProofCore<Hash: PartialEq + Copy> {
     pub siblings: Vec<Hash>,
 }
 
+impl<Hash: PartialEq + Copy + Default> Default for MerkleProofCore<Hash> {
+    fn default() -> Self {
+        Self {
+            root: Default::default(),
+            value: Default::default(),
+            index: Default::default(),
+            siblings: Default::default(),
+        }
+    }
+}
 impl<Hash: PartialEq + Copy> MerkleProofCore<Hash> {
     pub fn verify<Hasher: MerkleHasher<Hash>>(&self) -> bool {
         verify_merkle_proof_core::<Hash, Hasher>(self)

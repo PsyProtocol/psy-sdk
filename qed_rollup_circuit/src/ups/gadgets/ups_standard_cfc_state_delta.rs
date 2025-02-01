@@ -1,0 +1,288 @@
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::{HashOut, HashOutTarget, RichField},
+    iop::{target::Target, witness::Witness},
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
+};
+use qed_common_circuit::{builder::hash::core::CircuitBuilderHashCore, hash::merkle::gadgets::{delta_merkle_proof::DeltaMerkleProofGadget, historical_root_merkle_proof::HistoricalRootMerkleProofGadget}, traits::WitnessValueFor}
+;
+use qed_core::config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT};
+use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+use qed_data::ups::ups_standard_cfc_input::UPSCFCStandardStateDeltaInput;
+
+use crate::gadgets::qdata::{
+    cfc_context_input::UPSInspectDapenCFCUserTransactionInputContextGadget, ups_context_input::{UserProvingSessionCurrentStateGadget, UserProvingSessionHeaderGadget}, user::QEDUserLeafGadget
+};
+
+
+#[derive(Clone, Debug)]
+pub struct UPSCFCStandardStateDeltaGadget {
+    // start require witness
+    pub cfc_transaction_input_context: UPSInspectDapenCFCUserTransactionInputContextGadget,
+    pub user_contract_tree_update_proof: DeltaMerkleProofGadget,
+    pub deferred_tx_debt_pivot_proof: HistoricalRootMerkleProofGadget,
+
+    
+    // start computed
+
+
+    // start computed assumptions
+    pub cfc_inner_public_inputs_hash: HashOutTarget,
+    pub cfc_contract_id: Target,
+    pub cfc_method_id: Target,
+    pub cfc_num_inputs: Target,
+    pub cfc_num_outputs: Target,
+
+    // key proven results 
+    
+
+}
+impl UPSCFCStandardStateDeltaGadget {
+    pub fn add_virtual_to<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        previous_step_header_gadget: &UserProvingSessionHeaderGadget,
+    ) -> (Self, UserProvingSessionHeaderGadget) {
+        
+
+        let proving_session_start_ctx_hash = previous_step_header_gadget.session_start_context_hash;
+
+
+        // -- start require witness
+        
+        // get the witness/preimage so we can compute the expected inner_public_inputs_hash for the cfc proof
+        let cfc_transaction_input_context = UPSInspectDapenCFCUserTransactionInputContextGadget::add_virtual_to::<H, F, D>(
+            builder, 
+            proving_session_start_ctx_hash,
+        );
+        
+        // update the contract state tree root (aka. the leaf in the user contract tree) for the contract being modified by the transaction 
+        let user_contract_tree_update_proof = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(builder, GLOBAL_CONTRACT_TREE_HEIGHT as usize);
+        let deferred_tx_debt_pivot_proof = HistoricalRootMerkleProofGadget::add_virtual_to::<H, F, D>(builder, DEFERRED_TRANSACTION_TREE_HEIGHT as usize);
+
+
+        // -- end require_witnesss
+
+        // -- start list assumptions from cfc_transaction_input_context
+        let cfc_inner_public_inputs_hash = cfc_transaction_input_context.to_hash::<H, F, D>(builder);
+
+        let cfc_method_id = cfc_transaction_input_context.transaction_call_start_ctx.call_data.method_id;
+        let cfc_num_inputs = cfc_transaction_input_context.transaction_call_start_ctx.call_data.inputs_length;
+        let cfc_num_outputs = cfc_transaction_input_context.transaction_end_ctx.outputs_length;
+        // -- end list assumptions from cfc_transaction_input_context
+
+
+        // -- start get useful info from the previous step
+        // the previous values for EVERYTHING we want to modify in the new session state must be here 
+        let previous_step_user_state_tree_root = previous_step_header_gadget.current_state.user_leaf.user_state_tree_root;
+        let previous_step_deferred_tx_debt_tree_root = previous_step_header_gadget.current_state.deferred_tx_debt_tree_root;
+        let previous_step_inline_tx_debt_tree_root = previous_step_header_gadget.current_state.inline_tx_debt_tree_root;
+        let previous_step_tx_count = previous_step_header_gadget.current_state.tx_count;
+        let previous_step_tx_hash_stack = previous_step_header_gadget.current_state.tx_hash_stack;
+        let previous_step_user_balance= previous_step_header_gadget.current_state.user_leaf.balance;
+        let previous_step_user_event_index= previous_step_header_gadget.current_state.user_leaf.event_index;
+        // -- end get useful info from the previous step
+
+        // -- start list all the info we are going to check in the cfc_transaction_input
+        let tx_in_start_user_contract_tree_root = cfc_transaction_input_context.transaction_call_start_ctx.start_user_contract_tree_root;
+        
+        let tx_in_start_contract_state_tree_root = cfc_transaction_input_context.transaction_call_start_ctx.start_contract_state_tree_root;
+        let tx_in_start_deferred_tx_debt_tree_root= cfc_transaction_input_context.transaction_call_start_ctx.start_deferred_tx_debt_tree_root;
+        let tx_in_start_user_balance= cfc_transaction_input_context.transaction_call_start_ctx.start_user_balance;
+        let tx_in_start_event_index = cfc_transaction_input_context.transaction_call_start_ctx.start_user_event_index;
+        
+
+        let tx_in_contract_id = cfc_transaction_input_context.transaction_call_start_ctx.call_data.contract_id;
+
+        let tx_in_end_contract_state_tree_root = cfc_transaction_input_context.transaction_end_ctx.end_contract_state_tree_root;
+        let tx_in_end_deferred_tx_debt_tree_root= cfc_transaction_input_context.transaction_end_ctx.end_deferred_tx_debt_tree_root;
+        let tx_in_total_balance_spent= cfc_transaction_input_context.transaction_end_ctx.total_balance_spent;
+        let tx_in_total_events_emitted= cfc_transaction_input_context.transaction_end_ctx.total_events_emitted;
+
+        // -- start list all the info we are going to check in the cfc_transaction_input
+
+
+        
+
+        // ensure that the user contract tree update proof's old root matches the previous session state
+        builder.connect_hashes(
+            user_contract_tree_update_proof.old_root,
+            previous_step_user_state_tree_root,
+        );
+        
+        // ensure that the start user contract state tree root in the tx info matches our previous session state
+        builder.connect_hashes(
+            tx_in_start_user_contract_tree_root,
+            previous_step_user_state_tree_root,
+        );
+        
+        // ensure that the index of the leaf we are updating in the user contract tree matches our contract id
+        builder.connect(
+            user_contract_tree_update_proof.index,
+            tx_in_contract_id,
+        );
+
+        // ensure that the update to the user contract tree reflects the change in the transaction info
+        builder.connect_hashes(
+            tx_in_start_contract_state_tree_root,
+            user_contract_tree_update_proof.old_value,
+        );
+        builder.connect_hashes(
+            tx_in_end_contract_state_tree_root,
+            user_contract_tree_update_proof.new_value,
+        );
+        let new_step_user_state_tree_root = user_contract_tree_update_proof.new_root;
+
+        // ensure the user starting balance matches the user leaf in the previous step
+        builder.connect(
+            tx_in_start_user_balance,
+            previous_step_user_balance,
+        );
+        
+        // ensure the user starting event index matches the user leaf in the previous step
+        builder.connect(
+            tx_in_start_event_index,
+            previous_step_user_event_index,
+        );
+
+        // TODO: Add support for balance and event updates
+        let zero_target = builder.zero();
+        // disable spending balance (TODO: remove)
+        builder.connect(tx_in_total_balance_spent, zero_target);
+        // disable emitting events (TODO: remove)
+        builder.connect(tx_in_total_events_emitted, zero_target);
+
+        // TODO: compute balance correctly instead of disabling it
+        let new_step_user_balance = tx_in_start_user_balance;
+
+        // TODO: compute balance correctly instead of disabling it
+        let new_step_event_index = tx_in_start_event_index;
+
+
+        // ensure that the transaction inputs and previous step agree on the previous tx_debt_tree_root
+        builder.connect_hashes(
+            tx_in_start_deferred_tx_debt_tree_root,
+            previous_step_deferred_tx_debt_tree_root,
+        );
+        
+        // ensure that the transaction inputs and update merkle proof agree on the previous tx_debt_tree_root
+        builder.connect_hashes(
+            tx_in_start_deferred_tx_debt_tree_root,
+            deferred_tx_debt_pivot_proof.historical_root,
+        );
+
+
+        // ensure that the transaction inputs and update merkle proof agree on the new tx_debt_tree_root
+        builder.connect_hashes(
+            tx_in_end_deferred_tx_debt_tree_root,
+            deferred_tx_debt_pivot_proof.current_root,
+        );
+
+
+        // TODO: Add support for deferred/inline transactions
+        // for now, just make sure there are none:
+        builder.connect_hashes(
+            tx_in_start_deferred_tx_debt_tree_root,
+            tx_in_end_deferred_tx_debt_tree_root,
+        );
+
+
+        let new_step_deferred_tx_debt_tree_root = tx_in_end_deferred_tx_debt_tree_root;
+        let new_step_inline_tx_debt_tree_root = previous_step_inline_tx_debt_tree_root;
+
+        let one_target = builder.one();
+
+        // ensure that the transaction count is updated properly
+        let new_step_tx_count = builder.add(
+            previous_step_tx_count,
+            one_target,
+        );
+
+
+        // generate the tx stack item hash for the tx
+        let tx_stack_item = cfc_transaction_input_context.transaction_call_start_ctx.call_data.to_hash::<H, F, D>(builder);
+        let new_step_tx_hash_stack = builder.hash_two_to_one::<H>(
+            previous_step_tx_hash_stack,
+            tx_stack_item,
+        );
+
+        let new_step_user_leaf = QEDUserLeafGadget{
+            public_key: previous_step_header_gadget.current_state.user_leaf.public_key,
+            user_state_tree_root: new_step_user_state_tree_root,
+            balance: new_step_user_balance,
+            nonce: previous_step_header_gadget.current_state.user_leaf.nonce,
+            last_checkpoint_id: previous_step_header_gadget.current_state.user_leaf.last_checkpoint_id,
+            event_index: new_step_event_index,
+            user_id: previous_step_header_gadget.current_state.user_leaf.user_id,
+        };
+
+        let new_step_current_state = UserProvingSessionCurrentStateGadget {
+            user_leaf: new_step_user_leaf,
+            deferred_tx_debt_tree_root: new_step_deferred_tx_debt_tree_root,
+            inline_tx_debt_tree_root: new_step_inline_tx_debt_tree_root,
+            tx_hash_stack: new_step_tx_hash_stack,
+            tx_count: new_step_tx_count,
+        };
+        let new_header_gadget = UserProvingSessionHeaderGadget::new_from_existing_ups_context::<H,F,D>(
+            builder,
+            previous_step_header_gadget.ups_step_circuit_whitelist_root,
+            previous_step_header_gadget.session_start_context,
+            new_step_current_state,
+        );
+
+
+        // -- end constraining cfc_inclusion_proof_gadget
+
+        let cfc_contract_id = tx_in_contract_id;
+        // -- end list key proven results
+
+
+        let gadget= Self {
+            cfc_transaction_input_context,
+            user_contract_tree_update_proof,
+            deferred_tx_debt_pivot_proof,
+            cfc_inner_public_inputs_hash,
+            cfc_contract_id,
+            cfc_method_id,
+            cfc_num_inputs,
+            cfc_num_outputs,
+        };
+
+        (gadget, new_header_gadget)
+
+
+
+    }
+    pub fn set_witness<F: RichField>(
+        &self, 
+        witness: &mut impl Witness<F>, 
+        input: &UPSCFCStandardStateDeltaInput<F>,
+    ) {
+        self.cfc_transaction_input_context.set_witness_params(
+            witness,
+            &input.cfc_transaction_input_context.transaction_call_start_ctx,
+            &input.cfc_transaction_input_context.transaction_end_ctx,
+        );
+        self.user_contract_tree_update_proof.set_witness_core_proof_q(
+            witness, 
+            &input.user_contract_tree_update_proof,
+        );
+        self.deferred_tx_debt_pivot_proof.set_witness_proof_core(
+            witness, 
+            &input.deferred_tx_debt_pivot_proof,
+        );
+    }
+}
+
+
+impl<F: RichField> WitnessValueFor<UPSCFCStandardStateDeltaGadget, F, true> for UPSCFCStandardStateDeltaInput<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSCFCStandardStateDeltaGadget) {
+        target.set_witness(witness, self);
+    }
+}
+
+impl<F: RichField> WitnessValueFor<UPSCFCStandardStateDeltaGadget, F, false> for UPSCFCStandardStateDeltaInput<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSCFCStandardStateDeltaGadget) {
+        target.set_witness(witness, self);
+    }
+}
+

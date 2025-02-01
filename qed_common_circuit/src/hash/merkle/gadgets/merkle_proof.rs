@@ -127,6 +127,29 @@ impl MerkleProofGadget {
             option_flags: MerkleProofGadgetOptionFlags::from_bits(option_flags).unwrap(),
         }
     }
+    pub fn add_virtual_to_get_index_bits<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        height: usize,
+    ) -> (Self, Vec<BoolTarget>) {
+        let index = builder.add_virtual_target();
+        let value = builder.add_virtual_hash();
+        let siblings = (0..height)
+            .map(|_| builder.add_virtual_hash())
+            .collect::<Vec<_>>();
+        let height = siblings.len();
+        builder.range_check(index, height);
+        let index_bits = builder.split_le(index, height);
+
+        let root = Self::compute_root_bits::<H, F, D>(builder, &index_bits, value, &siblings);
+        let gadget = Self {
+            root,
+            value,
+            index,
+            siblings,
+            option_flags: MerkleProofGadgetOptionFlags::none_value_placeholder,
+        };
+        (gadget, index_bits)
+    }
     pub fn compute_root<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         index: Target,

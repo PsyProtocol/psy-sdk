@@ -11,242 +11,114 @@ use qed_core::{
     config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT},
     data::qhashout::QHashOut,
 };
-use qed_crypto::hash::traits::hasher::iterate_merkle_hasher_alg;
-use qed_data::ups::start_step::UPSStartStepInput;
+use qed_crypto::hash::traits::hasher::{iterate_merkle_hasher_alg, MerkleZeroHasher};
+use qed_data::ups::{start_step::UPSStartStepInput, ups_standard_cfc_input::UPSVerifyCFCStandardStepInput};
 
 use crate::gadgets::qdata::{
-    checkpoint::QEDCheckpointLeafGadget, checkpoint_compact_with_state::QEDCheckpointLeafCompactWithStateRootsGadget, checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, ups_context_input::UserProvingSessionHeaderGadget
+    cfc_context_input::UPSInspectDapenCFCUserTransactionInputContextGadget, checkpoint::QEDCheckpointLeafGadget, checkpoint_compact_with_state::QEDCheckpointLeafCompactWithStateRootsGadget, checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_inclusion::QEDContractFunctionInclusionProofGadget, ups_context_input::{UserProvingSessionCurrentStateGadget, UserProvingSessionHeaderGadget}
 };
-/* 
-#[derive(Clone, Debug)]
-pub struct UPSCFCStandardStepGadget {
-    pub new_header_gadget: UserProvingSessionHeaderGadget,
-    pub checkpoint_leaf_state_gadget: QEDCheckpointLeafCompactWithStateRootsGadget,
-    pub state_roots_gadget: QEDCheckpointGlobalStateRootsGadget,
 
-    pub verify_cfc_proof_gadget: AttestTreeAwareProofInTreeGadget,
-    pub global_contract_tree_proof: MerkleProofGadget,
-    pub contract_function_tree_proof: MerkleProofGadget,
+use super::{ups_cfc_verify_inclusion::UPSVerifyCFCProofExistsAndValidGadget, ups_standard_cfc_state_delta::UPSCFCStandardStateDeltaGadget, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeGadget};
+
+#[derive(Clone, Debug)]
+pub struct UPSVerifyCFCStandardStepGadget {
+
+    // start require witness
+    pub verify_cfc_exists_and_valid_gadget: UPSVerifyCFCProofExistsAndValidGadget,    
+    pub process_cfc_state_delta_gadget: UPSCFCStandardStateDeltaGadget,
+
+    // start computed
+    pub new_header_gadget: UserProvingSessionHeaderGadget,
     
 }
-pub fn get_empty_tree_root_for_tx_debt_trees<H:AlgebraicHasher<F>, F: RichField>() -> (QHashOut<F>, QHashOut<F>){
-    let base_zero_hash = QHashOut::ZERO;
-    let deferred_tx_debt_tree_root = iterate_merkle_hasher_alg::<H, F>(base_zero_hash, DEFERRED_TRANSACTION_TREE_HEIGHT as usize);
-    let inline_tx_debt_tree_root = iterate_merkle_hasher_alg::<H, F>(base_zero_hash, INLINE_TRANSACTION_TREE_HEIGHT as usize);
-
-    (
-        deferred_tx_debt_tree_root,
-        inline_tx_debt_tree_root,
-    )
-}
-impl UPSCFCStandardStepGadget {
-    fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+impl UPSVerifyCFCStandardStepGadget {
+    fn add_virtual_to<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
+        previous_step_header_gadget: &UserProvingSessionHeaderGadget,
         current_proof_tree_root: HashOutTarget,
+        q_recursion_tree_height: usize,
     ) -> Self {
-        let header_gadget = UserProvingSessionHeaderGadget::add_virtual_to::<H, F, D>(builder);
-        let checkpoint_leaf_gadget = QEDCheckpointLeafGadget::create_virtual::<F, D>(builder);
-        let state_roots_gadget =
-            QEDCheckpointGlobalStateRootsGadget::create_virtual::<F, D>(builder);
-        let checkpoint_tree_proof =
-            MerkleProofGadget::add_virtual_to::<H, F, D>(builder, CHECKPOINT_TREE_HEIGHT as usize);
-        let user_tree_proof = MerkleProofGadget::add_virtual_to::<H, F, D>(builder, GLOBAL_USER_TREE_HEIGHT as usize);
+        // start require witness
+        let verify_cfc_exists_and_valid_gadget = UPSVerifyCFCProofExistsAndValidGadget::add_virtual_to::<H,F,D>(
+            builder,
+            q_recursion_tree_height,
+        );
+            
+        let (process_cfc_state_delta_gadget, new_header_gadget) = UPSCFCStandardStateDeltaGadget::add_virtual_to::<H,F,D>(builder, previous_step_header_gadget);
 
-        let gadget = Self {
-            header_gadget,
-            checkpoint_leaf_gadget,
-            state_roots_gadget,
-            checkpoint_tree_proof,
-            user_tree_proof,
-        };
-        gadget.ensure_start_session_ctx_properly_constrainted::<H, F, D>(builder);
-        gadget.ensure_current_state_properly_constrainted::<H, F, D>(builder);
-        gadget
-    }
-    fn ensure_start_session_ctx_properly_constrainted<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) {
-        // START: ensure that the data in header_gadget.session_start_context matches the checkpoint_tree_proof
-        let expected_checkpoint_tree_root = self.checkpoint_tree_proof.root;
-        let expected_checkpoint_leaf_hash = self.checkpoint_tree_proof.value;
-        let expected_checkpoint_id = self.checkpoint_tree_proof.index;
 
-        let header_checkpoint_tree_root = self
-            .header_gadget
-            .session_start_context
-            .checkpoint_tree_root;
-        let header_checkpoint_leaf_hash = self
-            .header_gadget
-            .session_start_context
-            .checkpoint_leaf_hash;
-        let header_checkpoint_id = self.header_gadget.session_start_context.checkpoint_id;
-
-        builder.connect_hashes(expected_checkpoint_tree_root, header_checkpoint_tree_root);
-        builder.connect_hashes(expected_checkpoint_leaf_hash, header_checkpoint_leaf_hash);
-        builder.connect(expected_checkpoint_id, header_checkpoint_id);
-        // END: ensure that the data in header_gadget.session_start_context matches the checkpoint_tree_proof
-
-        /*
-            We have now proven that in a checkpoint tree with root hash <header_checkpoint_tree_root>,
-            there exists checkpoint with id <header_checkpoint_id> which has:
-                - [NEW] A checkpoint leaf hash of <header_checkpoint_leaf_hash>
-        */
-        // START: ensure that the data in checkpoint_leaf_gadget/state_roots_gadget match our header/checkpoint_tree_proof
-        let computed_checkpoint_leaf_hash = self.checkpoint_leaf_gadget.to_hash::<H, F, D>(builder);
-        let computed_global_chain_root = self.state_roots_gadget.to_hash::<H, F, D>(builder);
-        let checkpoint_leaf_gadget_global_chain_root =
-            self.checkpoint_leaf_gadget.global_chain_root;
-
-        builder.connect_hashes(computed_checkpoint_leaf_hash, header_checkpoint_leaf_hash);
+        // constrain verify with previous
+        // ensure the cfc proof verifier gadget is using the correct proof tree root (ie. so we know this proof actually exists if UPS is later to believed)
         builder.connect_hashes(
-            computed_global_chain_root,
-            checkpoint_leaf_gadget_global_chain_root,
+            verify_cfc_exists_and_valid_gadget.attested_proof_tree_root, 
+            current_proof_tree_root,
         );
-        // END: ensure that the data in checkpoint_leaf_gadget/state_roots_gadget match our header/checkpoint_tree_proof
 
-        /*
-            We have now proven that in a checkpoint tree with root hash <header_checkpoint_tree_root>,
-            there exists checkpoint with id <header_checkpoint_id> which has:
-                - A checkpoint leaf hash of <header_checkpoint_leaf_hash>
-                - [NEW] State Roots <self.state_roots_gadget>
-                - [NEW] A global user tree with root <self.state_roots_gadget.user_tree_root>
-        */
-
-        // START: ensure that the user_tree_proof.root matches the user tree root in state_roots_gadget
-        let user_tree_proof_root = self.user_tree_proof.root;
-        let state_roots_user_tree_root = self.state_roots_gadget.user_tree_root;
-
-        builder.connect_hashes(user_tree_proof_root, state_roots_user_tree_root);
-        // END: ensure that the user_tree_proof.root matches the user tree root in state_roots_gadget
-
-        // START: ensure that the user leaf hash in the merkle proof matches the user leaf hash in the header
-        let user_tree_proof_user_leaf_hash = self.user_tree_proof.value;
-        let header_start_session_user_leaf_hash = self
-            .header_gadget
-            .session_start_context
-            .start_session_user_leaf_hash;
-
-        builder.connect_hashes(user_tree_proof_user_leaf_hash, header_start_session_user_leaf_hash);
-        // END: ensure that the user leaf hash in the merkle proof matches the user leaf hash in the header
-
-        // START: ensure that the user_id in the header matches the index of user_tree_proof
-        let header_user_id = self
-            .header_gadget
-            .session_start_context
-            .start_session_user_leaf
-            .user_id;
-        let expected_user_id = self.user_tree_proof.index;
-
-        builder.connect(header_user_id, expected_user_id);
-        // END: ensure that the user_id in the header matches the index of user_tree_proof
-
-        /*
-            We have now proven that in a checkpoint tree with root hash <header_checkpoint_tree_root>,
-            there exists checkpoint with id <header_checkpoint_id> which has:
-                - A checkpoint leaf hash of <header_checkpoint_leaf_hash>
-                - State Roots <self.state_roots_gadget>
-                - A global user tree with root <self.state_roots_gadget.user_tree_root>
-                - [NEW] A User with id <header_user_id> that has:
-                    * [NEW] A user leaf hash of <header_start_session_user_leaf_hash>
-                    * [NEW] A user leaf of <self.header_gadget.session_start_context.start_session_user_leaf>
-                    * [NEW] A user state tree with root <self.header_gadget.session_start_context.start_session_user_leaf.user_state_tree_root>
-        */
-    }
-    fn ensure_current_state_properly_constrainted<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) {
-        // START: ensure that the user leaf in current state is the same as the user leaf in start session
-        let header_start_session_user_leaf_hash = self
-            .header_gadget
-            .session_start_context
-            .start_session_user_leaf_hash;
-        let header_current_state_user_leaf_hash = self
-            .header_gadget
-            .current_state
-            .user_leaf
-            .to_hash::<H, F, D>(builder);
+        // ensure the cfc proof verifier is working with the correct checkpoint leaf hash (ie. so the contract function tree is correct) 
         builder.connect_hashes(
-            header_start_session_user_leaf_hash,
-            header_current_state_user_leaf_hash,
-        );
-        // END: ensure that the user leaf in current state is the same as the user leaf in start session
-        
-        // START: ensure that deferred_tx_debt_tree_root and inline_tx_debt_tree_root are initialized to their starting values
-        // TODO/PERF: make deferred_tx_debt_tree_root_const and inline_tx_debt_tree_root_const constants instead of computing them each time
-        let (
-            deferred_tx_debt_tree_root_const,
-            inline_tx_debt_tree_root_const,
-        )  = get_empty_tree_root_for_tx_debt_trees::<H, F>();
-
-        let correct_deferred_tx_debt_tree_root = builder.constant_qhash(
-            deferred_tx_debt_tree_root_const,
-        );
-        let correct_inline_tx_debt_tree_root = builder.constant_qhash(
-            inline_tx_debt_tree_root_const,
-        );
-        let current_state_deferred_tx_debt_tree_root = self.header_gadget.current_state.deferred_tx_debt_tree_root;
-        let current_state_inline_tx_debt_tree_root = self.header_gadget.current_state.inline_tx_debt_tree_root;
-
-        builder.connect_hashes(
-            current_state_deferred_tx_debt_tree_root,
-            correct_deferred_tx_debt_tree_root,
-        );
-        builder.connect_hashes(
-            current_state_inline_tx_debt_tree_root,
-            correct_inline_tx_debt_tree_root,
-        );
-        // END: ensure that deferred_tx_debt_tree_root and inline_tx_debt_tree_root are initialized to their starting values
-
-        // START: ensure that tx_hash_stack and tx_count are initialized to zero
-        let zero_hash = builder.constant_hash(HashOut::ZERO);
-        builder.connect_hashes(
-            self.header_gadget.current_state.tx_hash_stack,
-            zero_hash,
+            verify_cfc_exists_and_valid_gadget.checkpoint_leaf_hash, 
+            previous_step_header_gadget.session_start_context.checkpoint_leaf_hash,
         );
 
-        let zero_target = builder.zero();
+        // constraint process_cfc_state_delta
+        // ensure that the verifier and state processor agree on contract id
         builder.connect(
-            self.header_gadget.current_state.tx_count,
-            zero_target,
+            verify_cfc_exists_and_valid_gadget.cfc_contract_id,
+            process_cfc_state_delta_gadget.cfc_contract_id,
         );
-        // END: ensure that tx_hash_stack and tx_count are initialized to zero
-    }
 
+        // ensure that the verifier and state processor agree on method id
+        builder.connect(
+            verify_cfc_exists_and_valid_gadget.cfc_method_id,
+            process_cfc_state_delta_gadget.cfc_method_id,
+        );
+
+        // ensure that the verifier and state processor agree on number of inputs
+        builder.connect(
+            verify_cfc_exists_and_valid_gadget.cfc_num_inputs,
+            process_cfc_state_delta_gadget.cfc_num_inputs,
+        );
+
+        // ensure that the verifier and state processor agree on number of outputs
+        builder.connect(
+            verify_cfc_exists_and_valid_gadget.cfc_num_outputs,
+            process_cfc_state_delta_gadget.cfc_num_outputs,
+        );
+
+        // ensure that the verifier and state processor agree on the inner_public_inputs_hash
+        builder.connect_hashes(
+            verify_cfc_exists_and_valid_gadget.cfc_inner_public_inputs_hash,
+            process_cfc_state_delta_gadget.cfc_inner_public_inputs_hash,
+        );
+
+
+
+        
+        Self {
+            verify_cfc_exists_and_valid_gadget,
+            process_cfc_state_delta_gadget,
+            new_header_gadget
+        }
+    }
     pub fn set_witness<F: RichField>(
         &self,
         witness: &mut impl Witness<F>,
-        target: &UPSStartStepInput<F>,
+        target: &UPSVerifyCFCStandardStepInput<F>,
     ) {
-        self.header_gadget.set_witness(witness, &target.ups_header);
-        self.checkpoint_leaf_gadget.set_witness(witness, &target.checkpoint_leaf);
-        self.state_roots_gadget.set_witness(witness, &target.state_roots);
-        self.checkpoint_tree_proof.set_witness_core_proof_q_generic(witness, &target.checkpoint_tree_proof);
-        self.user_tree_proof.set_witness_core_proof_q_generic(witness, &target.user_tree_proof);
+        self.verify_cfc_exists_and_valid_gadget.set_witness_params(
+            witness, 
+            &target.checkpoint_state,
+            &target.verify_cfc_proof_input,
+            &target.cfc_inclusion_proof
+        );
+
+        self.process_cfc_state_delta_gadget.set_witness(witness, &target.process_cfc_state_delta_input);
     }
 }
-impl CreatableWithHasherTarget for UPSStartStepGadget {
-    fn create_virtual_with_hasher<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
-        Self::add_virtual_to::<H, F, D>(builder)
-    }
-}
-impl<F: RichField> WitnessValueFor<UPSStartStepGadget, F, true> for UPSStartStepInput<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSStartStepGadget) {
+
+
+impl<F: RichField> WitnessValueFor<UPSVerifyCFCStandardStepGadget, F, true> for UPSStartStepInput<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyCFCStandardStepGadget) {
         target.set_witness(witness, self);
     }
 }
@@ -256,4 +128,3 @@ impl<F: RichField> WitnessValueFor<UPSStartStepGadget, F, false> for UPSStartSte
         target.set_witness(witness, self);
     }
 }
-*/

@@ -8,7 +8,7 @@ use qed_core::{
 use qed_crypto::hash::{
     merkle::core::DeltaMerkleProofCore,
     traits::{
-        hasher::{FieldHasher, FieldQHasher},
+        hasher::FieldQHasher,
         qhashable::QFieldHashable,
     },
     utils::safe_hash_fixed_length,

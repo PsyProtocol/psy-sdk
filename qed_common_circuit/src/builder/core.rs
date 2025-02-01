@@ -24,6 +24,8 @@ pub trait CircuitBuilderHelpersCore<F: RichField + Extendable<D>, const D: usize
     fn constant_u32_bytes_be(&mut self, value: u32) -> [Target; 4];
     fn constant_u64_bytes_le(&mut self, value: u64) -> [Target; 8];
     fn constant_u64_bytes_be(&mut self, value: u64) -> [Target; 8];
+
+    fn split_low_high_32bits(&mut self, x: Target) -> (Target, Target); 
     fn split_u64_bytes_le(&mut self, x: Target) -> [Target; 8];
     fn split_u64_bytes_be(&mut self, x: Target) -> [Target; 8];
 
@@ -367,5 +369,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHelpersCore<F, 
         sum = self.mul_const_add(t256, sum, bytes[1]);
         sum = self.mul_const_add(t256, sum, bytes[0]);
         sum
+    }
+    
+    fn split_low_high_32bits(&mut self, x: Target) -> (Target, Target) {
+        let (a_low, a_high) = self.split_low_high(x, 32, 64);
+        (a_low, a_high)
+
     }
 }
