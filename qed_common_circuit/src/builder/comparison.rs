@@ -14,6 +14,8 @@ pub trait CircuitBuilderComparison<F: RichField + Extendable<D>, const D: usize>
     fn is_greater_than_or_equal(&mut self, num_bits: usize, x: Target, y: Target) -> BoolTarget;
     fn is_greater_than(&mut self, num_bits: usize, x: Target, y: Target) -> BoolTarget;
     fn is_not_equal(&mut self, x: Target, y: Target) -> BoolTarget;
+    fn is_zero(&mut self, x: Target) -> BoolTarget;
+    fn is_not_zero(&mut self, x: Target) -> BoolTarget;
 
     fn ensure_is_less_than_or_equal(&mut self, num_bits: usize, x: Target, y: Target);
     fn ensure_is_less_than(&mut self, num_bits: usize, x: Target, y: Target);
@@ -122,5 +124,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
             let is_leq = self.not(is_gt);
             is_leq
         }
+    }
+    
+    fn is_zero(&mut self, x: Target) -> BoolTarget {
+        let zero = self.zero();
+        self.is_equal(x, zero)
+        
+    }
+    
+    fn is_not_zero(&mut self, x: Target) -> BoolTarget {
+        let is_z = self.is_zero(x);
+        self.not(is_z)
     }
 }
