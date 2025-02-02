@@ -43,12 +43,15 @@ pub struct UPSVerifyCFCProofExistsAndValidGadget {
 impl UPSVerifyCFCProofExistsAndValidGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
-        q_recursion_tree_height: usize,
+        ups_session_proof_tree_height: usize,
     ) -> Self {
         // -- start require witness
         
         // ensure the proof exists in our proof tree
-        let verify_cfc_proof_gadget = AttestTreeAwareProofInTreeGadget::add_virtual_to::<H, F, D>(builder, q_recursion_tree_height);
+        let verify_cfc_proof_gadget = AttestTreeAwareProofInTreeGadget::add_virtual_to::<H, F, D>(
+            builder, 
+            ups_session_proof_tree_height
+        );
 
         // get the current checkpoint and contract state tree root
         let checkpoint_state_gadget = QEDCheckpointLeafCompactWithStateRootsGadget::add_virtual_to::<H, F, D>(builder);

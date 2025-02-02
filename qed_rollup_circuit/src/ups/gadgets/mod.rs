@@ -5,3 +5,5 @@ pub mod ups_cfc_verify_inclusion;
 pub mod ups_standard_cfc_state_delta;
 pub mod ups_cfc_standard_pop_deferred_tx;
 pub mod correct_header_hashes;
+pub mod verify_previous_ups_step;
+pub mod verify_previous_ups_step_partial_from_current;

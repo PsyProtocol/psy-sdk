@@ -31,7 +31,7 @@ impl UPSVerifyPopDeferredTxStepGadget {
         builder: &mut CircuitBuilder<F, D>,
         previous_step_header_gadget: &UserProvingSessionHeaderGadget,
         current_proof_tree_root: HashOutTarget,
-        q_recursion_tree_height: usize,
+        ups_session_proof_tree_height: usize,
     ) -> Self {
         let ups_pop_deferred_tx_proof = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(
             builder, 
@@ -68,7 +68,7 @@ impl UPSVerifyPopDeferredTxStepGadget {
             previous_step_header_gadget, 
             &corrections, 
             current_proof_tree_root, 
-            q_recursion_tree_height
+            ups_session_proof_tree_height
         );
 
 

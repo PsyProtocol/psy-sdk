@@ -56,3 +56,8 @@ pub const INLINE_TRANSACTION_TREE_HEIGHT: u8 = 16;
 
 // used for signing a transaction/contract function call 0xCA11_<ascii'TXCALL'>
 pub const SIGN_SIMPLE_TRANSACTION_MAGIC: u64 = 0xCA11_545843414C4C;
+
+
+pub const UPS_SESSION_PROOF_TREE_HEIGHT: u8 = 16;
+
+pub const UPS_CIRCUIT_WHITELIST_TREE_HEIGHT: u8 = 8;
