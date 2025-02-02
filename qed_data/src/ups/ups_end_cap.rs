@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 
 
-use super::{ups_standard_cfc_input::{UPSVerifyCFCStandardStepInput, UPSVerifyPopDeferredTxStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput};
+use super::verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
