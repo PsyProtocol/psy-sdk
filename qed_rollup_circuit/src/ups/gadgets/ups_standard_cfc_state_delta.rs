@@ -4,15 +4,17 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::{builder::hash::core::CircuitBuilderHashCore, hash::merkle::gadgets::{delta_merkle_proof::DeltaMerkleProofGadget, historical_root_merkle_proof::HistoricalRootMerkleProofGadget}, traits::WitnessValueFor}
+use qed_common_circuit::{hash::{hash_stack::simple::SimpleHashStackGadget, merkle::gadgets::{delta_merkle_proof::DeltaMerkleProofGadget, historical_root_merkle_proof::HistoricalRootMerkleProofGadget}}, traits::WitnessValueFor}
 ;
 use qed_core::config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT};
 use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
 use qed_data::ups::ups_standard_cfc_input::UPSCFCStandardStateDeltaInput;
 
-use crate::gadgets::qdata::{
+use crate::gadgets::{qdata::{
     cfc_context_input::UPSInspectDapenCFCUserTransactionInputContextGadget, ups_context_input::{UserProvingSessionCurrentStateGadget, UserProvingSessionHeaderGadget}, user::QEDUserLeafGadget
-};
+}, stack_items::transaction_log::TransactionLogStackItemGadget};
+
+use super::correct_header_hashes::CorrectUPSHeaderHashesGadget;
 
 
 #[derive(Clone, Debug)]
@@ -21,6 +23,7 @@ pub struct UPSCFCStandardStateDeltaGadget {
     pub cfc_transaction_input_context: UPSInspectDapenCFCUserTransactionInputContextGadget,
     pub user_contract_tree_update_proof: DeltaMerkleProofGadget,
     pub deferred_tx_debt_pivot_proof: HistoricalRootMerkleProofGadget,
+    pub inline_tx_debt_pivot_proof: HistoricalRootMerkleProofGadget,
 
     
     // start computed
@@ -41,6 +44,7 @@ impl UPSCFCStandardStateDeltaGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         previous_step_header_gadget: &UserProvingSessionHeaderGadget,
+        corrections: &CorrectUPSHeaderHashesGadget,
     ) -> (Self, UserProvingSessionHeaderGadget) {
         
 
@@ -58,6 +62,7 @@ impl UPSCFCStandardStateDeltaGadget {
         // update the contract state tree root (aka. the leaf in the user contract tree) for the contract being modified by the transaction 
         let user_contract_tree_update_proof = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(builder, GLOBAL_CONTRACT_TREE_HEIGHT as usize);
         let deferred_tx_debt_pivot_proof = HistoricalRootMerkleProofGadget::add_virtual_to::<H, F, D>(builder, DEFERRED_TRANSACTION_TREE_HEIGHT as usize);
+        let inline_tx_debt_pivot_proof = HistoricalRootMerkleProofGadget::add_virtual_to::<H, F, D>(builder, DEFERRED_TRANSACTION_TREE_HEIGHT as usize);
 
 
         // -- end require_witnesss
@@ -74,8 +79,16 @@ impl UPSCFCStandardStateDeltaGadget {
         // -- start get useful info from the previous step
         // the previous values for EVERYTHING we want to modify in the new session state must be here 
         let previous_step_user_state_tree_root = previous_step_header_gadget.current_state.user_leaf.user_state_tree_root;
-        let previous_step_deferred_tx_debt_tree_root = previous_step_header_gadget.current_state.deferred_tx_debt_tree_root;
-        let previous_step_inline_tx_debt_tree_root = previous_step_header_gadget.current_state.inline_tx_debt_tree_root;
+        
+        // CORRECTIONS POSSIBLE: Get deferred_tx_debt_tree_root from corrections instead to support deferred/inline payback without tree stack fragmentation
+        // let previous_step_deferred_tx_debt_tree_root = previous_step_header_gadget.current_state.deferred_tx_debt_tree_root;
+        let previous_step_deferred_tx_debt_tree_root = corrections.previous_step_deferred_tx_debt_tree_root;
+
+        // CORRECTIONS POSSIBLE: Get deferred_tx_debt_tree_root from corrections instead to support deferred/inline payback without tree stack fragmentation
+        //let previous_step_inline_tx_debt_tree_root = previous_step_header_gadget.current_state.inline_tx_debt_tree_root;
+        let previous_step_inline_tx_debt_tree_root = corrections.previous_step_inline_tx_debt_tree_root;
+
+
         let previous_step_tx_count = previous_step_header_gadget.current_state.tx_count;
         let previous_step_tx_hash_stack = previous_step_header_gadget.current_state.tx_hash_stack;
         let previous_step_user_balance= previous_step_header_gadget.current_state.user_leaf.balance;
@@ -97,6 +110,11 @@ impl UPSCFCStandardStateDeltaGadget {
         let tx_in_end_deferred_tx_debt_tree_root= cfc_transaction_input_context.transaction_end_ctx.end_deferred_tx_debt_tree_root;
         let tx_in_total_balance_spent= cfc_transaction_input_context.transaction_end_ctx.total_balance_spent;
         let tx_in_total_events_emitted= cfc_transaction_input_context.transaction_end_ctx.total_events_emitted;
+
+        // TODO: support inline tx debt, for now just use the merkle proof start value
+        let tx_in_start_inline_tx_debt_tree_root= inline_tx_debt_pivot_proof.historical_root;
+        let tx_in_end_inline_tx_debt_tree_root= inline_tx_debt_pivot_proof.historical_root;
+
 
         // -- start list all the info we are going to check in the cfc_transaction_input
 
@@ -178,16 +196,42 @@ impl UPSCFCStandardStateDeltaGadget {
         );
 
 
-        // TODO: Add support for deferred/inline transactions
-        // for now, just make sure there are none:
+        // ensure that the transaction inputs and previous step agree on the previous inline tx debt root
+        builder.connect_hashes(
+            previous_step_inline_tx_debt_tree_root,
+            inline_tx_debt_pivot_proof.historical_root,
+        );
+
+        builder.connect_hashes(
+            previous_step_inline_tx_debt_tree_root,
+            tx_in_start_inline_tx_debt_tree_root,
+        );
+        
+        builder.connect_hashes(
+            tx_in_end_inline_tx_debt_tree_root,
+            inline_tx_debt_pivot_proof.current_root,
+        );
+
+
+        // TODO: add suppport for inline transaction debt, for now just disable it
+        builder.connect_hashes(
+            inline_tx_debt_pivot_proof.historical_root,
+            inline_tx_debt_pivot_proof.current_root,
+        );
+
+
+        /*
+        // TODO: support deferred txs
         builder.connect_hashes(
             tx_in_start_deferred_tx_debt_tree_root,
             tx_in_end_deferred_tx_debt_tree_root,
         );
+        */
 
 
         let new_step_deferred_tx_debt_tree_root = tx_in_end_deferred_tx_debt_tree_root;
-        let new_step_inline_tx_debt_tree_root = previous_step_inline_tx_debt_tree_root;
+        // TODO: add support for inline tx debt
+        let new_step_inline_tx_debt_tree_root = tx_in_end_inline_tx_debt_tree_root;
 
         let one_target = builder.one();
 
@@ -199,11 +243,14 @@ impl UPSCFCStandardStateDeltaGadget {
 
 
         // generate the tx stack item hash for the tx
-        let tx_stack_item = cfc_transaction_input_context.transaction_call_start_ctx.call_data.to_hash::<H, F, D>(builder);
-        let new_step_tx_hash_stack = builder.hash_two_to_one::<H>(
-            previous_step_tx_hash_stack,
-            tx_stack_item,
-        );
+        let tx_stack_item = TransactionLogStackItemGadget{
+            call_data: cfc_transaction_input_context.transaction_call_start_ctx.call_data,
+        };
+
+        let mut tx_hash_stack = SimpleHashStackGadget::new(previous_step_tx_hash_stack);
+        tx_hash_stack.push_hashable::<H,F,D,_>(builder, tx_stack_item);
+
+        let new_step_tx_hash_stack = tx_hash_stack.get_tip();
 
         let new_step_user_leaf = QEDUserLeafGadget{
             public_key: previous_step_header_gadget.current_state.user_leaf.public_key,
@@ -240,6 +287,7 @@ impl UPSCFCStandardStateDeltaGadget {
             cfc_transaction_input_context,
             user_contract_tree_update_proof,
             deferred_tx_debt_pivot_proof,
+            inline_tx_debt_pivot_proof,
             cfc_inner_public_inputs_hash,
             cfc_contract_id,
             cfc_method_id,

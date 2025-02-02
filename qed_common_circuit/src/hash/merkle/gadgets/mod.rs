@@ -5,3 +5,4 @@ pub mod sha2;
 pub mod sha256;
 pub mod sha256_truncated;
 pub mod historical_root_merkle_proof;
+pub mod merkle_proof_bits;

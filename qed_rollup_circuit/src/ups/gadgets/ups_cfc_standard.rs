@@ -14,7 +14,7 @@ use crate::gadgets::qdata::
     ups_context_input::UserProvingSessionHeaderGadget
 ;
 
-use super::{ups_cfc_verify_inclusion::UPSVerifyCFCProofExistsAndValidGadget, ups_standard_cfc_state_delta::UPSCFCStandardStateDeltaGadget};
+use super::{correct_header_hashes::CorrectUPSHeaderHashesGadget, ups_cfc_verify_inclusion::UPSVerifyCFCProofExistsAndValidGadget, ups_standard_cfc_state_delta::UPSCFCStandardStateDeltaGadget};
 
 
 #[derive(Clone, Debug)]
@@ -35,13 +35,29 @@ impl UPSVerifyCFCStandardStepGadget {
         current_proof_tree_root: HashOutTarget,
         q_recursion_tree_height: usize,
     ) -> Self {
+        let corrections = CorrectUPSHeaderHashesGadget::from_previous_step(previous_step_header_gadget);
+        Self::add_virtual_to_with_corrections::<H,F,D>(
+            builder, 
+            previous_step_header_gadget, 
+            &corrections, 
+            current_proof_tree_root, 
+            q_recursion_tree_height
+        )
+    }
+    pub fn add_virtual_to_with_corrections<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        previous_step_header_gadget: &UserProvingSessionHeaderGadget,
+        corrections: &CorrectUPSHeaderHashesGadget,
+        current_proof_tree_root: HashOutTarget,
+        q_recursion_tree_height: usize,
+    ) -> Self {
         // start require witness
         let verify_cfc_exists_and_valid_gadget = UPSVerifyCFCProofExistsAndValidGadget::add_virtual_to::<H,F,D>(
             builder,
             q_recursion_tree_height,
         );
             
-        let (process_cfc_state_delta_gadget, new_header_gadget) = UPSCFCStandardStateDeltaGadget::add_virtual_to::<H,F,D>(builder, previous_step_header_gadget);
+        let (process_cfc_state_delta_gadget, new_header_gadget) = UPSCFCStandardStateDeltaGadget::add_virtual_to::<H,F,D>(builder, previous_step_header_gadget, corrections);
 
 
         // constrain verify with previous
