@@ -163,18 +163,26 @@ impl UPSStartStepGadget {
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) {
-        // START: ensure that the user leaf in current state is the same as the user leaf in start session
-        let header_start_session_user_leaf_hash = self
+        // START: ensure that the user leaf in current state is the same, except for an updated checkpoint id, as the user leaf in start session
+        let mut header_new_current_user_leaf = self
             .header_gadget
-            .session_start_context
-            .start_session_user_leaf_hash;
+            .session_start_context.start_session_user_leaf.clone();
+
+        header_new_current_user_leaf.last_checkpoint_id = self.header_gadget.session_start_context.checkpoint_id;
+        
+        // make it immutable to keep things keep/safe
+        let header_new_current_user_leaf = header_new_current_user_leaf;
+
+        let header_new_current_user_leaf_hash = header_new_current_user_leaf.to_hash::<H,F,D>(builder);
+
+
         let header_current_state_user_leaf_hash = self
             .header_gadget
             .current_state
             .user_leaf
             .to_hash::<H, F, D>(builder);
         builder.connect_hashes(
-            header_start_session_user_leaf_hash,
+            header_new_current_user_leaf_hash,
             header_current_state_user_leaf_hash,
         );
         // END: ensure that the user leaf in current state is the same as the user leaf in start session
