@@ -5,13 +5,12 @@ use plonky2::{
 };
 use qed_common_circuit::{circuits::traits::qstandard::QStandardCircuit, treeprover::qrecursion::standard::manager::portable::core::PortableQTreeRecursionManager};
 use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut};
-use qed_crypto::{common::witnesses::qrecursion::proof_data::InputLeafProof, hash::traits::hasher::MerkleZeroHasher};
+use qed_crypto::{common::witnesses::qrecursion::proof_data::InputLeafProof, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use qed_data::{
     dpn::proving_session::DPNProvingSessionCompactMethodCall, qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf}, ups::{start_step::UPSStartStepInput, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}}
 };
 use qed_store::{
-    controllers::local::proving_session::QEDLocalProvingSessionStore,
-    store::imm::{cmd::{QSRCmdGetCheckpointLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}},
+    controllers::local::proving_session::QEDLocalProvingSessionStore, store::imm::{cmd::{QSRCmdGetCheckpointLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
 };
 
 use super::circuit_manager::core::QEDUPSStepCircuitManager;
@@ -40,7 +39,7 @@ pub struct UserProvingSessionManager<
 type F = GoldilocksField;
 const D: usize = 2;
 impl<
-        H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
+        H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F> + FieldQHasher<F>,
         R: QEDReadCommandProcessorSync<F>,
         C: GenericConfig<D, F = F, Hasher = H>,
     > UserProvingSessionManager<F, H, R, C, D>
@@ -123,6 +122,15 @@ impl<
             user_tree_proof,
         };
         Ok(input)
+    }
+
+    pub fn append_to_tx_log(&mut self, item: DPNProvingSessionCompactMethodCall<F>) -> QHashOut<F> {
+        let prev_hash_tip = self.current_ups_header.current_state.tx_hash_stack;
+        let new_hash_tip = H::q_two_to_one(prev_hash_tip, item.qfhash::<H>());
+        self.current_ups_header.current_state.tx_hash_stack = new_hash_tip;
+        self.current_ups_header.current_state.tx_count += F::ONE;
+        self.tx_log.push(item);
+        new_hash_tip
     }
 
     pub fn prove_ups_start(&mut self, circuit_mgr: &QEDUPSStepCircuitManager<C, D>) -> anyhow::Result<()> {

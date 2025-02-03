@@ -25,7 +25,7 @@ use qed_data::{
         },
     },
     qdata::checkpoint::QEDCheckpointGlobalStateRoots,
-    ups::ups_context_input::{UserProvingSessionHeader, UserProvingSessionStartContext},
+    ups::ups_context_input::UserProvingSessionStartContext,
 };
 use serde::{Deserialize, Serialize};
 
