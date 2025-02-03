@@ -246,6 +246,8 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
         input_args: Vec<SymFeltRef>,
     ) -> [SymFeltRef; 4];
     fn get_state_hash_at(&mut self, slot_index: F) -> [F; 4];
+    fn get_other_contract_state_hash_at(&mut self, contract_state_tree_height: F, contract_id: F, slot_index: F) -> [F; 4];
+    fn get_other_user_contract_state_hash_at(&mut self, contract_state_tree_height: F, user_id: F, contract_id: F, slot_index: F) -> [F; 4];
     
     fn cset_state<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V;
     fn cset_str<V: ToFelts<F>>(&mut self, left: &'static str, old_value: V, new_value: V) -> V;
