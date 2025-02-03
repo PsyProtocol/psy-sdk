@@ -11,7 +11,7 @@ use qed_core::{
 };
 use qed_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-    traits::hasher::MerkleZeroHasher,
+    traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     utils::safe_hash_fixed_length,
 };
 use qed_data::{
@@ -20,10 +20,12 @@ use qed_data::{
             DapenCFCProvingSessionStartContext, DapenCFCUserTransactionCallStartContext,
         },
         proving_session::{
-            DPNProvingSessionCompactMethodCall, DPNProvingSessionSignableMethodCall, DPNProvingSessionSimpleMethodCall, DPNTransactionDebtItem, QEDLocalTransactionRecord
+            DPNProvingSessionCompactMethodCall, DPNProvingSessionSignableMethodCall,
+            DPNProvingSessionSimpleMethodCall, DPNTransactionDebtItem, QEDLocalTransactionRecord,
         },
     },
     qdata::checkpoint::QEDCheckpointGlobalStateRoots,
+    ups::ups_context_input::{UserProvingSessionHeader, UserProvingSessionStartContext},
 };
 use serde::{Deserialize, Serialize};
 
@@ -84,7 +86,6 @@ pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorS
     start_checkpoint: F,
     write_checkpoint: F,
     //current_contract_id: F,
-
     start_checkpoint_u64: u64,
     write_checkpoint_u64: u64,
     user_id: F,
@@ -94,13 +95,15 @@ pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorS
     todo_remove_q_recursion_tree_height: usize,
     // replace with the correct implementation of the proof tree
     todo_remove_q_recursion_tree_root: QHashOut<F>,
-
 }
 
 // read helpers
 impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStore<F, R> {
     pub fn get_current_contract_id(&self) -> F {
-        self.active_transaction_record.call_data.call_data.contract_id
+        self.active_transaction_record
+            .call_data
+            .call_data
+            .contract_id
     }
     pub fn get_current_method_id(&self) -> F {
         self.active_transaction_record.call_data.call_data.method_id
@@ -110,7 +113,10 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
         self.user_id
     }
     pub fn get_current_user_id_64(&self) -> u64 {
-        self.active_transaction_record.call_data.user_id.to_canonical_u64()
+        self.active_transaction_record
+            .call_data
+            .user_id
+            .to_canonical_u64()
     }
 
     pub fn get_current_start_checkpoint_id(&self) -> F {
@@ -127,7 +133,6 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
         self.write_checkpoint_u64
     }
 
-
     pub fn get_nonce(&self) -> F {
         self.nonce
     }
@@ -140,9 +145,6 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
     pub fn get_q_recursion_proof_tree_root(&self) -> QHashOut<F> {
         self.todo_remove_q_recursion_tree_root
     }
-
-
-
 }
 impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStore<F, R> {
     pub fn new_at(
@@ -208,9 +210,13 @@ type GF = GoldilocksField;
 impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
     QEDLocalProvingSessionStore<GoldilocksField, R>
 {
-
-    pub fn init_transaction(&mut self, call_data: DPNProvingSessionSimpleMethodCall<GF>) -> anyhow::Result<()> {
-        let uct_proof = self.get_self_user_contract_tree_leaf(call_data.contract_id)?.to_delta_merkle_proof_inplace();
+    pub fn init_transaction(
+        &mut self,
+        call_data: DPNProvingSessionSimpleMethodCall<GF>,
+    ) -> anyhow::Result<()> {
+        let uct_proof = self
+            .get_self_user_contract_tree_leaf(call_data.contract_id)?
+            .to_delta_merkle_proof_inplace();
         let start_contract_state_tree_root = if uct_proof.old_value.eq(&QHashOut::ZERO) {
             let state_tree_height = self
                 .cmd_store
@@ -241,9 +247,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
 
         self.active_transaction_record = record;
 
-
         Ok(())
-
     }
     /*
     pub fn get_full_data(&mut self, contract_id: GF, method_id: GF, inputs: &[GF], outputs: &[GF]) -> anyhow::Result<DapenCFCUserTransactionCallStartContext<GF>> {
@@ -585,24 +589,22 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             .repay_tx_debt(&mut self.active_tx_session_data_store, tree_leaf_index)
     }
 
-
     pub fn finalize_transaction(&mut self) -> anyhow::Result<()> {
-        let contract_id = self.active_transaction_record
-        .call_data
-        .call_data
-        .contract_id;
-    
-        let uct_proof = self.update_contract_state_root_in_user_contract_tree(
-            contract_id,
-        )?;
+        let contract_id = self
+            .active_transaction_record
+            .call_data
+            .call_data
+            .contract_id;
+
+        let uct_proof = self.update_contract_state_root_in_user_contract_tree(contract_id)?;
         self.active_transaction_record.set_uct_proof(uct_proof);
 
-        /* 
+        /*
         // [FIXED?] TODO/PERF: avoid clone as we just want to move this to transaction records
         // let record_for_storage = self.active_transaction_record.clone();
         // self.active_transaction_record = QEDLocalTransactionRecord::default();
         // self.transaction_records.push(record_for_storage);
-        */
+         */
 
         // Temporarily take ownership of `active_transaction_record`
         let active_record = std::mem::take(&mut self.active_transaction_record);
@@ -612,5 +614,36 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         self.active_transaction_record = QEDLocalTransactionRecord::default();
 
         Ok(())
+    }
+    pub fn get_ups_start_ctx(
+        &mut self,
+    ) -> anyhow::Result<UserProvingSessionStartContext<GF>> {
+        let checkpoint_id = self.start_checkpoint_u64;
+        println!(
+            "[get_fresh_start_ctx_for_user]: checkpoint_id = {}",
+            checkpoint_id
+        );
+        let checkpoint_leaf = self
+            .cmd_store
+            .resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData { checkpoint_id })?;
+        let checkpoint_tree_root =
+            self.cmd_store
+                .resolve_get_hash_mut(&QSRHashCmd::GetCheckpointTreeRoot(
+                    QSRHashCmdGetCheckpointTreeRoot { checkpoint_id },
+                ))?;
+
+        let user_leaf = self
+            .cmd_store
+            .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
+                checkpoint_id: self.start_checkpoint_u64 + 1000,
+                user_id: self.user_id.to_canonical_u64(),
+            })?;
+        let start_ctx = UserProvingSessionStartContext::<GF> {
+            checkpoint_id: self.start_checkpoint,
+            checkpoint_tree_root,
+            checkpoint_leaf_hash: checkpoint_leaf.qfhash::<QEDHasher>(),
+            start_session_user_leaf: user_leaf,
+        };
+        Ok(start_ctx)
     }
 }

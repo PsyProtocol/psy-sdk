@@ -68,8 +68,6 @@ impl QEDCompileResult {
         }
 
 
-
-
         let mut children_inds = sym_store.get_direct_children(value).into_iter().map(|c| self.injest_sfr(sym_store, c)).collect::<Vec<_>>();
 
 

@@ -7,8 +7,8 @@ use crate::hash::{
 
 use super::common::SimpleMerkleNodeKey;
 
-#[derive(Clone)]
-pub struct SimpleMerkleTree<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default> {
+#[derive(Debug, Clone)]
+pub struct SimpleMerkleTree<Hasher, Hash: Copy + PartialEq + Default> {
     nodes: hashbrown::HashMap<SimpleMerkleNodeKey, Hash>,
     height: u8,
     _hasher: PhantomData<Hasher>,

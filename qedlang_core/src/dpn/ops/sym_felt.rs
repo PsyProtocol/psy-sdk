@@ -76,7 +76,21 @@ impl SymFeltRef {
         ((self.0>>112) as u16).into()
     }
     pub fn needs_store(&self) -> bool {
-        ((self.0 >> 112) as u16) > 3 
+        let type_id = (self.0 >> 112) as u16;
+        /*
+            Op Types which do NOT need to be stored:
+                InputTarget = 0,
+                Constant = 1,
+                ConstantTrue = 2,
+                ConstantFalse = 3,
+
+                GetUserId = 46,
+                GetContractId = 47,
+                GetCheckpointId = 48,
+                GetNonce = 49,
+                GetUserPublicKeyHash = 50,
+        */
+        type_id > 3 && (type_id < 46 || type_id > 50)
     }
     pub fn constant_true() -> SymFeltRef {
         SymFeltRef((DPNOpType::ConstantTrue as u128)<<112)

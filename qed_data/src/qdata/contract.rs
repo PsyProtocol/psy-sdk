@@ -1,6 +1,6 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
-use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
+use qed_core::{config::network_constants::VM_TYPE_STANRDARD_DAPEN_V1, data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
 use qed_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 

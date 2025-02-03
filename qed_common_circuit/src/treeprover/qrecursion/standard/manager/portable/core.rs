@@ -30,11 +30,8 @@ use qed_crypto::common::witnesses::qrecursion::proof_data::{
 };
 
 use super::circuits::PortableQTreeRecursionCircuits;
-
+#[derive(Clone, Debug)]
 pub struct PortableQTreeRecursionManager<C: GenericConfig<D>, const D: usize>
-where
-    C::Hasher:
-       AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
     pub proof_tree: SimpleMerkleTree<C::Hasher, QHashOut<C::F>>,
     pub agg_proofs: Vec<AggProofRecord<C, D>>,
