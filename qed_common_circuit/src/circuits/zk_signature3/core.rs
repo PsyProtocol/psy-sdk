@@ -1,19 +1,16 @@
 use plonky2::{
-    field::types::Field,
-    hash::hash_types::{HashOut, HashOutTarget},
-    iop::witness::{PartialWitness, WitnessWrite},
-    plonk::{
+    field::types::Field, gates::gate::GateRef, hash::hash_types::{HashOut, HashOutTarget}, iop::witness::{PartialWitness, WitnessWrite}, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    },
+    }
 };
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::{common::witnesses::zk_signature::QEDZKSignatureCircuitInput, hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
 
 use crate::{
-    builder::hash::core::CircuitBuilderHashCore, proof_minifier::pm_chain::QEDProofMinifierChain,
+    builder::hash::core::CircuitBuilderHashCore, proof_minifier::pm_chain::QEDProofMinifierChain, u32::gates::comparison::ComparisonGate,
 };
 
 use super::super::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit};
@@ -87,10 +84,17 @@ where
         builder.register_public_inputs(&public_inputs_hash.elements);
         let circuit_data = builder.build::<C>();
 
-        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new(
+        // start add some gates to make it easier to integrate with others
+
+        let added_gates_for_minifier = [
+            GateRef::new(ComparisonGate::new(32, 16)),
+        ];
+
+        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new_add_gates(
             &circuit_data.verifier_only,
             &circuit_data.common,
             2,
+            Some(&added_gates_for_minifier),
         );
         let fingerprint = QHashOut(minifier_chain.get_fingerprint());
         Self {

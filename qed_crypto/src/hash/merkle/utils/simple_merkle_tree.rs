@@ -99,6 +99,28 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default>
             index: index,
         }
     }
+
+    pub fn gen_fast_tree_inclusion_proofs(
+        height: u8,
+        leaves: &[Hash],
+    ) -> anyhow::Result<Vec<MerkleProofCore<Hash>>> {
+        let max_leaves = (1u64 << (height as u64)) as usize;
+        let leaves_count = leaves.len();
+        if leaves_count > max_leaves {
+            anyhow::bail!("too many leaves for a tree of height {} (tried to add {} leaves, but max is {} leaves for this height)", height, leaves_count, max_leaves);
+        } else {
+            let mut tmp_tree = Self::new(height);
+            for i in 0..leaves_count {
+                tmp_tree.set_leaf(i as u64, leaves[i]);
+            }
+
+            let inclusion_proofs = (0..leaves_count)
+                .map(|i| tmp_tree.get_leaf(i as u64))
+                .collect::<Vec<_>>();
+
+            Ok(inclusion_proofs)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -141,7 +163,6 @@ mod tests {
             assert_eq!(value, mp.value, "values not saved in merkle tree");
         }
     }
-
 
     #[test]
     fn test_merkle_tree_poseidon_big() {

@@ -70,6 +70,7 @@ pub struct AggProofRecord<C: GenericConfig<D>, const D: usize> {
 
 #[derive(Serialize, Clone, Debug, Eq, PartialEq)]
 pub struct LeafProofRecord<C: GenericConfig<D>, const D: usize> {
+    pub leaf_circuit_type: u64,
     pub fingerprint: QHashOut<C::F>,
     pub insertion_proof: DeltaMerkleProofCore<QHashOut<C::F>>,
     pub proof: ProofWithPublicInputs<C::F, C, D>,
@@ -79,6 +80,7 @@ pub struct LeafProofRecord<C: GenericConfig<D>, const D: usize> {
 
 #[derive(Serialize, Clone, Debug, Eq, PartialEq)]
 pub struct InputLeafProof<C: GenericConfig<D>, const D: usize> {
+    pub leaf_circuit_type: u64,
     pub fingerprint: QHashOut<C::F>,
     pub proof: ProofWithPublicInputs<C::F, C, D>,
     pub verifier_data: VerifierOnlyCircuitData<C, D>,
