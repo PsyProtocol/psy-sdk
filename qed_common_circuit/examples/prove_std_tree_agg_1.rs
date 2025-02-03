@@ -76,16 +76,13 @@ fn run_prove_agg_example_2() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("run_prove_agg_example_2");
     timer.lap("start");
 
-    type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
 
-    let mtree_height: usize = 60;
-    let mtree_index_mask = (1u64 << (mtree_height as u64)) - 1u64;
     let proof_tree_height: usize = 16;
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
     let private_key_0 = QHashOut::rand();
-    let public_key = wallet.add_private_key(SimpleQEDPrivateKey::new(private_key_0));
+    wallet.add_private_key(SimpleQEDPrivateKey::new(private_key_0));
 
     timer.lap("built SimpleQEDZKSignatureManager");
 
