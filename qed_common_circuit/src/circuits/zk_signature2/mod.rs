@@ -144,7 +144,7 @@ pub fn get_verifier_template_zk_signature() -> QEDCircuitVerifyTemplate {
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct ZKSignatureCircuitInput<F: RichField> {
     pub private_key: QHashOut<F>,
     pub action_hash: QHashOut<F>,

@@ -1,4 +1,3 @@
-
 use plonky2::{
     hash::hash_types::{HashOut, RichField},
     plonk::config::AlgebraicHasher,
@@ -9,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
 use crate::signature::secp256k1::core::hash256_to_hashout_u224;
-
 
 /*
 fn public_key_enc_to_felts<F: RichField>(hash: &[u8; 33]) -> [F; 9] {
@@ -29,7 +27,7 @@ fn public_key_enc_to_felts<F: RichField>(hash: &[u8; 33]) -> [F; 9] {
 
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDClaimDepositAction<F: RichField> {
     transaction_id: Hash256,
     transaction_hash_224: HashOut<F>,
@@ -62,7 +60,7 @@ impl<F: RichField> QEDClaimDepositAction<F> {
 
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDSigAction<F: RichField> {
     pub network_magic: F,
     pub user: F,
@@ -73,7 +71,6 @@ pub struct QEDSigAction<F: RichField> {
 
 // SENDDOGE (little-endian)
 const SIG_ACTION_TRANSFER_MAGIC: u64 = 0x45474F44444E4553u64;
-
 
 impl<F: RichField> QEDSigAction<F> {
     pub fn new_transfer_action(
@@ -94,7 +91,7 @@ impl<F: RichField> QEDSigAction<F> {
             user: F::from_noncanonical_u64(user),
         }
     }
-    pub fn get_hash<H:AlgebraicHasher<F>>(&self) -> HashOut<F> {
+    pub fn get_hash<H: AlgebraicHasher<F>>(&self) -> HashOut<F> {
         let arguments_hash = H::hash_no_pad(&self.action_arguments);
         let final_hash = H::hash_no_pad(&[
             self.network_magic,
@@ -109,7 +106,7 @@ impl<F: RichField> QEDSigAction<F> {
         final_hash
     }
 
-    pub fn get_qhash<H:AlgebraicHasher<F>>(&self) -> QHashOut<F> {
+    pub fn get_qhash<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
         QHashOut(self.get_hash::<H>())
     }
 }
@@ -136,8 +133,8 @@ pub static PRIVATE_KEY_CONSTANTS: [u64; 20] = [
     0x5b22e8cfb5b1a0abu64,
 ];
 #[serde_as]
-#[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug)]
-#[serde(bound = "")]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Hash, Eq, Debug)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct SimpleL2PrivateKey<F: RichField> {
     pub private_key: QHashOut<F>,
 }
@@ -146,7 +143,67 @@ impl<F: RichField> SimpleL2PrivateKey<F> {
     pub fn new(private_key: QHashOut<F>) -> Self {
         Self { private_key }
     }
-    pub fn get_public_key<H:AlgebraicHasher<F>>(&self) -> QHashOut<F> {
+    pub fn get_public_key<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
+        QHashOut(H::hash_no_pad(&[
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[0]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[1]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[2]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[19]),
+            self.private_key.0.elements[1],
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[1]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[2]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[3]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[4]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[5]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[6]),
+            self.private_key.0.elements[0],
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[7]),
+            self.private_key.0.elements[2],
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[8]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[9]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[10]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[11]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[12]),
+            self.private_key.0.elements[3],
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[13]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[14]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[15]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[16]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[17]),
+            F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[18]),
+        ]))
+    }
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Hash, Eq, Debug)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct SimpleQEDPrivateKey<F: RichField> {
+    pub private_key: QHashOut<F>,
+}
+
+impl<F: RichField> From<QHashOut<F>> for SimpleQEDPrivateKey<F> {
+    fn from(value: QHashOut<F>) -> Self {
+        Self {
+            private_key: value,
+        }
+    }
+}
+
+impl<F: RichField> SimpleQEDPrivateKey<F> {
+    pub fn new(private_key: QHashOut<F>) -> Self {
+        Self { private_key }
+    }
+    pub fn get_public_key_for_fingerprint<H: AlgebraicHasher<F>>(
+        &self,
+        fingerprint: QHashOut<F>,
+    ) -> QHashOut<F> {
+        QHashOut(H::two_to_one(
+            fingerprint.0,
+            self.get_public_key_param::<H>().0,
+        ))
+    }
+    pub fn get_public_key_param<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
         QHashOut(H::hash_no_pad(&[
             F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[0]),
             F::from_canonical_u64(PRIVATE_KEY_CONSTANTS[1]),

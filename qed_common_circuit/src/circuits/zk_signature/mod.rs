@@ -17,8 +17,8 @@ use self::{
 };
 
 use super::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit};
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(bound = "")]
+#[derive(Debug, Clone, Deserialize, Serialize, Copy)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct ZKSignatureCircuitInput<F: RichField> {
     pub private_key: QHashOut<F>,
     pub action_hash: QHashOut<F>,

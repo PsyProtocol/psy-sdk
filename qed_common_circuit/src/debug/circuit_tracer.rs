@@ -16,7 +16,7 @@ use plonky2::{
 };
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct DebugCircuitTraceResult<F: RichField> {
     pub trace_groups: HashMap<String, Vec<F>>,
     pub trace_groups_hash: HashMap<String, QHashOut<F>>,

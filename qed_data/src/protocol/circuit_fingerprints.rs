@@ -4,7 +4,7 @@ use qed_crypto::hash::merkle::treeprover::TPCircuitFingerprintConfig;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDWorkerToolboxCoreCircuitFingerprints<F: RichField> {
     pub network_magic: u64,
 
@@ -30,7 +30,7 @@ pub struct QEDWorkerToolboxCoreCircuitFingerprints<F: RichField> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct CRWorkerToolboxRootCircuitFingerprints<F: RichField> {
     pub network_magic: u64,
 

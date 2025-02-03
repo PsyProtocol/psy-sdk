@@ -70,7 +70,7 @@ pub fn verify_delta_merkle_proof<H: QHasher<F>, F: RichField>(proof: &DeltaMerkl
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct MerkleProofBase<F: RichField> {
     pub value: QHashOut<F>,
     pub index: F,
@@ -91,7 +91,7 @@ impl<F: RichField> MerkleProofBase<F> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct MerkleProof<F: RichField> {
     pub root: QHashOut<F>,
     pub value: QHashOut<F>,
@@ -106,7 +106,7 @@ impl<F: RichField> MerkleProof<F> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct DeltaMerkleProofBase<F: RichField> {
     pub old_value: QHashOut<F>,
     pub new_value: QHashOut<F>,
@@ -133,7 +133,7 @@ impl<F: RichField> DeltaMerkleProofBase<F> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct DeltaMerkleProof<F: RichField> {
     pub old_root: QHashOut<F>,
     pub old_value: QHashOut<F>,
