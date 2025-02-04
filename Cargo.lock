@@ -1076,6 +1076,7 @@ dependencies = [
 name = "qed-sema"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "either",
  "enum-as-inner",
  "indexmap",
