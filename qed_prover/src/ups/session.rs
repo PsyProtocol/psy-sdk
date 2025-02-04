@@ -33,7 +33,7 @@ pub struct UserProvingSessionManager<
 > {
     lps: QEDLocalProvingSessionStore<F, R>,
     circuit_info: SessionCircuitInfoStore<F>,
-    proof_tree_state: PortableQTreeRecursionManager<C, D>,
+    pub proof_tree_state: PortableQTreeRecursionManager<C, D>,
     current_ups_header: UserProvingSessionHeader<F>,
     current_checkpoint_leaf: QEDCheckpointLeaf<F>,
     current_global_state_roots: QEDCheckpointGlobalStateRoots<F>,
@@ -158,8 +158,8 @@ impl<
         let mut timer = DebugTimer::new("prove_ups_start");
         timer.lap("start");
         let input = self.get_ups_start_witness()?;
-        println!("witness:\n{:?}",input);
-        println!("\n\n\nwitness json:\n{}\n\n\n\n\n\n",serde_json::to_string_pretty(&input).unwrap());
+        //println!("witness:\n{:?}",input);
+        //println!("\n\n\nwitness json:\n{}\n\n\n\n\n\n",serde_json::to_string_pretty(&input).unwrap());
         
         timer.lap("gen_witness");
         
@@ -257,7 +257,7 @@ impl<
             contract_id.to_canonical_u64() as u32,
             fn_id,
         )?;
-        println!("cfc_proof_input.session_proof_tree_root: {:?}",&cfc_proof_input.session_proof_tree_root);
+        //println!("cfc_proof_input.session_proof_tree_root: {:?}",&cfc_proof_input.session_proof_tree_root);
         let historical_root_proof =  match self.proof_tree_state.find_zero_hash_proof_for_historical_root(cfc_proof_input.session_proof_tree_root) {
             Some(mp) => mp,
             None => anyhow::bail!("error finding historical root proof in proof_tree_state"),

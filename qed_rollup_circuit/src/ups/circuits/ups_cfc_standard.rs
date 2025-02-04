@@ -95,10 +95,10 @@ where
         target: &UPSCFCStandardTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
-
+/*
         println!("\n\n\nUPSCFCStandardTransactionCircuitInput:\n{:?}\n\n",&target);
         println!("\n\n\nUPSCFCStandardTransactionCircuitInput:\n{}\n\n",serde_json::to_string_pretty(&target).unwrap());
-
+*/
         self.verify_previous_ups_step_gadget.set_witness(&mut pw, &target.verify_previous_ups_step);
         self.standard_cfc_step_gadget.set_witness(&mut pw, &target.standard_cfc_step);
 

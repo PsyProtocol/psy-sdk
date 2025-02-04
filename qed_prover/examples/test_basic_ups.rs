@@ -498,7 +498,10 @@ fn test_prove_simple() -> anyhow::Result<()> {
         main_circuits.ups_circuit_whitelist_root
     )?;
 
+    timer.lap("START USER PROVING SESSION");
+
     mgr.prove_ups_start(&main_circuits)?;
+    timer.lap("proved ups_start");
 
     mgr.prove_contract_call(
         &main_circuits, 
@@ -510,6 +513,27 @@ fn test_prove_simple() -> anyhow::Result<()> {
             GoldilocksField::from_noncanonical_u64(1000)
         ]
     )?;
+    timer.lap("proved ups_cfc_standard_tx");
+
+    
+
+    mgr.prove_contract_call(
+        &main_circuits, 
+        contract_id, 
+        1, 
+        &simple_transfer_circuit, 
+        &simple_transfer_def,
+        vec![
+            GoldilocksField::from_noncanonical_u64(2),
+            GoldilocksField::from_noncanonical_u64(100),
+        ]
+    )?;
+    timer.lap("proved ups_cfc_standard_tx");
+
+    mgr.proof_tree_state.finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
+    timer.lap("aggregated all UPS proofs into a single proof");
+
+    
 
     
 

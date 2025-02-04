@@ -352,10 +352,10 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         user: GF,
     ) -> anyhow::Result<DapenCFCProvingSessionStartContext<GF>> {
         let checkpoint_id = self.start_checkpoint_u64;
-        println!(
+        /*println!(
             "[get_fresh_start_ctx_for_user]: checkpoint_id = {}",
             checkpoint_id
-        );
+        );*/
         let checkpoint_leaf = self
             .cmd_store
             .resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData { checkpoint_id })?;
@@ -372,10 +372,10 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                 checkpoint_id: self.start_checkpoint_u64 + 1000,
                 user_id: user.to_canonical_u64(),
             })?;
-        println!(
+        /*println!(
             "got user_leaf: {}",
             serde_json::to_string_pretty(&user_leaf).unwrap()
-        );
+        );*/
 
         if user_leaf.last_checkpoint_id.to_canonical_u64() > checkpoint_id {
             anyhow::bail!("the user's checkpoint is ahead of the proving session (user sync'd to {}, proving session on checkpoint {})", user_leaf.last_checkpoint_id.to_canonical_u64(), checkpoint_id);
