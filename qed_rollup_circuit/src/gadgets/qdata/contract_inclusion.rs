@@ -1,6 +1,6 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_common_circuit::{builder::core::CircuitBuilderHelpersCore, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, traits::{CreatableTarget, CreatableWithHasherTarget, WitnessValueFor}};
-use qed_core::{config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT, data::qhashout::QHashOut};
+use qed_core::{config::network_constants::{CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT}, data::qhashout::QHashOut};
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::{contract::QEDContractLeaf, contract_inclusion::{QEDContractFunctionInclusionProof, QEDContractInclusionProof}};
 
@@ -125,7 +125,7 @@ impl QEDContractFunctionInclusionProofGadget {
         // START: create targets that require witness
         let contract_inclusion_proof = QEDContractInclusionProofGadget::add_virtual_to::<H, F, D>(builder);
 
-        let (contract_function_merkle_proof, cf_merkle_proof_index_bits) = MerkleProofGadget::add_virtual_to_get_index_bits::<H, F, D>(builder, GLOBAL_CONTRACT_TREE_HEIGHT as usize);
+        let (contract_function_merkle_proof, cf_merkle_proof_index_bits) = MerkleProofGadget::add_virtual_to_get_index_bits::<H, F, D>(builder, CONTRACT_FUNCTION_TREE_HEIGHT as usize);
         // END: create targets that require witness
 
 

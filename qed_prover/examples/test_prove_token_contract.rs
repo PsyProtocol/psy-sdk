@@ -459,7 +459,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     
     
     //println!("common_looks_like: \n{:?}\n\n\n", simple_mint_debug_circuit.get_common_circuit_data_ref());
-    let proof = simple_mint_debug_circuit.prove_base(&cfc_input);
+    let proof = simple_mint_debug_circuit.prove_base(&cfc_input).unwrap();
     
     timer.lap("proved");
     println!("public_inputs: {:?}",&proof.public_inputs);
@@ -476,7 +476,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     
     
     //println!("common_looks_like: \n{:?}\n\n\n", simple_mint_debug_circuit.get_common_circuit_data_ref());
-    let proof = simple_transfer_circuit.prove_base(&cfc_input);
+    let proof = simple_transfer_circuit.prove_base(&cfc_input).unwrap();
     
     timer.lap("proved");
     println!("public_inputs: {:?}",&proof.public_inputs);

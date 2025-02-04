@@ -218,4 +218,24 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_historical_merkle_proof_gadget_instructive() {
+
+        let mut merkle_tree = SimpleMerkleTree::<PoseidonHash, QHashOut<F>>::new(2);
+        let mut historical_roots = Vec::new();
+        for i in 0..4 {
+            historical_roots.push(
+                merkle_tree.set_leaf(i, QHashOut::from_values(100+i, 5, 16, i)).old_root
+            );   
+        }
+
+        for (i, historical_root) in historical_roots.into_iter().enumerate() {
+            let merkle_proof = merkle_tree.get_leaf(i as u64);
+            let computed_historical_root = create_historical_mp_circuit_for_proof_a(
+                &merkle_proof
+            );
+            assert_eq!(historical_root, computed_historical_root, "historical_root != computed_historical_root");
+        }
+    }
+
 }

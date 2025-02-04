@@ -75,7 +75,7 @@ where
     pub fn prove_base(
         &self,
         cfc_input: &DapenContractFunctionCircuitInput<C::F>,
-    ) -> ProofWithPublicInputs<C::F, C, D> {
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         
         pw.set_target_arr(&self.inputs, &cfc_input.inputs);
@@ -86,7 +86,7 @@ where
         self.fn_builder_gadget.tx_ctx_header.set_witness(&mut pw, &cfc_input.tx_input_ctx);
         self.fn_builder_gadget.state_reader.set_witness(&mut pw, cfc_input, &self.fn_def);
         
-        self.circuit_data.prove(pw).unwrap()
+        self.circuit_data.prove(pw)
     }
 }
 
@@ -116,9 +116,9 @@ where
         &self,
         input: &DapenContractFunctionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        Ok(self.prove_base(
+        self.prove_base(
             input
-        ))
+        )
     }
 }
 

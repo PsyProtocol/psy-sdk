@@ -245,7 +245,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     //println!("witnesss_json:\n{}",serde_json::to_string(&result).unwrap());
     
     println!("common_looks_like: \n{:?}\n\n\n", cf_circuit.get_common_circuit_data_ref());
-    let proof = cf_circuit.prove_base(&result);
+    let proof = cf_circuit.prove_base(&result).unwrap();
     
     timer.lap("proved");
     println!("public_inputs: {:?}",&proof.public_inputs);

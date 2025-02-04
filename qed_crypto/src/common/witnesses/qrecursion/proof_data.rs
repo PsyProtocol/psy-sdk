@@ -1,5 +1,5 @@
 use plonky2::{hash::hash_types::RichField, plonk::{circuit_data::VerifierOnlyCircuitData, config::GenericConfig, proof::ProofWithPublicInputs}};
-use qed_core::data::qhashout::QHashOut;
+use qed_core::{data::qhashout::QHashOut, ups::circuits::LocalCircuitId};
 use crate::{common::witnesses::qrecursion::header::QRecursionAggStandardHeader, hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore}};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -58,6 +58,37 @@ impl<F: RichField> SimpleQTreeRecursionManagerInclusionProofs<F> {
             }
         }
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[serde(bound = "for<'de2> W: Deserialize<'de2>")]
+
+pub struct TreeAwareTreeProofRecordWithWitness<F: RichField, W: Serialize + Clone> {
+    pub circuit_id: LocalCircuitId,
+    pub inner_public_inputs_hash: QHashOut<F>,
+    pub known_proof_tree_root: QHashOut<F>,
+    pub proof_tree_index: u64,
+    pub witness: W,
+}
+
+
+#[derive(Clone, Debug, Copy, Serialize, Deserialize, Default)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+
+pub struct TreeAwareTreeProofRecord<F: RichField> {
+    pub circuit_id: LocalCircuitId,
+    pub inner_public_inputs_hash: QHashOut<F>,
+    pub known_proof_tree_root: QHashOut<F>,
+    pub proof_tree_index: u64,
+}
+
+#[derive(Clone, Debug, Copy, Serialize, Deserialize, Default)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+
+pub struct StandardAwareTreeProofRecord<F: RichField> {
+    pub circuit_id: LocalCircuitId,
+    pub inner_public_inputs_hash: QHashOut<F>,
+    pub proof_tree_index: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]

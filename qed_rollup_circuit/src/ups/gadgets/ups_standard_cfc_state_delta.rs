@@ -4,9 +4,9 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::{hash::{hash_stack::simple::SimpleHashStackGadget, merkle::gadgets::{delta_merkle_proof::DeltaMerkleProofGadget, historical_root_merkle_proof::HistoricalRootMerkleProofGadget}}, traits::WitnessValueFor}
+use qed_common_circuit::{builder::{comparison::CircuitBuilderComparison, connect::CircuitBuilderConnectHelpers, select::CircuitBuilderSelectHelpers}, hash::{hash_stack::simple::SimpleHashStackGadget, merkle::gadgets::{delta_merkle_proof::DeltaMerkleProofGadget, historical_root_merkle_proof::HistoricalRootMerkleProofGadget}}, traits::WitnessValueFor}
 ;
-use qed_core::config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT};
+use qed_core::config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT};
 use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
 use qed_data::ups::ups_standard_cfc_input::UPSCFCStandardStateDeltaInput;
 
@@ -41,10 +41,16 @@ pub struct UPSCFCStandardStateDeltaGadget {
 
 }
 impl UPSCFCStandardStateDeltaGadget {
+    pub fn get_default_zero_hashes<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    )->Vec<HashOutTarget> {
+        (0..(MAX_CONTRACT_STATE_TREE_HEIGHT+1)).map(|i|builder.constant_hash(H::get_zero_hash(i as usize))).collect::<Vec<_>>()
+    }
     pub fn add_virtual_to<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         previous_step_header_gadget: &UserProvingSessionHeaderGadget,
         corrections: &CorrectUPSHeaderHashesGadget,
+        contract_state_tree_height: Target,
     ) -> (Self, UserProvingSessionHeaderGadget) {
         
 
@@ -140,10 +146,32 @@ impl UPSCFCStandardStateDeltaGadget {
         );
 
         // ensure that the update to the user contract tree reflects the change in the transaction info
+        
+        /*
+
+        instead of the following:
         builder.connect_hashes(
             tx_in_start_contract_state_tree_root,
             user_contract_tree_update_proof.old_value,
         );
+        we need to check to see if the old_value in the user contract tree is a zero hash (the default value for every leaf)
+        and if so we need to ensure the start state root for the contract is the default state root given its height, not the old_value
+        */
+        let default_zero_hashes= Self::get_default_zero_hashes::<H,F,D>(builder);
+        let default_contract_state_root = builder.select_in_hash_array(&default_zero_hashes, contract_state_tree_height);
+
+        let is_first_cst_update = builder.is_zero_hash(user_contract_tree_update_proof.old_value);
+
+        // if the user_contract_tree_update_proof.old_value is zero, ensure tx_in_start_contract_state_tree_root is the contract's default state root
+        // if the user_contract_tree_update_proof.old_value is NOT zero, ensure tx_in_start_contract_state_tree_root is the previous value of the user contract tree leaf
+        builder.connect_hashes_switch(
+            is_first_cst_update, 
+            tx_in_start_contract_state_tree_root, 
+            default_contract_state_root,
+            user_contract_tree_update_proof.old_value
+        );
+        
+        
         builder.connect_hashes(
             tx_in_end_contract_state_tree_root,
             user_contract_tree_update_proof.new_value,

@@ -1,6 +1,6 @@
 use plonky2::{
     field::extension::Extendable,
-    hash::hash_types::RichField,
+    hash::hash_types::{HashOutTarget, RichField},
     iop::target::{BoolTarget, Target},
     plonk::circuit_builder::CircuitBuilder,
 };
@@ -15,6 +15,7 @@ pub trait CircuitBuilderComparison<F: RichField + Extendable<D>, const D: usize>
     fn is_greater_than(&mut self, num_bits: usize, x: Target, y: Target) -> BoolTarget;
     fn is_not_equal(&mut self, x: Target, y: Target) -> BoolTarget;
     fn is_zero(&mut self, x: Target) -> BoolTarget;
+    fn is_zero_hash(&mut self, x: HashOutTarget) -> BoolTarget;
     fn is_not_zero(&mut self, x: Target) -> BoolTarget;
 
     fn ensure_is_less_than_or_equal(&mut self, num_bits: usize, x: Target, y: Target);
@@ -135,5 +136,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
     fn is_not_zero(&mut self, x: Target) -> BoolTarget {
         let is_z = self.is_zero(x);
         self.not(is_z)
+    }
+    
+    fn is_zero_hash(&mut self, x: HashOutTarget) -> BoolTarget {
+        let is_elem_0_zero = self.is_zero(x.elements[0]);
+        let is_elem_1_zero = self.is_zero(x.elements[0]);
+        let is_elem_2_zero = self.is_zero(x.elements[0]);
+        let is_elem_3_zero = self.is_zero(x.elements[0]);
+
+        let is_elem_01_zero = self.and(is_elem_0_zero, is_elem_1_zero);
+        let is_elem_23_zero = self.and(is_elem_2_zero, is_elem_3_zero);
+
+
+
+        self.and(is_elem_01_zero, is_elem_23_zero)
+        
     }
 }

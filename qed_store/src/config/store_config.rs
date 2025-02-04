@@ -141,10 +141,10 @@ pub type WithdrawalTreeStore<S> = ProtocolTreeStore<S, WITHDRAWAL_TREE_ID, GLOBA
 pub const DEFAULT_USER_STATE_TREE_ROOT: QHashOut<GoldilocksField> = QHashOut::<QEDFelt>(
     HashOut {
         elements: [
-            GoldilocksField(12364052984629808614),
-            GoldilocksField(13066500727264825316),
-            GoldilocksField(6321076066274078148),
-            GoldilocksField(11393071566019822187),
+            GoldilocksField(3896366420105793420),
+            GoldilocksField(17410332186442776169),
+            GoldilocksField(7329967984378645716),
+            GoldilocksField(6310665049578686403),
         ],
     }
 );
@@ -152,9 +152,21 @@ pub const DEFAULT_USER_STATE_TREE_ROOT: QHashOut<GoldilocksField> = QHashOut::<Q
 
 #[cfg(test)]
 mod tests {
+    use qed_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
+    use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+    use qed_crypto::hash::traits::hasher::MerkleZeroHasherWithCache;
+    use qed_crypto::hash::traits::hasher::PoseidonHasher;
+
+    use crate::config::store_config::DEFAULT_USER_STATE_TREE_ROOT;
+
+    use super::QEDHasher;
+
 
     #[test]
     fn check_default_user_state_tree_root() {
+        
+        let expected_empty_user_state_tree_root = PoseidonHasher::get_zero_hash(GLOBAL_CONTRACT_TREE_HEIGHT as usize);
+        assert_eq!(DEFAULT_USER_STATE_TREE_ROOT, expected_empty_user_state_tree_root, "DEFAULT_USER_STATE_TREE_ROOT does not match the expected value");
         // TODO: make sure the default user tree root is correct
     }
 }

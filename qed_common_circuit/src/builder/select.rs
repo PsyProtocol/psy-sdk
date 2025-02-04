@@ -27,6 +27,11 @@ pub trait CircuitBuilderSelectHelpers<F: RichField + Extendable<D>, const D: usi
         array: &[Target],
         index: Target,
     ) -> Target;
+    fn select_in_hash_array(
+        &mut self,
+        array: &[HashOutTarget],
+        index: Target,
+    ) -> HashOutTarget;
     fn select_hash(
         &mut self,
         condition: BoolTarget,
@@ -177,5 +182,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSelectHelpers<F
             running_sum = self.mul_add(*val, index_eq_i, running_sum);
         }
         running_sum
+    }
+    
+    fn select_in_hash_array(
+        &mut self,
+        array: &[HashOutTarget],
+        index: Target,
+    ) -> HashOutTarget {
+        let zero = self.zero();
+        let mut running_sum = [zero; 4];
+
+        for (i, val) in array.iter().enumerate() {
+            let const_index = self.constant_u64(i as u64);
+            let index_eq_i = self.is_equal(index, const_index).target;
+            running_sum[0] = self.mul_add(val.elements[0], index_eq_i, running_sum[0]);
+            running_sum[1] = self.mul_add(val.elements[1], index_eq_i, running_sum[1]);
+            running_sum[2] = self.mul_add(val.elements[2], index_eq_i, running_sum[2]);
+            running_sum[3] = self.mul_add(val.elements[3], index_eq_i, running_sum[3]);
+        }
+        HashOutTarget {
+            elements: running_sum,
+        }
     }
 }

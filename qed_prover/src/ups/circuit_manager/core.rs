@@ -1,25 +1,26 @@
 use plonky2::{
-    hash::hash_types::HashOut,
+    hash::hash_types::{HashOut, RichField},
     plonk::config::{AlgebraicHasher, GenericConfig},
 };
 use qed_common_circuit::{
     circuits::traits::qstandard::QStandardCircuit,
-    treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuits,
+    treeprover::qrecursion::standard::manager::{leaf_circuit_set::QStandardBinaryRecursionTreeCircuitSet, portable::circuits::PortableQTreeRecursionCircuits},
 };
 use qed_core::{
     config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
-    data::qhashout::QHashOut,
+    data::qhashout::QHashOut, ups::circuits::LocalCircuitType,
 };
-use qed_crypto::hash::{
+use qed_crypto::{common::witnesses::qrecursion::proof_data::SimpleQTreeRecursionManagerInclusionProofs, hash::{
     merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
     traits::hasher::MerkleZeroHasher,
-};
+}};
 use qed_rollup_circuit::ups::circuits::{
     end_cap::UPSStandardEndCapCircuit,
     ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit,
     ups_cfc_standard::UPSCFCStandardTransactionCircuit,
     ups_start::UPSStartSessionCircuit,
 };
+use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
 
 #[derive(Debug)]
 pub struct QEDUPSStepCircuitManager<C: GenericConfig<D> + 'static, const D: usize>
@@ -115,4 +116,112 @@ where
         println!("===============================\n\n\n\n");
         self.proof_tree_agg_circuits.circuit_set.print_common_data();
     }
+    pub fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
+        info_store.register_circuit(
+            LocalCircuitType::UPSStart.into(),
+            self.ups_start.get_fingerprint(),
+            self.ups_start.get_verifier_config_ref().into()
+        );
+        info_store.register_circuit(
+            LocalCircuitType::UPSCFCStandard.into(),
+            self.ups_cfc_standard_tx.get_fingerprint(),
+            self.ups_cfc_standard_tx.get_verifier_config_ref().into()
+        );
+        info_store.register_circuit(
+            LocalCircuitType::UPSCFCDeferred.into(),
+            self.ups_cfc_deferred_tx.get_fingerprint(),
+            self.ups_cfc_deferred_tx.get_verifier_config_ref().into()
+        );
+        info_store.register_circuit(
+            LocalCircuitType::UPSEndCap.into(),
+            self.ups_end_cap.get_fingerprint(),
+            self.ups_end_cap.get_verifier_config_ref().into()
+        );
+        info_store.register_circuit(
+            LocalCircuitType::UPSEndCap.into(),
+            self.ups_end_cap.get_fingerprint(),
+            self.ups_end_cap.get_verifier_config_ref().into()
+        );
+
+
+        info_store.register_whitelist_merkle_proof(
+            LocalCircuitType::UPSStart.into(),
+            self.ups_start_whitelist_proof.clone(),
+        );
+        info_store.register_whitelist_merkle_proof(
+            LocalCircuitType::UPSCFCStandard.into(),
+            self.ups_cfc_standard_tx_whitelist_proof.clone(),
+        );
+        info_store.register_whitelist_merkle_proof(
+            LocalCircuitType::UPSCFCDeferred.into(),
+            self.ups_cfc_deferred_tx_whitelist_proof.clone(),
+        );
+        
+        register_qtree_recursion_circuits(&self.proof_tree_agg_circuits.circuit_set, info_store);
+        register_qtree_recursion_circuits_whitelist_proofs(&self.proof_tree_agg_circuits.circuit_inclusion_proofs, info_store);
+
+        
+
+    }
+}
+
+
+
+pub fn register_qtree_recursion_circuits<C: GenericConfig<D>, const D: usize>(
+    circuit_set: &QStandardBinaryRecursionTreeCircuitSet<C,D>,
+    info_store: &mut SessionCircuitInfoStore<C::F>,
+) 
+where
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,{
+
+        info_store.register_circuit(
+            LocalCircuitType::PTAggSingle.into(),
+            circuit_set.single_leaf_circuit.get_fingerprint(),
+            circuit_set.single_leaf_circuit.get_verifier_config_ref().into()
+        );
+        info_store.register_circuit(
+            LocalCircuitType::PTAggTwoLeaf.into(),
+            circuit_set.two_leaf_circuit.get_fingerprint(),
+            circuit_set.two_leaf_circuit.get_verifier_config_ref().into()
+        );
+        info_store.register_circuit(
+            LocalCircuitType::PTAggTwoAgg.into(),
+            circuit_set.two_agg_circuit.get_fingerprint(),
+            circuit_set.two_agg_circuit.get_verifier_config_ref().into()
+        );
+        info_store.register_circuit(
+            LocalCircuitType::PTAggLeftAggRightLeaf.into(),
+            circuit_set.left_agg_right_leaf_circuit.get_fingerprint(),
+            circuit_set.left_agg_right_leaf_circuit.get_verifier_config_ref().into()
+        );
+        info_store.register_circuit(
+            LocalCircuitType::PTAggLeftLeafRightAgg.into(),
+            circuit_set.left_leaf_right_agg_circuit.get_fingerprint(),
+            circuit_set.left_leaf_right_agg_circuit.get_verifier_config_ref().into()
+        );
+}
+pub fn register_qtree_recursion_circuits_whitelist_proofs<F: RichField>(
+    inclusion_proofs: &SimpleQTreeRecursionManagerInclusionProofs<F>,
+    info_store: &mut SessionCircuitInfoStore<F>,
+) {
+    info_store.register_whitelist_merkle_proof(
+        LocalCircuitType::PTAggSingle.into(),
+        inclusion_proofs.single_leaf_circuit_merkle_proof.clone(),
+    );
+    info_store.register_whitelist_merkle_proof(
+        LocalCircuitType::PTAggTwoLeaf.into(),
+        inclusion_proofs.two_leaf_circuit_merkle_proof.clone(),
+    );
+    info_store.register_whitelist_merkle_proof(
+        LocalCircuitType::PTAggTwoAgg.into(),
+        inclusion_proofs.two_agg_circuit_merkle_proof.clone(),
+    );
+    info_store.register_whitelist_merkle_proof(
+        LocalCircuitType::PTAggLeftAggRightLeaf.into(),
+        inclusion_proofs.left_agg_right_leaf_circuit_merkle_proof.clone(),
+    );
+    info_store.register_whitelist_merkle_proof(
+        LocalCircuitType::PTAggLeftLeafRightAgg.into(),
+        inclusion_proofs.left_leaf_right_agg_circuit_merkle_proof.clone(),
+    );
 }

@@ -52,12 +52,18 @@ impl UPSVerifyCFCStandardStepGadget {
         ups_session_proof_tree_height: usize,
     ) -> Self {
         // start require witness
-        let verify_cfc_exists_and_valid_gadget = UPSVerifyCFCProofExistsAndValidGadget::add_virtual_to::<H,F,D>(
+        let verify_cfc_exists_and_valid_gadget: UPSVerifyCFCProofExistsAndValidGadget = UPSVerifyCFCProofExistsAndValidGadget::add_virtual_to::<H,F,D>(
             builder,
             ups_session_proof_tree_height,
         );
+        let contract_state_tree_height = verify_cfc_exists_and_valid_gadget.cfc_inclusion_proof_gadget.contract_inclusion_proof.contract_leaf.state_tree_height;
             
-        let (process_cfc_state_delta_gadget, new_header_gadget) = UPSCFCStandardStateDeltaGadget::add_virtual_to::<H,F,D>(builder, previous_step_header_gadget, corrections);
+        let (process_cfc_state_delta_gadget, new_header_gadget) = UPSCFCStandardStateDeltaGadget::add_virtual_to::<H,F,D>(
+            builder,
+            previous_step_header_gadget,
+            corrections,
+            contract_state_tree_height,
+        );
 
 
         // constrain verify with previous

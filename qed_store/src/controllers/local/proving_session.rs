@@ -7,10 +7,10 @@ use plonky2::{
     hash::hash_types::RichField,
 };
 use qed_core::{
-    config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT, data::qhashout::QHashOut,
+    config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT}, data::qhashout::QHashOut,
 };
 use qed_crypto::hash::{
-    merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
+    merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, utils::simple_merkle_tree::SimpleMerkleTree},
     traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     utils::safe_hash_fixed_length,
 };
@@ -24,8 +24,8 @@ use qed_data::{
             DPNProvingSessionSimpleMethodCall, DPNTransactionDebtItem, QEDLocalTransactionRecord,
         },
     },
-    qdata::checkpoint::QEDCheckpointGlobalStateRoots,
-    ups::ups_context_input::UserProvingSessionStartContext,
+    qdata::{checkpoint::QEDCheckpointGlobalStateRoots, contract_inclusion::{QEDContractFunctionInclusionProof, QEDContractInclusionProof}},
+    ups::{ups_context_input::UserProvingSessionStartContext, ups_standard_cfc_input::UPSCFCStandardStateDeltaInput},
 };
 use serde::{Deserialize, Serialize};
 
@@ -40,12 +40,7 @@ use crate::{
     store::imm::{
         cache::QEDCmdStoreWithCache,
         cmd::{
-            QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData,
-            QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot,
-            QSRHashCmdGetDepositTreeRoot, QSRHashCmdGetUserTreeRoot,
-            QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd,
-            QSRMerkleCmdGetUserContractStateTreeMerkleProof,
-            QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof,
+            QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot, QSRHashCmdGetDepositTreeRoot, QSRHashCmdGetUserTreeRoot, QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd, QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof
         },
         cmd_processor::{
             DPNReadOtherUserLeafMerkleProof, QEDReadCommandProcessorSync,
@@ -81,7 +76,7 @@ pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorS
     >,
 
     //pub delta_merkle_proof_cache: Vec<QEDLocalStateSet<F>>,
-    pub active_transaction_record: QEDLocalTransactionRecord<F>,
+    active_transaction_record: QEDLocalTransactionRecord<F>,
 
     start_checkpoint: F,
     write_checkpoint: F,
@@ -91,10 +86,10 @@ pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorS
     user_id: F,
     user_id_u64: u64,
     nonce: F,
+    session_proof_tree_root: QHashOut<F>,
 
-    todo_remove_q_recursion_tree_height: usize,
+    session_proof_tree_height: usize,
     // replace with the correct implementation of the proof tree
-    todo_remove_q_recursion_tree_root: QHashOut<F>,
 }
 
 // read helpers
@@ -137,10 +132,10 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
         self.nonce.to_canonical_u64()
     }
     pub fn get_q_recursion_proof_tree_height(&self) -> usize {
-        self.todo_remove_q_recursion_tree_height
+        self.session_proof_tree_height
     }
     pub fn get_q_recursion_proof_tree_root(&self) -> QHashOut<F> {
-        self.todo_remove_q_recursion_tree_root
+        self.session_proof_tree_root
     }
 }
 impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStore<F, R> {
@@ -170,9 +165,13 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
             //user_id_u32: user_id.to_canonical_u64() as u32,
             nonce,
             active_transaction_record: Default::default(),
-            todo_remove_q_recursion_tree_height: q_recursion_tree_height,
-            todo_remove_q_recursion_tree_root: QHashOut::ZERO,
+            session_proof_tree_height: q_recursion_tree_height,
+            session_proof_tree_root: QHashOut::ZERO,
+            
         }
+    }
+    pub fn set_proof_tree_root(&mut self, session_proof_tree_root: QHashOut<F>) {
+        self.session_proof_tree_root = session_proof_tree_root;
     }
     pub fn new_at_head(
         read_store: R,
@@ -207,6 +206,24 @@ type GF = GoldilocksField;
 impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
     QEDLocalProvingSessionStore<GoldilocksField, R>
 {
+    pub fn get_deferred_tx_debt_latest_index(&self) -> u64 {
+        self.deferred_tx_debt_store.get_latest_index()
+    }
+    pub fn get_deferred_tx_debt_next_index(&self) -> u64 {
+        self.deferred_tx_debt_store.get_next_index()
+    }
+    pub fn get_inline_tx_debt_latest_index(&self) -> u64 {
+        0
+    }
+    pub fn get_inline_tx_debt_next_index(&self) -> u64 {
+        0
+    }
+    pub fn get_deferred_tx_tree_leaf(&self, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>>{
+        self.deferred_tx_debt_store.get_tx_debt_leaf(&self.active_tx_session_data_store, leaf_index)
+    }
+    pub fn get_inline_tx_tree_leaf(&self, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>>{
+        Ok(SimpleMerkleTree::<QEDHasher, QHashOut<GF>>::new(INLINE_TRANSACTION_TREE_HEIGHT).get_leaf(leaf_index))
+    }
     pub fn init_transaction(
         &mut self,
         call_data: DPNProvingSessionSimpleMethodCall<GF>,
@@ -642,5 +659,40 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             start_session_user_leaf: user_leaf,
         };
         Ok(start_ctx)
+    }
+
+    pub fn get_contract_inclusion_proof(&mut self, contract_id: u32) -> anyhow::Result<QEDContractInclusionProof<GF>> {
+        let contract_leaf = self.cmd_store.resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData{
+            contract_id: contract_id as u64,
+        })?;
+        let contract_tree_merkle_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetContractTreeMerkleProof(QSRMerkleCmdGetContractTreeMerkleProof{
+            checkpoint_id: self.start_checkpoint_u64,
+            contract_id: contract_id,
+        }))?;
+
+        Ok(QEDContractInclusionProof {
+            contract_leaf,
+            contract_tree_merkle_proof,
+        })
+        
+    }
+
+    pub fn get_contract_function_inclusion_proof(&mut self, contract_id: u32, function_id: u32) -> anyhow::Result<QEDContractFunctionInclusionProof<GF>> {
+        let contract_inclusion_proof = self.get_contract_inclusion_proof(contract_id)?;
+        let contract_function_merkle_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetContractFunctionTreeMerkleProof(QSRMerkleCmdGetContractFunctionTreeMerkleProof{
+            checkpoint_id: self.start_checkpoint_u64,
+            contract_id,
+            function_id,
+        }))?;
+
+        Ok(QEDContractFunctionInclusionProof{
+            contract_inclusion_proof,
+            contract_function_merkle_proof,
+        })
+    }
+
+    pub fn get_state_delta_input(&mut self) -> anyhow::Result<UPSCFCStandardStateDeltaInput<GF>> {
+        todo!()
+        
     }
 }

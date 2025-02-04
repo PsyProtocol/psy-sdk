@@ -44,6 +44,12 @@ impl<TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const HE
     pub fn get_next_index(&self) -> u64 {
         self.next_index
     }
+    pub fn get_latest_index(&self) -> u64 {
+        match self.get_latest_proof_debt_item() {
+            Some(item) => item.tree_index,
+            None => 0,
+        }
+    }
     pub fn get_proof_debt_array(&self) -> &Vec<DPNTransactionDebtItem<TX, F>> {
         &self.remaining_debt
     }
@@ -75,15 +81,9 @@ impl<TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const HE
 
 
 impl<TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, const TREE_ID: u8> TransactionDebtTreeRef<TX, GF, HEIGHT, TREE_ID> {
-    pub fn get_latest_tx_debt_leaf<S: KVQBinaryStore>(&self, store: &S) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
 
-        let latest_item = self.get_latest_proof_debt_item();
-        let index = if latest_item.is_some() {
-            latest_item.unwrap().tree_index
-        }else{
-            0
-        };
-        self.get_tx_debt_leaf(store, index)
+    pub fn get_latest_tx_debt_leaf<S: KVQBinaryStore>(&self, store: &S) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
+        self.get_tx_debt_leaf(store, self.get_latest_index())
     }
     pub fn get_tx_debt_leaf<S: KVQBinaryStore>(&self, store: &S, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
             LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT>::get_leaf_fc(store, self.checkpoint_id, leaf_index)
