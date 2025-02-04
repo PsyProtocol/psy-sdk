@@ -1,5 +1,5 @@
 use plonky2::{hash::hash_types::{HashOut, HashOutTarget}, iop::witness::{PartialWitness, WitnessWrite}, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
-use crate::{circuits::traits::qstandard::QStandardCircuit, proof_minifier::pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::gadgets::{agg_proof_header::QRecursionAggStandardHeaderGadget, verify_leaf_proof::VerifyLeafProofGadget}};
+use crate::{builder::pad_circuit::pad_circuit_degree, circuits::traits::qstandard::QStandardCircuit, proof_minifier::pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::gadgets::{agg_proof_header::QRecursionAggStandardHeaderGadget, verify_leaf_proof::VerifyLeafProofGadget}};
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::MerkleZeroHasher};
 
@@ -45,9 +45,10 @@ where
             agg_circuit_whitelist_root,
         };
         let self_public_inputs_hash = self_header_gadget.get_combined_hash::<C::Hasher, C::F, D>(&mut builder);
-        
+
         builder.register_public_inputs(&self_public_inputs_hash.elements);
         //builder.add_qed_type_a_common_gates(Some(coset_gate.clone()));
+        pad_circuit_degree::<C::F, D>(&mut builder, 12);
         //pad_circuit_degree::<C::F, D>(&mut builder, 12);
 
         let circuit_data = builder.build::<C>();

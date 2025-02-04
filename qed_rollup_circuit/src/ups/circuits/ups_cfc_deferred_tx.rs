@@ -9,10 +9,8 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync},
-    proof_minifier::
-        pm_core::get_circuit_fingerprint_generic
-    , treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs,
+    builder::pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
+        pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs
 };
 use qed_core::{config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
@@ -76,6 +74,9 @@ where
 
         builder.register_public_inputs(&public_inputs_hash.elements);
 
+
+        builder.add_qed_type_b_common_gates();
+        pad_circuit_degree::<C::F, D>(&mut builder, 11);
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(

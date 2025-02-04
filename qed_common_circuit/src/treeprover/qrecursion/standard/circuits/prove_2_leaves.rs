@@ -1,4 +1,4 @@
-use plonky2::{hash::hash_types::{HashOut, HashOutTarget}, iop::witness::{PartialWitness, WitnessWrite}, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
+use plonky2::{gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::witness::{PartialWitness, WitnessWrite}, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
 use crate::{builder::core::CircuitBuilderHelpersCore, circuits::traits::qstandard::QStandardCircuit, proof_minifier::pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::gadgets::{agg_proof_header::QRecursionAggStandardHeaderGadget, verify_leaf_proof::VerifyLeafProofGadget}};
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::MerkleZeroHasher};
@@ -6,7 +6,7 @@ use qed_crypto::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::Merkl
 #[derive(Debug)]
 pub struct QRecursionStandardTwoLeafCircuit<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub agg_circuit_whitelist_root: HashOutTarget,
     pub left_leaf_gadget: VerifyLeafProofGadget<D>,
@@ -21,7 +21,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QRecursionStandardTwoLeafCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     pub fn new(
         //coset_gate: &GateRef<C::F, D>,
@@ -83,6 +83,8 @@ where
         //builder.add_qed_type_a_common_gates(Some(coset_gate.clone()));
         //pad_circuit_degree::<C::F, D>(&mut builder, 12);
 
+        builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
+
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
@@ -132,7 +134,7 @@ where
 
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for QRecursionStandardTwoLeafCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -153,7 +155,7 @@ impl<C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvable<QRecursionStandardTwoLeafCircuitInput<C::F>, C, D>
     for QRecursionStandardTwoLeafCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_standard(
         &self,
@@ -169,7 +171,7 @@ impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>
     QStandardCircuitProvableWithProofStoreSync<S, QRecursionStandardTwoLeafCircuitInput<C::F>, C, D>
     for QRecursionStandardTwoLeafCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_with_proof_store_sync(
         &self,

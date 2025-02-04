@@ -9,16 +9,13 @@ use crate::{
     },
 };
 use plonky2::{
-    hash::hash_types::HashOut,
-    iop::
-        witness::PartialWitness
-    ,
-    plonk::{
+    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::HashOut, iop::
+        witness::PartialWitness, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    },
+    }
 };
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::{
@@ -105,6 +102,7 @@ where
         //builder.add_qed_type_a_common_gates(Some(coset_gate.clone()));
         //pad_circuit_degree::<C::F, D>(&mut builder, 12);
 
+        builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));

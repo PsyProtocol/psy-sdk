@@ -113,17 +113,14 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
         self.user_id
     }
     pub fn get_current_user_id_64(&self) -> u64 {
-        self.active_transaction_record
-            .call_data
-            .user_id
-            .to_canonical_u64()
+        self.user_id.to_canonical_u64()
     }
 
     pub fn get_current_start_checkpoint_id(&self) -> F {
         self.start_checkpoint
     }
     pub fn get_current_start_checkpoint_id_u64(&self) -> u64 {
-        self.write_checkpoint_u64
+        self.start_checkpoint_u64
     }
 
     pub fn get_current_write_checkpoint_id(&self) -> F {

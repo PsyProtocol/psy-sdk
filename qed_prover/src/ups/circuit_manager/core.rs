@@ -66,7 +66,7 @@ where
         let ups_cfc_standard_tx_whitelist_proof = ups_circuit_whitelist_proofs.pop().unwrap();
         let ups_start_whitelist_proof = ups_circuit_whitelist_proofs.pop().unwrap();
 
-        let ups_circuit_whitelist_root = ups_circuit_whitelist_proofs[0].root;
+        let ups_circuit_whitelist_root = ups_cfc_standard_tx_whitelist_proof.root;
 
         let proof_tree_agg_circuits = PortableQTreeRecursionCircuits::new(
             UPS_SESSION_PROOF_TREE_HEIGHT as usize,
@@ -104,5 +104,15 @@ where
             ups_cfc_standard_tx_whitelist_proof,
             ups_cfc_deferred_tx_whitelist_proof,
         }
+    }
+
+    pub fn print_common_config(&self) {
+        println!("\n\n\n\n================================\n[ups_start.common]:\n{:?}", self.ups_start.get_common_circuit_data_ref());
+        println!("================================\n[ups_cfc_standard_tx.common]:\n{:?}", self.ups_cfc_standard_tx.get_common_circuit_data_ref());
+        println!("================================\n[ups_cfc_deferred_tx.common]:\n{:?}", self.ups_cfc_deferred_tx.get_common_circuit_data_ref());
+        println!("================================\n[ups_end_cap.common]:\n{:?}", self.ups_end_cap.get_common_circuit_data_ref());
+
+        println!("===============================\n\n\n\n");
+        self.proof_tree_agg_circuits.circuit_set.print_common_data();
     }
 }

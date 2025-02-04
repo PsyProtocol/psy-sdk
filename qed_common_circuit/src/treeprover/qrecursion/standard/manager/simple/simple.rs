@@ -7,7 +7,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig, Hasher},
     },
 };
-use qed_core::data::qhashout::QHashOut;
+use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use qed_crypto::{
     common::witnesses::qrecursion::{
         header::QRecursionAggStandardHeader,
@@ -383,10 +383,12 @@ where
     }
 
     pub fn prove_one_step_simple_serial(&mut self) -> bool {
+        let mut timer = DebugTimer::new("prove_one_step_simple_serial");
+        timer.lap("start: prove_one_step_simple_serial");
         let leaf_proofs_len = self.leaf_proofs.len();
         let agg_proofs_len = self.agg_proofs.len();
 
-        if leaf_proofs_len >= 2 {
+        let result = if leaf_proofs_len >= 2 {
             let left = self.leaf_proofs.pop_front().unwrap();
             let right = self.leaf_proofs.pop_front().unwrap();
             let record = self.prove_two_leaf(&left, &right);
@@ -406,7 +408,12 @@ where
             true
         } else {
             false
-        }
+        };
+
+        timer.lap("finished");
+
+
+        result
     }
 
     pub fn add_leaf_proofs(&mut self, leaf_proofs: Vec<InputLeafProof<C, D>>) -> Vec<u64> {

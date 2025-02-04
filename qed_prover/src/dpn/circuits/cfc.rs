@@ -1,5 +1,5 @@
 use plonky2::{hash::hash_types::HashOut, iop::{target::Target, witness::{PartialWitness, WitnessWrite}}, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
-use qed_common_circuit::{builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::pm_core::get_circuit_fingerprint_generic};
+use qed_common_circuit::{builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::pm_core::get_circuit_fingerprint_generic};
 use qed_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
@@ -56,7 +56,9 @@ where
         
         builder.register_public_inputs(&public_inputs_hash.elements);
         //builder.add_qed_type_a_common_gates(Some(coset_gate.clone()));
+        builder.add_qed_type_b_common_gates();
         pad_circuit_degree::<C::F, D>(&mut builder, 11);
+
 
         let circuit_data = builder.build::<C>();
 

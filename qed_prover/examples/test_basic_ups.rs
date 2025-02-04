@@ -8,7 +8,7 @@ use kvq::
 ;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::Field}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
-use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use qed_crypto::{hash::utils::gen_dapen_contract_function_method_id, signature::zk::wallet::SimpleQEDPrivateKey};
 use qed_data::{
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
@@ -18,16 +18,11 @@ use qed_data::{
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
-use qed_prover::dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition};
+use qed_prover::{dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager}};
 use qed_store::{
-    controllers::local::proving_session::QEDLocalProvingSessionStore,
-    qblock::process::simple::SimpleBlockProcessor,
-    store::imm::cmd_processor::QEDReadCommandProcessorSync,
-    traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, 
+    config::store_config::QEDHasher, controllers::local::proving_session::QEDLocalProvingSessionStore, qblock::process::simple::SimpleBlockProcessor, store::imm::cmd_processor::QEDReadCommandProcessorSync, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, 
         qtreedata::
             QEDComboDataStoreReaderWriterSync}
-        
-    ,
 };
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
@@ -367,6 +362,29 @@ fn compile_simple_transfer() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     Ok(fn_circuit_def)
 }
 
+fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
+
+    let mut ctx = QExecContext::new();
+    let mut contract = SimpleContractStateful::new();
+    let sender = ctx.add_input();
+    let z = contract.simple_claim(&mut ctx, sender);
+    let outputs = vec![z];
+    let method_args = [
+        ("sender".to_string(), 1usize),
+    ];
+    let method_name = "simple_claim".to_string();
+    let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
+    let fn_circuit_def = QEDCompileResult::compile_exec(
+        "simple_claim".to_string(),
+        method_id,
+        &ctx.store,
+        &ctx,
+        &outputs,
+    );
+
+    Ok(fn_circuit_def)
+}
+
 fn test_prove_simple() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("test_prove_simple");
 
@@ -376,6 +394,8 @@ fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("compiled simple_mint_debug");
     let simple_transfer_def = compile_simple_transfer()?;
     timer.lap("compiled simple_transfer");
+    let simple_claim_def = compile_simple_claim()?;
+    timer.lap("compiled simple_claim");
 
     let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
     const D: usize = 2;
@@ -385,6 +405,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     let defs_array = [
         simple_mint_debug_def,
         simple_transfer_def,
+        simple_claim_def,
     ];
     timer.lap("start building circuits");
 
@@ -401,57 +422,53 @@ fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("finished building wallet/zksig circuits");
     
 
-    let mut lps = prepare_environment_with_real_contract(
-        pub_key,
-        deploy_cmd,
-    )?;
     timer.lap("prepared environement");
+    
 
     let contract_id = GoldilocksField::from_canonical_u64(2);
 
     let [
         simple_mint_debug_def,
         simple_transfer_def,
+        _simple_claim_def,
     ] = defs_array;
-
-    let cfc_input = test_run_contract_fn(contract_id, &simple_mint_debug_def, &mut lps, &[
-        GoldilocksField::from_noncanonical_u64(133700),
-    ])?;
-
-    timer.lap("generated witness input");
-    println!("witnesss_json:\n{:?}",&cfc_input);
-    //println!("witnesss_json:\n{}",serde_json::to_string(&result).unwrap());
 
     timer.lap("start: setup circuits");
 
+    let simple_claim_circuit = result_circuits.pop().unwrap();
     let simple_transfer_circuit = result_circuits.pop().unwrap();
     let simple_mint_debug_circuit = result_circuits.pop().unwrap();
     timer.lap("end: setup circuits");
 
-    
-    
-    //println!("common_looks_like: \n{:?}\n\n\n", simple_mint_debug_circuit.get_common_circuit_data_ref());
-    let proof = simple_mint_debug_circuit.prove_base(&cfc_input);
-    
-    timer.lap("proved");
-    println!("public_inputs: {:?}",&proof.public_inputs);
+    println!("\n\n[simple_claim_circuit.common]:\n{:?}",simple_claim_circuit.get_common_circuit_data_ref());
+    println!("\n\n[simple_transfer_circuit.common]:\n{:?}",simple_transfer_circuit.get_common_circuit_data_ref());
+    println!("\n\n[simple_mint_debug_circuit.common]:\n{:?}\n\n",simple_mint_debug_circuit.get_common_circuit_data_ref());
 
-    let cfc_input = test_run_contract_fn(contract_id, &simple_transfer_def, &mut lps, &[
-        GoldilocksField::from_noncanonical_u64(2),
-        GoldilocksField::from_noncanonical_u64(1000),
-    ])?;
 
-    timer.lap("generated witness input");
-    println!("witnesss_json:\n{:?}",&cfc_input);
-    //println!("witnesss_json:\n{}",serde_json::to_string(&result).unwrap());
+    timer.lap("start: init QEDUPSStepCircuitManager");
+
+    let main_circuits = QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
+    main_circuits.print_common_config();
+
+    timer.lap("end: init QEDUPSStepCircuitManager");
+
 
     
+    let lps = prepare_environment_with_real_contract(
+        pub_key,
+        deploy_cmd,
+    )?;
+
+    let mut mgr = UserProvingSessionManager::<GoldilocksField,QEDHasher,_,C,D>::new(
+        lps,
+        main_circuits.ups_circuit_whitelist_root
+    )?;
+
+    mgr.prove_ups_start(&main_circuits)?;
+
     
-    //println!("common_looks_like: \n{:?}\n\n\n", simple_mint_debug_circuit.get_common_circuit_data_ref());
-    let proof = simple_transfer_circuit.prove_base(&cfc_input);
-    
-    timer.lap("proved");
-    println!("public_inputs: {:?}",&proof.public_inputs);
+
+
 
     Ok(())
 }

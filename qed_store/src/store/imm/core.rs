@@ -865,7 +865,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         checkpoint_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        CheckpointTreeStore::set_leaf_fc_imm(self, checkpoint_id, 0, leaf_hash)
+        CheckpointTreeStore::set_leaf_fc_imm(self, checkpoint_id, checkpoint_id, leaf_hash)
     }
 
     fn set_checkpoint_tree_leaf_hash_f(
@@ -873,7 +873,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         checkpoint_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        CheckpointTreeStore::set_leaf_fc_imm(self, checkpoint_id.to_canonical_u64(), 0, leaf_hash)
+        CheckpointTreeStore::set_leaf_fc_imm(self, checkpoint_id.to_canonical_u64(), checkpoint_id.to_canonical_u64(), leaf_hash)
     }
 }
 

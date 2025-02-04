@@ -4,14 +4,16 @@ use plonky2::{
     plonk::config::{AlgebraicHasher, GenericConfig},
 };
 use qed_common_circuit::{circuits::traits::qstandard::QStandardCircuit, treeprover::qrecursion::standard::manager::portable::core::PortableQTreeRecursionManager};
-use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut};
+use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use qed_crypto::{common::witnesses::qrecursion::proof_data::InputLeafProof, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use qed_data::{
     dpn::proving_session::DPNProvingSessionCompactMethodCall, qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf}, ups::{start_step::UPSStartStepInput, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}}
 };
+use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_store::{
     controllers::local::proving_session::QEDLocalProvingSessionStore, store::imm::{cmd::{QSRCmdGetCheckpointLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
 };
+use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use super::circuit_manager::core::QEDUPSStepCircuitManager;
 
@@ -55,9 +57,12 @@ impl<
         
         let mut new_user=  session_start_context.start_session_user_leaf.clone();
 
+        //let l2_bstate = lps.cmd_store.resolve_get_latest_l2_block_state_mut()?;
+
         let latest_checkpoint_id_u64 = lps.get_current_start_checkpoint_id_u64();
         let latest_checkpoint_id_f = lps.get_current_start_checkpoint_id();
         new_user.last_checkpoint_id = latest_checkpoint_id_f;
+        println!("checkpoint_id: {}",latest_checkpoint_id_u64);
 
         let current_checkpoint_leaf = lps
             .cmd_store
@@ -134,17 +139,40 @@ impl<
     }
 
     pub fn prove_ups_start(&mut self, circuit_mgr: &QEDUPSStepCircuitManager<C, D>) -> anyhow::Result<()> {
+        let mut timer = DebugTimer::new("prove_ups_start");
+        timer.lap("start");
         let input = self.get_ups_start_witness()?;
+        println!("witness:\n{:?}",input);
+        println!("\n\n\nwitness json:\n{}\n\n\n\n\n\n",serde_json::to_string_pretty(&input).unwrap());
+        
+        timer.lap("gen_witness");
         
         let proof = circuit_mgr.ups_start.prove_base(&input)?;
+        timer.lap("prove_ups_start");
         self.last_ups_step_proof_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
             leaf_circuit_type: UPS_STEP_LEAF_TYPE,
             fingerprint: circuit_mgr.ups_start.get_fingerprint(),
             verifier_data: circuit_mgr.ups_start.get_verifier_config_ref().to_owned(),
             proof,
         });
+        timer.lap("injest_single_leaf_proof");
+
 
 
         Ok(())
+    }
+    pub fn exec_contract_call(
+        &mut self,
+        contract_id: F,
+        fn_circuit_def: &DPNFunctionCircuitDefinition,
+        inputs: Vec<F>,
+    ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>> {
+        QEDEvalSessionResult::new()
+            .exec_contract_call( 
+                &mut self.lps,
+                contract_id,
+                fn_circuit_def,
+                inputs
+            )
     }
 }
