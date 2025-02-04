@@ -929,23 +929,24 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             .unwrap();
 
         match &typechecker[node.variable] {
-            CheckedExprNode::Path(checked_path_node) => {
+            CheckedExprNode::Path(path_node) => {
                 self.interpret_path_assignment(
                     typechecker,
                     artifact,
                     node,
-                    checked_path_node,
+                    path_node,
                     symbols,
                     value,
+                    parent_node_type,
                 )?;
             }
             CheckedExprNode::MemberAccess(member_access_node) => {
                 self.interpret_member_assignment(
                     typechecker,
                     artifact,
+                    node,
                     member_access_node,
                     symbols,
-                    node,
                     value,
                     parent_node_type,
                 )?;
@@ -954,9 +955,9 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
                 self.interpret_index_assignment(
                     typechecker,
                     artifact,
+                    node,
                     index_access_node,
                     symbols,
-                    node,
                     value,
                     parent_node_type,
                 )?;
@@ -970,9 +971,9 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
         artifact: &Artifact<F, C>,
+        node: &CheckedAssignmentNode,
         index_access_node: &CheckedIndexAccessNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
-        node: &CheckedAssignmentNode,
         value: CheckedValue<F>,
         parent_node_type: Option<NodeType>,
     ) -> Result<()> {
@@ -1041,9 +1042,9 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
         artifact: &Artifact<F, C>,
+        node: &CheckedAssignmentNode,
         member_access_node: &CheckedMemberAccessNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
-        node: &CheckedAssignmentNode,
         value: CheckedValue<F>,
         parent_node_type: Option<NodeType>,
     ) -> Result<()> {
@@ -1081,13 +1082,14 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
         artifact: &Artifact<F, C>,
         node: &CheckedAssignmentNode,
-        checked_path_node: &CheckedPathNode,
+        path_node: &CheckedPathNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         value: CheckedValue<F>,
+        parent_node_type: Option<NodeType>,
     ) -> Result<()> {
-        let start_scope = Some(checked_path_node.scope_id.clone());
+        let start_scope = Some(path_node.scope_id.clone());
         let variable = symbols
-            .get_variable(start_scope, &checked_path_node.name)
+            .get_variable(start_scope, &path_node.name)
             .unwrap()
             .value
             .clone();
@@ -1099,11 +1101,11 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             node.operator,
             value,
             symbols,
-            Some(checked_path_node.node_type()),
+            Some(path_node.node_type()),
         )?;
         symbols.set_variable(
             start_scope,
-            &checked_path_node.name,
+            &path_node.name,
             CheckedValueOrNode::from(self.cset_variable(&old_value, &new_value)),
         )?;
         Ok(())
