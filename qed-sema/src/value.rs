@@ -104,26 +104,57 @@ impl<F> CheckedValue<F> {
         }
     }
 
-    pub fn get_field(&self, field: IdentId) -> Option<&CheckedValue<F>> {
-        match self {
-            CheckedValue::Struct(_, fields) => fields.get(&field),
-            _ => None,
+    pub fn set_path(&mut self, path: &[usize], value: CheckedValue<F>) -> anyhow::Result<()> {
+        if path.is_empty() {
+            *self = value;
+            return Ok(());
         }
-    }
-
-    pub fn get_mut_field(&mut self, field: IdentId) -> Option<&mut CheckedValue<F>> {
         match self {
-            CheckedValue::Struct(_, fields) => fields.get_mut(&field),
-            _ => None,
-        }
-    }
-
-    pub fn set_field(&mut self, field: IdentId, value: CheckedValue<F>) {
-        match self {
-            CheckedValue::Struct(_, fields) => {
-                fields.insert(field, value);
+            CheckedValue::Array(_, vec) => {
+                let index = path[0];
+                let rest = &path[1..];
+                if let Some(inner) = vec.get_mut(index) {
+                    inner.set_path(rest, value)?;
+                }
             }
-            _ => panic!("Setting field on non-struct value"),
+            CheckedValue::Struct(_, map) => {
+                let key = IdentId(path[0]);
+                let rest = &path[1..];
+                if let Some(inner) = map.get_mut(&key) {
+                    inner.set_path(rest, value)?;
+                }
+            }
+            _ => {
+                assert!(path.is_empty());
+                *self = value;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn get_path(&self, path: &[usize]) -> anyhow::Result<&CheckedValue<F>> {
+        if path.is_empty() {
+            return Ok(self);
+        }
+        match self {
+            CheckedValue::Array(_, vec) => {
+                let index = path[0];
+                let rest = &path[1..];
+                vec.get(index)
+                    .ok_or_else(|| anyhow::anyhow!("Index out of bounds"))?
+                    .get_path(rest)
+            }
+            CheckedValue::Struct(_, map) => {
+                let key = IdentId(path[0]);
+                let rest = &path[1..];
+                map.get(&key)
+                    .ok_or_else(|| anyhow::anyhow!("Field not found"))?
+                    .get_path(rest)
+            }
+            _ => {
+                assert!(path.is_empty());
+                Ok(self)
+            }
         }
     }
 }
