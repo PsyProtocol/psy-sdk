@@ -446,11 +446,12 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         contract_id: u32,
         function_id: u32,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        // NOTE: two leaves per function
         ContractFunctionTreeStore::get_leaf_sfc(
             self,
             checkpoint_id,
             contract_id.into(),
-            function_id.into(),
+            (function_id as u64)*2u64,
         )
     }
 

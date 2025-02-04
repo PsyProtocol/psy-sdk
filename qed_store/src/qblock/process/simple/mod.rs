@@ -214,7 +214,7 @@ impl SimpleBlockProcessor {
         store.set_checkpoint_leaf_data(new_checkpoint_id, &new_checkpoint_leaf)?;
 
         let checkpoint_delta_merkle_proof = store.set_checkpoint_tree_leaf_hash(new_checkpoint_id, new_checkpoint_leaf_hash)?;
-        println!("checkpoint_delta_merkle_proof: {}", serde_json::to_string_pretty(&checkpoint_delta_merkle_proof).unwrap());
+        //println!("checkpoint_delta_merkle_proof: {}", serde_json::to_string_pretty(&checkpoint_delta_merkle_proof).unwrap());
 
 
 

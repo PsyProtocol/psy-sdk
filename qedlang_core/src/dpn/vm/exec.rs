@@ -183,11 +183,11 @@ impl<F: RichField> SimpleDPNExecutor<F> {
     }
     pub fn resolve_target_array_ref(&self, id: u64, index_id: u64) -> F {
         let (t, index) = decode_indexed_op_id(id);
-        println!("array_data_type: {:?}, arr_index: {}", t, index);
-        println!("in_array_index_target_id: {}",index_id);
+        //println!("array_data_type: {:?}, arr_index: {}", t, index);
+        //println!("in_array_index_target_id: {}",index_id);
 
         let ind_real = self.resolve_target(index_id);
-        println!("in_array_index_target_id: {} (equals {})",index_id, ind_real.to_canonical_u64());
+        //println!("in_array_index_target_id: {} (equals {})",index_id, ind_real.to_canonical_u64());
         
         match t {
             DPNBuiltInDataType::HashOut => {
@@ -256,7 +256,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
 
 
     pub fn process_var_def(&mut self, op: &DPNIndexedVarDef) {
-        self.print_current_op(op);
+        //self.print_current_op(op);
         
         match op.op_type {
             //DPNOpType::InputTarget => todo!("this shouldn't ever get called probably"),
