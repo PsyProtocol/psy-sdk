@@ -340,18 +340,27 @@ impl<T: Clone> SymbolTable<T> {
         Err(Error::UnresolvedTrait)
     }
 
-    pub fn resolve_method(&self, type_id: TypeId, method_name: IdentId) -> Option<TypeId> {
+    pub fn resolve_method(&self, implementor_id: TypeId, method_name: IdentId) -> Option<TypeId> {
         let method_name_key: TypeKey = method_name.into();
 
         let find_method = |type_id: TypeId| -> Option<TypeId> {
             let scope_id = self[type_id].scope_id();
+            let is_trait = self[type_id].is_trait();
 
-            for &scope in &self[scope_id].children {
-                if self[scope].kind == ScopeKind::Impl {
-                    for &scope in &self[scope].children {
-                        if let Some(&type_id) = self[scope].types.get(&method_name_key) {
+            for &impl_scope in &self[scope_id].children {
+                if self[impl_scope].kind == ScopeKind::Impl {
+                    for &fun_scope in &self[impl_scope].children {
+                        if let Some(&type_id) = self[fun_scope].types.get(&method_name_key) {
                             if self[type_id].is_function() {
-                                return Some(type_id);
+                                if is_trait {
+                                    if self[impl_scope].types.get(&IdentId::TYPE_SELF.into())
+                                        == Some(&implementor_id)
+                                    {
+                                        return Some(type_id);
+                                    }
+                                } else {
+                                    return Some(type_id);
+                                }
                             }
                         }
                     }
@@ -361,20 +370,15 @@ impl<T: Clone> SymbolTable<T> {
             None
         };
 
-        for &type_id in once(&type_id).chain(self[type_id].implementations().into_iter()) {
+        for &type_id in
+            once(&implementor_id).chain(self[implementor_id].implementations().into_iter())
+        {
             if let Some(type_id) = find_method(type_id) {
                 return Some(type_id);
             }
         }
 
         None
-    }
-
-    pub fn find_module(&self, name: IdentId) -> Option<ModuleId> {
-        self.modules
-            .iter()
-            .position(|x| x.name == name)
-            .map(ModuleId)
     }
 
     pub fn resolve_use(&self, use_path: &UsePath) -> Option<Vec<(&TypeKey, &TypeId)>> {
