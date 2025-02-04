@@ -27,3 +27,8 @@ make test
 make interpret
 ```
 
+3. Compile to `DPNFunctionCircuitDefinition`
+```
+make compile
+```
+

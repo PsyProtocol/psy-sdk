@@ -38,6 +38,7 @@ pub struct DPNAssertEqInfoIndexed {
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct DPNFunctionCircuitDefinition {
     pub name: String,
+    pub method_id: u32,
     pub circuit_inputs: Vec<u64>,
     pub circuit_outputs: Vec<u64>,
     pub state_commands: Vec<DPNStateCmd<u64>>,

@@ -1,10 +1,9 @@
 use crate::{
-    ops::DPNBuiltInDataType, DPNStateCmd, DPNStateCmdCore, QExecContext, SymFeltRef, SymFeltStore,
+    encode_indexed_op_id, DPNAssertEqInfoIndexed, DPNBuiltInDataType, DPNIndexedVarDef,
+    DPNStateCmd, DPNStateCmdCore, QExecContext, SymFeltRef, SymFeltStore,
 };
 
-use super::def::{
-    encode_indexed_op_id, DPNAssertEqInfoIndexed, DPNFunctionCircuitDefinition, DPNIndexedVarDef,
-};
+use super::def::DPNFunctionCircuitDefinition;
 
 pub struct QEDCompileResult {
     pub circuit_inputs: Vec<u64>,
@@ -40,13 +39,14 @@ pub struct QEDCompileResult {
 impl QEDCompileResult {
     pub fn compile_exec(
         name: String,
+        method_id: u32,
         sym_store: &SymFeltStore,
         ctx: &QExecContext,
         outputs: &[SymFeltRef],
     ) -> DPNFunctionCircuitDefinition {
         let mut result = QEDCompileResult::new();
         result.compile(sym_store, ctx, outputs);
-        result.finalize(name)
+        result.finalize(name, method_id)
     }
     pub fn new() -> Self {
         QEDCompileResult {
@@ -190,9 +190,10 @@ impl QEDCompileResult {
             self.circuit_outputs.push(o);
         }
     }
-    pub fn finalize(self, name: String) -> DPNFunctionCircuitDefinition {
+    pub fn finalize(self, name: String, method_id: u32) -> DPNFunctionCircuitDefinition {
         DPNFunctionCircuitDefinition {
             name,
+            method_id: method_id,
             circuit_inputs: self.circuit_inputs,
             circuit_outputs: self.circuit_outputs,
             state_commands: self.state_commands,
@@ -202,3 +203,7 @@ impl QEDCompileResult {
         }
     }
 }
+
+/*
+
+QExecContext*/
