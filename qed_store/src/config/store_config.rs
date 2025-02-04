@@ -1,5 +1,5 @@
 use kvq::adapters::standard::KVQStandardAdapter;
-use plonky2::{field::{goldilocks_field::GoldilocksField, types::Field}, hash::{hash_types::HashOut, poseidon::PoseidonHash}};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::{hash_types::HashOut, poseidon::PoseidonHash}};
 use qed_core::{
     config::network_constants::{
         CHECKPOINT_TREE_HEIGHT, CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,
@@ -7,7 +7,7 @@ use qed_core::{
     },
     data::qhashout::QHashOut,
 };
-use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::hasher::PoseidonHasher};
+use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use qed_data::qdata::{
     checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
     checkpoint_id_key::CheckpointTableIdKey,
@@ -137,15 +137,36 @@ pub type ContractFunctionTreeStore<S> = KVQSemiFixedConfigMerkleTreeModel<
 pub type DepositTreeStore<S> = ProtocolTreeStore<S, DEPOSIT_TREE_ID, GLOBAL_DEPOSIT_TREE_HEIGHT>;
 pub type WithdrawalTreeStore<S> = ProtocolTreeStore<S, WITHDRAWAL_TREE_ID, GLOBAL_WITHDRAWAL_TREE_HEIGHT>;
 
-
+// GLOBAL_CONTRACT_TREE_HEIGHT-th zero hash
 pub const DEFAULT_USER_STATE_TREE_ROOT: QHashOut<GoldilocksField> = QHashOut::<QEDFelt>(
     HashOut {
         elements: [
-            GoldilocksField(0),
-            GoldilocksField(0),
-            GoldilocksField(0),
-            GoldilocksField(0),
-
-        ]
+            GoldilocksField(3896366420105793420),
+            GoldilocksField(17410332186442776169),
+            GoldilocksField(7329967984378645716),
+            GoldilocksField(6310665049578686403),
+        ],
     }
 );
+
+
+#[cfg(test)]
+mod tests {
+    use qed_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
+    use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+    use qed_crypto::hash::traits::hasher::MerkleZeroHasherWithCache;
+    use qed_crypto::hash::traits::hasher::PoseidonHasher;
+
+    use crate::config::store_config::DEFAULT_USER_STATE_TREE_ROOT;
+
+    use super::QEDHasher;
+
+
+    #[test]
+    fn check_default_user_state_tree_root() {
+        
+        let expected_empty_user_state_tree_root = PoseidonHasher::get_zero_hash(GLOBAL_CONTRACT_TREE_HEIGHT as usize);
+        assert_eq!(DEFAULT_USER_STATE_TREE_ROOT, expected_empty_user_state_tree_root, "DEFAULT_USER_STATE_TREE_ROOT does not match the expected value");
+        // TODO: make sure the default user tree root is correct
+    }
+}

@@ -165,15 +165,15 @@ impl<T: ToFelts<SymFeltRef>, A: QContextArraySized<T>> QContextArray<T> for A {
             result
         }
     }
-    fn q_get_ref(&self, context: &mut QContext, index: SymFeltRef) -> &T {
+    fn q_get_ref(&self, _context: &mut QContext, _index: SymFeltRef) -> &T {
         todo!("q_get_ref")
     }
     
-    fn q_get_mut(&mut self, context: &mut QContext, index: SymFeltRef) -> &mut T {
+    fn q_get_mut(&mut self, _context: &mut QContext, _index: SymFeltRef) -> &mut T {
         todo!()
     }
     
-    fn q_set_at_index(&mut self, context: &mut QContext, index: SymFeltRef) -> T {
+    fn q_set_at_index(&mut self, _context: &mut QContext, _index: SymFeltRef) -> T {
         todo!()
     }
 } 
@@ -236,6 +236,19 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn assert_eq(&mut self, left: F, right: F, message: &'static str);
     fn assert_true(&mut self, left: F, message: &'static str);
     fn cset<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V;
+    fn cset_state_at<V: ToFelts<F>>(&mut self, sub_index: F, new_value: V) -> V;
+    fn cset_state_hash_at(&mut self, slot_index: F, new_value: [F; 4]) -> [F; 4];
+
+    fn cinvoke_external_contract_function_deferred(
+        &mut self,
+        contract_id: SymFeltRef,
+        method_id: SymFeltRef,
+        input_args: Vec<SymFeltRef>,
+    ) -> [SymFeltRef; 4];
+    fn get_state_hash_at(&mut self, slot_index: F) -> [F; 4];
+    fn get_other_contract_state_hash_at(&mut self, contract_state_tree_height: F, contract_id: F, slot_index: F) -> [F; 4];
+    fn get_other_user_contract_state_hash_at(&mut self, contract_state_tree_height: F, user_id: F, contract_id: F, slot_index: F) -> [F; 4];
+    
     fn cset_state<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V;
     fn cset_str<V: ToFelts<F>>(&mut self, left: &'static str, old_value: V, new_value: V) -> V;
     fn start_if_block(&mut self, condition: F);

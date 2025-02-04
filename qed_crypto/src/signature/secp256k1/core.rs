@@ -91,7 +91,7 @@ impl QEDCompressedSecp256K1Signature {
 }
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDPreparedSecp256K1Signature<F: RichField> {
     pub message: QHashOut<F>,
     pub public_key: ECDSAPublicKey<Secp256K1>,

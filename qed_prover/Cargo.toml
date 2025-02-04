@@ -7,8 +7,10 @@ version = "0.1.0"
 
 [dependencies]
 anyhow     = { workspace = true }
+bincode      = { workspace = true }
 serde      = { workspace = true }
 serde_json      = { workspace = true }
+serde_repr      = { workspace = true }
 serde_with = { workspace = true }
 hex = { workspace = true }
 hex-literal = { workspace = true }
@@ -19,7 +21,11 @@ tracing = { workspace = true }
 
 kvq = { path = "../kvq" }
 qed_core = { path = "../qed_core" }
+qed_common_circuit = { path = "../qed_common_circuit" }
+qed_rollup_circuit = { path = "../qed_rollup_circuit" }
 qedlang_core = { path = "../qedlang_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
 qed_store = { path = "../qed_store" }
+qed_exec = { path = "../qed_exec" }
+qedlang_macros = { path = "../qedlang_macros" }

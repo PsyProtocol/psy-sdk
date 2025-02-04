@@ -6,9 +6,9 @@ use plonky2::{
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
-use crate::hash::traits::hasher::{MerkleHasher, MerkleHasherWithMarkedLeaf, QHasher};
+use crate::hash::traits::hasher::{MerkleHasher, MerkleHasherWithMarkedLeaf, MerkleZeroHasher, QHasher};
 
-pub fn compute_partial_merkle_root_from_leaves_algebraic<F: RichField, H: AlgebraicHasher<F>>(
+pub fn compute_partial_merkle_root_from_leaves_algebraic<F: RichField, H:AlgebraicHasher<F>>(
     leaves: &[HashOut<F>],
 ) -> HashOut<F> {
     let mut current = leaves.to_vec();
@@ -70,7 +70,7 @@ pub fn verify_delta_merkle_proof<H: QHasher<F>, F: RichField>(proof: &DeltaMerkl
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct MerkleProofBase<F: RichField> {
     pub value: QHashOut<F>,
     pub index: F,
@@ -91,7 +91,7 @@ impl<F: RichField> MerkleProofBase<F> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct MerkleProof<F: RichField> {
     pub root: QHashOut<F>,
     pub value: QHashOut<F>,
@@ -106,7 +106,7 @@ impl<F: RichField> MerkleProof<F> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct DeltaMerkleProofBase<F: RichField> {
     pub old_value: QHashOut<F>,
     pub new_value: QHashOut<F>,
@@ -133,7 +133,7 @@ impl<F: RichField> DeltaMerkleProofBase<F> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(bound = "")]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct DeltaMerkleProof<F: RichField> {
     pub old_root: QHashOut<F>,
     pub old_value: QHashOut<F>,
@@ -158,12 +158,52 @@ pub struct MerkleProofCore<Hash: PartialEq + Copy> {
     pub siblings: Vec<Hash>,
 }
 
+impl<Hash: PartialEq + Copy + Default> Default for MerkleProofCore<Hash> {
+    fn default() -> Self {
+        Self {
+            root: Default::default(),
+            value: Default::default(),
+            index: Default::default(),
+            siblings: Default::default(),
+        }
+    }
+}
 impl<Hash: PartialEq + Copy> MerkleProofCore<Hash> {
     pub fn verify<Hasher: MerkleHasher<Hash>>(&self) -> bool {
         verify_merkle_proof_core::<Hash, Hasher>(self)
     }
     pub fn verify_marked<Hasher: MerkleHasherWithMarkedLeaf<Hash>>(&self) -> bool {
         verify_merkle_proof_marked_leaves_core::<Hash, Hasher>(self)
+    }
+    pub fn to_delta_merkle_proof_inplace(self) -> DeltaMerkleProofCore<Hash> {
+        DeltaMerkleProofCore {
+            old_root: self.root,
+            new_root: self.root,
+            old_value: self.value,
+            new_value: self.value,
+            index: self.index,
+            siblings: self.siblings
+        }
+    }
+    pub fn to_delta_merkle_proof(&self) -> DeltaMerkleProofCore<Hash> {
+        DeltaMerkleProofCore {
+            old_root: self.root,
+            new_root: self.root,
+            old_value: self.value,
+            new_value: self.value,
+            index: self.index,
+            siblings: self.siblings.clone()
+        }
+    }
+}
+impl<F: RichField> From<MerkleProofCore<HashOut<F>>> for MerkleProofCore<QHashOut<F>> {
+    fn from(value: MerkleProofCore<HashOut<F>>) -> Self {
+        Self {
+            root: QHashOut(value.root),
+            value: QHashOut(value.value),
+            index: value.index,
+            siblings: value.siblings.into_iter().map(|s| QHashOut(s)).collect::<Vec<_>>(),
+        }
     }
 }
 
@@ -187,6 +227,31 @@ pub struct DeltaMerkleProofCore<Hash: PartialEq + Copy> {
     pub index: u64,
     pub siblings: Vec<Hash>,
 }
+
+impl<F: RichField> From<DeltaMerkleProofCore<HashOut<F>>> for DeltaMerkleProofCore<QHashOut<F>> {
+    fn from(value: DeltaMerkleProofCore<HashOut<F>>) -> Self {
+        Self {
+            old_root: QHashOut(value.old_root),
+            old_value: QHashOut(value.old_value),
+            new_root: QHashOut(value.new_root),
+            new_value: QHashOut(value.new_value),
+            index: value.index,
+            siblings: value.siblings.into_iter().map(|s| QHashOut(s)).collect::<Vec<_>>(),
+        }
+    }
+}
+impl<Hash: PartialEq + Copy + Default> Default for DeltaMerkleProofCore<Hash> {
+    fn default() -> Self {
+        Self {
+            old_root: Default::default(),
+            old_value: Default::default(),
+            new_root: Default::default(),
+            new_value: Default::default(),
+            index: Default::default(),
+            siblings: Default::default(),
+        }
+    }
+}
 impl<Hash: PartialEq + Copy> DeltaMerkleProofCore<Hash> {
     pub fn verify<Hasher: MerkleHasher<Hash>>(&self) -> bool {
         verify_delta_merkle_proof_core::<Hash, Hasher>(self)
@@ -207,6 +272,24 @@ pub fn verify_merkle_proof_core<Hash: PartialEq + Copy, Hasher: MerkleHasher<Has
         }
     }
     current == proof.root
+}
+
+
+pub fn compute_historical_and_current_merkle_roots_core<Hash: PartialEq + Copy, Hasher: MerkleZeroHasher<Hash>>(
+    proof: &MerkleProofCore<Hash>,
+) -> (Hash, Hash) {
+    let mut current = proof.value;
+    let mut historical = Hasher::get_zero_hash(0);
+    for (i, sibling) in proof.siblings.iter().enumerate() {
+        if proof.index & (1 << i) == 0 {
+            current = Hasher::two_to_one(&current, sibling);
+            historical = Hasher::two_to_one(&historical, &Hasher::get_zero_hash(i));
+        } else {
+            current = Hasher::two_to_one(sibling, &current);
+            historical = Hasher::two_to_one(sibling, &historical);
+        }
+    }
+    (historical, current)
 }
 pub fn verify_delta_merkle_proof_core<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(
     proof: &DeltaMerkleProofCore<Hash>,

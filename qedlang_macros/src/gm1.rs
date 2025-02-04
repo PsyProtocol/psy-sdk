@@ -233,7 +233,7 @@ impl Fold for RewriterVisitor {
                 })
             }
             Expr::Binary(e) => {
-                println!("Binary expression: {:#?}", e.to_token_stream());
+                //println!("Binary expression: {:#?}", e.to_token_stream());
                 let left = Box::new(self.fold_expr(*e.left));
                 let right = Box::new(self.fold_expr(*e.right));
                 ctx_bin_op(&ExprBinary {
@@ -284,7 +284,7 @@ impl Fold for RewriterVisitor {
                     ctx.example(tmp_arg_0, tmp_arg_1)
                 }
                  */
-                println!("Method call expression: {:#?}", e.to_token_stream());
+                //println!("Method call expression: {:#?}", e.to_token_stream());
                 let receiver = Box::new(self.fold_expr(*e.receiver));
                 let args: Vec<Expr> = e.args.into_iter().map(|arg| self.fold_expr(arg)).collect();
                 let method = e.method;
@@ -300,6 +300,23 @@ impl Fold for RewriterVisitor {
                     let stmt: Stmt = parse_quote! {
                         let #tmp_ident = (#arg);
                     };
+
+                    if let Expr::Path(x) = arg.clone() {
+                        if x.path.segments.len() == 1 {
+                            let seg = x.path.segments.first().unwrap();
+                            if seg.ident == "ctx" {
+                                new_args.push(seg.ident.clone().into());
+                                continue;
+                            }
+                        }
+                        stmts.push(stmt);
+                        new_args.push(tmp_ident);
+
+                    } else {
+                        stmts.push(stmt);
+                        new_args.push(tmp_ident);
+                    }
+                    /* 
                     if let Expr::Path(x) = arg.clone() {
                         if x.path.segments.len() == 1 {
                             let seg = x.path.segments.first().unwrap();
@@ -311,7 +328,7 @@ impl Fold for RewriterVisitor {
                     } else {
                         stmts.push(stmt);
                         new_args.push(tmp_ident);
-                    }
+                    }*/
                 }
 
                 let new_method_call: Expr = parse_quote! {

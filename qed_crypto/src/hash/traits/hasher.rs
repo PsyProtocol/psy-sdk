@@ -3,6 +3,7 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::HashOut;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::poseidon::PoseidonHash;
+use plonky2::plonk::config::AlgebraicHasher;
 use plonky2::plonk::config::Hasher;
 use qed_core::data::qhashout::QHashOut;
 
@@ -54,29 +55,104 @@ pub trait MerkleZeroHasherWithCacheMarkedLeaf<Hash: PartialEq + Copy>:
     const CACHED_MARKED_LEAF_ZERO_HASHES: [Hash; ZERO_HASH_CACHE_SIZE];
 }
 
-pub trait FieldHasher<Hash, F> {
-    fn hash_many(elements: &[F]) -> Hash;
-    fn hash_many_pad(elements: &[F]) -> Hash;
-}
+pub trait QAlgebraicHasher<F: RichField>:AlgebraicHasher<F> + MerkleHasher<QHashOut<F>> + MerkleHasher<HashOut<F>> + BasicFieldHasher<F> {}
+pub trait QAlgebraicZeroHasher<F: RichField>: QAlgebraicHasher<F> + MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> {}
 
+
+pub trait BasicFieldHasher<F: RichField> {
+    fn hash_many(elements: &[F]) -> HashOut<F>;
+    fn hash_many_pad(elements: &[F]) -> HashOut<F>;
+    fn two_to_one(left: HashOut<F>, right: HashOut<F>) -> HashOut<F>;
+}
+/* 
+impl<H:AlgebraicHasher<F>, F: RichField> BasicFieldHasher<F> for H {
+    fn hash_many(elements: &[F]) -> HashOut<F> {
+        H::hash_no_pad(elements)
+    }
+
+    fn hash_many_pad(elements: &[F]) -> HashOut<F> {
+        H::hash_pad(elements)
+    }
+
+    fn two_to_one(left: HashOut<F>, right: HashOut<F>) -> HashOut<F> {
+        H::two_to_one(left, right)
+    }
+}*/
+
+
+impl<F: RichField> BasicFieldHasher<F> for PoseidonHash{
+    fn hash_many(elements: &[F]) -> HashOut<F> {
+        PoseidonHash::hash_no_pad(elements)
+    }
+
+    fn hash_many_pad(elements: &[F]) -> HashOut<F> {
+        PoseidonHash::hash_pad(elements)
+    }
+
+    fn two_to_one(left: HashOut<F>, right: HashOut<F>) -> HashOut<F> {
+        <PoseidonHash as Hasher<F>>::two_to_one(left, right)
+    }
+}
 pub trait FieldQHasher<F: RichField> {
-    fn w_hash_many(elements: &[F]) -> QHashOut<F>;
-    fn w_hash_many_pad(elements: &[F]) -> QHashOut<F>;
+    fn hash_many(elements: &[F]) -> HashOut<F>;
+    fn hash_many_pad(elements: &[F]) -> HashOut<F>;
+    fn two_to_one(left: HashOut<F>, right: HashOut<F>) -> HashOut<F>;
+
+    fn q_hash_many(elements: &[F]) -> QHashOut<F>;
+    fn q_hash_many_pad(elements: &[F]) -> QHashOut<F>;
+    fn q_two_to_one(left: QHashOut<F>, right: QHashOut<F>) -> QHashOut<F>;
 }
-impl<F: RichField, FH: FieldHasher<HashOut<F>, F>> FieldQHasher<F> for FH {
-    fn w_hash_many(elements: &[F]) -> QHashOut<F> {
-        QHashOut(FH::hash_many(elements))
+pub trait FieldHasher<F: RichField>: FieldQHasher<F> {}
+impl<H: BasicFieldHasher<F>, F: RichField> FieldQHasher<F> for H {
+    fn hash_many(elements: &[F]) -> HashOut<F> {
+        <H as BasicFieldHasher<F>>::hash_many(elements)
     }
 
-    fn w_hash_many_pad(elements: &[F]) -> QHashOut<F> {
-        QHashOut(FH::hash_many_pad(elements))
+    fn hash_many_pad(elements: &[F]) -> HashOut<F> {
+        <H as BasicFieldHasher<F>>::hash_many_pad(elements)
+    }
+
+    fn two_to_one(left: HashOut<F>, right: HashOut<F>) -> HashOut<F> {
+        <H as BasicFieldHasher<F>>::two_to_one(left, right)
+    }
+
+    fn q_hash_many(elements: &[F]) -> QHashOut<F> {
+        QHashOut(<H as BasicFieldHasher<F>>::hash_many(elements))
+    }
+
+    fn q_hash_many_pad(elements: &[F]) -> QHashOut<F> {
+        QHashOut(<H as BasicFieldHasher<F>>::hash_many(elements))
+    }
+
+    fn q_two_to_one(left: QHashOut<F>, right: QHashOut<F>) -> QHashOut<F> {
+        QHashOut(<H as BasicFieldHasher<F>>::two_to_one(left.0, right.0))
     }
 }
-pub struct PoseidonHasher;
 
-impl<F: QRichField> MerkleHasher<HashOut<F>> for PoseidonHasher {
+
+impl<H: FieldQHasher<F>, F: RichField> MerkleHasher<HashOut<F>> for H {
     fn two_to_one(left: &HashOut<F>, right: &HashOut<F>) -> HashOut<F> {
-        <PoseidonHash as plonky2::plonk::config::Hasher<F>>::two_to_one(*left, *right)
+        <H as FieldQHasher<F>>::two_to_one(*left, *right)
+    }
+}
+impl<H: FieldQHasher<F>, F: RichField> MerkleHasher<QHashOut<F>> for H {
+    fn two_to_one(left: &QHashOut<F>, right: &QHashOut<F>) -> QHashOut<F> {
+        <H as FieldQHasher<F>>::q_two_to_one(*left, *right)
+    }
+}
+
+pub struct PoseidonHasher;
+impl<F: RichField> BasicFieldHasher<F> for PoseidonHasher {
+    fn hash_many(elements: &[F]) -> HashOut<F> {
+        PoseidonHash::hash_no_pad(elements)
+    }
+
+    fn hash_many_pad(elements: &[F]) -> HashOut<F> {
+        PoseidonHash::hash_pad(elements)
+    }
+
+    fn two_to_one(left: HashOut<F>, right: HashOut<F>) -> HashOut<F> {
+        <PoseidonHash as Hasher<F>>::two_to_one(left, right)
     }
 }
 impl<F: QRichField> MerkleHasherWithMarkedLeaf<HashOut<F>> for PoseidonHasher {
@@ -95,11 +171,6 @@ impl<F: QRichField> MerkleHasherWithMarkedLeaf<HashOut<F>> for PoseidonHasher {
     }
 }
 
-impl<F: QRichField> MerkleHasher<QHashOut<F>> for PoseidonHasher {
-    fn two_to_one(left: &QHashOut<F>, right: &QHashOut<F>) -> QHashOut<F> {
-        QHashOut(<PoseidonHash as plonky2::plonk::config::Hasher<F>>::two_to_one(left.0, right.0))
-    }
-}
 impl<F: QRichField> MerkleHasherWithMarkedLeaf<QHashOut<F>> for PoseidonHasher {
     fn two_to_one_marked_leaf(left: &QHashOut<F>, right: &QHashOut<F>) -> QHashOut<F> {
         QHashOut(PoseidonHash::hash_no_pad(&[
@@ -147,17 +218,6 @@ impl<F: QRichField> MerkleHasherWithMarkedLeaf<HashOut<F>> for PoseidonHash {
     }
 }
 
-impl<F: QRichField> MerkleHasher<QHashOut<F>> for PoseidonHash {
-    fn two_to_one(left: &QHashOut<F>, right: &QHashOut<F>) -> QHashOut<F> {
-        QHashOut(<PoseidonHash as plonky2::plonk::config::Hasher<F>>::two_to_one(left.0, right.0))
-    }
-}
-impl<F: QRichField> MerkleHasher<HashOut<F>> for PoseidonHash {
-    fn two_to_one(left: &HashOut<F>, right: &HashOut<F>) -> HashOut<F> {
-        <PoseidonHash as plonky2::plonk::config::Hasher<F>>::two_to_one(*left, *right)
-    }
-}
-
 impl BaseMerkleZeroHasherWithMarkedLeaf<QHashOut<GoldilocksField>> for PoseidonHash {
     fn get_zero_hash_marked(reverse_level: usize) -> QHashOut<GoldilocksField> {
         PoseidonHasher::get_zero_hash_marked(reverse_level)
@@ -191,7 +251,7 @@ impl<F: RichField> FieldHasher<HashOut<F>, F> for PoseidonHash {
         PoseidonHash::hash_pad(elements)
     }
 }
-impl<F: RichField> FieldHasher<QHashOut<F>, F> for PoseidonHash {
+impl<F: RichField> FieldQHasher<F> for PoseidonHash {
     fn hash_many(elements: &[F]) -> QHashOut<F> {
         QHashOut(PoseidonHash::hash_no_pad(elements))
     }
@@ -210,16 +270,8 @@ fn compute_zero_hashes_core<Hash: PartialEq + ZeroableHash + Copy, Hasher: Merkl
     result
 }*/
 
-impl<F: RichField, H: Hasher<F, Hash = HashOut<F>>> FieldHasher<HashOut<F>, F> for H {
-    fn hash_many(elements: &[F]) -> HashOut<F> {
-        H::hash_no_pad(elements)
-    }
-
-    fn hash_many_pad(elements: &[F]) -> HashOut<F> {
-        H::hash_pad(elements)
-    }
-}
-impl<F: RichField, H: Hasher<F, Hash = HashOut<F>>> FieldHasher<QHashOut<F>, F> for H {
+/* 
+impl<F: RichField, H: Hasher<F, Hash = HashOut<F>>> FieldQHasher<F> for H {
     fn hash_many(elements: &[F]) -> QHashOut<F> {
         QHashOut(H::hash_no_pad(elements))
     }
@@ -228,8 +280,18 @@ impl<F: RichField, H: Hasher<F, Hash = HashOut<F>>> FieldHasher<QHashOut<F>, F> 
         QHashOut(H::hash_pad(elements))
     }
 }
-
-fn iterate_merkle_hasher<Hash: PartialEq, Hasher: MerkleHasher<Hash>>(
+*/
+pub fn iterate_merkle_hasher_alg<H:AlgebraicHasher<F>, F: RichField>(
+    current: QHashOut<F>,
+    reverse_level: usize,
+) -> QHashOut<F> {
+    let mut value = current.0;
+    for _ in 0..reverse_level {
+        value = H::two_to_one(value, value);
+    }
+    QHashOut(value)
+}
+pub fn iterate_merkle_hasher<Hash: PartialEq, Hasher: MerkleHasher<Hash>>(
     mut current: Hash,
     reverse_level: usize,
 ) -> Hash {
@@ -268,3 +330,6 @@ impl<
     > MerkleZeroHasherWithMarkedLeaf<Hash> for T
 {
 }
+
+
+impl<F: RichField> QAlgebraicHasher<F> for PoseidonHash {}

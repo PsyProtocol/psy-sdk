@@ -9,6 +9,7 @@ version = "0.1.0"
 anyhow     = { workspace = true }
 serde      = { workspace = true }
 serde_with = { workspace = true }
+serde_repr = { workspace = true }
 serde_json = { workspace = true }
 hex = { workspace = true }
 hex-literal = { workspace = true }
@@ -17,6 +18,7 @@ plonky2 = { workspace = true }
 twox-hash = { workspace = true }
 rand = { workspace = true }
 bincode = { workspace = true }
+async-trait = { workspace = true }
 
 tracing-subscriber = { workspace = true }
 tracing = { workspace = true }

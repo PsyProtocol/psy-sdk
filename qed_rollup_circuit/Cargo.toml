@@ -1,0 +1,24 @@
+[package]
+edition = "2021"
+name    = "qed_rollup_circuit"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow     = { workspace = true }
+serde      = { workspace = true }
+serde_json      = { workspace = true }
+serde_repr      = { workspace = true }
+serde_with = { workspace = true }
+hex = { workspace = true }
+hex-literal = { workspace = true }
+lazy_static = { workspace = true }
+plonky2 = { workspace = true }
+twox-hash = { workspace = true }
+tracing = { workspace = true }
+
+qed_core = { path = "../qed_core" }
+qed_common_circuit = { path = "../qed_common_circuit" }
+qed_data = { path = "../qed_data" }
+qed_crypto = { path = "../qed_crypto" }

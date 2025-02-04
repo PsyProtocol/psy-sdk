@@ -1,10 +1,10 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
-use qed_crypto::hash::traits::{hasher::FieldHasher, qhashable::QFieldHashable};
+use qed_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDContractLeaf<F: RichField> {
     pub deployer: QHashOut<F>,
@@ -59,8 +59,8 @@ impl<F: RichField> ToQFelts<F> for QEDContractLeaf<F> {
 
 
 impl<F: RichField> QFieldHashable<F> for QEDContractLeaf<F> {
-    fn qfhash<H: FieldHasher<QHashOut<F>, F>>(&self) -> QHashOut<F> {
-        H::hash_many(&[
+    fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
+        H::q_hash_many(&[
             self.deployer.0.elements[0],
             self.deployer.0.elements[1],
             self.deployer.0.elements[2],
@@ -74,9 +74,13 @@ impl<F: RichField> QFieldHashable<F> for QEDContractLeaf<F> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 pub struct ContractFunctionCodeDefinition {
-    pub call_signature: [u8; 20],
+    // TODO: in the future method id = sha256(functionName(arg0[arg0_size],arg1[arg1_size]))&0xffffffff
+    // CURRENT: sha256(functionName + "-|-" + args_count)&0xffffffff
+    pub method_id: u32,
+    pub num_inputs: u32,
+    pub num_outputs: u32,
     pub vm_type: u32,
     pub code: Vec<u8>,
 }

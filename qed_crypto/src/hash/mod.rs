@@ -3,3 +3,4 @@ pub mod cached_zero_hashes;
 pub mod core;
 pub mod merkle;
 pub mod traits;
+pub mod utils;

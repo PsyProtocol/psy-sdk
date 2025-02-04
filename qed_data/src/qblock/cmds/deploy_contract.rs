@@ -3,7 +3,7 @@ use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
+use crate::qdata::contract::ContractCodeDefinition;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]

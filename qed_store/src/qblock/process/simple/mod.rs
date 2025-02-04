@@ -1,12 +1,10 @@
-use std::{hash::Hash, sync::Arc};
 use std::time::SystemTime;
 
 use plonky2::field::types::{Field, PrimeField64};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::traits::{
-    hasher::{FieldQHasher, PoseidonHasher},
-    qhashable::QFieldHashable,
-};
+use qed_crypto::hash::traits::
+    qhashable::QFieldHashable
+;
 use qed_data::qblock::process::witnesses::QEDCheckpointStateTransitionCircuitInput;
 use qed_data::{
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
@@ -85,7 +83,7 @@ impl SimpleBlockProcessor {
             };
             witness_register_users.push(user_reg_witness);
         }
-        let boundry_user_id = new_block_state.next_user_id as u32;
+        let boundry_user_id = new_block_state.next_user_id;
         let boundry_user_registration_merkle_proof = store.get_user_tree_merkle_proof(new_checkpoint_id, boundry_user_id)?;
         new_block_state.next_user_id += cmds.register_users.len() as u64;
 
@@ -216,6 +214,7 @@ impl SimpleBlockProcessor {
         store.set_checkpoint_leaf_data(new_checkpoint_id, &new_checkpoint_leaf)?;
 
         let checkpoint_delta_merkle_proof = store.set_checkpoint_tree_leaf_hash(new_checkpoint_id, new_checkpoint_leaf_hash)?;
+        println!("checkpoint_delta_merkle_proof: {}", serde_json::to_string_pretty(&checkpoint_delta_merkle_proof).unwrap());
 
 
 

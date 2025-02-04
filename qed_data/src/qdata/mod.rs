@@ -4,3 +4,6 @@ pub mod checkpoint;
 pub mod pm_reward_commitment;
 pub mod u64_key;
 pub mod checkpoint_id_key;
+pub mod contract_inclusion;
+pub mod ups_signature;
+pub mod ups_end_cap_result;

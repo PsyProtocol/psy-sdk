@@ -1,14 +1,14 @@
-use std::{marker::PhantomData, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}};
 
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_data::qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf};
+use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
+use qed_data::{dpn::proving_session::DPNProvingSessionSimpleMethodCall, qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}};
 use serde::{Deserialize, Serialize};
 
-use crate::traits::qdatastore::qtreedata::QEDComboDataStoreReaderSync;
 
 use super::cmd::{QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetL2BlockState, QSRCmdGetUserLeafData, QSRHashCmd, QSRMerkleCmd};
+
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct QEDReadCommandBatchInput {
@@ -81,6 +81,185 @@ pub struct QEDReadCommandBatchOutput<F: RichField> {
     pub get_hash: Vec<QHashOut<F>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+
+pub struct DPNReadOtherUserLeafMerkleProof<F: RichField> {
+    pub user_tree_proof: MerkleProofCore<QHashOut<F>>,
+    pub user_leaf: QEDUserLeaf<F>,
+
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+
+pub struct DPNReadOtherUserContractStateLeafMerkleProof<F: RichField> {
+    pub user_leaf_witness: DPNReadOtherUserLeafMerkleProof<F>,
+    pub contract_state_proof: MerkleProofCore<QHashOut<F>>,
+    pub state_slot_proofs: Vec<MerkleProofCore<QHashOut<F>>>,
+}
+
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+
+pub struct DPNInvokeDeferredMethodCallWitness<F: RichField> {
+    pub call_data: DPNProvingSessionSimpleMethodCall<F>,
+    pub insertion_proof: DeltaMerkleProofCore<QHashOut<F>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub enum DPNStateCmdWitness<F: RichField> {
+    MerkleProof(MerkleProofCore<QHashOut<F>>),
+    DeltaMerkleProof(DeltaMerkleProofCore<QHashOut<F>>),
+    MerkleProofArray(Vec<MerkleProofCore<QHashOut<F>>>),
+    DeltaMerkleProofArray(Vec<DeltaMerkleProofCore<QHashOut<F>>>),
+    ReadOtherUserContractState(DPNReadOtherUserContractStateLeafMerkleProof<F>),
+    InvokeExternalContractFunctionDeferred(DPNInvokeDeferredMethodCallWitness<F>),
+    TargetArray(Vec<F>),
+    TargetArray2D(Vec<Vec<F>>),
+}
+
+impl<F: RichField> DPNStateCmdWitness<F> {
+    
+    pub fn get_merkle_proof_ref(&self) -> &MerkleProofCore<QHashOut<F>> {
+        match &self {
+            DPNStateCmdWitness::MerkleProof(merkle_proof) => {
+                merkle_proof
+            },
+            _ => panic!("get_merkle_proof_ref expects witnesss type to be MerkleProof, but got {:?}",&self),
+        }
+    }
+    pub fn get_delta_merkle_proof_ref(&self) -> &DeltaMerkleProofCore<QHashOut<F>> {
+        match &self {
+            DPNStateCmdWitness::DeltaMerkleProof(delta_merkle_proof) => {
+                delta_merkle_proof
+            },
+            _ => panic!("get_delta_merkle_proof_ref expects witnesss type to be DeltaMerkleProof, but got {:?}",&self),
+        }
+    }
+    pub fn get_merkle_proof_array_ref(&self) -> &Vec<MerkleProofCore<QHashOut<F>>> {
+        match &self {
+            DPNStateCmdWitness::MerkleProofArray(merkle_proofs) => {
+                merkle_proofs
+            },
+            _ => panic!("get_merkle_proof_array_ref expects witnesss type to be MerkleProofArray, but got {:?}",&self),
+        }
+    }
+    pub fn get_delta_merkle_proof_array_ref(&self) -> &Vec<DeltaMerkleProofCore<QHashOut<F>>> {
+        match &self {
+            DPNStateCmdWitness::DeltaMerkleProofArray(delta_merkle_proofs) => {
+                delta_merkle_proofs
+            },
+            _ => panic!("get_delta_merkle_proof_array_ref expects witnesss type to be DeltaMerkleProofArray, but got {:?}",&self),
+        }
+    }
+
+
+    pub fn get_read_other_contract_state_ref(&self) -> &DPNReadOtherUserContractStateLeafMerkleProof<F> {
+        match &self {
+            DPNStateCmdWitness::ReadOtherUserContractState(w) => {
+                w
+            },
+            _ => panic!("get_read_other_contract_state_ref expects witnesss type to be ReadOtherUserContractState, but got {:?}",&self),
+        }
+    }
+
+
+    pub fn get_invoke_external_function_deferred_ref(&self) -> &DPNInvokeDeferredMethodCallWitness<F> {
+        match &self {
+            DPNStateCmdWitness::InvokeExternalContractFunctionDeferred(w) => {
+                w
+            },
+            _ => panic!("get_invoke_external_function_deferred_ref expects witnesss type to be InvokeExternalContractFunctionDeferred, but got {:?}",&self),
+        }
+    }
+    pub fn get_target_array_ref(&self) -> &Vec<F> {
+        match &self {
+            DPNStateCmdWitness::TargetArray(w) => {
+                w
+            },
+            _ => panic!("get_target_array_ref expects witnesss type to be TargetArray, but got {:?}",&self),
+        }
+    }
+    pub fn get_target_array_2d_ref(&self) -> &Vec<Vec<F>> {
+        match &self {
+            DPNStateCmdWitness::TargetArray2D(w) => {
+                w
+            },
+            _ => panic!("get_target_array_2d_ref expects witnesss type to be TargetArray2D, but got {:?}",&self),
+        }
+    }
+    pub fn get_merkle_proof(self) -> MerkleProofCore<QHashOut<F>> {
+        match self {
+            DPNStateCmdWitness::MerkleProof(merkle_proof) => {
+                merkle_proof
+            },
+            _ => panic!("get_merkle_proof expects witnesss type to be MerkleProof, but got {:?}",&self),
+        }
+    }
+    pub fn get_delta_merkle_proof(self) -> DeltaMerkleProofCore<QHashOut<F>> {
+        match self {
+            DPNStateCmdWitness::DeltaMerkleProof(delta_merkle_proof) => {
+                delta_merkle_proof
+            },
+            _ => panic!("get_delta_merkle_proof expects witnesss type to be DeltaMerkleProof, but got {:?}",&self),
+        }
+    }
+    pub fn get_merkle_proof_array(self) -> Vec<MerkleProofCore<QHashOut<F>>> {
+        match self {
+            DPNStateCmdWitness::MerkleProofArray(merkle_proofs) => {
+                merkle_proofs
+            },
+            _ => panic!("get_merkle_proof_array expects witnesss type to be MerkleProofArray, but got {:?}",&self),
+        }
+    }
+    pub fn get_delta_merkle_proof_array(self) -> Vec<DeltaMerkleProofCore<QHashOut<F>>> {
+        match self {
+            DPNStateCmdWitness::DeltaMerkleProofArray(delta_merkle_proofs) => {
+                delta_merkle_proofs
+            },
+            _ => panic!("get_delta_merkle_proof_array expects witnesss type to be DeltaMerkleProofArray, but got {:?}",&self),
+        }
+    }
+
+
+    pub fn get_read_other_contract_state(self) -> DPNReadOtherUserContractStateLeafMerkleProof<F> {
+        match self {
+            DPNStateCmdWitness::ReadOtherUserContractState(w) => {
+                w
+            },
+            _ => panic!("get_read_other_contract_state expects witnesss type to be ReadOtherUserContractState, but got {:?}",&self),
+        }
+    }
+
+
+    pub fn get_invoke_external_function_deferred(self) -> DPNInvokeDeferredMethodCallWitness<F> {
+        match self {
+            DPNStateCmdWitness::InvokeExternalContractFunctionDeferred(w) => {
+                w
+            },
+            _ => panic!("get_invoke_external_function_deferred expects witnesss type to be InvokeExternalContractFunctionDeferred, but got {:?}",&self),
+        }
+    }
+    pub fn get_target_array(self) -> Vec<F> {
+        match self {
+            DPNStateCmdWitness::TargetArray(w) => {
+                w
+            },
+            _ => panic!("get_target_array expects witnesss type to be TargetArray, but got {:?}",&self),
+        }
+    }
+    pub fn get_target_array_2d(self) -> Vec<Vec<F>> {
+        match self {
+            DPNStateCmdWitness::TargetArray2D(w) => {
+                w
+            },
+            _ => panic!("get_target_array_2d expects witnesss type to be TargetArray2D, but got {:?}",&self),
+        }
+    }
+}
 impl<F: RichField> QEDReadCommandBatchOutput<F> {
     pub fn new() -> Self {
         Self {

@@ -255,52 +255,52 @@ impl Shr<RuntimeFelt> for u64 {
 }
 impl AddAssign<RuntimeFelt> for u64 {
     fn add_assign(&mut self, other: RuntimeFelt) {
-        *self = ((*self + other.0)%GoldilocksField::ORDER)
+        *self = (*self + other.0)%GoldilocksField::ORDER
     }
 }
 impl SubAssign<RuntimeFelt> for u64 {
     fn sub_assign(&mut self, other: RuntimeFelt) {
-        *self = ((GoldilocksField::from_canonical_u64(*self) - GoldilocksField::from_canonical_u64(other.0)).0)
+        *self = (GoldilocksField::from_canonical_u64(*self) - GoldilocksField::from_canonical_u64(other.0)).0
     }
 }
 impl MulAssign<RuntimeFelt> for u64 {
     fn mul_assign(&mut self, other: RuntimeFelt) {
-        *self = ((GoldilocksField::from_canonical_u64(*self) * GoldilocksField::from_canonical_u64(other.0)).0)
+        *self = (GoldilocksField::from_canonical_u64(*self) * GoldilocksField::from_canonical_u64(other.0)).0
     }
 }
 impl DivAssign<RuntimeFelt> for u64 {
     fn div_assign(&mut self, other: RuntimeFelt) {
-        *self = ((GoldilocksField::from_canonical_u64(*self) / GoldilocksField::from_canonical_u64(other.0)).0)
+        *self = (GoldilocksField::from_canonical_u64(*self) / GoldilocksField::from_canonical_u64(other.0)).0
     }
 }
 impl RemAssign<RuntimeFelt> for u64 {
     fn rem_assign(&mut self, other: RuntimeFelt) {
-        *self = (*self % other.0)
+        *self = *self % other.0
     }
 }
 impl BitAndAssign<RuntimeFelt> for u64 {
     fn bitand_assign(&mut self, other: RuntimeFelt) {
-        *self = ((*self & other.0)&0xFFFFFFFFu64)
+        *self = (*self & other.0)&0xFFFFFFFFu64
     }
 }
 impl BitOrAssign<RuntimeFelt> for u64 {
     fn bitor_assign(&mut self, other: RuntimeFelt) {
-        *self = ((*self | other.0)&0xFFFFFFFFu64)
+        *self = (*self | other.0)&0xFFFFFFFFu64
     }
 }
 impl BitXorAssign<RuntimeFelt> for u64 {
     fn bitxor_assign(&mut self, other: RuntimeFelt) {
-        *self = ((*self ^ other.0)&0xFFFFFFFFu64)
+        *self = (*self ^ other.0)&0xFFFFFFFFu64
     }
 }
 impl ShlAssign<RuntimeFelt> for u64 {
     fn shl_assign(&mut self, other: RuntimeFelt) {
-        *self = ((*self << other.0)&0xFFFFFFFFu64)
+        *self = (*self << other.0)&0xFFFFFFFFu64
     }
 }
 impl ShrAssign<RuntimeFelt> for u64 {
     fn shr_assign(&mut self, other: RuntimeFelt) {
-        *self = ((*self >> other.0)&0xFFFFFFFFu64)
+        *self = (*self >> other.0)&0xFFFFFFFFu64
     }
 }
 impl AddAssign<u64> for RuntimeFelt {

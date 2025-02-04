@@ -20,12 +20,17 @@ impl ExampleContract2 {
 }
 "#;
 static FOO: &str = r#"
+#[qcontract]
 impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
     pub fn simple_math(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
         let k = (a + 2) * 4 * b - 3 * (a + b);
         let z = k + a;
-
-        ctx.assert_true(z > 3, "z must be gt than 3");
+        //ctx.op_set_state_felt(a, b);
+        let abc = [z, z, b, b];
+        let qq = ctx.get_state_hash_at(a);
+        //ctx.cset_state_hash_at(a, abc);
+        
+        ctx.assert_true(z > 12, "z must be gt than 12");
         z
     }
     pub fn if_test_2(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
@@ -43,6 +48,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
         c + k
     }
 }
+
 "#;
 
 

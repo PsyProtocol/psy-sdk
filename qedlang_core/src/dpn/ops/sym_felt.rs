@@ -1,7 +1,7 @@
 use std::hash::Hasher;
 
 use std::ops::{
-    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Deref, Div, DivAssign, Mul, MulAssign, Neg, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign
+    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign, Mul, MulAssign, Neg, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign
 };
 
 use plonky2::field::types::{Field, PrimeField64};
@@ -76,7 +76,21 @@ impl SymFeltRef {
         ((self.0>>112) as u16).into()
     }
     pub fn needs_store(&self) -> bool {
-        ((self.0 >> 112) as u16) > 1 
+        let type_id = (self.0 >> 112) as u16;
+        /*
+            Op Types which do NOT need to be stored:
+                InputTarget = 0,
+                Constant = 1,
+                ConstantTrue = 2,
+                ConstantFalse = 3,
+
+                GetUserId = 46,
+                GetContractId = 47,
+                GetCheckpointId = 48,
+                GetNonce = 49,
+                GetUserPublicKeyHash = 50,
+        */
+        type_id > 3 && (type_id < 46 || type_id > 50)
     }
     pub fn constant_true() -> SymFeltRef {
         SymFeltRef((DPNOpType::ConstantTrue as u128)<<112)
@@ -368,32 +382,32 @@ impl DivAssign<SymFeltRef> for u64 {
 }
 impl RemAssign<SymFeltRef> for u64 {
     fn rem_assign(&mut self, other: SymFeltRef) {
-        *self = (*self % other.get_u64())
+        *self = *self % other.get_u64()
     }
 }
 impl BitAndAssign<SymFeltRef> for u64 {
     fn bitand_assign(&mut self, other: SymFeltRef) {
-        *self = ((*self & other.get_u64())&0xFFFFFFFFu64)
+        *self = (*self & other.get_u64())&0xFFFFFFFFu64
     }
 }
 impl BitOrAssign<SymFeltRef> for u64 {
     fn bitor_assign(&mut self, other: SymFeltRef) {
-        *self = ((*self | other.get_u64())&0xFFFFFFFFu64)
+        *self = (*self | other.get_u64())&0xFFFFFFFFu64
     }
 }
 impl BitXorAssign<SymFeltRef> for u64 {
     fn bitxor_assign(&mut self, other: SymFeltRef) {
-        *self = ((*self ^ other.get_u64())&0xFFFFFFFFu64)
+        *self = (*self ^ other.get_u64())&0xFFFFFFFFu64
     }
 }
 impl ShlAssign<SymFeltRef> for u64 {
     fn shl_assign(&mut self, other: SymFeltRef) {
-        *self = ((*self << other.get_u64())&0xFFFFFFFFu64)
+        *self = (*self << other.get_u64())&0xFFFFFFFFu64
     }
 }
 impl ShrAssign<SymFeltRef> for u64 {
     fn shr_assign(&mut self, other: SymFeltRef) {
-        *self = ((*self >> other.get_u64())&0xFFFFFFFFu64)
+        *self = (*self >> other.get_u64())&0xFFFFFFFFu64
     }
 }
 impl AddAssign<u64> for SymFeltRef {
