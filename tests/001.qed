@@ -24,7 +24,7 @@ struct Family {
 }
 
 impl Person {
-    fn set_age(self: Person, new_age: Felt) {
+    fn set_age(mut self: Person, new_age: Felt) {
         self.age_height[0][0] = new_age;
     }
 
@@ -32,7 +32,7 @@ impl Person {
         return self.age_height[0][0];
     }
 
-    fn set_height(self: Person, new_height: Felt) {
+    fn set_height(mut self: Person, new_height: Felt) {
         self.age_height[0][1] = new_height;
     }
 
@@ -44,7 +44,7 @@ impl Person {
         return self.year_of_birth;
     }
 
-    fn set_year_of_birth(self: Person, new_year_of_birth: Felt) {
+    fn set_year_of_birth(mut self: Person, new_year_of_birth: Felt) {
         self.year_of_birth = new_year_of_birth;
     }
 }
@@ -60,7 +60,7 @@ fn main() {
     let b: Felt = 2;
 
     let c: Felt = (a + -b);
-    let d: [[Felt; 2]; 2] = [[a, b], [a, b]];
+    let mut d: [[Felt; 2]; 2] = [[a, b], [a, b]];
     d[0] = [a + 1, b + 1];
     d[0][0] = c;
     let e: Felt = d[0][1];
@@ -83,7 +83,7 @@ fn main() {
         year_of_birth: 1990,
         age_height: [[1, 1], [1, 1]]
     };
-    let persons: [Person; 1] = [person];
+    let mut persons: [Person; 1] = [person];
     persons[0] = person;
 
     let family: Family = new Family{
