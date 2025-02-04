@@ -1,14 +1,14 @@
 use plonky2::{
     field::{extension::Extendable, goldilocks_field::GoldilocksField, types::{Field, PrimeField64}},
     hash::hash_types::{HashOut, RichField},
-    plonk::config::{AlgebraicHasher, GenericConfig},
+    plonk::{circuit_data::VerifierOnlyCircuitData, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs},
 };
 use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::core::PortableQTreeRecursionManager;
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
-use qed_crypto::{common::witnesses::qrecursion::{header::AttestTreeAwareProofInTreeInput, proof_data::{InputLeafProof, TreeAwareTreeProofRecord}}, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
+use qed_crypto::{common::witnesses::qrecursion::{header::{AttestProofInTreeInput, AttestTreeAwareProofInTreeInput}, proof_data::{InputLeafProof, TreeAwareTreeProofRecord}}, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use qed_data::{
-    dpn::proving_session::{DPNProvingSessionSimpleMethodCall, QEDLocalTransactionRecord}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, user::QEDUserLeaf}, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
+    dpn::proving_session::{DPNProvingSessionSimpleMethodCall, QEDLocalTransactionRecord}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf}, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_store::{
@@ -22,6 +22,7 @@ use super::circuit_manager::core::QEDUPSStepCircuitManager;
 
 const UPS_STEP_LEAF_TYPE: u64 = 1;
 const CFC_LEAF_TYPE: u64 = 2;
+const ZK_SIG_LEAF_TYPE: u64 = 3;
 
 #[derive(Clone, Debug)]
 pub struct UserProvingSessionManager<
@@ -361,6 +362,99 @@ impl<
 
 
 
+
+    }
+    pub fn get_sighash(&self, network_magic: u64, nonce: F) -> QHashOut<F>{
+        let mut end_user_leaf = self.current_ups_header.current_state.user_leaf.clone();
+        end_user_leaf.nonce = nonce;
+
+        let sig_data = QEDUserProvingSessionSignatureDataCompact{
+            start_user_leaf_hash: self.current_ups_header.session_start_context.start_session_user_leaf.qfhash::<H>(),
+            end_user_leaf_hash: end_user_leaf.qfhash::<H>(),
+            checkpoint_leaf_hash: self.current_ups_header.session_start_context.checkpoint_leaf_hash,
+            tx_stack_hash: self.current_ups_header.current_state.tx_hash_stack,
+            tx_count: self.current_ups_header.current_state.tx_count,
+        };
+
+        let sig_action = sig_data.get_sig_action_for_user::<H>(network_magic, self.lps.get_current_user_id(), nonce);
+
+        let sighash = sig_action.get_qhash::<H>();
+
+        sighash
+
+
+    }
+    pub fn prove_end_cap(
+        &mut self,
+        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
+        network_magic: u64, 
+        nonce: F,
+        zk_sig_fingerprint: QHashOut<F>,
+        public_key_param: QHashOut<F>,
+        signature_proof: ProofWithPublicInputs<F, C, D>,
+        verifier_data: VerifierOnlyCircuitData<C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F,C,D>> {
+        if signature_proof.public_inputs.len() != 4{
+            anyhow::bail!("signature proof must have 4 public inputs");
+        }
+
+
+
+        // ensure the signature is correct
+        let expected_sighash = self.get_sighash(network_magic, nonce);
+        let expected_public_inputs_hash = H::q_two_to_one( expected_sighash, public_key_param);
+        let proof_public_inputs_hash = QHashOut(HashOut{elements: [
+            signature_proof.public_inputs[0],
+            signature_proof.public_inputs[1],
+            signature_proof.public_inputs[2],
+            signature_proof.public_inputs[3],
+        ]});
+        if !proof_public_inputs_hash.eq(&expected_public_inputs_hash) {
+            anyhow::bail!("invalid signature for ups session, likely incorrect sighash");
+        }
+
+
+        // injest signature into the proof tree
+        let zk_sig_proof_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
+            leaf_circuit_type: ZK_SIG_LEAF_TYPE,
+            fingerprint: zk_sig_fingerprint,
+            proof: signature_proof,
+            verifier_data,
+        });
+
+        
+        // compress all proofs into a sign tree proof
+        self.proof_tree_state.finalize_tree(&circuit_mgr.proof_tree_agg_circuits)?;
+
+        let zk_sig_leaf_proof = self.proof_tree_state.get_leaf_merkle_proof(zk_sig_proof_index);
+        let end_cap_from_proof_tree_input = UPSEndCapFromProofTreeGadgetInput{
+            verify_previous_ups_step_input: self.get_verify_previous_ups_step_proof()?,
+            verify_zk_signature_proof_input: AttestProofInTreeInput {
+                fingerprint: zk_sig_fingerprint,
+                public_inputs_hash: proof_public_inputs_hash,
+                inclusion_proof: zk_sig_leaf_proof,
+            },
+            user_public_key_param: public_key_param,
+            nonce,
+        };
+        let finalized_proof_tree_record = self.proof_tree_state.get_finalized_proot_tree_record()?;
+        let agg_whitelist_merkle_proof = circuit_mgr.proof_tree_agg_circuits.circuit_inclusion_proofs.get_inclusion_proof_for_type(finalized_proof_tree_record.circuit_type);
+        let agg_root_verifier_data = self.circuit_info.get_circuit_info_by_fingerprint(finalized_proof_tree_record.fingerprint)?.verifier_data.to_verifier_data::<C,D>();
+
+        let proof = circuit_mgr.ups_end_cap.prove_base(
+            &end_cap_from_proof_tree_input,
+            agg_whitelist_merkle_proof,
+            &finalized_proof_tree_record.agg_header,
+            &finalized_proof_tree_record.proof,
+            &agg_root_verifier_data
+        )?;
+
+
+        // update the user's nonce
+        self.current_ups_header.current_state.user_leaf.nonce = nonce;
+
+
+        Ok(proof)
 
     }
     pub fn exec_contract_call(

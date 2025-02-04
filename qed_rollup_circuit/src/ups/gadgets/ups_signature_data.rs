@@ -115,24 +115,24 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
             tx_sized_hash
         )
     }
-    pub fn get_sig_action_with_user_leaf<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn get_sig_action_with_user_info<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         network_magic: u64,
-        user_leaf: &QEDUserLeafGadget, 
+        user_id: Target,
+        nonce: Target,
+
     ) -> SimpleQEDSigAction {
 
         let network_magic_target = builder.constant_u64(network_magic);
-        let user = user_leaf.user_id;
         let sig_action = builder.constant_u64(QED_SIG_ACTION_SIGN_UPS_END_CAP);
-        let nonce = user_leaf.nonce;
         let ups_end_data_hash = self.to_hash::<H,F,D>(builder);
         
         let action_arguments = ups_end_data_hash.elements.to_vec();
         let sig_action_hash = compute_sig_action_hash_circuit::<H,F,D>(
             builder,
             network_magic_target,
-            user,
+            user_id,
             sig_action,
             nonce,
             &action_arguments
@@ -140,7 +140,7 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
 
         SimpleQEDSigAction {
             network_magic: network_magic_target,
-            user,
+            user: user_id,
             sig_action,
             nonce,
             action_arguments,

@@ -8,7 +8,7 @@ use kvq::
 ;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
-use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::LocalCircuitId, utils::debug_timer::DebugTimer};
+use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer};
 use qed_crypto::{hash::utils::gen_dapen_contract_function_method_id, signature::zk::wallet::SimpleQEDPrivateKey};
 use qed_data::{
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
@@ -455,7 +455,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("start: init QEDUPSStepCircuitManager");
 
     let main_circuits = QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
-    main_circuits.print_common_config();
+    //main_circuits.print_common_config();
 
     timer.lap("end: init QEDUPSStepCircuitManager");
 
@@ -466,6 +466,13 @@ fn test_prove_simple() -> anyhow::Result<()> {
         deploy_cmd,
     )?;
     let mut circuit_info = SessionCircuitInfoStore::new();
+
+    circuit_info.register_circuit(
+        LocalCircuitType::SimpleZKSignature.into(),
+        wallet.circuit.get_fingerprint(),
+        wallet.circuit.get_verifier_config_ref().into(),
+    );
+
     main_circuits.register_info(&mut circuit_info);
     circuit_info.register_circuit(
         LocalCircuitId::new_cfc(
@@ -530,8 +537,29 @@ fn test_prove_simple() -> anyhow::Result<()> {
     )?;
     timer.lap("proved ups_cfc_standard_tx");
 
+    let new_nonce = GoldilocksField::from_noncanonical_u64(1);
+    let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
+
+    let signature_proof = wallet.zk_sign_for_private_key_value(priv_key, sighash)?;
+    timer.lap("generated zk signature for UPS transaction batch");
     mgr.proof_tree_state.finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
     timer.lap("aggregated all UPS proofs into a single proof");
+    let public_key_param =SimpleQEDPrivateKey::new(priv_key).get_public_key_param::<QEDHasher>();
+    let end_cap_proof = mgr.prove_end_cap(
+        &main_circuits,
+         QED_NETWORK_MAGIC_REGTEST,
+         new_nonce,
+         wallet.circuit.get_fingerprint(),
+         public_key_param,
+        signature_proof, 
+         wallet.circuit.get_verifier_config_ref().to_owned()
+    )?;
+    timer.lap("Proved End Cap for UPS Session 🎉");
+
+    // the end cap proof the proof that we send off to the network 🎉
+
+    main_circuits.ups_end_cap.circuit_data.verify(end_cap_proof)?;
+    timer.lap("✅ Verified End Cap Proof");
 
     
 

@@ -1,14 +1,14 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use qed_core::{
-    data::qhashout::QHashOut,
-    traits::to_qfelts::QFeltSized,
+    config::network_constants::QED_SIG_ACTION_SIGN_UPS_END_CAP, data::qhashout::QHashOut, traits::to_qfelts::QFeltSized
 };
-use qed_crypto::hash::traits::{
+use qed_crypto::{hash::traits::{
     hasher::FieldQHasher,
     qhashable::QFieldHashable,
-};
+}, signature::zk::wallet::QEDSigAction};
 use serde::{Deserialize, Serialize};
+
 
 
 
@@ -20,6 +20,29 @@ pub struct QEDUserProvingSessionSignatureDataCompact<F: RichField> {
     pub checkpoint_leaf_hash: QHashOut<F>,
     pub tx_stack_hash: QHashOut<F>,
     pub tx_count: F,
+}
+
+impl<F: RichField> QEDUserProvingSessionSignatureDataCompact<F> {
+    pub fn get_sig_action_for_user<H: FieldQHasher<F>>(
+        &self,
+        network_magic: u64,
+        user_id: F,
+        nonce: F,
+    ) -> QEDSigAction<F> {
+
+        let network_magic_f = F::from_noncanonical_u64(network_magic);
+        let sig_action = F::from_noncanonical_u64(QED_SIG_ACTION_SIGN_UPS_END_CAP);
+        let ups_end_data_hash = self.qfhash::<H>();
+        let action_arguments = ups_end_data_hash.0.elements.to_vec();
+
+        QEDSigAction{
+            network_magic: network_magic_f,
+            user: user_id,
+            sig_action,
+            nonce,
+            action_arguments,
+        }
+    }
 }
 
 impl<F: RichField> KVQSerializable for QEDUserProvingSessionSignatureDataCompact<F> {
