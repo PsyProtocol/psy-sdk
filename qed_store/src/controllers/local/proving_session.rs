@@ -289,10 +289,6 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         } else {
             contract_state_root_proof.value
         };
-        println!(
-            "start_contract_state_tree_root: {:?}",
-            start_contract_state_tree_root
-        );
 
         let call_data = DPNProvingSessionCompactMethodCall {
             contract_id,

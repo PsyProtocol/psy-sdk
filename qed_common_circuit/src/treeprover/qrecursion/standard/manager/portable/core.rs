@@ -115,7 +115,7 @@ where
         self.leaf_to_index_map.insert(value, index);
         let insertion_proof = self.proof_tree.set_leaf(index, value);
         self.root_history.push(insertion_proof.old_root);
-        println!("root_history.push({:?})",&insertion_proof.old_root);
+        //println!("root_history.push({:?})",&insertion_proof.old_root);
         let record = LeafProofRecord {
             leaf_circuit_type: leaf_proof.leaf_circuit_type,
             fingerprint: leaf_proof.fingerprint,
@@ -311,5 +311,16 @@ where
 
 
         Ok(())
+    }
+
+    pub fn get_finalized_proot_tree_record(&self) -> anyhow::Result<&AggProofRecord<C,D>>{
+        if self.leaf_proofs.len() != 0 || self.agg_proofs.len() != 1 {
+            anyhow::bail!("proof tree not yet finalized");
+        }
+        match self.agg_proofs.last() {
+            Some(x) => Ok(x),
+            None =>  anyhow::bail!("proof tree not yet finalized"),
+        }
+
     }
 }

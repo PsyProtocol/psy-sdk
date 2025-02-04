@@ -39,6 +39,7 @@ impl UPSEndCapCoreGadget {
             last_header_gadget.current_state.user_leaf.nonce,
             last_header_gadget.session_start_context.start_session_user_leaf.nonce,
         );
+        
         builder.ensure_is_greater_than(
             MAX_NONCE_BITS as usize,
             nonce,
@@ -82,10 +83,11 @@ impl UPSEndCapCoreGadget {
             tx_count: last_header_gadget.current_state.tx_count,
         };
 
-        let ups_end_cap_sighash = sig_data_compact_gadget.get_sig_action_with_user_leaf::<H,F,D>(
+        let ups_end_cap_sighash = sig_data_compact_gadget.get_sig_action_with_user_info::<H,F,D>(
             builder,
             network_magic,
-            &last_header_gadget.session_start_context.start_session_user_leaf,
+            last_header_gadget.session_start_context.start_session_user_leaf.user_id,
+            nonce,
         ).sig_action_hash;
 
         let expected_public_inputs_hash = builder.hash_two_to_one::<H>(

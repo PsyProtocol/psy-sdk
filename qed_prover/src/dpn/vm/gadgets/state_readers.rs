@@ -718,7 +718,7 @@ impl StateReaderGadget {
         dpn: &SimpleDPNBuilder<F, D>,
         cmd: &DPNStateCmd<u64>,
     ) -> Vec<Target> {
-        println!("state cmd: {:?}",cmd);
+        //println!("state cmd: {:?}",cmd);
         let value = match cmd {
             DPNStateCmd::SetContractStateSlotHash(c) => {
                 let dmp = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(

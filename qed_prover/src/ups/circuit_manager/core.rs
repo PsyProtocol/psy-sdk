@@ -81,12 +81,8 @@ where
         );
 
         let ups_end_cap = UPSStandardEndCapCircuit::new(
-            &ups_cfc_deferred_tx.circuit_data.common,
-            ups_cfc_deferred_tx
-                .circuit_data
-                .verifier_only
-                .constants_sigmas_cap
-                .height(),
+            &proof_tree_agg_circuits.circuit_set.two_agg_circuit.circuit_data.common,
+            proof_tree_agg_circuits.circuit_set.two_agg_circuit.get_verifier_config_ref().constants_sigmas_cap.height(),
             network_magic,
             ups_circuit_whitelist_root,
             proof_tree_agg_circuits
