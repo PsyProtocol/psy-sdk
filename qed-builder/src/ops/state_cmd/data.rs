@@ -41,7 +41,7 @@ pub struct DPNStateCmdSetContractStateSlotSingle<T> {
 
 impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdSetContractStateSlotSingle<T> {
     fn get_inputs(&self) -> Vec<T> {
-        vec![self.sub_slot_index, self.value]
+        vec![self.condition, self.sub_slot_index, self.value]
     }
 
     fn get_state_command_type(&self) -> DPNStateCommandType {
@@ -87,8 +87,17 @@ pub struct DPNStateCmdInvokeExternalContractFunction<T> {
     pub num_outputs: u32,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq)]
+pub struct DPNStateCmdInvokeExternalContractFunctionSync<T> {
+    pub condition: T,
+    pub contract_id: T,
+    pub method_id: T,
+    pub input_args: Vec<T>,
+    pub num_outputs: u32,
+}
+
 impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T>
-    for DPNStateCmdInvokeExternalContractFunction<T>
+    for DPNStateCmdInvokeExternalContractFunctionSync<T>
 {
     fn get_inputs(&self) -> Vec<T> {
         let mut base = Vec::with_capacity(self.input_args.len() + 3);
@@ -100,11 +109,40 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T>
     }
 
     fn get_state_command_type(&self) -> DPNStateCommandType {
-        DPNStateCommandType::InvokeExternalContractFunction
+        DPNStateCommandType::InvokeExternalContractFunctionSync
     }
 
     fn get_output_felt_size(&self) -> usize {
         self.num_outputs as usize
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq)]
+pub struct DPNStateCmdInvokeExternalContractFunctionDeferred<T> {
+    pub condition: T,
+    pub contract_id: T,
+    pub method_id: T,
+    pub input_args: Vec<T>,
+}
+
+impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T>
+    for DPNStateCmdInvokeExternalContractFunctionDeferred<T>
+{
+    fn get_inputs(&self) -> Vec<T> {
+        let mut base = Vec::with_capacity(self.input_args.len() + 3);
+        base.push(self.condition);
+        base.push(self.contract_id);
+        base.push(self.method_id);
+        base.extend(self.input_args.iter());
+        base
+    }
+
+    fn get_state_command_type(&self) -> DPNStateCommandType {
+        DPNStateCommandType::InvokeExternalContractFunctionDeferred
+    }
+
+    fn get_output_felt_size(&self) -> usize {
+        4
     }
 }
 
@@ -405,7 +443,8 @@ pub enum DPNStateCmd<T> {
     SetContractStateSlotHash(DPNStateCmdSetContractStateSlotHash<T>),
     SetContractStateSlotSingle(DPNStateCmdSetContractStateSlotSingle<T>),
     SetContractStateSlotRange(DPNStateCmdSetContractStateSlotRange<T>),
-    InvokeExternalContractFunction(DPNStateCmdInvokeExternalContractFunction<T>),
+    InvokeExternalContractFunctionSync(DPNStateCmdInvokeExternalContractFunctionSync<T>),
+    InvokeExternalContractFunctionDeferred(DPNStateCmdInvokeExternalContractFunctionDeferred<T>),
     GetSelfUserCurrentContractStateSlotHash(DPNStateCmdGetSelfUserCurrentContractStateSlotHash<T>),
     GetSelfUserCurrentContractStateSlotSingle(
         DPNStateCmdGetSelfUserCurrentContractStateSlotSingle<T>,
@@ -455,13 +494,30 @@ impl<T> DPNStateCmd<T> {
         input_args: Vec<T>,
         num_outputs: u32,
     ) -> Self {
-        DPNStateCmd::InvokeExternalContractFunction(DPNStateCmdInvokeExternalContractFunction {
-            condition,
-            contract_id,
-            method_id,
-            input_args,
-            num_outputs,
-        })
+        DPNStateCmd::InvokeExternalContractFunctionSync(
+            DPNStateCmdInvokeExternalContractFunctionSync {
+                condition,
+                contract_id,
+                method_id,
+                input_args,
+                num_outputs,
+            },
+        )
+    }
+    pub fn invoke_external_contract_function_deferred(
+        condition: T,
+        contract_id: T,
+        method_id: T,
+        input_args: Vec<T>,
+    ) -> Self {
+        DPNStateCmd::InvokeExternalContractFunctionDeferred(
+            DPNStateCmdInvokeExternalContractFunctionDeferred {
+                condition,
+                contract_id,
+                method_id,
+                input_args,
+            },
+        )
     }
     pub fn get_self_user_current_contract_state_slot_hash(slot_index: T) -> Self {
         DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(
@@ -573,7 +629,8 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::SetContractStateSlotHash(c) => c.get_inputs(),
             DPNStateCmd::SetContractStateSlotSingle(c) => c.get_inputs(),
             DPNStateCmd::SetContractStateSlotRange(c) => c.get_inputs(),
-            DPNStateCmd::InvokeExternalContractFunction(c) => c.get_inputs(),
+            DPNStateCmd::InvokeExternalContractFunctionSync(c) => c.get_inputs(),
+            DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => c.get_inputs(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => c.get_inputs(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(c) => c.get_inputs(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => c.get_inputs(),
@@ -591,7 +648,8 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::SetContractStateSlotHash(c) => c.get_state_command_type(),
             DPNStateCmd::SetContractStateSlotSingle(c) => c.get_state_command_type(),
             DPNStateCmd::SetContractStateSlotRange(c) => c.get_state_command_type(),
-            DPNStateCmd::InvokeExternalContractFunction(c) => c.get_state_command_type(),
+            DPNStateCmd::InvokeExternalContractFunctionSync(c) => c.get_state_command_type(),
+            DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => c.get_state_command_type(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => c.get_state_command_type(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(c) => c.get_state_command_type(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => c.get_state_command_type(),
@@ -611,7 +669,8 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::SetContractStateSlotHash(c) => c.get_output_felt_size(),
             DPNStateCmd::SetContractStateSlotSingle(c) => c.get_output_felt_size(),
             DPNStateCmd::SetContractStateSlotRange(c) => c.get_output_felt_size(),
-            DPNStateCmd::InvokeExternalContractFunction(c) => c.get_output_felt_size(),
+            DPNStateCmd::InvokeExternalContractFunctionSync(c) => c.get_output_felt_size(),
+            DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => c.get_output_felt_size(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => c.get_output_felt_size(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(c) => c.get_output_felt_size(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => c.get_output_felt_size(),
@@ -654,14 +713,24 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmd<T> {
                     value: inputs_as_u64[2..].to_vec(),
                 })
             }
-            DPNStateCmd::InvokeExternalContractFunction(c) => {
-                DPNStateCmd::InvokeExternalContractFunction(
-                    DPNStateCmdInvokeExternalContractFunction {
+            DPNStateCmd::InvokeExternalContractFunctionSync(c) => {
+                DPNStateCmd::InvokeExternalContractFunctionSync(
+                    DPNStateCmdInvokeExternalContractFunctionSync {
                         condition: inputs_as_u64[0],
                         contract_id: inputs_as_u64[1],
                         method_id: inputs_as_u64[2],
                         input_args: inputs_as_u64[3..].to_vec(),
                         num_outputs: c.num_outputs,
+                    },
+                )
+            }
+            DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
+                DPNStateCmd::InvokeExternalContractFunctionDeferred(
+                    DPNStateCmdInvokeExternalContractFunctionDeferred {
+                        condition: inputs_as_u64[0],
+                        contract_id: inputs_as_u64[1],
+                        method_id: inputs_as_u64[2],
+                        input_args: inputs_as_u64[3..].to_vec(),
                     },
                 )
             }

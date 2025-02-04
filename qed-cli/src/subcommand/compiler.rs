@@ -74,7 +74,7 @@ pub fn run(args: CompilerArgs) -> anyhow::Result<()> {
     let ctx = interpreter.context.clone();
 
     let compile_result =
-        QEDCompileResult::compile_exec("test".to_owned(), &ctx.store, &ctx, &res.to_felts());
+        QEDCompileResult::compile_exec("test".to_owned(), 0, &ctx.store, &ctx, &res.to_felts());
 
     println!("compile_result: {:?}", compile_result);
     Ok(())
