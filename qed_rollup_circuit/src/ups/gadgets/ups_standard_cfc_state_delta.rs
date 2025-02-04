@@ -346,6 +346,10 @@ impl UPSCFCStandardStateDeltaGadget {
             witness, 
             &input.deferred_tx_debt_pivot_proof,
         );
+        self.inline_tx_debt_pivot_proof.set_witness_proof_core(
+            witness, 
+            &input.deferred_tx_debt_pivot_proof,
+        );
     }
 }
 
