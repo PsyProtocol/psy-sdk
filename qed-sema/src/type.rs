@@ -5,6 +5,7 @@ use std::fmt::{Display, Formatter};
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::IdentId;
+use qed_ast::Visibility;
 use qed_builder::ContextFelt;
 use qed_builder::DPNContext;
 use qed_utils::impl_ref;
@@ -212,6 +213,16 @@ impl Type {
                 implementations, ..
             }) => implementations,
             _ => panic!("Type::implementations called on non-composite type"),
+        }
+    }
+
+    pub fn visibility(&self) -> Visibility {
+        match self {
+            Type::Struct(CheckedStructNode { visibility, .. }) => *visibility,
+            Type::Enum(CheckedEnumNode { visibility, .. }) => *visibility,
+            Type::Function(CheckedFunctionNode { visibility, .. }) => *visibility,
+            Type::Trait(CheckedTraitNode { visibility, .. }) => *visibility,
+            _ => Visibility::Public,
         }
     }
 

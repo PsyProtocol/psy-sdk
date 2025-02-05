@@ -1,4 +1,4 @@
-use qed_ast::{IdentId, NodeType};
+use qed_ast::{IdentId, NodeType, Visibility};
 
 use crate::{CheckedFunctionNode, ScopeId, TypeId};
 
@@ -9,6 +9,7 @@ pub struct CheckedTraitNode {
     pub body: Vec<CheckedFunctionNode>,
     pub implementors: Vec<TypeId>,
     pub scope_id: ScopeId,
+    pub visibility: Visibility,
 }
 
 impl CheckedTraitNode {

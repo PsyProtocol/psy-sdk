@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use qed_ast::{IdentId, NodeType};
+use qed_ast::{IdentId, NodeType, Visibility};
 
 use crate::{ScopeId, TypeId};
 
@@ -8,10 +8,10 @@ use crate::{ScopeId, TypeId};
 pub struct CheckedStructNode {
     pub name: IdentId,
     pub generic_parameters: Vec<TypeId>,
-    pub fields: Vec<(IdentId, TypeId, bool)>,
+    pub fields: Vec<(IdentId, TypeId, Visibility)>,
     pub scope_id: ScopeId,
     pub implementations: Vec<TypeId>,
-    pub is_pub: bool,
+    pub visibility: Visibility,
 }
 
 impl CheckedStructNode {

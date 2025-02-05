@@ -1,4 +1,4 @@
-use crate::{AstVisitor, BlockNode, IdentId, NodeType, StmtId, UncheckedType};
+use crate::{AstVisitor, BlockNode, IdentId, NodeType, StmtId, UncheckedType, Visibility};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionNode {
@@ -8,7 +8,7 @@ pub struct FunctionNode {
     pub body: Option<StmtId>,
     pub return_type: Option<UncheckedType>,
     pub is_extern: bool,
-    pub is_pub: bool,
+    pub visibility: Visibility,
 }
 
 impl FunctionNode {

@@ -11,6 +11,7 @@ grammar<'input, F, C>(
     stmt_nodes: &mut Arena<StmtId, StmtNode>,
     def_nodes: &mut Arena<DefId, DefinitionNode>,
     interner: &mut Interner,
+    _visibility_: Visibility,
     is_std: bool,
     is_self_std: bool,
     is_self_prelude: bool,
@@ -27,20 +28,20 @@ pub Module: ModuleNode = {
         file_id,
         modules: {
             if !is_std {
-                modules.insert(0, (IdentId::STD, true));
+                modules.insert(0, (IdentId::STD, Visibility::Public));
             }
             modules
         },
         uses: {
             if !is_std  {
                 uses.insert(0, UsePath {
-                    kind: UseKind::MODULE(IdentId::STD),
+                    kind: IdentId::STD,
                     segments: vec![IdentId::PRELUDE],
                     target: None,
                 });
             } else if !is_self_std && !is_self_prelude {
                 uses.insert(0, UsePath {
-                    kind: UseKind::MODULE(IdentId::PRELUDE),
+                    kind: IdentId::PRELUDE,
                     segments: vec![],
                     target: None,
                 });
@@ -48,21 +49,22 @@ pub Module: ModuleNode = {
             uses
         },
         definitions: def_nodes.alloc_items(definitions),
+        visibility: _visibility_,
         is_std,
         is_self_std,
         is_self_prelude,
     }
 }
 
-ModuleDecl: (IdentId, bool) = {
-    <l:@L> <is_pub: PUB?> MOD <name:Identifier> ";" <r:@R> => {
-        (name, is_pub.is_some())
+ModuleDecl: (IdentId, Visibility) = {
+    <l:@L> <visibility: Visibility> MOD <name:Identifier> ";" <r:@R> => {
+        (name, visibility)
     },
 }
 
 ModuleUse: UsePath = {
     <l:@L> USE <path:PathOld> ";" <r:@R> => UsePath {
-        kind: UseKind::from(path.0),
+        kind: path.0,
         target: path.2,
         segments: path.1,
     }
@@ -92,19 +94,19 @@ Definition: DefinitionNode = {
 }
 
 ImplDef: ImplNode = {
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters?> <ty:Identifier> <generic_parameters_rhs:GenericParameters?> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <ty:Identifier> <generic_parameters_rhs:GenericParameters> "{" <body:FunctionDef*> "}" <r:@R> => {
        assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplNode {
-           generic_parameters: generic_parameters_lhs.unwrap_or(Vec::new()),
+           generic_parameters: generic_parameters_lhs,
            trait_name: None,
            ty,
            body: def_nodes.alloc_items(body)
        }
    },
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters?> <trait_name:Identifier> FOR <ty:IdentifierOrBasicType> <generic_parameters_rhs:GenericParameters?> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_name:Identifier> FOR <ty:IdentifierOrBasicType> <generic_parameters_rhs:GenericParameters> "{" <body:FunctionDef*> "}" <r:@R> => {
        assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplNode {
-           generic_parameters: generic_parameters_lhs.unwrap_or(Vec::new()),
+           generic_parameters: generic_parameters_lhs,
            trait_name: Some(trait_name),
            ty,
            body: def_nodes.alloc_items(body)
@@ -113,63 +115,65 @@ ImplDef: ImplNode = {
 }
 
 TraitDef: TraitNode = {
-   <l:@L> TRAIT <name:Identifier> <generic_parameters:GenericParameters?> "{" <body:FunctionDecl*> "}" <r:@R> => {
+   <l:@L> <visibility:Visibility> TRAIT <name:Identifier> <generic_parameters:GenericParameters> "{" <body:FunctionDecl*> "}" <r:@R> => {
        TraitNode {
-           generic_parameters: generic_parameters.unwrap_or(Vec::new()),
+           generic_parameters: generic_parameters,
            name,
-           body
+           body,
+           visibility
        }
    }
 }
 
 EnumDef: EnumNode = {
-    <l:@L> <is_pub: PUB?> ENUM <name:Identifier> <generic_parameters:GenericParameters?> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => EnumNode {
+    <l:@L> <visibility: Visibility> ENUM <name:Identifier> <generic_parameters:GenericParameters> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => EnumNode {
         name,
-        generic_parameters: generic_parameters.unwrap_or(Vec::new()),
+        generic_parameters: generic_parameters,
         variants,
-        is_pub: is_pub.is_some()
+        visibility
     }
 }
 
 Attribute: AttrNode = {
-    <l:@L> "#" "[" <name:IdentifierOrDerive>  <properties:AttributeProperties?> "]" <r:@R> => AttrNode { name, properties: properties.unwrap_or(Vec::new()) }
+    <l:@L> "#" "[" <name:IdentifierOrDerive>  <properties:AttributeProperties> "]" <r:@R> => AttrNode { name, properties }
 }
 
 AttributeProperties: Vec<IdentId> = {
-    <l:@L> "(" <properties:Comma<Identifier>> ")" <r:@R> => properties
+    <l:@L> "(" <properties:Comma<Identifier>> ")" <r:@R> => properties,
+    () => vec![]
 }
 
 StructDef: StructNode = {
-    <l:@L> <attrs:Attribute*> <is_pub: PUB?> STRUCT <name:Identifier> <generic_parameters:GenericParameters?> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => StructNode {
+    <l:@L> <attrs:Attribute*> <visibility: Visibility> STRUCT <name:Identifier> <generic_parameters:GenericParameters> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => StructNode {
         name,
-        generic_parameters: generic_parameters.unwrap_or(Vec::new()),
+        generic_parameters: generic_parameters,
         fields,
         attrs,
-        is_pub: is_pub.is_some(),
+        visibility
     }
 }
 
 FunctionDef: DefinitionNode = {
-    <l:@L> <is_pub:PUB?> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <visibility: Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
-        generic_parameters: generic_parameters.unwrap_or(Vec::new()),
+        generic_parameters: generic_parameters,
         body: Some(stmt_nodes.alloc_item(block_stmt)),
         return_type,
         is_extern: is_extern.is_some(),
-        is_pub: is_pub.is_some()
+        visibility
     })
 }
 
 FunctionDecl: FunctionNode = {
-    <l:@L> <is_pub:PUB?> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters?> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
+    <l:@L> <visibility: Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
         name,
         parameters,
-        generic_parameters: generic_parameters.unwrap_or(Vec::new()),
+        generic_parameters: generic_parameters,
         body: None,
         return_type,
         is_extern: is_extern.is_some(),
-        is_pub: is_pub.is_some()
+        visibility
     }
 }
 
@@ -191,12 +195,18 @@ TypeAnnotation: (IdentId, UncheckedType) = {
     <l:@L> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty)
 }
 
-FieldTypeAnnotation: (IdentId, UncheckedType, bool) = {
-    <l:@L>  <is_pub: PUB?> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty, is_pub.is_some())
+FieldTypeAnnotation: (IdentId, UncheckedType, Visibility) = {
+    <l:@L> <visibility: Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty, visibility)
+}
+
+Visibility: Visibility = {
+    PUB => Visibility::Public,
+    () => Visibility::Private
 }
 
 GenericParameters: Vec<IdentId> = {
-    <l:@L> "<" <generic_parameters:Comma<Identifier>> ">" <r:@R> => generic_parameters
+    <l:@L> "<" <generic_parameters:Comma<Identifier>> ">" <r:@R> => generic_parameters,
+    () => vec![]
 }
 
 BlockStatement: StmtNode = {
@@ -304,6 +314,7 @@ Term: ExprNode<F> = {
     ValueExpression,
     PathExpression,
 }
+
 PathExpression: ExprNode<F> = {
     <variable: IdentifierOrSelf> => ExprNode::Path(PathNode {
         root: None,
@@ -325,11 +336,11 @@ Expression: ExprNode<F> = {
 
     //#[precedence(level="2")]
     //todo: Temporarily disable generic capabilities
-    //<l:@L> <variable:Expression> <generic_parameters:Monomorphization?> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
+    //<l:@L> <variable:Expression> <generic_parameters:Monomorphization> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
     //    CallNode {
     //        receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
     //        variable: expr_nodes.alloc_item(variable),
-    //        generic_parameters: generic_parameters.unwrap_or(Vec::new()),
+    //        generic_parameters: generic_parameters,
     //        args: expr_nodes.alloc_items(args)
     //    }
     //),
@@ -471,9 +482,9 @@ BoolExpression: ExprNode<F> = {
 
 //todo: Temporarily disable generic capabilities
 //StructExpression: ExprNode<F> = {
-//    <l:@L> <name:Identifier> <generic_parameters:Monomorphization?> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
+//    <l:@L> <name:Identifier> <generic_parameters:Monomorphization> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
 //        name,
-//        generic_parameters.unwrap_or(Vec::new()),
+//        generic_parameters,
 //        kv.into_iter().collect()
 //    )),
 //}
@@ -502,7 +513,8 @@ PathOld: (IdentId, Vec<IdentId>, Option<IdentId>) =
     };
 
 Monomorphization: Vec<UncheckedType> = {
-    <l:@L> "::" "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => generic_parameters
+    <l:@L> "::" "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => generic_parameters,
+    () => vec![]
 }
 
 Ty: UncheckedType = {
@@ -567,8 +579,6 @@ DoubleColon<E>: Vec<E> = Sep<E, "::">;
 Dot<E>: Vec<E> = Sep<E, ".">;
 Comma<E>: Vec<E> = Sep<E, ",">;
 Plus<E>: Vec<E> = Sep<E, "+">;
-
-
 
 extern {
     type Location = Loc;

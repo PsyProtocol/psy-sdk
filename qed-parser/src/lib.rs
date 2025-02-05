@@ -48,11 +48,11 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
         ctx: &mut C,
         root_module_path: PathBuf,
     ) -> Result<'input, ()> {
-        let mut module_stack: Vec<(PathBuf, Option<ModuleId>)> =
-            vec![(root_module_path.clone(), None)];
+        let mut module_stack: Vec<(PathBuf, Option<ModuleId>, Visibility)> =
+            vec![(root_module_path.clone(), None, Visibility::Public)];
         let mut visited = HashMap::new();
 
-        while let Some((current_path, parent_module_id)) = module_stack.pop() {
+        while let Some((current_path, parent_module_id, visibility)) = module_stack.pop() {
             let file_id = self
                 .program
                 .file_resolver
@@ -84,6 +84,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                     &mut self.program.stmts,
                     &mut self.program.defs,
                     &mut self.program.interner,
+                    visibility,
                     is_std,
                     is_self_std,
                     is_self_prelude,
@@ -98,9 +99,9 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                 };
                 let module_id = self.program.modules.next_idx();
 
-                for (dep_module, _) in &module.modules {
+                for (dep_module, visibility) in &module.modules {
                     let dep_path = self.resolve_module_path(dep_module, &current_path).unwrap();
-                    module_stack.push((dep_path, Some(module_id)));
+                    module_stack.push((dep_path, Some(module_id), visibility.clone()));
                 }
                 self.program.modules.add_node(module);
                 self.program.modules.add_child(parent_module_id, module_id);
