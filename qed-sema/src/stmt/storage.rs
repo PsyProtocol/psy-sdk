@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, NodeType};
+use qed_ast::{ExprId, NodeInfo, NodeType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedStorageWriteNode {
@@ -6,8 +6,8 @@ pub struct CheckedStorageWriteNode {
     pub value: ExprId,
 }
 
-impl CheckedStorageWriteNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedStorageWriteNode {
+    fn node_type(&self) -> NodeType {
         NodeType::StorageStmt
     }
 }

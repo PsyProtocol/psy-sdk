@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, NodeType};
+use qed_ast::{ExprId, NodeInfo, NodeType};
 
 use crate::{CheckedBlockNode, TypeId};
 
@@ -9,8 +9,8 @@ pub struct CheckedWhileNode {
     pub body: CheckedBlockNode,
 }
 
-impl CheckedWhileNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedWhileNode {
+    fn node_type(&self) -> NodeType {
         NodeType::WhileStmt
     }
 }

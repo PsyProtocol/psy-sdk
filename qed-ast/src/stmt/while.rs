@@ -1,4 +1,4 @@
-use crate::{AstVisitor, BlockNode, ExprId, NodeType, StmtId};
+use crate::{AstVisitor, BlockNode, ExprId, NodeInfo, NodeType, StmtId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WhileNode {
@@ -6,8 +6,8 @@ pub struct WhileNode {
     pub body: StmtId,
 }
 
-impl WhileNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for WhileNode {
+    fn node_type(&self) -> NodeType {
         NodeType::WhileStmt
     }
 }

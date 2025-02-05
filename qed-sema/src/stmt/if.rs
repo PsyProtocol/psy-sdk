@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, NodeType};
+use qed_ast::{ExprId, NodeInfo, NodeType};
 
 use crate::{stmt::block::CheckedBlockNode, TypeId};
 
@@ -26,8 +26,8 @@ pub struct CheckedIfNode {
     pub else_branch: Option<CheckedBlockNode>,
 }
 
-impl CheckedIfNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedIfNode {
+    fn node_type(&self) -> NodeType {
         NodeType::IfStmt
     }
 }

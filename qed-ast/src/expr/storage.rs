@@ -1,12 +1,12 @@
-use crate::{ExprId, NodeType};
+use crate::{ExprId, NodeInfo, NodeType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StorageReadNode {
     pub offset: ExprId,
 }
 
-impl StorageReadNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for StorageReadNode {
+    fn node_type(&self) -> NodeType {
         NodeType::StorageExpr
     }
 }

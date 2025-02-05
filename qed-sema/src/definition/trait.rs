@@ -1,4 +1,4 @@
-use qed_ast::{IdentId, NodeType, Visibility};
+use qed_ast::{IdentId, NodeInfo, NodeType, Visibility};
 
 use crate::{CheckedFunctionNode, ScopeId, TypeId};
 
@@ -16,8 +16,10 @@ impl CheckedTraitNode {
     pub fn add_implementor(&mut self, implementor: TypeId) {
         self.implementors.push(implementor);
     }
+}
 
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedTraitNode {
+    fn node_type(&self) -> NodeType {
         NodeType::TraitDef
     }
 }

@@ -1,4 +1,4 @@
-use qed_ast::{IdentId, NodeType, Visibility};
+use qed_ast::{IdentId, NodeInfo, NodeType, Visibility};
 
 use crate::{ScopeId, TypeId};
 
@@ -19,8 +19,8 @@ pub struct CheckedEnumNode {
     pub visibility: Visibility,
 }
 
-impl CheckedEnumNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedEnumNode {
+    fn node_type(&self) -> NodeType {
         NodeType::EnumDef
     }
 }

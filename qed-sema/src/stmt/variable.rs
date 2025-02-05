@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, IdentId, NodeType};
+use qed_ast::{ExprId, IdentId, NodeInfo, NodeType};
 
 use crate::{ScopeId, TypeId};
 
@@ -12,8 +12,8 @@ pub struct CheckedVariableNode {
     pub scope_id: ScopeId,
 }
 
-impl CheckedVariableNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedVariableNode {
+    fn node_type(&self) -> NodeType {
         NodeType::VariableStmt
     }
 }

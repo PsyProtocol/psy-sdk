@@ -1,4 +1,4 @@
-use crate::{AstVisitor, DefId, FunctionNode, IdentId, NodeType, UncheckedType};
+use crate::{AstVisitor, DefId, FunctionNode, IdentId, NodeInfo, NodeType, UncheckedType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImplNode {
@@ -8,8 +8,8 @@ pub struct ImplNode {
     pub body: Vec<DefId>,
 }
 
-impl ImplNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for ImplNode {
+    fn node_type(&self) -> NodeType {
         NodeType::ImplDef
     }
 }

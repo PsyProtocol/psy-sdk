@@ -1,4 +1,4 @@
-use crate::{ExprId, NodeType};
+use crate::{ExprId, NodeInfo, NodeType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StorageWriteNode {
@@ -6,8 +6,8 @@ pub struct StorageWriteNode {
     pub value: ExprId,
 }
 
-impl StorageWriteNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for StorageWriteNode {
+    fn node_type(&self) -> NodeType {
         NodeType::StorageStmt
     }
 }

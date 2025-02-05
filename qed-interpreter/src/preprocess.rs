@@ -16,7 +16,11 @@ impl<'a> StorageProcessor<'a> {
         }
     }
 
-    fn generate_storage_impl<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
+    fn generate_storage_impl<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
         &self,
         struct_node: &StructNode,
         ctx: &mut V,
@@ -37,7 +41,11 @@ impl<'a> StorageProcessor<'a> {
         }
     }
 
-    fn generate_accessor_impl<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
+    fn generate_accessor_impl<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
         &self,
         struct_node: &StructNode,
         ctx: &mut V,
@@ -66,7 +74,11 @@ impl<'a> StorageProcessor<'a> {
         }
     }
 
-    fn generate_storage_size_method<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
+    fn generate_storage_size_method<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
         &self,
         struct_node: &StructNode,
         ctx: &mut V,
@@ -99,7 +111,11 @@ impl<'a> StorageProcessor<'a> {
         ctx.alloc_definition(DefinitionNode::Function(f))
     }
 
-    fn generate_storage_read_method<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
+    fn generate_storage_read_method<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
         &self,
         struct_node: &StructNode,
         ctx: &mut V,
@@ -149,7 +165,11 @@ impl<'a> StorageProcessor<'a> {
         ctx.alloc_definition(DefinitionNode::Function(f))
     }
 
-    fn generate_storage_write_method<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
+    fn generate_storage_write_method<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
         &self,
         struct_node: &StructNode,
         ctx: &mut V,
@@ -197,7 +217,11 @@ impl<'a> StorageProcessor<'a> {
         ctx.alloc_definition(DefinitionNode::Function(f))
     }
 
-    fn generate_getter<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
+    fn generate_getter<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
         &self,
         field_name: &IdentId,
         field_type: &UncheckedType,
@@ -245,7 +269,11 @@ impl<'a> StorageProcessor<'a> {
         ctx.alloc_definition(DefinitionNode::Function(function))
     }
 
-    fn generate_setter<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
+    fn generate_setter<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
         &self,
         field_name: &IdentId,
         field_type: &UncheckedType,
@@ -303,7 +331,11 @@ impl<'a> StorageProcessor<'a> {
         ctx.alloc_definition(DefinitionNode::Function(function))
     }
 
-    fn generate_field_size<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
+    fn generate_field_size<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
         &self,
         field_type: &UncheckedType,
         ctx: &mut V,
@@ -323,7 +355,11 @@ impl<'a> StorageProcessor<'a> {
         ctx.alloc_expression(ExprNode::Call(node))
     }
 
-    fn generate_field_read<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
+    fn generate_field_read<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
         &self,
         field_name: &IdentId,
         field_type: &UncheckedType,
@@ -348,7 +384,11 @@ impl<'a> StorageProcessor<'a> {
         )
     }
 
-    fn generate_field_write<F: Clone + From<u32>, C, V: VisitorContext<F, C>>(
+    fn generate_field_write<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
         &self,
         field_name: &IdentId,
         field_type: &UncheckedType,
@@ -534,6 +574,12 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for PreprocessorContext<'
     fn replace_statement(&mut self, stmt_id: StmtId, statement: StmtNode) {
         self.program.stmts.replace_item(stmt_id, statement);
     }
+
+    type Expr = ExprNode<F>;
+
+    type Stmt = StmtNode;
+
+    type Definition = DefinitionNode;
 }
 
 impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcessor<'a> {
@@ -800,4 +846,10 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     ) -> Result<Self::StmtResult, Self::Error> {
         todo!()
     }
+
+    type Expr = ExprNode<F>;
+
+    type Stmt = StmtNode;
+
+    type Definition = DefinitionNode;
 }

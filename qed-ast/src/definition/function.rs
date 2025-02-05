@@ -1,4 +1,6 @@
-use crate::{AstVisitor, BlockNode, IdentId, NodeType, StmtId, UncheckedType, Visibility};
+use crate::{
+    AstVisitor, BlockNode, IdentId, NodeInfo, NodeType, StmtId, UncheckedType, Visibility,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionNode {
@@ -11,8 +13,8 @@ pub struct FunctionNode {
     pub visibility: Visibility,
 }
 
-impl FunctionNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for FunctionNode {
+    fn node_type(&self) -> NodeType {
         NodeType::FunctionDef
     }
 }

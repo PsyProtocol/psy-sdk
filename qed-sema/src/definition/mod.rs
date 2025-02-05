@@ -8,7 +8,7 @@ mod r#trait;
 pub use array::*;
 use enum_as_inner::EnumAsInner;
 pub use function::*;
-use qed_ast::NodeType;
+use qed_ast::{NodeInfo, NodeType};
 pub use r#enum::*;
 pub use r#impl::*;
 pub use r#struct::*;
@@ -23,8 +23,8 @@ pub enum CheckedDefinitionNode {
     Trait(CheckedTraitNode),
 }
 
-impl CheckedDefinitionNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedDefinitionNode {
+    fn node_type(&self) -> NodeType {
         match self {
             Self::Function(node) => node.node_type(),
             Self::Struct(node) => node.node_type(),

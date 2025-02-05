@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, NodeType};
+use qed_ast::{ExprId, NodeInfo, NodeType};
 
 use crate::TypeId;
 
@@ -7,8 +7,8 @@ pub struct CheckedReturnNode {
     pub ret: Option<(ExprId, TypeId)>,
 }
 
-impl CheckedReturnNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedReturnNode {
+    fn node_type(&self) -> NodeType {
         NodeType::ReturnStmt
     }
 }

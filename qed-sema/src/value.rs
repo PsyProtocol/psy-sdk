@@ -6,7 +6,7 @@ use std::{
 use either::Either;
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
-use qed_ast::{ExprId, IdentId, NodeType};
+use qed_ast::{ExprId, IdentId, NodeInfo, NodeType};
 use qed_builder::{ContextFelt, ToFelts};
 pub use strum::EnumTryAs;
 
@@ -21,8 +21,8 @@ pub enum CheckedValueNode<F> {
     Type(TypeId),
 }
 
-impl<F> CheckedValueNode<F> {
-    pub fn node_type(&self) -> NodeType {
+impl<F> NodeInfo for CheckedValueNode<F> {
+    fn node_type(&self) -> NodeType {
         NodeType::ValueExpr
         // match self {
         //     CheckedValueNode::Felt(_) => NodeType::FeltValue,

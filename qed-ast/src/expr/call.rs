@@ -1,4 +1,4 @@
-use crate::{AstVisitor, ExprId, NodeType, PathNode, UncheckedType};
+use crate::{AstVisitor, DefId, ExprId, NodeInfo, NodeType, PathNode, UncheckedType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CallNode {
@@ -8,8 +8,8 @@ pub struct CallNode {
     pub args: Vec<ExprId>,
 }
 
-impl CallNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CallNode {
+    fn node_type(&self) -> NodeType {
         NodeType::CallExpr
     }
 }

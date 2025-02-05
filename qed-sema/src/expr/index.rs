@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, IdentId, NodeType};
+use qed_ast::{ExprId, IdentId, NodeInfo, NodeType};
 
 use crate::TypeId;
 
@@ -9,8 +9,8 @@ pub struct CheckedIndexAccessNode {
     pub type_id: TypeId,
 }
 
-impl CheckedIndexAccessNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedIndexAccessNode {
+    fn node_type(&self) -> NodeType {
         NodeType::IndexAccessExpr
     }
 }
@@ -22,8 +22,8 @@ pub struct CheckedMemberAccessNode {
     pub type_id: TypeId,
 }
 
-impl CheckedMemberAccessNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedMemberAccessNode {
+    fn node_type(&self) -> NodeType {
         NodeType::MemberAccessExpr
     }
 }

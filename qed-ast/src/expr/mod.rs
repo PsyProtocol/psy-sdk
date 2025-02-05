@@ -14,7 +14,7 @@ pub use path::*;
 pub use storage::*;
 pub use unary::*;
 
-use crate::{AstVisitor, NodeType, ValueNode};
+use crate::{AstVisitor, DefId, ExprId, NodeInfo, NodeType, ValueNode};
 use enum_as_inner::EnumAsInner;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
@@ -30,8 +30,8 @@ pub enum ExprNode<F: Clone + From<u32>> {
     Storage(StorageReadNode),
 }
 
-impl<F: Clone + From<u32>> ExprNode<F> {
-    pub fn node_type(&self) -> NodeType {
+impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
+    fn node_type(&self) -> NodeType {
         match self {
             Self::Path(node) => node.node_type(),
             Self::Value(node) => node.node_type(),
@@ -43,5 +43,13 @@ impl<F: Clone + From<u32>> ExprNode<F> {
             Self::MemberAccess(node) => node.node_type(),
             Self::Storage(node) => node.node_type(),
         }
+    }
+
+    fn as_expression(&self) -> Option<ExprId> {
+        unreachable!()
+    }
+
+    fn as_definition(&self) -> Option<DefId> {
+        unreachable!()
     }
 }

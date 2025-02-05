@@ -1,4 +1,4 @@
-use crate::{AstVisitor, ExprId, IdentId, NodeType};
+use crate::{AstVisitor, DefId, ExprId, IdentId, NodeInfo, NodeType};
 use std::fmt::Display;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -16,8 +16,10 @@ impl PathNode {
             target,
         }
     }
+}
 
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for PathNode {
+    fn node_type(&self) -> NodeType {
         NodeType::PathExpr
     }
 }
