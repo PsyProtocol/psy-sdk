@@ -46,6 +46,33 @@ impl SimpleMerkleNodeKey {
             index: self.index >> 1,
         }
     }
+
+    pub fn parent_at_level(&self, level: u8) -> Self {
+        if level > self.level {
+            panic!("given level is not above this node")
+        }
+        self.n_th_ancestor(self.level-level)
+    }
+    pub fn n_th_ancestor(&self, levels_above: u8) -> Self {
+        if levels_above >= self.level {
+            Self::new_root()
+        }else{
+            Self {
+                level: self.level-levels_above,
+                index: self.index >> levels_above,
+            }
+        }
+    }
+    pub fn find_nearest_common_ancestor(&self, other: &SimpleMerkleNodeKey) -> SimpleMerkleNodeKey {
+        let start_level = u8::min(other.level, self.level);
+        let mut self_current = self.parent_at_level(start_level);
+        let mut other_current = other.parent_at_level(start_level);
+        while !other_current.eq(&self_current) {
+            self_current = self_current.parent();
+            other_current = other_current.parent();
+        }
+        self_current
+    }
 }
 
 
