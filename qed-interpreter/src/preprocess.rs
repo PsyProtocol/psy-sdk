@@ -422,168 +422,8 @@ impl<'a> StorageProcessor<'a> {
     }
 }
 
-#[derive(Debug)]
-pub struct PreprocessorContext<'a, F: Clone + From<u32>, C> {
-    path_stack: Vec<NodeId>,
-    program: &'a mut Program<F>,
-    _marker: std::marker::PhantomData<(&'a (), F, C)>,
-}
-
-impl<'a, F: Clone + From<u32>, C> PreprocessorContext<'a, F, C> {
-    pub fn new(program: &'a mut Program<F>) -> Self {
-        Self {
-            path_stack: Vec::new(),
-            program,
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for PreprocessorContext<'a, F, C> {
-    fn node_id(&self) -> NodeId {
-        self.path_stack.last().unwrap().clone()
-    }
-
-    fn parent_node_id(&self) -> NodeId {
-        self.path_stack[self.path_stack.len() - 2].clone()
-    }
-
-    fn node_path(&self) -> &[NodeId] {
-        &self.path_stack
-    }
-
-    fn push_node_id(&mut self, node_id: NodeId) {
-        self.path_stack.push(node_id);
-    }
-
-    fn pop_node_id(&mut self) {
-        self.path_stack.pop();
-    }
-
-    fn node_type(&self) -> NodeType {
-        match self.node_id() {
-            NodeId::Expr(expr_id) => self.expression(expr_id).node_type(),
-            NodeId::Stmt(stmt_id) => self.statement(stmt_id).node_type(),
-            NodeId::Def(def_id) => self.definition(def_id).node_type(),
-            NodeId::Module(_) => NodeType::Module,
-        }
-    }
-
-    fn parent_node_type(&self) -> NodeType {
-        match self.parent_node_id() {
-            NodeId::Expr(expr_id) => self.expression(expr_id).node_type(),
-            NodeId::Stmt(stmt_id) => self.statement(stmt_id).node_type(),
-            NodeId::Def(def_id) => self.definition(def_id).node_type(),
-            NodeId::Module(_) => NodeType::Module,
-        }
-    }
-
-    fn ident(&self, id: IdentId) -> &Ident {
-        &self.program.interner[id]
-    }
-
-    fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId {
-        self.program.interner.intern_ident(s)
-    }
-
-    fn module(&self, module_id: ModuleId) -> &ModuleNode {
-        self.program.modules[module_id].data()
-    }
-
-    fn program(&self) -> &Program<F> {
-        &self.program
-    }
-
-    fn dependency_graph(&self) -> Graph<ModuleId> {
-        self.program.dependency_graph.clone()
-    }
-
-    fn expression(&self, expr_id: ExprId) -> &ExprNode<F> {
-        &self.program.exprs[expr_id]
-    }
-
-    fn statement(&self, stmt_id: StmtId) -> &StmtNode {
-        &self.program.stmts[stmt_id]
-    }
-
-    fn definition(&self, def_id: DefId) -> &DefinitionNode {
-        &self.program.defs[def_id]
-    }
-
-    fn insert_definition(&mut self, definition: DefinitionNode, pos: InsertPosition) {
-        let def_id = self.program.defs.alloc_item(definition);
-        assert!(self.parent_node_type() == NodeType::Module);
-        let module_id = self.parent_node_id().as_module().unwrap().clone();
-
-        match pos {
-            InsertPosition::Front => {
-                self.program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .insert(0, def_id);
-            }
-            InsertPosition::End => {
-                self.program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .push(def_id);
-            }
-            InsertPosition::Before(before) => {
-                let idx = self.program.modules[module_id]
-                    .data()
-                    .definitions
-                    .iter()
-                    .position(|d| d == before.as_def().unwrap())
-                    .unwrap();
-                self.program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .insert(idx, def_id);
-            }
-            InsertPosition::After(after) => {
-                let idx = self.program.modules[module_id]
-                    .data()
-                    .definitions
-                    .iter()
-                    .position(|d| d == after.as_def().unwrap())
-                    .unwrap();
-                self.program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .insert(idx + 1, def_id);
-            }
-        };
-    }
-
-    fn alloc_expression(&mut self, expr: ExprNode<F>) -> ExprId {
-        self.program.exprs.alloc_item(expr)
-    }
-
-    fn alloc_statement(&mut self, stmt: StmtNode) -> StmtId {
-        self.program.stmts.alloc_item(stmt)
-    }
-
-    fn alloc_definition(&mut self, definition: DefinitionNode) -> DefId {
-        self.program.defs.alloc_item(definition)
-    }
-
-    fn replace_definition(&mut self, def_id: DefId, definition: DefinitionNode) {
-        self.program.defs.replace_item(def_id, definition);
-    }
-
-    fn replace_statement(&mut self, stmt_id: StmtId, statement: StmtNode) {
-        self.program.stmts.replace_item(stmt_id, statement);
-    }
-
-    type Expr = ExprNode<F>;
-
-    type Stmt = StmtNode;
-
-    type Definition = DefinitionNode;
-}
-
 impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcessor<'a> {
-    type Context = PreprocessorContext<'a, F, C>;
+    type Context = DefaultVisitorContext<'a, F, C>;
     type ExprResult = ();
     type StmtResult = ();
     type Error = ();
@@ -712,7 +552,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let defs: Vec<DefId> = ctx.definition(node).as_impl().unwrap().body.clone();
         for def_id in defs {
             self.visit_definition(def_id, ctx)?;
@@ -724,7 +564,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
 
@@ -732,7 +572,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let is_extern = ctx.definition(node).as_function().unwrap().is_extern;
         let function_name = ctx.definition(node).as_function().unwrap().name;
         if !is_extern || ctx.parent_node_type() != NodeType::ImplDef {
@@ -795,7 +635,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let s: StructNode = ctx.definition(node).as_struct().unwrap().clone();
         let storage_trait_id = ctx.intern("Storage");
         let storage_attribute_id = ctx.intern("storage");
@@ -852,4 +692,6 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     type Stmt = StmtNode;
 
     type Definition = DefinitionNode;
+
+    type DefinitionResult = ();
 }

@@ -4,124 +4,6 @@ use qed_common::Graph;
 use qed_parser::Parser;
 use std::fmt::{Display, Write};
 
-pub struct FormatterContext<'a, F: Clone + From<u32>, C> {
-    path_stack: Vec<NodeId>,
-    program: &'a Program<F>,
-    _marker: std::marker::PhantomData<(F, C)>,
-}
-
-impl<'a, F: Clone + From<u32>, C> FormatterContext<'a, F, C> {
-    pub fn new(program: &'a Program<F>) -> Self {
-        FormatterContext {
-            path_stack: vec![],
-            program,
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for FormatterContext<'a, F, C> {
-    fn node_id(&self) -> NodeId {
-        self.path_stack.last().unwrap().clone()
-    }
-
-    fn parent_node_id(&self) -> NodeId {
-        self.path_stack[self.path_stack.len() - 2].clone()
-    }
-
-    fn node_path(&self) -> &[NodeId] {
-        &self.path_stack
-    }
-
-    fn push_node_id(&mut self, node_id: NodeId) {
-        self.path_stack.push(node_id);
-    }
-
-    fn pop_node_id(&mut self) {
-        self.path_stack.pop();
-    }
-
-    fn node_type(&self) -> NodeType {
-        match self.node_id() {
-            NodeId::Expr(expr_id) => self.expression(expr_id).node_type(),
-            NodeId::Stmt(stmt_id) => self.statement(stmt_id).node_type(),
-            NodeId::Def(def_id) => self.definition(def_id).node_type(),
-            NodeId::Module(_) => NodeType::Module,
-        }
-    }
-
-    fn parent_node_type(&self) -> NodeType {
-        match self.parent_node_id() {
-            NodeId::Expr(expr_id) => self.expression(expr_id).node_type(),
-            NodeId::Stmt(stmt_id) => self.statement(stmt_id).node_type(),
-            NodeId::Def(def_id) => self.definition(def_id).node_type(),
-            NodeId::Module(_) => NodeType::Module,
-        }
-    }
-
-    fn ident(&self, id: IdentId) -> &Ident {
-        &self.program.interner[id]
-    }
-
-    fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId {
-        unreachable!()
-    }
-
-    fn module(&self, module_id: ModuleId) -> &ModuleNode {
-        self.program.modules[module_id].data()
-    }
-
-    fn program(&self) -> &Program<F> {
-        &self.program
-    }
-
-    fn dependency_graph(&self) -> Graph<ModuleId> {
-        self.program.dependency_graph.clone()
-    }
-
-    fn expression(&self, expr_id: ExprId) -> &ExprNode<F> {
-        &self.program.exprs[expr_id]
-    }
-
-    fn statement(&self, stmt_id: StmtId) -> &StmtNode {
-        &self.program.stmts[stmt_id]
-    }
-
-    fn definition(&self, def_id: DefId) -> &DefinitionNode {
-        &self.program.defs[def_id]
-    }
-
-    fn insert_definition(&mut self, definition: DefinitionNode, pos: InsertPosition) {
-        unimplemented!()
-    }
-
-    fn alloc_expression(&mut self, expr: ExprNode<F>) -> ExprId {
-        unimplemented!()
-    }
-
-    fn alloc_statement(&mut self, stmt: StmtNode) -> StmtId {
-        unimplemented!()
-    }
-
-    fn alloc_definition(&mut self, definition: DefinitionNode) -> DefId {
-        unimplemented!()
-    }
-
-    fn replace_definition(&mut self, def_id: DefId, definition: DefinitionNode) {
-        unimplemented!()
-    }
-
-    fn replace_statement(&mut self, stmt_id: StmtId, statement: StmtNode) {
-        unimplemented!()
-    }
-
-    type Expr = ExprNode<F>;
-
-    type Stmt = StmtNode;
-
-    type Definition = DefinitionNode;
-}
-
 #[derive(Debug)]
 pub struct Formatter<'a, F: Clone + From<u32>, C> {
     output: String,
@@ -224,7 +106,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
 {
     type ExprResult = String;
     type StmtResult = String;
-    type Context = FormatterContext<'a, F, C>;
+    type Context = DefaultVisitorContext<'a, F, C>;
     type Error = ();
 
     fn visit_use(&mut self, u: &UsePath, ctx: &mut Self::Context) -> Result<(), Self::Error> {
@@ -816,4 +698,6 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
     type Stmt = StmtNode;
 
     type Definition = DefinitionNode;
+
+    type DefinitionResult = String;
 }

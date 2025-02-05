@@ -77,3 +77,15 @@ impl Display for StmtNode {
         }
     }
 }
+
+impl From<ExprId> for StmtNode {
+    fn from(value: ExprId) -> Self {
+        Self::Expression(value)
+    }
+}
+
+impl From<DefId> for StmtNode {
+    fn from(value: DefId) -> Self {
+        Self::Definition(value)
+    }
+}

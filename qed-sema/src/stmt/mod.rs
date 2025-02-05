@@ -15,24 +15,24 @@ pub use r#while::*;
 pub use storage::*;
 pub use variable::*;
 
-use qed_ast::{NodeInfo, NodeType, StmtNode};
+use qed_ast::{DefId, ExprId, NodeInfo, NodeType, StmtNode};
 
 use crate::{CheckedDefinitionNode, CheckedExprNode, TypeId};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
-pub enum CheckedStmtNode<F> {
+pub enum CheckedStmtNode {
     If(CheckedIfNode),
     While(CheckedWhileNode),
     Block(CheckedBlockNode),
     Assignment(CheckedAssignmentNode),
     Variable(CheckedVariableNode),
-    Definition(CheckedDefinitionNode),
-    Expression(CheckedExprNode<F>),
+    Definition(DefId),
+    Expression(ExprId),
     Storage(CheckedStorageWriteNode),
     Return(CheckedReturnNode),
 }
 
-impl<F> NodeInfo for CheckedStmtNode<F> {
+impl NodeInfo for CheckedStmtNode {
     fn node_type(&self) -> NodeType {
         match self {
             Self::If(node) => node.node_type(),
@@ -40,16 +40,48 @@ impl<F> NodeInfo for CheckedStmtNode<F> {
             Self::Block(node) => node.node_type(),
             Self::Assignment(node) => node.node_type(),
             Self::Variable(node) => node.node_type(),
-            Self::Definition(node) => node.node_type(),
-            Self::Expression(node) => node.node_type(),
+            Self::Definition(node) => NodeType::DefinitionStmt,
+            Self::Expression(node) => NodeType::ExpressionStmt,
             Self::Storage(node) => node.node_type(),
             Self::Return(node) => node.node_type(),
         }
     }
+
+    fn as_expression(&self) -> Option<ExprId> {
+        match self {
+            Self::Expression(expr) => Some(*expr),
+            _ => None,
+        }
+    }
+
+    fn as_definition(&self) -> Option<DefId> {
+        match self {
+            Self::Definition(def) => Some(*def),
+            _ => None,
+        }
+    }
 }
 
-impl<F> From<CheckedExprNode<F>> for CheckedStmtNode<F> {
-    fn from(value: CheckedExprNode<F>) -> Self {
+impl From<ExprId> for CheckedStmtNode {
+    fn from(value: ExprId) -> Self {
         Self::Expression(value)
+    }
+}
+
+impl From<DefId> for CheckedStmtNode {
+    fn from(value: DefId) -> Self {
+        Self::Definition(value)
+    }
+}
+
+impl<F> From<CheckedExprNode<F>> for CheckedStmtNode {
+    fn from(value: CheckedExprNode<F>) -> Self {
+        todo!()
+    }
+}
+
+impl From<CheckedDefinitionNode> for CheckedStmtNode {
+    fn from(value: CheckedDefinitionNode) -> Self {
+        todo!()
     }
 }
