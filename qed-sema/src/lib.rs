@@ -205,14 +205,14 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
             fields: Vec::new(),
             implementations: Vec::new(),
             scope_id: symbols.current_scope_id().unwrap(),
-            is_pub: node.is_pub,
+            visibility: node.visibility,
         };
 
-        for (field_name, field_type, is_pub) in &node.fields {
+        for (field_name, field_type, visibility) in &node.fields {
             let field_type = self.typecheck(field_type, symbols, artifact)?;
             checked_struct
                 .fields
-                .push((field_name.clone(), field_type, *is_pub));
+                .push((field_name.clone(), field_type, *visibility));
 
             symbols.add_type_id(None, field_name.clone(), field_type);
         }
@@ -368,9 +368,9 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
             (None, expected_return_type)
         };
 
-        // if expected_return_type != actual_return_type {
-        //     return Err(Error::TypeMismatch);
-        // }
+        if expected_return_type != actual_return_type {
+            return Err(Error::TypeMismatch);
+        }
 
         let checked_function = CheckedFunctionNode {
             name: function.name,
@@ -379,7 +379,7 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
             body: checked_body,
             return_type: expected_return_type,
             scope_id: current_scope_id,
-            is_pub: function.is_pub,
+            visibility: function.visibility,
         };
 
         Ok(checked_function)
@@ -415,7 +415,7 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
             variants: todo!(),
             scope_id: todo!(),
             implementations: Vec::new(),
-            is_pub: r#enum.is_pub,
+            visibility: r#enum.visibility,
         };
         let ty = Type::Enum(checked_enum.clone());
         symbols.add_type(symbols.parent_scope_id(), ty);
@@ -552,6 +552,7 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
             body: methods,
             implementors: Vec::new(),
             scope_id: symbols.current_scope_id().unwrap(),
+            visibility: r#trait.visibility,
         };
         let ty = Type::Trait(checked_trait.clone());
         symbols.add_type(symbols.parent_scope_id(), ty);
@@ -951,52 +952,40 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
                         type_id, elements,
                     )))
                 }
-                ValueNode::Struct(name, generic_parameters, data) => {
-                    Ok({
-                        let generic_parameters = generic_parameters
-                            .into_iter()
-                            .map(|x| self.typecheck(x, symbols, artifact).unwrap())
-                            .collect::<Vec<_>>();
-                        let type_id = symbols.get_type_id(None, name.clone()).unwrap();
-                        let mut new_data = IndexMap::new();
-                        if symbols[type_id].as_struct().unwrap().fields.len() != data.len() {
+                ValueNode::Struct(name, generic_parameters, data) => Ok({
+                    let generic_parameters = generic_parameters
+                        .into_iter()
+                        .map(|x| self.typecheck(x, symbols, artifact).unwrap())
+                        .collect::<Vec<_>>();
+                    let type_id = symbols.get_type_id(None, name.clone()).unwrap();
+                    let mut new_data = IndexMap::new();
+                    if symbols[type_id].as_struct().unwrap().fields.len() != data.len() {
+                        return Err(Error::TypeMismatch);
+                    }
+                    for (i, (k, v)) in data.iter().enumerate() {
+                        let expr = self.typecheck_expr(
+                            &artifact[v.clone()],
+                            symbols,
+                            artifact,
+                            Some(value_node.node_type()),
+                        )?;
+                        let t = expr.ty();
+                        new_data.insert(k.clone(), self.exprs.alloc_item(expr));
+
+                        let checked_struct = symbols[type_id].as_struct().unwrap();
+
+                        let (field_name, field_type, visibility) = checked_struct
+                            .fields
+                            .iter()
+                            .find(|(field_name, field_type, _visibility)| field_name == k)
+                            .unwrap();
+
+                        if (k, t) != (field_name, *field_type) {
                             return Err(Error::TypeMismatch);
                         }
-                        for (i, (k, v)) in data.iter().enumerate() {
-                            let expr = self.typecheck_expr(
-                                &artifact[v.clone()],
-                                symbols,
-                                artifact,
-                                Some(value_node.node_type()),
-                            )?;
-                            let t = expr.ty();
-                            new_data.insert(k.clone(), self.exprs.alloc_item(expr));
-
-                            let checked_struct = symbols[type_id].as_struct().unwrap();
-
-                            // let found = symbols.find_scope(
-                            //     symbols.current_scope_id(),
-                            //     vec![ScopeKind::Module],
-                            //     |scope| scope.parent == symbols[checked_struct.scope_id].parent,
-                            // );
-
-                            let (field_name, field_type, is_pub) = checked_struct
-                                .fields
-                                .iter()
-                                .find(|(field_name, field_type, _is_pub)| field_name == k)
-                                .unwrap();
-
-                            if (k, t) != (field_name, *field_type) {
-                                return Err(Error::TypeMismatch);
-                            }
-
-                            // if found.is_none() {
-                            //     return Err(Error::UnresolvedMember);
-                            // }
-                        }
-                        CheckedExprNode::Value(CheckedValueNode::Struct(type_id, new_data))
-                    })
-                }
+                    }
+                    CheckedExprNode::Value(CheckedValueNode::Struct(type_id, new_data))
+                }),
             },
             ExprNode::Binary(binary_node) => {
                 let checked_lhs = self.typecheck_expr(
@@ -1106,9 +1095,9 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
                         artifact,
                         Some(expr.node_type()),
                     )?;
-                    // if expr.ty() != f.parameters[0].2 {
-                    //     return Err(Error::FunctionParameterMismatch);
-                    // }
+                    if expr.ty() != f.parameters[0].2 {
+                        return Err(Error::FunctionParameterMismatch);
+                    }
                     Some(self.exprs.alloc_item(expr))
                 } else {
                     None
@@ -1121,9 +1110,9 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
                         artifact,
                         Some(call_node.node_type()),
                     )?;
-                    // if type_arg.ty() != f.parameters[i + offset].2 {
-                    //     return Err(Error::FunctionParameterMismatch);
-                    // }
+                    if type_arg.ty() != f.parameters[i + offset].2 {
+                        return Err(Error::FunctionParameterMismatch);
+                    }
                     args.push(type_arg);
                 }
 
@@ -1162,17 +1151,9 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
                 let type_id = checked_expr.ty();
                 let ty = &symbols[type_id];
                 let checked_struct_node = ty.as_struct().unwrap();
-                for (field_name, field_type, is_pub) in &checked_struct_node.fields {
+                for (field_name, field_type, visibility) in &checked_struct_node.fields {
                     let checked_struct_node_parent_scope_id =
                         symbols[checked_struct_node.scope_id].parent;
-
-                    // let found = symbols
-                    //     .find_scope(
-                    //         symbols.current_scope_id(),
-                    //         vec![ScopeKind::Module],
-                    //         |scope| scope.parent == checked_struct_node_parent_scope_id,
-                    //     )
-                    //     .ok_or(Error::UnresolvedMember)?;
 
                     if field_name == &member_access_node.field {
                         return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {

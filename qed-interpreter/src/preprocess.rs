@@ -93,7 +93,7 @@ impl<'a> StorageProcessor<'a> {
             body: Some(block),
             return_type: Some(UncheckedType::Basic(IdentId::TYPE_FELT)),
             is_extern: false,
-            is_pub: true,
+            visibility: Visibility::Public,
         };
 
         ctx.alloc_definition(DefinitionNode::Function(f))
@@ -143,7 +143,7 @@ impl<'a> StorageProcessor<'a> {
             body: Some(block),
             return_type: Some(UncheckedType::Basic(IdentId::TYPE_SELF)),
             is_extern: false,
-            is_pub: true,
+            visibility: Visibility::Public,
         };
 
         ctx.alloc_definition(DefinitionNode::Function(f))
@@ -191,7 +191,7 @@ impl<'a> StorageProcessor<'a> {
             body: Some(block),
             return_type: None,
             is_extern: false,
-            is_pub: true,
+            visibility: Visibility::Public,
         };
 
         ctx.alloc_definition(DefinitionNode::Function(f))
@@ -239,7 +239,7 @@ impl<'a> StorageProcessor<'a> {
             body: Some(block),
             return_type: Some(field_type.clone()),
             is_extern: false,
-            is_pub: true,
+            visibility: Visibility::Public,
         };
 
         ctx.alloc_definition(DefinitionNode::Function(function))
@@ -297,7 +297,7 @@ impl<'a> StorageProcessor<'a> {
             body: Some(block),
             return_type: None,
             is_extern: false,
-            is_pub: true,
+            visibility: Visibility::Public,
         };
 
         ctx.alloc_definition(DefinitionNode::Function(function))

@@ -11,6 +11,7 @@ mod stmt;
 mod traits;
 mod r#type;
 mod value;
+mod visibility;
 
 pub use arena::*;
 pub use definition::*;
@@ -24,3 +25,4 @@ pub use span::*;
 pub use stmt::*;
 pub use traits::*;
 pub use value::*;
+pub use visibility::*;

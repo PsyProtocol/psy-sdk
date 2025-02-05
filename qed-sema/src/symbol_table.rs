@@ -9,13 +9,13 @@ use std::{
 };
 
 use once_cell::sync::OnceCell;
-use qed_ast::{ModuleNode, PathNode};
+use qed_ast::{ModuleNode, PathNode, Visibility};
 use qed_common::{define_arena_id, FileId, TreeNode};
 use strum::EnumTryAs;
 
 use crate::{
     variable::CheckedVariable, CheckedFunctionNode, CheckedTraitNode, CheckedValueOrNode,
-    DefinitionNode, IdentId, ModuleId, ModuleKind, Type, TypeId, TypeKey, UseKind, UsePath,
+    DefinitionNode, IdentId, ModuleId, ModuleKind, Type, TypeId, TypeKey, UsePath,
 };
 use crate::{Error, Result};
 
@@ -83,6 +83,7 @@ pub struct Module {
     pub kind: ModuleKind,
     pub parent: Option<ModuleId>,
     pub children: Vec<ModuleId>,
+    pub visibility: Visibility,
 }
 
 impl Module {
@@ -92,6 +93,7 @@ impl Module {
         scope_id: ScopeId,
         file_id: FileId,
         parent: Option<ModuleId>,
+        visibility: Visibility,
     ) -> Self {
         Self {
             name,
@@ -100,6 +102,7 @@ impl Module {
             kind: ModuleKind::File { file_id },
             parent,
             children: vec![],
+            visibility,
         }
     }
 }
@@ -221,6 +224,7 @@ impl<T: Clone> SymbolTable<T> {
                 },
                 parent: module.parent(),
                 children: module.children().to_vec(),
+                visibility: data.visibility,
             });
             self.scopes.push(Scope {
                 kind: ScopeKind::Module,
@@ -248,33 +252,33 @@ impl<T: Clone> SymbolTable<T> {
         self.module_stack.last().cloned()
     }
 
-    pub fn start_module(&mut self, name: IdentId, file_id: FileId) {
-        let scope_id = ScopeId(self.scopes.len());
-        self.scopes
-            .push(Scope::new(ScopeKind::Module, self.current_scope_id()));
-        self.scope_stack.push(scope_id);
-
-        let current_module_id = self.current_module_id();
-        let module_id = ModuleId(self.modules.len());
-
-        self.module_stack.push(module_id);
-        self.modules.push(Module::new(
-            name,
-            module_id,
-            scope_id,
-            file_id,
-            current_module_id,
-        ));
-
-        if let Some(current_module_id) = current_module_id {
-            self[current_module_id].children.push(module_id);
-        }
-    }
-
-    pub fn end_module(&mut self) {
-        self.scope_stack.pop();
-        self.module_stack.pop();
-    }
+    // pub fn start_module(&mut self, name: IdentId, file_id: FileId) {
+    //     let scope_id = ScopeId(self.scopes.len());
+    //     self.scopes
+    //         .push(Scope::new(ScopeKind::Module, self.current_scope_id()));
+    //     self.scope_stack.push(scope_id);
+    //
+    //     let current_module_id = self.current_module_id();
+    //     let module_id = ModuleId(self.modules.len());
+    //
+    //     self.module_stack.push(module_id);
+    //     self.modules.push(Module::new(
+    //         name,
+    //         module_id,
+    //         scope_id,
+    //         file_id,
+    //         current_module_id,
+    //     ));
+    //
+    //     if let Some(current_module_id) = current_module_id {
+    //         self[current_module_id].children.push(module_id);
+    //     }
+    // }
+    //
+    // pub fn end_module(&mut self) {
+    //     self.scope_stack.pop();
+    //     self.module_stack.pop();
+    // }
 
     pub fn add_type_id<K: Into<TypeKey>>(
         &mut self,
@@ -383,18 +387,21 @@ impl<T: Clone> SymbolTable<T> {
 
     pub fn resolve_use(&self, use_path: &UsePath) -> Option<Vec<(&TypeKey, &TypeId)>> {
         let mut src_module = match use_path.kind {
-            UseKind::MODULE(name) => ModuleId(self.modules.iter().position(|x| x.name == name)?),
-            UseKind::SELF => self.current_module_id()?,
-            UseKind::CRATE => {
+            IdentId::SELF => self.current_module_id()?,
+            IdentId::CRATE => {
                 let mut module_id = self.current_module_id()?;
                 while let Some(parent) = self[module_id].parent {
                     module_id = parent;
                 }
                 module_id
             }
-            UseKind::SUPER => {
+            IdentId::SUPER => {
                 let module_id = self.current_module_id()?;
                 self[module_id].parent?
+            }
+            name => {
+                let module_id = ModuleId(self.modules.iter().position(|x| x.name == name)?);
+                module_id
             }
         };
 

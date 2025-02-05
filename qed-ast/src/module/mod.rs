@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use qed_common::{define_arena_id, FileId};
 
-use crate::{AstVisitor, DefId, DefinitionNode, IdentId};
+use crate::{AstVisitor, DefId, DefinitionNode, IdentId, Visibility};
 
 define_arena_id!(ModuleId);
 
@@ -19,48 +19,19 @@ pub enum ModuleKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UsePath {
-    pub kind: UseKind,
+    pub kind: IdentId,
     pub segments: Vec<IdentId>,
     pub target: Option<IdentId>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum UseKind {
-    MODULE(IdentId),
-    CRATE,
-    SELF,
-    SUPER,
-}
-
-impl From<IdentId> for UseKind {
-    fn from(value: IdentId) -> Self {
-        match value {
-            IdentId::CRATE => UseKind::CRATE,
-            IdentId::SELF => UseKind::SELF,
-            IdentId::SUPER => UseKind::SUPER,
-            v => UseKind::MODULE(v),
-        }
-    }
-}
-
-impl From<UseKind> for IdentId {
-    fn from(value: UseKind) -> Self {
-        match value {
-            UseKind::MODULE(k) => k,
-            UseKind::CRATE => IdentId::CRATE,
-            UseKind::SELF => IdentId::SELF,
-            UseKind::SUPER => IdentId::SUPER,
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
 pub struct ModuleNode {
     pub name: IdentId,
     pub file_id: FileId,
-    pub modules: Vec<(IdentId, bool)>,
+    pub modules: Vec<(IdentId, Visibility)>,
     pub uses: Vec<UsePath>,
     pub definitions: Vec<DefId>,
+    pub visibility: Visibility,
 
     pub is_std: bool,
     pub is_self_std: bool,
