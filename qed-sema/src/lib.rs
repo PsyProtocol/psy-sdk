@@ -37,7 +37,8 @@ use tracing::{debug, error, info, instrument, span, Level};
 #[derive(Debug)]
 pub struct TypeChecker<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> {
     pub exprs: Arena<ExprId, CheckedExprNode<F>>,
-    pub stmts: Arena<StmtId, CheckedStmtNode<F>>,
+    pub stmts: Arena<StmtId, CheckedStmtNode>,
+    pub defs: Arena<DefId, CheckedDefinitionNode>,
     _marker: std::marker::PhantomData<(T, C)>,
 }
 
@@ -50,7 +51,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> Index<ExprId> for Ty
 }
 
 impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> Index<StmtId> for TypeChecker<F, T, C> {
-    type Output = CheckedStmtNode<F>;
+    type Output = CheckedStmtNode;
 
     fn index(&self, index: StmtId) -> &Self::Output {
         &self.stmts[index]
@@ -62,6 +63,7 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
         Self {
             exprs: Arena::new(),
             stmts: Arena::new(),
+            defs: Arena::new(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -597,7 +599,7 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
         symbols: &mut SymbolTable<T>,
         artifact: &Artifact<F, C>,
         parent_node_type: Option<NodeType>,
-    ) -> Result<CheckedStmtNode<F>> {
+    ) -> Result<CheckedStmtNode> {
         match stmt {
             StmtNode::If(r#if) => Ok(CheckedStmtNode::If(self.typecheck_if(
                 r#if,
@@ -624,19 +626,27 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
                 self.typecheck_variable(variable, symbols, artifact, parent_node_type)?,
             )),
             StmtNode::Definition(def_id) => {
-                Ok(CheckedStmtNode::Definition(self.typecheck_definition(
+                let definition = self.typecheck_definition(
                     &artifact[def_id.clone()],
                     symbols,
                     artifact,
                     parent_node_type,
-                )?))
+                )?;
+                Ok(CheckedStmtNode::Definition(
+                    self.defs.alloc_item(definition),
+                ))
             }
-            StmtNode::Expression(expr) => Ok(CheckedStmtNode::Expression(self.typecheck_expr(
-                &artifact[expr.clone()],
-                symbols,
-                artifact,
-                parent_node_type,
-            )?)),
+            StmtNode::Expression(expr) => {
+                let expression = self.typecheck_expr(
+                    &artifact[expr.clone()],
+                    symbols,
+                    artifact,
+                    parent_node_type,
+                )?;
+                Ok(CheckedStmtNode::Expression(
+                    self.exprs.alloc_item(expression),
+                ))
+            }
             StmtNode::Storage(storage_node) => {
                 let offset = self.typecheck_expr(
                     &artifact[storage_node.offset.clone()],

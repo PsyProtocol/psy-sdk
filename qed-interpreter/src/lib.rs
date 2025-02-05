@@ -7,10 +7,10 @@ mod preprocess;
 use either::Either;
 use error::{Error, Result};
 use indexmap::IndexMap;
-pub use preprocess::{PreprocessorContext, StorageProcessor};
+pub use preprocess::StorageProcessor;
 use qed_ast::*;
 use qed_builder::{ContextFelt, ContextInput, DPNContext};
-use qed_fmt::{Formatter, FormatterContext};
+use qed_fmt::Formatter;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
@@ -63,14 +63,12 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             .map_err(|err| Error::ParseError(err.to_string()))?;
 
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
-        let mut preprocessor_context: PreprocessorContext<'_, F, C> =
-            PreprocessorContext::new(&mut program);
-        storage_preprocessor.visit_program(&mut preprocessor_context);
-
-        let mut formatter_context: FormatterContext<F, C> = FormatterContext::new(&program);
+        let mut default_visitor_context: DefaultVisitorContext<'_, F, C> =
+            DefaultVisitorContext::new(&mut program);
+        storage_preprocessor.visit_program(&mut default_visitor_context);
 
         let mut formatter = Formatter::new();
-        formatter.visit_program(&mut formatter_context);
+        formatter.visit_program(&mut default_visitor_context);
         println!("formatted:\n{}", formatter.get_output());
         println!("ast:\n{:#?}", program);
 
@@ -277,7 +275,7 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
         artifact: &Artifact<F, C>,
-        node: &CheckedStmtNode<F>,
+        node: &CheckedStmtNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
     ) -> Result<ControlState<CheckedValue<F>>> {
@@ -309,7 +307,13 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             }
             CheckedStmtNode::Definition(definition) => {}
             CheckedStmtNode::Expression(expr) => {
-                self.interpret_expr(typechecker, artifact, expr, symbols, parent_node_type)?;
+                self.interpret_expr(
+                    typechecker,
+                    artifact,
+                    &typechecker[*expr],
+                    symbols,
+                    parent_node_type,
+                )?;
             }
             CheckedStmtNode::Return(return_node) => {
                 return self.interpret_ret(

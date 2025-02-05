@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_ast::{AstVisitor, IdentId, ModuleId, NodeType, Program};
+use qed_ast::{AstVisitor, DefaultVisitorContext, IdentId, ModuleId, NodeType, Program};
 use qed_builder::{
     exec_circuit_function_vm, DPNContext, IExecutionContext, QEDCompileResult, QExecContext,
     SymFeltRef, ToFelts,
 };
-use qed_fmt::{Formatter, FormatterContext};
-use qed_interpreter::{Interpreter, PreprocessorContext, StorageProcessor};
+use qed_fmt::Formatter;
+use qed_interpreter::{Interpreter, StorageProcessor};
 use qed_parser::Parser;
 use qed_sema::{
     Artifact, CheckedFunctionNode, CheckedValue, CheckedValueNode, CheckedValueOrNode, SymbolTable,
@@ -31,15 +31,12 @@ pub fn run(args: CompilerArgs) -> anyhow::Result<()> {
     parser.parse(&mut interpreter.context, entry).unwrap();
 
     let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
-    let mut preprocessor_context: PreprocessorContext<'_, SymFeltRef, QExecContext> =
-        PreprocessorContext::new(&mut program);
-    storage_preprocessor.visit_program(&mut preprocessor_context);
-
-    let mut formatter_context: FormatterContext<SymFeltRef, QExecContext> =
-        FormatterContext::new(&program);
+    let mut default_visitor_context: DefaultVisitorContext<'_, SymFeltRef, QExecContext> =
+        DefaultVisitorContext::new(&mut program);
+    storage_preprocessor.visit_program(&mut default_visitor_context);
 
     let mut formatter = Formatter::new();
-    formatter.visit_program(&mut formatter_context);
+    formatter.visit_program(&mut default_visitor_context);
     println!("formatted:\n{}", formatter.get_output());
     println!("ast:\n{:#?}", program);
 
