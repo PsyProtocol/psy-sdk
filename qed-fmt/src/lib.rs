@@ -114,6 +114,12 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for FormatterContext<'a, 
     fn replace_statement(&mut self, stmt_id: StmtId, statement: StmtNode) {
         unimplemented!()
     }
+
+    type Expr = ExprNode<F>;
+
+    type Stmt = StmtNode;
+
+    type Definition = DefinitionNode;
 }
 
 #[derive(Debug)]
@@ -804,4 +810,10 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         self.write_line(&format!("storage::write({}, {});", offset, value));
         Ok(Default::default())
     }
+
+    type Expr = ExprNode<F>;
+
+    type Stmt = StmtNode;
+
+    type Definition = DefinitionNode;
 }

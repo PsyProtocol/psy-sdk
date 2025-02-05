@@ -15,7 +15,7 @@ pub use r#while::*;
 pub use storage::*;
 pub use variable::*;
 
-use qed_ast::{NodeType, StmtNode};
+use qed_ast::{NodeInfo, NodeType, StmtNode};
 
 use crate::{CheckedDefinitionNode, CheckedExprNode, TypeId};
 
@@ -32,8 +32,8 @@ pub enum CheckedStmtNode<F> {
     Return(CheckedReturnNode),
 }
 
-impl<F> CheckedStmtNode<F> {
-    pub fn node_type(&self) -> NodeType {
+impl<F> NodeInfo for CheckedStmtNode<F> {
+    fn node_type(&self) -> NodeType {
         match self {
             Self::If(node) => node.node_type(),
             Self::While(node) => node.node_type(),

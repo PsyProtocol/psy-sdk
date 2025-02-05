@@ -1,4 +1,4 @@
-use qed_ast::NodeType;
+use qed_ast::{NodeInfo, NodeType};
 
 use crate::{ExprId, TypeId, UncheckedType};
 
@@ -8,8 +8,8 @@ pub struct CheckedCastNode {
     pub target_type: TypeId,
 }
 
-impl CheckedCastNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedCastNode {
+    fn node_type(&self) -> NodeType {
         NodeType::CastExpr
     }
 }

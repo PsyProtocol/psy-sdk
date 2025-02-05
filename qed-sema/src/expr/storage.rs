@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, NodeType};
+use qed_ast::{ExprId, NodeInfo, NodeType};
 
 use crate::TypeId;
 
@@ -8,8 +8,8 @@ pub struct CheckedStorageReadNode {
     pub type_id: TypeId,
 }
 
-impl CheckedStorageReadNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedStorageReadNode {
+    fn node_type(&self) -> NodeType {
         NodeType::StorageStmt
     }
 }

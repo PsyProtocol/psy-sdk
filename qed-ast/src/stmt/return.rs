@@ -1,10 +1,10 @@
-use crate::{AstVisitor, ExprId, NodeType};
+use crate::{AstVisitor, ExprId, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReturnNode(pub Option<ExprId>);
 
-impl ReturnNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for ReturnNode {
+    fn node_type(&self) -> NodeType {
         NodeType::ReturnStmt
     }
 }

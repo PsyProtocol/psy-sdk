@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    AstVisitor, AttrNode, FunctionNode, IdentId, NodeType, UncheckedType, ValueNode, Visibility,
+    AstVisitor, AttrNode, FunctionNode, IdentId, NodeInfo, NodeType, UncheckedType, ValueNode,
+    Visibility,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -13,8 +14,8 @@ pub struct StructNode {
     pub visibility: Visibility,
 }
 
-impl StructNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for StructNode {
+    fn node_type(&self) -> NodeType {
         NodeType::StructDef
     }
 }

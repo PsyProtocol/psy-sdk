@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use qed_ast::{IdentId, NodeType, Visibility};
+use qed_ast::{IdentId, NodeInfo, NodeType, Visibility};
 
 use crate::{ScopeId, TypeId};
 
@@ -14,8 +14,8 @@ pub struct CheckedStructNode {
     pub visibility: Visibility,
 }
 
-impl CheckedStructNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for CheckedStructNode {
+    fn node_type(&self) -> NodeType {
         NodeType::StructDef
     }
 }

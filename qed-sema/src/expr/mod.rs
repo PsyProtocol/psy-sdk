@@ -15,7 +15,7 @@ pub use path::*;
 pub use storage::*;
 pub use unary::*;
 
-use qed_ast::{ExprNode, IdentId, NodeType};
+use qed_ast::{ExprNode, IdentId, NodeInfo, NodeType};
 
 use crate::{CheckedValueNode, ScopeId, TypeId, TypeKey, BOOL_TYPE, FELT_TYPE};
 use strum::EnumTryAs;
@@ -33,8 +33,8 @@ pub enum CheckedExprNode<F> {
     Storage(CheckedStorageReadNode),
 }
 
-impl<F> CheckedExprNode<F> {
-    pub fn node_type(&self) -> NodeType {
+impl<F> NodeInfo for CheckedExprNode<F> {
+    fn node_type(&self) -> NodeType {
         match self {
             CheckedExprNode::Path(node) => node.node_type(),
             CheckedExprNode::Value(node) => node.node_type(),
@@ -47,7 +47,9 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Storage(node) => node.node_type(),
         }
     }
+}
 
+impl<F> CheckedExprNode<F> {
     pub fn ty(&self) -> TypeId {
         match self {
             CheckedExprNode::Path(p) => p.type_id,

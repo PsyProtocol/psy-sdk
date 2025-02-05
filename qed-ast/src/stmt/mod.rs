@@ -16,7 +16,7 @@ use std::fmt::Display;
 pub use storage::*;
 pub use variable::*;
 
-use crate::{AstVisitor, DefId, DefinitionNode, ExprId, ExprNode, NodeType};
+use crate::{AstVisitor, DefId, DefinitionNode, ExprId, ExprNode, NodeInfo, NodeType};
 use strum::EnumTryAs;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
@@ -32,8 +32,8 @@ pub enum StmtNode {
     Storage(StorageWriteNode),
 }
 
-impl StmtNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for StmtNode {
+    fn node_type(&self) -> NodeType {
         match self {
             StmtNode::If(node) => node.node_type(),
             StmtNode::While(node) => node.node_type(),
@@ -44,6 +44,20 @@ impl StmtNode {
             StmtNode::Expression(_) => NodeType::ExpressionStmt,
             StmtNode::Return(node) => node.node_type(),
             StmtNode::Storage(node) => node.node_type(),
+        }
+    }
+
+    fn as_expression(&self) -> Option<ExprId> {
+        match self {
+            StmtNode::Expression(expr) => Some(*expr),
+            _ => None,
+        }
+    }
+
+    fn as_definition(&self) -> Option<DefId> {
+        match self {
+            StmtNode::Definition(def) => Some(*def),
+            _ => None,
         }
     }
 }

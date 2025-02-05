@@ -1,4 +1,4 @@
-use crate::{AstVisitor, ExprId, IdentId, NodeType, UncheckedType};
+use crate::{AstVisitor, ExprId, IdentId, NodeInfo, NodeType, UncheckedType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariableNode {
@@ -9,8 +9,8 @@ pub struct VariableNode {
     pub value: ExprId,
 }
 
-impl VariableNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for VariableNode {
+    fn node_type(&self) -> NodeType {
         NodeType::VariableStmt
     }
 }

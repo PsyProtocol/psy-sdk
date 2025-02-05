@@ -2,8 +2,8 @@ use enum_as_inner::EnumAsInner;
 use qed_common::Graph;
 
 use crate::{
-    DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, ModuleId, ModuleNode, Program, StmtId,
-    StmtNode,
+    DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, ModuleId, ModuleNode, NodeInfo,
+    Program, StmtId, StmtNode,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -84,6 +84,10 @@ pub enum NodeType {
 }
 
 pub trait VisitorContext<F: Clone + From<u32>, C> {
+    type Expr: NodeInfo;
+    type Stmt: NodeInfo;
+    type Definition: NodeInfo;
+
     fn node_id(&self) -> NodeId;
     fn parent_node_id(&self) -> NodeId;
     fn node_path(&self) -> &[NodeId];
@@ -96,12 +100,12 @@ pub trait VisitorContext<F: Clone + From<u32>, C> {
     fn module(&self, module_id: ModuleId) -> &ModuleNode;
     fn program(&self) -> &Program<F>;
     fn dependency_graph(&self) -> Graph<ModuleId>;
-    fn alloc_expression(&mut self, expr: ExprNode<F>) -> ExprId;
-    fn alloc_statement(&mut self, stmt: StmtNode) -> StmtId;
-    fn alloc_definition(&mut self, definition: DefinitionNode) -> DefId;
-    fn expression(&self, expr_id: ExprId) -> &ExprNode<F>;
-    fn statement(&self, stmt_id: StmtId) -> &StmtNode;
-    fn definition(&self, def_id: DefId) -> &DefinitionNode;
+    fn alloc_expression(&mut self, expr: Self::Expr) -> ExprId;
+    fn alloc_statement(&mut self, stmt: Self::Stmt) -> StmtId;
+    fn alloc_definition(&mut self, definition: Self::Definition) -> DefId;
+    fn expression(&self, expr_id: ExprId) -> &Self::Expr;
+    fn statement(&self, stmt_id: StmtId) -> &Self::Stmt;
+    fn definition(&self, def_id: DefId) -> &Self::Definition;
     fn insert_definition(&mut self, definition: DefinitionNode, pos: InsertPosition);
     fn replace_definition(&mut self, def_id: DefId, definition: DefinitionNode);
     fn replace_statement(&mut self, stmt_id: StmtId, statement: StmtNode);

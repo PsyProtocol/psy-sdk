@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{AstVisitor, ExprId, NodeType, PathNode};
+use crate::{AstVisitor, ExprId, NodeInfo, NodeType, PathNode};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum AssignmentOperator {
@@ -46,7 +46,7 @@ pub struct AssignmentNode {
     pub value: ExprId,
 }
 
-impl<'a> AssignmentNode {
+impl AssignmentNode {
     pub fn new(variable: ExprId, operator: AssignmentOperator, value: ExprId) -> Self {
         Self {
             variable,
@@ -54,8 +54,10 @@ impl<'a> AssignmentNode {
             value,
         }
     }
+}
 
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for AssignmentNode {
+    fn node_type(&self) -> NodeType {
         NodeType::AssignmentStmt
     }
 }

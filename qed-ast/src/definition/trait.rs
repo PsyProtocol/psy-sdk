@@ -1,4 +1,4 @@
-use crate::{AstVisitor, FunctionNode, IdentId, NodeType, Visibility};
+use crate::{AstVisitor, FunctionNode, IdentId, NodeInfo, NodeType, Visibility};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TraitNode {
@@ -8,8 +8,8 @@ pub struct TraitNode {
     pub visibility: Visibility,
 }
 
-impl TraitNode {
-    pub fn node_type(&self) -> NodeType {
+impl NodeInfo for TraitNode {
+    fn node_type(&self) -> NodeType {
         NodeType::TraitDef
     }
 }

@@ -3,9 +3,18 @@ use std::collections::HashMap;
 use crate::*;
 
 pub trait AstVisitor<F: Clone + From<u32>, C> {
+    type Expr: NodeInfo;
+    type Stmt: NodeInfo;
+    type Definition: NodeInfo;
     type ExprResult;
     type StmtResult: From<Self::ExprResult>;
-    type Context: VisitorContext<F, C>;
+    type Context: VisitorContext<
+        F,
+        C,
+        Expr = Self::Expr,
+        Stmt = Self::Stmt,
+        Definition = Self::Definition,
+    >;
     type Error;
 
     fn visit_expr(
