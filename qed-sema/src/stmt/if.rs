@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, NodeInfo, NodeType};
+use qed_ast::{ExprId, NodeInfo, NodeType, StmtId};
 
 use crate::{stmt::block::CheckedBlockNode, TypeId};
 
@@ -6,11 +6,11 @@ use crate::{stmt::block::CheckedBlockNode, TypeId};
 pub struct CheckedCase {
     pub predicate: ExprId,
     pub type_id: TypeId,
-    pub body: CheckedBlockNode,
+    pub body: StmtId,
 }
 
 impl CheckedCase {
-    pub fn new(predicate: ExprId, type_id: TypeId, body: CheckedBlockNode) -> Self {
+    pub fn new(predicate: ExprId, type_id: TypeId, body: StmtId) -> Self {
         Self {
             predicate,
             type_id,
@@ -23,7 +23,7 @@ impl CheckedCase {
 pub struct CheckedIfNode {
     pub if_branch: CheckedCase,
     pub elseif_branch: Vec<CheckedCase>,
-    pub else_branch: Option<CheckedBlockNode>,
+    pub else_branch: Option<StmtId>,
 }
 
 impl NodeInfo for CheckedIfNode {

@@ -128,6 +128,12 @@ impl<'a, F: Clone + From<u32>, C> DefaultVisitorContext<'a, F, C> {
 }
 
 impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext<'a, F, C> {
+    type Expr = ExprNode<F>;
+
+    type Stmt = StmtNode;
+
+    type Definition = DefinitionNode;
+
     fn node_id(&self) -> NodeId {
         self.path_stack.last().unwrap().clone()
     }
@@ -262,10 +268,4 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
     fn replace_statement(&mut self, stmt_id: StmtId, statement: Self::Stmt) {
         self.program.stmts.replace_item(stmt_id, statement);
     }
-
-    type Expr = ExprNode<F>;
-
-    type Stmt = StmtNode;
-
-    type Definition = DefinitionNode;
 }

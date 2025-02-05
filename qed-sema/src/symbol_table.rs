@@ -607,24 +607,7 @@ impl<T: Clone> SymbolTable<T> {
         None
     }
 
-    pub fn set_variable(
-        &mut self,
-        start_scope: Option<ScopeId>,
-        key: &IdentId,
-        value: T,
-    ) -> Result<()> {
-        let scope_id = self
-            .find_scope(
-                start_scope,
-                vec![
-                    ScopeKind::Function,
-                    ScopeKind::ImplMethod,
-                    ScopeKind::TraitMethod,
-                ],
-                |scope| scope.variables.contains_key(key),
-            )
-            .ok_or(Error::UndefinedVariable)?;
-
+    pub fn set_variable(&mut self, scope_id: ScopeId, key: &IdentId, value: T) -> Result<()> {
         if let Some(v) = self[scope_id].variables.get(key) {
             if self
                 .frames

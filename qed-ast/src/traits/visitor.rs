@@ -7,7 +7,8 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
     type Stmt: NodeInfo;
     type Definition: NodeInfo;
     type ExprResult;
-    type StmtResult: From<Self::ExprResult>;
+    type StmtResult: From<Self::ExprResult> + From<Self::DefinitionResult>;
+    type DefinitionResult;
     type Context: VisitorContext<
         F,
         C,
@@ -43,7 +44,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         &mut self,
         def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         ctx.push_node_id(NodeId::from(def_id));
         let res = match ctx.definition(def_id).node_type() {
             NodeType::FunctionDef => self.visit_function(def_id, ctx)?,
@@ -71,11 +72,13 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::VariableStmt => self.visit_variable(stmt_id, ctx)?,
             NodeType::ReturnStmt => self.visit_return(stmt_id, ctx)?,
             NodeType::DefinitionStmt => {
-                self.visit_definition(ctx.statement(stmt_id).as_definition().unwrap().clone(), ctx)?
+                let def_id = ctx.statement(stmt_id).as_definition().unwrap().clone();
+                Self::StmtResult::from(self.visit_definition(def_id, ctx)?)
             }
-            NodeType::ExpressionStmt => Self::StmtResult::from(
-                self.visit_expr(ctx.statement(stmt_id).as_expression().unwrap().clone(), ctx)?,
-            ),
+            NodeType::ExpressionStmt => {
+                let expr_id = ctx.statement(stmt_id).as_expression().unwrap().clone();
+                Self::StmtResult::from(self.visit_expr(expr_id, ctx)?)
+            }
             NodeType::StorageStmt => self.visit_storage_write(stmt_id, ctx)?,
             _ => unreachable!(),
         };
@@ -202,25 +205,25 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
+    ) -> Result<Self::DefinitionResult, Self::Error>;
     fn visit_trait(
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
+    ) -> Result<Self::DefinitionResult, Self::Error>;
     fn visit_function(
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
+    ) -> Result<Self::DefinitionResult, Self::Error>;
     fn visit_struct(
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
+    ) -> Result<Self::DefinitionResult, Self::Error>;
     fn visit_enum(
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
+    ) -> Result<Self::DefinitionResult, Self::Error>;
 }

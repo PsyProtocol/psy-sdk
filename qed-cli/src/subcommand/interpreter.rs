@@ -15,19 +15,13 @@ pub fn run(args: InterpreterArgs) -> anyhow::Result<()> {
         SymFeltRef::from(0),
     );
     let mut typecheker = TypeChecker::new();
-    let mut symbols = SymbolTable::new();
     let params_interpret = args
         .params
         .iter()
         .map(|_p| CheckedValue::Felt(interpreter.context.add_input()))
         .collect::<Vec<_>>();
     let res = interpreter
-        .interpret(
-            &mut typecheker,
-            args.file.into(),
-            params_interpret,
-            &mut symbols,
-        )?
+        .interpret(&mut typecheker, args.file.into(), params_interpret)?
         .expect("return value not found");
     interpreter.inputs.extend(args.params);
 

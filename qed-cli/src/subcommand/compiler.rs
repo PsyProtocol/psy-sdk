@@ -11,7 +11,7 @@ use qed_interpreter::{Interpreter, StorageProcessor};
 use qed_parser::Parser;
 use qed_sema::{
     Artifact, CheckedFunctionNode, CheckedValue, CheckedValueNode, CheckedValueOrNode, SymbolTable,
-    Type, TypeChecker,
+    Type, TypeChecker, TypeCheckerVisitorContext,
 };
 use qed_utils::{CompilerArgs, InterpreterArgs};
 
@@ -24,7 +24,6 @@ pub fn run(args: CompilerArgs) -> anyhow::Result<()> {
         SymFeltRef::from(0),
     );
     let mut typechecker = TypeChecker::new();
-    let mut symbols = SymbolTable::new();
 
     let mut program = Program::new();
     let mut parser = Parser::new(&mut program);
@@ -40,32 +39,38 @@ pub fn run(args: CompilerArgs) -> anyhow::Result<()> {
     println!("formatted:\n{}", formatter.get_output());
     println!("ast:\n{:#?}", program);
 
-    let mut artifact = Artifact::new(program);
-    typechecker.typecheck_program(&mut symbols, &mut artifact)?;
+    let mut typechecker_context = TypeCheckerVisitorContext::new(program);
+    typechecker.visit_program(&mut typechecker_context)?;
 
-    let scope_id = symbols[ModuleId::root()].scope_id;
-    let type_id = symbols[scope_id].types.get(&IdentId::MAIN.into()).unwrap();
-    let node: CheckedFunctionNode =
-        (symbols[type_id.clone()].clone().as_ref() as &CheckedFunctionNode).clone();
+    let scope_id = typechecker_context.symbols[ModuleId::root()].scope_id;
+    let type_id = typechecker_context.symbols[scope_id]
+        .types
+        .get(&IdentId::MAIN.into())
+        .unwrap();
+    let node: CheckedFunctionNode = (typechecker_context.symbols[type_id.clone()]
+        .clone()
+        .as_ref() as &CheckedFunctionNode)
+        .clone();
 
     let mut parameters = vec![];
     for (id, _, ty) in node.parameters.iter() {
         parameters.push(
-            symbols[ty.clone()]
+            typechecker_context.symbols[ty.clone()]
                 .clone()
-                .to_value(&mut symbols, &mut interpreter.context),
+                .to_value(&mut typechecker_context.symbols, &mut interpreter.context),
         );
     }
 
     let res = interpreter
         .interpret_function(
             &mut typechecker,
-            &artifact,
             &node,
             parameters,
-            &mut symbols,
+            &mut typechecker_context.symbols,
             Some(NodeType::Module),
-        )?
+        )
+        .unwrap()
+        .transpose()?
         .expect("return value not found");
 
     let ctx = interpreter.context.clone();

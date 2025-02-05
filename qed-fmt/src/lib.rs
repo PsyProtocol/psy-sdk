@@ -698,4 +698,6 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
     type Stmt = StmtNode;
 
     type Definition = DefinitionNode;
+
+    type DefinitionResult = String;
 }

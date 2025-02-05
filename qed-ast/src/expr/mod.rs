@@ -44,12 +44,4 @@ impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
             Self::Storage(node) => node.node_type(),
         }
     }
-
-    fn as_expression(&self) -> Option<ExprId> {
-        unreachable!()
-    }
-
-    fn as_definition(&self) -> Option<DefId> {
-        unreachable!()
-    }
 }

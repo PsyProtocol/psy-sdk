@@ -54,7 +54,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         typechecker: &mut TypeChecker<F, CheckedValueOrNode<F>, C>,
         entry: PathBuf,
         parameters: Vec<CheckedValue<F>>,
-        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
     ) -> Result<Option<CheckedValue<F>>> {
         let mut program = Program::new();
         let mut parser = Parser::new(&mut program);
@@ -72,15 +71,15 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         println!("formatted:\n{}", formatter.get_output());
         println!("ast:\n{:#?}", program);
 
-        let mut artifact = Artifact::new(program);
-        typechecker.typecheck_program(symbols, &mut artifact)?;
-        let scope_id = symbols[ModuleId::root()].scope_id;
-        let type_id = symbols[scope_id]
+        let mut typechecker_context = TypeCheckerVisitorContext::new(program);
+        typechecker.visit_program(&mut typechecker_context)?;
+        let scope_id = typechecker_context.symbols[ModuleId::root()].scope_id;
+        let type_id = typechecker_context.symbols[scope_id]
             .types
             .get(&IdentId::MAIN.into())
             .ok_or(Error::UndefinedMain)?;
 
-        let f: &CheckedFunctionNode = symbols[*type_id].as_ref();
+        let f: &CheckedFunctionNode = typechecker_context.symbols[*type_id].as_ref();
         assert_eq!(
             parameters.len(),
             f.parameters.len(),
@@ -89,28 +88,28 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             parameters.len()
         );
 
-        return Ok(self.interpret_function(
+        self.interpret_function(
             typechecker,
-            &artifact,
             &f.clone(),
             parameters,
-            symbols,
+            &mut typechecker_context.symbols,
             Some(NodeType::Module),
-        )?);
+        )
+        .unwrap()
+        .transpose()
     }
 
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_function(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         node: &CheckedFunctionNode,
         parameters: Vec<CheckedValue<F>>,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
-    ) -> Result<Option<CheckedValue<F>>> {
+    ) -> ControlState<Result<CheckedValue<F>>> {
         symbols.push_frame();
-        let res = self.__interpret_function__(typechecker, artifact, node, parameters, symbols);
+        let res = self.__interpret_function__(typechecker, node, parameters, symbols);
         symbols.pop_frame();
         res
     }
@@ -118,36 +117,30 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     fn __interpret_function__(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         node: &CheckedFunctionNode,
         parameters: Vec<CheckedValue<F>>,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
-    ) -> std::result::Result<Option<CheckedValue<F>>, Error> {
+    ) -> ControlState<Result<CheckedValue<F>>> {
         for (i, (parameter, _, _)) in node.parameters.iter().enumerate() {
             symbols.set_variable(
-                Some(node.scope_id),
+                node.scope_id,
                 parameter,
                 CheckedValueOrNode::from(parameters[i].clone()),
             )?;
         }
 
-        match self.interpret_block(
+        self.interpret_block(
             typechecker,
-            artifact,
-            node.body.as_ref().unwrap(),
+            typechecker[node.body.unwrap()].as_block().unwrap(),
             symbols,
             Some(node.node_type()),
-        )? {
-            ControlState::Return(value) => Ok(Some(value)),
-            ControlState::Normal => Ok(None),
-        }
+        )
     }
 
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_if(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         node: &CheckedIfNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -155,7 +148,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let predicate = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[node.if_branch.predicate],
                 symbols,
                 Some(node.node_type()),
@@ -166,8 +158,7 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         self.context.start_if_block(predicate);
         self.interpret_block(
             typechecker,
-            artifact,
-            &node.if_branch.body,
+            typechecker[node.if_branch.body].as_block().unwrap(),
             symbols,
             Some(node.node_type()),
         );
@@ -176,7 +167,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             let predicate = self
                 .interpret_expr(
                     typechecker,
-                    artifact,
                     &typechecker[condition.predicate],
                     symbols,
                     Some(node.node_type()),
@@ -187,8 +177,7 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             self.context.start_else_if_block(predicate);
             self.interpret_block(
                 typechecker,
-                artifact,
-                &condition.body,
+                typechecker[condition.body].as_block().unwrap(),
                 symbols,
                 Some(node.node_type()),
             );
@@ -198,8 +187,7 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             self.context.start_else_block();
             self.interpret_block(
                 typechecker,
-                artifact,
-                &else_branch,
+                typechecker[else_branch.clone()].as_block().unwrap(),
                 symbols,
                 Some(node.node_type()),
             );
@@ -213,7 +201,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     pub fn interpret_while(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         node: &CheckedWhileNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -222,7 +209,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             let predicate = self
                 .interpret_expr(
                     typechecker,
-                    artifact,
                     &typechecker[node.predicate],
                     symbols,
                     Some(node.node_type()),
@@ -234,8 +220,7 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
                 self.context.start_if_block(predicate);
                 self.interpret_block(
                     typechecker,
-                    artifact,
-                    &node.body,
+                    typechecker[node.body].as_block().unwrap(),
                     symbols,
                     Some(node.node_type()),
                 );
@@ -250,105 +235,69 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     pub fn interpret_block(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         node: &CheckedBlockNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
-    ) -> Result<ControlState<CheckedValue<F>>> {
+    ) -> ControlState<Result<CheckedValue<F>>> {
         for &stmt in &node.stmts {
-            match self.interpret_statement(
+            self.interpret_statement(
                 typechecker,
-                artifact,
                 &typechecker[stmt],
                 symbols,
                 Some(node.node_type()),
-            )? {
-                ControlState::Normal => continue,
-                state => return Ok(state),
-            }
+            )?;
         }
-        Ok(ControlState::Normal)
+        ControlState::Normal
     }
 
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_statement(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         node: &CheckedStmtNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
-    ) -> Result<ControlState<CheckedValue<F>>> {
+    ) -> ControlState<Result<CheckedValue<F>>> {
         match node {
             CheckedStmtNode::If(r#if) => {
-                self.interpret_if(typechecker, artifact, r#if, symbols, parent_node_type)?
+                self.interpret_if(typechecker, r#if, symbols, parent_node_type)?
             }
             CheckedStmtNode::While(r#while) => {
-                self.interpret_while(typechecker, artifact, r#while, symbols, parent_node_type)?
+                self.interpret_while(typechecker, r#while, symbols, parent_node_type)?
             }
             CheckedStmtNode::Block(block) => {
-                return self.interpret_block(
-                    typechecker,
-                    artifact,
-                    r#block,
-                    symbols,
-                    parent_node_type,
-                );
+                return self.interpret_block(typechecker, r#block, symbols, parent_node_type);
             }
-            CheckedStmtNode::Assignment(r#assignment) => self.interpret_assignment(
-                typechecker,
-                artifact,
-                r#assignment,
-                symbols,
-                parent_node_type,
-            )?,
+            CheckedStmtNode::Assignment(r#assignment) => {
+                self.interpret_assignment(typechecker, r#assignment, symbols, parent_node_type)?
+            }
             CheckedStmtNode::Variable(variable) => {
-                self.interpret_variable(typechecker, artifact, variable, symbols, parent_node_type)?
+                self.interpret_variable(typechecker, variable, symbols, parent_node_type)?
             }
             CheckedStmtNode::Definition(definition) => {}
             CheckedStmtNode::Expression(expr) => {
-                self.interpret_expr(
-                    typechecker,
-                    artifact,
-                    &typechecker[*expr],
-                    symbols,
-                    parent_node_type,
-                )?;
+                self.interpret_expr(typechecker, &typechecker[*expr], symbols, parent_node_type)?;
             }
             CheckedStmtNode::Return(return_node) => {
-                return self.interpret_ret(
-                    typechecker,
-                    artifact,
-                    return_node,
-                    symbols,
-                    parent_node_type,
-                );
+                return self.interpret_ret(typechecker, return_node, symbols, parent_node_type);
             }
             CheckedStmtNode::Storage(storage) => {
-                self.interpret_storage_write(
-                    typechecker,
-                    artifact,
-                    storage,
-                    symbols,
-                    parent_node_type,
-                )?;
+                self.interpret_storage_write(typechecker, storage, symbols, parent_node_type)?;
             }
         }
-        Ok(ControlState::Normal)
+        ControlState::Normal
     }
 
     fn interpret_storage_write(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         storage: &CheckedStorageWriteNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
-    ) -> Result<ControlState<CheckedValue<F>>> {
+    ) -> ControlState<Result<CheckedValue<F>>> {
         let offset = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[storage.offset],
                 symbols,
                 Some(storage.node_type()),
@@ -357,7 +306,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let value = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[storage.value],
                 symbols,
                 Some(storage.node_type()),
@@ -365,38 +313,35 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             .unwrap();
         self.context
             .op_set_state_felt(offset.try_as_felt().unwrap(), value.try_as_felt().unwrap());
-        return Ok(ControlState::Normal);
+        return ControlState::Normal;
     }
 
     fn interpret_ret(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         return_node: &CheckedReturnNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
-    ) -> Result<ControlState<CheckedValue<F>>> {
-        Ok(if let Some((expr, _)) = &return_node.ret {
+    ) -> ControlState<Result<CheckedValue<F>>> {
+        if let Some((expr, _)) = &return_node.ret {
             let value = self
                 .interpret_expr(
                     typechecker,
-                    artifact,
                     &typechecker[*expr],
                     symbols,
                     Some(return_node.node_type()),
                 )?
                 .unwrap();
-            return Ok(ControlState::Return(value));
+            return ControlState::Return(Ok(value));
         } else {
-            return Ok(ControlState::Normal);
-        })
+            return ControlState::Normal;
+        }
     }
 
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_value(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         value_node: &CheckedValueOrNode<F>,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -415,7 +360,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
                     values.push(
                         self.interpret_expr(
                             typechecker,
-                            artifact,
                             &typechecker[*element],
                             symbols,
                             Some(node.node_type()),
@@ -432,7 +376,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
                         field.clone(),
                         self.interpret_expr(
                             typechecker,
-                            artifact,
                             &typechecker[*expr],
                             symbols,
                             Some(node.node_type()),
@@ -450,7 +393,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     pub fn interpret_unary(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         unary_node: &CheckedUnaryNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -458,7 +400,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let rhs_value = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[unary_node.rhs],
                 symbols,
                 Some(unary_node.node_type()),
@@ -485,7 +426,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     pub fn interpret_binary(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         binary_node: &CheckedBinaryNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -494,7 +434,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let lhs_value = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[binary_node.lhs],
                 symbols,
                 Some(binary_node.node_type()),
@@ -503,7 +442,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let rhs_value = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[binary_node.rhs],
                 symbols,
                 Some(binary_node.node_type()),
@@ -614,7 +552,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     pub fn interpret_assignment_value(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         old_value: &CheckedValue<F>,
         operator: AssignmentOperator,
         value: CheckedValue<F>,
@@ -671,7 +608,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     pub fn interpret_expr(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         node: &CheckedExprNode<F>,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -679,49 +615,40 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         match node {
             CheckedExprNode::Path(path) => Ok(Some(self.interpret_path(
                 typechecker,
-                artifact,
                 path,
                 symbols,
                 parent_node_type,
             )?)),
             CheckedExprNode::Storage(storage_read) => Ok(Some(self.interpret_storage_read(
                 typechecker,
-                artifact,
                 storage_read,
                 symbols,
                 parent_node_type,
             )?)),
             CheckedExprNode::Value(value_node) => Ok(Some(self.interpret_value(
                 typechecker,
-                artifact,
                 &CheckedValueOrNode::from(value_node.clone()),
                 symbols,
                 parent_node_type,
             )?)),
             CheckedExprNode::Binary(binary_node) => Ok(Some(self.interpret_binary(
                 typechecker,
-                artifact,
                 binary_node,
                 symbols,
                 parent_node_type,
             )?)),
             CheckedExprNode::Unary(unary_node) => Ok(Some(self.interpret_unary(
                 typechecker,
-                artifact,
                 unary_node,
                 symbols,
                 parent_node_type,
             )?)),
-            CheckedExprNode::Call(call_node) => Ok(self.interpret_call(
-                typechecker,
-                artifact,
-                call_node,
-                symbols,
-                parent_node_type,
-            )?),
+            CheckedExprNode::Call(call_node) => Ok(self
+                .interpret_call(typechecker, call_node, symbols, parent_node_type)
+                .unwrap()
+                .transpose()?),
             CheckedExprNode::Cast(cast_node) => Ok(Some(self.interpret_cast(
                 typechecker,
-                artifact,
                 cast_node,
                 symbols,
                 parent_node_type,
@@ -729,7 +656,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             CheckedExprNode::IndexAccess(index_access_node) => {
                 Ok(Some(self.interpret_index_access(
                     typechecker,
-                    artifact,
                     index_access_node,
                     symbols,
                     parent_node_type,
@@ -738,7 +664,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             CheckedExprNode::MemberAccess(member_access_node) => {
                 Ok(Some(self.interpret_member_access(
                     typechecker,
-                    artifact,
                     member_access_node,
                     symbols,
                     parent_node_type,
@@ -750,7 +675,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     fn interpret_member_access(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         member_access_node: &CheckedMemberAccessNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -758,7 +682,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let s = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[member_access_node.value],
                 symbols,
                 Some(member_access_node.node_type()),
@@ -783,7 +706,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     fn interpret_index_access(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         index_access_node: &CheckedIndexAccessNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -791,7 +713,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let a = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[index_access_node.value],
                 symbols,
                 Some(index_access_node.node_type()),
@@ -803,7 +724,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     fn interpret_cast(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         cast_node: &CheckedCastNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -811,7 +731,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let value = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[cast_node.value],
                 symbols,
                 Some(cast_node.node_type()),
@@ -829,15 +748,13 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     fn interpret_call(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         call_node: &CheckedCallNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
-    ) -> Result<Option<CheckedValue<F>>> {
+    ) -> ControlState<Result<CheckedValue<F>>> {
         let f = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[call_node.variable],
                 symbols,
                 Some(call_node.node_type()),
@@ -848,7 +765,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             parameters.push(
                 self.interpret_expr(
                     typechecker,
-                    artifact,
                     &typechecker[arg.clone()],
                     symbols,
                     Some(call_node.node_type()),
@@ -858,7 +774,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         }
         return self.interpret_function(
             typechecker,
-            artifact,
             &symbols[f.type_id()].clone().as_ref(),
             parameters,
             symbols,
@@ -869,7 +784,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     fn interpret_path(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         path: &CheckedPathNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -877,7 +791,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         if let Some(variable) = symbols.get_variable(Some(path.scope_id.clone()), &path.name) {
             return Ok(self.interpret_value(
                 typechecker,
-                artifact,
                 variable.clone().value.as_ref().unwrap(),
                 symbols,
                 parent_node_type,
@@ -890,7 +803,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     fn interpret_storage_read(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         storage_read: &CheckedStorageReadNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -898,7 +810,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let offset = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[storage_read.offset],
                 symbols,
                 Some(storage_read.node_type()),
@@ -917,7 +828,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     pub fn interpret_assignment(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         node: &CheckedAssignmentNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -925,7 +835,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let value = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[node.value],
                 symbols,
                 Some(node.node_type()),
@@ -936,7 +845,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let (old_value, name, variable) = match &typechecker[node.variable] {
             CheckedExprNode::Path(path_node) => self.interpret_path_assignment(
                 typechecker,
-                artifact,
                 node,
                 path_node,
                 symbols,
@@ -945,7 +853,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             )?,
             CheckedExprNode::MemberAccess(member_access_node) => self.interpret_member_assignment(
                 typechecker,
-                artifact,
                 node,
                 member_access_node,
                 symbols,
@@ -954,7 +861,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             )?,
             CheckedExprNode::IndexAccess(index_access_node) => self.interpret_index_assignment(
                 typechecker,
-                artifact,
                 node,
                 index_access_node,
                 symbols,
@@ -966,7 +872,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
 
         let new_value = self.interpret_assignment_value(
             typechecker,
-            artifact,
             &old_value,
             node.operator,
             value,
@@ -983,7 +888,7 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         variable_value.set_path(&path, new_value.clone());
 
         symbols.set_variable(
-            Some(variable.scope_id),
+            variable.scope_id,
             &name,
             CheckedValueOrNode::from(variable_value),
         )?;
@@ -994,7 +899,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     fn interpret_index_assignment(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         node: &CheckedAssignmentNode,
         index_access_node: &CheckedIndexAccessNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
@@ -1008,7 +912,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let (inner_value, inner_var_name, inner_var) = match &typechecker[index_access_node.value] {
             CheckedExprNode::Path(checked_path_node) => self.interpret_path_assignment(
                 typechecker,
-                artifact,
                 node,
                 checked_path_node,
                 symbols,
@@ -1018,7 +921,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             CheckedExprNode::IndexAccess(checked_index_access_node) => self
                 .interpret_index_assignment(
                     typechecker,
-                    artifact,
                     node,
                     checked_index_access_node,
                     symbols,
@@ -1028,7 +930,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             CheckedExprNode::MemberAccess(checked_member_access_node) => self
                 .interpret_member_assignment(
                     typechecker,
-                    artifact,
                     node,
                     checked_member_access_node,
                     symbols,
@@ -1050,7 +951,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     fn interpret_member_assignment(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         node: &CheckedAssignmentNode,
         member_access_node: &CheckedMemberAccessNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
@@ -1065,7 +965,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         {
             CheckedExprNode::Path(checked_path_node) => self.interpret_path_assignment(
                 typechecker,
-                artifact,
                 node,
                 checked_path_node,
                 symbols,
@@ -1075,7 +974,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             CheckedExprNode::IndexAccess(checked_index_access_node) => self
                 .interpret_index_assignment(
                     typechecker,
-                    artifact,
                     node,
                     checked_index_access_node,
                     symbols,
@@ -1085,7 +983,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
             CheckedExprNode::MemberAccess(checked_member_access_node) => self
                 .interpret_member_assignment(
                     typechecker,
-                    artifact,
                     node,
                     checked_member_access_node,
                     symbols,
@@ -1113,7 +1010,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     fn interpret_path_assignment(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         node: &CheckedAssignmentNode,
         path_node: &CheckedPathNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
@@ -1137,7 +1033,6 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
     fn interpret_variable(
         &mut self,
         typechecker: &TypeChecker<F, CheckedValueOrNode<F>, C>,
-        artifact: &Artifact<F, C>,
         node: &CheckedVariableNode,
         symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
         parent_node_type: Option<NodeType>,
@@ -1145,18 +1040,13 @@ impl<F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> Interpret
         let value = self
             .interpret_expr(
                 typechecker,
-                artifact,
                 &typechecker[node.value],
                 symbols,
                 Some(node.node_type()),
             )?
             .unwrap();
 
-        symbols.set_variable(
-            Some(node.scope_id),
-            &node.name,
-            CheckedValueOrNode::from(value),
-        )?;
+        symbols.set_variable(node.scope_id, &node.name, CheckedValueOrNode::from(value))?;
         Ok(())
     }
 
@@ -1223,10 +1113,9 @@ mod test {
             );
             let cache = SymFeltEvalCache::new();
             let store = SymFeltStore::new();
-            let mut symbols = SymbolTable::new();
             let mut typecheker = TypeChecker::new();
             interpreter
-                .interpret(&mut typecheker, path.to_path_buf(), vec![], &mut symbols)
+                .interpret(&mut typecheker, path.to_path_buf(), vec![])
                 .unwrap();
         });
     }

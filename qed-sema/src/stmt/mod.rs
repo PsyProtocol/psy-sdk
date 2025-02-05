@@ -46,4 +46,42 @@ impl NodeInfo for CheckedStmtNode {
             Self::Return(node) => node.node_type(),
         }
     }
+
+    fn as_expression(&self) -> Option<ExprId> {
+        match self {
+            Self::Expression(expr) => Some(*expr),
+            _ => None,
+        }
+    }
+
+    fn as_definition(&self) -> Option<DefId> {
+        match self {
+            Self::Definition(def) => Some(*def),
+            _ => None,
+        }
+    }
+}
+
+impl From<ExprId> for CheckedStmtNode {
+    fn from(value: ExprId) -> Self {
+        Self::Expression(value)
+    }
+}
+
+impl From<DefId> for CheckedStmtNode {
+    fn from(value: DefId) -> Self {
+        Self::Definition(value)
+    }
+}
+
+impl<F> From<CheckedExprNode<F>> for CheckedStmtNode {
+    fn from(value: CheckedExprNode<F>) -> Self {
+        todo!()
+    }
+}
+
+impl From<CheckedDefinitionNode> for CheckedStmtNode {
+    fn from(value: CheckedDefinitionNode) -> Self {
+        todo!()
+    }
 }

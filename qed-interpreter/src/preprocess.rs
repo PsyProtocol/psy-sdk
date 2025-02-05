@@ -552,7 +552,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let defs: Vec<DefId> = ctx.definition(node).as_impl().unwrap().body.clone();
         for def_id in defs {
             self.visit_definition(def_id, ctx)?;
@@ -564,7 +564,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
 
@@ -572,7 +572,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let is_extern = ctx.definition(node).as_function().unwrap().is_extern;
         let function_name = ctx.definition(node).as_function().unwrap().name;
         if !is_extern || ctx.parent_node_type() != NodeType::ImplDef {
@@ -635,7 +635,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let s: StructNode = ctx.definition(node).as_struct().unwrap().clone();
         let storage_trait_id = ctx.intern("Storage");
         let storage_attribute_id = ctx.intern("storage");
@@ -692,4 +692,6 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     type Stmt = StmtNode;
 
     type Definition = DefinitionNode;
+
+    type DefinitionResult = ();
 }
