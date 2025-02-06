@@ -154,13 +154,9 @@ pub const DEFAULT_USER_STATE_TREE_ROOT: QHashOut<GoldilocksField> = QHashOut::<Q
 mod tests {
     use qed_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
     use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
-    use qed_crypto::hash::traits::hasher::MerkleZeroHasherWithCache;
     use qed_crypto::hash::traits::hasher::PoseidonHasher;
 
     use crate::config::store_config::DEFAULT_USER_STATE_TREE_ROOT;
-
-    use super::QEDHasher;
-
 
     #[test]
     fn check_default_user_state_tree_root() {

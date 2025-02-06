@@ -22,6 +22,17 @@ impl SimpleMerkleNodeKey {
             index,
         }
     }
+    pub fn first_leaf_for_height(&self, height: u8) -> Self {
+        if height <= self.level {
+            self.clone()
+        }else{
+            let diff = (height-self.level) as u64;
+            Self {
+                level: height,
+                index: (1u64<<diff)*self.index,
+            }
+        }
+    }
     pub fn sibling(&self) -> Self {
         Self {
             level: self.level,
@@ -44,6 +55,24 @@ impl SimpleMerkleNodeKey {
         Self {
             level: self.level - 1,
             index: self.index >> 1,
+        }
+    }
+    pub fn is_on_the_right_of(&self, other: &SimpleMerkleNodeKey) -> bool {
+        if other.level == self.level {
+            self.index > other.index
+        }else if other.level < self.level {
+            self.parent_at_level(other.level).index > other.index
+        }else{
+            self.index > other.parent_at_level(self.level).index
+        }
+    }
+    pub fn is_to_the_left_of(&self, other: &SimpleMerkleNodeKey) -> bool {
+        if other.level == self.level {
+            self.index < other.index
+        }else if other.level < self.level {
+            self.parent_at_level(other.level).index < other.index
+        }else{
+            self.index < other.parent_at_level(self.level).index
         }
     }
 

@@ -14,6 +14,7 @@ pub trait CircuitBuilderComparison<F: RichField + Extendable<D>, const D: usize>
     fn is_greater_than_or_equal(&mut self, num_bits: usize, x: Target, y: Target) -> BoolTarget;
     fn is_greater_than(&mut self, num_bits: usize, x: Target, y: Target) -> BoolTarget;
     fn is_not_equal(&mut self, x: Target, y: Target) -> BoolTarget;
+    fn is_not_equal_bool(&mut self, x: BoolTarget, y: BoolTarget) -> BoolTarget;
     fn is_zero(&mut self, x: Target) -> BoolTarget;
     fn is_zero_hash(&mut self, x: HashOutTarget) -> BoolTarget;
     fn is_not_zero(&mut self, x: Target) -> BoolTarget;
@@ -23,6 +24,7 @@ pub trait CircuitBuilderComparison<F: RichField + Extendable<D>, const D: usize>
     fn ensure_is_greater_than_or_equal(&mut self, num_bits: usize, x: Target, y: Target);
     fn ensure_is_greater_than(&mut self, num_bits: usize, x: Target, y: Target);
     fn ensure_not_equal(&mut self, x: Target, y: Target);
+    fn ensure_not_equal_bool(&mut self, x: BoolTarget, y: BoolTarget);
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D>
@@ -151,5 +153,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
 
         self.and(is_elem_01_zero, is_elem_23_zero)
         
+    }
+    
+    fn ensure_not_equal_bool(&mut self, x: BoolTarget, y: BoolTarget) {
+        let not_x = self.not(x);
+        self.connect(not_x.target, y.target);
+    }
+    
+    fn is_not_equal_bool(&mut self, x: BoolTarget, y: BoolTarget) -> BoolTarget {
+        // x xor y = (x+y-2*x*y)
+        let x_plus_y = self.add(x.target, y.target);
+        let x_times_y = self.mul(x.target, y.target);
+        let x_times_y_2 = self.add(x_times_y, x_times_y);
+        BoolTarget::new_unsafe(self.sub(x_plus_y, x_times_y_2))
     }
 }

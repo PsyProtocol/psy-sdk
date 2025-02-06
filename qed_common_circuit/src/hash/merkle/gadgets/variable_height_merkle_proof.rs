@@ -21,6 +21,8 @@ pub struct VariableHeightMerkleProofGadget {
 
     // computed
     pub sub_tree_root_index: Option<Target>,
+    pub sub_tree_root_path_direction: Option<BoolTarget>,
+    pub sub_tree_root_direct_child_in_path_value: Option<HashOutTarget>,
     max_height: usize,
     has_witness_height: bool,
 }
@@ -58,7 +60,9 @@ impl VariableHeightMerkleProofGadget {
             max_height,
             has_witness_height,
             sub_tree_root_index: None,
+            sub_tree_root_direct_child_in_path_value: None,
             height,
+            sub_tree_root_path_direction: None,
         }
     }
     pub fn add_virtual_to_full_with_subtree_root_index<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
@@ -77,8 +81,15 @@ impl VariableHeightMerkleProofGadget {
             Some(v) => v,
             None => builder.add_virtual_target(),
         };
+        let zero_target = builder.zero();
+        builder.ensure_not_equal(height, zero_target);
 
-        let (root, sub_tree_root_index) = Self::compute_root_and_subtree_root_index::<H,F,D>(
+        let (
+            root,
+            sub_tree_root_index,
+            sub_tree_root_path_direction,
+            sub_tree_root_direct_child_in_path_value,
+        ) = Self::compute_root_and_subtree_root_index::<H,F,D>(
             builder, 
             index, 
             value, 
@@ -94,7 +105,10 @@ impl VariableHeightMerkleProofGadget {
             max_height,
             has_witness_height,
             sub_tree_root_index: Some(sub_tree_root_index),
+            
             height,
+            sub_tree_root_path_direction: Some(sub_tree_root_path_direction),
+            sub_tree_root_direct_child_in_path_value: Some(sub_tree_root_direct_child_in_path_value),
         }
     }
     pub fn compute_root<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
@@ -116,7 +130,7 @@ impl VariableHeightMerkleProofGadget {
         value: HashOutTarget,
         siblings: &[HashOutTarget],
         height_target: Target,
-    ) -> (HashOutTarget, Target) {
+    ) -> (HashOutTarget, Target, BoolTarget, HashOutTarget) {
         let height = siblings.len();
         builder.range_check(index, height);
         let index_bits = builder.split_le(index, height);
@@ -173,7 +187,7 @@ impl VariableHeightMerkleProofGadget {
         value: HashOutTarget,
         siblings: &[HashOutTarget],
         height: Target,
-    ) -> (HashOutTarget, Target) {
+    ) -> (HashOutTarget, Target, BoolTarget, HashOutTarget) {
         //let zero = builder.zero();
         let mut state: HashOutTarget = value;
         //debug_assert_eq!(state.elements.len(), NUM_HASH_OUT_ELEMENTS);
@@ -186,11 +200,18 @@ impl VariableHeightMerkleProofGadget {
         let mut sub_root_index = builder.zero();
         let mut sub_root_bit = is_remaining_levels_zero.target;
 
+        let mut last_hash = value;
+
+        let mut last_bit = builder._false();
+
         for (&bit, &sibling) in index_bits.iter().zip(siblings) {
 
             let add_indicator = builder.mul(bit.target, sub_root_bit);
             sub_root_index = builder.add(add_indicator, sub_root_index);
             sub_root_bit = builder.add(sub_root_bit, sub_root_bit);
+
+            last_hash = builder.select_hash(is_remaining_levels_zero, last_hash, state);
+            last_bit = BoolTarget::new_unsafe(builder.select(is_remaining_levels_zero, last_bit.target, bit.target));
 
             let left = builder.select_hash(bit, sibling, state);
             let right = builder.select_hash(bit, state, sibling);
@@ -214,7 +235,7 @@ impl VariableHeightMerkleProofGadget {
 
             is_remaining_levels_zero = new_is_remaining_levels_zero;
         }
-        (state, sub_root_index)
+        (state, sub_root_index, last_bit, last_hash)
 
     }
     /*

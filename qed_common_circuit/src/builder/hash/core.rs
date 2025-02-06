@@ -1,13 +1,13 @@
 use plonky2::iop::target::Target;
 use qed_core::data::qhashout::QHashOut;
 use plonky2::hash::hash_types::HashOut;
-use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOutTarget, RichField},
     iop::target::BoolTarget,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
+use plonky2::hash::hashing::PlonkyPermutation;
 
 use crate::builder::core::CircuitBuilderHelpersCore;
 use crate::builder::select::CircuitBuilderSelectHelpers;
@@ -73,6 +73,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
         right: HashOutTarget,
         swap: BoolTarget,
     ) -> HashOutTarget {
+
+        /*
+        let real_left = self.select_hash(swap,right, left);
+        let real_right = self.select_hash(swap,left, right);
+
+        self.hash_two_to_one::<H>(real_left, real_right)
+
+        */
+
         let zero = self.zero();
         let mut state = H::AlgebraicPermutation::new(std::iter::repeat(zero));
 

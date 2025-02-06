@@ -24,10 +24,16 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default>
             _hasher: PhantomData::default(),
         }
     }
+    pub fn get_height(&self) -> u8 {
+        self.height
+    }
+    pub fn get_max_leaf_index(&self) -> u64 {
+        (1u64<<(self.height as u64)) - 1u64
+    }
     fn set_node_value(&mut self, key: SimpleMerkleNodeKey, value: Hash) {
         self.nodes.insert(key, value);
     }
-    fn get_node_value(&self, key: &SimpleMerkleNodeKey) -> Hash {
+    pub fn get_node_value(&self, key: &SimpleMerkleNodeKey) -> Hash {
         if self.nodes.contains_key(key) {
             self.nodes[key]
         } else {
