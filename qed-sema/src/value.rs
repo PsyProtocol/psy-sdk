@@ -171,3 +171,17 @@ impl<F: Clone> CheckedValue<F> {
         Ok(())
     }
 }
+
+pub trait DPNClone {
+    fn dpn_clone(&self) -> Self;
+}
+
+impl<F: Clone> DPNClone for Rc<RefCell<CheckedValue<F>>> {
+    fn dpn_clone(&self) -> Self {
+        if !self.borrow().is_array() && !self.borrow().is_struct() {
+            Rc::new(RefCell::new(self.borrow().clone()))
+        } else {
+            Rc::clone(self)
+        }
+    }
+}

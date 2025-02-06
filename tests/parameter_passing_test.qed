@@ -1,0 +1,23 @@
+fn modify_primitive(mut a: Felt) -> Felt {
+    a += 2;
+    return a;
+}
+
+struct Person {
+    age: Felt
+}
+
+fn modify_struct(mut p: Person) {
+    p.age += 2;
+}
+
+fn main(a: Felt, b: Felt) -> Felt {
+    modify_primitive(a);
+
+    let mut arr: [Felt; 2] = [a, b];
+    arr[0] += 2;
+
+    let mut p: Person = new Person { age: a };
+    modify_struct(p);
+    return p.age;
+}
