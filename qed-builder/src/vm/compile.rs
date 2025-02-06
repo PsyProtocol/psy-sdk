@@ -40,12 +40,11 @@ impl QEDCompileResult {
     pub fn compile_exec(
         name: String,
         method_id: u32,
-        sym_store: &SymFeltStore,
         ctx: &QExecContext,
         outputs: &[SymFeltRef],
     ) -> DPNFunctionCircuitDefinition {
         let mut result = QEDCompileResult::new();
-        result.compile(sym_store, ctx, outputs);
+        result.compile(&ctx.store, ctx, outputs);
         result.finalize(name, method_id)
     }
     pub fn new() -> Self {

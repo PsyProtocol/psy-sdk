@@ -1,7 +1,7 @@
-fn max(a: Felt, b: Felt) -> Felt {
+pub fn max(a: Felt, b: Felt) -> Felt {
     return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
 }
 
-fn min(a: Felt, b: Felt) -> Felt {
+pub fn min(a: Felt, b: Felt) -> Felt {
     return a * ((a < b) as Felt) + b * ((a >=b) as Felt);
 }

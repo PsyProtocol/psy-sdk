@@ -1,6 +1,6 @@
 mod person;
 
-use person::Person;
+pub use person::Person;
 
 fn test_path(a: Felt, b: Felt) -> Felt {
     let c: Felt = a + b;

@@ -19,6 +19,7 @@ pub enum ModuleKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UsePath {
+    pub visibility: Visibility,
     pub kind: IdentId,
     pub segments: Vec<IdentId>,
     pub target: Option<IdentId>,

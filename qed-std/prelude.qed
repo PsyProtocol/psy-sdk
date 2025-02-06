@@ -1,4 +1,4 @@
-trait Storage {
+pub trait Storage {
     fn size() -> Felt;
     extern fn read(offset: Felt) -> Self;
     extern fn write(offset: Felt, value: Self);

@@ -34,17 +34,14 @@ use qed_parser::Parser;
 
 use tracing::{debug, error, info, instrument, span, Level};
 
-pub struct TypeCheckerVisitorContext<F: Clone + From<u32>, T: From<CheckedValueNode<F>> + Clone, C>
-{
+pub struct TypeCheckerVisitorContext<F: Clone + From<u32>, C> {
     path_stack: Vec<NodeId>,
     program: Program<F>,
-    pub symbols: SymbolTable<T>,
+    pub symbols: SymbolTable<F>,
     _marker: std::marker::PhantomData<(F, C)>,
 }
 
-impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>> + Clone, C>
-    TypeCheckerVisitorContext<F, T, C>
-{
+impl<F: Clone + From<u32>, C> TypeCheckerVisitorContext<F, C> {
     pub fn new(program: Program<F>) -> Self {
         TypeCheckerVisitorContext {
             path_stack: vec![],
@@ -55,9 +52,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>> + Clone, C>
     }
 }
 
-impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>> + Clone, C> VisitorContext<F, C>
-    for TypeCheckerVisitorContext<F, T, C>
-{
+impl<F: Clone + From<u32>, C> VisitorContext<F, C> for TypeCheckerVisitorContext<F, C> {
     type Expr = ExprNode<F>;
 
     type Stmt = StmtNode;
@@ -107,7 +102,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>> + Clone, C> VisitorConte
     }
 
     fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId {
-        self.program.interner.intern_ident(s)
+        unimplemented!()
     }
 
     fn module(&self, module_id: ModuleId) -> &ModuleNode {
@@ -135,82 +130,39 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>> + Clone, C> VisitorConte
     }
 
     fn insert_definition(&mut self, definition: Self::Definition, pos: InsertPosition) {
-        let def_id = self.program.defs.alloc_item(definition);
-        assert!(self.parent_node_type() == NodeType::Module);
-        let module_id = self.parent_node_id().as_module().unwrap().clone();
-
-        match pos {
-            InsertPosition::Front => {
-                self.program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .insert(0, def_id);
-            }
-            InsertPosition::End => {
-                self.program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .push(def_id);
-            }
-            InsertPosition::Before(before) => {
-                let idx = self.program.modules[module_id]
-                    .data()
-                    .definitions
-                    .iter()
-                    .position(|d| d == before.as_def().unwrap())
-                    .unwrap();
-                self.program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .insert(idx, def_id);
-            }
-            InsertPosition::After(after) => {
-                let idx = self.program.modules[module_id]
-                    .data()
-                    .definitions
-                    .iter()
-                    .position(|d| d == after.as_def().unwrap())
-                    .unwrap();
-                self.program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .insert(idx + 1, def_id);
-            }
-        };
+        unimplemented!()
     }
 
     fn alloc_expression(&mut self, expr: Self::Expr) -> ExprId {
-        self.program.exprs.alloc_item(expr)
+        unimplemented!()
     }
 
     fn alloc_statement(&mut self, stmt: Self::Stmt) -> StmtId {
-        self.program.stmts.alloc_item(stmt)
+        unimplemented!()
     }
 
     fn alloc_definition(&mut self, definition: Self::Definition) -> DefId {
-        self.program.defs.alloc_item(definition)
+        unimplemented!()
     }
 
     fn replace_definition(&mut self, def_id: DefId, definition: Self::Definition) {
-        self.program.defs.replace_item(def_id, definition);
+        unimplemented!()
     }
 
     fn replace_statement(&mut self, stmt_id: StmtId, statement: Self::Stmt) {
-        self.program.stmts.replace_item(stmt_id, statement);
+        unimplemented!()
     }
 }
 
 #[derive(Debug)]
-pub struct TypeChecker<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> {
+pub struct TypeChecker<F: Clone + From<u32>, C> {
     pub exprs: Arena<ExprId, CheckedExprNode<F>>,
     pub stmts: Arena<StmtId, CheckedStmtNode>,
     pub defs: Arena<DefId, CheckedDefinitionNode>,
-    _marker: std::marker::PhantomData<(T, C)>,
+    _marker: std::marker::PhantomData<C>,
 }
 
-impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>> + Clone, C> AstVisitor<F, C>
-    for TypeChecker<F, T, C>
-{
+impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     type Expr = ExprNode<F>;
 
     type Stmt = StmtNode;
@@ -223,7 +175,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>> + Clone, C> AstVisitor<F
 
     type DefinitionResult = CheckedDefinitionNode;
 
-    type Context = TypeCheckerVisitorContext<F, T, C>;
+    type Context = TypeCheckerVisitorContext<F, C>;
 
     type Error = Error;
 
@@ -705,6 +657,20 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>> + Clone, C> AstVisitor<F
     ) -> std::result::Result<Self::StmtResult, Self::Error> {
         // TODO: remove clone
         let return_node = ctx.statement(node).as_return().cloned().unwrap();
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+        let parent_scope_id = ctx.symbols.parent_scope_id().unwrap();
+        if ctx.symbols[current_scope_id].kind != ScopeKind::Block {
+            return Err(Error::InvalidReturn);
+        }
+        let valid_kinds = [
+            ScopeKind::Function,
+            ScopeKind::ImplMethod,
+            ScopeKind::TraitMethod,
+        ];
+        if !valid_kinds.contains(&ctx.symbols[parent_scope_id].kind) {
+            return Err(Error::InvalidReturn);
+        }
+
         let ret = if let Some(expr) = return_node.0 {
             let expr = self.visit_expr(expr, ctx)?;
             let ty = expr.ty();
@@ -1073,7 +1039,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>> + Clone, C> AstVisitor<F
     }
 }
 
-impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> Index<ExprId> for TypeChecker<F, T, C> {
+impl<F: Clone + From<u32>, C> Index<ExprId> for TypeChecker<F, C> {
     type Output = CheckedExprNode<F>;
 
     fn index(&self, index: ExprId) -> &Self::Output {
@@ -1081,7 +1047,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> Index<ExprId> for Ty
     }
 }
 
-impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> Index<StmtId> for TypeChecker<F, T, C> {
+impl<F: Clone + From<u32>, C> Index<StmtId> for TypeChecker<F, C> {
     type Output = CheckedStmtNode;
 
     fn index(&self, index: StmtId) -> &Self::Output {
@@ -1089,7 +1055,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> Index<StmtId> for Ty
     }
 }
 
-impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> Index<DefId> for TypeChecker<F, T, C> {
+impl<F: Clone + From<u32>, C> Index<DefId> for TypeChecker<F, C> {
     type Output = CheckedDefinitionNode;
 
     fn index(&self, index: DefId) -> &Self::Output {
@@ -1097,7 +1063,7 @@ impl<F: Clone + From<u32>, T: From<CheckedValueNode<F>>, C> Index<DefId> for Typ
     }
 }
 
-impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<F, T, C> {
+impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
     pub fn new() -> Self {
         Self {
             exprs: Arena::new(),
@@ -1110,7 +1076,7 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
     pub fn typecheck_std_prelude_module(
         &mut self,
         module: &ModuleNode,
-        ctx: &mut TypeCheckerVisitorContext<F, T, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()> {
         STD_PRELUDE_SCOPE_ID.set(ctx.symbols.current_scope_id().unwrap());
         for (ident, ty) in TYPE_MAPPING {
@@ -1122,7 +1088,7 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
     pub fn typecheck(
         &mut self,
         ty: &UncheckedType,
-        ctx: &mut TypeCheckerVisitorContext<F, T, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId> {
         match ty {
             UncheckedType::Basic(IdentId::TYPE_BOOL) => Ok(BOOL_TYPE),
@@ -1177,7 +1143,7 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
     fn typecheck_trait_method(
         &mut self,
         function: &FunctionNode,
-        ctx: &mut TypeCheckerVisitorContext<F, T, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedFunctionNode> {
         ctx.symbols.start_scope(ScopeKind::TraitMethod);
         ctx.symbols
@@ -1194,7 +1160,7 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
     fn typecheck_method(
         &mut self,
         function: &FunctionNode,
-        ctx: &mut TypeCheckerVisitorContext<F, T, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedFunctionNode> {
         ctx.symbols.start_scope(ScopeKind::ImplMethod);
         let checked_function = self.typecheck_function(function, ctx)?;
@@ -1209,7 +1175,7 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
     fn typecheck_function(
         &mut self,
         function: &FunctionNode,
-        ctx: &mut TypeCheckerVisitorContext<F, T, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedFunctionNode> {
         let current_scope_id = ctx.symbols.current_scope_id().unwrap();
         let mut generic_parameters = Vec::new();
@@ -1276,7 +1242,7 @@ impl<F: Clone + From<u32>, T: Clone + From<CheckedValueNode<F>>, C> TypeChecker<
     fn typecheck_impl_trait(
         &mut self,
         r#impl: &ImplNode,
-        ctx: &mut TypeCheckerVisitorContext<F, T, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedImplNode> {
         let (trait_scope, trait_type_id) = ctx.symbols.resolve_trait(r#impl.trait_name.unwrap())?;
         let (implementor_scope, implementor_type_id) =

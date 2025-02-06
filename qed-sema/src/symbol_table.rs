@@ -1,11 +1,13 @@
 use std::{
     borrow::Borrow,
+    cell::RefCell,
     collections::HashMap,
     convert::AsMut,
     fmt::{format, Display, Formatter},
     hash::Hash,
     iter::once,
     ops::{Index, IndexMut},
+    rc::Rc,
 };
 
 use once_cell::sync::OnceCell;
@@ -14,8 +16,9 @@ use qed_common::{define_arena_id, FileId, TreeNode};
 use strum::EnumTryAs;
 
 use crate::{
-    variable::CheckedVariable, CheckedFunctionNode, CheckedTraitNode, CheckedValueOrNode,
-    DefinitionNode, IdentId, ModuleId, ModuleKind, Type, TypeId, TypeKey, UsePath,
+    variable::CheckedVariable, CheckedFunctionNode, CheckedTraitNode, CheckedValue,
+    CheckedValueNode, DefinitionNode, IdentId, ModuleId, ModuleKind, Type, TypeId, TypeKey,
+    UsePath,
 };
 use crate::{Error, Result};
 
@@ -43,11 +46,11 @@ pub enum ScopeKind {
 }
 
 #[derive(Clone, Debug)]
-pub struct Scope<T: Clone> {
+pub struct Scope<F: Clone> {
     pub kind: ScopeKind,
     pub parent: Option<ScopeId>,
     pub children: Vec<ScopeId>,
-    pub variables: HashMap<IdentId, CheckedVariable<T>>,
+    pub variables: HashMap<IdentId, CheckedVariable<F>>,
     pub types: HashMap<TypeKey, TypeId>,
 }
 
@@ -120,10 +123,10 @@ impl<T: Clone> Scope<T> {
 }
 
 #[derive(Clone, Debug)]
-pub struct SymbolTable<T: Clone> {
-    scopes: Vec<Scope<T>>,
+pub struct SymbolTable<F: Clone> {
+    scopes: Vec<Scope<F>>,
     scope_stack: Vec<ScopeId>,
-    frames: Vec<Frame<T>>,
+    frames: Vec<Frame<Rc<RefCell<CheckedValue<F>>>>>,
 
     pub types: Vec<Type>,
     modules: Vec<Module>,
@@ -132,14 +135,14 @@ pub struct SymbolTable<T: Clone> {
 
 macro_rules! impl_index {
     ($index_type:ty, $output_type:ty, $field:ident) => {
-        impl<T: Clone> Index<$index_type> for SymbolTable<T> {
+        impl<F: Clone> Index<$index_type> for SymbolTable<F> {
             type Output = $output_type;
             fn index(&self, index: $index_type) -> &Self::Output {
                 &self.$field[index.0]
             }
         }
 
-        impl<T: Clone> IndexMut<$index_type> for SymbolTable<T> {
+        impl<F: Clone> IndexMut<$index_type> for SymbolTable<F> {
             fn index_mut(&mut self, index: $index_type) -> &mut Self::Output {
                 &mut self.$field[index.0]
             }
@@ -149,7 +152,7 @@ macro_rules! impl_index {
 
 impl_index!(ModuleId, Module, modules);
 impl_index!(TypeId, Type, types);
-impl_index!(ScopeId, Scope<T>, scopes);
+impl_index!(ScopeId, Scope<F>, scopes);
 
 impl<T: Clone> Display for SymbolTable<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -196,7 +199,7 @@ impl<T: Clone> Display for SymbolTable<T> {
     }
 }
 
-impl<T: Clone> SymbolTable<T> {
+impl<F: Clone> SymbolTable<F> {
     pub fn new() -> Self {
         SymbolTable {
             scopes: vec![],
@@ -386,21 +389,21 @@ impl<T: Clone> SymbolTable<T> {
     }
 
     pub fn resolve_use(&self, use_path: &UsePath) -> Option<Vec<(&TypeKey, &TypeId)>> {
+        let current_module_id = self.current_module_id()?;
+
         let mut src_module = match use_path.kind {
-            IdentId::SELF => self.current_module_id()?,
+            IdentId::SELF => current_module_id,
             IdentId::CRATE => {
-                let mut module_id = self.current_module_id()?;
+                let mut module_id = current_module_id;
                 while let Some(parent) = self[module_id].parent {
                     module_id = parent;
                 }
                 module_id
             }
-            IdentId::SUPER => {
-                let module_id = self.current_module_id()?;
-                self[module_id].parent?
-            }
+            IdentId::SUPER => self[current_module_id].parent?,
             name => {
                 let module_id = ModuleId(self.modules.iter().position(|x| x.name == name)?);
+                assert!(self[current_module_id].children.contains(&module_id));
                 module_id
             }
         };
@@ -411,41 +414,45 @@ impl<T: Clone> SymbolTable<T> {
                 let module = &self[*id];
                 module.name == *segment
             })?;
+            assert!(self[*target_module_id].visibility.is_public());
             src_module = *target_module_id;
         }
 
         if let Some(target) = use_path.target {
-            self[self[src_module].scope_id]
+            let (key, type_id) = self[self[src_module].scope_id]
                 .types
-                .get_key_value(&target.into())
-                .map(|x| vec![x])
+                .get_key_value(&target.into())?;
+            assert!(self[*type_id].visibility().is_public());
+            Some(vec![(key, type_id)])
         } else {
             Some(
                 self[self[src_module].scope_id]
                     .types
                     .iter()
+                    .filter(|(_, &type_id)| self[type_id].visibility().is_public())
                     .collect::<Vec<_>>(),
             )
         }
     }
 
     pub fn resolve_path(&self, path: &PathNode) -> Option<(TypeId, ScopeId)> {
+        let current_module_id = self.current_module_id()?;
+
         let mut src_module = match path.root {
-            Some(IdentId::SELF) => self.current_module_id()?,
+            Some(IdentId::SELF) => current_module_id,
             Some(IdentId::CRATE) => {
-                let mut module_id = self.current_module_id()?;
+                let mut module_id = current_module_id;
                 while let Some(parent) = self[module_id].parent {
                     module_id = parent;
                 }
                 module_id
             }
-            Some(IdentId::SUPER) => {
-                let module_id = self.current_module_id()?;
-                self[module_id].parent?
-            }
+            Some(IdentId::SUPER) => self[current_module_id].parent?,
             Some(name) => {
                 if let Some(module_id) = self.modules.iter().position(|x| x.name == name) {
-                    ModuleId(module_id)
+                    let module_id = ModuleId(module_id);
+                    assert!(self[current_module_id].children.contains(&module_id));
+                    module_id
                 } else {
                     let type_id = self.get_type_id(None, name)?;
                     assert!(path.segments.is_empty());
@@ -557,7 +564,7 @@ impl<T: Clone> SymbolTable<T> {
         &self,
         start_scope: Option<ScopeId>,
         scope_kinds: Vec<ScopeKind>,
-        f: impl Fn(&Scope<T>) -> bool,
+        f: impl Fn(&Scope<F>) -> bool,
     ) -> Option<ScopeId> {
         let mut current_scope_id = start_scope.or(self.current_scope_id());
 
@@ -578,7 +585,7 @@ impl<T: Clone> SymbolTable<T> {
         &self,
         start_scope: Option<ScopeId>,
         key: &IdentId,
-    ) -> Option<CheckedVariable<T>> {
+    ) -> Option<CheckedVariable<F>> {
         let scope_id = self.find_scope(
             start_scope,
             vec![
@@ -595,19 +602,22 @@ impl<T: Clone> SymbolTable<T> {
             .and_then(|frame| frame.get_value(scope_id, key))
             .cloned();
 
-        return self[scope_id]
+        self[scope_id]
             .variables
             .get(key)
             .cloned()
             .map(|mut variable| {
                 variable.value = value;
                 variable
-            });
-
-        None
+            })
     }
 
-    pub fn set_variable(&mut self, scope_id: ScopeId, key: &IdentId, value: T) -> Result<()> {
+    pub fn set_variable(
+        &mut self,
+        scope_id: ScopeId,
+        key: &IdentId,
+        value: Rc<RefCell<CheckedValue<F>>>,
+    ) -> Result<()> {
         if let Some(v) = self[scope_id].variables.get(key) {
             if self
                 .frames
@@ -630,7 +640,7 @@ impl<T: Clone> SymbolTable<T> {
         Err(Error::UndefinedVariable)
     }
 
-    pub fn declare_variable(&mut self, key: IdentId, variable: CheckedVariable<T>) -> Result<()> {
+    pub fn declare_variable(&mut self, key: IdentId, variable: CheckedVariable<F>) -> Result<()> {
         let scope_id = self.current_scope_id().unwrap();
         assert_eq!(variable.scope_id, scope_id);
         if self[scope_id].variables.contains_key(&key) {

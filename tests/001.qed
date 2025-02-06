@@ -1,6 +1,6 @@
 mod math;
 
-use math::*;
+pub use math::*;
 
 trait PersonLike {
     fn age(self: Self) -> Felt;

@@ -1,6 +1,8 @@
 use std::{
+    cell::RefCell,
     collections::HashMap,
     ops::{Index, IndexMut},
+    rc::Rc,
 };
 
 use either::Either;
@@ -12,7 +14,7 @@ pub use strum::EnumTryAs;
 
 use crate::{TypeId, BOOL_TYPE, FELT_TYPE};
 
-#[derive(Clone, Debug, PartialEq, EnumAsInner, EnumTryAs)]
+#[derive(Clone, Debug, PartialEq, EnumAsInner)]
 pub enum CheckedValueNode<F> {
     Felt(F),
     Bool(F),
@@ -24,23 +26,37 @@ pub enum CheckedValueNode<F> {
 impl<F> NodeInfo for CheckedValueNode<F> {
     fn node_type(&self) -> NodeType {
         NodeType::ValueExpr
-        // match self {
-        //     CheckedValueNode::Felt(_) => NodeType::FeltValue,
-        //     CheckedValueNode::Bool(_) => NodeType::BoolValue,
-        //     CheckedValueNode::Array(_, _) => NodeType::ArrayValue,
-        //     CheckedValueNode::Struct(_, _) => NodeType::StructValue,
-        //     CheckedValueNode::Type(_) => NodeType::TypeValue,
-        // }
     }
 }
 
-#[derive(Clone, Debug, PartialEq, EnumAsInner, EnumTryAs)]
+#[derive(Debug, PartialEq, EnumAsInner)]
 pub enum CheckedValue<F> {
     Felt(F),
     Bool(F),
-    Array(TypeId, Vec<CheckedValue<F>>),
-    Struct(TypeId, IndexMap<IdentId, CheckedValue<F>>),
+    Array(TypeId, Vec<Rc<RefCell<CheckedValue<F>>>>),
+    Struct(TypeId, IndexMap<IdentId, Rc<RefCell<CheckedValue<F>>>>),
     Type(TypeId),
+}
+
+impl<F: Clone> Clone for CheckedValue<F> {
+    fn clone(&self) -> Self {
+        match self {
+            CheckedValue::Felt(f) => CheckedValue::Felt(f.clone()),
+            CheckedValue::Bool(b) => CheckedValue::Bool(b.clone()),
+            CheckedValue::Array(type_id, values) => CheckedValue::Array(
+                type_id.clone(),
+                values.iter().map(|x| Rc::clone(x)).collect(),
+            ),
+            CheckedValue::Struct(type_id, fields) => CheckedValue::Struct(
+                type_id.clone(),
+                fields
+                    .iter()
+                    .map(|(k, v)| (k.clone(), Rc::clone(v)))
+                    .collect(),
+            ),
+            CheckedValue::Type(type_id) => CheckedValue::Type(type_id.clone()),
+        }
+    }
 }
 
 impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValue<F> {
@@ -51,14 +67,14 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValue<F> {
             CheckedValue::Array(type_id, values) => {
                 let mut result = Vec::new();
                 for value in values {
-                    result.extend(value.to_felts());
+                    result.extend(value.borrow().to_felts());
                 }
                 result
             }
             CheckedValue::Struct(type_id, fields) => {
                 let mut result = Vec::new();
                 for (_, value) in fields {
-                    result.extend(value.to_felts());
+                    result.extend(value.borrow().to_felts());
                 }
                 result
             }
@@ -74,7 +90,7 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValue<F> {
 }
 
 impl<F> Index<usize> for CheckedValue<F> {
-    type Output = CheckedValue<F>;
+    type Output = Rc<RefCell<CheckedValue<F>>>;
 
     fn index(&self, index: usize) -> &Self::Output {
         match self {
@@ -93,7 +109,21 @@ impl<F> IndexMut<usize> for CheckedValue<F> {
     }
 }
 
-impl<F> CheckedValue<F> {
+impl<F: Clone> CheckedValue<F> {
+    pub fn to_felt(&self) -> F {
+        match self {
+            CheckedValue::Felt(f) => f.clone(),
+            _ => panic!("Expected felt value"),
+        }
+    }
+
+    pub fn to_bool(&self) -> F {
+        match self {
+            CheckedValue::Bool(f) => f.clone(),
+            _ => panic!("Expected bool value"),
+        }
+    }
+
     pub fn type_id(&self) -> TypeId {
         match self {
             CheckedValue::Felt(_) => FELT_TYPE,
@@ -104,71 +134,39 @@ impl<F> CheckedValue<F> {
         }
     }
 
-    pub fn set_path(&mut self, path: &[usize], value: CheckedValue<F>) -> anyhow::Result<()> {
-        if path.is_empty() {
-            *self = value;
+    pub fn set_path(
+        &mut self,
+        path: &[usize],
+        mut value: Rc<RefCell<CheckedValue<F>>>,
+    ) -> anyhow::Result<()> {
+        if !self.is_array() && !self.is_struct() {
+            assert!(path.is_empty());
+            std::mem::swap(self, &mut *value.borrow_mut());
+            return Ok(());
+        } else if path.is_empty() {
+            std::mem::swap(self, &mut *value.borrow_mut());
             return Ok(());
         }
+
         match self {
-            CheckedValue::Array(_, vec) => {
+            CheckedValue::Array(_, arr) => {
                 let index = path[0];
                 let rest = &path[1..];
-                if let Some(inner) = vec.get_mut(index) {
-                    inner.set_path(rest, value)?;
+                if let Some(inner) = arr.get_mut(index) {
+                    inner.borrow_mut().set_path(rest, value)?;
                 }
             }
             CheckedValue::Struct(_, map) => {
                 let key = IdentId(path[0]);
                 let rest = &path[1..];
                 if let Some(inner) = map.get_mut(&key) {
-                    inner.set_path(rest, value)?;
+                    inner.borrow_mut().set_path(rest, value)?;
                 }
             }
             _ => {
-                assert!(path.is_empty());
-                *self = value;
+                unreachable!()
             }
         }
         Ok(())
-    }
-
-    pub fn get_path(&self, path: &[usize]) -> anyhow::Result<&CheckedValue<F>> {
-        if path.is_empty() {
-            return Ok(self);
-        }
-        match self {
-            CheckedValue::Array(_, vec) => {
-                let index = path[0];
-                let rest = &path[1..];
-                vec.get(index)
-                    .ok_or_else(|| anyhow::anyhow!("Index out of bounds"))?
-                    .get_path(rest)
-            }
-            CheckedValue::Struct(_, map) => {
-                let key = IdentId(path[0]);
-                let rest = &path[1..];
-                map.get(&key)
-                    .ok_or_else(|| anyhow::anyhow!("Field not found"))?
-                    .get_path(rest)
-            }
-            _ => {
-                assert!(path.is_empty());
-                Ok(self)
-            }
-        }
-    }
-}
-
-pub type CheckedValueOrNode<F> = Either<CheckedValueNode<F>, CheckedValue<F>>;
-
-impl<F> From<CheckedValueNode<F>> for CheckedValueOrNode<F> {
-    fn from(value: CheckedValueNode<F>) -> Self {
-        CheckedValueOrNode::Left(value)
-    }
-}
-
-impl<F> From<CheckedValue<F>> for CheckedValueOrNode<F> {
-    fn from(value: CheckedValue<F>) -> Self {
-        CheckedValueOrNode::Right(value)
     }
 }

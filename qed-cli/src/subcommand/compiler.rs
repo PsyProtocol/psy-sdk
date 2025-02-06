@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_ast::{AstVisitor, DefaultVisitorContext, IdentId, ModuleId, NodeType, Program};
@@ -10,8 +10,8 @@ use qed_fmt::Formatter;
 use qed_interpreter::{Interpreter, StorageProcessor};
 use qed_parser::Parser;
 use qed_sema::{
-    Artifact, CheckedFunctionNode, CheckedValue, CheckedValueNode, CheckedValueOrNode, SymbolTable,
-    Type, TypeChecker, TypeCheckerVisitorContext,
+    Artifact, CheckedFunctionNode, CheckedValue, CheckedValueNode, SymbolTable, Type, TypeChecker,
+    TypeCheckerVisitorContext,
 };
 use qed_utils::{CompilerArgs, InterpreterArgs};
 
@@ -54,11 +54,11 @@ pub fn run(args: CompilerArgs) -> anyhow::Result<()> {
 
     let mut parameters = vec![];
     for (id, _, ty) in node.parameters.iter() {
-        parameters.push(
+        parameters.push(Rc::new(RefCell::new(
             typechecker_context.symbols[ty.clone()]
                 .clone()
                 .to_value(&mut typechecker_context.symbols, &mut interpreter.context),
-        );
+        )));
     }
 
     let res = interpreter
@@ -76,7 +76,7 @@ pub fn run(args: CompilerArgs) -> anyhow::Result<()> {
     let ctx = interpreter.context.clone();
 
     let compile_result =
-        QEDCompileResult::compile_exec("test".to_owned(), 0, &ctx.store, &ctx, &res.to_felts());
+        QEDCompileResult::compile_exec("test".to_owned(), 0, &ctx, &res.borrow().to_felts());
 
     println!("compile_result: {:?}", compile_result);
     Ok(())
