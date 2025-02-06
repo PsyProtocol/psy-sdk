@@ -1,6 +1,6 @@
 mod pub_mod;
 
-use pub_mod::*;
+pub use pub_mod::*;
 
 struct Test{
     x: Felt,
@@ -20,7 +20,7 @@ fn main(a: Felt, b: Felt) -> Felt {
         x: a,
         y: b
     };
-    
+
     let res: Felt = t.get_sum();
 
     let a: Add = Add::new_(a, b);

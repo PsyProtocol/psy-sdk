@@ -1,6 +1,8 @@
+use std::cell::RefCell;
 use std::convert::AsMut;
 use std::convert::AsRef;
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
@@ -11,7 +13,7 @@ use qed_builder::DPNContext;
 use qed_utils::impl_ref;
 
 use crate::CheckedValue;
-use crate::CheckedValueOrNode;
+use crate::CheckedValueNode;
 use crate::SymbolTable;
 use crate::STD_PRELUDE_SCOPE_ID;
 use crate::{
@@ -228,7 +230,7 @@ impl Type {
 
     pub fn to_value<F: ContextFelt + From<u32>, C: DPNContext<F>>(
         &self,
-        symbols: &mut SymbolTable<CheckedValueOrNode<F>>,
+        symbols: &mut SymbolTable<F>,
         ctx: &mut C,
     ) -> CheckedValue<F> {
         match self {
@@ -238,7 +240,7 @@ impl Type {
                 let mut result = Vec::new();
                 let inner_ty = symbols[a.inner_ty].clone();
                 for value in 0..a.size {
-                    result.push(inner_ty.to_value(symbols, ctx));
+                    result.push(Rc::new(RefCell::new(inner_ty.to_value(symbols, ctx))));
                 }
                 let type_id = symbols
                     .get_type_id(
@@ -252,7 +254,10 @@ impl Type {
                 let mut result = IndexMap::new();
                 for (field_name, field_type, _) in &s.fields {
                     let field_type = symbols[field_type.clone()].clone();
-                    result.insert(field_name.clone(), field_type.to_value(symbols, ctx));
+                    result.insert(
+                        field_name.clone(),
+                        Rc::new(RefCell::new(field_type.to_value(symbols, ctx))),
+                    );
                 }
                 let type_id = symbols.get_type_id(Some(s.scope_id), self.key()).unwrap();
                 CheckedValue::Struct(type_id, result)

@@ -1,4 +1,4 @@
-struct Person {
+pub struct Person {
     age: Felt,
     male: bool
 }

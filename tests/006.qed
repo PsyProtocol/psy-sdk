@@ -1,0 +1,5 @@
+fn main() -> Felt {
+    let mut c: Felt = 1;
+    c = 2;
+    return c;
+}

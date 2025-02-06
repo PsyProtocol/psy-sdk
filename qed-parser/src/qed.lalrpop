@@ -35,12 +35,14 @@ pub Module: ModuleNode = {
         uses: {
             if !is_std  {
                 uses.insert(0, UsePath {
+                    visibility: Visibility::Public,
                     kind: IdentId::STD,
                     segments: vec![IdentId::PRELUDE],
                     target: None,
                 });
             } else if !is_self_std && !is_self_prelude {
                 uses.insert(0, UsePath {
+                    visibility: Visibility::Public,
                     kind: IdentId::PRELUDE,
                     segments: vec![],
                     target: None,
@@ -57,16 +59,20 @@ pub Module: ModuleNode = {
 }
 
 ModuleDecl: (IdentId, Visibility) = {
-    <l:@L> <visibility: Visibility> MOD <name:Identifier> ";" <r:@R> => {
+    <l:@L> <visibility:Visibility> MOD <name:Identifier> ";" <r:@R> => {
         (name, visibility)
     },
 }
 
 ModuleUse: UsePath = {
-    <l:@L> USE <path:PathOld> ";" <r:@R> => UsePath {
-        kind: path.0,
-        target: path.2,
-        segments: path.1,
+    <l:@L> <visibility:Visibility> USE <path:PathOld> ";" <r:@R> => {
+        assert!(visibility.is_public());
+        UsePath {
+            visibility,
+            kind: path.0,
+            target: path.2,
+            segments: path.1,
+        }
     }
 }
 
@@ -126,7 +132,7 @@ TraitDef: TraitNode = {
 }
 
 EnumDef: EnumNode = {
-    <l:@L> <visibility: Visibility> ENUM <name:Identifier> <generic_parameters:GenericParameters> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => EnumNode {
+    <l:@L> <visibility:Visibility> ENUM <name:Identifier> <generic_parameters:GenericParameters> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => EnumNode {
         name,
         generic_parameters: generic_parameters,
         variants,
@@ -154,7 +160,7 @@ StructDef: StructNode = {
 }
 
 FunctionDef: DefinitionNode = {
-    <l:@L> <visibility: Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <visibility:Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters: generic_parameters,
@@ -166,7 +172,7 @@ FunctionDef: DefinitionNode = {
 }
 
 FunctionDecl: FunctionNode = {
-    <l:@L> <visibility: Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
+    <l:@L> <visibility:Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
         name,
         parameters,
         generic_parameters: generic_parameters,
@@ -196,7 +202,7 @@ TypeAnnotation: (IdentId, UncheckedType) = {
 }
 
 FieldTypeAnnotation: (IdentId, UncheckedType, Visibility) = {
-    <l:@L> <visibility: Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty, visibility)
+    <l:@L> <visibility:Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty, visibility)
 }
 
 Visibility: Visibility = {

@@ -1,6 +1,6 @@
 mod math;
 
-use math::*;
+pub use math::*;
 
 #[derive(Storage)]
 struct Person {

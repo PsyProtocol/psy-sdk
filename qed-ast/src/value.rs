@@ -17,11 +17,5 @@ pub enum ValueNode<F: Clone + From<u32>> {
 impl<F: Clone + From<u32>> NodeInfo for ValueNode<F> {
     fn node_type(&self) -> NodeType {
         NodeType::ValueExpr
-        // match self {
-        //     ValueNode::Felt(_) => NodeType::FeltValue,
-        //     ValueNode::Bool(_) => NodeType::BoolValue,
-        //     ValueNode::Array(_, _) => NodeType::ArrayValue,
-        //     ValueNode::Struct(_, _, _) => NodeType::StructValue,
-        // }
     }
 }
