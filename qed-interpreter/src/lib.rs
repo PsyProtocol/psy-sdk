@@ -128,7 +128,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         symbols: &mut SymbolTable<F>,
     ) -> ControlState<Result<Rc<RefCell<CheckedValue<F>>>>> {
         for (i, (parameter, _, _)) in node.parameters.iter().enumerate() {
-            symbols.set_variable(node.scope_id, parameter, parameters[i].clone())?;
+            symbols.set_variable(node.scope_id, parameter, parameters[i].dpn_clone())?;
         }
 
         self.interpret_block(
@@ -984,13 +984,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             )?
             .unwrap();
 
-        symbols.set_variable(node.scope_id, &node.name, {
-            if !value.borrow().is_array() && !value.borrow().is_struct() {
-                Rc::new(RefCell::new(value.borrow().clone()))
-            } else {
-                value
-            }
-        })?;
+        symbols.set_variable(node.scope_id, &node.name, value.dpn_clone())?;
         Ok(())
     }
 
