@@ -537,60 +537,42 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 self.context
                     .op_add(old_value.borrow().to_felt(), value.borrow().to_felt()),
             ))),
-            AssignmentOperator::SubAssign => {
-                Rc::new(RefCell::new(CheckedValue::Felt(self.context.op_sub(
-                    old_value.clone().borrow().to_felt(),
-                    value.borrow().to_felt(),
-                ))))
-            }
-            AssignmentOperator::MulAssign => {
-                Rc::new(RefCell::new(CheckedValue::Felt(self.context.op_mul(
-                    old_value.clone().borrow().to_felt(),
-                    value.borrow().to_felt(),
-                ))))
-            }
-            AssignmentOperator::DivAssign => {
-                Rc::new(RefCell::new(CheckedValue::Felt(self.context.op_div(
-                    old_value.clone().borrow().to_felt(),
-                    value.borrow().to_felt(),
-                ))))
-            }
-            AssignmentOperator::ModAssign => {
-                Rc::new(RefCell::new(CheckedValue::Felt(self.context.op_mod(
-                    old_value.clone().borrow().to_felt(),
-                    value.borrow().to_felt(),
-                ))))
-            }
-            AssignmentOperator::BitAndAssign => {
-                Rc::new(RefCell::new(CheckedValue::Felt(self.context.op_u32_and(
-                    old_value.clone().borrow().to_felt(),
-                    value.borrow().to_felt(),
-                ))))
-            }
-            AssignmentOperator::BitOrAssign => {
-                Rc::new(RefCell::new(CheckedValue::Felt(self.context.op_u32_or(
-                    old_value.clone().borrow().to_felt(),
-                    value.borrow().to_felt(),
-                ))))
-            }
-            AssignmentOperator::BitXorAssign => {
-                Rc::new(RefCell::new(CheckedValue::Felt(self.context.op_u32_xor(
-                    old_value.clone().borrow().to_felt(),
-                    value.borrow().to_felt(),
-                ))))
-            }
-            AssignmentOperator::BitShlAssign => {
-                Rc::new(RefCell::new(CheckedValue::Felt(self.context.op_u32_shl(
-                    old_value.clone().borrow().to_felt(),
-                    value.borrow().to_felt(),
-                ))))
-            }
-            AssignmentOperator::BitShrAssign => {
-                Rc::new(RefCell::new(CheckedValue::Felt(self.context.op_u32_shr(
-                    old_value.clone().borrow().to_felt(),
-                    value.borrow().to_felt(),
-                ))))
-            }
+            AssignmentOperator::SubAssign => Rc::new(RefCell::new(CheckedValue::Felt(
+                self.context
+                    .op_sub(old_value.borrow().to_felt(), value.borrow().to_felt()),
+            ))),
+            AssignmentOperator::MulAssign => Rc::new(RefCell::new(CheckedValue::Felt(
+                self.context
+                    .op_mul(old_value.borrow().to_felt(), value.borrow().to_felt()),
+            ))),
+            AssignmentOperator::DivAssign => Rc::new(RefCell::new(CheckedValue::Felt(
+                self.context
+                    .op_div(old_value.borrow().to_felt(), value.borrow().to_felt()),
+            ))),
+            AssignmentOperator::ModAssign => Rc::new(RefCell::new(CheckedValue::Felt(
+                self.context
+                    .op_mod(old_value.borrow().to_felt(), value.borrow().to_felt()),
+            ))),
+            AssignmentOperator::BitAndAssign => Rc::new(RefCell::new(CheckedValue::Felt(
+                self.context
+                    .op_u32_and(old_value.borrow().to_felt(), value.borrow().to_felt()),
+            ))),
+            AssignmentOperator::BitOrAssign => Rc::new(RefCell::new(CheckedValue::Felt(
+                self.context
+                    .op_u32_or(old_value.borrow().to_felt(), value.borrow().to_felt()),
+            ))),
+            AssignmentOperator::BitXorAssign => Rc::new(RefCell::new(CheckedValue::Felt(
+                self.context
+                    .op_u32_xor(old_value.borrow().to_felt(), value.borrow().to_felt()),
+            ))),
+            AssignmentOperator::BitShlAssign => Rc::new(RefCell::new(CheckedValue::Felt(
+                self.context
+                    .op_u32_shl(old_value.borrow().to_felt(), value.borrow().to_felt()),
+            ))),
+            AssignmentOperator::BitShrAssign => Rc::new(RefCell::new(CheckedValue::Felt(
+                self.context
+                    .op_u32_shr(old_value.borrow().to_felt(), value.borrow().to_felt()),
+            ))),
         };
         Ok(self.cset_variable(old_value, &new_value))
     }
@@ -1002,7 +984,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             )?
             .unwrap();
 
-        symbols.set_variable(node.scope_id, &node.name, value)?;
+        symbols.set_variable(node.scope_id, &node.name, {
+            if !value.borrow().is_array() && !value.borrow().is_struct() {
+                Rc::new(RefCell::new(value.borrow().clone()))
+            } else {
+                value
+            }
+        })?;
         Ok(())
     }
 

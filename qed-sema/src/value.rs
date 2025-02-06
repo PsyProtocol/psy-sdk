@@ -141,7 +141,8 @@ impl<F: Clone> CheckedValue<F> {
     ) -> anyhow::Result<()> {
         if !self.is_array() && !self.is_struct() {
             assert!(path.is_empty());
-            std::mem::swap(self, &mut *value.borrow_mut());
+            let mut new_value = value.borrow().clone();
+            std::mem::swap(self, &mut new_value);
             return Ok(());
         } else if path.is_empty() {
             std::mem::swap(self, &mut *value.borrow_mut());
