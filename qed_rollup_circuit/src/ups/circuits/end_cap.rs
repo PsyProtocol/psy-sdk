@@ -60,6 +60,7 @@ where
         known_ups_circuit_whitelist_root: QHashOut<C::F>,
         known_proof_tree_circuit_whitelist_root: QHashOut<C::F>,
     ) -> Self {
+
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
@@ -105,11 +106,15 @@ where
             verify_proof_tree_root_gadget.agg_proof_header_gadget.state_transition_end,
             end_cap_from_proof_tree_gadget.current_proof_tree_root,
         );
+        
 
 
 
 
-        let public_inputs_hash = end_cap_from_proof_tree_gadget.end_cap_core_gadget.end_cap_result_gadget.to_hash::<C::Hasher, C::F, D>(&mut builder);
+        let state_transition_pi_hash = end_cap_from_proof_tree_gadget.end_cap_core_gadget.end_cap_result_gadget.to_hash::<C::Hasher, C::F, D>(&mut builder);
+        let guta_stats_pi_hash = end_cap_from_proof_tree_gadget.end_cap_core_gadget.guta_stats.to_hash::<C::Hasher, C::F, D>(&mut builder);
+
+        let public_inputs_hash = builder.hash_two_to_one::<C::Hasher>(state_transition_pi_hash, guta_stats_pi_hash);
         
 
         builder.register_public_inputs(&public_inputs_hash.elements);

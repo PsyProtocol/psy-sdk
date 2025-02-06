@@ -6,8 +6,8 @@ use qed_common_circuit::
 ;
 use qed_core::config::network_constants::CHECKPOINT_TREE_HEIGHT;
 
-use crate::gadgets::qdata::
-    ups_context_input::UserProvingSessionHeaderGadget
+use crate::{gadgets::qdata::
+    ups_context_input::UserProvingSessionHeaderGadget, guta::gadgets::guta_stats::GUTAStatsGadget}
 ;
 
 use super::{ups_end_cap_result::UPSEndCapResultCompactGadget, ups_signature_data::QEDUserProvingSessionSignatureDataCompactGadget};
@@ -21,6 +21,7 @@ pub struct UPSEndCapCoreGadget {
     // start computed
     pub sig_data_compact_gadget: QEDUserProvingSessionSignatureDataCompactGadget,    
     pub end_cap_result_gadget: UPSEndCapResultCompactGadget,
+    pub guta_stats: GUTAStatsGadget,
 }
 const MAX_NONCE_BITS: u8 = 32;
 
@@ -33,6 +34,8 @@ impl UPSEndCapCoreGadget {
         sig_proof_param_hash: HashOutTarget,
         nonce: Target,
         network_magic: u64,
+        empty_deferred_tx_debt_tree_root: HashOutTarget,
+        empty_inline_tx_debt_tree_root: HashOutTarget,
     ) -> Self {
 
         builder.connect(
@@ -108,6 +111,8 @@ impl UPSEndCapCoreGadget {
             user_id: last_header_gadget.session_start_context.start_session_user_leaf.user_id,
         };
 
+
+
         builder.connect(
             last_header_gadget.session_start_context.checkpoint_id,
             real_end_user_leaf.last_checkpoint_id,
@@ -122,10 +127,41 @@ impl UPSEndCapCoreGadget {
 
 
 
+        // ensure the deferred tx debt tree is empty
+        builder.connect_hashes(
+            last_header_gadget.current_state.deferred_tx_debt_tree_root,
+            empty_deferred_tx_debt_tree_root,
+        );
+
+        // ensure the inline tx debt tree is empty
+        builder.connect_hashes(
+            last_header_gadget.current_state.inline_tx_debt_tree_root,
+            empty_inline_tx_debt_tree_root,
+        );
+
+
+        let zero_placeholder = builder.zero();
+        let one_target = builder.one();
+
+
+        let guta_stats = GUTAStatsGadget{
+            fees_collected: zero_placeholder,
+            user_ops_processed: one_target,
+            total_transactions: last_header_gadget.current_state.tx_count,
+            slots_modified: zero_placeholder,
+        };
+
+
+
+
+
+
+
 
         Self {
             sig_data_compact_gadget,
             end_cap_result_gadget,
+            guta_stats,
         }
     }
 }

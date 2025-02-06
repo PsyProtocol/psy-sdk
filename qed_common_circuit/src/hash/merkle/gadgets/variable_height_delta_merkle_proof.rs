@@ -40,8 +40,6 @@ impl VariableHeightBitInfo {
         builder: &mut CircuitBuilder<F, D>,
     ) -> Target {
 
-        // if height is 0, then 
-
         let mut sub_root_bit = builder.zero();
         let mut sub_root_index = builder.zero();
         let one = builder.one();

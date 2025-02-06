@@ -6,7 +6,7 @@ use plonky2::{
 };
 use qed_common_circuit::treeprover::qrecursion::standard::gadgets::attest_proof_in_tree::AttestProofInTreeGadget
 ;
-use qed_core::data::qhashout::QHashOut;
+use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT}, data::qhashout::QHashOut};
 use qed_crypto::{common::witnesses::qrecursion::header::AttestProofInTreeInput, hash::traits::hasher::MerkleZeroHasher};
 use qed_data::ups::{ups_end_cap::UPSEndCapFromProofTreeGadgetInput, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput};
 
@@ -63,6 +63,10 @@ impl UPSEndCapFromProofTreeGadget {
         );
 
 
+        let empty_deferred_tx_debt_tree_root = builder.constant_hash(H::get_zero_hash(DEFERRED_TRANSACTION_TREE_HEIGHT as usize));
+        let empty_inline_tx_debt_tree_root = builder.constant_hash(H::get_zero_hash(INLINE_TRANSACTION_TREE_HEIGHT as usize));
+        
+
 
         let end_cap_core_gadget = UPSEndCapCoreGadget::enforce_signature_constraints::<H,F,D>(
             builder, 
@@ -71,7 +75,9 @@ impl UPSEndCapFromProofTreeGadget {
             verify_zk_signature_proof_gadget.fingerprint, 
             user_public_key_param, 
             nonce, 
-            network_magic
+            network_magic,
+            empty_deferred_tx_debt_tree_root,
+            empty_inline_tx_debt_tree_root,
         );
 
         Self {

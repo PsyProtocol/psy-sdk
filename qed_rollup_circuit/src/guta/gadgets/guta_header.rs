@@ -1,11 +1,17 @@
-use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
+use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
+use qed_common_circuit::{builder::hash::core::CircuitBuilderHashCore, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
+use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
+
+use super::{guta_stats::GUTAStatsGadget, helpers::ToGUTAHeader};
 
 
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug)]
 pub struct GlobalUserTreeAggregatorHeaderGadget {
     pub guta_circuit_whitelist: HashOutTarget,
-
+    pub checkpoint_tree_root: HashOutTarget,
+    pub state_transition: SubTreeNodeStateTransitionGadget,
+    pub stats: GUTAStatsGadget,
 }
 
 impl GlobalUserTreeAggregatorHeaderGadget {
@@ -13,6 +19,10 @@ impl GlobalUserTreeAggregatorHeaderGadget {
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let guta_circuit_whitelist = builder.add_virtual_hash();
+        let checkpoint_tree_root = builder.add_virtual_hash();
+        let state_transition = SubTreeNodeStateTransitionGadget::add_virtual_to(builder);
+        let stats = GUTAStatsGadget::add_virtual_to(builder);
+        
 
 
         
@@ -20,35 +30,60 @@ impl GlobalUserTreeAggregatorHeaderGadget {
 
         Self {
             guta_circuit_whitelist,
+            checkpoint_tree_root,
+            state_transition,
+            stats,
         }
     }
-    /*
+
     pub fn set_witness<F: RichField>(
         &self,
         witness: &mut impl Witness<F>,
-        target: &UserProvingSessionHeader<F>,
+        target: &GlobalUserTreeAggregatorHeader<F>,
     ) {
         witness.set_hash_target(
-            self.ups_step_circuit_whitelist_root, 
-            target.ups_step_circuit_whitelist_root.0,
+            self.guta_circuit_whitelist, 
+            target.guta_circuit_whitelist.0,
         );
-        self.session_start_context.set_witness(witness, &target.session_start_context);
-        self.current_state.set_witness(witness, &target.current_state);
+        witness.set_hash_target(
+            self.checkpoint_tree_root, 
+            target.checkpoint_tree_root.0,
+        );
+        self.state_transition.set_witness(witness, &target.state_transition);
+        self.stats.set_witness(witness, &target.stats);
     }
+
+
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
-        let start_current_combo = builder.hash_two_to_one::<H>(
-            self.session_start_context_hash,
-            self.current_state_hash
+
+        let state_transition_hash = self.state_transition.to_hash::<H, F, D>(builder);
+        let stats_hash = self.state_transition.to_hash::<H, F, D>(builder);
+
+
+
+        let state_transition_and_stats_hash = builder.hash_two_to_one::<H>(
+            state_transition_hash,
+            stats_hash,
+        );
+        let state_stats_checkpoint_hash = builder.hash_two_to_one::<H>(
+            self.checkpoint_tree_root,
+            state_transition_and_stats_hash,
         );
 
         builder.hash_two_to_one::<H>(
-            self.ups_step_circuit_whitelist_root,
-            start_current_combo,
+            self.guta_circuit_whitelist,
+            state_stats_checkpoint_hash,
         )
-    }*/
+    }
+}
+
+impl <const D: usize> ToGUTAHeader<D> for GlobalUserTreeAggregatorHeaderGadget {
+    fn get_guta_header<H: AlgebraicHasher<F>, F: RichField + Extendable<D>>(&self, _builder: &mut CircuitBuilder<F, D>, _default_guta_circuit_whitelist: HashOutTarget) -> GlobalUserTreeAggregatorHeaderGadget {
+        *self
+    }
 }
 
 /* 

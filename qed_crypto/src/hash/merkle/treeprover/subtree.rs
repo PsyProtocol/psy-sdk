@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Hash, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct SubTreeNodeStateTransition<F: RichField> {
     pub old_node_value: QHashOut<F>,
