@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use kvq::
     memory::{
-        arc_imm::KVQArcImmutableStoreWrapper, immutable::KVQImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore
+        arc_imm::KVQArcImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore
     }
 ;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, plonk::config::PoseidonGoldilocksConfig};
@@ -484,7 +484,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     api.guta_circuits.print_common_config();
 
 
-    
+
     let mut circuit_info = SessionCircuitInfoStore::new();
 
     circuit_info.register_circuit(
