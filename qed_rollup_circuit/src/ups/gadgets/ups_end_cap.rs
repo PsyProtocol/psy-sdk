@@ -33,6 +33,7 @@ impl UPSEndCapCoreGadget {
         sig_proof_fingerprint: HashOutTarget,
         sig_proof_param_hash: HashOutTarget,
         nonce: Target,
+        slots_modified: Target,
         network_magic: u64,
         empty_deferred_tx_debt_tree_root: HashOutTarget,
         empty_inline_tx_debt_tree_root: HashOutTarget,
@@ -148,7 +149,7 @@ impl UPSEndCapCoreGadget {
             fees_collected: zero_placeholder,
             user_ops_processed: one_target,
             total_transactions: last_header_gadget.current_state.tx_count,
-            slots_modified: zero_placeholder,
+            slots_modified: slots_modified,
         };
 
 

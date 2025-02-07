@@ -53,7 +53,7 @@ impl<const D: usize> VerifyEndCapProofGadget<D> {
             proof_fingerprint,
         );
 
-        let checkpoint_historical_merkle_proof = HistoricalRootMerkleProofGadget::add_virtual_to::<C::Hasher, C::F, D>(builder, CHECKPOINT_TREE_HEIGHT as usize);
+        let checkpoint_historical_merkle_proof = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<C::Hasher, C::F, D>(builder, CHECKPOINT_TREE_HEIGHT as usize);
 
         let end_cap_result_gadget = UPSEndCapResultCompactGadget::add_virtual_to::<F, D>(builder);
         let guta_stats = GUTAStatsGadget::add_virtual_to::<F, D>(builder);

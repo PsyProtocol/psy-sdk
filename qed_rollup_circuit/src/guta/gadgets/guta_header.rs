@@ -60,7 +60,7 @@ impl GlobalUserTreeAggregatorHeaderGadget {
     ) -> HashOutTarget {
 
         let state_transition_hash = self.state_transition.to_hash::<H, F, D>(builder);
-        let stats_hash = self.state_transition.to_hash::<H, F, D>(builder);
+        let stats_hash = self.stats.to_hash::<H, F, D>(builder);
 
 
 

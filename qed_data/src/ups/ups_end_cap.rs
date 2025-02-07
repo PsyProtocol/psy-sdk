@@ -17,6 +17,7 @@ pub struct UPSEndCapFromProofTreeGadgetInput<F: RichField> {
     pub verify_zk_signature_proof_input: AttestProofInTreeInput<F>,
     pub user_public_key_param: QHashOut<F>,
     pub nonce: F,
+    pub slots_modified: F,
 }
 
 

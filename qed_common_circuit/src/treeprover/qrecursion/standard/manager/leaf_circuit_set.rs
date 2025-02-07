@@ -14,11 +14,7 @@ use qed_crypto::{
 use crate::{
     circuits::traits::qstandard::QStandardCircuit,
     treeprover::qrecursion::standard::circuits::{
-        prove_2_agg::QRecursionStandardTwoAggCircuit,
-        prove_2_leaves::QRecursionStandardTwoLeafCircuit,
-        prove_left_agg_right_leaf::QRecursionStandardLeftAggRightLeafCircuit,
-        prove_left_leaf_right_agg::QRecursionStandardLeftLeafRightAggCircuit,
-        prove_single_leaf::QRecursionStandardSingleLeafCircuit,
+        prove_2_agg::QRecursionStandardTwoAggCircuit, prove_2_leaves::QRecursionStandardTwoLeafCircuit, prove_left_agg_right_leaf::QRecursionStandardLeftAggRightLeafCircuit, prove_left_leaf_right_agg::QRecursionStandardLeftLeafRightAggCircuit, prove_single_leaf::QRecursionStandardSingleLeafCircuit
     },
 };
 
@@ -147,7 +143,7 @@ where
     ) -> QHashOut<C::F> {
         match circuit_type {
             QStandardBinaryTreeCircuitType::None => {
-                panic!("tried to get verifier data for a circuit with type None")
+                panic!("tried to get fingerprint for a circuit with type None")
             }
             QStandardBinaryTreeCircuitType::SingleLeaf => {
                 self.single_leaf_circuit.get_fingerprint()
@@ -159,6 +155,9 @@ where
             }
             QStandardBinaryTreeCircuitType::LeftAggRightLeaf => {
                 self.left_agg_right_leaf_circuit.get_fingerprint()
+            }
+            QStandardBinaryTreeCircuitType::Root => {
+                panic!("tried to get fingerprint for a circuit with type Root")
             }
         }
     }
@@ -185,6 +184,9 @@ where
             }
             QStandardBinaryTreeCircuitType::LeftAggRightLeaf => {
                 self.left_agg_right_leaf_circuit.get_verifier_config_ref()
+            }
+            QStandardBinaryTreeCircuitType::Root => {
+                panic!("tried to get verifier data for a circuit with type Root")
             }
         }
     }

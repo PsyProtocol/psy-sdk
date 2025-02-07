@@ -109,6 +109,9 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
             .call_data
             .contract_id
     }
+    pub fn get_total_slots_modified(&self) -> F {
+        F::from_canonical_u32(self.local_state_tracker.total_slots_modified)
+    }
     pub fn get_current_method_id(&self) -> F {
         self.active_transaction_record.call_data.call_data.method_id
     }

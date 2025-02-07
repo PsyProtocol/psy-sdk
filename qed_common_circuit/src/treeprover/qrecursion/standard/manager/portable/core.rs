@@ -312,7 +312,26 @@ where
 
         Ok(())
     }
+/* 
+    pub fn get_root_verified_proof(&self, circuit_mgr: &PortableQTreeRecursionCircuits<C, D>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>{
 
+        if self.leaf_proofs.len() != 0 || self.agg_proofs.len() != 1 {
+            anyhow::bail!("proof tree not yet finalized");
+        }
+        match self.agg_proofs.last() {
+            Some(x) => {
+                circuit_mgr.root_circuit.prove_base(
+                    circuit_mgr.circuit_inclusion_proofs.get_inclusion_proof_for_type(x.circuit_type),
+                    &x.agg_header,
+                    &x.proof,
+                    circuit_mgr.circuit_set.get_verifier_data_by_type(x.circuit_type)
+                )
+
+            },
+            None =>  anyhow::bail!("proof tree not yet finalized"),
+        }
+    }
+*/
     pub fn get_finalized_proot_tree_record(&self) -> anyhow::Result<&AggProofRecord<C,D>>{
         if self.leaf_proofs.len() != 0 || self.agg_proofs.len() != 1 {
             anyhow::bail!("proof tree not yet finalized");

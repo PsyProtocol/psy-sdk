@@ -26,7 +26,7 @@ pub struct SimpleAPI<
 {
     proof_store: PS,
     state_store: SS,
-    guta_circuits: QEDGUTACircuitManager<C, D>,
+    pub guta_circuits: QEDGUTACircuitManager<C, D>,
 
     next_block_mempool_updates: HashMap<u64, SubmitUserEndCapProofIDAPIInput<F>>,
 

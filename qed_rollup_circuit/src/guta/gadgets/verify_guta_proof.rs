@@ -24,6 +24,7 @@ pub struct VerifyGUTAProofGadget<const D: usize> {
     pub verifier_data: VerifierCircuitTarget,
     pub proof_target: ProofWithPublicInputsTarget<D>,
     // end targets requiring witness
+
 }
 
 impl<const D: usize> VerifyGUTAProofGadget<D> {

@@ -24,7 +24,8 @@ pub struct HistoricalRootMerkleProofGadget {
     pub siblings: Vec<HashOutTarget>,
 }
 impl HistoricalRootMerkleProofGadget {
-    pub fn add_virtual_to<
+    // calculate the normal merkle root + a historical merkle root where all the leaves with index >= `gadget.index` set to zero
+    pub fn add_virtual_to_zero_gte<
         H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
@@ -37,11 +38,14 @@ impl HistoricalRootMerkleProofGadget {
         let siblings = (0..height)
             .map(|_| builder.add_virtual_hash())
             .collect::<Vec<_>>();
-        let (historical_root, current_root) = Self::compute_root_and_historical_root::<H, F, D>(
+
+        let zero_hash = builder.constant_hash(HashOut::ZERO);
+        let (historical_root, current_root) = Self::compute_root_historical_root_with_historical_state::<H, F, D>(
             builder,
             index,
             current_value,
             &siblings,
+            zero_hash
         );
         Self {
             current_root,
@@ -51,7 +55,37 @@ impl HistoricalRootMerkleProofGadget {
             historical_root,
         }
     }
-    pub fn compute_root_and_historical_root<
+    // calculate the normal merkle root + a historical merkle root where all the leaves with index > `gadget.index` set to zero
+    pub fn add_virtual_to_zero_gt<
+        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
+        F: RichField + Extendable<D>,
+        const D: usize,
+    >(
+        builder: &mut CircuitBuilder<F, D>,
+        height: usize,
+    ) -> Self {
+        let index = builder.add_virtual_target();
+        let current_value = builder.add_virtual_hash();
+        let siblings = (0..height)
+            .map(|_| builder.add_virtual_hash())
+            .collect::<Vec<_>>();
+
+        let (historical_root, current_root) = Self::compute_root_historical_root_with_historical_state::<H, F, D>(
+            builder,
+            index,
+            current_value,
+            &siblings,
+            current_value
+        );
+        Self {
+            current_root,
+            current_value,
+            index,
+            siblings,
+            historical_root,
+        }
+    }
+    fn compute_root_historical_root_with_historical_state<
         H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
@@ -60,19 +94,22 @@ impl HistoricalRootMerkleProofGadget {
         index: Target,
         value: HashOutTarget,
         siblings: &[HashOutTarget],
+        start_historical_state: HashOutTarget,
     ) -> (HashOutTarget, HashOutTarget) {
+
         let height = siblings.len();
         builder.range_check(index, height);
         let index_bits = builder.split_le(index, height);
-
-        Self::compute_root_and_historical_root_bits::<H, F, D>(
+        Self::compute_root_historical_root_bits_with_historical_state::<H,F,D>(
             builder,
             &index_bits,
             value,
             siblings,
+            start_historical_state
         )
+
     }
-    fn compute_root_and_historical_root_bits<
+    fn compute_root_historical_root_bits_with_historical_state<
         H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
@@ -81,11 +118,11 @@ impl HistoricalRootMerkleProofGadget {
         index_bits: &[BoolTarget],
         value: HashOutTarget,
         siblings: &[HashOutTarget],
+        start_historical_state: HashOutTarget,
     ) -> (HashOutTarget, HashOutTarget) {
         //let zero = builder.zero();
-        let zero_hash = builder.constant_hash(HashOut::ZERO);
         let mut state: HashOutTarget = value;
-        let mut historical_state: HashOutTarget = zero_hash;
+        let mut historical_state: HashOutTarget = start_historical_state;
         //debug_assert_eq!(state.elements.len(), NUM_HASH_OUT_ELEMENTS);
 
         let mut level = 0;
@@ -179,7 +216,7 @@ mod tests {
         // start building the circuit
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let historical_gadget= HistoricalRootMerkleProofGadget::add_virtual_to::<PoseidonHash, F, D>(
+        let historical_gadget= HistoricalRootMerkleProofGadget::add_virtual_to_zero_gte::<PoseidonHash, F, D>(
             &mut builder,
             tree_height,
         );

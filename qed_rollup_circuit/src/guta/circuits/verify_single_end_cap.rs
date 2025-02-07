@@ -9,7 +9,7 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    builder::hash::core::CircuitBuilderHashCore, circuits::traits::qstandard::QStandardCircuit, proof_minifier::
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::QStandardCircuit, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
 use qed_core::data::qhashout::QHashOut;
@@ -59,7 +59,7 @@ where
         );
 
         let public_inputs_hash = a_end_cap_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
-
+        pad_circuit_degree(&mut builder, 12);
         builder.register_public_inputs(&public_inputs_hash.elements);
 
         let circuit_data = builder.build::<C>();

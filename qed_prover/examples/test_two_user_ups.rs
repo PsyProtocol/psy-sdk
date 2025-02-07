@@ -468,6 +468,23 @@ fn test_prove_simple() -> anyhow::Result<()> {
         deploy_cmd,
     )?;
     
+    timer.lap("start build guta circuits");
+
+
+    let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
+        main_circuits.ups_end_cap.get_common_circuit_data_ref(),
+        main_circuits.ups_end_cap.get_verifier_config_ref().constants_sigmas_cap.height(),
+        main_circuits.ups_end_cap.get_fingerprint(),
+    );
+    timer.lap("built guta circuits");
+    let proof_store = SimpleProofStoreMemory::new();
+    
+    let mut api = SimpleAPI::<_,_,GoldilocksField,C,D>::new(proof_store, st, guta_circuits)?;
+    main_circuits.print_common_config();
+    api.guta_circuits.print_common_config();
+
+
+    
     let mut circuit_info = SessionCircuitInfoStore::new();
 
     circuit_info.register_circuit(
@@ -635,18 +652,6 @@ fn test_prove_simple() -> anyhow::Result<()> {
         input: mgr.get_api_input()?,
         proof: end_cap_proof,
     };
-    timer.lap("start build guta circuits");
-
-
-    let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
-        main_circuits.ups_end_cap.get_common_circuit_data_ref(),
-        main_circuits.ups_end_cap.get_verifier_config_ref().constants_sigmas_cap.height(),
-        main_circuits.ups_end_cap.get_fingerprint(),
-    );
-    timer.lap("built guta circuits");
-    let proof_store = SimpleProofStoreMemory::new();
-    let mut api = SimpleAPI::<_,_,GoldilocksField,C,D>::new(proof_store, st, guta_circuits)?;
-
 
     api.submit_proof(user_a_api_input)?;
     api.submit_proof(user_b_api_input)?;

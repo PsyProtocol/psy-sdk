@@ -79,8 +79,7 @@ where
                 .height(),
             &ups_cfc_deferred_tx.circuit_data.common,
         );
-
-        let ups_end_cap = UPSStandardEndCapCircuit::new(
+        let ups_end_cap = UPSStandardEndCapCircuit::new_with_minifier(
             &proof_tree_agg_circuits.circuit_set.two_agg_circuit.circuit_data.common,
             proof_tree_agg_circuits.circuit_set.two_agg_circuit.get_verifier_config_ref().constants_sigmas_cap.height(),
             network_magic,
@@ -89,6 +88,14 @@ where
                 .circuit_inclusion_proofs
                 .circuit_whitelist_tree_root,
         );
+
+    /* 
+        let ups_end_cap = UPSStandardEndCapCircuit::new_with_minifier(
+            proof_tree_agg_circuits.root_circuit.get_common_circuit_data_ref(),
+            proof_tree_agg_circuits.root_circuit.get_verifier_config_ref(),
+            network_magic,
+            ups_circuit_whitelist_root,
+        );*/
 
         Self {
             ups_start,

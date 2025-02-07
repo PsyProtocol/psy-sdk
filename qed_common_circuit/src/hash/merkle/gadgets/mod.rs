@@ -9,3 +9,5 @@ pub mod merkle_proof_bits;
 pub mod variable_height_merkle_proof;
 pub mod sub_tree_update_proof;
 pub mod variable_height_delta_merkle_proof;
+pub mod sub_tree_update_proof_opt;
+pub mod variable_height_delta_merkle_proof_opt;

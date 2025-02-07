@@ -448,11 +448,15 @@ impl<
             },
             user_public_key_param: public_key_param,
             nonce,
+            slots_modified: self.lps.get_total_slots_modified(),
         };
+
+
         let finalized_proof_tree_record = self.proof_tree_state.get_finalized_proot_tree_record()?;
         let agg_whitelist_merkle_proof = circuit_mgr.proof_tree_agg_circuits.circuit_inclusion_proofs.get_inclusion_proof_for_type(finalized_proof_tree_record.circuit_type);
         let agg_root_verifier_data = self.circuit_info.get_circuit_info_by_fingerprint(finalized_proof_tree_record.fingerprint)?.verifier_data.to_verifier_data::<C,D>();
 
+        
         let proof = circuit_mgr.ups_end_cap.prove_base(
             &end_cap_from_proof_tree_input,
             agg_whitelist_merkle_proof,
@@ -461,6 +465,14 @@ impl<
             &agg_root_verifier_data
         )?;
 
+        /* 
+        let root_proof = self.proof_tree_state.get_root_verified_proof(&circuit_mgr.proof_tree_agg_circuits)?;
+
+        
+        let proof = circuit_mgr.ups_end_cap.prove_base(
+            &end_cap_from_proof_tree_input,
+            &root_proof,
+        )?;*/
 
         // update the user's nonce
         self.current_ups_header.current_state.user_leaf.nonce = nonce;

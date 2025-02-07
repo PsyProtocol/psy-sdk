@@ -8,18 +8,9 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_common_circuit::{
-    builder::hash::core::CircuitBuilderHashCore,
-    circuits::traits::qstandard::QStandardCircuit,
-    proof_minifier::{
-        pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic,
-    },
-    treeprover::qrecursion::standard::gadgets::verify_agg_proof::VerifyAggProofGadget,
-};
-use qed_core::{
-    config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
-    data::qhashout::QHashOut,
-};
+use qed_core::
+    data::qhashout::QHashOut
+;
 use qed_crypto::{
     common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
     hash::{
@@ -29,27 +20,24 @@ use qed_crypto::{
         traits::hasher::MerkleZeroHasher,
     },
 };
-use qed_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
 
-use crate::ups::gadgets::ups_end_cap_tree::UPSEndCapFromProofTreeGadget;
-
+use crate::{builder::hash::core::CircuitBuilderHashCore, circuits::traits::qstandard::QStandardCircuit, proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic}, treeprover::qrecursion::standard::gadgets::verify_agg_proof::VerifyAggProofGadget};
 #[derive(Debug)]
-pub struct UPSStandardEndCapCircuit<C: GenericConfig<D> + 'static, const D: usize>
+pub struct QRecursionStandardRootCircuit<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
-    pub end_cap_from_proof_tree_gadget: UPSEndCapFromProofTreeGadget,
-    pub verify_proof_tree_root_gadget: VerifyAggProofGadget<D>,
+    verify_proof_tree_root_gadget: VerifyAggProofGadget<D>,
 
     // end circuit targets
-    pub base_circuit_data: CircuitData<C::F, C, D>,
-    pub base_fingerprint: QHashOut<C::F>,
-    pub minifier_chain: Option<QEDProofMinifierDynamicChain<D, C::F, C>>,
-    pub enable_minifier: bool,
+    base_circuit_data: CircuitData<C::F, C, D>,
+    base_fingerprint: QHashOut<C::F>,
+    minifier_chain: Option<QEDProofMinifierDynamicChain<D, C::F, C>>,
+    enable_minifier: bool,
     // end circuit data
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> UPSStandardEndCapCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QRecursionStandardRootCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
@@ -57,24 +45,18 @@ where
         self.enable_minifier && self.minifier_chain.is_some()
     }
 }
-impl<C: GenericConfig<D> + 'static, const D: usize> UPSStandardEndCapCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QRecursionStandardRootCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     pub fn new_with_minifier(
         proof_tree_agg_common_data: &CommonCircuitData<C::F, D>,
         proof_tree_agg_verifier_data_cap_height: usize,
-        network_magic: u64,
-        known_ups_circuit_whitelist_root: QHashOut<C::F>,
         known_proof_tree_circuit_whitelist_root: QHashOut<C::F>,
     ) -> Self {
         Self::new_with_config(
             proof_tree_agg_common_data,
             proof_tree_agg_verifier_data_cap_height,
-            UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-            UPS_CIRCUIT_WHITELIST_TREE_HEIGHT as usize,
-            network_magic,
-            known_ups_circuit_whitelist_root,
             known_proof_tree_circuit_whitelist_root,
             true,
         )
@@ -82,17 +64,11 @@ where
     pub fn new_without_minifier(
         proof_tree_agg_common_data: &CommonCircuitData<C::F, D>,
         proof_tree_agg_verifier_data_cap_height: usize,
-        network_magic: u64,
-        known_ups_circuit_whitelist_root: QHashOut<C::F>,
         known_proof_tree_circuit_whitelist_root: QHashOut<C::F>,
     ) -> Self {
         Self::new_with_config(
             proof_tree_agg_common_data,
             proof_tree_agg_verifier_data_cap_height,
-            UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-            UPS_CIRCUIT_WHITELIST_TREE_HEIGHT as usize,
-            network_magic,
-            known_ups_circuit_whitelist_root,
             known_proof_tree_circuit_whitelist_root,
             false,
         )
@@ -100,11 +76,6 @@ where
     pub fn new_with_config(
         proof_tree_agg_common_data: &CommonCircuitData<C::F, D>,
         proof_tree_agg_verifier_data_cap_height: usize,
-        //coset_gate: &GateRef<C::F, D>,
-        ups_session_proof_tree_height: usize,
-        ups_circuit_whitelist_tree_height: usize,
-        network_magic: u64,
-        known_ups_circuit_whitelist_root: QHashOut<C::F>,
         known_proof_tree_circuit_whitelist_root: QHashOut<C::F>,
 
         has_minifier: bool,
@@ -118,6 +89,7 @@ where
             proof_tree_agg_verifier_data_cap_height,
         );
 
+        
         let known_proof_tree_circuit_whitelist_root_target =
             builder.constant_qhash(known_proof_tree_circuit_whitelist_root);
 
@@ -129,44 +101,9 @@ where
                 .root,
         );
 
-        let end_cap_from_proof_tree_gadget =
-            UPSEndCapFromProofTreeGadget::add_virtual_to::<C::Hasher, C::F, D>(
-                &mut builder,
-                ups_session_proof_tree_height,
-                ups_circuit_whitelist_tree_height,
-                network_magic,
-            );
-
-        let known_ups_circuit_whitelist_root_target =
-            builder.constant_qhash(known_ups_circuit_whitelist_root);
-
-        // ensure the ups steps are using the correct ups circuit whitelist root
-        builder.connect_hashes(
-            known_ups_circuit_whitelist_root_target,
-            end_cap_from_proof_tree_gadget
-                .verify_previous_ups_step_gadget
-                .ups_step_circuit_whitelist_root,
-        );
-
-        // ensure the proof tree proof's root matches the ups gadget's root
-        builder.connect_hashes(
-            verify_proof_tree_root_gadget
-                .agg_proof_header_gadget
-                .state_transition_end,
-            end_cap_from_proof_tree_gadget.current_proof_tree_root,
-        );
-
-        let state_transition_pi_hash = end_cap_from_proof_tree_gadget
-            .end_cap_core_gadget
-            .end_cap_result_gadget
-            .to_hash::<C::Hasher, C::F, D>(&mut builder);
-        let guta_stats_pi_hash = end_cap_from_proof_tree_gadget
-            .end_cap_core_gadget
-            .guta_stats
-            .to_hash::<C::Hasher, C::F, D>(&mut builder);
-
-        let public_inputs_hash =
-            builder.hash_two_to_one::<C::Hasher>(state_transition_pi_hash, guta_stats_pi_hash);
+        let public_inputs_hash = verify_proof_tree_root_gadget
+        .agg_proof_header_gadget
+        .state_transition_end;
 
         builder.register_public_inputs(&public_inputs_hash.elements);
 
@@ -181,7 +118,7 @@ where
                 QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
                     &base_circuit_data.verifier_only,
                     &base_circuit_data.common,
-                    &[true, true, false],
+                    &[true, true, true, true],
                 ),
             )
         } else {
@@ -193,14 +130,12 @@ where
             base_fingerprint,
             minifier_chain,
             enable_minifier: has_minifier,
-            end_cap_from_proof_tree_gadget,
             verify_proof_tree_root_gadget,
         }
     }
 
     fn prove_base_inner(
         &self,
-        end_cap_from_proof_tree_input: &UPSEndCapFromProofTreeGadgetInput<C::F>,
         agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
         agg_proof_header: &QRecursionAggStandardHeader<C::F>,
         agg_root_proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -208,8 +143,6 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
-        self.end_cap_from_proof_tree_gadget
-            .set_witness(&mut pw, end_cap_from_proof_tree_input);
         self.verify_proof_tree_root_gadget.set_witness(
             &mut pw,
             agg_whitelist_merkle_proof,
@@ -222,7 +155,6 @@ where
     }
     pub fn prove_base(
         &self,
-        end_cap_from_proof_tree_input: &UPSEndCapFromProofTreeGadgetInput<C::F>,
         agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
         agg_proof_header: &QRecursionAggStandardHeader<C::F>,
         agg_root_proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -230,7 +162,6 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         if self.is_minifier_enabled() {
             let base_proof = self.prove_base_inner(
-                end_cap_from_proof_tree_input,
                 agg_whitelist_merkle_proof,
                 agg_proof_header,
                 agg_root_proof,
@@ -239,7 +170,6 @@ where
             self.minifier_chain.as_ref().unwrap().prove(&base_proof)
         } else {
             self.prove_base_inner(
-                end_cap_from_proof_tree_input,
                 agg_whitelist_merkle_proof,
                 agg_proof_header,
                 agg_root_proof,
@@ -256,8 +186,8 @@ where
         }
     }
 }
-impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D>
-    for UPSStandardEndCapCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
+    for QRecursionStandardRootCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {

@@ -24,6 +24,7 @@ pub struct UPSEndCapFromProofTreeGadget {
     pub verify_zk_signature_proof_gadget: AttestProofInTreeGadget,
     pub user_public_key_param: HashOutTarget,
     pub nonce: Target,
+    pub slots_modified: Target,
 
 
     // start computed
@@ -42,6 +43,7 @@ impl UPSEndCapFromProofTreeGadget {
 
         let user_public_key_param = builder.add_virtual_hash();
         let nonce = builder.add_virtual_target();
+        let slots_modified = builder.add_virtual_target();
 
         let verify_previous_ups_step_gadget = VerifyPreviousUPSStepProofInProofTreeGadget::add_virtual_to::<H,F,D>(
              builder,
@@ -75,6 +77,7 @@ impl UPSEndCapFromProofTreeGadget {
             verify_zk_signature_proof_gadget.fingerprint, 
             user_public_key_param, 
             nonce, 
+            slots_modified,
             network_magic,
             empty_deferred_tx_debt_tree_root,
             empty_inline_tx_debt_tree_root,
@@ -85,6 +88,7 @@ impl UPSEndCapFromProofTreeGadget {
             verify_zk_signature_proof_gadget,
             user_public_key_param,
             nonce,
+            slots_modified,
 
             end_cap_core_gadget,
             current_proof_tree_root,
@@ -97,6 +101,7 @@ impl UPSEndCapFromProofTreeGadget {
         verify_zk_signature_proof_input: &AttestProofInTreeInput<F>,
         user_public_key_param: QHashOut<F>,
         nonce: F,
+        slots_modified: F,
     ) {
 
         witness.set_hash_target(
@@ -116,6 +121,10 @@ impl UPSEndCapFromProofTreeGadget {
             witness,
             verify_zk_signature_proof_input,
         );
+        witness.set_target(
+            self.slots_modified,
+            slots_modified,
+        );
     }
     pub fn set_witness<F: RichField>(
         &self,
@@ -127,7 +136,8 @@ impl UPSEndCapFromProofTreeGadget {
             &target.verify_previous_ups_step_input,
             &target.verify_zk_signature_proof_input, 
             target.user_public_key_param,
-            target.nonce
+            target.nonce,
+            target.slots_modified,
         );
 
     }

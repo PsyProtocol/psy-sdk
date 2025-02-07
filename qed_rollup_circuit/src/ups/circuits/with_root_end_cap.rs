@@ -14,7 +14,7 @@ use qed_common_circuit::{
     proof_minifier::{
         pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic,
     },
-    treeprover::qrecursion::standard::gadgets::verify_agg_proof::VerifyAggProofGadget,
+    treeprover::qrecursion::standard::gadgets::{verify_agg_proof::VerifyAggProofGadget, verify_agg_root::VerifyAggRootGadget},
 };
 use qed_core::{
     config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
@@ -39,7 +39,7 @@ where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     pub end_cap_from_proof_tree_gadget: UPSEndCapFromProofTreeGadget,
-    pub verify_proof_tree_root_gadget: VerifyAggProofGadget<D>,
+    pub verify_proof_tree_root_gadget: VerifyAggRootGadget<D>,
 
     // end circuit targets
     pub base_circuit_data: CircuitData<C::F, C, D>,
@@ -62,63 +62,57 @@ where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     pub fn new_with_minifier(
-        proof_tree_agg_common_data: &CommonCircuitData<C::F, D>,
-        proof_tree_agg_verifier_data_cap_height: usize,
+        proof_tree_root_common_data: &CommonCircuitData<C::F, D>,
+        proof_tree_root_verifier_data: &VerifierOnlyCircuitData<C,D>,
         network_magic: u64,
         known_ups_circuit_whitelist_root: QHashOut<C::F>,
-        known_proof_tree_circuit_whitelist_root: QHashOut<C::F>,
     ) -> Self {
         Self::new_with_config(
-            proof_tree_agg_common_data,
-            proof_tree_agg_verifier_data_cap_height,
+            proof_tree_root_common_data,
+            proof_tree_root_verifier_data,
             UPS_SESSION_PROOF_TREE_HEIGHT as usize,
             UPS_CIRCUIT_WHITELIST_TREE_HEIGHT as usize,
             network_magic,
             known_ups_circuit_whitelist_root,
-            known_proof_tree_circuit_whitelist_root,
             true,
         )
     }
     pub fn new_without_minifier(
-        proof_tree_agg_common_data: &CommonCircuitData<C::F, D>,
-        proof_tree_agg_verifier_data_cap_height: usize,
+        proof_tree_root_common_data: &CommonCircuitData<C::F, D>,
+        proof_tree_root_verifier_data: &VerifierOnlyCircuitData<C,D>,
         network_magic: u64,
         known_ups_circuit_whitelist_root: QHashOut<C::F>,
-        known_proof_tree_circuit_whitelist_root: QHashOut<C::F>,
     ) -> Self {
         Self::new_with_config(
-            proof_tree_agg_common_data,
-            proof_tree_agg_verifier_data_cap_height,
+            proof_tree_root_common_data,
+            proof_tree_root_verifier_data,
             UPS_SESSION_PROOF_TREE_HEIGHT as usize,
             UPS_CIRCUIT_WHITELIST_TREE_HEIGHT as usize,
             network_magic,
             known_ups_circuit_whitelist_root,
-            known_proof_tree_circuit_whitelist_root,
             false,
         )
     }
     pub fn new_with_config(
-        proof_tree_agg_common_data: &CommonCircuitData<C::F, D>,
-        proof_tree_agg_verifier_data_cap_height: usize,
+        proof_tree_root_common_data: &CommonCircuitData<C::F, D>,
+        proof_tree_root_verifier_data: &VerifierOnlyCircuitData<C,D>,
         //coset_gate: &GateRef<C::F, D>,
         ups_session_proof_tree_height: usize,
         ups_circuit_whitelist_tree_height: usize,
         network_magic: u64,
         known_ups_circuit_whitelist_root: QHashOut<C::F>,
-        known_proof_tree_circuit_whitelist_root: QHashOut<C::F>,
-
         has_minifier: bool,
     ) -> Self {
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        let verify_proof_tree_root_gadget = VerifyAggProofGadget::add_virtual_to::<C, C::F>(
+        let verify_proof_tree_root_gadget = VerifyAggRootGadget::add_virtual_to::<C, C::F>(
             &mut builder,
-            proof_tree_agg_common_data,
-            proof_tree_agg_verifier_data_cap_height,
+            proof_tree_root_common_data,
+            proof_tree_root_verifier_data,
         );
 
-        let known_proof_tree_circuit_whitelist_root_target =
+        /*let known_proof_tree_circuit_whitelist_root_target =
             builder.constant_qhash(known_proof_tree_circuit_whitelist_root);
 
         // ensure the proof tree is using the correct, unmodified aggregation circuits
@@ -128,7 +122,7 @@ where
                 .agg_whitelist_merkle_proof
                 .root,
         );
-
+*/
         let end_cap_from_proof_tree_gadget =
             UPSEndCapFromProofTreeGadget::add_virtual_to::<C::Hasher, C::F, D>(
                 &mut builder,
@@ -151,8 +145,7 @@ where
         // ensure the proof tree proof's root matches the ups gadget's root
         builder.connect_hashes(
             verify_proof_tree_root_gadget
-                .agg_proof_header_gadget
-                .state_transition_end,
+                .proof_tree_root_hash,
             end_cap_from_proof_tree_gadget.current_proof_tree_root,
         );
 
@@ -201,21 +194,17 @@ where
     fn prove_base_inner(
         &self,
         end_cap_from_proof_tree_input: &UPSEndCapFromProofTreeGadgetInput<C::F>,
-        agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
-        agg_proof_header: &QRecursionAggStandardHeader<C::F>,
+        //agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
+        //agg_proof_header: &QRecursionAggStandardHeader<C::F>,
         agg_root_proof: &ProofWithPublicInputs<C::F, C, D>,
-        agg_root_verifier_data: &VerifierOnlyCircuitData<C, D>,
+        //agg_root_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
         self.end_cap_from_proof_tree_gadget
             .set_witness(&mut pw, end_cap_from_proof_tree_input);
         self.verify_proof_tree_root_gadget.set_witness(
-            &mut pw,
-            agg_whitelist_merkle_proof,
-            agg_proof_header,
-            agg_root_proof,
-            agg_root_verifier_data,
+            &mut pw, agg_root_proof
         );
 
         self.base_circuit_data.prove(pw)
@@ -223,27 +212,20 @@ where
     pub fn prove_base(
         &self,
         end_cap_from_proof_tree_input: &UPSEndCapFromProofTreeGadgetInput<C::F>,
-        agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
-        agg_proof_header: &QRecursionAggStandardHeader<C::F>,
+        //agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
+        //agg_proof_header: &QRecursionAggStandardHeader<C::F>,
         agg_root_proof: &ProofWithPublicInputs<C::F, C, D>,
-        agg_root_verifier_data: &VerifierOnlyCircuitData<C, D>,
+        //agg_root_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         if self.is_minifier_enabled() {
             let base_proof = self.prove_base_inner(
                 end_cap_from_proof_tree_input,
-                agg_whitelist_merkle_proof,
-                agg_proof_header,
                 agg_root_proof,
-                agg_root_verifier_data,
             )?;
             self.minifier_chain.as_ref().unwrap().prove(&base_proof)
         } else {
             self.prove_base_inner(
-                end_cap_from_proof_tree_input,
-                agg_whitelist_merkle_proof,
-                agg_proof_header,
-                agg_root_proof,
-                agg_root_verifier_data,
+                end_cap_from_proof_tree_input,agg_root_proof
             )
         }
     }

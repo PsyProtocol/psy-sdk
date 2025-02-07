@@ -1,7 +1,6 @@
 use plonky2::{
-    hash::hash_types::{HashOut, HashOutTarget}, iop::
-        witness::{PartialWitness, WitnessWrite}
-    , plonk::{
+    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::
+        witness::{PartialWitness, WitnessWrite}, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
@@ -12,7 +11,7 @@ use qed_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore, circuits::traits::qstandard::QStandardCircuit, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
-use qed_core::data::qhashout::QHashOut;
+use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
 use qed_data::guta::proof_input::VerifyTwoEndCapCircuitInput;
 
@@ -82,7 +81,7 @@ where
         let public_inputs_hash = nca_state_transition_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         builder.register_public_inputs(&public_inputs_hash.elements);
-
+        builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(
@@ -107,6 +106,7 @@ where
         end_cap_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
+
         pw.set_hash_target(self.guta_circuit_whitelist_root_hash, input.guta_circuit_whitelist.0);
 
         self.a_end_cap_gadget.set_witness(
@@ -131,7 +131,13 @@ where
             &input.nca_proof
         );
 
-        self.circuit_data.prove(pw)
+        let mut dbgt = DebugTimer::new("prove end cap two");
+        dbgt.lap("start");
+
+        let result = self.circuit_data.prove(pw);
+
+        dbgt.lap("finished");
+        result
     }
 }
 
