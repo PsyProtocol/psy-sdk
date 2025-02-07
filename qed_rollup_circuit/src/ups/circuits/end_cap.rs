@@ -181,7 +181,7 @@ where
                 QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
                     &base_circuit_data.verifier_only,
                     &base_circuit_data.common,
-                    &[true, true, false],
+                    &[true, false],
                 ),
             )
         } else {

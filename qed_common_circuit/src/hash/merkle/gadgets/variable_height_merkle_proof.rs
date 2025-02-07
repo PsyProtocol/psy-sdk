@@ -159,11 +159,12 @@ impl VariableHeightMerkleProofGadget {
 
         for (&bit, &sibling) in index_bits.iter().zip(siblings) {
 
-            let left = builder.select_hash(bit, sibling, state);
-            let right = builder.select_hash(bit, state, sibling);
-            let proposed_state = builder.hash_two_to_one::<H>(
-                left,
-                right,
+            //let left = builder.select_hash(bit, sibling, state);
+            //let right = builder.select_hash(bit, state, sibling);
+            let proposed_state = builder.two_to_one_swapped::<H>(
+                state,
+                sibling,
+                bit
             );
 
             state = builder.select_hash(is_remaining_levels_zero, state, proposed_state);

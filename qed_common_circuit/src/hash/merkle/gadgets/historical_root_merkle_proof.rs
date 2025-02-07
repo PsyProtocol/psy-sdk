@@ -128,9 +128,9 @@ impl HistoricalRootMerkleProofGadget {
         let mut level = 0;
 
         for (&bit, &sibling) in index_bits.iter().zip(siblings) {
-            let left = builder.select_hash(bit, sibling, state);
-            let right = builder.select_hash(bit, state, sibling);
-            state = builder.hash_two_to_one::<H>(left, right);
+            //let left = builder.select_hash(bit, sibling, state);
+            //let right = builder.select_hash(bit, state, sibling);
+            state = builder.two_to_one_swapped::<H>(state, sibling, bit);
 
             let level_zero_hash = builder.constant_hash(H::get_zero_hash(level));
             // if the right node is not on the path, then it should historically be a zero hash

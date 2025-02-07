@@ -1,4 +1,4 @@
-use crate::builder::select::CircuitBuilderSelectHelpers;
+use crate::builder::hash::core::CircuitBuilderHashCore;
 use bitflags::bitflags;
 use plonky2::{
     field::extension::Extendable,
@@ -193,10 +193,12 @@ impl MerkleProofGadget {
             state = HashOutTarget {
                 elements: hash_outs,
             };*/
-
+/* 
             let left = builder.select_hash(bit, sibling, state);
             let right = builder.select_hash(bit, state, sibling);
-            state = builder.hash_n_to_hash_no_pad::<H>([left.elements, right.elements].concat())
+            state = builder.hash_n_to_hash_no_pad::<H>([left.elements, right.elements].concat())*/
+
+            state = builder.two_to_one_swapped::<H>(state, sibling, bit);
         }
         state
     }
