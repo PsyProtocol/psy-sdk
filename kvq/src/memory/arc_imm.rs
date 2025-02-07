@@ -12,6 +12,11 @@ impl<KVQ: KVQBinaryStore> KVQArcImmutableStoreWrapper<KVQ> {
             inner: Arc::new(RwLock::new(inner)),
         }
     }
+    pub fn dup(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
 
     pub fn write(&self) -> anyhow::Result<RwLockWriteGuard<KVQ>> {
         self.inner

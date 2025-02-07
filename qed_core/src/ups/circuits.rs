@@ -110,6 +110,13 @@ pub enum LocalCircuitType {
     SimpleZKSignature = 48,
     SimpleSecp256K1 = 49,
 
+    // GUTA Circuits
+    GUTATwoEndCap = 65,
+    GUTATwoGUTA = 66,
+    GUTALeftEndCapRightGUTA = 67,
+    GUTALeftGUTARightEndCap = 68,
+    GUTASingleEndCap = 69,
+
     // Circuit Templates with Custom Variants (192-254)
     ContractFunctionCircuit = 192,
 
@@ -159,6 +166,13 @@ impl TryFrom<u8> for LocalCircuitType {
             37 => Ok(LocalCircuitType::PTAggLeftLeafRightAgg),
             48 => Ok(LocalCircuitType::SimpleZKSignature),
             49 => Ok(LocalCircuitType::SimpleSecp256K1),
+            
+            65 => Ok(LocalCircuitType::GUTATwoEndCap),
+            66 => Ok(LocalCircuitType::GUTATwoGUTA),
+            67 => Ok(LocalCircuitType::GUTALeftEndCapRightGUTA),
+            68 => Ok(LocalCircuitType::GUTALeftGUTARightEndCap),
+            69 => Ok(LocalCircuitType::GUTASingleEndCap),
+            
             192 => Ok(LocalCircuitType::ContractFunctionCircuit),
             _ => Err(anyhow::format_err!(
                 "Invalid LocalCircuitType value: {}",

@@ -304,6 +304,18 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
+    pub fn end_cap_proof(rpc_node_id: u32, checkpoint_id: u64, user_id: u32) -> Self {
+        Self {
+            topic: QJobTopic::BlockUserSignatureProof,
+            goal_id: checkpoint_id,
+            group_id: 1,
+            circuit_type: ProvingJobCircuitType::UserEndCap,
+            sub_group_id: rpc_node_id,
+            task_index: user_id,
+            data_type: ProvingJobDataType::BaseInputProof,
+            data_index: 0,
+        }
+    }
     pub fn withdrawal_signature_proof(rpc_node_id: u32, block_id: u64, withdrawal_id: u32) -> Self {
         Self {
             topic: QJobTopic::BlockUserSignatureProof,

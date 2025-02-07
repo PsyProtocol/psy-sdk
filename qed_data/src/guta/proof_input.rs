@@ -2,7 +2,7 @@
 
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
-use qed_core::data::qhashout::QHashOut;
+use qed_core::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 use qed_crypto::hash::merkle::{core::MerkleProofCore, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof};
 use serde::{Deserialize, Serialize};
 
@@ -86,6 +86,15 @@ impl<F: RichField> KVQSerializable for VerifyEndCapSimpleStandardInput<F> {
     }
 }
 
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct VerifyTwoEndCapCircuitWithIdsInput<F: RichField> {
+    pub input: VerifyTwoEndCapCircuitInput<F>,
+
+    pub proof_a_id: QProvingJobDataID,
+    pub proof_b_id: QProvingJobDataID,
+}
 
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

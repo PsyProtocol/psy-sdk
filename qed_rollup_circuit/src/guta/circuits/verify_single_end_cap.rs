@@ -19,7 +19,7 @@ use qed_data::guta::proof_input::VerifySingleEndCapInput;
 use crate::guta::gadgets::{helpers::ToGUTAHeader, verify_end_cap::VerifyEndCapProofGadget};
 
 #[derive(Debug)]
-pub struct GUTAVerifyTwoEndCapCircuit<C: GenericConfig<D> + 'static, const D: usize>
+pub struct GUTAVerifySingleEndCapCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {
@@ -30,7 +30,7 @@ where
     pub fingerprint: QHashOut<C::F>,
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> GUTAVerifyTwoEndCapCircuit<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> GUTAVerifySingleEndCapCircuit<C, D>
 where
     C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> {
         pub fn new(
@@ -100,7 +100,7 @@ where
 
 
 impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D>
-    for GUTAVerifyTwoEndCapCircuit<C, D>
+    for GUTAVerifySingleEndCapCircuit<C, D>
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {

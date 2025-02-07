@@ -5,3 +5,4 @@ pub mod traits;
 pub mod dpn;
 pub mod ups;
 pub mod guta;
+pub mod proof_store;
