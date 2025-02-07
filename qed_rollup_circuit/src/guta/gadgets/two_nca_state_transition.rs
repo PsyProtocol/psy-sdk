@@ -1,7 +1,7 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_common_circuit::{hash::merkle::gadgets::sub_tree_update_proof::UpdateNearestCommonAncestorProofGadget, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
-use qed_crypto::hash::merkle::utils::sub_tree_nca::{PartialUpdateNearestCommonAncestorProof, UpdateNearestCommonAncestorProof};
+use qed_crypto::hash::merkle::{core::DeltaMerkleProofCore, utils::sub_tree_nca::{PartialUpdateNearestCommonAncestorProof, UpdateNearestCommonAncestorProof}};
 
 use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, helpers::ToGUTAHeader};
 
@@ -21,7 +21,6 @@ impl TwoNCAStateTransitionGadget {
         a_header: GlobalUserTreeAggregatorHeaderGadget,
         b_header: GlobalUserTreeAggregatorHeaderGadget,
     ) -> Self {
-        let guta_circuit_whitelist = builder.add_virtual_hash();
         let update_nca_proof_gadget = UpdateNearestCommonAncestorProofGadget::add_virtual_to_full::<H,F,D>(builder, GLOBAL_USER_TREE_HEIGHT as usize);
 
         builder.connect_hashes(
@@ -76,7 +75,7 @@ impl TwoNCAStateTransitionGadget {
 
 
         let new_guta_header = GlobalUserTreeAggregatorHeaderGadget{
-            guta_circuit_whitelist,
+            guta_circuit_whitelist: a_header.guta_circuit_whitelist,
             checkpoint_tree_root: a_header.checkpoint_tree_root,
             state_transition: SubTreeNodeStateTransitionGadget {
                 old_node_value: update_nca_proof_gadget.old_nearest_common_ancestor_value,
@@ -87,19 +86,26 @@ impl TwoNCAStateTransitionGadget {
             stats: new_stats,
         };
 
-
-        
-
-
-        
-
-
         Self {
             update_nca_proof_gadget,
             new_guta_header,
         }
     }
 
+    pub fn set_witness_params<W: Witness<F>, F: RichField>(
+        &self,
+        witness: &mut W,
+        child_a: &DeltaMerkleProofCore<QHashOut<F>>,
+        child_b: &DeltaMerkleProofCore<QHashOut<F>>,
+        nearest_common_ancestor_level: u8
+        
+    ) {
+        self.update_nca_proof_gadget.set_witness_params(witness,
+            child_a,
+            child_b,
+            nearest_common_ancestor_level
+        );
+    }
     pub fn set_witness_partial<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,

@@ -89,14 +89,18 @@ pub enum ProvingJobCircuitType {
     ClaimL1Deposit = 4,
     ClaimL1DepositAggregate = 5,
 
-    TransferTokensL2 = 6,
-    TransferTokensL2Aggregate = 7,
+    UserEndCap = 6,
+    GUTATwoEndCap = 7,
+    GUTATwoGUTA = 8,
+    GUTALeftEndCapRightGUTA = 9,
+    GUTALeftGUTARightEndCap = 10,
+    GUTASingleEndCap = 11,
 
-    AddL1Withdrawal = 8,
-    AddL1WithdrawalAggregate = 9,
+    AddL1Withdrawal = 12,
+    AddL1WithdrawalAggregate = 13,
 
-    ProcessL1Withdrawal = 10,
-    ProcessL1WithdrawalAggregate = 11,
+    ProcessL1Withdrawal = 14,
+    ProcessL1WithdrawalAggregate = 15,
 
     GenerateRollupStateTransitionProof = 32,
     GenerateSigHashIntrospectionProof = 33,
@@ -110,7 +114,7 @@ pub enum ProvingJobCircuitType {
     DummyRegisterUserAggregate = 48,
     DummyAddL1DepositAggregate = 49,
     DummyClaimL1DepositAggregate = 50,
-    DummyTransferTokensL2Aggregate = 51,
+    DummyGUTA = 51,
     DummyAddL1WithdrawalAggregate = 52,
     DummyProcessL1WithdrawalAggregate = 53,
 
@@ -138,12 +142,16 @@ impl TryFrom<u8> for ProvingJobCircuitType {
             3 => Ok(ProvingJobCircuitType::AddL1DepositAggregate),
             4 => Ok(ProvingJobCircuitType::ClaimL1Deposit),
             5 => Ok(ProvingJobCircuitType::ClaimL1DepositAggregate),
-            6 => Ok(ProvingJobCircuitType::TransferTokensL2),
-            7 => Ok(ProvingJobCircuitType::TransferTokensL2Aggregate),
-            8 => Ok(ProvingJobCircuitType::AddL1Withdrawal),
-            9 => Ok(ProvingJobCircuitType::AddL1WithdrawalAggregate),
-            10 => Ok(ProvingJobCircuitType::ProcessL1Withdrawal),
-            11 => Ok(ProvingJobCircuitType::ProcessL1WithdrawalAggregate),
+            6 => Ok(ProvingJobCircuitType::UserEndCap),
+            7 => Ok(ProvingJobCircuitType::GUTATwoEndCap),
+            8 => Ok(ProvingJobCircuitType::GUTATwoGUTA),
+            9 => Ok(ProvingJobCircuitType::GUTALeftEndCapRightGUTA),
+            10 => Ok(ProvingJobCircuitType::GUTALeftGUTARightEndCap),
+            11 => Ok(ProvingJobCircuitType::GUTASingleEndCap),
+            12 => Ok(ProvingJobCircuitType::AddL1Withdrawal),
+            13 => Ok(ProvingJobCircuitType::AddL1WithdrawalAggregate),
+            14 => Ok(ProvingJobCircuitType::ProcessL1Withdrawal),
+            15 => Ok(ProvingJobCircuitType::ProcessL1WithdrawalAggregate),
             32 => Ok(ProvingJobCircuitType::GenerateRollupStateTransitionProof),
             33 => Ok(ProvingJobCircuitType::GenerateSigHashIntrospectionProof),
             34 => Ok(ProvingJobCircuitType::GenerateFinalSigHashProof),
@@ -154,7 +162,7 @@ impl TryFrom<u8> for ProvingJobCircuitType {
             48 => Ok(ProvingJobCircuitType::DummyRegisterUserAggregate),
             49 => Ok(ProvingJobCircuitType::DummyAddL1DepositAggregate),
             50 => Ok(ProvingJobCircuitType::DummyClaimL1DepositAggregate),
-            51 => Ok(ProvingJobCircuitType::DummyTransferTokensL2Aggregate),
+            51 => Ok(ProvingJobCircuitType::DummyGUTA),
             52 => Ok(ProvingJobCircuitType::DummyAddL1WithdrawalAggregate),
             53 => Ok(ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate),
             64 => Ok(ProvingJobCircuitType::WrappedSignatureProof),
@@ -484,12 +492,6 @@ impl QProvingJobDataID {
             ProvingJobCircuitType::ClaimL1DepositAggregate => {
                 ProvingJobCircuitType::ClaimL1DepositAggregate
             }
-            ProvingJobCircuitType::TransferTokensL2 => {
-                ProvingJobCircuitType::TransferTokensL2Aggregate
-            }
-            ProvingJobCircuitType::TransferTokensL2Aggregate => {
-                ProvingJobCircuitType::TransferTokensL2Aggregate
-            }
             ProvingJobCircuitType::AddL1Withdrawal => {
                 ProvingJobCircuitType::AddL1WithdrawalAggregate
             }
@@ -510,9 +512,6 @@ impl QProvingJobDataID {
             }
             ProvingJobCircuitType::DummyClaimL1DepositAggregate => {
                 ProvingJobCircuitType::ClaimL1DepositAggregate
-            }
-            ProvingJobCircuitType::DummyTransferTokensL2Aggregate => {
-                ProvingJobCircuitType::TransferTokensL2Aggregate
             }
             ProvingJobCircuitType::DummyAddL1WithdrawalAggregate => {
                 ProvingJobCircuitType::AddL1WithdrawalAggregate
