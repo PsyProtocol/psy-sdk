@@ -1,12 +1,12 @@
 pub struct Person {
-    age: Felt,
+    pub age: Felt,
     male: bool
 }
 
 struct Family {
     father: Person,
     mother: Person,
-    children: [Person; 2]
+    pub children: [Person; 2]
 }
 
 fn main() {

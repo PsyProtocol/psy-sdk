@@ -3,16 +3,16 @@ mod math;
 pub use math::*;
 
 trait PersonLike {
-    fn age(self: Self) -> Felt;
+    pub fn age(self: Self) -> Felt;
 }
 
 struct Person {
-    age_height: [[Felt; 2]; 2],
-    year_of_birth: Felt
+    pub age_height: [[Felt; 2]; 2],
+    pub year_of_birth: Felt
 }
 
 impl PersonLike for Person {
-    fn age(self: Person) -> Felt {
+    pub fn age(self: Person) -> Felt {
         return self.age_height[0][0];
     }
 }
@@ -24,27 +24,27 @@ struct Family {
 }
 
 impl Person {
-    fn set_age(mut self: Person, new_age: Felt) {
+    pub fn set_age(mut self: Person, new_age: Felt) {
         self.age_height[0][0] = new_age;
     }
 
-    fn get_age(self: Person) -> Felt {
+    pub fn get_age(self: Person) -> Felt {
         return self.age_height[0][0];
     }
 
-    fn set_height(mut self: Person, new_height: Felt) {
+    pub fn set_height(mut self: Person, new_height: Felt) {
         self.age_height[0][1] = new_height;
     }
 
-    fn get_height(self: Person) -> Felt {
+    pub fn get_height(self: Person) -> Felt {
         return self.age_height[0][1];
     }
 
-    fn get_year_of_birth(self: Person) -> Felt {
+    pub fn get_year_of_birth(self: Person) -> Felt {
         return self.year_of_birth;
     }
 
-    fn set_year_of_birth(mut self: Person, new_year_of_birth: Felt) {
+    pub fn set_year_of_birth(mut self: Person, new_year_of_birth: Felt) {
         self.year_of_birth = new_year_of_birth;
     }
 }

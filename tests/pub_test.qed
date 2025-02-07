@@ -3,13 +3,13 @@ mod pub_mod;
 pub use pub_mod::*;
 
 struct Test{
-    x: Felt,
+    pub x: Felt,
     y: Felt
 }
 
 impl Test{
-    fn get_sum(this: Test) -> Felt{
-        return this.x + this.y;
+    pub fn get_sum(self: Test) -> Felt{
+        return self.x + self.y;
     }
 }
 

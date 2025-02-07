@@ -1,13 +1,13 @@
 pub struct Person {
-    age: Felt,
+    pub age: Felt,
     male: bool
 }
 
 impl Person {
-    fn set_age(mut self: Person, new_age: Felt) {
+    pub fn set_age(mut self: Person, new_age: Felt) {
         self.age = new_age;
     }
-    fn get_age(self: Person) -> Felt {
+    pub fn get_age(self: Person) -> Felt {
         return self.age;
     }
 }
@@ -15,7 +15,7 @@ impl Person {
 struct Family {
     father: Person,
     mother: Person,
-    children: [Person; 2]
+    pub children: [Person; 2]
 }
 
 fn main() -> Felt {

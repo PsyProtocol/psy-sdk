@@ -4,8 +4,8 @@ pub struct Add{
 }
 
 impl Add{
-    pub fn get_sum(this: Add) -> Felt{
-        return this.x + this.y;
+    pub fn get_sum(self: Add) -> Felt{
+        return self.x + self.y;
     }
 
     pub fn new_(x: Felt, y: Felt) -> Add{

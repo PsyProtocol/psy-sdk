@@ -492,7 +492,8 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
             .map(|x| ctx.ident(x.clone()).to_string())
             .collect::<Vec<_>>();
         let mut s = format!(
-            "{}fn {}{}({}){} {{",
+            "{}{}fn {}{}({}){} {{",
+            if visibility.is_public() { "pub " } else { "" },
             if *is_extern { "extern " } else { "" },
             ctx.ident(name.clone()),
             self.visit_generic_parameters(generic_parameters),
@@ -549,9 +550,10 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
             )
         ));
         self.indent();
-        for (field, value, visibility) in fields {
+        for (field, (value, visibility)) in fields {
             let s = format!(
-                "{}: {},",
+                "{}{}: {},",
+                if visibility.is_public() { "pub " } else { "" },
                 ctx.ident(field.clone()),
                 self.visit_unchecked_type(&value, ctx)
             );
@@ -602,7 +604,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
                 EnumVariant::Struct(ident_id, fields) => {
                     self.write_line(&format!("{} {{", ctx.ident(ident_id.clone())));
                     self.indent();
-                    for (field, ty, _visibility) in fields {
+                    for (field, (ty, _visibility)) in fields {
                         self.write_line(&format!(
                             "{}: {},",
                             ctx.ident(field.clone()),
@@ -631,7 +633,8 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
             visibility,
         } = ctx.definition(def_id).as_trait().unwrap();
         self.write_line(&format!(
-            "trait {}{} {{",
+            "{}trait {}{} {{",
+            if visibility.is_public() { "pub " } else { "" },
             &ctx.ident(name.clone()),
             self.visit_generic_parameters(
                 generic_parameters
@@ -656,7 +659,12 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
                 .collect::<Vec<_>>()
                 .join(", ");
             let s = format!(
-                "{}fn {}({}){};",
+                "{}{}fn {}({}){};",
+                if func.visibility.is_public() {
+                    "pub "
+                } else {
+                    ""
+                },
                 if func.is_extern { "extern " } else { "" },
                 ctx.ident(func.name.clone()),
                 parameters,

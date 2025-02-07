@@ -133,35 +133,46 @@ impl<F: Clone> CheckedValue<F> {
             CheckedValue::Type(type_id) => type_id.clone(),
         }
     }
+}
 
-    pub fn set_path(
-        &mut self,
-        path: &[usize],
-        mut value: Rc<RefCell<CheckedValue<F>>>,
-    ) -> anyhow::Result<()> {
-        if !self.is_array() && !self.is_struct() {
+pub trait DPNValue {
+    fn dpn_clone(&self) -> Self;
+    fn dpn_set_path(&mut self, path: &[usize], value: Self) -> anyhow::Result<()>;
+}
+
+impl<F: Clone> DPNValue for Rc<RefCell<CheckedValue<F>>> {
+    fn dpn_clone(&self) -> Self {
+        if !self.borrow().is_array() && !self.borrow().is_struct() {
+            Rc::new(RefCell::new(self.borrow().clone()))
+        } else {
+            Rc::clone(self)
+        }
+    }
+
+    fn dpn_set_path(&mut self, path: &[usize], value: Self) -> anyhow::Result<()> {
+        if !self.borrow().is_array() && !self.borrow().is_struct() {
             assert!(path.is_empty());
             let mut new_value = value.borrow().clone();
-            std::mem::swap(self, &mut new_value);
+            *self = Rc::new(RefCell::new(new_value));
             return Ok(());
         } else if path.is_empty() {
-            std::mem::swap(self, &mut *value.borrow_mut());
+            *self = Rc::clone(&value);
             return Ok(());
         }
 
-        match self {
+        match &mut *self.borrow_mut() {
             CheckedValue::Array(_, arr) => {
                 let index = path[0];
                 let rest = &path[1..];
                 if let Some(inner) = arr.get_mut(index) {
-                    inner.borrow_mut().set_path(rest, value)?;
+                    inner.dpn_set_path(rest, value)?;
                 }
             }
             CheckedValue::Struct(_, map) => {
                 let key = IdentId(path[0]);
                 let rest = &path[1..];
                 if let Some(inner) = map.get_mut(&key) {
-                    inner.borrow_mut().set_path(rest, value)?;
+                    inner.dpn_set_path(rest, value)?;
                 }
             }
             _ => {
@@ -169,19 +180,5 @@ impl<F: Clone> CheckedValue<F> {
             }
         }
         Ok(())
-    }
-}
-
-pub trait DPNClone {
-    fn dpn_clone(&self) -> Self;
-}
-
-impl<F: Clone> DPNClone for Rc<RefCell<CheckedValue<F>>> {
-    fn dpn_clone(&self) -> Self {
-        if !self.borrow().is_array() && !self.borrow().is_struct() {
-            Rc::new(RefCell::new(self.borrow().clone()))
-        } else {
-            Rc::clone(self)
-        }
     }
 }
