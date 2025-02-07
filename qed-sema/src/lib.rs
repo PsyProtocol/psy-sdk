@@ -235,24 +235,29 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let type_id = checked_expr.ty();
         let ty = &ctx.symbols[type_id];
         let checked_struct_node = ty.as_struct().unwrap();
-        for (field_name, field_type, visibility) in &checked_struct_node.fields {
-            let checked_struct_node_parent_scope_id =
-                ctx.symbols[checked_struct_node.scope_id].parent;
 
-            if field_name == &member_access_node.field {
-                return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
-                    value: self.exprs.alloc_item(checked_expr),
-                    field: field_name.clone(),
-                    type_id: field_type.clone(),
-                }));
-            }
+        if let Some((field_type, visibility)) =
+            checked_struct_node.fields.get(&member_access_node.field)
+        {
+            assert!(
+                visibility.is_public()
+                    || self.typecheck_member_access(member_access_node.value, ctx)
+            );
+            return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
+                value: self.exprs.alloc_item(checked_expr),
+                field: member_access_node.field.clone(),
+                type_id: field_type.clone(),
+            }));
         }
 
         let type_id = ctx
             .symbols
             .resolve_method(type_id, member_access_node.field)
             .ok_or(Error::UnresolvedMember)?;
-
+        let visibility = ctx.symbols[type_id].visibility();
+        assert!(
+            visibility.is_public() || self.typecheck_member_access(member_access_node.value, ctx)
+        );
         return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
             value: self.exprs.alloc_item(checked_expr),
             field: member_access_node.field,
@@ -338,10 +343,10 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
                     let checked_struct = ctx.symbols[type_id].as_struct().unwrap();
 
-                    let (field_name, field_type, visibility) = checked_struct
+                    let (field_name, (field_type, visibility)) = checked_struct
                         .fields
                         .iter()
-                        .find(|(field_name, field_type, _visibility)| field_name == k)
+                        .find(|(field_name, (field_type, _visibility))| *field_name == k)
                         .unwrap();
 
                     if (k, t) != (field_name, *field_type) {
@@ -857,17 +862,17 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let mut checked_struct = CheckedStructNode {
             name: struct_node.name.clone(),
             generic_parameters,
-            fields: Vec::new(),
+            fields: IndexMap::new(),
             implementations: Vec::new(),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: struct_node.visibility,
         };
 
-        for (field_name, field_type, visibility) in &struct_node.fields {
+        for (field_name, (field_type, visibility)) in &struct_node.fields {
             let field_type = self.typecheck(field_type, ctx)?;
             checked_struct
                 .fields
-                .push((field_name.clone(), field_type, *visibility));
+                .insert(field_name.clone(), (field_type, *visibility));
 
             ctx.symbols
                 .add_type_id(None, field_name.clone(), field_type);
@@ -1085,6 +1090,23 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         Ok(())
     }
 
+    pub fn typecheck_member_access(
+        &mut self,
+        receiver: ExprId,
+        ctx: &TypeCheckerVisitorContext<F, C>,
+    ) -> bool {
+        ctx.expression(receiver)
+            .as_path()
+            .map(|x| x.is_receiver())
+            .unwrap_or(false)
+            && ctx
+                .symbols
+                .find_scope(None, vec![ScopeKind::Impl], |s| {
+                    s.kind == ScopeKind::ImplMethod
+                })
+                .is_some()
+    }
+
     pub fn typecheck(
         &mut self,
         ty: &UncheckedType,
@@ -1272,6 +1294,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             let f = ctx
                 .definition(function.clone())
                 .as_function()
+                // TODO: remove clone
                 .cloned()
                 .unwrap();
             methods.push(self.typecheck_method(&f, ctx)?);

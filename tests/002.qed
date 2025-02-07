@@ -4,9 +4,9 @@ pub use math::*;
 
 #[derive(Storage)]
 struct Person {
-    age: Felt,
-    height: Felt,
-    year_of_birth: Felt
+    pub age: Felt,
+    pub height: Felt,
+    pub year_of_birth: Felt
 }
 
 // impl Storage for Person {
@@ -60,7 +60,7 @@ struct ContractStorage {
 // }
 
 impl ContractStorage {
-    fn constructor() -> Self {
+    pub fn constructor() -> Self {
         return new ContractStorage {
             a: 0,
             b: new Person {
@@ -77,7 +77,7 @@ impl ContractStorage {
         };
     }
 
-    fn set_abcd(self: Self, a: Felt, b: Person, c: Felt, d: Person) {
+    pub fn set_abcd(self: Self, a: Felt, b: Person, c: Felt, d: Person) {
         self.set_a(a);
         self.set_b(b);
         self.set_c(c);

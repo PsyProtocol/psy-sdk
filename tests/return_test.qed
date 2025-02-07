@@ -10,9 +10,9 @@ struct Test {
 }
 
 impl Test {
-    fn test_void(self: Test) {}
+    pub fn test_void(self: Test) {}
 
-    fn test_add(self: Test) -> Felt {
+    pub fn test_add(self: Test) -> Felt {
         return self.a + self.b;
     }
 }

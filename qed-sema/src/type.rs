@@ -252,7 +252,7 @@ impl Type {
             }
             Type::Struct(s) => {
                 let mut result = IndexMap::new();
-                for (field_name, field_type, _) in &s.fields {
+                for (field_name, (field_type, _)) in &s.fields {
                     let field_type = symbols[field_type.clone()].clone();
                     result.insert(
                         field_name.clone(),

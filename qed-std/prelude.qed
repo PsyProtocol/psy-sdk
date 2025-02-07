@@ -1,23 +1,23 @@
 pub trait Storage {
-    fn size() -> Felt;
-    extern fn read(offset: Felt) -> Self;
-    extern fn write(offset: Felt, value: Self);
+    pub fn size() -> Felt;
+    pub extern fn read(offset: Felt) -> Self;
+    pub extern fn write(offset: Felt, value: Self);
 }
 
 impl Storage for Felt {
-    fn size() -> Felt {
+    pub fn size() -> Felt {
         return 1;
     }
 
-    extern fn read(offset: Felt) -> Self {}
-    extern fn write(offset: Felt, value: Self) {}
+    pub extern fn read(offset: Felt) -> Self {}
+    pub extern fn write(offset: Felt, value: Self) {}
 }
 
 impl Storage for bool {
-    fn size() -> Felt {
+    pub fn size() -> Felt {
         return 1;
     }
 
-    extern fn read(offset: Felt) -> Self {}
-    extern fn write(offset: Felt, value: Self) {}
+    pub extern fn read(offset: Felt) -> Self {}
+    pub extern fn write(offset: Felt, value: Self) {}
 }

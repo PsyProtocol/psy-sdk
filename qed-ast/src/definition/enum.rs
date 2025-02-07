@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 
+use indexmap::IndexMap;
+
 use crate::{AstVisitor, FunctionNode, IdentId, NodeInfo, NodeType, UncheckedType, Visibility};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EnumVariant {
     Basic(IdentId),
     Tuple(IdentId, Vec<UncheckedType>),
-    Struct(IdentId, Vec<(IdentId, UncheckedType, Visibility)>),
+    Struct(IdentId, IndexMap<IdentId, (UncheckedType, Visibility)>),
 }
 
 #[derive(Clone, Debug, PartialEq)]

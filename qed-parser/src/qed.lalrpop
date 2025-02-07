@@ -123,7 +123,7 @@ ImplDef: ImplNode = {
 TraitDef: TraitNode = {
    <l:@L> <visibility:Visibility> TRAIT <name:Identifier> <generic_parameters:GenericParameters> "{" <body:FunctionDecl*> "}" <r:@R> => {
        TraitNode {
-           generic_parameters: generic_parameters,
+           generic_parameters,
            name,
            body,
            visibility
@@ -134,7 +134,7 @@ TraitDef: TraitNode = {
 EnumDef: EnumNode = {
     <l:@L> <visibility:Visibility> ENUM <name:Identifier> <generic_parameters:GenericParameters> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => EnumNode {
         name,
-        generic_parameters: generic_parameters,
+        generic_parameters,
         variants,
         visibility
     }
@@ -152,8 +152,8 @@ AttributeProperties: Vec<IdentId> = {
 StructDef: StructNode = {
     <l:@L> <attrs:Attribute*> <visibility: Visibility> STRUCT <name:Identifier> <generic_parameters:GenericParameters> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => StructNode {
         name,
-        generic_parameters: generic_parameters,
-        fields,
+        generic_parameters,
+        fields: fields.into_iter().map(|(field_name, field_type, visibility)| (field_name, (field_type, visibility))).collect(),
         attrs,
         visibility
     }
@@ -163,7 +163,7 @@ FunctionDef: DefinitionNode = {
     <l:@L> <visibility:Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
-        generic_parameters: generic_parameters,
+        generic_parameters,
         body: Some(stmt_nodes.alloc_item(block_stmt)),
         return_type,
         is_extern: is_extern.is_some(),
@@ -175,7 +175,7 @@ FunctionDecl: FunctionNode = {
     <l:@L> <visibility:Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
         name,
         parameters,
-        generic_parameters: generic_parameters,
+        generic_parameters,
         body: None,
         return_type,
         is_extern: is_extern.is_some(),
@@ -190,7 +190,7 @@ FunctionReturn: UncheckedType = {
 EnumVariant: EnumVariant = {
     <l:@L> <name:Identifier> <r:@R> => EnumVariant::Basic(name),
     <l:@L> <name:Identifier> "(" <members:Comma<Ty>> ")" <r:@R> => EnumVariant::Tuple(name, members),
-    <l:@L> <name:Identifier> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => EnumVariant::Struct(name, fields)
+    <l:@L> <name:Identifier> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => EnumVariant::Struct(name, fields.into_iter().map(|(field_name, field_type, visibility)| (field_name, (field_type, visibility))).collect())
 }
 
 FunctionParameter: (IdentId, bool, UncheckedType) = {
@@ -346,7 +346,7 @@ Expression: ExprNode<F> = {
     //    CallNode {
     //        receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
     //        variable: expr_nodes.alloc_item(variable),
-    //        generic_parameters: generic_parameters,
+    //        generic_parameters,
     //        args: expr_nodes.alloc_items(args)
     //    }
     //),

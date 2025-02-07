@@ -16,6 +16,10 @@ impl PathNode {
             target,
         }
     }
+
+    pub fn is_receiver(&self) -> bool {
+        self.root.is_none() && self.target == IdentId::SELF && self.segments.is_empty()
+    }
 }
 
 impl NodeInfo for PathNode {

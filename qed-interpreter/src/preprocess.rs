@@ -53,7 +53,7 @@ impl<'a> StorageProcessor<'a> {
         let mut methods = Vec::new();
         let mut offset = ctx.alloc_expression(ExprNode::Value(ValueNode::Felt(F::from(0))));
 
-        for (field_name, field_type, _) in &struct_node.fields {
+        for (field_name, (field_type, _)) in &struct_node.fields {
             methods.push(self.generate_getter(field_name, field_type, offset, ctx));
 
             methods.push(self.generate_setter(field_name, field_type, offset, ctx));
@@ -83,8 +83,9 @@ impl<'a> StorageProcessor<'a> {
         struct_node: &StructNode,
         ctx: &mut V,
     ) -> DefId {
-        let mut sum = self.generate_field_size(&struct_node.fields[0].1, ctx);
-        for (field_name, field_type, _) in struct_node.fields.iter().skip(1) {
+        let mut sum =
+            self.generate_field_size(&struct_node.fields.iter().next().unwrap().1 .0, ctx);
+        for (field_name, (field_type, _)) in struct_node.fields.iter().skip(1) {
             let node = BinaryNode {
                 lhs: sum,
                 operator: BinaryOperator::Add,
@@ -128,7 +129,7 @@ impl<'a> StorageProcessor<'a> {
         }));
         let mut field_reads = IndexMap::new();
 
-        for (field_name, field_type, _) in &struct_node.fields {
+        for (field_name, (field_type, _)) in &struct_node.fields {
             let (key, value) = self.generate_field_read(field_name, field_type, offset, ctx);
             field_reads.insert(field_name.clone(), value);
             let node = BinaryNode {
@@ -183,7 +184,7 @@ impl<'a> StorageProcessor<'a> {
         }));
         let mut field_writes = Vec::new();
 
-        for (field_name, field_type, _) in &struct_node.fields {
+        for (field_name, (field_type, _)) in &struct_node.fields {
             let stmt_id = self.generate_field_write(field_name, field_type, offset, ctx);
             field_writes.push(stmt_id);
             let node = BinaryNode {

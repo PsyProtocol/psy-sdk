@@ -435,6 +435,7 @@ impl<F: Clone> SymbolTable<F> {
         }
     }
 
+    // TODO
     pub fn resolve_path(&self, path: &PathNode) -> Option<(TypeId, ScopeId)> {
         let current_module_id = self.current_module_id()?;
 
@@ -455,9 +456,12 @@ impl<F: Clone> SymbolTable<F> {
                     module_id
                 } else {
                     let type_id = self.get_type_id(None, name)?;
+                    let visibility = self[type_id].visibility();
                     assert!(path.segments.is_empty());
-                    let type_id = self.resolve_method(type_id, path.target)?;
-                    return Some((type_id, self[type_id].scope_id()));
+                    let method_type_id = self.resolve_method(type_id, path.target)?;
+                    let visibility = self[method_type_id].visibility();
+                    assert!(visibility.is_public());
+                    return Some((method_type_id, self[method_type_id].scope_id()));
                 }
             }
             None => {
@@ -477,6 +481,7 @@ impl<F: Clone> SymbolTable<F> {
                 let module = &self[*id];
                 module.name == *segment
             }) {
+                assert!(self[*target_module_id].visibility.is_public());
                 src_module = *target_module_id;
             } else {
                 assert!(segments.next().is_none());
@@ -484,8 +489,12 @@ impl<F: Clone> SymbolTable<F> {
                     .types
                     .get(&segment.clone().into())?
                     .clone();
-                let type_id = self.resolve_method(type_id, path.target)?;
-                return Some((type_id, self[type_id].scope_id()));
+                let visibility = self[type_id].visibility();
+                assert!(visibility.is_public());
+                let method_type_id = self.resolve_method(type_id, path.target)?;
+                let visibility = self[method_type_id].visibility();
+                assert!(visibility.is_public());
+                return Some((method_type_id, self[method_type_id].scope_id()));
             }
         }
 
@@ -493,6 +502,8 @@ impl<F: Clone> SymbolTable<F> {
             .types
             .get(&path.target.clone().into())
             .cloned()?;
+        let visibility = self[type_id].visibility();
+        assert!(visibility.is_public());
         return Some((type_id, self[type_id].scope_id()));
     }
 
