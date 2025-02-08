@@ -164,8 +164,8 @@ impl Type {
             Type::Function(CheckedFunctionNode { scope_id, .. }) => *scope_id,
             Type::Impl(CheckedImplNode { scope_id, .. }) => *scope_id,
             Type::Trait(CheckedTraitNode { scope_id, .. }) => *scope_id,
-            Type::Felt(_) => STD_PRELUDE_SCOPE_ID.get().cloned().unwrap(),
-            Type::Bool(_) => STD_PRELUDE_SCOPE_ID.get().cloned().unwrap(),
+            Type::Felt(_) => ScopeId::prelude(),
+            Type::Bool(_) => ScopeId::prelude(),
             _ => panic!("Type::scope_id called on non-composite type"),
         }
     }
@@ -243,10 +243,7 @@ impl Type {
                     result.push(Rc::new(RefCell::new(inner_ty.to_value(symbols, ctx))));
                 }
                 let type_id = symbols
-                    .get_type_id(
-                        Some(STD_PRELUDE_SCOPE_ID.get().unwrap().clone()),
-                        self.key(),
-                    )
+                    .get_type_id(Some(ScopeId::prelude()), self.key())
                     .unwrap();
                 CheckedValue::Array(type_id, result)
             }

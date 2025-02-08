@@ -65,7 +65,7 @@ ModuleDecl: (IdentId, Visibility) = {
 }
 
 ModuleUse: UsePath = {
-    <l:@L> <visibility:Visibility> USE <path:PathOld> ";" <r:@R> => {
+    <l:@L> <visibility:Visibility> USE <path:UsePath> ";" <r:@R> => {
         assert!(visibility.is_public());
         UsePath {
             visibility,
@@ -513,7 +513,7 @@ ArrayExpression: ExprNode<F> = {
     ),
 }
 
-PathOld: (IdentId, Vec<IdentId>, Option<IdentId>) =
+UsePath: (IdentId, Vec<IdentId>, Option<IdentId>) =
     <a:ModuleUseKind> "::" <h:(<Identifier> "::")*> <t:IdentifierOrAll> => {
         (a, h, t)
     };

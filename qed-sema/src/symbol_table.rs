@@ -30,6 +30,10 @@ impl ScopeId {
     pub const fn root() -> Self {
         Self(0)
     }
+
+    pub fn prelude() -> Self {
+        *STD_PRELUDE_SCOPE_ID.get().unwrap()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -456,7 +460,6 @@ impl<F: Clone> SymbolTable<F> {
                     module_id
                 } else {
                     let type_id = self.get_type_id(None, name)?;
-                    let visibility = self[type_id].visibility();
                     assert!(path.segments.is_empty());
                     let method_type_id = self.resolve_method(type_id, path.target)?;
                     let visibility = self[method_type_id].visibility();

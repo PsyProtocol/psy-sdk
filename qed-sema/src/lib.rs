@@ -301,7 +301,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 let mut elements = Vec::with_capacity(arr.len());
                 for el in arr {
                     // TODO: remove clone
-                    let checked_expr = self.visit_expr(el.clone(), ctx)?;
+                    let checked_expr = self.visit_expr(el, ctx)?;
                     if let Some(inner_ty) = inner_ty {
                         if checked_expr.ty() != inner_ty {
                             return Err(Error::TypeMismatch);
@@ -312,13 +312,13 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     elements.push(self.exprs.alloc_item(checked_expr));
                 }
 
-                let scope_id = STD_PRELUDE_SCOPE_ID.get().cloned();
+                let scope_id = ScopeId::prelude();
                 let type_id = ctx.symbols.add_type(
-                    scope_id,
+                    Some(scope_id),
                     Type::Array(CheckedArrayNode {
                         inner_ty: inner_ty.unwrap(),
                         size: size.clone(),
-                        scope_id: scope_id.unwrap(),
+                        scope_id: scope_id,
                     }),
                 );
 
@@ -331,7 +331,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     .into_iter()
                     .map(|x| self.typecheck(&x, ctx).unwrap())
                     .collect::<Vec<_>>();
-                let type_id = ctx.symbols.get_type_id(None, name.clone()).unwrap();
+                let type_id = ctx.symbols.get_type_id(None, name).unwrap();
                 let mut new_data = IndexMap::new();
                 if ctx.symbols[type_id].as_struct().unwrap().fields.len() != data.len() {
                     return Err(Error::TypeMismatch);
@@ -436,8 +436,10 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let call_node = ctx.expression(node).as_call().cloned().unwrap();
         let variable = self.visit_expr(call_node.variable, ctx)?;
         let ty = variable.ty();
+        // TODO: remove clone
         let f = ctx.symbols[ty].as_function().unwrap().clone();
         let mut args = Vec::new();
+        // TODO: add member call
         let receiver = if let Some(receiver) = call_node.receiver {
             let expr = self.visit_expr(receiver, ctx)?;
             if expr.ty() != f.parameters[0].2 {
@@ -731,7 +733,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             body: methods,
             scope_id: ctx.symbols.current_scope_id().unwrap(),
         };
-        let ty = Type::Impl(checked_impl.clone());
+        // let ty = Type::Impl(checked_impl.clone());
         // symbols.add_type(symbols.parent_scope_id(), ty);
 
         ctx.symbols.end_scope();
@@ -767,6 +769,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: trait_node.visibility,
         };
+        // TODO: remove clone
         let ty = Type::Trait(checked_trait.clone());
         ctx.symbols.add_type(ctx.symbols.parent_scope_id(), ty);
 
@@ -1014,7 +1017,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         // TODO: remove clone
         let module = ctx.module(module_id).clone();
         if module.is_std && module.is_self_prelude {
-            self.typecheck_std_prelude_module(&module, ctx)?;
+            self.typecheck_std_prelude_module(ctx)?;
         }
 
         for use_path in &module.uses {
@@ -1030,6 +1033,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     }
 
     fn visit_program(&mut self, ctx: &mut Self::Context) -> std::result::Result<(), Self::Error> {
+        // TODO: remove clone
         ctx.symbols
             .load_modules(ctx.program().modules.clone().iter());
         let mut colors = HashMap::new();
@@ -1080,7 +1084,6 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
 
     pub fn typecheck_std_prelude_module(
         &mut self,
-        module: &ModuleNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()> {
         STD_PRELUDE_SCOPE_ID.set(ctx.symbols.current_scope_id().unwrap());
@@ -1147,13 +1150,13 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             }
             UncheckedType::Array(inner, size) => {
                 let inner_ty = self.typecheck(inner, ctx)?;
-                let scope_id = STD_PRELUDE_SCOPE_ID.get().cloned();
+                let scope_id = ScopeId::prelude();
                 let type_id = ctx.symbols.add_type(
-                    scope_id,
+                    Some(scope_id),
                     Type::Array(CheckedArrayNode {
                         inner_ty,
                         size: size.clone(),
-                        scope_id: scope_id.unwrap(),
+                        scope_id: scope_id,
                     }),
                 );
                 Ok(type_id)
