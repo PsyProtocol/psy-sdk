@@ -313,14 +313,17 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 }
 
                 let scope_id = STD_PRELUDE_SCOPE_ID.get().cloned();
-                let type_id = ctx.symbols.add_type(
-                    scope_id,
-                    Type::Array(CheckedArrayNode {
-                        inner_ty: inner_ty.unwrap(),
-                        size: size.clone(),
-                        scope_id: scope_id.unwrap(),
-                    }),
-                );
+                let type_array = Type::Array(CheckedArrayNode {
+                    inner_ty: inner_ty.unwrap(),
+                    size: size.clone(),
+                    scope_id: scope_id.unwrap(),
+                });
+                let type_id = match ctx.symbols.get_type_id(scope_id, type_array.key()){
+                    Some(type_id) => type_id,
+                    None => {
+                        ctx.symbols.add_type(scope_id, type_array)
+                    }
+                };
 
                 Ok(CheckedExprNode::Value(CheckedValueNode::Array(
                     type_id, elements,
@@ -1148,14 +1151,17 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             UncheckedType::Array(inner, size) => {
                 let inner_ty = self.typecheck(inner, ctx)?;
                 let scope_id = STD_PRELUDE_SCOPE_ID.get().cloned();
-                let type_id = ctx.symbols.add_type(
-                    scope_id,
-                    Type::Array(CheckedArrayNode {
-                        inner_ty,
-                        size: size.clone(),
-                        scope_id: scope_id.unwrap(),
-                    }),
-                );
+                let type_array = Type::Array(CheckedArrayNode {
+                    inner_ty,
+                    size: size.clone(),
+                    scope_id: scope_id.unwrap(),
+                });
+                let type_id = match ctx.symbols.get_type_id(scope_id, type_array.key()){
+                    Some(type_id) => type_id,
+                    None => {
+                        ctx.symbols.add_type(scope_id, type_array)
+                    }
+                };
                 Ok(type_id)
             }
             UncheckedType::Unknown => Ok(UNKOWN_TYPE),

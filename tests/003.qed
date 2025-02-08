@@ -1,6 +1,6 @@
-mod person;
+pub mod person;
 
-pub use person::Person;
+//pub use person::Person;
 
 fn test_path(a: Felt, b: Felt) -> Felt {
     let c: Felt = a + b;
@@ -14,8 +14,10 @@ struct Person {
 }
 
 impl Person {
-    fn cal1(a: Felt, b: Felt) -> Felt {
+    pub fn cal1(a: Felt, b: Felt) -> Felt {
         let c: Felt = a + b;
+        let felt_array: [Felt; 2] = [a, b];
+        let bool_array: [bool; 2] = [true, false];
         return c;
     }
 
@@ -32,23 +34,13 @@ struct Person1 {
     height: Felt,
 }
 
-impl Person1 {
-    fn cal1(a: Felt, b: Felt) -> Felt {
-        let c: Felt = a + b;
-        return c;
-    }
-
-    fn cal2(name: Felt, age: Felt, height: Felt, weight: Felt) -> Felt {
-        let c: Felt = age + height + weight;
-        let d: Felt = 10;
-        return c;
-    }
-}
 
 fn main() {
     let mut c: Felt = 10;
     c = 5;
     let e: Felt = Person::cal1(3, 4);
-    let f: Felt = Person1::cal1(3, 4);
-    let g: Felt = person::Person::cal1(3, 4);
+   // let g: Felt = person::Person::cal1(3, 4);
+
+   let mut felt_array: [Felt; 2] = [10, 11];
+   let mut bool_array: [bool; 2] = [true, false];
 }
