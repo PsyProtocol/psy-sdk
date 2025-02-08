@@ -67,8 +67,8 @@ impl UPSCFCStandardStateDeltaGadget {
         
         // update the contract state tree root (aka. the leaf in the user contract tree) for the contract being modified by the transaction 
         let user_contract_tree_update_proof = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(builder, GLOBAL_CONTRACT_TREE_HEIGHT as usize);
-        let deferred_tx_debt_pivot_proof = HistoricalRootMerkleProofGadget::add_virtual_to::<H, F, D>(builder, DEFERRED_TRANSACTION_TREE_HEIGHT as usize);
-        let inline_tx_debt_pivot_proof = HistoricalRootMerkleProofGadget::add_virtual_to::<H, F, D>(builder, DEFERRED_TRANSACTION_TREE_HEIGHT as usize);
+        let deferred_tx_debt_pivot_proof = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gte::<H, F, D>(builder, DEFERRED_TRANSACTION_TREE_HEIGHT as usize);
+        let inline_tx_debt_pivot_proof = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gte::<H, F, D>(builder, DEFERRED_TRANSACTION_TREE_HEIGHT as usize);
 
 
         // -- end require_witnesss

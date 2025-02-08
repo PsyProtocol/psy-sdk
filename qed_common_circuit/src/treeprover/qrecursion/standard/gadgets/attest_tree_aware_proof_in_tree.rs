@@ -35,7 +35,7 @@ impl AttestTreeAwareProofInTreeGadget {
 
 
         let inclusion_proof = MerkleProofGadget::add_virtual_to::<H, F, D>(builder, q_recursion_tree_height);
-        let historical_root_proof = HistoricalRootMerkleProofGadget::add_virtual_to::<H, F, D>(builder, q_recursion_tree_height); 
+        let historical_root_proof = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gte::<H, F, D>(builder, q_recursion_tree_height); 
 
         // ensure that the inclusion_proof and historical_root_merkle_proof are from the same tree
         builder.connect_hashes(

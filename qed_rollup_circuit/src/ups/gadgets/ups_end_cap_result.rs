@@ -12,8 +12,6 @@ use qed_data::qdata::ups_end_cap_result::UPSEndCapResultCompact;
 
 
 
-
-
 #[derive(Clone, Debug)]
 pub struct UPSEndCapResultCompactGadget {
 
@@ -22,6 +20,7 @@ pub struct UPSEndCapResultCompactGadget {
     pub end_user_leaf_hash: HashOutTarget,
     pub checkpoint_tree_root_hash: HashOutTarget,
     pub user_id: Target,
+    
 
     // start computed
 

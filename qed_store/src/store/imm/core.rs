@@ -25,7 +25,9 @@ use crate::{
             contract_leaf::{ContractLeafModelCoreImmutable, ContractLeafModelReaderCore},
         },
         kvq_merkle::model::{
-            KVQFixedConfigMerkleTreeModelCoreImmutable, KVQFixedConfigMerkleTreeModelReaderCore, KVQSemiFixedConfigMerkleTreeModelCoreImmutable, KVQSemiFixedConfigMerkleTreeModelReaderCore
+            KVQFixedConfigMerkleTreeModelCoreImmutable, KVQFixedConfigMerkleTreeModelReaderCore,
+            KVQSemiFixedConfigMerkleTreeModelCoreImmutable,
+            KVQSemiFixedConfigMerkleTreeModelReaderCore,
         },
         user::{
             contract_state_tree::UserContractStateTreeId,
@@ -34,14 +36,15 @@ use crate::{
     },
     traits::qdatastore::{
         qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync},
-        qtreedata::{QEDComboDataStoreReaderSync, QEDComboDataStoreReaderWriterSync, QEDComboDataStoreWriterSync, QTreeDataStoreReaderSync, QTreeDataStoreWriterSync},
+        qtreedata::{
+            QEDComboDataStoreReaderSync, QEDComboDataStoreReaderWriterSync,
+            QEDComboDataStoreWriterSync, QTreeDataStoreReaderSync, QTreeDataStoreWriterSync,
+        },
     },
 };
 
 pub trait QEDStorageAdapterImmutable: KVQBinaryStoreImmutable {}
-impl<T: KVQBinaryStoreImmutable> QEDStorageAdapterImmutable for T {
-    
-}
+impl<T: KVQBinaryStoreImmutable> QEDStorageAdapterImmutable for T {}
 type F = QEDFelt;
 
 impl<T: QEDStorageAdapterImmutable> QMetaDataStoreReaderSync<F> for T {
@@ -368,10 +371,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         checkpoint_id: F,
         user_id: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        self.get_user_tree_leaf_hash(
-            checkpoint_id.to_canonical_u64(),
-            user_id.to_canonical_u64(),
-        )
+        self.get_user_tree_leaf_hash(checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64())
     }
 
     fn get_user_tree_merkle_proof(
@@ -390,6 +390,22 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         self.get_user_tree_merkle_proof(
             checkpoint_id.to_canonical_u64(),
             user_id.to_canonical_u64(),
+        )
+    }
+
+    fn get_user_sub_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        root_level: u8,
+        leaf_level: u8,
+        leaf_index: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        UserTreeStore::get_sub_tree_proof_fc(
+            self,
+            checkpoint_id,
+            root_level,
+            leaf_level,
+            leaf_index,
         )
     }
 
@@ -451,7 +467,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
             self,
             checkpoint_id,
             contract_id.into(),
-            (function_id as u64)*2u64,
+            (function_id as u64) * 2u64,
         )
     }
 
@@ -812,7 +828,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         contract_id: u64,
         leaves: &[QHashOut<F>],
     ) -> anyhow::Result<QHashOut<F>> {
-        let mut root = QHashOut::from_values(0,0,0,0);
+        let mut root = QHashOut::from_values(0, 0, 0, 0);
         for (i, leaf) in leaves.iter().enumerate() {
             root = ContractFunctionTreeStore::set_leaf_sfc_imm(
                 self,
@@ -820,7 +836,8 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
                 contract_id,
                 i as u64,
                 *leaf,
-            )?.new_root;
+            )?
+            .new_root;
         }
         Ok(root)
     }
@@ -874,19 +891,17 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         checkpoint_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        CheckpointTreeStore::set_leaf_fc_imm(self, checkpoint_id.to_canonical_u64(), checkpoint_id.to_canonical_u64(), leaf_hash)
+        CheckpointTreeStore::set_leaf_fc_imm(
+            self,
+            checkpoint_id.to_canonical_u64(),
+            checkpoint_id.to_canonical_u64(),
+            leaf_hash,
+        )
     }
 }
 
+impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreWriterSync<F> for T {}
 
-impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreWriterSync<F> for T {
-    
-}
+impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreReaderSync<F> for T {}
 
-impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreReaderSync<F> for T {
-    
-}
-
-impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreReaderWriterSync<F> for T {
-    
-}
+impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreReaderWriterSync<F> for T {}

@@ -24,10 +24,16 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default>
             _hasher: PhantomData::default(),
         }
     }
+    pub fn get_height(&self) -> u8 {
+        self.height
+    }
+    pub fn get_max_leaf_index(&self) -> u64 {
+        (1u64<<(self.height as u64)) - 1u64
+    }
     fn set_node_value(&mut self, key: SimpleMerkleNodeKey, value: Hash) {
         self.nodes.insert(key, value);
     }
-    fn get_node_value(&self, key: &SimpleMerkleNodeKey) -> Hash {
+    pub fn get_node_value(&self, key: &SimpleMerkleNodeKey) -> Hash {
         if self.nodes.contains_key(key) {
             self.nodes[key]
         } else {
@@ -98,6 +104,48 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default>
             siblings: old_proof.siblings,
             index: index,
         }
+    }
+    pub fn get_subtree_merkle_proof(&self, root_level: u8, subtree_leaf_node: SimpleMerkleNodeKey) -> MerkleProofCore<Hash> {
+        if root_level > subtree_leaf_node.level {
+            panic!("root_level > leaf node level");
+        }
+        let level_difference = subtree_leaf_node.level - root_level;
+        
+        let leaf_key = subtree_leaf_node;
+        let value = self.get_node_value(&leaf_key);
+        if level_difference == 0 {
+            return MerkleProofCore {
+                root: value,
+                value: value,
+                siblings: Vec::new(),
+                index: subtree_leaf_node.index,
+            };
+        }
+
+        let mut current_sibling = leaf_key.sibling();
+        let mut siblings = Vec::with_capacity(level_difference as usize);
+
+        while current_sibling.level > root_level {
+            siblings.push(self.get_node_value(&current_sibling));
+            current_sibling = current_sibling.parent().sibling();
+        }
+
+        let root = self.get_node_value(&subtree_leaf_node.parent_at_level(root_level));
+
+        MerkleProofCore {
+            index: subtree_leaf_node.index,
+            siblings,
+            root,
+            value,
+        }
+
+    }
+
+    pub fn get_leaf_in_subtree(&self, root_level: u8, leaf_level: u8, leaf_index: u64) -> MerkleProofCore<Hash> {
+        self.get_subtree_merkle_proof(
+            root_level,
+            SimpleMerkleNodeKey::new(leaf_level, leaf_index),
+        )
     }
 
     pub fn gen_fast_tree_inclusion_proofs(

@@ -15,6 +15,7 @@ pub enum QStandardBinaryTreeCircuitType {
     TwoAgg = 3,
     LeftLeafRightAgg = 4,
     LeftAggRightLeaf = 5,
+    Root = 6,
 }
 
 impl QStandardBinaryTreeCircuitType {
@@ -55,6 +56,10 @@ impl<F: RichField> SimpleQTreeRecursionManagerInclusionProofs<F> {
             }
             QStandardBinaryTreeCircuitType::LeftAggRightLeaf => {
                 &self.left_agg_right_leaf_circuit_merkle_proof
+            }
+
+            QStandardBinaryTreeCircuitType::Root => {
+                panic!("tried to get an inclusion proof for circuit type 'Root'")
             }
         }
     }

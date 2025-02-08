@@ -10,7 +10,7 @@ use qed_common_circuit::{builder::{core::CircuitBuilderHelpersCore, hash::core::
 use qed_core::config::network_constants::QED_SIG_ACTION_SIGN_UPS_END_CAP;
 use qed_data::qdata::ups_signature::QEDUserProvingSessionSignatureDataCompact;
 
-use crate::gadgets::{qdata::user::QEDUserLeafGadget, sig_action::{compute_sig_action_hash_circuit, SimpleQEDSigAction}};
+use crate::gadgets::sig_action::{compute_sig_action_hash_circuit, SimpleQEDSigAction};
 
 
 

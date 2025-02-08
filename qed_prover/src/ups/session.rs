@@ -8,11 +8,11 @@ use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
 use qed_crypto::{common::witnesses::qrecursion::{header::{AttestProofInTreeInput, AttestTreeAwareProofInTreeInput}, proof_data::{InputLeafProof, TreeAwareTreeProofRecord}}, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use qed_data::{
-    dpn::proving_session::{DPNProvingSessionSimpleMethodCall, QEDLocalTransactionRecord}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf}, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
+    dpn::proving_session::{DPNProvingSessionSimpleMethodCall, QEDLocalTransactionRecord}, guta::{api::{SubmitUserEndCapNonProofCoreInput, SubmitUserEndCapNonProofInput}, stats::GUTAStats}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_end_cap_result::UPSEndCapResultCompact, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf}, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_store::{
-    controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, store::imm::{cmd::{QSRCmdGetCheckpointLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
+    controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::QEDUserSessionUpdateHistory}, store::imm::{cache::QEDCmdStoreWithCache, cmd::{QSRCmdGetCheckpointLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
 };
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
@@ -53,6 +53,18 @@ impl<
         C: GenericConfig<D, F = F, Hasher = H>,
     > UserProvingSessionManager<F, H, R, C, D>
 {
+
+    pub fn into_cmd_store(self) -> QEDCmdStoreWithCache<F, R> {
+        self.lps.into_cmd_store()
+    }
+
+    pub fn into_clean_for_user(self, user_id: F) -> anyhow::Result<Self> {
+        let ups_step_circuit_whitelist_root = self.current_ups_header.ups_step_circuit_whitelist_root;
+        let circuit_info = self.circuit_info;
+        let lps = self.lps.into_clean_for_user(user_id)?;
+
+        Self::new(lps, circuit_info, ups_step_circuit_whitelist_root)
+    }
     pub fn get_checkpoint_state(&self) -> QEDCheckpointLeafCompactWithStateRoots<F> {
         QEDCheckpointLeafCompactWithStateRoots {
             checkpoint_leaf: QEDCheckpointLeafCompact {
@@ -436,11 +448,15 @@ impl<
             },
             user_public_key_param: public_key_param,
             nonce,
+            slots_modified: self.lps.get_total_slots_modified(),
         };
+
+
         let finalized_proof_tree_record = self.proof_tree_state.get_finalized_proot_tree_record()?;
         let agg_whitelist_merkle_proof = circuit_mgr.proof_tree_agg_circuits.circuit_inclusion_proofs.get_inclusion_proof_for_type(finalized_proof_tree_record.circuit_type);
         let agg_root_verifier_data = self.circuit_info.get_circuit_info_by_fingerprint(finalized_proof_tree_record.fingerprint)?.verifier_data.to_verifier_data::<C,D>();
 
+        
         let proof = circuit_mgr.ups_end_cap.prove_base(
             &end_cap_from_proof_tree_input,
             agg_whitelist_merkle_proof,
@@ -449,6 +465,14 @@ impl<
             &agg_root_verifier_data
         )?;
 
+        /* 
+        let root_proof = self.proof_tree_state.get_root_verified_proof(&circuit_mgr.proof_tree_agg_circuits)?;
+
+        
+        let proof = circuit_mgr.ups_end_cap.prove_base(
+            &end_cap_from_proof_tree_input,
+            &root_proof,
+        )?;*/
 
         // update the user's nonce
         self.current_ups_header.current_state.user_leaf.nonce = nonce;
@@ -474,4 +498,50 @@ impl<
                 inputs
             )
     }
+
+    pub fn get_api_input(&mut self) -> anyhow::Result<SubmitUserEndCapNonProofInput<F>> {
+
+        let checkpoint_id = self.current_ups_header.session_start_context.checkpoint_id;
+
+        let updates = self.get_user_session_update_history()?;
+
+
+        let core = SubmitUserEndCapNonProofCoreInput {
+            checkpoint_id,
+            stats: GUTAStats {
+                fees_collected: F::from_noncanonical_u64(0),
+                user_ops_processed: F::from_noncanonical_u64(1),
+                total_transactions: self.current_ups_header.current_state.tx_count,
+                slots_modified: F::from_canonical_u32(updates.total_slots_modified),
+            },
+            state_transition: UPSEndCapResultCompact{
+                start_user_leaf_hash: self.current_ups_header.session_start_context.start_session_user_leaf.qfhash::<H>(),
+                end_user_leaf_hash: self.current_ups_header.current_state.user_leaf.qfhash::<H>(),
+                checkpoint_tree_root_hash: self.current_ups_header.session_start_context.checkpoint_tree_root,
+                user_id: self.current_ups_header.session_start_context.start_session_user_leaf.user_id,
+            }
+        };
+        let contract_state_updates = updates.contract_updates;
+
+        Ok(SubmitUserEndCapNonProofInput{
+            core,
+            contract_state_updates,
+        })
+    }
+    pub fn get_user_session_update_history(&mut self) -> anyhow::Result<QEDUserSessionUpdateHistory<F>> {
+        let (contract_updates, total_slots_modified) = self.lps.get_all_state_updates()?;
+        Ok(
+            QEDUserSessionUpdateHistory{
+                start_user_leaf: self.current_ups_header.session_start_context.start_session_user_leaf,
+                end_user_leaf: self.current_ups_header.current_state.user_leaf,
+                total_slots_modified,
+                contract_updates,
+            }
+        )
+
+        
+
+    }
+
+
 }

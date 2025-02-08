@@ -558,7 +558,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
 
     // the end cap proof the proof that we send off to the network 🎉
 
-    main_circuits.ups_end_cap.circuit_data.verify(end_cap_proof)?;
+    main_circuits.ups_end_cap.verify_proof(end_cap_proof)?;
     timer.lap("✅ Verified End Cap Proof");
 
     

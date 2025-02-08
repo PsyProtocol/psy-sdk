@@ -104,6 +104,15 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
         }
         result
     }
+    pub fn siblings_above(&self, num_levels: usize) -> Vec<KVQMerkleNodeKey<TABLE_TYPE>> {
+        let mut result: Vec<KVQMerkleNodeKey<TABLE_TYPE>> = Vec::with_capacity(num_levels);
+        let mut current = *self;
+        for _ in 0..num_levels {
+            result.push(current.sibling());
+            current = current.parent();
+        }
+        result
+    }
     pub fn parent(&self) -> Self {
         if self.level == 0 {
             return *self;
@@ -129,6 +138,44 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
             index: 0,
             checkpoint_id: self.checkpoint_id,
         }
+    }
+    pub fn at_position(&self, level: u8, index: u64) -> Self {
+        Self {
+            tree_id: self.tree_id,
+            primary_id: self.primary_id,
+            secondary_id: self.secondary_id,
+            level,
+            index,
+            checkpoint_id: self.checkpoint_id,
+        }
+    }
+
+
+    pub fn parent_at_level(&self, level: u8) -> Self {
+        if level > self.level {
+            panic!("given level is not above this node")
+        }
+        self.n_th_ancestor(self.level-level)
+    }
+    pub fn n_th_ancestor(&self, levels_above: u8) -> Self {
+        if levels_above >= self.level {
+            self.root()
+        }else{
+            self.at_position(
+                self.level-levels_above,
+                self.index >> (levels_above as u64),
+            )
+        }
+    }
+    pub fn find_nearest_common_ancestor(&self, other: &Self) -> Self {
+        let start_level = u8::min(other.level, self.level);
+        let mut self_current = self.parent_at_level(start_level);
+        let mut other_current = other.parent_at_level(start_level);
+        while !other_current.eq(&self_current) {
+            self_current = self_current.parent();
+            other_current = other_current.parent();
+        }
+        self_current
     }
 }
 impl<const TABLE_TYPE: u16> KVQSerializable for KVQMerkleNodeKey<TABLE_TYPE> {

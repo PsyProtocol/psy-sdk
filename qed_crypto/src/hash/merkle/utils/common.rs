@@ -22,6 +22,17 @@ impl SimpleMerkleNodeKey {
             index,
         }
     }
+    pub fn first_leaf_for_height(&self, height: u8) -> Self {
+        if height <= self.level {
+            self.clone()
+        }else{
+            let diff = (height-self.level) as u64;
+            Self {
+                level: height,
+                index: (1u64<<diff)*self.index,
+            }
+        }
+    }
     pub fn sibling(&self) -> Self {
         Self {
             level: self.level,
@@ -45,6 +56,51 @@ impl SimpleMerkleNodeKey {
             level: self.level - 1,
             index: self.index >> 1,
         }
+    }
+    pub fn is_on_the_right_of(&self, other: &SimpleMerkleNodeKey) -> bool {
+        if other.level == self.level {
+            self.index > other.index
+        }else if other.level < self.level {
+            self.parent_at_level(other.level).index > other.index
+        }else{
+            self.index > other.parent_at_level(self.level).index
+        }
+    }
+    pub fn is_to_the_left_of(&self, other: &SimpleMerkleNodeKey) -> bool {
+        if other.level == self.level {
+            self.index < other.index
+        }else if other.level < self.level {
+            self.parent_at_level(other.level).index < other.index
+        }else{
+            self.index < other.parent_at_level(self.level).index
+        }
+    }
+
+    pub fn parent_at_level(&self, level: u8) -> Self {
+        if level > self.level {
+            panic!("given level is not above this node")
+        }
+        self.n_th_ancestor(self.level-level)
+    }
+    pub fn n_th_ancestor(&self, levels_above: u8) -> Self {
+        if levels_above >= self.level {
+            Self::new_root()
+        }else{
+            Self {
+                level: self.level-levels_above,
+                index: self.index >> levels_above,
+            }
+        }
+    }
+    pub fn find_nearest_common_ancestor(&self, other: &SimpleMerkleNodeKey) -> SimpleMerkleNodeKey {
+        let start_level = u8::min(other.level, self.level);
+        let mut self_current = self.parent_at_level(start_level);
+        let mut other_current = other.parent_at_level(start_level);
+        while !other_current.eq(&self_current) {
+            self_current = self_current.parent();
+            other_current = other_current.parent();
+        }
+        self_current
     }
 }
 

@@ -24,7 +24,7 @@ use super::{pm_core::get_circuit_fingerprint_generic, pm_custom::PMCircuitCustom
 pub struct QEDProofMinifierDynamic<
     const D: usize,
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
+    C: GenericConfig<D, F = F>,
 > where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
 {
@@ -35,7 +35,7 @@ pub struct QEDProofMinifierDynamic<
     pub verifier_data: Option<VerifierOnlyCircuitData<C, D>>,
 }
 
-impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>
+impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
     QEDProofMinifierDynamic<D, F, C>
 where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,

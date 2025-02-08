@@ -1,4 +1,5 @@
 pub mod tree_planner;
+pub mod subtree;
 use crate::hash::merkle::treeprover::tree_planner::BinaryTreeJob;
 use plonky2::{
     hash::{hash_types::RichField, poseidon::PoseidonHash},

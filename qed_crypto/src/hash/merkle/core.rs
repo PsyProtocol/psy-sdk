@@ -43,6 +43,22 @@ pub fn compute_partial_merkle_root_from_leaves<
     }
     current[0]
 }
+
+pub fn compute_root_merkle_proof_generic<Hash: PartialEq + Copy, H: MerkleHasher<Hash>>(
+    value: Hash,
+    index: u64,
+    siblings: &[Hash]
+) -> Hash {
+    let mut current = value;
+    for (i, sibling) in siblings.iter().enumerate() {
+        if index & (1 << i) == 0 {
+            current = H::two_to_one(&current, sibling);
+        } else {
+            current = H::two_to_one(sibling, &current);
+        }
+    }
+    current
+}
 pub fn compute_root_merkle_proof<H: QHasher<F>, F: RichField>(
     value: QHashOut<F>,
     index: F,
@@ -226,6 +242,78 @@ pub struct DeltaMerkleProofCore<Hash: PartialEq + Copy> {
 
     pub index: u64,
     pub siblings: Vec<Hash>,
+}
+
+impl<Hash: PartialEq + Copy> DeltaMerkleProofCore<Hash> {
+    pub fn from_params<H: MerkleHasher<Hash>>(index: u64, old_value: Hash, new_value: Hash, siblings: Vec<Hash>) -> Self {
+        let old_root = compute_root_merkle_proof_generic::<Hash, H>(old_value, index, &siblings);
+        let new_root = compute_root_merkle_proof_generic::<Hash, H>(new_value, index, &siblings);
+
+        Self {
+            old_root,
+            old_value,
+            new_root,
+            new_value,
+            index,
+            siblings,
+        }
+    }
+    pub fn with_shortened_height_from_bottom<H: MerkleHasher<Hash>>(&self, new_height: usize) -> Self {
+        assert!(new_height <= self.siblings.len(), "cannot shorten tree to a height taller than the current proof");
+        if new_height == self.siblings.len() {
+            self.clone()
+        }else{
+            let height_diff = self.siblings.len()-new_height;
+            let low_index = self.index&((1u64<<(height_diff as u64))-1u64);
+            let new_index = self.index >> (height_diff as u64);
+            let old_value = compute_root_merkle_proof_generic::<Hash, H>(self.old_value, low_index, &self.siblings[0..height_diff]);
+            let new_value = compute_root_merkle_proof_generic::<Hash, H>(self.new_value, low_index, &self.siblings[0..height_diff]);
+
+            Self::from_params::<H>(
+                new_index,
+                old_value,
+                new_value,
+                self.siblings[height_diff..].to_vec(),
+            )
+        }
+    }
+    pub fn shorten_height<H: MerkleHasher<Hash>>(&self, new_height: usize) -> Self {
+        assert!(new_height <= self.siblings.len(), "cannot shorten tree to a height taller than the current proof");
+        if new_height == self.siblings.len() {
+            self.clone()
+        }else{
+            Self::from_params::<H>(
+                self.index,
+                self.old_value,
+                self.new_value,
+                self.siblings[0..new_height].to_vec(),
+            )
+        }
+    }
+}
+impl<F: RichField> From<MerkleProofCore<QHashOut<F>>> for DeltaMerkleProofCore<QHashOut<F>> {
+    fn from(value: MerkleProofCore<QHashOut<F>>) -> Self {
+        Self {
+            old_root: value.root,
+            old_value: value.value,
+            new_root: value.root,
+            new_value: value.value,
+            index: value.index,
+            siblings: value.siblings,
+        }
+    }
+}
+impl<F: RichField> From<&MerkleProofCore<QHashOut<F>>> for DeltaMerkleProofCore<QHashOut<F>> {
+    fn from(value: &MerkleProofCore<QHashOut<F>>) -> Self {
+        Self {
+            old_root: value.root,
+            old_value: value.value,
+            new_root: value.root,
+            new_value: value.value,
+            index: value.index,
+            siblings: value.siblings.clone(),
+        }
+    }
 }
 
 impl<F: RichField> From<DeltaMerkleProofCore<HashOut<F>>> for DeltaMerkleProofCore<QHashOut<F>> {

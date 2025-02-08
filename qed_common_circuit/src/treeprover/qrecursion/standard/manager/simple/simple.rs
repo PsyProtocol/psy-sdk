@@ -25,8 +25,7 @@ use qed_crypto::{
 use crate::{
     circuits::traits::qstandard::QStandardCircuit,
     treeprover::qrecursion::standard::{
-        config::QRECURSION_CIRCUIT_WHITELIST_HEIGHT,
-        manager::leaf_circuit_set::QStandardBinaryRecursionTreeCircuitSet,
+        circuits::prove_root::QRecursionStandardRootCircuit, config::QRECURSION_CIRCUIT_WHITELIST_HEIGHT, manager::leaf_circuit_set::QStandardBinaryRecursionTreeCircuitSet
     },
 };
 
@@ -39,6 +38,7 @@ where
     C::Hasher:
        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
+    pub root_circuit: QRecursionStandardRootCircuit<C,D>,
     pub circuit_set: QStandardBinaryRecursionTreeCircuitSet<C, D>,
     pub circuit_inclusion_proofs: SimpleQTreeRecursionManagerInclusionProofs<C::F>,
 
@@ -113,6 +113,11 @@ where
                 .get_leaf(QStandardBinaryTreeCircuitType::LeftAggRightLeaf.into()),
             circuit_whitelist_tree_root: tmp_circuit_whitelist_tree.get_root(),
         };
+        let root_circuit = QRecursionStandardRootCircuit::<C,D>::new_with_minifier(
+            circuit_set.two_agg_circuit.get_common_circuit_data_ref(),
+            circuit_set.two_agg_circuit.get_verifier_config_ref().constants_sigmas_cap.height(),
+            circuit_inclusion_proofs.circuit_whitelist_tree_root,
+        );
 
         let proof_tree =
             SimpleMerkleTree::<C::Hasher, QHashOut<C::F>>::new(q_recursion_tree_height as u8);
@@ -120,6 +125,7 @@ where
         let next_proof_index = 0;
 
         Self {
+            root_circuit,
             circuit_set,
             circuit_inclusion_proofs,
             proof_tree,

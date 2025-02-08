@@ -71,6 +71,50 @@ pub trait KVQMerkleTreeModelReaderCore<
             })
             .collect())
     }
+    fn get_sub_tree_proof(
+        store: &S,
+        real_tree_height: usize,
+        root_level: u8,
+        leaf_key: &KVQMerkleNodeKey<TABLE_TYPE>,
+    ) -> anyhow::Result<MerkleProofCore<Hash>> {
+        if root_level > leaf_key.level {
+            anyhow::bail!("cannot get a subtree proof for a root below the leaf");
+        }
+
+        let level_difference = (leaf_key.level - root_level) as usize;
+
+        if level_difference == 0 {
+            let value = Self::get_node(store, real_tree_height, leaf_key)?;
+            return Ok(MerkleProofCore{
+                root: value,
+                value,
+                index: leaf_key.index,
+                siblings: Vec::new(),
+            });
+
+        }
+        let mut node_keys = Vec::with_capacity(2+level_difference);
+        node_keys.push(*leaf_key);
+        node_keys.append(&mut leaf_key.siblings_above(level_difference));
+        node_keys.push(leaf_key.parent_at_level(root_level));
+        
+
+        let nodes = Self::get_nodes(
+            store,
+            real_tree_height,
+            &node_keys,
+        )?;
+        let value = nodes[0];
+        let root_ind = nodes.len() - 1;
+        let siblings = nodes[1..root_ind].to_vec();
+        let root = nodes[root_ind];
+        Ok(MerkleProofCore::<Hash> {
+            root,
+            value,
+            siblings,
+            index: leaf_key.index,
+        })
+    }
     fn get_leaf(
         store: &S,
         key: &KVQMerkleNodeKey<TABLE_TYPE>,
@@ -467,6 +511,20 @@ pub trait KVQFixedConfigMerkleTreeModelReaderCore<
             index,
             checkpoint_id,
         }
+    }
+    fn get_sub_tree_proof_fc(
+        store: &S,
+        checkpoint_id: u64,
+        root_level: u8,
+        leaf_level: u8,
+        leaf_index: u64,
+    ) -> anyhow::Result<MerkleProofCore<Hash>> {
+        Self::get_sub_tree_proof(
+            store, 
+            TREE_HEIGHT as usize,
+            root_level,
+            &Self::new_node_key_fc(checkpoint_id, leaf_level, leaf_index)
+        )
     }
     fn get_leaf_fc(
         store: &S,
