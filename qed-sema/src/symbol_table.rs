@@ -17,8 +17,8 @@ use strum::EnumTryAs;
 
 use crate::{
     variable::CheckedVariable, CheckedFunctionNode, CheckedTraitNode, CheckedValue,
-    CheckedValueNode, DefinitionNode, IdentId, ModuleId, ModuleKind, Type, TypeId, TypeKey,
-    UsePath,
+    CheckedValueNode, CheckedValueRef, DefinitionNode, IdentId, ModuleId, ModuleKind, Type, TypeId,
+    TypeKey, UsePath,
 };
 use crate::{Error, Result};
 
@@ -130,7 +130,7 @@ impl<T: Clone> Scope<T> {
 pub struct SymbolTable<F: Clone> {
     scopes: Vec<Scope<F>>,
     scope_stack: Vec<ScopeId>,
-    frames: Vec<Frame<Rc<RefCell<CheckedValue<F>>>>>,
+    frames: Vec<Frame<CheckedValueRef<F>>>,
 
     pub types: Vec<Type>,
     modules: Vec<Module>,
@@ -630,7 +630,7 @@ impl<F: Clone> SymbolTable<F> {
         &mut self,
         scope_id: ScopeId,
         key: &IdentId,
-        value: Rc<RefCell<CheckedValue<F>>>,
+        value: CheckedValueRef<F>,
     ) -> Result<()> {
         if let Some(v) = self[scope_id].variables.get(key) {
             if self

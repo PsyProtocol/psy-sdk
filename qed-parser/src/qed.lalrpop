@@ -121,11 +121,11 @@ ImplDef: ImplNode = {
 }
 
 TraitDef: TraitNode = {
-   <l:@L> <visibility:Visibility> TRAIT <name:Identifier> <generic_parameters:GenericParameters> "{" <body:FunctionDecl*> "}" <r:@R> => {
+   <l:@L> <visibility:Visibility> TRAIT <name:Identifier> <generic_parameters:GenericParameters> "{" <body:FunctionDef*> "}" <r:@R> => {
        TraitNode {
            generic_parameters,
            name,
-           body,
+           body: def_nodes.alloc_items(body),
            visibility
        }
    }
@@ -166,21 +166,26 @@ FunctionDef: DefinitionNode = {
         generic_parameters,
         body: Some(stmt_nodes.alloc_item(block_stmt)),
         return_type,
-        is_extern: is_extern.is_some(),
+        is_extern: {
+           let is_extern = is_extern.is_some();
+           assert!(!is_extern || is_std && is_self_prelude);
+           is_extern
+        },
         visibility
-    })
-}
-
-FunctionDecl: FunctionNode = {
-    <l:@L> <visibility:Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
+    }),
+    <l:@L> <visibility:Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
         body: None,
         return_type,
-        is_extern: is_extern.is_some(),
+        is_extern: {
+           let is_extern = is_extern.is_some();
+           assert!(!is_extern || is_std && is_self_prelude);
+           is_extern
+        },
         visibility
-    }
+    })
 }
 
 FunctionReturn: UncheckedType = {
@@ -340,7 +345,6 @@ PathExpression: ExprNode<F> = {
 ExpressionList: Vec<ExprNode<F>> = {
     <items:Sep<Expression, ",">> => items
 }
-
 
 Expression: ExprNode<F> = {
     #[precedence(level="1")]

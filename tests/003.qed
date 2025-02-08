@@ -14,7 +14,7 @@ struct Person {
 }
 
 impl Person {
-    fn cal1(a: Felt, b: Felt) -> Felt {
+    pub fn cal1(a: Felt, b: Felt) -> Felt {
         let c: Felt = a + b;
         return c;
     }
@@ -33,7 +33,7 @@ struct Person1 {
 }
 
 impl Person1 {
-    fn cal1(a: Felt, b: Felt) -> Felt {
+    pub fn cal1(a: Felt, b: Felt) -> Felt {
         let c: Felt = a + b;
         return c;
     }

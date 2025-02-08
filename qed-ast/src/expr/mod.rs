@@ -1,6 +1,7 @@
 mod binary;
 mod call;
 mod cast;
+mod context;
 mod index;
 mod path;
 mod storage;
@@ -9,6 +10,7 @@ mod unary;
 pub use binary::*;
 pub use call::*;
 pub use cast::*;
+pub use context::*;
 pub use index::*;
 pub use path::*;
 pub use storage::*;
@@ -28,6 +30,7 @@ pub enum ExprNode<F: Clone + From<u32>> {
     IndexAccess(IndexAccessNode),
     MemberAccess(MemberAccessNode),
     Storage(StorageReadNode),
+    Context(ContextNode),
 }
 
 impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
@@ -42,6 +45,7 @@ impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
             Self::IndexAccess(node) => node.node_type(),
             Self::MemberAccess(node) => node.node_type(),
             Self::Storage(node) => node.node_type(),
+            Self::Context(node) => node.node_type(),
         }
     }
 }

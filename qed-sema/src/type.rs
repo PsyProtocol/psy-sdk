@@ -14,6 +14,7 @@ use qed_utils::impl_ref;
 
 use crate::CheckedValue;
 use crate::CheckedValueNode;
+use crate::CheckedValueRef;
 use crate::SymbolTable;
 use crate::STD_PRELUDE_SCOPE_ID;
 use crate::{
@@ -240,7 +241,7 @@ impl Type {
                 let mut result = Vec::new();
                 let inner_ty = symbols[a.inner_ty].clone();
                 for value in 0..a.size {
-                    result.push(Rc::new(RefCell::new(inner_ty.to_value(symbols, ctx))));
+                    result.push(CheckedValueRef::new_rc(inner_ty.to_value(symbols, ctx)));
                 }
                 let type_id = symbols
                     .get_type_id(Some(ScopeId::prelude()), self.key())
@@ -253,7 +254,7 @@ impl Type {
                     let field_type = symbols[field_type.clone()].clone();
                     result.insert(
                         field_name.clone(),
-                        Rc::new(RefCell::new(field_type.to_value(symbols, ctx))),
+                        CheckedValueRef::new_rc(field_type.to_value(symbols, ctx)),
                     );
                 }
                 let type_id = symbols.get_type_id(Some(s.scope_id), self.key()).unwrap();
