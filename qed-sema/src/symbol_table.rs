@@ -17,8 +17,8 @@ use strum::EnumTryAs;
 
 use crate::{
     variable::CheckedVariable, CheckedFunctionNode, CheckedTraitNode, CheckedValue,
-    CheckedValueNode, DefinitionNode, IdentId, ModuleId, ModuleKind, Type, TypeId, TypeKey,
-    UsePath,
+    CheckedValueNode, CheckedValueRef, DefinitionNode, IdentId, ModuleId, ModuleKind, Type, TypeId,
+    TypeKey, UsePath,
 };
 use crate::{Error, Result};
 
@@ -29,6 +29,10 @@ pub static STD_PRELUDE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
 impl ScopeId {
     pub const fn root() -> Self {
         Self(0)
+    }
+
+    pub fn prelude() -> Self {
+        *STD_PRELUDE_SCOPE_ID.get().unwrap()
     }
 }
 
@@ -126,7 +130,7 @@ impl<T: Clone> Scope<T> {
 pub struct SymbolTable<F: Clone> {
     scopes: Vec<Scope<F>>,
     scope_stack: Vec<ScopeId>,
-    frames: Vec<Frame<Rc<RefCell<CheckedValue<F>>>>>,
+    frames: Vec<Frame<CheckedValueRef<F>>>,
 
     pub types: Vec<Type>,
     modules: Vec<Module>,
@@ -456,7 +460,6 @@ impl<F: Clone> SymbolTable<F> {
                     module_id
                 } else {
                     let type_id = self.get_type_id(None, name)?;
-                    let visibility = self[type_id].visibility();
                     assert!(path.segments.is_empty());
                     let method_type_id = self.resolve_method(type_id, path.target)?;
                     let visibility = self[method_type_id].visibility();
@@ -627,7 +630,7 @@ impl<F: Clone> SymbolTable<F> {
         &mut self,
         scope_id: ScopeId,
         key: &IdentId,
-        value: Rc<RefCell<CheckedValue<F>>>,
+        value: CheckedValueRef<F>,
     ) -> Result<()> {
         if let Some(v) = self[scope_id].variables.get(key) {
             if self

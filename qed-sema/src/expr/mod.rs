@@ -1,6 +1,7 @@
 mod binary;
 mod call;
 mod cast;
+mod context;
 mod index;
 mod path;
 mod storage;
@@ -9,6 +10,7 @@ mod unary;
 pub use binary::*;
 pub use call::*;
 pub use cast::*;
+pub use context::*;
 use enum_as_inner::EnumAsInner;
 pub use index::*;
 pub use path::*;
@@ -31,6 +33,7 @@ pub enum CheckedExprNode<F> {
     IndexAccess(CheckedIndexAccessNode),
     MemberAccess(CheckedMemberAccessNode),
     Storage(CheckedStorageReadNode),
+    Context(CheckedContextNode),
 }
 
 impl<F> NodeInfo for CheckedExprNode<F> {
@@ -45,6 +48,7 @@ impl<F> NodeInfo for CheckedExprNode<F> {
             CheckedExprNode::IndexAccess(node) => node.node_type(),
             CheckedExprNode::MemberAccess(node) => node.node_type(),
             CheckedExprNode::Storage(node) => node.node_type(),
+            CheckedExprNode::Context(node) => node.node_type(),
         }
     }
 }
@@ -67,6 +71,19 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::IndexAccess(i) => i.type_id,
             CheckedExprNode::MemberAccess(m) => m.type_id,
             CheckedExprNode::Storage(s) => s.type_id,
+            CheckedExprNode::Context(c) => match c {
+                CheckedContextNode::GetUserId { type_id } => type_id.clone(),
+                CheckedContextNode::GetContractId { type_id } => type_id.clone(),
+                CheckedContextNode::GetCheckpointId { type_id } => type_id.clone(),
+                CheckedContextNode::GetLastNonce { type_id } => type_id.clone(),
+                CheckedContextNode::GetUserPublicKeyHash { type_id } => type_id.clone(),
+                CheckedContextNode::GetStateHashAt { type_id, .. } => type_id.clone(),
+                CheckedContextNode::GetOtherContractStateHashAt { type_id, .. } => type_id.clone(),
+                CheckedContextNode::GetOtherUserContractStateHashAt { type_id, .. } => {
+                    type_id.clone()
+                }
+                CheckedContextNode::CSetStateHashAt { type_id, .. } => type_id.clone(),
+            },
         }
     }
 

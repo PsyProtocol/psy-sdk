@@ -50,6 +50,19 @@ pub trait DPNContext<F: ContextFelt> {
     fn cset_state_at<V: ToFelts<F>>(&mut self, sub_index: F, new_value: V) -> V;
     fn cset_state_hash_at(&mut self, slot_index: F, new_value: [F; 4]) -> [F; 4];
     fn get_state_hash_at(&mut self, slot_index: F) -> [F; 4];
+    fn get_other_contract_state_hash_at(
+        &mut self,
+        contract_state_tree_height: F,
+        contract_id: F,
+        slot_index: F,
+    ) -> [F; 4];
+    fn get_other_user_contract_state_hash_at(
+        &mut self,
+        contract_state_tree_height: F,
+        user_id: F,
+        contract_id: F,
+        slot_index: F,
+    ) -> [F; 4];
     fn cset_str<V: ToFelts<F>>(&mut self, left: &'static str, old_value: V, new_value: V) -> V;
     fn start_if_block(&mut self, condition: F);
     fn start_else_if_block(&mut self, condition: F);

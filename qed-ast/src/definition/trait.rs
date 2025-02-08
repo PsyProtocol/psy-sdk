@@ -1,10 +1,10 @@
-use crate::{AstVisitor, FunctionNode, IdentId, NodeInfo, NodeType, Visibility};
+use crate::{AstVisitor, DefId, FunctionNode, IdentId, NodeInfo, NodeType, Visibility};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TraitNode {
     pub name: IdentId,
     pub generic_parameters: Vec<IdentId>,
-    pub body: Vec<FunctionNode>,
+    pub body: Vec<DefId>,
     pub visibility: Visibility,
 }
 

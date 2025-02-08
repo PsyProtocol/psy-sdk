@@ -645,6 +645,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         ));
         self.indent();
         for func in body {
+            let func = ctx.definition(func.clone()).as_function().unwrap();
             let parameters = func
                 .parameters
                 .iter()
@@ -688,6 +689,57 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
     ) -> Result<Self::ExprResult, Self::Error> {
         let offset = ctx.expression(node).as_storage().unwrap().offset;
         Ok(format!("storage::read({})", self.visit_expr(offset, ctx)?))
+    }
+
+    fn visit_context(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let node = ctx.expression(node).as_context().cloned().unwrap();
+        match node {
+            ContextNode::GetUserId => Ok("context::get_user_id()".to_string()),
+            ContextNode::GetContractId => Ok("context::get_contract_id()".to_string()),
+            ContextNode::GetLastNonce => Ok("context::get_last_nonce()".to_string()),
+            ContextNode::GetCheckpointId => Ok("context::get_checkpoint_id()".to_string()),
+            ContextNode::GetUserPublicKeyHash => {
+                Ok("context::get_user_public_key_hash()".to_string())
+            }
+            ContextNode::GetStateHashAt { slot_index } => Ok(format!(
+                "context::get_state_hash_at({})",
+                self.visit_expr(slot_index.clone(), ctx)?
+            )),
+            ContextNode::GetOtherContractStateHashAt {
+                contract_state_tree_height,
+                contract_id,
+                slot_index,
+            } => Ok(format!(
+                "context::get_other_contract_state_hash_at({}, {}, {})",
+                self.visit_expr(contract_state_tree_height.clone(), ctx)?,
+                self.visit_expr(contract_id.clone(), ctx)?,
+                self.visit_expr(slot_index.clone(), ctx)?
+            )),
+            ContextNode::GetOtherUserContractStateHashAt {
+                contract_state_tree_height,
+                user_id,
+                contract_id,
+                slot_index,
+            } => Ok(format!(
+                "context::get_other_user_contract_state_hash_at({}, {}, {}, {})",
+                self.visit_expr(contract_state_tree_height.clone(), ctx)?,
+                self.visit_expr(user_id.clone(), ctx)?,
+                self.visit_expr(contract_id.clone(), ctx)?,
+                self.visit_expr(slot_index.clone(), ctx)?
+            )),
+            ContextNode::CSetStateHashAt {
+                slot_index,
+                new_value,
+            } => Ok(format!(
+                "context::cset_state_hash_at({}, {})",
+                self.visit_expr(slot_index.clone(), ctx)?,
+                self.visit_expr(new_value.clone(), ctx)?
+            )),
+        }
     }
 
     fn visit_storage_write(

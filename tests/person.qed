@@ -6,7 +6,7 @@ pub struct Person {
 }
 
 impl Person {
-    fn cal1(a: Felt, b: Felt) -> Felt {
+    pub fn cal1(a: Felt, b: Felt) -> Felt {
         let c: Felt = a + b;
         return c;
     }

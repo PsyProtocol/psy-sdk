@@ -619,14 +619,20 @@ pub struct IExecutionContext<F: RichField> {
 }
 
 impl<F: RichField> IExecutionContext<F> {
-    pub fn new() -> Self {
+    pub fn new(
+        user_id: F,
+        contract_id: F,
+        checkpoint_id: F,
+        nonce: F,
+        user_public_key_hash: [F; 4],
+    ) -> Self {
         IExecutionContext {
             state_query_results: Vec::new(),
-            user_id: F::ZERO,
-            contract_id: F::ZERO,
-            checkpoint_id: F::ZERO,
-            nonce: F::ZERO,
-            user_public_key_hash: [F::ZERO; 4],
+            user_id,
+            contract_id,
+            checkpoint_id,
+            nonce,
+            user_public_key_hash,
         }
     }
 }
