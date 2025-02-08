@@ -64,18 +64,18 @@ impl SubTreeNodeStateTransitionGadget {
         &self,
         witness: &mut W,
         transition: &SubTreeNodeStateTransition<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         witness.set_hash_target(
             self.old_node_value,
             transition.old_node_value.0,
-        );
+        )?;
         witness.set_hash_target(
             self.new_node_value,
             transition.new_node_value.0,
-        );
+        )?;
 
-        witness.set_target(self.node_index, transition.node_index);
-        witness.set_target(self.node_level, transition.node_level);
+        witness.set_target(self.node_index, transition.node_index)?;
+        witness.set_target(self.node_level, transition.node_level)
     }
 }
 

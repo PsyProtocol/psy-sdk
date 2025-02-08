@@ -59,12 +59,13 @@ impl MerkleProofSha256Gadget {
         index: u64,
         value: &[u8; 32],
         siblings: &[[u8; 32]],
-    ) {
-        witness.set_hash256_target(&self.value, value);
-        witness.set_target(self.index, F::from_noncanonical_u64(index));
+    )  -> anyhow::Result<()> {
+        witness.set_hash256_target(&self.value, value)?;
+        witness.set_target(self.index, F::from_noncanonical_u64(index))?;
         for (i, sibling) in self.siblings.iter().enumerate() {
-            witness.set_hash256_target(sibling, &siblings[i]);
+            witness.set_hash256_target(sibling, &siblings[i])?;
         }
+        Ok(())
     }
 }
 
@@ -115,8 +116,8 @@ mod tests {
         "#;
         let proof: MerkleProof256 =
             serde_json::from_str::<MerkleProof256>(proof_serialized).unwrap();
-        merkle_proof_gadget.set_witness_from_proof(&mut pw, &proof);
-        pw.set_hash256_target(&expected_root_target, &proof.root.0);
+        merkle_proof_gadget.set_witness_from_proof(&mut pw, &proof).unwrap();
+        pw.set_hash256_target(&expected_root_target, &proof.root.0).unwrap();
 
         let start_time = std::time::Instant::now();
         let proof = data.prove(pw).unwrap();

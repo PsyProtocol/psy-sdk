@@ -11,11 +11,12 @@ pub struct QEDCheckpointGlobalStateRootsGadget {
 }
 
 impl QEDCheckpointGlobalStateRootsGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointGlobalStateRoots<F>) {
-        witness.set_hash_target(self.contract_tree_root, target.contract_tree_root.0);
-        witness.set_hash_target(self.deposit_tree_root, target.deposit_tree_root.0);
-        witness.set_hash_target(self.user_tree_root, target.user_tree_root.0);
-        witness.set_hash_target(self.withdrawal_tree_root, target.withdrawal_tree_root.0);
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointGlobalStateRoots<F>) -> anyhow::Result<()> {
+        witness.set_hash_target(self.contract_tree_root, target.contract_tree_root.0)?;
+        witness.set_hash_target(self.deposit_tree_root, target.deposit_tree_root.0)?;
+        witness.set_hash_target(self.user_tree_root, target.user_tree_root.0)?;
+        witness.set_hash_target(self.withdrawal_tree_root, target.withdrawal_tree_root.0)?;
+        Ok(())
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         let left = builder.hash_two_to_one::<H>(self.contract_tree_root, self.deposit_tree_root);
@@ -119,14 +120,14 @@ impl FromTargets for QEDCheckpointGlobalStateRootsGadget {
 
 
 impl<F: RichField> WitnessValueFor<QEDCheckpointGlobalStateRootsGadget, F, true> for QEDCheckpointGlobalStateRoots<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointGlobalStateRootsGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointGlobalStateRootsGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<QEDCheckpointGlobalStateRootsGadget, F, false> for QEDCheckpointGlobalStateRoots<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointGlobalStateRootsGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointGlobalStateRootsGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 

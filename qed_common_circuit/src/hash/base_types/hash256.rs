@@ -30,44 +30,47 @@ impl ToTargets for Hash256Target {
 }
 
 pub trait WitnessHash256<F: PrimeField64>: Witness<F> {
-    fn set_hash256_target(&mut self, target: &Hash256Target, value: &[u8]);
-    fn set_hash256_target_le(&mut self, target: &Hash256Target, value: &[u8]);
-    fn set_hash256_target_u32(&mut self, target: &Hash256Target, value: &[u32]);
+    fn set_hash256_target(&mut self, target: &Hash256Target, value: &[u8]) -> anyhow::Result<()>;
+    fn set_hash256_target_le(&mut self, target: &Hash256Target, value: &[u8]) -> anyhow::Result<()>;
+    fn set_hash256_target_u32(&mut self, target: &Hash256Target, value: &[u32]) -> anyhow::Result<()>;
 }
 
 impl<T: Witness<F>, F: PrimeField64> WitnessHash256<F> for T {
-    fn set_hash256_target_u32(&mut self, target: &Hash256Target, value: &[u32]) {
-        self.set_u32_target(target[0], value[0]);
-        self.set_u32_target(target[1], value[1]);
-        self.set_u32_target(target[2], value[2]);
-        self.set_u32_target(target[3], value[3]);
+    fn set_hash256_target_u32(&mut self, target: &Hash256Target, value: &[u32]) -> anyhow::Result<()>{
+        self.set_u32_target(target[0], value[0])?;
+        self.set_u32_target(target[1], value[1])?;
+        self.set_u32_target(target[2], value[2])?;
+        self.set_u32_target(target[3], value[3])?;
 
-        self.set_u32_target(target[4], value[4]);
-        self.set_u32_target(target[5], value[5]);
-        self.set_u32_target(target[6], value[6]);
-        self.set_u32_target(target[7], value[7]);
+        self.set_u32_target(target[4], value[4])?;
+        self.set_u32_target(target[5], value[5])?;
+        self.set_u32_target(target[6], value[6])?;
+        self.set_u32_target(target[7], value[7])?;
+        Ok(())
     }
 
-    fn set_hash256_target(&mut self, target: &Hash256Target, value: &[u8]) {
-        self.set_u32_target(target[0], read_u32_be_at(value, 0));
-        self.set_u32_target(target[1], read_u32_be_at(value, 4));
-        self.set_u32_target(target[2], read_u32_be_at(value, 8));
-        self.set_u32_target(target[3], read_u32_be_at(value, 12));
-        self.set_u32_target(target[4], read_u32_be_at(value, 16));
-        self.set_u32_target(target[5], read_u32_be_at(value, 20));
-        self.set_u32_target(target[6], read_u32_be_at(value, 24));
-        self.set_u32_target(target[7], read_u32_be_at(value, 28));
+    fn set_hash256_target(&mut self, target: &Hash256Target, value: &[u8]) -> anyhow::Result<()>{
+        self.set_u32_target(target[0], read_u32_be_at(value, 0))?;
+        self.set_u32_target(target[1], read_u32_be_at(value, 4))?;
+        self.set_u32_target(target[2], read_u32_be_at(value, 8))?;
+        self.set_u32_target(target[3], read_u32_be_at(value, 12))?;
+        self.set_u32_target(target[4], read_u32_be_at(value, 16))?;
+        self.set_u32_target(target[5], read_u32_be_at(value, 20))?;
+        self.set_u32_target(target[6], read_u32_be_at(value, 24))?;
+        self.set_u32_target(target[7], read_u32_be_at(value, 28))?;
+        Ok(())
     }
 
-    fn set_hash256_target_le(&mut self, target: &Hash256Target, value: &[u8]) {
-        self.set_u32_target(target[0], read_u32_le_at(value, 0));
-        self.set_u32_target(target[1], read_u32_le_at(value, 4));
-        self.set_u32_target(target[2], read_u32_le_at(value, 8));
-        self.set_u32_target(target[3], read_u32_le_at(value, 12));
-        self.set_u32_target(target[4], read_u32_le_at(value, 16));
-        self.set_u32_target(target[5], read_u32_le_at(value, 20));
-        self.set_u32_target(target[6], read_u32_le_at(value, 24));
-        self.set_u32_target(target[7], read_u32_le_at(value, 28));
+    fn set_hash256_target_le(&mut self, target: &Hash256Target, value: &[u8]) -> anyhow::Result<()> {
+        self.set_u32_target(target[0], read_u32_le_at(value, 0))?;
+        self.set_u32_target(target[1], read_u32_le_at(value, 4))?;
+        self.set_u32_target(target[2], read_u32_le_at(value, 8))?;
+        self.set_u32_target(target[3], read_u32_le_at(value, 12))?;
+        self.set_u32_target(target[4], read_u32_le_at(value, 16))?;
+        self.set_u32_target(target[5], read_u32_le_at(value, 20))?;
+        self.set_u32_target(target[6], read_u32_le_at(value, 24))?;
+        self.set_u32_target(target[7], read_u32_le_at(value, 28))?;
+        Ok(())
     }
 }
 
@@ -162,13 +165,14 @@ impl DeltaMerkleProofSha256Gadget {
         &self,
         witness: &mut W,
         merkle_proof: &DeltaMerkleProof256,
-    ) {
-        witness.set_hash256_target(&self.old_value, &merkle_proof.old_value.0);
-        witness.set_hash256_target(&self.new_value, &merkle_proof.new_value.0);
-        witness.set_target(self.index, F::from_noncanonical_u64(merkle_proof.index));
+    ) -> anyhow::Result<()> {
+        witness.set_hash256_target(&self.old_value, &merkle_proof.old_value.0)?;
+        witness.set_hash256_target(&self.new_value, &merkle_proof.new_value.0)?;
+        witness.set_target(self.index, F::from_noncanonical_u64(merkle_proof.index))?;
         for (i, sibling) in self.siblings.iter().enumerate() {
-            witness.set_hash256_target(sibling, &merkle_proof.siblings[i].0);
+            witness.set_hash256_target(sibling, &merkle_proof.siblings[i].0)?;
         }
+        Ok(())
     }
 }
 
@@ -177,21 +181,22 @@ impl MerkleProofSha256Gadget {
         &self,
         witness: &mut W,
         merkle_proof: &MerkleProof256,
-    ) {
-        witness.set_hash256_target(&self.value, &merkle_proof.value.0);
-        witness.set_target(self.index, F::from_noncanonical_u64(merkle_proof.index));
+    ) -> anyhow::Result<()> {
+        witness.set_hash256_target(&self.value, &merkle_proof.value.0)?;
+        witness.set_target(self.index, F::from_noncanonical_u64(merkle_proof.index))?;
         for (i, sibling) in self.siblings.iter().enumerate() {
-            witness.set_hash256_target(sibling, &merkle_proof.siblings[i].0);
+            witness.set_hash256_target(sibling, &merkle_proof.siblings[i].0)?;
         }
+        Ok(())
     }
 }
 impl<F: RichField> WitnessValueFor<Hash256Target, F> for Hash256 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash256Target) {
-        witness.set_hash256_target(&target, &self.0);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash256Target) -> anyhow::Result<()> {
+        witness.set_hash256_target(&target, &self.0)
     }
 }
 impl<F: RichField> WitnessValueFor<Hash256Target, F, false> for Hash256 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash256Target) {
-        witness.set_hash256_target_le(&target, &self.0);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash256Target) -> anyhow::Result<()> {
+        witness.set_hash256_target_le(&target, &self.0)
     }
 }

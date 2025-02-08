@@ -111,7 +111,7 @@ where
             &input.get_guta_header_a(),
             child_a_proof,
             child_a_verifier_data
-        );
+        )?;
         self.b_guta_gadget.set_witness(
             &mut pw,
             &input.guta_inclusion_proof_b,
@@ -119,12 +119,12 @@ where
             &input.get_guta_header_b(),
             child_b_proof,
             child_b_verifier_data
-        );
+        )?;
 
         self.nca_state_transition_gadget.set_witness_partial(
             &mut pw, 
             &input.nca_proof
-        );
+        )?;
 
         self.circuit_data.prove(pw)
     }

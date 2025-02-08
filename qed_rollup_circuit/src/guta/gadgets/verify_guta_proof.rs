@@ -95,18 +95,18 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
         guta_proof_header: &GlobalUserTreeAggregatorHeader<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
-    ) where
+    ) -> anyhow::Result<()> where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
         self.guta_whitelist_merkle_proof.set_witness_generic(
             witness,
             F::from_noncanonical_u64(guta_whitelist_merkle_proof.index),
             guta_whitelist_merkle_proof.value,
             &guta_whitelist_merkle_proof.siblings,
-        );
-        self.guta_proof_header_gadget.set_witness(witness, guta_proof_header);
+        )?;
+        self.guta_proof_header_gadget.set_witness(witness, guta_proof_header)?;
 
-        witness.set_proof_with_pis_target(&self.proof_target, &proof);
-        witness.set_verifier_data_target(&self.verifier_data, &verifier_data);
+        witness.set_proof_with_pis_target(&self.proof_target, &proof)?;
+        witness.set_verifier_data_target(&self.verifier_data, &verifier_data)
     }
 }
 

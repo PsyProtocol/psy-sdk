@@ -232,12 +232,12 @@ impl UPSStartStepGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &UPSStartStepInput<F>,
-    ) {
-        self.header_gadget.set_witness(witness, &target.ups_header);
-        self.checkpoint_leaf_gadget.set_witness(witness, &target.checkpoint_leaf);
-        self.state_roots_gadget.set_witness(witness, &target.state_roots);
-        self.checkpoint_tree_proof.set_witness_core_proof_q_generic(witness, &target.checkpoint_tree_proof);
-        self.user_tree_proof.set_witness_core_proof_q_generic(witness, &target.user_tree_proof);
+    ) -> anyhow::Result<()> {
+        self.header_gadget.set_witness(witness, &target.ups_header)?;
+        self.checkpoint_leaf_gadget.set_witness(witness, &target.checkpoint_leaf)?;
+        self.state_roots_gadget.set_witness(witness, &target.state_roots)?;
+        self.checkpoint_tree_proof.set_witness_core_proof_q_generic(witness, &target.checkpoint_tree_proof)?;
+        self.user_tree_proof.set_witness_core_proof_q_generic(witness, &target.user_tree_proof)
     }
 }
 impl CreatableWithHasherTarget for UPSStartStepGadget {
@@ -252,13 +252,13 @@ impl CreatableWithHasherTarget for UPSStartStepGadget {
     }
 }
 impl<F: RichField> WitnessValueFor<UPSStartStepGadget, F, true> for UPSStartStepInput<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSStartStepGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSStartStepGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<UPSStartStepGadget, F, false> for UPSStartStepInput<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSStartStepGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSStartStepGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }

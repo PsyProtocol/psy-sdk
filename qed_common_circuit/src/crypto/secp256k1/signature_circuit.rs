@@ -68,7 +68,7 @@ where
         timer.lap("start prove base");
         let mut pw = PartialWitness::new();
         self.signature_gadget
-            .set_witness_public_keys_update(&mut pw, public_key, signature, msg);
+            .set_witness_public_keys_update(&mut pw, public_key, signature, msg)?;
         let base_proof = self.base_circuit_data.prove(pw)?;
         timer.lap("end prove base");
         timer.lap("start minifier");

@@ -85,14 +85,14 @@ impl DapenCFCProvingSessionStartContextGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &DapenCFCProvingSessionStartContext<F>,
-    ) {
-        witness.set_target(self.checkpoint_id, target.checkpoint_id);
-        witness.set_hash_target(self.checkpoint_tree_root, target.checkpoint_tree_root.0);
+    )  -> anyhow::Result<()> {
+        witness.set_target(self.checkpoint_id, target.checkpoint_id)?;
+        witness.set_hash_target(self.checkpoint_tree_root, target.checkpoint_tree_root.0)?;
         self.checkpoint_leaf
-            .set_witness(witness, &target.checkpoint_leaf);
-        self.state_roots.set_witness(witness, &target.state_roots);
+            .set_witness(witness, &target.checkpoint_leaf)?;
+        self.state_roots.set_witness(witness, &target.state_roots)?;
         self.start_session_user_leaf
-            .set_witness(witness, &target.start_session_user_leaf);
+            .set_witness(witness, &target.start_session_user_leaf)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -143,8 +143,8 @@ impl<F: RichField> WitnessValueFor<DapenCFCProvingSessionStartContextGadget, F, 
         &self,
         witness: &mut impl Witness<F>,
         target: &DapenCFCProvingSessionStartContextGadget,
-    ) {
-        target.set_witness(witness, self);
+    )  -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -155,8 +155,8 @@ impl<F: RichField> WitnessValueFor<DapenCFCProvingSessionStartContextGadget, F, 
         &self,
         witness: &mut impl Witness<F>,
         target: &DapenCFCProvingSessionStartContextGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -198,24 +198,24 @@ impl DapenCFCUserTransactionCallStartContextGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &DapenCFCUserTransactionCallStartContext<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         witness.set_hash_target(
             self.start_user_contract_tree_root,
             target.start_user_contract_tree_root.0,
-        );
+        )?;
         witness.set_hash_target(
             self.start_contract_state_tree_root,
             target.start_contract_state_tree_root.0,
-        );
+        )?;
 
-        self.call_data.set_witness(witness, &target.call_data);
+        self.call_data.set_witness(witness, &target.call_data)?;
         witness.set_hash_target(
             self.start_deferred_tx_debt_tree_root,
             target.start_deferred_tx_debt_tree_root.0,
-        );
+        )?;
 
-        witness.set_target(self.start_user_balance, target.start_user_balance);
-        witness.set_target(self.start_user_event_index, target.start_user_event_index);
+        witness.set_target(self.start_user_balance, target.start_user_balance)?;
+        witness.set_target(self.start_user_event_index, target.start_user_event_index)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -266,8 +266,8 @@ impl<F: RichField> WitnessValueFor<DapenCFCUserTransactionCallStartContextGadget
         &self,
         witness: &mut impl Witness<F>,
         target: &DapenCFCUserTransactionCallStartContextGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -278,8 +278,8 @@ impl<F: RichField> WitnessValueFor<DapenCFCUserTransactionCallStartContextGadget
         &self,
         witness: &mut impl Witness<F>,
         target: &DapenCFCUserTransactionCallStartContextGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -323,14 +323,14 @@ impl DapenCFCUserTransactionEndContextGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &DapenCFCUserTransactionEndContext<F>,
-    ) {
-        witness.set_hash_target(self.end_contract_state_tree_root, target.end_contract_state_tree_root.0);
-        witness.set_hash_target(self.end_deferred_tx_debt_tree_root, target.end_deferred_tx_debt_tree_root.0);
+    ) -> anyhow::Result<()> {
+        witness.set_hash_target(self.end_contract_state_tree_root, target.end_contract_state_tree_root.0)?;
+        witness.set_hash_target(self.end_deferred_tx_debt_tree_root, target.end_deferred_tx_debt_tree_root.0)?;
 
-        witness.set_hash_target(self.outputs_hash, target.outputs_hash.0);
-        witness.set_target(self.outputs_length, target.outputs_length);
-        witness.set_target(self.total_events_emitted, target.total_events_emitted);
-        witness.set_target(self.total_balance_spent, target.total_balance_spent);
+        witness.set_hash_target(self.outputs_hash, target.outputs_hash.0)?;
+        witness.set_target(self.outputs_length, target.outputs_length)?;
+        witness.set_target(self.total_events_emitted, target.total_events_emitted)?;
+        witness.set_target(self.total_balance_spent, target.total_balance_spent)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -429,8 +429,8 @@ impl<F: RichField> WitnessValueFor<DapenCFCUserTransactionEndContextGadget, F, t
         &self,
         witness: &mut impl Witness<F>,
         target: &DapenCFCUserTransactionEndContextGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -441,8 +441,8 @@ impl<F: RichField> WitnessValueFor<DapenCFCUserTransactionEndContextGadget, F, f
         &self,
         witness: &mut impl Witness<F>,
         target: &DapenCFCUserTransactionEndContextGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -491,10 +491,10 @@ impl DapenCFCUserTransactionInputContextGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &DapenCFCUserTransactionInputContext<F>,
-    ) {
-        self.proving_session_start_ctx.set_witness(witness, &target.proving_session_start_ctx);
-        self.transaction_call_start_ctx.set_witness(witness, &target.transaction_call_start_ctx);
-        self.transaction_end_ctx.set_witness(witness, &target.transaction_end_ctx);
+    ) -> anyhow::Result<()> {
+        self.proving_session_start_ctx.set_witness(witness, &target.proving_session_start_ctx)?;
+        self.transaction_call_start_ctx.set_witness(witness, &target.transaction_call_start_ctx)?;
+        self.transaction_end_ctx.set_witness(witness, &target.transaction_end_ctx)
 
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
@@ -535,8 +535,8 @@ impl<F: RichField> WitnessValueFor<DapenCFCUserTransactionInputContextGadget, F,
         &self,
         witness: &mut impl Witness<F>,
         target: &DapenCFCUserTransactionInputContextGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -547,8 +547,8 @@ impl<F: RichField> WitnessValueFor<DapenCFCUserTransactionInputContextGadget, F,
         &self,
         witness: &mut impl Witness<F>,
         target: &DapenCFCUserTransactionInputContextGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -580,9 +580,9 @@ impl UPSInspectDapenCFCUserTransactionInputContextGadget {
         witness: &mut impl Witness<F>,
         transaction_call_start_ctx: &DapenCFCUserTransactionCallStartContext<F>,
         transaction_end_ctx: &DapenCFCUserTransactionEndContext<F>,
-    ) {
-        self.transaction_call_start_ctx.set_witness(witness, &transaction_call_start_ctx);
-        self.transaction_end_ctx.set_witness(witness, &transaction_end_ctx);
+    ) -> anyhow::Result<()> {
+        self.transaction_call_start_ctx.set_witness(witness, &transaction_call_start_ctx)?;
+        self.transaction_end_ctx.set_witness(witness, &transaction_end_ctx)
 
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
@@ -614,12 +614,12 @@ impl<F: RichField> WitnessValueFor<UPSInspectDapenCFCUserTransactionInputContext
         &self,
         witness: &mut impl Witness<F>,
         target: &UPSInspectDapenCFCUserTransactionInputContextGadget,
-    ) {
+    ) -> anyhow::Result<()> {
         target.set_witness_params(
             witness,
             &self.transaction_call_start_ctx,
             &self.transaction_end_ctx
-        );
+        )
     }
 }
 
@@ -630,11 +630,11 @@ impl<F: RichField> WitnessValueFor<UPSInspectDapenCFCUserTransactionInputContext
         &self,
         witness: &mut impl Witness<F>,
         target: &UPSInspectDapenCFCUserTransactionInputContextGadget,
-    ) {
+    ) -> anyhow::Result<()> {
         target.set_witness_params(
             witness,
             &self.transaction_call_start_ctx,
             &self.transaction_end_ctx
-        );
+        )
     }
 }

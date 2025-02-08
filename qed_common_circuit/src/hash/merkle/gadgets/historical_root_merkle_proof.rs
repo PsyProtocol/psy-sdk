@@ -147,14 +147,15 @@ impl HistoricalRootMerkleProofGadget {
         index: F,
         value: QHashOut<F>,
         siblings: &[QHashOut<F>],
-    ) {
-        witness.set_target(self.index, index);
+    )  -> anyhow::Result<()> {
+        witness.set_target(self.index, index)?;
 
-        witness.set_hash_target(self.current_value, value.0);
+        witness.set_hash_target(self.current_value, value.0)?;
 
         for (i, sibling) in self.siblings.iter().enumerate() {
-            witness.set_hash_target(*sibling, siblings[i].0);
+            witness.set_hash_target(*sibling, siblings[i].0)?;
         }
+        Ok(())
     }
     pub fn set_witness<F: RichField>(
         &self,
@@ -162,20 +163,20 @@ impl HistoricalRootMerkleProofGadget {
         index: F,
         value: QHashOut<F>,
         siblings: &[QHashOut<F>],
-    ) {
-        self.set_witness_generic(witness, index, value, siblings);
+    )  -> anyhow::Result<()>{
+        self.set_witness_generic(witness, index, value, siblings)
     }
     pub fn set_witness_proof_core<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         proof: &MerkleProofCore<QHashOut<F>>,
-    ) {
+    )  -> anyhow::Result<()> {
         self.set_witness_generic::<W, F>(
             witness,
             F::from_noncanonical_u64(proof.index),
             proof.value,
             &proof.siblings,
-        );
+        )
     }
 }
 
@@ -224,7 +225,7 @@ mod tests {
         builder.register_public_inputs(&historical_gadget.current_root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        historical_gadget.set_witness_proof_core(&mut pw, mp);
+        historical_gadget.set_witness_proof_core(&mut pw, mp).unwrap();
 
         let proof = data.prove(pw).unwrap();
         assert_eq!(proof.public_inputs[0..4], expected_historical_root.0.elements, "expected_historical_root does not match proof output");

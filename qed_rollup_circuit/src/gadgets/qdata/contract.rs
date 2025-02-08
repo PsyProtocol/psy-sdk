@@ -10,10 +10,10 @@ pub struct QEDContractLeafGadget {
 }
 
 impl QEDContractLeafGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDContractLeaf<F>) {
-        witness.set_hash_target(self.deployer, target.deployer.0);
-        witness.set_hash_target(self.function_tree_root, target.function_tree_root.0);
-        witness.set_target(self.state_tree_height, target.state_tree_height);
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDContractLeaf<F>) -> anyhow::Result<()> {
+        witness.set_hash_target(self.deployer, target.deployer.0)?;
+        witness.set_hash_target(self.function_tree_root, target.function_tree_root.0)?;
+        witness.set_target(self.state_tree_height, target.state_tree_height)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
@@ -86,13 +86,13 @@ impl FromTargets for QEDContractLeafGadget {
 
 
 impl<F: RichField> WitnessValueFor<QEDContractLeafGadget, F, true> for QEDContractLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractLeafGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractLeafGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<QEDContractLeafGadget, F, false> for QEDContractLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractLeafGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractLeafGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }

@@ -13,7 +13,7 @@ use plonky2::{
     },
 };
 use qed_common_circuit::{
-    builder::hash::core::CircuitBuilderHashCore, circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager}, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, proof_minifier::pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::manager::simple::simple::SimpleQTreeRecursionManager
+    builder::hash::core::CircuitBuilderHashCore, circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager}, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, proof_minifier::pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::manager::portable::{circuits::PortableQTreeRecursionCircuits, core::PortableQTreeRecursionManager},
 };
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use qed_crypto::{
@@ -65,7 +65,7 @@ where
     ) -> ProofWithPublicInputs<C::F, C, D> {
         let mut witness = PartialWitness::new();
         self.mp_gadget
-            .set_witness_core_proof_q(&mut witness, merkle_proof);
+            .set_witness_core_proof_q(&mut witness, merkle_proof).unwrap();
 
         self.base_circuit_data.prove(witness).unwrap()
     }
@@ -88,19 +88,21 @@ fn run_prove_agg_example_2() -> anyhow::Result<()> {
 
 
 
-
-    let mut recursion_mgr = SimpleQTreeRecursionManager::new(
+    let circuits = PortableQTreeRecursionCircuits::new(
         proof_tree_height,
         1337,
         wallet.circuit.get_verifier_config_ref().constants_sigmas_cap.height(),
         wallet.circuit.get_common_circuit_data_ref(),
+    );
+    let mut recursion_mgr = PortableQTreeRecursionManager::new(
+        proof_tree_height,
     );
     timer.lap("created SimpleQTreeRecursionManager");
     let start_proof_tree_root = recursion_mgr.get_proof_tree_root();
 
     timer.lap("start: printing_recursion_mgr_common_data");
     println!("\n\n\nleaf_circuit_common_data:\n\n{:?}\n\n\n",wallet.circuit.get_common_circuit_data_ref());
-    recursion_mgr.circuit_set.print_common_data();
+    circuits.circuit_set.print_common_data();
     timer.lap("end: printing_recursion_mgr_common_data");
     let input_leaf_items = (0..6)
         .map(|_| {
@@ -122,7 +124,7 @@ fn run_prove_agg_example_2() -> anyhow::Result<()> {
     recursion_mgr.prove_one_step_simple_serial();
     recursion_mgr.prove_one_step_simple_serial();
     recursion_mgr.prove_one_step_simple_serial();*/
-    recursion_mgr.finalize_tree()?;
+    recursion_mgr.finalize_tree(&circuits)?;
     timer.lap("finalized tree");
     println!(
         "recursion_mgr.leaf_proofs.len() = {}",
@@ -173,22 +175,25 @@ fn run_prove_agg_example_1() -> anyhow::Result<()> {
     }
     timer.lap("set leaves in tree");
 
-    let mut recursion_mgr = SimpleQTreeRecursionManager::new(
+    let circuits = PortableQTreeRecursionCircuits::new(
         proof_tree_height,
-        1337,
+        1337, 
         ex_leaf_circuit
-            .base_circuit_data
-            .verifier_only
-            .constants_sigmas_cap
-            .height(),
-        &ex_leaf_circuit.base_circuit_data.common,
+        .base_circuit_data
+        .verifier_only
+        .constants_sigmas_cap
+        .height(),
+    &ex_leaf_circuit.base_circuit_data.common,
+    );
+    let mut recursion_mgr = PortableQTreeRecursionManager::new(
+        proof_tree_height,
     );
     timer.lap("created SimpleQTreeRecursionManager");
     let start_proof_tree_root = recursion_mgr.get_proof_tree_root();
 
     timer.lap("start: printing_recursion_mgr_common_data");
     println!("\n\n\nleaf_circuit_common_data:\n\n{:?}\n\n\n",&ex_leaf_circuit.base_circuit_data.common);
-    recursion_mgr.circuit_set.print_common_data();
+    circuits.circuit_set.print_common_data();
     timer.lap("end: printing_recursion_mgr_common_data");
     //recursion_mgr.circuit_set.print_common_data();
     let input_leaf_items = (0..6)
@@ -211,7 +216,7 @@ fn run_prove_agg_example_1() -> anyhow::Result<()> {
     recursion_mgr.prove_one_step_simple_serial();
     recursion_mgr.prove_one_step_simple_serial();
     recursion_mgr.prove_one_step_simple_serial();*/
-    recursion_mgr.finalize_tree()?;
+    recursion_mgr.finalize_tree(&circuits)?;
     timer.lap("finalized tree");
     println!(
         "recursion_mgr.leaf_proofs.len() = {}",

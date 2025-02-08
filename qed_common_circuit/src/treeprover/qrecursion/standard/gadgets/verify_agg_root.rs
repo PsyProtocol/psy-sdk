@@ -67,10 +67,10 @@ impl<const D: usize> VerifyAggRootGadget<D> {
         witness: &mut impl Witness<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
         //verifier_data: &VerifierOnlyCircuitData<C, D>,
-    ) where
+    ) -> anyhow::Result<()> where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
 
-        witness.set_proof_with_pis_target(&self.proof_target, &proof);
+        witness.set_proof_with_pis_target(&self.proof_target, &proof)
         //witness.set_verifier_data_target(&self.verifier_data, &verifier_data);
     }
 }

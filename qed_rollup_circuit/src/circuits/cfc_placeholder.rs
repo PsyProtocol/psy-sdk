@@ -116,7 +116,7 @@ where
             "insufficient or too many delta merkle proofs provided as a witness to the placeholder circuit"
         );
         self.delta_merkle_proofs.iter().zip(delta_merkle_proofs.iter()).for_each(|(gadget, proof)|{
-            gadget.set_witness_core_proof_q(&mut pw_base, proof);
+            gadget.set_witness_core_proof_q(&mut pw_base, proof).unwrap();
         });
 
         self.base_circuit_data.prove(pw_base).unwrap()

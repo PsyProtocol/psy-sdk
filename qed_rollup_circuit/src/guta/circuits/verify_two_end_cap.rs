@@ -107,7 +107,7 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
-        pw.set_hash_target(self.guta_circuit_whitelist_root_hash, input.guta_circuit_whitelist.0);
+        pw.set_hash_target(self.guta_circuit_whitelist_root_hash, input.guta_circuit_whitelist.0)?;
 
         self.a_end_cap_gadget.set_witness(
             &mut pw,
@@ -116,7 +116,7 @@ where
             &input.a_end_cap.checkpoint_historical_merkle_proof,
             child_a_proof,
             end_cap_verifier_data
-        );
+        )?;
         self.b_end_cap_gadget.set_witness(
             &mut pw,
             &input.get_end_result_b(),
@@ -124,12 +124,12 @@ where
             &input.b_end_cap.checkpoint_historical_merkle_proof,
             child_b_proof,
             end_cap_verifier_data
-        );
+        )?;
 
         self.nca_state_transition_gadget.set_witness_partial(
             &mut pw, 
             &input.nca_proof
-        );
+        )?;
 
         let mut dbgt = DebugTimer::new("prove end cap two");
         dbgt.lap("start");

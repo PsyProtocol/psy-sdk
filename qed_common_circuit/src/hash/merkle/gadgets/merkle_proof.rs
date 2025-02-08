@@ -208,27 +208,28 @@ impl MerkleProofGadget {
         index: F,
         value: QHashOut<F>,
         siblings: &[QHashOut<F>],
-    ) {
+    ) -> anyhow::Result<()> {
         if !self
             .option_flags
             .contains(MerkleProofGadgetOptionFlags::index)
         {
-            witness.set_target(self.index, index);
+            witness.set_target(self.index, index)?;
         }
         if !self
             .option_flags
             .contains(MerkleProofGadgetOptionFlags::value)
         {
-            witness.set_hash_target(self.value, value.0);
+            witness.set_hash_target(self.value, value.0)?;
         }
         if !self
             .option_flags
             .contains(MerkleProofGadgetOptionFlags::siblings)
         {
             for (i, sibling) in self.siblings.iter().enumerate() {
-                witness.set_hash_target(*sibling, siblings[i].0);
+                witness.set_hash_target(*sibling, siblings[i].0)?;
             }
         }
+        Ok(())
     }
     pub fn set_witness<F: RichField>(
         &self,
@@ -236,46 +237,46 @@ impl MerkleProofGadget {
         index: F,
         value: QHashOut<F>,
         siblings: &[QHashOut<F>],
-    ) {
-        self.set_witness_generic(witness, index, value, siblings);
+    ) -> anyhow::Result<()> {
+        self.set_witness_generic(witness, index, value, siblings)
     }
     pub fn set_witness_proof<F: RichField>(
         &self,
         witness: &mut PartialWitness<F>,
         input: &MerkleProof<F>,
-    ) {
-        self.set_witness(witness, input.index, input.value, &input.siblings);
+    ) -> anyhow::Result<()> {
+        self.set_witness(witness, input.index, input.value, &input.siblings)
     }
     pub fn set_witness_base_proof<F: RichField>(
         &self,
         witness: &mut PartialWitness<F>,
         input: &MerkleProofBase<F>,
-    ) {
-        self.set_witness(witness, input.index, input.value, &input.siblings);
+    ) -> anyhow::Result<()> {
+        self.set_witness(witness, input.index, input.value, &input.siblings)
     }
     pub fn set_witness_core_proof_q_generic<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         input: &MerkleProofCore<QHashOut<F>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness_generic(
             witness,
             F::from_noncanonical_u64(input.index),
             input.value,
             &input.siblings,
-        );
+        )
     }
     pub fn set_witness_core_proof_q<F: RichField>(
         &self,
         witness: &mut PartialWitness<F>,
         input: &MerkleProofCore<QHashOut<F>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness(
             witness,
             F::from_noncanonical_u64(input.index),
             input.value,
             &input.siblings,
-        );
+        )
     }
 }
 
@@ -1189,7 +1190,7 @@ mod tests {
         builder.register_public_inputs(&mp_gadget.root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        mp_gadget.set_witness_proof(&mut pw, mp);
+        mp_gadget.set_witness_proof(&mut pw, mp).unwrap();
         let proof = data.prove(pw).unwrap();
         let pub_inputs = proof.public_inputs.clone();
         assert_eq!(pub_inputs[0..4], mp.root.0.elements);
@@ -1214,7 +1215,7 @@ mod tests {
         builder.register_public_inputs(&mp_gadget.root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        mp_gadget.set_witness_proof(&mut pw, mp);
+        mp_gadget.set_witness_proof(&mut pw, mp).unwrap();
         let proof = data.prove(pw).unwrap();
         let pub_inputs = proof.public_inputs.clone();
         assert_eq!(pub_inputs[0..4], mp.root.0.elements);
@@ -1241,7 +1242,7 @@ mod tests {
         builder.register_public_inputs(&mp_gadget.root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        mp_gadget.set_witness_proof(&mut pw, mp);
+        mp_gadget.set_witness_proof(&mut pw, mp).unwrap();
         let proof = data.prove(pw).unwrap();
         let pub_inputs = proof.public_inputs.clone();
         assert_eq!(pub_inputs[0..4], mp.root.0.elements);
@@ -1268,7 +1269,7 @@ mod tests {
         builder.register_public_inputs(&mp_gadget.root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        mp_gadget.set_witness_proof(&mut pw, mp);
+        mp_gadget.set_witness_proof(&mut pw, mp).unwrap();
         let proof = data.prove(pw).unwrap();
         let pub_inputs = proof.public_inputs.clone();
         assert_eq!(pub_inputs[0..4], mp.root.0.elements);

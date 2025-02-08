@@ -188,7 +188,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
             .collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()> {
         let num_input_limbs = self.gate.num_input_limbs;
         for i in 0..num_input_limbs {
             let sum_value = witness
@@ -207,9 +207,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
                 .collect::<Vec<_>>();
 
             for (b, b_value) in limbs.zip(limbs_value) {
-                out_buffer.set_target(b, b_value);
+                out_buffer.set_target(b, b_value)?;
             }
         }
+        anyhow::Ok(())
     }
 
     fn id(&self) -> String {

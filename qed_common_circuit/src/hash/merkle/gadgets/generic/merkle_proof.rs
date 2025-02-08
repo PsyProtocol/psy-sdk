@@ -168,12 +168,13 @@ impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
         index: F,
         value: &HashValue,
         siblings: &[HashValue],
-    ) {
-        witness.set_target(self.index, index);
-        value.set_for_witness(witness, &self.value);
-        siblings.iter().enumerate().for_each(|(i, sibling)| {
-            sibling.set_for_witness(witness, &self.siblings[i]);
-        });
+    ) -> anyhow::Result<()>  {
+        witness.set_target(self.index, index)?;
+        value.set_for_witness(witness, &self.value)?;
+        for (i, sibling) in siblings.iter().enumerate() {
+            sibling.set_for_witness(witness, &self.siblings[i])?;
+        }
+        Ok(())
     }
     pub fn set_witness_le<F: QRichField, HashValue: WitnessValueFor<H, F, false>>(
         &self,
@@ -181,7 +182,7 @@ impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
         index: F,
         value: &HashValue,
         siblings: &[HashValue],
-    ) {
+    )  -> anyhow::Result<()> {
         self.set_witness(witness, index, value, siblings)
     }
     pub fn set_witness_be<F: QRichField, HashValue: WitnessValueFor<H, F, false>>(
@@ -190,7 +191,7 @@ impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
         index: F,
         value: &HashValue,
         siblings: &[HashValue],
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness(witness, index, value, siblings)
     }
 }

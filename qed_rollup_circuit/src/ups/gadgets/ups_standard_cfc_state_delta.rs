@@ -332,37 +332,37 @@ impl UPSCFCStandardStateDeltaGadget {
         &self, 
         witness: &mut impl Witness<F>, 
         input: &UPSCFCStandardStateDeltaInput<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.cfc_transaction_input_context.set_witness_params(
             witness,
             &input.cfc_transaction_input_context.transaction_call_start_ctx,
             &input.cfc_transaction_input_context.transaction_end_ctx,
-        );
+        )?;
         self.user_contract_tree_update_proof.set_witness_core_proof_q(
             witness, 
             &input.user_contract_tree_update_proof,
-        );
+        )?;
         self.deferred_tx_debt_pivot_proof.set_witness_proof_core(
             witness, 
             &input.deferred_tx_debt_pivot_proof,
-        );
+        )?;
         self.inline_tx_debt_pivot_proof.set_witness_proof_core(
             witness, 
             &input.deferred_tx_debt_pivot_proof,
-        );
+        )
     }
 }
 
 
 impl<F: RichField> WitnessValueFor<UPSCFCStandardStateDeltaGadget, F, true> for UPSCFCStandardStateDeltaInput<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSCFCStandardStateDeltaGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSCFCStandardStateDeltaGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<UPSCFCStandardStateDeltaGadget, F, false> for UPSCFCStandardStateDeltaInput<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSCFCStandardStateDeltaGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSCFCStandardStateDeltaGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 

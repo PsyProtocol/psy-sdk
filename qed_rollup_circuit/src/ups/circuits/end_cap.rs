@@ -209,14 +209,14 @@ where
         let mut pw = PartialWitness::<C::F>::new();
 
         self.end_cap_from_proof_tree_gadget
-            .set_witness(&mut pw, end_cap_from_proof_tree_input);
+            .set_witness(&mut pw, end_cap_from_proof_tree_input)?;
         self.verify_proof_tree_root_gadget.set_witness(
             &mut pw,
             agg_whitelist_merkle_proof,
             agg_proof_header,
             agg_root_proof,
             agg_root_verifier_data,
-        );
+        )?;
 
         self.base_circuit_data.prove(pw)
     }

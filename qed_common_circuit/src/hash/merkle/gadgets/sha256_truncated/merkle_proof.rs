@@ -58,12 +58,13 @@ impl MerkleProofTruncatedSha256Gadget {
         index: u64,
         value: &[u8; 24],
         siblings: &[[u8; 24]],
-    ) {
-        witness.set_hash192_target(&self.value, value);
-        witness.set_target(self.index, F::from_noncanonical_u64(index));
+    ) -> anyhow::Result<()> {
+        witness.set_hash192_target(&self.value, value)?;
+        witness.set_target(self.index, F::from_noncanonical_u64(index))?;
         for (i, sibling) in self.siblings.iter().enumerate() {
-            witness.set_hash192_target(sibling, &siblings[i]);
+            witness.set_hash192_target(sibling, &siblings[i])?;
         }
+        Ok(())
     }
 }
 pub fn compute_merkle_root_from_leaves_sha256_192<F: QRichField + Extendable<D>, const D: usize>(
@@ -293,8 +294,8 @@ mod tests {
             );
 
             let mut pw = PartialWitness::new();
-            merkle_proof_gadget.set_witness_from_proof(&mut pw, &proof);
-            pw.set_hash192_target(&expected_root_target, &proof.root.0);
+            merkle_proof_gadget.set_witness_from_proof(&mut pw, &proof).unwrap();
+            pw.set_hash192_target(&expected_root_target, &proof.root.0).unwrap();
 
             let start_time = std::time::Instant::now();
 

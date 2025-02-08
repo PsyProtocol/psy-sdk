@@ -149,7 +149,7 @@ where
             agg_proof_header,
             agg_root_proof,
             agg_root_verifier_data,
-        );
+        )?;
 
         self.base_circuit_data.prove(pw)
     }

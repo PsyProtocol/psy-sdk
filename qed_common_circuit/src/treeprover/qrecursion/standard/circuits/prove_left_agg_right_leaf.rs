@@ -106,7 +106,7 @@ where
         right_insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<C::F>>,
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
-    ) -> ProofWithPublicInputs<C::F, C, D> {
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         
 
@@ -116,7 +116,7 @@ where
             left_agg_proof_header,
             left_proof,
             left_verifier_data,
-        );
+        )?;
 
 
         self.right_leaf_gadget.set_witness(
@@ -124,9 +124,9 @@ where
             right_insert_leaf_proof,
             right_proof,
             right_verifier_data
-        );
+        )?;
         
-        self.circuit_data.prove(pw).unwrap()
+        self.circuit_data.prove(pw)
     }
 }
 

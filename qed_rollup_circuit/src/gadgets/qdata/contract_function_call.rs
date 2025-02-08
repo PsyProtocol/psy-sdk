@@ -57,11 +57,11 @@ impl DPNProvingSessionCompactMethodCallGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &DPNProvingSessionCompactMethodCall<F>,
-    ) {
-        witness.set_target(self.contract_id, target.contract_id);
-        witness.set_target(self.method_id, target.method_id);
-        witness.set_target(self.inputs_length, target.inputs_length);
-        witness.set_hash_target(self.inputs_hash, target.inputs_hash.0);
+    ) -> anyhow::Result<()> {
+        witness.set_target(self.contract_id, target.contract_id)?;
+        witness.set_target(self.method_id, target.method_id)?;
+        witness.set_target(self.inputs_length, target.inputs_length)?;
+        witness.set_hash_target(self.inputs_hash, target.inputs_hash.0)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -133,8 +133,8 @@ impl<F: RichField> WitnessValueFor<DPNProvingSessionCompactMethodCallGadget, F, 
         &self,
         witness: &mut impl Witness<F>,
         target: &DPNProvingSessionCompactMethodCallGadget,
-    ) {
-        target.set_witness(witness, self);
+    )-> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -145,8 +145,8 @@ impl<F: RichField> WitnessValueFor<DPNProvingSessionCompactMethodCallGadget, F, 
         &self,
         witness: &mut impl Witness<F>,
         target: &DPNProvingSessionCompactMethodCallGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -184,10 +184,10 @@ impl DPNProvingSessionSimpleMethodCallGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &DPNProvingSessionSimpleMethodCall<F>,
-    ) {
-        witness.set_target(self.contract_id, target.contract_id);
-        witness.set_target(self.method_id, target.method_id);
-        witness.set_target_arr(&self.inputs, &target.inputs);
+    ) -> anyhow::Result<()> {
+        witness.set_target(self.contract_id, target.contract_id)?;
+        witness.set_target(self.method_id, target.method_id)?;
+        witness.set_target_arr(&self.inputs, &target.inputs)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -259,8 +259,8 @@ impl<F: RichField> WitnessValueFor<DPNProvingSessionSimpleMethodCallGadget, F, t
         &self,
         witness: &mut impl Witness<F>,
         target: &DPNProvingSessionSimpleMethodCallGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -271,7 +271,7 @@ impl<F: RichField> WitnessValueFor<DPNProvingSessionSimpleMethodCallGadget, F, f
         &self,
         witness: &mut impl Witness<F>,
         target: &DPNProvingSessionSimpleMethodCallGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }

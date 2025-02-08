@@ -97,17 +97,17 @@ impl<const D: usize> VerifyAggProofGadget<D> {
         agg_proof_header: &QRecursionAggStandardHeader<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
-    ) where
+    ) -> anyhow::Result<()> where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
         self.agg_whitelist_merkle_proof.set_witness_generic(
             witness,
             F::from_noncanonical_u64(agg_whitelist_merkle_proof.index),
             agg_whitelist_merkle_proof.value,
             &agg_whitelist_merkle_proof.siblings,
-        );
-        self.agg_proof_header_gadget.set_witness(witness, agg_proof_header);
+        )?;
+        self.agg_proof_header_gadget.set_witness(witness, agg_proof_header)?;
 
-        witness.set_proof_with_pis_target(&self.proof_target, &proof);
-        witness.set_verifier_data_target(&self.verifier_data, &verifier_data);
+        witness.set_proof_with_pis_target(&self.proof_target, &proof)?;
+        witness.set_verifier_data_target(&self.verifier_data, &verifier_data)
     }
 }

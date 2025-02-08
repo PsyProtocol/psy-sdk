@@ -15,16 +15,16 @@ pub struct QEDUserLeafGadget {
 }
 
 impl QEDUserLeafGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDUserLeaf<F>) {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDUserLeaf<F>) -> anyhow::Result<()> {
 
-        witness.set_hash_target(self.public_key, target.public_key.0);
-        witness.set_hash_target(self.user_state_tree_root, target.user_state_tree_root.0);
+        witness.set_hash_target(self.public_key, target.public_key.0)?;
+        witness.set_hash_target(self.user_state_tree_root, target.user_state_tree_root.0)?;
 
-        witness.set_target(self.balance, target.balance);
-        witness.set_target(self.nonce, target.nonce);
-        witness.set_target(self.last_checkpoint_id, target.last_checkpoint_id);
-        witness.set_target(self.event_index, target.event_index);
-        witness.set_target(self.user_id, target.user_id);
+        witness.set_target(self.balance, target.balance)?;
+        witness.set_target(self.nonce, target.nonce)?;
+        witness.set_target(self.last_checkpoint_id, target.last_checkpoint_id)?;
+        witness.set_target(self.event_index, target.event_index)?;
+        witness.set_target(self.user_id, target.user_id)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
@@ -203,13 +203,13 @@ impl FromTargets for QEDUserLeafGadget {
 
 
 impl<F: RichField> WitnessValueFor<QEDUserLeafGadget, F, true> for QEDUserLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserLeafGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserLeafGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<QEDUserLeafGadget, F, false> for QEDUserLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserLeafGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserLeafGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }

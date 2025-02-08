@@ -102,35 +102,35 @@ impl UPSEndCapFromProofTreeGadget {
         user_public_key_param: QHashOut<F>,
         nonce: F,
         slots_modified: F,
-    ) {
+    ) -> anyhow::Result<()>  {
 
         witness.set_hash_target(
             self.user_public_key_param,
             user_public_key_param.0,
-        );
+        )?;
         witness.set_target(
             self.nonce,
             nonce,
-        );
+        )?;
 
         self.verify_previous_ups_step_gadget.set_witness(
             witness,
             verify_previous_ups_step_input,
-        );
+        )?;
         self.verify_zk_signature_proof_gadget.set_witness(
             witness,
             verify_zk_signature_proof_input,
-        );
+        )?;
         witness.set_target(
             self.slots_modified,
             slots_modified,
-        );
+        )
     }
     pub fn set_witness<F: RichField>(
         &self,
         witness: &mut impl Witness<F>,
         target: &UPSEndCapFromProofTreeGadgetInput<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness_params(
             witness, 
             &target.verify_previous_ups_step_input,
@@ -138,8 +138,7 @@ impl UPSEndCapFromProofTreeGadget {
             target.user_public_key_param,
             target.nonce,
             target.slots_modified,
-        );
-
+        )
     }
 
 }

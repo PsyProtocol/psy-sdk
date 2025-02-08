@@ -25,7 +25,7 @@ pub struct ZKSignatureCircuitInput<F: RichField> {
 }
 
 #[derive(Debug)]
-pub struct ZKSignatureCircuit<C: GenericConfig<D> + 'static, const D: usize>
+pub struct ZKSignatureCircuit<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {

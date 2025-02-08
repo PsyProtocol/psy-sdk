@@ -43,14 +43,14 @@ impl QRecursionAggStandardHeaderGadget {
         &self,
         witness: &mut W,
         transition: &QRecursionAggStandardHeader<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         witness.set_hash_target(
             self.state_transition_start,
             transition.state_transition_start.0,
-        );
-        witness.set_hash_target(self.state_transition_end, transition.state_transition_end.0);
+        )?;
+        witness.set_hash_target(self.state_transition_end, transition.state_transition_end.0)?;
 
-        witness.set_hash_target(self.agg_circuit_whitelist_root, transition.agg_circuit_whitelist_root.0);
+        witness.set_hash_target(self.agg_circuit_whitelist_root, transition.agg_circuit_whitelist_root.0)
     }
     pub fn set_witness_values<W: Witness<F>, F: RichField>(
         &self,
@@ -58,9 +58,9 @@ impl QRecursionAggStandardHeaderGadget {
         state_transition_start: QHashOut<F>,
         state_transition_end: QHashOut<F>,
         agg_circuit_whitelist_root: QHashOut<F>,
-    ) {
-        witness.set_hash_target(self.state_transition_start, state_transition_start.0);
-        witness.set_hash_target(self.state_transition_end, state_transition_end.0);
-        witness.set_hash_target(self.agg_circuit_whitelist_root, agg_circuit_whitelist_root.0);
+    ) -> anyhow::Result<()> {
+        witness.set_hash_target(self.state_transition_start, state_transition_start.0)?;
+        witness.set_hash_target(self.state_transition_end, state_transition_end.0)?;
+        witness.set_hash_target(self.agg_circuit_whitelist_root, agg_circuit_whitelist_root.0)
     }
 }

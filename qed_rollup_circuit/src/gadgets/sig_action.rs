@@ -80,12 +80,12 @@ impl SimpleQEDSigAction {
         &self,
         witness: &mut PartialWitness<F>,
         sig_action_hint: &QEDSigAction<F>,
-    ) {
-        witness.set_target(self.network_magic, sig_action_hint.network_magic);
-        witness.set_target(self.user, sig_action_hint.user);
-        witness.set_target(self.sig_action, sig_action_hint.sig_action);
-        witness.set_target(self.nonce, sig_action_hint.nonce);
-        witness.set_target_arr(&self.action_arguments, &sig_action_hint.action_arguments);
+    ) -> anyhow::Result<()> {
+        witness.set_target(self.network_magic, sig_action_hint.network_magic)?;
+        witness.set_target(self.user, sig_action_hint.user)?;
+        witness.set_target(self.sig_action, sig_action_hint.sig_action)?;
+        witness.set_target(self.nonce, sig_action_hint.nonce)?;
+        witness.set_target_arr(&self.action_arguments, &sig_action_hint.action_arguments)
     }
 }
 

@@ -52,7 +52,7 @@ where
         hash: QHashOut<C::F>,
     ) -> ProofWithPublicInputs<C::F, C, D> {
         let mut witness = PartialWitness::new();
-        witness.set_hash_target(self.input_hash, hash.0);
+        witness.set_hash_target(self.input_hash, hash.0).unwrap();
 
         self.circuit_data.prove(witness).unwrap()
     }
@@ -96,7 +96,7 @@ where
         hash: QHashOut<C::F>,
     ) -> ProofWithPublicInputs<C::F, C, D> {
         let mut witness = PartialWitness::new();
-        witness.set_hash_target(self.input_hash, hash.0);
+        witness.set_hash_target(self.input_hash, hash.0).unwrap();
 
         self.circuit_data.prove(witness).unwrap()
     }

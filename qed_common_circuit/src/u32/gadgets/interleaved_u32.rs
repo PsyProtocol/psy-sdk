@@ -464,8 +464,8 @@ mod tests {
 
             // test circuit
             let mut pw = PartialWitness::new();
-            pw.set_u32_target(target_input, input);
-            pw.set_u32_target(target_output, output);
+            pw.set_u32_target(target_input, input).unwrap();
+            pw.set_u32_target(target_output, output).unwrap();
 
             let proof = data.prove(pw).unwrap();
             assert!(data.verify(proof).is_ok());
@@ -497,8 +497,8 @@ mod tests {
 
                 // test circuit
                 let mut pw = PartialWitness::new();
-                pw.set_u32_target(target_input, input);
-                pw.set_u32_target(target_output, output);
+                pw.set_u32_target(target_input, input).unwrap();
+                pw.set_u32_target(target_output, output).unwrap();
 
                 let proof = data.prove(pw).unwrap();
                 assert!(data.verify(proof).is_ok());
@@ -531,8 +531,8 @@ mod tests {
 
                 // test circuit
                 let mut pw = PartialWitness::new();
-                pw.set_u32_target(target_input, input);
-                pw.set_u32_target(target_output, output);
+                pw.set_u32_target(target_input, input).unwrap();
+                pw.set_u32_target(target_output, output).unwrap();
 
                 let proof = data.prove(pw).unwrap();
                 assert!(data.verify(proof).is_ok());
@@ -565,8 +565,8 @@ mod tests {
 
                 // test circuit
                 let mut pw = PartialWitness::new();
-                pw.set_u32_target(target_input, input);
-                pw.set_u32_target(target_output, output);
+                pw.set_u32_target(target_input, input).unwrap();
+                pw.set_u32_target(target_output, output).unwrap();
 
                 let proof = data.prove(pw).unwrap();
                 assert!(data.verify(proof).is_ok());
@@ -605,9 +605,9 @@ mod tests {
 
             // test circuit
             let mut pw = PartialWitness::new();
-            pw.set_u32_target(target_input1, input1);
-            pw.set_u32_target(target_input2, input2);
-            pw.set_u32_target(target_output, output);
+            pw.set_u32_target(target_input1, input1).unwrap();
+            pw.set_u32_target(target_input2, input2).unwrap();
+            pw.set_u32_target(target_output, output).unwrap();
 
             let proof = data.prove(pw).unwrap();
             assert!(data.verify(proof).is_ok());
@@ -664,9 +664,9 @@ mod tests {
             // test circuit
             let mut pw = PartialWitness::new();
             for (i, item) in t.iter().enumerate() {
-                pw.set_u32_target(targets[i], *item);
+                pw.set_u32_target(targets[i], *item).unwrap();
             }
-            pw.set_u32_target(target_output, output);
+            pw.set_u32_target(target_output, output).unwrap();
 
             let proof = data.prove(pw).unwrap();
             assert!(data.verify(proof).is_ok());
@@ -704,9 +704,9 @@ mod tests {
 
             // test circuit
             let mut pw = PartialWitness::new();
-            pw.set_u32_target(target_input1, input1);
-            pw.set_u32_target(target_input2, input2);
-            pw.set_u32_target(target_output, output);
+            pw.set_u32_target(target_input1, input1).unwrap();
+            pw.set_u32_target(target_input2, input2).unwrap();
+            pw.set_u32_target(target_output, output).unwrap();
 
             let proof = data.prove(pw).unwrap();
             assert!(data.verify(proof).is_ok());
@@ -743,10 +743,10 @@ mod tests {
 
             // test circuit
             let mut pw = PartialWitness::new();
-            pw.set_u32_target(input[0], low as u32);
-            pw.set_u32_target(input[1], high as u32);
-            pw.set_u32_target(expected[0], new_low as u32);
-            pw.set_u32_target(expected[1], new_high as u32);
+            pw.set_u32_target(input[0], low as u32).unwrap();
+            pw.set_u32_target(input[1], high as u32).unwrap();
+            pw.set_u32_target(expected[0], new_low as u32).unwrap();
+            pw.set_u32_target(expected[1], new_high as u32).unwrap();
 
             let proof = data.prove(pw).unwrap();
             assert!(data.verify(proof).is_ok());
@@ -783,10 +783,10 @@ mod tests {
 
             // test circuit
             let mut pw = PartialWitness::new();
-            pw.set_u32_target(input[0], low as u32);
-            pw.set_u32_target(input[1], high as u32);
-            pw.set_u32_target(expected[0], new_low as u32);
-            pw.set_u32_target(expected[1], new_high as u32);
+            pw.set_u32_target(input[0], low as u32).unwrap();
+            pw.set_u32_target(input[1], high as u32).unwrap();
+            pw.set_u32_target(expected[0], new_low as u32).unwrap();
+            pw.set_u32_target(expected[1], new_high as u32).unwrap();
 
             let proof = data.prove(pw).unwrap();
             assert!(data.verify(proof).is_ok());

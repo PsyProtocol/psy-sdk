@@ -83,7 +83,7 @@ where
         end_cap_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
-        pw.set_hash_target(self.guta_circuit_whitelist_root_hash, input.guta_circuit_whitelist.0);
+        pw.set_hash_target(self.guta_circuit_whitelist_root_hash, input.guta_circuit_whitelist.0)?;
 
         self.a_end_cap_gadget.set_witness(
             &mut pw,
@@ -92,7 +92,7 @@ where
             &input.a_end_cap.checkpoint_historical_merkle_proof,
             child_a_proof,
             end_cap_verifier_data
-        );
+        )?;
 
         self.circuit_data.prove(pw)
     }

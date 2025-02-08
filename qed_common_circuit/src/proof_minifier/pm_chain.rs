@@ -15,14 +15,14 @@ use super::{pm_core::QEDProofMinifier, pm_custom::PMCircuitCustomizer};
 pub struct QEDProofMinifierChain<
     const D: usize,
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
+    C: GenericConfig<D, F = F>,
 > where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
 {
     pub minifiers: Vec<QEDProofMinifier<D, F, C>>,
 }
 
-impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>
+impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
     QEDProofMinifierChain<D, F, C>
 where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,

@@ -281,9 +281,9 @@ mod tests {
 
             // test circuit
             let mut pw = PartialWitness::new();
-            pw.set_hash192_target(&left_target, &left.0);
-            pw.set_hash192_target(&right_target, &right.0);
-            pw.set_hash192_target(&expected_output_target, &expected_output.0);
+            pw.set_hash192_target(&left_target, &left.0).unwrap();
+            pw.set_hash192_target(&right_target, &right.0).unwrap();
+            pw.set_hash192_target(&expected_output_target, &expected_output.0).unwrap();
             let start = Instant::now();
             let proof = data.prove(pw).unwrap();
             let end = start.elapsed();

@@ -94,13 +94,13 @@ impl VerifyPreviousUPSStepProofInProofTreePartialFromCurrentGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &VerifyPreviousUPSStepProofInProofTreePartialInput<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.proof_attestation_gadget
-            .set_witness(witness, &target.proof_attestation_witness);
+            .set_witness(witness, &target.proof_attestation_witness)?;
         self.previous_step_state
-            .set_witness(witness, &target.previous_step_state);
+            .set_witness(witness, &target.previous_step_state)?;
         self.ups_circuit_whitelist_merkle_proof
-            .set_witness_core_proof_q_generic(witness, &target.ups_circuit_whitelist_merkle_proof);
+            .set_witness_core_proof_q_generic(witness, &target.ups_circuit_whitelist_merkle_proof)
     }
 }
 
@@ -111,8 +111,8 @@ impl<F: RichField> WitnessValueFor<VerifyPreviousUPSStepProofInProofTreePartialF
         &self,
         witness: &mut impl Witness<F>,
         target: &VerifyPreviousUPSStepProofInProofTreePartialFromCurrentGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -123,7 +123,7 @@ impl<F: RichField> WitnessValueFor<VerifyPreviousUPSStepProofInProofTreePartialF
         &self,
         witness: &mut impl Witness<F>,
         target: &VerifyPreviousUPSStepProofInProofTreePartialFromCurrentGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }

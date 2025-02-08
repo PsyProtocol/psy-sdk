@@ -281,7 +281,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F,D> for U32I
         vec![local_target(self.gate.wire_ith_x(self.i))]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()> {
         let local_wire = |column| Wire {
             row: self.row,
             column,
@@ -303,13 +303,15 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F,D> for U32I
 
             // Fill in the wire value for this bit
             let bit_wire = local_wire(bit_wire_index);
-            out_buffer.set_wire(bit_wire, F::from_canonical_u64(bit));
+            out_buffer.set_wire(bit_wire, F::from_canonical_u64(bit))?;
 
             x_interleaved += bit * (1 << (2 * (num_bits - i - 1)));
         }
 
         let x_interleaved_wire = local_wire(self.gate.wire_ith_x_interleaved(self.i));
-        out_buffer.set_wire(x_interleaved_wire, F::from_canonical_u64(x_interleaved));
+        out_buffer.set_wire(x_interleaved_wire, F::from_canonical_u64(x_interleaved))?;
+
+        anyhow::Ok(())
     }
 
     fn id(&self) -> String {

@@ -35,7 +35,6 @@ use qed_data::{
         ups_standard_cfc_input::UPSCFCStandardStateDeltaInput,
     }
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
     config::store_config::{QEDHasher, UserContractTreeStore},

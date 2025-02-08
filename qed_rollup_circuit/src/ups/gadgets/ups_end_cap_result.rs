@@ -62,23 +62,23 @@ impl UPSEndCapResultCompactGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &UPSEndCapResultCompact<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         witness.set_hash_target(
             self.start_user_leaf_hash,
             target.start_user_leaf_hash.0,
-        );
+        )?;
         witness.set_hash_target(
             self.end_user_leaf_hash,
             target.end_user_leaf_hash.0,
-        );
+        )?;
         witness.set_hash_target(
             self.checkpoint_tree_root_hash,
             target.checkpoint_tree_root_hash.0,
-        );
+        )?;
         witness.set_target(
             self.user_id,
             target.user_id,
-        );
+        )
     }
 
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
@@ -113,13 +113,13 @@ impl AlgebraicHashableTarget for UPSEndCapResultCompactGadget {
     }
 }
 impl<F: RichField> WitnessValueFor<UPSEndCapResultCompactGadget, F, true> for UPSEndCapResultCompact<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSEndCapResultCompactGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSEndCapResultCompactGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<UPSEndCapResultCompactGadget, F, false> for UPSEndCapResultCompact<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSEndCapResultCompactGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSEndCapResultCompactGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }

@@ -111,8 +111,8 @@ where
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::new();
-        pw.set_hash_target(self.private_key, private_key.0);
-        pw.set_hash_target(self.sig_hash, sig_hash.0);
+        pw.set_hash_target(self.private_key, private_key.0)?;
+        pw.set_hash_target(self.sig_hash, sig_hash.0)?;
         let inner_proof = self.circuit_data.prove(pw)?;
         self.minifier_chain.prove(&inner_proof)
     }

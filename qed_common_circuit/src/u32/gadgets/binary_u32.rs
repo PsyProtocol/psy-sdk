@@ -148,8 +148,8 @@ mod tests {
 
             // test circuit
             let mut pw = PartialWitness::new();
-            pw.set_target(input, F::from_canonical_u32(n));
-            pw.set_target(expected, F::from_canonical_u32(res));
+            pw.set_target(input, F::from_canonical_u32(n)).unwrap();
+            pw.set_target(expected, F::from_canonical_u32(res)).unwrap();
 
             let proof = data.prove(pw).unwrap();
 

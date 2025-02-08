@@ -50,13 +50,14 @@ impl DeltaMerkleProofTruncatedSha256Gadget {
         old_value: &[u8; 24],
         new_value: &[u8; 24],
         siblings: &[[u8; 24]],
-    ) {
-        witness.set_hash192_target(&self.old_value, old_value);
-        witness.set_hash192_target(&self.new_value, new_value);
-        witness.set_target(self.index, F::from_noncanonical_u64(index));
+    )  -> anyhow::Result<()> {
+        witness.set_hash192_target(&self.old_value, old_value)?;
+        witness.set_hash192_target(&self.new_value, new_value)?;
+        witness.set_target(self.index, F::from_noncanonical_u64(index))?;
         for (i, sibling) in self.siblings.iter().enumerate() {
-            witness.set_hash192_target(sibling, &siblings[i]);
+            witness.set_hash192_target(sibling, &siblings[i])?;
         }
+        Ok(())
     }
 }
 #[cfg(test)]
@@ -265,9 +266,9 @@ mod tests {
             );
 
             let mut pw = PartialWitness::new();
-            delta_merkle_proof_gadget.set_witness_from_proof(&mut pw, &proof);
-            pw.set_hash192_target(&expected_old_root_target, &proof.old_root.0);
-            pw.set_hash192_target(&expected_new_root_target, &proof.new_root.0);
+            delta_merkle_proof_gadget.set_witness_from_proof(&mut pw, &proof).unwrap();
+            pw.set_hash192_target(&expected_old_root_target, &proof.old_root.0).unwrap();
+            pw.set_hash192_target(&expected_new_root_target, &proof.new_root.0).unwrap();
 
             let start_time = std::time::Instant::now();
 

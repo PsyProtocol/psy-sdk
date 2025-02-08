@@ -34,8 +34,8 @@ impl DeferredTransactionStackItemGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &DPNProvingSessionCompactMethodCall<F>,
-    ) {
-        self.call_data.set_witness(witness, target);
+    ) -> anyhow::Result<()> {
+        self.call_data.set_witness(witness, target)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -66,8 +66,8 @@ impl<F: RichField> WitnessValueFor<DeferredTransactionStackItemGadget, F, true>
         &self,
         witness: &mut impl Witness<F>,
         target: &DeferredTransactionStackItemGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -78,7 +78,7 @@ impl<F: RichField> WitnessValueFor<DeferredTransactionStackItemGadget, F, false>
         &self,
         witness: &mut impl Witness<F>,
         target: &DeferredTransactionStackItemGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }

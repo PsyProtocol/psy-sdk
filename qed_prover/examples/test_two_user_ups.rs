@@ -391,8 +391,8 @@ fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     Ok(fn_circuit_def)
 }
 
-fn test_prove_simple() -> anyhow::Result<()> {
-    let mut timer = DebugTimer::new("test_prove_simple");
+fn demo_user_proving_session() -> anyhow::Result<()> {
+    let mut timer = DebugTimer::new("demo_user_proving_session");
 
     timer.lap("start");
 
@@ -480,8 +480,8 @@ fn test_prove_simple() -> anyhow::Result<()> {
     let proof_store = SimpleProofStoreMemory::new();
     
     let mut api = SimpleAPI::<_,_,GoldilocksField,C,D>::new(proof_store, st, guta_circuits)?;
-    main_circuits.print_common_config();
-    api.guta_circuits.print_common_config();
+    //main_circuits.print_common_config();
+    //api.guta_circuits.print_common_config();
 
 
 
@@ -540,7 +540,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
             GoldilocksField::from_noncanonical_u64(1000)
         ]
     )?;
-    timer.lap("proved ups_cfc_standard_tx");
+    timer.lap("proved token.simple_mint_debug(amount: 1000)");
 
     
 
@@ -555,7 +555,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
             GoldilocksField::from_noncanonical_u64(100),
         ]
     )?;
-    timer.lap("proved ups_cfc_standard_tx");
+    timer.lap("proved token.simple_transfer(recipient: 2, amount: 100)");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
     let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
@@ -603,10 +603,10 @@ fn test_prove_simple() -> anyhow::Result<()> {
         &simple_mint_debug_circuit, 
         &simple_mint_debug_def,
         vec![
-            GoldilocksField::from_noncanonical_u64(1000)
+            GoldilocksField::from_noncanonical_u64(10000)
         ]
     )?;
-    timer.lap("proved ups_cfc_standard_tx");
+    timer.lap("proved token.simple_mint_debug(amount: 10000)");
 
     
 
@@ -617,11 +617,11 @@ fn test_prove_simple() -> anyhow::Result<()> {
         &simple_transfer_circuit, 
         &simple_transfer_def,
         vec![
-            GoldilocksField::from_noncanonical_u64(2),
-            GoldilocksField::from_noncanonical_u64(100),
+            GoldilocksField::from_noncanonical_u64(3),
+            GoldilocksField::from_noncanonical_u64(1337),
         ]
     )?;
-    timer.lap("proved ups_cfc_standard_tx");
+    timer.lap("proved token.simple_transfer(recipient: 3, amount: 1337)");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
     let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
@@ -661,7 +661,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("finished generating start witnesses");
     for p in pairs.into_iter() {
         let _proof = api.proof_start_dbg(p, main_circuits.ups_end_cap.get_verifier_config_ref())?;
-        timer.lap("proved GUTA verify two end cap");
+        timer.lap("Proved Recursive Global User Tree Aggregation");
 
     }
 
@@ -681,5 +681,5 @@ fn test_prove_simple() -> anyhow::Result<()> {
 }
 
 fn main() {
-    test_prove_simple().unwrap();
+    demo_user_proving_session().unwrap();
 }

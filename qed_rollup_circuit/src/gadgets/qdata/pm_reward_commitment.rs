@@ -10,12 +10,12 @@ pub struct PMRewardCommitmentGadget {
 }
 
 impl PMRewardCommitmentGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &PMRewardCommitment<F>) {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &PMRewardCommitment<F>) -> anyhow::Result<()> {
 
-        witness.set_target(self.commitment[0], target.commitment[0]);
-        witness.set_target(self.commitment[1], target.commitment[1]);
-        witness.set_target(self.commitment[2], target.commitment[2]);
-        witness.set_target(self.commitment[3], target.commitment[3]);
+        witness.set_target(self.commitment[0], target.commitment[0])?;
+        witness.set_target(self.commitment[1], target.commitment[1])?;
+        witness.set_target(self.commitment[2], target.commitment[2])?;
+        witness.set_target(self.commitment[3], target.commitment[3])
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
@@ -67,13 +67,13 @@ impl FromTargets for PMRewardCommitmentGadget {
 
 
 impl<F: RichField> WitnessValueFor<PMRewardCommitmentGadget, F, true> for PMRewardCommitment<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PMRewardCommitmentGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PMRewardCommitmentGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<PMRewardCommitmentGadget, F, false> for PMRewardCommitment<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PMRewardCommitmentGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PMRewardCommitmentGadget) -> anyhow::Result<()>  {
+        target.set_witness(witness, self)
     }
 }

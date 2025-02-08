@@ -22,7 +22,7 @@ use crate::{
 use super::{traits::qstandard::QStandardCircuit, zk_signature::ZKSignatureCircuit};
 
 #[derive(Debug)]
-pub struct ZKSignatureWrapperCircuit<C: GenericConfig<D> + 'static, const D: usize>
+pub struct ZKSignatureWrapperCircuit<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {
@@ -109,8 +109,8 @@ where
         verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::new();
-        pw.set_proof_with_pis_target(&self.proof_target, &proof);
-        pw.set_verifier_data_target(&self.verifier_data_target, &verifier_data);
+        pw.set_proof_with_pis_target(&self.proof_target, &proof)?;
+        pw.set_verifier_data_target(&self.verifier_data_target, &verifier_data)?;
         self.circuit_data.prove(pw)
     }
 }

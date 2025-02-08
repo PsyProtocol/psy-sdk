@@ -69,27 +69,27 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &QEDUserProvingSessionSignatureDataCompact<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         witness.set_hash_target(
             self.start_user_leaf_hash,
             target.start_user_leaf_hash.0,
-        );
+        )?;
         witness.set_hash_target(
             self.end_user_leaf_hash,
             target.end_user_leaf_hash.0,
-        );
+        )?;
         witness.set_hash_target(
             self.checkpoint_leaf_hash,
             target.checkpoint_leaf_hash.0,
-        );
+        )?;
         witness.set_hash_target(
             self.tx_stack_hash,
             target.tx_stack_hash.0,
-        );
+        )?;
         witness.set_target(
             self.tx_count,
             target.tx_count,
-        );
+        )
     }
 
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
@@ -156,13 +156,13 @@ impl AlgebraicHashableTarget for QEDUserProvingSessionSignatureDataCompactGadget
     }
 }
 impl<F: RichField> WitnessValueFor<QEDUserProvingSessionSignatureDataCompactGadget, F, true> for QEDUserProvingSessionSignatureDataCompact<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserProvingSessionSignatureDataCompactGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserProvingSessionSignatureDataCompactGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<QEDUserProvingSessionSignatureDataCompactGadget, F, false> for QEDUserProvingSessionSignatureDataCompact<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserProvingSessionSignatureDataCompactGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserProvingSessionSignatureDataCompactGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }

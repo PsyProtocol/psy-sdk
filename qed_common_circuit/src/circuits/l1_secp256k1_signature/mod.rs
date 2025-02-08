@@ -18,7 +18,7 @@ use crate::{
 use super::traits::qstandard::QStandardCircuit;
 
 #[derive(Debug)]
-pub struct L1Secp256K1SignatureCircuit<C: GenericConfig<D> + 'static, const D: usize>
+pub struct L1Secp256K1SignatureCircuit<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {
@@ -26,7 +26,7 @@ where
     pub base_circuit_data: CircuitData<C::F, C, D>,
     pub minifier_chain: QEDProofMinifierDynamicChain<D, C::F, C>,
 }
-impl<C: GenericConfig<D> + 'static, const D: usize> Clone for L1Secp256K1SignatureCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> Clone for L1Secp256K1SignatureCircuit<C, D>
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {
@@ -34,7 +34,7 @@ where
         Self::new()
     }
 }
-impl<C: GenericConfig<D> + 'static, const D: usize> L1Secp256K1SignatureCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> L1Secp256K1SignatureCircuit<C, D>
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {
@@ -75,7 +75,7 @@ where
             &prepared_signature.public_key,
             &prepared_signature.signature,
             prepared_signature.message,
-        );
+        )?;
         let base_proof = self.base_circuit_data.prove(pw)?;
         timer.lap("end prove base");
         timer.lap("start minifier");

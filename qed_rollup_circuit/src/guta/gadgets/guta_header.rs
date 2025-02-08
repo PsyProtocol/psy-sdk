@@ -40,17 +40,17 @@ impl GlobalUserTreeAggregatorHeaderGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &GlobalUserTreeAggregatorHeader<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         witness.set_hash_target(
             self.guta_circuit_whitelist, 
             target.guta_circuit_whitelist.0,
-        );
+        )?;
         witness.set_hash_target(
             self.checkpoint_tree_root, 
             target.checkpoint_tree_root.0,
-        );
-        self.state_transition.set_witness(witness, &target.state_transition);
-        self.stats.set_witness(witness, &target.stats);
+        )?;
+        self.state_transition.set_witness(witness, &target.state_transition)?;
+        self.stats.set_witness(witness, &target.stats)
     }
 
 

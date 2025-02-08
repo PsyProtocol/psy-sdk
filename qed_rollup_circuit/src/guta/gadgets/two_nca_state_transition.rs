@@ -106,32 +106,32 @@ impl TwoNCAStateTransitionGadget {
         child_b: &DeltaMerkleProofCore<QHashOut<F>>,
         nearest_common_ancestor_level: u8
         
-    ) {
+    ) -> anyhow::Result<()> {
         self.update_nca_proof_gadget.set_witness_params(witness,
             child_a,
             child_b,
             nearest_common_ancestor_level
-        );
+        )
     }
     pub fn set_witness_partial<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         input: &PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.update_nca_proof_gadget.set_witness_partial(
             witness,
             input,
-        );
+        )
     }
     pub fn set_witness_full<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         input: &UpdateNearestCommonAncestorProof<QHashOut<F>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.update_nca_proof_gadget.set_witness_full(
             witness,
             input,
-        );
+        )
     }
 }
 

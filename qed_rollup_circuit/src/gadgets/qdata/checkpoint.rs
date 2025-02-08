@@ -14,9 +14,9 @@ pub struct QEDCheckpointLeafGadget {
 }
 
 impl QEDCheckpointLeafGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeaf<F>) {
-        witness.set_hash_target(self.global_chain_root, target.global_chain_root.0);
-        self.stats.set_witness(witness, &target.stats);
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeaf<F>)  -> anyhow::Result<()>{
+        witness.set_hash_target(self.global_chain_root, target.global_chain_root.0)?;
+        self.stats.set_witness(witness, &target.stats)
     }
     pub fn to_compact<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> QEDCheckpointLeafCompactGadget {
         let stats_hash = self.stats.to_hash::<H, F, D>(builder);
@@ -78,14 +78,14 @@ impl FromTargets for QEDCheckpointLeafGadget {
 
 
 impl<F: RichField> WitnessValueFor<QEDCheckpointLeafGadget, F, true> for QEDCheckpointLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<QEDCheckpointLeafGadget, F, false> for QEDCheckpointLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -99,13 +99,13 @@ pub struct QEDCheckpointLeafCompactGadget {
 }
 
 impl QEDCheckpointLeafCompactGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafCompact<F>) {
-        witness.set_hash_target(self.global_chain_root, target.global_chain_root.0);
-        witness.set_hash_target(self.stats_hash, target.stats_hash.0);
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafCompact<F>) -> anyhow::Result<()> {
+        witness.set_hash_target(self.global_chain_root, target.global_chain_root.0)?;
+        witness.set_hash_target(self.stats_hash, target.stats_hash.0)
     }
-    pub fn set_witness_params<F: RichField>(&self, witness: &mut impl Witness<F>, global_chain_root: QHashOut<F>, stats_hash: QHashOut<F>) {
-        witness.set_hash_target(self.global_chain_root, global_chain_root.0);
-        witness.set_hash_target(self.stats_hash, stats_hash.0);
+    pub fn set_witness_params<F: RichField>(&self, witness: &mut impl Witness<F>, global_chain_root: QHashOut<F>, stats_hash: QHashOut<F>) -> anyhow::Result<()> {
+        witness.set_hash_target(self.global_chain_root, global_chain_root.0)?;
+        witness.set_hash_target(self.stats_hash, stats_hash.0)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         builder.hash_two_to_one::<H>(self.global_chain_root, self.stats_hash)
@@ -166,14 +166,14 @@ impl FromTargets for QEDCheckpointLeafCompactGadget {
 
 
 impl<F: RichField> WitnessValueFor<QEDCheckpointLeafCompactGadget, F, true> for QEDCheckpointLeafCompact<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafCompactGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafCompactGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<QEDCheckpointLeafCompactGadget, F, false> for QEDCheckpointLeafCompact<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafCompactGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafCompactGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 

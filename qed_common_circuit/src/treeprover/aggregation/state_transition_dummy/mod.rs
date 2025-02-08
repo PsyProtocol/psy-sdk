@@ -74,11 +74,11 @@ where
         let mut pw = PartialWitness::<C::F>::new();
         //tracing::info!("agg_fingerprint: {}", agg_fingerprint.to_string());
         //tracing::info!("leaf_fingerprint: {}", leaf_fingerprint.to_string());
-        pw.set_hash_target(self.state_transition_hash, state_transition_hash.0);
+        pw.set_hash_target(self.state_transition_hash, state_transition_hash.0)?;
         pw.set_hash_target(
             self.allowed_circuit_hashes_root,
             allowed_circuit_hashes_root.0,
-        );
+        )?;
         self.circuit_data.prove(pw)
     }
 }
