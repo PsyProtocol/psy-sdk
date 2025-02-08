@@ -7,3 +7,7 @@ result
 .DS_Store
 **/.DS_Store
 test-db
+
+perf2
+
+qed_prover/examples/debug_data/

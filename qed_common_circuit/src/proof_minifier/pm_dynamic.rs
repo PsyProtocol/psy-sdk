@@ -14,6 +14,7 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
+use qed_core::utils::debug_timer::DebugTimer;
 
 use crate::builder::verify::CircuitBuilderVerifyProofHelpers;
 
@@ -190,9 +191,9 @@ where
             pw.set_verifier_data_target(verifier_data_target, verifier_data)?;
         }
         pw.set_proof_with_pis_target(&self.proof_target, base_proof)?;
-        //let mut timer = DebugTimer::new("compress");
+        let mut timer = DebugTimer::new("compress");
         let result = self.circuit_data.prove(pw);
-        //timer.lap("proved compress");
+        timer.lap("proved compress");
         result
     }
 }

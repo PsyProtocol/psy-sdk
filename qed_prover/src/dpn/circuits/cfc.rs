@@ -78,12 +78,12 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         
-        pw.set_target_arr(&self.inputs, &cfc_input.inputs);
+        pw.set_target_arr(&self.inputs, &cfc_input.inputs)?;
         
-        pw.set_hash_target(self.fn_builder_gadget.session_proof_tree_root, cfc_input.session_proof_tree_root.0);
+        pw.set_hash_target(self.fn_builder_gadget.session_proof_tree_root, cfc_input.session_proof_tree_root.0)?;
         
 
-        self.fn_builder_gadget.tx_ctx_header.set_witness(&mut pw, &cfc_input.tx_input_ctx);
+        self.fn_builder_gadget.tx_ctx_header.set_witness(&mut pw, &cfc_input.tx_input_ctx)?;
         self.fn_builder_gadget.state_reader.set_witness(&mut pw, cfc_input, &self.fn_def);
         
         self.circuit_data.prove(pw)

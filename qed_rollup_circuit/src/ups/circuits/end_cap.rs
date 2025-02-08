@@ -1,12 +1,10 @@
 use plonky2::{
-    hash::hash_types::HashOut,
-    iop::witness::PartialWitness,
-    plonk::{
+    hash::hash_types::HashOut, iop::witness::PartialWitness, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    },
+    }
 };
 use qed_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
@@ -32,6 +30,7 @@ use qed_crypto::{
 use qed_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
 
 use crate::ups::gadgets::ups_end_cap_tree::UPSEndCapFromProofTreeGadget;
+
 
 #[derive(Debug)]
 pub struct UPSStandardEndCapCircuit<C: GenericConfig<D> + 'static, const D: usize>
@@ -175,13 +174,14 @@ where
         let base_fingerprint = QHashOut(get_circuit_fingerprint_generic(
             &base_circuit_data.verifier_only,
         ));
+        //println!("base_fingerprint: {:?}",base_fingerprint);
 
         let minifier_chain = if has_minifier {
             Some(
                 QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
                     &base_circuit_data.verifier_only,
                     &base_circuit_data.common,
-                    &[true, false],
+                    &[false, false],
                 ),
             )
         } else {
@@ -228,6 +228,20 @@ where
         agg_root_proof: &ProofWithPublicInputs<C::F, C, D>,
         agg_root_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        // testing
+
+        /* 
+        let dbg_input: DebugEndCapPerfInputSer<C, D> = DebugEndCapPerfInputReady{
+            core: DebugEndCapPerfInputCore{
+                end_cap_from_proof_tree_input: end_cap_from_proof_tree_input.to_owned(),
+                agg_whitelist_merkle_proof: agg_whitelist_merkle_proof.to_owned(),
+                agg_proof_header: agg_proof_header.to_owned(),
+                agg_root_proof:agg_root_proof.to_owned(),
+            },
+            agg_root_verifier_data: agg_root_verifier_data.to_owned(),
+        }.into_ser();
+        println!("dbg_input:\n\n{}\n\n",serde_json::to_string::<DebugEndCapPerfInputSer<C,D>>(&dbg_input).unwrap());*/
+        // end testing
         if self.is_minifier_enabled() {
             let base_proof = self.prove_base_inner(
                 end_cap_from_proof_tree_input,

@@ -62,7 +62,7 @@ impl StateReaderGadget {
                         witness_value.old_value, 
                         witness_value.new_value, 
                         &witness_value.siblings
-                    );
+                    )?;
                 },
                 v => anyhow::bail!("set_witness_for_key_dmp expects to set the witness for a DeltaMerkleMerkleProof gadget, but got {:?}", v)
             }
@@ -85,7 +85,7 @@ impl StateReaderGadget {
                         F::from_noncanonical_u64(witness_value.index), 
                         witness_value.value, 
                         &witness_value.siblings,
-                    );
+                    )?;
                 },
                 v => anyhow::bail!("set_witness_for_key_dmp expects to set the witness for a DeltaMerkleMerkleProof gadget, but got {:?}", v)
             }
@@ -106,7 +106,7 @@ impl StateReaderGadget {
                     self.user_leaves[reader_ref_key.gadget_index].set_witness(
                         witness,
                         witness_value,
-                    );
+                    )?;
                 },
                 v => anyhow::bail!("set_witness_for_key_user_leaf expects to set the witness for a UserLeaf gadget, but got {:?}", v)
             }
