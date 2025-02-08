@@ -336,6 +336,12 @@ PathExpression: ExprNode<F> = {
         })
     },
 };
+
+ExpressionList: Vec<ExprNode<F>> = {
+    <items:Sep<Expression, ",">> => items
+}
+
+
 Expression: ExprNode<F> = {
     #[precedence(level="1")]
     Term,
@@ -351,8 +357,9 @@ Expression: ExprNode<F> = {
     //    }
     //),
 
+
     #[precedence(level="2")]
-    <l:@L> <variable:Expression> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
+    <l:@L> <variable:Expression> "(" <args:ExpressionList> ")" <r:@R> => ExprNode::<F>::Call(
        CallNode {
            receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
            variable: expr_nodes.alloc_item(variable),
@@ -384,6 +391,8 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> AS <ty:TYPE_FELT> <r:@R> => ExprNode::<F>::Cast(
         CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_FELT))
     ),
+
+    #[precedence(level="4")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> AS <ty:TYPE_BOOL> <r:@R> => ExprNode::<F>::Cast(
         CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_BOOL))
     ),

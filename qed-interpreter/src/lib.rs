@@ -1073,7 +1073,7 @@ mod test {
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
-        insta::glob!("../../tests", "005.qed", |path| {
+        insta::glob!("../../tests", "006.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(
                 QExecContext::new(),
                 0,
