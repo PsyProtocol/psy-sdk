@@ -57,6 +57,24 @@ impl SimpleMerkleNodeKey {
             index: self.index >> 1,
         }
     }
+    pub fn first_leaf_child(&self, tree_height: u8) -> Self {
+        Self {
+            level: tree_height,
+            index: self.index << (tree_height-self.level),
+        }
+    }
+    pub fn left_child(&self) -> Self {
+        Self {
+            level: self.level + 1,
+            index: self.index << 1,
+        }
+    }
+    pub fn right_child(&self) -> Self {
+        Self {
+            level: self.level + 1,
+            index: (self.index << 1) + 1,
+        }
+    }
     pub fn is_on_the_right_of(&self, other: &SimpleMerkleNodeKey) -> bool {
         if other.level == self.level {
             self.index > other.index

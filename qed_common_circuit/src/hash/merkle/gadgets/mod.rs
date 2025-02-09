@@ -11,3 +11,5 @@ pub mod sub_tree_update_proof;
 pub mod variable_height_delta_merkle_proof;
 pub mod sub_tree_update_proof_opt;
 pub mod variable_height_delta_merkle_proof_opt;
+pub mod spiderman_append_proof;
+pub mod full_merkle_tree_append;

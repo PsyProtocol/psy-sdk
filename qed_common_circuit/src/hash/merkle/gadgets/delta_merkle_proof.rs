@@ -1,6 +1,6 @@
 
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, types::Field},
     hash::hash_types::{HashOut, HashOutTarget, RichField},
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
@@ -426,7 +426,7 @@ impl DeltaMerkleProofGadget {
             option_flags: DeltaMerkleProofGadgetOptionFlags::from_bits(option_flags).unwrap(),
         }
     }
-    pub fn set_witness<W: Witness<F>, F: RichField>(
+    pub fn set_witness<W: Witness<F>, F: Field>(
         &self,
         witness: &mut W,
         index: F,
@@ -463,7 +463,7 @@ impl DeltaMerkleProofGadget {
         Ok(())
     }
 
-    pub fn set_witness_hash_out<W: Witness<F>, F: RichField>(
+    pub fn set_witness_hash_out<W: Witness<F>, F: Field>(
         &self,
         witness: &mut W,
         index: F,
@@ -525,7 +525,7 @@ impl DeltaMerkleProofGadget {
             &input.siblings,
         )
     }
-    pub fn set_witness_core_proof_q<W: Witness<F>, F: RichField>(
+    pub fn set_witness_core_proof_q<W: Witness<F>, F: Field>(
         &self,
         witness: &mut W,
         input: &DeltaMerkleProofCore<QHashOut<F>>,
@@ -538,7 +538,7 @@ impl DeltaMerkleProofGadget {
             &input.siblings,
         )
     }
-    pub fn set_witness_core_proof<W: Witness<F>, F: RichField>(
+    pub fn set_witness_core_proof<W: Witness<F>, F: Field>(
         &self,
         witness: &mut W,
         input: &DeltaMerkleProofCore<HashOut<F>>,

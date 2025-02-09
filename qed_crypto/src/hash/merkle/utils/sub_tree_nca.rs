@@ -390,6 +390,8 @@ impl<Hash: PartialEq + Copy> UpdateNCAWithAdditionalLink<Hash> {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Debug;
+
     use crate::hash::merkle::utils::common::SimpleMerkleNodeKey;
     use crate::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
     use crate::hash::traits::hasher::{MerkleZeroHasher, PoseidonHasher};
@@ -405,7 +407,7 @@ mod tests {
     type QEDHash = QHashOut<F>;
     type H = PoseidonHasher;
 
-    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default>(
+    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>(
         tree: &SimpleMerkleTree<Hasher, Hash>,
     ) -> SimpleMerkleNodeKey {
         let index = thread_rng().gen::<u64>() & tree.get_max_leaf_index();

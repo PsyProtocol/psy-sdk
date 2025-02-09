@@ -202,6 +202,8 @@ impl UpdateNearestCommonAncestorProofGadget {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Debug;
+
     use plonky2::field::types::PrimeField64;
     use plonky2::hash::poseidon::PoseidonHash;
     use plonky2::iop::witness::PartialWitness;
@@ -271,7 +273,7 @@ mod tests {
     type QEDHash = QHashOut<F>;
     type H = PoseidonHasher;
 
-    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default>(
+    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default+Debug>(
         tree: &SimpleMerkleTree<Hasher, Hash>,
     ) -> SimpleMerkleNodeKey {
         let index = thread_rng().gen::<u64>() & tree.get_max_leaf_index();
