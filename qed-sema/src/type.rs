@@ -35,6 +35,7 @@ pub const UNKOWN_TYPE: TypeId = TypeId(0);
 pub const VOID_TYPE: TypeId = TypeId(1);
 pub const BOOL_TYPE: TypeId = TypeId(2);
 pub const FELT_TYPE: TypeId = TypeId(3);
+pub const STRING_TYPE: TypeId = TypeId(4);
 
 pub const TYPE_MAPPING: &[(IdentId, Type)] = &[
     (IdentId::TYPE_UNKNOWN, Type::Unknown),

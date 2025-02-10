@@ -84,11 +84,16 @@ Statement: StmtNode = {
     BlockStatement,
     IfStatement,
     Definition => StmtNode::Definition(def_nodes.alloc_item(<>)),
+    AssertStatement,
     ExpressionStatement
 }
 
 ExpressionStatement: StmtNode = {
     <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr))
+}
+
+AssertStatement: StmtNode = {
+    <l:@L> <expr:AssertExpression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr))
 }
 
 Definition: DefinitionNode = {
@@ -328,6 +333,56 @@ AssignmentStatement: StmtNode = {
     )
 }
 
+AssertExpression: ExprNode<F> = {
+    <l:@L> <variable:ASSERT> "(" <args:ExpressionList> ")" <r:@R> => {
+        assert!(args.len() == 1 || args.len() == 2);
+        ExprNode::<F>::Assert(
+            AssertNode {
+                left: expr_nodes.alloc_item(args[0].clone()),
+                message: {
+                    if args.len() == 2{
+                        match &args[1] {
+                            ExprNode::<F>::Value(v) => {
+                                match v {
+                                    ValueNode::String(s) => Some(s.clone()),
+                                    _ => panic!("invalid message")
+                                }
+                            },
+                            _ => panic!("invalid message")
+                        }
+                    }else{
+                        None
+                    }
+                }
+            }
+        )
+    },
+    <l:@L> <variable:ASSERT_EQ> "(" <args:ExpressionList> ")" <r:@R> => {
+        assert!(args.len() == 2 || args.len() == 3);
+        ExprNode::<F>::AssertEq(
+            AssertEqNode {
+                left: expr_nodes.alloc_item(args[0].clone()),
+                right: expr_nodes.alloc_item(args[1].clone()),
+                message: {
+                    if args.len() == 3{
+                        match &args[2] {
+                            ExprNode::<F>::Value(v) => {
+                                match v {
+                                    ValueNode::String(s) => Some(s.clone()),
+                                    _ => panic!("invalid message")
+                                }
+                            },
+                            _ => panic!("invalid message")
+                        }
+                    }else{
+                        None
+                    }
+                }
+            }
+        )
+    },
+};
+
 Term: ExprNode<F> = {
     <l:@L> "(" <expr:Expression> ")" <r:@R> => expr,
     ValueExpression,
@@ -495,6 +550,7 @@ Expression: ExprNode<F> = {
 ValueExpression: ExprNode<F> = {
     FeltExpression,
     BoolExpression,
+    StringExpression,
     ArrayExpression,
     NEW <StructExpression>
 }
@@ -505,6 +561,10 @@ FeltExpression: ExprNode<F> = {
 
 BoolExpression: ExprNode<F> = {
     <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Bool(if b { ctx.op_true() } else { ctx.op_false() }))
+}
+
+StringExpression: ExprNode<F> = {
+    <l:@L> <s:STRING> <r:@R> => ExprNode::<F>::Value(ValueNode::String(s.to_owned())),
 }
 
 //todo: Temporarily disable generic capabilities
@@ -629,6 +689,9 @@ extern {
         FOR => Token::KeywordFor,
         WHERE => Token::KeywordWhere,
 
+        ASSERT => Token::KeywordAssert,
+        ASSERT_EQ => Token::KeywordAssertEq,
+
         MOD => Token::KeywordMod,
         USE => Token::KeywordUse,
         SUPER => Token::KeywordSuper,
@@ -641,10 +704,12 @@ extern {
 
         BOOL => Token::Bool(<bool>),
         NUMBER => Token::Number(<u64>),
+        STRING => Token::String(<&'input str>),
 
         TYPE_BOOL => Token::TypeBool,
         TYPE_FELT => Token::TypeFelt,
         TYPE_SELF => Token::TypeSelf,
+        // TYPE_STRING => Token::TypeString,
 
         AS => Token::KeywordAs,
         EXTERN => Token::KeywordExtern,

@@ -857,6 +857,22 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         todo!()
     }
 
+    fn visit_assert(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        todo!()
+    }
+
+    fn visit_assert_eq(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        todo!()
+    }
+
     type Expr = ExprNode<F>;
 
     type Stmt = StmtNode;

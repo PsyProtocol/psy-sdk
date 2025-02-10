@@ -450,6 +450,44 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
     }
 
+    fn visit_assert(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::ExprResult, Self::Error> {
+        let assert_node = ctx.expression(node).as_assert().cloned().unwrap();
+        let checked_lhs = self.visit_expr(assert_node.left, ctx)?;
+
+        if checked_lhs.ty() != BOOL_TYPE {
+            return Err(Error::TypeMismatch);
+        }
+
+        Ok(CheckedExprNode::Assert(CheckedAssertNode {
+            left: self.exprs.alloc_item(checked_lhs),
+            message: assert_node.message,
+        }))
+    }
+
+    fn visit_assert_eq(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::ExprResult, Self::Error> {
+        let assert_eq_node = ctx.expression(node).as_assert_eq().cloned().unwrap();
+        let checked_lhs = self.visit_expr(assert_eq_node.left, ctx)?;
+        let checked_rhs = self.visit_expr(assert_eq_node.right, ctx)?;
+
+        if checked_lhs.ty() != checked_rhs.ty() {
+            return Err(Error::TypeMismatch);
+        }
+
+        Ok(CheckedExprNode::AssertEq(CheckedAssertEqNode {
+            left: self.exprs.alloc_item(checked_lhs),
+            right: self.exprs.alloc_item(checked_rhs),
+            message: assert_eq_node.message,
+        }))
+    }
+
     fn visit_value(
         &mut self,
         node: ExprId,
@@ -460,6 +498,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         match value_node {
             ValueNode::Felt(f) => Ok(CheckedExprNode::Value(CheckedValueNode::Felt(f.clone()))),
             ValueNode::Bool(b) => Ok(CheckedExprNode::Value(CheckedValueNode::Bool(b.clone()))),
+            ValueNode::String(s) => Ok(CheckedExprNode::Value(CheckedValueNode::String(s.clone()))),
             ValueNode::Array(size, arr) => {
                 if size != arr.len() {
                     return Err(Error::TypeMismatch);
@@ -1107,6 +1146,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
             NodeType::StorageExpr => self.visit_storage_read(expr_id, ctx)?,
             NodeType::ContextExpr => self.visit_context(expr_id, ctx)?,
+            NodeType::AssertExpr => self.visit_assert(expr_id, ctx)?,
+            NodeType::AssertEqExpr => self.visit_assert_eq(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
         ctx.pop_node_id();

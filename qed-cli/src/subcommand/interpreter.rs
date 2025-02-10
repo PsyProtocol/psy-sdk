@@ -42,7 +42,11 @@ pub fn run(args: InterpreterArgs) -> anyhow::Result<()> {
     );
 
     for (i, def) in compile_result.definitions.iter().enumerate() {
-        println!("def{}: {:?}", i, def);
+        println!("def {}: {:?}", i, def);
+    }
+
+    for (i, assertion) in compile_result.assertions.iter().enumerate() {
+        println!("assertion {}: {:?}", i, assertion);
     }
 
     let priv_key = QHashOut::rand();

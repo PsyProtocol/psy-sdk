@@ -39,6 +39,11 @@ pub enum Token<'input> {
     #[token("as")]
     KeywordAs,
 
+    #[token("assert!")]
+    KeywordAssert,
+    #[token("assert_eq!")]
+    KeywordAssertEq,
+
     #[token("new")]
     KeywordNew,
     #[token("extern")]
@@ -64,7 +69,8 @@ pub enum Token<'input> {
     TypeFelt,
     #[token("Self")]
     TypeSelf,
-
+    // #[token("String")]
+    // TypeString,
     #[regex("[_a-zA-Z][_0-9a-zA-Z]*", |lex| lex.slice())]
     Ident(&'input str),
 
@@ -73,6 +79,8 @@ pub enum Token<'input> {
     #[token("false", |_| false)]
     #[token("true", |_| true)]
     Bool(bool),
+    #[regex(r#""([^"\\]|\\.)*""#, |lex| lex.slice().strip_prefix('"').unwrap().strip_suffix('"').unwrap())]
+    String(&'input str),
 
     #[token("#")]
     Pound,
