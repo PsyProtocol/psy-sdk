@@ -262,20 +262,4 @@ impl Type {
             _ => unreachable!(),
         }
     }
-
-    pub fn size<F: ContextFelt + From<u32>>(&self, symbols: &SymbolTable<F>) -> usize {
-        match self {
-            Type::Felt(f) => 1usize,
-            Type::Bool(b) => 1usize,
-            Type::Array(a) => symbols[a.inner_ty].size(symbols) * a.size,
-            Type::Struct(s) => {
-                let mut result = 0usize;
-                for (field_name, (field_type, _)) in &s.fields {
-                    result += symbols[field_type.clone()].size(symbols);
-                }
-                result
-            }
-            _ => unreachable!(),
-        }
-    }
 }
