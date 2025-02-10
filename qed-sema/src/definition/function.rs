@@ -1,4 +1,4 @@
-use qed_ast::{BlockNode, IdentId, NodeInfo, NodeType, StmtId, Visibility};
+use qed_ast::{AttrNode, BlockNode, IdentId, NodeInfo, NodeType, StmtId, Visibility};
 
 use crate::{CheckedBlockNode, ScopeId, TypeId};
 
@@ -11,6 +11,7 @@ pub struct CheckedFunctionNode {
     pub return_type: Option<TypeId>,
     pub scope_id: ScopeId,
     pub visibility: Visibility,
+    pub attrs: Vec<AttrNode>,
 }
 
 impl NodeInfo for CheckedFunctionNode {

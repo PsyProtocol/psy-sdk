@@ -12,4 +12,8 @@ impl AttrNode {
     pub fn is_derive(&self) -> bool {
         self.name == IdentId::DERIVE
     }
+
+    pub fn is_test(&self) -> bool {
+        self.name == IdentId::TEST
+    }
 }

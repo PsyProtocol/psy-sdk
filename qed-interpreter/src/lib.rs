@@ -7,13 +7,19 @@ mod preprocess;
 use either::Either;
 use error::{Error, Result};
 use indexmap::IndexMap;
+use plonky2::hash::hash_types::RichField;
 pub use preprocess::StorageProcessor;
 use qed_ast::*;
-use qed_builder::{ContextFelt, ContextInput, DPNContext};
+use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use qed_fmt::Formatter;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
+use qedlang_core::dpn::{
+    eval::traits::ContextInput,
+    ops::context_trait::{ContextFelt, DPNContext, ToFelts},
+    vm::compile::QEDCompileResult,
+};
 use std::{cell::RefCell, collections::HashMap, fmt::Display, ops::Index, path::PathBuf, rc::Rc};
 
 use tracing::{debug, error, info, instrument, span, Level};
@@ -21,19 +27,13 @@ use tracing::{debug, error, info, instrument, span, Level};
 use crate::control::ControlState;
 
 #[derive(Debug)]
-pub struct Interpreter<F: Clone + From<u32>, C> {
-    pub inputs: Vec<u64>,
+pub struct Interpreter<F: Clone + From<u32>, GF: RichField, C> {
+    pub inputs: Vec<GF>,
     pub context: C,
     _marker: std::marker::PhantomData<F>,
 }
 
-impl<F: ContextFelt + From<u32>, C: DPNContext<F>> ContextInput for Interpreter<F, C> {
-    fn get_input(&self, index: u64) -> u64 {
-        self.inputs[index as usize]
-    }
-}
-
-impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
+impl<F: ContextFelt + From<u32>, GF: RichField, C: DPNContext<F>> Interpreter<F, GF, C> {
     pub fn new(context: C) -> Self {
         Self {
             inputs: vec![],
@@ -43,71 +43,235 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn compile(
+    pub fn compile<I: Into<Ident>>(
         &mut self,
-        typechecker: &mut TypeChecker<F, C>,
         entry: PathBuf,
-    ) -> Result<Option<CheckedValueRef<F>>>
+        contract_name: Option<I>,
+        method_names: Vec<I>,
+    ) -> Result<Vec<(String, u32, Vec<F>)>>
     where
         F: Display + 'static,
     {
-        let mut program = Program::new();
-        let mut parser = Parser::new(&mut program);
-        parser
-            .parse(&mut self.context, entry)
-            .map_err(|err| Error::ParseError(err.to_string()))?;
+        let (mut typechecker, mut typechecker_context) = self.typecheck(entry)?;
 
-        let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
-        let mut default_visitor_context: DefaultVisitorContext<'_, F, C> =
-            DefaultVisitorContext::new(&mut program);
-        storage_preprocessor.visit_program(&mut default_visitor_context);
+        let TypeCheckerVisitorContext {
+            ref mut program,
+            ref mut symbols,
+            ..
+        } = typechecker_context;
 
-        let mut formatter = Formatter::new();
-        formatter.visit_program(&mut default_visitor_context);
-        println!("formatted:\n{}", formatter.get_output());
-        // println!("ast:\n{:#?}", program);
+        let scope_id = symbols[ModuleId::root()].scope_id;
+        let type_id = if let Some(contract_name) = contract_name {
+            let contract_name = program.interner.intern_ident(contract_name.into());
+            let type_id = symbols[scope_id]
+                .types
+                .get(&contract_name.into())
+                .ok_or(Error::UndefinedFunction)?
+                .clone();
 
-        let mut typechecker_context = TypeCheckerVisitorContext::new(program);
-        typechecker.visit_program(&mut typechecker_context)?;
-        let scope_id = typechecker_context.symbols[ModuleId::root()].scope_id;
-        let type_id = typechecker_context.symbols[scope_id]
-            .types
-            .get(&IdentId::MAIN.into())
-            .ok_or(Error::UndefinedMain)?
-            .clone();
-        let node: CheckedFunctionNode =
-            (typechecker_context.symbols[type_id.clone()].as_ref() as &CheckedFunctionNode).clone();
+            method_names
+                .into_iter()
+                .map(|method_name| {
+                    let method_name = program.interner.intern_ident(method_name.into());
+                    symbols
+                        .resolve_method(type_id, method_name)
+                        .ok_or(Error::from(SemaError::UnresolvedMember))
+                })
+                .collect::<Result<Vec<TypeId>>>()?
+        } else {
+            method_names
+                .into_iter()
+                .map(|method_name| {
+                    let method_name = program.interner.intern_ident(method_name.into());
+                    symbols[scope_id]
+                        .types
+                        .get(&method_name.into())
+                        .ok_or(Error::UndefinedFunction)
+                        .cloned()
+                })
+                .collect::<Result<Vec<TypeId>>>()?
+        };
 
-        let mut parameters = vec![];
-        for (id, _, ty) in node.parameters.iter() {
-            parameters.push(CheckedValueRef::new_rc(
-                typechecker_context.symbols[ty.clone()]
-                    .clone()
-                    .to_value(&mut typechecker_context.symbols, &mut self.context),
-            ));
+        let mut outputs = Vec::new();
+
+        for type_id in type_id {
+            let node: &CheckedFunctionNode = symbols[type_id.clone()].as_ref();
+
+            let mut parameters = vec![];
+            for (parameter_name, _, parameter_type) in node.parameters.iter() {
+                let ty = &symbols[parameter_type.clone()];
+                parameters.push(CheckedValueRef::new_rc(
+                    ty.to_value(&symbols, &mut self.context),
+                ));
+            }
+            outputs.push(self.__interpret__(
+                &typechecker,
+                program,
+                symbols,
+                type_id,
+                parameters,
+            )?);
         }
 
-        self.interpret_function(
-            typechecker,
-            type_id,
-            parameters,
-            &mut typechecker_context.symbols,
-            Some(NodeType::Module),
-        )
-        .unwrap()
-        .transpose()
+        Ok(outputs)
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn interpret(
+    pub fn interpret<I: Into<Ident>>(
         &mut self,
-        typechecker: &mut TypeChecker<F, C>,
         entry: PathBuf,
+        contract_name: Option<I>,
+        method_name: I,
         parameters: Vec<CheckedValue<F>>,
-    ) -> Result<Option<CheckedValueRef<F>>>
+    ) -> Result<(String, u32, Vec<F>)>
     where
         F: Display + 'static,
     {
+        let (mut typechecker, mut typechecker_context) = self.typecheck(entry)?;
+
+        let TypeCheckerVisitorContext {
+            ref mut program,
+            ref mut symbols,
+            ..
+        } = typechecker_context;
+
+        let method_name = program.interner.intern_ident(method_name.into());
+
+        let scope_id = symbols[ModuleId::root()].scope_id;
+        let type_id = if let Some(contract_name) = contract_name {
+            let contract_name = program.interner.intern_ident(contract_name.into());
+            let type_id = symbols[scope_id]
+                .types
+                .get(&contract_name.into())
+                .ok_or(Error::UndefinedFunction)?
+                .clone();
+            let method_id = symbols
+                .resolve_method(type_id, method_name)
+                .ok_or(SemaError::UnresolvedMember)?;
+            method_id
+        } else {
+            symbols[scope_id]
+                .types
+                .get(&method_name.into())
+                .ok_or(Error::UndefinedFunction)?
+                .clone()
+        };
+
+        Ok(self.__interpret__(
+            &typechecker,
+            program,
+            symbols,
+            type_id,
+            parameters
+                .into_iter()
+                .map(CheckedValueRef::new_rc)
+                .collect(),
+        )?)
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    pub fn test(&mut self, entry: PathBuf) -> Result<Vec<(String, u32, Vec<F>)>>
+    where
+        F: Display + 'static,
+    {
+        let (mut typechecker, mut typechecker_context) = self.typecheck(entry)?;
+
+        let TypeCheckerVisitorContext {
+            ref mut program,
+            ref mut symbols,
+            ..
+        } = typechecker_context;
+
+        let mut type_ids = Vec::new();
+
+        let mut visited = HashMap::new();
+        program
+            .dependency_graph
+            .clone()
+            .ts(&ModuleId::root(), &mut visited, &mut |&module_id| {
+                let scope_id = symbols[module_id].scope_id;
+                let functions = symbols[scope_id]
+                    .types
+                    .iter()
+                    .filter(|(k, &v)| {
+                        symbols[v.clone()].is_function()
+                            && symbols[v.clone()]
+                                .as_function()
+                                .map(|x| x.attrs.iter().any(|y| y.is_test()))
+                                .unwrap_or(false)
+                    })
+                    .map(|(k, v)| v.clone())
+                    .collect::<Vec<_>>();
+                type_ids.push((module_id, functions));
+            });
+
+        let mut outputs = Vec::new();
+        for (module_id, type_ids) in type_ids {
+            for type_id in type_ids {
+                outputs.push(self.__interpret__(
+                    &typechecker,
+                    program,
+                    symbols,
+                    type_id,
+                    vec![],
+                )?);
+            }
+        }
+
+        Ok(outputs)
+    }
+
+    fn __interpret__(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        program: &mut Program<F>,
+        symbols: &mut SymbolTable<F>,
+        type_id: TypeId,
+        parameters: Vec<CheckedValueRef<F>>,
+    ) -> Result<(String, u32, Vec<F>)>
+    where
+        F: Display + 'static,
+    {
+        let node: &CheckedFunctionNode = symbols[type_id.clone()].as_ref();
+        let method_name = program[node.name].to_string();
+        let mut method_args = Vec::with_capacity(node.parameters.len());
+
+        for (parameter_name, _, parameter_type) in node.parameters.iter() {
+            let ty = &symbols[parameter_type.clone()];
+            method_args.push((
+                program[parameter_name.clone()].to_string(),
+                ty.size(&symbols),
+            ));
+        }
+
+        let outputs = self
+            .interpret_function(
+                &typechecker,
+                type_id,
+                parameters,
+                symbols,
+                Some(NodeType::Module),
+            )
+            .unwrap()
+            .transpose()?;
+
+        let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
+
+        Ok((
+            method_name,
+            method_id,
+            outputs.map(|x| x.to_felts()).unwrap_or(Vec::new()),
+        ))
+    }
+
+    pub fn typecheck(
+        &mut self,
+        entry: PathBuf,
+    ) -> Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>)>
+    where
+        F: Display + 'static,
+    {
+        let mut typechecker = TypeChecker::new();
         let mut program = Program::new();
         let mut parser = Parser::new(&mut program);
         parser
@@ -122,28 +286,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         let mut formatter = Formatter::new();
         formatter.visit_program(&mut default_visitor_context);
         println!("formatted:\n{}", formatter.get_output());
-        // println!("ast:\n{:#?}", program);
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
         typechecker.visit_program(&mut typechecker_context)?;
-        let scope_id = typechecker_context.symbols[ModuleId::root()].scope_id;
-        let type_id = typechecker_context.symbols[scope_id]
-            .types
-            .get(&IdentId::MAIN.into())
-            .ok_or(Error::UndefinedMain)?;
-
-        self.interpret_function(
-            typechecker,
-            *type_id,
-            parameters
-                .into_iter()
-                .map(|x| CheckedValueRef::new_rc(x))
-                .collect(),
-            &mut typechecker_context.symbols,
-            Some(NodeType::Module),
-        )
-        .unwrap()
-        .transpose()
+        Ok((typechecker, typechecker_context))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -259,7 +405,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 .interpret_expr(typechecker, node.predicate, symbols, Some(node.node_type()))?
                 .unwrap()
                 .to_bool();
-            if self.context.get_bool_value(predicate) {
+            if predicate == self.context.op_true() {
                 self.context.start_if_block(predicate);
                 self.interpret_block(typechecker, node.body, symbols, Some(node.node_type()));
                 self.context.end_if_block();
@@ -434,7 +580,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             .unwrap();
 
         Ok(match unary_node.operator {
-            UnaryOperator::Neg => CheckedValue::Felt(self.context.op_neg(rhs_value.to_felt())),
+            UnaryOperator::Neg => todo!(),
             UnaryOperator::Not => {
                 if unary_node.type_id == BOOL_TYPE {
                     CheckedValue::Bool(self.context.op_bool_not(rhs_value.to_bool()))
@@ -555,40 +701,40 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     ) -> Result<CheckedValueRef<F>> {
         let new_value = match operator {
             AssignmentOperator::Eq => value,
-            AssignmentOperator::AddAssign => CheckedValueRef::new_rc(CheckedValue::Felt(
+            AssignmentOperator::AddAssign => CheckedValueRef::from_felt(
                 self.context.op_add(old_value.to_felt(), value.to_felt()),
-            )),
-            AssignmentOperator::SubAssign => CheckedValueRef::new_rc(CheckedValue::Felt(
+            ),
+            AssignmentOperator::SubAssign => CheckedValueRef::from_felt(
                 self.context.op_sub(old_value.to_felt(), value.to_felt()),
-            )),
-            AssignmentOperator::MulAssign => CheckedValueRef::new_rc(CheckedValue::Felt(
+            ),
+            AssignmentOperator::MulAssign => CheckedValueRef::from_felt(
                 self.context.op_mul(old_value.to_felt(), value.to_felt()),
-            )),
-            AssignmentOperator::DivAssign => CheckedValueRef::new_rc(CheckedValue::Felt(
+            ),
+            AssignmentOperator::DivAssign => CheckedValueRef::from_felt(
                 self.context.op_div(old_value.to_felt(), value.to_felt()),
-            )),
-            AssignmentOperator::ModAssign => CheckedValueRef::new_rc(CheckedValue::Felt(
+            ),
+            AssignmentOperator::ModAssign => CheckedValueRef::from_felt(
                 self.context.op_mod(old_value.to_felt(), value.to_felt()),
-            )),
-            AssignmentOperator::BitAndAssign => CheckedValueRef::new_rc(CheckedValue::Felt(
+            ),
+            AssignmentOperator::BitAndAssign => CheckedValueRef::from_felt(
                 self.context
                     .op_u32_and(old_value.to_felt(), value.to_felt()),
-            )),
-            AssignmentOperator::BitOrAssign => CheckedValueRef::new_rc(CheckedValue::Felt(
+            ),
+            AssignmentOperator::BitOrAssign => CheckedValueRef::from_felt(
                 self.context.op_u32_or(old_value.to_felt(), value.to_felt()),
-            )),
-            AssignmentOperator::BitXorAssign => CheckedValueRef::new_rc(CheckedValue::Felt(
+            ),
+            AssignmentOperator::BitXorAssign => CheckedValueRef::from_felt(
                 self.context
                     .op_u32_xor(old_value.to_felt(), value.to_felt()),
-            )),
-            AssignmentOperator::BitShlAssign => CheckedValueRef::new_rc(CheckedValue::Felt(
+            ),
+            AssignmentOperator::BitShlAssign => CheckedValueRef::from_felt(
                 self.context
                     .op_u32_shl(old_value.to_felt(), value.to_felt()),
-            )),
-            AssignmentOperator::BitShrAssign => CheckedValueRef::new_rc(CheckedValue::Felt(
+            ),
+            AssignmentOperator::BitShrAssign => CheckedValueRef::from_felt(
                 self.context
                     .op_u32_shr(old_value.to_felt(), value.to_felt()),
-            )),
+            ),
         };
         self.cset_variable(old_value, &new_value);
         Ok(new_value)
@@ -619,16 +765,16 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             CheckedExprNode::Context(ctx_node) => Ok(Some({
                 match ctx_node {
                     CheckedContextNode::GetUserId { .. } => {
-                        CheckedValueRef::new_rc(CheckedValue::Felt(self.context.get_user_id()))
+                        CheckedValueRef::from_felt(self.context.get_user_id())
                     }
                     CheckedContextNode::GetContractId { .. } => {
-                        CheckedValueRef::new_rc(CheckedValue::Felt(self.context.get_contract_id()))
+                        CheckedValueRef::from_felt(self.context.get_contract_id())
                     }
                     CheckedContextNode::GetCheckpointId { .. } => CheckedValueRef::new_rc(
                         CheckedValue::Felt(self.context.get_checkpoint_id()),
                     ),
                     CheckedContextNode::GetLastNonce { .. } => {
-                        CheckedValueRef::new_rc(CheckedValue::Felt(self.context.get_last_nonce()))
+                        CheckedValueRef::from_felt(self.context.get_last_nonce())
                     }
                     CheckedContextNode::GetUserPublicKeyHash { type_id, .. } => {
                         CheckedValueRef::new_rc(CheckedValue::Array(
@@ -636,7 +782,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                             self.context
                                 .get_user_public_key_hash()
                                 .into_iter()
-                                .map(|x| CheckedValueRef::new_rc(CheckedValue::Felt(x)))
+                                .map(|x| CheckedValueRef::from_felt(x))
                                 .collect(),
                         ))
                     }
@@ -658,7 +804,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                             self.context
                                 .get_state_hash_at(slot_index)
                                 .into_iter()
-                                .map(|x| CheckedValueRef::new_rc(CheckedValue::Felt(x)))
+                                .map(|x| CheckedValueRef::from_felt(x))
                                 .collect(),
                         ))
                     }
@@ -705,7 +851,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                                     slot_index,
                                 )
                                 .into_iter()
-                                .map(|x| CheckedValueRef::new_rc(CheckedValue::Felt(x)))
+                                .map(|x| CheckedValueRef::from_felt(x))
                                 .collect(),
                         ))
                     }
@@ -763,7 +909,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                                     slot_index,
                                 )
                                 .into_iter()
-                                .map(|x| CheckedValueRef::new_rc(CheckedValue::Felt(x)))
+                                .map(|x| CheckedValueRef::from_felt(x))
                                 .collect(),
                         ))
                     }
@@ -796,7 +942,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                             self.context
                                 .cset_state_hash_at(slot_index, new_value)
                                 .into_iter()
-                                .map(|x| CheckedValueRef::new_rc(CheckedValue::Felt(x)))
+                                .map(|x| CheckedValueRef::from_felt(x))
                                 .collect(),
                         ))
                     }
@@ -985,7 +1131,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         let value = self
             .context
             .op_get_state_felt(0, contract_id, user_id, offset.to_felt());
-        return Ok(CheckedValueRef::new_rc(CheckedValue::Felt(value)));
+        return Ok(CheckedValueRef::from_felt(value));
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1218,8 +1364,17 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
 
 #[cfg(test)]
 mod test {
-    use qed_builder::{QExecContext, SymFeltEvalCache, SymFeltRef, SymFeltStore};
+    use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
+    use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+    use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
+    use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+    use qed_exec::vm::exec::QEDEvalSessionResult;
     use qed_fmt::Formatter;
+    use qed_utils::{
+        gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract, C,
+        D,
+    };
+    use qedlang_core::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
 
     use super::*;
 
@@ -1228,13 +1383,47 @@ mod test {
         qed_utils::setup_env_logger();
 
         insta::glob!("../../tests", "00*.qed", |path| {
-            let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-            let cache = SymFeltEvalCache::new();
-            let store = SymFeltStore::new();
-            let mut typecheker = TypeChecker::new();
-            interpreter
-                .interpret(&mut typecheker, path.to_path_buf(), vec![])
+            let mut interpreter =
+                Interpreter::<SymFeltRef, GoldilocksField, _>::new(QExecContext::new());
+
+            let (_, method_id, outputs) = interpreter
+                .interpret(path.into(), None, "main", vec![])
                 .unwrap();
+
+            let compile_result = QEDCompileResult::compile_exec(
+                "main".to_owned(),
+                method_id,
+                &interpreter.context.store,
+                &interpreter.context,
+                &outputs,
+            );
+
+            let priv_key = QHashOut::rand();
+            let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+            let pub_key = wallet.add_private_key(SimpleQEDPrivateKey::new(priv_key));
+            let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
+
+            let deployer = QHashOut::rand();
+            let defs_array = [compile_result.clone()];
+            let (mut result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+                deployer,
+                contract_state_tree_height as u8,
+                &defs_array,
+            )
+            .unwrap();
+
+            let mut lps = prepare_environment_with_real_contract(pub_key, deploy_cmd).unwrap();
+            let contract_id = GoldilocksField::ONE;
+
+            let cfc_input = QEDEvalSessionResult::new()
+                .exec_contract_call(
+                    &mut lps,
+                    contract_id,
+                    &compile_result,
+                    interpreter.inputs.clone(),
+                )
+                .unwrap();
+            println!("result_vm: {:?}", cfc_input.outputs);
         });
     }
 }

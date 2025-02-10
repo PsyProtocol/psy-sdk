@@ -8,7 +8,7 @@ impl Add{
         return self.x + self.y;
     }
 
-    pub fn new_(x: Felt, y: Felt) -> Add{
+    pub fn new(x: Felt, y: Felt) -> Add{
         return new Add{
             x: x,
             y: y

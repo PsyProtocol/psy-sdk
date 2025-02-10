@@ -13,7 +13,6 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 qed-common = { workspace = true }
 insta = { workspace = true }
-qed-builder = { workspace = true }
 qed-fmt = { workspace = true }
 qed-utils = { workspace = true }
 either = { workspace = true }
@@ -21,3 +20,14 @@ hashbrown = { workspace = true }
 plonky2 = { workspace = true }
 indexmap = { workspace = true }
 enum-as-inner = { workspace = true }
+qedlang_core = { workspace = true }
+qed_crypto = { workspace = true }
+
+[dev-dependencies]
+qed_exec = { workspace = true }
+qed_store = { workspace = true }
+kvq = { workspace = true }
+qed_data = { workspace = true }
+qed_core = { workspace = true }
+qed_prover = { workspace = true }
+qed_common_circuit = { workspace = true }

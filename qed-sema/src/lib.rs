@@ -6,7 +6,6 @@ mod r#type;
 mod value;
 mod variable;
 
-mod artifact;
 mod error;
 
 use std::{
@@ -15,12 +14,11 @@ use std::{
     rc::Rc,
 };
 
-pub use artifact::*;
 pub use definition::*;
 pub use expr::*;
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
-use qed_common::{Arena, Graph};
+use qed_common::{Arena, Graph, Tree, TreeNode};
 pub use r#type::*;
 pub use stmt::*;
 pub use symbol_table::*;
@@ -36,7 +34,7 @@ use tracing::{debug, error, info, instrument, span, Level};
 
 pub struct TypeCheckerVisitorContext<F: Clone + From<u32>, C> {
     path_stack: Vec<NodeId>,
-    program: Program<F>,
+    pub program: Program<F>,
     pub symbols: SymbolTable<F>,
     _marker: std::marker::PhantomData<(F, C)>,
 }
@@ -212,7 +210,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
         // TODO: remove clone
         let index_access_node = ctx.expression(node).as_index_access().cloned().unwrap();
-        let checked_expr = self.visit_expr(index_access_node.value, ctx)?;
+        let checked_expr = self.visit_expr(index_access_node.target, ctx)?;
 
         let type_id = checked_expr.ty();
         let ty = &ctx.symbols[type_id];
@@ -231,7 +229,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
         // TODO: remove clone
         let member_access_node = ctx.expression(node).as_member_access().cloned().unwrap();
-        let checked_expr = self.visit_expr(member_access_node.value, ctx)?;
+        let checked_expr = self.visit_expr(member_access_node.target, ctx)?;
         let type_id = checked_expr.ty();
         let ty = &ctx.symbols[type_id];
         let checked_struct_node = ty.as_struct().unwrap();
@@ -241,7 +239,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         {
             assert!(
                 visibility.is_public()
-                    || self.typecheck_member_access(member_access_node.value, ctx)
+                    || self.typecheck_member_access(member_access_node.target, ctx)
             );
             return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
                 value: self.exprs.alloc_item(checked_expr),
@@ -256,7 +254,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             .ok_or(Error::UnresolvedMember)?;
         let visibility = ctx.symbols[type_id].visibility();
         assert!(
-            visibility.is_public() || self.typecheck_member_access(member_access_node.value, ctx)
+            visibility.is_public() || self.typecheck_member_access(member_access_node.target, ctx)
         );
         return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
             value: self.exprs.alloc_item(checked_expr),
@@ -1005,6 +1003,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             return_type: expected_return_type,
             scope_id: current_scope_id,
             visibility: function.visibility,
+            attrs: function.attrs,
         };
 
         Ok(CheckedDefinitionNode::Function(checked_function))
@@ -1425,6 +1424,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             return_type: expected_return_type,
             scope_id: current_scope_id,
             visibility: function.visibility,
+            attrs: function.attrs,
         };
 
         Ok(checked_function)

@@ -1,0 +1,17 @@
+mod math;
+
+pub use math::*;
+
+fn main() {
+
+}
+
+#[test]
+fn test_min() -> Felt {
+    min(2, 3)
+}
+
+#[test]
+fn test_max() -> Felt {
+    max(2, 3)
+}

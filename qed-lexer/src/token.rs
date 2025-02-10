@@ -39,9 +39,6 @@ pub enum Token<'input> {
     #[token("as")]
     KeywordAs,
 
-    #[token("derive")]
-    KeywordDerive,
-
     #[token("new")]
     KeywordNew,
     #[token("extern")]
@@ -60,9 +57,6 @@ pub enum Token<'input> {
 
     #[token("pub")]
     KeywordPub,
-
-    #[token("std")]
-    KeywordStd,
 
     #[token("bool")]
     TypeBool,

@@ -10,8 +10,8 @@ pub enum Error {
     IoError(#[from] IoError),
     #[error("sema error: {0}")]
     SemaError(#[from] SemaError),
-    #[error("undefined main")]
-    UndefinedMain,
+    #[error("undefined function")]
+    UndefinedFunction,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

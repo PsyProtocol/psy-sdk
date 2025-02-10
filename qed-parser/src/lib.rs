@@ -9,9 +9,9 @@ use lalrpop_util::lalrpop_mod;
 
 use error::{Error, Result};
 use qed_ast::*;
-use qed_builder::{ContextFelt, DPNContext};
 use qed_common::*;
 use qed_lexer::{Error as LexicalError, *};
+use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
 use qed_ast::Program;
 
@@ -222,7 +222,7 @@ fn extract_context(file_content: &str, position: usize, context_lines: usize) ->
 mod tests {
     use super::Parser;
     use qed_ast::Program;
-    use qed_builder::QExecContext;
+    use qedlang_core::dpn::ops::exec_context::QExecContext;
     use std::path::PathBuf;
     #[test]
     fn test_qed_parser() {
@@ -231,7 +231,7 @@ mod tests {
 
         let mut ctx = QExecContext::new();
 
-        let entry_file = PathBuf::from("../tests/002.qed");
+        let entry_file = PathBuf::from("../tests/storage_test.qed");
 
         let result = parser.parse(&mut ctx, entry_file);
 
