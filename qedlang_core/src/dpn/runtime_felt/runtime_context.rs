@@ -289,4 +289,12 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     fn get_other_user_contract_state_hash_at(&mut self, contract_state_tree_height: F, user_id: F, contract_id: F, slot_index: F) -> [F; 4] {
         todo!()
     }
+    
+    fn get_state_range_at(&mut self, sub_slot_index: F, length: F) -> Vec<F> {
+        todo!()
+    }
+    
+    fn cset_state_range_at(&mut self, sub_slot_index: F, values: &[F]) {
+        todo!()
+    }
 }

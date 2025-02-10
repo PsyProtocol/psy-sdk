@@ -33,6 +33,7 @@ where
         fn_def: &DPNFunctionCircuitDefinition,
         contract_state_tree_height: usize,
         session_proof_tree_height: usize,
+        force_four_align: bool,
     ) -> Self {
         
         let config = CircuitConfig::standard_recursion_config();
@@ -44,6 +45,7 @@ where
             contract_state_tree_height, 
             session_proof_tree_height,
             inputs.clone(),
+            force_four_align,
         );
 
         let inner_public_inputs_hash = fn_builder_gadget.tx_ctx_header.to_hash::<C::Hasher, C::F, D>(&mut builder);

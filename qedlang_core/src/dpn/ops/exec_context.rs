@@ -5,7 +5,7 @@ use super::{
     op_types::{DPNBuiltInDataType, DPNOpType},
     state_cmd::{
         data::{
-            DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotSingle, DPNStateCmdGetSelfUserExternalContractStateSlotHash, DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle
+            DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotRange, DPNStateCmdGetSelfUserCurrentContractStateSlotSingle, DPNStateCmdGetSelfUserExternalContractStateSlotHash, DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle
         },
         store::DPNStateCommandStore,
         types::DPNStateCmdCore,
@@ -837,5 +837,28 @@ impl DPNContext<SymFeltRef> for QExecContext {
             self.op_target_at(b, 2),
             self.op_target_at(b, 3),
         ]
+    }
+    
+    fn get_state_range_at(&mut self, sub_slot_index: SymFeltRef, length: SymFeltRef) -> Vec<SymFeltRef> {
+        assert!(length.is_constant_type(), "range length must be constant");
+        let b = self.resolve_state_cmd_base(DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(
+            DPNStateCmdGetSelfUserCurrentContractStateSlotRange { sub_slot_index, length: length.get_constant_value() as u32},
+        ));
+        self.op_target_at_vec(b, length.get_constant_value() as u64)
+
+
+    }
+    
+    fn cset_state_range_at(&mut self, sub_slot_index: SymFeltRef, values: &[SymFeltRef]) {
+        let condition = self.get_set_invoke_current_condition();
+
+        self.resolve_state_cmd_base(DPNStateCmd::SetContractStateSlotRange(
+            DPNStateCmdSetContractStateSlotRange {
+                condition,
+                sub_slot_index,
+                value: values.to_vec(),
+            },
+        ));
+        
     }
 }

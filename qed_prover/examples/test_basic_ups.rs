@@ -42,6 +42,8 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     }
 }
 
+const ZERO: usize = 0;
+
 #[qcontract]
 impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     pub fn simple_mint_debug(
@@ -56,12 +58,33 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         let current_balance = self_user_leaf[0];
 
         let new_balance = current_balance+amount;
+
+        /* 
         ctx.cset_state_hash_at(ctx.get_user_id(), [
             new_balance,
             self_user_leaf[1],
             self_user_leaf[2],
             self_user_leaf[3],
+        ]);*/
+
+        ctx.cset_state_range_at(ctx.get_user_id()*4, &[
+            new_balance,
+            self_user_leaf[1],
+            self_user_leaf[2],
+            self_user_leaf[3],
         ]);
+
+        let range_ex = ctx.get_state_range_at(ctx.get_user_id()*4, 4);
+
+        let r = range_ex[ZERO];
+
+
+        ctx.assert_eq(new_balance, r, "range_ex 0 must be new balance");
+
+
+
+
+
 
         new_balance
     }
@@ -168,7 +191,7 @@ fn gen_contract_deploy_and_circuits_for_functions(
     let mut fingerprints = Vec::with_capacity(defs.len()*2); 
     let circuits = defs.iter().map(|x| {
 
-        let c = DapenContractFunctionCircuit::<C, D>::new(x, contract_state_tree_height as usize, UPS_SESSION_PROOF_TREE_HEIGHT as usize);
+        let c = DapenContractFunctionCircuit::<C, D>::new(x, contract_state_tree_height as usize, UPS_SESSION_PROOF_TREE_HEIGHT as usize, false);
         fingerprints.push(c.get_fingerprint());
 
         // sibling is [method_id, (num_outputs<<32)|num_inputs, 0, 0]

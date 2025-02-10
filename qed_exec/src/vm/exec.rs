@@ -7,10 +7,28 @@ use plonky2::{
     hash::hash_types::{HashOut, RichField},
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable, utils::safe_hash_fixed_length};
-use qed_data::dpn::{cfc_context_input::{DapenCFCUserTransactionEndContext, DapenCFCUserTransactionInputContext}, proving_session::DPNProvingSessionSimpleMethodCall};
+use qed_crypto::hash::{
+    merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
+    traits::qhashable::QFieldHashable,
+    utils::safe_hash_fixed_length,
+};
+use qed_data::dpn::{
+    cfc_context_input::{DapenCFCUserTransactionEndContext, DapenCFCUserTransactionInputContext},
+    proving_session::DPNProvingSessionSimpleMethodCall,
+};
 use qed_store::{
-    config::store_config::QEDHasher, controllers::local::proving_session::QEDLocalProvingSessionStore, store::imm::{cmd::{QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof}, cmd_processor::{DPNInvokeDeferredMethodCallWitness, DPNReadOtherUserContractStateLeafMerkleProof, DPNStateCmdWitness, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
+    config::store_config::QEDHasher,
+    controllers::local::proving_session::QEDLocalProvingSessionStore,
+    store::imm::{
+        cmd::{
+            QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof,
+            QSRMerkleCmdGetUserContractTreeMerkleProof,
+        },
+        cmd_processor::{
+            DPNInvokeDeferredMethodCallWitness, DPNReadOtherUserContractStateLeafMerkleProof,
+            DPNStateCmdWitness, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut,
+        },
+    },
 };
 use qedlang_core::dpn::{
     ops::{
@@ -38,7 +56,26 @@ pub trait QEDCmdInputWitnessResolver<F: RichField> {
         state_cmd: &DPNStateCmd<u64>,
     ) -> anyhow::Result<QEDCmdWithInputAndWitness<F>>;
 }
+//(sub_slot_length-2)%4
 
+const SLOT_MASK_TABLE: [[u8; 4]; 7] = [
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [1, 0, 0, 0],
+    [1, 1, 0, 0],
+    [1, 1, 1, 0],
+    [1, 1, 1, 1],
+];
+
+fn get_slot_mask(length: u64, sub_slot_index: u64) -> [u8; 4] {
+    let length_minus_2 = length - 2;
+
+    let length_minus_2_low_bits = length_minus_2 & 0b11;
+    let sub_slot_index_low_bits = sub_slot_index & 0b11;
+
+    SLOT_MASK_TABLE[(length_minus_2_low_bits + sub_slot_index_low_bits) as usize]
+}
 impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
     for QEDLocalProvingSessionStore<GF, R>
 {
@@ -115,14 +152,18 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                 }
             }
             DPNStateCmd::SetContractStateSlotRange(c) => {
+
+
                 if c.condition == 0 {
-                    let r = self.resolve_vec(&DPNStateCmd::get_self_user_current_contract_state_slot_range(c.sub_slot_index, c.value.len() as u32))?;
+                    let r = self.resolve_vec(
+                        &DPNStateCmd::get_self_user_current_contract_state_slot_range(
+                            c.sub_slot_index,
+                            c.value.len() as u32,
+                        ),
+                    )?;
                     match r.witness {
                         DPNStateCmdWitness::MerkleProofArray(vec) => {
-                            let dmp = vec
-                                .iter()
-                                .map(|x| mp_to_dmp(x.clone()))
-                                .collect::<Vec<_>>();
+                            let dmp = vec.iter().map(|x| mp_to_dmp(x.clone())).collect::<Vec<_>>();
                             let result = c
                                 .value
                                 .iter()
@@ -134,11 +175,12 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                                 witness,
                                 result,
                             });
-                        },
-                        _ => panic!("invalid response type witness for get contrac state range")
+                        }
+                        _ => panic!("invalid response type witness for get contract state range"),
                     }
                 }
-                if c.value.len() == 1 {
+                let value_len = c.value.len();
+                if value_len == 1 {
                     let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
                     let n = (c.sub_slot_index & 0b11) as usize;
                     let cur = self
@@ -163,7 +205,205 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                         witness,
                         result,
                     })
+                } else if value_len< 6 {
+                    // two merkle proofs
+
+                    let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let n = (c.sub_slot_index & 0b11) as usize;
+                    let mut proof_0_elements = self.get_contract_state_slot(current_contract_id, slot_index)?.value.0.elements;
+                    let mut proof_1_elements = self.get_contract_state_slot(current_contract_id, slot_index + GF::ONE)?.value.0.elements;
+                    for (i, v) in c.value.iter().enumerate() {
+                        let r_ind = n+i;
+                        if r_ind < 4 {
+                            proof_0_elements[r_ind] = GF::from_canonical_u64(*v);
+                        }else{
+                            proof_1_elements[r_ind-4] = GF::from_canonical_u64(*v);
+                        }
+                    }
+                    let delta_proof_0 = self.set_contract_state_slot(
+                        current_contract_id,
+                        slot_index,
+                        QHashOut(HashOut {
+                            elements: proof_0_elements,
+                        }),
+                    )?;
+                    let delta_proof_1 = self.set_contract_state_slot(
+                        current_contract_id,
+                        slot_index+GF::ONE,
+                        QHashOut(HashOut {
+                            elements: proof_1_elements,
+                        }),
+                    )?;
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        witness: DPNStateCmdWitness::DeltaMerkleProofArray(vec![delta_proof_0, delta_proof_1]),
+                        result: c.value.iter().map(|x|GF::from_noncanonical_u64(*x)).collect(),
+                    })
                 } else {
+
+                    let start_slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let n_proofs = ((value_len + 6) / 4) as u64;
+                    let sub_slot_index_mod_4 = c.sub_slot_index % 4;
+                    let len_minus_2_mod_4 = (value_len - 2) % 4;
+                    //let start_slot = c.sub_slot_index / 4;
+                    let mut dmps = Vec::with_capacity(n_proofs as usize);
+                    let result = c.value.iter().map(|i|GF::from_noncanonical_u64(*i)).collect::<Vec<_>>();
+
+                    let slot_mask_type = sub_slot_index_mod_4 as usize + len_minus_2_mod_4;
+
+                    // handle the first proof special case
+                    let main_body_proofs_index_offset = (4-sub_slot_index_mod_4) as usize;
+                    let first_proof_set_elements = if sub_slot_index_mod_4 == 0 {
+                        [result[0], result[1], result[2], result[3]]
+                    }else{
+                        let first_proof_existing_value = self
+                            .get_contract_state_slot(current_contract_id, start_slot_index)?
+                            .value
+                            .0
+                            .elements;
+                        if  sub_slot_index_mod_4 == 1 {
+                            [
+                                first_proof_existing_value[0],
+                                result[0],
+                                result[1],
+                                result[2],
+                            ]
+                        }else if sub_slot_index_mod_4 == 2 {
+                            [
+                                first_proof_existing_value[0],
+                                first_proof_existing_value[1],
+                                result[0],
+                                result[1],
+                            ]
+                        }else{ // }else if sub_slot_index_mod_4 == 3 {
+                            [
+                                first_proof_existing_value[0],
+                                first_proof_existing_value[1],
+                                first_proof_existing_value[2],
+                                result[0],
+                            ]
+                        }
+
+
+                    };
+                    let dmp = self.set_contract_state_slot(
+                        current_contract_id, 
+                        start_slot_index, 
+                        QHashOut(HashOut{elements: first_proof_set_elements})
+                    )?;
+                    dmps.push(dmp);
+                    
+
+                    // we don't need to get the old values for main body proofs
+                    for i in 1..(n_proofs-1) {
+                        let current_value_index = main_body_proofs_index_offset + i as usize * 4;
+
+                        let set_value = QHashOut(HashOut {
+                            elements: [
+                                result[current_value_index],
+                                result[current_value_index+1],
+                                result[current_value_index+2],
+                                result[current_value_index+3],
+                            ]
+                        });
+
+                        let dmp = self.set_contract_state_slot(
+                            current_contract_id, 
+                            start_slot_index+GF::from_canonical_u64(i),
+                            set_value,
+                        )?;
+                        dmps.push(dmp);
+                    }
+
+                    // handle the last proof special case
+                    /*
+                    
+                    const SLOT_MASK_TABLE: [[u8; 4]; 7] = [
+                        [0, 0, 0, 0], // type 0
+                        [0, 0, 0, 0], // type 1
+                        [0, 0, 0, 0], // type 2
+                        [1, 0, 0, 0], // type 3
+                        [1, 1, 0, 0], // type 4
+                        [1, 1, 1, 0], // type 5
+                        [1, 1, 1, 1], // type 6
+                    ];
+
+                    */
+
+                    let last_proof_value_index = main_body_proofs_index_offset + (n_proofs as usize -1)*4;
+                    let last_proof_slot_index = start_slot_index+GF::from_canonical_u64(n_proofs - 1);
+                    if slot_mask_type == 6 {
+                        // if mask type is 6, we don't need to check the old value
+                        // type 6 => [1, 1, 1, 1],
+
+                        let set_value = QHashOut(HashOut {
+                            elements: [
+                                result[last_proof_value_index],
+                                result[last_proof_value_index+1],
+                                result[last_proof_value_index+2],
+                                result[last_proof_value_index+3],
+                            ]
+                        });
+
+                        let dmp = self.set_contract_state_slot(
+                            current_contract_id, 
+                            last_proof_slot_index,
+                            set_value,
+                        )?;
+                        dmps.push(dmp);
+                    }else if slot_mask_type < 3 {
+                        let last_proof_existing_mp = self
+                            .get_contract_state_slot(current_contract_id, last_proof_slot_index)?;
+                        // type 0, 1, 2 => [0, 0, 0, 0]
+                        // if slot mask type is < 3, then we are done and can just trasform the existing mp into a delta merkle proof
+                        dmps.push(last_proof_existing_mp.to_delta_merkle_proof_inplace());
+                    }else{
+                        // handle types 3, 4, 5
+                        // get the previous value of this slot
+                        let last_proof_existing_value = self
+                            .get_contract_state_slot(current_contract_id, last_proof_slot_index)?
+                            .value
+                            .0
+                            .elements;
+
+
+                        let new_set_value = if slot_mask_type == 3 {
+                            // type 3 => [1, 0, 0, 0]
+                            [
+                                result[last_proof_value_index],
+                                last_proof_existing_value[1],
+                                last_proof_existing_value[2],
+                                last_proof_existing_value[3],
+                            ]
+                        }else if slot_mask_type == 4 {
+                            [
+                                result[last_proof_value_index],
+                                result[last_proof_value_index+1],
+                                last_proof_existing_value[2],
+                                last_proof_existing_value[3],
+                            ]
+                        }else{// if slot_mask_type == 5 {
+                            [
+                                result[last_proof_value_index],
+                                result[last_proof_value_index+1],
+                                result[last_proof_value_index+2],
+                                last_proof_existing_value[3],
+                            ]
+                        };
+                        let dmp = self.set_contract_state_slot(
+                            current_contract_id, 
+                            last_proof_slot_index,
+                            QHashOut(HashOut{elements: new_set_value}),
+                        )?;
+                        dmps.push(dmp);
+                    }
+
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result,
+                        witness: DPNStateCmdWitness::DeltaMerkleProofArray(dmps),
+                    })
+                    /* 
                     let base_offset = c.sub_slot_index % 4u64;
                     let end_sub_index = (c.value.len() as u64) + c.sub_slot_index;
                     let end_offset = end_sub_index % 4u64;
@@ -220,7 +460,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                             .iter()
                             .map(|x| GF::from_noncanonical_u64(*x))
                             .collect::<Vec<GF>>(),
-                    })
+                    })*/
                 }
             }
             DPNStateCmd::InvokeExternalContractFunctionSync(_c) => todo!(),
@@ -247,6 +487,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
             }
             DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => {
                 if c.length == 1 {
+                    // one merkle proof
                     let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
                     let n = (c.sub_slot_index & 0b11) as usize;
                     let cur = self.get_contract_state_slot(current_contract_id, slot_index)?;
@@ -256,7 +497,135 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                         result: vec![el],
                         witness: DPNStateCmdWitness::MerkleProofArray(vec![cur]),
                     })
+                } else if c.length < 6 {
+                    // two merkle proofs
+
+                    let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let n = (c.sub_slot_index & 0b11) as usize;
+                    let proof_0 = self.get_contract_state_slot(current_contract_id, slot_index)?;
+                    let proof_1 =
+                        self.get_contract_state_slot(current_contract_id, slot_index + GF::ONE)?;
+
+                    let elements = [proof_0.value.0.elements, proof_1.value.0.elements].concat();
+
+                    let result = elements[n..(n + c.length as usize)].to_vec();
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result,
+                        witness: DPNStateCmdWitness::MerkleProofArray(vec![proof_0, proof_1]),
+                    })
                 } else {
+                    // max proofs needed = floor((c.length+6)/4)
+                    /*
+                        The first leaf can always be:
+                            if sub_slot_index%4 == 0: 1, 1, 1, 1
+                            if sub_slot_index%4 == 1: 0, 1, 1, 1
+                            if sub_slot_index%4 == 2: 0, 0, 1, 1
+                            if sub_slot_index%4 == 3: 0, 0, 0, 1
+
+                    The last leaf takes on the pattern (where 1 means we modify the element and 0 means we keep it the same):
+                        if (length-2)%4 == 0 {
+                            if sub_slot_index%4 == 0: 0, 0, 0, 0
+                            if sub_slot_index%4 == 1: 0, 0, 0, 0
+                            if sub_slot_index%4 == 2: 0, 0, 0, 0
+                            if sub_slot_index%4 == 3: 1, 0, 0, 0
+                        }
+                        ======================================
+
+                        if (length-2)%4 == 1 {
+                            if sub_slot_index%4 == 0: 0, 0, 0, 0
+                            if sub_slot_index%4 == 1: 0, 0, 0, 0
+                            if sub_slot_index%4 == 2: 1, 0, 0, 0
+                            if sub_slot_index%4 == 3: 1, 1, 0, 0
+                        }
+                        ======================================
+
+                        if (length-2)%4 == 2 {
+                            if sub_slot_index%4 == 0: 0, 0, 0, 0
+                            if sub_slot_index%4 == 1: 1, 0, 0, 0
+                            if sub_slot_index%4 == 2: 1, 1, 0, 0
+                            if sub_slot_index%4 == 3: 1, 1, 1, 0
+                        }
+                        ======================================
+
+                        if (length-2)%4 == 3 {
+                            if sub_slot_index%4 == 0: 1, 0, 0, 0
+                            if sub_slot_index%4 == 1: 1, 1, 0, 0
+                            if sub_slot_index%4 == 2: 1, 1, 1, 0
+                            if sub_slot_index%4 == 3: 1, 1, 1, 1
+                        }
+                        ======================================
+                     */
+
+                    let n_proofs = ((c.length + 6) / 4) as u64;
+                    let sub_slot_index_mod_4 = c.sub_slot_index % 4;
+                    let start_slot = c.sub_slot_index / 4;
+                    let mut mps = Vec::with_capacity(n_proofs as usize);
+                    let mut result = Vec::<GF>::with_capacity(c.length as usize);
+
+                    let len_minus_2_mod_4 = (c.length - 2) % 4;
+
+                    for i in 0..n_proofs {
+                        let mp = self.get_contract_state_slot(
+                            current_contract_id,
+                            GF::from_canonical_u64(start_slot + i),
+                        )?;
+                        if i == 0 {
+                            if sub_slot_index_mod_4 == 0 {
+                                result.push(mp.value.0.elements[0]);
+                                result.push(mp.value.0.elements[1]);
+                                result.push(mp.value.0.elements[2]);
+                                result.push(mp.value.0.elements[3]);
+                            } else if sub_slot_index_mod_4 == 1 {
+                                result.push(mp.value.0.elements[1]);
+                                result.push(mp.value.0.elements[2]);
+                                result.push(mp.value.0.elements[3]);
+                            } else if sub_slot_index_mod_4 == 2 {
+                                result.push(mp.value.0.elements[2]);
+                                result.push(mp.value.0.elements[3]);
+                            } else if sub_slot_index_mod_4 == 3 {
+                                result.push(mp.value.0.elements[3]);
+                            }
+                        } else if i == (n_proofs - 1) {
+                            let slot_mask_type =
+                                (len_minus_2_mod_4 as usize) + sub_slot_index_mod_4 as usize;
+                            /*
+
+                                const SLOT_MASK_TABLE: [[u8; 4]; 7] = [
+                                    [0, 0, 0, 0],
+                                    [0, 0, 0, 0],
+                                    [0, 0, 0, 0],
+                                    [1, 0, 0, 0],
+                                    [1, 1, 0, 0],
+                                    [1, 1, 1, 0],
+                                    [1, 1, 1, 1],
+                                ];
+                            */
+                            if slot_mask_type >= 3 {
+                                result.push(mp.value.0.elements[0]);
+                            }
+                            if slot_mask_type >= 4 {
+                                result.push(mp.value.0.elements[1]);
+                            }
+                            if slot_mask_type >= 5 {
+                                result.push(mp.value.0.elements[2]);
+                            }
+                            if slot_mask_type >= 6 {
+                                result.push(mp.value.0.elements[3]);
+                            }
+                        } else {
+                            result.extend_from_slice(&mp.value.0.elements);
+                        }
+                        mps.push(mp);
+                    }
+
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result,
+                        witness: DPNStateCmdWitness::MerkleProofArray(mps),
+                    })
+
+                    /*
                     let base_offset = c.sub_slot_index % 4u64;
                     let end_sub_index = (c.length as u64) + c.sub_slot_index;
                     let end_offset = end_sub_index % 4u64;
@@ -290,17 +659,16 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                         result,
                         witness: DPNStateCmdWitness::MerkleProofArray(mps),
                     })
+                    */
                 }
             }
             DPNStateCmd::GetSelfUserExternalContractStateSlotHash(c) => {
                 let contract_id = GF::from_noncanonical_u64(c.contract_id);
-                
+
                 let uct_witness_upper = self.get_self_user_contract_tree_leaf(contract_id)?;
-                
-                let state_slot_witness_lower = self.get_contract_state_slot(
-                    contract_id,
-                    GF::from_canonical_u64(c.slot_index),
-                )?;
+
+                let state_slot_witness_lower = self
+                    .get_contract_state_slot(contract_id, GF::from_canonical_u64(c.slot_index))?;
                 Ok(QEDCmdWithInputAndWitness {
                     state_cmd: state_cmd.clone(),
                     result: state_slot_witness_lower.value.0.elements.to_vec(),
@@ -309,14 +677,15 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                         state_slot_witness_lower,
                     ]),
                 })
-            },
+            }
             DPNStateCmd::GetSelfUserExternalContractStateSlotSingle(c) => {
                 let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
                 let slot_offset = c.sub_slot_index % 4u64;
                 let contract_id = GF::from_noncanonical_u64(c.contract_id);
 
                 let uct_witness_upper = self.get_self_user_contract_tree_leaf(contract_id)?;
-                let state_slot_witness_lower = self.get_contract_state_slot(contract_id, slot_index)?;
+                let state_slot_witness_lower =
+                    self.get_contract_state_slot(contract_id, slot_index)?;
 
                 Ok(QEDCmdWithInputAndWitness {
                     state_cmd: state_cmd.clone(),
@@ -326,9 +695,8 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                         state_slot_witness_lower,
                     ]),
                 })
-            },
+            }
             DPNStateCmd::GetSelfUserExternalContractStateSlotRange(c) => {
-
                 let contract_id = GF::from_noncanonical_u64(c.contract_id);
 
                 let uct_witness_upper = self.get_self_user_contract_tree_leaf(contract_id)?;
@@ -343,130 +711,356 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                         result: vec![el],
                         witness: DPNStateCmdWitness::MerkleProofArray(vec![uct_witness_upper, cur]),
                     })
+                } else if c.length < 6 {
+                    // two merkle proofs
+
+                    let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let n = (c.sub_slot_index & 0b11) as usize;
+                    let proof_0 = self.get_contract_state_slot(contract_id, slot_index)?;
+                    let proof_1 =
+                        self.get_contract_state_slot(contract_id, slot_index + GF::ONE)?;
+
+                    let elements = [proof_0.value.0.elements, proof_1.value.0.elements].concat();
+
+                    let result = elements[n..(n + c.length as usize)].to_vec();
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result,
+                        witness: DPNStateCmdWitness::MerkleProofArray(vec![
+                            uct_witness_upper,
+                            proof_0,
+                            proof_1,
+                        ]),
+                    })
                 } else {
-                    let base_offset = c.sub_slot_index % 4u64;
-                    let end_sub_index = (c.length as u64) + c.sub_slot_index;
-                    let end_offset = end_sub_index % 4u64;
-                    let slot_index = c.sub_slot_index / 4u64;
-                    //let pre_pad_left = base_offset as usize;
-                    //let post_pad_right = 4-(end_offset as usize);
-                    let end_slot_index = end_sub_index / 4u64;
-                    let mut mps = vec![uct_witness_upper];
+                    let n_proofs = ((c.length + 6) / 4) as u64;
+                    let sub_slot_index_mod_4 = c.sub_slot_index % 4;
+                    let start_slot = c.sub_slot_index / 4;
+                    let mut mps = Vec::with_capacity(n_proofs as usize + 1);
                     let mut result = Vec::<GF>::with_capacity(c.length as usize);
-                    for i in slot_index..end_slot_index {
+                    mps.push(uct_witness_upper);
+
+                    let len_minus_2_mod_4 = (c.length - 2) % 4;
+
+                    for i in 0..n_proofs {
                         let mp = self.get_contract_state_slot(
                             contract_id,
-                            GF::from_canonical_u64(i),
+                            GF::from_canonical_u64(start_slot + i),
                         )?;
-                        if base_offset != 0 && i == slot_index {
-                            result
-                                .extend_from_slice(&mp.value.0.elements[(base_offset as usize)..]);
+                        if i == 0 {
+                            if sub_slot_index_mod_4 == 0 {
+                                result.push(mp.value.0.elements[0]);
+                                result.push(mp.value.0.elements[1]);
+                                result.push(mp.value.0.elements[2]);
+                                result.push(mp.value.0.elements[3]);
+                            } else if sub_slot_index_mod_4 == 1 {
+                                result.push(mp.value.0.elements[1]);
+                                result.push(mp.value.0.elements[2]);
+                                result.push(mp.value.0.elements[3]);
+                            } else if sub_slot_index_mod_4 == 2 {
+                                result.push(mp.value.0.elements[2]);
+                                result.push(mp.value.0.elements[3]);
+                            } else if sub_slot_index_mod_4 == 3 {
+                                result.push(mp.value.0.elements[3]);
+                            }
+                        } else if i == (n_proofs - 1) {
+                            let slot_mask_type =
+                                (len_minus_2_mod_4 as usize) + sub_slot_index_mod_4 as usize;
+                            if slot_mask_type >= 3 {
+                                result.push(mp.value.0.elements[0]);
+                            }
+                            if slot_mask_type >= 4 {
+                                result.push(mp.value.0.elements[1]);
+                            }
+                            if slot_mask_type >= 5 {
+                                result.push(mp.value.0.elements[2]);
+                            }
+                            if slot_mask_type >= 6 {
+                                result.push(mp.value.0.elements[3]);
+                            }
+                        } else {
+                            result.extend_from_slice(&mp.value.0.elements);
                         }
                         mps.push(mp);
                     }
-                    if end_offset != 0 {
-                        let mp = self.get_contract_state_slot(
-                            contract_id,
-                            GF::from_canonical_u64(end_slot_index),
-                        )?;
-                        result.extend_from_slice(&mp.value.0.elements[..(end_offset as usize)]);
-                        mps.push(mp);
-                    }
+
                     Ok(QEDCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
                         result,
                         witness: DPNStateCmdWitness::MerkleProofArray(mps),
                     })
                 }
-            },
+            }
             DPNStateCmd::GetOtherUserContractStateSlotHash(c) => {
                 let user_id = GF::from_noncanonical_u64(c.user_id);
 
                 let user_leaf_witness = self.get_external_user_leaf_proof(user_id)?;
-                let contract_state_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractTreeMerkleProof(QSRMerkleCmdGetUserContractTreeMerkleProof{
-                    checkpoint_id: self.get_current_start_checkpoint_id_u64(),
-                    user_id: c.user_id,
-                    contract_id: c.contract_id as u32,
-                }))?;
+                let contract_state_proof = self.cmd_store.resolve_get_merkle_proof_mut(
+                    &QSRMerkleCmd::GetUserContractTreeMerkleProof(
+                        QSRMerkleCmdGetUserContractTreeMerkleProof {
+                            checkpoint_id: self.get_current_start_checkpoint_id_u64(),
+                            user_id: c.user_id,
+                            contract_id: c.contract_id as u32,
+                        },
+                    ),
+                )?;
 
-                let state_slot_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(QSRMerkleCmdGetUserContractStateTreeMerkleProof{
-                    checkpoint_id: self.get_current_start_checkpoint_id_u64(),
-                    user_id: c.user_id,
-                    contract_id: c.contract_id as u32,
-                    height: c.contract_state_tree_height,
-                    leaf_id: c.slot_index,
-                }))?;
+                let state_slot_proof = self.cmd_store.resolve_get_merkle_proof_mut(
+                    &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
+                        QSRMerkleCmdGetUserContractStateTreeMerkleProof {
+                            checkpoint_id: self.get_current_start_checkpoint_id_u64(),
+                            user_id: c.user_id,
+                            contract_id: c.contract_id as u32,
+                            height: c.contract_state_tree_height,
+                            leaf_id: c.slot_index,
+                        },
+                    ),
+                )?;
                 Ok(QEDCmdWithInputAndWitness {
                     state_cmd: state_cmd.clone(),
                     result: state_slot_proof.value.0.elements.to_vec(),
-                    witness: DPNStateCmdWitness::ReadOtherUserContractState(DPNReadOtherUserContractStateLeafMerkleProof{
-                        user_leaf_witness,
-                        contract_state_proof,
-                        state_slot_proofs: vec![state_slot_proof],
-                    })
+                    witness: DPNStateCmdWitness::ReadOtherUserContractState(
+                        DPNReadOtherUserContractStateLeafMerkleProof {
+                            user_leaf_witness,
+                            contract_state_proof,
+                            state_slot_proofs: vec![state_slot_proof],
+                        },
+                    ),
                 })
-            },
+            }
             DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => {
                 let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
                 let slot_offset = c.sub_slot_index % 4u64;
                 let user_id = GF::from_noncanonical_u64(c.user_id);
 
                 let user_leaf_witness = self.get_external_user_leaf_proof(user_id)?;
-                let contract_state_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractTreeMerkleProof(QSRMerkleCmdGetUserContractTreeMerkleProof{
-                    checkpoint_id: self.get_current_start_checkpoint_id_u64(),
-                    user_id: c.user_id,
-                    contract_id: c.contract_id as u32,
-                }))?;
+                let contract_state_proof = self.cmd_store.resolve_get_merkle_proof_mut(
+                    &QSRMerkleCmd::GetUserContractTreeMerkleProof(
+                        QSRMerkleCmdGetUserContractTreeMerkleProof {
+                            checkpoint_id: self.get_current_start_checkpoint_id_u64(),
+                            user_id: c.user_id,
+                            contract_id: c.contract_id as u32,
+                        },
+                    ),
+                )?;
 
-                let state_slot_proof = self.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(QSRMerkleCmdGetUserContractStateTreeMerkleProof{
-                    checkpoint_id: self.get_current_start_checkpoint_id_u64(),
-                    user_id: c.user_id,
-                    contract_id: c.contract_id as u32,
-                    height: c.contract_state_tree_height,
-                    leaf_id: slot_index.to_canonical_u64(),
-                }))?;
+                let state_slot_proof = self.cmd_store.resolve_get_merkle_proof_mut(
+                    &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
+                        QSRMerkleCmdGetUserContractStateTreeMerkleProof {
+                            checkpoint_id: self.get_current_start_checkpoint_id_u64(),
+                            user_id: c.user_id,
+                            contract_id: c.contract_id as u32,
+                            height: c.contract_state_tree_height,
+                            leaf_id: slot_index.to_canonical_u64(),
+                        },
+                    ),
+                )?;
                 Ok(QEDCmdWithInputAndWitness {
                     state_cmd: state_cmd.clone(),
                     result: vec![state_slot_proof.value.0.elements[slot_offset as usize]],
-                    witness: DPNStateCmdWitness::ReadOtherUserContractState(DPNReadOtherUserContractStateLeafMerkleProof{
-                        user_leaf_witness,
-                        contract_state_proof,
-                        state_slot_proofs: vec![state_slot_proof],
-                    })
+                    witness: DPNStateCmdWitness::ReadOtherUserContractState(
+                        DPNReadOtherUserContractStateLeafMerkleProof {
+                            user_leaf_witness,
+                            contract_state_proof,
+                            state_slot_proofs: vec![state_slot_proof],
+                        },
+                    ),
                 })
+            }
+            DPNStateCmd::GetOtherUserContractStateSlotRange(c) => {
+
+                let user_id = GF::from_noncanonical_u64(c.user_id);
+
+                let user_leaf_witness = self.get_external_user_leaf_proof(user_id)?;
+                let contract_state_proof = self.cmd_store.resolve_get_merkle_proof_mut(
+                    &QSRMerkleCmd::GetUserContractTreeMerkleProof(
+                        QSRMerkleCmdGetUserContractTreeMerkleProof {
+                            checkpoint_id: self.get_current_start_checkpoint_id_u64(),
+                            user_id: c.user_id,
+                            contract_id: c.contract_id as u32,
+                        },
+                    ),
+                )?;
+
+
+
+
+                if c.length == 1 {
+                    let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let n = (c.sub_slot_index & 0b11) as usize;
+
+                    let state_slot_proof = self.cmd_store.resolve_get_merkle_proof_mut(
+                        &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
+                            QSRMerkleCmdGetUserContractStateTreeMerkleProof {
+                                checkpoint_id: self.get_current_start_checkpoint_id_u64(),
+                                user_id: c.user_id,
+                                contract_id: c.contract_id as u32,
+                                height: c.contract_state_tree_height,
+                                leaf_id: c.sub_slot_index / 4u64,
+                            },
+                        ),
+                    )?;
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result: state_slot_proof.value.0.elements.to_vec(),
+                        witness: DPNStateCmdWitness::ReadOtherUserContractState(
+                            DPNReadOtherUserContractStateLeafMerkleProof {
+                                user_leaf_witness,
+                                contract_state_proof,
+                                state_slot_proofs: vec![state_slot_proof],
+                            },
+                        ),
+                    })
+                } else if c.length < 6 {
+                    // two merkle proofs
+
+                    let slot_index = (c.sub_slot_index / 4u64);
+                    let n = (c.sub_slot_index & 0b11) as usize;
+                    let proof_0 = self.cmd_store.resolve_get_merkle_proof_mut(
+                        &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
+                            QSRMerkleCmdGetUserContractStateTreeMerkleProof {
+                                checkpoint_id: self.get_current_start_checkpoint_id_u64(),
+                                user_id: c.user_id,
+                                contract_id: c.contract_id as u32,
+                                height: c.contract_state_tree_height,
+                                leaf_id: slot_index
+                            },
+                        ))?;
+                    let proof_1 = self.cmd_store.resolve_get_merkle_proof_mut(
+                        &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
+                            QSRMerkleCmdGetUserContractStateTreeMerkleProof {
+                                checkpoint_id: self.get_current_start_checkpoint_id_u64(),
+                                user_id: c.user_id,
+                                contract_id: c.contract_id as u32,
+                                height: c.contract_state_tree_height,
+                                leaf_id: slot_index+1
+                            },
+                        ))?;
+
+                    let elements = [proof_0.value.0.elements, proof_1.value.0.elements].concat();
+
+                    let result = elements[n..(n + c.length as usize)].to_vec();
+                    
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result,
+                        witness: DPNStateCmdWitness::ReadOtherUserContractState(
+                            DPNReadOtherUserContractStateLeafMerkleProof {
+                                user_leaf_witness,
+                                contract_state_proof,
+                                state_slot_proofs: vec![proof_0, proof_1],
+                            },
+                        ),
+                    })
+                } else {
+                    let n_proofs = ((c.length + 6) / 4) as u64;
+                    let sub_slot_index_mod_4 = c.sub_slot_index % 4;
+                    let start_slot = c.sub_slot_index / 4;
+                    let mut mps = Vec::with_capacity(n_proofs as usize + 1);
+                    let mut result = Vec::<GF>::with_capacity(c.length as usize);
+
+                    let len_minus_2_mod_4 = (c.length - 2) % 4;
+
+                    for i in 0..n_proofs {
+                        let mp = self.cmd_store.resolve_get_merkle_proof_mut(
+                            &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
+                                QSRMerkleCmdGetUserContractStateTreeMerkleProof {
+                                    checkpoint_id: self.get_current_start_checkpoint_id_u64(),
+                                    user_id: c.user_id,
+                                    contract_id: c.contract_id as u32,
+                                    height: c.contract_state_tree_height,
+                                    leaf_id: start_slot+i,
+                                },
+                            ))?;
+                        if i == 0 {
+                            if sub_slot_index_mod_4 == 0 {
+                                result.push(mp.value.0.elements[0]);
+                                result.push(mp.value.0.elements[1]);
+                                result.push(mp.value.0.elements[2]);
+                                result.push(mp.value.0.elements[3]);
+                            } else if sub_slot_index_mod_4 == 1 {
+                                result.push(mp.value.0.elements[1]);
+                                result.push(mp.value.0.elements[2]);
+                                result.push(mp.value.0.elements[3]);
+                            } else if sub_slot_index_mod_4 == 2 {
+                                result.push(mp.value.0.elements[2]);
+                                result.push(mp.value.0.elements[3]);
+                            } else if sub_slot_index_mod_4 == 3 {
+                                result.push(mp.value.0.elements[3]);
+                            }
+                        } else if i == (n_proofs - 1) {
+                            let slot_mask_type =
+                                (len_minus_2_mod_4 as usize) + sub_slot_index_mod_4 as usize;
+                            if slot_mask_type >= 3 {
+                                result.push(mp.value.0.elements[0]);
+                            }
+                            if slot_mask_type >= 4 {
+                                result.push(mp.value.0.elements[1]);
+                            }
+                            if slot_mask_type >= 5 {
+                                result.push(mp.value.0.elements[2]);
+                            }
+                            if slot_mask_type >= 6 {
+                                result.push(mp.value.0.elements[3]);
+                            }
+                        } else {
+                            result.extend_from_slice(&mp.value.0.elements);
+                        }
+                        mps.push(mp);
+                    }
+
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result,
+                        witness: DPNStateCmdWitness::ReadOtherUserContractState(
+                            DPNReadOtherUserContractStateLeafMerkleProof {
+                                user_leaf_witness,
+                                contract_state_proof,
+                                state_slot_proofs: mps,
+                            },
+                        ),
+                    })
+                }
+
             },
-            DPNStateCmd::GetOtherUserContractStateSlotRange(_c) => todo!(),
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
-                let call_data = DPNProvingSessionSimpleMethodCall{
+                let call_data = DPNProvingSessionSimpleMethodCall {
                     contract_id: GF::from_canonical_u64(c.contract_id),
                     method_id: GF::from_canonical_u64(c.method_id),
-                    inputs: c.input_args.iter().map(|x| GF::from_canonical_u64(*x)).collect::<Vec<GF>>(),
+                    inputs: c
+                        .input_args
+                        .iter()
+                        .map(|x| GF::from_canonical_u64(*x))
+                        .collect::<Vec<GF>>(),
                 };
                 if c.condition == 0 {
-                    let insertion_proof_placeholder = mp_to_dmp(self.get_latest_deferred_tx_leaf()?);
+                    let insertion_proof_placeholder =
+                        mp_to_dmp(self.get_latest_deferred_tx_leaf()?);
                     Ok(QEDCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
                         result: call_data.qfhash::<QEDHasher>().0.elements.to_vec(),
-                        witness: DPNStateCmdWitness::InvokeExternalContractFunctionDeferred(DPNInvokeDeferredMethodCallWitness{
-                            call_data,
-                            insertion_proof: insertion_proof_placeholder,
-                        })
-                    })    
-                }else{
+                        witness: DPNStateCmdWitness::InvokeExternalContractFunctionDeferred(
+                            DPNInvokeDeferredMethodCallWitness {
+                                call_data,
+                                insertion_proof: insertion_proof_placeholder,
+                            },
+                        ),
+                    })
+                } else {
                     let insertion_proof = self.add_deferred_tx_to_debt(call_data.clone())?;
 
                     Ok(QEDCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
                         result: call_data.qfhash::<QEDHasher>().0.elements.to_vec(),
-                        witness: DPNStateCmdWitness::InvokeExternalContractFunctionDeferred(DPNInvokeDeferredMethodCallWitness{
-                            call_data,
-                            insertion_proof,
-                        })
-                    })    
+                        witness: DPNStateCmdWitness::InvokeExternalContractFunctionDeferred(
+                            DPNInvokeDeferredMethodCallWitness {
+                                call_data,
+                                insertion_proof,
+                            },
+                        ),
+                    })
                 }
-
-
-            },
+            }
         }
     }
 }
@@ -512,7 +1106,6 @@ impl QEDEvalSessionResult<GF> {
         Ok(())
     }
 
-
     pub fn exec_contract_call<R: QEDReadCommandProcessorSync<GF>>(
         self,
         sesh: &mut QEDLocalProvingSessionStore<GF, R>,
@@ -520,7 +1113,7 @@ impl QEDEvalSessionResult<GF> {
         fn_def: &DPNFunctionCircuitDefinition,
         inputs: Vec<GF>,
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<GF>> {
-        sesh.init_transaction(DPNProvingSessionSimpleMethodCall{
+        sesh.init_transaction(DPNProvingSessionSimpleMethodCall {
             contract_id,
             method_id: GF::from_canonical_u32(fn_def.method_id),
             inputs: inputs.clone(),
@@ -534,9 +1127,12 @@ impl QEDEvalSessionResult<GF> {
         sesh: &mut QEDLocalProvingSessionStore<GF, R>,
         inputs: Vec<GF>,
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<GF>> {
-
         let start_session_ctx = sesh.get_fresh_start_ctx_for_user(sesh.get_current_user_id())?;
-        let call_data_ctx = sesh.get_call_start_data(sesh.get_current_contract_id(), GF::from_canonical_u32(fn_def.method_id), &inputs)?;
+        let call_data_ctx = sesh.get_call_start_data(
+            sesh.get_current_contract_id(),
+            GF::from_canonical_u32(fn_def.method_id),
+            &inputs,
+        )?;
 
         let inputs_clone = inputs.clone();
         let mut executor = SimpleDPNExecutor::<GF>::new_with_contract_ctx(
@@ -603,15 +1199,17 @@ impl QEDEvalSessionResult<GF> {
             .iter()
             .map(|x| executor.resolve_target(*x))
             .collect::<Vec<GF>>();
-        let end_ctx = DapenCFCUserTransactionEndContext{
-            end_contract_state_tree_root: sesh.get_contract_state_slot(sesh.get_current_contract_id(), GF::ZERO)?.root,
+        let end_ctx = DapenCFCUserTransactionEndContext {
+            end_contract_state_tree_root: sesh
+                .get_contract_state_slot(sesh.get_current_contract_id(), GF::ZERO)?
+                .root,
             end_deferred_tx_debt_tree_root: sesh.get_latest_deferred_tx_leaf()?.root,
             outputs_hash: safe_hash_fixed_length::<QEDHasher, GF>(&outputs),
             outputs_length: GF::from_noncanonical_u64(outputs.len() as u64),
             total_events_emitted: GF::from_noncanonical_u64(0),
             total_balance_spent: GF::from_noncanonical_u64(0),
         };
-        let input_ctx = DapenCFCUserTransactionInputContext{
+        let input_ctx = DapenCFCUserTransactionInputContext {
             proving_session_start_ctx: start_session_ctx,
             transaction_call_start_ctx: call_data_ctx,
             transaction_end_ctx: end_ctx,
@@ -619,8 +1217,7 @@ impl QEDEvalSessionResult<GF> {
 
         sesh.finalize_transaction()?;
 
-        
-        Ok(DapenContractFunctionCircuitInput{
+        Ok(DapenContractFunctionCircuitInput {
             inputs: inputs_clone,
             outputs,
             cmd_witnesses: self.cmd_witnesses,

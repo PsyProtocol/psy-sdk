@@ -210,7 +210,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     let session_proof_tree_height = 16;
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
-    let cf_circuit = DapenContractFunctionCircuit::<C, D>::new(&compiled, contract_state_tree_height, session_proof_tree_height);
+    let cf_circuit = DapenContractFunctionCircuit::<C, D>::new(&compiled, contract_state_tree_height, session_proof_tree_height, false);
     
     timer.lap("built circuit");
     

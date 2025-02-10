@@ -12,6 +12,8 @@ pub trait CircuitBuilderConnectHelpers<F: RichField + Extendable<D>, const D: us
     fn connect_nop(&mut self, x: Target, y: Target);
     // does nothing, used for debugging
 
+    
+
 
     fn connect_zero_if_true(&mut self, condition: BoolTarget, x: Target);
     fn connect_hashes_nop(&mut self, x: HashOutTarget, y: HashOutTarget);

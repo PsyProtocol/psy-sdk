@@ -12,7 +12,7 @@ use qed_common_circuit::{
         math::core::CircuitBuilderCoreMathHelpers, select::CircuitBuilderSelectHelpers,
     },
     hash::merkle::gadgets::{
-        delta_merkle_proof::DeltaMerkleProofGadget, merkle_proof::MerkleProofGadget,
+        delta_merkle_proof::DeltaMerkleProofGadget, merkle_proof::MerkleProofGadget, sub_slot_delta_merkle_proof_batch::SubSlotDeltaMerkleProofBatchGadget, sub_slot_merkle_proof_batch::SubSlotMerkleProofBatchGadget,
     },
     traits::CreatableTarget,
 };
@@ -145,6 +145,14 @@ pub struct CKReadCurrentContractSingle {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
+pub struct CKReadCurrentContractRange {
+    pub sub_slot_target_id: u64,
+    pub length: u32,
+    pub slot_offset_index: u64,
+    pub write_epoch: u32,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct CKWriteCurrentContractSlot {
     pub slot_target_id: u64,
     pub condition_target_id: u64,
@@ -155,6 +163,14 @@ pub struct CKWriteCurrentContractSlot {
 pub struct CKWriteCurrentContractSingle {
     pub sub_slot_target_id: u64,
     pub condition_target_id: u64,
+    pub write_epoch: u32,
+}
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
+pub struct CKWriteCurrentContractRange {
+    pub sub_slot_target_id: u64,
+    pub condition_target_id: u64,
+    pub length: u32,
+    pub slot_offset_index: u64,
     pub write_epoch: u32,
 }
 
@@ -169,6 +185,15 @@ pub struct CKReadSelfUserExternalContractSlot {
     pub contract_target_id: u64,
     pub slot_target_id: u64,
     pub contract_call_epoch: u32,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
+pub struct CKReadSelfUserExternalContractRange {
+    pub contract_target_id: u64,
+    pub sub_slot_target_id: u64,
+    pub length: u32,
+    pub contract_call_epoch: u32,
+    pub slot_offset_index: u64,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
@@ -192,20 +217,32 @@ pub struct CKReadOtherUserContractContractSlot {
     pub contract_target_id: u64,
     pub slot_target_id: u64,
 }
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
+pub struct CKReadOtherUserContractContractRange {
+    pub user_target_id: u64,
+    pub contract_target_id: u64,
+    pub sub_slot_target_id: u64,
+    pub length: u32,
+    pub slot_offset_index: u64,
+}
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub enum StateCommandCacheKey {
     InvokeDeferredMethodCall(CKInvokeDeferredMethodCall),
     ReadCurrentContractSlot(CKReadCurrentContractSlot),
     ReadCurrentContractSingle(CKReadCurrentContractSingle),
+    ReadCurrentContractRange(CKReadCurrentContractRange),
     WriteCurrentContractSlot(CKWriteCurrentContractSlot),
     WriteCurrentContractSingle(CKWriteCurrentContractSingle),
+    WriteCurrentContractRange(CKWriteCurrentContractRange),
     ReadSelfUserExternalContractRoot(CKReadSelfUserExternalContractRoot),
     ReadSelfUserExternalContractSlot(CKReadSelfUserExternalContractSlot),
+    ReadSelfUserExternalContractRange(CKReadSelfUserExternalContractRange),
     ReadOtherUserLeafHash(CKReadOtherUserLeafHash),
     ReadOtherUserLeaf(CKReadOtherUserLeaf),
     ReadOtherUserContractContractRoot(CKReadOtherUserContractContractRoot),
     ReadOtherUserContractContractSlot(CKReadOtherUserContractContractSlot),
+    ReadOtherUserContractContractRange(CKReadOtherUserContractContractRange),
 }
 impl StateCommandCacheKey {
     pub fn new_read_current_contract_slot(slot_target_id: u64, write_epoch: u32) -> Self {
@@ -217,6 +254,19 @@ impl StateCommandCacheKey {
     pub fn new_read_current_contract_single(sub_slot_target_id: u64, write_epoch: u32) -> Self {
         Self::ReadCurrentContractSingle(CKReadCurrentContractSingle {
             sub_slot_target_id,
+            write_epoch,
+        })
+    }
+    pub fn new_read_current_contract_range(
+        sub_slot_target_id: u64, 
+        length: u32,
+        slot_offset_index: u64,
+        write_epoch: u32
+    ) -> Self {
+        Self::ReadCurrentContractRange(CKReadCurrentContractRange {
+            sub_slot_target_id,
+            length,
+            slot_offset_index,
             write_epoch,
         })
     }
@@ -242,6 +292,21 @@ impl StateCommandCacheKey {
             write_epoch,
         })
     }
+    pub fn new_write_current_contract_range(
+        sub_slot_target_id: u64,
+        condition_target_id: u64,
+        length: u32,
+        slot_offset_index: u64,
+        write_epoch: u32,
+    ) -> Self {
+        Self::WriteCurrentContractRange(CKWriteCurrentContractRange {
+            sub_slot_target_id,
+            condition_target_id,
+            length,
+            slot_offset_index,
+            write_epoch,
+        })
+    }
     pub fn new_read_self_user_external_contract_root(
         contract_target_id: u64,
         contract_call_epoch: u32,
@@ -260,6 +325,21 @@ impl StateCommandCacheKey {
             contract_target_id,
             slot_target_id,
             contract_call_epoch,
+        })
+    }
+    pub fn new_read_self_user_external_contract_range(
+        contract_target_id: u64,
+        sub_slot_target_id: u64,
+        contract_call_epoch: u32,
+        length: u32,
+        slot_offset_index: u64,
+    ) -> Self {
+        Self::ReadSelfUserExternalContractRange(CKReadSelfUserExternalContractRange {
+            contract_target_id,
+            sub_slot_target_id,
+            contract_call_epoch,
+            length,
+            slot_offset_index,
         })
     }
     pub fn new_read_other_user_leaf_hash(user_target_id: u64) -> Self {
@@ -283,6 +363,21 @@ impl StateCommandCacheKey {
             user_target_id,
             contract_target_id,
             slot_target_id,
+        })
+    }
+    pub fn new_read_other_user_contract_range(
+        user_target_id: u64,
+        contract_target_id: u64,
+        sub_slot_target_id: u64,
+        length: u32,
+        slot_offset_index: u64,
+    ) -> Self {
+        Self::ReadOtherUserContractContractRange(CKReadOtherUserContractContractRange {
+            user_target_id,
+            contract_target_id,
+            sub_slot_target_id,
+            length,
+            slot_offset_index,
         })
     }
 }
@@ -313,6 +408,7 @@ pub struct StateReaderGadget {
 
     pub contract_state_tree_height: usize,
     pub session_proof_tree_height: usize,
+    pub force_four_align: bool,
 }
 
 
@@ -325,6 +421,7 @@ impl StateReaderGadget {
         contract_state_tree_height: usize,
         session_proof_tree_root: HashOutTarget,
         session_proof_tree_height: usize,
+        force_four_align: bool,
         
     ) -> Self {
         Self {
@@ -347,6 +444,7 @@ impl StateReaderGadget {
             
             session_proof_tree_root,
             session_proof_tree_height,
+            force_four_align,
         }
     }
 
@@ -793,7 +891,51 @@ impl StateReaderGadget {
 
                 vec![value]
             },
-            DPNStateCmd::SetContractStateSlotRange(c) => todo!(),
+            DPNStateCmd::SetContractStateSlotRange(c) => {
+                let condition = dpn.resolve_bool(builder, c.condition);
+                let sub_slot_index = dpn.resolve_target(c.sub_slot_index);
+                let values = dpn.resolve_targets(&c.value);
+
+
+                let (values, dmps) = {
+
+                let gadget= SubSlotDeltaMerkleProofBatchGadget::add_virtual_to::<H,F,D>(
+                    builder,
+                    self.contract_state_tree_height,
+                    sub_slot_index,
+                    values,
+                    self.force_four_align
+                );
+                (gadget.values, gadget.delta_merkle_proof_gadgets)
+
+                };
+                builder.connect_hashes_if_true(
+                    condition,
+                    dmps[0].old_root,
+                    self.end_contract_state_root,
+                );
+
+                let new_end_state_root =
+                    builder.select_hash(condition, dmps.last().unwrap().new_root, self.end_contract_state_root);
+                self.end_contract_state_root = new_end_state_root;
+                let values_len = values.len() as u32;
+                for (i, dmp) in dmps.into_iter().enumerate() {
+
+                    let ck = StateCommandCacheKey::new_write_current_contract_range(
+                        c.sub_slot_index,
+                        c.condition,
+                        values_len,
+                        i as u64,
+                        self.write_epoch,
+                    );
+                    let _ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
+                }
+
+
+                self.write_epoch += 1;
+                values
+
+            },
             DPNStateCmd::InvokeExternalContractFunctionSync(c) => todo!(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => {
                 let ck = StateCommandCacheKey::new_read_current_contract_slot(
@@ -846,7 +988,51 @@ impl StateReaderGadget {
                     self.result_map[&ck].to_vec()
                 }
             }
-            DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => todo!(),
+            DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => {
+
+                let r_ck = StateCommandCacheKey::new_read_current_contract_range(
+                    c.sub_slot_index,
+                    c.length,
+                    0,
+                    self.write_epoch,
+                );
+                if self.result_map.contains_key(&r_ck) {
+                    self.result_map.get(&r_ck).unwrap().to_owned()
+                }else{
+                    let sub_slot_index = dpn.resolve_target(c.sub_slot_index);
+                let (values, mps) = {
+
+                    let gadget= SubSlotMerkleProofBatchGadget::add_virtual_to::<H,F,D>(
+                        builder,
+                        self.contract_state_tree_height,
+                        c.length as usize,
+                        sub_slot_index,
+                        self.force_four_align
+                    );
+                    (gadget.values, gadget.merkle_proof_gadgets)
+    
+                    };
+                    builder.connect_hashes(
+                        mps[0].root,
+                        self.end_contract_state_root,
+                    );
+                    for (i, mp) in mps.into_iter().enumerate() {
+
+                        let ck = StateCommandCacheKey::new_read_current_contract_range(
+                            c.sub_slot_index,
+                            c.length,
+                            i as u64,
+                            self.write_epoch,
+                        );
+                        let _ref_key = self.insert_merkle_proof_gadget(ck, mp);
+                    }
+                    self.result_map.insert(r_ck, values.clone());
+                    values
+
+                }
+
+
+            },
             DPNStateCmd::GetSelfUserExternalContractStateSlotHash(c) => {
                 let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(
                     c.contract_id,

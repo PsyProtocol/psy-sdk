@@ -166,7 +166,7 @@ fn gen_contract_deploy_and_circuits_for_functions(
     let mut fingerprints = Vec::with_capacity(defs.len()*2); 
     let circuits = defs.iter().map(|x| {
 
-        let c = DapenContractFunctionCircuit::<C, D>::new(x, contract_state_tree_height as usize, UPS_SESSION_PROOF_TREE_HEIGHT as usize);
+        let c = DapenContractFunctionCircuit::<C, D>::new(x, contract_state_tree_height as usize, UPS_SESSION_PROOF_TREE_HEIGHT as usize, false);
         fingerprints.push(c.get_fingerprint());
 
         // sibling is [method_id, (num_outputs<<32)|num_inputs, 0, 0]
