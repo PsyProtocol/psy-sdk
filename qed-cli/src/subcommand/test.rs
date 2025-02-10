@@ -15,45 +15,45 @@ use qedlang_core::dpn::{
 };
 
 pub fn run(args: TestArgs) -> anyhow::Result<()> {
-    let mut interpreter = Interpreter::<SymFeltRef, GoldilocksField, _>::new(QExecContext::new());
-    let res = interpreter.test(args.file.into())?;
+    let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+    let compile_results = interpreter.test(
+        args.file.into(),
+        |context, (method_name, method_id, outputs)| {
+            QEDCompileResult::compile_exec(
+                method_name,
+                method_id,
+                &context.store,
+                &context,
+                &outputs,
+            )
+        },
+    )?;
+
+    println!("compile_result: {:?}", compile_results);
 
     let priv_key = QHashOut::rand();
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
     let pub_key = wallet.add_private_key(SimpleQEDPrivateKey::new(priv_key));
     let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
-    for (method_name, method_id, outputs) in res {
-        let compile_result = QEDCompileResult::compile_exec(
-            method_name,
-            method_id,
-            &interpreter.context.store,
-            &interpreter.context,
-            &outputs,
-        );
+    let deployer = QHashOut::rand();
+    let (mut circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+        deployer,
+        contract_state_tree_height as u8,
+        &compile_results,
+    )?;
 
-        for (i, def) in compile_result.definitions.iter().enumerate() {
-            println!("def{}: {:?}", i, def);
-        }
+    let mut lps = prepare_environment_with_real_contract(pub_key, deploy_cmd)?;
+    let contract_id = GoldilocksField::from_canonical_u64(2);
 
-        let deployer = QHashOut::rand();
-        let defs_array = [compile_result.clone()];
-        let (mut result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
-            deployer,
-            contract_state_tree_height as u8,
-            &defs_array,
-        )?;
-
-        let mut lps = prepare_environment_with_real_contract(pub_key, deploy_cmd)?;
-        let contract_id = GoldilocksField::ONE;
-
-        let cfc_input = QEDEvalSessionResult::new().exec_contract_call(
-            &mut lps,
-            contract_id,
-            &compile_result,
-            interpreter.inputs.clone(),
-        )?;
+    for (def, circuit) in compile_results.into_iter().zip(circuits.into_iter()) {
+        let cfc_input =
+            QEDEvalSessionResult::new().exec_contract_call(&mut lps, contract_id, &def, vec![])?;
         println!("result_vm: {:?}", cfc_input.outputs);
+
+        let proof = circuit.prove_base(&cfc_input).unwrap();
+        println!("public_inputs: {:?}", &proof.public_inputs);
     }
+
     Ok(())
 }

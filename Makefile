@@ -15,26 +15,15 @@ fmt:
 	@cargo fmt
 
 interpret:
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/opcode_test.qed --params 2 3
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/parameter_passing_test.qed --params 2 3
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/pub_test.qed --params 2 3
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/return_test.qed --params 2 3
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/001.qed
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/003.qed
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/004.qed
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/005.qed
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/006.qed
-	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/basic_ups.qed --contract-name=Contract --method-name=simple_mint --params 2
-	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/basic_ups.qed --contract-name=Contract --method-name=simple_transfer --params 2 3
-	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/basic_ups.qed --contract-name=Contract --method-name=simple_claim --params 2
-	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/token.qed --contract-name=Contract --method-name=simple_mint --params 2
-	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/token.qed --contract-name=Contract --method-name=simple_transfer --params 2 3
-	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/token.qed --contract-name=Contract --method-name=simple_claim --params 2
-	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/two_user_ups.qed --contract-name=Contract --method-name=simple_mint --params 2
-	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/two_user_ups.qed --contract-name=Contract --method-name=simple_transfer --params 2 3
-	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/two_user_ups.qed --contract-name=Contract --method-name=simple_claim --params 2
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/opcode_test.qed --parameters 2,3
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/parameter_passing_test.qed --parameters 2,3
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/pub_test.qed --parameters 2,3
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/return_test.qed --parameters 2,3
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 133700 --parameters 2,1000
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters=2,100
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/two_user_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
 	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/storage_test.qed
-	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/ctx_test.qed --params 2 3
+	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/ctx_test.qed --parameters 2,3
 
 compile:
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli compile --file tests/storage_test.qed --contract-name=Contract --method-names set_a set_b set_c set_d get_a get_b get_c get_d

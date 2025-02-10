@@ -7,18 +7,26 @@ mod preprocess;
 use either::Either;
 use error::{Error, Result};
 use indexmap::IndexMap;
-use plonky2::hash::hash_types::RichField;
+use plonky2::{
+    field::{goldilocks_field::GoldilocksField, types::Field},
+    hash::hash_types::RichField,
+};
 pub use preprocess::StorageProcessor;
 use qed_ast::*;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
+use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_fmt::Formatter;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
+use qed_store::{
+    controllers::local::proving_session::QEDLocalProvingSessionStore,
+    store::imm::cmd_processor::QEDReadCommandProcessorSync,
+};
 use qedlang_core::dpn::{
     eval::traits::ContextInput,
     ops::context_trait::{ContextFelt, DPNContext, ToFelts},
-    vm::compile::QEDCompileResult,
+    vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
 };
 use std::{cell::RefCell, collections::HashMap, fmt::Display, ops::Index, path::PathBuf, rc::Rc};
 
@@ -26,29 +34,29 @@ use tracing::{debug, error, info, instrument, span, Level};
 
 use crate::control::ControlState;
 
+type GF = GoldilocksField;
 #[derive(Debug)]
-pub struct Interpreter<F: Clone + From<u32>, GF: RichField, C> {
-    pub inputs: Vec<GF>,
+pub struct Interpreter<F: Clone + From<u32>, C> {
     pub context: C,
     _marker: std::marker::PhantomData<F>,
 }
 
-impl<F: ContextFelt + From<u32>, GF: RichField, C: DPNContext<F>> Interpreter<F, GF, C> {
+impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     pub fn new(context: C) -> Self {
         Self {
-            inputs: vec![],
             context,
             _marker: std::marker::PhantomData,
         }
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn compile<I: Into<Ident>>(
+    pub fn interpret<I: Into<Ident>>(
         &mut self,
         entry: PathBuf,
         contract_name: Option<I>,
         method_names: Vec<I>,
-    ) -> Result<Vec<(String, u32, Vec<F>)>>
+        compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
+    ) -> Result<Vec<DPNFunctionCircuitDefinition>>
     where
         F: Display + 'static,
     {
@@ -61,7 +69,7 @@ impl<F: ContextFelt + From<u32>, GF: RichField, C: DPNContext<F>> Interpreter<F,
         } = typechecker_context;
 
         let scope_id = symbols[ModuleId::root()].scope_id;
-        let type_id = if let Some(contract_name) = contract_name {
+        let type_ids = if let Some(contract_name) = contract_name {
             let contract_name = program.interner.intern_ident(contract_name.into());
             let type_id = symbols[scope_id]
                 .types
@@ -93,8 +101,10 @@ impl<F: ContextFelt + From<u32>, GF: RichField, C: DPNContext<F>> Interpreter<F,
         };
 
         let mut outputs = Vec::new();
+        // backup context
+        let context = self.context.clone();
 
-        for type_id in type_id {
+        for type_id in type_ids {
             let node: &CheckedFunctionNode = symbols[type_id.clone()].as_ref();
 
             let mut parameters = vec![];
@@ -104,73 +114,22 @@ impl<F: ContextFelt + From<u32>, GF: RichField, C: DPNContext<F>> Interpreter<F,
                     ty.to_value(&symbols, &mut self.context),
                 ));
             }
-            outputs.push(self.__interpret__(
-                &typechecker,
-                program,
-                symbols,
-                type_id,
-                parameters,
-            )?);
+            let res = self.__interpret__(&typechecker, program, symbols, type_id, parameters)?;
+            outputs.push(compile_fn(&self.context, res));
+
+            // restore context
+            self.context = context.clone();
         }
 
         Ok(outputs)
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn interpret<I: Into<Ident>>(
+    pub fn test(
         &mut self,
         entry: PathBuf,
-        contract_name: Option<I>,
-        method_name: I,
-        parameters: Vec<CheckedValue<F>>,
-    ) -> Result<(String, u32, Vec<F>)>
-    where
-        F: Display + 'static,
-    {
-        let (mut typechecker, mut typechecker_context) = self.typecheck(entry)?;
-
-        let TypeCheckerVisitorContext {
-            ref mut program,
-            ref mut symbols,
-            ..
-        } = typechecker_context;
-
-        let method_name = program.interner.intern_ident(method_name.into());
-
-        let scope_id = symbols[ModuleId::root()].scope_id;
-        let type_id = if let Some(contract_name) = contract_name {
-            let contract_name = program.interner.intern_ident(contract_name.into());
-            let type_id = symbols[scope_id]
-                .types
-                .get(&contract_name.into())
-                .ok_or(Error::UndefinedFunction)?
-                .clone();
-            let method_id = symbols
-                .resolve_method(type_id, method_name)
-                .ok_or(SemaError::UnresolvedMember)?;
-            method_id
-        } else {
-            symbols[scope_id]
-                .types
-                .get(&method_name.into())
-                .ok_or(Error::UndefinedFunction)?
-                .clone()
-        };
-
-        Ok(self.__interpret__(
-            &typechecker,
-            program,
-            symbols,
-            type_id,
-            parameters
-                .into_iter()
-                .map(CheckedValueRef::new_rc)
-                .collect(),
-        )?)
-    }
-
-    #[instrument(level = "debug", skip_all)]
-    pub fn test(&mut self, entry: PathBuf) -> Result<Vec<(String, u32, Vec<F>)>>
+        compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
+    ) -> Result<Vec<DPNFunctionCircuitDefinition>>
     where
         F: Display + 'static,
     {
@@ -206,15 +165,19 @@ impl<F: ContextFelt + From<u32>, GF: RichField, C: DPNContext<F>> Interpreter<F,
             });
 
         let mut outputs = Vec::new();
+        // backup context
+        let context = self.context.clone();
         for (module_id, type_ids) in type_ids {
             for type_id in type_ids {
-                outputs.push(self.__interpret__(
-                    &typechecker,
-                    program,
-                    symbols,
-                    type_id,
-                    vec![],
-                )?);
+                assert!(symbols[type_id]
+                    .as_function()
+                    .unwrap()
+                    .parameters
+                    .is_empty());
+                let res = self.__interpret__(&typechecker, program, symbols, type_id, vec![])?;
+                outputs.push(compile_fn(&self.context, res));
+                // resotre context
+                self.context = context.clone();
             }
         }
 
@@ -237,10 +200,9 @@ impl<F: ContextFelt + From<u32>, GF: RichField, C: DPNContext<F>> Interpreter<F,
         let mut method_args = Vec::with_capacity(node.parameters.len());
 
         for (parameter_name, _, parameter_type) in node.parameters.iter() {
-            let ty = &symbols[parameter_type.clone()];
             method_args.push((
                 program[parameter_name.clone()].to_string(),
-                ty.size(&symbols),
+                symbols.size_of(parameter_type.clone()),
             ));
         }
 
@@ -1383,20 +1345,24 @@ mod test {
         qed_utils::setup_env_logger();
 
         insta::glob!("../../tests", "00*.qed", |path| {
-            let mut interpreter =
-                Interpreter::<SymFeltRef, GoldilocksField, _>::new(QExecContext::new());
+            let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
 
-            let (_, method_id, outputs) = interpreter
-                .interpret(path.into(), None, "main", vec![])
+            let compile_results = interpreter
+                .interpret(
+                    path.into(),
+                    None,
+                    vec!["main"],
+                    |context, (method_name, method_id, outputs)| {
+                        QEDCompileResult::compile_exec(
+                            method_name,
+                            method_id,
+                            &context.store,
+                            &context,
+                            &outputs,
+                        )
+                    },
+                )
                 .unwrap();
-
-            let compile_result = QEDCompileResult::compile_exec(
-                "main".to_owned(),
-                method_id,
-                &interpreter.context.store,
-                &interpreter.context,
-                &outputs,
-            );
 
             let priv_key = QHashOut::rand();
             let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
@@ -1404,24 +1370,18 @@ mod test {
             let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
             let deployer = QHashOut::rand();
-            let defs_array = [compile_result.clone()];
-            let (mut result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+            let (mut circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
                 deployer,
                 contract_state_tree_height as u8,
-                &defs_array,
+                &compile_results,
             )
             .unwrap();
 
             let mut lps = prepare_environment_with_real_contract(pub_key, deploy_cmd).unwrap();
-            let contract_id = GoldilocksField::ONE;
+            let contract_id = GoldilocksField::from_canonical_u64(2);
 
             let cfc_input = QEDEvalSessionResult::new()
-                .exec_contract_call(
-                    &mut lps,
-                    contract_id,
-                    &compile_result,
-                    interpreter.inputs.clone(),
-                )
+                .exec_contract_call(&mut lps, contract_id, &compile_results[0], vec![])
                 .unwrap();
             println!("result_vm: {:?}", cfc_input.outputs);
         });

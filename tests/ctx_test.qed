@@ -1,5 +1,5 @@
 fn main(a: Felt, b: Felt) -> Felt {
-    return get_user_id()
+    return a + b + get_user_id()
         + get_contract_id()
         + get_checkpoint_id()
         + get_last_nonce();
