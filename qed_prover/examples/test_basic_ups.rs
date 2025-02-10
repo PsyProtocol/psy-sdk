@@ -67,6 +67,16 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
             self_user_leaf[3],
         ]);*/
 
+        let hash_ex = ctx.hash(&[
+
+            new_balance,
+            self_user_leaf[1],
+            self_user_leaf[2],
+            self_user_leaf[3],
+        ]);
+        ctx.assert_true(hash_ex[0]+hash_ex[1]+hash_ex[2]+hash_ex[3] != 0, "hash ex");
+
+
         ctx.cset_state_range_at(ctx.get_user_id()*4, &[
             new_balance,
             self_user_leaf[1],

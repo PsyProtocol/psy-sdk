@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::target::{BoolTarget, Target}, plonk::circuit_builder::CircuitBuilder};
 use qed_common_circuit::{builder::comparison::CircuitBuilderComparison, hash::base_types::hash160::Hash160Target, u32::arithmetic_u32::U32Target};
+use qed_store::config::store_config::QEDHasher;
 use qedlang_core::dpn::ops::op_types::{decode_indexed_op_id, DPNBuiltInDataType, DPNIndexedVarDef, DPNOpType};
 
 const COMPARISON_BITS: usize = 63;
@@ -308,7 +309,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let r = self.resolve_target_array_ref(op.inputs[0], op.inputs[1]);
                 self.targets.push(r);
             },
-            DPNOpType::HashNoPad => todo!(),
+            DPNOpType::HashNoPad => {
+                let targets = self.resolve_targets(&op.inputs);
+                let output = builder.hash_n_to_hash_no_pad::<QEDHasher>(targets);
+                self.hashes.push(output);
+            },
             DPNOpType::HashPad => todo!(),
             DPNOpType::Select => {
                 let condition = self.resolve_target(op.inputs[0]);

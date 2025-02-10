@@ -1,4 +1,4 @@
-use plonky2::hash::hash_types::RichField;
+use plonky2::{hash::{hash_types::RichField, poseidon::PoseidonHash}, plonk::config::Hasher};
 
 use crate::dpn::ops::op_types::{decode_indexed_op_id, DPNBuiltInDataType, DPNIndexedVarDef, DPNOpType};
 
@@ -109,6 +109,9 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             },
             _ => panic!("Invalid data type for hash160"),
         }
+    }
+    pub fn resolve_targets(&self, id: &[u64]) -> Vec<F> {
+        id.iter().map(|id| self.resolve_target(*id)).collect()
     }
     pub fn resolve_target(&self, id: u64) -> F {
         let (t, index) = decode_indexed_op_id(id);
@@ -338,7 +341,10 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 let r = self.resolve_target_array_ref(op.inputs[0], op.inputs[1]);
                 self.targets.push(r);
             },
-            DPNOpType::HashNoPad => todo!(),
+            DPNOpType::HashNoPad => {
+                let values = self.resolve_targets(&op.inputs);
+                self.hashes.push(PoseidonHash::hash_no_pad(&values).elements);
+            },
             DPNOpType::HashPad => todo!(),
             DPNOpType::Select => {
                 let condition = self.resolve_target(op.inputs[0]);
