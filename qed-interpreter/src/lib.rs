@@ -58,7 +58,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
     ) -> Result<Vec<DPNFunctionCircuitDefinition>>
     where
-        F: Display + 'static,
+        F: 'static,
     {
         let (mut typechecker, mut typechecker_context) = self.typecheck(entry)?;
 
@@ -131,7 +131,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
     ) -> Result<Vec<DPNFunctionCircuitDefinition>>
     where
-        F: Display + 'static,
+        F: 'static,
     {
         let (mut typechecker, mut typechecker_context) = self.typecheck(entry)?;
 
@@ -193,7 +193,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         parameters: Vec<CheckedValueRef<F>>,
     ) -> Result<(String, u32, Vec<F>)>
     where
-        F: Display + 'static,
+        F: 'static,
     {
         let node: &CheckedFunctionNode = symbols[type_id.clone()].as_ref();
         let method_name = program[node.name].to_string();
@@ -231,7 +231,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         entry: PathBuf,
     ) -> Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>)>
     where
-        F: Display + 'static,
+        F: 'static,
     {
         let mut typechecker = TypeChecker::new();
         let mut program = Program::new();
@@ -245,9 +245,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             DefaultVisitorContext::new(&mut program);
         storage_preprocessor.visit_program(&mut default_visitor_context);
 
-        let mut formatter = Formatter::new();
-        formatter.visit_program(&mut default_visitor_context);
-        println!("formatted:\n{}", formatter.get_output());
+        // let mut formatter = Formatter::new();
+        // formatter.visit_program(&mut default_visitor_context);
+        // println!("formatted:\n{}", formatter.get_output());
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
         typechecker.visit_program(&mut typechecker_context)?;
@@ -456,7 +456,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             )?
             .unwrap();
         self.context
-            .op_set_state_felt(offset.to_felt(), value.to_felt());
+            .op_set_state_obj(offset.to_felt(), value.to_felt());
         return ControlState::Normal;
     }
 
@@ -1347,7 +1347,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             .unwrap();
         self.context.assert_true(
             lhs_value.to_bool(),
-            Box::leak((assert_node.message.clone().unwrap_or_default().into_boxed_str())),
+            Box::leak(
+                (assert_node
+                    .message
+                    .clone()
+                    .unwrap_or_default()
+                    .into_boxed_str()),
+            ),
         );
         Ok(CheckedValue::Type(VOID_TYPE))
     }
@@ -1379,7 +1385,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         self.context.assert_eq(
             lhs_value.to_felt(),
             rhs_value.to_felt(),
-            Box::leak(assert_eq_node.message.clone().unwrap_or_default().into_boxed_str()),
+            Box::leak(
+                assert_eq_node
+                    .message
+                    .clone()
+                    .unwrap_or_default()
+                    .into_boxed_str(),
+            ),
         );
         Ok(CheckedValue::Type(VOID_TYPE))
     }

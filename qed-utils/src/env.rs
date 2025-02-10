@@ -166,6 +166,7 @@ pub fn gen_contract_deploy_and_circuits_for_functions(
                 x,
                 contract_state_tree_height as usize,
                 UPS_SESSION_PROOF_TREE_HEIGHT as usize,
+                false,
             );
             fingerprints.push(c.get_fingerprint());
 
