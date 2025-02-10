@@ -59,7 +59,7 @@ fn main() {
     let a: Felt = 1;
     let b: Felt = 2;
 
-    let c: Felt = (a + -b);
+    let c: Felt = (a + b);
     let mut d: [[Felt; 2]; 2] = [[a, b], [a, b]];
     d[0] = [a + 1, b + 1];
     d[0][0] = c;

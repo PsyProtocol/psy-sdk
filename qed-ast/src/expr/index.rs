@@ -2,7 +2,7 @@ use crate::{AstVisitor, DefId, ExprId, IdentId, NodeInfo, NodeType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexAccessNode {
-    pub value: ExprId,
+    pub target: ExprId,
     pub index: usize,
 }
 
@@ -14,7 +14,7 @@ impl NodeInfo for IndexAccessNode {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MemberAccessNode {
-    pub value: ExprId,
+    pub target: ExprId,
     pub field: IdentId,
 }
 

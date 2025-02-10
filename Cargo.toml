@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "qed-abi",
-    "qed-builder",
     "qed-fmt",
     "qed-cli",
     "qed-ir",
@@ -82,8 +81,8 @@ serde_with = { version = "3.8", default-features = false, features = [
 ] }
 serde_repr = "0.1"
 
-plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "6a8ca008da97890b67a84f64784cfbc488b5238d" }
-plonky2_maybe_rayon = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "6a8ca008da97890b67a84f64784cfbc488b5238d", default-features = false }
+plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c" }
+plonky2_maybe_rayon = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c", default-features = false }
 
 tracing = "0.1"
 tracing-log = "0.2"
@@ -126,9 +125,27 @@ llvm-sys = "191.0"
 melior = { version = "0.21", features = ["ods-dialects"] }
 mlir-sys = { version = "0.4" }
 
+qedlang_core = { git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
+qed_crypto = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
+qed_exec = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
+qed_store = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
+qed_data = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
+qed_core = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
+qed_prover = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
+qed_common_circuit = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
+kvq = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
+# qedlang_core = { path = "../qedlang-rust/qedlang_core" }
+# qed_crypto = { path = "../qedlang-rust/qed_crypto" }
+# qed_exec = { path = "../qedlang-rust/qed_exec" }
+# qed_store = { path = "../qedlang-rust/qed_store" }
+# qed_data = { path = "../qedlang-rust/qed_data" }
+# qed_core = { path = "../qedlang-rust/qed_core" }
+# qed_prover = { path = "../qedlang-rust/qed_prover" }
+# qed_common_circuit = { path = "../qedlang-rust/qed_common_circuit" }
+# kvq = { path = "../qedlang-rust/kvq" }
+
 qed-abi = { path = "./qed-abi" }
 qed-ast = { path = "./qed-ast" }
-qed-builder = { path = "./qed-builder" }
 qed-cli = { path = "./qed-cli" }
 qed-codegen = { path = "./qed-codegen" }
 qed-derive = { path = "./qed-derive" }

@@ -40,7 +40,7 @@ fn main(a: Felt, b: Felt) -> Felt {
     binop >>= b;
 
     let mut unop: Felt = !a;
-    let mut unop: Felt = -a;
+    // let mut unop: Felt = -a;
 
     // error
     // let mut k: Felt = (a + 2);

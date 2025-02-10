@@ -23,7 +23,7 @@ fn main(a: Felt, b: Felt) -> Felt {
 
     let res: Felt = t.get_sum();
 
-    let a: Add = Add::new_(a, b);
+    let a: Add = Add::new(a, b);
 
     let res2: Felt = a.get_sum();
 

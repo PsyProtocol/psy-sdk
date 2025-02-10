@@ -1,7 +1,7 @@
 use qed_ast::*;
-use qed_builder::{ContextFelt, DPNContext};
 use qed_common::Graph;
 use qed_parser::Parser;
+use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, ToFelts};
 use std::fmt::{Display, Write};
 
 #[derive(Debug)]
@@ -151,7 +151,10 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let &IndexAccessNode { value, index } = ctx.expression(expr_id).as_index_access().unwrap();
+        let &IndexAccessNode {
+            target: value,
+            index,
+        } = ctx.expression(expr_id).as_index_access().unwrap();
         Ok(format!("{}[{}]", self.visit_expr(value, ctx)?, index))
     }
 
@@ -160,8 +163,10 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let &MemberAccessNode { value, field } =
-            ctx.expression(expr_id).as_member_access().unwrap();
+        let &MemberAccessNode {
+            target: value,
+            field,
+        } = ctx.expression(expr_id).as_member_access().unwrap();
         Ok(format!(
             "{}.{}",
             self.visit_expr(value, ctx)?,
@@ -474,7 +479,23 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
             return_type,
             is_extern,
             visibility,
+            attrs,
         } = ctx.definition(def_id).as_function().unwrap();
+        for attr in attrs {
+            if !attr.properties.is_empty() {
+                self.write_line(&format!(
+                    "#[{}({})]",
+                    ctx.ident(attr.name),
+                    attr.properties
+                        .iter()
+                        .map(|p| ctx.ident(p.clone()).to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            } else {
+                self.write_line(&format!("#[{}]", ctx.ident(attr.name),));
+            }
+        }
         let parameters = parameters
             .iter()
             .map(|p| {

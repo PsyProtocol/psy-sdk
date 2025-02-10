@@ -107,6 +107,7 @@ impl<'a> StorageProcessor<'a> {
             return_type: Some(UncheckedType::Basic(IdentId::TYPE_FELT)),
             is_extern: false,
             visibility: Visibility::Public,
+            attrs: vec![],
         };
 
         ctx.alloc_definition(DefinitionNode::Function(f))
@@ -161,6 +162,7 @@ impl<'a> StorageProcessor<'a> {
             return_type: Some(UncheckedType::Basic(IdentId::TYPE_SELF)),
             is_extern: false,
             visibility: Visibility::Public,
+            attrs: vec![],
         };
 
         ctx.alloc_definition(DefinitionNode::Function(f))
@@ -213,6 +215,7 @@ impl<'a> StorageProcessor<'a> {
             return_type: None,
             is_extern: false,
             visibility: Visibility::Public,
+            attrs: vec![],
         };
 
         ctx.alloc_definition(DefinitionNode::Function(f))
@@ -255,16 +258,13 @@ impl<'a> StorageProcessor<'a> {
 
         let function = FunctionNode {
             name: getter_ident,
-            parameters: vec![(
-                ctx.intern("self"),
-                false,
-                UncheckedType::Basic(IdentId::TYPE_SELF),
-            )],
+            parameters: vec![],
             generic_parameters: vec![],
             body: Some(block),
             return_type: Some(field_type.clone()),
             is_extern: false,
             visibility: Visibility::Public,
+            attrs: vec![],
         };
 
         ctx.alloc_definition(DefinitionNode::Function(function))
@@ -314,19 +314,13 @@ impl<'a> StorageProcessor<'a> {
 
         let function = FunctionNode {
             name: setter_ident,
-            parameters: vec![
-                (
-                    ctx.intern("self"),
-                    false,
-                    UncheckedType::Basic(IdentId::TYPE_SELF),
-                ),
-                (value_ident, false, field_type.clone()),
-            ],
+            parameters: vec![(value_ident, false, field_type.clone())],
             generic_parameters: vec![],
             body: Some(block),
             return_type: None,
             is_extern: false,
             visibility: Visibility::Public,
+            attrs: vec![],
         };
 
         ctx.alloc_definition(DefinitionNode::Function(function))
@@ -409,7 +403,7 @@ impl<'a> StorageProcessor<'a> {
             target: value_ident,
         }));
         let field = ctx.alloc_expression(ExprNode::MemberAccess(MemberAccessNode {
-            value: value,
+            target: value,
             field: field_name.clone(),
         }));
         let node = CallNode {

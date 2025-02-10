@@ -9,7 +9,7 @@ use either::Either;
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::{ExprId, IdentId, NodeInfo, NodeType};
-use qed_builder::{ContextFelt, ToFelts};
+use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, ToFelts};
 pub use strum::EnumTryAs;
 
 use crate::{TypeId, BOOL_TYPE, FELT_TYPE};

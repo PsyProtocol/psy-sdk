@@ -8,9 +8,8 @@ use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::IdentId;
 use qed_ast::Visibility;
-use qed_builder::ContextFelt;
-use qed_builder::DPNContext;
 use qed_utils::impl_ref;
+use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, ToFelts};
 
 use crate::CheckedValue;
 use crate::CheckedValueNode;
@@ -231,7 +230,7 @@ impl Type {
 
     pub fn to_value<F: ContextFelt + From<u32>, C: DPNContext<F>>(
         &self,
-        symbols: &mut SymbolTable<F>,
+        symbols: &SymbolTable<F>,
         ctx: &mut C,
     ) -> CheckedValue<F> {
         match self {
@@ -259,6 +258,22 @@ impl Type {
                 }
                 let type_id = symbols.get_type_id(Some(s.scope_id), self.key()).unwrap();
                 CheckedValue::Struct(type_id, result)
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn size<F: ContextFelt + From<u32>>(&self, symbols: &SymbolTable<F>) -> usize {
+        match self {
+            Type::Felt(f) => 1usize,
+            Type::Bool(b) => 1usize,
+            Type::Array(a) => symbols[a.inner_ty].size(symbols) * a.size,
+            Type::Struct(s) => {
+                let mut result = 0usize;
+                for (field_name, (field_type, _)) in &s.fields {
+                    result += symbols[field_type.clone()].size(symbols);
+                }
+                result
             }
             _ => unreachable!(),
         }

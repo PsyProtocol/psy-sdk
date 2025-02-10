@@ -1,5 +1,5 @@
 use qed_common::{FileId, Arena};
-use qed_builder::{DPNContext, ContextFelt};
+use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::*;
 use qed_lexer::{Token, Error};
 
@@ -141,7 +141,7 @@ EnumDef: EnumNode = {
 }
 
 Attribute: AttrNode = {
-    <l:@L> "#" "[" <name:IdentifierOrDerive>  <properties:AttributeProperties> "]" <r:@R> => AttrNode { name, properties }
+    <l:@L> "#" "[" <name:Identifier>  <properties:AttributeProperties> "]" <r:@R> => AttrNode { name, properties }
 }
 
 AttributeProperties: Vec<IdentId> = {
@@ -160,7 +160,7 @@ StructDef: StructNode = {
 }
 
 FunctionDef: DefinitionNode = {
-    <l:@L> <visibility:Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <attrs:Attribute*> <visibility:Visibility> <is_extern:EXTERN?> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
@@ -171,9 +171,10 @@ FunctionDef: DefinitionNode = {
            assert!(!is_extern || is_std && is_self_prelude);
            is_extern
         },
-        visibility
+        visibility,
+        attrs
     }),
-    <l:@L> <visibility:Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <attrs:Attribute*> <visibility:Visibility> <is_extern:EXTERN?> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
@@ -184,7 +185,8 @@ FunctionDef: DefinitionNode = {
            assert!(!is_extern || is_std && is_self_prelude);
            is_extern
         },
-        visibility
+        visibility,
+        attrs
     })
 }
 
@@ -221,7 +223,13 @@ GenericParameters: Vec<IdentId> = {
 }
 
 BlockStatement: StmtNode = {
-    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => StmtNode::Block(BlockNode { stmts: stmt_nodes.alloc_items(stmts) }),
+    <l:@L> "{" <mut stmts:Statement*> <ret:Expression> "}" <r:@R> => {
+        stmts.push(StmtNode::Return(ReturnNode(Some(expr_nodes.alloc_item(ret)))));
+        StmtNode::Block(BlockNode {
+            stmts: stmt_nodes.alloc_items(stmts)
+        })
+    },
+    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => StmtNode::Block(BlockNode { stmts: stmt_nodes.alloc_items(stmts) })
 }
 
 WhileStatement: StmtNode = {
@@ -332,7 +340,7 @@ PathExpression: ExprNode<F> = {
         segments: vec![],
         target: variable,
     }),
-    <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: Identifier> => {
+    <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: IdentifierOrNew> => {
         let mut segment_ids = segments.into_iter().map(|seg| seg).collect::<Vec<_>>();
         ExprNode::Path(PathNode {
             root: Some(root),
@@ -365,7 +373,7 @@ Expression: ExprNode<F> = {
     #[precedence(level="2")]
     <l:@L> <variable:Expression> "(" <args:ExpressionList> ")" <r:@R> => ExprNode::<F>::Call(
        CallNode {
-           receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
+           receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { target: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
            variable: expr_nodes.alloc_item(variable),
            generic_parameters: Vec::new(),
            args: expr_nodes.alloc_items(args)
@@ -373,12 +381,12 @@ Expression: ExprNode<F> = {
     ),
     #[precedence(level="2")]
     <l:@L> <variable:Expression> "[" <index:NUMBER> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
-        value: expr_nodes.alloc_item(variable),
+        target: expr_nodes.alloc_item(variable),
         index: usize::try_from(index).unwrap()
     }),
     #[precedence(level="2")]
     <l:@L> <variable:Expression> "." <field:Identifier> <r:@R> => ExprNode::<F>::MemberAccess(MemberAccessNode {
-        value: expr_nodes.alloc_item(variable),
+        target: expr_nodes.alloc_item(variable),
         field
     }),
 
@@ -496,7 +504,7 @@ FeltExpression: ExprNode<F> = {
 }
 
 BoolExpression: ExprNode<F> = {
-    <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Bool(ctx.op_bool(b)))
+    <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Bool(if b { ctx.op_true() } else { ctx.op_false() }))
 }
 
 //todo: Temporarily disable generic capabilities
@@ -574,16 +582,16 @@ IdentifierOrSelf: IdentId = {
     <l:@L> <name:SELF> <r:@R> => IdentId::SELF
 }
 
+IdentifierOrNew: IdentId = {
+    Identifier,
+    <l:@L> <name:NEW> <r:@R> => IdentId::NEW
+}
+
 IdentifierOrBasicType: IdentId = {
     Identifier,
     <l:@L> <ty:TYPE_FELT> <r:@R> => IdentId::TYPE_FELT,
     <l:@L> <ty:TYPE_BOOL> <r:@R> => IdentId::TYPE_BOOL,
     <l:@L> <ty:TYPE_SELF> <r:@R> => IdentId::TYPE_SELF,
-}
-
-IdentifierOrDerive: IdentId = {
-    Identifier,
-    <l:@L> <name:DERIVE> <r:@R> => IdentId::DERIVE
 }
 
 Identifier: IdentId = {
@@ -629,8 +637,6 @@ extern {
 
         PUB => Token::KeywordPub,
 
-        STD => Token::KeywordStd,
-
         IDENT => Token::Ident(<&'input str>),
 
         BOOL => Token::Bool(<bool>),
@@ -639,8 +645,6 @@ extern {
         TYPE_BOOL => Token::TypeBool,
         TYPE_FELT => Token::TypeFelt,
         TYPE_SELF => Token::TypeSelf,
-
-        DERIVE => Token::KeywordDerive,
 
         AS => Token::KeywordAs,
         EXTERN => Token::KeywordExtern,

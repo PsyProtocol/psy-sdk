@@ -2,6 +2,7 @@ mod subcommand;
 
 use crate::subcommand::compiler;
 use crate::subcommand::interpreter;
+use crate::subcommand::test;
 
 use clap::Parser;
 
@@ -16,6 +17,7 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Interpret(args) => interpreter::run(args)?,
         Commands::Compile(args) => compiler::run(args)?,
+        Commands::Test(args) => test::run(args)?,
     }
     Ok(())
 }

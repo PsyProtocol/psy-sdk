@@ -30,14 +30,14 @@ struct Person {
 // }
 
 #[storage]
-struct ContractStorage {
+struct Contract {
     a: Felt, // 0
     pub b: Person, // 1
     c: Felt, // 4
     d: Person // 7
 }
 
-// impl Storage for ContractStorage {
+// impl Storage for Contract {
 //     fn size() -> Felt {
 //         return Felt::size() + Person::size() + Felt::size() + Person::size();
 //     }
@@ -48,7 +48,7 @@ struct ContractStorage {
 //         let c = Felt::read(offset + Felt::size() + Person::size());
 //         let d = Person::read(offset + Felt::size() + Person::size() + Felt::size());
 //
-//         return ContractStorage { a: a, b: b, c: c, d: d };
+//         return Contract { a: a, b: b, c: c, d: d };
 //     }
 //
 //     fn write(offset: Felt, value: Self) {
@@ -59,9 +59,9 @@ struct ContractStorage {
 //     }
 // }
 
-impl ContractStorage {
-    pub fn constructor() -> Self {
-        return new ContractStorage {
+impl Contract {
+    pub fn new() -> Self {
+        return new Contract {
             a: 0,
             b: new Person {
                 age: 0,
@@ -77,11 +77,11 @@ impl ContractStorage {
         };
     }
 
-    pub fn set_abcd(self: Self, a: Felt, b: Person, c: Felt, d: Person) {
-        self.set_a(a);
-        self.set_b(b);
-        self.set_c(c);
-        self.set_d(d);
+    pub fn set_abcd(a: Felt, b: Person, c: Felt, d: Person) {
+        Contract::set_a(a);
+        Contract::set_b(b);
+        Contract::set_c(c);
+        Contract::set_d(d);
     }
 
     // fn get_a(self: Self) -> Felt {
@@ -110,23 +110,22 @@ impl ContractStorage {
 }
 
 fn main() -> Felt {
-    let storage: ContractStorage = ContractStorage::constructor();
-    storage.set_a(10);
-    storage.set_b(new Person {
+    Contract::set_a(10);
+    Contract::set_b(new Person {
         age: 20,
         height: 180,
         year_of_birth: 2000
     });
-    // storage.set_c(30);
-    // storage.set_d(new Person {
-    //     age: 40,
-    //     height: 170,
-    //     year_of_birth: 1980
-    // });
-    //
-    let a: Felt = storage.get_a();
-    let b: Person = storage.get_b();
-    // let c: Felt = storage.get_c();
-    // let d: Person = storage.get_d();
+    Contract::set_c(30);
+    Contract::set_d(new Person {
+        age: 40,
+        height: 170,
+        year_of_birth: 1980
+    });
+
+    let a: Felt = Contract::get_a();
+    let b: Person = Contract::get_b();
+    let c: Felt = Contract::get_c();
+    let d: Person = Contract::get_d();
     return a;
 }

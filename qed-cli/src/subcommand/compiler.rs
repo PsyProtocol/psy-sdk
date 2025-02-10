@@ -1,20 +1,27 @@
-use qed_builder::{QEDCompileResult, QExecContext, SymFeltRef, ToFelts};
+use plonky2::field::goldilocks_field::GoldilocksField;
+use qed_ast::IdentId;
 use qed_interpreter::Interpreter;
 use qed_sema::TypeChecker;
 use qed_utils::CompilerArgs;
+use qedlang_core::dpn::{
+    ops::{context_trait::ToFelts, exec_context::QExecContext, sym_felt::SymFeltRef},
+    vm::compile::QEDCompileResult,
+};
 
 pub fn run(args: CompilerArgs) -> anyhow::Result<()> {
-    let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let mut typecheker = TypeChecker::new();
-    let res = interpreter
-        .compile(&mut typecheker, args.file.into())?
-        .expect("return value not found");
+    let mut interpreter = Interpreter::<SymFeltRef, GoldilocksField, _>::new(QExecContext::new());
+    let res = interpreter.compile(args.file.into(), args.contract_name, args.method_names)?;
 
-    let ctx = interpreter.context.clone();
+    for (method_name, method_id, outputs) in res {
+        let compile_result = QEDCompileResult::compile_exec(
+            method_name,
+            method_id,
+            &interpreter.context.store,
+            &interpreter.context,
+            &outputs,
+        );
 
-    let compile_result =
-        QEDCompileResult::compile_exec("test".to_owned(), 0, &ctx, &res.to_felts());
-
-    println!("compile_result: {:?}", compile_result);
+        println!("compile_result: {:?}", compile_result);
+    }
     Ok(())
 }
