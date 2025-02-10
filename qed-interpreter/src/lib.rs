@@ -489,6 +489,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         Ok(match node {
             CheckedValueNode::Felt(value) => CheckedValue::Felt(*value),
             CheckedValueNode::Bool(value) => CheckedValue::Bool(*value),
+            CheckedValueNode::String(value) => CheckedValue::String(value.clone()),
             CheckedValueNode::Array(type_id, elements) => {
                 let mut values = Vec::new();
                 for element in elements {
@@ -942,6 +943,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                     parent_node_type,
                 )?))
             }
+            CheckedExprNode::Assert(assert_node) => Ok(Some(CheckedValueRef::new_rc(
+                self.interpret_assert(typechecker, assert_node, symbols, parent_node_type)?,
+            ))),
+            CheckedExprNode::AssertEq(assert_eq_node) => Ok(Some(CheckedValueRef::new_rc(
+                self.interpret_assert_eq(typechecker, assert_eq_node, symbols, parent_node_type)?,
+            ))),
         }
     }
 
@@ -1321,6 +1328,60 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 unreachable!()
             }
         }
+    }
+
+    fn interpret_assert(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        assert_node: &CheckedAssertNode,
+        symbols: &mut SymbolTable<F>,
+        parent_node_type: Option<NodeType>,
+    ) -> Result<CheckedValue<F>> {
+        let lhs_value = self
+            .interpret_expr(
+                typechecker,
+                assert_node.left,
+                symbols,
+                Some(assert_node.node_type()),
+            )?
+            .unwrap();
+        self.context.assert_true(
+            lhs_value.to_bool(),
+            Box::leak((assert_node.message.clone().unwrap_or_default().into_boxed_str())),
+        );
+        Ok(CheckedValue::Type(VOID_TYPE))
+    }
+
+    fn interpret_assert_eq(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        assert_eq_node: &CheckedAssertEqNode,
+        symbols: &mut SymbolTable<F>,
+        parent_node_type: Option<NodeType>,
+    ) -> Result<CheckedValue<F>> {
+        let lhs_value = self
+            .interpret_expr(
+                typechecker,
+                assert_eq_node.left,
+                symbols,
+                Some(assert_eq_node.node_type()),
+            )?
+            .unwrap();
+        let rhs_value = self
+            .interpret_expr(
+                typechecker,
+                assert_eq_node.right,
+                symbols,
+                Some(assert_eq_node.node_type()),
+            )?
+            .unwrap();
+
+        self.context.assert_eq(
+            lhs_value.to_felt(),
+            rhs_value.to_felt(),
+            Box::leak(assert_eq_node.message.clone().unwrap_or_default().into_boxed_str()),
+        );
+        Ok(CheckedValue::Type(VOID_TYPE))
     }
 }
 

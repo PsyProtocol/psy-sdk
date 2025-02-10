@@ -184,6 +184,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         Ok(match node {
             ValueNode::Felt(f) => f.to_string(),
             ValueNode::Bool(b) => b.to_string(),
+            ValueNode::String(s) => s.to_string(),
             ValueNode::Array(_, values) => format!(
                 "[{}]",
                 values
@@ -761,6 +762,36 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
                 self.visit_expr(new_value.clone(), ctx)?
             )),
         }
+    }
+
+    fn visit_assert(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let left = ctx.expression(node).as_assert().unwrap().left;
+        let message = ctx.expression(node).as_assert().unwrap().message.clone();
+        Ok(format!(
+            "assert!({}, {})",
+            self.visit_expr(left, ctx)?,
+            message.unwrap_or_default()
+        ))
+    }
+
+    fn visit_assert_eq(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let left = ctx.expression(node).as_assert_eq().unwrap().left;
+        let right = ctx.expression(node).as_assert_eq().unwrap().right;
+        let message = ctx.expression(node).as_assert_eq().unwrap().message.clone();
+        Ok(format!(
+            "assert_eq!({}, {}, {})",
+            self.visit_expr(left, ctx)?,
+            self.visit_expr(right, ctx)?,
+            message.unwrap_or_default()
+        ))
     }
 
     fn visit_storage_write(

@@ -32,7 +32,7 @@ pub fn run(args: InterpreterArgs) -> anyhow::Result<()> {
     )?;
 
     println!("compile_result: {:?}", compile_results);
-
+  
     let priv_key = QHashOut::rand();
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
     let pub_key = wallet.add_private_key(SimpleQEDPrivateKey::new(priv_key));
