@@ -663,6 +663,20 @@ impl<F: Clone> SymbolTable<F> {
         self[scope_id].variables.insert(key, variable);
         Ok(())
     }
+
+    pub fn size_of(&self, type_id: TypeId) -> usize {
+        match &self[type_id] {
+            Type::Felt(f) => 1usize,
+            Type::Bool(b) => 1usize,
+            Type::Array(a) => self.size_of(a.inner_ty) * a.size,
+            Type::Struct(s) => s
+                .fields
+                .iter()
+                .map(|(_, (type_id, _))| self.size_of(type_id.clone()))
+                .sum(),
+            _ => unreachable!(),
+        }
+    }
 }
 
 // #[cfg(test)]
