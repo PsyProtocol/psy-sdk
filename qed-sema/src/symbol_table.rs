@@ -187,7 +187,7 @@ impl<T: Clone> Display for SymbolTable<T> {
         }
         //print type
         for (i, ty) in self.types.iter().enumerate() {
-            writeln!(f, "TypeId({}) ： {:?}", i, ty)?;
+            writeln!(f, "TypeId({}) : {:?}", i, ty)?;
         }
         //print module
         for (i, module) in self.modules.iter().enumerate() {
@@ -486,12 +486,12 @@ impl<F: Clone> SymbolTable<F> {
                 }
             }
             None => {
-                assert!(path.segments.is_empty());
-                if let Some(variable) = self.get_variable(None, &path.target) {
-                    return Some((variable.ty, variable.scope_id));
+                assert!(path.segments.is_empty(), "path.segments is not empty and also path.root is None");
+                return if let Some(variable) = self.get_variable(None, &path.target) {
+                    Some((variable.ty, variable.scope_id))
                 } else {
                     let type_id = self.get_type_id(None, path.target)?;
-                    return Some((type_id, self[type_id].scope_id()));
+                    Some((type_id, self[type_id].scope_id()))
                 };
             }
         };
@@ -505,7 +505,7 @@ impl<F: Clone> SymbolTable<F> {
                 assert!(self[*target_module_id].visibility.is_public());
                 src_module = *target_module_id;
             } else {
-                assert!(segments.next().is_none());
+                assert!(segments.next().is_none(), "segments.next() is not None");
                 let type_id = self[self[src_module].scope_id]
                     .types
                     .get(&segment.clone().into())?

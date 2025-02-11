@@ -2,7 +2,9 @@ use qed_ast::*;
 use qed_common::Graph;
 use qed_parser::Parser;
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, ToFelts};
-use std::fmt::{Debug, Write};
+use std::fmt::{Debug};
+use std::fmt::{Display, Write};
+use qed_ast::block_expr::BlockExprNode;
 
 #[derive(Debug)]
 pub struct Formatter<'a, F: Clone + From<u32>, C> {
@@ -363,7 +365,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         for &stmt in stmts.iter() {
             let res = self.visit_stmt(stmt, ctx)?;
             if !res.is_empty() {
-                self.write_line(&format!("{};", res));
+                self.write_line(&format!("{}", res));
             }
         }
         Ok(Default::default())
@@ -866,4 +868,36 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     type Definition = DefinitionNode;
 
     type DefinitionResult = String;
+
+    fn visit_block_expr(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let BlockExprNode { stmts, return_expr } = ctx.expression(node).as_block_expr().unwrap().clone();
+
+        let mut block_expr_result = String::new();
+        block_expr_result.push_str("{\n");
+
+        self.indent();
+        let current_indent = self.read_indent(0);
+
+        for stmt in stmts.clone() {
+            let stmt_result = self.visit_stmt(stmt, ctx)?;
+            if !stmt_result.is_empty() {
+                block_expr_result.push_str(&format!("{}{}\n", current_indent, stmt_result));
+            }
+        }
+
+        if let Some(expr) = return_expr {
+            let return_expr_result = self.visit_expr(expr.clone(), ctx)?;
+            block_expr_result.push_str(&format!("{}{}\n", current_indent, return_expr_result));
+        }
+
+        self.dedent();
+        block_expr_result.push_str(&self.read_indent(0));
+        block_expr_result.push_str("}");
+
+        Ok(block_expr_result)
+    }
 }

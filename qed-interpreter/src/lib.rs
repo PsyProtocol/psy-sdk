@@ -31,7 +31,7 @@ use qedlang_core::dpn::{
 use std::{cell::RefCell, collections::HashMap, fmt::Display, ops::Index, path::PathBuf, rc::Rc};
 
 use tracing::{debug, error, info, instrument, span, Level};
-
+use qed_sema::block::CheckedBlockExprNode;
 use crate::control::ControlState;
 
 type GF = GoldilocksField;
@@ -1017,6 +1017,14 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                     parent_node_type,
                 )?))
             }
+            CheckedExprNode::BlockExpr(block_expr) => {
+                Ok(Some(self.interpret_block_expr(
+                    typechecker,
+                    block_expr,
+                    symbols,
+                    parent_node_type,
+                )?))
+            }
         }
     }
 
@@ -1395,6 +1403,41 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             _ => {
                 unreachable!()
             }
+        }
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    pub fn interpret_block_expr(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        block_expr: &CheckedBlockExprNode,
+        symbols: &mut SymbolTable<F>,
+        parent_node_type: Option<NodeType>,
+    ) -> Result<CheckedValueRef<F>> {
+        symbols.push_frame();
+        let mut result: Option<CheckedValueRef<F>> = None;
+
+        for stmt_id in &block_expr.stmts {
+            match self.interpret_statement(typechecker, *stmt_id, symbols, parent_node_type) {
+                ControlState::Return(value) => {
+                    symbols.pop_frame();
+                    return value;
+                }
+                ControlState::Normal => {}
+            }
+        }
+
+        if let Some(return_expr_id) = block_expr.return_expr {
+            result = self.interpret_expr(typechecker, return_expr_id, symbols, parent_node_type)?;
+        }
+
+        symbols.pop_frame();
+
+        if let Some(value) = result {
+            Ok(value)
+        } else {
+            println!("{}:{} no return value in block expr  ", file!(), line!());
+            Err(Error::SemaError(qed_sema::Error::InvalidReturn))
         }
     }
 }

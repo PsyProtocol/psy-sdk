@@ -1,3 +1,4 @@
+mod assert;
 mod binary;
 mod call;
 mod cast;
@@ -6,7 +7,9 @@ mod index;
 mod path;
 mod storage;
 mod unary;
+pub mod block;
 
+pub use assert::*;
 pub use binary::*;
 pub use call::*;
 pub use cast::*;
@@ -16,6 +19,7 @@ pub use index::*;
 pub use path::*;
 pub use storage::*;
 pub use unary::*;
+pub use block::*;
 
 use qed_ast::{ExprNode, IdentId, NodeInfo, NodeType};
 
@@ -24,6 +28,7 @@ use crate::{
     FELT_TYPE, VOID_TYPE,
 };
 use strum::EnumTryAs;
+use crate::expr::block::CheckedBlockExprNode;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner, EnumTryAs)]
 pub enum CheckedExprNode<F> {
@@ -37,6 +42,7 @@ pub enum CheckedExprNode<F> {
     MemberAccess(CheckedMemberAccessNode),
     Storage(CheckedStorageReadNode),
     Context(CheckedContextNode),
+    BlockExpr(CheckedBlockExprNode)
 }
 
 impl<F> NodeInfo for CheckedExprNode<F> {
@@ -51,6 +57,7 @@ impl<F> NodeInfo for CheckedExprNode<F> {
             CheckedExprNode::IndexAccess(node) => node.node_type(),
             CheckedExprNode::MemberAccess(node) => node.node_type(),
             CheckedExprNode::Storage(node) => node.node_type(),
+            CheckedExprNode::BlockExpr(node) => node.node_type(),
             CheckedExprNode::Context(node) => node.node_type(),
         }
     }
@@ -74,6 +81,7 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::IndexAccess(i) => i.type_id,
             CheckedExprNode::MemberAccess(m) => m.type_id,
             CheckedExprNode::Storage(s) => s.type_id,
+            CheckedExprNode::BlockExpr(b) => b.type_id,
             CheckedExprNode::Context(c) => match c {
                 CheckedContextNode::GetUserId { type_id } => type_id.clone(),
                 CheckedContextNode::GetContractId { type_id } => type_id.clone(),

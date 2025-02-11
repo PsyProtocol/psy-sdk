@@ -2,6 +2,7 @@ use qed_common::{FileId, Arena};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::*;
 use qed_lexer::{Token, Error};
+use qed_ast::expr::block_expr::BlockExprNode;
 
 grammar<'input, F, C>(
     file_content: &'input str,
@@ -343,6 +344,25 @@ BlockStatement: StmtNode = {
     }
 }
 
+BlockExpr: ExprNode<F> = {
+    <l:@L> "{" <stmts:Statement*> <result:Expression?> "}" <r:@R> => {
+        let return_expr = match result {
+            None => {
+                None
+            }
+            Some(expr) => {
+                Some(expr_nodes.alloc_item(expr))
+            }
+        };
+
+        ExprNode::BlockExpr(
+            BlockExprNode {
+                stmts: stmt_nodes.alloc_items(stmts),
+                return_expr,
+            }
+        )
+    }
+}
 WhileStatement: StmtNode = {
     <l:@L> WHILE <predicate:Expression> <block_stmt:BlockStatement> <r:@R>  => StmtNode::While(WhileNode {
         predicate: expr_nodes.alloc_item(predicate),
@@ -392,6 +412,18 @@ VariableStatement: StmtNode = {
             value: expr_nodes.alloc_item(value)
         }
     ),
+    <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <block:BlockExpr> ";" <r:@R>  => StmtNode::Variable(
+        {
+            VariableNode {
+                name: decl.0,
+                ty: decl.1,
+                mutable: mutable.is_some(),
+                cnst: false,
+                value: expr_nodes.alloc_item(block)
+            }
+        }
+    ),
+
     <l:@L> CONST <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {
             name: decl.0,

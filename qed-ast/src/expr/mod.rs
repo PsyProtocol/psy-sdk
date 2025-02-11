@@ -1,3 +1,4 @@
+mod assert;
 mod binary;
 mod call;
 mod cast;
@@ -6,6 +7,7 @@ mod index;
 mod path;
 mod storage;
 mod unary;
+pub mod block_expr;
 
 pub use binary::*;
 pub use call::*;
@@ -18,6 +20,7 @@ pub use unary::*;
 
 use crate::{AstVisitor, DefId, ExprId, NodeInfo, NodeType, ValueNode};
 use enum_as_inner::EnumAsInner;
+use crate::block_expr::BlockExprNode;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum ExprNode<F: Clone + From<u32>> {
@@ -31,6 +34,7 @@ pub enum ExprNode<F: Clone + From<u32>> {
     MemberAccess(MemberAccessNode),
     Storage(StorageReadNode),
     Context(ContextNode),
+    BlockExpr(BlockExprNode),
 }
 
 impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
@@ -46,6 +50,7 @@ impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
             Self::MemberAccess(node) => node.node_type(),
             Self::Storage(node) => node.node_type(),
             Self::Context(node) => node.node_type(),
+            Self::BlockExpr(node) => node.node_type(),
         }
     }
 }

@@ -1,5 +1,5 @@
 mod definition;
-mod expr;
+pub mod expr;
 mod stmt;
 mod symbol_table;
 mod r#type;
@@ -31,6 +31,9 @@ use qed_ast::*;
 use qed_parser::Parser;
 
 use tracing::{debug, error, info, instrument, span, Level};
+use qed_ast::block_expr::BlockExprNode;
+use expr::CheckedStorageReadNode;
+use crate::block::CheckedBlockExprNode;
 
 pub struct TypeCheckerVisitorContext<F: Clone + From<u32>, C> {
     path_stack: Vec<NodeId>,
@@ -799,6 +802,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let checked_expr = self.visit_expr(variable_node.value, ctx)?;
         let ty = checked_expr.ty();
         if ty != self.typecheck(&variable_node.ty, ctx)? {
+            println!("left ty = {:?}", ty);
+            println!("right ty = {:?}", self.typecheck(&variable_node.ty, ctx)?);
+            println!("{}:{} Error: {:?}", file!(), line!(), "type mismatch");
             return Err(Error::TypeMismatch);
         }
         let current_scope_id = ctx.symbols.current_scope_id().unwrap();
@@ -1160,6 +1166,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             NodeType::IndexAccessExpr => self.visit_index_access(expr_id, ctx)?,
             NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
             NodeType::StorageExpr => self.visit_storage_read(expr_id, ctx)?,
+            NodeType::BlockExpr => self.visit_block_expr(expr_id, ctx)?,
             NodeType::ContextExpr => self.visit_context(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
@@ -1266,6 +1273,39 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             });
 
         Ok(())
+    }
+
+    fn visit_block_expr(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::ExprResult, Self::Error> {
+        let BlockExprNode { stmts, return_expr } = ctx.expression(node).as_block_expr().unwrap().clone();
+        let mut checked_stmts = Vec::with_capacity(stmts.len());
+
+        for stmt in stmts {
+            let checked_stmt = self.visit_stmt(stmt, ctx)?;
+            checked_stmts.push(self.stmts.alloc_item(checked_stmt));
+        }
+
+        let checked_return_expr = if let Some(expr_id) = return_expr {
+            let checked_expr = self.visit_expr(expr_id, ctx)?;
+            Some(self.exprs.alloc_item(checked_expr))
+        } else {
+            None
+        };
+
+        let block_return_type = if let Some(return_expr_id) = checked_return_expr {
+            self.exprs[return_expr_id].ty()
+        } else {
+            VOID_TYPE
+        };
+
+        Ok(CheckedExprNode::BlockExpr(CheckedBlockExprNode {
+            stmts: checked_stmts,
+            return_expr: checked_return_expr,
+            type_id: block_return_type,
+        }))
     }
 }
 
