@@ -310,7 +310,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             }
             ContextNode::GetUserPublicKeyHash => {
                 let scope_id = ScopeId::prelude();
-                let type_id = ctx.symbols.add_type(
+                let type_id = ctx.symbols.add_type_array(
                     Some(scope_id),
                     Type::Array(CheckedArrayNode {
                         inner_ty: FELT_TYPE,
@@ -328,7 +328,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     return Err(Error::TypeMismatch);
                 }
                 let scope_id = ScopeId::prelude();
-                let type_id = ctx.symbols.add_type(
+                let type_id = ctx.symbols.add_type_array(
                     Some(scope_id),
                     Type::Array(CheckedArrayNode {
                         inner_ty: FELT_TYPE,
@@ -359,7 +359,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     return Err(Error::TypeMismatch);
                 }
                 let scope_id = ScopeId::prelude();
-                let type_id = ctx.symbols.add_type(
+                let type_id = ctx.symbols.add_type_array(
                     Some(scope_id),
                     Type::Array(CheckedArrayNode {
                         inner_ty: FELT_TYPE,
@@ -398,7 +398,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     return Err(Error::TypeMismatch);
                 }
                 let scope_id = ScopeId::prelude();
-                let type_id = ctx.symbols.add_type(
+                let type_id = ctx.symbols.add_type_array(
                     Some(scope_id),
                     Type::Array(CheckedArrayNode {
                         inner_ty: FELT_TYPE,
@@ -426,7 +426,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 let slot_index = self.visit_expr(slot_index, ctx)?;
                 let new_value = self.visit_expr(new_value, ctx)?;
                 let scope_id = ScopeId::prelude();
-                let type_id = ctx.symbols.add_type(
+                let type_id = ctx.symbols.add_type_array(
                     Some(scope_id),
                     Type::Array(CheckedArrayNode {
                         inner_ty: FELT_TYPE,
@@ -525,12 +525,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     size: size.clone(),
                     scope_id,
                 });
-                let type_id = match ctx.symbols.get_type_id(Some(scope_id), type_array.key()){
-                    Some(type_id) => type_id,
-                    None => {
-                        ctx.symbols.add_type(Some(scope_id), type_array)
-                    }
-                };
+                let type_id = ctx.symbols.add_type_array(Some(scope_id), type_array);
+
 
                 Ok(CheckedExprNode::Value(CheckedValueNode::Array(
                     type_id, elements,
@@ -1365,12 +1361,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                     size: size.clone(),
                     scope_id,
                 });
-                let type_id = match ctx.symbols.get_type_id(Some(scope_id), type_array.key()){
-                    Some(type_id) => type_id,
-                    None => {
-                        ctx.symbols.add_type(Some(scope_id), type_array)
-                    }
-                };
+                let type_id = ctx.symbols.add_type_array(Some(scope_id), type_array);
                 Ok(type_id)
             }
             UncheckedType::Unknown => Ok(UNKOWN_TYPE),
