@@ -305,8 +305,8 @@ impl<F: Clone> SymbolTable<F> {
 
     pub fn add_type(&mut self, scope_id: Option<ScopeId>, ty: Type) -> TypeId {
         let key = ty.key();
-        if let Some(type_id) = self.get_type_id(scope_id, key.clone()) {
-            return type_id;
+        if let Some(_) = self.get_type_id(scope_id, key.clone()) {
+            panic!("type {:?} already exists", key);
         }
 
         let type_id = TypeId(self.types.len());
