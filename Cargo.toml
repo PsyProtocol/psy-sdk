@@ -125,15 +125,15 @@ llvm-sys = "191.0"
 melior = { version = "0.21", features = ["ods-dialects"] }
 mlir-sys = { version = "0.4" }
 
-qedlang_core = { git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
-qed_crypto = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
-qed_exec = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
-qed_store = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
-qed_data = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
-qed_core = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
-qed_prover = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
-qed_common_circuit = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
-kvq = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "1fb6ef0867ec69adfce640bab58c4e33dd758361" }
+qedlang_core = { git = "https://github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
+qed_crypto = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
+qed_exec = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
+qed_store = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
+qed_data = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
+qed_core = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
+qed_prover = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
+qed_common_circuit = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
+kvq = {  git = "https://github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
 # qedlang_core = { path = "../qedlang-rust/qedlang_core" }
 # qed_crypto = { path = "../qedlang-rust/qed_crypto" }
 # qed_exec = { path = "../qedlang-rust/qed_exec" }
