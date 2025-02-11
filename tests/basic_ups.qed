@@ -27,10 +27,10 @@ impl Contract {
 
         let current_balance: Felt = self_user_leaf[0];
 
-        // assert_true(amount <= current_balance, "insufficient balance");
+        assert!(amount <= current_balance, "insufficient balance");
 
         let new_balance: Felt = current_balance - amount;
-        // assert_true(new_balance < current_balance, "user balance overflow");
+        assert!(new_balance < current_balance, "user balance overflow");
 
         cset_state_hash_at(self_user_id, [
             new_balance,
@@ -43,7 +43,7 @@ impl Contract {
         let previous_total_sent_to_recipient: Felt = p2p_leaf[2];
 
         let new_total_sent_to_recipient: Felt = previous_total_sent_to_recipient + amount;
-        // assert_true(new_total_sent_to_recipient > previous_total_sent_to_recipient, "sent amount overflow");
+        assert!(new_total_sent_to_recipient > previous_total_sent_to_recipient, "sent amount overflow");
 
         cset_state_hash_at(recipient, [
             p2p_leaf[0],
@@ -59,7 +59,7 @@ impl Contract {
         sender: Felt,
     ) -> Felt {
         let self_user_id: Felt = get_user_id();
-        // assert_true(sender != self_user_id, "you cannot claim from your self");
+        assert!(sender != self_user_id, "you cannot claim from your self");
 
         let self_leaf: [Felt; 4] = get_state_hash_at(self_user_id);
         let current_balance: Felt = self_leaf[0];
@@ -71,7 +71,7 @@ impl Contract {
 
         let sender_total_sent_to_me: Felt = sender_transfer_info_leaf_for_me[2];
 
-        // assert_true(sender_total_sent_to_me > loc_previous_total_recieved_from_sender, "no tokens to claim from this sender");
+        assert!(sender_total_sent_to_me > loc_previous_total_recieved_from_sender, "no tokens to claim from this sender");
 
         let tokens_to_claim: Felt = sender_total_sent_to_me - loc_previous_total_recieved_from_sender;
 
@@ -85,8 +85,7 @@ impl Contract {
         ]);
 
         let new_balance: Felt = tokens_to_claim + current_balance;
-        // assert_true(current_balance < new_balance, "balance overflow");
-
+        assert!(current_balance < new_balance, "balance overflow");
 
         cset_state_hash_at(self_user_id, [
             new_balance,

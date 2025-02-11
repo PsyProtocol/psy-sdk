@@ -7,11 +7,11 @@ fn main() {
 }
 
 #[test]
-fn test_min() -> Felt {
-    min(2, 3)
+fn test_min() {
+    assert!(min(2, 3) == 2, "min(2, 3) == 2");
 }
 
 #[test]
 fn test_max() -> Felt {
-    max(2, 3)
+    assert!(max(2, 3) == 3, "max(2, 3) == 3");
 }
