@@ -1,7 +1,7 @@
 use qed_ast::*;
-use qed_builder::{ContextFelt, DPNContext};
 use qed_common::Graph;
 use qed_parser::Parser;
+use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, ToFelts};
 use std::fmt::{Display, Write};
 
 #[derive(Debug)]
@@ -151,7 +151,10 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let &IndexAccessNode { value, index } = ctx.expression(expr_id).as_index_access().unwrap();
+        let &IndexAccessNode {
+            target: value,
+            index,
+        } = ctx.expression(expr_id).as_index_access().unwrap();
         Ok(format!("{}[{}]", self.visit_expr(value, ctx)?, index))
     }
 
@@ -160,8 +163,10 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let &MemberAccessNode { value, field } =
-            ctx.expression(expr_id).as_member_access().unwrap();
+        let &MemberAccessNode {
+            target: value,
+            field,
+        } = ctx.expression(expr_id).as_member_access().unwrap();
         Ok(format!(
             "{}.{}",
             self.visit_expr(value, ctx)?,
@@ -179,6 +184,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         Ok(match node {
             ValueNode::Felt(f) => f.to_string(),
             ValueNode::Bool(b) => b.to_string(),
+            ValueNode::String(s) => s.to_string(),
             ValueNode::Array(_, values) => format!(
                 "[{}]",
                 values
@@ -474,7 +480,23 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
             return_type,
             is_extern,
             visibility,
+            attrs,
         } = ctx.definition(def_id).as_function().unwrap();
+        for attr in attrs {
+            if !attr.properties.is_empty() {
+                self.write_line(&format!(
+                    "#[{}({})]",
+                    ctx.ident(attr.name),
+                    attr.properties
+                        .iter()
+                        .map(|p| ctx.ident(p.clone()).to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            } else {
+                self.write_line(&format!("#[{}]", ctx.ident(attr.name),));
+            }
+        }
         let parameters = parameters
             .iter()
             .map(|p| {
@@ -645,6 +667,7 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         ));
         self.indent();
         for func in body {
+            let func = ctx.definition(func.clone()).as_function().unwrap();
             let parameters = func
                 .parameters
                 .iter()
@@ -688,6 +711,87 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
     ) -> Result<Self::ExprResult, Self::Error> {
         let offset = ctx.expression(node).as_storage().unwrap().offset;
         Ok(format!("storage::read({})", self.visit_expr(offset, ctx)?))
+    }
+
+    fn visit_context(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let node = ctx.expression(node).as_context().cloned().unwrap();
+        match node {
+            ContextNode::GetUserId => Ok("context::get_user_id()".to_string()),
+            ContextNode::GetContractId => Ok("context::get_contract_id()".to_string()),
+            ContextNode::GetLastNonce => Ok("context::get_last_nonce()".to_string()),
+            ContextNode::GetCheckpointId => Ok("context::get_checkpoint_id()".to_string()),
+            ContextNode::GetUserPublicKeyHash => {
+                Ok("context::get_user_public_key_hash()".to_string())
+            }
+            ContextNode::GetStateHashAt { slot_index } => Ok(format!(
+                "context::get_state_hash_at({})",
+                self.visit_expr(slot_index.clone(), ctx)?
+            )),
+            ContextNode::GetOtherContractStateHashAt {
+                contract_state_tree_height,
+                contract_id,
+                slot_index,
+            } => Ok(format!(
+                "context::get_other_contract_state_hash_at({}, {}, {})",
+                self.visit_expr(contract_state_tree_height.clone(), ctx)?,
+                self.visit_expr(contract_id.clone(), ctx)?,
+                self.visit_expr(slot_index.clone(), ctx)?
+            )),
+            ContextNode::GetOtherUserContractStateHashAt {
+                contract_state_tree_height,
+                user_id,
+                contract_id,
+                slot_index,
+            } => Ok(format!(
+                "context::get_other_user_contract_state_hash_at({}, {}, {}, {})",
+                self.visit_expr(contract_state_tree_height.clone(), ctx)?,
+                self.visit_expr(user_id.clone(), ctx)?,
+                self.visit_expr(contract_id.clone(), ctx)?,
+                self.visit_expr(slot_index.clone(), ctx)?
+            )),
+            ContextNode::CSetStateHashAt {
+                slot_index,
+                new_value,
+            } => Ok(format!(
+                "context::cset_state_hash_at({}, {})",
+                self.visit_expr(slot_index.clone(), ctx)?,
+                self.visit_expr(new_value.clone(), ctx)?
+            )),
+        }
+    }
+
+    fn visit_assert(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let left = ctx.expression(node).as_assert().unwrap().left;
+        let message = ctx.expression(node).as_assert().unwrap().message.clone();
+        Ok(format!(
+            "assert!({}, {})",
+            self.visit_expr(left, ctx)?,
+            message.unwrap_or_default()
+        ))
+    }
+
+    fn visit_assert_eq(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let left = ctx.expression(node).as_assert_eq().unwrap().left;
+        let right = ctx.expression(node).as_assert_eq().unwrap().right;
+        let message = ctx.expression(node).as_assert_eq().unwrap().message.clone();
+        Ok(format!(
+            "assert_eq!({}, {}, {})",
+            self.visit_expr(left, ctx)?,
+            self.visit_expr(right, ctx)?,
+            message.unwrap_or_default()
+        ))
     }
 
     fn visit_storage_write(

@@ -27,6 +27,12 @@ impl From<&str> for Ident {
     }
 }
 
+impl From<String> for Ident {
+    fn from(s: String) -> Self {
+        Self::from(s.as_str())
+    }
+}
+
 define_arena_id!(IdentId);
 
 impl IdentId {
@@ -44,8 +50,10 @@ impl IdentId {
     pub const STD: IdentId = IdentId(9);
     pub const PRELUDE: IdentId = IdentId(10);
 
-    pub const MAIN: IdentId = IdentId(11);
-    pub const DERIVE: IdentId = IdentId(12);
+    pub const DERIVE: IdentId = IdentId(11);
+    pub const NEW: IdentId = IdentId(12);
+    pub const TEST: IdentId = IdentId(13);
+    pub const TYPE_STRING: IdentId = IdentId(14);
 }
 
 impl Display for IdentId {
@@ -59,15 +67,17 @@ pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
     (IdentId::TYPE_BOOL, "bool"),
     (IdentId::TYPE_FELT, "Felt"),
     (IdentId::TYPE_VOID, "void"),
-    (IdentId::TYPE_ARRAY, "Array"),
+    (IdentId::TYPE_ARRAY, "[]"),
     (IdentId::TYPE_SELF, "Self"),
     (IdentId::SELF, "self"),
     (IdentId::SUPER, "super"),
     (IdentId::CRATE, "crate"),
     (IdentId::STD, "std"),
     (IdentId::PRELUDE, "prelude"),
-    (IdentId::MAIN, "main"),
     (IdentId::DERIVE, "derive"),
+    (IdentId::NEW, "new"),
+    (IdentId::TEST, "test"),
+    (IdentId::TYPE_STRING, "string"),
 ];
 
 #[derive(Clone, Debug, Default)]

@@ -8,12 +8,12 @@ use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::IdentId;
 use qed_ast::Visibility;
-use qed_builder::ContextFelt;
-use qed_builder::DPNContext;
 use qed_utils::impl_ref;
+use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, ToFelts};
 
 use crate::CheckedValue;
 use crate::CheckedValueNode;
+use crate::CheckedValueRef;
 use crate::SymbolTable;
 use crate::STD_PRELUDE_SCOPE_ID;
 use crate::{
@@ -35,6 +35,7 @@ pub const UNKOWN_TYPE: TypeId = TypeId(0);
 pub const VOID_TYPE: TypeId = TypeId(1);
 pub const BOOL_TYPE: TypeId = TypeId(2);
 pub const FELT_TYPE: TypeId = TypeId(3);
+pub const STRING_TYPE: TypeId = TypeId(4);
 
 pub const TYPE_MAPPING: &[(IdentId, Type)] = &[
     (IdentId::TYPE_UNKNOWN, Type::Unknown),
@@ -164,8 +165,8 @@ impl Type {
             Type::Function(CheckedFunctionNode { scope_id, .. }) => *scope_id,
             Type::Impl(CheckedImplNode { scope_id, .. }) => *scope_id,
             Type::Trait(CheckedTraitNode { scope_id, .. }) => *scope_id,
-            Type::Felt(_) => STD_PRELUDE_SCOPE_ID.get().cloned().unwrap(),
-            Type::Bool(_) => STD_PRELUDE_SCOPE_ID.get().cloned().unwrap(),
+            Type::Felt(_) => ScopeId::prelude(),
+            Type::Bool(_) => ScopeId::prelude(),
             _ => panic!("Type::scope_id called on non-composite type"),
         }
     }
@@ -230,7 +231,7 @@ impl Type {
 
     pub fn to_value<F: ContextFelt + From<u32>, C: DPNContext<F>>(
         &self,
-        symbols: &mut SymbolTable<F>,
+        symbols: &SymbolTable<F>,
         ctx: &mut C,
     ) -> CheckedValue<F> {
         match self {
@@ -240,13 +241,10 @@ impl Type {
                 let mut result = Vec::new();
                 let inner_ty = symbols[a.inner_ty].clone();
                 for value in 0..a.size {
-                    result.push(Rc::new(RefCell::new(inner_ty.to_value(symbols, ctx))));
+                    result.push(CheckedValueRef::new_rc(inner_ty.to_value(symbols, ctx)));
                 }
                 let type_id = symbols
-                    .get_type_id(
-                        Some(STD_PRELUDE_SCOPE_ID.get().unwrap().clone()),
-                        self.key(),
-                    )
+                    .get_type_id(Some(ScopeId::prelude()), self.key())
                     .unwrap();
                 CheckedValue::Array(type_id, result)
             }
@@ -256,7 +254,7 @@ impl Type {
                     let field_type = symbols[field_type.clone()].clone();
                     result.insert(
                         field_name.clone(),
-                        Rc::new(RefCell::new(field_type.to_value(symbols, ctx))),
+                        CheckedValueRef::new_rc(field_type.to_value(symbols, ctx)),
                     );
                 }
                 let type_id = symbols.get_type_id(Some(s.scope_id), self.key()).unwrap();

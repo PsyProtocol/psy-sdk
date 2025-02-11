@@ -10,6 +10,7 @@ use crate::{AstVisitor, ExprId, IdentId, NodeInfo, NodeType, UncheckedType};
 pub enum ValueNode<F: Clone + From<u32>> {
     Felt(F),
     Bool(F),
+    String(String),
     Array(usize, Vec<ExprId>),
     Struct(IdentId, Vec<UncheckedType>, IndexMap<IdentId, ExprId>),
 }

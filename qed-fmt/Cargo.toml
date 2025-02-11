@@ -5,6 +5,6 @@ version = "0.1.0"
 
 [dependencies]
 qed-ast = { workspace = true }
-qed-builder = { workspace = true }
 qed-parser = { workspace = true }
 qed-common = { workspace = true }
+qedlang_core = { workspace = true }

@@ -34,6 +34,9 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::IndexAccessExpr => self.visit_index_access(expr_id, ctx)?,
             NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
             NodeType::StorageExpr => self.visit_storage_read(expr_id, ctx)?,
+            NodeType::ContextExpr => self.visit_context(expr_id, ctx)?,
+            NodeType::AssertExpr => self.visit_assert(expr_id, ctx)?,
+            NodeType::AssertEqExpr => self.visit_assert_eq(expr_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -135,6 +138,21 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error>;
     fn visit_storage_read(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_context(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_assert(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_assert_eq(
         &mut self,
         node: ExprId,
         ctx: &mut Self::Context,

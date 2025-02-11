@@ -1,5 +1,5 @@
 use qed_common::{FileId, Arena};
-use qed_builder::{DPNContext, ContextFelt};
+use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::*;
 use qed_lexer::{Token, Error};
 
@@ -65,7 +65,7 @@ ModuleDecl: (IdentId, Visibility) = {
 }
 
 ModuleUse: UsePath = {
-    <l:@L> <visibility:Visibility> USE <path:PathOld> ";" <r:@R> => {
+    <l:@L> <visibility:Visibility> USE <path:UsePath> ";" <r:@R> => {
         assert!(visibility.is_public());
         UsePath {
             visibility,
@@ -84,11 +84,16 @@ Statement: StmtNode = {
     BlockStatement,
     IfStatement,
     Definition => StmtNode::Definition(def_nodes.alloc_item(<>)),
+    AssertStatement,
     ExpressionStatement
 }
 
 ExpressionStatement: StmtNode = {
     <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr))
+}
+
+AssertStatement: StmtNode = {
+    <l:@L> <expr:AssertExpression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr))
 }
 
 Definition: DefinitionNode = {
@@ -121,11 +126,11 @@ ImplDef: ImplNode = {
 }
 
 TraitDef: TraitNode = {
-   <l:@L> <visibility:Visibility> TRAIT <name:Identifier> <generic_parameters:GenericParameters> "{" <body:FunctionDecl*> "}" <r:@R> => {
+   <l:@L> <visibility:Visibility> TRAIT <name:Identifier> <generic_parameters:GenericParameters> "{" <body:FunctionDef*> "}" <r:@R> => {
        TraitNode {
            generic_parameters,
            name,
-           body,
+           body: def_nodes.alloc_items(body),
            visibility
        }
    }
@@ -141,7 +146,7 @@ EnumDef: EnumNode = {
 }
 
 Attribute: AttrNode = {
-    <l:@L> "#" "[" <name:IdentifierOrDerive>  <properties:AttributeProperties> "]" <r:@R> => AttrNode { name, properties }
+    <l:@L> "#" "[" <name:Identifier>  <properties:AttributeProperties> "]" <r:@R> => AttrNode { name, properties }
 }
 
 AttributeProperties: Vec<IdentId> = {
@@ -160,27 +165,34 @@ StructDef: StructNode = {
 }
 
 FunctionDef: DefinitionNode = {
-    <l:@L> <visibility:Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <attrs:Attribute*> <visibility:Visibility> <is_extern:EXTERN?> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
         body: Some(stmt_nodes.alloc_item(block_stmt)),
         return_type,
-        is_extern: is_extern.is_some(),
-        visibility
-    })
-}
-
-FunctionDecl: FunctionNode = {
-    <l:@L> <visibility:Visibility> <is_extern:EXTERN?> FN <name:Identifier> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => FunctionNode {
+        is_extern: {
+           let is_extern = is_extern.is_some();
+           assert!(!is_extern || is_std && is_self_prelude);
+           is_extern
+        },
+        visibility,
+        attrs
+    }),
+    <l:@L> <attrs:Attribute*> <visibility:Visibility> <is_extern:EXTERN?> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
         body: None,
         return_type,
-        is_extern: is_extern.is_some(),
-        visibility
-    }
+        is_extern: {
+           let is_extern = is_extern.is_some();
+           assert!(!is_extern || is_std && is_self_prelude);
+           is_extern
+        },
+        visibility,
+        attrs
+    })
 }
 
 FunctionReturn: UncheckedType = {
@@ -216,7 +228,13 @@ GenericParameters: Vec<IdentId> = {
 }
 
 BlockStatement: StmtNode = {
-    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => StmtNode::Block(BlockNode { stmts: stmt_nodes.alloc_items(stmts) }),
+    <l:@L> "{" <mut stmts:Statement*> <ret:Expression> "}" <r:@R> => {
+        stmts.push(StmtNode::Return(ReturnNode(Some(expr_nodes.alloc_item(ret)))));
+        StmtNode::Block(BlockNode {
+            stmts: stmt_nodes.alloc_items(stmts)
+        })
+    },
+    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => StmtNode::Block(BlockNode { stmts: stmt_nodes.alloc_items(stmts) })
 }
 
 WhileStatement: StmtNode = {
@@ -315,6 +333,56 @@ AssignmentStatement: StmtNode = {
     )
 }
 
+AssertExpression: ExprNode<F> = {
+    <l:@L> <variable:ASSERT> "(" <args:ExpressionList> ")" <r:@R> => {
+        assert!(args.len() == 1 || args.len() == 2);
+        ExprNode::<F>::Assert(
+            AssertNode {
+                left: expr_nodes.alloc_item(args[0].clone()),
+                message: {
+                    if args.len() == 2{
+                        match &args[1] {
+                            ExprNode::<F>::Value(v) => {
+                                match v {
+                                    ValueNode::String(s) => Some(s.clone()),
+                                    _ => panic!("invalid message")
+                                }
+                            },
+                            _ => panic!("invalid message")
+                        }
+                    }else{
+                        None
+                    }
+                }
+            }
+        )
+    },
+    <l:@L> <variable:ASSERT_EQ> "(" <args:ExpressionList> ")" <r:@R> => {
+        assert!(args.len() == 2 || args.len() == 3);
+        ExprNode::<F>::AssertEq(
+            AssertEqNode {
+                left: expr_nodes.alloc_item(args[0].clone()),
+                right: expr_nodes.alloc_item(args[1].clone()),
+                message: {
+                    if args.len() == 3{
+                        match &args[2] {
+                            ExprNode::<F>::Value(v) => {
+                                match v {
+                                    ValueNode::String(s) => Some(s.clone()),
+                                    _ => panic!("invalid message")
+                                }
+                            },
+                            _ => panic!("invalid message")
+                        }
+                    }else{
+                        None
+                    }
+                }
+            }
+        )
+    },
+};
+
 Term: ExprNode<F> = {
     <l:@L> "(" <expr:Expression> ")" <r:@R> => expr,
     ValueExpression,
@@ -327,7 +395,7 @@ PathExpression: ExprNode<F> = {
         segments: vec![],
         target: variable,
     }),
-    <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: Identifier> => {
+    <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: IdentifierOrNew> => {
         let mut segment_ids = segments.into_iter().map(|seg| seg).collect::<Vec<_>>();
         ExprNode::Path(PathNode {
             root: Some(root),
@@ -336,6 +404,11 @@ PathExpression: ExprNode<F> = {
         })
     },
 };
+
+ExpressionList: Vec<ExprNode<F>> = {
+    <items:Sep<Expression, ",">> => items
+}
+
 Expression: ExprNode<F> = {
     #[precedence(level="1")]
     Term,
@@ -351,10 +424,11 @@ Expression: ExprNode<F> = {
     //    }
     //),
 
+
     #[precedence(level="2")]
-    <l:@L> <variable:Expression> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
+    <l:@L> <variable:Expression> "(" <args:ExpressionList> ")" <r:@R> => ExprNode::<F>::Call(
        CallNode {
-           receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
+           receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { target: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
            variable: expr_nodes.alloc_item(variable),
            generic_parameters: Vec::new(),
            args: expr_nodes.alloc_items(args)
@@ -362,12 +436,12 @@ Expression: ExprNode<F> = {
     ),
     #[precedence(level="2")]
     <l:@L> <variable:Expression> "[" <index:NUMBER> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
-        value: expr_nodes.alloc_item(variable),
+        target: expr_nodes.alloc_item(variable),
         index: usize::try_from(index).unwrap()
     }),
     #[precedence(level="2")]
     <l:@L> <variable:Expression> "." <field:Identifier> <r:@R> => ExprNode::<F>::MemberAccess(MemberAccessNode {
-        value: expr_nodes.alloc_item(variable),
+        target: expr_nodes.alloc_item(variable),
         field
     }),
 
@@ -384,6 +458,8 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> AS <ty:TYPE_FELT> <r:@R> => ExprNode::<F>::Cast(
         CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_FELT))
     ),
+
+    #[precedence(level="4")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> AS <ty:TYPE_BOOL> <r:@R> => ExprNode::<F>::Cast(
         CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_BOOL))
     ),
@@ -474,6 +550,7 @@ Expression: ExprNode<F> = {
 ValueExpression: ExprNode<F> = {
     FeltExpression,
     BoolExpression,
+    StringExpression,
     ArrayExpression,
     NEW <StructExpression>
 }
@@ -483,7 +560,11 @@ FeltExpression: ExprNode<F> = {
 }
 
 BoolExpression: ExprNode<F> = {
-    <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Bool(ctx.op_bool(b)))
+    <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Bool(if b { ctx.op_true() } else { ctx.op_false() }))
+}
+
+StringExpression: ExprNode<F> = {
+    <l:@L> <s:STRING> <r:@R> => ExprNode::<F>::Value(ValueNode::String(s.to_owned())),
 }
 
 //todo: Temporarily disable generic capabilities
@@ -513,7 +594,7 @@ ArrayExpression: ExprNode<F> = {
     ),
 }
 
-PathOld: (IdentId, Vec<IdentId>, Option<IdentId>) =
+UsePath: (IdentId, Vec<IdentId>, Option<IdentId>) =
     <a:ModuleUseKind> "::" <h:(<Identifier> "::")*> <t:IdentifierOrAll> => {
         (a, h, t)
     };
@@ -561,16 +642,16 @@ IdentifierOrSelf: IdentId = {
     <l:@L> <name:SELF> <r:@R> => IdentId::SELF
 }
 
+IdentifierOrNew: IdentId = {
+    Identifier,
+    <l:@L> <name:NEW> <r:@R> => IdentId::NEW
+}
+
 IdentifierOrBasicType: IdentId = {
     Identifier,
     <l:@L> <ty:TYPE_FELT> <r:@R> => IdentId::TYPE_FELT,
     <l:@L> <ty:TYPE_BOOL> <r:@R> => IdentId::TYPE_BOOL,
     <l:@L> <ty:TYPE_SELF> <r:@R> => IdentId::TYPE_SELF,
-}
-
-IdentifierOrDerive: IdentId = {
-    Identifier,
-    <l:@L> <name:DERIVE> <r:@R> => IdentId::DERIVE
 }
 
 Identifier: IdentId = {
@@ -608,6 +689,9 @@ extern {
         FOR => Token::KeywordFor,
         WHERE => Token::KeywordWhere,
 
+        ASSERT => Token::KeywordAssert,
+        ASSERT_EQ => Token::KeywordAssertEq,
+
         MOD => Token::KeywordMod,
         USE => Token::KeywordUse,
         SUPER => Token::KeywordSuper,
@@ -616,18 +700,16 @@ extern {
 
         PUB => Token::KeywordPub,
 
-        STD => Token::KeywordStd,
-
         IDENT => Token::Ident(<&'input str>),
 
         BOOL => Token::Bool(<bool>),
         NUMBER => Token::Number(<u64>),
+        STRING => Token::String(<&'input str>),
 
         TYPE_BOOL => Token::TypeBool,
         TYPE_FELT => Token::TypeFelt,
         TYPE_SELF => Token::TypeSelf,
-
-        DERIVE => Token::KeywordDerive,
+        // TYPE_STRING => Token::TypeString,
 
         AS => Token::KeywordAs,
         EXTERN => Token::KeywordExtern,

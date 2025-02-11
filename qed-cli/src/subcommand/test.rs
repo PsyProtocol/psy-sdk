@@ -4,22 +4,20 @@ use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashou
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_exec::vm::exec::QEDEvalSessionResult;
 use qed_interpreter::Interpreter;
-use qed_sema::{CheckedValue, CheckedValueRef, TypeChecker};
+use qed_sema::TypeChecker;
 use qed_utils::{
     gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract,
-    InterpreterArgs, TestArgs, C, D,
+    TestArgs, C, D,
 };
 use qedlang_core::dpn::{
-    ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
+    ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::compile::QEDCompileResult,
 };
 
-pub fn run(args: InterpreterArgs) -> anyhow::Result<()> {
+pub fn run(args: TestArgs) -> anyhow::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let compile_results = interpreter.interpret(
+    let compile_results = interpreter.test(
         args.file.into(),
-        args.contract_name,
-        args.method_names,
         |context, (method_name, method_id, outputs)| {
             QEDCompileResult::compile_exec(
                 method_name,
@@ -48,20 +46,9 @@ pub fn run(args: InterpreterArgs) -> anyhow::Result<()> {
     let mut lps = prepare_environment_with_real_contract(pub_key, deploy_cmd)?;
     let contract_id = GoldilocksField::from_canonical_u64(2);
 
-    for ((def, parameters), circuit) in compile_results
-        .into_iter()
-        .zip(args.parameters.into_iter())
-        .zip(circuits.into_iter())
-    {
-        let cfc_input = QEDEvalSessionResult::new().exec_contract_call(
-            &mut lps,
-            contract_id,
-            &def,
-            parameters
-                .into_iter()
-                .map(GoldilocksField::from_noncanonical_u64)
-                .collect(),
-        )?;
+    for (def, circuit) in compile_results.into_iter().zip(circuits.into_iter()) {
+        let cfc_input =
+            QEDEvalSessionResult::new().exec_contract_call(&mut lps, contract_id, &def, vec![])?;
         println!("result_vm: {:?}", cfc_input.outputs);
 
         let proof = circuit.prove_base(&cfc_input).unwrap();
