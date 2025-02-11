@@ -498,7 +498,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         match value_node {
             ValueNode::Felt(f) => Ok(CheckedExprNode::Value(CheckedValueNode::Felt(f.clone()))),
             ValueNode::Bool(b) => Ok(CheckedExprNode::Value(CheckedValueNode::Bool(b.clone()))),
-            ValueNode::String(s) => Ok(CheckedExprNode::Value(CheckedValueNode::String(s.clone()))),
             ValueNode::Array(size, arr) => {
                 if size != arr.len() {
                     return Err(Error::TypeMismatch);

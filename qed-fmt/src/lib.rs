@@ -184,7 +184,6 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         Ok(match node {
             ValueNode::Felt(f) => f.to_string(),
             ValueNode::Bool(b) => b.to_string(),
-            ValueNode::String(s) => s.to_string(),
             ValueNode::Array(_, values) => format!(
                 "[{}]",
                 values

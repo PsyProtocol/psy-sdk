@@ -489,7 +489,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         Ok(match node {
             CheckedValueNode::Felt(value) => CheckedValue::Felt(*value),
             CheckedValueNode::Bool(value) => CheckedValue::Bool(*value),
-            CheckedValueNode::String(value) => CheckedValue::String(value.clone()),
             CheckedValueNode::Array(type_id, elements) => {
                 let mut values = Vec::new();
                 for element in elements {
@@ -1347,7 +1346,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             .unwrap();
         self.context.assert_true(
             lhs_value.to_bool(),
-            Box::leak((assert_node.message.clone().unwrap_or_default().into_boxed_str())),
+            Box::leak(
+                (assert_node
+                    .message
+                    .clone()
+                    .unwrap_or_default()
+                    .into_boxed_str()),
+            ),
         );
         Ok(CheckedValue::Type(VOID_TYPE))
     }
@@ -1379,7 +1384,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         self.context.assert_eq(
             lhs_value.to_felt(),
             rhs_value.to_felt(),
-            Box::leak(assert_eq_node.message.clone().unwrap_or_default().into_boxed_str()),
+            Box::leak(
+                assert_eq_node
+                    .message
+                    .clone()
+                    .unwrap_or_default()
+                    .into_boxed_str(),
+            ),
         );
         Ok(CheckedValue::Type(VOID_TYPE))
     }

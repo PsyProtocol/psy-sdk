@@ -69,8 +69,7 @@ pub enum Token<'input> {
     TypeFelt,
     #[token("Self")]
     TypeSelf,
-    // #[token("String")]
-    // TypeString,
+
     #[regex("[_a-zA-Z][_0-9a-zA-Z]*", |lex| lex.slice())]
     Ident(&'input str),
 
