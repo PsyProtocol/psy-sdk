@@ -15,11 +15,7 @@ use qed_ast::{ModuleNode, PathNode, Visibility};
 use qed_common::{define_arena_id, FileId, TreeNode};
 use strum::EnumTryAs;
 
-use crate::{
-    variable::CheckedVariable, CheckedFunctionNode, CheckedTraitNode, CheckedValue,
-    CheckedValueNode, CheckedValueRef, DefinitionNode, IdentId, ModuleId, ModuleKind, Type, TypeId,
-    TypeKey, UsePath,
-};
+use crate::{variable::CheckedVariable, CheckedArrayNode, CheckedFunctionNode, CheckedTraitNode, CheckedValue, CheckedValueNode, CheckedValueRef, DefinitionNode, IdentId, ModuleId, ModuleKind, Type, TypeId, TypeKey, UsePath};
 use crate::{Error, Result};
 
 define_arena_id!(ScopeId);
@@ -307,6 +303,17 @@ impl<F: Clone> SymbolTable<F> {
         let key = ty.key();
         if let Some(_) = self.get_type_id(scope_id, key.clone()) {
             panic!("type {:?} already exists", key);
+        }
+
+        let type_id = TypeId(self.types.len());
+        self.add_type_id(scope_id, key, type_id);
+        self.types.push(ty);
+        type_id
+    }
+    pub fn add_type_array(&mut self, scope_id: Option<ScopeId>, ty: Type) -> TypeId {
+        let key = ty.key();
+        if let Some(x) = self.get_type_id(scope_id, key.clone()) {
+            return x;
         }
 
         let type_id = TypeId(self.types.len());
