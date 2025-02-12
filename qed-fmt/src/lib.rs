@@ -765,11 +765,11 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
 
     fn visit_assert(
         &mut self,
-        node: ExprId,
+        node: StmtId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
-        let left = ctx.expression(node).as_assert().unwrap().left;
-        let message = ctx.expression(node).as_assert().unwrap().message.clone();
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let left = ctx.statement(node).as_assert().unwrap().left;
+        let message = ctx.statement(node).as_assert().unwrap().message.clone();
         Ok(format!(
             "assert!({}, {})",
             self.visit_expr(left, ctx)?,
@@ -779,12 +779,12 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
 
     fn visit_assert_eq(
         &mut self,
-        node: ExprId,
+        node: StmtId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
-        let left = ctx.expression(node).as_assert_eq().unwrap().left;
-        let right = ctx.expression(node).as_assert_eq().unwrap().right;
-        let message = ctx.expression(node).as_assert_eq().unwrap().message.clone();
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let left = ctx.statement(node).as_assert_eq().unwrap().left;
+        let right = ctx.statement(node).as_assert_eq().unwrap().right;
+        let message = ctx.statement(node).as_assert_eq().unwrap().message.clone();
         Ok(format!(
             "assert_eq!({}, {}, {})",
             self.visit_expr(left, ctx)?,

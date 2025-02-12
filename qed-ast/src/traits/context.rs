@@ -58,8 +58,6 @@ pub enum NodeType {
     IndexAccessExpr,
     StorageExpr,
     ContextExpr,
-    AssertExpr,
-    AssertEqExpr,
 
     IfStmt,
     WhileStmt,
@@ -70,6 +68,8 @@ pub enum NodeType {
     ExpressionStmt,
     ReturnStmt,
     StorageStmt,
+    AssertStmt,
+    AssertEqStmt,
 
     FunctionDef,
     StructDef,

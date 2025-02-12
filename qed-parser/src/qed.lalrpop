@@ -93,7 +93,23 @@ ExpressionStatement: StmtNode = {
 }
 
 AssertStatement: StmtNode = {
-    <l:@L> <expr:AssertExpression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr))
+    <l:@L> <variable:ASSERT> "(" <left: Expression> "," <message: STRING?>  ","? ")" ";" <r:@R> => {
+        StmtNode::Assert(
+            AssertNode {
+                left: expr_nodes.alloc_item(left),
+                message: message.map(|m| m.to_string()),
+            }
+        )
+    },
+    <l:@L> <variable:ASSERT_EQ> "(" <left: Expression> "," <right: Expression> "," <message: STRING?>  ","? ")" ";" <r:@R> => {
+        StmtNode::AssertEq(
+            AssertEqNode {
+                left: expr_nodes.alloc_item(left),
+                right: expr_nodes.alloc_item(right),
+                message: message.map(|m| m.to_string()),
+            }
+        )
+    },
 }
 
 Definition: DefinitionNode = {
@@ -333,25 +349,6 @@ AssignmentStatement: StmtNode = {
     )
 }
 
-AssertExpression: ExprNode<F> = {
-    <l:@L> <variable:ASSERT> "(" <left: Expression> "," <message: STRING?>  ","? ")" <r:@R> => {
-        ExprNode::<F>::Assert(
-            AssertNode {
-                left: expr_nodes.alloc_item(left),
-                message: message.map(|m| m.to_string()),
-            }
-        )
-    },
-    <l:@L> <variable:ASSERT_EQ> "(" <left: Expression> "," <right: Expression> "," <message: STRING?>  ","? ")" <r:@R> => {
-        ExprNode::<F>::AssertEq(
-            AssertEqNode {
-                left: expr_nodes.alloc_item(left),
-                right: expr_nodes.alloc_item(right),
-                message: message.map(|m| m.to_string()),
-            }
-        )
-    },
-};
 
 Term: ExprNode<F> = {
     <l:@L> "(" <expr:Expression> ")" <r:@R> => expr,

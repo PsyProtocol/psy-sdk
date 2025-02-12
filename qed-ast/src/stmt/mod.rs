@@ -1,3 +1,4 @@
+mod assert;
 mod assignment;
 mod block;
 mod r#if;
@@ -6,6 +7,7 @@ mod storage;
 mod variable;
 mod r#while;
 
+pub use assert::*;
 pub use assignment::*;
 pub use block::*;
 use enum_as_inner::EnumAsInner;
@@ -30,6 +32,8 @@ pub enum StmtNode {
     Expression(ExprId),
     Return(ReturnNode),
     Storage(StorageWriteNode),
+    Assert(AssertNode),
+    AssertEq(AssertEqNode),
 }
 
 impl NodeInfo for StmtNode {
@@ -44,6 +48,8 @@ impl NodeInfo for StmtNode {
             StmtNode::Expression(_) => NodeType::ExpressionStmt,
             StmtNode::Return(node) => node.node_type(),
             StmtNode::Storage(node) => node.node_type(),
+            StmtNode::Assert(node) => node.node_type(),
+            StmtNode::AssertEq(node) => node.node_type(),
         }
     }
 
@@ -74,6 +80,8 @@ impl Display for StmtNode {
             StmtNode::Expression(_) => write!(f, "Expression"),
             StmtNode::Return(_) => write!(f, "Return"),
             StmtNode::Storage(_) => write!(f, "Storage::Write"),
+            StmtNode::Assert(_) => write!(f, "Assert"),
+            StmtNode::AssertEq(_) => write!(f, "AssertEq"),
         }
     }
 }

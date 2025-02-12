@@ -859,17 +859,17 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
 
     fn visit_assert(
         &mut self,
-        node: ExprId,
+        node: StmtId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    ) -> Result<Self::StmtResult, Self::Error> {
         todo!()
     }
 
     fn visit_assert_eq(
         &mut self,
-        node: ExprId,
+        node: StmtId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    ) -> Result<Self::StmtResult, Self::Error> {
         todo!()
     }
 
