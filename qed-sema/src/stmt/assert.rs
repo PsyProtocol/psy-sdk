@@ -1,24 +1,27 @@
-use crate::{AstVisitor, DefId, ExprId, NodeInfo, NodeType, PathNode, UncheckedType};
+use crate::TypeId;
+use qed_ast::{ExprId, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AssertNode {
+pub struct CheckedAssertNode {
     pub left: ExprId,
     pub message: Option<String>,
 }
-impl NodeInfo for AssertNode {
+
+impl NodeInfo for CheckedAssertNode {
     fn node_type(&self) -> NodeType {
-        NodeType::AssertExpr
+        NodeType::AssertStmt
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AssertEqNode {
+pub struct CheckedAssertEqNode {
     pub left: ExprId,
     pub right: ExprId,
     pub message: Option<String>,
 }
-impl NodeInfo for AssertEqNode {
+
+impl NodeInfo for CheckedAssertEqNode {
     fn node_type(&self) -> NodeType {
-        NodeType::AssertEqExpr
+        NodeType::AssertEqStmt
     }
 }

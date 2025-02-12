@@ -1,4 +1,3 @@
-mod assert;
 mod binary;
 mod call;
 mod cast;
@@ -8,7 +7,6 @@ mod path;
 mod storage;
 mod unary;
 
-pub use assert::*;
 pub use binary::*;
 pub use call::*;
 pub use cast::*;
@@ -22,7 +20,8 @@ pub use unary::*;
 use qed_ast::{ExprNode, IdentId, NodeInfo, NodeType};
 
 use crate::{
-    CheckedValueNode, ScopeId, TypeId, TypeKey, BOOL_TYPE, FELT_TYPE, STRING_TYPE, VOID_TYPE,
+    CheckedAssertEqNode, CheckedAssertNode, CheckedValueNode, ScopeId, TypeId, TypeKey, BOOL_TYPE,
+    FELT_TYPE, VOID_TYPE,
 };
 use strum::EnumTryAs;
 
@@ -38,8 +37,6 @@ pub enum CheckedExprNode<F> {
     MemberAccess(CheckedMemberAccessNode),
     Storage(CheckedStorageReadNode),
     Context(CheckedContextNode),
-    Assert(CheckedAssertNode),
-    AssertEq(CheckedAssertEqNode),
 }
 
 impl<F> NodeInfo for CheckedExprNode<F> {
@@ -55,8 +52,6 @@ impl<F> NodeInfo for CheckedExprNode<F> {
             CheckedExprNode::MemberAccess(node) => node.node_type(),
             CheckedExprNode::Storage(node) => node.node_type(),
             CheckedExprNode::Context(node) => node.node_type(),
-            CheckedExprNode::Assert(node) => node.node_type(),
-            CheckedExprNode::AssertEq(node) => node.node_type(),
         }
     }
 }
@@ -68,7 +63,6 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Value(v) => match v {
                 CheckedValueNode::Felt(_) => FELT_TYPE,
                 CheckedValueNode::Bool(_) => BOOL_TYPE,
-                CheckedValueNode::String(_) => STRING_TYPE,
                 CheckedValueNode::Array(type_id, _) => type_id.clone(),
                 CheckedValueNode::Struct(type_id, _) => type_id.clone(),
                 CheckedValueNode::Type(type_id) => type_id.clone(),
@@ -93,8 +87,6 @@ impl<F> CheckedExprNode<F> {
                 }
                 CheckedContextNode::CSetStateHashAt { type_id, .. } => type_id.clone(),
             },
-            CheckedExprNode::Assert(_) => VOID_TYPE,
-            CheckedExprNode::AssertEq(_) => VOID_TYPE,
         }
     }
 

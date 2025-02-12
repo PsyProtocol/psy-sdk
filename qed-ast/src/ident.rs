@@ -53,7 +53,6 @@ impl IdentId {
     pub const DERIVE: IdentId = IdentId(11);
     pub const NEW: IdentId = IdentId(12);
     pub const TEST: IdentId = IdentId(13);
-    pub const TYPE_STRING: IdentId = IdentId(14);
 }
 
 impl Display for IdentId {
@@ -77,7 +76,6 @@ pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
     (IdentId::DERIVE, "derive"),
     (IdentId::NEW, "new"),
     (IdentId::TEST, "test"),
-    (IdentId::TYPE_STRING, "string"),
 ];
 
 #[derive(Clone, Debug, Default)]

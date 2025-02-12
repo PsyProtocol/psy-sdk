@@ -1,3 +1,4 @@
+mod assert;
 mod assignment;
 mod block;
 mod r#if;
@@ -6,6 +7,7 @@ mod storage;
 mod variable;
 mod r#while;
 
+pub use assert::*;
 pub use assignment::*;
 pub use block::*;
 use enum_as_inner::EnumAsInner;
@@ -30,6 +32,8 @@ pub enum CheckedStmtNode {
     Expression(ExprId),
     Storage(CheckedStorageWriteNode),
     Return(CheckedReturnNode),
+    Assert(CheckedAssertNode),
+    AssertEq(CheckedAssertEqNode),
 }
 
 impl NodeInfo for CheckedStmtNode {
@@ -44,6 +48,8 @@ impl NodeInfo for CheckedStmtNode {
             Self::Expression(node) => NodeType::ExpressionStmt,
             Self::Storage(node) => node.node_type(),
             Self::Return(node) => node.node_type(),
+            Self::Assert(node) => node.node_type(),
+            Self::AssertEq(node) => node.node_type(),
         }
     }
 
