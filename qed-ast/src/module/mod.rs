@@ -30,6 +30,7 @@ pub struct ModuleNode {
     pub name: IdentId,
     pub file_id: FileId,
     pub modules: Vec<(IdentId, Visibility)>,
+    pub inline_modules: Vec<ModuleNode>,
     pub uses: Vec<UsePath>,
     pub definitions: Vec<DefId>,
     pub visibility: Visibility,
@@ -37,4 +38,12 @@ pub struct ModuleNode {
     pub is_std: bool,
     pub is_self_std: bool,
     pub is_self_prelude: bool,
+}
+
+#[derive(Clone, Debug)]
+pub enum ModuleItemNode {
+    ModuleDecl((IdentId, Visibility)),
+    InlineModule(ModuleNode),
+    ModuleUse(UsePath),
+    Definition(DefinitionNode),
 }
