@@ -132,18 +132,21 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         let node = ctx.expression(expr_id).as_path().unwrap();
-        Ok(format!(
-            "{}{}{}",
-            node.root
-                .map(|r| format!("{}::", ctx.ident(r)))
-                .unwrap_or("".to_string()),
-            node.segments
+
+        let mut path = node
+            .root
+            .map(|r| vec![ctx.ident(r).to_string()])
+            .unwrap_or_default();
+        path.extend_from_slice(
+            &node
+                .segments
                 .iter()
                 .map(|&s| ctx.ident(s).to_string())
-                .collect::<Vec<_>>()
-                .join("::"),
-            ctx.ident(node.target).to_string()
-        ))
+                .collect::<Vec<String>>(),
+        );
+        path.extend_from_slice(&vec![ctx.ident(node.target).to_string()]);
+
+        Ok(format!("{}", path.join("::")))
     }
 
     fn visit_index_access(
