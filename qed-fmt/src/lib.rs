@@ -2,7 +2,7 @@ use qed_ast::*;
 use qed_common::Graph;
 use qed_parser::Parser;
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, ToFelts};
-use std::fmt::{Display, Write};
+use std::fmt::{Debug, Write};
 
 #[derive(Debug)]
 pub struct Formatter<'a, F: Clone + From<u32>, C> {
@@ -11,7 +11,7 @@ pub struct Formatter<'a, F: Clone + From<u32>, C> {
     _marker: std::marker::PhantomData<(&'a (), F, C)>,
 }
 
-impl<'a, F: Clone + From<u32> + Display, C> Formatter<'a, F, C> {
+impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
     pub fn new() -> Self {
         Formatter {
             output: String::new(),
@@ -101,7 +101,7 @@ impl<'a, F: Clone + From<u32> + Display, C> Formatter<'a, F, C> {
     }
 }
 
-impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVisitor<F, C>
+impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisitor<F, C>
     for Formatter<'a, F, C>
 {
     type ExprResult = String;
@@ -185,8 +185,8 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         // TODO: remove clone
         let node = ctx.expression(expr_id).as_value().unwrap().clone();
         Ok(match node {
-            ValueNode::Felt(f) => f.to_string(),
-            ValueNode::Bool(b) => b.to_string(),
+            ValueNode::Felt(f) => format!("{:?}", f),
+            ValueNode::Bool(b) => format!("{:?}", b),
             ValueNode::Array(_, values) => format!(
                 "[{}]",
                 values
@@ -805,6 +805,52 @@ impl<'a, F: ContextFelt + From<u32> + Display + 'static, C: DPNContext<F>> AstVi
         let value = self.visit_expr(ctx.statement(node).as_storage().unwrap().value, ctx)?;
         self.write_line(&format!("storage::write({}, {});", offset, value));
         Ok(Default::default())
+    }
+
+    fn visit_module(
+        &mut self,
+        module_id: ModuleId,
+        ctx: &mut Self::Context,
+    ) -> Result<(), Self::Error> {
+        ctx.push_node_id(NodeId::from(module_id));
+
+        let module = ctx.module(module_id).clone();
+
+        let visibility_string = match module.visibility {
+            Visibility::Public => "pub ",
+            Visibility::Private => "",
+        };
+
+        self.write_line(&format!(
+            "{}mod {} {{",
+            visibility_string,
+            &ctx.ident(module.name)
+        ));
+
+        // TODO: remove clone
+        for u in &module.uses {
+            self.visit_use(u, ctx)?;
+        }
+
+        for &child_module in ctx.program().modules.nodes().clone()[module_id].children() {
+            // let child_module = ctx.module(child_module).clone();
+            self.visit_module(child_module, ctx)?;
+        }
+
+        // TODO: remove clone
+        for &definition in &module.definitions {
+            self.visit_definition(definition, ctx)?;
+        }
+
+        self.write_line(&format!("}}"));
+        ctx.pop_node_id();
+
+        Ok(())
+    }
+
+    fn visit_program(&mut self, ctx: &mut Self::Context) -> Result<(), Self::Error> {
+        self.visit_module(ModuleId::root(), ctx)?;
+        Ok(())
     }
 
     type Expr = ExprNode<F>;

@@ -68,6 +68,10 @@ impl<I: From<usize> + Into<usize> + Copy, T> Tree<I, T> {
         self.nodes.next_idx()
     }
 
+    pub fn nodes(&self) -> &Arena<I, TreeNode<I, T>> {
+        &self.nodes
+    }
+
     pub fn add_node(&mut self, data: T) -> I {
         let id = self.nodes.len().into();
         let node = TreeNode::new(id, data);

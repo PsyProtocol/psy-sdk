@@ -488,7 +488,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 });
                 let type_id = ctx.symbols.add_type_array(Some(scope_id), type_array);
 
-
                 Ok(CheckedExprNode::Value(CheckedValueNode::Array(
                     type_id, elements,
                 )))

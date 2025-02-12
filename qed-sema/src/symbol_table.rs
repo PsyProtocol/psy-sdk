@@ -15,7 +15,11 @@ use qed_ast::{ModuleNode, PathNode, Visibility};
 use qed_common::{define_arena_id, FileId, TreeNode};
 use strum::EnumTryAs;
 
-use crate::{variable::CheckedVariable, CheckedArrayNode, CheckedFunctionNode, CheckedTraitNode, CheckedValue, CheckedValueNode, CheckedValueRef, DefinitionNode, IdentId, ModuleId, ModuleKind, Type, TypeId, TypeKey, UsePath};
+use crate::{
+    variable::CheckedVariable, CheckedArrayNode, CheckedFunctionNode, CheckedTraitNode,
+    CheckedValue, CheckedValueNode, CheckedValueRef, DefinitionNode, IdentId, ModuleId, ModuleKind,
+    Type, TypeId, TypeKey, UsePath,
+};
 use crate::{Error, Result};
 
 define_arena_id!(ScopeId);
