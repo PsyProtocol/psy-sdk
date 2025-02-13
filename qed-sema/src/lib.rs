@@ -497,7 +497,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     .into_iter()
                     .map(|x| self.typecheck(&x, ctx).unwrap())
                     .collect::<Vec<_>>();
-                let type_id = ctx.symbols.get_type_id(None, name).unwrap();
+                let type_id = ctx.symbols.get_type_id(None, name).ok_or(Error::UnresolvedType)?;
                 let mut new_data = IndexMap::new();
                 if ctx.symbols[type_id].as_struct().unwrap().fields.len() != data.len() {
                     return Err(Error::TypeMismatch);
