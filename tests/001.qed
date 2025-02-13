@@ -1,4 +1,12 @@
-mod math;
+mod math{
+    pub fn max(a: Felt, b: Felt) -> Felt {
+        return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
+    }
+
+    pub fn min(a: Felt, b: Felt) -> Felt {
+        return a * ((a < b) as Felt) + b * ((a >=b) as Felt);
+    }
+}
 
 pub use math::*;
 

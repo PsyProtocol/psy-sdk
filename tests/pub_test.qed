@@ -1,4 +1,25 @@
-mod pub_mod;
+mod pub_mod{
+    pub struct Add{
+        x: Felt,
+        y: Felt
+    }
+
+    impl Add{
+        pub fn get_sum(self: Add) -> Felt{
+            return self.x + self.y;
+        }
+
+        pub fn new(x: Felt, y: Felt) -> Add{
+            return new Add{
+                x: x,
+                y: y
+            };
+        }
+    }
+
+    pub fn void_fn(){}
+
+}
 
 pub use pub_mod::*;
 

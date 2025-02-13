@@ -1,4 +1,12 @@
-mod math;
+mod math{
+    pub fn max(a: Felt, b: Felt) -> Felt {
+        return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
+    }
+
+    pub fn min(a: Felt, b: Felt) -> Felt {
+        return a * ((a < b) as Felt) + b * ((a >=b) as Felt);
+    }
+}
 
 pub use math::*;
 
@@ -12,6 +20,6 @@ fn test_min() {
 }
 
 #[test]
-fn test_max() -> Felt {
+fn test_max() {
     assert!(max(2, 3) == 3, "max(2, 3) == 3");
 }
