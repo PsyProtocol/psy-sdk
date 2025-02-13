@@ -245,9 +245,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             DefaultVisitorContext::new(&mut program);
         storage_preprocessor.visit_program(&mut default_visitor_context);
 
-        // let mut formatter = Formatter::new();
-        // formatter.visit_program(&mut default_visitor_context);
-        // println!("formatted:\n{}", formatter.get_output());
+        let mut formatter = Formatter::new();
+        formatter.visit_program(&mut default_visitor_context);
+        println!("formatted:\n{}", formatter.get_output());
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
         typechecker.visit_program(&mut typechecker_context)?;

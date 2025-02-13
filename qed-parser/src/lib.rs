@@ -48,20 +48,25 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
         ctx: &mut C,
         root_module_path: PathBuf,
     ) -> Result<'input, ()> {
-        let mut module_stack: Vec<(PathBuf, Option<ModuleId>, Visibility)> =
-            vec![(root_module_path.clone(), None, Visibility::Public)];
+        let mut module_stack: Vec<(bool, PathBuf, Option<ModuleId>, Visibility)> =
+            vec![(false, root_module_path.clone(), None, Visibility::Public)];
         let mut visited = HashMap::new();
+        let mut inline_modules: HashMap<PathBuf, ModuleNode> = HashMap::new();
 
-        while let Some((current_path, parent_module_id, visibility)) = module_stack.pop() {
-            let file_id = self
-                .program
-                .file_resolver
-                .resolve_file(current_path.clone())?;
-            let module_name = Self::resolve_module_name(&mut self.program.interner, &current_path);
-
-            if let Some(&module_id) = visited.get(&file_id) {
+        while let Some((is_inline, current_path, parent_module_id, visibility)) = module_stack.pop()
+        {
+            if let Some(&module_id) = visited.get(&current_path) {
                 self.program.modules.add_child(parent_module_id, module_id);
-            } else {
+                continue;
+            }
+            let module: ModuleNode = if !is_inline {
+                let file_id = self
+                    .program
+                    .file_resolver
+                    .resolve_file(current_path.clone())?;
+                let module_name =
+                    Self::resolve_module_name(&mut self.program.interner, &current_path);
+
                 let file_content = self
                     .program
                     .file_resolver
@@ -97,17 +102,35 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                         panic!("Parsing failed:");
                     }
                 };
-                let module_id = self.program.modules.next_idx();
+                module
+            } else {
+                inline_modules.get(&current_path).unwrap().clone()
+            };
 
-                for (dep_module, visibility) in &module.modules {
-                    let dep_path = self.resolve_module_path(dep_module, &current_path).unwrap();
-                    module_stack.push((dep_path, Some(module_id), visibility.clone()));
-                }
-                self.program.modules.add_node(module);
-                self.program.modules.add_child(parent_module_id, module_id);
+            let module_id = self.program.modules.next_idx();
 
-                visited.insert(file_id, module_id);
+            for (dep_module, visibility) in module.modules.iter().rev() {
+                let dep_path = self.resolve_module_path(dep_module, &current_path).unwrap();
+                module_stack.push((false, dep_path, Some(module_id), visibility.clone()));
             }
+
+            for inline_module in module.inline_modules.iter().rev() {
+                let dep_path = self
+                    .resolve_module_path(&inline_module.name, &current_path)
+                    .unwrap();
+                module_stack.push((
+                    true,
+                    dep_path.clone(),
+                    Some(module_id),
+                    inline_module.visibility.clone(),
+                ));
+                inline_modules.insert(dep_path, inline_module.clone());
+            }
+
+            self.program.modules.add_node(module);
+            self.program.modules.add_child(parent_module_id, module_id);
+
+            visited.insert(current_path, module_id);
         }
 
         self.program.dependency_graph = self.program.modules.to_graph();

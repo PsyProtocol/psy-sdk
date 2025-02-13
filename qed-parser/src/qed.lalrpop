@@ -22,39 +22,112 @@ use super::Loc;
 use std::convert::TryFrom;
 use std::collections::HashMap;
 
+ModuleItem: ModuleItemNode = {
+    InlineModule => ModuleItemNode::InlineModule(<>),
+    ModuleDecl => ModuleItemNode::ModuleDecl(<>),
+    ModuleUse => ModuleItemNode::ModuleUse(<>),
+    Definition => ModuleItemNode::Definition(<>),
+}
+
 pub Module: ModuleNode = {
-    <l:@L> <mut modules:ModuleDecl*> <mut uses:ModuleUse*> <definitions:Definition*> <r:@R> => ModuleNode {
-        name: module_name,
-        file_id,
-        modules: {
-            if !is_std {
-                modules.insert(0, (IdentId::STD, Visibility::Public));
+    <l:@L> <module_items: ModuleItem*> <r:@R> => {
+        let mut inline_modules = vec![];
+        let mut modules = vec![];
+        let mut uses = vec![];
+        let mut definitions = vec![];
+        for item in module_items.iter() {
+            match item.clone() {
+                ModuleItemNode::InlineModule(m) => inline_modules.push(m),
+                ModuleItemNode::ModuleDecl(m) => modules.push(m),
+                ModuleItemNode::ModuleUse(m) => uses.push(m),
+                ModuleItemNode::Definition(d) => definitions.push(d),
             }
-            modules
-        },
-        uses: {
-            if !is_std  {
-                uses.insert(0, UsePath {
-                    visibility: Visibility::Public,
-                    kind: IdentId::STD,
-                    segments: vec![IdentId::PRELUDE],
-                    target: None,
-                });
-            } else if !is_self_std && !is_self_prelude {
-                uses.insert(0, UsePath {
-                    visibility: Visibility::Public,
-                    kind: IdentId::PRELUDE,
-                    segments: vec![],
-                    target: None,
-                });
+        }
+        ModuleNode {
+            name: module_name,
+            file_id,
+            modules: {
+                if !is_std {
+                    modules.insert(0, (IdentId::STD, Visibility::Public));
+                }
+                modules
+            },
+            inline_modules: inline_modules,
+            uses: {
+                if !is_std  {
+                    uses.insert(0, UsePath {
+                        visibility: Visibility::Public,
+                        kind: IdentId::STD,
+                        segments: vec![IdentId::PRELUDE],
+                        target: None,
+                    });
+                } else if !is_self_std && !is_self_prelude {
+                    uses.insert(0, UsePath {
+                        visibility: Visibility::Public,
+                        kind: IdentId::PRELUDE,
+                        segments: vec![],
+                        target: None,
+                    });
+                }
+                uses
+            },
+            definitions: def_nodes.alloc_items(definitions),
+            visibility: _visibility_,
+            is_std,
+            is_self_std,
+            is_self_prelude,
+        }
+    }
+}
+
+pub InlineModule: ModuleNode = {
+    <l:@L> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> "}" <r:@R> => { 
+        let mut inline_modules = vec![];
+        let mut modules = vec![];
+        let mut uses = vec![];
+        let mut definitions = vec![];
+        for item in module_items.iter() {
+            match item.clone() {
+                ModuleItemNode::InlineModule(m) => inline_modules.push(m),
+                ModuleItemNode::ModuleDecl(m) => modules.push(m),
+                ModuleItemNode::ModuleUse(m) => uses.push(m),
+                ModuleItemNode::Definition(d) => definitions.push(d),
             }
-            uses
-        },
-        definitions: def_nodes.alloc_items(definitions),
-        visibility: _visibility_,
-        is_std,
-        is_self_std,
-        is_self_prelude,
+        }
+        ModuleNode {
+            name: name,
+            file_id,
+            modules: {
+                if !is_std {
+                    modules.insert(0, (IdentId::STD, Visibility::Public));
+                }
+                modules
+            },
+            inline_modules: inline_modules,
+            uses: {
+                if !is_std  {
+                    uses.insert(0, UsePath {
+                        visibility: Visibility::Public,
+                        kind: IdentId::STD,
+                        segments: vec![IdentId::PRELUDE],
+                        target: None,
+                    });
+                } else if !is_self_std && !is_self_prelude {
+                    uses.insert(0, UsePath {
+                        visibility: Visibility::Public,
+                        kind: IdentId::PRELUDE,
+                        segments: vec![],
+                        target: None,
+                    });
+                }
+                uses
+            },
+            definitions: def_nodes.alloc_items(definitions),
+            visibility: visibility,
+            is_std,
+            is_self_std,
+            is_self_prelude,
+        }
     }
 }
 
