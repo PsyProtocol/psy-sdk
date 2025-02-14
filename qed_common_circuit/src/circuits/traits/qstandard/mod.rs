@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync, QWorkerCircuitSimpleWithDataSync, QWorkerVerifyHelper}}};
+use qed_core::{data::qhashout::QHashOut, job::traits::{QProofStoreReaderAsync, QProofStoreReaderSync}};
 use plonky2::plonk::{
     circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
     config::GenericConfig,

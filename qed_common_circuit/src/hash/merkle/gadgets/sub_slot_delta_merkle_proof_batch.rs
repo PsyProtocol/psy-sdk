@@ -4,13 +4,12 @@ use crate::builder::{
 };
 use plonky2::{
     field::extension::Extendable,
-    hash::hash_types::{HashOut, HashOutTarget, RichField},
+    hash::hash_types::{HashOutTarget, RichField},
     iop::
         target::{BoolTarget, Target}
     ,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
 
 use super::delta_merkle_proof::DeltaMerkleProofGadget;
 

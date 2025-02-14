@@ -1,4 +1,4 @@
-use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{generator::{GeneratedValues, SimpleGenerator}, target::Target, witness::{PartitionWitness, Witness, WitnessWrite}}, plonk::{circuit_builder::CircuitBuilder, circuit_data::CommonCircuitData}, util::serialization::{Buffer, IoResult, Read, Write}};
+use plonky2::{field::extension::Extendable, hash::hash_types::RichField, iop::{generator::{GeneratedValues, SimpleGenerator}, target::Target, witness::{PartitionWitness, Witness, WitnessWrite}}, plonk::{circuit_builder::CircuitBuilder, circuit_data::CommonCircuitData}, util::serialization::{Buffer, IoResult, Read, Write}};
 
 use crate::builder::{comparison::CircuitBuilderComparison, connect::CircuitBuilderConnectHelpers};
 
