@@ -70,6 +70,7 @@ pub enum NodeType {
     StorageStmt,
     AssertStmt,
     AssertEqStmt,
+    UseStmt,
 
     FunctionDef,
     StructDef,

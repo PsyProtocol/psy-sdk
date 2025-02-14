@@ -497,7 +497,10 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     .into_iter()
                     .map(|x| self.typecheck(&x, ctx).unwrap())
                     .collect::<Vec<_>>();
-                let type_id = ctx.symbols.get_type_id(None, name).ok_or(Error::UnresolvedType)?;
+                let type_id = ctx
+                    .symbols
+                    .get_type_id(None, name)
+                    .ok_or(Error::UnresolvedType)?;
                 let mut new_data = IndexMap::new();
                 if ctx.symbols[type_id].as_struct().unwrap().fields.len() != data.len() {
                     return Err(Error::TypeMismatch);
@@ -730,6 +733,21 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         // TODO: remove clone
         let block = ctx.statement(node).as_block().cloned().unwrap();
         let mut new_stmts = Vec::with_capacity(block.stmts.len());
+
+        // let invalid_uses = vec![
+        //     NodeType::StructDef,
+        //     NodeType::ImplDef,
+        //     NodeType::TraitDef,
+        //     NodeType::EnumDef,
+        // ];
+        for &stmt in block.uses.iter() {
+            let use_path = ctx.statement(stmt).as_use().cloned().unwrap();
+            // if invalid_uses.contains(&ctx.node_type()) {
+            //     return Err(Error::UnresolvedUse);
+            // }
+            self.visit_use(&use_path, ctx)?;
+        }
+
         for (i, stmt) in block.stmts.iter().enumerate() {
             let checked_stmt = self.visit_stmt(stmt.clone(), ctx)?;
             if ctx.parent_node_type() == NodeType::FunctionDef {
@@ -1204,6 +1222,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             NodeType::StorageStmt => self.visit_storage_write(stmt_id, ctx)?,
             NodeType::AssertStmt => self.visit_assert(stmt_id, ctx)?,
             NodeType::AssertEqStmt => self.visit_assert_eq(stmt_id, ctx)?,
+            NodeType::UseStmt => unreachable!(),
             _ => std::unreachable!(),
         };
         ctx.pop_node_id();

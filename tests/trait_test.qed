@@ -22,6 +22,7 @@ pub use traits::PersonLike;
 
 pub fn test_fn(p: Person) -> Felt {
     return p.age();
+    pub use traits::PersonLike;
 }
 
 
@@ -31,5 +32,9 @@ fn main(a: Felt, b: Felt) -> Felt {
         age_height: [[1, 1], [1, 1]]
     };
 
+    pub use traits::Person;
+
     return person.age() + a;
+
+    pub use traits::PersonLike;
 }
