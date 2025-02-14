@@ -36,6 +36,7 @@ pub const DEPOSIT_TREE_ID: u8 = 5u8;
 pub const WITHDRAWAL_TREE_ID: u8 = 6u8;
 pub const USER_CONTRACT_TREE_ID: u8 = 7u8;
 pub const CONTRACT_STATE_TREE_ID: u8 = 8u8;
+pub const USER_REGISTRATION_TREE_ID: u8 = 9u8;
 
 pub const PROTOCOL_TREE_TABLE_TYPE: u16 = 1;
 pub const USER_CONTRACT_TREE_TABLE_TYPE: u16 = 2;
@@ -118,6 +119,7 @@ pub type BaseContractStateTreeStore<S> = KVQMerkleTreeModel<
     QEDHasher,
 >;
 
+pub type UserRegistrationTreeStore<S> = ProtocolTreeStore<S, USER_TREE_ID, GLOBAL_USER_TREE_HEIGHT>;
 pub type CheckpointTreeStore<S> = ProtocolTreeStore<S, CHECKPOINT_TREE_ID, CHECKPOINT_TREE_HEIGHT>;
 pub type UserTreeStore<S> = ProtocolTreeStore<S, USER_TREE_ID, GLOBAL_USER_TREE_HEIGHT>;
 pub type ContractTreeStore<S> = ProtocolTreeStore<S, CONTRACT_TREE_ID, GLOBAL_CONTRACT_TREE_HEIGHT>;

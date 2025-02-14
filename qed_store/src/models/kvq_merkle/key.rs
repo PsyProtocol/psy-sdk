@@ -139,6 +139,16 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
             checkpoint_id: self.checkpoint_id,
         }
     }
+    pub fn at_index(&self, index: u64) -> Self {
+        Self {
+            tree_id: self.tree_id,
+            primary_id: self.primary_id,
+            secondary_id: self.secondary_id,
+            level: self.level,
+            index,
+            checkpoint_id: self.checkpoint_id,
+        }
+    }
     pub fn at_position(&self, level: u8, index: u64) -> Self {
         Self {
             tree_id: self.tree_id,
@@ -147,6 +157,54 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
             level,
             index,
             checkpoint_id: self.checkpoint_id,
+        }
+    }
+    pub fn first_leaf_child(&self, tree_height: u8) -> Self {
+        Self {
+            level: tree_height,
+            index: self.index << (tree_height-self.level),
+            tree_id: self.tree_id,
+            primary_id: self.primary_id,
+            secondary_id: self.secondary_id,
+            checkpoint_id: self.checkpoint_id,
+        }
+    }
+    pub fn left_child(&self) -> Self {
+        Self {
+            level: self.level + 1,
+            index: self.index << 1,
+            tree_id: self.tree_id,
+            primary_id: self.primary_id,
+            secondary_id: self.secondary_id,
+            checkpoint_id: self.checkpoint_id,
+        }
+    }
+    pub fn right_child(&self) -> Self {
+        Self {
+            level: self.level + 1,
+            index: (self.index << 1) + 1,
+            tree_id: self.tree_id,
+            primary_id: self.primary_id,
+            secondary_id: self.secondary_id,
+            checkpoint_id: self.checkpoint_id,
+        }
+    }
+    pub fn is_on_the_right_of(&self, other: &Self) -> bool {
+        if other.level == self.level {
+            self.index > other.index
+        }else if other.level < self.level {
+            self.parent_at_level(other.level).index > other.index
+        }else{
+            self.index > other.parent_at_level(self.level).index
+        }
+    }
+    pub fn is_to_the_left_of(&self, other: &Self) -> bool {
+        if other.level == self.level {
+            self.index < other.index
+        }else if other.level < self.level {
+            self.parent_at_level(other.level).index < other.index
+        }else{
+            self.index < other.parent_at_level(self.level).index
         }
     }
 

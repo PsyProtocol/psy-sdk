@@ -16,7 +16,6 @@ members = [
   "qed_rollup_circuit",
   "qcircuit_config_db",
   "qcircuit_config_db_generator",
-  "qed_node",
 ]
 resolver = "2"
 
@@ -38,6 +37,7 @@ anyhow = "1.0.75"
 async-trait = { version = "0.1.80" }
 base64 = "0.21.0"
 bitcoin = { version = "0.31.1", features = ["serde", "rand"] }
+chrono = "0.4.39"
 
 
 rand = "0.8"

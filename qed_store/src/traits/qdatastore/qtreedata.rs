@@ -1,6 +1,6 @@
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::core::{ DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable};
+use qed_crypto::hash::{merkle::{core::{ DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof}, traits::qhashable::QFieldHashable};
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState};
 
 use crate::config::store_config::QEDHasher;
@@ -40,6 +40,14 @@ pub trait QTreeDataStoreReaderSync<F: RichField> {
     fn get_user_contract_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, contract_id: F) -> anyhow::Result<QHashOut<F>>;
     fn get_user_contract_tree_merkle_proof(&self, checkpoint_id: u64, user_id: u64, contract_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     fn get_user_contract_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F, contract_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
+    
+
+    fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
+    fn get_user_registration_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
+    fn get_user_registration_tree_leaf_hash(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<QHashOut<F>>;
+    fn get_user_registration_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<QHashOut<F>>;
+    fn get_user_registration_tree_merkle_proof(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
+    fn get_user_registration_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     
 
     fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
@@ -97,12 +105,13 @@ pub trait QTreeDataStoreReaderSync<F: RichField> {
         let deposit_tree_root = self.get_deposit_tree_root(checkpoint_id)?;
         let user_tree_root = self.get_user_tree_root(checkpoint_id)?;
         let withdrawal_tree_root = self.get_withdrawal_tree_root(checkpoint_id)?;
-
+        let user_registration_tree_root = self.get_user_registration_tree_root(checkpoint_id)?;
         Ok(QEDCheckpointGlobalStateRoots{
             contract_tree_root,
             deposit_tree_root,
             user_tree_root,
             withdrawal_tree_root,
+            user_registration_tree_root,
         })
         
     }
@@ -110,6 +119,10 @@ pub trait QTreeDataStoreReaderSync<F: RichField> {
 
 
 pub trait QTreeDataStoreWriterSync<F: RichField> {
+    fn batch_append_user_registration_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>;
+    fn batch_append_user_registration_tree_f(&self, checkpoint_id: F, start_leaf_index: F, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>;
+
+    
     fn set_user_state_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, contract_id: u32, height: u8, leaf_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
     fn set_user_state_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, contract_id: F, height: u8, leaf_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
 

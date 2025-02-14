@@ -1,10 +1,8 @@
 use async_trait::async_trait;
-use plonky2::plonk::{circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::GenericConfig, proof::ProofWithPublicInputs};
-use serde::{de::DeserializeOwned, Serialize};
+use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
 
-use crate::data::qhashout::QHashOut;
+use super::id::QProvingJobDataID;
 
-use super::id::{ProvingJobCircuitType, QProvingJobDataID};
 
 
 
@@ -90,6 +88,7 @@ pub trait QProofStoreWriterSync {
     }
 }
 
+
 pub trait QProofStoreWriterSyncImm {
     fn set_proof_by_id_imm<C: GenericConfig<D>, const D: usize>(
         &self,
@@ -119,12 +118,12 @@ pub trait QProofStoreWriterSyncImm {
     }
 
     fn write_multidimensional_jobs_imm(
-        &self,
+        &mut self,
         jobs_levels: &[Vec<QProvingJobDataID>],
         next_jobs: &[QProvingJobDataID],
     ) -> anyhow::Result<()>;
     fn write_multidimensional_jobs_core_imm(
-        &self,
+        &mut self,
         jobs_levels: &[Vec<QProvingJobDataID>],
         next_jobs: &[QProvingJobDataID],
     ) -> anyhow::Result<()> {
@@ -147,8 +146,6 @@ pub trait QProofStoreWriterSyncImm {
         Ok(())
     }
 }
-
-
 
 pub trait QProofStore: QProofStoreReaderSync + QProofStoreWriterSync {
 
@@ -231,118 +228,4 @@ impl QProofStoreWriterSync for QDummyProofStore {
     ) -> anyhow::Result<()> {
         anyhow::bail!("Not implemented")
     }
-}
-
-
-pub trait QWorkerGenericProverMut<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>:
-    QWorkerVerifyHelper<C, D>
-{
-    fn worker_prove_mut(
-        &mut self,
-        store: &S,
-        job_id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
-}
-
-
-pub trait QWorkerVerifyHelper<C: GenericConfig<D>, const D: usize> {
-    fn get_verifier_triplet_for_circuit_type(
-        &self,
-        circuit_type: ProvingJobCircuitType,
-    ) -> (
-        &CommonCircuitData<C::F, D>,
-        &VerifierOnlyCircuitData<C, D>,
-        QHashOut<C::F>,
-    );
-}
-
-pub trait QWorkerCircuitSimpleWithDataSync<
-    V: QWorkerVerifyHelper<C, D>,
-    S: QProofStoreReaderSync,
-    I: DeserializeOwned + Serialize + Clone,
-    C: GenericConfig<D>,
-    const D: usize,
->
-{
-    fn prove_q_worker_simple(
-        &self,
-        verify_helper: &V,
-        store: &S,
-        job_id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
-}
-pub trait QWorkerCircuitStandardWithDataSync<
-    V: QWorkerVerifyHelper<C, D>,
-    S: QProofStoreReaderSync,
-    I: DeserializeOwned + Serialize + Clone,
-    C: GenericConfig<D>,
-    const D: usize,
->
-{
-    fn prove_q_worker_standard_with_input(
-        &self,
-        input: &I,
-        verify_helper: &V,
-        store: &S,
-        job_id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
-    fn prove_q_worker_standard(
-        &self,
-        verify_helper: &V,
-        store: &S,
-        job_id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        let witness_data = store.get_bytes_by_id(job_id)?;
-        let input = bincode::deserialize(&witness_data)?;
-        self.prove_q_worker_standard_with_input(&input, verify_helper, store, job_id)
-    }
-}
-pub trait QWorkerCircuitAggWithDataSync<
-    V: QWorkerVerifyHelper<C, D>,
-    S: QProofStoreReaderSync,
-    I: DeserializeOwned + Serialize + Clone,
-    C: GenericConfig<D>,
-    const D: usize,
->
-{
-    fn prove_q_worker_agg(
-        &self,
-        verify_helper: &V,
-        store: &S,
-        job_id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
-}
-
-pub trait QWorkerCircuitCustomWithDataSync<
-    V: QWorkerVerifyHelper<C, D>,
-    S: QProofStoreReaderSync,
-    C: GenericConfig<D>,
-    const D: usize,
->
-{
-    fn prove_q_worker_custom(
-        &self,
-        verify_helper: &V,
-        store: &S,
-        job_id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
-}
-pub trait QWorkerCircuitCompressWithDataSync<S: QProofStoreReaderSync> {
-    fn prove_q_worker_compress(
-        &self,
-        store: &S,
-        job_id: QProvingJobDataID,
-    ) -> anyhow::Result<String>;
-}
-pub trait QWorkerCircuitMutCustomWithDataSync<
-    S: QProofStoreReaderSync,
-    C: GenericConfig<D>,
-    const D: usize,
->
-{
-    fn prove_q_worker_mut_custom(
-        &mut self,
-        store: &S,
-        job_id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 }

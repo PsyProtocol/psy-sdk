@@ -117,6 +117,19 @@ pub struct QSRHashCmdGetDepositTreeLeafHash {
 
 
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct QSRHashCmdGetUserRegistrationTreeRoot {
+  pub checkpoint_id: u64
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct QSRHashCmdGetUserRegistrationTreeLeafHash {
+  pub checkpoint_id: u64,
+  pub leaf_index: u64
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct QSRHashCmdGetWithdrawalTreeRoot {
   pub checkpoint_id: u64
 }
@@ -159,6 +172,8 @@ pub enum QSRHashCmd {
     GetWithdrawalTreeLeafHash(QSRHashCmdGetWithdrawalTreeLeafHash),
     GetCheckpointTreeRoot(QSRHashCmdGetCheckpointTreeRoot),
     GetCheckpointTreeLeafHash(QSRHashCmdGetCheckpointTreeLeafHash),
+    GetUserRegistrationTreeRoot(QSRHashCmdGetUserRegistrationTreeRoot),
+    GetUserRegistrationTreeLeafHash(QSRHashCmdGetUserRegistrationTreeLeafHash),
 }
 // end tree hash cmds
 
@@ -219,6 +234,13 @@ pub struct QSRMerkleCmdGetWithdrawalTreeMerkleProof {
 
 
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct QSRMerkleCmdGetUserRegistrationTreeMerkleProof {
+  pub checkpoint_id: u64,
+  pub leaf_index: u64,
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct QSRMerkleCmdGetCheckpointTreeMerkleProof {
   pub checkpoint_id: u64,
   pub leaf_checkpoint_id: u64
@@ -234,6 +256,7 @@ pub enum QSRMerkleCmd {
     GetDepositTreeMerkleProof(QSRMerkleCmdGetDepositTreeMerkleProof),
     GetWithdrawalTreeMerkleProof(QSRMerkleCmdGetWithdrawalTreeMerkleProof),
     GetCheckpointTreeMerkleProof(QSRMerkleCmdGetCheckpointTreeMerkleProof),
+    GetUserRegistrationTreeMerkleProof(QSRMerkleCmdGetUserRegistrationTreeMerkleProof),
 }
 // end tree merkle proof cmds
 

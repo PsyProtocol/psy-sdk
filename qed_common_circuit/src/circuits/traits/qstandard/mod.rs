@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use qed_core::{data::qhashout::QHashOut, job::traits::{QProofStoreReaderAsync, QProofStoreReaderSync}};
+use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync, QWorkerCircuitSimpleWithDataSync, QWorkerVerifyHelper}}};
 use plonky2::plonk::{
     circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
     config::GenericConfig,
@@ -113,3 +113,4 @@ pub trait QStandardCircuitProvableWithProofStoreAsync<
 pub trait VerifierDataStore<C: GenericConfig<D>, const D: usize> {
     fn get_verifier_data_by_fingerprint(&self, fingerprint: QHashOut<C::F>) -> Option<&VerifierOnlyCircuitData<C, D>>;
 }
+

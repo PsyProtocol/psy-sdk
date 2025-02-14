@@ -1,7 +1,7 @@
 use kvq::traits::KVQBinaryStoreImmutable;
 use plonky2::field::types::PrimeField64;
-use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
+use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
+use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof};
 use qed_data::qdata::{
     checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
     contract::{ContractCodeDefinition, QEDContractLeaf},
@@ -10,10 +10,7 @@ use qed_data::qdata::{
 
 use crate::{
     config::store_config::{
-        CheckpointLeafTableStore, CheckpointTreeStore, ContractCodeTableStore,
-        ContractFunctionTreeStore, ContractLeafTableStore, ContractTreeStore, DepositTreeStore,
-        L2BlockStateTableStore, QEDFelt, UserContractTreeStore, UserLeafTableStore, UserTreeStore,
-        WithdrawalTreeStore, MAX_CHECKPOINT,
+        CheckpointLeafTableStore, CheckpointTreeStore, ContractCodeTableStore, ContractFunctionTreeStore, ContractLeafTableStore, ContractTreeStore, DepositTreeStore, L2BlockStateTableStore, QEDFelt, UserContractTreeStore, UserLeafTableStore, UserRegistrationTreeStore, UserTreeStore, WithdrawalTreeStore, MAX_CHECKPOINT
     },
     models::{
         checkpoint::{
@@ -25,9 +22,7 @@ use crate::{
             contract_leaf::{ContractLeafModelCoreImmutable, ContractLeafModelReaderCore},
         },
         kvq_merkle::model::{
-            KVQFixedConfigMerkleTreeModelCoreImmutable, KVQFixedConfigMerkleTreeModelReaderCore,
-            KVQSemiFixedConfigMerkleTreeModelCoreImmutable,
-            KVQSemiFixedConfigMerkleTreeModelReaderCore,
+            KVQFixedConfigMerkleTreeModelCoreImmutable, KVQFixedConfigMerkleTreeModelReaderCore, KVQMerkleTreeModelCoreImmutable, KVQSemiFixedConfigMerkleTreeModelCoreImmutable, KVQSemiFixedConfigMerkleTreeModelReaderCore
         },
         user::{
             contract_state_tree::UserContractStateTreeId,
@@ -679,6 +674,31 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
             leaf_checkpoint_id.to_canonical_u64(),
         )
     }
+    
+    fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
+        UserRegistrationTreeStore::get_root_fc(self, checkpoint_id)
+    }
+    
+    fn get_user_registration_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
+        UserRegistrationTreeStore::get_root_fc(self, checkpoint_id.to_canonical_u64())
+    }
+    
+    fn get_user_registration_tree_leaf_hash(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<QHashOut<F>> {
+        UserRegistrationTreeStore::get_leaf_value_fc(self, checkpoint_id, leaf_index)
+
+    }
+    
+    fn get_user_registration_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<QHashOut<F>> {
+        UserRegistrationTreeStore::get_leaf_value_fc(self, checkpoint_id.to_canonical_u64(), leaf_index.to_canonical_u64())
+    }
+    
+    fn get_user_registration_tree_merkle_proof(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        UserRegistrationTreeStore::get_leaf_fc(self, checkpoint_id, leaf_index)
+    }
+    
+    fn get_user_registration_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        UserRegistrationTreeStore::get_leaf_fc(self, checkpoint_id.to_canonical_u64(), leaf_index.to_canonical_u64())
+    }
 }
 
 impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
@@ -896,6 +916,26 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
             checkpoint_id.to_canonical_u64(),
             checkpoint_id.to_canonical_u64(),
             leaf_hash,
+        )
+    }
+    
+    fn batch_append_user_registration_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>{
+        UserRegistrationTreeStore::append_leaves_spider_man(
+            self,
+            GLOBAL_USER_TREE_HEIGHT as usize,
+            &UserRegistrationTreeStore::<Self>::new_leaf_key_fc(checkpoint_id, start_leaf_index),
+            sub_tree_height,
+            leaf_hashes,
+        )
+    }
+    
+    fn batch_append_user_registration_tree_f(&self, checkpoint_id: F, start_leaf_index: F, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>{
+        UserRegistrationTreeStore::append_leaves_spider_man(
+            self,
+            GLOBAL_USER_TREE_HEIGHT as usize,
+            &UserRegistrationTreeStore::<Self>::new_leaf_key_fc(checkpoint_id.to_canonical_u64(), start_leaf_index.to_canonical_u64()),
+            sub_tree_height,
+            leaf_hashes,
         )
     }
 }

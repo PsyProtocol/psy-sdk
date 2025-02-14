@@ -45,6 +45,7 @@ impl SimpleBlockProcessor {
             deposit_tree_root: store.get_deposit_tree_root(old_checkpoint_id)?,
             user_tree_root: store.get_user_tree_root(old_checkpoint_id)?,
             withdrawal_tree_root: store.get_withdrawal_tree_root(old_checkpoint_id)?,
+            user_registration_tree_root: store.get_user_registration_tree_root(old_checkpoint_id)?,
         };
         let new_checkpoint_id = old_checkpoint_id+1;
         let new_checkpoint_id_f = QEDFelt::from_canonical_u64(new_checkpoint_id);
@@ -199,6 +200,7 @@ impl SimpleBlockProcessor {
             deposit_tree_root: store.get_deposit_tree_root(new_checkpoint_id)?,
             user_tree_root: store.get_user_tree_root(new_checkpoint_id)?,
             withdrawal_tree_root: store.get_withdrawal_tree_root(new_checkpoint_id)?,
+            user_registration_tree_root: store.get_user_registration_tree_root(new_checkpoint_id)?,
         };
         let mut new_leaf_stats = QEDCheckpointLeafStats::<QEDFelt>::new_empty();
         new_leaf_stats.block_time = QEDFelt::from_canonical_u64(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs());

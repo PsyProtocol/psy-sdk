@@ -47,13 +47,7 @@ use crate::{
     store::imm::{
         cache::QEDCmdStoreWithCache,
         cmd::{
-            QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData,
-            QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot,
-            QSRHashCmdGetDepositTreeRoot, QSRHashCmdGetUserTreeRoot,
-            QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd,
-            QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof,
-            QSRMerkleCmdGetUserContractStateTreeMerkleProof,
-            QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof,
+            QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot, QSRHashCmdGetDepositTreeRoot, QSRHashCmdGetUserRegistrationTreeRoot, QSRHashCmdGetUserTreeRoot, QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd, QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof
         },
         cmd_processor::{
             DPNReadOtherUserLeafMerkleProof, QEDReadCommandProcessorSync,
@@ -407,12 +401,18 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                 .resolve_get_hash_mut(&QSRHashCmd::GetWithdrawalTreeRoot(
                     QSRHashCmdGetWithdrawalTreeRoot { checkpoint_id },
                 ))?;
+        let user_registration_tree_root =
+            self.cmd_store
+                .resolve_get_hash_mut(&QSRHashCmd::GetUserRegistrationTreeRoot(
+                    QSRHashCmdGetUserRegistrationTreeRoot { checkpoint_id },
+                ))?;
 
         Ok(QEDCheckpointGlobalStateRoots {
             contract_tree_root,
             deposit_tree_root,
             user_tree_root,
             withdrawal_tree_root,
+            user_registration_tree_root,
         })
     }
     pub fn get_fresh_start_ctx_for_user(

@@ -1,3 +1,5 @@
+use kvq::traits::KVQSerializable;
+use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 
@@ -82,12 +84,53 @@ impl TryFrom<u8> for QAPIWriteRequestBlobType {
     }
 }
 
-
+#[derive(
+    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
+)]
 pub struct QEDAPIWriteRequestId {
     pub request_type: QAPIWriteRequestType,
     pub data_type: QAPIWriteRequestBlobType,
+    pub realm_id: u32,
     pub node_id: u32,
     pub time: u64,
+    pub random: u64,
+}
+
+impl KVQSerializable for QEDAPIWriteRequestId {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
 
 
+impl QEDAPIWriteRequestId {
+    pub fn new(request_type: QAPIWriteRequestType, data_type: QAPIWriteRequestBlobType, realm_id: u32, node_id: u32, time: u64, random: u64) -> Self {
+        Self {
+            request_type,
+            data_type,
+            realm_id,
+            node_id,
+            time,
+            random,
+        }
+    }
+    
+}
+
+
+
+#[derive(
+    Serialize, Deserialize, PartialEq, Debug, Clone,
+)]
+pub struct WithRequestId<T> {
+    pub id: QEDAPIWriteRequestId,
+    pub payload: T,
+}
+
+impl<T: Copy> Copy for WithRequestId<T> {
+    
 }

@@ -6,3 +6,4 @@ pub mod dpn;
 pub mod ups;
 pub mod guta;
 pub mod proof_store;
+pub mod api;

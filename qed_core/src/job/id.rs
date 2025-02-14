@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::serde_as;
 
+use super::mode::QWorkerMode;
+
 #[derive(
     Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
 )]
@@ -220,6 +222,32 @@ pub struct QProvingJobDataID {
     pub data_type: ProvingJobDataType,
     pub data_index: u8,
 }
+impl QProvingJobDataID {
+
+    pub fn try_from_byte_vec(value: &[u8]) -> anyhow::Result<Self> {
+        if value.len() != 24 {
+            anyhow::bail!("invalid byte length for proving job data id");
+        }
+        let topic: QJobTopic = value[0].try_into()?;
+        let goal_id = u64::from_le_bytes(value[1..9].try_into()?);
+        let circuit_type = ProvingJobCircuitType::try_from(value[9])?;
+        let group_id = u32::from_le_bytes(value[10..14].try_into()?);
+        let sub_group_id = u32::from_le_bytes(value[14..18].try_into()?);
+        let task_index = u32::from_le_bytes(value[18..22].try_into()?);
+        let data_type = ProvingJobDataType::try_from(value[22])?;
+        let data_index = value[23];
+        Ok(QProvingJobDataID {
+            topic,
+            goal_id,
+            circuit_type,
+            group_id,
+            sub_group_id,
+            task_index,
+            data_type,
+            data_index,
+        })
+    }
+}
 impl From<&QProvingJobDataID> for [u8; 24] {
     fn from(value: &QProvingJobDataID) -> Self {
         let mut result = [0u8; 24];
@@ -279,6 +307,66 @@ impl QProvingJobDataID {
             data_type,
             data_index,
         }
+    }
+    pub fn guta_two_end_cap_witness(checkpoint_id: u64, sub_group_id: u32, task_index: u32) -> Self {
+        Self::new(
+            QJobTopic::GenerateStandardProof,
+            checkpoint_id,
+            ProvingJobCircuitType::GUTATwoEndCap.to_circuit_group_id(),
+            sub_group_id,
+            task_index,
+            ProvingJobCircuitType::GUTATwoEndCap,
+            ProvingJobDataType::InputWitness,
+            0,
+        )
+    }
+    pub fn guta_two_agg_witness(checkpoint_id: u64, sub_group_id: u32, task_index: u32) -> Self {
+        Self::new(
+            QJobTopic::GenerateStandardProof,
+            checkpoint_id,
+            ProvingJobCircuitType::GUTATwoGUTA.to_circuit_group_id(),
+            sub_group_id,
+            task_index,
+            ProvingJobCircuitType::GUTATwoGUTA,
+            ProvingJobDataType::InputWitness,
+            0,
+        )
+    }
+    pub fn guta_left_end_cap_right_guta_witness(checkpoint_id: u64, sub_group_id: u32, task_index: u32) -> Self {
+        Self::new(
+            QJobTopic::GenerateStandardProof,
+            checkpoint_id,
+            ProvingJobCircuitType::GUTALeftEndCapRightGUTA.to_circuit_group_id(),
+            sub_group_id,
+            task_index,
+            ProvingJobCircuitType::GUTALeftEndCapRightGUTA,
+            ProvingJobDataType::InputWitness,
+            0,
+        )
+    }
+    pub fn guta_left_guta_right_end_cap_witness(checkpoint_id: u64, sub_group_id: u32, task_index: u32) -> Self {
+        Self::new(
+            QJobTopic::GenerateStandardProof,
+            checkpoint_id,
+            ProvingJobCircuitType::GUTALeftGUTARightEndCap.to_circuit_group_id(),
+            sub_group_id,
+            task_index,
+            ProvingJobCircuitType::GUTALeftGUTARightEndCap,
+            ProvingJobDataType::InputWitness,
+            0,
+        )
+    }
+    pub fn guta_single_end_cap_witness(checkpoint_id: u64, sub_group_id: u32, task_index: u32) -> Self {
+        Self::new(
+            QJobTopic::GenerateStandardProof,
+            checkpoint_id,
+            ProvingJobCircuitType::GUTASingleEndCap.to_circuit_group_id(),
+            sub_group_id,
+            task_index,
+            ProvingJobCircuitType::GUTASingleEndCap,
+            ProvingJobDataType::InputWitness,
+            0,
+        )
     }
     pub fn core_op_witness(circuit_type: ProvingJobCircuitType, checkpoint_id: u64, task_index: u32) -> Self {
         Self::new(
@@ -587,6 +675,20 @@ impl QProvingJobDataID {
     }
 }
 
+
+
+pub trait QWorkerModeFilter {
+    fn can_process_job(&self, job_id: QProvingJobDataID) -> bool;
+}
+impl QWorkerModeFilter for QWorkerMode {
+    fn can_process_job(&self, job_id: QProvingJobDataID) -> bool {
+        match *self {
+            QWorkerMode::All => true,
+            QWorkerMode::NoGroth16 => job_id.circuit_type != ProvingJobCircuitType::WrapFinalSigHashProofBLS12381,
+            QWorkerMode::OnlyGroth16 => job_id.circuit_type == ProvingJobCircuitType::WrapFinalSigHashProofBLS12381,
+        }
+    }
+}
 
 
 #[cfg(test)]

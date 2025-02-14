@@ -132,6 +132,7 @@ pub struct QEDCheckpointGlobalStateRoots<F: RichField> {
     pub deposit_tree_root: QHashOut<F>,
     pub user_tree_root: QHashOut<F>,
     pub withdrawal_tree_root: QHashOut<F>,
+    pub user_registration_tree_root: QHashOut<F>,
 }
 
 impl<F: RichField> KVQSerializable for QEDCheckpointGlobalStateRoots<F> {
@@ -146,7 +147,7 @@ impl<F: RichField> KVQSerializable for QEDCheckpointGlobalStateRoots<F> {
 
 impl<F: RichField> QFeltSized for QEDCheckpointGlobalStateRoots<F> {
     fn q_felt_size() -> usize {
-        16
+        20
     }
 }
 impl<F: RichField> ToQFelts<F> for QEDCheckpointGlobalStateRoots<F> {
@@ -156,6 +157,7 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointGlobalStateRoots<F> {
         result.extend_from_slice(&self.deposit_tree_root.0.elements);
         result.extend_from_slice(&self.user_tree_root.0.elements);
         result.extend_from_slice(&self.withdrawal_tree_root.0.elements);
+        result.extend_from_slice(&self.user_registration_tree_root.0.elements);
 
         result
     }
@@ -176,47 +178,41 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointGlobalStateRoots<F> {
         let withdrawal_tree_root = QHashOut(HashOut {
             elements: [felts[12], felts[13], felts[14], felts[15]],
         });
+        let user_registration_tree_root = QHashOut(HashOut {
+            elements: [felts[16], felts[17], felts[18], felts[19]],
+        });
         QEDCheckpointGlobalStateRoots {
             contract_tree_root,
             deposit_tree_root,
             user_tree_root,
             withdrawal_tree_root,
+            user_registration_tree_root,
         }
     }
 }
 
 impl<F: RichField> QFieldHashable<F> for QEDCheckpointGlobalStateRoots<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-        let left = H::q_hash_many(&[
-            self.contract_tree_root.0.elements[0],
-            self.contract_tree_root.0.elements[1],
-            self.contract_tree_root.0.elements[2],
-            self.contract_tree_root.0.elements[3],
-            self.deposit_tree_root.0.elements[0],
-            self.deposit_tree_root.0.elements[1],
-            self.deposit_tree_root.0.elements[2],
-            self.deposit_tree_root.0.elements[3],
-        ]);
-        let right = H::q_hash_many(&[
-            self.user_tree_root.0.elements[0],
-            self.user_tree_root.0.elements[1],
-            self.user_tree_root.0.elements[2],
-            self.user_tree_root.0.elements[3],
-            self.withdrawal_tree_root.0.elements[0],
-            self.withdrawal_tree_root.0.elements[1],
-            self.withdrawal_tree_root.0.elements[2],
-            self.withdrawal_tree_root.0.elements[3],
-        ]);
-        H::q_hash_many(&[
-            left.0.elements[0],
-            left.0.elements[1],
-            left.0.elements[2],
-            left.0.elements[3],
-            right.0.elements[0],
-            right.0.elements[1],
-            right.0.elements[2],
-            right.0.elements[3],
-        ])
+        let contract_and_deposit = H::q_two_to_one(
+            self.contract_tree_root, 
+            self.deposit_tree_root
+        );
+
+        let user_and_withdrawal = H::q_two_to_one(
+            self.user_tree_root, 
+            self.withdrawal_tree_root
+        );
+
+
+        let base_combo = H::q_two_to_one(
+            contract_and_deposit, 
+            user_and_withdrawal
+        );
+
+        H::q_two_to_one(
+            base_combo,
+            self.user_registration_tree_root
+        )
     }
 }
 
@@ -341,16 +337,10 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafCompact<F> {
 
 impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafCompact<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-        H::q_hash_many(&[
-            self.global_chain_root.0.elements[0],
-            self.global_chain_root.0.elements[1],
-            self.global_chain_root.0.elements[2],
-            self.global_chain_root.0.elements[3],
-            self.stats_hash.0.elements[0],
-            self.stats_hash.0.elements[1],
-            self.stats_hash.0.elements[2],
-            self.stats_hash.0.elements[3],
-        ])
+        H::q_two_to_one(
+            self.global_chain_root,
+            self.stats_hash
+        )
     }
 }
 
