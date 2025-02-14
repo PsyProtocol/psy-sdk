@@ -32,6 +32,7 @@ use std::{cell::RefCell, collections::HashMap, fmt::Display, ops::Index, path::P
 
 use tracing::{debug, error, info, instrument, span, Level};
 use qed_sema::block::CheckedBlockExprNode;
+use qed_sema::expr::CheckedStorageReadNode;
 use crate::control::ControlState;
 
 type GF = GoldilocksField;

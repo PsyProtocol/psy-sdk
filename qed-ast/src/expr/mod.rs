@@ -1,4 +1,3 @@
-mod assert;
 mod binary;
 mod call;
 mod cast;

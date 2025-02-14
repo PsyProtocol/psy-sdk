@@ -1,4 +1,3 @@
-mod assert;
 mod binary;
 mod call;
 mod cast;
@@ -9,7 +8,6 @@ mod storage;
 mod unary;
 pub mod block;
 
-pub use assert::*;
 pub use binary::*;
 pub use call::*;
 pub use cast::*;
