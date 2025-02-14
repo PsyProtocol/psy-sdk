@@ -36,6 +36,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::StorageExpr => self.visit_storage_read(expr_id, ctx)?,
             NodeType::BlockExpr => self.visit_block_expr(expr_id, ctx)?,
             NodeType::ContextExpr => self.visit_context(expr_id, ctx)?,
+            NodeType::IfExpr => self.visit_if_expr(expr_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -251,4 +252,9 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_if_expr(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::ExprResult, Self::Error>;
 }

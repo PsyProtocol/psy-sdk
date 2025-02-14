@@ -24,6 +24,7 @@ pub struct CheckedIfNode {
     pub if_branch: CheckedCase,
     pub elseif_branch: Vec<CheckedCase>,
     pub else_branch: Option<StmtId>,
+    pub type_id: TypeId,
 }
 
 impl NodeInfo for CheckedIfNode {

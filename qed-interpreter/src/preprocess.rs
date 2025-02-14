@@ -902,4 +902,12 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     type Definition = DefinitionNode;
 
     type DefinitionResult = ();
+
+    fn visit_if_expr(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        Ok(())
+    }
 }

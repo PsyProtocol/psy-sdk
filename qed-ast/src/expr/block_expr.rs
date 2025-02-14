@@ -1,11 +1,10 @@
-use std::fmt::Display;
 use crate::{AstVisitor, BlockNode, ExprId, NodeInfo, NodeType, StmtId};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlockExprNode {
     pub stmts: Vec<StmtId>,
-    pub return_expr: Option<ExprId>
-
+    pub return_expr: Option<ExprId>,
 }
 
 impl NodeInfo for BlockExprNode {

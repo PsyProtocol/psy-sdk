@@ -1557,6 +1557,7 @@ dependencies = [
  "anyhow",
  "clap",
  "kvq",
+ "once_cell",
  "plonky2",
  "qed_common_circuit",
  "qed_core",
@@ -1566,6 +1567,7 @@ dependencies = [
  "qed_prover",
  "qed_store",
  "qedlang_core",
+ "smol_str",
  "tracing",
  "tracing-subscriber",
 ]

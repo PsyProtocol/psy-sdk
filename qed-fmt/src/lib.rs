@@ -1,10 +1,11 @@
+use qed_ast::block_expr::BlockExprNode;
+use qed_ast::if_expr::IfExprNode;
 use qed_ast::*;
 use qed_common::Graph;
 use qed_parser::Parser;
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, ToFelts};
-use std::fmt::{Debug};
+use std::fmt::Debug;
 use std::fmt::{Display, Write};
-use qed_ast::block_expr::BlockExprNode;
 
 #[derive(Debug)]
 pub struct Formatter<'a, F: Clone + From<u32>, C> {
@@ -874,7 +875,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let BlockExprNode { stmts, return_expr } = ctx.expression(node).as_block_expr().unwrap().clone();
+        let BlockExprNode { stmts, return_expr } =
+            ctx.expression(node).as_block_expr().unwrap().clone();
 
         let mut block_expr_result = String::new();
         block_expr_result.push_str("{\n");
@@ -899,5 +901,47 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         block_expr_result.push_str("}");
 
         Ok(block_expr_result)
+    }
+
+    fn visit_if_expr(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        //todo!: need fix output format in if-else and block expr
+        let IfExprNode {
+            if_branch,
+            elseif_branches,
+            else_branch,
+            ..
+        } = ctx.expression(node).as_if_expr().unwrap().clone();
+
+        let mut result = format!("if {} {{", self.visit_expr(if_branch.predicate, ctx)?);
+        self.write_line(&result);
+        self.indent();
+        self.visit_block(if_branch.body, ctx);
+        self.dedent();
+        self.write("}");
+
+        // TODO: remove clone
+        for branch in elseif_branches.clone().into_iter() {
+            let s = format!(" else if {} {{", self.visit_expr(branch.predicate, ctx)?);
+            self.append_line(&s);
+            self.indent();
+            self.visit_block(branch.body, ctx);
+            self.dedent();
+            self.write("}");
+        }
+
+        if let Some(else_branch) = else_branch {
+            self.append_line(" else {");
+            self.indent();
+            self.visit_block(else_branch.clone(), ctx);
+            self.dedent();
+            self.write("}");
+        }
+
+        self.append_line(";");
+        Ok(Default::default())
     }
 }

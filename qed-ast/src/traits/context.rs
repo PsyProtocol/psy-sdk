@@ -59,6 +59,7 @@ pub enum NodeType {
     StorageExpr,
     BlockExpr,
     ContextExpr,
+    IfExpr,
 
     IfStmt,
     WhileStmt,

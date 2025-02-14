@@ -30,10 +30,11 @@ use qedlang_core::dpn::{
 };
 use std::{cell::RefCell, collections::HashMap, fmt::Display, ops::Index, path::PathBuf, rc::Rc};
 
-use tracing::{debug, error, info, instrument, span, Level};
-use qed_sema::block::CheckedBlockExprNode;
-use qed_sema::expr::CheckedStorageReadNode;
 use crate::control::ControlState;
+use qed_sema::block::CheckedBlockExprNode;
+use qed_sema::expr::if_expr::CheckedIfExprNode;
+use qed_sema::expr::CheckedStorageReadNode;
+use tracing::{debug, error, info, instrument, span, Level};
 
 type GF = GoldilocksField;
 #[derive(Debug)]
@@ -387,8 +388,17 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         parent_node_type: Option<NodeType>,
     ) -> ControlState<Result<CheckedValueRef<F>>> {
         let node = typechecker[stmt_id].as_block().unwrap();
-        for &stmt in &node.stmts {
-            self.interpret_statement(typechecker, stmt, symbols, Some(node.node_type()))?;
+        for (_, &stmt) in node.stmts.iter().enumerate() {
+            let result =
+                self.interpret_statement(typechecker, stmt, symbols, Some(node.node_type()));
+
+            // to check if  `return`
+            match result {
+                ControlState::Return(value) => return ControlState::Return(value),
+                ControlState::Normal => {
+                    continue;
+                }
+            }
         }
         ControlState::Normal
     }
@@ -1018,14 +1028,18 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                     parent_node_type,
                 )?))
             }
-            CheckedExprNode::BlockExpr(block_expr) => {
-                Ok(Some(self.interpret_block_expr(
-                    typechecker,
-                    block_expr,
-                    symbols,
-                    parent_node_type,
-                )?))
-            }
+            CheckedExprNode::BlockExpr(block_expr) => Ok(Some(self.interpret_block_expr(
+                typechecker,
+                block_expr,
+                symbols,
+                parent_node_type,
+            )?)),
+            CheckedExprNode::IfExpr(if_expr) => Ok(Some(self.interpret_if_expr(
+                typechecker,
+                if_expr,
+                symbols,
+                parent_node_type,
+            )?)),
         }
     }
 
@@ -1439,6 +1453,79 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         } else {
             println!("{}:{} no return value in block expr  ", file!(), line!());
             Err(Error::SemaError(qed_sema::Error::InvalidReturn))
+        }
+    }
+    #[instrument(level = "debug", skip_all)]
+    pub fn interpret_if_expr(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        if_expr: &CheckedIfExprNode,
+        symbols: &mut SymbolTable<F>,
+        parent_node_type: Option<NodeType>,
+    ) -> Result<CheckedValueRef<F>> {
+        let node = if_expr;
+        let mut ret = ControlState::Normal;
+
+        let predicate = self
+            .interpret_expr(
+                typechecker,
+                node.if_branch.predicate,
+                symbols,
+                Some(node.node_type()),
+            )?
+            .unwrap()
+            .to_bool();
+        self.context.start_if_block(predicate);
+        if predicate == self.context.op_true() {
+            ret = self.interpret_block(
+                typechecker,
+                node.if_branch.body,
+                symbols,
+                Some(node.node_type()),
+            );
+            if let ControlState::Return(value) = ret {
+                return value;
+            }
+        }
+
+        for condition in &node.elseif_branch {
+            let predicate = self
+                .interpret_expr(
+                    typechecker,
+                    condition.predicate,
+                    symbols,
+                    Some(node.node_type()),
+                )?
+                .unwrap()
+                .to_bool();
+            if predicate == self.context.op_true() {
+                self.context.start_else_if_block(predicate);
+                ret = self.interpret_block(
+                    typechecker,
+                    condition.body,
+                    symbols,
+                    Some(node.node_type()),
+                );
+                if let ControlState::Return(value) = ret {
+                    return value;
+                }
+            }
+        }
+
+        if let Some(else_branch) = &node.else_branch {
+            self.context.start_else_block();
+            ret = self.interpret_block(
+                typechecker,
+                else_branch.clone(),
+                symbols,
+                Some(node.node_type()),
+            );
+        }
+
+        self.context.end_if_block();
+        match ret {
+            ControlState::Return(value) => value,
+            ControlState::Normal => Ok(CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE))),
         }
     }
 }

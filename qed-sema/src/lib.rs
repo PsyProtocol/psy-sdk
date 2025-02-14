@@ -30,10 +30,11 @@ use qed_ast::*;
 
 use qed_parser::Parser;
 
-use tracing::{debug, error, info, instrument, span, Level};
-use qed_ast::block_expr::BlockExprNode;
-use expr::CheckedStorageReadNode;
 use crate::block::CheckedBlockExprNode;
+use crate::expr::if_expr::CheckedIfExprNode;
+use expr::CheckedStorageReadNode;
+use qed_ast::block_expr::BlockExprNode;
+use tracing::{debug, error, info, instrument, span, Level};
 
 pub struct TypeCheckerVisitorContext<F: Clone + From<u32>, C> {
     path_stack: Vec<NodeId>,
@@ -674,6 +675,13 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             return Err(Error::TypeMismatch);
         }
         let checked_block = self.visit_block(if_node.if_branch.body, ctx)?;
+        let get_block_type = |block: &CheckedStmtNode| -> TypeId {
+            match block {
+                CheckedStmtNode::Block(block) => block.ty,
+                _ => VOID_TYPE,
+            }
+        };
+        let if_type = get_block_type(&checked_block);
         let if_branch = CheckedCase {
             predicate: self.exprs.alloc_item(checked_expr),
             type_id: BOOL_TYPE,
@@ -687,6 +695,10 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 return Err(Error::TypeMismatch);
             }
             let checked_block = self.visit_block(branch.body, ctx)?;
+            let checked_block_ty = get_block_type(&checked_block);
+            if checked_block_ty != if_type {
+                return Err(Error::TypeMismatch);
+            }
             elseif_branch.push(CheckedCase {
                 predicate: self.exprs.alloc_item(checked_expr),
                 type_id: BOOL_TYPE,
@@ -696,6 +708,11 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         let else_branch = if let Some(else_branch) = if_node.else_branch {
             let block = self.visit_block(else_branch, ctx)?;
+            let block_ty = get_block_type(&block);
+
+            if block_ty != if_type {
+                return Err(Error::TypeMismatch);
+            }
             Some(self.stmts.alloc_item(block))
         } else {
             None
@@ -705,9 +722,99 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             if_branch,
             elseif_branch,
             else_branch,
+            type_id: if_type,
         }))
     }
+    fn visit_if_expr(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::ExprResult, Self::Error> {
+        // TODO: remove clone
+        let if_expr_node = ctx.expression(node).as_if_expr().cloned().unwrap();
 
+        let checked_expr = self.visit_expr(if_expr_node.if_branch.predicate, ctx)?;
+        if checked_expr.ty() != BOOL_TYPE {
+            println!(
+                "{}:{} Error: {:?}, expected Bool, but found {:?} ",
+                file!(),
+                line!(),
+                "type mismatch",
+                checked_expr.ty()
+            );
+            return Err(Error::TypeMismatch);
+        }
+
+        let checked_block = self.visit_block(if_expr_node.if_branch.body, ctx)?;
+
+        let get_block_type = |block: &CheckedStmtNode| -> TypeId {
+            match block {
+                CheckedStmtNode::Block(block) => block.ty,
+                _ => VOID_TYPE,
+            }
+        };
+
+        let check_block_type = |block: &CheckedStmtNode, expected_type: TypeId| -> Result<()> {
+            let block_type = get_block_type(block);
+            if block_type != expected_type {
+                println!(
+                    "{}:{} Error: {:?}, expected {:?}, but found {:?} ",
+                    file!(),
+                    line!(),
+                    "type mismatch",
+                    expected_type,
+                    block_type
+                );
+                return Err(Error::TypeMismatch);
+            }
+            return Ok(());
+        };
+        let if_type = get_block_type(&checked_block);
+        let if_branch = CheckedCase {
+            predicate: self.exprs.alloc_item(checked_expr),
+            type_id: BOOL_TYPE,
+            body: self.stmts.alloc_item(checked_block),
+        };
+
+        let mut elseif_branch = Vec::with_capacity(if_expr_node.elseif_branches.len());
+        for branch in &if_expr_node.elseif_branches {
+            let checked_expr = self.visit_expr(branch.predicate, ctx)?;
+            if checked_expr.ty() != BOOL_TYPE {
+                println!(
+                    "{}:{} Error: {:?}, expected Bool, but found {:?} ",
+                    file!(),
+                    line!(),
+                    "type mismatch",
+                    checked_expr.ty()
+                );
+                return Err(Error::TypeMismatch);
+            }
+            let checked_block = self.visit_block(branch.body, ctx)?;
+            check_block_type(&checked_block, if_type)?;
+
+            elseif_branch.push(CheckedCase {
+                predicate: self.exprs.alloc_item(checked_expr),
+                type_id: BOOL_TYPE,
+                body: self.stmts.alloc_item(checked_block),
+            });
+        }
+
+        let else_branch = if let Some(else_branch) = if_expr_node.else_branch {
+            let block = self.visit_block(else_branch, ctx)?;
+            check_block_type(&block, if_type)?;
+
+            Some(self.stmts.alloc_item(block))
+        } else {
+            None
+        };
+
+        Ok(CheckedExprNode::IfExpr(CheckedIfExprNode {
+            if_branch,
+            elseif_branch,
+            else_branch,
+            type_id: TypeId::from(if_type),
+        }))
+    }
     fn visit_while(
         &mut self,
         node: StmtId,
@@ -751,20 +858,26 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             self.visit_use(&use_path, ctx)?;
         }
 
-        for (i, stmt) in block.stmts.iter().enumerate() {
-            let checked_stmt = self.visit_stmt(stmt.clone(), ctx)?;
-            if ctx.parent_node_type() == NodeType::FunctionDef {
-                if let CheckedStmtNode::Return(CheckedReturnNode { ret }) = checked_stmt {
-                    if i != block.stmts.len() - 1 {
-                        return Err(Error::InvalidReturn);
-                    }
-                }
-            }
-            new_stmts.push(checked_stmt);
+        for (_i, stmt) in block.stmts.iter().enumerate() {
+            new_stmts.push(self.visit_stmt(stmt.clone(), ctx)?);
         }
+        let type_id = match new_stmts.last() {
+            Some(stmt) => match stmt {
+                CheckedStmtNode::Return(ret) => match ret {
+                    CheckedReturnNode { ret: Some((_, ty)) } => *ty,
+                    CheckedReturnNode { ret: None } => VOID_TYPE,
+                },
+                CheckedStmtNode::If(if_node) => if_node.type_id,
+                CheckedStmtNode::Block(block) => block.ty,
+                _ => VOID_TYPE,
+            },
+            None => VOID_TYPE,
+        };
+
         ctx.symbols.end_scope();
         Ok(CheckedStmtNode::Block(CheckedBlockNode {
             stmts: self.stmts.alloc_items(new_stmts),
+            ty: type_id,
         }))
     }
 
@@ -863,6 +976,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             ScopeKind::Function,
             ScopeKind::ImplMethod,
             ScopeKind::TraitMethod,
+            //todo!: remove this
+            ScopeKind::Block,
         ];
         if !valid_kinds.contains(&ctx.symbols[parent_scope_id].kind) {
             return Err(Error::InvalidReturn);
@@ -1168,6 +1283,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             NodeType::StorageExpr => self.visit_storage_read(expr_id, ctx)?,
             NodeType::BlockExpr => self.visit_block_expr(expr_id, ctx)?,
             NodeType::ContextExpr => self.visit_context(expr_id, ctx)?,
+            NodeType::IfExpr => self.visit_if_expr(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
         ctx.pop_node_id();
@@ -1268,7 +1384,13 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.dependency_graph()
             .ts(&ModuleId::root(), &mut colors, &mut |&module_id| {
                 ctx.symbols.push_module(module_id);
-                self.visit_module(module_id, ctx).unwrap();
+                match self.visit_module(module_id, ctx) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        println!("{}:{} Error: {:?}", file!(), line!(), e);
+                        panic!("typecheck failed");
+                    }
+                };
                 ctx.symbols.pop_module();
             });
 
@@ -1280,7 +1402,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
-        let BlockExprNode { stmts, return_expr } = ctx.expression(node).as_block_expr().unwrap().clone();
+        let BlockExprNode { stmts, return_expr } =
+            ctx.expression(node).as_block_expr().unwrap().clone();
         let mut checked_stmts = Vec::with_capacity(stmts.len());
 
         for stmt in stmts {

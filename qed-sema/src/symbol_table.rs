@@ -486,7 +486,10 @@ impl<F: Clone> SymbolTable<F> {
                 }
             }
             None => {
-                assert!(path.segments.is_empty(), "path.segments is not empty and also path.root is None");
+                assert!(
+                    path.segments.is_empty(),
+                    "path.segments is not empty and also path.root is None"
+                );
                 return if let Some(variable) = self.get_variable(None, &path.target) {
                     Some((variable.ty, variable.scope_id))
                 } else {

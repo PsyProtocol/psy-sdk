@@ -30,3 +30,21 @@ impl<F> CheckedVariable<F> {
         }
     }
 }
+use std::fmt;
+
+impl<T> fmt::Display for CheckedVariable<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "CheckedVariable {{ ty: {:?}, mutable: {}, cnst: {}, scope_id: {:?}, value: {} }}",
+            self.ty,
+            self.mutable,
+            self.cnst,
+            self.scope_id,
+            match &self.value {
+                Some(value) => "Some".to_string(),
+                None => "None".to_string(),
+            }
+        )
+    }
+}

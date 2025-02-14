@@ -3,6 +3,7 @@ use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::*;
 use qed_lexer::{Token, Error};
 use qed_ast::expr::block_expr::BlockExprNode;
+use qed_ast::expr::if_expr::{IfExprNode, };
 
 grammar<'input, F, C>(
     file_content: &'input str,
@@ -401,6 +402,16 @@ ElseBranch: StmtId = {
 ReturnStatement: StmtNode = {
     <l:@L> RETURN <ret:Expression?> ";" <r:@R> => StmtNode::Return(ReturnNode(ret.map(|x| expr_nodes.alloc_item(x))))
 }
+IfExpression: ExprNode<F> = {
+    <l:@L> <stmt:IfStatement> <r:@R> => {
+        match stmt {
+            StmtNode::If(if_node) => {
+                ExprNode::<F>::IfExpr(IfExprNode::from(if_node))
+            }
+            _ => panic!("Expected an if statement"),
+        }
+    }
+}
 
 VariableStatement: StmtNode = {
     <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
@@ -424,6 +435,15 @@ VariableStatement: StmtNode = {
         }
     ),
 
+    <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <value:IfExpression> ";" <r:@R> => StmtNode::Variable(
+        VariableNode {
+            name: decl.0,
+            ty: decl.1,
+            mutable: mutable.is_some(),
+            cnst: false,
+            value: expr_nodes.alloc_item(value),
+        }
+    ),
     <l:@L> CONST <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {
             name: decl.0,
