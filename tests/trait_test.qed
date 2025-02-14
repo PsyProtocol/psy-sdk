@@ -1,0 +1,40 @@
+pub mod traits{
+    pub trait PersonLike {
+        pub fn age(self: Self) -> Felt;
+    }
+
+    pub struct Person {
+        pub age_height: [[Felt; 2]; 2],
+        pub year_of_birth: Felt
+    }
+
+    impl PersonLike for Person {
+        pub fn age(self: Person) -> Felt {
+            return self.age_height[0][0];
+        }
+    }
+}
+
+pub use traits::Person;
+
+// error if not import trait
+pub use traits::PersonLike;
+
+pub fn test_fn(p: Person) -> Felt {
+    return p.age();
+    pub use traits::PersonLike;
+}
+
+
+fn main(a: Felt, b: Felt) -> Felt {
+    let person: Person = new Person{
+        year_of_birth: 1990,
+        age_height: [[1, 1], [1, 1]]
+    };
+
+    pub use traits::Person;
+
+    return person.age() + a;
+
+    pub use traits::PersonLike;
+}

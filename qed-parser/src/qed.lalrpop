@@ -158,7 +158,12 @@ Statement: StmtNode = {
     IfStatement,
     Definition => StmtNode::Definition(def_nodes.alloc_item(<>)),
     AssertStatement,
+    UseStatement,
     ExpressionStatement
+}
+
+UseStatement: StmtNode = {
+    ModuleUse => StmtNode::Use(<>),
 }
 
 ExpressionStatement: StmtNode = {
@@ -319,11 +324,23 @@ GenericParameters: Vec<IdentId> = {
 BlockStatement: StmtNode = {
     <l:@L> "{" <mut stmts:Statement*> <ret:Expression> "}" <r:@R> => {
         stmts.push(StmtNode::Return(ReturnNode(Some(expr_nodes.alloc_item(ret)))));
+        let (uses, normal_stmts): (Vec<StmtNode>, Vec<StmtNode>) = stmts.into_iter().partition(|stmt| {
+            stmt.is_use()
+        });
         StmtNode::Block(BlockNode {
-            stmts: stmt_nodes.alloc_items(stmts)
+            stmts: stmt_nodes.alloc_items(normal_stmts),
+            uses: stmt_nodes.alloc_items(uses),
         })
     },
-    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => StmtNode::Block(BlockNode { stmts: stmt_nodes.alloc_items(stmts) })
+    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => {
+        let (uses, normal_stmts): (Vec<StmtNode>, Vec<StmtNode>) = stmts.into_iter().partition(|stmt| {
+            stmt.is_use()
+        });
+        StmtNode::Block(BlockNode {
+            stmts: stmt_nodes.alloc_items(normal_stmts),
+            uses: stmt_nodes.alloc_items(uses),
+        })
+    }
 }
 
 WhileStatement: StmtNode = {

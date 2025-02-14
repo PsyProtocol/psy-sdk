@@ -97,6 +97,7 @@ impl<'a> StorageProcessor<'a> {
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(sum))));
         let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
             stmts: vec![return_stmt],
+            uses: vec![],
         }));
 
         let f = FunctionNode {
@@ -149,6 +150,7 @@ impl<'a> StorageProcessor<'a> {
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(value_node))));
         let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
             stmts: vec![return_stmt],
+            uses: vec![],
         }));
         let f = FunctionNode {
             name: ctx.intern("read"),
@@ -198,6 +200,7 @@ impl<'a> StorageProcessor<'a> {
         }
         let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
             stmts: field_writes,
+            uses: vec![],
         }));
 
         let f = FunctionNode {
@@ -254,6 +257,7 @@ impl<'a> StorageProcessor<'a> {
 
         let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
             stmts: vec![return_stmt],
+            uses: vec![],
         }));
 
         let function = FunctionNode {
@@ -310,6 +314,7 @@ impl<'a> StorageProcessor<'a> {
         let write_stmt = ctx.alloc_statement(StmtNode::Expression(write_expr));
         let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
             stmts: vec![write_stmt],
+            uses: vec![],
         }));
 
         let function = FunctionNode {
@@ -591,6 +596,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
             let block = BlockNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
+                uses: vec![],
             };
             ctx.replace_statement(body, StmtNode::Block(block));
         } else if function_name == get_contract_id_ident {
@@ -599,6 +605,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
             let block = BlockNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
+                uses: vec![],
             };
             ctx.replace_statement(body, StmtNode::Block(block));
         } else if function_name == get_checkpoint_id_ident {
@@ -607,6 +614,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
             let block = BlockNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
+                uses: vec![],
             };
             ctx.replace_statement(body, StmtNode::Block(block));
         } else if function_name == get_last_nonce_ident {
@@ -615,6 +623,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
             let block = BlockNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
+                uses: vec![],
             };
             ctx.replace_statement(body, StmtNode::Block(block));
         } else if function_name == get_user_public_key_hash_ident {
@@ -624,6 +633,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
             let block = BlockNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
+                uses: vec![],
             };
             ctx.replace_statement(body, StmtNode::Block(block));
         } else if function_name == get_state_hash_at_ident {
@@ -640,6 +650,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
             let block = BlockNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
+                uses: vec![],
             };
             ctx.replace_statement(body, StmtNode::Block(block));
         } else if function_name == get_other_contract_state_hash_at_ident {
@@ -672,6 +683,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
             let block = BlockNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
+                uses: vec![],
             };
             ctx.replace_statement(body, StmtNode::Block(block));
         } else if function_name == get_other_user_contract_state_hash_at_ident {
@@ -711,6 +723,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
             let block = BlockNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
+                uses: vec![],
             };
             ctx.replace_statement(body, StmtNode::Block(block));
         } else if function_name == cset_state_hash_at_ident {
@@ -734,6 +747,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
             let block = BlockNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
+                uses: vec![],
             };
             ctx.replace_statement(body, StmtNode::Block(block));
         }
@@ -785,6 +799,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
 
             let block = BlockNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
+                uses: vec![],
             };
 
             ctx.replace_statement(body, StmtNode::Block(block));

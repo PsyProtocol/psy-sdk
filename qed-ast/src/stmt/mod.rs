@@ -18,7 +18,7 @@ use std::fmt::Display;
 pub use storage::*;
 pub use variable::*;
 
-use crate::{AstVisitor, DefId, DefinitionNode, ExprId, ExprNode, NodeInfo, NodeType};
+use crate::{AstVisitor, DefId, DefinitionNode, ExprId, ExprNode, NodeInfo, NodeType, UsePath};
 use strum::EnumTryAs;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
@@ -34,6 +34,7 @@ pub enum StmtNode {
     Storage(StorageWriteNode),
     Assert(AssertNode),
     AssertEq(AssertEqNode),
+    Use(UsePath),
 }
 
 impl NodeInfo for StmtNode {
@@ -50,6 +51,7 @@ impl NodeInfo for StmtNode {
             StmtNode::Storage(node) => node.node_type(),
             StmtNode::Assert(node) => node.node_type(),
             StmtNode::AssertEq(node) => node.node_type(),
+            StmtNode::Use(_) => NodeType::UseStmt,
         }
     }
 
@@ -82,6 +84,7 @@ impl Display for StmtNode {
             StmtNode::Storage(_) => write!(f, "Storage::Write"),
             StmtNode::Assert(_) => write!(f, "Assert"),
             StmtNode::AssertEq(_) => write!(f, "AssertEq"),
+            StmtNode::Use(_) => write!(f, "Use"),
         }
     }
 }

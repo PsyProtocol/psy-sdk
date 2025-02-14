@@ -352,9 +352,15 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        let BlockNode { stmts } = ctx.statement(stmt_id).as_block().unwrap();
+        let BlockNode { stmts, uses } = ctx.statement(stmt_id).as_block().cloned().unwrap();
         // TODO: remove clone
-        for stmt in stmts.clone() {
+
+        for &stmt in uses.iter() {
+            let use_path = ctx.statement(stmt).as_use().cloned().unwrap();
+            self.visit_use(&use_path, ctx)?;
+        }
+
+        for &stmt in stmts.iter() {
             let res = self.visit_stmt(stmt, ctx)?;
             if !res.is_empty() {
                 self.write_line(&format!("{};", res));
