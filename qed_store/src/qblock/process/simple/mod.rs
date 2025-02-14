@@ -1,6 +1,7 @@
 use std::time::SystemTime;
 
 use plonky2::field::types::{Field, PrimeField64};
+use qed_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::traits::
     qhashable::QFieldHashable
@@ -19,7 +20,7 @@ use qed_data::{
 };
 
 use crate::{
-    config::store_config::{QEDFelt, QEDHasher, DEFAULT_USER_STATE_TREE_ROOT},
+    config::store_config::{QEDFelt, QEDHasher},
     models::user::contract_state_tree::UserContractStateTreeId,
     store::imm::core::QEDStorageAdapterImmutable,
     traits::qdatastore::{

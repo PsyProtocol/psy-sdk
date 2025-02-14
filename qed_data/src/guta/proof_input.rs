@@ -2,11 +2,11 @@
 
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
-use qed_core::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
-use qed_crypto::hash::merkle::{core::MerkleProofCore, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof};
+use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::id::QProvingJobDataID};
+use qed_crypto::hash::{merkle::{core::{DeltaMerkleProofCore, DeltaMerkleProofCorePartial, MerkleProofCore}, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof}, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::ups_end_cap_result::UPSEndCapResultCompact;
+use crate::qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf};
 
 use super::{header::GlobalUserTreeAggregatorHeader, stats::GUTAStats};
 
@@ -276,4 +276,81 @@ impl<F: RichField> VerifyLeftEndCapRightGUTAInput<F> {
         }
     }
     
+}
+
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct GUTARegisterUserFullInput<F: RichField> {
+    pub user_registration_tree_merkle_proof: MerkleProofCore<QHashOut<F>>,
+    pub global_user_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
+}
+impl<F: RichField> GUTARegisterUserFullInput<F> {
+
+    pub fn new_empty<H: FieldQHasher<F>>(height: usize) -> Self {
+
+        let user_state_tree_root = QHashOut::from_values(
+            DEFAULT_USER_STATE_TREE_ROOT_U64[0],
+            DEFAULT_USER_STATE_TREE_ROOT_U64[1],
+            DEFAULT_USER_STATE_TREE_ROOT_U64[2],
+            DEFAULT_USER_STATE_TREE_ROOT_U64[3],
+        );
+        let fake_public_key = QHashOut::from_values(1,1,1,1);
+        let siblings = (0..GLOBAL_USER_TREE_HEIGHT).map(|_| QHashOut::ZERO).collect::<Vec<_>>();
+        let user_registration_tree_merkle_proof = MerkleProofCore::new_from_params::<H>(0, fake_public_key, siblings);
+
+        let user_leaf = QEDUserLeaf::new_user_default(F::ZERO, fake_public_key, user_state_tree_root);
+        let leaf_hash = user_leaf.qfhash::<H>();
+
+        let dmp_siblings = (0..height).map(|_| QHashOut::ZERO).collect();
+        let global_user_tree_update_proof = DeltaMerkleProofCore::from_params::<H>(
+            0,
+            QHashOut::ZERO,
+            leaf_hash,
+            dmp_siblings,
+        );
+
+        Self {
+            user_registration_tree_merkle_proof,
+            global_user_tree_update_proof,
+        }
+
+    }
+
+    pub fn new_dummy(height: usize, dummy_user_leaf_hash: QHashOut<F>, fake_public_key: QHashOut<F>) -> Self {
+
+        let siblings = (0..GLOBAL_USER_TREE_HEIGHT).map(|_| QHashOut::ZERO).collect::<Vec<_>>();
+        let user_registration_tree_merkle_proof = MerkleProofCore {
+            siblings,
+            root: QHashOut::ZERO,
+            value : fake_public_key,
+            index: 0,
+        };
+
+        let dmp_siblings = (0..height).map(|_| QHashOut::ZERO).collect();
+        let global_user_tree_update_proof = DeltaMerkleProofCore{
+            siblings: dmp_siblings,
+            old_root: QHashOut::ZERO,
+            old_value: QHashOut::ZERO,
+            new_root: QHashOut::ZERO,
+            new_value: dummy_user_leaf_hash,
+            index: 0,
+        };
+
+        Self {
+            user_registration_tree_merkle_proof,
+            global_user_tree_update_proof,
+        }
+
+    }
+}
+
+impl<F: RichField> KVQSerializable for GUTARegisterUserFullInput<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
 }

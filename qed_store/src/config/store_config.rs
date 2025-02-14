@@ -140,25 +140,13 @@ pub type DepositTreeStore<S> = ProtocolTreeStore<S, DEPOSIT_TREE_ID, GLOBAL_DEPO
 pub type WithdrawalTreeStore<S> = ProtocolTreeStore<S, WITHDRAWAL_TREE_ID, GLOBAL_WITHDRAWAL_TREE_HEIGHT>;
 
 // GLOBAL_CONTRACT_TREE_HEIGHT-th zero hash
-pub const DEFAULT_USER_STATE_TREE_ROOT: QHashOut<GoldilocksField> = QHashOut::<QEDFelt>(
-    HashOut {
-        elements: [
-            GoldilocksField(3896366420105793420),
-            GoldilocksField(17410332186442776169),
-            GoldilocksField(7329967984378645716),
-            GoldilocksField(6310665049578686403),
-        ],
-    }
-);
-
-
 #[cfg(test)]
 mod tests {
+    use qed_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
     use qed_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
     use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
     use qed_crypto::hash::traits::hasher::PoseidonHasher;
 
-    use crate::config::store_config::DEFAULT_USER_STATE_TREE_ROOT;
 
     #[test]
     fn check_default_user_state_tree_root() {

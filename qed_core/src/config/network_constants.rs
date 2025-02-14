@@ -26,6 +26,10 @@ impl QEDTreeConfig for QEDTestnetTreeConfig {
 }
 */
 
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::HashOut};
+
+use crate::data::qhashout::QHashOut;
+
 
 // Network Magic
 pub const QED_NETWORK_MAGIC_MAINNET: u64 = 0x1337CF514544C069u64;
@@ -70,3 +74,23 @@ pub const VM_TYPE_STANRDARD_DAPEN_V1: u32 = 1;
 
 
 pub const GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT: u8 = 3;
+
+
+
+pub const DEFAULT_USER_STATE_TREE_ROOT_U64: [u64; 4] = [
+    3896366420105793420,
+    17410332186442776169,
+    7329967984378645716,
+    6310665049578686403,
+];
+pub const DEFAULT_USER_STATE_TREE_ROOT: QHashOut<GoldilocksField> = QHashOut::<GoldilocksField>(
+    HashOut {
+        elements: [
+            GoldilocksField(3896366420105793420),
+            GoldilocksField(17410332186442776169),
+            GoldilocksField(7329967984378645716),
+            GoldilocksField(6310665049578686403),
+        ],
+    }
+);
+

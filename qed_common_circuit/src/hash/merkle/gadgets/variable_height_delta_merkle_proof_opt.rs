@@ -77,8 +77,8 @@ pub struct VariableHeightDeltaMerkleProofOptGadget {
 
     // computed
     pub bit_info: VariableHeightBitInfo,
-    max_height: usize,
-    has_witness_height: bool,
+    pub max_height: usize,
+    pub has_witness_height: bool,
 }
 impl VariableHeightDeltaMerkleProofOptGadget {
     pub fn add_virtual_to_full<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
@@ -96,6 +96,53 @@ impl VariableHeightDeltaMerkleProofOptGadget {
         let index = builder.add_virtual_target();
         let old_value = builder.add_virtual_hash();
         let new_value = builder.add_virtual_hash();
+        let siblings = (0..max_height)
+            .map(|_| builder.add_virtual_hash())
+            .collect::<Vec<_>>();
+
+        let has_witness_height = input_height_target.is_none();
+        let height = match input_height_target {
+            Some(v) => v,
+            None => builder.add_virtual_target(),
+        };
+        /*
+        let zero_target = builder.zero();
+        builder.ensure_not_equal(height, zero_target);*/
+
+        let (
+            old_root,
+            new_root,
+            bit_info,
+        ) = Self::compute_roots::<H,F,D>(
+            builder, 
+            index,
+            old_value, 
+            new_value,
+            &siblings, 
+            height
+        );
+        
+        Self {
+            old_root,
+            old_value,
+            new_root,
+            new_value,
+            index,
+            siblings,
+            max_height,
+            has_witness_height,
+            height,
+            bit_info,
+        }
+    }
+    pub fn add_virtual_to_full_with_subtree_root_index_known<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        max_height: usize,
+        input_height_target: Option<Target>,
+        index: Target,
+        old_value: HashOutTarget,
+        new_value: HashOutTarget,
+    ) -> Self {
         let siblings = (0..max_height)
             .map(|_| builder.add_virtual_hash())
             .collect::<Vec<_>>();

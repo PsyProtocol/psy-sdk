@@ -187,6 +187,15 @@ impl<Hash: PartialEq + Copy + Default> Default for MerkleProofCore<Hash> {
     }
 }
 impl<Hash: PartialEq + Copy> MerkleProofCore<Hash> {
+    pub fn new_from_params<Hasher: MerkleHasher<Hash>>(index: u64, value: Hash, siblings: Vec<Hash>) -> Self {
+        let root =compute_root_merkle_proof_generic::<Hash, Hasher>(value, index, &siblings);
+        Self {
+            root,
+            value,
+            index,
+            siblings,
+        }
+    }
     pub fn verify<Hasher: MerkleHasher<Hash>>(&self) -> bool {
         verify_merkle_proof_core::<Hash, Hasher>(self)
     }

@@ -1,5 +1,5 @@
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
+use plonky2::{hash::hash_types::RichField, plonk::config::AlgebraicHasher};
 use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
 use qed_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,20 @@ pub struct QEDUserLeaf<F: RichField> {
     pub event_index: F,
     pub user_id: F,
 }
+impl<F: RichField> QEDUserLeaf<F> {
+    pub fn new_user_default(user_id: F, public_key: QHashOut<F>, user_state_tree_root: QHashOut<F>) -> Self {
+        Self {
+            public_key,
+            user_state_tree_root,
+            balance: F::ZERO,
+            nonce: F::ZERO,
+            last_checkpoint_id: F::ZERO,
+            event_index: F::ZERO,
+            user_id,
+        }
+    }
 
+}
 impl<F: RichField> KVQSerializable for QEDUserLeaf<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
@@ -91,5 +104,26 @@ impl<F: RichField> QFieldHashable<F> for QEDUserLeaf<F> {
             self.event_index,
             self.user_id
         ])
+    }
+}
+
+
+impl<F: RichField> QEDUserLeaf<F> {
+    pub fn alghash<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
+        QHashOut(H::hash_no_pad(&[
+            self.public_key.0.elements[0],
+            self.public_key.0.elements[1],
+            self.public_key.0.elements[2],
+            self.public_key.0.elements[3],
+            self.user_state_tree_root.0.elements[0],
+            self.user_state_tree_root.0.elements[1],
+            self.user_state_tree_root.0.elements[2],
+            self.user_state_tree_root.0.elements[3],
+            self.balance,
+            self.nonce,
+            self.last_checkpoint_id,
+            self.event_index,
+            self.user_id
+        ]))
     }
 }

@@ -3,3 +3,4 @@ pub mod verify_two_guta;
 pub mod verify_single_end_cap;
 pub mod verify_left_guta_right_end_cap;
 pub mod verify_left_end_cap_right_guta;
+pub mod verify_guta_and_register_users;

@@ -1,5 +1,14 @@
-use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
-use qed_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor};
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::{HashOutTarget, RichField},
+    iop::{target::Target, witness::Witness},
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
+};
+use qed_common_circuit::{
+    builder::hash::core::CircuitBuilderHashCore,
+    traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
+};
+use qed_core::data::qhashout::QHashOut;
 use qed_data::qdata::user::QEDUserLeaf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
@@ -15,8 +24,29 @@ pub struct QEDUserLeafGadget {
 }
 
 impl QEDUserLeafGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDUserLeaf<F>) -> anyhow::Result<()> {
+    pub fn create_new_user_default<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        user_id: Target,
+        public_key: HashOutTarget,
+        default_user_state_tree_root: QHashOut<F>,
+    ) -> Self {
+        let zero = builder.zero();
+        Self {
+            public_key,
+            user_state_tree_root: builder.constant_qhash(default_user_state_tree_root),
+            balance: zero,
+            nonce: zero,
+            last_checkpoint_id: zero,
+            event_index: zero,
+            user_id,
+        }
+    }
 
+    pub fn set_witness<F: RichField>(
+        &self,
+        witness: &mut impl Witness<F>,
+        target: &QEDUserLeaf<F>,
+    ) -> anyhow::Result<()> {
         witness.set_hash_target(self.public_key, target.public_key.0)?;
         witness.set_hash_target(self.user_state_tree_root, target.user_state_tree_root.0)?;
 
@@ -26,52 +56,41 @@ impl QEDUserLeafGadget {
         witness.set_target(self.event_index, target.event_index)?;
         witness.set_target(self.user_id, target.user_id)
     }
-    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> HashOutTarget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
     }
-    pub fn connect_to_other<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, other: QEDUserLeafGadget) {
-        builder.connect_hashes(
-            self.public_key,
-            other.public_key,
-        );
+    pub fn connect_to_other<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: QEDUserLeafGadget,
+    ) {
+        builder.connect_hashes(self.public_key, other.public_key);
 
-        builder.connect_hashes(
-            self.user_state_tree_root,
-            other.user_state_tree_root,
-        );
+        builder.connect_hashes(self.user_state_tree_root, other.user_state_tree_root);
 
-        builder.connect(
-            self.balance,
-            other.balance,
-        );
+        builder.connect(self.balance, other.balance);
 
-        builder.connect(
-            self.nonce,
-            other.nonce,
-        );
+        builder.connect(self.nonce, other.nonce);
 
+        builder.connect(self.last_checkpoint_id, other.last_checkpoint_id);
 
-        builder.connect(
-            self.last_checkpoint_id,
-            other.last_checkpoint_id,
-        );
+        builder.connect(self.event_index, other.event_index);
 
-        builder.connect(
-            self.event_index,
-            other.event_index,
-        );
-
-        builder.connect(
-            self.user_id,
-            other.user_id,
-        );
+        builder.connect(self.user_id, other.user_id);
     }
-    
-    pub fn connect_to_all_except_state_balance_event_index<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, other: QEDUserLeafGadget) {
-        builder.connect_hashes(
-            self.public_key,
-            other.public_key,
-        );
+
+    pub fn connect_to_all_except_state_balance_event_index<
+        F: RichField + Extendable<D>,
+        const D: usize,
+    >(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: QEDUserLeafGadget,
+    ) {
+        builder.connect_hashes(self.public_key, other.public_key);
 
         /*
         // allow update to state root, hence this is commented out
@@ -89,16 +108,9 @@ impl QEDUserLeafGadget {
         );
         */
 
-        builder.connect(
-            self.nonce,
-            other.nonce,
-        );
+        builder.connect(self.nonce, other.nonce);
 
-
-        builder.connect(
-            self.last_checkpoint_id,
-            other.last_checkpoint_id,
-        );
+        builder.connect(self.last_checkpoint_id, other.last_checkpoint_id);
 
         /*
         // allow update to event index, hence this is commented out
@@ -108,14 +120,14 @@ impl QEDUserLeafGadget {
         );
         */
 
-        builder.connect(
-            self.user_id,
-            other.user_id,
-        );
+        builder.connect(self.user_id, other.user_id);
     }
 }
 impl AlgebraicHashableTarget for QEDUserLeafGadget {
-    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }
@@ -141,7 +153,6 @@ impl CreatableTarget for QEDUserLeafGadget {
             event_index,
             user_id,
         }
-        
     }
 }
 impl ToTargets for QEDUserLeafGadget {
@@ -169,26 +180,16 @@ impl FromTargets for QEDUserLeafGadget {
             panic!("tried to create QEDUserLeafGadget from an array of {} targets, but expected an array of 13 targets", targets.len());
         }
         let public_key = HashOutTarget {
-            elements: [
-                targets[0],
-                targets[1],
-                targets[2],
-                targets[3],
-            ]
+            elements: [targets[0], targets[1], targets[2], targets[3]],
         };
         let user_state_tree_root = HashOutTarget {
-            elements: [
-                targets[4],
-                targets[5],
-                targets[6],
-                targets[7],
-            ]
+            elements: [targets[4], targets[5], targets[6], targets[7]],
         };
-        let balance = targets [8];
-        let nonce = targets [9];
-        let last_checkpoint_id = targets [10];
-        let event_index = targets [11];
-        let user_id = targets [12];
+        let balance = targets[8];
+        let nonce = targets[9];
+        let last_checkpoint_id = targets[10];
+        let event_index = targets[11];
+        let user_id = targets[12];
         Self {
             public_key,
             user_state_tree_root,
@@ -201,15 +202,22 @@ impl FromTargets for QEDUserLeafGadget {
     }
 }
 
-
 impl<F: RichField> WitnessValueFor<QEDUserLeafGadget, F, true> for QEDUserLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserLeafGadget) -> anyhow::Result<()> {
+    fn set_for_witness(
+        &self,
+        witness: &mut impl Witness<F>,
+        target: &QEDUserLeafGadget,
+    ) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<QEDUserLeafGadget, F, false> for QEDUserLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserLeafGadget) -> anyhow::Result<()> {
+    fn set_for_witness(
+        &self,
+        witness: &mut impl Witness<F>,
+        target: &QEDUserLeafGadget,
+    ) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }

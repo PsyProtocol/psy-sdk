@@ -28,6 +28,9 @@ pub trait CircuitBuilderComparison<F: RichField + Extendable<D>, const D: usize>
     fn ensure_is_greater_than(&mut self, num_bits: usize, x: Target, y: Target);
     fn ensure_not_equal(&mut self, x: Target, y: Target);
     fn ensure_not_equal_bool(&mut self, x: BoolTarget, y: BoolTarget);
+    fn assert_zero_hash(&mut self, hash: HashOutTarget);
+    fn assert_non_zero_hash(&mut self, hash: HashOutTarget);
+    fn assert_non_zero(&mut self, x: Target);
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D>
@@ -178,5 +181,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
             let constant_u64 = self.constant_u64(value);
             self.is_equal(x, constant_u64)
         }
+    }
+    
+    fn assert_zero_hash(&mut self, hash: HashOutTarget) {
+        self.assert_zero(hash.elements[0]);
+        self.assert_zero(hash.elements[1]);
+        self.assert_zero(hash.elements[2]);
+        self.assert_zero(hash.elements[3]);
+    }
+    
+    fn assert_non_zero(&mut self, x: Target) {
+        let is_zero = self.is_zero(x);
+        self.assert_zero(is_zero.target)
+    }
+    
+    fn assert_non_zero_hash(&mut self, hash: HashOutTarget) {
+        self.assert_non_zero(hash.elements[0]);
+        self.assert_non_zero(hash.elements[1]);
+        self.assert_non_zero(hash.elements[2]);
+        self.assert_non_zero(hash.elements[3]);
     }
 }

@@ -12,7 +12,7 @@ use qed_crypto::hash::{
     traits::hasher::MerkleZeroHasher,
 };
 
-use super::circuits::{verify_left_end_cap_right_guta::GUTAVerifyLeftEndCapRightGUTACircuit, verify_left_guta_right_end_cap::GUTAVerifyLeftGUTARightEndCapCircuit, verify_single_end_cap::GUTAVerifySingleEndCapCircuit, verify_two_end_cap::GUTAVerifyTwoEndCapCircuit, verify_two_guta::GUTAVerifyTwoGUTACircuit};
+use super::circuits::{verify_guta_and_register_users::GUTAVerifyGUTARegisterUsersCircuit, verify_left_end_cap_right_guta::GUTAVerifyLeftEndCapRightGUTACircuit, verify_left_guta_right_end_cap::GUTAVerifyLeftGUTARightEndCapCircuit, verify_single_end_cap::GUTAVerifySingleEndCapCircuit, verify_two_end_cap::GUTAVerifyTwoEndCapCircuit, verify_two_guta::GUTAVerifyTwoGUTACircuit};
 
 #[derive(Debug)]
 pub struct QEDGUTACircuitManager<C: GenericConfig<D> + 'static, const D: usize>
@@ -26,6 +26,7 @@ where
     pub verify_two_guta: GUTAVerifyTwoGUTACircuit<C, D>,
     pub verify_left_guta_right_end_cap: GUTAVerifyLeftGUTARightEndCapCircuit<C, D>,
     pub verify_left_end_cap_right_guta: GUTAVerifyLeftEndCapRightGUTACircuit<C, D>,
+    pub verify_guta_register_users: GUTAVerifyGUTARegisterUsersCircuit<C, D>,
     
     pub guta_circuit_whitelist_root: QHashOut<C::F>,
     pub verify_single_end_cap_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
@@ -33,6 +34,7 @@ where
     pub verify_two_guta_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
     pub verify_left_guta_right_end_cap_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
     pub verify_left_end_cap_right_guta_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
+    pub verify_guta_register_users_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
 }
 
 impl<C: GenericConfig<D> + 'static, const D: usize> QEDGUTACircuitManager<C, D>
@@ -82,6 +84,9 @@ where
             known_end_cap_fingerprint,
         );
 
+        let verify_guta_register_users = GUTAVerifyGUTARegisterUsersCircuit::<C,D>::new(guta_proof_common_data, guta_proof_verifier_data_cap_height, 16);
+
+
         let mut guta_circuit_whitelist_proofs =
             SimpleMerkleTree::<C::Hasher, QHashOut<C::F>>::gen_fast_tree_inclusion_proofs(
                 GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT,
@@ -91,6 +96,7 @@ where
                     verify_two_guta.get_fingerprint(),
                     verify_left_guta_right_end_cap.get_fingerprint(),
                     verify_left_end_cap_right_guta.get_fingerprint(),
+                    verify_guta_register_users.get_fingerprint(),
                 ],
             )
             .unwrap();
@@ -101,7 +107,7 @@ where
         let verify_two_guta_whitelist_proof = guta_circuit_whitelist_proofs.pop().unwrap();
         let verify_left_guta_right_end_cap_whitelist_proof = guta_circuit_whitelist_proofs.pop().unwrap();
         let verify_left_end_cap_right_guta_whitelist_proof = guta_circuit_whitelist_proofs.pop().unwrap();
-        
+        let verify_guta_register_users_whitelist_proof =guta_circuit_whitelist_proofs.pop().unwrap();
         Self {
             end_cap_fingerprint: known_end_cap_fingerprint,
             verify_single_end_cap,
@@ -109,6 +115,7 @@ where
             verify_two_guta,
             verify_left_guta_right_end_cap,
             verify_left_end_cap_right_guta,
+            verify_guta_register_users,
 
             guta_circuit_whitelist_root: verify_two_guta_whitelist_proof.root,
             verify_single_end_cap_whitelist_proof,
@@ -116,6 +123,7 @@ where
             verify_two_guta_whitelist_proof,
             verify_left_guta_right_end_cap_whitelist_proof,
             verify_left_end_cap_right_guta_whitelist_proof,
+            verify_guta_register_users_whitelist_proof,
         }
     }
 
@@ -125,6 +133,7 @@ where
         println!("================================\n[verify_two_guta.common]:\n{:?}", self.verify_two_guta.get_common_circuit_data_ref());
         println!("================================\n[verify_left_guta_right_end_cap.common]:\n{:?}", self.verify_left_guta_right_end_cap.get_common_circuit_data_ref());
         println!("================================\n[verify_left_end_cap_right_guta.common]:\n{:?}", self.verify_left_end_cap_right_guta.get_common_circuit_data_ref());
+        println!("================================\n[verify_guta_register_users_whitelist_proof.common]:\n{:?}", self.verify_guta_register_users.get_common_circuit_data_ref());
         println!("===============================\n\n\n\n");
     }
 
