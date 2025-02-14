@@ -675,10 +675,10 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             return Err(Error::TypeMismatch);
         }
         let checked_block = self.visit_block(if_node.if_branch.body, ctx)?;
-        let get_block_type = |block: &CheckedStmtNode| -> TypeId {
+        let get_block_type = |block: &CheckedStmtNode| -> Option<TypeId> {
             match block {
                 CheckedStmtNode::Block(block) => block.ty,
-                _ => VOID_TYPE,
+                _ => None,
             }
         };
         let if_type = get_block_type(&checked_block);
@@ -747,28 +747,29 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         let checked_block = self.visit_block(if_expr_node.if_branch.body, ctx)?;
 
-        let get_block_type = |block: &CheckedStmtNode| -> TypeId {
+        let get_block_type = |block: &CheckedStmtNode| -> Option<TypeId> {
             match block {
                 CheckedStmtNode::Block(block) => block.ty,
-                _ => VOID_TYPE,
+                _ => None,
             }
         };
 
-        let check_block_type = |block: &CheckedStmtNode, expected_type: TypeId| -> Result<()> {
-            let block_type = get_block_type(block);
-            if block_type != expected_type {
-                println!(
-                    "{}:{} Error: {:?}, expected {:?}, but found {:?} ",
-                    file!(),
-                    line!(),
-                    "type mismatch",
-                    expected_type,
-                    block_type
-                );
-                return Err(Error::TypeMismatch);
-            }
-            return Ok(());
-        };
+        let check_block_type =
+            |block: &CheckedStmtNode, expected_type: Option<TypeId>| -> Result<()> {
+                let block_type = get_block_type(block);
+                if block_type != expected_type {
+                    println!(
+                        "{}:{} Error: {:?}, expected {:?}, but found {:?} ",
+                        file!(),
+                        line!(),
+                        "type mismatch",
+                        expected_type,
+                        block_type
+                    );
+                    return Err(Error::TypeMismatch);
+                }
+                return Ok(());
+            };
         let if_type = get_block_type(&checked_block);
         let if_branch = CheckedCase {
             predicate: self.exprs.alloc_item(checked_expr),
@@ -812,7 +813,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             if_branch,
             elseif_branch,
             else_branch,
-            type_id: TypeId::from(if_type),
+            type_id: TypeId::from(if_type.unwrap_or(VOID_TYPE)),
         }))
     }
     fn visit_while(
@@ -861,17 +862,19 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         for (_i, stmt) in block.stmts.iter().enumerate() {
             new_stmts.push(self.visit_stmt(stmt.clone(), ctx)?);
         }
+
+        //only the last statement in the block can have a return type
         let type_id = match new_stmts.last() {
             Some(stmt) => match stmt {
                 CheckedStmtNode::Return(ret) => match ret {
-                    CheckedReturnNode { ret: Some((_, ty)) } => *ty,
-                    CheckedReturnNode { ret: None } => VOID_TYPE,
+                    CheckedReturnNode { ret: Some((_, ty)) } => Some(*ty),
+                    CheckedReturnNode { ret: None } => None,
                 },
                 CheckedStmtNode::If(if_node) => if_node.type_id,
                 CheckedStmtNode::Block(block) => block.ty,
-                _ => VOID_TYPE,
+                _ => None,
             },
-            None => VOID_TYPE,
+            None => None,
         };
 
         ctx.symbols.end_scope();

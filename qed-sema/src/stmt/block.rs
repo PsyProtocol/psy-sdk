@@ -4,7 +4,7 @@ use qed_ast::{NodeInfo, NodeType, StmtId};
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedBlockNode {
     pub stmts: Vec<StmtId>,
-    pub ty: TypeId,
+    pub ty: Option<TypeId>,
 }
 
 impl NodeInfo for CheckedBlockNode {
