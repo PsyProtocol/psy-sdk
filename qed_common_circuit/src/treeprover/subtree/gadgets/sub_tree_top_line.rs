@@ -21,6 +21,7 @@ impl SubTreeNodeTopLineGadget {
     pub fn add_virtual_to_full<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         max_height: usize,
+        max_level: usize,
         child_transition: &SubTreeNodeStateTransitionGadget,
     ) -> Self {
 
@@ -38,7 +39,7 @@ impl SubTreeNodeTopLineGadget {
         let node_index = top_line_proof.bit_info.get_root_parent_index(builder);
 
         let node_level = builder.sub(child_transition.node_level, top_line_height);
-        builder.range_check(node_level, log2_ceil(max_height));
+        builder.range_check(node_level, log2_ceil(max_level));
 
         let new_state_transition = SubTreeNodeStateTransitionGadget {
             old_node_value: top_line_proof.old_root,

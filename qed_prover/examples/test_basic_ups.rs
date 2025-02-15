@@ -222,7 +222,7 @@ fn gen_contract_deploy_and_circuits_for_functions(
     Ok((circuits, deploy))
 }
 fn prepare_environment_with_real_contract(
-    new_user_public_key: QHashOut<GoldilocksField>,
+    new_user_public_key: QBCRegisterUser<GoldilocksField>,
     deploy_contract: QBCDeployContract<GoldilocksField>,
 ) -> anyhow::Result<
     QEDLocalProvingSessionStore<
@@ -245,28 +245,16 @@ fn prepare_environment_with_real_contract(
         &st,
         &QEDBlockCommands {
             register_users: vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(1, 1, 1, 1),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(13371, 13372, 13373, 13374),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(13375, 13376, 13377, 13378),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: new_user_public_key,
-                },
+                QBCRegisterUser::new_from_u64s([1;4], [1;4]),
+                QBCRegisterUser::new_from_u64s([1;4], [13371, 13372, 13373, 13374]),
+                QBCRegisterUser::new_from_u64s([1;4], [13375, 13376, 13377, 13378]),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+                new_user_public_key,
             ],
             deploy_contracts: vec![
                 QBCDeployContract {
-                    deployer: QHashOut::from_values(13371, 13372, 13373, 13374),
+                    deployer: QBCRegisterUser::new_from_u64s([1;4], [13371, 13372, 13373, 13374]).get_public_key::<QEDHasher>(),
                     code_definition: ContractCodeDefinition {
                         state_tree_height: 12 as u16,
                         functions: vec![ContractFunctionCodeDefinition::default()],
@@ -274,7 +262,7 @@ fn prepare_environment_with_real_contract(
                     function_whitelist: whitelist_items_fake.to_vec(),
                 },
                 QBCDeployContract {
-                    deployer: QHashOut::from_values(13375, 13376, 13377, 13378),
+                    deployer: QBCRegisterUser::new_from_u64s([1;4], [13375, 13376, 13377, 13378]).get_public_key::<QEDHasher>(),
                     code_definition: ContractCodeDefinition {
                         state_tree_height: 13 as u16,
                         functions: vec![ContractFunctionCodeDefinition::default()],
@@ -292,12 +280,8 @@ fn prepare_environment_with_real_contract(
         &st,
         &QEDBlockCommands {
             register_users: vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
             ],
             deploy_contracts: vec![
             ],
@@ -310,12 +294,8 @@ fn prepare_environment_with_real_contract(
         &st,
         &QEDBlockCommands {
             register_users: vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
             ],
             deploy_contracts: vec![
             ],
@@ -457,7 +437,10 @@ fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("finished building fn circuits");
     let priv_key = QHashOut::rand();
     let mut wallet = SimpleQEDZKSignatureManager::<C,D>::new();
-    let pub_key = wallet.add_private_key(SimpleQEDPrivateKey::new(priv_key));
+    let priv_key_obj = SimpleQEDPrivateKey::new(priv_key);
+    let pub_param = priv_key_obj.get_public_key_param::<QEDHasher>();
+    let fingerprint = wallet.get_zksig_circuit_fingerprint();
+    let pub_key = wallet.add_private_key(priv_key_obj);
     timer.lap("finished building wallet/zksig circuits");
     
 
@@ -495,7 +478,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
 
     
     let lps = prepare_environment_with_real_contract(
-        pub_key,
+        QBCRegisterUser::new(fingerprint, pub_param),
         deploy_cmd,
     )?;
     let mut circuit_info = SessionCircuitInfoStore::new();

@@ -269,6 +269,16 @@ impl<Hash: PartialEq + Copy> DeltaMerkleProofCore<Hash> {
             siblings,
         }
     }
+    pub fn single_value(index: u64, old_value: Hash, new_value: Hash) -> Self {
+        Self {
+            old_root: old_value,
+            old_value,
+            new_root: new_value,
+            new_value,
+            index,
+            siblings: Vec::new(),
+        }
+    }
     pub fn with_shortened_height_from_bottom<H: MerkleHasher<Hash>>(&self, new_height: usize) -> Self {
         assert!(new_height <= self.siblings.len(), "cannot shorten tree to a height taller than the current proof");
         if new_height == self.siblings.len() {

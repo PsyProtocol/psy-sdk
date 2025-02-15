@@ -187,7 +187,7 @@ fn gen_contract_deploy_and_circuits_for_functions(
     Ok((circuits, deploy))
 }
 fn prepare_environment_with_real_contract(
-    new_user_public_keys: Vec<QHashOut<GoldilocksField>>,
+    new_user_public_keys: Vec<QBCRegisterUser<GoldilocksField>>,
     deploy_contract: QBCDeployContract<GoldilocksField>,
 ) -> anyhow::Result<
     (QEDLocalProvingSessionStore<
@@ -215,22 +215,12 @@ fn prepare_environment_with_real_contract(
         &st,
         &QEDBlockCommands {
             register_users: [vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(1, 1, 1, 1),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(13371, 13372, 13373, 13374),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(13375, 13376, 13377, 13378),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-            ], new_user_public_keys.into_iter().map(|k| QBCRegisterUser{public_key:k}).collect::<Vec<_>>()].concat(),
+                QBCRegisterUser::new_from_u64s([1;4], [1;4]),
+                QBCRegisterUser::new_from_u64s([1;4], [13371, 13372, 13373, 13374]),
+                QBCRegisterUser::new_from_u64s([1;4], [13375, 13376, 13377, 13378]),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+            ], new_user_public_keys].concat(),
             deploy_contracts: vec![
                 QBCDeployContract {
                     deployer: QHashOut::from_values(13371, 13372, 13373, 13374),
@@ -259,12 +249,8 @@ fn prepare_environment_with_real_contract(
         &st,
         &QEDBlockCommands {
             register_users: vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
             ],
             deploy_contracts: vec![
             ],
@@ -277,12 +263,8 @@ fn prepare_environment_with_real_contract(
         &st,
         &QEDBlockCommands {
             register_users: vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
             ],
             deploy_contracts: vec![
             ],
@@ -425,8 +407,8 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     let priv_key_0 = QHashOut::rand();
     let priv_key_1 = QHashOut::rand();
     let mut wallet = SimpleQEDZKSignatureManager::<C,D>::new();
-    let pub_key_0 = wallet.add_private_key(SimpleQEDPrivateKey::new(priv_key_0));
-    let pub_key_1 = wallet.add_private_key(SimpleQEDPrivateKey::new(priv_key_1));
+    let pub_key_0 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_0));
+    let pub_key_1 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_1));
     timer.lap("finished building wallet/zksig circuits");
     
 
@@ -464,7 +446,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
 
     
     let (lps, st) = prepare_environment_with_real_contract(
-        vec![pub_key_0, pub_key_1],
+        vec![pub_key_0.into(), pub_key_1.into()],
         deploy_cmd,
     )?;
     
@@ -481,7 +463,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     
     let mut api = SimpleAPI::<_,_,GoldilocksField,C,D>::new(proof_store, st, guta_circuits)?;
     //main_circuits.print_common_config();
-    //api.guta_circuits.print_common_config();
+    api.guta_circuits.print_common_config();
 
 
 

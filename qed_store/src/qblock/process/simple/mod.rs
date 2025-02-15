@@ -62,7 +62,7 @@ impl SimpleBlockProcessor {
         for (i, r) in cmds.register_users.iter().enumerate() {
             let user_id = current_block_state.next_user_id + i as u64;
             let user = QEDUserLeaf {
-                public_key: r.public_key,
+                public_key: r.get_public_key::<QEDHasher>(),
                 user_state_tree_root: DEFAULT_USER_STATE_TREE_ROOT,
                 balance: QEDFelt::ZERO,
                 nonce: QEDFelt::ZERO,

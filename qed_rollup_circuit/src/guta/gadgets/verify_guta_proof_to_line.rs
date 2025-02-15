@@ -29,7 +29,8 @@ impl<const D: usize> VerifyGUTAProofToLineGadget<D> {
         builder: &mut CircuitBuilder<F, D>,
         proof_common_data: &CommonCircuitData<F, D>,
         verifier_data_cap_height: usize,
-        guta_tree_max_height: usize,
+        global_user_tree_realm_height: usize,
+        global_user_tree_height: usize,
     ) -> Self
     where
         <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
@@ -41,7 +42,8 @@ impl<const D: usize> VerifyGUTAProofToLineGadget<D> {
         );
         let header_line_gadget = GUTAHeaderLineProofGadget::add_virtual_to::<C::Hasher,F,D>(
             builder,
-            guta_tree_max_height,
+            global_user_tree_realm_height,
+            global_user_tree_height,
             &verify_guta_proof_gadget.guta_proof_header_gadget
         );
         Self {

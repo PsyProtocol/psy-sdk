@@ -25,6 +25,7 @@ pub struct GUTARegisterUsersGadget {
 impl GUTARegisterUsersGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
+        global_user_tree_realm_height: usize,
         global_user_tree_height: usize,
         default_user_state_tree_root: QHashOut<F>,
         input_height_target: Option<Target>,
@@ -37,6 +38,7 @@ impl GUTARegisterUsersGadget {
 
         let first_user = GUTARegisterUserFullGadget::add_virtual_to::<H,F,D>(
             builder,
+            global_user_tree_realm_height,
             global_user_tree_height,
             default_user_state_tree_root,
             input_height_target
@@ -62,6 +64,7 @@ impl GUTARegisterUsersGadget {
         for i in 1..max_users {
             let user = GUTARegisterUserFullGadget::add_virtual_to::<H,F,D>(
                 builder,
+                global_user_tree_realm_height,
                 global_user_tree_height,
                 default_user_state_tree_root,
                 new_input_height_target

@@ -1308,6 +1308,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "qed_node_common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "chrono",
+ "hex",
+ "hex-literal",
+ "kvq",
+ "lazy_static",
+ "log",
+ "plonky2",
+ "qed_core",
+ "qed_crypto",
+ "qed_data",
+ "qed_store",
+ "rand",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "serde_with",
+ "tracing",
+ "twox-hash",
+]
+
+[[package]]
 name = "qed_prover"
 version = "0.1.0"
 dependencies = [
@@ -1361,6 +1387,7 @@ name = "qed_store"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "hashbrown 0.14.5",
  "hex",
  "hex-literal",

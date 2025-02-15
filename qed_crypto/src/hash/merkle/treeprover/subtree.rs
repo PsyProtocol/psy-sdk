@@ -1,3 +1,4 @@
+use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
@@ -37,3 +38,14 @@ impl<F: RichField> QFieldHashable<F> for SubTreeNodeStateTransition<F> {
     }
 }
 
+
+
+impl<F: RichField> KVQSerializable for SubTreeNodeStateTransition<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}

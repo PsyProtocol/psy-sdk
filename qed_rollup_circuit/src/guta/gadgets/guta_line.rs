@@ -19,13 +19,15 @@ pub struct GUTAHeaderLineProofGadget{
 impl GUTAHeaderLineProofGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
-        max_height: usize,
+        global_user_tree_realm_height: usize,
+        global_user_tree_height: usize,
         child_proof_header: &GlobalUserTreeAggregatorHeaderGadget,
     ) -> Self {
 
         let top_line_gadget = SubTreeNodeTopLineGadget::add_virtual_to_full::<H,F,D>(
             builder, 
-            max_height,
+            global_user_tree_realm_height,
+            global_user_tree_height,
             &child_proof_header.state_transition
         );
 

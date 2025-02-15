@@ -7,3 +7,7 @@ pub mod checkpoint_id_key;
 pub mod contract_inclusion;
 pub mod ups_signature;
 pub mod ups_end_cap_result;
+pub mod hash_key;
+pub mod hash_cache_result;
+pub mod hash_key_with_id;
+pub mod user_public_key;

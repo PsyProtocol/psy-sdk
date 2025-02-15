@@ -16,3 +16,4 @@ pub mod full_merkle_tree_append;
 pub mod sub_slot_delta_merkle_proof_batch;
 pub mod sub_slot_merkle_proof_batch;
 pub mod merkle_array_gen;
+pub mod variable_height_delta_merkle_proof_opt_v2;

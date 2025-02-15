@@ -35,7 +35,9 @@ where
             guta_proof_common_data: &CommonCircuitData<C::F, D>,
             guta_proof_verifier_data_cap_height: usize,
             max_users: usize,
+            global_user_tree_realm_height: usize,
         ) -> Self {
+
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
@@ -53,6 +55,7 @@ where
             &mut builder,
             guta_proof_common_data,
             guta_proof_verifier_data_cap_height,
+            global_user_tree_realm_height,
             GLOBAL_USER_TREE_HEIGHT as usize,
             default_user_state_tree_root,
             max_users,

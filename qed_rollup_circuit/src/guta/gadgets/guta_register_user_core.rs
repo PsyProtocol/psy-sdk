@@ -21,11 +21,14 @@ pub struct GUTARegisterUserCoreGadget {
     pub user_leaf_hash: HashOutTarget,
 
     pub needs_public_key_witness: bool,
+    //global_user_tree_realm_height: usize,
+    global_user_tree_height: usize,
 }
 
 impl GUTARegisterUserCoreGadget {
     pub fn add_virtual_to_with_public_key<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
+        global_user_tree_realm_height: usize,
         global_user_tree_height: usize,
         default_user_state_tree_root: QHashOut<F>,
         input_height_target: Option<Target>,
@@ -34,7 +37,7 @@ impl GUTARegisterUserCoreGadget {
 
         let global_user_tree_update_proof = VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full::<H,F,D>(
             builder, 
-            global_user_tree_height,
+            global_user_tree_realm_height,
             input_height_target,
         );
 
@@ -64,11 +67,14 @@ impl GUTARegisterUserCoreGadget {
             user_leaf_hash,
             user_id,
             needs_public_key_witness: false,
+            //global_user_tree_realm_height,
+            global_user_tree_height,
         }
     }
 
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
+        global_user_tree_realm_height: usize,
         global_user_tree_height: usize,
         default_user_state_tree_root: QHashOut<F>,
         input_height_target: Option<Target>,
@@ -77,6 +83,7 @@ impl GUTARegisterUserCoreGadget {
 
         let mut gadget = Self::add_virtual_to_with_public_key::<H,F,D>(
             builder,
+            global_user_tree_realm_height,
             global_user_tree_height,
             default_user_state_tree_root,
             input_height_target,
@@ -92,7 +99,7 @@ impl GUTARegisterUserCoreGadget {
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> SubTreeNodeStateTransitionGadget {
-        let leaf_level = builder.constant_u64(self.global_user_tree_update_proof.siblings.len() as u64);
+        let leaf_level = builder.constant_u64(self.global_user_tree_height as u64);
         let node_level = builder.sub(leaf_level, self.global_user_tree_update_proof.height);
         // leaf level will always be >= than the proof tree height
         let node_index = self.global_user_tree_update_proof.bit_info.get_root_parent_index(builder);

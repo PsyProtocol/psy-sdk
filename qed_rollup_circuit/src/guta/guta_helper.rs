@@ -4,7 +4,7 @@ use plonky2::{
 };
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{
-    config::network_constants::GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT,
+    config::network_constants::{GLOBAL_USER_TREE_HEIGHT, GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT},
     data::qhashout::QHashOut,
 };
 use qed_crypto::hash::{
@@ -84,7 +84,12 @@ where
             known_end_cap_fingerprint,
         );
 
-        let verify_guta_register_users = GUTAVerifyGUTARegisterUsersCircuit::<C,D>::new(guta_proof_common_data, guta_proof_verifier_data_cap_height, 16);
+        let verify_guta_register_users = GUTAVerifyGUTARegisterUsersCircuit::<C,D>::new(
+            guta_proof_common_data,
+            guta_proof_verifier_data_cap_height,
+            32,
+            GLOBAL_USER_TREE_HEIGHT as usize,
+        );
 
 
         let mut guta_circuit_whitelist_proofs =
@@ -133,7 +138,7 @@ where
         println!("================================\n[verify_two_guta.common]:\n{:?}", self.verify_two_guta.get_common_circuit_data_ref());
         println!("================================\n[verify_left_guta_right_end_cap.common]:\n{:?}", self.verify_left_guta_right_end_cap.get_common_circuit_data_ref());
         println!("================================\n[verify_left_end_cap_right_guta.common]:\n{:?}", self.verify_left_end_cap_right_guta.get_common_circuit_data_ref());
-        println!("================================\n[verify_guta_register_users_whitelist_proof.common]:\n{:?}", self.verify_guta_register_users.get_common_circuit_data_ref());
+        println!("================================\n[verify_guta_register_users.common]:\n{:?}", self.verify_guta_register_users.get_common_circuit_data_ref());
         println!("===============================\n\n\n\n");
     }
 

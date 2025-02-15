@@ -6,6 +6,8 @@ pub struct KVQPair<K, V> {
     pub value: V,
 }
 
+impl<K: Copy, V: Copy> Copy for KVQPair<K,V>{}
+
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct KVQPairSerializable<K, V> {
     pub key: K,

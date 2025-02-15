@@ -25,6 +25,7 @@ impl<const D: usize> GUTARegisterUsersBatchGadget<D> {
         builder: &mut CircuitBuilder<F, D>,
         proof_common_data: &CommonCircuitData<F, D>,
         verifier_data_cap_height: usize,
+        global_user_tree_realm_height: usize,
         global_user_tree_height: usize,
         default_user_state_tree_root: QHashOut<F>,
         max_users: usize,
@@ -32,14 +33,18 @@ impl<const D: usize> GUTARegisterUsersBatchGadget<D> {
     where
         <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
     {
+
+        assert!(global_user_tree_realm_height <= global_user_tree_height, "global_user_tree_realm_height cannot be taller than global_user_tree_height");
         let verify_to_line_gadget = VerifyGUTAProofToLineGadget::<D>::add_virtual_to::<C, F>(
             builder, 
             proof_common_data,
             verifier_data_cap_height,
+            global_user_tree_realm_height,
             global_user_tree_height,
         );
         let register_users_gadget = GUTARegisterUsersGadget::add_virtual_to::<C::Hasher, C::F, D>(
             builder,
+            global_user_tree_realm_height,
             global_user_tree_height,
             default_user_state_tree_root,
             None,

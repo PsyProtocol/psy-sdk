@@ -28,6 +28,13 @@ impl<F: Field> ZeroableHash for QHashOut<F> {
 }
 pub trait MerkleHasher<Hash: PartialEq> {
     fn two_to_one(left: &Hash, right: &Hash) -> Hash;
+    fn two_to_one_swap(swap: bool, left: &Hash, right: &Hash) -> Hash {
+        if swap {
+            Self::two_to_one(right, left)
+        }else{
+            Self::two_to_one(left, right)
+        }
+    }
 }
 
 pub trait MerkleLeafHasher<Hash: PartialEq + Copy> {
@@ -73,6 +80,13 @@ impl<Hash: PartialEq + Copy, H: MerkleHasher<Hash>> MerkleLeafHasher<Hash> for H
 }
 pub trait MerkleHasherWithMarkedLeaf<Hash: PartialEq>: MerkleHasher<Hash> {
     fn two_to_one_marked_leaf(left: &Hash, right: &Hash) -> Hash;
+    fn two_to_one_marked_leaf_swap(swap: bool, left: &Hash, right: &Hash) -> Hash {
+        if swap {
+            Self::two_to_one_marked_leaf(right, left)
+        }else{
+            Self::two_to_one_marked_leaf(left, right)
+        }
+    }
 }
 
 pub trait MerkleZeroHasher<Hash: PartialEq>: MerkleHasher<Hash> {

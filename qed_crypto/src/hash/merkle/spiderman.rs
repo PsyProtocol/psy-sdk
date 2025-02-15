@@ -1,5 +1,6 @@
+use kvq::traits::KVQSerializable;
 use plonky2::util::{log2_ceil, log2_strict};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::hash::traits::hasher::{MerkleHasher, MerkleLeafHasher, ZeroableHash};
 
@@ -125,3 +126,13 @@ impl<Hash: PartialEq + Copy> SpidermanUpdateProof<Hash> {
 }
 
 
+
+impl<Hash: PartialEq + Copy + Serialize + DeserializeOwned> KVQSerializable for SpidermanUpdateProof<Hash> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
