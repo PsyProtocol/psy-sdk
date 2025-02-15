@@ -25,6 +25,13 @@ pub trait QEDCheckpointSyncInfoModelReaderCore<
         //tracing::info!("get block state: {}", checkpoint_id);
         KVA::get_exact(store, &U64TableKey(checkpoint_id))
     }
+    fn get_checkpoint_sync_info_compact_or_latest(
+        store: &S,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<QCheckpointSyncInfoCompact> {
+        //tracing::info!("get block state: {}", checkpoint_id);
+        Ok(KVA::get_leq(store, &U64TableKey(checkpoint_id), CHECKPOINT_ID_FUZZY_SIZE)?.unwrap())
+    }
     fn get_latest_checkpoint_sync_info_compact(
         store: &S,
     ) -> anyhow::Result<QCheckpointSyncInfoCompact> {
@@ -114,19 +121,17 @@ pub trait QEDCheckpointSyncInfoModelCore<
     }
     fn set_checkpoint_sync_info(
         store: &S,
-        checkpoint_id: u64,
         checkpoint_sync_info: QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
-        let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_id);
+        let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_sync_info.l2_block_state.checkpoint_id);
         KVA::imm_set(store, key_id, checkpoint_sync_info)?;
         Ok(())
     }
     fn set_checkpoint_sync_info_ref(
         store: &S,
-        checkpoint_id: u64,
         checkpoint_sync_info: &QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
-        let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_id);
+        let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_sync_info.l2_block_state.checkpoint_id);
         KVA::imm_set_ref(store, &key_id, &checkpoint_sync_info)?;
         Ok(())
     }

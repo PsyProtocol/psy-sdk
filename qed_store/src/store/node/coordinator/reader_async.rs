@@ -1,0 +1,456 @@
+use crate::{
+    config::store_config::{CheckpointSyncInfoTableStore, UserTreeStore},
+    models::{
+        checkpoint::
+            sync_info::QEDCheckpointSyncInfoModelReaderCore
+        ,
+        kvq_merkle::model::{
+            KVQFixedConfigMerkleTreeModelReaderCore, KVQMerkleTreeModelReaderCore,
+        },
+    },
+    node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync,
+    store::imm::core::QEDStorageAdapterImmutable,
+    traits::qdatastore::{
+        qmetadata::QMetaDataStoreReaderSync,
+        qtreedata::
+            QTreeDataStoreReaderSync
+        ,
+    },
+};
+
+use async_trait::async_trait;
+use plonky2::field::goldilocks_field::GoldilocksField;
+use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
+use qed_crypto::hash::merkle::core::MerkleProofCore;
+use qed_data::{
+    qdata::{
+        checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
+        contract::{ContractCodeDefinition, QEDContractLeaf},
+    },
+    qsync::coordinator::QEDCheckpointSyncInfoCompact,
+};
+type F = GoldilocksField;
+#[async_trait]
+impl<T: QEDStorageAdapterImmutable + Send + Sync>
+    QEDCoordinatorStoreReaderAsync<F> for T
+{
+    async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_contract_leaf_data(self, contract_id)
+    }
+    async fn get_contract_leaf_data_f(&self, contract_id: F) -> anyhow::Result<QEDContractLeaf<F>> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_contract_leaf_data_f(self, contract_id)
+    }
+
+    async fn get_checkpoint_leaf_data(
+        &self,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_checkpoint_leaf_data(self, checkpoint_id)
+    }
+    async fn get_checkpoint_leaf_data_f(
+        &self,
+        checkpoint_id: F,
+    ) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_checkpoint_leaf_data_f(self, checkpoint_id)
+    }
+
+    async fn get_contract_code_definition(
+        &self,
+        contract_id: u64,
+    ) -> anyhow::Result<ContractCodeDefinition> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_contract_code_definition(self, contract_id)
+    }
+    async fn get_contract_code_definition_f(
+        &self,
+        contract_id: F,
+    ) -> anyhow::Result<ContractCodeDefinition> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_contract_code_definition_f(self, contract_id)
+    }
+    async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_latest_l2_block_state(self)
+    }
+
+    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_l2_block_state(self, checkpoint_id)
+    }
+    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<QEDL2BlockState> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_l2_block_state_f(self, checkpoint_id)
+    }
+
+    async fn get_user_registration_tree_root(
+        &self,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_root(self, checkpoint_id)
+    }
+    async fn get_user_registration_tree_root_f(
+        &self,
+        checkpoint_id: F,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_root_f(
+            self,
+            checkpoint_id,
+        )
+    }
+    async fn get_user_registration_tree_leaf_hash(
+        &self,
+        checkpoint_id: u64,
+        leaf_index: u64,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_leaf_hash(
+            self,
+            checkpoint_id,
+            leaf_index,
+        )
+    }
+    async fn get_user_registration_tree_leaf_hash_f(
+        &self,
+        checkpoint_id: F,
+        leaf_index: F,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_leaf_hash_f(
+            self,
+            checkpoint_id,
+            leaf_index,
+        )
+    }
+    async fn get_user_registration_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        leaf_index: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_merkle_proof(
+            self,
+            checkpoint_id,
+            leaf_index,
+        )
+    }
+    async fn get_user_registration_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        leaf_index: F,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_merkle_proof_f(
+            self,
+            checkpoint_id,
+            leaf_index,
+        )
+    }
+    async fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_root(self, checkpoint_id)
+    }
+    async fn get_user_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_root_f(self, checkpoint_id)
+    }
+    async fn get_user_sub_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        root_level: u8,
+        leaf_level: u8,
+        leaf_index: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_sub_tree_merkle_proof(
+            self,
+            checkpoint_id,
+            root_level,
+            leaf_level,
+            leaf_index,
+        )
+    }
+    async fn get_user_top_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        leaf_level: u8,
+        leaf_index: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        UserTreeStore::get_sub_tree_proof(
+            self,
+            GLOBAL_USER_TREE_HEIGHT as usize,
+            0,
+            &UserTreeStore::<Self>::new_node_key_fc(checkpoint_id, leaf_level, leaf_index),
+        )
+    }
+    async fn get_contract_function_tree_root(
+        &self,
+        checkpoint_id: u64,
+        contract_id: u32,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_function_tree_root(
+            self,
+            checkpoint_id,
+            contract_id,
+        )
+    }
+    async fn get_contract_function_tree_root_f(
+        &self,
+        checkpoint_id: F,
+        contract_id: F,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_function_tree_root_f(
+            self,
+            checkpoint_id,
+            contract_id,
+        )
+    }
+    async fn get_contract_function_tree_leaf_hash(
+        &self,
+        checkpoint_id: u64,
+        contract_id: u32,
+        function_id: u32,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_function_tree_leaf_hash(
+            self,
+            checkpoint_id,
+            contract_id,
+            function_id,
+        )
+    }
+    async fn get_contract_function_tree_leaf_hash_f(
+        &self,
+        checkpoint_id: F,
+        contract_id: F,
+        function_id: F,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_function_tree_leaf_hash_f(
+            self,
+            checkpoint_id,
+            contract_id,
+            function_id,
+        )
+    }
+    async fn get_contract_function_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        contract_id: u32,
+        function_id: u32,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_function_tree_merkle_proof(
+            self,
+            checkpoint_id,
+            contract_id,
+            function_id,
+        )
+    }
+    async fn get_contract_function_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        contract_id: F,
+        function_id: F,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_function_tree_merkle_proof_f(
+            self,
+            checkpoint_id,
+            contract_id,
+            function_id,
+        )
+    }
+    async fn get_contract_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_root(self, checkpoint_id)
+    }
+    async fn get_contract_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_root_f(self, checkpoint_id)
+    }
+    async fn get_contract_tree_leaf_hash(
+        &self,
+        checkpoint_id: u64,
+        contract_id: u32,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_leaf_hash(
+            self,
+            checkpoint_id,
+            contract_id,
+        )
+    }
+    async fn get_contract_tree_leaf_hash_f(
+        &self,
+        checkpoint_id: F,
+        contract_id: F,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_leaf_hash_f(
+            self,
+            checkpoint_id,
+            contract_id,
+        )
+    }
+    async fn get_contract_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        contract_id: u32,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_merkle_proof(
+            self,
+            checkpoint_id,
+            contract_id,
+        )
+    }
+    async fn get_contract_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        contract_id: F,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_merkle_proof_f(
+            self,
+            checkpoint_id,
+            contract_id,
+        )
+    }
+    async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_root(self, checkpoint_id)
+    }
+    async fn get_deposit_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_root_f(self, checkpoint_id)
+    }
+    async fn get_deposit_tree_leaf_hash(
+        &self,
+        checkpoint_id: u64,
+        deposit_id: u32,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_leaf_hash(
+            self,
+            checkpoint_id,
+            deposit_id,
+        )
+    }
+    async fn get_deposit_tree_leaf_hash_f(
+        &self,
+        checkpoint_id: F,
+        deposit_id: F,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_leaf_hash_f(
+            self,
+            checkpoint_id,
+            deposit_id,
+        )
+    }
+    async fn get_deposit_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        deposit_id: u32,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_merkle_proof(
+            self,
+            checkpoint_id,
+            deposit_id,
+        )
+    }
+    async fn get_deposit_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        deposit_id: F,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_merkle_proof_f(
+            self,
+            checkpoint_id,
+            deposit_id,
+        )
+    }
+    async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_root(self, checkpoint_id)
+    }
+    async fn get_withdrawal_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_root_f(self, checkpoint_id)
+    }
+    async fn get_withdrawal_tree_leaf_hash(
+        &self,
+        checkpoint_id: u64,
+        withdrawal_id: u32,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_leaf_hash(
+            self,
+            checkpoint_id,
+            withdrawal_id,
+        )
+    }
+    async fn get_withdrawal_tree_leaf_hash_f(
+        &self,
+        checkpoint_id: F,
+        withdrawal_id: F,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_leaf_hash_f(
+            self,
+            checkpoint_id,
+            withdrawal_id,
+        )
+    }
+    async fn get_withdrawal_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        withdrawal_id: u32,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_merkle_proof(
+            self,
+            checkpoint_id,
+            withdrawal_id,
+        )
+    }
+    async fn get_withdrawal_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        withdrawal_id: F,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_merkle_proof_f(
+            self,
+            checkpoint_id,
+            withdrawal_id,
+        )
+    }
+    async fn get_latest_checkpoint_tree_root(&self) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_latest_checkpoint_tree_root(self)
+    }
+    async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_checkpoint_tree_root(self, checkpoint_id)
+    }
+    async fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_checkpoint_tree_root_f(self, checkpoint_id)
+    }
+    async fn get_checkpoint_tree_leaf_hash(
+        &self,
+        checkpoint_id: u64,
+        leaf_checkpoint_id: u64,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_checkpoint_tree_leaf_hash(
+            self,
+            checkpoint_id,
+            leaf_checkpoint_id,
+        )
+    }
+    async fn get_checkpoint_tree_leaf_hash_f(
+        &self,
+        checkpoint_id: F,
+        leaf_checkpoint_id: F,
+    ) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_checkpoint_tree_leaf_hash_f(
+            self,
+            checkpoint_id,
+            leaf_checkpoint_id,
+        )
+    }
+    async fn get_checkpoint_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        leaf_checkpoint_id: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_checkpoint_tree_merkle_proof(
+            self,
+            checkpoint_id,
+            leaf_checkpoint_id,
+        )
+    }
+    async fn get_checkpoint_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        leaf_checkpoint_id: F,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_checkpoint_tree_merkle_proof_f(
+            self,
+            checkpoint_id,
+            leaf_checkpoint_id,
+        )
+    }
+    async fn get_checkpoint_sync_info_compact(
+        &self,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>> {
+        CheckpointSyncInfoTableStore::<Self>::get_checkpoint_sync_info_compact(self, checkpoint_id)
+    }
+}

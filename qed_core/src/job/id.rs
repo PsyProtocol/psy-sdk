@@ -637,6 +637,13 @@ impl QProvingJobDataID {
             ..*self
         }
     }
+    pub fn get_input_witness_id(&self) -> Self {
+        Self {
+            data_type: ProvingJobDataType::InputWitness,
+            data_index: 0,
+            ..*self
+        }
+    }
     pub fn get_sub_group_counter_id(&self) -> Self {
         Self {
             data_type: ProvingJobDataType::Counter,

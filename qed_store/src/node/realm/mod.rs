@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::{core::MerkleProofCore, spiderman::SpidermanUpdateProof, utils::{common::QMerkleNode, sub_tree_nca::NCAProofsWithTopLine}};
-use qed_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}, sync::coordinator::QEDCheckpointSyncInfo};
+use qed_crypto::hash::merkle::{core::MerkleProofCore, utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}};
+use qed_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}, qsync::coordinator::QEDCheckpointSyncInfo};
 
 #[async_trait]
 pub trait QEDRealmStoreReaderAsync<F: RichField> {
@@ -68,7 +68,7 @@ pub trait QEDRealmStoreReaderAsync<F: RichField> {
 
 #[async_trait]
 pub trait QEDRealmStoreWriterAsync<F: RichField> {
-    async fn injest_user_tree_nodes_mut(&mut self, checkpoint_id: u64, nodes: &[QMerkleNode<F>]) -> anyhow::Result<NCAProofsWithTopLine<QHashOut<F>>>;
+    async fn injest_user_tree_nodes_mut(&mut self, checkpoint_id: u64, nodes: &[QMerkleNode<F>]) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>>;
     async fn injest_checkpoint_sync_data_mut(&mut self, sync_info: QEDCheckpointSyncInfo<F>) -> anyhow::Result<()>;
 
     
@@ -84,7 +84,7 @@ pub trait QEDRealmStoreWriterAsync<F: RichField> {
 
 #[async_trait]
 pub trait QEDRealmStoreWriterAsyncImm<F: RichField> {
-    async fn injest_user_tree_nodes_imm(&self, checkpoint_id: u64, nodes: &[QMerkleNode<F>]) -> anyhow::Result<NCAProofsWithTopLine<QHashOut<F>>>;
+    async fn injest_user_tree_nodes_imm(&self, checkpoint_id: u64, nodes: &[QMerkleNode<F>]) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>>;
     async fn injest_checkpoint_sync_data_imm(&self, sync_info: QEDCheckpointSyncInfo<F>) -> anyhow::Result<()>;
 
     
@@ -94,7 +94,7 @@ pub trait QEDRealmStoreWriterAsyncImm<F: RichField> {
     async fn set_contract_code_definition_imm(&self, checkpoint_id: u64, contract_id: u64, definition: &ContractCodeDefinition) -> anyhow::Result<()>;
     async fn set_contract_code_definition_f_imm(&self, checkpoint_id: F, contract_id: F, definition: &ContractCodeDefinition) -> anyhow::Result<()>;
 
-    async fn commit_block_immf(&self, checkpoint_id: u64) -> anyhow::Result<()>;
+    async fn commit_block_imm(&self, checkpoint_id: u64) -> anyhow::Result<()>;
 
 
 }

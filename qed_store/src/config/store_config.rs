@@ -10,10 +10,10 @@ use qed_core::{
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use qed_data::{qdata::{
     checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, checkpoint_id_key::CheckpointTableIdKey, contract::{ContractCodeDefinition, QEDContractLeaf}, hash_cache_result::QEDHashHelperResult, hash_key::Hash4x64Key, hash_key_with_id::Hash4x64KeyWithId, u64_key::U64TableKey, user::QEDUserLeaf, user_public_key::QEDUserPublicKeyRecord
-}, sync::coordinator::QEDCheckpointSyncInfoCompact};
+}, qsync::coordinator::QEDCheckpointSyncInfoCompact};
 
 use crate::models::{
-    checkpoint::{block_state::L2BlockStatesModel, checkpoint_hash::QEDCheckpointHashHelperModel, checkpoint_leaf::QEDCheckpointLeafModel, user_public_keys::QEDUserPublicKeyHelperModel},
+    checkpoint::{block_state::L2BlockStatesModel, checkpoint_hash::QEDCheckpointHashHelperModel, checkpoint_leaf::QEDCheckpointLeafModel, sync_info::QEDCheckpointSyncInfoModel, user_public_keys::QEDUserPublicKeyHelperModel},
     contract::{contract_code::ContractCodeModel, contract_leaf::ContractLeafModel},
     kvq_merkle::{
         key::KVQMerkleNodeKey,
@@ -89,10 +89,10 @@ pub type L2BlockStateTableStore<S> = L2BlockStatesModel<
 >;
 
 
-pub type CheckpointSyncInfoTableStore<S> = QEDCheckpointLeafModel<
-    CHECKPOINT_LEAF_TABLE_TYPE,
+pub type CheckpointSyncInfoTableStore<S> = QEDCheckpointSyncInfoModel<
+    CHECKPOINT_SYNC_INFO_TABLE_TYPE,
     S,
-    KVQStandardAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
+    KVQStandardAdapter<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>,
 >;
 
 pub type CheckpointHashHelperTableStore<S> = QEDCheckpointHashHelperModel<

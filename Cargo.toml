@@ -16,7 +16,8 @@ members = [
   "qed_rollup_circuit",
   "qcircuit_config_db",
   "qcircuit_config_db_generator",
-  "qed_node_common"
+  "qed_node_common",
+  "qed_node",
 ]
 resolver = "2"
 

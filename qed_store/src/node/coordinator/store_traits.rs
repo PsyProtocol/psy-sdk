@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof, utils::{common::QMerkleNode, sub_tree_nca::NCAProofsWithTopLine}};
-use qed_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}}, sync::coordinator::{QEDCheckpointCoreSyncInfo, QEDCheckpointSyncInfoCompact}};
+use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof, utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}};
+use qed_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}}, qsync::coordinator::QEDCheckpointSyncInfoCompact};
 
 #[async_trait]
 pub trait QEDCoordinatorStoreReaderAsync<F: RichField> {
@@ -145,7 +145,7 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
     async fn batch_append_user_registration_tree_f_imm(&self, checkpoint_id: F, start_leaf_index: F, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>;
     
     
-    async fn injest_user_tree_nodes_imm(&self, checkpoint_id: u64, nodes: &[QMerkleNode<F>]) -> anyhow::Result<NCAProofsWithTopLine<QHashOut<F>>>;
+    async fn injest_user_tree_nodes_imm(&self, checkpoint_id: u64, nodes: &[QMerkleNode<F>]) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>>;
 
     async fn set_deposit_tree_leaf_hash_imm(&self, checkpoint_id: u64, deposit_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
     async fn set_deposit_tree_leaf_hash_f_imm(&self, checkpoint_id: F, deposit_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
