@@ -56,8 +56,7 @@ pub enum NodeType {
     CastExpr,
     MemberAccessExpr,
     IndexAccessExpr,
-    StorageExpr,
-    ContextExpr,
+    IntrinsicExpr,
 
     IfStmt,
     WhileStmt,
@@ -67,9 +66,7 @@ pub enum NodeType {
     DefinitionStmt,
     ExpressionStmt,
     ReturnStmt,
-    StorageStmt,
-    AssertStmt,
-    AssertEqStmt,
+    IntrinsicStmt,
     UseStmt,
 
     FunctionDef,
@@ -79,12 +76,6 @@ pub enum NodeType {
     TraitDef,
 
     Module,
-
-    FeltValue,
-    BoolValue,
-    ArrayValue,
-    StructValue,
-    TypeValue,
 }
 
 pub trait VisitorContext<F: Clone + From<u32>, C> {

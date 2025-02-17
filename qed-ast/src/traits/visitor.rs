@@ -33,8 +33,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::CastExpr => self.visit_cast(expr_id, ctx)?,
             NodeType::IndexAccessExpr => self.visit_index_access(expr_id, ctx)?,
             NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
-            NodeType::StorageExpr => self.visit_storage_read(expr_id, ctx)?,
-            NodeType::ContextExpr => self.visit_context(expr_id, ctx)?,
+            NodeType::IntrinsicExpr => self.visit_intrinsic_expr(expr_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -80,9 +79,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
                 let expr_id = ctx.statement(stmt_id).as_expression().unwrap().clone();
                 Self::StmtResult::from(self.visit_expr(expr_id, ctx)?)
             }
-            NodeType::StorageStmt => self.visit_storage_write(stmt_id, ctx)?,
-            NodeType::AssertStmt => self.visit_assert(stmt_id, ctx)?,
-            NodeType::AssertEqStmt => self.visit_assert_eq(stmt_id, ctx)?,
+            NodeType::IntrinsicStmt => self.visit_intrinsic_stmt(stmt_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -137,12 +134,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_storage_read(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_context(
+    fn visit_intrinsic_expr(
         &mut self,
         node: ExprId,
         ctx: &mut Self::Context,
@@ -198,22 +190,12 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         node: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error>;
-    fn visit_storage_write(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
     fn visit_return(
         &mut self,
         expr: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error>;
-    fn visit_assert(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
-    fn visit_assert_eq(
+    fn visit_intrinsic_stmt(
         &mut self,
         node: StmtId,
         ctx: &mut Self::Context,

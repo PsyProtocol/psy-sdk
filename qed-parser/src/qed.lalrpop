@@ -157,7 +157,7 @@ Statement: StmtNode = {
     BlockStatement,
     IfStatement,
     Definition => StmtNode::Definition(def_nodes.alloc_item(<>)),
-    AssertStatement,
+    IntrinsicStatement,
     UseStatement,
     ExpressionStatement
 }
@@ -170,18 +170,18 @@ ExpressionStatement: StmtNode = {
     <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr))
 }
 
-AssertStatement: StmtNode = {
-    <l:@L> <variable:ASSERT> "(" <left: Expression> "," <message: STRING?>  ","? ")" ";" <r:@R> => {
-        StmtNode::Assert(
-            AssertNode {
+IntrinsicStatement: StmtNode = {
+    <l:@L> <variable:ASSERT> "(" <left: Expression> "," <message: STRING?> ","? ")" ";" <r:@R> => {
+        StmtNode::Intrinsic(
+            IntrinsicStmtNode::Assert {
                 left: expr_nodes.alloc_item(left),
                 message: message.map(|m| m.to_string()),
             }
         )
     },
-    <l:@L> <variable:ASSERT_EQ> "(" <left: Expression> "," <right: Expression> "," <message: STRING?>  ","? ")" ";" <r:@R> => {
-        StmtNode::AssertEq(
-            AssertEqNode {
+    <l:@L> <variable:ASSERT_EQ> "(" <left: Expression> "," <right: Expression> "," <message: STRING?> ","? ")" ";" <r:@R> => {
+        StmtNode::Intrinsic(
+            IntrinsicStmtNode::AssertEq {
                 left: expr_nodes.alloc_item(left),
                 right: expr_nodes.alloc_item(right),
                 message: message.map(|m| m.to_string()),
@@ -440,32 +440,6 @@ AssignmentStatement: StmtNode = {
 }
 
 
-Term: ExprNode<F> = {
-    <l:@L> "(" <expr:Expression> ")" <r:@R> => expr,
-    ValueExpression,
-    PathExpression,
-}
-
-PathExpression: ExprNode<F> = {
-    <variable: IdentifierOrSelf> => ExprNode::Path(PathNode {
-        root: None,
-        segments: vec![],
-        target: variable,
-    }),
-    <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: IdentifierOrNew> => {
-        let mut segment_ids = segments.into_iter().map(|seg| seg).collect::<Vec<_>>();
-        ExprNode::Path(PathNode {
-            root: Some(root),
-            segments: segment_ids,
-            target,
-        })
-    },
-};
-
-ExpressionList: Vec<ExprNode<F>> = {
-    <items:Sep<Expression, ",">> => items
-}
-
 Expression: ExprNode<F> = {
     #[precedence(level="1")]
     Term,
@@ -481,127 +455,198 @@ Expression: ExprNode<F> = {
     //    }
     //),
 
-
     #[precedence(level="2")]
-    <l:@L> <variable:Expression> "(" <args:ExpressionList> ")" <r:@R> => ExprNode::<F>::Call(
-       CallNode {
-           receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { target: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
-           variable: expr_nodes.alloc_item(variable),
-           generic_parameters: Vec::new(),
-           args: expr_nodes.alloc_items(args)
-       }
-    ),
-    #[precedence(level="2")]
+    <l:@L> <variable:STORAGE_READ> "(" <offset: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::Read {
+                offset: expr_nodes.alloc_item(offset),
+            }
+        )
+    },
+    <l:@L> <variable:STORAGE_WRITE> "(" <offset: Expression> "," <value: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::Write {
+                offset: expr_nodes.alloc_item(offset),
+                value: expr_nodes.alloc_item(value),
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_USER_ID> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetUserId
+        )
+    },
+    <l:@L> <variable:CTX_GET_CONTRACT_ID> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetContractId
+        )
+    },
+    <l:@L> <variable:CTX_GET_CHECKPOINT_ID> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetCheckpointId
+        )
+    },
+    <l:@L> <variable:CTX_GET_LAST_NONCE> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetLastNonce
+        )
+    },
+    <l:@L> <variable:CTX_GET_USER_PUBLIC_KEY_HASH> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetUserPublicKeyHash
+        )
+    },
+    <l:@L> <variable:CTX_GET_STATE_HASH_AT> "(" <slot_index: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetStateHashAt { slot_index: expr_nodes.alloc_item(slot_index) }
+        )
+    },
+    <l:@L> <variable:CTX_GET_OTHER_CONTRACT_STATE_HASH_AT> "(" <contract_state_tree_height: Expression> "," <contract_id: Expression> "," <slot_index: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetOtherContractStateHashAt {
+                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
+                contract_id: expr_nodes.alloc_item(contract_id),
+                slot_index: expr_nodes.alloc_item(slot_index),
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_OTHER_USER_CONTRACT_STATE_HASH_AT> "(" <contract_state_tree_height: Expression> "," <user_id: Expression> "," <contract_id: Expression> "," <slot_index: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetOtherUserContractStateHashAt {
+                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
+                user_id: expr_nodes.alloc_item(user_id),
+                contract_id: expr_nodes.alloc_item(contract_id),
+                slot_index: expr_nodes.alloc_item(slot_index),
+            }
+        )
+    },
+    <l:@L> <variable:CTX_SET_STATE_HASH_AT> "(" <slot_index: Expression> "," <new_value: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::CSetStateHashAt {
+                slot_index: expr_nodes.alloc_item(slot_index),
+                new_value: expr_nodes.alloc_item(new_value),
+            }
+        )
+    },
+    <l:@L> <variable:Expression> "(" <args:ExpressionList> ")" <r:@R> => {
+        ExprNode::<F>::Call(
+           CallNode {
+               receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode {
+                  target: receiver, ..
+               }) = &variable {
+                  Some(receiver.clone())
+               } else {
+                  None
+               },
+               variable: expr_nodes.alloc_item(variable),
+               generic_parameters: Vec::new(),
+               args: expr_nodes.alloc_items(args)
+           }
+        )
+    },
     <l:@L> <variable:Expression> "[" <index:NUMBER> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
         target: expr_nodes.alloc_item(variable),
         index: usize::try_from(index).unwrap()
     }),
-    #[precedence(level="2")]
     <l:@L> <variable:Expression> "." <field:Identifier> <r:@R> => ExprNode::<F>::MemberAccess(MemberAccessNode {
         target: expr_nodes.alloc_item(variable),
         field
     }),
-
-    #[precedence(level="3")]
-    <l:@L> "!" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
-        UnaryNode{operator: UnaryOperator::Not, rhs: expr_nodes.alloc_item(rhs)}
-    ),
-    #[precedence(level="3")]
-    <l:@L> "-" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
-        UnaryNode{operator: UnaryOperator::Neg, rhs: expr_nodes.alloc_item(rhs)}
-    ),
-
-    #[precedence(level="4")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> AS <ty:TYPE_FELT> <r:@R> => ExprNode::<F>::Cast(
         CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_FELT))
     ),
-
-    #[precedence(level="4")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> AS <ty:TYPE_BOOL> <r:@R> => ExprNode::<F>::Cast(
         CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_BOOL))
     ),
 
-    #[precedence(level="5")] #[assoc(side="left")]
+    #[precedence(level="4")] #[assoc(side="right")]
+    <l:@L> "!" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
+        UnaryNode{operator: UnaryOperator::Not, rhs: expr_nodes.alloc_item(rhs)}
+    ),
+    <l:@L> "-" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
+        UnaryNode{operator: UnaryOperator::Neg, rhs: expr_nodes.alloc_item(rhs)}
+    ),
+
+    #[precedence(level="6")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "*" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mul, expr_nodes.alloc_item(rhs))
     ),
-    #[precedence(level="5")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "/" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Div, expr_nodes.alloc_item(rhs))
     ),
-    #[precedence(level="5")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "%" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mod, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="6")] #[assoc(side="left")]
+    #[precedence(level="7")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "+" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Add, expr_nodes.alloc_item(rhs))
     ),
-    #[precedence(level="6")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "-" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Sub, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="7")] #[assoc(side="left")]
+    #[precedence(level="8")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "<<" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitShl, expr_nodes.alloc_item(rhs))
     ),
-    #[precedence(level="7")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> ">>" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitShr, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="8")] #[assoc(side="left")]
+    #[precedence(level="9")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "&" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitAnd, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="9")] #[assoc(side="left")]
+    #[precedence(level="10")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "^" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitXor, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="10")] #[assoc(side="left")]
+    #[precedence(level="11")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "|" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitOr, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="11")] #[assoc(side="left")]
+    #[precedence(level="12")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> ">" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Gt, expr_nodes.alloc_item(rhs))
     ),
-    #[precedence(level="11")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "<" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Lt, expr_nodes.alloc_item(rhs))
     ),
-    #[precedence(level="11")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> ">=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Gte, expr_nodes.alloc_item(rhs))
     ),
-    #[precedence(level="11")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "<=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Lte, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="12")] #[assoc(side="left")]
+    #[precedence(level="13")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "==" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Eq, expr_nodes.alloc_item(rhs))
     ),
-    #[precedence(level="12")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "!=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Neq, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="13")] #[assoc(side="left")]
+    #[precedence(level="14")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "&&" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::And, expr_nodes.alloc_item(rhs))
     ),
 
-    #[precedence(level="14")] #[assoc(side="left")]
+    #[precedence(level="15")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "||" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Or, expr_nodes.alloc_item(rhs))
     ),
+}
+
+
+Term: ExprNode<F> = {
+    <l:@L> "(" <expr:Expression> ")" <r:@R> => expr,
+    ValueExpression,
+    PathExpression,
 }
 
 ValueExpression: ExprNode<F> = {
@@ -618,7 +663,6 @@ FeltExpression: ExprNode<F> = {
 BoolExpression: ExprNode<F> = {
     <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Bool(if b { ctx.op_true() } else { ctx.op_false() }))
 }
-
 
 //todo: Temporarily disable generic capabilities
 //StructExpression: ExprNode<F> = {
@@ -639,6 +683,26 @@ StructExpression: ExprNode<F> = {
 
 KeyValue: (IdentId, ExprId) = {
     <l:@L> <name:Identifier> ":" <value:Expression> <r:@R> => (name, expr_nodes.alloc_item(value))
+}
+
+PathExpression: ExprNode<F> = {
+    <variable: IdentifierOrSelf> => ExprNode::Path(PathNode {
+        root: None,
+        segments: vec![],
+        target: variable,
+    }),
+    <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: IdentifierOrNew> => {
+        let mut segment_ids = segments.into_iter().map(|seg| seg).collect::<Vec<_>>();
+        ExprNode::Path(PathNode {
+            root: Some(root),
+            segments: segment_ids,
+            target,
+        })
+    },
+};
+
+ExpressionList: Vec<ExprNode<F>> = {
+    <items:Sep<Expression, ",">> => items
 }
 
 ArrayExpression: ExprNode<F> = {
@@ -744,6 +808,17 @@ extern {
 
         ASSERT => Token::IntrinsicAssert,
         ASSERT_EQ => Token::IntrinsicAssertEq,
+        STORAGE_READ => Token::IntrinsicStorageRead,
+        STORAGE_WRITE => Token::IntrinsicStorageWrite,
+        CTX_GET_USER_ID => Token::IntrinsicCtxGetUserId,
+        CTX_GET_CONTRACT_ID => Token::IntrinsicCtxGetContractId,
+        CTX_GET_CHECKPOINT_ID => Token::IntrinsicCtxGetCheckpointId,
+        CTX_GET_LAST_NONCE => Token::IntrinsicCtxGetLastNonce,
+        CTX_GET_USER_PUBLIC_KEY_HASH => Token::IntrinsicCtxGetUserPublicKeyHash,
+        CTX_GET_STATE_HASH_AT => Token::IntrinsicCtxGetStateHashAt,
+        CTX_GET_OTHER_CONTRACT_STATE_HASH_AT => Token::IntrinsicCtxGetOtherContractStateHashAt,
+        CTX_GET_OTHER_USER_CONTRACT_STATE_HASH_AT => Token::IntrinsicCtxGetOtherUserContractStateHashAt,
+        CTX_SET_STATE_HASH_AT => Token::IntrinsicCtxSetStateHashAt,
 
         MOD => Token::KeywordMod,
         USE => Token::KeywordUse,

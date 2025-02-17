@@ -263,52 +263,35 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }));
     }
 
-    fn visit_storage_read(
+    fn visit_intrinsic_expr(
         &mut self,
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
         // TODO: remove clone
-        let storage_node = ctx.expression(node).as_storage().cloned().unwrap();
-        let offset = self.visit_expr(storage_node.offset, ctx)?;
-        if offset.ty() != FELT_TYPE {
-            return Err(Error::TypeMismatch);
-        }
-        return Ok(CheckedExprNode::Storage(CheckedStorageReadNode {
-            offset: self.exprs.alloc_item(offset),
-            type_id: FELT_TYPE,
-        }));
-    }
-
-    fn visit_context(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> std::result::Result<Self::ExprResult, Self::Error> {
-        // TODO: remove clone
-        let context_node = ctx.expression(node).as_context().cloned().unwrap();
-        match context_node {
-            ContextNode::GetUserId => {
-                return Ok(CheckedExprNode::Context(CheckedContextNode::GetUserId {
-                    type_id: FELT_TYPE,
-                }));
-            }
-            ContextNode::GetContractId => {
-                return Ok(CheckedExprNode::Context(
-                    CheckedContextNode::GetContractId { type_id: FELT_TYPE },
+        let intrinsic_node = ctx.expression(node).as_intrinsic().cloned().unwrap();
+        match intrinsic_node {
+            IntrinsicExprNode::GetUserId => {
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetUserId { type_id: FELT_TYPE },
                 ));
             }
-            ContextNode::GetCheckpointId => {
-                return Ok(CheckedExprNode::Context(
-                    CheckedContextNode::GetCheckpointId { type_id: FELT_TYPE },
+            IntrinsicExprNode::GetContractId => {
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetContractId { type_id: FELT_TYPE },
                 ));
             }
-            ContextNode::GetLastNonce => {
-                return Ok(CheckedExprNode::Context(CheckedContextNode::GetLastNonce {
-                    type_id: FELT_TYPE,
-                }));
+            IntrinsicExprNode::GetCheckpointId => {
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetCheckpointId { type_id: FELT_TYPE },
+                ));
             }
-            ContextNode::GetUserPublicKeyHash => {
+            IntrinsicExprNode::GetLastNonce => {
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetLastNonce { type_id: FELT_TYPE },
+                ));
+            }
+            IntrinsicExprNode::GetUserPublicKeyHash => {
                 let scope_id = ScopeId::prelude();
                 let type_id = ctx.symbols.add_type_array(
                     Some(scope_id),
@@ -318,11 +301,11 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                         scope_id: scope_id,
                     }),
                 );
-                return Ok(CheckedExprNode::Context(
-                    CheckedContextNode::GetUserPublicKeyHash { type_id },
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetUserPublicKeyHash { type_id },
                 ));
             }
-            ContextNode::GetStateHashAt { slot_index } => {
+            IntrinsicExprNode::GetStateHashAt { slot_index } => {
                 let slot_index = self.visit_expr(slot_index, ctx)?;
                 if slot_index.ty() != FELT_TYPE {
                     return Err(Error::TypeMismatch);
@@ -336,14 +319,14 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                         scope_id: scope_id,
                     }),
                 );
-                return Ok(CheckedExprNode::Context(
-                    CheckedContextNode::GetStateHashAt {
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetStateHashAt {
                         slot_index: self.exprs.alloc_item(slot_index),
                         type_id,
                     },
                 ));
             }
-            ContextNode::GetOtherContractStateHashAt {
+            IntrinsicExprNode::GetOtherContractStateHashAt {
                 contract_state_tree_height,
                 contract_id,
                 slot_index,
@@ -368,8 +351,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     }),
                 );
 
-                return Ok(CheckedExprNode::Context(
-                    CheckedContextNode::GetOtherContractStateHashAt {
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetOtherContractStateHashAt {
                         contract_state_tree_height: self
                             .exprs
                             .alloc_item(contract_state_tree_height),
@@ -379,7 +362,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     },
                 ));
             }
-            ContextNode::GetOtherUserContractStateHashAt {
+            IntrinsicExprNode::GetOtherUserContractStateHashAt {
                 contract_state_tree_height,
                 user_id,
                 contract_id,
@@ -407,8 +390,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     }),
                 );
 
-                return Ok(CheckedExprNode::Context(
-                    CheckedContextNode::GetOtherUserContractStateHashAt {
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetOtherUserContractStateHashAt {
                         contract_state_tree_height: self
                             .exprs
                             .alloc_item(contract_state_tree_height),
@@ -419,7 +402,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     },
                 ));
             }
-            ContextNode::CSetStateHashAt {
+            IntrinsicExprNode::CSetStateHashAt {
                 slot_index,
                 new_value,
             } => {
@@ -439,13 +422,39 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     return Err(Error::TypeMismatch);
                 }
 
-                return Ok(CheckedExprNode::Context(
-                    CheckedContextNode::CSetStateHashAt {
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::CSetStateHashAt {
                         slot_index: self.exprs.alloc_item(slot_index),
                         new_value: self.exprs.alloc_item(new_value),
                         type_id,
                     },
                 ));
+            }
+            IntrinsicExprNode::Read { offset } => {
+                // TODO: remove clone
+                let offset = self.visit_expr(offset, ctx)?;
+                if offset.ty() != FELT_TYPE {
+                    return Err(Error::TypeMismatch);
+                }
+                return Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::Read {
+                    offset: self.exprs.alloc_item(offset),
+                    type_id: FELT_TYPE,
+                }));
+            }
+            IntrinsicExprNode::Write { offset, value } => {
+                // TODO: remove clone
+                let offset = self.visit_expr(offset, ctx)?;
+                let value = self.visit_expr(value, ctx)?;
+                if offset.ty() != FELT_TYPE || value.ty() != FELT_TYPE {
+                    return Err(Error::TypeMismatch);
+                }
+                Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::Write {
+                        offset: self.exprs.alloc_item(offset),
+                        value: self.exprs.alloc_item(value),
+                        type_id: FELT_TYPE,
+                    },
+                ))
             }
         }
     }
@@ -823,24 +832,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         Ok(CheckedStmtNode::Variable(checked_variable))
     }
 
-    fn visit_storage_write(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> std::result::Result<Self::StmtResult, Self::Error> {
-        // TODO: remove clone
-        let storage_node = ctx.statement(node).as_storage().cloned().unwrap();
-        let offset = self.visit_expr(storage_node.offset, ctx)?;
-        let value = self.visit_expr(storage_node.value, ctx)?;
-        if offset.ty() != FELT_TYPE || value.ty() != FELT_TYPE {
-            return Err(Error::TypeMismatch);
-        }
-        Ok(CheckedStmtNode::Storage(CheckedStorageWriteNode {
-            offset: self.exprs.alloc_item(offset),
-            value: self.exprs.alloc_item(value),
-        }))
-    }
-
     fn visit_return(
         &mut self,
         node: StmtId,
@@ -873,42 +864,48 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         Ok(CheckedStmtNode::Return(CheckedReturnNode { ret }))
     }
 
-    fn visit_assert(
+    fn visit_intrinsic_stmt(
         &mut self,
         node: StmtId,
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::StmtResult, Self::Error> {
-        let assert_node = ctx.statement(node).as_assert().cloned().unwrap();
-        let checked_lhs = self.visit_expr(assert_node.left, ctx)?;
+        let node = ctx.statement(node).as_intrinsic().cloned().unwrap();
+        match node {
+            IntrinsicStmtNode::Assert { left, message } => {
+                let checked_lhs = self.visit_expr(left, ctx)?;
 
-        if checked_lhs.ty() != BOOL_TYPE {
-            return Err(Error::TypeMismatch);
+                if checked_lhs.ty() != BOOL_TYPE {
+                    return Err(Error::TypeMismatch);
+                }
+
+                Ok(CheckedStmtNode::Intrinsic(
+                    CheckedIntrinsicStmtNode::Assert {
+                        left: self.exprs.alloc_item(checked_lhs),
+                        message: message,
+                    },
+                ))
+            }
+            IntrinsicStmtNode::AssertEq {
+                left,
+                right,
+                message,
+            } => {
+                let checked_lhs = self.visit_expr(left, ctx)?;
+                let checked_rhs = self.visit_expr(right, ctx)?;
+
+                if checked_lhs.ty() != checked_rhs.ty() {
+                    return Err(Error::TypeMismatch);
+                }
+
+                Ok(CheckedStmtNode::Intrinsic(
+                    CheckedIntrinsicStmtNode::AssertEq {
+                        left: self.exprs.alloc_item(checked_lhs),
+                        right: self.exprs.alloc_item(checked_rhs),
+                        message: message,
+                    },
+                ))
+            }
         }
-
-        Ok(CheckedStmtNode::Assert(CheckedAssertNode {
-            left: self.exprs.alloc_item(checked_lhs),
-            message: assert_node.message,
-        }))
-    }
-
-    fn visit_assert_eq(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> std::result::Result<Self::StmtResult, Self::Error> {
-        let assert_eq_node = ctx.statement(node).as_assert_eq().cloned().unwrap();
-        let checked_lhs = self.visit_expr(assert_eq_node.left, ctx)?;
-        let checked_rhs = self.visit_expr(assert_eq_node.right, ctx)?;
-
-        if checked_lhs.ty() != checked_rhs.ty() {
-            return Err(Error::TypeMismatch);
-        }
-
-        Ok(CheckedStmtNode::AssertEq(CheckedAssertEqNode {
-            left: self.exprs.alloc_item(checked_lhs),
-            right: self.exprs.alloc_item(checked_rhs),
-            message: assert_eq_node.message,
-        }))
     }
 
     fn visit_impl(
@@ -1159,8 +1156,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             NodeType::CastExpr => self.visit_cast(expr_id, ctx)?,
             NodeType::IndexAccessExpr => self.visit_index_access(expr_id, ctx)?,
             NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
-            NodeType::StorageExpr => self.visit_storage_read(expr_id, ctx)?,
-            NodeType::ContextExpr => self.visit_context(expr_id, ctx)?,
+            NodeType::IntrinsicExpr => self.visit_intrinsic_expr(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
         ctx.pop_node_id();
@@ -1219,9 +1215,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     self.visit_expr(ctx.statement(stmt_id).as_expression().unwrap().clone(), ctx)?;
                 self.exprs.alloc_item(expr)
             }),
-            NodeType::StorageStmt => self.visit_storage_write(stmt_id, ctx)?,
-            NodeType::AssertStmt => self.visit_assert(stmt_id, ctx)?,
-            NodeType::AssertEqStmt => self.visit_assert_eq(stmt_id, ctx)?,
+            NodeType::IntrinsicStmt => self.visit_intrinsic_stmt(stmt_id, ctx)?,
             NodeType::UseStmt => unreachable!(),
             _ => std::unreachable!(),
         };

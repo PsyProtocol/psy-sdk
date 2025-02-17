@@ -386,37 +386,40 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             CheckedStmtNode::Return(return_node) => {
                 return self.interpret_ret(typechecker, stmt_id, symbols);
             }
-            CheckedStmtNode::Storage(storage) => {
-                self.interpret_storage_write(typechecker, stmt_id, symbols)?;
-            }
-            CheckedStmtNode::Assert(assert_node) => {
-                self.interpret_assert(typechecker, stmt_id, symbols)?;
-            }
-            CheckedStmtNode::AssertEq(assert_eq_node) => {
-                self.interpret_assert_eq(typechecker, stmt_id, symbols)?;
-            }
+            CheckedStmtNode::Intrinsic(intrinsic_node) => match intrinsic_node {
+                CheckedIntrinsicStmtNode::Assert { left, message } => {
+                    let lhs_value = self
+                        .interpret_expr(typechecker, left.clone(), symbols)?
+                        .unwrap();
+                    self.context.assert_true(
+                        lhs_value.to_bool(),
+                        Box::leak(message.clone().unwrap_or_default().into_boxed_str()),
+                    );
+                }
+                CheckedIntrinsicStmtNode::AssertEq {
+                    left,
+                    right,
+                    message,
+                } => {
+                    let lhs_value = self
+                        .interpret_expr(typechecker, left.clone(), symbols)?
+                        .unwrap();
+                    let rhs_value = self
+                        .interpret_expr(typechecker, right.clone(), symbols)?
+                        .unwrap();
+
+                    self.context.assert_eq(
+                        lhs_value.to_felt(),
+                        rhs_value.to_felt(),
+                        Box::leak(message.clone().unwrap_or_default().into_boxed_str()),
+                    );
+                }
+            },
         }
         ControlState::Normal
     }
 
-    fn interpret_storage_write(
-        &mut self,
-        typechecker: &TypeChecker<F, C>,
-        stmt_id: StmtId,
-        symbols: &mut SymbolTable<F>,
-    ) -> ControlState<Result<CheckedValueRef<F>>> {
-        let storage = typechecker[stmt_id].as_storage().unwrap();
-        let offset = self
-            .interpret_expr(typechecker, storage.offset, symbols)?
-            .unwrap();
-        let value = self
-            .interpret_expr(typechecker, storage.value, symbols)?
-            .unwrap();
-        self.context
-            .op_set_state_obj(offset.to_felt(), value.to_felt());
-        return ControlState::Normal;
-    }
-
+    #[instrument(level = "debug", skip_all)]
     fn interpret_ret(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -430,58 +433,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         } else {
             return ControlState::Normal;
         }
-    }
-
-    fn interpret_assert(
-        &mut self,
-        typechecker: &TypeChecker<F, C>,
-        stmt_id: StmtId,
-        symbols: &mut SymbolTable<F>,
-    ) -> ControlState<Result<CheckedValueRef<F>>> {
-        let assert_node = typechecker[stmt_id].as_assert().unwrap();
-
-        let lhs_value = self
-            .interpret_expr(typechecker, assert_node.left, symbols)?
-            .unwrap();
-        self.context.assert_true(
-            lhs_value.to_bool(),
-            Box::leak(
-                assert_node
-                    .message
-                    .clone()
-                    .unwrap_or_default()
-                    .into_boxed_str(),
-            ),
-        );
-        return ControlState::Normal;
-    }
-
-    fn interpret_assert_eq(
-        &mut self,
-        typechecker: &TypeChecker<F, C>,
-        stmt_id: StmtId,
-        symbols: &mut SymbolTable<F>,
-    ) -> ControlState<Result<CheckedValueRef<F>>> {
-        let assert_eq_node = typechecker[stmt_id].as_assert_eq().unwrap();
-        let lhs_value = self
-            .interpret_expr(typechecker, assert_eq_node.left, symbols)?
-            .unwrap();
-        let rhs_value = self
-            .interpret_expr(typechecker, assert_eq_node.right, symbols)?
-            .unwrap();
-
-        self.context.assert_eq(
-            lhs_value.to_felt(),
-            rhs_value.to_felt(),
-            Box::leak(
-                assert_eq_node
-                    .message
-                    .clone()
-                    .unwrap_or_default()
-                    .into_boxed_str(),
-            ),
-        );
-        return ControlState::Normal;
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -691,26 +642,21 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             CheckedExprNode::Path(path) => {
                 Ok(Some(self.interpret_path(typechecker, path, symbols)?))
             }
-            CheckedExprNode::Storage(storage_read) => Ok(Some(self.interpret_storage_read(
-                typechecker,
-                storage_read,
-                symbols,
-            )?)),
-            CheckedExprNode::Context(ctx_node) => Ok(Some({
+            CheckedExprNode::Intrinsic(ctx_node) => Ok(Some({
                 match ctx_node {
-                    CheckedContextNode::GetUserId { .. } => {
+                    CheckedIntrinsicExprNode::GetUserId { .. } => {
                         CheckedValueRef::from_felt(self.context.get_user_id())
                     }
-                    CheckedContextNode::GetContractId { .. } => {
+                    CheckedIntrinsicExprNode::GetContractId { .. } => {
                         CheckedValueRef::from_felt(self.context.get_contract_id())
                     }
-                    CheckedContextNode::GetCheckpointId { .. } => CheckedValueRef::new_rc(
+                    CheckedIntrinsicExprNode::GetCheckpointId { .. } => CheckedValueRef::new_rc(
                         CheckedValue::Felt(self.context.get_checkpoint_id()),
                     ),
-                    CheckedContextNode::GetLastNonce { .. } => {
+                    CheckedIntrinsicExprNode::GetLastNonce { .. } => {
                         CheckedValueRef::from_felt(self.context.get_last_nonce())
                     }
-                    CheckedContextNode::GetUserPublicKeyHash { type_id, .. } => {
+                    CheckedIntrinsicExprNode::GetUserPublicKeyHash { type_id, .. } => {
                         CheckedValueRef::new_rc(CheckedValue::Array(
                             type_id.clone(),
                             self.context
@@ -720,7 +666,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                                 .collect(),
                         ))
                     }
-                    CheckedContextNode::GetStateHashAt {
+                    CheckedIntrinsicExprNode::GetStateHashAt {
                         slot_index,
                         type_id,
                     } => {
@@ -737,7 +683,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                                 .collect(),
                         ))
                     }
-                    CheckedContextNode::GetOtherContractStateHashAt {
+                    CheckedIntrinsicExprNode::GetOtherContractStateHashAt {
                         contract_state_tree_height,
                         contract_id,
                         slot_index,
@@ -772,7 +718,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                                 .collect(),
                         ))
                     }
-                    CheckedContextNode::GetOtherUserContractStateHashAt {
+                    CheckedIntrinsicExprNode::GetOtherUserContractStateHashAt {
                         contract_state_tree_height,
                         user_id,
                         contract_id,
@@ -813,7 +759,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                                 .collect(),
                         ))
                     }
-                    CheckedContextNode::CSetStateHashAt {
+                    CheckedIntrinsicExprNode::CSetStateHashAt {
                         slot_index,
                         new_value,
                         type_id,
@@ -834,6 +780,37 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                                 .map(|x| CheckedValueRef::from_felt(x))
                                 .collect(),
                         ))
+                    }
+                    CheckedIntrinsicExprNode::Read { offset, type_id } => {
+                        let contract_id = self.context.get_contract_id();
+                        let user_id = self.context.get_user_id();
+
+                        let offset = self
+                            .interpret_expr(typechecker, offset.clone(), symbols)?
+                            .unwrap();
+                        let value = self.context.op_get_state_felt(
+                            0,
+                            contract_id,
+                            user_id,
+                            offset.to_felt(),
+                        );
+                        return Ok(Some(CheckedValueRef::from_felt(value)));
+                    }
+                    CheckedIntrinsicExprNode::Write {
+                        offset,
+                        value,
+                        type_id,
+                    } => {
+                        let offset = self
+                            .interpret_expr(typechecker, offset.clone(), symbols)?
+                            .unwrap();
+                        let value = self
+                            .interpret_expr(typechecker, value.clone(), symbols)?
+                            .unwrap();
+                        return Ok(Some(CheckedValueRef::from_felt(
+                            self.context
+                                .op_set_state_obj(offset.to_felt(), value.to_felt()),
+                        )));
                     }
                 }
             })),
@@ -951,24 +928,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 path.type_id.clone(),
             )));
         }
-    }
-
-    fn interpret_storage_read(
-        &mut self,
-        typechecker: &TypeChecker<F, C>,
-        storage_read: &CheckedStorageReadNode,
-        symbols: &mut SymbolTable<F>,
-    ) -> Result<CheckedValueRef<F>> {
-        let contract_id = self.context.get_contract_id();
-        let user_id = self.context.get_user_id();
-
-        let offset = self
-            .interpret_expr(typechecker, storage_read.offset, symbols)?
-            .unwrap();
-        let value = self
-            .context
-            .op_get_state_felt(0, contract_id, user_id, offset.to_felt());
-        return Ok(CheckedValueRef::from_felt(value));
     }
 
     #[instrument(level = "debug", skip_all)]

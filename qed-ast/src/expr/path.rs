@@ -27,17 +27,3 @@ impl NodeInfo for PathNode {
         NodeType::PathExpr
     }
 }
-
-impl Display for PathNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "PathNode: ")?;
-        match &self.root {
-            Some(root) => write!(f, "IdentId({})", root),
-            None => write!(f, "NO_ROOT"),
-        }?;
-        for seg in &self.segments {
-            write!(f, "::{}", seg)?;
-        }
-        writeln!(f, "::{}", self.target)
-    }
-}
