@@ -1,5 +1,6 @@
 use crate::{
-    AstVisitor, AttrNode, BlockNode, IdentId, NodeInfo, NodeType, StmtId, UncheckedType, Visibility,
+    AstVisitor, AttrNode, BlockNode, IdentId, NodeInfo, NodeType, Qualifier, StmtId, UncheckedType,
+    Visibility,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -9,7 +10,7 @@ pub struct FunctionNode {
     pub generic_parameters: Vec<IdentId>,
     pub body: Option<StmtId>,
     pub return_type: Option<UncheckedType>,
-    pub is_extern: bool,
+    pub qualifier: Qualifier,
     pub visibility: Visibility,
     pub attrs: Vec<AttrNode>,
 }

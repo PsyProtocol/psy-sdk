@@ -122,7 +122,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|t| ctx.ident(t).to_string())
             .unwrap_or("*".to_string());
 
-        self.write_line(&format!("use {}::{};", path.join("::"), target));
+        self.write_line(&format!("pub use {}::{};", path.join("::"), target));
         Ok(Default::default())
     }
 
@@ -486,7 +486,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             body,
             return_type,
-            is_extern,
+            qualifier,
             visibility,
             attrs,
         } = ctx.definition(def_id).as_function().unwrap();
@@ -524,7 +524,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let mut s = format!(
             "{}{}fn {}{}({}){} {{",
             if visibility.is_public() { "pub " } else { "" },
-            if *is_extern { "extern " } else { "" },
+            if qualifier.is_extern { "extern " } else { "" },
             ctx.ident(name.clone()),
             self.visit_generic_parameters(generic_parameters),
             parameters,
@@ -696,7 +696,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 } else {
                     ""
                 },
-                if func.is_extern { "extern " } else { "" },
+                if func.qualifier.is_extern {
+                    "extern "
+                } else {
+                    ""
+                },
                 ctx.ident(func.name.clone()),
                 parameters,
                 if let Some(ref ret) = func.return_type {
@@ -823,6 +827,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             visibility_string,
             &ctx.ident(module.name)
         ));
+        self.indent();
 
         // TODO: remove clone
         for u in &module.uses {
@@ -839,9 +844,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             self.visit_definition(definition, ctx)?;
         }
 
+        self.dedent();
         self.write_line(&format!("}}"));
-        ctx.pop_node_id();
 
+        ctx.pop_node_id();
         Ok(())
     }
 

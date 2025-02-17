@@ -106,7 +106,7 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             body: Some(block),
             return_type: Some(UncheckedType::Basic(IdentId::TYPE_FELT)),
-            is_extern: false,
+            qualifier: Qualifier { is_extern: false },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -162,7 +162,7 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             body: Some(block),
             return_type: Some(UncheckedType::Basic(IdentId::TYPE_SELF)),
-            is_extern: false,
+            qualifier: Qualifier { is_extern: false },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -216,7 +216,7 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             body: Some(block),
             return_type: None,
-            is_extern: false,
+            qualifier: Qualifier { is_extern: false },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -266,7 +266,7 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             body: Some(block),
             return_type: Some(field_type.clone()),
-            is_extern: false,
+            qualifier: Qualifier { is_extern: false },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -323,7 +323,7 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             body: Some(block),
             return_type: None,
-            is_extern: false,
+            qualifier: Qualifier { is_extern: false },
             visibility: Visibility::Public,
             attrs: vec![],
         };

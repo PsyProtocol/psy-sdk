@@ -38,6 +38,7 @@ pub struct ModuleNode {
     pub is_std: bool,
     pub is_self_std: bool,
     pub is_self_prelude: bool,
+    pub is_self_primitive: bool,
 }
 
 #[derive(Clone, Debug)]

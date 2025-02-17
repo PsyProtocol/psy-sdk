@@ -15,6 +15,7 @@ grammar<'input, F, C>(
     is_std: bool,
     is_self_std: bool,
     is_self_prelude: bool,
+    is_self_primitive: bool,
     ctx: &mut C
 ) where F: ContextFelt + From<u32>, C: DPNContext<F>;
 
@@ -61,13 +62,6 @@ pub Module: ModuleNode = {
                         segments: vec![IdentId::PRELUDE],
                         target: None,
                     });
-                } else if !is_self_std && !is_self_prelude {
-                    uses.insert(0, UsePath {
-                        visibility: Visibility::Public,
-                        kind: IdentId::PRELUDE,
-                        segments: vec![],
-                        target: None,
-                    });
                 }
                 uses
             },
@@ -76,6 +70,7 @@ pub Module: ModuleNode = {
             is_std,
             is_self_std,
             is_self_prelude,
+            is_self_primitive,
         }
     }
 }
@@ -112,13 +107,6 @@ pub InlineModule: ModuleNode = {
                         segments: vec![IdentId::PRELUDE],
                         target: None,
                     });
-                } else if !is_self_std && !is_self_prelude {
-                    uses.insert(0, UsePath {
-                        visibility: Visibility::Public,
-                        kind: IdentId::PRELUDE,
-                        segments: vec![],
-                        target: None,
-                    });
                 }
                 uses
             },
@@ -127,6 +115,7 @@ pub InlineModule: ModuleNode = {
             is_std,
             is_self_std,
             is_self_prelude,
+            is_self_primitive,
         }
     }
 }
@@ -259,34 +248,36 @@ StructDef: StructNode = {
 }
 
 FunctionDef: DefinitionNode = {
-    <l:@L> <attrs:Attribute*> <visibility:Visibility> <is_extern:EXTERN?> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
         body: Some(stmt_nodes.alloc_item(block_stmt)),
         return_type,
-        is_extern: {
-           let is_extern = is_extern.is_some();
-           assert!(!is_extern || is_std && is_self_prelude);
-           is_extern
+        qualifier: {
+           assert!(!qualifier.is_extern || is_std && is_self_prelude);
+           qualifier
         },
         visibility,
         attrs
     }),
-    <l:@L> <attrs:Attribute*> <visibility:Visibility> <is_extern:EXTERN?> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
         body: None,
         return_type,
-        is_extern: {
-           let is_extern = is_extern.is_some();
-           assert!(!is_extern || is_std && is_self_prelude);
-           is_extern
+        qualifier: {
+           assert!(!qualifier.is_extern || is_std && is_self_prelude);
+           qualifier
         },
         visibility,
         attrs
     })
+}
+
+Qualifier: Qualifier = {
+    <l:@L> <is_extern:EXTERN?> <r:@R> => Qualifier { is_extern: is_extern.is_some() },
 }
 
 FunctionReturn: UncheckedType = {

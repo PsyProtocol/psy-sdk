@@ -15,7 +15,7 @@ use crate::CheckedValue;
 use crate::CheckedValueNode;
 use crate::CheckedValueRef;
 use crate::SymbolTable;
-use crate::STD_PRELUDE_SCOPE_ID;
+use crate::STD_PRIMITIVE_SCOPE_ID;
 use crate::{
     CheckedArrayNode, CheckedEnumNode, CheckedFunctionNode, CheckedImplNode, CheckedStructNode,
     CheckedTraitNode, ScopeId,
@@ -152,8 +152,8 @@ impl Type {
             Type::Enum(CheckedEnumNode { scope_id, .. }) => *scope_id,
             Type::Function(CheckedFunctionNode { scope_id, .. }) => *scope_id,
             Type::Trait(CheckedTraitNode { scope_id, .. }) => *scope_id,
-            Type::Felt(_) => ScopeId::prelude(),
-            Type::Bool(_) => ScopeId::prelude(),
+            Type::Felt(_) => ScopeId::primitive(),
+            Type::Bool(_) => ScopeId::primitive(),
             _ => panic!("Type::scope_id called on non-composite type"),
         }
     }
@@ -231,7 +231,7 @@ impl Type {
                     result.push(CheckedValueRef::new_rc(inner_ty.to_value(symbols, ctx)));
                 }
                 let type_id = symbols
-                    .get_type_id(Some(ScopeId::prelude()), self.key())
+                    .get_type_id(Some(ScopeId::primitive()), self.key())
                     .unwrap();
                 CheckedValue::Array(type_id, result)
             }

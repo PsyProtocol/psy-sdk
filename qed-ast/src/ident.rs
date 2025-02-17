@@ -49,10 +49,11 @@ impl IdentId {
 
     pub const STD: IdentId = IdentId(9);
     pub const PRELUDE: IdentId = IdentId(10);
+    pub const PRIMITIVE: IdentId = IdentId(11);
 
-    pub const DERIVE: IdentId = IdentId(11);
-    pub const NEW: IdentId = IdentId(12);
-    pub const TEST: IdentId = IdentId(13);
+    pub const DERIVE: IdentId = IdentId(12);
+    pub const NEW: IdentId = IdentId(13);
+    pub const TEST: IdentId = IdentId(14);
 }
 
 pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
@@ -67,6 +68,7 @@ pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
     (IdentId::CRATE, "crate"),
     (IdentId::STD, "std"),
     (IdentId::PRELUDE, "prelude"),
+    (IdentId::PRIMITIVE, "primitive"),
     (IdentId::DERIVE, "derive"),
     (IdentId::NEW, "new"),
     (IdentId::TEST, "test"),

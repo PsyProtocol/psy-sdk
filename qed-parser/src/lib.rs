@@ -48,12 +48,18 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
         ctx: &mut C,
         root_module_path: PathBuf,
     ) -> Result<'input, ()> {
-        let mut module_stack: Vec<(bool, PathBuf, Option<ModuleId>, Visibility)> =
-            vec![(false, root_module_path.clone(), None, Visibility::Public)];
+        let mut module_stack: Vec<(bool, PathBuf, Option<ModuleId>, Visibility, bool)> = vec![(
+            false,
+            root_module_path.clone(),
+            None,
+            Visibility::Public,
+            false,
+        )];
         let mut visited = HashMap::new();
         let mut inline_modules: HashMap<PathBuf, ModuleNode> = HashMap::new();
 
-        while let Some((is_inline, current_path, parent_module_id, visibility)) = module_stack.pop()
+        while let Some((is_inline, current_path, parent_module_id, visibility, is_parent_std)) =
+            module_stack.pop()
         {
             if let Some(&module_id) = visited.get(&current_path) {
                 self.program.modules.add_child(parent_module_id, module_id);
@@ -75,10 +81,8 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
 
                 let is_self_std = module_name == IdentId::STD;
                 let is_self_prelude = module_name == IdentId::PRELUDE;
-                let is_std = parent_module_id
-                    .map(|id| self.program.modules[id].data().name == IdentId::STD)
-                    .unwrap_or(false)
-                    || is_self_std;
+                let is_self_primitive = module_name == IdentId::PRIMITIVE;
+                let is_std = is_parent_std || is_self_std;
 
                 let lexer = Lexer::new(file_content);
                 let module = match qed::ModuleParser::new().parse(
@@ -93,6 +97,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                     is_std,
                     is_self_std,
                     is_self_prelude,
+                    is_self_primitive,
                     ctx,
                     lexer,
                 ) {
@@ -111,7 +116,13 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
 
             for (dep_module, visibility) in module.modules.iter().rev() {
                 let dep_path = self.resolve_module_path(dep_module, &current_path).unwrap();
-                module_stack.push((false, dep_path, Some(module_id), visibility.clone()));
+                module_stack.push((
+                    false,
+                    dep_path,
+                    Some(module_id),
+                    visibility.clone(),
+                    is_parent_std || module.name == IdentId::STD,
+                ));
             }
 
             for inline_module in module.inline_modules.iter().rev() {
@@ -123,6 +134,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                     dep_path.clone(),
                     Some(module_id),
                     inline_module.visibility.clone(),
+                    is_parent_std || module.name == IdentId::STD,
                 ));
                 inline_modules.insert(dep_path, inline_module.clone());
             }

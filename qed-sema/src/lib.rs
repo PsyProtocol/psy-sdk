@@ -292,7 +292,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 ));
             }
             IntrinsicExprNode::GetUserPublicKeyHash => {
-                let scope_id = ScopeId::prelude();
+                let scope_id = ScopeId::primitive();
                 let type_id = ctx.symbols.add_type_array(
                     Some(scope_id),
                     Type::Array(CheckedArrayNode {
@@ -310,7 +310,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 if slot_index.ty() != FELT_TYPE {
                     return Err(Error::TypeMismatch);
                 }
-                let scope_id = ScopeId::prelude();
+                let scope_id = ScopeId::primitive();
                 let type_id = ctx.symbols.add_type_array(
                     Some(scope_id),
                     Type::Array(CheckedArrayNode {
@@ -341,7 +341,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 {
                     return Err(Error::TypeMismatch);
                 }
-                let scope_id = ScopeId::prelude();
+                let scope_id = ScopeId::primitive();
                 let type_id = ctx.symbols.add_type_array(
                     Some(scope_id),
                     Type::Array(CheckedArrayNode {
@@ -380,7 +380,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 {
                     return Err(Error::TypeMismatch);
                 }
-                let scope_id = ScopeId::prelude();
+                let scope_id = ScopeId::primitive();
                 let type_id = ctx.symbols.add_type_array(
                     Some(scope_id),
                     Type::Array(CheckedArrayNode {
@@ -408,7 +408,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             } => {
                 let slot_index = self.visit_expr(slot_index, ctx)?;
                 let new_value = self.visit_expr(new_value, ctx)?;
-                let scope_id = ScopeId::prelude();
+                let scope_id = ScopeId::primitive();
                 let type_id = ctx.symbols.add_type_array(
                     Some(scope_id),
                     Type::Array(CheckedArrayNode {
@@ -489,7 +489,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     elements.push(self.exprs.alloc_item(checked_expr));
                 }
 
-                let scope_id = ScopeId::prelude();
+                let scope_id = ScopeId::primitive();
                 let type_array = Type::Array(CheckedArrayNode {
                     inner_ty: inner_ty.unwrap(),
                     size: size.clone(),
@@ -1231,8 +1231,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.push_node_id(NodeId::from(module_id));
         // TODO: remove clone
         let module = ctx.module(module_id).clone();
-        if module.is_std && module.is_self_prelude {
-            self.typecheck_std_prelude_module(&module, ctx)?;
+        if module.is_std && module.is_self_primitive {
+            self.typecheck_std_primitive_module(ctx)?;
         }
 
         for use_path in &module.uses {
@@ -1297,12 +1297,11 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         }
     }
 
-    pub fn typecheck_std_prelude_module(
+    pub fn typecheck_std_primitive_module(
         &mut self,
-        module: &ModuleNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()> {
-        STD_PRELUDE_SCOPE_ID.set(ctx.symbols.current_scope_id().unwrap());
+        STD_PRIMITIVE_SCOPE_ID.set(ctx.symbols.current_scope_id().unwrap());
         for (ident, ty) in TYPE_MAPPING {
             ctx.symbols.add_type(None, ty.clone());
         }
@@ -1366,7 +1365,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             }
             UncheckedType::Array(inner, size) => {
                 let inner_ty = self.typecheck(inner, ctx)?;
-                let scope_id = ScopeId::prelude();
+                let scope_id = ScopeId::primitive();
                 let type_array = Type::Array(CheckedArrayNode {
                     inner_ty,
                     size: size.clone(),

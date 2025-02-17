@@ -1,0 +1,37 @@
+pub mod primitive;
+
+pub use primitive::*;
+
+pub trait Storage {
+    pub fn size() -> Felt;
+    pub fn read(offset: Felt) -> Self;
+    pub fn write(offset: Felt, value: Self);
+}
+
+impl Storage for Felt {
+    pub fn size() -> Felt {
+        return 1;
+    }
+
+    pub fn read(offset: Felt) -> Self {
+        __storage_read(offset)
+    }
+
+    pub fn write(offset: Felt, value: Self) {
+        __storage_write(offset, value);
+    }
+}
+
+impl Storage for bool {
+    pub fn size() -> Felt {
+        return 1;
+    }
+
+    pub fn read(offset: Felt) -> Self {
+        __storage_read(offset) as bool
+    }
+
+    pub fn write(offset: Felt, value: Self) {
+        __storage_write(offset, value as Felt);
+    }
+}

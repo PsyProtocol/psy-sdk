@@ -18,22 +18,22 @@ use strum::EnumTryAs;
 use crate::{
     variable::CheckedVariable, CheckedArrayNode, CheckedFunctionNode, CheckedTraitNode,
     CheckedValue, CheckedValueNode, CheckedValueRef, DefinitionNode, IdentId, ModuleId, ModuleKind,
-    Type, TypeId, TypeKey, UsePath,
+    Type, TypeId, TypeKey, UsePath, TYPE_MAPPING,
 };
 use crate::{Error, Result};
 
 define_arena_id!(ScopeId);
 define_arena_id!(VarId);
 
-pub static STD_PRELUDE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
+pub static STD_PRIMITIVE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
 
 impl ScopeId {
     pub const fn root() -> Self {
         Self(0)
     }
 
-    pub fn prelude() -> Self {
-        *STD_PRELUDE_SCOPE_ID.get().unwrap()
+    pub fn primitive() -> Self {
+        *STD_PRIMITIVE_SCOPE_ID.get().unwrap()
     }
 }
 
@@ -343,16 +343,14 @@ impl<F: Clone> SymbolTable<F> {
     }
 
     pub fn resolve_implementor(&mut self, ty: IdentId) -> Result<(ScopeId, TypeId)> {
-        let current_scope_id = self.current_scope_id().unwrap();
-        if let Some(&type_id) = self[current_scope_id].types.get(&ty.into()) {
+        if let Some(type_id) = self.get_type_id(None, ty) {
             return Ok((self[type_id].scope_id(), type_id));
         }
         Err(Error::UnresolvedImplementor)
     }
 
     pub fn resolve_trait(&mut self, r#trait: IdentId) -> Result<(ScopeId, TypeId)> {
-        let current_scope_id = self.current_scope_id().unwrap();
-        if let Some(&type_id) = self[current_scope_id].types.get(&r#trait.into()) {
+        if let Some(type_id) = self.get_type_id(None, r#trait) {
             return Ok((self[type_id].scope_id(), type_id));
         }
         Err(Error::UnresolvedTrait)
