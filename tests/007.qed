@@ -1,0 +1,91 @@
+fn cal1(a: Felt, b: Felt) -> Felt {
+    let c: Felt = a + b;
+    return c;
+}
+fn min(a: Felt, b: Felt) -> Felt {
+    if a < b { a } else { b }
+}
+fn middle(a: Felt, b: Felt, c: Felt) -> Felt {
+    if a > b {
+        if b > c {
+            b
+        } else if a > c {
+            c
+        } else {
+            a
+        }
+    } else {
+        if a > c {
+            a
+        } else if b > c {
+            c
+        } else {
+            b
+        }
+    }
+}
+fn main() {
+    let a: Felt = 10;
+    let b: Felt = 11;
+    let c: Felt = 12;
+    let d: Felt = 13;
+    let e: Felt = 14;
+
+    let basic: Felt = if a > b { c } else { d };
+    let all: Felt = if a > b {
+        c
+    } else if b > a {
+        d
+    } else {
+        e
+    };
+    let embedded1: Felt = if a > b { if b > c { a } else { b } } else { c };
+    let embedded2: Felt = if a > b {
+        if a > b {
+            c
+        } else if b > a {
+            d
+        } else {
+            e
+        }
+    } else if c > d {
+        if a > b {
+            c
+        } else if b > a {
+            d
+        } else {
+            e
+        }
+    } else {
+        if a > b {
+            c
+        } else if b > a {
+            d
+        } else {
+            e
+        }
+    };
+    let embedded3: Felt = if a > b {
+        let a: Felt = 1;
+        let b: Felt = 2;
+        if b > a { a } else { b }
+    } else if c > d {
+        let a: Felt = 3;
+        let b: Felt = 4;
+        if b > a { a } else { b }
+    } else {
+        let a: Felt = 5;
+        let b: Felt = 6;
+        if b > a { a } else { b }
+    };
+
+    let m1: Felt = 1;
+    let m2: Felt = 2;
+    let m3: Felt = 3;
+    let m4: Felt = 4;
+
+    let min1: Felt = min(m1, m2);
+    let min2: Felt = min(m2, m3);
+    let middle1: Felt = middle(m1, m2, m3);
+    let middle2: Felt = middle(m2, m3, m4);
+}

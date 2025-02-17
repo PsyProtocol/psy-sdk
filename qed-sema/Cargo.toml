@@ -8,7 +8,6 @@ qed-ast = { workspace = true }
 thiserror = { workspace = true }
 qed-parser = { workspace = true }
 qed-common = { workspace = true }
-smol_str = { workspace = true }
 strum = { workspace = true }
 once_cell = { workspace = true }
 tracing = { workspace = true }

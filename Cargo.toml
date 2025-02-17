@@ -87,6 +87,7 @@ plonky2_maybe_rayon = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev 
 tracing = "0.1"
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["std", "env-filter"] }
+lazy_static = "1.5"
 
 sha3 = { version = "0.10", default-features = false }
 blake2 = { version = "0.10", default-features = false }

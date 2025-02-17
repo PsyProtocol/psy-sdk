@@ -102,6 +102,13 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValueRef<F> {
     }
 
     fn from_felts(felts: &[F]) -> Self {
+        if felts.is_empty() {
+            panic!("from_felts: empty input");
+        }
+        if felts.len() == 1 {
+            let value = felts[0].clone();
+            return CheckedValueRef::new_rc(CheckedValue::Felt(value));
+        }
         todo!()
     }
 }

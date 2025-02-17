@@ -1156,17 +1156,17 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
 
     fn interpret_path(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
+        _typechecker: &TypeChecker<F, C>,
         path: &CheckedPathNode,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
+        _parent_node_type: Option<NodeType>,
     ) -> Result<CheckedValueRef<F>> {
         if let Some(variable) = symbols.get_variable(Some(path.scope_id), &path.name) {
-            return Ok(variable.value.clone().unwrap());
+            Ok(variable.value.clone().unwrap())
         } else {
-            return Ok(CheckedValueRef::new_rc(CheckedValue::Type(
+            Ok(CheckedValueRef::new_rc(CheckedValue::Type(
                 path.type_id.clone(),
-            )));
+            )))
         }
     }
 
@@ -1377,9 +1377,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         parent_node_type: Option<NodeType>,
     ) -> Result<()> {
         let node = typechecker[stmt_id].as_variable().unwrap();
-        let value = self
-            .interpret_expr(typechecker, node.value, symbols, Some(node.node_type()))?
-            .unwrap();
+        let value =
+            match self.interpret_expr(typechecker, node.value, symbols, Some(node.node_type()))? {
+                Some(value) => value,
+                None => {
+                    return Err(Error::SemaError(qed_sema::Error::UnresolvedVariable));
+                }
+            };
 
         symbols.set_variable(node.scope_id, &node.name, value.clone())?;
         Ok(())
@@ -1461,11 +1465,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         if_expr: &CheckedIfExprNode,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
+        _parent_node_type: Option<NodeType>,
     ) -> Result<CheckedValueRef<F>> {
         let node = if_expr;
-        let mut ret = ControlState::Normal;
+        let mut result: CheckedValueRef<F>;
 
+        //calculate the predicate
         let predicate = self
             .interpret_expr(
                 typechecker,
@@ -1475,18 +1480,23 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             )?
             .unwrap()
             .to_bool();
+
+        //enter the if block
         self.context.start_if_block(predicate);
-        if predicate == self.context.op_true() {
-            ret = self.interpret_block(
-                typechecker,
-                node.if_branch.body,
-                symbols,
-                Some(node.node_type()),
-            );
-            if let ControlState::Return(value) = ret {
-                return value;
-            }
-        }
+
+        //use if block return value to initialize the result
+        result = match self.interpret_block(
+            typechecker,
+            node.if_branch.body.clone(),
+            symbols,
+            Some(node.node_type()),
+        ) {
+            ControlState::Return(value) => return value,
+            //todo!: change type to CheckedValue::Type(Void)
+            ControlState::Normal => CheckedValueRef::new_rc(CheckedValue::Felt(F::from(0))),
+        };
+
+        result = self.context.cset(result.clone(), result);
 
         for condition in &node.elseif_branch {
             let predicate = self
@@ -1498,35 +1508,38 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 )?
                 .unwrap()
                 .to_bool();
-            if predicate == self.context.op_true() {
-                self.context.start_else_if_block(predicate);
-                ret = self.interpret_block(
-                    typechecker,
-                    condition.body,
-                    symbols,
-                    Some(node.node_type()),
-                );
-                if let ControlState::Return(value) = ret {
-                    return value;
-                }
-            }
+
+            self.context.start_else_if_block(predicate);
+            let elseif_result = match self.interpret_block(
+                typechecker,
+                condition.body.clone(),
+                symbols,
+                Some(node.node_type()),
+            ) {
+                ControlState::Return(value) => return value,
+                ControlState::Normal => CheckedValueRef::new_rc(CheckedValue::Felt(F::from(0))),
+            };
+            result = self.context.cset(result, elseif_result);
         }
 
         if let Some(else_branch) = &node.else_branch {
             self.context.start_else_block();
-            ret = self.interpret_block(
+
+            let else_result = match self.interpret_block(
                 typechecker,
                 else_branch.clone(),
                 symbols,
                 Some(node.node_type()),
-            );
+            ) {
+                ControlState::Return(value) => return value,
+                ControlState::Normal => CheckedValueRef::new_rc(CheckedValue::Felt(F::from(0))),
+            };
+            result = self.context.cset(result, else_result);
         }
 
         self.context.end_if_block();
-        match ret {
-            ControlState::Return(value) => value,
-            ControlState::Normal => Ok(CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE))),
-        }
+
+        Ok(result)
     }
 }
 

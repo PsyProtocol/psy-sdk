@@ -1373,6 +1373,8 @@ version = "0.1.0"
 dependencies = [
  "enum-as-inner",
  "indexmap 2.6.0",
+ "lazy_static",
+ "once_cell",
  "qed-common",
  "smol_str",
  "strum",
@@ -1534,7 +1536,6 @@ dependencies = [
  "qed-parser",
  "qed-utils",
  "qedlang_core",
- "smol_str",
  "strum",
  "thiserror",
  "tracing",
@@ -1557,7 +1558,6 @@ dependencies = [
  "anyhow",
  "clap",
  "kvq",
- "once_cell",
  "plonky2",
  "qed_common_circuit",
  "qed_core",
@@ -1567,7 +1567,6 @@ dependencies = [
  "qed_prover",
  "qed_store",
  "qedlang_core",
- "smol_str",
  "tracing",
  "tracing-subscriber",
 ]

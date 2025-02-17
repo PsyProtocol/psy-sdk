@@ -864,18 +864,36 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
 
         //only the last statement in the block can have a return type
+        let mut insert_return = None;
         let type_id = match new_stmts.last() {
             Some(stmt) => match stmt {
                 CheckedStmtNode::Return(ret) => match ret {
                     CheckedReturnNode { ret: Some((_, ty)) } => Some(*ty),
                     CheckedReturnNode { ret: None } => None,
                 },
-                CheckedStmtNode::If(if_node) => if_node.type_id,
+                CheckedStmtNode::If(if_node) => {
+                    let if_expr = CheckedIfExprNode {
+                        if_branch: if_node.if_branch.clone(),
+                        elseif_branch: if_node.elseif_branch.clone(),
+                        else_branch: if_node.else_branch.clone(),
+                        type_id: if_node.type_id.unwrap_or(VOID_TYPE),
+                    };
+                    let if_expr_id = self.exprs.alloc_item(CheckedExprNode::IfExpr(if_expr));
+                    insert_return = Some(CheckedStmtNode::Return(CheckedReturnNode {
+                        ret: Some((if_expr_id, if_node.type_id.unwrap_or(VOID_TYPE))),
+                    }));
+                    if_node.type_id
+                }
                 CheckedStmtNode::Block(block) => block.ty,
                 _ => None,
             },
             None => None,
         };
+
+        match insert_return {
+            Some(stmt) => new_stmts.push(stmt),
+            None => (),
+        }
 
         ctx.symbols.end_scope();
         Ok(CheckedStmtNode::Block(CheckedBlockNode {
@@ -900,12 +918,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             return Err(Error::TypeMismatch);
         }
 
-        return Ok(CheckedStmtNode::Assignment(CheckedAssignmentNode {
+        Ok(CheckedStmtNode::Assignment(CheckedAssignmentNode {
             variable: self.exprs.alloc_item(checked_lhs),
             operator: assignment_node.operator,
             value: self.exprs.alloc_item(checked_rhs),
             type_id: lhs_ty,
-        }));
+        }))
     }
 
     fn visit_variable(
@@ -1148,30 +1166,21 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             None
         };
 
-        let (checked_body, actual_return_type) = if let Some(body) = &function.body {
+        let checked_body = if let Some(body) = &function.body {
             let checked_body = self.visit_block(body.clone(), ctx)?;
 
-            let actual_return_type =
-                checked_body
-                    .as_block()
-                    .unwrap()
-                    .stmts
-                    .last()
-                    .and_then(|stmt| match self[stmt.clone()] {
-                        CheckedStmtNode::Return(CheckedReturnNode { ret }) => {
-                            ret.as_ref().map(|(expr, ty)| ty.clone())
-                        }
-                        _ => None,
-                    });
+            let actual_return_type = match &checked_body {
+                CheckedStmtNode::Block(block) => block.ty,
+                _ => None,
+            };
+            if expected_return_type != actual_return_type {
+                return Err(Error::TypeMismatch);
+            }
 
-            (Some(checked_body), actual_return_type)
+            Some(checked_body)
         } else {
-            (None, expected_return_type)
+            None
         };
-
-        if expected_return_type != actual_return_type {
-            return Err(Error::TypeMismatch);
-        }
 
         let checked_function = CheckedFunctionNode {
             name: function.name,
