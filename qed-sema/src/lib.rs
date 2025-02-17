@@ -1526,7 +1526,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             body: methods,
             scope_id: ctx.symbols.current_scope_id().unwrap(),
         };
-        let ty = Type::Impl(checked_impl.clone());
+        // let ty = Type::Impl(checked_impl.clone());
         // symbols.add_type(symbols.parent_scope_id(), ty);
 
         ctx.symbols

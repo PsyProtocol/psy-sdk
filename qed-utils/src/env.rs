@@ -18,6 +18,7 @@ use qed_prover::dpn::{
     circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition,
 };
 use qed_store::{
+    config::store_config::QEDHasher,
     controllers::local::proving_session::QEDLocalProvingSessionStore,
     qblock::process::simple::SimpleBlockProcessor,
     traits::qdatastore::{
@@ -30,7 +31,7 @@ pub const D: usize = 2;
 pub type C = PoseidonGoldilocksConfig;
 
 pub fn prepare_environment_with_real_contract(
-    new_user_public_key: QHashOut<GoldilocksField>,
+    new_user_public_key: QBCRegisterUser<GoldilocksField>,
     deploy_contract: QBCDeployContract<GoldilocksField>,
 ) -> anyhow::Result<
     QEDLocalProvingSessionStore<
@@ -53,28 +54,17 @@ pub fn prepare_environment_with_real_contract(
         &st,
         &QEDBlockCommands {
             register_users: vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(1, 1, 1, 1),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(13371, 13372, 13373, 13374),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(13375, 13376, 13377, 13378),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: new_user_public_key,
-                },
+                QBCRegisterUser::new_from_u64s([1; 4], [1; 4]),
+                QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374]),
+                QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378]),
+                QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
+                QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
+                new_user_public_key,
             ],
             deploy_contracts: vec![
                 QBCDeployContract {
-                    deployer: QHashOut::from_values(13371, 13372, 13373, 13374),
+                    deployer: QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374])
+                        .get_public_key::<QEDHasher>(),
                     code_definition: ContractCodeDefinition {
                         state_tree_height: 12 as u16,
                         functions: vec![ContractFunctionCodeDefinition::default()],
@@ -82,7 +72,8 @@ pub fn prepare_environment_with_real_contract(
                     function_whitelist: whitelist_items_fake.to_vec(),
                 },
                 QBCDeployContract {
-                    deployer: QHashOut::from_values(13375, 13376, 13377, 13378),
+                    deployer: QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378])
+                        .get_public_key::<QEDHasher>(),
                     code_definition: ContractCodeDefinition {
                         state_tree_height: 13 as u16,
                         functions: vec![ContractFunctionCodeDefinition::default()],
@@ -100,12 +91,8 @@ pub fn prepare_environment_with_real_contract(
         &st,
         &QEDBlockCommands {
             register_users: vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
+                QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
+                QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
             ],
             deploy_contracts: vec![],
             update_users: vec![],
@@ -117,12 +104,8 @@ pub fn prepare_environment_with_real_contract(
         &st,
         &QEDBlockCommands {
             register_users: vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
+                QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
+                QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
             ],
             deploy_contracts: vec![],
             update_users: vec![],

@@ -23,6 +23,7 @@ use crate::{
 use crate::{Error, Result};
 
 define_arena_id!(ScopeId);
+define_arena_id!(VarId);
 
 pub static STD_PRELUDE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
 
@@ -50,11 +51,11 @@ pub enum ScopeKind {
 }
 
 #[derive(Clone, Debug)]
-pub struct Scope<F: Clone> {
+pub struct Scope {
     pub kind: ScopeKind,
     pub parent: Option<ScopeId>,
     pub children: Vec<ScopeId>,
-    pub variables: HashMap<IdentId, CheckedVariable<F>>,
+    pub variables: HashMap<IdentId, VarId>,
     pub types: HashMap<TypeKey, TypeId>,
 }
 
@@ -114,7 +115,7 @@ impl Module {
     }
 }
 
-impl<T: Clone> Scope<T> {
+impl Scope {
     pub fn new(kind: ScopeKind, parent: Option<ScopeId>) -> Self {
         Self {
             kind,
@@ -128,11 +129,12 @@ impl<T: Clone> Scope<T> {
 
 #[derive(Clone, Debug)]
 pub struct SymbolTable<F: Clone> {
-    scopes: Vec<Scope<F>>,
+    scopes: Vec<Scope>,
     scope_stack: Vec<ScopeId>,
     frames: Vec<Frame<CheckedValueRef<F>>>,
 
-    pub types: Vec<Type>,
+    types: Vec<Type>,
+    variables: Vec<CheckedVariable<F>>,
     modules: Vec<Module>,
     module_stack: Vec<ModuleId>,
 }
@@ -156,7 +158,8 @@ macro_rules! impl_index {
 
 impl_index!(ModuleId, Module, modules);
 impl_index!(TypeId, Type, types);
-impl_index!(ScopeId, Scope<F>, scopes);
+impl_index!(VarId, CheckedVariable<F>, variables);
+impl_index!(ScopeId, Scope, scopes);
 
 impl<T: Clone> Display for SymbolTable<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -173,16 +176,7 @@ impl<T: Clone> Display for SymbolTable<T> {
             //variables
             writeln!(f, "  variables:")?;
             for (k, v) in &scope.variables {
-                writeln!(
-                    f,
-                    "    {:?} : ty: {}, mut: {}, cnst: {}, scope_id: {:?}, value is_some: {}",
-                    k,
-                    v.ty,
-                    v.mutable,
-                    v.cnst,
-                    v.scope_id,
-                    v.value.is_some()
-                )?;
+                writeln!(f, "  {:?} : {:?}", k, v)?;
             }
         }
         //print type
@@ -211,6 +205,7 @@ impl<F: Clone> SymbolTable<F> {
             frames: vec![],
 
             types: vec![],
+            variables: vec![],
             modules: vec![],
             module_stack: vec![],
         }
@@ -314,6 +309,7 @@ impl<F: Clone> SymbolTable<F> {
         self.types.push(ty);
         type_id
     }
+
     pub fn add_type_array(&mut self, scope_id: Option<ScopeId>, ty: Type) -> TypeId {
         let key = ty.key();
         if let Some(x) = self.get_type_id(scope_id, key.clone()) {
@@ -596,7 +592,7 @@ impl<F: Clone> SymbolTable<F> {
         &self,
         start_scope: Option<ScopeId>,
         scope_kinds: Vec<ScopeKind>,
-        f: impl Fn(&Scope<F>) -> bool,
+        f: impl Fn(&Scope) -> bool,
     ) -> Option<ScopeId> {
         let mut current_scope_id = start_scope.or(self.current_scope_id());
 
@@ -634,14 +630,11 @@ impl<F: Clone> SymbolTable<F> {
             .and_then(|frame| frame.get_value(scope_id, key))
             .cloned();
 
-        self[scope_id]
-            .variables
-            .get(key)
-            .cloned()
-            .map(|mut variable| {
-                variable.value = value;
-                variable
-            })
+        self[scope_id].variables.get(key).map(|mut var_id| {
+            let mut variable = self[var_id.clone()].clone();
+            variable.value = value;
+            variable
+        })
     }
 
     pub fn set_variable(
@@ -657,7 +650,7 @@ impl<F: Clone> SymbolTable<F> {
                 .unwrap()
                 .get_value(scope_id, key)
                 .is_some()
-                && (!v.mutable || v.cnst)
+                && (!self[v.clone()].mutable || self[v.clone()].cnst)
             {
                 return Err(Error::ImmutableVariable);
             }
@@ -678,7 +671,9 @@ impl<F: Clone> SymbolTable<F> {
         if self[scope_id].variables.contains_key(&key) {
             return Err(Error::VariableAlreadyDefined);
         }
-        self[scope_id].variables.insert(key, variable);
+        let var_id = VarId(self.variables.len());
+        self.variables.push(variable);
+        self[scope_id].variables.insert(key, var_id);
         Ok(())
     }
 

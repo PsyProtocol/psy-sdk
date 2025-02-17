@@ -81,7 +81,7 @@ pub Module: ModuleNode = {
 }
 
 pub InlineModule: ModuleNode = {
-    <l:@L> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> "}" <r:@R> => { 
+    <l:@L> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> "}" <r:@R> => {
         let mut inline_modules = vec![];
         let mut modules = vec![];
         let mut uses = vec![];

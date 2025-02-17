@@ -25,12 +25,6 @@ use strum::EnumTryAs;
 
 define_arena_id!(TypeId);
 
-impl Display for TypeId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
 pub const UNKOWN_TYPE: TypeId = TypeId(0);
 pub const VOID_TYPE: TypeId = TypeId(1);
 pub const BOOL_TYPE: TypeId = TypeId(2);
@@ -141,17 +135,12 @@ impl Type {
                 generic_parameters,
                 ..
             }) => (name.clone(), generic_parameters.clone(), vec![]),
-            Type::Impl(CheckedImplNode {
-                generic_parameters,
-                ty,
-                ..
-            }) => (ty.clone(), generic_parameters.clone(), vec![]),
             Type::Trait(CheckedTraitNode {
-                generic_parameters,
                 name,
+                generic_parameters,
                 ..
             }) => (name.clone(), generic_parameters.clone(), vec![]),
-            Type::TypeVariable(id) => panic!("Type::id called on TypeVariable type"),
+            _ => panic!("Type::key called on TypeVariable type"),
         };
         TypeKey::new(id, generic_parameters, consts)
     }
@@ -162,7 +151,6 @@ impl Type {
             Type::Struct(CheckedStructNode { scope_id, .. }) => *scope_id,
             Type::Enum(CheckedEnumNode { scope_id, .. }) => *scope_id,
             Type::Function(CheckedFunctionNode { scope_id, .. }) => *scope_id,
-            Type::Impl(CheckedImplNode { scope_id, .. }) => *scope_id,
             Type::Trait(CheckedTraitNode { scope_id, .. }) => *scope_id,
             Type::Felt(_) => ScopeId::prelude(),
             Type::Bool(_) => ScopeId::prelude(),

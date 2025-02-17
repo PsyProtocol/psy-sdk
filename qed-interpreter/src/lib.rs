@@ -207,13 +207,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         }
 
         let outputs = self
-            .interpret_function(
-                &typechecker,
-                type_id,
-                parameters,
-                symbols,
-                Some(NodeType::Module),
-            )
+            .interpret_function(&typechecker, type_id, parameters, symbols)
             .unwrap()
             .transpose()?;
 
@@ -261,7 +255,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         type_id: TypeId,
         parameters: Vec<CheckedValueRef<F>>,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> ControlState<Result<CheckedValueRef<F>>> {
         symbols.push_frame();
         let res = self.__interpret_function__(typechecker, type_id, parameters, symbols);
@@ -291,12 +284,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             symbols.set_variable(node.scope_id, parameter, parameters[i].clone())?;
         }
 
-        self.interpret_block(
-            typechecker,
-            node.body.unwrap(),
-            symbols,
-            Some(node.node_type()),
-        )
+        self.interpret_block(typechecker, node.body.unwrap(), symbols)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -305,48 +293,27 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         stmt_id: StmtId,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<()> {
         let node = typechecker[stmt_id].as_if().unwrap();
         let predicate = self
-            .interpret_expr(
-                typechecker,
-                node.if_branch.predicate,
-                symbols,
-                Some(node.node_type()),
-            )?
+            .interpret_expr(typechecker, node.if_branch.predicate, symbols)?
             .unwrap()
             .to_bool();
         self.context.start_if_block(predicate);
-        self.interpret_block(
-            typechecker,
-            node.if_branch.body,
-            symbols,
-            Some(node.node_type()),
-        );
+        self.interpret_block(typechecker, node.if_branch.body, symbols);
 
         for condition in &node.elseif_branch {
             let predicate = self
-                .interpret_expr(
-                    typechecker,
-                    condition.predicate,
-                    symbols,
-                    Some(node.node_type()),
-                )?
+                .interpret_expr(typechecker, condition.predicate, symbols)?
                 .unwrap()
                 .to_bool();
             self.context.start_else_if_block(predicate);
-            self.interpret_block(typechecker, condition.body, symbols, Some(node.node_type()));
+            self.interpret_block(typechecker, condition.body, symbols);
         }
 
         if let Some(else_branch) = &node.else_branch {
             self.context.start_else_block();
-            self.interpret_block(
-                typechecker,
-                else_branch.clone(),
-                symbols,
-                Some(node.node_type()),
-            );
+            self.interpret_block(typechecker, else_branch.clone(), symbols);
         }
 
         self.context.end_if_block();
@@ -359,17 +326,16 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         stmt_id: StmtId,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<()> {
         let node = typechecker[stmt_id].as_while().unwrap();
         loop {
             let predicate = self
-                .interpret_expr(typechecker, node.predicate, symbols, Some(node.node_type()))?
+                .interpret_expr(typechecker, node.predicate, symbols)?
                 .unwrap()
                 .to_bool();
             if predicate == self.context.op_true() {
                 self.context.start_if_block(predicate);
-                self.interpret_block(typechecker, node.body, symbols, Some(node.node_type()));
+                self.interpret_block(typechecker, node.body, symbols);
                 self.context.end_if_block();
             } else {
                 break Ok(());
@@ -383,11 +349,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         stmt_id: StmtId,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> ControlState<Result<CheckedValueRef<F>>> {
         let node = typechecker[stmt_id].as_block().unwrap();
         for &stmt in &node.stmts {
-            self.interpret_statement(typechecker, stmt, symbols, Some(node.node_type()))?;
+            self.interpret_statement(typechecker, stmt, symbols)?;
         }
         ControlState::Normal
     }
@@ -398,40 +363,37 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         stmt_id: StmtId,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> ControlState<Result<CheckedValueRef<F>>> {
         let node = &typechecker[stmt_id];
         match node {
-            CheckedStmtNode::If(r#if) => {
-                self.interpret_if(typechecker, stmt_id, symbols, parent_node_type)?
-            }
+            CheckedStmtNode::If(r#if) => self.interpret_if(typechecker, stmt_id, symbols)?,
             CheckedStmtNode::While(r#while) => {
-                self.interpret_while(typechecker, stmt_id, symbols, parent_node_type)?
+                self.interpret_while(typechecker, stmt_id, symbols)?
             }
             CheckedStmtNode::Block(block) => {
-                return self.interpret_block(typechecker, stmt_id, symbols, parent_node_type);
+                return self.interpret_block(typechecker, stmt_id, symbols);
             }
             CheckedStmtNode::Assignment(r#assignment) => {
-                self.interpret_assignment(typechecker, stmt_id, symbols, parent_node_type)?
+                self.interpret_assignment(typechecker, stmt_id, symbols)?
             }
             CheckedStmtNode::Variable(variable) => {
-                self.interpret_variable(typechecker, stmt_id, symbols, parent_node_type)?
+                self.interpret_variable(typechecker, stmt_id, symbols)?
             }
             CheckedStmtNode::Definition(definition) => {}
             CheckedStmtNode::Expression(expr_id) => {
-                self.interpret_expr(typechecker, *expr_id, symbols, parent_node_type)?;
+                self.interpret_expr(typechecker, *expr_id, symbols)?;
             }
             CheckedStmtNode::Return(return_node) => {
-                return self.interpret_ret(typechecker, stmt_id, symbols, parent_node_type);
+                return self.interpret_ret(typechecker, stmt_id, symbols);
             }
             CheckedStmtNode::Storage(storage) => {
-                self.interpret_storage_write(typechecker, stmt_id, symbols, parent_node_type)?;
+                self.interpret_storage_write(typechecker, stmt_id, symbols)?;
             }
             CheckedStmtNode::Assert(assert_node) => {
-                self.interpret_assert(typechecker, stmt_id, symbols, parent_node_type)?;
+                self.interpret_assert(typechecker, stmt_id, symbols)?;
             }
             CheckedStmtNode::AssertEq(assert_eq_node) => {
-                self.interpret_assert_eq(typechecker, stmt_id, symbols, parent_node_type)?;
+                self.interpret_assert_eq(typechecker, stmt_id, symbols)?;
             }
         }
         ControlState::Normal
@@ -442,24 +404,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         stmt_id: StmtId,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> ControlState<Result<CheckedValueRef<F>>> {
         let storage = typechecker[stmt_id].as_storage().unwrap();
         let offset = self
-            .interpret_expr(
-                typechecker,
-                storage.offset,
-                symbols,
-                Some(storage.node_type()),
-            )?
+            .interpret_expr(typechecker, storage.offset, symbols)?
             .unwrap();
         let value = self
-            .interpret_expr(
-                typechecker,
-                storage.value,
-                symbols,
-                Some(storage.node_type()),
-            )?
+            .interpret_expr(typechecker, storage.value, symbols)?
             .unwrap();
         self.context
             .op_set_state_obj(offset.to_felt(), value.to_felt());
@@ -471,13 +422,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         stmt_id: StmtId,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> ControlState<Result<CheckedValueRef<F>>> {
         let return_node = typechecker[stmt_id].as_return().unwrap();
         if let Some((expr, _)) = &return_node.ret {
-            let value = self
-                .interpret_expr(typechecker, *expr, symbols, Some(return_node.node_type()))?
-                .unwrap();
+            let value = self.interpret_expr(typechecker, *expr, symbols)?.unwrap();
             return ControlState::Return(Ok(value));
         } else {
             return ControlState::Normal;
@@ -489,26 +437,20 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         stmt_id: StmtId,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> ControlState<Result<CheckedValueRef<F>>> {
         let assert_node = typechecker[stmt_id].as_assert().unwrap();
 
         let lhs_value = self
-            .interpret_expr(
-                typechecker,
-                assert_node.left,
-                symbols,
-                Some(assert_node.node_type()),
-            )?
+            .interpret_expr(typechecker, assert_node.left, symbols)?
             .unwrap();
         self.context.assert_true(
             lhs_value.to_bool(),
             Box::leak(
-                (assert_node
+                assert_node
                     .message
                     .clone()
                     .unwrap_or_default()
-                    .into_boxed_str()),
+                    .into_boxed_str(),
             ),
         );
         return ControlState::Normal;
@@ -519,24 +461,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         stmt_id: StmtId,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> ControlState<Result<CheckedValueRef<F>>> {
         let assert_eq_node = typechecker[stmt_id].as_assert_eq().unwrap();
         let lhs_value = self
-            .interpret_expr(
-                typechecker,
-                assert_eq_node.left,
-                symbols,
-                Some(assert_eq_node.node_type()),
-            )?
+            .interpret_expr(typechecker, assert_eq_node.left, symbols)?
             .unwrap();
         let rhs_value = self
-            .interpret_expr(
-                typechecker,
-                assert_eq_node.right,
-                symbols,
-                Some(assert_eq_node.node_type()),
-            )?
+            .interpret_expr(typechecker, assert_eq_node.right, symbols)?
             .unwrap();
 
         self.context.assert_eq(
@@ -559,7 +490,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         node: &CheckedValueNode<F>,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<CheckedValue<F>> {
         Ok(match node {
             CheckedValueNode::Felt(value) => CheckedValue::Felt(*value),
@@ -568,13 +498,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 let mut values = Vec::new();
                 for element in elements {
                     values.push(
-                        self.interpret_expr(
-                            typechecker,
-                            *element,
-                            symbols,
-                            Some(node.node_type()),
-                        )?
-                        .unwrap(),
+                        self.interpret_expr(typechecker, *element, symbols)?
+                            .unwrap(),
                     );
                 }
                 CheckedValue::Array(*type_id, values)
@@ -584,13 +509,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 for (field_name, field_value) in field_values {
                     values.insert(
                         field_name.clone(),
-                        self.interpret_expr(
-                            typechecker,
-                            *field_value,
-                            symbols,
-                            Some(node.node_type()),
-                        )?
-                        .unwrap(),
+                        self.interpret_expr(typechecker, *field_value, symbols)?
+                            .unwrap(),
                     );
                 }
                 CheckedValue::Struct(*type_id, values)
@@ -605,15 +525,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         unary_node: &CheckedUnaryNode,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<CheckedValue<F>> {
         let rhs_value = self
-            .interpret_expr(
-                typechecker,
-                unary_node.rhs,
-                symbols,
-                Some(unary_node.node_type()),
-            )?
+            .interpret_expr(typechecker, unary_node.rhs, symbols)?
             .unwrap();
 
         Ok(match unary_node.operator {
@@ -636,24 +550,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         binary_node: &CheckedBinaryNode,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<CheckedValue<F>> {
         use BinaryOperator::*;
         let lhs_value = self
-            .interpret_expr(
-                typechecker,
-                binary_node.lhs,
-                symbols,
-                Some(binary_node.node_type()),
-            )?
+            .interpret_expr(typechecker, binary_node.lhs, symbols)?
             .unwrap();
         let rhs_value = self
-            .interpret_expr(
-                typechecker,
-                binary_node.rhs,
-                symbols,
-                Some(binary_node.node_type()),
-            )?
+            .interpret_expr(typechecker, binary_node.rhs, symbols)?
             .unwrap();
 
         let value = match binary_node.operator {
@@ -734,7 +637,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         operator: AssignmentOperator,
         value: CheckedValueRef<F>,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<CheckedValueRef<F>> {
         let new_value = match operator {
             AssignmentOperator::Eq => value,
@@ -783,21 +685,16 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         expr_id: ExprId,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<Option<CheckedValueRef<F>>> {
         let node = &typechecker[expr_id];
         match node {
-            CheckedExprNode::Path(path) => Ok(Some(self.interpret_path(
-                typechecker,
-                path,
-                symbols,
-                parent_node_type,
-            )?)),
+            CheckedExprNode::Path(path) => {
+                Ok(Some(self.interpret_path(typechecker, path, symbols)?))
+            }
             CheckedExprNode::Storage(storage_read) => Ok(Some(self.interpret_storage_read(
                 typechecker,
                 storage_read,
                 symbols,
-                parent_node_type,
             )?)),
             CheckedExprNode::Context(ctx_node) => Ok(Some({
                 match ctx_node {
@@ -828,12 +725,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                         type_id,
                     } => {
                         let slot_index = self
-                            .interpret_expr(
-                                typechecker,
-                                slot_index.clone(),
-                                symbols,
-                                Some(ctx_node.node_type()),
-                            )?
+                            .interpret_expr(typechecker, slot_index.clone(), symbols)?
                             .unwrap()
                             .to_felt();
                         CheckedValueRef::new_rc(CheckedValue::Array(
@@ -851,32 +743,20 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                         slot_index,
                         type_id,
                     } => {
-                        let parent_node_type = ctx_node.node_type();
                         let contract_state_tree_height = self
                             .interpret_expr(
                                 typechecker,
                                 contract_state_tree_height.clone(),
                                 symbols,
-                                Some(parent_node_type),
                             )?
                             .unwrap()
                             .to_felt();
                         let contract_id = self
-                            .interpret_expr(
-                                typechecker,
-                                contract_id.clone(),
-                                symbols,
-                                Some(parent_node_type),
-                            )?
+                            .interpret_expr(typechecker, contract_id.clone(), symbols)?
                             .unwrap()
                             .to_felt();
                         let slot_index = self
-                            .interpret_expr(
-                                typechecker,
-                                slot_index.clone(),
-                                symbols,
-                                Some(parent_node_type),
-                            )?
+                            .interpret_expr(typechecker, slot_index.clone(), symbols)?
                             .unwrap()
                             .to_felt();
                         CheckedValueRef::new_rc(CheckedValue::Array(
@@ -899,41 +779,24 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                         slot_index,
                         type_id,
                     } => {
-                        let parent_node_type = ctx_node.node_type();
                         let contract_state_tree_height = self
                             .interpret_expr(
                                 typechecker,
                                 contract_state_tree_height.clone(),
                                 symbols,
-                                Some(parent_node_type),
                             )?
                             .unwrap()
                             .to_felt();
                         let user_id = self
-                            .interpret_expr(
-                                typechecker,
-                                user_id.clone(),
-                                symbols,
-                                Some(parent_node_type),
-                            )?
+                            .interpret_expr(typechecker, user_id.clone(), symbols)?
                             .unwrap()
                             .to_felt();
                         let contract_id = self
-                            .interpret_expr(
-                                typechecker,
-                                contract_id.clone(),
-                                symbols,
-                                Some(parent_node_type),
-                            )?
+                            .interpret_expr(typechecker, contract_id.clone(), symbols)?
                             .unwrap()
                             .to_felt();
                         let slot_index = self
-                            .interpret_expr(
-                                typechecker,
-                                slot_index.clone(),
-                                symbols,
-                                Some(parent_node_type),
-                            )?
+                            .interpret_expr(typechecker, slot_index.clone(), symbols)?
                             .unwrap()
                             .to_felt();
                         CheckedValueRef::new_rc(CheckedValue::Array(
@@ -955,23 +818,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                         new_value,
                         type_id,
                     } => {
-                        let parent_node_type = ctx_node.node_type();
                         let new_value = self
-                            .interpret_expr(
-                                typechecker,
-                                new_value.clone(),
-                                symbols,
-                                Some(parent_node_type),
-                            )?
+                            .interpret_expr(typechecker, new_value.clone(), symbols)?
                             .unwrap()
                             .to_array();
                         let slot_index = self
-                            .interpret_expr(
-                                typechecker,
-                                slot_index.clone(),
-                                symbols,
-                                Some(parent_node_type),
-                            )?
+                            .interpret_expr(typechecker, slot_index.clone(), symbols)?
                             .unwrap()
                             .to_felt();
                         CheckedValueRef::new_rc(CheckedValue::Array(
@@ -986,37 +838,27 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 }
             })),
             CheckedExprNode::Value(value_node) => Ok(Some(CheckedValueRef::new_rc(
-                self.interpret_value(typechecker, &value_node, symbols, parent_node_type)?,
+                self.interpret_value(typechecker, &value_node, symbols)?,
             ))),
             CheckedExprNode::Binary(binary_node) => Ok(Some(CheckedValueRef::new_rc(
-                self.interpret_binary(typechecker, binary_node, symbols, parent_node_type)?,
+                self.interpret_binary(typechecker, binary_node, symbols)?,
             ))),
             CheckedExprNode::Unary(unary_node) => Ok(Some(CheckedValueRef::new_rc(
-                self.interpret_unary(typechecker, unary_node, symbols, parent_node_type)?,
+                self.interpret_unary(typechecker, unary_node, symbols)?,
             ))),
             CheckedExprNode::Call(call_node) => Ok(self
-                .interpret_call(typechecker, call_node, symbols, parent_node_type)
+                .interpret_call(typechecker, call_node, symbols)
                 .unwrap()
                 .transpose()?),
             CheckedExprNode::Cast(cast_node) => Ok(Some(CheckedValueRef::new_rc(
-                self.interpret_cast(typechecker, cast_node, symbols, parent_node_type)?,
+                self.interpret_cast(typechecker, cast_node, symbols)?,
             ))),
-            CheckedExprNode::IndexAccess(index_access_node) => {
-                Ok(Some(self.interpret_index_access(
-                    typechecker,
-                    index_access_node,
-                    symbols,
-                    parent_node_type,
-                )?))
-            }
-            CheckedExprNode::MemberAccess(member_access_node) => {
-                Ok(Some(self.interpret_member_access(
-                    typechecker,
-                    member_access_node,
-                    symbols,
-                    parent_node_type,
-                )?))
-            }
+            CheckedExprNode::IndexAccess(index_access_node) => Ok(Some(
+                self.interpret_index_access(typechecker, index_access_node, symbols)?,
+            )),
+            CheckedExprNode::MemberAccess(member_access_node) => Ok(Some(
+                self.interpret_member_access(typechecker, member_access_node, symbols)?,
+            )),
         }
     }
 
@@ -1025,15 +867,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         member_access_node: &CheckedMemberAccessNode,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<CheckedValueRef<F>> {
         let s = self
-            .interpret_expr(
-                typechecker,
-                member_access_node.value,
-                symbols,
-                Some(member_access_node.node_type()),
-            )?
+            .interpret_expr(typechecker, member_access_node.value, symbols)?
             .unwrap();
         assert!(s.is_struct());
         Ok(
@@ -1058,15 +894,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         index_access_node: &CheckedIndexAccessNode,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<CheckedValueRef<F>> {
         let a = self
-            .interpret_expr(
-                typechecker,
-                index_access_node.value,
-                symbols,
-                Some(index_access_node.node_type()),
-            )?
+            .interpret_expr(typechecker, index_access_node.value, symbols)?
             .unwrap();
         return Ok(a.get_path(&[index_access_node.index]).unwrap());
     }
@@ -1076,15 +906,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         cast_node: &CheckedCastNode,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<CheckedValue<F>> {
         let value = self
-            .interpret_expr(
-                typechecker,
-                cast_node.value,
-                symbols,
-                Some(cast_node.node_type()),
-            )?
+            .interpret_expr(typechecker, cast_node.value, symbols)?
             .unwrap();
         if value.is_felt() && cast_node.target_type == BOOL_TYPE {
             return Ok(CheckedValue::Bool(value.to_felt()));
@@ -1100,35 +924,18 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         call_node: &CheckedCallNode,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> ControlState<Result<CheckedValueRef<F>>> {
         let f = self
-            .interpret_expr(
-                typechecker,
-                call_node.variable,
-                symbols,
-                Some(call_node.node_type()),
-            )?
+            .interpret_expr(typechecker, call_node.variable, symbols)?
             .unwrap();
         let mut parameters = Vec::new();
         for arg in call_node.receiver.iter().chain(call_node.args.iter()) {
             parameters.push(
-                self.interpret_expr(
-                    typechecker,
-                    arg.clone(),
-                    symbols,
-                    Some(call_node.node_type()),
-                )?
-                .unwrap(),
+                self.interpret_expr(typechecker, arg.clone(), symbols)?
+                    .unwrap(),
             );
         }
-        return self.interpret_function(
-            typechecker,
-            f.type_id(),
-            parameters,
-            symbols,
-            Some(call_node.node_type()),
-        );
+        return self.interpret_function(typechecker, f.type_id(), parameters, symbols);
     }
 
     fn interpret_path(
@@ -1136,7 +943,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         path: &CheckedPathNode,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<CheckedValueRef<F>> {
         if let Some(variable) = symbols.get_variable(Some(path.scope_id), &path.name) {
             return Ok(variable.value.clone().unwrap());
@@ -1152,18 +958,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         storage_read: &CheckedStorageReadNode,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<CheckedValueRef<F>> {
         let contract_id = self.context.get_contract_id();
         let user_id = self.context.get_user_id();
 
         let offset = self
-            .interpret_expr(
-                typechecker,
-                storage_read.offset,
-                symbols,
-                Some(storage_read.node_type()),
-            )?
+            .interpret_expr(typechecker, storage_read.offset, symbols)?
             .unwrap();
         let value = self
             .context
@@ -1177,30 +977,23 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         stmt_id: StmtId,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<()> {
         let node = typechecker[stmt_id].as_assignment().unwrap();
         let value = self
-            .interpret_expr(typechecker, node.value, symbols, Some(node.node_type()))?
+            .interpret_expr(typechecker, node.value, symbols)?
             .unwrap();
         let mut path = vec![];
 
         let (old_value, name, variable) = match &typechecker[node.variable] {
-            CheckedExprNode::Path(path_node) => self.interpret_path_assignment(
-                typechecker,
-                node,
-                path_node,
-                symbols,
-                &mut path,
-                parent_node_type,
-            )?,
+            CheckedExprNode::Path(path_node) => {
+                self.interpret_path_assignment(typechecker, node, path_node, symbols, &mut path)?
+            }
             CheckedExprNode::MemberAccess(member_access_node) => self.interpret_member_assignment(
                 typechecker,
                 node,
                 member_access_node,
                 symbols,
                 &mut path,
-                parent_node_type,
             )?,
             CheckedExprNode::IndexAccess(index_access_node) => self.interpret_index_assignment(
                 typechecker,
@@ -1208,7 +1001,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 index_access_node,
                 symbols,
                 &mut path,
-                parent_node_type,
             )?,
             _ => unimplemented!(),
         };
@@ -1219,7 +1011,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             node.operator,
             value,
             symbols,
-            parent_node_type,
         )?;
 
         let mut variable_value = variable.value.unwrap();
@@ -1237,17 +1028,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         index_access_node: &CheckedIndexAccessNode,
         symbols: &mut SymbolTable<F>,
         path: &mut Vec<usize>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
         let (inner_value, inner_var_name, inner_var) = match &typechecker[index_access_node.value] {
-            CheckedExprNode::Path(checked_path_node) => self.interpret_path_assignment(
-                typechecker,
-                node,
-                checked_path_node,
-                symbols,
-                path,
-                parent_node_type,
-            )?,
+            CheckedExprNode::Path(checked_path_node) => {
+                self.interpret_path_assignment(typechecker, node, checked_path_node, symbols, path)?
+            }
             CheckedExprNode::IndexAccess(checked_index_access_node) => self
                 .interpret_index_assignment(
                     typechecker,
@@ -1255,7 +1040,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                     checked_index_access_node,
                     symbols,
                     path,
-                    parent_node_type,
                 )?,
             CheckedExprNode::MemberAccess(checked_member_access_node) => self
                 .interpret_member_assignment(
@@ -1264,7 +1048,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                     checked_member_access_node,
                     symbols,
                     path,
-                    parent_node_type,
                 )?,
             _ => unreachable!(),
         };
@@ -1286,18 +1069,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         member_access_node: &CheckedMemberAccessNode,
         symbols: &mut SymbolTable<F>,
         path: &mut Vec<usize>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
         let (inner_value, inner_var_name, inner_var) = match &typechecker[member_access_node.value]
         {
-            CheckedExprNode::Path(checked_path_node) => self.interpret_path_assignment(
-                typechecker,
-                node,
-                checked_path_node,
-                symbols,
-                path,
-                parent_node_type,
-            )?,
+            CheckedExprNode::Path(checked_path_node) => {
+                self.interpret_path_assignment(typechecker, node, checked_path_node, symbols, path)?
+            }
             CheckedExprNode::IndexAccess(checked_index_access_node) => self
                 .interpret_index_assignment(
                     typechecker,
@@ -1305,7 +1082,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                     checked_index_access_node,
                     symbols,
                     path,
-                    parent_node_type,
                 )?,
             CheckedExprNode::MemberAccess(checked_member_access_node) => self
                 .interpret_member_assignment(
@@ -1314,7 +1090,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                     checked_member_access_node,
                     symbols,
                     path,
-                    parent_node_type,
                 )?,
             _ => unreachable!(),
         };
@@ -1338,7 +1113,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         path_node: &CheckedPathNode,
         symbols: &mut SymbolTable<F>,
         path: &mut Vec<usize>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
         let start_scope = Some(path_node.scope_id);
         let variable = symbols.get_variable(start_scope, &path_node.name).unwrap();
@@ -1351,11 +1125,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         stmt_id: StmtId,
         symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
     ) -> Result<()> {
         let node = typechecker[stmt_id].as_variable().unwrap();
         let value = self
-            .interpret_expr(typechecker, node.value, symbols, Some(node.node_type()))?
+            .interpret_expr(typechecker, node.value, symbols)?
             .unwrap();
 
         symbols.set_variable(node.scope_id, &node.name, value.clone())?;
@@ -1405,8 +1178,10 @@ mod test {
     use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
     use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
     use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+    use qed_data::qblock::cmds::register_user::QBCRegisterUser;
     use qed_exec::vm::exec::QEDEvalSessionResult;
     use qed_fmt::Formatter;
+    use qed_store::config::store_config::QEDHasher;
     use qed_utils::{
         gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract, C,
         D,
@@ -1442,6 +1217,8 @@ mod test {
             let priv_key = QHashOut::rand();
             let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
             let pub_key = wallet.add_private_key(SimpleQEDPrivateKey::new(priv_key));
+            let priv_key_w = SimpleQEDPrivateKey::new(priv_key);
+            let pub_key_param = priv_key_w.get_public_key_param::<QEDHasher>();
             let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
             let deployer = QHashOut::rand();
@@ -1452,7 +1229,11 @@ mod test {
             )
             .unwrap();
 
-            let mut lps = prepare_environment_with_real_contract(pub_key, deploy_cmd).unwrap();
+            let mut lps = prepare_environment_with_real_contract(
+                QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
+                deploy_cmd,
+            )
+            .unwrap();
             let contract_id = GoldilocksField::from_canonical_u64(2);
 
             let cfc_input = QEDEvalSessionResult::new()
