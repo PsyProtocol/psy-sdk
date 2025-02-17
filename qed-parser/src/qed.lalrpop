@@ -742,8 +742,8 @@ extern {
         FOR => Token::KeywordFor,
         WHERE => Token::KeywordWhere,
 
-        ASSERT => Token::KeywordAssert,
-        ASSERT_EQ => Token::KeywordAssertEq,
+        ASSERT => Token::IntrinsicAssert,
+        ASSERT_EQ => Token::IntrinsicAssertEq,
 
         MOD => Token::KeywordMod,
         USE => Token::KeywordUse,

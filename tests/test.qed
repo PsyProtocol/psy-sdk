@@ -16,10 +16,10 @@ fn main() {
 
 #[test]
 fn test_min() {
-    assert!(min(2, 3) == 2, "min(2, 3) == 2");
+    assert(min(2, 3) == 2, "min(2, 3) == 2");
 }
 
 #[test]
 fn test_max() {
-    assert!(max(2, 3) == 3, "max(2, 3) == 3");
+    assert(max(2, 3) == 3, "max(2, 3) == 3");
 }

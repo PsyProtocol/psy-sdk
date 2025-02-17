@@ -38,11 +38,13 @@ pub enum Token<'input> {
 
     #[token("as")]
     KeywordAs,
+    #[token("type")]
+    KeywordType,
 
-    #[token("assert!")]
-    KeywordAssert,
-    #[token("assert_eq!")]
-    KeywordAssertEq,
+    #[token("assert")]
+    IntrinsicAssert,
+    #[token("assert_eq")]
+    IntrinsicAssertEq,
 
     #[token("new")]
     KeywordNew,
