@@ -30,6 +30,8 @@ pub enum Error {
     InvalidFunctionCall,
     #[error("invalid return")]
     InvalidReturn,
+    #[error("invalid self parameter")]
+    InvalidSelfParameter,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

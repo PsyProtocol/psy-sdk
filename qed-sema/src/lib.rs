@@ -619,6 +619,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             }
             self.exprs.alloc_item(expr)
         };
+
         for (i, arg) in call_node.args.iter().enumerate() {
             let type_arg = self.visit_expr(arg.clone(), ctx)?;
             if type_arg.ty() != f.parameters[i + 1].2 {
@@ -997,6 +998,23 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         for &generic_parameter in &function.generic_parameters {
             let type_id = ctx.symbols.add_type_variable(generic_parameter);
             generic_parameters.push(type_id);
+        }
+
+        let current_scope_kind = &ctx.symbols[current_scope_id].kind;
+        let is_method_scope = current_scope_kind == &ScopeKind::ImplMethod || current_scope_kind == &ScopeKind::TraitMethod;
+
+        for (i, (parameter, mutable, parameter_type)) in function.parameters.iter().enumerate() {
+            // self parameter is only allowed in associated functions associated functions are those in `impl` or `trait` definitions
+            if i > 0 || (i == 0 && !is_method_scope) {
+                if parameter == &IdentId::SELF{
+                    return Err(Error::InvalidSelfParameter);
+                }
+            }
+            
+            // Self is only available in impls, traits, and type definitions
+            if !is_method_scope && parameter_type == &UncheckedType::Basic(IdentId::TYPE_SELF) {
+                return Err(Error::InvalidSelfParameter);
+            }
         }
 
         for (parameter, mutable, parameter_type) in &function.parameters {
@@ -1425,6 +1443,23 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         for &generic_parameter in &function.generic_parameters {
             let type_id = ctx.symbols.add_type_variable(generic_parameter);
             generic_parameters.push(type_id);
+        }
+
+        let current_scope_kind = &ctx.symbols[current_scope_id].kind;
+        let is_method_scope = current_scope_kind == &ScopeKind::ImplMethod || current_scope_kind == &ScopeKind::TraitMethod;
+
+        for (i, (parameter, mutable, parameter_type)) in function.parameters.iter().enumerate() {
+            // self parameter is only allowed in associated functions associated functions are those in `impl` or `trait` definitions
+            if i > 0 || (i == 0 && !is_method_scope) {
+                if parameter == &IdentId::SELF{
+                    return Err(Error::InvalidSelfParameter);
+                }
+            }
+            
+            // Self is only available in impls, traits, and type definitions
+            if !is_method_scope && parameter_type == &UncheckedType::Basic(IdentId::TYPE_SELF) {
+                return Err(Error::InvalidSelfParameter);
+            }
         }
 
         for (parameter, mutable, parameter_type) in &function.parameters {

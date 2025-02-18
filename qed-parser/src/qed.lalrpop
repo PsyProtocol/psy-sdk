@@ -209,7 +209,10 @@ EnumVariant: EnumVariant = {
 }
 
 FunctionParameter: (IdentId, bool, UncheckedType) = {
-    <l:@L> <mutable:MUT?> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => (name, mutable.is_some(), ty)
+    <l:@L> <mutable:MUT?> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => (name, mutable.is_some(), ty),
+    <l:@L> <mutable:MUT?> <name:SELF> <r:@R> => {
+        (IdentId::SELF, mutable.is_some(), UncheckedType::Basic(IdentId::TYPE_SELF))
+    },
 }
 
 TypeAnnotation: (IdentId, UncheckedType) = {

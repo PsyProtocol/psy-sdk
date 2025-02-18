@@ -22,6 +22,7 @@ interpret:
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/parameter_passing_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/pub_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/return_test.qed --parameters 2,3
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/self_test.qed
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/storage_test.qed
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/trait_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/hash_test.qed
