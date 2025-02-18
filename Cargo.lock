@@ -1535,6 +1535,7 @@ dependencies = [
  "qed-parser",
  "qed-utils",
  "qedlang_core",
+ "smallvec",
  "smol_str",
  "strum",
  "thiserror",

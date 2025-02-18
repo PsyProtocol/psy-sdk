@@ -14,8 +14,27 @@ pub struct CheckedFunctionNode {
     pub attrs: Vec<AttrNode>,
 }
 
+impl CheckedFunctionNode {
+    pub fn signature(&self) -> CheckedFunctionSignature {
+        CheckedFunctionSignature {
+            parameters: self
+                .parameters
+                .iter()
+                .map(|(_, mutable, ty)| (mutable.clone(), ty.clone()))
+                .collect(),
+            return_type: self.return_type.clone(),
+        }
+    }
+}
+
 impl NodeInfo for CheckedFunctionNode {
     fn node_type(&self) -> NodeType {
         NodeType::FunctionDef
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CheckedFunctionSignature {
+    pub parameters: Vec<(bool, TypeId)>,
+    pub return_type: Option<TypeId>,
 }

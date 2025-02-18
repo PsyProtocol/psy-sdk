@@ -198,6 +198,25 @@ Qualifier: Qualifier = {
     <l:@L> <is_extern:EXTERN?> <r:@R> => Qualifier { is_extern: is_extern.is_some() },
 }
 
+
+FunctionSignature: UncheckedType = {
+    <l:@L> FN "(" <parameters:Comma<AnonymousFunctionParameter>> ")" <return_type:FunctionReturn?> <r:@R> => UncheckedType::FunctionSignature(Box::new(FunctionSignature {
+        parameters,
+        return_type
+    }))
+}
+
+FunctionParameter: (IdentId, bool, UncheckedType) = {
+    <l:@L> <mutable:MUT?> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => (name, mutable.is_some(), ty),
+    <l:@L> <mutable:MUT?> <name:SELF> <r:@R> => {
+        (IdentId::SELF, mutable.is_some(), UncheckedType::Basic(IdentId::TYPE_SELF))
+    },
+}
+
+AnonymousFunctionParameter: (bool, UncheckedType) = {
+    <l:@L> <mutable:MUT?> <ty:Ty> <r:@R> => (mutable.is_some(), ty)
+}
+
 FunctionReturn: UncheckedType = {
     <l:@L> "->" <return_type:Ty> <r:@R> => return_type
 }
@@ -206,13 +225,6 @@ EnumVariant: EnumVariant = {
     <l:@L> <name:Identifier> <r:@R> => EnumVariant::Basic(name),
     <l:@L> <name:Identifier> "(" <members:Comma<Ty>> ")" <r:@R> => EnumVariant::Tuple(name, members),
     <l:@L> <name:Identifier> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => EnumVariant::Struct(name, fields.into_iter().map(|(field_name, field_type, visibility)| (field_name, (field_type, visibility))).collect())
-}
-
-FunctionParameter: (IdentId, bool, UncheckedType) = {
-    <l:@L> <mutable:MUT?> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => (name, mutable.is_some(), ty),
-    <l:@L> <mutable:MUT?> <name:SELF> <r:@R> => {
-        (IdentId::SELF, mutable.is_some(), UncheckedType::Basic(IdentId::TYPE_SELF))
-    },
 }
 
 TypeAnnotation: (IdentId, UncheckedType) = {
@@ -447,14 +459,14 @@ Expression: ExprNode<F> = {
             }
         )
     },
-    <l:@L> <variable:Expression> "(" <args:ExpressionList> ")" <r:@R> => {
+    <l:@L> <callee:Expression> "(" <args:ExpressionList> ")" <r:@R> => {
        if let ExprNode::<F>::MemberAccess(MemberAccessNode {
           target: receiver, ..
-       }) = &variable {
+       }) = &callee {
             ExprNode::<F>::MemberCall(
                MemberCallNode {
                    receiver: receiver.clone(),
-                   variable: expr_nodes.alloc_item(variable),
+                   callee: expr_nodes.alloc_item(callee),
                    generic_parameters: Vec::new(),
                    args: expr_nodes.alloc_items(args)
                }
@@ -462,7 +474,7 @@ Expression: ExprNode<F> = {
        } else {
             ExprNode::<F>::Call(
                CallNode {
-                   variable: expr_nodes.alloc_item(variable),
+                   callee: expr_nodes.alloc_item(callee),
                    generic_parameters: Vec::new(),
                    args: expr_nodes.alloc_items(args)
                }
@@ -649,7 +661,8 @@ Monomorphization: Vec<UncheckedType> = {
 Ty: UncheckedType = {
     BasicType,
     ArrayType,
-    GenericType
+    GenericType,
+    FunctionSignature
 }
 
 GenericType: UncheckedType = {

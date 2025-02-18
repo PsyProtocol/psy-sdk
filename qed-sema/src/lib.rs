@@ -578,24 +578,45 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
         // TODO: remove clone
         let call_node = ctx.expression(node).as_call().cloned().unwrap();
-        let variable = self.visit_expr(call_node.variable, ctx)?;
-        let ty = variable.ty();
+        let callee = self.visit_expr(call_node.callee, ctx)?;
+        let ty = callee.ty();
         // TODO: remove clone
-        let f = ctx.symbols[ty].as_function().unwrap().clone();
-        let mut args = Vec::new();
-        for (i, arg) in call_node.args.iter().enumerate() {
-            let type_arg = self.visit_expr(arg.clone(), ctx)?;
-            if type_arg.ty() != f.parameters[i].2 {
-                return Err(Error::FunctionParameterMismatch);
+        let f = ctx.symbols[ty].clone();
+        let (args, generic_parameters, return_type) = match f {
+            Type::Function(n) => {
+                let mut args = Vec::new();
+                for (i, arg) in call_node.args.iter().enumerate() {
+                    let type_arg = self.visit_expr(arg.clone(), ctx)?;
+                    if !self.unify(type_arg.ty(), n.parameters[i].2, ctx) {
+                        return Err(Error::FunctionParameterMismatch);
+                    }
+                    args.push(type_arg);
+                }
+                (
+                    args,
+                    n.generic_parameters.clone(),
+                    n.return_type.unwrap_or(VOID_TYPE),
+                )
             }
-            args.push(type_arg);
-        }
+            Type::FunctionSignature(sig) => {
+                let mut args = Vec::new();
+                for (i, arg) in call_node.args.iter().enumerate() {
+                    let type_arg = self.visit_expr(arg.clone(), ctx)?;
+                    if !self.unify(type_arg.ty(), sig.parameters[i].1, ctx) {
+                        return Err(Error::FunctionParameterMismatch);
+                    }
+                    args.push(type_arg);
+                }
+                (args, vec![], sig.return_type.unwrap_or(VOID_TYPE))
+            }
+            _ => return Err(Error::TypeMismatch),
+        };
 
         return Ok(CheckedExprNode::Call(CheckedCallNode {
-            variable: self.exprs.alloc_item(variable),
-            generic_parameters: f.generic_parameters.clone(),
+            callee: self.exprs.alloc_item(callee),
+            generic_parameters: generic_parameters.clone(),
             args: self.exprs.alloc_items(args),
-            type_id: f.return_type.unwrap_or(VOID_TYPE),
+            type_id: return_type,
         }));
     }
 
@@ -606,7 +627,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
         // TODO: remove clone
         let call_node = ctx.expression(node).as_member_call().cloned().unwrap();
-        let variable = self.visit_expr(call_node.variable, ctx)?;
+        let variable = self.visit_expr(call_node.callee, ctx)?;
         let ty = variable.ty();
         // TODO: remove clone
         let f = ctx.symbols[ty].as_function().unwrap().clone();
@@ -629,7 +650,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
 
         return Ok(CheckedExprNode::MemberCall(CheckedMemberCallNode {
-            variable: self.exprs.alloc_item(variable),
+            callee: self.exprs.alloc_item(variable),
             receiver,
             generic_parameters: f.generic_parameters.clone(),
             args: self.exprs.alloc_items(args),
@@ -1393,6 +1414,29 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                 }
             }
             UncheckedType::Unknown => Ok(UNKOWN_TYPE),
+            UncheckedType::FunctionSignature(function_signature) => {
+                let mut parameters = Vec::with_capacity(function_signature.parameters.len());
+                for (mutable, parameter) in &function_signature.parameters {
+                    let ty = self.typecheck(parameter, ctx)?;
+                    parameters.push((*mutable, ty));
+                }
+                let return_type = if let Some(ref ty) = function_signature.return_type {
+                    Some(self.typecheck(ty, ctx)?)
+                } else {
+                    None
+                };
+
+                let ty = Type::FunctionSignature(CheckedFunctionSignature {
+                    parameters,
+                    return_type,
+                });
+
+                if let Some(type_id) = ctx.symbols.get_type_id(None, ty.key()) {
+                    Ok(type_id)
+                } else {
+                    Ok(ctx.symbols.add_type(None, ty))
+                }
+            }
         }
     }
 
@@ -1566,5 +1610,13 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         ctx.symbols.end_scope();
         ctx.symbols.pop_scope();
         Ok(checked_impl)
+    }
+
+    fn unify(&self, ty1: TypeId, ty2: TypeId, ctx: &TypeCheckerVisitorContext<F, C>) -> bool {
+        match (&ctx.symbols[ty1], &ctx.symbols[ty2]) {
+            (Type::Function(f), Type::FunctionSignature(sig)) => &f.signature() == sig,
+            (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,
+            _ => ty1 == ty2,
+        }
     }
 }

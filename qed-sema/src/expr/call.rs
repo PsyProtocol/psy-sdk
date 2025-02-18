@@ -4,7 +4,7 @@ use crate::TypeId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedCallNode {
-    pub variable: ExprId,
+    pub callee: ExprId,
     pub generic_parameters: Vec<TypeId>,
     pub args: Vec<ExprId>,
     pub type_id: TypeId,
@@ -18,7 +18,7 @@ impl NodeInfo for CheckedCallNode {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedMemberCallNode {
-    pub variable: ExprId,
+    pub callee: ExprId,
     pub receiver: ExprId,
     pub generic_parameters: Vec<TypeId>,
     pub args: Vec<ExprId>,

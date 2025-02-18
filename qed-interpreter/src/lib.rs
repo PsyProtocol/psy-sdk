@@ -919,7 +919,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         symbols: &mut SymbolTable<F>,
     ) -> ControlState<Result<CheckedValueRef<F>>> {
         let f = self
-            .interpret_expr(typechecker, call_node.variable, symbols)?
+            .interpret_expr(typechecker, call_node.callee, symbols)?
             .unwrap();
         let mut parameters = Vec::new();
         for arg in call_node.args.iter() {
@@ -938,7 +938,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         symbols: &mut SymbolTable<F>,
     ) -> ControlState<Result<CheckedValueRef<F>>> {
         let f = self
-            .interpret_expr(typechecker, call_node.variable, symbols)?
+            .interpret_expr(typechecker, call_node.callee, symbols)?
             .unwrap();
         let mut parameters = Vec::new();
         for arg in once(&call_node.receiver).chain(call_node.args.iter()) {

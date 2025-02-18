@@ -246,7 +246,7 @@ impl<'a> StorageProcessor<'a> {
         }));
 
         let read_call = CallNode {
-            variable,
+            callee: variable,
             generic_parameters: Vec::new(),
             args: vec![offset],
         };
@@ -303,7 +303,7 @@ impl<'a> StorageProcessor<'a> {
         }));
 
         let write_call = CallNode {
-            variable,
+            callee: variable,
             generic_parameters: Vec::new(),
             args: vec![offset, value],
         };
@@ -345,7 +345,7 @@ impl<'a> StorageProcessor<'a> {
             target: size_ident,
         }));
         let node = CallNode {
-            variable,
+            callee: variable,
             generic_parameters: Vec::new(),
             args: Vec::new(),
         };
@@ -370,7 +370,7 @@ impl<'a> StorageProcessor<'a> {
             target: read_ident,
         }));
         let node = CallNode {
-            variable,
+            callee: variable,
             generic_parameters: Vec::new(),
             args: vec![offset],
         };
@@ -408,7 +408,7 @@ impl<'a> StorageProcessor<'a> {
             field: field_name.clone(),
         }));
         let node = CallNode {
-            variable,
+            callee: variable,
             generic_parameters: Vec::new(),
             args: vec![offset, field],
         };

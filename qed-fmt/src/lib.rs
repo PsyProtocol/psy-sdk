@@ -85,6 +85,29 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
                 format!("[{};{}]", self.visit_unchecked_type(ty, ctx), size)
             }
             UncheckedType::Unknown => "unknown".to_string(),
+            UncheckedType::FunctionSignature(sig) => {
+                let parameters = sig
+                    .parameters
+                    .iter()
+                    .map(|p| {
+                        format!(
+                            "{}{}",
+                            if p.0 { "mut " } else { "" },
+                            self.visit_unchecked_type(&p.1, ctx)
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!(
+                    "fn({}){}",
+                    parameters,
+                    if let Some(ref ret) = sig.return_type {
+                        format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
+                    } else {
+                        "".to_string()
+                    }
+                )
+            }
         }
     }
 
@@ -252,7 +275,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         let &CallNode {
-            variable,
+            callee: variable,
             ref args,
             ref generic_parameters,
         } = ctx.expression(expr_id).as_call().unwrap();
@@ -272,7 +295,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         let &MemberCallNode {
-            variable,
+            callee: variable,
             ref args,
             receiver,
             ref generic_parameters,

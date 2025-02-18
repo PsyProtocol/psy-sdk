@@ -2,14 +2,14 @@ use crate::{AstVisitor, DefId, ExprId, NodeInfo, NodeType, PathNode, UncheckedTy
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CallNode {
-    pub variable: ExprId,
+    pub callee: ExprId,
     pub generic_parameters: Vec<UncheckedType>,
     pub args: Vec<ExprId>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MemberCallNode {
-    pub variable: ExprId,
+    pub callee: ExprId,
     pub receiver: ExprId,
     pub generic_parameters: Vec<UncheckedType>,
     pub args: Vec<ExprId>,

@@ -20,3 +20,9 @@ impl NodeInfo for FunctionNode {
         NodeType::FunctionDef
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionSignature {
+    pub parameters: Vec<(bool, UncheckedType)>,
+    pub return_type: Option<UncheckedType>,
+}
