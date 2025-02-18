@@ -1,6 +1,6 @@
-use qed_ast::{AttrNode, BlockNode, IdentId, NodeInfo, NodeType, StmtId, Visibility};
+use qed_ast::{AttrNode, IdentId, NodeInfo, NodeType, StmtId, Visibility};
 
-use crate::{CheckedBlockNode, ScopeId, TypeId};
+use crate::{ScopeId, TypeId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedFunctionNode {

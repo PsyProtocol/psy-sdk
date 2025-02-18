@@ -1,7 +1,6 @@
 mod assert;
 mod assignment;
 mod block;
-mod r#if;
 mod r#return;
 mod storage;
 mod variable;
@@ -11,7 +10,6 @@ pub use assert::*;
 pub use assignment::*;
 pub use block::*;
 use enum_as_inner::EnumAsInner;
-pub use r#if::*;
 pub use r#return::*;
 pub use r#while::*;
 use std::fmt::Display;
@@ -23,7 +21,6 @@ use strum::EnumTryAs;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum StmtNode {
-    If(IfNode),
     While(WhileNode),
     Block(BlockNode),
     Assignment(AssignmentNode),
@@ -40,7 +37,6 @@ pub enum StmtNode {
 impl NodeInfo for StmtNode {
     fn node_type(&self) -> NodeType {
         match self {
-            StmtNode::If(node) => node.node_type(),
             StmtNode::While(node) => node.node_type(),
             StmtNode::Block(node) => node.node_type(),
             StmtNode::Assignment(node) => node.node_type(),
@@ -73,7 +69,6 @@ impl NodeInfo for StmtNode {
 impl Display for StmtNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            StmtNode::If(_) => write!(f, "If"),
             StmtNode::While(_) => write!(f, "While"),
             StmtNode::Block(_) => write!(f, "Block"),
             StmtNode::Assignment(_) => write!(f, "Assignment"),

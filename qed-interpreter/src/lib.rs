@@ -301,59 +301,59 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         )
     }
 
-    #[instrument(level = "debug", skip_all)]
-    pub fn interpret_if(
-        &mut self,
-        typechecker: &TypeChecker<F, C>,
-        stmt_id: StmtId,
-        symbols: &mut SymbolTable<F>,
-        parent_node_type: Option<NodeType>,
-    ) -> Result<()> {
-        let node = typechecker[stmt_id].as_if().unwrap();
-        let predicate = self
-            .interpret_expr(
-                typechecker,
-                node.if_branch.predicate,
-                symbols,
-                Some(node.node_type()),
-            )?
-            .unwrap()
-            .to_bool();
-        self.context.start_if_block(predicate);
-        self.interpret_block(
-            typechecker,
-            node.if_branch.body,
-            symbols,
-            Some(node.node_type()),
-        );
-
-        for condition in &node.elseif_branch {
-            let predicate = self
-                .interpret_expr(
-                    typechecker,
-                    condition.predicate,
-                    symbols,
-                    Some(node.node_type()),
-                )?
-                .unwrap()
-                .to_bool();
-            self.context.start_else_if_block(predicate);
-            self.interpret_block(typechecker, condition.body, symbols, Some(node.node_type()));
-        }
-
-        if let Some(else_branch) = &node.else_branch {
-            self.context.start_else_block();
-            self.interpret_block(
-                typechecker,
-                else_branch.clone(),
-                symbols,
-                Some(node.node_type()),
-            );
-        }
-
-        self.context.end_if_block();
-        Ok(())
-    }
+    // #[instrument(level = "debug", skip_all)]
+    // pub fn interpret_if(
+    //     &mut self,
+    //     typechecker: &TypeChecker<F, C>,
+    //     stmt_id: StmtId,
+    //     symbols: &mut SymbolTable<F>,
+    //     parent_node_type: Option<NodeType>,
+    // ) -> Result<()> {
+    //     let node = typechecker[stmt_id].as_if().unwrap();
+    //     let predicate = self
+    //         .interpret_expr(
+    //             typechecker,
+    //             node.if_branch.predicate,
+    //             symbols,
+    //             Some(node.node_type()),
+    //         )?
+    //         .unwrap()
+    //         .to_bool();
+    //     self.context.start_if_block(predicate);
+    //     self.interpret_block(
+    //         typechecker,
+    //         node.if_branch.body,
+    //         symbols,
+    //         Some(node.node_type()),
+    //     );
+    //
+    //     for condition in &node.elseif_branch {
+    //         let predicate = self
+    //             .interpret_expr(
+    //                 typechecker,
+    //                 condition.predicate,
+    //                 symbols,
+    //                 Some(node.node_type()),
+    //             )?
+    //             .unwrap()
+    //             .to_bool();
+    //         self.context.start_else_if_block(predicate);
+    //         self.interpret_block(typechecker, condition.body, symbols, Some(node.node_type()));
+    //     }
+    //
+    //     if let Some(else_branch) = &node.else_branch {
+    //         self.context.start_else_block();
+    //         self.interpret_block(
+    //             typechecker,
+    //             else_branch.clone(),
+    //             symbols,
+    //             Some(node.node_type()),
+    //         );
+    //     }
+    //
+    //     self.context.end_if_block();
+    //     Ok(())
+    // }
 
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_while(
@@ -413,9 +413,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     ) -> ControlState<Result<CheckedValueRef<F>>> {
         let node = &typechecker[stmt_id];
         match node {
-            CheckedStmtNode::If(r#if) => {
-                self.interpret_if(typechecker, stmt_id, symbols, parent_node_type)?
-            }
             CheckedStmtNode::While(r#while) => {
                 self.interpret_while(typechecker, stmt_id, symbols, parent_node_type)?
             }

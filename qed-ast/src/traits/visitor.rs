@@ -68,7 +68,6 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
     ) -> Result<Self::StmtResult, Self::Error> {
         ctx.push_node_id(NodeId::from(stmt_id));
         let res = match ctx.statement(stmt_id).node_type() {
-            NodeType::IfStmt => self.visit_if(stmt_id, ctx)?,
             NodeType::WhileStmt => self.visit_while(stmt_id, ctx)?,
             NodeType::BlockStmt => self.visit_block(stmt_id, ctx)?,
             NodeType::AssignmentStmt => self.visit_assignment(stmt_id, ctx)?,
@@ -181,11 +180,6 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error>;
 
-    fn visit_if(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
     fn visit_while(
         &mut self,
         node: StmtId,

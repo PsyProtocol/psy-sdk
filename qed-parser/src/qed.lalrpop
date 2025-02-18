@@ -3,7 +3,7 @@ use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::*;
 use qed_lexer::{Token, Error};
 use qed_ast::expr::block_expr::BlockExprNode;
-use qed_ast::expr::if_expr::{IfExprNode, };
+use qed_ast::expr::r#if::{IfExprNode, Case};
 
 grammar<'input, F, C>(
     file_content: &'input str,
@@ -371,11 +371,11 @@ WhileStatement: StmtNode = {
     }),
 }
 
-IfStatement: StmtNode = {
-    <l:@L> <if_branch:IfBranch> <elseif_branch:ElseIfBranch*> <else_branch:ElseBranch?> <r:@R> => StmtNode::If(
-        IfNode {
+IfExpression: ExprNode<F> = {
+    <l:@L> <if_branch:IfBranch> <elseif_branches:ElseIfBranch*> <else_branch:ElseBranch?> <r:@R> => ExprNode::IfExpr(
+        IfExprNode {
             if_branch,
-            elseif_branch,
+            elseif_branches,
             else_branch
         }
     ),
@@ -402,14 +402,9 @@ ElseBranch: StmtId = {
 ReturnStatement: StmtNode = {
     <l:@L> RETURN <ret:Expression?> ";" <r:@R> => StmtNode::Return(ReturnNode(ret.map(|x| expr_nodes.alloc_item(x))))
 }
-IfExpression: ExprNode<F> = {
-    <l:@L> <stmt:IfStatement> <r:@R> => {
-        match stmt {
-            StmtNode::If(if_node) => {
-                ExprNode::<F>::IfExpr(IfExprNode::from(if_node))
-            }
-            _ => panic!("Expected an if statement"),
-        }
+IfStatement: StmtNode = {
+    <l:@L> <expr:IfExpression> <r:@R> => {
+        StmtNode::Expression(expr_nodes.alloc_item(expr))
     }
 }
 

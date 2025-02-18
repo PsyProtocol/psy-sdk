@@ -3,7 +3,7 @@ pub mod block_expr;
 mod call;
 mod cast;
 mod context;
-pub mod if_expr;
+pub mod r#if;
 mod index;
 mod path;
 mod storage;
@@ -19,7 +19,7 @@ pub use storage::*;
 pub use unary::*;
 
 use crate::block_expr::BlockExprNode;
-use crate::if_expr::IfExprNode;
+use crate::r#if::IfExprNode;
 use crate::{AstVisitor, DefId, ExprId, NodeInfo, NodeType, ValueNode};
 use enum_as_inner::EnumAsInner;
 

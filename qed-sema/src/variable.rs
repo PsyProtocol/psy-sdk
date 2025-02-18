@@ -1,8 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
-
-use qed_ast::{ExprId, IdentId};
-
-use crate::{CheckedExprNode, CheckedValue, CheckedValueNode, CheckedValueRef, ScopeId, TypeId};
+use crate::{CheckedValueRef, ScopeId, TypeId};
 
 #[derive(Clone, Debug)]
 pub struct CheckedVariable<F> {

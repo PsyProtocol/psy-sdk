@@ -500,14 +500,6 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         Ok(())
     }
 
-    fn visit_if(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
-        Ok(())
-    }
-
     fn visit_while(
         &mut self,
         node: StmtId,

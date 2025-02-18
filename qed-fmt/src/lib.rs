@@ -1,5 +1,5 @@
 use qed_ast::block_expr::BlockExprNode;
-use qed_ast::if_expr::IfExprNode;
+use qed_ast::r#if::IfExprNode;
 use qed_ast::*;
 use qed_common::Graph;
 use qed_parser::Parser;
@@ -286,53 +286,6 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             self.visit_expr(value, ctx)?,
             self.visit_unchecked_type(&target_type, ctx)
         ))
-    }
-
-    fn visit_if(
-        &mut self,
-        stmt_id: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
-        let mut result = format!(
-            "if {} {{",
-            self.visit_expr(
-                ctx.statement(stmt_id).as_if().unwrap().if_branch.predicate,
-                ctx
-            )?
-        );
-        self.write_line(&result);
-        self.indent();
-        self.visit_block(ctx.statement(stmt_id).as_if().unwrap().if_branch.body, ctx);
-        self.dedent();
-        self.write("}");
-
-        // TODO: remove clone
-        for branch in ctx
-            .statement(stmt_id)
-            .as_if()
-            .unwrap()
-            .elseif_branch
-            .clone()
-            .into_iter()
-        {
-            let s = format!(" else if {} {{", self.visit_expr(branch.predicate, ctx)?);
-            self.append_line(&s);
-            self.indent();
-            self.visit_block(branch.body, ctx);
-            self.dedent();
-            self.write("}");
-        }
-
-        if let Some(else_branch) = ctx.statement(stmt_id).as_if().unwrap().else_branch {
-            self.append_line(" else {");
-            self.indent();
-            self.visit_block(else_branch.clone(), ctx);
-            self.dedent();
-            self.write("}");
-        }
-
-        self.append_line(";");
-        Ok(Default::default())
     }
 
     fn visit_while(
