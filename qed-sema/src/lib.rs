@@ -298,7 +298,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             }
             IntrinsicExprNode::GetStateHashAt { slot_index } => {
                 let slot_index = self.visit_expr(slot_index, ctx)?;
-                if slot_index.ty() != FELT_TYPE {
+                if !self.unify(slot_index.ty(), FELT_TYPE, ctx) {
                     return Err(Error::TypeMismatch);
                 }
                 return Ok(CheckedExprNode::Intrinsic(
@@ -317,9 +317,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     self.visit_expr(contract_state_tree_height, ctx)?;
                 let contract_id = self.visit_expr(contract_id, ctx)?;
                 let slot_index = self.visit_expr(slot_index, ctx)?;
-                if contract_state_tree_height.ty() != FELT_TYPE
-                    || contract_id.ty() != FELT_TYPE
-                    || slot_index.ty() != FELT_TYPE
+                if !self.unify(contract_state_tree_height.ty(), FELT_TYPE, ctx)
+                    || !self.unify(contract_id.ty(), FELT_TYPE, ctx)
+                    || !self.unify(slot_index.ty(), FELT_TYPE, ctx)
                 {
                     return Err(Error::TypeMismatch);
                 }
@@ -346,10 +346,10 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 let user_id = self.visit_expr(user_id, ctx)?;
                 let contract_id = self.visit_expr(contract_id, ctx)?;
                 let slot_index = self.visit_expr(slot_index, ctx)?;
-                if contract_state_tree_height.ty() != FELT_TYPE
-                    || user_id.ty() != FELT_TYPE
-                    || contract_id.ty() != FELT_TYPE
-                    || slot_index.ty() != FELT_TYPE
+                if !self.unify(contract_state_tree_height.ty(), FELT_TYPE, ctx)
+                    || !self.unify(user_id.ty(), FELT_TYPE, ctx)
+                    || !self.unify(contract_id.ty(), FELT_TYPE, ctx)
+                    || !self.unify(slot_index.ty(), FELT_TYPE, ctx)
                 {
                     return Err(Error::TypeMismatch);
                 }
@@ -373,7 +373,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 let slot_index = self.visit_expr(slot_index, ctx)?;
                 let new_value = self.visit_expr(new_value, ctx)?;
 
-                if slot_index.ty() != FELT_TYPE || new_value.ty() != HASH_TYPE {
+                if !self.unify(slot_index.ty(), FELT_TYPE, ctx)
+                    || !self.unify(new_value.ty(), HASH_TYPE, ctx)
+                {
                     return Err(Error::TypeMismatch);
                 }
 
@@ -388,7 +390,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             IntrinsicExprNode::Read { offset } => {
                 // TODO: remove clone
                 let offset = self.visit_expr(offset, ctx)?;
-                if offset.ty() != FELT_TYPE {
+                if !self.unify(offset.ty(), FELT_TYPE, ctx) {
                     return Err(Error::TypeMismatch);
                 }
                 return Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::Read {
@@ -400,7 +402,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 // TODO: remove clone
                 let offset = self.visit_expr(offset, ctx)?;
                 let value = self.visit_expr(value, ctx)?;
-                if offset.ty() != FELT_TYPE || value.ty() != FELT_TYPE {
+                if !self.unify(offset.ty(), FELT_TYPE, ctx)
+                    || !self.unify(value.ty(), FELT_TYPE, ctx)
+                {
                     return Err(Error::TypeMismatch);
                 }
                 Ok(CheckedExprNode::Intrinsic(
@@ -443,7 +447,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     // TODO: remove clone
                     let checked_expr = self.visit_expr(el, ctx)?;
                     if let Some(inner_ty) = inner_ty {
-                        if checked_expr.ty() != inner_ty {
+                        if !self.unify(checked_expr.ty(), inner_ty, ctx) {
                             return Err(Error::TypeMismatch);
                         }
                     } else {
@@ -513,7 +517,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let checked_rhs = self.visit_expr(binary_node.rhs, ctx)?;
 
         let lhs_ty = checked_lhs.ty();
-        if lhs_ty != checked_rhs.ty() {
+        if !self.unify(lhs_ty, checked_rhs.ty(), ctx) {
             return Err(Error::TypeMismatch);
         }
 
@@ -529,7 +533,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             | BinaryOperator::BitOr
             | BinaryOperator::BitXor => lhs_ty,
             BinaryOperator::And | BinaryOperator::Or => {
-                if lhs_ty != BOOL_TYPE {
+                if !self.unify(lhs_ty, BOOL_TYPE, ctx) {
                     return Err(Error::TypeMismatch);
                 }
                 BOOL_TYPE
@@ -560,7 +564,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let checked_expr = self.visit_expr(unary_node.rhs, ctx)?;
         let type_id = checked_expr.ty();
 
-        if type_id != FELT_TYPE && type_id != BOOL_TYPE {
+        if !self.unify(type_id, FELT_TYPE, ctx) && !self.unify(type_id, BOOL_TYPE, ctx) {
             return Err(Error::TypeMismatch);
         }
 
@@ -635,7 +639,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         // TODO: add member call
         let receiver = {
             let expr = self.visit_expr(call_node.receiver, ctx)?;
-            if expr.ty() != f.parameters[0].2 {
+            if !self.unify(expr.ty(), f.parameters[0].2, ctx) {
                 return Err(Error::FunctionParameterMismatch);
             }
             self.exprs.alloc_item(expr)
@@ -643,7 +647,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         for (i, arg) in call_node.args.iter().enumerate() {
             let type_arg = self.visit_expr(arg.clone(), ctx)?;
-            if type_arg.ty() != f.parameters[i + 1].2 {
+            if !self.unify(type_arg.ty(), f.parameters[i + 1].2, ctx) {
                 return Err(Error::FunctionParameterMismatch);
             }
             args.push(type_arg);
@@ -669,8 +673,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let src_type = src_expr.ty();
         let target_type = self.typecheck(&cast_node.target_type, ctx)?;
 
-        if src_type == FELT_TYPE && target_type == BOOL_TYPE
-            || src_type == BOOL_TYPE && target_type == FELT_TYPE
+        if !self.unify(src_type, FELT_TYPE, ctx) && !self.unify(target_type, BOOL_TYPE, ctx)
+            || !self.unify(src_type, BOOL_TYPE, ctx) && !self.unify(target_type, FELT_TYPE, ctx)
         {
             return Ok(CheckedExprNode::Cast(CheckedCastNode {
                 value: self.exprs.alloc_item(src_expr),
@@ -689,7 +693,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         // TODO: remove clone
         let if_node = ctx.statement(node).as_if().cloned().unwrap();
         let checked_expr = self.visit_expr(if_node.if_branch.predicate, ctx)?;
-        if checked_expr.ty() != BOOL_TYPE {
+        if !self.unify(checked_expr.ty(), BOOL_TYPE, ctx) {
             return Err(Error::TypeMismatch);
         }
         let checked_block = self.visit_block(if_node.if_branch.body, ctx)?;
@@ -702,7 +706,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let mut elseif_branch = Vec::with_capacity(if_node.elseif_branch.len());
         for branch in &if_node.elseif_branch {
             let checked_expr = self.visit_expr(branch.predicate, ctx)?;
-            if checked_expr.ty() != BOOL_TYPE {
+            if !self.unify(checked_expr.ty(), BOOL_TYPE, ctx) {
                 return Err(Error::TypeMismatch);
             }
             let checked_block = self.visit_block(branch.body, ctx)?;
@@ -735,7 +739,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         // TODO: remove clone
         let while_node = ctx.statement(node).as_while().cloned().unwrap();
         let predicate = self.visit_expr(while_node.predicate, ctx)?;
-        if predicate.ty() != BOOL_TYPE {
+        if !self.unify(predicate.ty(), BOOL_TYPE, ctx) {
             return Err(Error::TypeMismatch);
         }
         let checked_block = self.visit_block(while_node.body, ctx)?;
@@ -799,7 +803,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         let lhs_ty = checked_lhs.ty();
 
-        if lhs_ty != checked_rhs.ty() {
+        if !self.unify(lhs_ty, checked_rhs.ty(), ctx) {
             return Err(Error::TypeMismatch);
         }
 
@@ -821,7 +825,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let lhs_ty = self.typecheck(&variable_node.ty, ctx)?;
         let checked_expr = self.visit_expr(variable_node.value, ctx)?;
         let rhs_ty = checked_expr.ty();
-        if rhs_ty != lhs_ty {
+        if !self.unify(rhs_ty, lhs_ty, ctx) {
             return Err(Error::TypeMismatch);
         }
         let current_scope_id = ctx.symbols.current_scope_id().unwrap();
@@ -888,7 +892,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             IntrinsicStmtNode::Assert { left, message } => {
                 let checked_lhs = self.visit_expr(left, ctx)?;
 
-                if checked_lhs.ty() != BOOL_TYPE {
+                if !self.unify(checked_lhs.ty(), BOOL_TYPE, ctx) {
                     return Err(Error::TypeMismatch);
                 }
 
@@ -907,7 +911,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 let checked_lhs = self.visit_expr(left, ctx)?;
                 let checked_rhs = self.visit_expr(right, ctx)?;
 
-                if checked_lhs.ty() != checked_rhs.ty() {
+                if !self.unify(checked_lhs.ty(), checked_rhs.ty(), ctx) {
                     return Err(Error::TypeMismatch);
                 }
 
