@@ -1001,16 +1001,17 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
 
         let current_scope_kind = &ctx.symbols[current_scope_id].kind;
-        let is_method_scope = current_scope_kind == &ScopeKind::ImplMethod || current_scope_kind == &ScopeKind::TraitMethod;
+        let is_method_scope = current_scope_kind == &ScopeKind::ImplMethod
+            || current_scope_kind == &ScopeKind::TraitMethod;
 
         for (i, (parameter, mutable, parameter_type)) in function.parameters.iter().enumerate() {
             // self parameter is only allowed in associated functions associated functions are those in `impl` or `trait` definitions
             if i > 0 || (i == 0 && !is_method_scope) {
-                if parameter == &IdentId::SELF{
+                if parameter == &IdentId::SELF {
                     return Err(Error::InvalidSelfParameter);
                 }
             }
-            
+
             // Self is only available in impls, traits, and type definitions
             if !is_method_scope && parameter_type == &UncheckedType::Basic(IdentId::TYPE_SELF) {
                 return Err(Error::InvalidSelfParameter);
@@ -1446,16 +1447,17 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         }
 
         let current_scope_kind = &ctx.symbols[current_scope_id].kind;
-        let is_method_scope = current_scope_kind == &ScopeKind::ImplMethod || current_scope_kind == &ScopeKind::TraitMethod;
+        let is_method_scope = current_scope_kind == &ScopeKind::ImplMethod
+            || current_scope_kind == &ScopeKind::TraitMethod;
 
         for (i, (parameter, mutable, parameter_type)) in function.parameters.iter().enumerate() {
             // self parameter is only allowed in associated functions associated functions are those in `impl` or `trait` definitions
             if i > 0 || (i == 0 && !is_method_scope) {
-                if parameter == &IdentId::SELF{
+                if parameter == &IdentId::SELF {
                     return Err(Error::InvalidSelfParameter);
                 }
             }
-            
+
             // Self is only available in impls, traits, and type definitions
             if !is_method_scope && parameter_type == &UncheckedType::Basic(IdentId::TYPE_SELF) {
                 return Err(Error::InvalidSelfParameter);
