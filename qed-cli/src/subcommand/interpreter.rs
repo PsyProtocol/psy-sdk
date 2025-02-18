@@ -16,7 +16,8 @@ use qedlang_core::dpn::{
     vm::compile::QEDCompileResult,
 };
 
-pub fn run(args: InterpreterArgs) -> anyhow::Result<()> {
+pub fn run(mut args: InterpreterArgs) -> anyhow::Result<()> {
+    args.parameters.resize(args.method_names.len(), Vec::new());
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let compile_results = interpreter.interpret(
         args.file.into(),

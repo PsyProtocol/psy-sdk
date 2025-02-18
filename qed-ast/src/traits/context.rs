@@ -53,6 +53,7 @@ pub enum NodeType {
     BinaryExpr,
     UnaryExpr,
     CallExpr,
+    MemberCallExpr,
     CastExpr,
     MemberAccessExpr,
     IndexAccessExpr,

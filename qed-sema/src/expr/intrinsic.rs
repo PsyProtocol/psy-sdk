@@ -50,6 +50,10 @@ pub enum CheckedIntrinsicExprNode {
         value: ExprId,
         type_id: TypeId,
     },
+    Hash {
+        data: ExprId,
+        type_id: TypeId,
+    },
 }
 
 impl NodeInfo for CheckedIntrinsicExprNode {

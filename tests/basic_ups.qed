@@ -4,7 +4,7 @@ struct Contract {
 
 impl Contract {
     pub fn simple_mint(amount: Felt) -> Felt {
-        let self_user_leaf: [Felt; 4] = get_state_hash_at(get_user_id());
+        let self_user_leaf: Hash = get_state_hash_at(get_user_id());
         let current_balance: Felt = self_user_leaf[0];
 
         let new_balance: Felt = current_balance + amount;
@@ -23,7 +23,7 @@ impl Contract {
         amount: Felt,
     ) -> Felt {
         let self_user_id: Felt = get_user_id();
-        let self_user_leaf: [Felt; 4] = get_state_hash_at(self_user_id);
+        let self_user_leaf: Hash = get_state_hash_at(self_user_id);
 
         let current_balance: Felt = self_user_leaf[0];
 
@@ -39,7 +39,7 @@ impl Contract {
             self_user_leaf[3],
         ]);
 
-        let p2p_leaf: [Felt; 4] = get_state_hash_at(recipient);
+        let p2p_leaf: Hash = get_state_hash_at(recipient);
         let previous_total_sent_to_recipient: Felt = p2p_leaf[2];
 
         let new_total_sent_to_recipient: Felt = previous_total_sent_to_recipient + amount;
@@ -61,13 +61,13 @@ impl Contract {
         let self_user_id: Felt = get_user_id();
         assert(sender != self_user_id, "you cannot claim from your self");
 
-        let self_leaf: [Felt; 4] = get_state_hash_at(self_user_id);
+        let self_leaf: Hash = get_state_hash_at(self_user_id);
         let current_balance: Felt = self_leaf[0];
 
-        let loc_transfer_info_for_sender: [Felt; 4] = get_state_hash_at(sender);
+        let loc_transfer_info_for_sender: Hash = get_state_hash_at(sender);
         let loc_previous_total_recieved_from_sender: Felt = loc_transfer_info_for_sender[0];
 
-        let sender_transfer_info_leaf_for_me: [Felt; 4] = get_other_user_contract_state_hash_at(0, sender, get_contract_id(), self_user_id);
+        let sender_transfer_info_leaf_for_me: Hash = get_other_user_contract_state_hash_at(0, sender, get_contract_id(), self_user_id);
 
         let sender_total_sent_to_me: Felt = sender_transfer_info_leaf_for_me[2];
 

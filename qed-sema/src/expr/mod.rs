@@ -28,6 +28,7 @@ pub enum CheckedExprNode<F> {
     Unary(CheckedUnaryNode),
     Cast(CheckedCastNode),
     Call(CheckedCallNode),
+    MemberCall(CheckedMemberCallNode),
     IndexAccess(CheckedIndexAccessNode),
     MemberAccess(CheckedMemberAccessNode),
     Intrinsic(CheckedIntrinsicExprNode),
@@ -42,6 +43,7 @@ impl<F> NodeInfo for CheckedExprNode<F> {
             CheckedExprNode::Unary(node) => node.node_type(),
             CheckedExprNode::Cast(node) => node.node_type(),
             CheckedExprNode::Call(node) => node.node_type(),
+            CheckedExprNode::MemberCall(node) => node.node_type(),
             CheckedExprNode::IndexAccess(node) => node.node_type(),
             CheckedExprNode::MemberAccess(node) => node.node_type(),
             CheckedExprNode::Intrinsic(node) => node.node_type(),
@@ -64,6 +66,7 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Unary(u) => u.type_id,
             CheckedExprNode::Cast(c) => c.target_type,
             CheckedExprNode::Call(c) => c.type_id,
+            CheckedExprNode::MemberCall(c) => c.type_id,
             CheckedExprNode::IndexAccess(i) => i.type_id,
             CheckedExprNode::MemberAccess(m) => m.type_id,
             CheckedExprNode::Intrinsic(i) => match i {
@@ -86,6 +89,7 @@ impl<F> CheckedExprNode<F> {
                     value,
                     type_id,
                 } => type_id.clone(),
+                CheckedIntrinsicExprNode::Hash { data, type_id } => type_id.clone(),
             },
         }
     }

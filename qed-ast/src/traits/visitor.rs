@@ -30,6 +30,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::BinaryExpr => self.visit_binary(expr_id, ctx)?,
             NodeType::UnaryExpr => self.visit_unary(expr_id, ctx)?,
             NodeType::CallExpr => self.visit_call(expr_id, ctx)?,
+            NodeType::MemberCallExpr => self.visit_member_call(expr_id, ctx)?,
             NodeType::CastExpr => self.visit_cast(expr_id, ctx)?,
             NodeType::IndexAccessExpr => self.visit_index_access(expr_id, ctx)?,
             NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
@@ -155,6 +156,11 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error>;
     fn visit_call(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_member_call(
         &mut self,
         node: ExprId,
         ctx: &mut Self::Context,

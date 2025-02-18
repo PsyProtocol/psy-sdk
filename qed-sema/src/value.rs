@@ -131,6 +131,13 @@ impl<F: Clone> CheckedValueRef<F> {
         Self::new_rc(CheckedValue::Bool(value))
     }
 
+    pub fn from_vec(type_id: TypeId, data: impl IntoIterator<Item = F>) -> Self {
+        Self::new_rc(CheckedValue::Array(
+            type_id,
+            data.into_iter().map(CheckedValueRef::from_felt).collect(),
+        ))
+    }
+
     pub fn is_felt(&self) -> bool {
         self.0.borrow().is_felt()
     }
@@ -165,13 +172,12 @@ impl<F: Clone> CheckedValueRef<F> {
     where
         F: std::fmt::Debug,
     {
+        self.to_vec().try_into().unwrap()
+    }
+
+    pub fn to_vec(&self) -> Vec<F> {
         match &*self.0.borrow() {
-            CheckedValue::Array(_, arr) => arr
-                .into_iter()
-                .map(|x| x.to_felt())
-                .collect::<Vec<F>>()
-                .try_into()
-                .unwrap(),
+            CheckedValue::Array(_, arr) => arr.into_iter().map(|x| x.to_felt()).collect::<Vec<F>>(),
             _ => panic!("Expected array value"),
         }
     }

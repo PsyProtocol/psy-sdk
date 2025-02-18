@@ -27,97 +27,15 @@ ModuleItem: ModuleItemNode = {
     InlineModule => ModuleItemNode::InlineModule(<>),
     ModuleDecl => ModuleItemNode::ModuleDecl(<>),
     ModuleUse => ModuleItemNode::ModuleUse(<>),
-    Definition => ModuleItemNode::Definition(<>),
+    Definition => ModuleItemNode::Definition(def_nodes.alloc_item(<>)),
 }
 
 pub Module: ModuleNode = {
-    <l:@L> <module_items: ModuleItem*> <r:@R> => {
-        let mut inline_modules = vec![];
-        let mut modules = vec![];
-        let mut uses = vec![];
-        let mut definitions = vec![];
-        for item in module_items.iter() {
-            match item.clone() {
-                ModuleItemNode::InlineModule(m) => inline_modules.push(m),
-                ModuleItemNode::ModuleDecl(m) => modules.push(m),
-                ModuleItemNode::ModuleUse(m) => uses.push(m),
-                ModuleItemNode::Definition(d) => definitions.push(d),
-            }
-        }
-        ModuleNode {
-            name: module_name,
-            file_id,
-            modules: {
-                if !is_std {
-                    modules.insert(0, (IdentId::STD, Visibility::Public));
-                }
-                modules
-            },
-            inline_modules: inline_modules,
-            uses: {
-                if !is_std  {
-                    uses.insert(0, UsePath {
-                        visibility: Visibility::Public,
-                        kind: IdentId::STD,
-                        segments: vec![IdentId::PRELUDE],
-                        target: None,
-                    });
-                }
-                uses
-            },
-            definitions: def_nodes.alloc_items(definitions),
-            visibility: _visibility_,
-            is_std,
-            is_self_std,
-            is_self_prelude,
-            is_self_primitive,
-        }
-    }
+    <l:@L> <module_items: ModuleItem*> <r:@R> => ModuleNode::new(module_name, file_id, _visibility_, module_items, is_std, is_self_std, is_self_prelude, is_self_primitive)
 }
 
-pub InlineModule: ModuleNode = {
-    <l:@L> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> "}" <r:@R> => {
-        let mut inline_modules = vec![];
-        let mut modules = vec![];
-        let mut uses = vec![];
-        let mut definitions = vec![];
-        for item in module_items.iter() {
-            match item.clone() {
-                ModuleItemNode::InlineModule(m) => inline_modules.push(m),
-                ModuleItemNode::ModuleDecl(m) => modules.push(m),
-                ModuleItemNode::ModuleUse(m) => uses.push(m),
-                ModuleItemNode::Definition(d) => definitions.push(d),
-            }
-        }
-        ModuleNode {
-            name: name,
-            file_id,
-            modules: {
-                if !is_std {
-                    modules.insert(0, (IdentId::STD, Visibility::Public));
-                }
-                modules
-            },
-            inline_modules: inline_modules,
-            uses: {
-                if !is_std  {
-                    uses.insert(0, UsePath {
-                        visibility: Visibility::Public,
-                        kind: IdentId::STD,
-                        segments: vec![IdentId::PRELUDE],
-                        target: None,
-                    });
-                }
-                uses
-            },
-            definitions: def_nodes.alloc_items(definitions),
-            visibility: visibility,
-            is_std,
-            is_self_std,
-            is_self_prelude,
-            is_self_primitive,
-        }
-    }
+InlineModule: ModuleNode = {
+    <l:@L> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> "}" <r:@R> => ModuleNode::new(name, file_id, visibility, module_items, is_std, is_self_std, is_self_prelude, is_self_primitive)
 }
 
 ModuleDecl: (IdentId, Visibility) = {
@@ -462,6 +380,13 @@ Expression: ExprNode<F> = {
             }
         )
     },
+    <l:@L> <variable:Hash> "(" <data:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::Hash {
+                data: expr_nodes.alloc_item(data),
+            }
+        )
+    },
     <l:@L> <variable:CTX_GET_USER_ID> "(" ")" <r:@R> => {
         ExprNode::Intrinsic(
             IntrinsicExprNode::GetUserId
@@ -520,20 +445,26 @@ Expression: ExprNode<F> = {
         )
     },
     <l:@L> <variable:Expression> "(" <args:ExpressionList> ")" <r:@R> => {
-        ExprNode::<F>::Call(
-           CallNode {
-               receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode {
-                  target: receiver, ..
-               }) = &variable {
-                  Some(receiver.clone())
-               } else {
-                  None
-               },
-               variable: expr_nodes.alloc_item(variable),
-               generic_parameters: Vec::new(),
-               args: expr_nodes.alloc_items(args)
-           }
-        )
+       if let ExprNode::<F>::MemberAccess(MemberAccessNode {
+          target: receiver, ..
+       }) = &variable {
+            ExprNode::<F>::MemberCall(
+               MemberCallNode {
+                   receiver: receiver.clone(),
+                   variable: expr_nodes.alloc_item(variable),
+                   generic_parameters: Vec::new(),
+                   args: expr_nodes.alloc_items(args)
+               }
+            )
+       } else {
+            ExprNode::<F>::Call(
+               CallNode {
+                   variable: expr_nodes.alloc_item(variable),
+                   generic_parameters: Vec::new(),
+                   args: expr_nodes.alloc_items(args)
+               }
+            )
+       }
     },
     <l:@L> <variable:Expression> "[" <index:NUMBER> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
         target: expr_nodes.alloc_item(variable),
@@ -799,6 +730,7 @@ extern {
 
         ASSERT => Token::IntrinsicAssert,
         ASSERT_EQ => Token::IntrinsicAssertEq,
+        Hash => Token::IntrinsicHash,
         STORAGE_READ => Token::IntrinsicStorageRead,
         STORAGE_WRITE => Token::IntrinsicStorageWrite,
         CTX_GET_USER_ID => Token::IntrinsicCtxGetUserId,
@@ -830,6 +762,8 @@ extern {
         TYPE_SELF => Token::TypeSelf,
 
         AS => Token::KeywordAs,
+        TYPE => Token::KeywordType,
+
         EXTERN => Token::KeywordExtern,
         NEW => Token::KeywordNew,
 

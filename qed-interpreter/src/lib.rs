@@ -28,7 +28,10 @@ use qedlang_core::dpn::{
     ops::context_trait::{ContextFelt, DPNContext, ToFelts},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
 };
-use std::{cell::RefCell, collections::HashMap, fmt::Display, ops::Index, path::PathBuf, rc::Rc};
+use std::{
+    cell::RefCell, collections::HashMap, fmt::Display, iter::once, ops::Index, path::PathBuf,
+    rc::Rc,
+};
 
 use tracing::{debug, error, info, instrument, span, Level};
 
@@ -812,6 +815,15 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                                 .op_set_state_obj(offset.to_felt(), value.to_felt()),
                         )));
                     }
+                    CheckedIntrinsicExprNode::Hash { data, type_id } => {
+                        let data = self
+                            .interpret_expr(typechecker, data.clone(), symbols)?
+                            .unwrap();
+                        return Ok(Some(CheckedValueRef::from_vec(
+                            type_id.clone(),
+                            self.context.hash(&data.to_vec()),
+                        )));
+                    }
                 }
             })),
             CheckedExprNode::Value(value_node) => Ok(Some(CheckedValueRef::new_rc(
@@ -825,6 +837,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             ))),
             CheckedExprNode::Call(call_node) => Ok(self
                 .interpret_call(typechecker, call_node, symbols)
+                .unwrap()
+                .transpose()?),
+            CheckedExprNode::MemberCall(checked_member_call_node) => Ok(self
+                .interpret_member_call(typechecker, checked_member_call_node, symbols)
                 .unwrap()
                 .transpose()?),
             CheckedExprNode::Cast(cast_node) => Ok(Some(CheckedValueRef::new_rc(
@@ -906,7 +922,26 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             .interpret_expr(typechecker, call_node.variable, symbols)?
             .unwrap();
         let mut parameters = Vec::new();
-        for arg in call_node.receiver.iter().chain(call_node.args.iter()) {
+        for arg in call_node.args.iter() {
+            parameters.push(
+                self.interpret_expr(typechecker, arg.clone(), symbols)?
+                    .unwrap(),
+            );
+        }
+        return self.interpret_function(typechecker, f.type_id(), parameters, symbols);
+    }
+
+    fn interpret_member_call(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        call_node: &CheckedMemberCallNode,
+        symbols: &mut SymbolTable<F>,
+    ) -> ControlState<Result<CheckedValueRef<F>>> {
+        let f = self
+            .interpret_expr(typechecker, call_node.variable, symbols)?
+            .unwrap();
+        let mut parameters = Vec::new();
+        for arg in once(&call_node.receiver).chain(call_node.args.iter()) {
             parameters.push(
                 self.interpret_expr(typechecker, arg.clone(), symbols)?
                     .unwrap(),

@@ -310,15 +310,14 @@ impl<F: Clone> SymbolTable<F> {
         type_id
     }
 
-    pub fn add_type_array(&mut self, scope_id: Option<ScopeId>, ty: Type) -> TypeId {
-        let key = ty.key();
-        if let Some(x) = self.get_type_id(scope_id, key.clone()) {
-            return x;
-        }
-
-        let type_id = TypeId(self.types.len());
-        self.add_type_id(scope_id, key, type_id);
-        self.types.push(ty);
+    pub fn add_type_alias<K: Into<TypeKey>>(
+        &mut self,
+        scope_id: Option<ScopeId>,
+        name: K,
+        ty: Type,
+    ) -> TypeId {
+        let type_id = self.add_type(scope_id, ty);
+        self.add_type_id(scope_id, name, type_id);
         type_id
     }
 
@@ -574,10 +573,10 @@ impl<F: Clone> SymbolTable<F> {
         self.end_scope();
     }
 
-    pub fn get_type_id<S: Into<TypeKey>>(
+    pub fn get_type_id<K: Into<TypeKey>>(
         &self,
         start_scope: Option<ScopeId>,
-        name: S,
+        name: K,
     ) -> Option<TypeId> {
         let name: TypeKey = name.into();
         let scope_id = self.find_scope(start_scope, vec![ScopeKind::Module], |scope| {

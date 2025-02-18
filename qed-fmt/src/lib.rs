@@ -254,9 +254,29 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &CallNode {
             variable,
             ref args,
-            receiver,
             ref generic_parameters,
         } = ctx.expression(expr_id).as_call().unwrap();
+        let args = args
+            // TOOD: remove clone
+            .clone()
+            .iter()
+            .map(|&arg| self.visit_expr(arg, ctx))
+            .collect::<Result<Vec<_>, Self::Error>>()?
+            .join(", ");
+        Ok(format!("{}({})", self.visit_expr(variable, ctx)?, args))
+    }
+
+    fn visit_member_call(
+        &mut self,
+        expr_id: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let &MemberCallNode {
+            variable,
+            ref args,
+            receiver,
+            ref generic_parameters,
+        } = ctx.expression(expr_id).as_member_call().unwrap();
         let args = args
             // TOOD: remove clone
             .clone()
@@ -772,6 +792,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 self.visit_expr(offset, ctx)?,
                 self.visit_expr(value, ctx)?
             )),
+            IntrinsicExprNode::Hash { data } => {
+                Ok(format!("hash({})", self.visit_expr(data, ctx)?,))
+            }
         }
     }
 

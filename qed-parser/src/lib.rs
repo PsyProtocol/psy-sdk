@@ -179,9 +179,11 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
         Some(path)
     }
 }
+
 fn format_error_message(message: &str) -> String {
     message.replace("\"", "")
 }
+
 fn print_parse_error<'input>(
     file_content: &'input str,
     error: &lalrpop_util::ParseError<Loc, Token<'input>, LexicalError>,
@@ -231,6 +233,7 @@ fn print_parse_error<'input>(
         }
     }
 }
+
 fn extract_context(file_content: &str, position: usize, context_lines: usize) -> String {
     let lines: Vec<_> = file_content.lines().collect();
     let error_line = file_content[..position].lines().count();

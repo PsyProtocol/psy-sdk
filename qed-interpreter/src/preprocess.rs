@@ -247,7 +247,6 @@ impl<'a> StorageProcessor<'a> {
 
         let read_call = CallNode {
             variable,
-            receiver: None,
             generic_parameters: Vec::new(),
             args: vec![offset],
         };
@@ -305,7 +304,6 @@ impl<'a> StorageProcessor<'a> {
 
         let write_call = CallNode {
             variable,
-            receiver: None,
             generic_parameters: Vec::new(),
             args: vec![offset, value],
         };
@@ -348,7 +346,6 @@ impl<'a> StorageProcessor<'a> {
         }));
         let node = CallNode {
             variable,
-            receiver: None,
             generic_parameters: Vec::new(),
             args: Vec::new(),
         };
@@ -374,7 +371,6 @@ impl<'a> StorageProcessor<'a> {
         }));
         let node = CallNode {
             variable,
-            receiver: None,
             generic_parameters: Vec::new(),
             args: vec![offset],
         };
@@ -413,7 +409,6 @@ impl<'a> StorageProcessor<'a> {
         }));
         let node = CallNode {
             variable,
-            receiver: None,
             generic_parameters: Vec::new(),
             args: vec![offset, field],
         };
@@ -633,6 +628,14 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         node: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
+        Ok(())
+    }
+
+    fn visit_member_call(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
 }

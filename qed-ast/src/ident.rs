@@ -41,19 +41,20 @@ impl IdentId {
     pub const TYPE_FELT: IdentId = IdentId(2);
     pub const TYPE_VOID: IdentId = IdentId(3);
     pub const TYPE_ARRAY: IdentId = IdentId(4);
-    pub const TYPE_SELF: IdentId = IdentId(5);
+    pub const TYPE_HASH: IdentId = IdentId(5);
+    pub const TYPE_SELF: IdentId = IdentId(6);
 
-    pub const SELF: IdentId = IdentId(6);
-    pub const SUPER: IdentId = IdentId(7);
-    pub const CRATE: IdentId = IdentId(8);
+    pub const SELF: IdentId = IdentId(7);
+    pub const SUPER: IdentId = IdentId(8);
+    pub const CRATE: IdentId = IdentId(9);
 
-    pub const STD: IdentId = IdentId(9);
-    pub const PRELUDE: IdentId = IdentId(10);
-    pub const PRIMITIVE: IdentId = IdentId(11);
+    pub const STD: IdentId = IdentId(10);
+    pub const PRELUDE: IdentId = IdentId(11);
+    pub const PRIMITIVE: IdentId = IdentId(12);
 
-    pub const DERIVE: IdentId = IdentId(12);
-    pub const NEW: IdentId = IdentId(13);
-    pub const TEST: IdentId = IdentId(14);
+    pub const DERIVE: IdentId = IdentId(13);
+    pub const NEW: IdentId = IdentId(14);
+    pub const TEST: IdentId = IdentId(15);
 }
 
 pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
@@ -62,6 +63,7 @@ pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
     (IdentId::TYPE_FELT, "Felt"),
     (IdentId::TYPE_VOID, "void"),
     (IdentId::TYPE_ARRAY, "[]"),
+    (IdentId::TYPE_HASH, "Hash"),
     (IdentId::TYPE_SELF, "Self"),
     (IdentId::SELF, "self"),
     (IdentId::SUPER, "super"),

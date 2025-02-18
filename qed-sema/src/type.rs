@@ -29,23 +29,36 @@ pub const UNKOWN_TYPE: TypeId = TypeId(0);
 pub const VOID_TYPE: TypeId = TypeId(1);
 pub const BOOL_TYPE: TypeId = TypeId(2);
 pub const FELT_TYPE: TypeId = TypeId(3);
+pub const HASH_TYPE: TypeId = TypeId(4);
 
-pub const TYPE_MAPPING: &[(IdentId, Type)] = &[
-    (IdentId::TYPE_UNKNOWN, Type::Unknown),
-    (IdentId::TYPE_VOID, Type::VOID),
-    (
-        IdentId::TYPE_BOOL,
-        Type::Bool(CheckedBoolNode {
-            implementations: vec![],
-        }),
-    ),
-    (
-        IdentId::TYPE_FELT,
-        Type::Felt(CheckedFeltNode {
-            implementations: vec![],
-        }),
-    ),
-];
+use once_cell::sync::Lazy;
+
+pub static TYPE_MAPPING: Lazy<Vec<(IdentId, Type)>> = Lazy::new(|| {
+    vec![
+        (IdentId::TYPE_UNKNOWN, Type::Unknown),
+        (IdentId::TYPE_VOID, Type::VOID),
+        (
+            IdentId::TYPE_BOOL,
+            Type::Bool(CheckedBoolNode {
+                implementations: vec![],
+            }),
+        ),
+        (
+            IdentId::TYPE_FELT,
+            Type::Felt(CheckedFeltNode {
+                implementations: vec![],
+            }),
+        ),
+        (
+            IdentId::TYPE_HASH,
+            Type::Array(CheckedArrayNode {
+                inner_ty: FELT_TYPE,
+                size: 4,
+                scope_id: ScopeId::primitive(),
+            }),
+        ),
+    ]
+});
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedBoolNode {
@@ -94,7 +107,6 @@ impl_ref!(Type,
     Struct => CheckedStructNode,
     Enum => CheckedEnumNode,
     Function => CheckedFunctionNode,
-    Impl => CheckedImplNode,
     Trait => CheckedTraitNode
 );
 

@@ -32,6 +32,9 @@ pub enum IntrinsicExprNode {
         offset: ExprId,
         value: ExprId,
     },
+    Hash {
+        data: ExprId,
+    },
 }
 
 impl NodeInfo for IntrinsicExprNode {

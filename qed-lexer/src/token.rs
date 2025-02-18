@@ -45,6 +45,8 @@ pub enum Token<'input> {
     IntrinsicAssert,
     #[token("assert_eq")]
     IntrinsicAssertEq,
+    #[token("hash")]
+    IntrinsicHash,
     #[token("__storage_read")]
     IntrinsicStorageRead,
     #[token("__storage_write")]
