@@ -821,7 +821,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                             .unwrap();
                         return Ok(Some(CheckedValueRef::from_vec(
                             type_id.clone(),
-                            self.context.hash(&data.to_vec()),
+                            self.context.hash(&data.to_felts()),
                         )));
                     }
                 }
