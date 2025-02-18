@@ -1416,8 +1416,8 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             UncheckedType::Unknown => Ok(UNKOWN_TYPE),
             UncheckedType::FunctionSignature(function_signature) => {
                 let mut parameters = Vec::with_capacity(function_signature.parameters.len());
-                for (mutable, parameter) in &function_signature.parameters {
-                    let ty = self.typecheck(parameter, ctx)?;
+                for (mutable, parameter_ty) in &function_signature.parameters {
+                    let ty = self.typecheck(parameter_ty, ctx)?;
                     parameters.push((*mutable, ty));
                 }
                 let return_type = if let Some(ref ty) = function_signature.return_type {
