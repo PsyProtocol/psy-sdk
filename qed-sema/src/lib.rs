@@ -1355,9 +1355,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         &mut self,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()> {
-        STD_PRIMITIVE_SCOPE_ID
-            .set(ctx.symbols.current_scope_id().unwrap())
-            .unwrap();
+        let _ = STD_PRIMITIVE_SCOPE_ID.set(ctx.symbols.current_scope_id().unwrap());
         for (id, ty) in &*TYPE_MAPPING {
             ctx.symbols.add_type_alias(None, id.clone(), ty.clone())?;
         }
