@@ -1,6 +1,3 @@
-use std::convert::AsMut;
-use std::convert::AsRef;
-
 #[macro_export]
 macro_rules! impl_ref {
     ($enum_name:ident, $($variant:ident => $type:ty),*) => {

@@ -1,6 +1,6 @@
 use qed_ast::{ExprId, NodeInfo, NodeType, StmtId};
 
-use crate::{stmt::block::CheckedBlockNode, TypeId};
+use crate::TypeId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedCase {

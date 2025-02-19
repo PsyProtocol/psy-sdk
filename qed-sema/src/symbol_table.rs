@@ -1,38 +1,34 @@
 use std::{
-    borrow::Borrow,
-    cell::RefCell,
     collections::HashMap,
     convert::AsMut,
-    fmt::{format, Display, Formatter},
+    fmt::{Display, Formatter},
     hash::Hash,
     iter::once,
     ops::{Index, IndexMut},
-    rc::Rc,
 };
 
 use once_cell::sync::OnceCell;
 use qed_ast::{ModuleNode, PathNode, Visibility};
 use qed_common::{define_arena_id, FileId, TreeNode};
-use strum::EnumTryAs;
 
 use crate::{
-    variable::CheckedVariable, CheckedArrayNode, CheckedFunctionNode, CheckedTraitNode,
-    CheckedValue, CheckedValueNode, CheckedValueRef, DefinitionNode, IdentId, ModuleId, ModuleKind,
+    variable::CheckedVariable, CheckedTraitNode, CheckedValueRef, IdentId, ModuleId, ModuleKind,
     Type, TypeId, TypeKey, UsePath,
 };
 use crate::{Error, Result};
 
 define_arena_id!(ScopeId);
+define_arena_id!(VarId);
 
-pub static STD_PRELUDE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
+pub static mut STD_PRIMITIVE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
 
 impl ScopeId {
     pub const fn root() -> Self {
         Self(0)
     }
 
-    pub fn prelude() -> Self {
-        *STD_PRELUDE_SCOPE_ID.get().unwrap()
+    pub fn primitive() -> Self {
+        unsafe { *STD_PRIMITIVE_SCOPE_ID.get().unwrap() }
     }
 }
 
@@ -50,11 +46,11 @@ pub enum ScopeKind {
 }
 
 #[derive(Clone, Debug)]
-pub struct Scope<F: Clone> {
+pub struct Scope {
     pub kind: ScopeKind,
     pub parent: Option<ScopeId>,
     pub children: Vec<ScopeId>,
-    pub variables: HashMap<IdentId, CheckedVariable<F>>,
+    pub variables: HashMap<IdentId, VarId>,
     pub types: HashMap<TypeKey, TypeId>,
 }
 
@@ -114,7 +110,7 @@ impl Module {
     }
 }
 
-impl<T: Clone> Scope<T> {
+impl Scope {
     pub fn new(kind: ScopeKind, parent: Option<ScopeId>) -> Self {
         Self {
             kind,
@@ -128,11 +124,12 @@ impl<T: Clone> Scope<T> {
 
 #[derive(Clone, Debug)]
 pub struct SymbolTable<F: Clone> {
-    scopes: Vec<Scope<F>>,
+    scopes: Vec<Scope>,
     scope_stack: Vec<ScopeId>,
     frames: Vec<Frame<CheckedValueRef<F>>>,
 
-    pub types: Vec<Type>,
+    types: Vec<Type>,
+    variables: Vec<CheckedVariable<F>>,
     modules: Vec<Module>,
     module_stack: Vec<ModuleId>,
 }
@@ -156,7 +153,8 @@ macro_rules! impl_index {
 
 impl_index!(ModuleId, Module, modules);
 impl_index!(TypeId, Type, types);
-impl_index!(ScopeId, Scope<F>, scopes);
+impl_index!(VarId, CheckedVariable<F>, variables);
+impl_index!(ScopeId, Scope, scopes);
 
 impl<T: Clone> Display for SymbolTable<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -173,16 +171,7 @@ impl<T: Clone> Display for SymbolTable<T> {
             //variables
             writeln!(f, "  variables:")?;
             for (k, v) in &scope.variables {
-                writeln!(
-                    f,
-                    "    {:?} : ty: {}, mut: {}, cnst: {}, scope_id: {:?}, value is_some: {}",
-                    k,
-                    v.ty,
-                    v.mutable,
-                    v.cnst,
-                    v.scope_id,
-                    v.value.is_some()
-                )?;
+                writeln!(f, "  {:?} : {:?}", k, v)?;
             }
         }
         //print type
@@ -211,6 +200,7 @@ impl<F: Clone> SymbolTable<F> {
             frames: vec![],
 
             types: vec![],
+            variables: vec![],
             modules: vec![],
             module_stack: vec![],
         }
@@ -290,73 +280,60 @@ impl<F: Clone> SymbolTable<F> {
     pub fn add_type_id<K: Into<TypeKey>>(
         &mut self,
         scope_id: Option<ScopeId>,
-        type_name: K,
+        name: K,
         type_id: TypeId,
-    ) {
-        let type_name = type_name.into();
+    ) -> Result<()> {
+        let key = name.into();
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
-        if let Some(id) = self[scope_id].types.get(&type_name) {
-            return;
+        if let Some(type_id) = self[scope_id].types.get(&key) {
+            return Ok(());
         }
 
-        self[scope_id].types.insert(type_name, type_id);
+        self[scope_id].types.insert(key, type_id);
+        Ok(())
     }
 
-    pub fn add_type(&mut self, scope_id: Option<ScopeId>, ty: Type) -> TypeId {
+    pub fn add_type(&mut self, scope_id: Option<ScopeId>, ty: Type) -> Result<TypeId> {
         let key = ty.key();
         if let Some(_) = self.get_type_id(scope_id, key.clone()) {
-            panic!("type {:?} already exists", key);
+            return Err(Error::TypeAlreadyDefined);
         }
 
         let type_id = TypeId(self.types.len());
-        self.add_type_id(scope_id, key, type_id);
+        self.add_type_id(scope_id, key, type_id)?;
         self.types.push(ty);
-        type_id
-    }
-    pub fn add_type_array(&mut self, scope_id: Option<ScopeId>, ty: Type) -> TypeId {
-        let key = ty.key();
-        if let Some(x) = self.get_type_id(scope_id, key.clone()) {
-            return x;
-        }
-
-        let type_id = TypeId(self.types.len());
-        self.add_type_id(scope_id, key, type_id);
-        self.types.push(ty);
-        type_id
+        Ok(type_id)
     }
 
-    pub fn add_type_variable(&mut self, ty: IdentId) -> TypeId {
+    pub fn add_type_variable(&mut self, ty: IdentId) -> Result<TypeId> {
         let type_id = TypeId(self.types.len());
         self.types.push(Type::TypeVariable(ty));
-        self.add_type_id(None, ty, type_id);
-        type_id
+        self.add_type_id(None, ty, type_id)?;
+        Ok(type_id)
     }
 
     pub fn add_use(&mut self, use_path: &UsePath) -> Result<()> {
-        let current_scope_id = self.current_scope_id().unwrap();
         let type_ids = self.resolve_use(&use_path).ok_or(Error::UnresolvedUse)?;
         let type_ids = type_ids
             .into_iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect::<Vec<_>>();
         for (ident, type_id) in type_ids {
-            self.add_type_id(None, ident, type_id);
+            self.add_type_id(None, ident, type_id)?;
         }
         Ok(())
     }
 
     pub fn resolve_implementor(&mut self, ty: IdentId) -> Result<(ScopeId, TypeId)> {
-        let current_scope_id = self.current_scope_id().unwrap();
-        if let Some(&type_id) = self[current_scope_id].types.get(&ty.into()) {
+        if let Some(type_id) = self.get_type_id(None, ty) {
             return Ok((self[type_id].scope_id(), type_id));
         }
         Err(Error::UnresolvedImplementor)
     }
 
     pub fn resolve_trait(&mut self, r#trait: IdentId) -> Result<(ScopeId, TypeId)> {
-        let current_scope_id = self.current_scope_id().unwrap();
-        if let Some(&type_id) = self[current_scope_id].types.get(&r#trait.into()) {
+        if let Some(type_id) = self.get_type_id(None, r#trait) {
             return Ok((self[type_id].scope_id(), type_id));
         }
         Err(Error::UnresolvedTrait)
@@ -580,10 +557,10 @@ impl<F: Clone> SymbolTable<F> {
         self.end_scope();
     }
 
-    pub fn get_type_id<S: Into<TypeKey>>(
+    pub fn get_type_id<K: Into<TypeKey>>(
         &self,
         start_scope: Option<ScopeId>,
-        name: S,
+        name: K,
     ) -> Option<TypeId> {
         let name: TypeKey = name.into();
         let scope_id = self.find_scope(start_scope, vec![ScopeKind::Module], |scope| {
@@ -596,7 +573,7 @@ impl<F: Clone> SymbolTable<F> {
         &self,
         start_scope: Option<ScopeId>,
         scope_kinds: Vec<ScopeKind>,
-        f: impl Fn(&Scope<F>) -> bool,
+        f: impl Fn(&Scope) -> bool,
     ) -> Option<ScopeId> {
         let mut current_scope_id = start_scope.or(self.current_scope_id());
 
@@ -634,14 +611,11 @@ impl<F: Clone> SymbolTable<F> {
             .and_then(|frame| frame.get_value(scope_id, key))
             .cloned();
 
-        self[scope_id]
-            .variables
-            .get(key)
-            .cloned()
-            .map(|mut variable| {
-                variable.value = value;
-                variable
-            })
+        self[scope_id].variables.get(key).map(|var_id| {
+            let mut variable = self[var_id.clone()].clone();
+            variable.value = value;
+            variable
+        })
     }
 
     pub fn set_variable(
@@ -657,7 +631,7 @@ impl<F: Clone> SymbolTable<F> {
                 .unwrap()
                 .get_value(scope_id, key)
                 .is_some()
-                && (!v.mutable || v.cnst)
+                && (!self[v.clone()].mutable || self[v.clone()].cnst)
             {
                 return Err(Error::ImmutableVariable);
             }
@@ -678,7 +652,9 @@ impl<F: Clone> SymbolTable<F> {
         if self[scope_id].variables.contains_key(&key) {
             return Err(Error::VariableAlreadyDefined);
         }
-        self[scope_id].variables.insert(key, variable);
+        let var_id = VarId(self.variables.len());
+        self.variables.push(variable);
+        self[scope_id].variables.insert(key, var_id);
         Ok(())
     }
 

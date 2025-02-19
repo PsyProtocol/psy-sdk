@@ -1,50 +1,44 @@
-use qed_ast::{ExprId, NodeInfo, NodeType};
-
-use crate::TypeId;
+use crate::{ExprId, NodeInfo, NodeType};
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum CheckedContextNode {
-    GetUserId {
-        type_id: TypeId,
-    },
-    GetContractId {
-        type_id: TypeId,
-    },
-    GetCheckpointId {
-        type_id: TypeId,
-    },
-    GetLastNonce {
-        type_id: TypeId,
-    },
-    GetUserPublicKeyHash {
-        type_id: TypeId,
-    },
+pub enum IntrinsicExprNode {
+    GetUserId,
+    GetContractId,
+    GetCheckpointId,
+    GetLastNonce,
+    GetUserPublicKeyHash,
     GetStateHashAt {
         slot_index: ExprId,
-        type_id: TypeId,
     },
     GetOtherContractStateHashAt {
         contract_state_tree_height: ExprId,
         contract_id: ExprId,
         slot_index: ExprId,
-        type_id: TypeId,
     },
     GetOtherUserContractStateHashAt {
         contract_state_tree_height: ExprId,
         user_id: ExprId,
         contract_id: ExprId,
         slot_index: ExprId,
-        type_id: TypeId,
     },
     CSetStateHashAt {
         slot_index: ExprId,
         new_value: ExprId,
-        type_id: TypeId,
+    },
+    Read {
+        offset: ExprId,
+    },
+    Write {
+        offset: ExprId,
+        value: ExprId,
+    },
+    Hash {
+        data: ExprId,
     },
 }
 
-impl NodeInfo for CheckedContextNode {
+impl NodeInfo for IntrinsicExprNode {
     fn node_type(&self) -> NodeType {
-        NodeType::ContextExpr
+        NodeType::IntrinsicExpr
     }
 }

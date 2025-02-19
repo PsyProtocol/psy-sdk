@@ -1,25 +1,23 @@
-mod assert;
 mod assignment;
 mod block;
 mod r#if;
+mod intrinsic;
 mod r#return;
-mod storage;
 mod variable;
 mod r#while;
 
-pub use assert::*;
 pub use assignment::*;
 pub use block::*;
 use enum_as_inner::EnumAsInner;
+pub use intrinsic::*;
 pub use r#if::*;
 pub use r#return::*;
 pub use r#while::*;
-pub use storage::*;
 pub use variable::*;
 
-use qed_ast::{DefId, ExprId, NodeInfo, NodeType, StmtNode};
+use qed_ast::{DefId, ExprId, NodeInfo, NodeType};
 
-use crate::{CheckedDefinitionNode, CheckedExprNode, TypeId};
+use crate::{CheckedDefinitionNode, CheckedExprNode};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum CheckedStmtNode {
@@ -30,10 +28,8 @@ pub enum CheckedStmtNode {
     Variable(CheckedVariableNode),
     Definition(DefId),
     Expression(ExprId),
-    Storage(CheckedStorageWriteNode),
     Return(CheckedReturnNode),
-    Assert(CheckedAssertNode),
-    AssertEq(CheckedAssertEqNode),
+    Intrinsic(CheckedIntrinsicStmtNode),
 }
 
 impl NodeInfo for CheckedStmtNode {
@@ -46,10 +42,8 @@ impl NodeInfo for CheckedStmtNode {
             Self::Variable(node) => node.node_type(),
             Self::Definition(node) => NodeType::DefinitionStmt,
             Self::Expression(node) => NodeType::ExpressionStmt,
-            Self::Storage(node) => node.node_type(),
             Self::Return(node) => node.node_type(),
-            Self::Assert(node) => node.node_type(),
-            Self::AssertEq(node) => node.node_type(),
+            Self::Intrinsic(node) => node.node_type(),
         }
     }
 

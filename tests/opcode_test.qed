@@ -4,29 +4,29 @@ fn main(a: Felt, b: Felt) -> Felt {
     let mut bool1 : bool = true;
 
     let mut binop: Felt = a + b;
-    let mut binop: Felt = a - b;
-    let mut binop: Felt = a * b;
-    let mut binop: Felt = a / b;
-    let mut binop: Felt = a % b;
+    binop = a - b;
+    binop = a * b;
+    binop = a / b;
+    binop = a % b;
 
 
     let mut binopbool: bool = bool0 && bool1;
-    let mut binopbool: bool = bool0 || bool1;
+    binopbool = bool0 || bool1;
 
-    let mut binop: Felt = a ^ b;
-    let mut binop: Felt = a & b;
-    let mut binop: Felt = a | b;
-    let mut binop: Felt = a << b;
-    let mut binop: Felt = a >> b;
+    binop = a ^ b;
+    binop = a & b;
+    binop = a | b;
+    binop = a << b;
+    binop = a >> b;
 
-    let mut binop: Felt = 1;
+    binop = 1;
 
-    let mut binopbool: bool = a == b;
-    let mut binopbool: bool = a < b;
-    let mut binopbool: bool = a <= b;
-    let mut binopbool: bool = a > b;
-    let mut binopbool: bool = a >= b;
-    let mut binopbool: bool = a != b;
+    binopbool = a == b;
+    binopbool = a < b;
+    binopbool = a <= b;
+    binopbool = a > b;
+    binopbool = a >= b;
+    binopbool = a != b;
 
     binop += b;
     binop -= b;

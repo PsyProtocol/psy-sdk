@@ -1,13 +1,10 @@
-use std::{
-    collections::HashMap,
-    ops::{Index, IndexMut},
-};
+use std::ops::{Index, IndexMut};
 
-use qed_common::{Arena, FileId, FileResolver, Graph, Tree, TreeNode};
+use qed_common::{Arena, FileResolver, Graph, Tree, TreeNode};
 
 use crate::{
-    AstVisitor, DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, Interner, ModuleId,
-    ModuleNode, StmtId, StmtNode,
+    DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, Interner, ModuleId, ModuleNode,
+    StmtId, StmtNode,
 };
 
 #[derive(Debug)]

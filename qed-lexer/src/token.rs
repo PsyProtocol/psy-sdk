@@ -38,11 +38,37 @@ pub enum Token<'input> {
 
     #[token("as")]
     KeywordAs,
+    #[token("type")]
+    KeywordType,
 
-    #[token("assert!")]
-    KeywordAssert,
-    #[token("assert_eq!")]
-    KeywordAssertEq,
+    #[token("assert")]
+    IntrinsicAssert,
+    #[token("assert_eq")]
+    IntrinsicAssertEq,
+    #[token("hash")]
+    IntrinsicHash,
+    #[token("__storage_read")]
+    IntrinsicStorageRead,
+    #[token("__storage_write")]
+    IntrinsicStorageWrite,
+    #[token("__ctx_get_user_id")]
+    IntrinsicCtxGetUserId,
+    #[token("__ctx_get_contract_id")]
+    IntrinsicCtxGetContractId,
+    #[token("__ctx_get_checkpoint_id")]
+    IntrinsicCtxGetCheckpointId,
+    #[token("__ctx_get_last_nonce")]
+    IntrinsicCtxGetLastNonce,
+    #[token("__ctx_get_user_public_key_hash")]
+    IntrinsicCtxGetUserPublicKeyHash,
+    #[token("__ctx_get_state_hash_at")]
+    IntrinsicCtxGetStateHashAt,
+    #[token("__ctx_get_other_contract_state_hash_at")]
+    IntrinsicCtxGetOtherContractStateHashAt,
+    #[token("__ctx_get_other_user_contract_state_hash_at")]
+    IntrinsicCtxGetOtherUserContractStateHashAt,
+    #[token("__ctx_set_state_hash_at")]
+    IntrinsicCtxSetStateHashAt,
 
     #[token("new")]
     KeywordNew,

@@ -1,5 +1,4 @@
-use crate::{AstVisitor, DefId, ExprId, IdentId, NodeInfo, NodeType};
-use std::fmt::Display;
+use crate::{IdentId, NodeInfo, NodeType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PathNode {
@@ -9,6 +8,14 @@ pub struct PathNode {
 }
 
 impl PathNode {
+    pub fn from_target(target: IdentId) -> Self {
+        Self {
+            root: None,
+            segments: vec![],
+            target,
+        }
+    }
+
     pub fn new(root: Option<IdentId>, target: IdentId, segments: Vec<IdentId>) -> Self {
         Self {
             root,
@@ -25,19 +32,5 @@ impl PathNode {
 impl NodeInfo for PathNode {
     fn node_type(&self) -> NodeType {
         NodeType::PathExpr
-    }
-}
-
-impl Display for PathNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "PathNode: ")?;
-        match &self.root {
-            Some(root) => write!(f, "IdentId({})", root),
-            None => write!(f, "NO_ROOT"),
-        }?;
-        for seg in &self.segments {
-            write!(f, "::{}", seg)?;
-        }
-        writeln!(f, "::{}", self.target)
     }
 }

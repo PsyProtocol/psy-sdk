@@ -1,4 +1,4 @@
-use crate::{AstVisitor, ExprId, IdentId, NodeInfo, NodeType, UncheckedType};
+use crate::{ExprId, IdentId, NodeInfo, NodeType, UncheckedType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariableNode {

@@ -1,7 +1,9 @@
 use thiserror::Error;
 
-#[derive(Error, Clone, Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
+    #[error("{0:?}")]
+    AnyError(#[from] anyhow::Error),
     #[error("type mismatch")]
     TypeMismatch,
     #[error("unresolved path")]
@@ -32,6 +34,8 @@ pub enum Error {
     InvalidReturn,
     #[error("invalid self parameter")]
     InvalidSelfParameter,
+    #[error("type already defined")]
+    TypeAlreadyDefined,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

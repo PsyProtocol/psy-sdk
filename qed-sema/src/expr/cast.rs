@@ -1,6 +1,6 @@
 use qed_ast::{NodeInfo, NodeType};
 
-use crate::{ExprId, TypeId, UncheckedType};
+use crate::{ExprId, TypeId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedCastNode {
