@@ -21,7 +21,6 @@ grammar<'input, F, C>(
 
 use super::Loc;
 use std::convert::TryFrom;
-use std::collections::HashMap;
 
 ModuleItem: ModuleItemNode = {
     InlineModule => ModuleItemNode::InlineModule(<>),
@@ -617,10 +616,10 @@ PathExpression: ExprNode<F> = {
         target,
     }),
     <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: IdentifierOrNew> => {
-        let mut segment_ids = segments.into_iter().map(|seg| seg).collect::<Vec<_>>();
+        let segs = segments.into_iter().map(|seg| seg).collect::<Vec<_>>();
         ExprNode::Path(PathNode {
             root: Some(root),
-            segments: segment_ids,
+            segments: segs,
             target,
         })
     },

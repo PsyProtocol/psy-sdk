@@ -286,8 +286,8 @@ impl<F: Clone> SymbolTable<F> {
         let type_name = type_name.into();
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
-        if let Some(id) = self[scope_id].types.get(&type_name) {
-            return Err(Error::TypeAlreadyDefined);
+        if let Some(type_id) = self[scope_id].types.get(&type_name) {
+            return Ok(());
         }
 
         self[scope_id].types.insert(type_name, type_id);

@@ -307,6 +307,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             receiver,
             ref generic_parameters,
         } = ctx.expression(expr_id).as_member_call().unwrap();
+        let generic_parameters = generic_parameters
+            .iter()
+            .map(|generic_parameter| self.visit_unchecked_type(&generic_parameter, ctx))
+            .collect::<Vec<_>>();
         let args = args
             // TOOD: remove clone
             .clone()
@@ -315,9 +319,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .collect::<Result<Vec<_>, Self::Error>>()?
             .join(", ");
         Ok(format!(
-            "{}.{}({})",
+            "{}.{}{}({})",
             self.visit_expr(receiver, ctx)?,
             self.visit_expr(variable, ctx)?,
+            self.visit_generic_parameters(generic_parameters),
             args
         ))
     }
@@ -435,8 +440,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             value,
         } = ctx.statement(stmt_id).as_assignment().unwrap();
         let s = format!(
-            "{} = {};",
+            "{} {} {};",
             self.visit_expr(variable, ctx)?,
+            operator,
             self.visit_expr(value, ctx)?
         );
         self.write_line(&s);
@@ -625,7 +631,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             }
         }
         self.write_line(&format!(
-            "struct {}{} {{",
+            "{}struct {}{} {{",
+            if visibility.is_public() { "pub " } else { "" },
             &ctx.ident(name.clone()),
             self.visit_generic_parameters(
                 generic_parameters
@@ -661,7 +668,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             visibility,
         } = ctx.definition(def_id).as_enum().unwrap();
         self.write_line(&format!(
-            "enum {}{} {{",
+            "{}enum {}{} {{",
+            if visibility.is_public() { "pub " } else { "" },
             &ctx.ident(name.clone()),
             self.visit_generic_parameters(
                 generic_parameters
