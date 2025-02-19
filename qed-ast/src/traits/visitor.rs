@@ -54,6 +54,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::ImplDef => self.visit_impl(def_id, ctx)?,
             NodeType::TraitDef => self.visit_trait(def_id, ctx)?,
             NodeType::TypeAliasDef => self.visit_type_alias(def_id, ctx)?,
+            NodeType::ConstDef => self.visit_const(def_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -235,6 +236,11 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error>;
     fn visit_type_alias(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_const(
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,

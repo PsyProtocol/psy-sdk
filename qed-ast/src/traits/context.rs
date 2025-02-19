@@ -76,6 +76,7 @@ pub enum NodeType {
     ImplDef,
     TraitDef,
     TypeAliasDef,
+    ConstDef,
 
     Module,
 }

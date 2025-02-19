@@ -645,4 +645,12 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
+
+    fn visit_const(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::DefinitionResult, Self::Error> {
+        Ok(())
+    }
 }

@@ -1,6 +1,5 @@
 mod arena;
 mod definition;
-mod error;
 mod expr;
 mod ident;
 mod module;

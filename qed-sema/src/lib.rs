@@ -819,13 +819,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let current_scope_id = ctx.symbols.current_scope_id().unwrap();
         ctx.symbols.declare_variable(
             variable_node.name,
-            CheckedVariable::new(
-                rhs_ty,
-                variable_node.mutable,
-                variable_node.cnst,
-                current_scope_id,
-                None,
-            ),
+            CheckedVariable::new(rhs_ty, variable_node.mutable, current_scope_id, None),
         )?;
         let checked_variable = CheckedVariableNode {
             name: variable_node.name,
@@ -1033,8 +1027,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         for (parameter, mutable, parameter_type) in &function.parameters {
             let parameter_type = self.typecheck(parameter_type, ctx)?;
-            let variable =
-                CheckedVariable::new(parameter_type, *mutable, false, current_scope_id, None);
+            let variable = CheckedVariable::new(parameter_type, *mutable, current_scope_id, None);
             ctx.symbols.declare_variable(parameter.clone(), variable)?;
             parameters.push((parameter.clone(), *mutable, parameter_type));
         }
@@ -1218,6 +1211,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             NodeType::ImplDef => self.visit_impl(def_id, ctx)?,
             NodeType::TraitDef => self.visit_trait(def_id, ctx)?,
             NodeType::TypeAliasDef => self.visit_type_alias(def_id, ctx)?,
+            NodeType::ConstDef => self.visit_const(def_id, ctx)?,
             _ => std::unreachable!(),
         };
         ctx.pop_node_id();
@@ -1312,6 +1306,32 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             name: node.name,
             ty: type_id,
         }))
+    }
+
+    fn visit_const(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
+        // TODO: remove clone
+        let node = ctx.definition(node).as_const().cloned().unwrap();
+        let type_id = self.typecheck(&node.ty, ctx)?;
+        let value = self.visit_expr(node.value, ctx)?;
+        if !self.unify(type_id, value.ty(), ctx) {
+            return Err(Error::TypeMismatch);
+        }
+
+        let node = CheckedConstNode {
+            name: node.name,
+            ty: type_id,
+            value: self.exprs.alloc_item(value),
+            scope_id: ctx.symbols.current_scope_id().unwrap(),
+            visibility: node.visibility,
+        };
+
+        ctx.symbols.add_type(None, Type::Const(node.clone()));
+
+        Ok(CheckedDefinitionNode::Const(node))
     }
 }
 
@@ -1536,8 +1556,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
 
         for (parameter, mutable, parameter_type) in &function.parameters {
             let parameter_type = self.typecheck(parameter_type, ctx)?;
-            let variable =
-                CheckedVariable::new(parameter_type, *mutable, false, current_scope_id, None);
+            let variable = CheckedVariable::new(parameter_type, *mutable, current_scope_id, None);
             ctx.symbols.declare_variable(parameter.clone(), variable)?;
             parameters.push((parameter.clone(), *mutable, parameter_type));
         }
@@ -1649,6 +1668,9 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         match (&ctx.symbols[ty1], &ctx.symbols[ty2]) {
             (Type::Function(f), Type::FunctionSignature(sig)) => &f.signature() == sig,
             (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,
+            (Type::Const(c), Type::Felt(_)) => c.ty == ty2,
+            (Type::Felt(_), Type::Const(c)) => c.ty == ty1,
+            (Type::Const(c), Type::Const(d)) => c.ty == d.ty,
             _ => ty1 == ty2,
         }
     }

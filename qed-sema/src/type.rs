@@ -8,6 +8,7 @@ use qed_ast::Visibility;
 use qed_utils::impl_ref;
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
+use crate::CheckedConstNode;
 use crate::CheckedFunctionSignature;
 use crate::CheckedValue;
 use crate::CheckedValueRef;
@@ -77,6 +78,7 @@ pub enum Type {
     Function(CheckedFunctionNode),
     FunctionSignature(CheckedFunctionSignature),
     Trait(CheckedTraitNode),
+    Const(CheckedConstNode),
     TypeVariable(IdentId),
 }
 
@@ -192,6 +194,9 @@ impl Type {
                 None,
                 vec![],
             ),
+            Type::Const(CheckedConstNode { name, .. }) => {
+                (name.clone(), vec![], vec![], None, vec![])
+            }
             _ => panic!("Type::key called on TypeVariable type"),
         };
         TypeKey::new(name, generic_parameters, parameters, return_type, consts)
@@ -204,6 +209,7 @@ impl Type {
             Type::Enum(CheckedEnumNode { scope_id, .. }) => *scope_id,
             Type::Function(CheckedFunctionNode { scope_id, .. }) => *scope_id,
             Type::Trait(CheckedTraitNode { scope_id, .. }) => *scope_id,
+            Type::Const(CheckedConstNode { scope_id, .. }) => *scope_id,
             Type::Felt(_) => ScopeId::primitive(),
             Type::Bool(_) => ScopeId::primitive(),
             _ => panic!("Type::scope_id called on non-composite type"),
@@ -264,6 +270,7 @@ impl Type {
             Type::Enum(CheckedEnumNode { visibility, .. }) => *visibility,
             Type::Function(CheckedFunctionNode { visibility, .. }) => *visibility,
             Type::Trait(CheckedTraitNode { visibility, .. }) => *visibility,
+            Type::Const(CheckedConstNode { visibility, .. }) => *visibility,
             _ => Visibility::Public,
         }
     }
