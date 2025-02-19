@@ -1,4 +1,4 @@
-use crate::{AstVisitor, BlockNode, ExprId, NodeInfo, NodeType, StmtId};
+use crate::{ExprId, NodeInfo, NodeType, StmtId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WhileNode {

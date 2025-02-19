@@ -4,6 +4,7 @@ mod function;
 mod r#impl;
 mod r#struct;
 mod r#trait;
+mod type_alias;
 
 pub use array::*;
 use enum_as_inner::EnumAsInner;
@@ -13,6 +14,7 @@ pub use r#enum::*;
 pub use r#impl::*;
 pub use r#struct::*;
 pub use r#trait::*;
+pub use type_alias::*;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum CheckedDefinitionNode {
@@ -21,6 +23,7 @@ pub enum CheckedDefinitionNode {
     Enum(CheckedEnumNode),
     Impl(CheckedImplNode),
     Trait(CheckedTraitNode),
+    TypeAlias(CheckedTypeAliasNode),
 }
 
 impl NodeInfo for CheckedDefinitionNode {
@@ -31,6 +34,7 @@ impl NodeInfo for CheckedDefinitionNode {
             Self::Enum(node) => node.node_type(),
             Self::Impl(node) => node.node_type(),
             Self::Trait(node) => node.node_type(),
+            Self::TypeAlias(node) => node.node_type(),
         }
     }
 }

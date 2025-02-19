@@ -15,9 +15,9 @@ pub use r#return::*;
 pub use r#while::*;
 pub use variable::*;
 
-use qed_ast::{DefId, ExprId, NodeInfo, NodeType, StmtNode};
+use qed_ast::{DefId, ExprId, NodeInfo, NodeType};
 
-use crate::{CheckedDefinitionNode, CheckedExprNode, TypeId};
+use crate::{CheckedDefinitionNode, CheckedExprNode};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum CheckedStmtNode {

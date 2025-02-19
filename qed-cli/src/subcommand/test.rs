@@ -5,7 +5,6 @@ use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::qblock::cmds::register_user::QBCRegisterUser;
 use qed_exec::vm::exec::QEDEvalSessionResult;
 use qed_interpreter::Interpreter;
-use qed_sema::TypeChecker;
 use qed_store::config::store_config::QEDHasher;
 use qed_utils::{
     gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract,
@@ -34,14 +33,13 @@ pub fn run(args: TestArgs) -> anyhow::Result<()> {
     println!("compile_result: {:?}", compile_results);
 
     let priv_key = QHashOut::rand();
-    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-    let pub_key = wallet.add_private_key(SimpleQEDPrivateKey::new(priv_key));
+    let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
     let priv_key_w = SimpleQEDPrivateKey::new(priv_key);
     let pub_key_param = priv_key_w.get_public_key_param::<QEDHasher>();
     let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
     let deployer = QHashOut::rand();
-    let (mut circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+    let (circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
         deployer,
         contract_state_tree_height as u8,
         &compile_results,

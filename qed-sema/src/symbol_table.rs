@@ -1,24 +1,19 @@
 use std::{
-    borrow::Borrow,
-    cell::RefCell,
     collections::HashMap,
     convert::AsMut,
-    fmt::{format, Display, Formatter},
+    fmt::{Display, Formatter},
     hash::Hash,
     iter::once,
     ops::{Index, IndexMut},
-    rc::Rc,
 };
 
 use once_cell::sync::OnceCell;
 use qed_ast::{ModuleNode, PathNode, Visibility};
 use qed_common::{define_arena_id, FileId, TreeNode};
-use strum::EnumTryAs;
 
 use crate::{
-    variable::CheckedVariable, CheckedArrayNode, CheckedFunctionNode, CheckedTraitNode,
-    CheckedValue, CheckedValueNode, CheckedValueRef, DefinitionNode, IdentId, ModuleId, ModuleKind,
-    Type, TypeId, TypeKey, UsePath, TYPE_MAPPING,
+    variable::CheckedVariable, CheckedTraitNode, CheckedValueRef, IdentId, ModuleId, ModuleKind,
+    Type, TypeId, TypeKey, UsePath,
 };
 use crate::{Error, Result};
 
@@ -287,27 +282,28 @@ impl<F: Clone> SymbolTable<F> {
         scope_id: Option<ScopeId>,
         type_name: K,
         type_id: TypeId,
-    ) {
+    ) -> Result<()> {
         let type_name = type_name.into();
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
         if let Some(id) = self[scope_id].types.get(&type_name) {
-            return;
+            return Err(Error::TypeAlreadyDefined);
         }
 
         self[scope_id].types.insert(type_name, type_id);
+        Ok(())
     }
 
-    pub fn add_type(&mut self, scope_id: Option<ScopeId>, ty: Type) -> TypeId {
+    pub fn add_type(&mut self, scope_id: Option<ScopeId>, ty: Type) -> Result<TypeId> {
         let key = ty.key();
         if let Some(_) = self.get_type_id(scope_id, key.clone()) {
-            panic!("type {:?} already exists", key);
+            return Err(Error::TypeAlreadyDefined);
         }
 
         let type_id = TypeId(self.types.len());
-        self.add_type_id(scope_id, key, type_id);
+        self.add_type_id(scope_id, key, type_id)?;
         self.types.push(ty);
-        type_id
+        Ok(type_id)
     }
 
     pub fn add_type_alias<K: Into<TypeKey>>(
@@ -315,28 +311,27 @@ impl<F: Clone> SymbolTable<F> {
         scope_id: Option<ScopeId>,
         name: K,
         ty: Type,
-    ) -> TypeId {
-        let type_id = self.add_type(scope_id, ty);
-        self.add_type_id(scope_id, name, type_id);
-        type_id
+    ) -> Result<TypeId> {
+        let type_id = self.add_type(scope_id, ty)?;
+        self.add_type_id(scope_id, name, type_id)?;
+        Ok(type_id)
     }
 
-    pub fn add_type_variable(&mut self, ty: IdentId) -> TypeId {
+    pub fn add_type_variable(&mut self, ty: IdentId) -> Result<TypeId> {
         let type_id = TypeId(self.types.len());
         self.types.push(Type::TypeVariable(ty));
-        self.add_type_id(None, ty, type_id);
-        type_id
+        self.add_type_id(None, ty, type_id)?;
+        Ok(type_id)
     }
 
     pub fn add_use(&mut self, use_path: &UsePath) -> Result<()> {
-        let current_scope_id = self.current_scope_id().unwrap();
         let type_ids = self.resolve_use(&use_path).ok_or(Error::UnresolvedUse)?;
         let type_ids = type_ids
             .into_iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect::<Vec<_>>();
         for (ident, type_id) in type_ids {
-            self.add_type_id(None, ident, type_id);
+            self.add_type_id(None, ident, type_id)?;
         }
         Ok(())
     }
@@ -627,7 +622,7 @@ impl<F: Clone> SymbolTable<F> {
             .and_then(|frame| frame.get_value(scope_id, key))
             .cloned();
 
-        self[scope_id].variables.get(key).map(|mut var_id| {
+        self[scope_id].variables.get(key).map(|var_id| {
             let mut variable = self[var_id.clone()].clone();
             variable.value = value;
             variable

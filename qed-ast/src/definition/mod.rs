@@ -4,6 +4,7 @@ mod function;
 mod r#impl;
 mod r#struct;
 mod r#trait;
+mod type_alias;
 
 pub use attr::*;
 use enum_as_inner::EnumAsInner;
@@ -12,8 +13,9 @@ pub use r#enum::*;
 pub use r#impl::*;
 pub use r#struct::*;
 pub use r#trait::*;
+pub use type_alias::*;
 
-use crate::{AstVisitor, IdentId, NodeInfo, NodeType};
+use crate::{NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum DefinitionNode {
@@ -22,6 +24,7 @@ pub enum DefinitionNode {
     Enum(EnumNode),
     Impl(ImplNode),
     Trait(TraitNode),
+    TypeAlias(TypeAliasNode),
 }
 
 impl NodeInfo for DefinitionNode {
@@ -32,6 +35,7 @@ impl NodeInfo for DefinitionNode {
             Self::Enum(node) => node.node_type(),
             Self::Impl(node) => node.node_type(),
             Self::Trait(node) => node.node_type(),
+            Self::TypeAlias(node) => node.node_type(),
         }
     }
 }

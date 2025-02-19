@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use crate::{IdentId, ValueNode};
+use crate::IdentId;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AttrNode {

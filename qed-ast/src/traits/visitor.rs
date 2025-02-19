@@ -16,7 +16,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         Stmt = Self::Stmt,
         Definition = Self::Definition,
     >;
-    type Error;
+    type Error: std::fmt::Debug;
 
     fn visit_expr(
         &mut self,
@@ -53,6 +53,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::EnumDef => self.visit_enum(def_id, ctx)?,
             NodeType::ImplDef => self.visit_impl(def_id, ctx)?,
             NodeType::TraitDef => self.visit_trait(def_id, ctx)?,
+            NodeType::TypeAliasDef => self.visit_type_alias(def_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -114,8 +115,9 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         let mut visited = HashMap::new();
         ctx.dependency_graph()
             .ts(&ModuleId::root(), &mut visited, &mut |&module_id| {
-                self.visit_module(module_id, ctx);
-            });
+                self.visit_module(module_id, ctx).unwrap();
+            })
+            .unwrap();
 
         Ok(())
     }
@@ -228,6 +230,11 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error>;
     fn visit_enum(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_type_alias(
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,

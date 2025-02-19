@@ -1,26 +1,20 @@
-use std::cell::RefCell;
 use std::convert::AsMut;
 use std::convert::AsRef;
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::IdentId;
 use qed_ast::Visibility;
 use qed_utils::impl_ref;
-use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, ToFelts};
-use smallvec::SmallVec;
+use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
 use crate::CheckedFunctionSignature;
 use crate::CheckedValue;
-use crate::CheckedValueNode;
 use crate::CheckedValueRef;
 use crate::SymbolTable;
-use crate::STD_PRIMITIVE_SCOPE_ID;
 use crate::{
-    CheckedArrayNode, CheckedEnumNode, CheckedFunctionNode, CheckedImplNode, CheckedStructNode,
-    CheckedTraitNode, ScopeId,
+    CheckedArrayNode, CheckedEnumNode, CheckedFunctionNode, CheckedStructNode, CheckedTraitNode,
+    ScopeId,
 };
 use qed_common::define_arena_id;
 use strum::EnumTryAs;
@@ -135,11 +129,7 @@ impl Type {
             Type::VOID => (IdentId::TYPE_VOID, vec![], vec![], None, vec![]),
             Type::Felt(_) => (IdentId::TYPE_FELT, vec![], vec![], None, vec![]),
             Type::Bool(_) => (IdentId::TYPE_BOOL, vec![], vec![], None, vec![]),
-            Type::Array(CheckedArrayNode {
-                inner_ty,
-                size,
-                scope_id,
-            }) => (
+            Type::Array(CheckedArrayNode { inner_ty, size, .. }) => (
                 IdentId::TYPE_ARRAY,
                 vec![inner_ty.clone()],
                 vec![],
@@ -171,8 +161,6 @@ impl Type {
             Type::Function(CheckedFunctionNode {
                 name,
                 generic_parameters,
-                parameters,
-                return_type,
                 ..
             }) => (
                 name.clone(),
@@ -292,7 +280,7 @@ impl Type {
             Type::Array(a) => {
                 let mut result = Vec::new();
                 let inner_ty = symbols[a.inner_ty].clone();
-                for value in 0..a.size {
+                for _ in 0..a.size {
                     result.push(CheckedValueRef::new_rc(inner_ty.to_value(symbols, ctx)));
                 }
                 let type_id = symbols

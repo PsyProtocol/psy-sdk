@@ -1,8 +1,6 @@
 use qed_ast::*;
-use qed_common::Graph;
-use qed_parser::Parser;
-use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, ToFelts};
-use std::fmt::{Debug, Write};
+use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct Formatter<'a, F: Clone + From<u32>, C> {
@@ -42,10 +40,6 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
             result.push_str("  ");
         }
         result
-    }
-
-    fn append(&mut self, s: &str) {
-        self.output.push_str(s);
     }
 
     fn append_line(&mut self, s: &str) {
@@ -115,7 +109,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         if generic_parameters.is_empty() {
             "".to_string()
         } else {
-            format!("<{}>", generic_parameters.join(", "))
+            format!("#<{}>", generic_parameters.join(", "))
         }
     }
 
@@ -131,10 +125,14 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     type StmtResult = String;
     type Context = DefaultVisitorContext<'a, F, C>;
     type Error = ();
+    type Expr = ExprNode<F>;
+    type Stmt = StmtNode;
+    type Definition = DefinitionNode;
+    type DefinitionResult = String;
 
     fn visit_use(&mut self, u: &UsePath, ctx: &mut Self::Context) -> Result<(), Self::Error> {
         let mut path = vec![ctx.ident(u.kind.clone().into()).to_string()];
-        let mut segments = u
+        let segments = u
             .segments
             .iter()
             .map(|&s| ctx.ident(s).to_string())
@@ -279,6 +277,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             ref args,
             ref generic_parameters,
         } = ctx.expression(expr_id).as_call().unwrap();
+        let generic_parameters = generic_parameters
+            .iter()
+            .map(|generic_parameter| self.visit_unchecked_type(&generic_parameter, ctx))
+            .collect::<Vec<_>>();
         let args = args
             // TOOD: remove clone
             .clone()
@@ -286,7 +288,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|&arg| self.visit_expr(arg, ctx))
             .collect::<Result<Vec<_>, Self::Error>>()?
             .join(", ");
-        Ok(format!("{}({})", self.visit_expr(variable, ctx)?, args))
+        Ok(format!(
+            "{}{}({})",
+            self.visit_expr(variable, ctx)?,
+            self.visit_generic_parameters(generic_parameters),
+            args
+        ))
     }
 
     fn visit_member_call(
@@ -307,7 +314,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|&arg| self.visit_expr(arg, ctx))
             .collect::<Result<Vec<_>, Self::Error>>()?
             .join(", ");
-        Ok(format!("{}({})", self.visit_expr(variable, ctx)?, args))
+        Ok(format!(
+            "{}.{}({})",
+            self.visit_expr(receiver, ctx)?,
+            self.visit_expr(variable, ctx)?,
+            args
+        ))
     }
 
     fn visit_cast(
@@ -333,7 +345,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        let mut result = format!(
+        let result = format!(
             "if {} {{",
             self.visit_expr(
                 ctx.statement(stmt_id).as_if().unwrap().if_branch.predicate,
@@ -342,7 +354,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         );
         self.write_line(&result);
         self.indent();
-        self.visit_block(ctx.statement(stmt_id).as_if().unwrap().if_branch.body, ctx);
+        self.visit_block(ctx.statement(stmt_id).as_if().unwrap().if_branch.body, ctx)?;
         self.dedent();
         self.write("}");
 
@@ -358,7 +370,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             let s = format!(" else if {} {{", self.visit_expr(branch.predicate, ctx)?);
             self.append_line(&s);
             self.indent();
-            self.visit_block(branch.body, ctx);
+            self.visit_block(branch.body, ctx)?;
             self.dedent();
             self.write("}");
         }
@@ -366,7 +378,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         if let Some(else_branch) = ctx.statement(stmt_id).as_if().unwrap().else_branch {
             self.append_line(" else {");
             self.indent();
-            self.visit_block(else_branch.clone(), ctx);
+            self.visit_block(else_branch.clone(), ctx)?;
             self.dedent();
             self.write("}");
         }
@@ -381,10 +393,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let &WhileNode { predicate, body } = ctx.statement(stmt_id).as_while().unwrap();
-        let mut s = format!("while {} {{", self.visit_expr(predicate, ctx)?);
+        let s = format!("while {} {{", self.visit_expr(predicate, ctx)?);
         self.write_line(&s);
         self.indent();
-        self.visit_block(body, ctx);
+        self.visit_block(body, ctx)?;
         self.dedent();
         self.write_line("};");
         Ok(Default::default())
@@ -496,7 +508,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .collect::<Vec<_>>();
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
-        let mut s = format!(
+        let s = format!(
             "impl{} {}{}{} {{",
             if let Some(trait_name) = trait_name {
                 format!(" {} for", &ctx.ident(trait_name.clone()))
@@ -564,7 +576,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .iter()
             .map(|x| ctx.ident(x.clone()).to_string())
             .collect::<Vec<_>>();
-        let mut s = format!(
+        let s = format!(
             "{}{}fn {}{}({}){} {{",
             if visibility.is_public() { "pub " } else { "" },
             if qualifier.is_extern { "extern " } else { "" },
@@ -579,7 +591,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         );
         self.write_line(&s);
         self.indent();
-        self.visit_block(body.unwrap(), ctx);
+        self.visit_block(body.unwrap(), ctx)?;
         self.dedent();
         self.write_line("}");
         Ok(Default::default())
@@ -902,11 +914,17 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(())
     }
 
-    type Expr = ExprNode<F>;
-
-    type Stmt = StmtNode;
-
-    type Definition = DefinitionNode;
-
-    type DefinitionResult = String;
+    fn visit_type_alias(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let node = ctx.definition(node).as_type_alias().cloned().unwrap();
+        self.write_line(&format!(
+            "type {} = {};",
+            ctx.ident(node.name),
+            self.visit_unchecked_type(&node.ty, ctx)
+        ));
+        Ok(Default::default())
+    }
 }

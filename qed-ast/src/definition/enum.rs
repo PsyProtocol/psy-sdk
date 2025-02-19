@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use indexmap::IndexMap;
 
-use crate::{AstVisitor, FunctionNode, IdentId, NodeInfo, NodeType, UncheckedType, Visibility};
+use crate::{IdentId, NodeInfo, NodeType, UncheckedType, Visibility};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EnumVariant {

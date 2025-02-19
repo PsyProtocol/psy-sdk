@@ -1,4 +1,4 @@
-use crate::{AstVisitor, DefId, FunctionNode, IdentId, NodeInfo, NodeType, UncheckedType};
+use crate::{DefId, IdentId, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImplNode {

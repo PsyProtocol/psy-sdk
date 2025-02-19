@@ -13,11 +13,9 @@ pub use intrinsic::*;
 pub use r#if::*;
 pub use r#return::*;
 pub use r#while::*;
-use std::fmt::Display;
 pub use variable::*;
 
-use crate::{AstVisitor, DefId, DefinitionNode, ExprId, ExprNode, NodeInfo, NodeType, UsePath};
-use strum::EnumTryAs;
+use crate::{DefId, ExprId, NodeInfo, NodeType, UsePath};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum StmtNode {

@@ -4,36 +4,23 @@ mod control;
 mod error;
 mod preprocess;
 
-use either::Either;
 use error::{Error, Result};
 use indexmap::IndexMap;
-use plonky2::{
-    field::{goldilocks_field::GoldilocksField, types::Field},
-    hash::hash_types::RichField,
-};
+use plonky2::field::goldilocks_field::GoldilocksField;
 pub use preprocess::StorageProcessor;
 use qed_ast::*;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
-use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_fmt::Formatter;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
-use qed_store::{
-    controllers::local::proving_session::QEDLocalProvingSessionStore,
-    store::imm::cmd_processor::QEDReadCommandProcessorSync,
-};
 use qedlang_core::dpn::{
-    eval::traits::ContextInput,
     ops::context_trait::{ContextFelt, DPNContext, ToFelts},
-    vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
+    vm::def::DPNFunctionCircuitDefinition,
 };
-use std::{
-    cell::RefCell, collections::HashMap, fmt::Display, iter::once, ops::Index, path::PathBuf,
-    rc::Rc,
-};
+use std::{collections::HashMap, iter::once, path::PathBuf};
 
-use tracing::{debug, error, info, instrument, span, Level};
+use tracing::instrument;
 
 use crate::control::ControlState;
 
@@ -63,7 +50,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     where
         F: 'static,
     {
-        let (mut typechecker, mut typechecker_context) = self.typecheck(entry)?;
+        let (typechecker, mut typechecker_context) = self.typecheck(entry)?;
 
         let TypeCheckerVisitorContext {
             ref mut program,
@@ -111,7 +98,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             let node: &CheckedFunctionNode = symbols[type_id.clone()].as_ref();
 
             let mut parameters = vec![];
-            for (parameter_name, _, parameter_type) in node.parameters.iter() {
+            for (_, _, parameter_type) in node.parameters.iter() {
                 let ty = &symbols[parameter_type.clone()];
                 parameters.push(CheckedValueRef::new_rc(
                     ty.to_value(&symbols, &mut self.context),
@@ -136,7 +123,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     where
         F: 'static,
     {
-        let (mut typechecker, mut typechecker_context) = self.typecheck(entry)?;
+        let (typechecker, mut typechecker_context) = self.typecheck(entry)?;
 
         let TypeCheckerVisitorContext {
             ref mut program,
@@ -155,22 +142,23 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 let functions = symbols[scope_id]
                     .types
                     .iter()
-                    .filter(|(k, &v)| {
+                    .filter(|(_, &v)| {
                         symbols[v.clone()].is_function()
                             && symbols[v.clone()]
                                 .as_function()
                                 .map(|x| x.attrs.iter().any(|y| y.is_test()))
                                 .unwrap_or(false)
                     })
-                    .map(|(k, v)| v.clone())
+                    .map(|(_, v)| v.clone())
                     .collect::<Vec<_>>();
                 type_ids.push((module_id, functions));
-            });
+            })
+            .unwrap();
 
         let mut outputs = Vec::new();
         // backup context
         let context = self.context.clone();
-        for (module_id, type_ids) in type_ids {
+        for (_, type_ids) in type_ids {
             for type_id in type_ids {
                 assert!(symbols[type_id]
                     .as_function()
@@ -240,10 +228,14 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
         let mut default_visitor_context: DefaultVisitorContext<'_, F, C> =
             DefaultVisitorContext::new(&mut program);
-        storage_preprocessor.visit_program(&mut default_visitor_context);
+        storage_preprocessor
+            .visit_program(&mut default_visitor_context)
+            .unwrap();
 
         let mut formatter = Formatter::new();
-        formatter.visit_program(&mut default_visitor_context);
+        formatter
+            .visit_program(&mut default_visitor_context)
+            .unwrap();
         println!("formatted:\n{}", formatter.get_output());
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
@@ -784,7 +776,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                                 .collect(),
                         ))
                     }
-                    CheckedIntrinsicExprNode::Read { offset, type_id } => {
+                    CheckedIntrinsicExprNode::Read { offset, .. } => {
                         let contract_id = self.context.get_contract_id();
                         let user_id = self.context.get_user_id();
 
@@ -799,11 +791,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                         );
                         return Ok(Some(CheckedValueRef::from_felt(value)));
                     }
-                    CheckedIntrinsicExprNode::Write {
-                        offset,
-                        value,
-                        type_id,
-                    } => {
+                    CheckedIntrinsicExprNode::Write { offset, value, .. } => {
                         let offset = self
                             .interpret_expr(typechecker, offset.clone(), symbols)?
                             .unwrap();
@@ -865,21 +853,19 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             .interpret_expr(typechecker, member_access_node.value, symbols)?
             .unwrap();
         assert!(s.is_struct());
-        Ok(
-            if let Some(value) = s.get_path(&[member_access_node.field.into()]) {
-                return Ok(value.clone());
-            } else if symbols[member_access_node.type_id]
-                .as_function()
-                .map(|f| f.name == member_access_node.field)
-                .unwrap_or(false)
-            {
-                return Ok(CheckedValueRef::new_rc(CheckedValue::Type(
-                    member_access_node.type_id,
-                )));
-            } else {
-                return Err(Error::SemaError(qed_sema::Error::UnresolvedMember));
-            },
-        )
+        if let Some(value) = s.get_path(&[member_access_node.field.into()]) {
+            return Ok(value.clone());
+        } else if symbols[member_access_node.type_id]
+            .as_function()
+            .map(|f| f.name == member_access_node.field)
+            .unwrap_or(false)
+        {
+            return Ok(CheckedValueRef::new_rc(CheckedValue::Type(
+                member_access_node.type_id,
+            )));
+        } else {
+            return Err(Error::SemaError(qed_sema::Error::UnresolvedMember));
+        }
     }
 
     fn interpret_index_access(
@@ -1008,7 +994,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         )?;
 
         let mut variable_value = variable.value.unwrap();
-        variable_value.set_path(&path, new_value);
+        variable_value.set_path(&path, new_value)?;
 
         symbols.set_variable(variable.scope_id, &name, variable_value)?;
 
@@ -1174,13 +1160,16 @@ mod test {
     use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
     use qed_data::qblock::cmds::register_user::QBCRegisterUser;
     use qed_exec::vm::exec::QEDEvalSessionResult;
-    use qed_fmt::Formatter;
+
     use qed_store::config::store_config::QEDHasher;
     use qed_utils::{
         gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract, C,
         D,
     };
-    use qedlang_core::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
+    use qedlang_core::dpn::{
+        ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
+        vm::compile::QEDCompileResult,
+    };
 
     use super::*;
 
@@ -1209,14 +1198,13 @@ mod test {
                 .unwrap();
 
             let priv_key = QHashOut::rand();
-            let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-            let pub_key = wallet.add_private_key(SimpleQEDPrivateKey::new(priv_key));
+            let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
             let priv_key_w = SimpleQEDPrivateKey::new(priv_key);
             let pub_key_param = priv_key_w.get_public_key_param::<QEDHasher>();
             let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
             let deployer = QHashOut::rand();
-            let (mut circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+            let (_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
                 deployer,
                 contract_state_tree_height as u8,
                 &compile_results,

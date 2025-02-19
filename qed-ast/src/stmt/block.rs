@@ -1,4 +1,4 @@
-use crate::{AstVisitor, NodeInfo, NodeType, StmtId};
+use crate::{NodeInfo, NodeType, StmtId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlockNode {

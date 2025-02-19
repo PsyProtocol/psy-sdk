@@ -1,5 +1,4 @@
 use enum_as_inner::EnumAsInner;
-use qed_ast::IdentId;
 use std::{
     convert::Infallible,
     ops::{ControlFlow, FromResidual, Try},

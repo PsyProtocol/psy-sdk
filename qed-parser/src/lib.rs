@@ -9,7 +9,6 @@ use lalrpop_util::lalrpop_mod;
 
 use error::{Error, Result};
 use qed_ast::*;
-use qed_common::*;
 use qed_lexer::{Error as LexicalError, *};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 

@@ -1,4 +1,4 @@
-use crate::{AstVisitor, DefId, ExprId, NodeInfo, NodeType, PathNode, UncheckedType};
+use crate::{ExprId, NodeInfo, NodeType, UncheckedType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CallNode {

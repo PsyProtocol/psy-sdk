@@ -102,6 +102,7 @@ Definition: DefinitionNode = {
     TraitDef => DefinitionNode::Trait(<>),
     EnumDef => DefinitionNode::Enum(<>),
     StructDef => DefinitionNode::Struct(<>),
+    TypeAliasDef => <>,
     FunctionDef => <>,
 }
 
@@ -146,13 +147,11 @@ EnumDef: EnumNode = {
     }
 }
 
-Attribute: AttrNode = {
-    <l:@L> "#" "[" <name:Identifier>  <properties:AttributeProperties> "]" <r:@R> => AttrNode { name, properties }
-}
-
-AttributeProperties: Vec<IdentId> = {
-    <l:@L> "(" <properties:Comma<Identifier>> ")" <r:@R> => properties,
-    () => vec![]
+TypeAliasDef: DefinitionNode = {
+    <l:@L> TYPE <name:Identifier> "=" <ty:Ty> ";" <r:@R> => DefinitionNode::TypeAlias(TypeAliasNode {
+        name,
+        ty
+    })
 }
 
 StructDef: StructNode = {
@@ -192,6 +191,15 @@ FunctionDef: DefinitionNode = {
         visibility,
         attrs
     })
+}
+
+Attribute: AttrNode = {
+    <l:@L> "#" "[" <name:Identifier>  <properties:AttributeProperties> "]" <r:@R> => AttrNode { name, properties }
+}
+
+AttributeProperties: Vec<IdentId> = {
+    <l:@L> "(" <properties:Comma<Identifier>> ")" <r:@R> => properties,
+    () => vec![]
 }
 
 Qualifier: Qualifier = {
@@ -368,17 +376,6 @@ Expression: ExprNode<F> = {
     #[precedence(level="1")]
     Term,
 
-    //#[precedence(level="2")]
-    //todo: Temporarily disable generic capabilities
-    //<l:@L> <variable:Expression> <generic_parameters:Monomorphization> "(" <args:Comma<Expression>> ")" <r:@R> => ExprNode::<F>::Call(
-    //    CallNode {
-    //        receiver: if let ExprNode::<F>::MemberAccess(MemberAccessNode { value: receiver, .. }) = &variable { Some(receiver.clone()) } else { None },
-    //        variable: expr_nodes.alloc_item(variable),
-    //        generic_parameters,
-    //        args: expr_nodes.alloc_items(args)
-    //    }
-    //),
-
     #[precedence(level="2")]
     <l:@L> <variable:STORAGE_READ> "(" <offset: Expression> ")" <r:@R> => {
         ExprNode::Intrinsic(
@@ -459,7 +456,7 @@ Expression: ExprNode<F> = {
             }
         )
     },
-    <l:@L> <callee:Expression> "(" <args:ExpressionList> ")" <r:@R> => {
+    <l:@L> <callee:Expression> <generic_parameters:Monomorphization> "(" <args:ExpressionList> ")" <r:@R> => {
        if let ExprNode::<F>::MemberAccess(MemberAccessNode {
           target: receiver, ..
        }) = &callee {
@@ -467,7 +464,7 @@ Expression: ExprNode<F> = {
                MemberCallNode {
                    receiver: receiver.clone(),
                    callee: expr_nodes.alloc_item(callee),
-                   generic_parameters: Vec::new(),
+                   generic_parameters,
                    args: expr_nodes.alloc_items(args)
                }
             )
@@ -475,7 +472,7 @@ Expression: ExprNode<F> = {
             ExprNode::<F>::Call(
                CallNode {
                    callee: expr_nodes.alloc_item(callee),
-                   generic_parameters: Vec::new(),
+                   generic_parameters,
                    args: expr_nodes.alloc_items(args)
                }
             )
@@ -601,21 +598,12 @@ BoolExpression: ExprNode<F> = {
     <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Bool(if b { ctx.op_true() } else { ctx.op_false() }))
 }
 
-//todo: Temporarily disable generic capabilities
-//StructExpression: ExprNode<F> = {
-//    <l:@L> <name:Identifier> <generic_parameters:Monomorphization> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
-//        name,
-//        generic_parameters,
-//        kv.into_iter().collect()
-//    )),
-//}
-
 StructExpression: ExprNode<F> = {
-    <l:@L> <name:Identifier>  "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
-        name,
-        Vec::new(),
-        kv.into_iter().collect()
-    )),
+   <l:@L> <name:Identifier> <generic_parameters:Monomorphization> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
+       name,
+       generic_parameters,
+       kv.into_iter().collect()
+   )),
 }
 
 KeyValue: (IdentId, ExprId) = {
@@ -623,10 +611,10 @@ KeyValue: (IdentId, ExprId) = {
 }
 
 PathExpression: ExprNode<F> = {
-    <variable: IdentifierOrSelf> => ExprNode::Path(PathNode {
+    <target: IdentifierOrSelf> => ExprNode::Path(PathNode {
         root: None,
         segments: vec![],
-        target: variable,
+        target,
     }),
     <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: IdentifierOrNew> => {
         let mut segment_ids = segments.into_iter().map(|seg| seg).collect::<Vec<_>>();
@@ -654,7 +642,7 @@ UsePath: (IdentId, Vec<IdentId>, Option<IdentId>) =
     };
 
 Monomorphization: Vec<UncheckedType> = {
-    <l:@L> "::" "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => generic_parameters,
+    <l:@L> "#" "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => generic_parameters,
     () => vec![]
 }
 

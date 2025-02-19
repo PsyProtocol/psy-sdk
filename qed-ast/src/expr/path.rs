@@ -1,5 +1,4 @@
-use crate::{AstVisitor, DefId, ExprId, IdentId, NodeInfo, NodeType};
-use std::fmt::Display;
+use crate::{IdentId, NodeInfo, NodeType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PathNode {

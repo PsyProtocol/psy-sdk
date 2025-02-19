@@ -2,7 +2,6 @@ use std::marker::PhantomData;
 
 use indexmap::IndexMap;
 use qed_ast::*;
-use qed_common::Graph;
 
 #[derive(Debug)]
 pub struct StorageProcessor<'a> {
@@ -85,7 +84,7 @@ impl<'a> StorageProcessor<'a> {
     ) -> DefId {
         let mut sum =
             self.generate_field_size(&struct_node.fields.iter().next().unwrap().1 .0, ctx);
-        for (field_name, (field_type, _)) in struct_node.fields.iter().skip(1) {
+        for (_, (field_type, _)) in struct_node.fields.iter().skip(1) {
             let node = BinaryNode {
                 lhs: sum,
                 operator: BinaryOperator::Add,
@@ -132,7 +131,7 @@ impl<'a> StorageProcessor<'a> {
         let mut field_reads = IndexMap::new();
 
         for (field_name, (field_type, _)) in &struct_node.fields {
-            let (key, value) = self.generate_field_read(field_name, field_type, offset, ctx);
+            let (_key, value) = self.generate_field_read(field_name, field_type, offset, ctx);
             field_reads.insert(field_name.clone(), value);
             let node = BinaryNode {
                 lhs: offset,
@@ -235,7 +234,7 @@ impl<'a> StorageProcessor<'a> {
         offset: ExprId,
         ctx: &mut V,
     ) -> DefId {
-        let mut getter_name = format!("get_{}", ctx.ident(*field_name));
+        let getter_name = format!("get_{}", ctx.ident(*field_name));
         let getter_ident = ctx.intern(getter_name.as_str());
 
         let read_ident = ctx.intern("read");
@@ -284,7 +283,7 @@ impl<'a> StorageProcessor<'a> {
         offset: ExprId,
         ctx: &mut V,
     ) -> DefId {
-        let mut setter_name = format!("set_{}", ctx.ident(*field_name));
+        let setter_name = format!("set_{}", ctx.ident(*field_name));
         let setter_ident = ctx.intern(setter_name.as_str());
 
         let value_ident = ctx.intern("value");
@@ -636,6 +635,14 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
+        Ok(())
+    }
+
+    fn visit_type_alias(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
 }

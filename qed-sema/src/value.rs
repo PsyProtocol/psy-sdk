@@ -1,18 +1,15 @@
 use std::{
     cell::{Ref, RefCell, RefMut},
-    collections::HashMap,
-    ops::{Index, IndexMut},
     rc::Rc,
 };
 
-use either::Either;
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::{ExprId, IdentId, NodeInfo, NodeType};
-use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, ToFelts};
+use qedlang_core::dpn::ops::context_trait::{ContextFelt, ToFelts};
 pub use strum::EnumTryAs;
 
-use crate::{TypeId, BOOL_TYPE, FELT_TYPE};
+use crate::{Result, TypeId, BOOL_TYPE, FELT_TYPE};
 
 #[derive(Clone, Debug, PartialEq, EnumAsInner)]
 pub enum CheckedValueNode<F> {
@@ -192,7 +189,7 @@ impl<F: Clone> CheckedValueRef<F> {
         }
     }
 
-    pub fn set_path(&mut self, path: &[usize], value: Self) -> anyhow::Result<()> {
+    pub fn set_path(&mut self, path: &[usize], value: Self) -> Result<()> {
         if path.is_empty() {
             *self = value.clone();
             return Ok(());

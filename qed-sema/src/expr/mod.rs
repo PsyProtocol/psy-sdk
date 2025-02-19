@@ -15,9 +15,9 @@ pub use intrinsic::*;
 pub use path::*;
 pub use unary::*;
 
-use qed_ast::{ExprNode, IdentId, NodeInfo, NodeType};
+use qed_ast::{IdentId, NodeInfo, NodeType};
 
-use crate::{CheckedValueNode, ScopeId, TypeId, TypeKey, BOOL_TYPE, FELT_TYPE, VOID_TYPE};
+use crate::{CheckedValueNode, ScopeId, TypeId, BOOL_TYPE, FELT_TYPE};
 use strum::EnumTryAs;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner, EnumTryAs)]
@@ -83,13 +83,13 @@ impl<F> CheckedExprNode<F> {
                     type_id.clone()
                 }
                 CheckedIntrinsicExprNode::CSetStateHashAt { type_id, .. } => type_id.clone(),
-                CheckedIntrinsicExprNode::Read { offset, type_id } => type_id.clone(),
+                CheckedIntrinsicExprNode::Read { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::Write {
                     offset,
                     value,
                     type_id,
                 } => type_id.clone(),
-                CheckedIntrinsicExprNode::Hash { data, type_id } => type_id.clone(),
+                CheckedIntrinsicExprNode::Hash { type_id, .. } => type_id.clone(),
             },
         }
     }

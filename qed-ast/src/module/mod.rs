@@ -1,8 +1,6 @@
-use std::fmt::Display;
-
 use qed_common::{define_arena_id, FileId};
 
-use crate::{AstVisitor, DefId, DefinitionNode, IdentId, Visibility};
+use crate::{DefId, IdentId, Visibility};
 
 define_arena_id!(ModuleId);
 
@@ -64,7 +62,7 @@ impl ModuleNode {
                 ModuleItemNode::Definition(d) => definitions.push(d),
             }
         }
-        let mut module = Self {
+        let module = Self {
             name,
             file_id,
             modules: {

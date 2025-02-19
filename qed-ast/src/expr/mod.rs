@@ -14,7 +14,7 @@ pub use intrinsic::*;
 pub use path::*;
 pub use unary::*;
 
-use crate::{AstVisitor, DefId, ExprId, NodeInfo, NodeType, ValueNode};
+use crate::{NodeInfo, NodeType, ValueNode};
 use enum_as_inner::EnumAsInner;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]

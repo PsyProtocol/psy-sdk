@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use indexmap::IndexMap;
 use qed_ast::{IdentId, NodeInfo, NodeType, Visibility};
 
