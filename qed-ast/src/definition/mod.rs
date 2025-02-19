@@ -1,4 +1,5 @@
 mod attr;
+mod r#const;
 mod r#enum;
 mod function;
 mod r#impl;
@@ -9,6 +10,7 @@ mod type_alias;
 pub use attr::*;
 use enum_as_inner::EnumAsInner;
 pub use function::*;
+pub use r#const::*;
 pub use r#enum::*;
 pub use r#impl::*;
 pub use r#struct::*;
@@ -25,6 +27,7 @@ pub enum DefinitionNode {
     Impl(ImplNode),
     Trait(TraitNode),
     TypeAlias(TypeAliasNode),
+    Const(ConstNode),
 }
 
 impl NodeInfo for DefinitionNode {
@@ -36,6 +39,7 @@ impl NodeInfo for DefinitionNode {
             Self::Impl(node) => node.node_type(),
             Self::Trait(node) => node.node_type(),
             Self::TypeAlias(node) => node.node_type(),
+            Self::Const(node) => node.node_type(),
         }
     }
 }

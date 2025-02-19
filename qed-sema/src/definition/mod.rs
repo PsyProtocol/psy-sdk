@@ -1,4 +1,5 @@
 mod array;
+mod r#const;
 mod r#enum;
 mod function;
 mod r#impl;
@@ -10,6 +11,7 @@ pub use array::*;
 use enum_as_inner::EnumAsInner;
 pub use function::*;
 use qed_ast::{NodeInfo, NodeType};
+pub use r#const::*;
 pub use r#enum::*;
 pub use r#impl::*;
 pub use r#struct::*;
@@ -24,6 +26,7 @@ pub enum CheckedDefinitionNode {
     Impl(CheckedImplNode),
     Trait(CheckedTraitNode),
     TypeAlias(CheckedTypeAliasNode),
+    Const(CheckedConstNode),
 }
 
 impl NodeInfo for CheckedDefinitionNode {
@@ -35,6 +38,7 @@ impl NodeInfo for CheckedDefinitionNode {
             Self::Impl(node) => node.node_type(),
             Self::Trait(node) => node.node_type(),
             Self::TypeAlias(node) => node.node_type(),
+            Self::Const(node) => node.node_type(),
         }
     }
 }

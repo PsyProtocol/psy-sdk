@@ -103,6 +103,7 @@ Definition: DefinitionNode = {
     StructDef => DefinitionNode::Struct(<>),
     TypeAliasDef => <>,
     FunctionDef => <>,
+    ConstDef => <>,
 }
 
 ImplDef: ImplNode = {
@@ -161,6 +162,15 @@ StructDef: StructNode = {
         attrs,
         visibility
     }
+}
+
+ConstDef: DefinitionNode = {
+    <l:@L> <visibility:Visibility> CONST <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R> => DefinitionNode::Const(ConstNode {
+        name: decl.0,
+        ty: decl.1,
+        value: expr_nodes.alloc_item(value),
+        visibility
+    })
 }
 
 FunctionDef: DefinitionNode = {
@@ -320,15 +330,6 @@ VariableStatement: StmtNode = {
             ty: decl.1,
             mutable: mutable.is_some(),
             cnst: false,
-            value: expr_nodes.alloc_item(value)
-        }
-    ),
-    <l:@L> CONST <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
-        VariableNode {
-            name: decl.0,
-            ty: decl.1,
-            mutable: false,
-            cnst: true,
             value: expr_nodes.alloc_item(value)
         }
     ),

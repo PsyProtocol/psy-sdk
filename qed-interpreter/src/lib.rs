@@ -944,6 +944,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     ) -> Result<CheckedValueRef<F>> {
         if let Some(variable) = symbols.get_variable(Some(path.scope_id), &path.name) {
             return Ok(variable.value.clone().unwrap());
+        } else if let Some(CheckedConstNode { value, .. }) = symbols[path.type_id].as_const() {
+            return Ok(self
+                .interpret_expr(typechecker, value.clone(), symbols)?
+                .unwrap());
         } else {
             return Ok(CheckedValueRef::new_rc(CheckedValue::Type(
                 path.type_id.clone(),

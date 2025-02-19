@@ -935,4 +935,25 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ));
         Ok(Default::default())
     }
+
+    fn visit_const(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::DefinitionResult, Self::Error> {
+        let node = ctx.definition(node).as_const().cloned().unwrap();
+        let value = self.visit_expr(node.value, ctx)?;
+        self.write_line(&format!(
+            "{}const {}:{} = {};",
+            if node.visibility.is_public() {
+                "pub "
+            } else {
+                ""
+            },
+            ctx.ident(node.name),
+            self.visit_unchecked_type(&node.ty, ctx),
+            value
+        ));
+        Ok(Default::default())
+    }
 }

@@ -46,12 +46,13 @@ pub enum ScopeKind {
 }
 
 #[derive(Clone, Debug)]
-pub struct Scope {
+pub struct Scope<F: Clone> {
     pub kind: ScopeKind,
     pub parent: Option<ScopeId>,
     pub children: Vec<ScopeId>,
     pub variables: HashMap<IdentId, VarId>,
     pub types: HashMap<TypeKey, TypeId>,
+    _marker: std::marker::PhantomData<F>,
 }
 
 #[derive(Clone, Debug)]
@@ -110,7 +111,7 @@ impl Module {
     }
 }
 
-impl Scope {
+impl<F: Clone> Scope<F> {
     pub fn new(kind: ScopeKind, parent: Option<ScopeId>) -> Self {
         Self {
             kind,
@@ -118,13 +119,14 @@ impl Scope {
             children: vec![],
             variables: HashMap::with_capacity(10),
             types: HashMap::new(),
+            _marker: std::marker::PhantomData,
         }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct SymbolTable<F: Clone> {
-    scopes: Vec<Scope>,
+    scopes: Vec<Scope<F>>,
     scope_stack: Vec<ScopeId>,
     frames: Vec<Frame<CheckedValueRef<F>>>,
 
@@ -154,7 +156,7 @@ macro_rules! impl_index {
 impl_index!(ModuleId, Module, modules);
 impl_index!(TypeId, Type, types);
 impl_index!(VarId, CheckedVariable<F>, variables);
-impl_index!(ScopeId, Scope, scopes);
+impl_index!(ScopeId, Scope<F>, scopes);
 
 impl<T: Clone> Display for SymbolTable<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -233,6 +235,7 @@ impl<F: Clone> SymbolTable<F> {
                     .collect(),
                 variables: HashMap::with_capacity(10),
                 types: HashMap::new(),
+                _marker: std::marker::PhantomData,
             })
         }
     }
@@ -434,7 +437,6 @@ impl<F: Clone> SymbolTable<F> {
         }
     }
 
-    // TODO
     pub fn resolve_path(&self, path: &PathNode) -> Option<(TypeId, ScopeId)> {
         let current_module_id = self.current_module_id()?;
 
@@ -573,7 +575,7 @@ impl<F: Clone> SymbolTable<F> {
         &self,
         start_scope: Option<ScopeId>,
         scope_kinds: Vec<ScopeKind>,
-        f: impl Fn(&Scope) -> bool,
+        f: impl Fn(&Scope<F>) -> bool,
     ) -> Option<ScopeId> {
         let mut current_scope_id = start_scope.or(self.current_scope_id());
 
@@ -631,7 +633,7 @@ impl<F: Clone> SymbolTable<F> {
                 .unwrap()
                 .get_value(scope_id, key)
                 .is_some()
-                && (!self[v.clone()].mutable || self[v.clone()].cnst)
+                && (!self[v.clone()].mutable)
             {
                 return Err(Error::ImmutableVariable);
             }
