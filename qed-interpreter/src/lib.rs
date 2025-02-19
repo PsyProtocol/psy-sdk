@@ -1222,6 +1222,7 @@ mod test {
                 .exec_contract_call(&mut lps, contract_id, &compile_results[0], vec![])
                 .unwrap();
             println!("result_vm: {:?}", cfc_input.outputs);
+            unsafe { STD_PRIMITIVE_SCOPE_ID.take().unwrap() };
         });
     }
 }

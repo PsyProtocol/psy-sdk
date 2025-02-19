@@ -2,7 +2,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("any error, {0:?}")]
+    #[error("{0:?}")]
     AnyError(#[from] anyhow::Error),
     #[error("type mismatch")]
     TypeMismatch,

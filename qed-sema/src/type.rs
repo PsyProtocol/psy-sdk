@@ -50,7 +50,6 @@ pub static TYPE_MAPPING: Lazy<Vec<(IdentId, Type)>> = Lazy::new(|| {
             Type::Array(CheckedArrayNode {
                 inner_ty: FELT_TYPE,
                 size: 4,
-                scope_id: ScopeId::primitive(),
             }),
         ),
     ]
@@ -83,7 +82,7 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeKey {
-    pub id: IdentId,
+    pub name: IdentId,
     pub generic_parameters: Vec<TypeId>,
     pub parameters: Vec<(bool, TypeId)>,
     pub return_type: Option<TypeId>,
@@ -92,14 +91,14 @@ pub struct TypeKey {
 
 impl TypeKey {
     pub fn new(
-        id: IdentId,
+        name: IdentId,
         generic_parameters: Vec<TypeId>,
         parameters: Vec<(bool, TypeId)>,
         return_type: Option<TypeId>,
         consts: Vec<usize>,
     ) -> Self {
         Self {
-            id,
+            name,
             generic_parameters,
             parameters,
             return_type,
@@ -124,7 +123,7 @@ impl From<IdentId> for TypeKey {
 
 impl Type {
     pub fn key(&self) -> TypeKey {
-        let (id, generic_parameters, parameters, return_type, consts) = match self {
+        let (name, generic_parameters, parameters, return_type, consts) = match self {
             Type::Unknown => (IdentId::TYPE_UNKNOWN, vec![], vec![], None, vec![]),
             Type::VOID => (IdentId::TYPE_VOID, vec![], vec![], None, vec![]),
             Type::Felt(_) => (IdentId::TYPE_FELT, vec![], vec![], None, vec![]),
@@ -195,12 +194,12 @@ impl Type {
             ),
             _ => panic!("Type::key called on TypeVariable type"),
         };
-        TypeKey::new(id, generic_parameters, parameters, return_type, consts)
+        TypeKey::new(name, generic_parameters, parameters, return_type, consts)
     }
 
     pub fn scope_id(&self) -> ScopeId {
         match self {
-            Type::Array(CheckedArrayNode { scope_id, .. }) => *scope_id,
+            Type::Array(_) => ScopeId::primitive(),
             Type::Struct(CheckedStructNode { scope_id, .. }) => *scope_id,
             Type::Enum(CheckedEnumNode { scope_id, .. }) => *scope_id,
             Type::Function(CheckedFunctionNode { scope_id, .. }) => *scope_id,

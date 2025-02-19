@@ -453,7 +453,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 let type_array = Type::Array(CheckedArrayNode {
                     inner_ty: inner_ty.unwrap(),
                     size: size.clone(),
-                    scope_id,
                 });
                 let type_id = ctx
                     .symbols
@@ -1355,9 +1354,17 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         &mut self,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()> {
-        let _ = STD_PRIMITIVE_SCOPE_ID.set(ctx.symbols.current_scope_id().unwrap());
+        unsafe {
+            STD_PRIMITIVE_SCOPE_ID
+                .set(ctx.symbols.current_scope_id().unwrap())
+                .unwrap()
+        };
         for (id, ty) in &*TYPE_MAPPING {
-            ctx.symbols.add_type_alias(None, id.clone(), ty.clone())?;
+            let key = ty.key();
+            let type_id = ctx.symbols.add_type(None, ty.clone())?;
+            if id != &key.name {
+                ctx.symbols.add_type_id(None, id.clone(), type_id)?;
+            }
         }
         Ok(())
     }
@@ -1425,7 +1432,6 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                 let type_array = Type::Array(CheckedArrayNode {
                     inner_ty,
                     size: size.clone(),
-                    scope_id,
                 });
                 if let Some(type_id) = ctx.symbols.get_type_id(Some(scope_id), type_array.key()) {
                     Ok(type_id)

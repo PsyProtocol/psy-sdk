@@ -20,7 +20,7 @@ use crate::{Error, Result};
 define_arena_id!(ScopeId);
 define_arena_id!(VarId);
 
-pub static STD_PRIMITIVE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
+pub static mut STD_PRIMITIVE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
 
 impl ScopeId {
     pub const fn root() -> Self {
@@ -28,7 +28,7 @@ impl ScopeId {
     }
 
     pub fn primitive() -> Self {
-        *STD_PRIMITIVE_SCOPE_ID.get().unwrap()
+        unsafe { *STD_PRIMITIVE_SCOPE_ID.get().unwrap() }
     }
 }
 
@@ -280,17 +280,17 @@ impl<F: Clone> SymbolTable<F> {
     pub fn add_type_id<K: Into<TypeKey>>(
         &mut self,
         scope_id: Option<ScopeId>,
-        type_name: K,
+        name: K,
         type_id: TypeId,
     ) -> Result<()> {
-        let type_name = type_name.into();
+        let key = name.into();
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
-        if let Some(type_id) = self[scope_id].types.get(&type_name) {
+        if let Some(type_id) = self[scope_id].types.get(&key) {
             return Ok(());
         }
 
-        self[scope_id].types.insert(type_name, type_id);
+        self[scope_id].types.insert(key, type_id);
         Ok(())
     }
 
@@ -303,17 +303,6 @@ impl<F: Clone> SymbolTable<F> {
         let type_id = TypeId(self.types.len());
         self.add_type_id(scope_id, key, type_id)?;
         self.types.push(ty);
-        Ok(type_id)
-    }
-
-    pub fn add_type_alias<K: Into<TypeKey>>(
-        &mut self,
-        scope_id: Option<ScopeId>,
-        name: K,
-        ty: Type,
-    ) -> Result<TypeId> {
-        let type_id = self.add_type(scope_id, ty)?;
-        self.add_type_id(scope_id, name, type_id)?;
         Ok(type_id)
     }
 
