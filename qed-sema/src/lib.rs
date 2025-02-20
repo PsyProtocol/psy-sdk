@@ -576,6 +576,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let f = ctx.symbols[ty].clone();
         let (args, generic_parameters, return_type) = match f {
             Type::Function(n) => {
+                if call_node.args.len() != n.parameters.len() {
+                    return Err(Error::InvalidFunctionCall);
+                }
                 let mut args = Vec::new();
                 for (i, arg) in call_node.args.iter().enumerate() {
                     let type_arg = self.visit_expr(arg.clone(), ctx)?;
@@ -591,6 +594,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 )
             }
             Type::FunctionSignature(sig) => {
+                if call_node.args.len() != sig.parameters.len() {
+                    return Err(Error::InvalidFunctionCall);
+                }
                 let mut args = Vec::new();
                 for (i, arg) in call_node.args.iter().enumerate() {
                     let type_arg = self.visit_expr(arg.clone(), ctx)?;
