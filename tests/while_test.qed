@@ -1,0 +1,23 @@
+
+fn main(a: Felt, b: Felt) -> Felt {
+    let mut res: Felt = 0;
+
+    let mut a: Felt = a;
+    let mut b: Felt = b;
+
+    let mut i: Felt = 2;
+
+    let mut c: Felt = 0;
+
+    while i <= 10 {
+        c = a + b;
+        a = b;
+        b = c;
+        i += 1;
+    }
+    res = b;
+
+    assert_eq(res, 233, "res == 233");
+
+    return res;
+}

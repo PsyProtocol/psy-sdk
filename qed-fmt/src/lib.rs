@@ -319,8 +319,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .collect::<Result<Vec<_>, Self::Error>>()?
             .join(", ");
         Ok(format!(
-            "{}.{}{}({})",
-            self.visit_expr(receiver, ctx)?,
+            "{}{}({})",
             self.visit_expr(variable, ctx)?,
             self.visit_generic_parameters(generic_parameters),
             args
@@ -846,7 +845,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             IntrinsicStmtNode::Assert { left, message } => {
                 let expr = self.visit_expr(left, ctx)?;
                 self.write_line(&format!(
-                    "assert({}, {})",
+                    "assert({}, \"{}\")",
                     expr,
                     message.unwrap_or_default()
                 ))
@@ -859,7 +858,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 let left = self.visit_expr(left, ctx)?;
                 let right = self.visit_expr(right, ctx)?;
                 self.write_line(&format!(
-                    "assert_eq({}, {}, {})",
+                    "assert_eq({}, {}, \"{}\")",
                     left,
                     right,
                     message.unwrap_or_default()

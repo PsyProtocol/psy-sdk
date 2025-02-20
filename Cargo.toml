@@ -125,15 +125,15 @@ llvm-sys = "191.0"
 melior = { version = "0.21", features = ["ods-dialects"] }
 mlir-sys = { version = "0.4" }
 
-qedlang_core = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "acf81d6731be3414404f3c15bf39e92a73ff90ca" }
-qed_crypto = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "acf81d6731be3414404f3c15bf39e92a73ff90ca" }
-qed_exec = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "acf81d6731be3414404f3c15bf39e92a73ff90ca" }
-qed_store = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "acf81d6731be3414404f3c15bf39e92a73ff90ca" }
-qed_data = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "acf81d6731be3414404f3c15bf39e92a73ff90ca" }
-qed_core = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "acf81d6731be3414404f3c15bf39e92a73ff90ca" }
-qed_prover = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "acf81d6731be3414404f3c15bf39e92a73ff90ca" }
-qed_common_circuit = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "acf81d6731be3414404f3c15bf39e92a73ff90ca" }
-kvq = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "acf81d6731be3414404f3c15bf39e92a73ff90ca" }
+qedlang_core = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_crypto = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_exec = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_store = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_data = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_core = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_prover = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_common_circuit = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+kvq = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
 # qedlang_core = { path = "../qedlang-rust/qedlang_core" }
 # qed_crypto = { path = "../qedlang-rust/qed_crypto" }
 # qed_exec = { path = "../qedlang-rust/qed_exec" }
