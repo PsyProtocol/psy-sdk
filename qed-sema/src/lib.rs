@@ -825,7 +825,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             name: variable_node.name,
             ty: rhs_ty,
             mutable: variable_node.mutable,
-            cnst: variable_node.cnst,
             value: self.exprs.alloc_item(checked_expr),
             scope_id: current_scope_id,
         };
@@ -1135,6 +1134,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.symbols.start_scope(ScopeKind::Enum);
         // TODO: remove clone
         let enum_node = ctx.definition(node).as_enum().cloned().unwrap();
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
 
         let mut generic_parameters = Vec::new();
 
@@ -1143,24 +1143,35 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             generic_parameters.push(type_id);
         }
 
-        for variant in &enum_node.variants {
-            match variant {
-                EnumVariant::Basic(name) => todo!(),
-                EnumVariant::Tuple(name, members) => todo!(),
-                EnumVariant::Struct(name, fields) => todo!(),
-            }
-        }
-
         let checked_enum = CheckedEnumNode {
             generic_parameters,
-            name: todo!(),
-            variants: todo!(),
-            scope_id: todo!(),
+            name: enum_node.name,
+            variants: Vec::new(),
+            scope_id: current_scope_id,
             implementations: Vec::new(),
             visibility: enum_node.visibility,
         };
         let ty = Type::Enum(checked_enum.clone());
-        ctx.symbols.add_type(ctx.symbols.parent_scope_id(), ty)?;
+        let type_id = ctx.symbols.add_type(ctx.symbols.parent_scope_id(), ty)?;
+
+        if let Type::Enum(mut checked_enum_node) = ctx.symbols[type_id].clone() {
+            for variant in &enum_node.variants {
+                match variant {
+                    EnumVariant::Basic(name) => {
+                        ctx.symbols.add_type_id(None, name.clone(), type_id)?;
+                        checked_enum_node
+                            .variants
+                            .push(CheckedEnumVariant::Basic(name.clone(), FELT_TYPE));
+                    }
+                    EnumVariant::Tuple(name, members) => todo!(),
+                    EnumVariant::Struct(name, fields) => todo!(),
+                }
+            }
+
+            ctx.symbols[type_id] = Type::Enum(checked_enum_node);
+        } else {
+            unreachable!();
+        }
 
         ctx.symbols.end_scope();
         Ok(CheckedDefinitionNode::Enum(checked_enum))
@@ -1227,6 +1238,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let res = match ctx.statement(stmt_id).node_type() {
             NodeType::IfStmt => self.visit_if(stmt_id, ctx)?,
             NodeType::WhileStmt => self.visit_while(stmt_id, ctx)?,
+            NodeType::ForStmt => self.visit_for(stmt_id, ctx)?,
             NodeType::BlockStmt => self.visit_block(stmt_id, ctx)?,
             NodeType::AssignmentStmt => self.visit_assignment(stmt_id, ctx)?,
             NodeType::VariableStmt => self.visit_variable(stmt_id, ctx)?,
@@ -1329,9 +1341,55 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             visibility: node.visibility,
         };
 
-        ctx.symbols.add_type(None, Type::Const(node.clone()));
+        ctx.symbols.add_type(None, Type::Const(node.clone()))?;
 
         Ok(CheckedDefinitionNode::Const(node))
+    }
+
+    fn visit_for(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::StmtResult, Self::Error> {
+        // TODO: remove clone
+        let for_node = ctx.statement(node).as_for().cloned().unwrap();
+        ctx.symbols.start_scope(ScopeKind::Block);
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+        let variable = CheckedVariable::new(FELT_TYPE, true, current_scope_id, None);
+        ctx.symbols.declare_variable(for_node.variable, variable)?;
+        let start = self.visit_expr(for_node.start, ctx)?;
+        let end = self.visit_expr(for_node.end, ctx)?;
+        if !self.unify(start.ty(), FELT_TYPE, ctx) || !self.unify(end.ty(), FELT_TYPE, ctx) {
+            return Err(Error::TypeMismatch);
+        }
+        ctx.symbols.start_scope(ScopeKind::Block);
+        let checked_block = self.visit_block(for_node.body, ctx)?;
+        let node = CheckedStmtNode::For(CheckedForNode {
+            variable: for_node.variable,
+            start: self.exprs.alloc_item(start),
+            end: self.exprs.alloc_item(end),
+            body: self.stmts.alloc_item(checked_block),
+            scope_id: current_scope_id,
+        });
+        ctx.symbols.end_scope();
+        ctx.symbols.end_scope();
+        Ok(node)
+    }
+
+    fn visit_match(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::StmtResult, Self::Error> {
+        todo!()
+    }
+
+    fn visit_closure(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::ExprResult, Self::Error> {
+        todo!()
     }
 }
 
@@ -1374,6 +1432,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         &mut self,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()> {
+        #[allow(static_mut_refs)]
         unsafe {
             STD_PRIMITIVE_SCOPE_ID
                 .set(ctx.symbols.current_scope_id().unwrap())
@@ -1664,13 +1723,24 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         Ok(checked_impl)
     }
 
-    fn unify(&self, ty1: TypeId, ty2: TypeId, ctx: &TypeCheckerVisitorContext<F, C>) -> bool {
+    fn unify(&self, ty1: TypeId, ty2: TypeId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> bool {
         match (&ctx.symbols[ty1], &ctx.symbols[ty2]) {
             (Type::Function(f), Type::FunctionSignature(sig)) => &f.signature() == sig,
             (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,
+            (Type::Closure(f), Type::FunctionSignature(sig)) => &f.signature() == sig,
+            (Type::FunctionSignature(sig), Type::Closure(f)) => &f.signature() == sig,
             (Type::Const(c), Type::Felt(_)) => c.ty == ty2,
             (Type::Felt(_), Type::Const(c)) => c.ty == ty1,
             (Type::Const(c), Type::Const(d)) => c.ty == d.ty,
+            (Type::Unknown, Type::Unknown) => false,
+            (Type::Unknown, _) => {
+                ctx.symbols[ty1] = ctx.symbols[ty2].clone();
+                true
+            }
+            (_, Type::Unknown) => {
+                ctx.symbols[ty2] = ctx.symbols[ty1].clone();
+                true
+            }
             _ => ty1 == ty2,
         }
     }

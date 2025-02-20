@@ -62,6 +62,8 @@ Statement: StmtNode = {
     WhileStatement,
     BlockStatement,
     IfStatement,
+    ForStatement,
+    MatchStatement,
     Definition => StmtNode::Definition(def_nodes.alloc_item(<>)),
     IntrinsicStatement,
     UseStatement,
@@ -245,7 +247,8 @@ EnumVariant: EnumVariant = {
 }
 
 TypeAnnotation: (IdentId, UncheckedType) = {
-    <l:@L> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty)
+    <l:@L> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty),
+    <l:@L> <name:Identifier> <r:@R> => (name, UncheckedType::Unknown)
 }
 
 FieldTypeAnnotation: (IdentId, UncheckedType, Visibility) = {
@@ -291,6 +294,34 @@ WhileStatement: StmtNode = {
     }),
 }
 
+MatchStatement: StmtNode = {
+    <l:@L> MATCH <scrutinee:Expression> "{" <arms:Comma<MatchArm>> "}" <r:@R> => StmtNode::Match(MatchNode {
+        scrutinee: expr_nodes.alloc_item(scrutinee),
+        arms
+    }),
+}
+
+MatchArm: MatchArm = {
+    <l:@L> <pattern:MatchPattern> "=>" <block_stmt:BlockStatement> <r:@R> => MatchArm {
+        pattern,
+        body: stmt_nodes.alloc_item(block_stmt)
+    }
+}
+
+MatchPattern: MatchPattern = {
+    <l:@L> <pattern:Expression> <r:@R> => MatchPattern::Value(expr_nodes.alloc_item(pattern)),
+    <l:@L> "_" <r:@R> => MatchPattern::Placeholder
+}
+
+ForStatement: StmtNode = {
+    <l:@L> FOR <variable:Identifier> IN <start:Expression> ".." <end:Expression> <block_stmt:BlockStatement> <r:@R> => StmtNode::For(ForNode {
+        variable,
+        start: expr_nodes.alloc_item(start),
+        end: expr_nodes.alloc_item(end),
+        body: stmt_nodes.alloc_item(block_stmt)
+    }),
+}
+
 IfStatement: StmtNode = {
     <l:@L> <if_branch:IfBranch> <elseif_branch:ElseIfBranch*> <else_branch:ElseBranch?> <r:@R> => StmtNode::If(
         IfNode {
@@ -329,7 +360,6 @@ VariableStatement: StmtNode = {
             name: decl.0,
             ty: decl.1,
             mutable: mutable.is_some(),
-            cnst: false,
             value: expr_nodes.alloc_item(value)
         }
     ),
@@ -456,7 +486,7 @@ Expression: ExprNode<F> = {
             }
         )
     },
-    <l:@L> <callee:Expression> <generic_parameters:Monomorphization> "(" <args:ExpressionList> ")" <r:@R> => {
+    <l:@L> <callee:Expression> <generic_parameters:Monomorphization> "(" <args:ArgumentList> ")" <r:@R> => {
        if let ExprNode::<F>::MemberAccess(MemberAccessNode {
           target: receiver, ..
        }) = &callee {
@@ -574,8 +604,10 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> "||" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Or, expr_nodes.alloc_item(rhs))
     ),
-}
 
+    #[precedence(level="16")]
+    ClosureExpression
+}
 
 Term: ExprNode<F> = {
     <l:@L> "(" <expr:Expression> ")" <r:@R> => expr,
@@ -610,6 +642,14 @@ KeyValue: (IdentId, ExprId) = {
     <l:@L> <name:Identifier> ":" <value:Expression> <r:@R> => (name, expr_nodes.alloc_item(value))
 }
 
+ClosureExpression: ExprNode<F> = {
+    <l:@L> "|" <parameters:Comma<FunctionParameter>> "|" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => ExprNode::<F>::Closure(ClosureNode {
+        parameters,
+        body: stmt_nodes.alloc_item(block_stmt),
+        return_type
+    })
+}
+
 PathExpression: ExprNode<F> = {
     <target: IdentifierOrSelf> => ExprNode::Path(PathNode {
         root: None,
@@ -626,7 +666,7 @@ PathExpression: ExprNode<F> = {
     },
 };
 
-ExpressionList: Vec<ExprNode<F>> = {
+ArgumentList: Vec<ExprNode<F>> = {
     <items:Sep<Expression, ",">> => items
 }
 
@@ -726,10 +766,12 @@ extern {
         IMPL => Token::KeywordImpl,
         TRAIT => Token::KeywordTrait,
         RETURN => Token::KeywordReturn,
+        MATCH => Token::KeywordMatch,
         IF => Token::KeywordIf,
         ELSE => Token::KeywordElse,
         WHILE => Token::KeywordWhile,
         FOR => Token::KeywordFor,
+        IN => Token::KeywordIn,
         WHERE => Token::KeywordWhere,
 
         ASSERT => Token::IntrinsicAssert,
@@ -772,6 +814,7 @@ extern {
         NEW => Token::KeywordNew,
 
         "#" => Token::Pound,
+        "_" => Token::Placeholder,
 
         "(" => Token::LParen,
         ")" => Token::RParen,
@@ -784,9 +827,11 @@ extern {
         ";" => Token::Semicolon,
         "," => Token::Comma,
         "." => Token::Dot,
+        ".." => Token::DoubleDot,
         ":" => Token::Colon,
         "::" => Token::DoubleColon,
         "->" => Token::Arrow,
+        "=>" => Token::FatArrow,
 
         "+" => Token::OperatorAdd,
         "-" => Token::OperatorSub,

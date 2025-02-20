@@ -403,7 +403,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         self.indent();
         self.visit_block(body, ctx)?;
         self.dedent();
-        self.write_line("};");
+        self.write_line("}");
         Ok(Default::default())
     }
 
@@ -455,12 +455,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let s = format!(
-            "{}{} {}: {} = {};",
-            if ctx.statement(stmt_id).as_variable().unwrap().cnst {
-                "const"
-            } else {
-                "let"
-            },
+            "let{} {}: {} = {};",
             if ctx.statement(stmt_id).as_variable().unwrap().mutable {
                 " mut"
             } else {
@@ -682,7 +677,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         for variant in variants {
             match variant {
                 EnumVariant::Basic(ident_id) => {
-                    let s = format!("{}", ctx.ident(ident_id.clone()));
+                    let s = format!("{},", ctx.ident(ident_id.clone()));
                     self.write_line(&s);
                 }
                 EnumVariant::Tuple(ident_id, types) => {
@@ -691,7 +686,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                         .map(|x| self.visit_unchecked_type(x, ctx))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    let s = format!("{}({})", ctx.ident(ident_id.clone()), types);
+                    let s = format!("{}({}),", ctx.ident(ident_id.clone()), types);
                     self.write_line(&s);
                 }
                 EnumVariant::Struct(ident_id, fields) => {
@@ -705,7 +700,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                         ));
                     }
                     self.dedent();
-                    self.write_line("}");
+                    self.write_line("},");
                 }
             }
         }
@@ -955,5 +950,99 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             value
         ));
         Ok(Default::default())
+    }
+
+    fn visit_for(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let &ForNode {
+            variable,
+            start,
+            end,
+            body,
+        } = ctx.statement(node).as_for().unwrap();
+        let s = format!(
+            "for {} in {}..{} {{",
+            ctx.ident(variable).to_string(),
+            self.visit_expr(start, ctx)?,
+            self.visit_expr(end, ctx)?
+        );
+        self.write_line(&s);
+        self.indent();
+        self.visit_block(body, ctx)?;
+        self.dedent();
+        self.write_line("}");
+        Ok(Default::default())
+    }
+
+    fn visit_match(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let MatchNode { scrutinee, arms } = ctx.statement(node).as_match().cloned().unwrap();
+
+        let s = format!("match {} {{", self.visit_expr(scrutinee.clone(), ctx)?);
+        self.write_line(&s);
+        self.indent();
+
+        for arm in arms {
+            let s = format!(
+                "{} => {{",
+                if arm.pattern.is_placeholder() {
+                    "_".to_string()
+                } else {
+                    self.visit_expr(arm.pattern.as_value().unwrap().clone(), ctx)?
+                }
+            );
+            self.write_line(&s);
+            self.indent();
+            self.visit_block(arm.body, ctx)?;
+            self.dedent();
+            self.write_line("},");
+        }
+
+        self.dedent();
+        self.write_line("}");
+        Ok(Default::default())
+    }
+
+    fn visit_closure(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let ClosureNode {
+            parameters,
+            body,
+            return_type,
+        } = ctx.expression(node).as_closure().cloned().unwrap();
+        let parameters = parameters
+            .iter()
+            .map(|p| {
+                format!(
+                    "{}{}: {}",
+                    if p.1 { "mut " } else { "" },
+                    &ctx.ident(p.0),
+                    self.visit_unchecked_type(&p.2, ctx)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let mut result = format!(
+            "|{}|{} {}",
+            parameters,
+            if let Some(ref ret) = return_type {
+                format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
+            } else {
+                "".to_string()
+            },
+            "{ .. }".to_string()
+        );
+
+        Ok(result)
     }
 }

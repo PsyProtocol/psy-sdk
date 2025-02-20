@@ -7,7 +7,6 @@ pub struct CheckedVariableNode {
     pub name: IdentId,
     pub ty: TypeId,
     pub mutable: bool,
-    pub cnst: bool,
     pub value: ExprId,
     pub scope_id: ScopeId,
 }

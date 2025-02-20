@@ -27,12 +27,16 @@ pub enum Token<'input> {
     KeywordReturn,
     #[token("if")]
     KeywordIf,
+    #[token("match")]
+    KeywordMatch,
     #[token("else")]
     KeywordElse,
     #[token("while")]
     KeywordWhile,
     #[token("for")]
     KeywordFor,
+    #[token("in")]
+    KeywordIn,
     #[token("where")]
     KeywordWhere,
 
@@ -109,6 +113,8 @@ pub enum Token<'input> {
 
     #[token("#")]
     Pound,
+    #[token("_", priority = 1)]
+    Placeholder,
 
     #[token("(")]
     LParen,
@@ -130,12 +136,16 @@ pub enum Token<'input> {
     Comma,
     #[token(".")]
     Dot,
+    #[token("..")]
+    DoubleDot,
     #[token(":")]
     Colon,
     #[token("::")]
     DoubleColon,
     #[token("->")]
     Arrow,
+    #[token("=>")]
+    FatArrow,
 
     #[token("+")]
     OperatorAdd,

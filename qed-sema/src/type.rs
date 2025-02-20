@@ -8,6 +8,7 @@ use qed_ast::Visibility;
 use qed_utils::impl_ref;
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
+use crate::CheckedClosureNode;
 use crate::CheckedConstNode;
 use crate::CheckedFunctionSignature;
 use crate::CheckedValue;
@@ -76,6 +77,7 @@ pub enum Type {
     Struct(CheckedStructNode),
     Enum(CheckedEnumNode),
     Function(CheckedFunctionNode),
+    Closure(CheckedClosureNode),
     FunctionSignature(CheckedFunctionSignature),
     Trait(CheckedTraitNode),
     Const(CheckedConstNode),
@@ -114,6 +116,7 @@ impl_ref!(Type,
     Struct => CheckedStructNode,
     Enum => CheckedEnumNode,
     Function => CheckedFunctionNode,
+    Closure => CheckedClosureNode,
     Trait => CheckedTraitNode
 );
 
@@ -168,6 +171,20 @@ impl Type {
                 generic_parameters.clone(),
                 vec![],
                 None,
+                vec![],
+            ),
+            Type::Closure(CheckedClosureNode {
+                parameters,
+                return_type,
+                ..
+            }) => (
+                IdentId::FN_SIG,
+                vec![],
+                parameters
+                    .iter()
+                    .map(|(_, mutable, ty)| (mutable.clone(), ty.clone()))
+                    .collect(),
+                return_type.clone(),
                 vec![],
             ),
             Type::FunctionSignature(CheckedFunctionSignature {

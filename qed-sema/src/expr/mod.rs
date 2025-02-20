@@ -1,6 +1,7 @@
 mod binary;
 mod call;
 mod cast;
+mod closure;
 mod index;
 mod intrinsic;
 mod path;
@@ -9,6 +10,7 @@ mod unary;
 pub use binary::*;
 pub use call::*;
 pub use cast::*;
+pub use closure::*;
 use enum_as_inner::EnumAsInner;
 pub use index::*;
 pub use intrinsic::*;
@@ -32,6 +34,7 @@ pub enum CheckedExprNode<F> {
     IndexAccess(CheckedIndexAccessNode),
     MemberAccess(CheckedMemberAccessNode),
     Intrinsic(CheckedIntrinsicExprNode),
+    Closure(CheckedClosureNode),
 }
 
 impl<F> NodeInfo for CheckedExprNode<F> {
@@ -47,6 +50,7 @@ impl<F> NodeInfo for CheckedExprNode<F> {
             CheckedExprNode::IndexAccess(node) => node.node_type(),
             CheckedExprNode::MemberAccess(node) => node.node_type(),
             CheckedExprNode::Intrinsic(node) => node.node_type(),
+            CheckedExprNode::Closure(node) => node.node_type(),
         }
     }
 }
@@ -91,6 +95,7 @@ impl<F> CheckedExprNode<F> {
                 } => type_id.clone(),
                 CheckedIntrinsicExprNode::Hash { type_id, .. } => type_id.clone(),
             },
+            CheckedExprNode::Closure(c) => c.type_id.clone(),
         }
     }
 

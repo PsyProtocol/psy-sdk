@@ -5,7 +5,6 @@ pub struct VariableNode {
     pub name: IdentId,
     pub ty: UncheckedType,
     pub mutable: bool,
-    pub cnst: bool,
     pub value: ExprId,
 }
 

@@ -28,7 +28,10 @@ impl ScopeId {
     }
 
     pub fn primitive() -> Self {
-        unsafe { *STD_PRIMITIVE_SCOPE_ID.get().unwrap() }
+        #[allow(static_mut_refs)]
+        unsafe {
+            *STD_PRIMITIVE_SCOPE_ID.get().unwrap()
+        }
     }
 }
 
@@ -451,13 +454,19 @@ impl<F: Clone> SymbolTable<F> {
             }
             Some(IdentId::SUPER) => self[current_module_id].parent?,
             Some(name) => {
-                if let Some(module_id) = self.modules.iter().position(|x| x.name == name) {
-                    let module_id = ModuleId(module_id);
-                    assert!(self[current_module_id].children.contains(&module_id));
+                if let Some(&module_id) = self[current_module_id]
+                    .children
+                    .iter()
+                    .find(|&x| self[x.clone()].name == name)
+                {
                     module_id
                 } else {
                     let type_id = self.get_type_id(None, name)?;
                     assert!(path.segments.is_empty());
+                    let scope_id = self[type_id].scope_id();
+                    if let Some(type_id) = self[scope_id].types.get(&path.target.into()) {
+                        return Some((type_id.clone(), scope_id));
+                    }
                     let method_type_id = self.resolve_method(type_id, path.target)?;
                     let visibility = self[method_type_id].visibility();
                     assert!(visibility.is_public());

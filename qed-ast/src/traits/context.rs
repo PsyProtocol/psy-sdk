@@ -58,6 +58,7 @@ pub enum NodeType {
     MemberAccessExpr,
     IndexAccessExpr,
     IntrinsicExpr,
+    ClosureExpr,
 
     IfStmt,
     WhileStmt,
@@ -69,6 +70,8 @@ pub enum NodeType {
     ReturnStmt,
     IntrinsicStmt,
     UseStmt,
+    ForStmt,
+    MatchStmt,
 
     FunctionDef,
     StructDef,

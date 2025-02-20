@@ -339,6 +339,39 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
+    pub fn interpret_for(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        stmt_id: StmtId,
+        symbols: &mut SymbolTable<F>,
+    ) -> Result<()> {
+        let node = typechecker[stmt_id].as_for().unwrap();
+        let start = self
+            .interpret_expr(typechecker, node.start, symbols)?
+            .unwrap();
+        let end = self
+            .interpret_expr(typechecker, node.end, symbols)?
+            .unwrap();
+        symbols.set_variable(node.scope_id, &node.variable, start)?;
+
+        loop {
+            let value = symbols
+                .get_variable(Some(node.scope_id), &node.variable)
+                .unwrap()
+                .value
+                .unwrap();
+            if value != end {
+                self.interpret_block(typechecker, node.body, symbols);
+                let one = self.context.op_const(1);
+                let value = CheckedValueRef::from_felt(self.context.op_add(value.to_felt(), one));
+                symbols.set_variable(node.scope_id, &node.variable, value)?;
+            } else {
+                break Ok(());
+            }
+        }
+    }
+
+    #[instrument(level = "debug", skip_all)]
     pub fn interpret_block(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -365,6 +398,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             CheckedStmtNode::While(r#while) => {
                 self.interpret_while(typechecker, stmt_id, symbols)?
             }
+            CheckedStmtNode::For(r#for) => self.interpret_for(typechecker, stmt_id, symbols)?,
             CheckedStmtNode::Block(block) => {
                 return self.interpret_block(typechecker, stmt_id, symbols);
             }
@@ -840,6 +874,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             CheckedExprNode::MemberAccess(member_access_node) => Ok(Some(
                 self.interpret_member_access(typechecker, member_access_node, symbols)?,
             )),
+            CheckedExprNode::Closure(checked_closure_node) => todo!(),
         }
     }
 
@@ -1226,7 +1261,10 @@ mod test {
                 .exec_contract_call(&mut lps, contract_id, &compile_results[0], vec![])
                 .unwrap();
             println!("result_vm: {:?}", cfc_input.outputs);
-            unsafe { STD_PRIMITIVE_SCOPE_ID.take().unwrap() };
+            #[allow(static_mut_refs)]
+            unsafe {
+                STD_PRIMITIVE_SCOPE_ID.take().unwrap()
+            };
         });
     }
 }

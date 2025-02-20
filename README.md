@@ -19,7 +19,6 @@
 1. Run unit tests
 ```
 make test
-
 ```
 
 2. Run opcode tests

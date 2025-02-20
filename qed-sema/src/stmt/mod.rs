@@ -1,5 +1,6 @@
 mod assignment;
 mod block;
+mod r#for;
 mod r#if;
 mod intrinsic;
 mod r#return;
@@ -10,6 +11,7 @@ pub use assignment::*;
 pub use block::*;
 use enum_as_inner::EnumAsInner;
 pub use intrinsic::*;
+pub use r#for::*;
 pub use r#if::*;
 pub use r#return::*;
 pub use r#while::*;
@@ -23,6 +25,7 @@ use crate::{CheckedDefinitionNode, CheckedExprNode};
 pub enum CheckedStmtNode {
     If(CheckedIfNode),
     While(CheckedWhileNode),
+    For(CheckedForNode),
     Block(CheckedBlockNode),
     Assignment(CheckedAssignmentNode),
     Variable(CheckedVariableNode),
@@ -37,6 +40,7 @@ impl NodeInfo for CheckedStmtNode {
         match self {
             Self::If(node) => node.node_type(),
             Self::While(node) => node.node_type(),
+            Self::For(node) => node.node_type(),
             Self::Block(node) => node.node_type(),
             Self::Assignment(node) => node.node_type(),
             Self::Variable(node) => node.node_type(),

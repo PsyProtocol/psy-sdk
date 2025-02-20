@@ -653,4 +653,28 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
+
+    fn visit_for(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        Ok(())
+    }
+
+    fn visit_match(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        Ok(())
+    }
+
+    fn visit_closure(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        Ok(())
+    }
 }
