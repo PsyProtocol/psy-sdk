@@ -117,6 +117,7 @@ impl_ref!(Type,
     Enum => CheckedEnumNode,
     Function => CheckedFunctionNode,
     Closure => CheckedClosureNode,
+    Const => CheckedConstNode,
     Trait => CheckedTraitNode
 );
 
