@@ -1,6 +1,5 @@
 mod assert;
 mod assignment;
-mod block;
 mod r#return;
 mod storage;
 mod variable;
@@ -8,7 +7,6 @@ mod r#while;
 
 pub use assert::*;
 pub use assignment::*;
-pub use block::*;
 use enum_as_inner::EnumAsInner;
 pub use r#return::*;
 pub use r#while::*;
@@ -22,7 +20,6 @@ use crate::{CheckedDefinitionNode, CheckedExprNode, TypeId};
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum CheckedStmtNode {
     While(CheckedWhileNode),
-    Block(CheckedBlockNode),
     Assignment(CheckedAssignmentNode),
     Variable(CheckedVariableNode),
     Definition(DefId),
@@ -31,13 +28,13 @@ pub enum CheckedStmtNode {
     Return(CheckedReturnNode),
     Assert(CheckedAssertNode),
     AssertEq(CheckedAssertEqNode),
+    Use,
 }
 
 impl NodeInfo for CheckedStmtNode {
     fn node_type(&self) -> NodeType {
         match self {
             Self::While(node) => node.node_type(),
-            Self::Block(node) => node.node_type(),
             Self::Assignment(node) => node.node_type(),
             Self::Variable(node) => node.node_type(),
             Self::Definition(node) => NodeType::DefinitionStmt,
@@ -46,6 +43,7 @@ impl NodeInfo for CheckedStmtNode {
             Self::Return(node) => node.node_type(),
             Self::Assert(node) => node.node_type(),
             Self::AssertEq(node) => node.node_type(),
+            Self::Use => NodeType::UseStmt,
         }
     }
 

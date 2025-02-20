@@ -96,7 +96,11 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValueRef<F> {
                 result
             }
             CheckedValue::Type(type_id) => {
-                unreachable!()
+                match type_id {
+                    VOID_TYPE => vec![],
+                    _ => unreachable!(),
+                    // unreachable!()
+                }
             }
         }
     }

@@ -69,7 +69,6 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         ctx.push_node_id(NodeId::from(stmt_id));
         let res = match ctx.statement(stmt_id).node_type() {
             NodeType::WhileStmt => self.visit_while(stmt_id, ctx)?,
-            NodeType::BlockStmt => self.visit_block(stmt_id, ctx)?,
             NodeType::AssignmentStmt => self.visit_assignment(stmt_id, ctx)?,
             NodeType::VariableStmt => self.visit_variable(stmt_id, ctx)?,
             NodeType::ReturnStmt => self.visit_return(stmt_id, ctx)?,
@@ -84,14 +83,18 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::StorageStmt => self.visit_storage_write(stmt_id, ctx)?,
             NodeType::AssertStmt => self.visit_assert(stmt_id, ctx)?,
             NodeType::AssertEqStmt => self.visit_assert_eq(stmt_id, ctx)?,
+            NodeType::UseStmt => unreachable!(),
             _ => unreachable!(),
         };
         ctx.pop_node_id();
         Ok(res)
     }
 
-    fn visit_use(&mut self, use_path: &UsePath, ctx: &mut Self::Context)
-        -> Result<(), Self::Error>;
+    fn visit_use(
+        &mut self,
+        use_path: &UsePath,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
 
     fn visit_module(
         &mut self,
@@ -181,11 +184,6 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
     ) -> Result<Self::ExprResult, Self::Error>;
 
     fn visit_while(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
-    fn visit_block(
         &mut self,
         node: StmtId,
         ctx: &mut Self::Context,

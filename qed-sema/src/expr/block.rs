@@ -5,7 +5,6 @@ use crate::TypeId;
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedBlockExprNode {
     pub stmts: Vec<StmtId>,
-    pub return_expr: Option<ExprId>,
     pub type_id: TypeId,
 }
 

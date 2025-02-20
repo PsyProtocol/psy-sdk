@@ -1,6 +1,4 @@
-use crate::{
-    AstVisitor, AttrNode, BlockNode, IdentId, NodeInfo, NodeType, StmtId, UncheckedType, Visibility,
-};
+use crate::{AttrNode, IdentId, NodeInfo, NodeType, StmtId, UncheckedType, Visibility};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionNode {

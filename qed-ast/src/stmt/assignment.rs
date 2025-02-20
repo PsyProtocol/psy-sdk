@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{AstVisitor, ExprId, NodeInfo, NodeType, PathNode};
+use crate::{ExprId, NodeInfo, NodeType};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum AssignmentOperator {

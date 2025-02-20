@@ -21,7 +21,7 @@ impl CheckedCase {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedIfExprNode {
     pub if_branch: CheckedCase,
-    pub elseif_branch: Vec<CheckedCase>,
+    pub elseif_branches: Vec<CheckedCase>,
     pub else_branch: Option<StmtId>,
     pub type_id: TypeId,
 }

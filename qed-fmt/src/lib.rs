@@ -1,11 +1,9 @@
-use qed_ast::block_expr::BlockExprNode;
-use qed_ast::r#if::IfExprNode;
+use qed_ast::BlockExprNode;
+use qed_ast::IfExprNode;
 use qed_ast::*;
-use qed_common::Graph;
-use qed_parser::Parser;
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, ToFelts};
 use std::fmt::Debug;
-use std::fmt::{Display, Write};
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub struct Formatter<'a, F: Clone + From<u32>, C> {
@@ -112,9 +110,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     type Context = DefaultVisitorContext<'a, F, C>;
     type Error = ();
 
-    fn visit_use(&mut self, u: &UsePath, ctx: &mut Self::Context) -> Result<(), Self::Error> {
+    fn visit_use(
+        &mut self,
+        u: &UsePath,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
         let mut path = vec![ctx.ident(u.kind.clone().into()).to_string()];
-        let mut segments = u
+        let segments = u
             .segments
             .iter()
             .map(|&s| ctx.ident(s).to_string())
@@ -125,8 +127,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|t| ctx.ident(t).to_string())
             .unwrap_or("*".to_string());
 
-        self.write_line(&format!("use {}::{};", path.join("::"), target));
-        Ok(Default::default())
+        let ret = format!("use {}::{};", path.join("::"), target);
+        //self.write_line(&format!("use {}::{};", path.join("::"), target));
+        Ok(ret)
     }
 
     fn visit_path(
@@ -297,31 +300,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let mut s = format!("while {} {{", self.visit_expr(predicate, ctx)?);
         self.write_line(&s);
         self.indent();
-        self.visit_block(body, ctx);
+        self.visit_stmt(body, ctx);
         self.dedent();
         self.write_line("};");
-        Ok(Default::default())
-    }
-
-    fn visit_block(
-        &mut self,
-        stmt_id: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
-        let BlockNode { stmts, uses } = ctx.statement(stmt_id).as_block().cloned().unwrap();
-        // TODO: remove clone
-
-        for &stmt in uses.iter() {
-            let use_path = ctx.statement(stmt).as_use().cloned().unwrap();
-            self.visit_use(&use_path, ctx)?;
-        }
-
-        for &stmt in stmts.iter() {
-            let res = self.visit_stmt(stmt, ctx)?;
-            if !res.is_empty() {
-                self.write_line(&format!("{}", res));
-            }
-        }
         Ok(Default::default())
     }
 
@@ -388,8 +369,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 "".to_string()
             }
         );
-        self.write_line(&s);
-        Ok(Default::default())
+        // self.write_line(&s);
+        Ok(s)
     }
 
     fn visit_impl(
@@ -492,7 +473,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         );
         self.write_line(&s);
         self.indent();
-        self.visit_block(body.unwrap(), ctx);
+        let ret = self.visit_stmt(body.unwrap(), ctx)?;
+        self.write_line(&ret);
         self.dedent();
         self.write_line("}");
         Ok(Default::default())
@@ -791,7 +773,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
         // TODO: remove clone
         for u in &module.uses {
-            self.visit_use(u, ctx)?;
+            let t = self.visit_use(u, ctx)?;
+            self.write_line(&t);
         }
 
         for &child_module in ctx.program().modules.nodes().clone()[module_id].children() {
@@ -828,25 +811,28 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let BlockExprNode { stmts, return_expr } =
-            ctx.expression(node).as_block_expr().unwrap().clone();
+        let BlockExprNode { stmts, uses } = ctx.expression(node).as_block_expr().unwrap().clone();
 
         let mut block_expr_result = String::new();
-        block_expr_result.push_str("{\n");
+        block_expr_result.push_str(format!("{{\n").as_str());
 
         self.indent();
         let current_indent = self.read_indent(0);
 
-        for stmt in stmts.clone() {
-            let stmt_result = self.visit_stmt(stmt, ctx)?;
+        for &stmt in uses.iter() {
+            let use_path = ctx.statement(stmt).as_use().cloned().unwrap();
+            block_expr_result.push_str(&format!(
+                "{}{}\n",
+                current_indent,
+                self.visit_use(&use_path, ctx)?
+            ));
+        }
+
+        for stmt in stmts.iter() {
+            let stmt_result = self.visit_stmt(*stmt, ctx)?;
             if !stmt_result.is_empty() {
                 block_expr_result.push_str(&format!("{}{}\n", current_indent, stmt_result));
             }
-        }
-
-        if let Some(expr) = return_expr {
-            let return_expr_result = self.visit_expr(expr.clone(), ctx)?;
-            block_expr_result.push_str(&format!("{}{}\n", current_indent, return_expr_result));
         }
 
         self.dedent();
@@ -861,7 +847,6 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        //todo!: need fix output format in if-else and block expr
         let IfExprNode {
             if_branch,
             elseif_branches,
@@ -869,32 +854,31 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             ..
         } = ctx.expression(node).as_if_expr().unwrap().clone();
 
-        let mut result = format!("if {} {{", self.visit_expr(if_branch.predicate, ctx)?);
-        self.write_line(&result);
+        let current_indent = self.read_indent(0);
+        let mut result = format!("if {} ", self.visit_expr(if_branch.predicate, ctx)?);
         self.indent();
-        self.visit_block(if_branch.body, ctx);
+        result.push_str(&format!("{}", self.visit_stmt(if_branch.body, ctx)?));
         self.dedent();
-        self.write("}");
+        result.push_str(&format!("{}\n", current_indent));
 
-        // TODO: remove clone
-        for branch in elseif_branches.clone().into_iter() {
-            let s = format!(" else if {} {{", self.visit_expr(branch.predicate, ctx)?);
-            self.append_line(&s);
+        for branch in elseif_branches.into_iter() {
+            result.push_str(&format!(
+                "{}else if {} ",
+                current_indent,
+                self.visit_expr(branch.predicate, ctx)?
+            ));
             self.indent();
-            self.visit_block(branch.body, ctx);
+            result.push_str(&format!("{}", self.visit_stmt(branch.body, ctx)?));
             self.dedent();
-            self.write("}");
+            result.push_str(&format!("{}\n", current_indent));
         }
 
         if let Some(else_branch) = else_branch {
-            self.append_line(" else {");
+            result.push_str(&format!("{}else ", current_indent));
             self.indent();
-            self.visit_block(else_branch.clone(), ctx);
+            result.push_str(&format!("{}", self.visit_stmt(else_branch, ctx)?));
             self.dedent();
-            self.write("}");
         }
-
-        self.append_line(";");
-        Ok(Default::default())
+        Ok(result)
     }
 }

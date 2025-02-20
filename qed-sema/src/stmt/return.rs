@@ -4,7 +4,7 @@ use crate::TypeId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedReturnNode {
-    pub ret: Option<(ExprId, TypeId)>,
+    pub ret: Option<ExprId>,
 }
 
 impl NodeInfo for CheckedReturnNode {

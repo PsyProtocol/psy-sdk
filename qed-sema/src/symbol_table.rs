@@ -1,23 +1,19 @@
 use std::{
     borrow::Borrow,
-    cell::RefCell,
     collections::HashMap,
     convert::AsMut,
-    fmt::{format, Display, Formatter},
+    fmt::{Display, Formatter},
     hash::Hash,
     iter::once,
     ops::{Index, IndexMut},
-    rc::Rc,
 };
 
 use once_cell::sync::OnceCell;
 use qed_ast::{ModuleNode, PathNode, Visibility};
 use qed_common::{define_arena_id, FileId, TreeNode};
-use strum::EnumTryAs;
 
 use crate::{
-    variable::CheckedVariable, CheckedArrayNode, CheckedFunctionNode, CheckedTraitNode,
-    CheckedValue, CheckedValueNode, CheckedValueRef, DefinitionNode, IdentId, ModuleId, ModuleKind,
+    variable::CheckedVariable, CheckedTraitNode, CheckedValueRef, IdentId, ModuleId, ModuleKind,
     Type, TypeId, TypeKey, UsePath,
 };
 use crate::{Error, Result};
@@ -168,15 +164,23 @@ impl<T: Clone> Display for SymbolTable<T> {
             writeln!(f, "  types:")?;
             //print scope type
             for (k, v) in &scope.types {
-                writeln!(f, "  {:?} : {:?}", k, v)?;
+                writeln!(
+                    f,
+                    "  I({}){:?}  {:?}:{:?} ",
+                    k.id,
+                    qed_ast::get_ident(&k.id),
+                    k,
+                    v
+                )?;
             }
             //variables
             writeln!(f, "  variables:")?;
             for (k, v) in &scope.variables {
                 writeln!(
                     f,
-                    "    {:?} : ty: {}, mut: {}, cnst: {}, scope_id: {:?}, value is_some: {}",
+                    "    I({:?}){:?} : ty: {}, mut: {}, cnst: {}, scope_id: {:?}, value is_some: {}",
                     k,
+                    qed_ast::get_ident(k),
                     v.ty,
                     v.mutable,
                     v.cnst,
@@ -192,7 +196,12 @@ impl<T: Clone> Display for SymbolTable<T> {
         //print module
         for (i, module) in self.modules.iter().enumerate() {
             writeln!(f, "ModuleId({})", i)?;
-            writeln!(f, "  name: {:?}", module.name)?;
+            writeln!(
+                f,
+                "  name: I({:?}):{:?}",
+                module.name,
+                qed_ast::get_ident(&module.name)
+            )?;
             writeln!(f, "  id: {:?}", module.id)?;
             writeln!(f, "  scope_id: {:?}", module.scope_id)?;
             writeln!(f, "  kind: {:?}", module.kind)?;
@@ -630,21 +639,24 @@ impl<F: Clone> SymbolTable<F> {
             ],
             |scope| scope.variables.contains_key(key),
         )?;
-
         let value = self
             .frames
             .last()
             .and_then(|frame| frame.get_value(scope_id, key))
             .cloned();
 
-        self[scope_id]
+        let ret = self[scope_id]
             .variables
             .get(key)
             .cloned()
             .map(|mut variable| {
                 variable.value = value;
                 variable
-            })
+            });
+        match ret {
+            Some(v) => Some(v),
+            None => None,
+        }
     }
 
     pub fn set_variable(

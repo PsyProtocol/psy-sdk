@@ -1,12 +1,12 @@
 use std::marker::PhantomData;
 
 use indexmap::IndexMap;
+use qed_ast::BlockExprNode;
 use qed_ast::*;
-use qed_common::Graph;
 
 #[derive(Debug)]
 pub struct StorageProcessor<'a> {
-    _marker: std::marker::PhantomData<&'a ()>,
+    _marker: PhantomData<&'a ()>,
 }
 
 impl<'a> StorageProcessor<'a> {
@@ -95,10 +95,16 @@ impl<'a> StorageProcessor<'a> {
         }
 
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(sum))));
-        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-            stmts: vec![return_stmt],
-            uses: vec![],
-        }));
+        // let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
+        //     stmts: vec![return_stmt],
+        //     uses: vec![],
+        // }));
+        let stmt_node =
+            StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+                stmts: vec![return_stmt],
+                uses: vec![],
+            })));
+        let block = ctx.alloc_statement(stmt_node);
 
         let f = FunctionNode {
             name: ctx.intern("size"),
@@ -148,10 +154,16 @@ impl<'a> StorageProcessor<'a> {
             field_reads,
         )));
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(value_node))));
-        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-            stmts: vec![return_stmt],
-            uses: vec![],
-        }));
+        // let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
+        //     stmts: vec![return_stmt],
+        //     uses: vec![],
+        // }));
+        let stmt_node =
+            StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+                stmts: vec![return_stmt],
+                uses: vec![],
+            })));
+        let block = ctx.alloc_statement(stmt_node);
         let f = FunctionNode {
             name: ctx.intern("read"),
             parameters: vec![(
@@ -198,11 +210,16 @@ impl<'a> StorageProcessor<'a> {
             };
             offset = ctx.alloc_expression(ExprNode::Binary(node));
         }
-        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-            stmts: field_writes,
-            uses: vec![],
-        }));
-
+        // let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
+        //     stmts: field_writes,
+        //     uses: vec![],
+        // }));
+        let stmt_node =
+            StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+                stmts: field_writes,
+                uses: vec![],
+            })));
+        let block = ctx.alloc_statement(stmt_node);
         let f = FunctionNode {
             name: ctx.intern("write"),
             parameters: vec![
@@ -255,11 +272,16 @@ impl<'a> StorageProcessor<'a> {
 
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(read_expr))));
 
-        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-            stmts: vec![return_stmt],
-            uses: vec![],
-        }));
-
+        // let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
+        //     stmts: vec![return_stmt],
+        //     uses: vec![],
+        // }));
+        let stmt_node =
+            StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+                stmts: vec![return_stmt],
+                uses: vec![],
+            })));
+        let block = ctx.alloc_statement(stmt_node);
         let function = FunctionNode {
             name: getter_ident,
             parameters: vec![],
@@ -312,10 +334,17 @@ impl<'a> StorageProcessor<'a> {
         let write_expr = ctx.alloc_expression(ExprNode::Call(write_call));
 
         let write_stmt = ctx.alloc_statement(StmtNode::Expression(write_expr));
-        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-            stmts: vec![write_stmt],
-            uses: vec![],
-        }));
+        // let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
+        //     stmts: vec![write_stmt],
+        //     uses: vec![],
+        // }));
+
+        let stmt_node =
+            StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+                stmts: vec![write_stmt],
+                uses: vec![],
+            })));
+        let block = ctx.alloc_statement(stmt_node);
 
         let function = FunctionNode {
             name: setter_ident,
@@ -432,7 +461,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         &mut self,
         use_path: &UsePath,
         ctx: &mut Self::Context,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
 
@@ -501,14 +530,6 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     }
 
     fn visit_while(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
-        Ok(())
-    }
-
-    fn visit_block(
         &mut self,
         node: StmtId,
         ctx: &mut Self::Context,
@@ -586,48 +607,53 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             let expr_id = ctx.alloc_expression(ExprNode::Context(ContextNode::GetUserId));
             let body = ctx.definition(node).as_function().unwrap().body.unwrap();
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockNode {
+            let block = BlockExprNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
                 uses: vec![],
             };
-            ctx.replace_statement(body, StmtNode::Block(block));
+            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
+            ctx.replace_statement(body, stmt_node);
         } else if function_name == get_contract_id_ident {
             let expr_id = ctx.alloc_expression(ExprNode::Context(ContextNode::GetContractId));
             let body = ctx.definition(node).as_function().unwrap().body.unwrap();
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockNode {
+            let block = BlockExprNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
                 uses: vec![],
             };
-            ctx.replace_statement(body, StmtNode::Block(block));
+            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
+            ctx.replace_statement(body, stmt_node);
         } else if function_name == get_checkpoint_id_ident {
             let expr_id = ctx.alloc_expression(ExprNode::Context(ContextNode::GetCheckpointId));
             let body = ctx.definition(node).as_function().unwrap().body.unwrap();
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockNode {
+            let block = BlockExprNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
                 uses: vec![],
             };
-            ctx.replace_statement(body, StmtNode::Block(block));
+            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
+            ctx.replace_statement(body, stmt_node);
         } else if function_name == get_last_nonce_ident {
             let expr_id = ctx.alloc_expression(ExprNode::Context(ContextNode::GetLastNonce));
             let body = ctx.definition(node).as_function().unwrap().body.unwrap();
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockNode {
+            let block = BlockExprNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
                 uses: vec![],
             };
-            ctx.replace_statement(body, StmtNode::Block(block));
+            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
+            ctx.replace_statement(body, stmt_node);
         } else if function_name == get_user_public_key_hash_ident {
             let expr_id =
                 ctx.alloc_expression(ExprNode::Context(ContextNode::GetUserPublicKeyHash));
             let body = ctx.definition(node).as_function().unwrap().body.unwrap();
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockNode {
+            let block = BlockExprNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
                 uses: vec![],
             };
-            ctx.replace_statement(body, StmtNode::Block(block));
+            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
+            ctx.replace_statement(body, stmt_node);
         } else if function_name == get_state_hash_at_ident {
             let slot_index_ident = ctx.intern("slot_index");
             let slot_index = ctx.alloc_expression(ExprNode::Path(PathNode {
@@ -640,11 +666,12 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             }));
             let body = ctx.definition(node).as_function().unwrap().body.unwrap();
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockNode {
+            let block = BlockExprNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
                 uses: vec![],
             };
-            ctx.replace_statement(body, StmtNode::Block(block));
+            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
+            ctx.replace_statement(body, stmt_node);
         } else if function_name == get_other_contract_state_hash_at_ident {
             let contract_state_tree_height_ident = ctx.intern("contract_state_tree_height");
             let contract_id_ident = ctx.intern("contract_id");
@@ -673,11 +700,12 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             ));
             let body = ctx.definition(node).as_function().unwrap().body.unwrap();
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockNode {
+            let block = BlockExprNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
                 uses: vec![],
             };
-            ctx.replace_statement(body, StmtNode::Block(block));
+            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
+            ctx.replace_statement(body, stmt_node);
         } else if function_name == get_other_user_contract_state_hash_at_ident {
             let contract_state_tree_height_ident = ctx.intern("contract_state_tree_height");
             let user_id_ident = ctx.intern("user_id");
@@ -713,11 +741,12 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             ));
             let body = ctx.definition(node).as_function().unwrap().body.unwrap();
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockNode {
+            let block = BlockExprNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
                 uses: vec![],
             };
-            ctx.replace_statement(body, StmtNode::Block(block));
+            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
+            ctx.replace_statement(body, stmt_node);
         } else if function_name == cset_state_hash_at_ident {
             let slot_index_ident = ctx.intern("slot_index");
             let new_value_ident = ctx.intern("new_value");
@@ -737,11 +766,12 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
             }));
             let body = ctx.definition(node).as_function().unwrap().body.unwrap();
             let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockNode {
+            let block = BlockExprNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
                 uses: vec![],
             };
-            ctx.replace_statement(body, StmtNode::Block(block));
+            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
+            ctx.replace_statement(body, stmt_node);
         }
 
         if ctx.parent_node_type() != NodeType::ImplDef {
@@ -789,12 +819,13 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
                 return Ok(());
             };
 
-            let block = BlockNode {
+            let block = BlockExprNode {
                 stmts: vec![ctx.alloc_statement(stmt)],
                 uses: vec![],
             };
 
-            ctx.replace_statement(body, StmtNode::Block(block));
+            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
+            ctx.replace_statement(body, stmt_node);
         }
 
         Ok(())

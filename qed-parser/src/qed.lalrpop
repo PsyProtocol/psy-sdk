@@ -2,8 +2,8 @@ use qed_common::{FileId, Arena};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::*;
 use qed_lexer::{Token, Error};
-use qed_ast::expr::block_expr::BlockExprNode;
-use qed_ast::expr::r#if::{IfExprNode, Case};
+use qed_ast::expr::BlockExprNode;
+use qed_ast::expr::{IfExprNode, Case};
 
 grammar<'input, F, C>(
     file_content: &'input str,
@@ -324,42 +324,24 @@ GenericParameters: Vec<IdentId> = {
 }
 
 BlockStatement: StmtNode = {
-    <l:@L> "{" <mut stmts:Statement*> <ret:Expression> "}" <r:@R> => {
-        stmts.push(StmtNode::Return(ReturnNode(Some(expr_nodes.alloc_item(ret)))));
-        let (uses, normal_stmts): (Vec<StmtNode>, Vec<StmtNode>) = stmts.into_iter().partition(|stmt| {
-            stmt.is_use()
-        });
-        StmtNode::Block(BlockNode {
-            stmts: stmt_nodes.alloc_items(normal_stmts),
-            uses: stmt_nodes.alloc_items(uses),
-        })
-    },
-    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => {
-        let (uses, normal_stmts): (Vec<StmtNode>, Vec<StmtNode>) = stmts.into_iter().partition(|stmt| {
-            stmt.is_use()
-        });
-        StmtNode::Block(BlockNode {
-            stmts: stmt_nodes.alloc_items(normal_stmts),
-            uses: stmt_nodes.alloc_items(uses),
-        })
+    <l:@L> <block:BlockExpr> <r:@R> => {
+        StmtNode::Expression(expr_nodes.alloc_item(block))
     }
 }
 
 BlockExpr: ExprNode<F> = {
-    <l:@L> "{" <stmts:Statement*> <result:Expression?> "}" <r:@R> => {
-        let return_expr = match result {
-            None => {
-                None
-            }
-            Some(expr) => {
-                Some(expr_nodes.alloc_item(expr))
-            }
-        };
+    <l:@L> "{" <mut stmts:Statement*> <ret:Expression?> "}" <r:@R> => {
+        if let Some(expr) = ret {
+            stmts.push(StmtNode::Return(ReturnNode(Some(expr_nodes.alloc_item(expr)))));
+        }
+        let (uses, normal_stmts): (Vec<StmtNode>, Vec<StmtNode>) = stmts.into_iter().partition(|stmt| {
+            stmt.is_use()
+        });
 
         ExprNode::BlockExpr(
             BlockExprNode {
-                stmts: stmt_nodes.alloc_items(stmts),
-                return_expr,
+                stmts: stmt_nodes.alloc_items(normal_stmts),
+                uses: stmt_nodes.alloc_items(uses),
             }
         )
     }

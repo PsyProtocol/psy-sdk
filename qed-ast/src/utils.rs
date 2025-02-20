@@ -18,7 +18,7 @@ pub fn insert_ident<S: AsRef<str>>(id: usize, ident: S) {
 }
 
 //todo! cfg with test
-pub fn get_ident(id: IdentId) -> Option<SmolStr> {
+pub fn get_ident(id: &IdentId) -> Option<SmolStr> {
     let global_index = GLOBAL_IDENT_TABLE.lock().unwrap();
     global_index.get(&id).cloned()
     // #[cfg(not(test))]
