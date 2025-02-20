@@ -30,11 +30,29 @@ ModuleItem: ModuleItemNode = {
 }
 
 pub Module: ModuleNode = {
-    <l:@L> <module_items: ModuleItem*> <r:@R> => ModuleNode::new(module_name, file_id, _visibility_, module_items, is_std, is_self_std, is_self_prelude, is_self_primitive)
+    <l:@L> <module_items: ModuleItem*> <r:@R> => ModuleNode::new(
+        module_name,
+        file_id,
+        _visibility_,
+        module_items,
+        is_std,
+        is_self_std,
+        is_self_prelude,
+        is_self_primitive
+    )
 }
 
 InlineModule: ModuleNode = {
-    <l:@L> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> "}" <r:@R> => ModuleNode::new(name, file_id, visibility, module_items, is_std, is_self_std, is_self_prelude, is_self_primitive)
+    <l:@L> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> "}" <r:@R> => ModuleNode::new(
+        name,
+        file_id,
+        visibility,
+        module_items,
+        is_std,
+        is_self_std,
+        is_self_prelude,
+        is_self_primitive
+    )
 }
 
 ModuleDecl: (IdentId, Visibility) = {
@@ -109,8 +127,8 @@ Definition: DefinitionNode = {
 }
 
 ImplDef: ImplNode = {
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <ty:Identifier> <generic_parameters_rhs:GenericParameters> "{" <body:FunctionDef*> "}" <r:@R> => {
-       assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+       // assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplNode {
            generic_parameters: generic_parameters_lhs,
            trait_name: None,
@@ -118,8 +136,8 @@ ImplDef: ImplNode = {
            body: def_nodes.alloc_items(body)
        }
    },
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_name:Identifier> FOR <ty:IdentifierOrBasicType> <generic_parameters_rhs:GenericParameters> "{" <body:FunctionDef*> "}" <r:@R> => {
-       assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_name:Identifier> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+       // assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplNode {
            generic_parameters: generic_parameters_lhs,
            trait_name: Some(trait_name),
@@ -219,10 +237,9 @@ Qualifier: Qualifier = {
 
 
 FunctionSignature: UncheckedType = {
-    <l:@L> FN "(" <parameters:Comma<AnonymousFunctionParameter>> ")" <return_type:FunctionReturn?> <r:@R> => UncheckedType::FunctionSignature(Box::new(FunctionSignature {
-        parameters,
-        return_type
-    }))
+    <l:@L> FN "(" <parameters:Comma<AnonymousFunctionParameter>> ")" <return_type:FunctionReturn?> <r:@R> => UncheckedType::FunctionSignature(
+        Box::new(FunctionSignature {parameters, return_type})
+    )
 }
 
 FunctionParameter: (IdentId, bool, UncheckedType) = {
@@ -243,7 +260,10 @@ FunctionReturn: UncheckedType = {
 EnumVariant: EnumVariant = {
     <l:@L> <name:Identifier> <r:@R> => EnumVariant::Basic(name),
     <l:@L> <name:Identifier> "(" <members:Comma<Ty>> ")" <r:@R> => EnumVariant::Tuple(name, members),
-    <l:@L> <name:Identifier> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => EnumVariant::Struct(name, fields.into_iter().map(|(field_name, field_type, visibility)| (field_name, (field_type, visibility))).collect())
+    <l:@L> <name:Identifier> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => EnumVariant::Struct(
+        name,
+        fields.into_iter().map(|(field_name, field_type, visibility)| (field_name, (field_type, visibility))).collect()
+    )
 }
 
 TypeAnnotation: (IdentId, UncheckedType) = {
@@ -314,12 +334,14 @@ MatchPattern: MatchPattern = {
 }
 
 ForStatement: StmtNode = {
-    <l:@L> FOR <variable:Identifier> IN <start:Expression> ".." <end:Expression> <block_stmt:BlockStatement> <r:@R> => StmtNode::For(ForNode {
-        variable,
-        start: expr_nodes.alloc_item(start),
-        end: expr_nodes.alloc_item(end),
-        body: stmt_nodes.alloc_item(block_stmt)
-    }),
+    <l:@L> FOR <variable:Identifier> IN <start:Expression> ".." <end:Expression> <block_stmt:BlockStatement> <r:@R> => StmtNode::For(
+        ForNode {
+            variable,
+            start: expr_nodes.alloc_item(start),
+            end: expr_nodes.alloc_item(end),
+            body: stmt_nodes.alloc_item(block_stmt)
+        }
+    ),
 }
 
 IfStatement: StmtNode = {
@@ -631,11 +653,13 @@ BoolExpression: ExprNode<F> = {
 }
 
 StructExpression: ExprNode<F> = {
-   <l:@L> <name:Identifier> <generic_parameters:Monomorphization> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
-       name,
-       generic_parameters,
-       kv.into_iter().collect()
-   )),
+   <l:@L> <name:Identifier> <generic_parameters:Monomorphization> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(
+       ValueNode::Struct(
+           name,
+           generic_parameters,
+           kv.into_iter().collect()
+       )
+   ),
 }
 
 KeyValue: (IdentId, ExprId) = {
@@ -643,11 +667,13 @@ KeyValue: (IdentId, ExprId) = {
 }
 
 ClosureExpression: ExprNode<F> = {
-    <l:@L> "|" <parameters:Comma<FunctionParameter>> "|" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => ExprNode::<F>::Closure(ClosureNode {
-        parameters,
-        body: stmt_nodes.alloc_item(block_stmt),
-        return_type
-    })
+    <l:@L> "|" <parameters:Comma<FunctionParameter>> "|" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => ExprNode::<F>::Closure(
+        ClosureNode {
+            parameters,
+            body: stmt_nodes.alloc_item(block_stmt),
+            return_type
+        }
+    )
 }
 
 PathExpression: ExprNode<F> = {

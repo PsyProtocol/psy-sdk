@@ -331,13 +331,6 @@ impl<F: Clone> SymbolTable<F> {
         Ok(())
     }
 
-    pub fn resolve_implementor(&mut self, ty: IdentId) -> Result<(ScopeId, TypeId)> {
-        if let Some(type_id) = self.get_type_id(None, ty) {
-            return Ok((self[type_id].scope_id(), type_id));
-        }
-        Err(Error::UnresolvedImplementor)
-    }
-
     pub fn resolve_trait(&mut self, r#trait: IdentId) -> Result<(ScopeId, TypeId)> {
         if let Some(type_id) = self.get_type_id(None, r#trait) {
             return Ok((self[type_id].scope_id(), type_id));
@@ -359,14 +352,11 @@ impl<F: Clone> SymbolTable<F> {
                         if let Some(&type_id) = self[fun_scope].types.get(&method_name_key) {
                             if self[type_id].is_function() {
                                 if is_trait {
-                                    let trait_name = match self[trait_type_id].clone() {
-                                        Type::Trait(checked_trait_node) => checked_trait_node.name,
-                                        _ => unreachable!(),
-                                    };
-
                                     if self[impl_scope].types.get(&IdentId::TYPE_SELF.into())
                                         == Some(&implementor_id)
-                                        && self.get_type_id(None, trait_name).is_some()
+                                        && self
+                                            .get_type_id(None, self[trait_type_id].key())
+                                            .is_some()
                                     {
                                         return Some(type_id);
                                     }

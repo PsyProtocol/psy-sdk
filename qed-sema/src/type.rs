@@ -293,6 +293,17 @@ impl Type {
         }
     }
 
+    pub fn name(&self) -> IdentId {
+        match self {
+            Type::Struct(CheckedStructNode { name, .. }) => *name,
+            Type::Enum(CheckedEnumNode { name, .. }) => *name,
+            Type::Function(CheckedFunctionNode { name, .. }) => *name,
+            Type::Trait(CheckedTraitNode { name, .. }) => *name,
+            Type::Const(CheckedConstNode { name, .. }) => *name,
+            _ => unreachable!(),
+        }
+    }
+
     pub fn to_value<F: ContextFelt + From<u32>, C: DPNContext<F>>(
         &self,
         symbols: &SymbolTable<F>,

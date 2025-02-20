@@ -6,7 +6,7 @@ use crate::{CheckedFunctionNode, ScopeId, TypeId};
 pub struct CheckedImplNode {
     pub generic_parameters: Vec<TypeId>,
     pub trait_name: Option<IdentId>,
-    pub ty: IdentId,
+    pub ty: TypeId,
     pub body: Vec<CheckedFunctionNode>,
     pub scope_id: ScopeId,
 }

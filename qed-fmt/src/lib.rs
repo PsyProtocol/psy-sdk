@@ -517,7 +517,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 "".to_string()
             },
             generic_parameters,
-            &ctx.ident(ty.clone()),
+            self.visit_unchecked_type(&ty, ctx),
             generic_parameters
         );
         self.write_line(&s);
@@ -1032,7 +1032,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .collect::<Vec<_>>()
             .join(", ");
 
-        let mut result = format!(
+        let result = format!(
             "|{}|{} {}",
             parameters,
             if let Some(ref ret) = return_type {

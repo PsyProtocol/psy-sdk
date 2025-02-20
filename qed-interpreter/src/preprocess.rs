@@ -35,7 +35,7 @@ impl<'a> StorageProcessor<'a> {
         ImplNode {
             generic_parameters: vec![],
             trait_name: Some(ctx.intern("Storage")),
-            ty: struct_node.name,
+            ty: UncheckedType::Basic(struct_node.name),
             body: methods,
         }
     }
@@ -68,7 +68,7 @@ impl<'a> StorageProcessor<'a> {
         ImplNode {
             generic_parameters: vec![],
             trait_name: None,
-            ty: struct_node.name,
+            ty: UncheckedType::Basic(struct_node.name),
             body: methods,
         }
     }

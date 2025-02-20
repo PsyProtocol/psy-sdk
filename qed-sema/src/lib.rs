@@ -920,7 +920,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             ));
         }
 
-        let (implementor_scope, type_id) = ctx.symbols.resolve_implementor(impl_node.ty)?;
+        let type_id = self.typecheck(&impl_node.ty, ctx)?;
+        let implementor_scope = ctx.symbols[type_id].scope_id();
         ctx.symbols.push_scope(implementor_scope);
         ctx.symbols.start_scope(ScopeKind::Impl);
 
@@ -941,7 +942,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let checked_impl = CheckedImplNode {
             generic_parameters,
             trait_name: impl_node.trait_name,
-            ty: impl_node.ty,
+            ty: type_id,
             body: methods,
             scope_id: ctx.symbols.current_scope_id().unwrap(),
         };
@@ -994,94 +995,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
-        // TODO: remove clone
-        let function = ctx.definition(node).as_function().cloned().unwrap();
-
-        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-        let mut generic_parameters = Vec::new();
-        let mut parameters = Vec::new();
-
-        for &generic_parameter in &function.generic_parameters {
-            let type_id = ctx.symbols.add_type_variable(generic_parameter)?;
-            generic_parameters.push(type_id);
-        }
-
-        let current_scope_kind = &ctx.symbols[current_scope_id].kind;
-        let is_method_scope = current_scope_kind == &ScopeKind::ImplMethod
-            || current_scope_kind == &ScopeKind::TraitMethod;
-
-        for (i, (parameter, _, parameter_type)) in function.parameters.iter().enumerate() {
-            // self parameter is only allowed in associated functions associated functions are those in `impl` or `trait` definitions
-            if i > 0 || (i == 0 && !is_method_scope) {
-                if parameter == &IdentId::SELF {
-                    return Err(Error::InvalidSelfParameter);
-                }
-            }
-
-            // Self is only available in impls, traits, and type definitions
-            if !is_method_scope && parameter_type == &UncheckedType::Basic(IdentId::TYPE_SELF) {
-                return Err(Error::InvalidSelfParameter);
-            }
-        }
-
-        for (parameter, mutable, parameter_type) in &function.parameters {
-            let parameter_type = self.typecheck(parameter_type, ctx)?;
-            let variable = CheckedVariable::new(parameter_type, *mutable, current_scope_id, None);
-            ctx.symbols.declare_variable(parameter.clone(), variable)?;
-            parameters.push((parameter.clone(), *mutable, parameter_type));
-        }
-
-        let expected_return_type = if let Some(ref ret) = function.return_type {
-            Some(self.typecheck(ret, ctx)?)
-        } else {
-            None
-        };
-
-        let (checked_body, actual_return_type) = if let Some(body) = &function.body {
-            let checked_body = self.visit_block(body.clone(), ctx)?;
-
-            let actual_return_type =
-                checked_body
-                    .as_block()
-                    .unwrap()
-                    .stmts
-                    .last()
-                    .and_then(|stmt| match self[stmt.clone()] {
-                        CheckedStmtNode::Return(CheckedReturnNode { ret }) => {
-                            ret.as_ref().map(|(_, ty)| ty.clone())
-                        }
-                        _ => None,
-                    });
-
-            (Some(checked_body), actual_return_type)
-        } else {
-            (None, expected_return_type)
-        };
-
-        match (expected_return_type, actual_return_type) {
-            (Some(lhs), Some(rhs)) => {
-                if !self.unify(lhs, rhs, ctx) {
-                    return Err(Error::TypeMismatch);
-                }
-            }
-            (None, None) => {}
-            _ => {
-                return Err(Error::TypeMismatch);
-            }
-        }
-
-        let checked_function = CheckedFunctionNode {
-            name: function.name,
-            parameters,
-            generic_parameters,
-            body: checked_body.map(|x| self.stmts.alloc_item(x)),
-            return_type: expected_return_type,
-            scope_id: current_scope_id,
-            visibility: function.visibility,
-            attrs: function.attrs,
-        };
-
-        Ok(CheckedDefinitionNode::Function(checked_function))
+        Ok(CheckedDefinitionNode::Function(
+            self.typecheck_function(node, ctx)?,
+        ))
     }
 
     fn visit_struct(
@@ -1626,7 +1542,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             None
         };
 
-        let (checked_body, actual_return_type) = if let Some(body) = &function.body {
+        let checked_body = if let Some(body) = &function.body {
             let checked_body = self.visit_block(body.clone(), ctx)?;
 
             let actual_return_type =
@@ -1642,22 +1558,22 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                         _ => None,
                     });
 
-            (Some(checked_body), actual_return_type)
-        } else {
-            (None, expected_return_type)
-        };
-
-        match (expected_return_type, actual_return_type) {
-            (Some(lhs), Some(rhs)) => {
-                if !self.unify(lhs, rhs, ctx) {
+            match (expected_return_type, actual_return_type) {
+                (Some(lhs), Some(rhs)) => {
+                    if !self.unify(lhs, rhs, ctx) {
+                        return Err(Error::TypeMismatch);
+                    }
+                }
+                (None, None) => {}
+                _ => {
                     return Err(Error::TypeMismatch);
                 }
             }
-            (None, None) => {}
-            _ => {
-                return Err(Error::TypeMismatch);
-            }
-        }
+
+            Some(checked_body)
+        } else {
+            None
+        };
 
         let checked_function = CheckedFunctionNode {
             name: function.name,
@@ -1680,7 +1596,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedImplNode> {
         let (trait_scope, trait_type_id) = ctx.symbols.resolve_trait(r#impl.trait_name.unwrap())?;
-        let (_, implementor_type_id) = ctx.symbols.resolve_implementor(r#impl.ty)?;
+        let implementor_type_id = self.typecheck(&r#impl.ty, ctx)?;
         ctx.symbols.push_scope(trait_scope);
         ctx.symbols.start_scope(ScopeKind::Impl);
 
@@ -1708,7 +1624,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         let checked_impl = CheckedImplNode {
             generic_parameters,
             trait_name: r#impl.trait_name,
-            ty: r#impl.ty,
+            ty: implementor_type_id,
             body: methods,
             scope_id: ctx.symbols.current_scope_id().unwrap(),
         };
@@ -1725,22 +1641,14 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
 
     fn unify(&self, ty1: TypeId, ty2: TypeId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> bool {
         match (&ctx.symbols[ty1], &ctx.symbols[ty2]) {
-            (Type::Function(f), Type::FunctionSignature(sig)) => &f.signature() == sig,
-            (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,
-            (Type::Closure(f), Type::FunctionSignature(sig)) => &f.signature() == sig,
-            (Type::FunctionSignature(sig), Type::Closure(f)) => &f.signature() == sig,
-            (Type::Const(c), Type::Felt(_)) => c.ty == ty2,
-            (Type::Felt(_), Type::Const(c)) => c.ty == ty1,
+            (Type::Function(f), Type::FunctionSignature(sig))
+            | (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,
+            (Type::Closure(f), Type::FunctionSignature(sig))
+            | (Type::FunctionSignature(sig), Type::Closure(f)) => &f.signature() == sig,
+            (Type::Const(c), Type::Felt(_)) | (Type::Felt(_), Type::Const(c)) => c.ty == ty2,
             (Type::Const(c), Type::Const(d)) => c.ty == d.ty,
             (Type::Unknown, Type::Unknown) => false,
-            (Type::Unknown, _) => {
-                ctx.symbols[ty1] = ctx.symbols[ty2].clone();
-                true
-            }
-            (_, Type::Unknown) => {
-                ctx.symbols[ty2] = ctx.symbols[ty1].clone();
-                true
-            }
+            (Type::Unknown, _) | (_, Type::Unknown) => true,
             _ => ty1 == ty2,
         }
     }

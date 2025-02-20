@@ -6,7 +6,6 @@ mod preprocess;
 
 use error::{Error, Result};
 use indexmap::IndexMap;
-use plonky2::field::goldilocks_field::GoldilocksField;
 pub use preprocess::StorageProcessor;
 use qed_ast::*;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
@@ -24,7 +23,7 @@ use tracing::instrument;
 
 use crate::control::ControlState;
 
-type GF = GoldilocksField;
+// type GF = GoldilocksField;
 #[derive(Debug)]
 pub struct Interpreter<F: Clone + From<u32>, C> {
     pub context: C,

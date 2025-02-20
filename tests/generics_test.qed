@@ -2,6 +2,12 @@ struct Person<T> {
     age: T
 }
 
+impl<T> for Person<T> {
+    pub fn new(age: T) -> Self {
+        Self { age }
+    }
+}
+
 fn main() -> Felt {
     let p = new Person#<Felt> { age: 10 };
     p.age
