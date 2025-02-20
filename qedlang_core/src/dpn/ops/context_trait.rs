@@ -5,6 +5,7 @@ use std::fmt::Debug;
 
 use crate::dpn::QContext;
 
+use super::op_types::DPNOpType;
 use super::sym_felt::SymFeltRef;
 pub trait ContextFelt:
     Copy
@@ -141,17 +142,11 @@ impl<T: ToFelts<SymFeltRef>, A: QContextArraySized<T>> QContextArray<T> for A {
             let index = index.get_constant_value();
             self.q_get_direct(index)
         } else {
+            let arr_len = self.q_size();
+            let index_in_of_bounds = context.op_lte(index, SymFeltRef::new_constant(arr_len));
+            context.assert_true(index_in_of_bounds, "felt index out of bounds");
+
             let mut result = self.q_get_direct(0);
-            let i = 1;
-
-            let value = self.q_get_direct(i);
-            let eq = context.op_eq(index, SymFeltRef::new_constant(i));
-            result = context.cselect(
-                eq,
-                value,
-                result,
-            );
-
 
             for i in 1..self.q_size() {
                 let value = self.q_get_direct(i);
@@ -177,6 +172,102 @@ impl<T: ToFelts<SymFeltRef>, A: QContextArraySized<T>> QContextArray<T> for A {
         todo!()
     }
 } 
+
+pub trait DPNContextArray<F: ContextFelt, T: ToFelts<F>, C: DPNContext<F>> {
+    fn q_size(&self) -> u64;
+    fn q_get(&self, context: &mut C, index: F) -> T;
+    fn q_get_ref(&self, context: &mut C, index: F) -> &T;
+    fn q_get_mut(&mut self, context: &mut C, index: F) -> &mut T;
+    fn q_set_at_index(&mut self, context: &mut C, index: F) -> T;
+}
+pub trait DPNContextArraySized<F: ContextFelt, T: ToFelts<F>> {
+    fn q_sized_size(&self) -> u64;
+    fn q_get_direct(&self, index: u64) -> T;
+    fn q_get_direct_ref(&self, index: u64) -> &T;
+    fn q_get_direct_mut(&mut self, index: u64) -> &mut T;
+    fn q_put_direct(&mut self, index: u64, value: T);
+}
+impl<F: ContextFelt, T: ToFelts<F> + Clone, const N: usize> DPNContextArraySized<F, T> for [T; N] {
+    default fn q_sized_size(&self) -> u64 {
+        N as u64
+    }
+
+    default fn q_get_direct(&self, index: u64) -> T {
+        self[index as usize].to_owned()
+    }
+    default fn q_get_direct_ref(&self, index: u64) -> &T {
+        &self[index as usize]
+    }
+    default fn q_get_direct_mut(&mut self, index: u64) -> &mut T {
+        self.get_mut(index as usize).unwrap()
+    }
+    default fn q_put_direct(&mut self, index: u64, value: T) {
+        self[index as usize] = value;
+    }
+}
+impl<F: ContextFelt, T: ToFelts<F> + Clone> DPNContextArraySized<F, T> for Vec<T> {
+    default fn q_sized_size(&self) -> u64 {
+        self.len() as u64
+    }
+
+    default fn q_get_direct(&self, index: u64) -> T {
+        self[index as usize].to_owned()
+    }
+    default fn q_get_direct_ref(&self, index: u64) -> &T {
+        &self[index as usize]
+    }
+    default fn q_get_direct_mut(&mut self, index: u64) -> &mut T {
+        self.get_mut(index as usize).unwrap()
+    }
+    default fn q_put_direct(&mut self, index: u64, value: T) {
+        self[index as usize] = value;
+    }
+}
+
+impl<F: ContextFelt, T: ToFelts<F>, C: DPNContext<F>, A: DPNContextArraySized<F, T>> DPNContextArray<F, T, C> for A {
+    fn q_size(&self) -> u64 {
+        self.q_sized_size()
+    }
+
+    fn q_get(&self, context: &mut C, index: F) -> T {
+        let constant_types = [DPNOpType::Constant, DPNOpType::ConstantTrue, DPNOpType::ConstantFalse];
+        if constant_types.contains(&context.get_op_type(index)) {
+            let index = index.get_u64();
+            self.q_get_direct(index)
+        } else {
+            let arr_len = <A as DPNContextArray<F, T, C>>::q_size(self);
+            let arr_len_felt = context.op_const(arr_len);
+            let index_in_of_bounds = context.op_lte(index, arr_len_felt);
+            context.assert_true(index_in_of_bounds, "felt index out of bounds");
+
+            let mut result = self.q_get_direct(0);
+
+            for i in 1..arr_len {
+                println!("value: {:?}", i);
+                let value = self.q_get_direct(i);
+                let ind = context.op_const(i);
+                let eq = context.op_eq(index, ind);
+                result = context.cselect(
+                    eq,
+                    value,
+                    result,
+                );
+            }
+            result
+        }
+    }
+    fn q_get_ref(&self, _context: &mut C, _index: F) -> &T {
+        todo!("q_get_ref")
+    }
+    
+    fn q_get_mut(&mut self, _context: &mut C, _index: F) -> &mut T {
+        todo!()
+    }
+    
+    fn q_set_at_index(&mut self, _context: &mut C, _index: F) -> T {
+        todo!()
+    }
+} 
 impl<F: ContextFelt> ToFelts<F> for F {
     fn to_felts(&self) -> Vec<F> {
         vec![*self]
@@ -198,6 +289,9 @@ impl<T, const N: usize> Index<SymFeltRef> for [T; N] {
     }
 }
 pub trait DPNContext<F: ContextFelt>: Debug + Clone {
+    fn get_constant_value(&self, a: F) -> u64;
+    fn get_op_type(&self, a: F) -> DPNOpType;
+
     fn op_cast_u32(&mut self, a: F) -> F;
     fn op_select(&mut self, condition: F, a: F, b: F) -> F;
     fn op_const(&mut self, value: u64) -> F;

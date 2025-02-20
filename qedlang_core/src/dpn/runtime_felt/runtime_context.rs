@@ -46,6 +46,13 @@ impl<F: ContextFelt> QRuntimeContext<F> {
 
 
 impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
+    fn get_constant_value(&self, a: F) -> u64 {
+        a.get_u64()
+    }
+    fn get_op_type(&self, a: F) -> DPNOpType {
+        unimplemented!()
+    }
+
     fn op_cast_u32(&mut self, a: F) -> F {
         a&0xFFFFFFFFu64
     }

@@ -385,6 +385,12 @@ impl QExecContext {
     }
 }
 impl DPNContext<SymFeltRef> for QExecContext {
+    fn get_constant_value(&self, a: SymFeltRef) -> u64 {
+        a.get_constant_value()
+    }
+    fn get_op_type(&self, a: SymFeltRef) -> DPNOpType {
+        a.get_op_type()
+    }
     fn op_cast_u32(&mut self, a: SymFeltRef) -> SymFeltRef {
         let op_type = a.get_op_type();
         if op_type.get_data_type() == DPNBuiltInDataType::U32Target {
