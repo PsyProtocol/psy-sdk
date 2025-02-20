@@ -312,6 +312,21 @@ impl<F: Clone> SymbolTable<F> {
         Ok(type_id)
     }
 
+    pub fn add_type_alias<K: Into<TypeKey>>(
+        &mut self,
+        scope_id: Option<ScopeId>,
+        name: K,
+        ty: Type,
+    ) -> Result<TypeId> {
+        let key = ty.key();
+        let name = name.into();
+        let type_id = self.add_type(scope_id, ty)?;
+        if key != name {
+            self.add_type_id(scope_id, name, type_id)?;
+        }
+        Ok(type_id)
+    }
+
     pub fn add_type_variable(&mut self, ty: IdentId) -> Result<TypeId> {
         let type_id = TypeId(self.types.len());
         self.types.push(Type::TypeVariable(ty));
@@ -329,13 +344,6 @@ impl<F: Clone> SymbolTable<F> {
             self.add_type_id(None, ident, type_id)?;
         }
         Ok(())
-    }
-
-    pub fn resolve_trait(&mut self, r#trait: IdentId) -> Result<(ScopeId, TypeId)> {
-        if let Some(type_id) = self.get_type_id(None, r#trait) {
-            return Ok((self[type_id].scope_id(), type_id));
-        }
-        Err(Error::UnresolvedTrait)
     }
 
     pub fn resolve_method(&self, implementor_id: TypeId, method_name: IdentId) -> Option<TypeId> {

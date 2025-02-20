@@ -29,6 +29,7 @@ pub struct TypeCheckerVisitorContext<F: Clone + From<u32>, C> {
     path_stack: Vec<NodeId>,
     pub program: Program<F>,
     pub symbols: SymbolTable<F>,
+    pub inferences: HashMap<TypeId, TypeId>,
     _marker: std::marker::PhantomData<(F, C)>,
 }
 
@@ -38,6 +39,7 @@ impl<F: Clone + From<u32>, C> TypeCheckerVisitorContext<F, C> {
             path_stack: vec![],
             program,
             symbols: SymbolTable::new(),
+            inferences: HashMap::new(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -1036,7 +1038,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
 
         let ty = Type::Struct(checked_struct.clone());
-        ctx.symbols.add_type(ctx.symbols.parent_scope_id(), ty)?;
+        ctx.symbols
+            .add_type_alias(ctx.symbols.parent_scope_id(), checked_struct.name, ty)?;
 
         ctx.symbols.end_scope();
         Ok(CheckedDefinitionNode::Struct(checked_struct))
@@ -1356,11 +1359,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                 .unwrap()
         };
         for (id, ty) in &*TYPE_MAPPING {
-            let key = ty.key();
-            let type_id = ctx.symbols.add_type(None, ty.clone())?;
-            if id != &key.name {
-                ctx.symbols.add_type_id(None, id.clone(), type_id)?;
-            }
+            ctx.symbols.add_type_alias(None, id.clone(), ty.clone())?;
         }
         Ok(())
     }
@@ -1397,20 +1396,19 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                 .get_type_id(None, name.clone())
                 .ok_or(Error::UnresolvedType)?),
             UncheckedType::Generic(name, generic_parameters) => {
-                let type_id = ctx
+                let underlying_type_id = ctx
                     .symbols
                     .get_type_id(None, name.clone())
                     .ok_or(Error::UnresolvedType)?;
 
                 let mut checked_generic_parameters = Vec::new();
                 for generic_parameter in generic_parameters {
-                    checked_generic_parameters.push(self.typecheck(generic_parameter, ctx));
+                    checked_generic_parameters.push(self.typecheck(generic_parameter, ctx)?);
                 }
 
-                let ty = &ctx.symbols[type_id];
+                let mut ty = ctx.symbols[underlying_type_id].clone();
                 match ty {
                     Type::Struct(checked_struct) => {
-                        // instantiate struct
                         todo!()
                     }
                     Type::Enum(checked_enum) => {
@@ -1596,9 +1594,13 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         r#impl: &ImplNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedImplNode> {
-        let (trait_scope, trait_type_id) = ctx.symbols.resolve_trait(r#impl.trait_name.unwrap())?;
+        let trait_type_id = ctx
+            .symbols
+            .get_type_id(None, r#impl.trait_name.unwrap())
+            .ok_or(Error::UnresolvedTrait)?;
         let implementor_type_id = self.typecheck(&r#impl.ty, ctx)?;
-        ctx.symbols.push_scope(trait_scope);
+        ctx.symbols
+            .push_scope(ctx.symbols[trait_type_id].scope_id());
         ctx.symbols.start_scope(ScopeKind::Impl);
 
         ctx.symbols
@@ -1646,6 +1648,14 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         rhs_ty: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> bool {
+        eprintln!(
+            "DEBUGPRINT[245]: lib.rs:1646: &ctx.symbols[lhs_ty]={:#?}",
+            &ctx.symbols[lhs_ty]
+        );
+        eprintln!(
+            "DEBUGPRINT[246]: lib.rs:1647: &ctx.symbols[rhs_ty]={:#?}",
+            &ctx.symbols[rhs_ty]
+        );
         match (&ctx.symbols[lhs_ty], &ctx.symbols[rhs_ty]) {
             (Type::Function(f), Type::FunctionSignature(sig))
             | (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,
@@ -1659,4 +1669,22 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             _ => lhs_ty == rhs_ty,
         }
     }
+
+    fn substitute(&self, type_var: TypeId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> TypeId {
+        match &ctx.symbols[type_var] {
+            Type::TypeVariable(ty) => {
+                if let Some(type_id) = ctx.inferences.get(&type_var) {
+                    return *type_id;
+                }
+            }
+            // Type::Struct(ty)
+            _ => (),
+        }
+
+        type_var
+    }
+
+    fn instantiate_generic_type() {}
+
+    fn instantiate_generic_function() {}
 }
