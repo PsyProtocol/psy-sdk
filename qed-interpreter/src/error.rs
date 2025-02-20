@@ -12,6 +12,8 @@ pub enum Error {
     SemaError(#[from] SemaError),
     #[error("undefined function")]
     UndefinedFunction,
+    #[error("uncertain loop condition")]
+    UncertainLoopCondition,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
