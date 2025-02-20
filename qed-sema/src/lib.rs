@@ -1243,15 +1243,16 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
         // TODO: remove clone
         let node = ctx.definition(node).as_const().cloned().unwrap();
-        let type_id = self.typecheck(&node.ty, ctx)?;
+        let lhs_ty = self.typecheck(&node.ty, ctx)?;
         let value = self.visit_expr(node.value, ctx)?;
-        if !self.unify(type_id, value.ty(), ctx) {
+        let rhs_ty = value.ty();
+        if !self.unify(lhs_ty, rhs_ty, ctx) {
             return Err(Error::TypeMismatch);
         }
 
         let node = CheckedConstNode {
             name: node.name,
-            ty: type_id,
+            ty: rhs_ty,
             value: self.exprs.alloc_item(value),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: node.visibility,
@@ -1639,17 +1640,23 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         Ok(checked_impl)
     }
 
-    fn unify(&self, ty1: TypeId, ty2: TypeId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> bool {
-        match (&ctx.symbols[ty1], &ctx.symbols[ty2]) {
+    fn unify(
+        &self,
+        lhs_ty: TypeId,
+        rhs_ty: TypeId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> bool {
+        match (&ctx.symbols[lhs_ty], &ctx.symbols[rhs_ty]) {
             (Type::Function(f), Type::FunctionSignature(sig))
             | (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,
             (Type::Closure(f), Type::FunctionSignature(sig))
             | (Type::FunctionSignature(sig), Type::Closure(f)) => &f.signature() == sig,
-            (Type::Const(c), Type::Felt(_)) | (Type::Felt(_), Type::Const(c)) => c.ty == ty2,
+            (Type::Const(c), Type::Felt(_)) => c.ty == rhs_ty,
+            (Type::Felt(_), Type::Const(c)) => c.ty == lhs_ty,
             (Type::Const(c), Type::Const(d)) => c.ty == d.ty,
             (Type::Unknown, Type::Unknown) => false,
             (Type::Unknown, _) | (_, Type::Unknown) => true,
-            _ => ty1 == ty2,
+            _ => lhs_ty == rhs_ty,
         }
     }
 }
