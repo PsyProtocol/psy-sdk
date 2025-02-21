@@ -143,7 +143,7 @@ impl<T: ToFelts<SymFeltRef>, A: QContextArraySized<T>> QContextArray<T> for A {
             self.q_get_direct(index)
         } else {
             let arr_len = self.q_size();
-            let index_in_of_bounds = context.op_lte(index, SymFeltRef::new_constant(arr_len));
+            let index_in_of_bounds = context.op_lt(index, SymFeltRef::new_constant(arr_len));
             context.assert_true(index_in_of_bounds, "felt index out of bounds");
 
             let mut result = self.q_get_direct(0);
@@ -237,7 +237,7 @@ impl<F: ContextFelt, T: ToFelts<F>, C: DPNContext<F>, A: DPNContextArraySized<F,
         } else {
             let arr_len = <A as DPNContextArray<F, T, C>>::q_size(self);
             let arr_len_felt = context.op_const(arr_len);
-            let index_in_of_bounds = context.op_lte(index, arr_len_felt);
+            let index_in_of_bounds = context.op_lt(index, arr_len_felt);
             context.assert_true(index_in_of_bounds, "felt index out of bounds");
 
             let mut result = self.q_get_direct(0);
