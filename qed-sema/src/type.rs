@@ -284,8 +284,8 @@ impl Type {
         ctx: &mut C,
     ) -> CheckedValue<F> {
         match self {
-            Type::Felt(f) => CheckedValue::Felt(ctx.add_input()),
-            Type::Bool(b) => CheckedValue::Bool(ctx.add_input()),
+            Type::Felt(_f) => CheckedValue::Felt(ctx.add_input()),
+            Type::Bool(_b) => CheckedValue::Bool(ctx.add_input()),
             Type::Array(a) => {
                 let mut result = Vec::new();
                 let inner_ty = symbols[a.inner_ty].clone();

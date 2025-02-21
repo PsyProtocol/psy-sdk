@@ -33,8 +33,8 @@ impl NodeInfo for CheckedStmtNode {
             Self::While(node) => node.node_type(),
             Self::Assignment(node) => node.node_type(),
             Self::Variable(node) => node.node_type(),
-            Self::Definition(node) => NodeType::DefinitionStmt,
-            Self::Expression(node) => NodeType::ExpressionStmt,
+            Self::Definition(_node) => NodeType::DefinitionStmt,
+            Self::Expression(_node) => NodeType::ExpressionStmt,
             Self::Return(node) => node.node_type(),
             Self::Intrinsic(node) => node.node_type(),
             Self::Use => NodeType::UseStmt,
@@ -69,13 +69,13 @@ impl From<DefId> for CheckedStmtNode {
 }
 
 impl<F> From<CheckedExprNode<F>> for CheckedStmtNode {
-    fn from(value: CheckedExprNode<F>) -> Self {
+    fn from(_value: CheckedExprNode<F>) -> Self {
         todo!()
     }
 }
 
 impl From<CheckedDefinitionNode> for CheckedStmtNode {
-    fn from(value: CheckedDefinitionNode) -> Self {
+    fn from(_value: CheckedDefinitionNode) -> Self {
         todo!()
     }
 }

@@ -5,7 +5,6 @@ mod error;
 mod preprocess;
 
 use crate::control::ControlState;
-use either::Either;
 use error::{Error, Result};
 use indexmap::IndexMap;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -19,7 +18,6 @@ use qed_sema::CheckedIfExprNode;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
 use qedlang_core::dpn::{
-    eval::traits::ContextInput,
     ops::{
         context_trait::{ContextFelt, DPNContext, ToFelts},
         op_types::DPNOpType,
@@ -28,9 +26,11 @@ use qedlang_core::dpn::{
 };
 use std::iter::once;
 
-use std::{collections::HashMap, fmt::Display, ops::Index, path::PathBuf, rc::Rc};
-use tracing::{debug, error, info, instrument, span, Level};
+use std::{collections::HashMap, path::PathBuf};
+// use tracing::{debug, error, info, instrument, span, Level};
+use tracing::{instrument};
 
+#[allow(dead_code)]
 type GF = GoldilocksField;
 #[derive(Debug)]
 pub struct Interpreter<F: Clone + From<u32>, C> {
@@ -329,16 +329,16 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     ) -> Result<ControlState<CheckedValueRef<F>>> {
         let node = &typechecker[stmt_id];
         match node {
-            CheckedStmtNode::While(r#while) => {
+            CheckedStmtNode::While(r#_while) => {
                 self.interpret_while(typechecker, stmt_id, symbols)?
             }
-            CheckedStmtNode::Assignment(r#assignment) => {
+            CheckedStmtNode::Assignment(r#_assignment) => {
                 self.interpret_assignment(typechecker, stmt_id, symbols)?
             }
-            CheckedStmtNode::Variable(variable) => {
+            CheckedStmtNode::Variable(_variable) => {
                 self.interpret_variable(typechecker, stmt_id, symbols)?
             }
-            CheckedStmtNode::Definition(definition) => {}
+            CheckedStmtNode::Definition(_definition) => {}
             CheckedStmtNode::Expression(expr_id) => {
                 match &typechecker[expr_id.clone()].node_type() {
                     NodeType::BlockExpr => {
@@ -351,7 +351,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                     }
                 }
             }
-            CheckedStmtNode::Return(return_node) => {
+            CheckedStmtNode::Return(_return_node) => {
                 return self.interpret_ret(typechecker, stmt_id, symbols);
             }
             CheckedStmtNode::Intrinsic(intrinsic_node) => match intrinsic_node {
@@ -552,11 +552,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_assignment_value(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
+        _typechecker: &TypeChecker<F, C>,
         old_value: &CheckedValueRef<F>,
         operator: AssignmentOperator,
         value: CheckedValueRef<F>,
-        symbols: &mut SymbolTable<F>,
+        _symbols: &mut SymbolTable<F>,
     ) -> Result<CheckedValueRef<F>> {
         let new_value = match operator {
             AssignmentOperator::Eq => value,
@@ -1075,7 +1075,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     fn interpret_path_assignment(
         &mut self,
         _typechecker: &TypeChecker<F, C>,
-        node: &CheckedAssignmentNode,
+        _node: &CheckedAssignmentNode,
         path_node: &CheckedPathNode,
         symbols: &mut SymbolTable<F>,
         _path: &mut Vec<usize>,

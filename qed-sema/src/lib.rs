@@ -15,7 +15,7 @@ use qed_common::{Arena, Graph};
 pub use r#type::*;
 use std::{
     collections::HashMap,
-    ops::{Index, IndexMut},
+    ops::{Index},
 };
 pub use stmt::*;
 pub use symbol_table::*;
@@ -25,9 +25,9 @@ pub use variable::*;
 pub use error::*;
 use qed_ast::*;
 
-use crate::CheckedCase;
 use qed_ast::BlockExprNode;
-use tracing::{debug, error, info, instrument, span, Level};
+// use tracing::{debug, error, info, instrument, span, Level};
+use tracing::{instrument};
 
 pub struct TypeCheckerVisitorContext<F: Clone + From<u32>, C> {
     path_stack: Vec<NodeId>,
@@ -96,7 +96,7 @@ impl<F: Clone + From<u32>, C> VisitorContext<F, C> for TypeCheckerVisitorContext
         &self.program.interner[id]
     }
 
-    fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId {
+    fn intern<S: Into<Ident>>(&mut self, _s: S) -> IdentId {
         unimplemented!()
     }
 
@@ -124,27 +124,27 @@ impl<F: Clone + From<u32>, C> VisitorContext<F, C> for TypeCheckerVisitorContext
         &self.program.defs[def_id]
     }
 
-    fn insert_definition(&mut self, definition: Self::Definition, pos: InsertPosition) {
+    fn insert_definition(&mut self, _definition: Self::Definition, _pos: InsertPosition) {
         unimplemented!()
     }
 
-    fn alloc_expression(&mut self, expr: Self::Expr) -> ExprId {
+    fn alloc_expression(&mut self, _expr: Self::Expr) -> ExprId {
         unimplemented!()
     }
 
-    fn alloc_statement(&mut self, stmt: Self::Stmt) -> StmtId {
+    fn alloc_statement(&mut self, _stmt: Self::Stmt) -> StmtId {
         unimplemented!()
     }
 
-    fn alloc_definition(&mut self, definition: Self::Definition) -> DefId {
+    fn alloc_definition(&mut self, _definition: Self::Definition) -> DefId {
         unimplemented!()
     }
 
-    fn replace_definition(&mut self, def_id: DefId, definition: Self::Definition) {
+    fn replace_definition(&mut self, _def_id: DefId, _definition: Self::Definition) {
         unimplemented!()
     }
 
-    fn replace_statement(&mut self, stmt_id: StmtId, statement: Self::Stmt) {
+    fn replace_statement(&mut self, _stmt_id: StmtId, _statement: Self::Stmt) {
         unimplemented!()
     }
 }
@@ -1146,25 +1146,25 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         for variant in &enum_node.variants {
             match variant {
-                EnumVariant::Basic(name) => todo!(),
-                EnumVariant::Tuple(name, members) => todo!(),
-                EnumVariant::Struct(name, fields) => todo!(),
+                EnumVariant::Basic(_name) => todo!(),
+                EnumVariant::Tuple(_name, _members) => todo!(),
+                EnumVariant::Struct(_name, _fields) => todo!(),
             }
         }
-
-        let checked_enum = CheckedEnumNode {
-            generic_parameters,
-            name: todo!(),
-            variants: todo!(),
-            scope_id: todo!(),
-            implementations: Vec::new(),
-            visibility: enum_node.visibility,
-        };
-        let ty = Type::Enum(checked_enum.clone());
-        ctx.symbols.add_type(ctx.symbols.parent_scope_id(), ty)?;
-
-        ctx.symbols.end_scope();
-        Ok(CheckedDefinitionNode::Enum(checked_enum))
+        todo!();
+        // let checked_enum = CheckedEnumNode {
+        //     generic_parameters,
+        //     name: todo!(),
+        //     variants: todo!(),
+        //     scope_id: todo!(),
+        //     implementations: Vec::new(),
+        //     visibility: enum_node.visibility,
+        // };
+        // let ty = Type::Enum(checked_enum.clone());
+        // ctx.symbols.add_type(ctx.symbols.parent_scope_id(), ty)?;
+        //
+        // ctx.symbols.end_scope();
+        // Ok(CheckedDefinitionNode::Enum(checked_enum))
     }
 
     fn visit_expr(
@@ -1388,7 +1388,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             visibility: node.visibility,
         };
 
-        ctx.symbols.add_type(None, Type::Const(node.clone()));
+        ctx.symbols.add_type(None, Type::Const(node.clone()))?;
 
         Ok(CheckedDefinitionNode::Const(node))
     }
@@ -1492,11 +1492,11 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
 
                 let ty = &ctx.symbols[type_id];
                 match ty {
-                    Type::Struct(checked_struct) => {
+                    Type::Struct(_checked_struct) => {
                         // instantiate struct
                         todo!()
                     }
-                    Type::Enum(checked_enum) => {
+                    Type::Enum(_checked_enum) => {
                         todo!()
                         // instantiate enum
                     }

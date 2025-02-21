@@ -43,12 +43,12 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         }
         result
     }
-
+    #[allow(dead_code)]
     fn append_line(&mut self, s: &str) {
         self.output.push_str(s);
         self.output.push('\n');
     }
-
+    #[allow(dead_code)]
     fn write(&mut self, s: &str) {
         self.write_indent();
         self.output.push_str(s);
@@ -311,7 +311,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &MemberCallNode {
             callee: variable,
             ref args,
-            receiver,
+            receiver: _,
             ref generic_parameters,
         } = ctx.expression(expr_id).as_member_call().unwrap();
         let generic_parameters = generic_parameters

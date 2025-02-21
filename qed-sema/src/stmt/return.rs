@@ -1,7 +1,5 @@
 use qed_ast::{ExprId, NodeInfo, NodeType};
 
-use crate::TypeId;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedReturnNode {
     pub ret: Option<ExprId>,

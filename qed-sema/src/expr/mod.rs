@@ -93,8 +93,8 @@ impl<F> CheckedExprNode<F> {
                 CheckedIntrinsicExprNode::CSetStateHashAt { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::Read { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::Write {
-                    offset,
-                    value,
+                    offset: _,
+                    value: _,
                     type_id,
                 } => type_id.clone(),
                 CheckedIntrinsicExprNode::Hash { type_id, .. } => type_id.clone(),
