@@ -1,9 +1,11 @@
 use async_trait::async_trait;
+use kvq::traits::KVQPair;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::{core::MerkleProofCore, utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}};
-use qed_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}, qsync::coordinator::QEDCheckpointSyncInfo};
+use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}};
+use qed_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}, qstore::uct_merkle_nodes::CSTUserUpdate, qsync::coordinator::QEDCheckpointSyncInfo};
 
+use crate::models::kvq_merkle::key::KVQMerkleNodeKey;
 #[async_trait]
 pub trait QEDRealmStoreReaderAsync<F: RichField> {
     async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>>;
@@ -82,9 +84,13 @@ pub trait QEDRealmStoreWriterAsync<F: RichField> {
 
 }
 
+
 #[async_trait]
 pub trait QEDRealmStoreWriterAsyncImm<F: RichField> {
-    async fn injest_user_tree_nodes_imm(&self, checkpoint_id: u64, nodes: &[QMerkleNode<F>]) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>>;
+    async fn injest_user_tree_nodes_imm(&self, checkpoint_id: u64, root_level: u8, nodes: &[QMerkleNode<F>]) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>>;
+    async fn injest_user_leaves_imm(&self, checkpoint_id: u64, root_level: u8, leaves: &[QEDUserLeaf<F>]) -> anyhow::Result<Vec<DeltaMerkleProofCore<QHashOut<F>>>>;
+    async fn injest_user_leaves_batch_imm(&self, checkpoint_id: u64, leaves: &[QEDUserLeaf<F>]) -> anyhow::Result<()>;
+    async fn injest_checked_cst_nodes_imm(&self, user_updates: &[CSTUserUpdate<QHashOut<F>>]) -> anyhow::Result<()>;
     async fn injest_checkpoint_sync_data_imm(&self, sync_info: QEDCheckpointSyncInfo<F>) -> anyhow::Result<()>;
 
     

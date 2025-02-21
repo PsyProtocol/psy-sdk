@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use plonky2::{
     gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::HashOut, iop::
         witness::PartialWitness, plonk::{
@@ -8,12 +9,12 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    circuits::traits::qstandard::QStandardCircuit, proof_minifier::
+    circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
-use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut};
-use qed_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
-use qed_data::guta::{header::GlobalUserTreeAggregatorHeader, proof_input::GUTARegisterUserFullInput};
+use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
+use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::{core::MerkleProofCore, treeprover::data::CircuitInputWithDependencies}, traits::hasher::MerkleZeroHasher}};
+use qed_data::guta::{header::GlobalUserTreeAggregatorHeader, proof_input::{GUTARegisterUserFullInput, VerifyGUTARegisterUsersCircuitInputSimple}};
 
 use crate::guta::gadgets::guta_register_users_batch::GUTARegisterUsersBatchGadget;
 
@@ -133,3 +134,49 @@ where
     }
 }
 
+
+
+#[async_trait]
+impl<
+        S: QProofStoreReaderAsync + Send + Sync,
+        L: CircuitInfoLibrary<C, D> + Send + Sync,
+        C: GenericConfig<D> + 'static,
+        const D: usize,
+    > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
+    for GUTAVerifyGUTARegisterUsersCircuit<C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
+    async fn prove_with_proof_store_async(
+        &self,
+        store: &S,
+        library: &L,
+        job_id: QProvingJobDataID,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        let r: CircuitInputWithDependencies<VerifyGUTARegisterUsersCircuitInputSimple<C::F>> =
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
+                .map_err(|e| anyhow::anyhow!(e))?;
+        if r.dependencies.len() != 1 {
+            anyhow::bail!("invalid dependency count in two end guta input");
+        }
+
+        let child_a_proof = store.get_proof_by_id(r.dependencies[0]).await?;
+
+        let dep_a_type = r.dependencies[0].circuit_type;
+
+        let child_a_verifier_data = library.get_verifier_data(dep_a_type)?;
+        let guta_inclusion_proof_a =
+            library.get_group_inclusion_proof(job_id.circuit_type, dep_a_type)?;
+
+        let result = self.prove_base(
+            &guta_inclusion_proof_a,
+            &r.input.guta_proof_header,
+            &child_a_proof,
+            &child_a_verifier_data,
+            &r.input.top_line_siblings,
+            &r.input.guta_register_user_inputs,
+        )?;
+
+        Ok(result)
+    }
+}

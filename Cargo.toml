@@ -18,6 +18,7 @@ members = [
   "qcircuit_config_db_generator",
   "qed_node_common",
   "qed_node",
+  "qed_scylla_store",
 ]
 resolver = "2"
 

@@ -400,6 +400,8 @@ pub fn compute_historical_and_current_merkle_roots_core<Hash: PartialEq + Copy, 
     }
     (historical, current)
 }
+
+
 pub fn verify_delta_merkle_proof_core<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(
     proof: &DeltaMerkleProofCore<Hash>,
 ) -> bool {

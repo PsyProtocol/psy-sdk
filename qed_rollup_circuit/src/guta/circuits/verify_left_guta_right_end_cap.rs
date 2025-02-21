@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use plonky2::{
     gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::HashOut, iop::
         witness::PartialWitness, plonk::{
@@ -8,12 +9,12 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    builder::hash::core::CircuitBuilderHashCore, circuits::traits::qstandard::QStandardCircuit, proof_minifier::
+    builder::hash::core::CircuitBuilderHashCore, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
-use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
-use qed_data::guta::proof_input::VerifyLeftGUTARightEndCapInput;
+use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
+use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher}};
+use qed_data::guta::proof_input::{VerifyLeftGUTARightEndCapInput, VerifyLeftGUTARightEndCapInputSimple};
 
 use crate::guta::gadgets::{helpers::ToGUTAHeader, two_nca_state_transition::TwoNCAStateTransitionGadget, verify_end_cap::VerifyEndCapProofGadget, verify_guta_proof::VerifyGUTAProofGadget};
 
@@ -153,3 +154,53 @@ where
     }
 }
 
+
+#[async_trait]
+impl<
+        S: QProofStoreReaderAsync + Send + Sync,
+        L: CircuitInfoLibrary<C, D> + Send + Sync,
+        C: GenericConfig<D> + 'static,
+        const D: usize,
+    > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
+    for GUTAVerifyLeftGUTARightEndCapCircuit<C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
+    async fn prove_with_proof_store_async(
+        &self,
+        store: &S,
+        library: &L,
+        job_id: QProvingJobDataID,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        let r: CircuitInputWithDependencies<VerifyLeftGUTARightEndCapInputSimple<C::F>> =
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
+                .map_err(|e| anyhow::anyhow!(e))?;
+        if r.dependencies.len() != 1 {
+            anyhow::bail!("invalid dependency count in two end guta input");
+        }
+
+
+        let child_a_proof = store.get_proof_by_id(r.dependencies[0]).await?;
+        let child_b_proof = store.get_proof_by_id(r.dependencies[1]).await?;
+
+        let dep_a_type = r.dependencies[0].circuit_type;
+        let dep_b_type = r.dependencies[1].circuit_type;
+
+        let child_a_verifier_data = library.get_verifier_data(dep_a_type)?;
+        let guta_inclusion_proof_a =
+            library.get_group_inclusion_proof(job_id.circuit_type, dep_a_type)?;
+        let child_b_verifier_data = library.get_verifier_data(dep_b_type)?;
+
+        
+
+        let result = self.prove_base(
+            &VerifyLeftGUTARightEndCapInput { checkpoint_tree_root: r.input.checkpoint_tree_root, stats_a:r.input.stats_a, b_end_cap: r.input.b_end_cap, nca_proof: r.input.nca_proof, guta_inclusion_proof_a},
+            &child_a_proof,
+            &child_a_verifier_data,
+            &child_b_proof,
+            &child_b_verifier_data
+        )?;
+
+        Ok(result)
+    }
+}

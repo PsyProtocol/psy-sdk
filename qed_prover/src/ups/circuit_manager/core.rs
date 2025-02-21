@@ -10,7 +10,7 @@ use qed_core::{
     config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut, ups::circuits::LocalCircuitType,
 };
-use qed_crypto::{common::witnesses::qrecursion::proof_data::SimpleQTreeRecursionManagerInclusionProofs, hash::{
+use qed_crypto::{common::{circuit_library::CircuitInfoLibraryBuilder, witnesses::qrecursion::proof_data::SimpleQTreeRecursionManagerInclusionProofs}, hash::{
     merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
     traits::hasher::MerkleZeroHasher,
 }};
@@ -119,6 +119,50 @@ where
         println!("===============================\n\n\n\n");
         self.proof_tree_agg_circuits.circuit_set.print_common_data();
     }
+    /* 
+    pub fn register_library<T: CircuitInfoLibraryBuilder<C::F>>(&self, library: &mut T) {
+
+        library.register_circuit(
+            LocalCircuitType::UPSStart.into(),
+            self.ups_start.get_fingerprint(),
+            self.ups_start.get_verifier_config_ref().into()
+        );
+        library.register_circuit(
+            LocalCircuitType::UPSCFCStandard.into(),
+            self.ups_cfc_standard_tx.get_fingerprint(),
+            self.ups_cfc_standard_tx.get_verifier_config_ref().into()
+        );
+        library.register_circuit(
+            LocalCircuitType::UPSCFCDeferred.into(),
+            self.ups_cfc_deferred_tx.get_fingerprint(),
+            self.ups_cfc_deferred_tx.get_verifier_config_ref().into()
+        );
+        library.register_circuit(
+            LocalCircuitType::UPSEndCap.into(),
+            self.ups_end_cap.get_fingerprint(),
+            self.ups_end_cap.get_verifier_config_ref().into()
+        );
+        library.register_circuit(
+            LocalCircuitType::UPSEndCap.into(),
+            self.ups_end_cap.get_fingerprint(),
+            self.ups_end_cap.get_verifier_config_ref().into()
+        );
+
+
+        library.register_whitelist_merkle_proof(
+            LocalCircuitType::UPSStart.into(),
+            self.ups_start_whitelist_proof.clone(),
+        );
+        library.register_whitelist_merkle_proof(
+            LocalCircuitType::UPSCFCStandard.into(),
+            self.ups_cfc_standard_tx_whitelist_proof.clone(),
+        );
+        library.register_whitelist_merkle_proof(
+            LocalCircuitType::UPSCFCDeferred.into(),
+            self.ups_cfc_deferred_tx_whitelist_proof.clone(),
+        );
+        
+    }*/
     pub fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
         info_store.register_circuit(
             LocalCircuitType::UPSStart.into(),

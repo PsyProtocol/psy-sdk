@@ -1,4 +1,5 @@
 use hex::FromHexError;
+use kvq::traits::KVQSerializable;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::serde_as;
@@ -82,8 +83,8 @@ impl From<ProvingJobDataType> for u8 {
 )]
 #[repr(u8)]
 pub enum ProvingJobCircuitType {
-    RegisterUser = 0,
-    RegisterUserAggregate = 1,
+    AppendUserRegistrationTree = 0,
+    AppendUserRegistrationTreeAggregate = 1,
 
     AddL1Deposit = 2,
     AddL1DepositAggregate = 3,
@@ -97,12 +98,22 @@ pub enum ProvingJobCircuitType {
     GUTALeftEndCapRightGUTA = 9,
     GUTALeftGUTARightEndCap = 10,
     GUTASingleEndCap = 11,
+    GUTARegisterUsers = 12,
+    GUTAVerifyToCap = 13,
+    GUTAOnlyRegisterUsers = 14,
 
-    AddL1Withdrawal = 12,
-    AddL1WithdrawalAggregate = 13,
 
-    ProcessL1Withdrawal = 14,
-    ProcessL1WithdrawalAggregate = 15,
+
+
+
+    AddL1Withdrawal = 16,
+    AddL1WithdrawalAggregate = 17,
+
+    BatchDeployContracts = 18,
+    BatchDeployContractsAggregate = 19,
+
+    ProcessL1Withdrawal = 20,
+    ProcessL1WithdrawalAggregate = 21,
 
     GenerateRollupStateTransitionProof = 32,
     GenerateSigHashIntrospectionProof = 33,
@@ -113,12 +124,13 @@ pub enum ProvingJobCircuitType {
     AggUserRegisterClaimDepositL2Transfer = 40,
     AggAddProcessL1WithdrawalAddL1Deposit = 41,
 
-    DummyRegisterUserAggregate = 48,
+    DummyAppendUserRegistrationTreeAggregate = 48,
     DummyAddL1DepositAggregate = 49,
     DummyClaimL1DepositAggregate = 50,
     DummyGUTA = 51,
     DummyAddL1WithdrawalAggregate = 52,
     DummyProcessL1WithdrawalAggregate = 53,
+    DummyBatchDeployContractsAggregate = 54,
 
     WrappedSignatureProof = 64,
     Secp256K1SignatureProof = 65,
@@ -132,14 +144,12 @@ impl ProvingJobCircuitType {
     pub fn to_circuit_group_id(&self) -> u32 {
         (self.to_u8() as u32) + 0xCF00u32
     }
-}
-
-impl TryFrom<u8> for ProvingJobCircuitType {
+}impl TryFrom<u8> for ProvingJobCircuitType {
     type Error = anyhow::Error;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(ProvingJobCircuitType::RegisterUser),
-            1 => Ok(ProvingJobCircuitType::RegisterUserAggregate),
+            0 => Ok(ProvingJobCircuitType::AppendUserRegistrationTree),
+            1 => Ok(ProvingJobCircuitType::AppendUserRegistrationTreeAggregate),
             2 => Ok(ProvingJobCircuitType::AddL1Deposit),
             3 => Ok(ProvingJobCircuitType::AddL1DepositAggregate),
             4 => Ok(ProvingJobCircuitType::ClaimL1Deposit),
@@ -150,10 +160,15 @@ impl TryFrom<u8> for ProvingJobCircuitType {
             9 => Ok(ProvingJobCircuitType::GUTALeftEndCapRightGUTA),
             10 => Ok(ProvingJobCircuitType::GUTALeftGUTARightEndCap),
             11 => Ok(ProvingJobCircuitType::GUTASingleEndCap),
-            12 => Ok(ProvingJobCircuitType::AddL1Withdrawal),
-            13 => Ok(ProvingJobCircuitType::AddL1WithdrawalAggregate),
-            14 => Ok(ProvingJobCircuitType::ProcessL1Withdrawal),
-            15 => Ok(ProvingJobCircuitType::ProcessL1WithdrawalAggregate),
+            12 => Ok(ProvingJobCircuitType::GUTARegisterUsers),
+            13 => Ok(ProvingJobCircuitType::GUTAVerifyToCap),
+            14 => Ok(ProvingJobCircuitType::GUTAOnlyRegisterUsers),
+            16 => Ok(ProvingJobCircuitType::AddL1Withdrawal),
+            17 => Ok(ProvingJobCircuitType::AddL1WithdrawalAggregate),
+            18 => Ok(ProvingJobCircuitType::BatchDeployContracts),
+            19 => Ok(ProvingJobCircuitType::BatchDeployContractsAggregate),
+            20 => Ok(ProvingJobCircuitType::ProcessL1Withdrawal),
+            21 => Ok(ProvingJobCircuitType::ProcessL1WithdrawalAggregate),
             32 => Ok(ProvingJobCircuitType::GenerateRollupStateTransitionProof),
             33 => Ok(ProvingJobCircuitType::GenerateSigHashIntrospectionProof),
             34 => Ok(ProvingJobCircuitType::GenerateFinalSigHashProof),
@@ -161,12 +176,13 @@ impl TryFrom<u8> for ProvingJobCircuitType {
             36 => Ok(ProvingJobCircuitType::WrapFinalSigHashProofBLS12381),
             40 => Ok(ProvingJobCircuitType::AggUserRegisterClaimDepositL2Transfer),
             41 => Ok(ProvingJobCircuitType::AggAddProcessL1WithdrawalAddL1Deposit),
-            48 => Ok(ProvingJobCircuitType::DummyRegisterUserAggregate),
+            48 => Ok(ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate),
             49 => Ok(ProvingJobCircuitType::DummyAddL1DepositAggregate),
             50 => Ok(ProvingJobCircuitType::DummyClaimL1DepositAggregate),
             51 => Ok(ProvingJobCircuitType::DummyGUTA),
             52 => Ok(ProvingJobCircuitType::DummyAddL1WithdrawalAggregate),
             53 => Ok(ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate),
+            54 => Ok(ProvingJobCircuitType::DummyBatchDeployContractsAggregate),
             64 => Ok(ProvingJobCircuitType::WrappedSignatureProof),
             65 => Ok(ProvingJobCircuitType::Secp256K1SignatureProof),
             255 => Ok(ProvingJobCircuitType::Unknown),
@@ -223,6 +239,19 @@ pub struct QProvingJobDataID {
     pub data_index: u8,
 }
 impl QProvingJobDataID {
+    pub fn with_ps_prefix(&self, prefix: [u8; 4]) -> [u8; 28] {
+        let mut result = [0u8; 28];
+        result[0..3].copy_from_slice(&prefix);
+        result[4] = self.topic.to_u8();
+        result[5..13].copy_from_slice(&self.goal_id.to_le_bytes());
+        result[13] = self.circuit_type.to_u8();
+        result[14..18].copy_from_slice(&self.group_id.to_le_bytes());
+        result[18..22].copy_from_slice(&self.sub_group_id.to_le_bytes());
+        result[22..26].copy_from_slice(&self.task_index.to_le_bytes());
+        result[26] = self.data_type.to_u8();
+        result[27] = self.data_index;
+        result
+    }
 
     pub fn try_from_byte_vec(value: &[u8]) -> anyhow::Result<Self> {
         if value.len() != 24 {
@@ -580,9 +609,13 @@ impl QProvingJobDataID {
     }
     pub fn get_tree_parent_proof_input_id(&self) -> Self {
         let parent_type = match self.circuit_type {
-            ProvingJobCircuitType::RegisterUser => ProvingJobCircuitType::RegisterUserAggregate,
-            ProvingJobCircuitType::RegisterUserAggregate => {
-                ProvingJobCircuitType::RegisterUserAggregate
+            ProvingJobCircuitType::AppendUserRegistrationTree => ProvingJobCircuitType::AppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => {
+                ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
+            }
+            ProvingJobCircuitType::BatchDeployContracts => ProvingJobCircuitType::BatchDeployContractsAggregate,
+            ProvingJobCircuitType::BatchDeployContractsAggregate => {
+                ProvingJobCircuitType::BatchDeployContractsAggregate
             }
             ProvingJobCircuitType::AddL1Deposit => ProvingJobCircuitType::AddL1DepositAggregate,
             ProvingJobCircuitType::AddL1DepositAggregate => {
@@ -604,8 +637,8 @@ impl QProvingJobDataID {
             ProvingJobCircuitType::ProcessL1WithdrawalAggregate => {
                 ProvingJobCircuitType::ProcessL1WithdrawalAggregate
             }
-            ProvingJobCircuitType::DummyRegisterUserAggregate => {
-                ProvingJobCircuitType::RegisterUserAggregate
+            ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
+                ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
             }
             ProvingJobCircuitType::DummyAddL1DepositAggregate => {
                 ProvingJobCircuitType::AddL1DepositAggregate
@@ -697,6 +730,16 @@ impl QWorkerModeFilter for QWorkerMode {
     }
 }
 
+
+impl KVQSerializable for QProvingJobDataID {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        Ok(self.to_fixed_bytes().to_vec())
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        QProvingJobDataID::try_from_byte_vec(bytes)
+    }
+}
 
 #[cfg(test)]
 mod tests {

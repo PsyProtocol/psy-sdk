@@ -32,6 +32,16 @@ use qed_data::{
 type F = GoldilocksField;
 #[async_trait]
 impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDCoordinatorStoreWriterAsyncImm<F> for T {
+    async fn batch_append_contract_tree_imm(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>> {
+
+        <Self as QTreeDataStoreWriterSync<F>>::batch_append_contract_tree(
+            self,
+            checkpoint_id,
+            start_leaf_index,
+            sub_tree_height,
+            leaf_hashes,
+        )
+    }
     async fn batch_append_user_registration_tree_imm(
         &self,
         checkpoint_id: u64,
@@ -65,9 +75,10 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDCoordinatorStoreWriterAsync
     async fn injest_user_tree_nodes_imm(
         &self,
         checkpoint_id: u64,
+        root_level: u8, 
         nodes: &[QMerkleNode<F>],
     ) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>> {
-        UserTreeStore::smart_injest_nca_fc_imm(self, 0, checkpoint_id, nodes)
+        UserTreeStore::smart_injest_nca_fc_imm(self, root_level, checkpoint_id, nodes)
     }
     async fn set_deposit_tree_leaf_hash_imm(
         &self,

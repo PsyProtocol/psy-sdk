@@ -170,6 +170,20 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync>
             &UserTreeStore::<Self>::new_node_key_fc(checkpoint_id, leaf_level, leaf_index),
         )
     }
+    async fn get_user_top_tree_cap_root(&self, checkpoint_id: u64, cap_level: u8, cap_index: u64) -> anyhow::Result<QHashOut<F>> {
+        UserTreeStore::get_node(
+            self,
+            GLOBAL_USER_TREE_HEIGHT as usize,
+            &UserTreeStore::<Self>::new_node_key_fc(checkpoint_id, cap_level, cap_index),
+        )
+    }
+    async fn get_user_latest_top_tree_cap_root(&self, cap_level: u8, cap_index: u64) -> anyhow::Result<QHashOut<F>> {
+        UserTreeStore::get_node(
+            self,
+            GLOBAL_USER_TREE_HEIGHT as usize,
+            &UserTreeStore::<Self>::new_node_key_fc(0xffffffffffu64, cap_level, cap_index),
+        )
+    }
     async fn get_contract_function_tree_root(
         &self,
         checkpoint_id: u64,

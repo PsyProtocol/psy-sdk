@@ -73,7 +73,7 @@ impl SimpleBlockProcessor {
 
             let leaf_hash = user.qfhash::<QEDHasher>();
 
-            store.set_user_leaf_data(&user)?;
+            store.set_user_leaf_data(new_checkpoint_id,&user)?;
             let user_reg_delta_merkle_proof =
                 store.set_user_tree_leaf_hash(new_checkpoint_id, user_id, leaf_hash)?;
             let user_reg_witness = QEDUserRegistrationCircuitInput {
@@ -181,7 +181,7 @@ impl SimpleBlockProcessor {
                     anyhow::bail!("User state tree root mismatch");
                 }
             }
-            store.set_user_leaf_data(&upd_user.updated_leaf)?;
+            store.set_user_leaf_data(new_checkpoint_id, &upd_user.updated_leaf)?;
             let user_leaf_hash = user.qfhash::<QEDHasher>();
             let user_delta_merkle_proof = store.set_user_tree_leaf_hash(
                 new_checkpoint_id,

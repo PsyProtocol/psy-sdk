@@ -380,9 +380,9 @@ pub trait KVQMerkleTreeModelCoreImmutable<
             let a_b_parent = Self::get_nodes(store, tree_height,&[a.key, b.key, parent])?;
 
             let new_value = if MARK_LEAVES && a.key.level as usize == tree_height {
-                Hasher::two_to_one_marked_leaf_swap(a.key.is_left_child(), &a.value, &b.value)
+                Hasher::two_to_one_marked_leaf_swap(a.key.is_right_child(), &a.value, &b.value)
             }else{
-                Hasher::two_to_one_swap(a.key.is_left_child(), &a.value, &b.value)
+                Hasher::two_to_one_swap(a.key.is_right_child(), &a.value, &b.value)
             };
 
             let r = UpdateNearestCommonAncestorProof {
@@ -451,6 +451,23 @@ pub trait KVQMerkleTreeModelCoreImmutable<
         ))
     }
 
+    fn smart_injest_nca_at_height_dmp(
+        store: &S,
+        tree_height: usize,
+        root_level: u8,
+        nodes: &[KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>],
+    ) -> anyhow::Result<Vec<DeltaMerkleProofCore<Hash>>>{
+        let mut dmps = Vec::with_capacity(nodes.len());
+        for n in nodes.iter() {
+            let mut updates = Vec::new();
+
+            dmps.push(Self::set_rehash_from_node_to_level_dmp_with_updates(store, tree_height, n.key, n.value, root_level, &mut updates)?);
+            Self::set_nodes(store, &updates)?;
+
+        }
+
+        Ok(dmps)
+    }
     fn smart_injest_nca(
         store: &S,
         tree_height: usize,
@@ -458,8 +475,54 @@ pub trait KVQMerkleTreeModelCoreImmutable<
         mut nodes: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>
     ) -> anyhow::Result<UpdateNCAProofsWithDependencies<Hash>>{
 
+        if nodes.len() == 1 {
+            let mut updates = Vec::new();
 
-        assert!(nodes.len() > 1, "can only call smart injest nca with multiple nodes");
+            let dmp_a = Self::set_rehash_from_node_to_level_dmp_with_updates(store, tree_height, nodes[0].key, nodes[0].value, root_level, &mut updates)?;
+            let root_key = nodes[0].key;
+            let root_value = nodes[0].value;
+            
+
+                let link_proof = Self::set_rehash_from_node_to_level_dmp_with_updates(
+                    store,
+                    tree_height,
+                    root_key,
+                    root_value,
+                    root_level.min(root_key.level),
+                    &mut updates,
+                )?;
+
+                Self::set_nodes(store, &updates)?;
+
+                return Ok(UpdateNCAProofsWithDependencies {
+                    nca_proofs: vec![UpdateNearestCommonAncestorProof{
+                        old_nearest_common_ancestor_value: dmp_a.old_value,
+                        new_nearest_common_ancestor_value: dmp_a.new_value,
+                        child_a: DeltaMerkleProofCore::single_value(root_key.index, dmp_a.old_value, dmp_a.new_value),
+                        child_b: DeltaMerkleProofCore::single_value(root_key.index, dmp_a.old_value, dmp_a.new_value),
+                        nearest_common_ancestor_level: root_key.level,
+                        nearest_common_ancestor_index: root_key.index,
+                        level_a: root_key.level,
+                        level_b: root_key.level,
+                    }],
+                    dependencies: vec![(-1, -1)],
+                    root_proof_index: 0,
+                    nearest_common_ancestor_level: root_key.level,
+                    nearest_common_ancestor_index: root_key.index,
+                    link_level: root_level.min(root_key.level),
+                    link_index: if root_level < root_key.level {
+                        root_key.parent_at_level(root_level).index
+                    }else{
+                        root_key.index
+                    },
+                    link_proof:link_proof,
+                })
+
+
+        }
+
+
+        assert!(nodes.len() > 0, "can only call smart injest nca with multiple nodes");
 
 
 

@@ -183,6 +183,21 @@ KVQMerkleTreeModelCoreImmutable<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
         
         Self::smart_injest_nca(store, TREE_HEIGHT as usize, root_level, nodes)
     }
+    fn smart_injest_nca_at_height_dmp_fc_imm(
+        store: &S,
+        root_level: u8,
+        checkpoint_id: u64,
+        kvs: &[SimpleMerkleNode<Hash>],
+    ) -> anyhow::Result<Vec<DeltaMerkleProofCore<Hash>>>{
+        let nodes = kvs.iter().map(|x| {
+            KVQPair{
+                key: Self::new_node_key_fc(checkpoint_id, x.key.level, x.key.index),
+                value: x.value,
+            }
+        }).collect::<Vec<_>>();
+        
+        Self::smart_injest_nca_at_height_dmp(store, TREE_HEIGHT as usize, root_level, &nodes)
+    }
 }
 
 

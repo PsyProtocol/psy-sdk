@@ -19,6 +19,23 @@ pub struct GUTAStatsGadget {
     // start computed
 }
 impl GUTAStatsGadget {
+    pub fn add_virtual_to_zero<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        let fees_collected = builder.zero();
+
+        let user_ops_processed = builder.zero();
+        let total_transactions = builder.zero();
+
+        let slots_modified = builder.zero();
+
+        Self {
+            fees_collected,
+            user_ops_processed,
+            total_transactions,
+            slots_modified,
+        }
+    }
     pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {

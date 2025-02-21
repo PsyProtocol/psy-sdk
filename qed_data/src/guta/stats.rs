@@ -1,5 +1,7 @@
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hash_types::{HashOut, RichField};
+use qed_core::data::qhashout::QHashOut;
+use qed_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 
 
@@ -14,7 +16,31 @@ pub struct GUTAStats<F: RichField> {
 
     pub slots_modified: F,
 }
+impl<F: RichField> GUTAStats<F>{
+    pub fn combine_with(&self, other: &GUTAStats<F>) -> Self {
+        Self {
+            fees_collected: self.fees_collected+other.fees_collected,
+            user_ops_processed: self.user_ops_processed+other.user_ops_processed,
+            total_transactions: self.total_transactions+other.total_transactions,
+            slots_modified: self.slots_modified+other.slots_modified,
+        }
 
+    }
+
+}
+
+impl<F: RichField> QFieldHashable<F> for GUTAStats<F> {
+    fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
+        QHashOut(HashOut{
+            elements: [
+                self.fees_collected,
+                self.user_ops_processed,
+                self.total_transactions,
+                self.slots_modified,
+            ]
+        })
+    }
+}
 impl<F: RichField> KVQSerializable for GUTAStats<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))

@@ -1,5 +1,6 @@
 use kvq::traits::KVQSerializable;
 use plonky2::field::types::PrimeField64;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct KVQTreeNodePosition {
@@ -55,7 +56,7 @@ impl KVQTreeIdentifier {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct KVQMerkleNodeKey<const TABLE_TYPE: u16> {
     pub tree_id: u8,
     pub primary_id: u64,
@@ -65,6 +66,21 @@ pub struct KVQMerkleNodeKey<const TABLE_TYPE: u16> {
     pub checkpoint_id: u64,
 }
 impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
+    pub fn node_list_in_same_tree(list: &[Self]) -> bool {
+        if list.len() == 0 {
+            false
+        }else if list.len() == 1 {
+            true
+        }else{
+            let first = list[0];
+            for key in list.iter() {
+                if !first.belongs_to_same_tree(key){
+                    return false;
+                }
+            }
+            true
+        }
+    }
     pub fn new_simple(tree_id: u8, level: u8, index: u64, checkpoint: u64) -> Self {
         Self {
             tree_id,
@@ -74,6 +90,14 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
             index,
             checkpoint_id: checkpoint,
         }
+    }
+    pub fn is_same_node_location(&self, other: &Self) -> bool {
+        self.tree_id == other.tree_id && 
+        self.primary_id == other.primary_id && 
+        self.secondary_id == other.secondary_id &&
+        self.level == other.level &&
+        self.index == other.index
+
     }
     pub fn belongs_to_same_tree(&self, other: &Self) -> bool {
         self.tree_id == other.tree_id && 

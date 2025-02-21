@@ -39,7 +39,7 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
     pub fn get_max_leaf_index(&self) -> u64 {
         (1u64 << (self.height as u64)) - 1u64
     }
-    fn set_node_value(&mut self, key: SimpleMerkleNodeKey, value: Hash) {
+    pub fn set_node_value(&mut self, key: SimpleMerkleNodeKey, value: Hash) {
         if value.eq(&self.zero_value_hashes[key.level as usize]) {
             self.nodes.remove(&key);
         } else {

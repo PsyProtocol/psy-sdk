@@ -40,7 +40,7 @@ pub trait QMetaDataStoreReaderSyncMut<F: RichField> {
 }
 
 pub trait QMetaDataStoreWriterSync<F: RichField> {
-    fn set_user_leaf_data(&self, leaf_data: &QEDUserLeaf<F>) -> anyhow::Result<()>;
+    fn set_user_leaf_data(&self, checkpoint_id: u64, leaf_data: &QEDUserLeaf<F>) -> anyhow::Result<()>;
 
     fn set_contract_leaf_data(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()>;
     fn set_contract_leaf_data_f(&self, checkpoint_id: F, contract_id: F, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()>;
@@ -54,7 +54,7 @@ pub trait QMetaDataStoreWriterSync<F: RichField> {
     fn set_l2_block_state(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()>;
 }
 pub trait QMetaDataStoreWriterSyncMut<F: RichField> {
-    fn set_user_leaf_data_mut(&mut self, leaf_data: &QEDUserLeaf<F>) -> anyhow::Result<()>;
+    fn set_user_leaf_data_mut(&mut self, checkpoint_id: u64, leaf_data: &QEDUserLeaf<F>) -> anyhow::Result<()>;
 
     fn set_contract_leaf_data_mut(&mut self, contract_id: u64, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()>;
     fn set_contract_leaf_data_f_mut(&mut self, contract_id: F, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()>;

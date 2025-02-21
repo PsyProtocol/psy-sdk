@@ -8,7 +8,7 @@ use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
 use qed_crypto::{common::witnesses::qrecursion::{header::{AttestProofInTreeInput, AttestTreeAwareProofInTreeInput}, proof_data::{InputLeafProof, TreeAwareTreeProofRecord}}, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use qed_data::{
-    dpn::proving_session::{DPNProvingSessionSimpleMethodCall, QEDLocalTransactionRecord}, guta::{api::{SubmitUserEndCapNonProofCoreInput, SubmitUserEndCapNonProofInput}, stats::GUTAStats}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_end_cap_result::UPSEndCapResultCompact, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf}, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
+    dpn::proving_session::{DPNProvingSessionSimpleMethodCall, QEDLocalTransactionRecord}, guta::{api::SubmitUserEndCapNonProofCoreInput, end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_end_cap_result::UPSEndCapResultCompact, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf}, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_store::{
@@ -519,7 +519,8 @@ impl<
                 end_user_leaf_hash: self.current_ups_header.current_state.user_leaf.qfhash::<H>(),
                 checkpoint_tree_root_hash: self.current_ups_header.session_start_context.checkpoint_tree_root,
                 user_id: self.current_ups_header.session_start_context.start_session_user_leaf.user_id,
-            }
+            },
+            new_user_leaf: self.current_ups_header.current_state.user_leaf,
         };
         let contract_state_updates = updates.contract_updates;
 

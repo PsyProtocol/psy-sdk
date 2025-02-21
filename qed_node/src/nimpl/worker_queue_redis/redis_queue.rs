@@ -42,7 +42,6 @@ pub enum QueueCmd {
 pub enum QueueNotification {
     CoreJobCompleted = 0,
 }
-
 impl RedisQueue {
     pub fn new(uri: &str) -> Result<Self> {
         let client = redis::Client::open(uri)?;

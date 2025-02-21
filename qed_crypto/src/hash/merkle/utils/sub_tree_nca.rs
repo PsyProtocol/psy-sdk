@@ -1,3 +1,4 @@
+use hashbrown::HashSet;
 use kvq::traits::KVQSerializable;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -30,6 +31,15 @@ impl<Hash: PartialEq + Copy + Serialize + DeserializeOwned> KVQSerializable for 
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+impl<Hash: PartialEq + Copy> UpdateNearestCommonAncestorProof<Hash> {
+    pub fn to_partial(&self) -> PartialUpdateNearestCommonAncestorProof<Hash> {
+        PartialUpdateNearestCommonAncestorProof {
+            child_a: self.child_a.clone(),
+            child_b: self.child_b.clone(),
+            nearest_common_ancestor_level: self.nearest_common_ancestor_level,
+        }
     }
 }
 
@@ -504,14 +514,42 @@ pub struct UpdateNCAProofsWithDependencies<Hash: PartialEq + Copy> {
 impl<Hash: PartialEq + Copy + Default> UpdateNCAProofsWithDependencies<Hash> {
     pub fn new() -> Self {
         Self::default()
-    }
-    
+    }   
 }
+impl<Hash: PartialEq + Copy + Default> UpdateNCAProofsWithDependencies<Hash> {
+    pub fn get_index_levels(&self) -> Vec<Vec<usize>> {
 
+        let mut solved = HashSet::<i64>::new();
 
+        let total_values = self.nca_proofs.len();
+        let mut solved_values = 0;
+        let mut remaining = (0..total_values).collect::<Vec<_>>();
 
+        let mut levels = Vec::new();
+        while solved_values < total_values {
+            let mut new_remaining = Vec::new();
+            let mut level = Vec::new();
 
+            for x in remaining {
+                let (l,r) =  self.dependencies[x];
+                if (l == -1 || solved.contains(&l)) && (r == -1 || solved.contains(&r)) {
+                    level.push(x);
+                    solved_values += 1;
+                }else{
+                    new_remaining.push(x);
+                }
+            }
+            for i in level.iter() {
+                solved.insert(*i as i64);
+            }
+            remaining = new_remaining;
+            levels.push(level);
+        }
 
+        levels
+
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BinaryXWithDependencyLevels<T> {

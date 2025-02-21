@@ -1,6 +1,6 @@
 use kvq::traits::KVQBinaryStoreImmutable;
 use plonky2::field::types::PrimeField64;
-use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
+use qed_core::{config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut};
 use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof};
 use qed_data::qdata::{
     checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
@@ -115,8 +115,8 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreReaderSync<F> for T {
 }
 
 impl<T: QEDStorageAdapterImmutable> QMetaDataStoreWriterSync<F> for T {
-    fn set_user_leaf_data(&self, leaf_data: &QEDUserLeaf<F>) -> anyhow::Result<()> {
-        UserLeafTableStore::set_user_ref_imm(self, leaf_data)
+    fn set_user_leaf_data(&self, checkpoint_id: u64, leaf_data: &QEDUserLeaf<F>) -> anyhow::Result<()> {
+        UserLeafTableStore::set_user_ref_imm(self, checkpoint_id, leaf_data)
     }
 
     fn set_contract_leaf_data(
@@ -934,6 +934,16 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
             self,
             GLOBAL_USER_TREE_HEIGHT as usize,
             &UserRegistrationTreeStore::<Self>::new_leaf_key_fc(checkpoint_id.to_canonical_u64(), start_leaf_index.to_canonical_u64()),
+            sub_tree_height,
+            leaf_hashes,
+        )
+    }
+
+    fn batch_append_contract_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>{
+        UserRegistrationTreeStore::append_leaves_spider_man(
+            self,
+            GLOBAL_CONTRACT_TREE_HEIGHT as usize,
+            &ContractTreeStore::<Self>::new_leaf_key_fc(checkpoint_id, start_leaf_index),
             sub_tree_height,
             leaf_hashes,
         )

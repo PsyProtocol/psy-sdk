@@ -1,0 +1,258 @@
+use std::sync::Arc;
+
+use anyhow::bail;
+use plonky2::{field::types::PrimeField64, hash::hash_types::HashOut, plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs}};
+use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{
+    drain_queue::{CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata}, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
+    traits::QProofStoreAsyncImm,
+}};
+use qed_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable}, signature::zk::data::ZKPublicKeyInfo};
+use qed_data::{guta::{api::{SubmitGUTARealmResultAPINoProofInput, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}, qblock::cmds::deploy_contract::QBCDeployContract};
+use qed_store::{config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher}, node::realm::QEDRealmStoreReaderAsync};
+use rand::{thread_rng, RngCore};
+use serde::{Deserialize, Serialize};
+
+use super::processor::RealmConfig;
+
+type F = QEDFelt;
+type C = PoseidonGoldilocksConfig;
+const D: usize = 2;
+type H = QEDHasher;
+
+#[derive(Clone)]
+pub struct RealmEdgeContext<
+    SR: QEDRealmStoreReaderAsync<F>,
+    DQ: CheckpointDrainQueueEmitterAsyncImm,
+    PS: QProofStoreAsyncImm,
+> {
+    pub store_reader: Arc<SR>,
+    pub checkpoint_queue: Arc<DQ>,
+    pub proof_store: Arc<PS>,
+    pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+
+    pub realm_config: RealmConfig,
+    chkpnt_id: u64,
+
+    pub first_user_id: u64,
+    pub last_user_id: u64,
+    //pub end_cap_verifier_data: VerifierOnlyCircuitData<C, D>,
+}
+
+impl<
+        SR: QEDRealmStoreReaderAsync<F>,
+        DQ: CheckpointDrainQueueEmitterAsyncImm,
+        PS: QProofStoreAsyncImm,
+    > RealmEdgeContext<SR, DQ, PS>
+{
+    pub async fn new(
+        realm_config: RealmConfig,
+        store_reader: Arc<SR>,
+        checkpoint_queue: Arc<DQ>,
+        proof_store: Arc<PS>,
+        proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+
+    ) -> anyhow::Result<Self> {
+        let latest = store_reader.get_latest_l2_block_state().await?;
+        Ok(Self {
+            realm_config,
+            store_reader,
+            checkpoint_queue,
+            proof_store,
+            proof_verifier,
+           chkpnt_id: latest.checkpoint_id,
+           first_user_id: realm_config.realm_id as u64 * realm_config.users_per_realm as u64,
+           last_user_id: ((realm_config.realm_id as u64 + 1) * realm_config.users_per_realm as u64)-1,
+        })
+    }
+    pub fn includes_user_id(&self, id: u64) -> bool {
+        id >= self.first_user_id && id <= self.last_user_id
+    }
+
+    pub fn verify_proof_of_type(
+        &self,
+        circuit_type: ProvingJobCircuitType,
+        proof: &ProofWithPublicInputs<F, C, D>,
+    ) -> anyhow::Result<()> {
+        self.proof_verifier
+            .verify_proof_of_type(circuit_type, proof)
+    }
+    pub async fn get_checkpoint_id_async(&self) -> anyhow::Result<u64> {
+        Ok(self.chkpnt_id)
+    } 
+    pub async fn ensure_checkpoint_hash_valid(&self, checkpoint_id: F, checkpoint_root_hash: QHashOut<F>) -> anyhow::Result<()> {
+        let expected = self.store_reader.get_checkpoint_tree_root_f(checkpoint_id).await?;
+        if expected != checkpoint_root_hash {
+            anyhow::bail!("invalid checkpoint_root_hash");
+        }
+        Ok(())
+    }
+
+    pub async fn handle_recv_end_cap_from_user(
+        &self,
+        input: SubmitUserEndCapNonProofInput<F>,
+        proof: &ProofWithPublicInputs<F, C, D>,
+    ) -> anyhow::Result<()> {
+        // start validation
+        if proof.public_inputs.len() != 4 {
+            anyhow::bail!("invalid proof");
+        }else if input.contract_state_updates.len() == 0 {
+            anyhow::bail!("invalid contract_state_updates: cannot be empty");
+        }
+        let proof_public_inputs_hash = QHashOut::from_felt_slice(&proof.public_inputs);
+
+
+        input.ensure_simple_self_consistent::<H>(proof_public_inputs_hash)?;
+
+        let user_id_u64 =  input.core.new_user_leaf.user_id.to_canonical_u64();
+        if !self.includes_user_id(user_id_u64) {
+            anyhow::bail!("user id {} is not in this realm", user_id_u64);
+        }
+
+
+
+        let end_cap_checkpoint_id = input.core.checkpoint_id.to_canonical_u64();
+        let checkpoint_id = self.get_checkpoint_id_async().await?;
+        if end_cap_checkpoint_id > checkpoint_id {
+            anyhow::bail!("invalid checkpoint id");
+        }
+        //self.ensure_checkpoint_hash_valid(input.core.checkpoint_id, input.core.state_transition.checkpoint_tree_root_hash).await?;
+
+
+        let checkpoint_tree_proof = self.store_reader.get_checkpoint_tree_merkle_proof(checkpoint_id, end_cap_checkpoint_id).await?;
+        if checkpoint_tree_proof.root != input.core.state_transition.checkpoint_tree_root_hash {
+            anyhow::bail!("invalid checkpoint_root_hash");
+        }
+
+
+
+
+
+        let user_leaf = self.store_reader.get_user_leaf_data(checkpoint_id, user_id_u64).await?;
+        let expected_start_user_leaf_hash = user_leaf.qfhash::<H>();
+        if expected_start_user_leaf_hash != input.core.state_transition.start_user_leaf_hash {
+            anyhow::bail!("invalid start user leaf state, potentially submitted a separate end cap while proving the current one");
+        }
+        
+        if user_leaf.last_checkpoint_id.to_canonical_u64() > input.core.checkpoint_id.to_canonical_u64() {
+            anyhow::bail!("invalid checkpoint in proving session: cannot go backward");
+        }
+        
+        if user_leaf.nonce.to_canonical_u64() > input.core.new_user_leaf.nonce.to_canonical_u64() {
+            anyhow::bail!("invalid checkpoint in proving session: cannot go backward");
+        }
+        
+        let old_user_state_tree_root = user_leaf.user_state_tree_root;
+
+        let cst_user_update = input.verify_and_generate_cst_updates::<H>(checkpoint_id, old_user_state_tree_root)?;
+
+        self.verify_proof_of_type(ProvingJobCircuitType::UserEndCap, proof)?;
+
+        // end validation
+
+        let proof_id = QProvingJobDataID::new(
+            QJobTopic::GenerateStandardProof,
+            checkpoint_id,
+            ProvingJobCircuitType::UserEndCap.to_circuit_group_id(),
+            GLOBAL_USER_TREE_HEIGHT as u32,
+            user_id_u64 as u32,
+            ProvingJobCircuitType::UserEndCap,
+            ProvingJobDataType::OutputProof,
+            0,
+        );
+
+        if self.proof_store.contains_id(proof_id).await? {
+            anyhow::bail!("already submitted proof for this block");
+        }
+
+         
+        //self.proof_store.set_bytes_by_id(proof_id.get_input_witness_id(), data)
+        self.proof_store.set_proof_by_id(proof_id, proof).await?;
+        let queue_item = UserEndCapNonProofCoreInputQueueItem{
+            input: input.core,
+            proof_id,
+            checkpoint_tree_proof,
+            channel_id: self.realm_config.guta_channel_id,
+        };
+
+
+
+
+        self.checkpoint_queue.cdq_push_imm(cst_user_update).await?;
+        self.checkpoint_queue.cdq_push_imm(queue_item).await?;
+
+
+        
+
+
+        
+
+
+
+
+
+        /* 
+        if proof.public_inputs.len() != 4 {
+            anyhow::bail!("invalid proof");
+        }else if input.contract_state_updates.len() == 0 {
+            anyhow::bail!("invalid contract_state_updates: cannot be empty");
+        }else if input.core.new_user_leaf.user_id != input.core.state_transition.user_id {
+            anyhow::bail!("inconsistent user id");
+
+        }
+
+
+        let user_id_u64 =  input.core.new_user_leaf.user_id.to_canonical_u64();
+        if !self.includes_user_id(user_id_u64) {
+            anyhow::bail!("user id {} is not in this realm", user_id_u64);
+        }
+
+        let proof_pubs_hash = QHashOut::from_felt_slice(&proof.public_inputs);
+        let expected_proof_pubs_hash = input.core.get_proof_public_inputs_hash::<H>();
+        if proof_pubs_hash != expected_proof_pubs_hash {
+            anyhow::bail!("invalid public inputs/state transition");
+        }
+
+        let computed_leaf_hash = input.core.new_user_leaf.qfhash::<H>();
+        if computed_leaf_hash != input.core.state_transition.end_user_leaf_hash {
+            anyhow::bail!("invalid new_user_leaf");
+        }
+
+
+
+        let end_cap_checkpoint_id = input.core.checkpoint_id.to_canonical_u64();
+        let checkpoint_id = self.get_checkpoint_id_async().await?;
+        
+        let user_leaf = self.store_reader.get_user_leaf_data(checkpoint_id, user_id_u64).await?;
+        let expected_start_user_leaf_hash = user_leaf.qfhash::<H>();
+        if expected_start_user_leaf_hash != input.core.state_transition.start_user_leaf_hash {
+            anyhow::bail!("invalid start user leaf state, potentially submitted a separate end cap while proving the current one");
+        }
+
+
+
+
+        if end_cap_checkpoint_id > checkpoint_id{
+            anyhow::bail!("invalid checkpoint id in proof");
+        }
+
+        self.ensure_checkpoint_hash_valid(input.core.checkpoint_id, input.core.state_transition.checkpoint_tree_root_hash).await?;
+
+
+        */
+
+
+        //self.checkpoint_queue.cdq_push_imm(queue_item).await?;
+
+        Ok(())
+    }
+
+    pub async fn handle_recv_checkpoint_sync(
+        &self,
+        input: QCheckpointSyncInfoCompact,
+    ) -> anyhow::Result<()> {
+    
+        self.checkpoint_queue.cdq_push_imm(input).await?;
+        Ok(())
+    }
+    
+}

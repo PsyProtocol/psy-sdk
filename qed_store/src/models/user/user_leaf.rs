@@ -43,28 +43,29 @@ pub trait UserLeafModelCoreImmutable<
     IDKVA: KVQStoreAdapterImmutable<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, QEDUserLeaf<QEDFelt>>,
 >: UserLeafModelReaderCore<USER_LEAF_TABLE_TYPE, S, IDKVA>
 {
-    fn set_user_imm(store: &S, user: QEDUserLeaf<QEDFelt>) -> anyhow::Result<()> {
+    fn set_user_imm(store: &S, checkpoint_id: u64, user: QEDUserLeaf<QEDFelt>) -> anyhow::Result<()> {
         let key_id = CheckpointTableIdKey::new(
-            user.last_checkpoint_id.to_canonical_u64(),
+            checkpoint_id,//user.last_checkpoint_id.to_canonical_u64(),
             user.user_id.to_canonical_u64(),
         );
         IDKVA::imm_set(store, key_id, user)?;
         Ok(())
     }
-    fn set_user_ref_imm(store: &S, user: &QEDUserLeaf<QEDFelt>) -> anyhow::Result<()> {
+    fn set_user_ref_imm(store: &S, checkpoint_id: u64, user: &QEDUserLeaf<QEDFelt>) -> anyhow::Result<()> {
         let key_id = CheckpointTableIdKey::new(
-            user.last_checkpoint_id.to_canonical_u64(),
+            checkpoint_id,//user.last_checkpoint_id.to_canonical_u64(),
             user.user_id.to_canonical_u64(),
         );
         IDKVA::imm_set_ref(store, &key_id, user)?;
         Ok(())
     }
-    fn set_users_imm(store: &S, users: &[QEDUserLeaf<QEDFelt>]) -> anyhow::Result<()> {
+    fn set_users_imm(store: &S, checkpoint_id: u64, users: &[QEDUserLeaf<QEDFelt>]) -> anyhow::Result<()> {
         let key_ids = users
             .iter()
             .map(|u| {
                 CheckpointTableIdKey::<USER_LEAF_TABLE_TYPE>::new(
-                    u.last_checkpoint_id.to_canonical_u64(),
+                    //u.last_checkpoint_id.to_canonical_u64(),
+                    checkpoint_id,
                     u.user_id.to_canonical_u64(),
                 )
             })

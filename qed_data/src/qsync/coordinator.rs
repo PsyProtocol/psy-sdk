@@ -1,12 +1,12 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
-use qed_core::data::qhashout::QHashOut;
-use qed_crypto::{hash::{merkle::core::DeltaMerkleProofCore, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}}, signature::zk::data::ZKPublicKeyInfo};
+use qed_core::{data::qhashout::QHashOut, job::{drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}, history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged}}};
+use qed_crypto::{hash::{merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, utils::{append_only_merkle_tree::get_merkle_proofs_for_compact, simple_merkle_tree::SimpleMerkleTree}}, traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}}, signature::zk::data::ZKPublicKeyInfo};
 use serde::{Deserialize, Serialize};
 
 use crate::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState};
 
-
+pub const QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL: u64 = 0x901337123;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -17,6 +17,39 @@ pub struct QEDCheckpointSyncInfoCompact<F: RichField> {
     pub checkpoint_tree_update_siblings: Vec<QHashOut<F>>,
     pub regsitered_users_start_pivot_siblings: Vec<QHashOut<F>>,
     pub registered_users: Vec<ZKPublicKeyInfo<F>>,
+}
+
+impl<F: RichField> QEDCheckpointSyncInfoCompact<F> {
+
+    pub fn get_registered_user_merkle_proofs<H: MerkleZeroHasher<QHashOut<F>>+ FieldQHasher<F>>(&self) -> Vec<MerkleProofCore<QHashOut<F>>> {
+        get_merkle_proofs_for_compact::<H, QHashOut<F>>(
+            self.l2_block_state.next_user_id - (self.registered_users.len() as u64),
+            &self.regsitered_users_start_pivot_siblings,
+            &self.registered_users.iter().map(|x|x.qfhash::<H>()).collect::<Vec<_>>(),
+        )
+    }
+
+}
+impl<F: RichField>  DrainQueueMetadataTagged for QEDCheckpointSyncInfoCompact<F> {
+    fn get_dq_metadata(&self) -> DrainQueueMetadata {
+        DrainQueueMetadata {
+            channel_id: QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            checkpoint_id: self.l2_block_state.checkpoint_id,
+            item_id: self.l2_block_state.checkpoint_id,
+        }
+        
+    }
+}
+
+impl<F: RichField>  HistoryQueueMetadataTagged for QEDCheckpointSyncInfoCompact<F> {
+    fn get_hq_metadata(&self) -> HistoryQueueMetadata {
+        HistoryQueueMetadata {
+            channel_id: QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            checkpoint_id: self.l2_block_state.checkpoint_id,
+            item_id: self.l2_block_state.checkpoint_id,
+        }
+        
+    }
 }
 
 impl<F: RichField> QEDCheckpointSyncInfoCompact<F> {
@@ -123,15 +156,14 @@ pub struct QEDCheckpointSyncInfo<F: RichField> {
     pub registered_users: Vec<ZKPublicKeyInfo<F>>,
 }
 impl<F: RichField> QEDCheckpointSyncInfo<F> {
-    /* 
-    pub fn get_checkpoint_tree_delta_merkle_proof<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-        DeltaMerkleProofCore::from_params(
-            self.core.l2_block_state.checkpoint_id,
-            QHashOut::ZERO,
-            self.core.checkpoint_leaf_hash,
-            self.core.
+
+    pub fn get_registered_user_merkle_proofs<H: MerkleZeroHasher<QHashOut<F>>+ FieldQHasher<F>>(&self) -> Vec<MerkleProofCore<QHashOut<F>>> {
+        get_merkle_proofs_for_compact::<H, QHashOut<F>>(
+            self.core.l2_block_state.next_user_id - (self.registered_users.len() as u64),
+            &self.regsitered_users_start_pivot_siblings,
+            &self.registered_users.iter().map(|x|x.qfhash::<H>()).collect::<Vec<_>>(),
         )
-    }*/
+    }
 
 }
 impl<F: RichField> KVQSerializable for QEDCheckpointSyncInfo<F> {

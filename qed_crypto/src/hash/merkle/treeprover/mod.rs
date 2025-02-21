@@ -1,5 +1,8 @@
+pub mod data;
 pub mod tree_planner;
 pub mod subtree;
+pub mod tree_helper;
+
 use crate::hash::merkle::treeprover::tree_planner::BinaryTreeJob;
 use plonky2::{
     hash::{hash_types::RichField, poseidon::PoseidonHash},
@@ -8,6 +11,7 @@ use plonky2::{
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 use tree_planner::BinaryTreePlanner;
+pub type QEDStateTrackingHash = PoseidonHash;
 
 pub trait WithDummyStateTransition<F: RichField> {
     fn get_dummy_value(state_root: QHashOut<F>) -> Self;

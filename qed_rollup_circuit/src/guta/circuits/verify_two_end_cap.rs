@@ -8,14 +8,15 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    builder::hash::core::CircuitBuilderHashCore, circuits::traits::qstandard::QStandardCircuit, proof_minifier::
+    builder::hash::core::CircuitBuilderHashCore, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
-use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
-use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}, utils::debug_timer::DebugTimer};
+use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher}};
 use qed_data::guta::proof_input::VerifyTwoEndCapCircuitInput;
 
 use crate::guta::gadgets::{helpers::ToGUTAHeader, two_nca_state_transition::TwoNCAStateTransitionGadget, verify_end_cap::VerifyEndCapProofGadget};
+use async_trait::async_trait;
 
 #[derive(Debug)]
 pub struct GUTAVerifyTwoEndCapCircuit<C: GenericConfig<D> + 'static, const D: usize>
@@ -31,7 +32,7 @@ where
     pub fingerprint: QHashOut<C::F>,
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> GUTAVerifyTwoEndCapCircuit<C, D>
+impl<C: GenericConfig<D>+ 'static, const D: usize> GUTAVerifyTwoEndCapCircuit<C, D>
 where
     C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> {
         pub fn new(
@@ -157,6 +158,49 @@ where
 
     fn get_common_circuit_data_ref(&self) -> &CommonCircuitData<C::F, D> {
         &self.circuit_data.common
+    }
+}
+
+
+
+
+#[async_trait]
+impl <
+    S: QProofStoreReaderAsync + Send + Sync,
+    L: CircuitInfoLibrary<C,D> + Send + Sync,
+    C: GenericConfig<D>+ 'static,
+    const D: usize,
+> QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for GUTAVerifyTwoEndCapCircuit<C,D> 
+where
+C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
+    async fn prove_with_proof_store_async(
+        &self,
+        store: &S,
+        library: &L,
+        job_id: QProvingJobDataID,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+
+        let r: CircuitInputWithDependencies<VerifyTwoEndCapCircuitInput<C::F>> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?; 
+        if r.dependencies.len() != 2 {
+            anyhow::bail!("invalid dependency count in two end cap input");
+        }
+
+        let proof_a = store.get_proof_by_id(r.dependencies[0]).await?;
+        let proof_b = store.get_proof_by_id(r.dependencies[1]).await?;
+
+        let dep_0_type = r.dependencies[0].circuit_type;
+        let vd = library.get_verifier_data(dep_0_type)?;
+        let result = self.prove_base(
+            &r.input,
+            &proof_a,
+            &proof_b,
+            &vd,
+        )?;
+
+        Ok(result)
+
+
     }
 }
 

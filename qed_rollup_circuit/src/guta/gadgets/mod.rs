@@ -10,3 +10,4 @@ pub mod guta_register_user_core;
 pub mod guta_register_user_full;
 pub mod guta_register_users;
 pub mod guta_register_users_batch;
+pub mod guta_only_register_users_gadget;

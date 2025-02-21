@@ -11,6 +11,19 @@ use crate::qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf
 use super::{header::GlobalUserTreeAggregatorHeader, stats::GUTAStats};
 
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct VerifyTwoGUTAProofGadgetStandardInputSimple<F: RichField> {
+    pub checkpoint_tree_root: QHashOut<F>,
+    pub stats_a: GUTAStats<F>,
+    pub stats_b: GUTAStats<F>,
+    pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
+}
+impl<F: RichField> VerifyTwoGUTAProofGadgetStandardInputSimple<F> {
+    pub fn get_combined_stats(&self) -> GUTAStats<F> {
+        self.stats_a.combine_with(&self.stats_b)
+    }
+} 
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -157,6 +170,19 @@ pub struct VerifySingleEndCapInput<F: RichField> {
 
 impl<F: RichField> VerifySingleEndCapInput<F> {
 
+    pub fn get_guta_header_a(&self) -> GlobalUserTreeAggregatorHeader<F> {
+        GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: self.guta_circuit_whitelist,
+            checkpoint_tree_root: self.a_end_cap.checkpoint_root,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: self.start_user_leaf_hash,
+                new_node_value: self.end_user_leaf_hash,
+                node_index: self.user_id,
+                node_level: F::from_canonical_u8(GLOBAL_USER_TREE_HEIGHT),
+            },
+            stats: self.a_end_cap.guta_stats,
+        }
+    }
     pub fn get_end_result_a(&self) -> UPSEndCapResultCompact<F> {
         UPSEndCapResultCompact {
             start_user_leaf_hash: self.start_user_leaf_hash,
@@ -178,6 +204,27 @@ impl<F: RichField> KVQSerializable for VerifySingleEndCapInput<F> {
 }
 
 
+
+
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct VerifyLeftGUTARightEndCapInputSimple<F: RichField> {
+    pub checkpoint_tree_root: QHashOut<F>,
+    pub stats_a: GUTAStats<F>,
+    pub b_end_cap: VerifyEndCapSimpleStandardInput<F>,
+    pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
+}
+
+impl<F: RichField> KVQSerializable for VerifyLeftGUTARightEndCapInputSimple<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
 
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -227,6 +274,27 @@ impl<F: RichField> VerifyLeftGUTARightEndCapInput<F> {
     }
     
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct VerifyLeftEndCapRightGUTAInputSimple<F: RichField> {
+    pub checkpoint_tree_root: QHashOut<F>,
+    pub stats_b: GUTAStats<F>,
+    pub a_end_cap: VerifyEndCapSimpleStandardInput<F>,
+    pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
+
+}
+
+impl<F: RichField> KVQSerializable for VerifyLeftEndCapRightGUTAInputSimple<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
 
 
 
@@ -346,6 +414,109 @@ impl<F: RichField> GUTARegisterUserFullInput<F> {
 }
 
 impl<F: RichField> KVQSerializable for GUTARegisterUserFullInput<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+
+
+
+
+
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct VerifyGUTAToCapCircuitInputSimple<F: RichField> {
+    pub guta_proof_header: GlobalUserTreeAggregatorHeader<F>,
+    pub top_line_siblings: Vec<QHashOut<F>>,
+}
+impl<F: RichField> VerifyGUTAToCapCircuitInputSimple<F> {
+    pub fn get_new_state_transition<H: FieldQHasher<F>>(&self) -> SubTreeNodeStateTransition<F> {
+
+        if self.top_line_siblings.len() == 0 {
+            self.guta_proof_header.state_transition.clone()
+        }else{
+            
+
+            let new_dmp = DeltaMerkleProofCore::from_params::<H>(
+                self.guta_proof_header.state_transition.node_index.to_canonical_u64(), 
+                self.guta_proof_header.state_transition.old_node_value, 
+                self.guta_proof_header.state_transition.new_node_value,
+                self.top_line_siblings.clone(),
+            );
+
+            SubTreeNodeStateTransition{
+                old_node_value: new_dmp.old_root,
+                new_node_value: new_dmp.new_root,
+                node_index:F::from_canonical_u64 (
+                    self.guta_proof_header.state_transition.node_index.to_canonical_u64()>>(self.top_line_siblings.len() as u64)
+                ),
+                node_level: F::from_canonical_u64 (
+                    self.guta_proof_header.state_transition.node_level.to_canonical_u64()-(self.top_line_siblings.len() as u64)
+                ),
+            }
+        }
+
+    }
+    pub fn get_new_guta_header<H: FieldQHasher<F>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
+
+
+        GlobalUserTreeAggregatorHeader{
+            guta_circuit_whitelist: self.guta_proof_header.guta_circuit_whitelist,
+            checkpoint_tree_root: self.guta_proof_header.checkpoint_tree_root,
+            state_transition: self.get_new_state_transition::<H>(),
+            stats: self.guta_proof_header.stats,
+        }
+
+    }
+}
+impl<F: RichField> KVQSerializable for VerifyGUTAToCapCircuitInputSimple<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct VerifyGUTARegisterUsersCircuitInputSimple<F: RichField> {
+    pub guta_proof_header: GlobalUserTreeAggregatorHeader<F>,
+    pub top_line_siblings: Vec<QHashOut<F>>,
+    pub guta_register_user_inputs: Vec<GUTARegisterUserFullInput<F>>
+}
+
+impl<F: RichField> KVQSerializable for VerifyGUTARegisterUsersCircuitInputSimple<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+
+
+
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct GUTAOnlyRegisterUsersInput<F: RichField> {
+    pub checkpoint_tree_root: QHashOut<F>,
+    pub guta_register_user_inputs: Vec<GUTARegisterUserFullInput<F>>,
+}
+
+impl<F: RichField> KVQSerializable for GUTAOnlyRegisterUsersInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }

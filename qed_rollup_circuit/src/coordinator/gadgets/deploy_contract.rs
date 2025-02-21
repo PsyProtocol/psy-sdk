@@ -25,8 +25,8 @@ pub struct BatchDeployContractsGadget {
 impl BatchDeployContractsGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
-        batch_sub_tree_height: usize,
         contract_tree_height: usize,
+        batch_sub_tree_height: usize,
     ) -> Self {
         let top_line_height = contract_tree_height-batch_sub_tree_height;
         let spiderman_gadget = SpidermanAppendProofGadget::add_virtual_to::<H,F,D>(

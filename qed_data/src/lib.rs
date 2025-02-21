@@ -8,3 +8,4 @@ pub mod guta;
 pub mod proof_store;
 pub mod api;
 pub mod qsync;
+pub mod qstore;

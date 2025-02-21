@@ -1,29 +1,27 @@
 use crate::{
     config::store_config::{
-        CheckpointHashHelperTableStore, CheckpointLeafTableStore, CheckpointSyncInfoTableStore, CheckpointTreeStore, QEDHasher, UserPublicKeyTableStore, UserRegistrationTreeStore, UserTreeStore
+        BaseContractStateTreeStore, CheckpointHashHelperTableStore, CheckpointLeafTableStore, CheckpointSyncInfoTableStore, CheckpointTreeStore, QEDHasher, UserContractTreeStore, UserPublicKeyTableStore, UserRegistrationTreeStore, UserTreeStore, CONTRACT_STATE_TREE_ID, USER_CONTRACT_STATE_TREE_TABLE_TYPE
     },
     models::{
         checkpoint::{
             checkpoint_hash::QEDCheckpointHashHelperModelCore,
             checkpoint_leaf::QEDCheckpointLeafModelCore, sync_info::QEDCheckpointSyncInfoModelCore, user_public_keys::QEDUserPublicKeyHelperModelCore,
         },
-        kvq_merkle::model::{
+        kvq_merkle::{key::KVQMerkleNodeKey, model::{
             KVQFixedConfigMerkleTreeModelCoreImmutable, KVQFixedConfigMerkleTreeModelReaderCore,
-            KVQMerkleTreeModelCoreImmutable,
-        },
+            KVQMerkleTreeModelCoreImmutable, KVQSemiFixedConfigMerkleTreeModelReaderCore,
+        }},
     },
     node::
         realm::QEDRealmStoreWriterAsyncImm
     ,
     store::imm::core::QEDStorageAdapterImmutable,
-    traits::qdatastore::
-        qmetadata::QMetaDataStoreWriterSync
+    traits::qdatastore::{
+        qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync}
     ,
 };
-fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
-    registration_id.reverse_bits()
-}
 use async_trait::async_trait;
+use kvq::traits::KVQPair;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     util::log2_ceil,
@@ -33,27 +31,53 @@ use qed_core::{
     data::qhashout::QHashOut,
 };
 use qed_crypto::hash::{
-    merkle::
-        utils::{common::QMerkleNode, sub_tree_nca::UpdateNCAProofsWithDependencies}
+    merkle::{core::DeltaMerkleProofCore, 
+        utils::{common::{QMerkleNode, SimpleMerkleNode, SimpleMerkleNodeKey}, sub_tree_nca::UpdateNCAProofsWithDependencies}}
     ,
     traits::qhashable::QFieldHashable,
 };
 use qed_data::{
     qdata::{
-        contract::{ContractCodeDefinition, QEDContractLeaf},
-        user_public_key::QEDUserPublicKeyRecord,
-    },
-    qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact},
+        contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf, user_public_key::QEDUserPublicKeyRecord
+    }, qstore::uct_merkle_nodes::CSTUserUpdate, qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact}
 };
+pub fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
+    let dif = 64 - GLOBAL_USER_TREE_HEIGHT as u64; 
+    (registration_id).reverse_bits() >> dif
+}
 type F = GoldilocksField;
 #[async_trait]
 impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F> for T {
+    async fn injest_user_leaves_batch_imm(&self, checkpoint_id: u64, leaves: &[QEDUserLeaf<F>]) -> anyhow::Result<()> {
+        for l in leaves.iter() {
+            self.set_user_leaf_data(checkpoint_id, l)?;
+        }
+
+        Ok(())
+    }
+    async fn injest_user_leaves_imm(&self, checkpoint_id: u64, root_level: u8, leaves: &[QEDUserLeaf<F>]) -> anyhow::Result<Vec<DeltaMerkleProofCore<QHashOut<F>>>> {
+        for l in leaves.iter() {
+            self.set_user_leaf_data(checkpoint_id, l)?;
+        }
+        
+        let mut nodes = Vec::new();
+        for l in leaves.iter() {
+            nodes.push(SimpleMerkleNode {
+                key: SimpleMerkleNodeKey {
+                    index: l.user_id.to_canonical_u64(),
+                    level: GLOBAL_USER_TREE_HEIGHT,
+                },value: l.qfhash::<QEDHasher>()
+            });
+        }
+        UserTreeStore::<Self>::smart_injest_nca_at_height_dmp_fc_imm(self, root_level, checkpoint_id, &nodes)
+    }
     async fn injest_user_tree_nodes_imm(
         &self,
         checkpoint_id: u64,
+        root_level: u8,
         nodes: &[QMerkleNode<F>],
     ) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>> {
-        UserTreeStore::smart_injest_nca_fc_imm(self, REALM_USER_TREE_HEIGHT, checkpoint_id, nodes)
+        UserTreeStore::smart_injest_nca_fc_imm(self, root_level, checkpoint_id, nodes)
     }
     async fn injest_checkpoint_sync_data_imm(
         &self,
@@ -170,6 +194,34 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F>
     }
 
     async fn commit_block_imm(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn injest_checked_cst_nodes_imm(&self, user_updates: &[CSTUserUpdate<QHashOut<F>>]) -> anyhow::Result<()> {
+        for upd in user_updates.iter() {
+            
+            let nodes = upd.updates.iter().map(|x|{
+                KVQPair {
+                    key: KVQMerkleNodeKey::<USER_CONTRACT_STATE_TREE_TABLE_TYPE> {
+                        tree_id: CONTRACT_STATE_TREE_ID,
+                        primary_id: upd.user_id,
+                        secondary_id: x.key.contract_id,
+                        level: x.key.level,
+                        index: x.key.index,
+                        checkpoint_id: upd.checkpoint_id,
+                    },
+                    value: x.value,
+                }
+            }).collect::<Vec<_>>();
+            let uct_nodes = upd.uct_updates.iter().map(|x|{
+                KVQPair {
+                    key: UserContractTreeStore::<Self>::new_node_key_sfc(upd.checkpoint_id, upd.user_id, x.key.level, x.key.index),
+                    value: x.value,
+                }
+            }).collect::<Vec<_>>();
+            BaseContractStateTreeStore::<Self>::set_nodes(self, &nodes)?;
+            UserContractTreeStore::<Self>::set_nodes(self, &uct_nodes)?;
+        }
+
         Ok(())
     }
 }
