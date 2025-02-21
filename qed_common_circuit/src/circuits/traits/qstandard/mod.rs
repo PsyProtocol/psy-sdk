@@ -1,10 +1,10 @@
 use async_trait::async_trait;
-use qed_core::{data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut}, job::{id::{ProvingJobCircuitType, QProvingJobDataID}, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
-use plonky2::{hash::hash_types::RichField, plonk::{
+use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
+use plonky2::plonk::{
     circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
     config::GenericConfig,
     proof::ProofWithPublicInputs,
-}};
+};
 use qed_crypto::common::circuit_library::CircuitInfoLibrary;
 use serde::{de::DeserializeOwned, Serialize};
 

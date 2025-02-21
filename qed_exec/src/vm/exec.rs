@@ -57,7 +57,7 @@ pub trait QEDCmdInputWitnessResolver<F: RichField> {
     ) -> anyhow::Result<QEDCmdWithInputAndWitness<F>>;
 }
 //(sub_slot_length-2)%4
-
+/*
 const SLOT_MASK_TABLE: [[u8; 4]; 7] = [
     [0, 0, 0, 0],
     [0, 0, 0, 0],
@@ -76,6 +76,7 @@ fn get_slot_mask(length: u64, sub_slot_index: u64) -> [u8; 4] {
 
     SLOT_MASK_TABLE[(length_minus_2_low_bits + sub_slot_index_low_bits) as usize]
 }
+*/
 impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
     for QEDLocalProvingSessionStore<GF, R>
 {
@@ -886,8 +887,8 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
 
 
                 if c.length == 1 {
-                    let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
-                    let n = (c.sub_slot_index & 0b11) as usize;
+                    //let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    //let n = (c.sub_slot_index & 0b11) as usize;
 
                     let state_slot_proof = self.cmd_store.resolve_get_merkle_proof_mut(
                         &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
@@ -914,7 +915,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
                 } else if c.length < 6 {
                     // two merkle proofs
 
-                    let slot_index = (c.sub_slot_index / 4u64);
+                    let slot_index = c.sub_slot_index / 4u64;
                     let n = (c.sub_slot_index & 0b11) as usize;
                     let proof_0 = self.cmd_store.resolve_get_merkle_proof_mut(
                         &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(

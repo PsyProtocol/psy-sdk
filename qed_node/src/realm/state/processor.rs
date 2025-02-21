@@ -2,10 +2,9 @@ use std::sync::Arc;
 
 use kvq::traits::KVQPair;
 use plonky2::{
-    field::{
-        packed::PackedField,
-        types::{Field, PrimeField64},
-    },
+    field::
+        types::{Field, PrimeField64}
+    ,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use qed_core::{
@@ -21,14 +20,13 @@ use qed_core::{
 };
 use qed_crypto::{
     common::generic_circuit_verifier::GenericCircuitVerifier,
-    hash::{
+    hash::
         merkle::{
             core::{DeltaMerkleProofCore, MerkleProofCore},
             treeprover::{data::CircuitInputWithDependencies, subtree::SubTreeNodeStateTransition},
             utils::common::{QMerkleNode, SimpleMerkleNodeKey},
-        },
-        traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
-    },
+        }
+    ,
 };
 use qed_data::{
     guta::{
@@ -95,7 +93,7 @@ pub struct RealmProcessorContext<
     pub latest_block_state: QEDL2BlockState,
     pub realm_config: RealmConfig,
     pub pending_register_users: Vec<MerkleProofCore<QHashOut<F>>>,
-    chkpoint_id: u64,
+    //chkpoint_id: u64,
     //pub checkpoint_id: u64,
     //pub end_cap_verifier_data: VerifierOnlyCircuitData<C, D>,
 }
@@ -118,7 +116,7 @@ impl<
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
         let latest_block_state: QEDL2BlockState = store.get_latest_l2_block_state().await?;
-        let checkpoint_id = latest_block_state.checkpoint_id;
+        //let checkpoint_id = latest_block_state.checkpoint_id;
 
         Ok(Self {
             realm_config,
@@ -129,7 +127,7 @@ impl<
             proof_store,
             proof_verifier,
             latest_block_state,
-            chkpoint_id: checkpoint_id,
+            //chkpoint_id: checkpoint_id,
             pending_register_users: Vec::new(),
             //checkpoint_id,
         })

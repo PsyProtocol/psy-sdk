@@ -95,7 +95,7 @@ impl QProofStoreWriterSync for ProofStoreBuilder {
         Ok(())
     }
 
-    fn inc_counter_by_id(&mut self, id: QProvingJobDataID) -> anyhow::Result<u32> {
+    fn inc_counter_by_id(&mut self, _id: QProvingJobDataID) -> anyhow::Result<u32> {
         anyhow::bail!("inc counter not supported for proof store builder");
     }
 
