@@ -1,8 +1,8 @@
 mod binary;
-pub mod block;
+mod block;
 mod call;
 mod cast;
-pub mod if_expr;
+mod if_expr;
 mod index;
 mod intrinsic;
 mod path;
@@ -13,6 +13,7 @@ pub use block::*;
 pub use call::*;
 pub use cast::*;
 use enum_as_inner::EnumAsInner;
+pub use if_expr::*;
 pub use index::*;
 pub use intrinsic::*;
 pub use path::*;
@@ -20,8 +21,6 @@ pub use unary::*;
 
 use qed_ast::{IdentId, NodeInfo, NodeType};
 
-use crate::expr::block::CheckedBlockExprNode;
-use crate::expr::if_expr::CheckedIfExprNode;
 use crate::{CheckedValueNode, ScopeId, TypeId, BOOL_TYPE, FELT_TYPE};
 use strum::EnumTryAs;
 

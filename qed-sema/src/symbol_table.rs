@@ -169,13 +169,7 @@ impl<T: Clone> Display for SymbolTable<T> {
             writeln!(f, "  types:")?;
             //print scope type
             for (k, v) in &scope.types {
-                writeln!(
-                    f,
-                    "  I({:?})  {:?}:{:?} ",
-                    k.name,
-                    k,
-                    v
-                )?;
+                writeln!(f, "  I({:?})  {:?}:{:?} ", k.name, k, v)?;
             }
             //variables
             writeln!(f, "  variables:")?;
@@ -190,11 +184,7 @@ impl<T: Clone> Display for SymbolTable<T> {
         //print module
         for (i, module) in self.modules.iter().enumerate() {
             writeln!(f, "ModuleId({})", i)?;
-            writeln!(
-                f,
-                "  name: I({:?})",
-                module.name,
-            )?;
+            writeln!(f, "  name: I({:?})", module.name,)?;
             writeln!(f, "  id: {:?}", module.id)?;
             writeln!(f, "  scope_id: {:?}", module.scope_id)?;
             writeln!(f, "  kind: {:?}", module.kind)?;

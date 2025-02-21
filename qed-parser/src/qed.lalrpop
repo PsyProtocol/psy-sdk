@@ -510,7 +510,6 @@ Expression: ExprNode<F> = {
         target: expr_nodes.alloc_item(variable),
         index: usize::try_from(index).unwrap()
     }),
-    #[precedence(level="2")]
     <l:@L> <variable:Expression> "." <field:Identifier> <r:@R> => ExprNode::<F>::MemberAccess(MemberAccessNode {
         target: expr_nodes.alloc_item(variable),
         field
@@ -518,7 +517,6 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> AS <ty:TYPE_FELT> <r:@R> => ExprNode::<F>::Cast(
         CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_FELT))
     ),
-    #[precedence(level="4")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> AS <ty:TYPE_BOOL> <r:@R> => ExprNode::<F>::Cast(
         CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_BOOL))
     ),

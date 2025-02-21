@@ -126,24 +126,24 @@ llvm-sys = "191.0"
 melior = { version = "0.21", features = ["ods-dialects"] }
 mlir-sys = { version = "0.4" }
 
-# qedlang_core = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
-# qed_crypto = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
-# qed_exec = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
-# qed_store = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
-# qed_data = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
-# qed_core = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
-# qed_prover = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
-# qed_common_circuit = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
-# kvq = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", rev = "5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5" }
-qedlang_core = { path = "../qedlang-rust/qedlang_core" }
-qed_crypto = { path = "../qedlang-rust/qed_crypto" }
-qed_exec = { path = "../qedlang-rust/qed_exec" }
-qed_store = { path = "../qedlang-rust/qed_store" }
-qed_data = { path = "../qedlang-rust/qed_data" }
-qed_core = { path = "../qedlang-rust/qed_core" }
-qed_prover = { path = "../qedlang-rust/qed_prover" }
-qed_common_circuit = { path = "../qedlang-rust/qed_common_circuit" }
-kvq = { path = "../qedlang-rust/kvq" }
+qedlang_core = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_crypto = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_exec = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_store = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_data = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_core = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_prover = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+qed_common_circuit = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+kvq = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
+# qedlang_core = { path = "../qedlang-rust/qedlang_core" }
+# qed_crypto = { path = "../qedlang-rust/qed_crypto" }
+# qed_exec = { path = "../qedlang-rust/qed_exec" }
+# qed_store = { path = "../qedlang-rust/qed_store" }
+# qed_data = { path = "../qedlang-rust/qed_data" }
+# qed_core = { path = "../qedlang-rust/qed_core" }
+# qed_prover = { path = "../qedlang-rust/qed_prover" }
+# qed_common_circuit = { path = "../qedlang-rust/qed_common_circuit" }
+# kvq = { path = "../qedlang-rust/kvq" }
 
 qed-abi = { path = "./qed-abi" }
 qed-ast = { path = "./qed-ast" }

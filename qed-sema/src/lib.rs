@@ -13,11 +13,9 @@ pub use expr::*;
 use indexmap::IndexMap;
 use qed_common::{Arena, Graph};
 pub use r#type::*;
-use std::fmt::format;
 use std::{
     collections::HashMap,
     ops::{Index, IndexMut},
-    rc::Rc,
 };
 pub use stmt::*;
 pub use symbol_table::*;
@@ -27,11 +25,7 @@ pub use variable::*;
 pub use error::*;
 use qed_ast::*;
 
-use qed_parser::Parser;
-
-use crate::block::CheckedBlockExprNode;
-use crate::expr::if_expr::CheckedIfExprNode;
-use crate::if_expr::CheckedCase;
+use crate::CheckedCase;
 use qed_ast::BlockExprNode;
 use tracing::{debug, error, info, instrument, span, Level};
 
@@ -587,6 +581,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let f = ctx.symbols[ty].clone();
         let (args, generic_parameters, return_type) = match f {
             Type::Function(n) => {
+                if call_node.args.len() != n.parameters.len() {
+                    return Err(Error::InvalidFunctionCall);
+                }
                 let mut args = Vec::new();
                 for (i, arg) in call_node.args.iter().enumerate() {
                     let type_arg = self.visit_expr(arg.clone(), ctx)?;
@@ -598,6 +595,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 (args, n.generic_parameters.clone(), n.return_type)
             }
             Type::FunctionSignature(sig) => {
+                if call_node.args.len() != sig.parameters.len() {
+                    return Err(Error::InvalidFunctionCall);
+                }
                 let mut args = Vec::new();
                 for (i, arg) in call_node.args.iter().enumerate() {
                     let type_arg = self.visit_expr(arg.clone(), ctx)?;
