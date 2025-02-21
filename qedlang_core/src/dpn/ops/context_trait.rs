@@ -243,7 +243,6 @@ impl<F: ContextFelt, T: ToFelts<F>, C: DPNContext<F>, A: DPNContextArraySized<F,
             let mut result = self.q_get_direct(0);
 
             for i in 1..arr_len {
-                println!("value: {:?}", i);
                 let value = self.q_get_direct(i);
                 let ind = context.op_const(i);
                 let eq = context.op_eq(index, ind);

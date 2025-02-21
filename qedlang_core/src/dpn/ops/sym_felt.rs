@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Display};
 use std::hash::Hasher;
 
 use std::ops::{
@@ -17,7 +18,7 @@ pub const SYM_FELT_REF_STORE_VALUE_MASK: u128 = 0x0000ffffffffffffffffffffffffff
 pub const CONSTANT_TRUE_OP: u128 = (DPNOpType::ConstantTrue as u128)<<112;
 pub const CONSTANT_FALSE_OP: u128 = (DPNOpType::ConstantFalse as u128)<<112;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
 pub struct SymFeltRef(pub u128);
 impl SymFeltRef {
     pub fn new_input(index: u64) -> SymFeltRef {
@@ -114,6 +115,39 @@ impl SymFeltRef {
         }
     }
 
+}
+
+impl Debug for SymFeltRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.get_op_type() {
+            DPNOpType::InputTarget => {
+                write!(f, "Input({})", self.get_input_index())
+            }
+            DPNOpType::Constant => {
+                write!(f, "Constant({})", self.get_constant_value())
+            }
+            DPNOpType::ConstantTrue => {
+                write!(f, "Constant(true)")
+            }
+            DPNOpType::ConstantFalse => {
+                write!(f, "Constant(false)")
+            }
+            _ => {
+                write!(
+                    f,
+                    "{:?}({:?})",
+                    self.get_op_type(),
+                    self.0 & SYM_FELT_REF_STORE_VALUE_MASK
+                )
+            }
+        }
+    }
+}
+
+impl Display for SymFeltRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl Add for SymFeltRef {
