@@ -355,7 +355,11 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 };
                 self.targets.push(result);
             },
-            DPNOpType::Exp => todo!(),
+            DPNOpType::Exp => {
+                let left = self.resolve_target(op.inputs[0]);
+                let right = self.resolve_target(op.inputs[1]);
+                self.targets.push(left.exp_u64(right.to_canonical_u64()));
+            },
             DPNOpType::ExpConstantPower => todo!(),
             DPNOpType::ExpConstantBase => todo!(),
             DPNOpType::Mod => todo!(),

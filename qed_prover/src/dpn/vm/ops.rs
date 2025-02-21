@@ -326,7 +326,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 // this is the same as: if condition == 0 then { y } else { x }
                 self.targets.push(builder.select(is_condition_zero, y, x));
             },
-            DPNOpType::Exp => todo!(),
+            DPNOpType::Exp => {
+                let left = self.resolve_target(op.inputs[0]);
+                let right = self.resolve_target(op.inputs[1]);
+                self.targets.push(builder.exp(left, right, 64))
+            },
             DPNOpType::ExpConstantPower => todo!(),
             DPNOpType::ExpConstantBase => todo!(),
             DPNOpType::Mod => todo!(),
