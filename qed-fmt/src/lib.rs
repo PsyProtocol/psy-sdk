@@ -45,10 +45,6 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         result
     }
 
-    fn append(&mut self, s: &str) {
-        self.output.push_str(s);
-    }
-
     fn append_line(&mut self, s: &str) {
         self.output.push_str(s);
         self.output.push('\n');
@@ -86,6 +82,29 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
                 format!("[{};{}]", self.visit_unchecked_type(ty, ctx), size)
             }
             UncheckedType::Unknown => "unknown".to_string(),
+            UncheckedType::FunctionSignature(sig) => {
+                let parameters = sig
+                    .parameters
+                    .iter()
+                    .map(|p| {
+                        format!(
+                            "{}{}",
+                            if p.0 { "mut " } else { "" },
+                            self.visit_unchecked_type(&p.1, ctx)
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!(
+                    "fn({}){}",
+                    parameters,
+                    if let Some(ref ret) = sig.return_type {
+                        format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
+                    } else {
+                        "".to_string()
+                    }
+                )
+            }
         }
     }
 
@@ -93,7 +112,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         if generic_parameters.is_empty() {
             "".to_string()
         } else {
-            format!("<{}>", generic_parameters.join(", "))
+            format!("#<{}>", generic_parameters.join(", "))
         }
     }
 
@@ -109,6 +128,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     type StmtResult = String;
     type Context = DefaultVisitorContext<'a, F, C>;
     type Error = ();
+    type Expr = ExprNode<F>;
+    type Stmt = StmtNode;
+    type Definition = DefinitionNode;
+    type DefinitionResult = String;
 
     fn visit_use(
         &mut self,
@@ -127,7 +150,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|t| ctx.ident(t).to_string())
             .unwrap_or("*".to_string());
 
-        let ret = format!("use {}::{};", path.join("::"), target);
+        let ret = format!("pub use {}::{};", path.join("::"), target);
         //self.write_line(&format!("use {}::{};", path.join("::"), target));
         Ok(ret)
     }
@@ -258,11 +281,14 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         let &CallNode {
-            variable,
+            callee: variable,
             ref args,
-            receiver,
             ref generic_parameters,
         } = ctx.expression(expr_id).as_call().unwrap();
+        let generic_parameters = generic_parameters
+            .iter()
+            .map(|generic_parameter| self.visit_unchecked_type(&generic_parameter, ctx))
+            .collect::<Vec<_>>();
         let args = args
             // TOOD: remove clone
             .clone()
@@ -270,7 +296,43 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|&arg| self.visit_expr(arg, ctx))
             .collect::<Result<Vec<_>, Self::Error>>()?
             .join(", ");
-        Ok(format!("{}({})", self.visit_expr(variable, ctx)?, args))
+        Ok(format!(
+            "{}{}({})",
+            self.visit_expr(variable, ctx)?,
+            self.visit_generic_parameters(generic_parameters),
+            args
+        ))
+    }
+
+    fn visit_member_call(
+        &mut self,
+        expr_id: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let &MemberCallNode {
+            callee: variable,
+            ref args,
+            receiver,
+            ref generic_parameters,
+        } = ctx.expression(expr_id).as_member_call().unwrap();
+        let generic_parameters = generic_parameters
+            .iter()
+            .map(|generic_parameter| self.visit_unchecked_type(&generic_parameter, ctx))
+            .collect::<Vec<_>>();
+        let args = args
+            // TOOD: remove clone
+            .clone()
+            .iter()
+            .map(|&arg| self.visit_expr(arg, ctx))
+            .collect::<Result<Vec<_>, Self::Error>>()?
+            .join(", ");
+        Ok(format!(
+            "{}.{}{}({})",
+            self.visit_expr(receiver, ctx)?,
+            self.visit_expr(variable, ctx)?,
+            self.visit_generic_parameters(generic_parameters),
+            args
+        ))
     }
 
     fn visit_cast(
@@ -297,7 +359,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let &WhileNode { predicate, body } = ctx.statement(stmt_id).as_while().unwrap();
-        let mut s = format!("while {} {{", self.visit_expr(predicate, ctx)?);
+        let s = format!("while {} {{", self.visit_expr(predicate, ctx)?);
         self.write_line(&s);
         self.indent();
         self.visit_stmt(body, ctx);
@@ -317,8 +379,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             value,
         } = ctx.statement(stmt_id).as_assignment().unwrap();
         let s = format!(
-            "{} = {};",
+            "{} {} {};",
             self.visit_expr(variable, ctx)?,
+            operator,
             self.visit_expr(value, ctx)?
         );
         self.write_line(&s);
@@ -390,7 +453,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .collect::<Vec<_>>();
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
-        let mut s = format!(
+        let s = format!(
             "impl{} {}{}{} {{",
             if let Some(trait_name) = trait_name {
                 format!(" {} for", &ctx.ident(trait_name.clone()))
@@ -423,7 +486,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             body,
             return_type,
-            is_extern,
+            qualifier,
             visibility,
             attrs,
         } = ctx.definition(def_id).as_function().unwrap();
@@ -458,10 +521,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .iter()
             .map(|x| ctx.ident(x.clone()).to_string())
             .collect::<Vec<_>>();
-        let mut s = format!(
+        let s = format!(
             "{}{}fn {}{}({}){} {{",
             if visibility.is_public() { "pub " } else { "" },
-            if *is_extern { "extern " } else { "" },
+            if qualifier.is_extern { "extern " } else { "" },
             ctx.ident(name.clone()),
             self.visit_generic_parameters(generic_parameters),
             parameters,
@@ -508,7 +571,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             }
         }
         self.write_line(&format!(
-            "struct {}{} {{",
+            "{}struct {}{} {{",
+            if visibility.is_public() { "pub " } else { "" },
             &ctx.ident(name.clone()),
             self.visit_generic_parameters(
                 generic_parameters
@@ -544,7 +608,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             visibility,
         } = ctx.definition(def_id).as_enum().unwrap();
         self.write_line(&format!(
-            "enum {}{} {{",
+            "{}enum {}{} {{",
+            if visibility.is_public() { "pub " } else { "" },
             &ctx.ident(name.clone()),
             self.visit_generic_parameters(
                 generic_parameters
@@ -634,7 +699,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 } else {
                     ""
                 },
-                if func.is_extern { "extern " } else { "" },
+                if func.qualifier.is_extern {
+                    "extern "
+                } else {
+                    ""
+                },
                 ctx.ident(func.name.clone()),
                 parameters,
                 if let Some(ref ret) = func.return_type {
@@ -650,104 +719,98 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(Default::default())
     }
 
-    fn visit_storage_read(
+    fn visit_intrinsic_expr(
         &mut self,
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let offset = ctx.expression(node).as_storage().unwrap().offset;
-        Ok(format!("storage::read({})", self.visit_expr(offset, ctx)?))
-    }
-
-    fn visit_context(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
-        let node = ctx.expression(node).as_context().cloned().unwrap();
+        let node = ctx.expression(node).as_intrinsic().cloned().unwrap();
         match node {
-            ContextNode::GetUserId => Ok("context::get_user_id()".to_string()),
-            ContextNode::GetContractId => Ok("context::get_contract_id()".to_string()),
-            ContextNode::GetLastNonce => Ok("context::get_last_nonce()".to_string()),
-            ContextNode::GetCheckpointId => Ok("context::get_checkpoint_id()".to_string()),
-            ContextNode::GetUserPublicKeyHash => {
-                Ok("context::get_user_public_key_hash()".to_string())
+            IntrinsicExprNode::GetUserId => Ok("__ctx_get_user_id()".to_string()),
+            IntrinsicExprNode::GetContractId => Ok("__ctx_get_contract_id()".to_string()),
+            IntrinsicExprNode::GetLastNonce => Ok("__ctx_get_last_nonce()".to_string()),
+            IntrinsicExprNode::GetCheckpointId => Ok("__ctx_get_checkpoint_id()".to_string()),
+            IntrinsicExprNode::GetUserPublicKeyHash => {
+                Ok("__ctx_get_user_public_key_hash()".to_string())
             }
-            ContextNode::GetStateHashAt { slot_index } => Ok(format!(
-                "context::get_state_hash_at({})",
+            IntrinsicExprNode::GetStateHashAt { slot_index } => Ok(format!(
+                "__ctx_get_state_hash_at({})",
                 self.visit_expr(slot_index.clone(), ctx)?
             )),
-            ContextNode::GetOtherContractStateHashAt {
+            IntrinsicExprNode::GetOtherContractStateHashAt {
                 contract_state_tree_height,
                 contract_id,
                 slot_index,
             } => Ok(format!(
-                "context::get_other_contract_state_hash_at({}, {}, {})",
+                "__ctx_get_other_contract_state_hash_at({}, {}, {})",
                 self.visit_expr(contract_state_tree_height.clone(), ctx)?,
                 self.visit_expr(contract_id.clone(), ctx)?,
                 self.visit_expr(slot_index.clone(), ctx)?
             )),
-            ContextNode::GetOtherUserContractStateHashAt {
+            IntrinsicExprNode::GetOtherUserContractStateHashAt {
                 contract_state_tree_height,
                 user_id,
                 contract_id,
                 slot_index,
             } => Ok(format!(
-                "context::get_other_user_contract_state_hash_at({}, {}, {}, {})",
+                "__ctx_get_other_user_contract_state_hash_at({}, {}, {}, {})",
                 self.visit_expr(contract_state_tree_height.clone(), ctx)?,
                 self.visit_expr(user_id.clone(), ctx)?,
                 self.visit_expr(contract_id.clone(), ctx)?,
                 self.visit_expr(slot_index.clone(), ctx)?
             )),
-            ContextNode::CSetStateHashAt {
+            IntrinsicExprNode::CSetStateHashAt {
                 slot_index,
                 new_value,
             } => Ok(format!(
-                "context::cset_state_hash_at({}, {})",
+                "__ctx_cset_state_hash_at({}, {})",
                 self.visit_expr(slot_index.clone(), ctx)?,
                 self.visit_expr(new_value.clone(), ctx)?
             )),
+            IntrinsicExprNode::Read { offset } => {
+                Ok(format!("__storage_read({})", self.visit_expr(offset, ctx)?))
+            }
+            IntrinsicExprNode::Write { offset, value } => Ok(format!(
+                "__storage_write({}, {})",
+                self.visit_expr(offset, ctx)?,
+                self.visit_expr(value, ctx)?
+            )),
+            IntrinsicExprNode::Hash { data } => {
+                Ok(format!("hash({})", self.visit_expr(data, ctx)?,))
+            }
         }
     }
 
-    fn visit_assert(
+    fn visit_intrinsic_stmt(
         &mut self,
         node: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        let left = ctx.statement(node).as_assert().unwrap().left;
-        let message = ctx.statement(node).as_assert().unwrap().message.clone();
-        Ok(format!(
-            "assert!({}, {})",
-            self.visit_expr(left, ctx)?,
-            message.unwrap_or_default()
-        ))
-    }
-
-    fn visit_assert_eq(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
-        let left = ctx.statement(node).as_assert_eq().unwrap().left;
-        let right = ctx.statement(node).as_assert_eq().unwrap().right;
-        let message = ctx.statement(node).as_assert_eq().unwrap().message.clone();
-        Ok(format!(
-            "assert_eq!({}, {}, {})",
-            self.visit_expr(left, ctx)?,
-            self.visit_expr(right, ctx)?,
-            message.unwrap_or_default()
-        ))
-    }
-
-    fn visit_storage_write(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
-        let offset = self.visit_expr(ctx.statement(node).as_storage().unwrap().offset, ctx)?;
-        let value = self.visit_expr(ctx.statement(node).as_storage().unwrap().value, ctx)?;
-        self.write_line(&format!("storage::write({}, {});", offset, value));
+        let node = ctx.statement(node).as_intrinsic().cloned().unwrap();
+        match node {
+            IntrinsicStmtNode::Assert { left, message } => {
+                let expr = self.visit_expr(left, ctx)?;
+                self.write_line(&format!(
+                    "assert({}, {})",
+                    expr,
+                    message.unwrap_or_default()
+                ))
+            }
+            IntrinsicStmtNode::AssertEq {
+                left,
+                right,
+                message,
+            } => {
+                let left = self.visit_expr(left, ctx)?;
+                let right = self.visit_expr(right, ctx)?;
+                self.write_line(&format!(
+                    "assert_eq({}, {}, {})",
+                    left,
+                    right,
+                    message.unwrap_or_default()
+                ))
+            }
+        }
         Ok(Default::default())
     }
 
@@ -770,6 +833,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             visibility_string,
             &ctx.ident(module.name)
         ));
+        self.indent();
 
         // TODO: remove clone
         for u in &module.uses {
@@ -787,9 +851,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             self.visit_definition(definition, ctx)?;
         }
 
+        self.dedent();
         self.write_line(&format!("}}"));
-        ctx.pop_node_id();
 
+        ctx.pop_node_id();
         Ok(())
     }
 
@@ -798,13 +863,39 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(())
     }
 
-    type Expr = ExprNode<F>;
-
-    type Stmt = StmtNode;
-
-    type Definition = DefinitionNode;
-
-    type DefinitionResult = String;
+    fn visit_type_alias(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let node = ctx.definition(node).as_type_alias().cloned().unwrap();
+        self.write_line(&format!(
+            "type {} = {};",
+            ctx.ident(node.name),
+            self.visit_unchecked_type(&node.ty, ctx)
+        ));
+        Ok(Default::default())
+    }
+    fn visit_const(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::DefinitionResult, Self::Error> {
+        let node = ctx.definition(node).as_const().cloned().unwrap();
+        let value = self.visit_expr(node.value, ctx)?;
+        self.write_line(&format!(
+            "{}const {}:{} = {};",
+            if node.visibility.is_public() {
+                "pub "
+            } else {
+                ""
+            },
+            ctx.ident(node.name),
+            self.visit_unchecked_type(&node.ty, ctx),
+            value
+        ));
+        Ok(Default::default())
+    }
 
     fn visit_block_expr(
         &mut self,

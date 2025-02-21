@@ -1,10 +1,7 @@
-use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_ast::IdentId;
 use qed_interpreter::Interpreter;
-use qed_sema::TypeChecker;
 use qed_utils::CompilerArgs;
 use qedlang_core::dpn::{
-    ops::{context_trait::ToFelts, exec_context::QExecContext, sym_felt::SymFeltRef},
+    ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::compile::QEDCompileResult,
 };
 

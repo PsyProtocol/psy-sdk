@@ -1,6 +1,5 @@
 use crate::IdentId;
 use lazy_static::lazy_static;
-use once_cell::sync::Lazy;
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::sync::Mutex;

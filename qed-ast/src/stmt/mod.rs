@@ -1,21 +1,18 @@
-mod assert;
 mod assignment;
+mod block;
+mod intrinsic;
 mod r#return;
-mod storage;
 mod variable;
 mod r#while;
 
-pub use assert::*;
 pub use assignment::*;
 use enum_as_inner::EnumAsInner;
+pub use intrinsic::*;
 pub use r#return::*;
 pub use r#while::*;
-use std::fmt::Display;
-pub use storage::*;
 pub use variable::*;
 
-use crate::{AstVisitor, DefId, DefinitionNode, ExprId, ExprNode, NodeInfo, NodeType, UsePath};
-use strum::EnumTryAs;
+use crate::{DefId, ExprId, NodeInfo, NodeType, UsePath};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum StmtNode {
@@ -25,9 +22,7 @@ pub enum StmtNode {
     Definition(DefId),
     Expression(ExprId),
     Return(ReturnNode),
-    Storage(StorageWriteNode),
-    Assert(AssertNode),
-    AssertEq(AssertEqNode),
+    Intrinsic(IntrinsicStmtNode),
     Use(UsePath),
 }
 
@@ -40,9 +35,7 @@ impl NodeInfo for StmtNode {
             StmtNode::Definition(_) => NodeType::DefinitionStmt,
             StmtNode::Expression(_) => NodeType::ExpressionStmt,
             StmtNode::Return(node) => node.node_type(),
-            StmtNode::Storage(node) => node.node_type(),
-            StmtNode::Assert(node) => node.node_type(),
-            StmtNode::AssertEq(node) => node.node_type(),
+            StmtNode::Intrinsic(node) => node.node_type(),
             StmtNode::Use(_) => NodeType::UseStmt,
         }
     }
@@ -58,23 +51,6 @@ impl NodeInfo for StmtNode {
         match self {
             StmtNode::Definition(def) => Some(*def),
             _ => None,
-        }
-    }
-}
-
-impl Display for StmtNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            StmtNode::While(_) => write!(f, "While"),
-            StmtNode::Assignment(_) => write!(f, "Assignment"),
-            StmtNode::Variable(_) => write!(f, "Variable"),
-            StmtNode::Definition(_) => write!(f, "Definition"),
-            StmtNode::Expression(_) => write!(f, "Expression"),
-            StmtNode::Return(_) => write!(f, "Return"),
-            StmtNode::Storage(_) => write!(f, "Storage::Write"),
-            StmtNode::Assert(_) => write!(f, "Assert"),
-            StmtNode::AssertEq(_) => write!(f, "AssertEq"),
-            StmtNode::Use(_) => write!(f, "Use"),
         }
     }
 }

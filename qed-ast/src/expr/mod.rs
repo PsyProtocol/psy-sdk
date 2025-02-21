@@ -2,25 +2,23 @@ mod binary;
 mod block_expr;
 mod call;
 mod cast;
-mod context;
 mod r#if;
 mod index;
+mod intrinsic;
 mod path;
-mod storage;
 mod unary;
 
 pub use binary::*;
 pub use block_expr::*;
 pub use call::*;
 pub use cast::*;
-pub use context::*;
 pub use index::*;
+pub use intrinsic::*;
 pub use path::*;
 pub use r#if::*;
-pub use storage::*;
 pub use unary::*;
 
-use crate::{AstVisitor, DefId, ExprId, NodeInfo, NodeType, ValueNode};
+use crate::{NodeInfo, NodeType, ValueNode};
 use enum_as_inner::EnumAsInner;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
@@ -30,13 +28,14 @@ pub enum ExprNode<F: Clone + From<u32>> {
     Binary(BinaryNode),
     Unary(UnaryNode),
     Call(CallNode),
+    MemberCall(MemberCallNode),
     Cast(CastNode),
     IndexAccess(IndexAccessNode),
     MemberAccess(MemberAccessNode),
-    Storage(StorageReadNode),
-    Context(ContextNode),
+
     BlockExpr(BlockExprNode),
     IfExpr(IfExprNode),
+    Intrinsic(IntrinsicExprNode),
 }
 
 impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
@@ -47,11 +46,11 @@ impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
             Self::Binary(node) => node.node_type(),
             Self::Unary(node) => node.node_type(),
             Self::Call(node) => node.node_type(),
+            Self::MemberCall(node) => node.node_type(),
             Self::Cast(node) => node.node_type(),
             Self::IndexAccess(node) => node.node_type(),
             Self::MemberAccess(node) => node.node_type(),
-            Self::Storage(node) => node.node_type(),
-            Self::Context(node) => node.node_type(),
+            Self::Intrinsic(node) => node.node_type(),
             Self::BlockExpr(node) => node.node_type(),
             Self::IfExpr(node) => node.node_type(),
         }

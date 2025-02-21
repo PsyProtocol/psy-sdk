@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{AstVisitor, DefId, ExprId, NodeInfo, NodeType};
+use crate::{ExprId, NodeInfo, NodeType};
 
 #[derive(Copy, Debug, Clone, PartialEq)]
 pub enum BinaryOperator {

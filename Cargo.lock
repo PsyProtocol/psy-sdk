@@ -300,8 +300,10 @@ checksum = "7e36cc9d416881d2e24f9a963be5fb1cd90966419ac844274161d10488b3e825"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
+ "js-sys",
  "num-traits",
  "serde",
+ "wasm-bindgen",
  "windows-targets",
 ]
 
@@ -949,7 +951,6 @@ dependencies = [
 [[package]]
 name = "kvq"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?rev=5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5#5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5"
 dependencies = [
  "anyhow",
  "hex",
@@ -1536,6 +1537,7 @@ dependencies = [
  "qed-parser",
  "qed-utils",
  "qedlang_core",
+ "smallvec",
  "strum",
  "thiserror",
  "tracing",
@@ -1584,10 +1586,10 @@ dependencies = [
 [[package]]
 name = "qed_common_circuit"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?rev=5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5#5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bincode",
  "bitcoin",
  "bitflags",
  "env_logger",
@@ -1617,7 +1619,6 @@ dependencies = [
 [[package]]
 name = "qed_core"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?rev=5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5#5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1640,7 +1641,6 @@ dependencies = [
 [[package]]
 name = "qed_crypto"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?rev=5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5#5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1672,10 +1672,10 @@ dependencies = [
 [[package]]
 name = "qed_data"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?rev=5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5#5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5"
 dependencies = [
  "anyhow",
  "bincode",
+ "chrono",
  "hex",
  "hex-literal",
  "kvq",
@@ -1685,6 +1685,7 @@ dependencies = [
  "qed_crypto",
  "rand",
  "serde",
+ "serde_repr",
  "serde_with",
  "twox-hash",
 ]
@@ -1692,7 +1693,6 @@ dependencies = [
 [[package]]
 name = "qed_exec"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?rev=5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5#5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1717,7 +1717,6 @@ dependencies = [
 [[package]]
 name = "qed_prover"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?rev=5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5#5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1746,7 +1745,6 @@ dependencies = [
 [[package]]
 name = "qed_rollup_circuit"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?rev=5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5#5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5"
 dependencies = [
  "anyhow",
  "hex",
@@ -1768,9 +1766,9 @@ dependencies = [
 [[package]]
 name = "qed_store"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?rev=5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5#5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5"
 dependencies = [
  "anyhow",
+ "async-trait",
  "hashbrown 0.14.5",
  "hex",
  "hex-literal",
@@ -1790,7 +1788,6 @@ dependencies = [
 [[package]]
 name = "qedlang_core"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?rev=5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5#5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1808,7 +1805,6 @@ dependencies = [
 [[package]]
 name = "qedlang_macros"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?rev=5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5#5fe79c6cd8da9c1a78a387049619ad4b8c00f2b5"
 dependencies = [
  "anyhow",
  "hex",

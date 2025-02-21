@@ -1,6 +1,4 @@
-use crate::{AstVisitor, DefId, ExprId, IdentId, NodeInfo, NodeType};
-use std::fmt::Display;
-
+use crate::{ExprId, IdentId, NodeInfo, NodeType};
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexAccessNode {
     pub target: ExprId,
@@ -22,15 +20,5 @@ pub struct MemberAccessNode {
 impl NodeInfo for MemberAccessNode {
     fn node_type(&self) -> NodeType {
         NodeType::MemberAccessExpr
-    }
-}
-
-impl Display for MemberAccessNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "MemberAccessNode target:{:?}, field:{}",
-            self.target, self.field
-        )
     }
 }

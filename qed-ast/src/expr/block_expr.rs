@@ -1,5 +1,4 @@
 use crate::{NodeInfo, NodeType, StmtId};
-use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlockExprNode {

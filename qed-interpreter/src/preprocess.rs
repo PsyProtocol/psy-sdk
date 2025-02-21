@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use indexmap::IndexMap;
 use qed_ast::BlockExprNode;
 use qed_ast::*;
+use qed_common::Graph;
 
 #[derive(Debug)]
 pub struct StorageProcessor<'a> {
@@ -85,7 +86,7 @@ impl<'a> StorageProcessor<'a> {
     ) -> DefId {
         let mut sum =
             self.generate_field_size(&struct_node.fields.iter().next().unwrap().1 .0, ctx);
-        for (field_name, (field_type, _)) in struct_node.fields.iter().skip(1) {
+        for (_, (field_type, _)) in struct_node.fields.iter().skip(1) {
             let node = BinaryNode {
                 lhs: sum,
                 operator: BinaryOperator::Add,
@@ -95,15 +96,12 @@ impl<'a> StorageProcessor<'a> {
         }
 
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(sum))));
-        // let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-        //     stmts: vec![return_stmt],
-        //     uses: vec![],
-        // }));
-        let stmt_node =
-            StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+        let stmt_node = StmtNode::Return(ReturnNode(Some(ctx.alloc_expression(
+            ExprNode::BlockExpr(BlockExprNode {
                 stmts: vec![return_stmt],
                 uses: vec![],
-            })));
+            }),
+        ))));
         let block = ctx.alloc_statement(stmt_node);
 
         let f = FunctionNode {
@@ -112,7 +110,7 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             body: Some(block),
             return_type: Some(UncheckedType::Basic(IdentId::TYPE_FELT)),
-            is_extern: false,
+            qualifier: Qualifier { is_extern: false },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -138,7 +136,7 @@ impl<'a> StorageProcessor<'a> {
         let mut field_reads = IndexMap::new();
 
         for (field_name, (field_type, _)) in &struct_node.fields {
-            let (key, value) = self.generate_field_read(field_name, field_type, offset, ctx);
+            let (_key, value) = self.generate_field_read(field_name, field_type, offset, ctx);
             field_reads.insert(field_name.clone(), value);
             let node = BinaryNode {
                 lhs: offset,
@@ -154,15 +152,13 @@ impl<'a> StorageProcessor<'a> {
             field_reads,
         )));
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(value_node))));
-        // let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-        //     stmts: vec![return_stmt],
-        //     uses: vec![],
-        // }));
-        let stmt_node =
-            StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+        let stmt_node = StmtNode::Return(ReturnNode(Some(ctx.alloc_expression(
+            ExprNode::BlockExpr(BlockExprNode {
                 stmts: vec![return_stmt],
                 uses: vec![],
-            })));
+            }),
+        ))));
+
         let block = ctx.alloc_statement(stmt_node);
         let f = FunctionNode {
             name: ctx.intern("read"),
@@ -174,7 +170,7 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             body: Some(block),
             return_type: Some(UncheckedType::Basic(IdentId::TYPE_SELF)),
-            is_extern: false,
+            qualifier: Qualifier { is_extern: false },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -210,10 +206,6 @@ impl<'a> StorageProcessor<'a> {
             };
             offset = ctx.alloc_expression(ExprNode::Binary(node));
         }
-        // let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-        //     stmts: field_writes,
-        //     uses: vec![],
-        // }));
         let stmt_node =
             StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
                 stmts: field_writes,
@@ -233,7 +225,7 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             body: Some(block),
             return_type: None,
-            is_extern: false,
+            qualifier: Qualifier { is_extern: false },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -252,7 +244,7 @@ impl<'a> StorageProcessor<'a> {
         offset: ExprId,
         ctx: &mut V,
     ) -> DefId {
-        let mut getter_name = format!("get_{}", ctx.ident(*field_name));
+        let getter_name = format!("get_{}", ctx.ident(*field_name));
         let getter_ident = ctx.intern(getter_name.as_str());
 
         let read_ident = ctx.intern("read");
@@ -263,8 +255,7 @@ impl<'a> StorageProcessor<'a> {
         }));
 
         let read_call = CallNode {
-            variable,
-            receiver: None,
+            callee: variable,
             generic_parameters: Vec::new(),
             args: vec![offset],
         };
@@ -272,15 +263,13 @@ impl<'a> StorageProcessor<'a> {
 
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(read_expr))));
 
-        // let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-        //     stmts: vec![return_stmt],
-        //     uses: vec![],
-        // }));
-        let stmt_node =
-            StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+        let stmt_node = StmtNode::Return(ReturnNode(Some(ctx.alloc_expression(
+            ExprNode::BlockExpr(BlockExprNode {
                 stmts: vec![return_stmt],
                 uses: vec![],
-            })));
+            }),
+        ))));
+
         let block = ctx.alloc_statement(stmt_node);
         let function = FunctionNode {
             name: getter_ident,
@@ -288,7 +277,7 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             body: Some(block),
             return_type: Some(field_type.clone()),
-            is_extern: false,
+            qualifier: Qualifier { is_extern: false },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -307,7 +296,7 @@ impl<'a> StorageProcessor<'a> {
         offset: ExprId,
         ctx: &mut V,
     ) -> DefId {
-        let mut setter_name = format!("set_{}", ctx.ident(*field_name));
+        let setter_name = format!("set_{}", ctx.ident(*field_name));
         let setter_ident = ctx.intern(setter_name.as_str());
 
         let value_ident = ctx.intern("value");
@@ -326,18 +315,13 @@ impl<'a> StorageProcessor<'a> {
         }));
 
         let write_call = CallNode {
-            variable,
-            receiver: None,
+            callee: variable,
             generic_parameters: Vec::new(),
             args: vec![offset, value],
         };
         let write_expr = ctx.alloc_expression(ExprNode::Call(write_call));
 
         let write_stmt = ctx.alloc_statement(StmtNode::Expression(write_expr));
-        // let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-        //     stmts: vec![write_stmt],
-        //     uses: vec![],
-        // }));
 
         let stmt_node =
             StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
@@ -352,7 +336,7 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             body: Some(block),
             return_type: None,
-            is_extern: false,
+            qualifier: Qualifier { is_extern: false },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -376,8 +360,7 @@ impl<'a> StorageProcessor<'a> {
             target: size_ident,
         }));
         let node = CallNode {
-            variable,
-            receiver: None,
+            callee: variable,
             generic_parameters: Vec::new(),
             args: Vec::new(),
         };
@@ -402,8 +385,7 @@ impl<'a> StorageProcessor<'a> {
             target: read_ident,
         }));
         let node = CallNode {
-            variable,
-            receiver: None,
+            callee: variable,
             generic_parameters: Vec::new(),
             args: vec![offset],
         };
@@ -441,8 +423,7 @@ impl<'a> StorageProcessor<'a> {
             field: field_name.clone(),
         }));
         let node = CallNode {
-            variable,
-            receiver: None,
+            callee: variable,
             generic_parameters: Vec::new(),
             args: vec![offset, field],
         };
@@ -456,6 +437,10 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     type ExprResult = ();
     type StmtResult = ();
     type Error = ();
+    type Expr = ExprNode<F>;
+    type Stmt = StmtNode;
+    type Definition = DefinitionNode;
+    type DefinitionResult = ();
 
     fn visit_use(
         &mut self,
@@ -586,248 +571,6 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
-        let is_extern = ctx.definition(node).as_function().unwrap().is_extern;
-        let function_name = ctx.definition(node).as_function().unwrap().name;
-        if !is_extern {
-            return Ok(());
-        }
-
-        let get_user_id_ident = ctx.intern("get_user_id");
-        let get_contract_id_ident = ctx.intern("get_contract_id");
-        let get_checkpoint_id_ident = ctx.intern("get_checkpoint_id");
-        let get_last_nonce_ident = ctx.intern("get_last_nonce");
-        let get_user_public_key_hash_ident = ctx.intern("get_user_public_key_hash");
-        let get_state_hash_at_ident = ctx.intern("get_state_hash_at");
-        let get_other_contract_state_hash_at_ident = ctx.intern("get_other_contract_state_hash_at");
-        let get_other_user_contract_state_hash_at_ident =
-            ctx.intern("get_other_user_contract_state_hash_at");
-        let cset_state_hash_at_ident = ctx.intern("cset_state_hash_at");
-
-        if function_name == get_user_id_ident {
-            let expr_id = ctx.alloc_expression(ExprNode::Context(ContextNode::GetUserId));
-            let body = ctx.definition(node).as_function().unwrap().body.unwrap();
-            let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockExprNode {
-                stmts: vec![ctx.alloc_statement(stmt)],
-                uses: vec![],
-            };
-            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
-            ctx.replace_statement(body, stmt_node);
-        } else if function_name == get_contract_id_ident {
-            let expr_id = ctx.alloc_expression(ExprNode::Context(ContextNode::GetContractId));
-            let body = ctx.definition(node).as_function().unwrap().body.unwrap();
-            let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockExprNode {
-                stmts: vec![ctx.alloc_statement(stmt)],
-                uses: vec![],
-            };
-            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
-            ctx.replace_statement(body, stmt_node);
-        } else if function_name == get_checkpoint_id_ident {
-            let expr_id = ctx.alloc_expression(ExprNode::Context(ContextNode::GetCheckpointId));
-            let body = ctx.definition(node).as_function().unwrap().body.unwrap();
-            let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockExprNode {
-                stmts: vec![ctx.alloc_statement(stmt)],
-                uses: vec![],
-            };
-            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
-            ctx.replace_statement(body, stmt_node);
-        } else if function_name == get_last_nonce_ident {
-            let expr_id = ctx.alloc_expression(ExprNode::Context(ContextNode::GetLastNonce));
-            let body = ctx.definition(node).as_function().unwrap().body.unwrap();
-            let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockExprNode {
-                stmts: vec![ctx.alloc_statement(stmt)],
-                uses: vec![],
-            };
-            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
-            ctx.replace_statement(body, stmt_node);
-        } else if function_name == get_user_public_key_hash_ident {
-            let expr_id =
-                ctx.alloc_expression(ExprNode::Context(ContextNode::GetUserPublicKeyHash));
-            let body = ctx.definition(node).as_function().unwrap().body.unwrap();
-            let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockExprNode {
-                stmts: vec![ctx.alloc_statement(stmt)],
-                uses: vec![],
-            };
-            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
-            ctx.replace_statement(body, stmt_node);
-        } else if function_name == get_state_hash_at_ident {
-            let slot_index_ident = ctx.intern("slot_index");
-            let slot_index = ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: slot_index_ident,
-            }));
-            let expr_id = ctx.alloc_expression(ExprNode::Context(ContextNode::GetStateHashAt {
-                slot_index,
-            }));
-            let body = ctx.definition(node).as_function().unwrap().body.unwrap();
-            let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockExprNode {
-                stmts: vec![ctx.alloc_statement(stmt)],
-                uses: vec![],
-            };
-            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
-            ctx.replace_statement(body, stmt_node);
-        } else if function_name == get_other_contract_state_hash_at_ident {
-            let contract_state_tree_height_ident = ctx.intern("contract_state_tree_height");
-            let contract_id_ident = ctx.intern("contract_id");
-            let slot_index_ident = ctx.intern("slot_index");
-            let contract_state_tree_height = ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: contract_state_tree_height_ident,
-            }));
-            let contract_id = ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: contract_id_ident,
-            }));
-            let slot_index = ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: slot_index_ident,
-            }));
-            let expr_id = ctx.alloc_expression(ExprNode::Context(
-                ContextNode::GetOtherContractStateHashAt {
-                    contract_state_tree_height,
-                    contract_id,
-                    slot_index,
-                },
-            ));
-            let body = ctx.definition(node).as_function().unwrap().body.unwrap();
-            let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockExprNode {
-                stmts: vec![ctx.alloc_statement(stmt)],
-                uses: vec![],
-            };
-            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
-            ctx.replace_statement(body, stmt_node);
-        } else if function_name == get_other_user_contract_state_hash_at_ident {
-            let contract_state_tree_height_ident = ctx.intern("contract_state_tree_height");
-            let user_id_ident = ctx.intern("user_id");
-            let contract_id_ident = ctx.intern("contract_id");
-            let slot_index_ident = ctx.intern("slot_index");
-            let contract_state_tree_height = ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: contract_state_tree_height_ident,
-            }));
-            let user_id = ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: user_id_ident,
-            }));
-            let contract_id = ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: contract_id_ident,
-            }));
-            let slot_index = ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: slot_index_ident,
-            }));
-            let expr_id = ctx.alloc_expression(ExprNode::Context(
-                ContextNode::GetOtherUserContractStateHashAt {
-                    contract_state_tree_height,
-                    user_id,
-                    contract_id,
-                    slot_index,
-                },
-            ));
-            let body = ctx.definition(node).as_function().unwrap().body.unwrap();
-            let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockExprNode {
-                stmts: vec![ctx.alloc_statement(stmt)],
-                uses: vec![],
-            };
-            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
-            ctx.replace_statement(body, stmt_node);
-        } else if function_name == cset_state_hash_at_ident {
-            let slot_index_ident = ctx.intern("slot_index");
-            let new_value_ident = ctx.intern("new_value");
-            let slot_index = ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: slot_index_ident,
-            }));
-            let new_value = ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: new_value_ident,
-            }));
-            let expr_id = ctx.alloc_expression(ExprNode::Context(ContextNode::CSetStateHashAt {
-                slot_index,
-                new_value,
-            }));
-            let body = ctx.definition(node).as_function().unwrap().body.unwrap();
-            let stmt = StmtNode::Return(ReturnNode(Some(expr_id)));
-            let block = BlockExprNode {
-                stmts: vec![ctx.alloc_statement(stmt)],
-                uses: vec![],
-            };
-            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
-            ctx.replace_statement(body, stmt_node);
-        }
-
-        if ctx.parent_node_type() != NodeType::ImplDef {
-            return Ok(());
-        }
-        let parent_node_id = ctx.parent_node_id().as_def().unwrap().clone();
-        let trait_name = ctx.definition(parent_node_id).as_impl().unwrap().trait_name;
-        let ty_name = ctx.definition(parent_node_id).as_impl().unwrap().ty;
-        let storage_trait_id = ctx.intern("Storage");
-        let offset_ident = ctx.intern("offset");
-        let value_ident = ctx.intern("value");
-        let read_ident = ctx.intern("read");
-        let write_ident = ctx.intern("write");
-
-        if trait_name == Some(storage_trait_id) {
-            let offset = ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: offset_ident,
-            }));
-            let mut value = ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: value_ident,
-            }));
-            let mut storage_expr_id =
-                ctx.alloc_expression(ExprNode::Storage(StorageReadNode { offset }));
-            if ty_name == IdentId::TYPE_BOOL {
-                storage_expr_id = ctx.alloc_expression(ExprNode::Cast(CastNode {
-                    value: storage_expr_id,
-                    target_type: UncheckedType::Basic(IdentId::TYPE_BOOL),
-                }));
-                value = ctx.alloc_expression(ExprNode::Cast(CastNode {
-                    value: value,
-                    target_type: UncheckedType::Basic(IdentId::TYPE_FELT),
-                }));
-            }
-
-            let body = ctx.definition(node).as_function().unwrap().body.unwrap();
-            let stmt = if function_name == read_ident {
-                StmtNode::Return(ReturnNode(Some(storage_expr_id)))
-            } else if function_name == write_ident {
-                StmtNode::Storage(StorageWriteNode { offset, value })
-            } else {
-                return Ok(());
-            };
-
-            let block = BlockExprNode {
-                stmts: vec![ctx.alloc_statement(stmt)],
-                uses: vec![],
-            };
-
-            let stmt_node = StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(block)));
-            ctx.replace_statement(body, stmt_node);
-        }
-
         Ok(())
     }
 
@@ -871,66 +614,57 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         Ok(())
     }
 
-    fn visit_storage_read(
+    fn visit_intrinsic_expr(
         &mut self,
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
-    fn visit_context(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
-        todo!()
-    }
-
-    fn visit_storage_write(
+    fn visit_intrinsic_stmt(
         &mut self,
         node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
-    }
-
-    fn visit_assert(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
-    }
-
-    fn visit_assert_eq(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
-        todo!()
-    }
-
-    fn visit_block_expr(
-        &mut self,
-        node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
-    type Expr = ExprNode<F>;
 
-    type Stmt = StmtNode;
+    fn visit_member_call(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        Ok(())
+    }
 
-    type Definition = DefinitionNode;
+    fn visit_type_alias(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::DefinitionResult, Self::Error> {
+        Ok(())
+    }
 
-    type DefinitionResult = ();
-
+    fn visit_const(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::DefinitionResult, Self::Error> {
+        Ok(())
+    }
     fn visit_if_expr(
         &mut self,
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
+        Ok(())
+    }
+    fn visit_block_expr(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
 }

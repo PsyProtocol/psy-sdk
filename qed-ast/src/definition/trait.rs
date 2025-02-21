@@ -1,4 +1,4 @@
-use crate::{AstVisitor, DefId, FunctionNode, IdentId, NodeInfo, NodeType, Visibility};
+use crate::{DefId, IdentId, NodeInfo, NodeType, Visibility};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TraitNode {

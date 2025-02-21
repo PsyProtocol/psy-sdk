@@ -1,11 +1,6 @@
-use std::collections::HashMap;
-
 use indexmap::IndexMap;
 
-use crate::{
-    AstVisitor, AttrNode, FunctionNode, IdentId, NodeInfo, NodeType, UncheckedType, ValueNode,
-    Visibility,
-};
+use crate::{AttrNode, IdentId, NodeInfo, NodeType, UncheckedType, Visibility};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructNode {

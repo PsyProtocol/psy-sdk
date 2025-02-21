@@ -1,4 +1,4 @@
-use crate::{AstVisitor, ExprId, NodeInfo, NodeType};
+use crate::{ExprId, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReturnNode(pub Option<ExprId>);

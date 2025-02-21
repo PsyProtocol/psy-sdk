@@ -2,32 +2,27 @@ mod binary;
 pub mod block;
 mod call;
 mod cast;
-mod context;
 pub mod if_expr;
 mod index;
+mod intrinsic;
 mod path;
-mod storage;
 mod unary;
 
 pub use binary::*;
 pub use block::*;
 pub use call::*;
 pub use cast::*;
-pub use context::*;
 use enum_as_inner::EnumAsInner;
 pub use index::*;
+pub use intrinsic::*;
 pub use path::*;
-pub use storage::*;
 pub use unary::*;
 
-use qed_ast::{ExprNode, IdentId, NodeInfo, NodeType};
+use qed_ast::{IdentId, NodeInfo, NodeType};
 
 use crate::expr::block::CheckedBlockExprNode;
 use crate::expr::if_expr::CheckedIfExprNode;
-use crate::{
-    CheckedAssertEqNode, CheckedAssertNode, CheckedValueNode, ScopeId, TypeId, TypeKey, BOOL_TYPE,
-    FELT_TYPE, VOID_TYPE,
-};
+use crate::{CheckedValueNode, ScopeId, TypeId, BOOL_TYPE, FELT_TYPE};
 use strum::EnumTryAs;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner, EnumTryAs)]
@@ -38,10 +33,10 @@ pub enum CheckedExprNode<F> {
     Unary(CheckedUnaryNode),
     Cast(CheckedCastNode),
     Call(CheckedCallNode),
+    MemberCall(CheckedMemberCallNode),
     IndexAccess(CheckedIndexAccessNode),
     MemberAccess(CheckedMemberAccessNode),
-    Storage(CheckedStorageReadNode),
-    Context(CheckedContextNode),
+    Intrinsic(CheckedIntrinsicExprNode),
     BlockExpr(CheckedBlockExprNode),
     IfExpr(CheckedIfExprNode),
 }
@@ -55,11 +50,11 @@ impl<F> NodeInfo for CheckedExprNode<F> {
             CheckedExprNode::Unary(node) => node.node_type(),
             CheckedExprNode::Cast(node) => node.node_type(),
             CheckedExprNode::Call(node) => node.node_type(),
+            CheckedExprNode::MemberCall(node) => node.node_type(),
             CheckedExprNode::IndexAccess(node) => node.node_type(),
             CheckedExprNode::MemberAccess(node) => node.node_type(),
-            CheckedExprNode::Storage(node) => node.node_type(),
+            CheckedExprNode::Intrinsic(node) => node.node_type(),
             CheckedExprNode::BlockExpr(node) => node.node_type(),
-            CheckedExprNode::Context(node) => node.node_type(),
             CheckedExprNode::IfExpr(node) => node.node_type(),
         }
     }
@@ -80,24 +75,33 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Unary(u) => u.type_id,
             CheckedExprNode::Cast(c) => c.target_type,
             CheckedExprNode::Call(c) => c.type_id,
+            CheckedExprNode::MemberCall(c) => c.type_id,
             CheckedExprNode::IndexAccess(i) => i.type_id,
             CheckedExprNode::MemberAccess(m) => m.type_id,
-            CheckedExprNode::Storage(s) => s.type_id,
-            CheckedExprNode::BlockExpr(b) => b.type_id,
-            CheckedExprNode::Context(c) => match c {
-                CheckedContextNode::GetUserId { type_id } => type_id.clone(),
-                CheckedContextNode::GetContractId { type_id } => type_id.clone(),
-                CheckedContextNode::GetCheckpointId { type_id } => type_id.clone(),
-                CheckedContextNode::GetLastNonce { type_id } => type_id.clone(),
-                CheckedContextNode::GetUserPublicKeyHash { type_id } => type_id.clone(),
-                CheckedContextNode::GetStateHashAt { type_id, .. } => type_id.clone(),
-                CheckedContextNode::GetOtherContractStateHashAt { type_id, .. } => type_id.clone(),
-                CheckedContextNode::GetOtherUserContractStateHashAt { type_id, .. } => {
+            CheckedExprNode::Intrinsic(i) => match i {
+                CheckedIntrinsicExprNode::GetUserId { type_id } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetContractId { type_id } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetCheckpointId { type_id } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetLastNonce { type_id } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetUserPublicKeyHash { type_id } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetStateHashAt { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetOtherContractStateHashAt { type_id, .. } => {
                     type_id.clone()
                 }
-                CheckedContextNode::CSetStateHashAt { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetOtherUserContractStateHashAt { type_id, .. } => {
+                    type_id.clone()
+                }
+                CheckedIntrinsicExprNode::CSetStateHashAt { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::Read { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::Write {
+                    offset,
+                    value,
+                    type_id,
+                } => type_id.clone(),
+                CheckedIntrinsicExprNode::Hash { type_id, .. } => type_id.clone(),
             },
-            CheckedExprNode::IfExpr(i) => i.type_id.clone(),
+            CheckedExprNode::IfExpr(i) => i.type_id,
+            CheckedExprNode::BlockExpr(b) => b.type_id,
         }
     }
 
