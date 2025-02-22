@@ -1,8 +1,8 @@
-use crate::builder::hash::core::CircuitBuilderHashCore;
+use crate::builder::{hash::core::CircuitBuilderHashCore, select::CircuitBuilderSelectHelpers};
 use bitflags::bitflags;
 use plonky2::{
     field::extension::Extendable,
-    hash::hash_types::{HashOutTarget, RichField},
+    hash::hash_types::{HashOut, HashOutTarget, RichField},
     iop::{
         target::{BoolTarget, Target},
         witness::{PartialWitness, Witness},
@@ -10,7 +10,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::{MerkleProof, MerkleProofBase, MerkleProofCore};
+use qed_crypto::hash::{merkle::core::{MerkleProof, MerkleProofBase, MerkleProofCore}, traits::hasher::MerkleZeroHasher};
 
 use crate::builder::optional_inputs::CircuitBuilderOptionalInputs;
 
@@ -126,6 +126,35 @@ impl MerkleProofGadget {
             siblings,
             option_flags: MerkleProofGadgetOptionFlags::from_bits(option_flags).unwrap(),
         }
+    }
+    pub fn add_virtual_to_append_only<H:AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
+      builder: &mut CircuitBuilder<F, D>,
+      height: usize,
+    ) -> Self {
+      let (gadget, bits) = Self::add_virtual_to_get_index_bits::<H,F,D>(builder, height);
+
+      for (reverse_level, (bit, sibling)) in bits.iter().zip(gadget.siblings.iter()).enumerate() {
+        let zero_hash_at_level = builder.constant_hash(H::get_zero_hash(reverse_level));
+
+        // if the bit is a zero, then the current path node is a left child, so the right child must be a zero hash
+        // if the bit is a one, then we leave the sibling alone
+        let required_hash = builder.select_hash(
+          *bit,
+          *sibling, // if the path is a 1 bit, then the sibling is before us and non zero
+          zero_hash_at_level // if the path is 0 bit, then the right sibling should have empty leaves
+        );
+        builder.connect_hashes(
+          required_hash,
+          *sibling
+        );
+
+
+      }
+
+      gadget
+
+      
+
     }
     pub fn add_virtual_to_get_index_bits<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,

@@ -20,8 +20,6 @@ use crate::guta::gadgets::guta_register_users_batch::GUTARegisterUsersBatchGadge
 
 #[derive(Debug)]
 pub struct GUTAVerifyGUTARegisterUsersCircuit<C: GenericConfig<D>, const D: usize>
-where
-    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub register_batch_gadget: GUTARegisterUsersBatchGadget<D>,
 

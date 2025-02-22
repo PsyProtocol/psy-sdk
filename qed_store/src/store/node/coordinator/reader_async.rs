@@ -24,7 +24,7 @@ use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashou
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::{
     qdata::{
-        checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
+        checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState},
         contract::{ContractCodeDefinition, QEDContractLeaf},
     },
     qsync::coordinator::QEDCheckpointSyncInfoCompact,
@@ -460,6 +460,20 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync>
             checkpoint_id,
             leaf_checkpoint_id,
         )
+    }
+    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>>{
+        let contract_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_root(self, checkpoint_id)?;
+        let deposit_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_root(self, checkpoint_id)?;
+        let user_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_root(self, checkpoint_id)?;
+        let withdrawal_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_root(self, checkpoint_id)?;
+        let user_registration_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_root(self, checkpoint_id)?;
+        Ok(QEDCheckpointGlobalStateRoots{
+            contract_tree_root,
+            deposit_tree_root,
+            user_tree_root,
+            withdrawal_tree_root,
+            user_registration_tree_root,
+        })
     }
     async fn get_checkpoint_sync_info_compact(
         &self,

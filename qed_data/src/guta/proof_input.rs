@@ -6,7 +6,7 @@ use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLO
 use qed_crypto::hash::{merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof}, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf};
+use crate::qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf};
 
 use super::{header::GlobalUserTreeAggregatorHeader, stats::GUTAStats};
 
@@ -345,6 +345,14 @@ impl<F: RichField> VerifyLeftEndCapRightGUTAInput<F> {
     }
     
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct GUTANoChangeFullInput<F: RichField> {
+    pub checkpoint_tree_proof: MerkleProofCore<QHashOut<F>>,
+    pub checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots<F>,
+}
+
 
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

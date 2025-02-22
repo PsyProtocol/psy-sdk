@@ -1,0 +1,54 @@
+use custom::get_lookalike_custom;
+use plonky2::plonk::{circuit_data::{CircuitData, CommonCircuitData}, config::{AlgebraicHasher, GenericConfig}};
+use qed_core::job::id::QCircuitCommonGatesType;
+
+pub mod custom;
+
+
+pub fn get_guta_type_c_lookalike_circuit_data<C: GenericConfig<D>, const D: usize>(
+) -> CircuitData<C::F, C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
+    get_lookalike_custom::<C, D>(QCircuitCommonGatesType::C, 13, 4)
+}
+
+pub fn get_guta_type_c_common_data<C: GenericConfig<D>, const D: usize>(
+) -> CommonCircuitData<C::F, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
+    get_guta_type_c_lookalike_circuit_data::<C, D>().common
+}
+
+pub fn get_agg_state_transition_type_d_lookalike_circuit_data<C: GenericConfig<D>, const D: usize>(
+) -> CircuitData<C::F, C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
+    get_lookalike_custom::<C, D>(QCircuitCommonGatesType::D, 13, 8)
+}
+
+pub fn get_agg_state_transition_type_d_common_data<C: GenericConfig<D>, const D: usize>(
+) -> CommonCircuitData<C::F, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
+    get_agg_state_transition_type_d_lookalike_circuit_data::<C, D>().common
+}
+
+pub fn get_end_cap_type_e_lookalike_circuit_data<C: GenericConfig<D>, const D: usize>(
+) -> CircuitData<C::F, C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
+    get_lookalike_custom::<C, D>(QCircuitCommonGatesType::E, 12, 4)
+}
+
+pub fn get_end_cap_type_e_common_data<C: GenericConfig<D>, const D: usize>(
+) -> CommonCircuitData<C::F, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
+    get_end_cap_type_e_lookalike_circuit_data::<C, D>().common
+}

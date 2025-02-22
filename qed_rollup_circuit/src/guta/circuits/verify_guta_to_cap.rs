@@ -21,8 +21,6 @@ use crate::guta::gadgets::verify_guta_proof_to_line::VerifyGUTAProofToLineGadget
 
 #[derive(Debug)]
 pub struct GUTAVerifyGUTAToCapCircuit<C: GenericConfig<D>, const D: usize>
-where
-    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub verify_to_line_gadget: VerifyGUTAProofToLineGadget<D>,
 

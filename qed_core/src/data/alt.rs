@@ -1,4 +1,4 @@
-use plonky2::{field::extension::Extendable, hash::{hash_types::RichField, merkle_tree::MerkleCap}, plonk::{circuit_data::VerifierOnlyCircuitData, config::{AlgebraicHasher, GenericConfig}}};
+use plonky2::{field::extension::Extendable, hash::{hash_types::RichField, merkle_tree::MerkleCap}, plonk::{circuit_data::VerifierOnlyCircuitData, config::{AlgebraicHasher, GenericConfig}}, util::log2_strict};
 use serde::{Deserialize, Serialize};
 
 use super::qhashout::QHashOut;
@@ -21,6 +21,9 @@ impl<F: RichField> AltVerifierOnlyCircuitData<F> {
             circuit_digest: self.circuit_digest.0,
         }
 
+    }
+    pub fn get_cap_height(&self) -> usize {
+        log2_strict(self.constants_sigmas_cap.len())
     }
 }
 impl<

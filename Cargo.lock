@@ -2904,6 +2904,7 @@ name = "qed_crypto"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bincode",
  "bitflags 2.6.0",
  "bs58",
@@ -3033,6 +3034,7 @@ dependencies = [
  "lazy_static",
  "log",
  "plonky2",
+ "qed_common_circuit",
  "qed_core",
  "qed_crypto",
  "qed_data",

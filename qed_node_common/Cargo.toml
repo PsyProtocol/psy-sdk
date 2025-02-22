@@ -24,6 +24,7 @@ qed_core = { path = "../qed_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
 qed_store = { path = "../qed_store" }
+qed_common_circuit = { path = "../qed_common_circuit" }
 
 rand = { workspace = true }
 log = { workspace = true }

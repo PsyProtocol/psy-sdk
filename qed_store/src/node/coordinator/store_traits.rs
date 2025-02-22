@@ -78,21 +78,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField> {
     async fn get_checkpoint_tree_merkle_proof(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
 
-    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>> {
-        let contract_tree_root = self.get_contract_tree_root(checkpoint_id).await?;
-        let deposit_tree_root = self.get_deposit_tree_root(checkpoint_id).await?;
-        let user_tree_root = self.get_user_tree_root(checkpoint_id).await?;
-        let withdrawal_tree_root = self.get_withdrawal_tree_root(checkpoint_id).await?;
-        let user_registration_tree_root = self.get_user_registration_tree_root(checkpoint_id).await?;
-        Ok(QEDCheckpointGlobalStateRoots{
-            contract_tree_root,
-            deposit_tree_root,
-            user_tree_root,
-            withdrawal_tree_root,
-            user_registration_tree_root,
-        })
-        
-    }
+    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>>;
     async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>>;
 }
 

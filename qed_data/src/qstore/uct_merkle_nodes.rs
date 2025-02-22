@@ -1,14 +1,13 @@
 use std::collections::HashMap;
 
 use kvq::traits::{KVQPair, KVQSerializable};
-use qed_core::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
+use qed_core::{config::network_constants::CST_USER_UPDATE_CHANNEL_ID, job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}};
 use qed_crypto::hash::{
     merkle::{core::DeltaMerkleProofCore, utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey}},
     traits::hasher::MerkleHasher,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-pub const CST_USER_UPDATE_CHANNEL_ID: u64 = 0x101337;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> Hash: Deserialize<'de2>")]

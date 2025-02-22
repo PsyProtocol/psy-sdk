@@ -20,8 +20,6 @@ use crate::guta::gadgets::guta_only_register_users_gadget::GUTAOnlyRegisterUsers
 
 #[derive(Debug)]
 pub struct GUTAOnlyRegisterUsersCircuit<C: GenericConfig<D>, const D: usize>
-where
-    C::Hasher:AlgebraicHasher<C::F>,
 {
     register_batch_gadget: GUTAOnlyRegisterUsersGadget,
     guta_circuit_whitelist: HashOutTarget,

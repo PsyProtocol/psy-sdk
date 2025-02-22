@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use plonky2::{
-    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::
+    hash::hash_types::{HashOut, HashOutTarget}, iop::
         witness::{PartialWitness, WitnessWrite}, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
@@ -9,7 +9,7 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    builder::hash::core::CircuitBuilderHashCore, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
 use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
@@ -20,8 +20,6 @@ use crate::coordinator::gadgets::deploy_contract::BatchDeployContractsGadget;
 
 #[derive(Debug)]
 pub struct BatchDeployContractsCircuit<C: GenericConfig<D>, const D: usize>
-where
-    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub deploy_contract_batch_gadget: BatchDeployContractsGadget,
     pub deploy_contract_circuit_whitelist: HashOutTarget,
@@ -59,8 +57,9 @@ where
 
         builder.register_public_inputs(&deploy_contract_circuit_whitelist.elements);
         builder.register_public_inputs(&state_transition_hash.elements);
+        builder.add_qed_type_d_common_gates();
+        pad_circuit_degree(&mut builder, 12);
 
-        builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(
@@ -97,8 +96,6 @@ where
 
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
     for BatchDeployContractsCircuit<C, D>
-where
-    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -152,7 +149,7 @@ where
 impl<
         S: QProofStoreReaderAsync + Send + Sync,
         L: CircuitInfoLibrary<C, D> + Send + Sync,
-        C: GenericConfig<D> + 'static,
+        C: GenericConfig<D>,
         const D: usize,
     > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
     for BatchDeployContractsCircuit<C, D>

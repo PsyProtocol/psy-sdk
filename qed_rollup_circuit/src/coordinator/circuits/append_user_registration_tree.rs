@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use plonky2::{
-    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::
+    hash::hash_types::{HashOut, HashOutTarget}, iop::
         witness::{PartialWitness, WitnessWrite}, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
@@ -9,7 +9,7 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    builder::hash::core::CircuitBuilderHashCore, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
 use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
@@ -20,8 +20,6 @@ use crate::coordinator::gadgets::append_user_registration_tree::BatchAppendUserR
 
 #[derive(Debug)]
 pub struct BatchAppendUserRegistrationTreeCircuit<C: GenericConfig<D>, const D: usize>
-where
-    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub batch_append_gadget: BatchAppendUserRegistrationTreeGadget,
     pub register_users_circuit_whitelist: HashOutTarget,
@@ -61,8 +59,7 @@ where
         builder.register_public_inputs(&register_users_circuit_whitelist.elements);
         builder.register_public_inputs(&state_transition_hash.elements);
 
-
-        builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
+        builder.add_qed_type_d_common_gates();
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(

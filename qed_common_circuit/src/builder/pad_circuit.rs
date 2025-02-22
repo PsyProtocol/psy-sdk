@@ -35,6 +35,19 @@ Circuits which need to have the same common circuit data as:
     - A VerifyTwoGUTA Circuit 
 </description>
 ======================================
+Identifier: **Type D**
+<description>
+Circuits which need to have the same common circuit data as:
+    - Agg State Transition Circuit
+    - Dummy Agg State Transition Circuit
+</description>
+======================================
+Identifier: **Type E**
+<description>
+Circuits which need to have the same common circuit data as:
+    - A UPS End Cap Circuit 
+</description>
+======================================
 */
 
 pub fn new_coset_gate_with_max_degree<F: RichField + Extendable<D>, const D: usize>(
@@ -80,6 +93,8 @@ pub trait CircuitBuilderQEDCommonGates<F: RichField + Extendable<D>, const D: us
     fn add_qed_type_a_common_gates_with_coset(&mut self, subgroup_bits: usize, max_degree: usize);
     fn add_qed_type_b_common_gates(&mut self);
     fn add_qed_type_c_common_gates(&mut self);
+    fn add_qed_type_d_common_gates(&mut self);
+    fn add_qed_type_e_common_gates(&mut self);
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<F, D>
@@ -178,6 +193,67 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
             &self.config,
         )));
     }
+
+    
+    fn add_qed_type_d_common_gates(&mut self) {
+        self.add_gate_to_gate_set(GateRef::new(ConstantGate::new(self.config.num_constants)));
+        self.add_gate_to_gate_set(GateRef::new(ComparisonGate::new(32, 16)));
+        self.add_gate_to_gate_set(GateRef::new(RandomAccessGate::new_from_config(
+            &self.config,
+            4,
+        )));
+        
+        let coset_gate = GateRef::new(new_coset_gate_with_max_degree::<F, D>(
+            4,
+            8,
+        ));
+        self.add_gate_to_gate_set(coset_gate);
+
+        self.add_gate_to_gate_set(GateRef::new(PoseidonGate::<F, D>::new()));
+        self.add_gate_to_gate_set(GateRef::new(PoseidonMdsGate::<F, D>::new()));
+        self.add_gate_to_gate_set(GateRef::new(ReducingGate::<D>::new(43)));
+        self.add_gate_to_gate_set(GateRef::new(ReducingExtensionGate::<D>::new(32)));
+        self.add_gate_to_gate_set(GateRef::new(ArithmeticGate::new_from_config(&self.config)));
+        self.add_gate_to_gate_set(GateRef::new(ArithmeticExtensionGate::new_from_config(
+            &self.config,
+        )));
+        self.add_gate_to_gate_set(GateRef::new(MulExtensionGate::new_from_config(
+            &self.config,
+        )));
+        self.add_gate_to_gate_set(GateRef::new(BaseSumGate::<2>::new_from_config::<F>(
+            &self.config,
+        )));
+    }
+
+    fn add_qed_type_e_common_gates(&mut self) {
+        self.add_gate_to_gate_set(GateRef::new(ConstantGate::new(self.config.num_constants)));
+        self.add_gate_to_gate_set(GateRef::new(RandomAccessGate::new_from_config(
+            &self.config,
+            4,
+        )));
+        
+        let coset_gate = GateRef::new(new_coset_gate_with_max_degree::<F, D>(
+            4,
+            8,
+        ));
+        self.add_gate_to_gate_set(coset_gate);
+
+        self.add_gate_to_gate_set(GateRef::new(PoseidonGate::<F, D>::new()));
+        self.add_gate_to_gate_set(GateRef::new(PoseidonMdsGate::<F, D>::new()));
+        self.add_gate_to_gate_set(GateRef::new(ReducingGate::<D>::new(43)));
+        self.add_gate_to_gate_set(GateRef::new(ReducingExtensionGate::<D>::new(32)));
+        self.add_gate_to_gate_set(GateRef::new(ArithmeticGate::new_from_config(&self.config)));
+        self.add_gate_to_gate_set(GateRef::new(ArithmeticExtensionGate::new_from_config(
+            &self.config,
+        )));
+        self.add_gate_to_gate_set(GateRef::new(MulExtensionGate::new_from_config(
+            &self.config,
+        )));
+        self.add_gate_to_gate_set(GateRef::new(BaseSumGate::<2>::new_from_config::<F>(
+            &self.config,
+        )));
+    }
+
 
     
 }

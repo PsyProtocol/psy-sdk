@@ -5,7 +5,17 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::serde_as;
 
 use super::mode::QWorkerMode;
-
+#[derive(
+    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
+)]
+#[repr(u8)]
+pub enum QCircuitCommonGatesType {
+    A = 0,
+    B = 1,
+    C = 2,
+    D = 3,
+    E = 4,
+}
 #[derive(
     Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
 )]
@@ -101,6 +111,7 @@ pub enum ProvingJobCircuitType {
     GUTARegisterUsers = 12,
     GUTAVerifyToCap = 13,
     GUTAOnlyRegisterUsers = 14,
+    GUTANoChange = 15,
 
 
 
@@ -134,6 +145,14 @@ pub enum ProvingJobCircuitType {
 
     WrappedSignatureProof = 64,
     Secp256K1SignatureProof = 65,
+
+
+    // fake circuits but useful for placeholders
+    TypeA = 224,
+    TypeB = 225,
+    TypeC = 226,
+    TypeD = 227,
+    TypeE = 228,
     Unknown = 255,
 }
 
@@ -144,7 +163,71 @@ impl ProvingJobCircuitType {
     pub fn to_circuit_group_id(&self) -> u32 {
         (self.to_u8() as u32) + 0xCF00u32
     }
-}impl TryFrom<u8> for ProvingJobCircuitType {
+    pub fn get_agg_leaf_circuit_type_or_err(&self) -> anyhow::Result<Self> {
+        let leaf_type = match self {
+            ProvingJobCircuitType::AppendUserRegistrationTree => ProvingJobCircuitType::AppendUserRegistrationTree,
+            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => ProvingJobCircuitType::AppendUserRegistrationTree,
+            ProvingJobCircuitType::AddL1Deposit => ProvingJobCircuitType::AddL1Deposit,
+            ProvingJobCircuitType::AddL1DepositAggregate => ProvingJobCircuitType::AddL1Deposit,
+            ProvingJobCircuitType::ClaimL1Deposit => ProvingJobCircuitType::ClaimL1Deposit,
+            ProvingJobCircuitType::ClaimL1DepositAggregate => ProvingJobCircuitType::ClaimL1Deposit,
+            ProvingJobCircuitType::AddL1Withdrawal => ProvingJobCircuitType::AddL1Withdrawal,
+            ProvingJobCircuitType::AddL1WithdrawalAggregate => ProvingJobCircuitType::AddL1Withdrawal,
+            ProvingJobCircuitType::BatchDeployContracts => ProvingJobCircuitType::BatchDeployContracts,
+            ProvingJobCircuitType::BatchDeployContractsAggregate => ProvingJobCircuitType::BatchDeployContracts,
+            ProvingJobCircuitType::ProcessL1Withdrawal => ProvingJobCircuitType::ProcessL1Withdrawal,
+            ProvingJobCircuitType::ProcessL1WithdrawalAggregate => ProvingJobCircuitType::ProcessL1Withdrawal,
+            _ => anyhow::bail!("circuit type {:?} does not have a leaf type", self),
+        };
+        Ok(leaf_type)
+    }
+
+    pub fn get_agg_circuit_type_or_err(&self) -> anyhow::Result<Self> {
+        let leaf_type = match self {
+            ProvingJobCircuitType::AppendUserRegistrationTree => ProvingJobCircuitType::AppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => ProvingJobCircuitType::AppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::AddL1Deposit => ProvingJobCircuitType::AddL1DepositAggregate,
+            ProvingJobCircuitType::AddL1DepositAggregate => ProvingJobCircuitType::AddL1DepositAggregate,
+            ProvingJobCircuitType::ClaimL1Deposit => ProvingJobCircuitType::ClaimL1DepositAggregate,
+            ProvingJobCircuitType::ClaimL1DepositAggregate => ProvingJobCircuitType::ClaimL1DepositAggregate,
+            ProvingJobCircuitType::AddL1Withdrawal => ProvingJobCircuitType::AddL1WithdrawalAggregate,
+            ProvingJobCircuitType::AddL1WithdrawalAggregate => ProvingJobCircuitType::AddL1WithdrawalAggregate,
+            ProvingJobCircuitType::BatchDeployContracts => ProvingJobCircuitType::BatchDeployContractsAggregate,
+            ProvingJobCircuitType::BatchDeployContractsAggregate => ProvingJobCircuitType::BatchDeployContractsAggregate,
+            ProvingJobCircuitType::ProcessL1Withdrawal => ProvingJobCircuitType::ProcessL1WithdrawalAggregate,
+            ProvingJobCircuitType::ProcessL1WithdrawalAggregate => ProvingJobCircuitType::ProcessL1WithdrawalAggregate,
+            _ => anyhow::bail!("circuit type {:?} does not have a aggregated circuit type", self),
+        };
+        Ok(leaf_type)
+    }
+
+    pub fn get_agg_dummy_circuit_type_or_err(&self) -> anyhow::Result<Self> {
+        let leaf_type = match self {
+            ProvingJobCircuitType::AppendUserRegistrationTree => ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::AddL1Deposit => ProvingJobCircuitType::DummyAddL1DepositAggregate,
+            ProvingJobCircuitType::AddL1DepositAggregate => ProvingJobCircuitType::DummyAddL1DepositAggregate,
+            ProvingJobCircuitType::DummyAddL1DepositAggregate => ProvingJobCircuitType::DummyAddL1DepositAggregate,
+            ProvingJobCircuitType::ClaimL1Deposit => ProvingJobCircuitType::DummyClaimL1DepositAggregate,
+            ProvingJobCircuitType::ClaimL1DepositAggregate => ProvingJobCircuitType::DummyClaimL1DepositAggregate,
+            ProvingJobCircuitType::DummyClaimL1DepositAggregate => ProvingJobCircuitType::DummyClaimL1DepositAggregate,
+            ProvingJobCircuitType::AddL1Withdrawal => ProvingJobCircuitType::DummyAddL1WithdrawalAggregate,
+            ProvingJobCircuitType::AddL1WithdrawalAggregate => ProvingJobCircuitType::DummyAddL1WithdrawalAggregate,
+            ProvingJobCircuitType::DummyAddL1WithdrawalAggregate => ProvingJobCircuitType::DummyAddL1WithdrawalAggregate,
+            ProvingJobCircuitType::BatchDeployContracts => ProvingJobCircuitType::DummyBatchDeployContractsAggregate,
+            ProvingJobCircuitType::BatchDeployContractsAggregate => ProvingJobCircuitType::DummyBatchDeployContractsAggregate,
+            ProvingJobCircuitType::DummyBatchDeployContractsAggregate => ProvingJobCircuitType::DummyBatchDeployContractsAggregate,
+            ProvingJobCircuitType::ProcessL1Withdrawal => ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate,
+            ProvingJobCircuitType::ProcessL1WithdrawalAggregate => ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate,
+            ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate => ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate,
+            _ => anyhow::bail!("circuit type {:?} does not have a aggregated dummy circuit type", self),
+        };
+        Ok(leaf_type)
+    }
+}
+
+impl TryFrom<u8> for ProvingJobCircuitType {
     type Error = anyhow::Error;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -163,6 +246,7 @@ impl ProvingJobCircuitType {
             12 => Ok(ProvingJobCircuitType::GUTARegisterUsers),
             13 => Ok(ProvingJobCircuitType::GUTAVerifyToCap),
             14 => Ok(ProvingJobCircuitType::GUTAOnlyRegisterUsers),
+            15 => Ok(ProvingJobCircuitType::GUTANoChange),
             16 => Ok(ProvingJobCircuitType::AddL1Withdrawal),
             17 => Ok(ProvingJobCircuitType::AddL1WithdrawalAggregate),
             18 => Ok(ProvingJobCircuitType::BatchDeployContracts),
@@ -185,6 +269,12 @@ impl ProvingJobCircuitType {
             54 => Ok(ProvingJobCircuitType::DummyBatchDeployContractsAggregate),
             64 => Ok(ProvingJobCircuitType::WrappedSignatureProof),
             65 => Ok(ProvingJobCircuitType::Secp256K1SignatureProof),
+
+            224 => Ok(ProvingJobCircuitType::TypeA),
+            225 => Ok(ProvingJobCircuitType::TypeB),
+            226 => Ok(ProvingJobCircuitType::TypeC),
+            227 => Ok(ProvingJobCircuitType::TypeD),
+            228 => Ok(ProvingJobCircuitType::TypeE),
             255 => Ok(ProvingJobCircuitType::Unknown),
             _ => Err(anyhow::format_err!(
                 "Invalid ProvingJobCircuitType value: {}",

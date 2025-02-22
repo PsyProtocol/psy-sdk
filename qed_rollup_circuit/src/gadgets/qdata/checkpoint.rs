@@ -151,10 +151,10 @@ impl FromTargets for QEDCheckpointLeafCompactGadget {
         };
         let stats_hash = HashOutTarget {
             elements: [
-                targets[0],
-                targets[1],
-                targets[2],
-                targets[3],
+                targets[4],
+                targets[5],
+                targets[6],
+                targets[7],
             ]
         };
         Self {

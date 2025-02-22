@@ -1,12 +1,11 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
-use qed_core::{data::qhashout::QHashOut, job::{drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}, history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged}}};
+use qed_core::{config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL, data::qhashout::QHashOut, job::{drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}, history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged}}};
 use qed_crypto::{hash::{merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, utils::append_only_merkle_tree::get_merkle_proofs_for_compact}, traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}}, signature::zk::data::ZKPublicKeyInfo};
 use serde::{Deserialize, Serialize};
 
 use crate::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState};
 
-pub const QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL: u64 = 0x901337123;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]

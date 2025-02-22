@@ -168,13 +168,22 @@ pub trait QEDComboDataStoreReaderWriterSync<F: RichField>: QEDComboDataStoreRead
             let genesis_l2_block_state = QEDL2BlockState::get_genesis_value();
             
             let genesis_checkpoint_stats = QEDCheckpointLeafStats::get_genesis_value();
-            let genesis_global_state_roots = self.get_checkpoint_global_state_roots(0)?;
+            let stats_hash = genesis_checkpoint_stats.qfhash::<QEDHasher>();
+            let genesis_global_state_roots = self.get_checkpoint_global_state_roots(1)?;
             let genesis_checkpoint_leaf = QEDCheckpointLeaf{
                 global_chain_root: genesis_global_state_roots.qfhash::<QEDHasher>(),
                 stats: genesis_checkpoint_stats,
             };
+
+
+            println!("genesis_stats_hash: {:?} ({})",stats_hash, serde_json::to_string_pretty(&stats_hash).unwrap());
+
+            println!("genesis_global_state_roots: {}",serde_json::to_string_pretty(&genesis_global_state_roots).unwrap());
+            println!("genesis_checkpoint_leaf: {}",serde_json::to_string_pretty(&genesis_checkpoint_leaf).unwrap());
+            
             self.set_l2_block_state(&genesis_l2_block_state)?;
             self.set_checkpoint_leaf_data(0, &genesis_checkpoint_leaf)?;
+            self.set_checkpoint_tree_leaf_hash(0, genesis_checkpoint_leaf.qfhash::<QEDHasher>())?;
 
             Ok(0)
 

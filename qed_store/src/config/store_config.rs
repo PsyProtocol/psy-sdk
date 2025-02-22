@@ -141,7 +141,7 @@ pub type BaseContractStateTreeStore<S> = KVQMerkleTreeModel<
     QEDHasher,
 >;
 
-pub type UserRegistrationTreeStore<S> = ProtocolTreeStore<S, USER_TREE_ID, GLOBAL_USER_TREE_HEIGHT>;
+pub type UserRegistrationTreeStore<S> = ProtocolTreeStore<S, USER_REGISTRATION_TREE_ID, GLOBAL_USER_TREE_HEIGHT>;
 pub type CheckpointTreeStore<S> = ProtocolTreeStore<S, CHECKPOINT_TREE_ID, CHECKPOINT_TREE_HEIGHT>;
 pub type UserTreeStore<S> = ProtocolTreeStore<S, USER_TREE_ID, GLOBAL_USER_TREE_HEIGHT>;
 pub type ContractTreeStore<S> = ProtocolTreeStore<S, CONTRACT_TREE_ID, GLOBAL_CONTRACT_TREE_HEIGHT>;
