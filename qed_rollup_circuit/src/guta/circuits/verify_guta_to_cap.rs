@@ -120,7 +120,7 @@ impl<
     > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
     for GUTAVerifyGUTAToCapCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>
 {
     async fn prove_with_proof_store_async(
         &self,
@@ -134,6 +134,7 @@ where
         if r.dependencies.len() != 1 {
             anyhow::bail!("invalid dependency count in two end guta input");
         }
+
 
         let child_a_proof = store.get_proof_by_id(r.dependencies[0]).await?;
 
@@ -150,7 +151,6 @@ where
             &child_a_verifier_data,
             &r.input.top_line_siblings,
         )?;
-
         Ok(result)
     }
 }

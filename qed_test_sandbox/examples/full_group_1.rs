@@ -113,9 +113,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let pub_key_0 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_0));
     let pub_alt_0 =SimpleQEDPrivateKey::new(priv_key_0).get_public_key_for_fingerprint::<QEDHasher>(wallet.circuit.get_fingerprint());
 
-    println!("pub_key_0 {:?}, ({:?})",pub_key_0,pub_key_0.to_hash::<QEDHasher>());
-    println!("pub_alt_0 {:?}",pub_alt_0);
-
 
     let pub_key_1 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_1));
     timer.lap("finished building wallet/zksig circuits");
@@ -133,6 +130,20 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("sent requests");
 
     coordinator_processor_node.build_block().await?;
+
+    SimpleAsyncCoordinatorWorker::run_worker_until_done::<
+        _,
+        _,
+        SimpleCircuitLibrary<GoldilocksField>,
+        QEDCoordinatorCircuitManager<C, D>,
+        C,
+        D,
+    >(
+        &q.clone(),
+        &q.clone(),
+        &coordinator_worker_circuits,
+        &proof_verifier.library,
+    ).await?;
 
     let realm_config = RealmConfig::get_standard(0, 0);
 
@@ -185,6 +196,19 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     }, &realm_proof).await?;
 
     coordinator_processor_node.build_block().await?;
+    SimpleAsyncCoordinatorWorker::run_worker_until_done::<
+        _,
+        _,
+        SimpleCircuitLibrary<GoldilocksField>,
+        QEDCoordinatorCircuitManager<C, D>,
+        C,
+        D,
+    >(
+        &q.clone(),
+        &q.clone(),
+        &coordinator_worker_circuits,
+        &proof_verifier.library,
+    ).await?;
 
     let latest=store_reader.get_latest_l2_block_state().await?;
     let new_sync = store_reader.get_checkpoint_sync_info_compact(latest.checkpoint_id).await?;
@@ -338,6 +362,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     
     
     let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
+    println!("rr: {:?}",realm_result);
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
 
     coordinator_edge_node.ctx.handle_recv_guta_from_realm(SubmitGUTARealmResultAPINoProofInput{
@@ -349,6 +374,19 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         circuit_type:realm_result.proof_id.circuit_type,
     }, &realm_proof).await?;
     coordinator_processor_node.build_block().await?;
+    SimpleAsyncCoordinatorWorker::run_worker_until_done::<
+        _,
+        _,
+        SimpleCircuitLibrary<GoldilocksField>,
+        QEDCoordinatorCircuitManager<C, D>,
+        C,
+        D,
+    >(
+        &q.clone(),
+        &q.clone(),
+        &coordinator_worker_circuits,
+        &proof_verifier.library,
+    ).await?;
 
 
     let latest=store_reader.get_latest_l2_block_state().await?;

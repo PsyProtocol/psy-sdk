@@ -3,10 +3,7 @@ use std::time::Duration;
 use plonky2::plonk::config::GenericConfig;
 use qed_core::{
     job::{
-        id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, QWorkerModeFilter},
-        mode::QWorkerMode,
-        traits::QProofStoreAsyncImm,
-        worker_queue::WorkerEventReceiverAsyncImm,
+        self, id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, QWorkerModeFilter}, mode::QWorkerMode, traits::QProofStoreAsyncImm, worker_queue::WorkerEventReceiverAsyncImm
     },
     utils::trace_timer::TraceTimer,
 };
@@ -34,6 +31,30 @@ impl SimpleAsyncCoordinatorWorker {
                 .await?;
         }
     }
+    pub async fn run_worker_until_done<
+        PS: QProofStoreAsyncImm + Send + Sync,
+        ER: WorkerEventReceiverAsyncImm,
+        L: CircuitInfoLibrary<C, D> + Send + Sync,
+        G: QNextGenWorkerGenericProverAsyncMut<PS, L, C, D>,
+        C: GenericConfig<D> + 'static,
+        const D: usize,
+    >(
+        store: &PS,
+        event_receiver: &ER,
+        prover: &G,
+        library: &L,
+    ) -> anyhow::Result<QProvingJobDataID> {
+        let mut job = Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All)
+        .await?;
+        while 
+            job.circuit_type != ProvingJobCircuitType::GenerateRollupStateTransitionProof &&  job.topic != QJobTopic::NotifyOrchestratorComplete {
+                job = Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All)
+        .await?;
+
+        }
+                Ok(job)
+        
+    }
     pub async fn process_next_job<
         PS: QProofStoreAsyncImm + Send + Sync,
         ER: WorkerEventReceiverAsyncImm,
@@ -47,18 +68,18 @@ impl SimpleAsyncCoordinatorWorker {
         prover: &G,
         library: &L,
         mode: QWorkerMode,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<QProvingJobDataID> {
         //let mut timer = TraceTimer::new("process_next_job");
         let job = event_receiver.wait_for_next_job_imm().await?;
         if mode.can_process_job(job) {
             println!("job: {:?}", job);
-            Self::process_job(store, event_receiver, prover, library, job).await?;
+            return Self::process_job(store, event_receiver, prover, library, job).await;
             //timer.lap("processed next job");
         } else {
             event_receiver.enqueue_jobs_imm(&[job]).await?;
             tokio::time::sleep(Duration::from_millis(750)).await;
         }
-        Ok(())
+        Ok(job)
     }
     async fn process_job<
         PS: QProofStoreAsyncImm + Send + Sync,
@@ -73,13 +94,21 @@ impl SimpleAsyncCoordinatorWorker {
         prover: &G,
         library: &L,
         job_id: QProvingJobDataID,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<QProvingJobDataID> {
         let mut timer = TraceTimer::new("process_job");
         timer.event(format!(
             "STARTED job {} ({:?})",
             hex::encode(job_id.to_fixed_bytes()),
             job_id
         ));
+        if job_id.topic == QJobTopic::NotifyOrchestratorComplete {
+            event_receiver
+                .notify_core_goal_completed_imm(job_id)
+                .await?;
+            return Ok(job_id);
+        }
+        
+
         if job_id.topic == QJobTopic::GenerateStandardProof {
             //let start_time = std::time::Instant::now();
             let _ = match job_id.circuit_type {
@@ -98,13 +127,6 @@ impl SimpleAsyncCoordinatorWorker {
             //let duration = start_time.elapsed().as_millis() as u64;
             //event_receiver.record_job_bench(job_id, duration)?;
         }
-        if job_id.topic == QJobTopic::NotifyOrchestratorComplete {
-            event_receiver
-                .notify_core_goal_completed_imm(job_id)
-                .await?;
-            return Ok(());
-        }
-
         let goal_counter = store.get_goal_by_job_id(job_id).await?;
         println!("goal_counter: {}", goal_counter);
         if goal_counter != 0 {
@@ -123,6 +145,6 @@ impl SimpleAsyncCoordinatorWorker {
             job_id
         ));
 
-        Ok(())
+        Ok(job_id)
     }
 }

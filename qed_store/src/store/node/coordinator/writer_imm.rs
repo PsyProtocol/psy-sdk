@@ -1,5 +1,5 @@
 use crate::{
-    config::store_config::{CheckpointSyncInfoTableStore, UserTreeStore},
+    config::store_config::{CheckpointSyncInfoTableStore, QEDHasher, UserTreeStore},
     models::{
         checkpoint::sync_info::QEDCheckpointSyncInfoModelCore,
         kvq_merkle::model::KVQFixedConfigMerkleTreeModelCoreImmutable,
@@ -14,14 +14,14 @@ use crate::{
 use async_trait::async_trait;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::{
+use qed_crypto::hash::{merkle::{
     core::DeltaMerkleProofCore,
     spiderman::SpidermanUpdateProof,
     utils::{
         common::QMerkleNode,
         sub_tree_nca::UpdateNCAProofsWithDependencies,
     },
-};
+}, traits::qhashable::QFieldHashable};
 use qed_data::{
     qdata::{
         checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
@@ -200,6 +200,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDCoordinatorStoreWriterAsync
         checkpoint_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+
         <Self as QTreeDataStoreWriterSync<F>>::set_checkpoint_tree_leaf_hash_f(
             self,
             checkpoint_id,
@@ -236,7 +237,8 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDCoordinatorStoreWriterAsync
         &self,
         checkpoint_id: u64,
         leaf_data: &QEDCheckpointLeaf<F>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<()> {       
+
         <Self as QMetaDataStoreWriterSync<F>>::set_checkpoint_leaf_data(
             self,
             checkpoint_id,
@@ -248,6 +250,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDCoordinatorStoreWriterAsync
         checkpoint_id: F,
         leaf_data: &QEDCheckpointLeaf<F>,
     ) -> anyhow::Result<()> {
+
         <Self as QMetaDataStoreWriterSync<F>>::set_checkpoint_leaf_data_f(
             self,
             checkpoint_id,

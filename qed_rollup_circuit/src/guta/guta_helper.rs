@@ -23,7 +23,7 @@ use qed_crypto::{
     },
     hash::{
         merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
-        traits::hasher::MerkleZeroHasher,
+        traits::hasher::{FieldQHasher, MerkleZeroHasher},
     },
 };
 
@@ -394,7 +394,7 @@ impl<
     > QNextGenWorkerGenericProverAsyncMut<S, L, C, D> for QEDGUTACircuitManager<C, D>
 where
     C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>
 {
     async fn worker_prove_mut_async(
         &self,

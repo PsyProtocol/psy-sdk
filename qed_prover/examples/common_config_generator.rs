@@ -102,6 +102,17 @@ fn run_gen_config() -> anyhow::Result<()> {
         coordinator_circuits.dummy_agg_state_transition.get_verifier_triplet(),
     );
 
+    /* 
+    gcv.register_circuit_triplet(
+        ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA,
+        coordinator_circuits.agg_user_register_deploy_contracts_guta.get_verifier_triplet(),
+    );*/
+
+    gcv.register_circuit_triplet(
+        ProvingJobCircuitType::GenerateRollupStateTransitionProof,
+        coordinator_circuits.checkpoint_root_transition.get_verifier_triplet(),
+    );
+
 
     gcv.common.print_common();
 

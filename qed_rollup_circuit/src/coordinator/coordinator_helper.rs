@@ -1,12 +1,12 @@
 use async_trait::async_trait;
-use plonky2::{gates::gate::GateRef, hash::hash_types::HashOut, plonk::{config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
-use qed_common_circuit::{builder::pad_circuit::new_coset_gate_with_max_degree, circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, treeprover::{aggregation::{state_transition::AggStateTransitionCircuit, state_transition_dummy::AggStateTransitionDummyCircuit}, traits::TreeProverAggCircuit}};
+use plonky2::{hash::hash_types::HashOut, plonk::{config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
+use qed_common_circuit::{circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, treeprover::{aggregation::{state_transition::AggStateTransitionCircuit, state_transition_dummy::AggStateTransitionDummyCircuit}, traits::TreeProverAggCircuit}};
 use qed_core::{config::network_constants::{BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::{ProvingJobCircuitType, QProvingJobDataID}, traits::QProofStoreReaderAsync}};
-use qed_crypto::{common::{circuit_library::{CircuitInfoLibrary, CircuitInfoLibraryBuilder}, worker::{QNextGenWorkerGenericInfo, QNextGenWorkerGenericProverAsyncMut}}, hash::{merkle::treeprover::TPAltCircuitFingerprintConfig, traits::hasher::{MerkleHasher, MerkleZeroHasher}}};
+use qed_crypto::{common::{circuit_library::{CircuitInfoLibrary, CircuitInfoLibraryBuilder}, worker::{QNextGenWorkerGenericInfo, QNextGenWorkerGenericProverAsyncMut}}, hash::{merkle::treeprover::TPAltCircuitFingerprintConfig, traits::hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher}}};
 
 use crate::guta::guta_helper::QEDGUTACircuitManager;
 
-use super::circuits::{agg_user_registration_deploy_guta::VerifyAggUserRegistartionDeployContractsGUTACircuit, append_user_registration_tree::BatchAppendUserRegistrationTreeCircuit, batch_deploy_contract::BatchDeployContractsCircuit};
+use super::circuits::{agg_user_registration_deploy_guta::VerifyAggUserRegistartionDeployContractsGUTACircuit, append_user_registration_tree::BatchAppendUserRegistrationTreeCircuit, batch_deploy_contract::BatchDeployContractsCircuit, checkpoint_state_transition::QEDCheckpointStateTransitionCircuit};
 
 
 #[derive(Debug)]
@@ -24,6 +24,7 @@ where
     pub dummy_agg_state_transition: AggStateTransitionDummyCircuit<C, D>,
     pub agg_user_register_deploy_contracts_guta: VerifyAggUserRegistartionDeployContractsGUTACircuit<C, D>,
     pub guta_circuits: QEDGUTACircuitManager<C,D>,
+    pub checkpoint_root_transition: QEDCheckpointStateTransitionCircuit<C,D>,
 }
 
 impl<C: GenericConfig<D> + 'static, const D: usize> QEDCoordinatorCircuitManager<C, D>
@@ -88,12 +89,20 @@ where
             guta_circuits.verify_two_guta.get_verifier_config_ref().constants_sigmas_cap.height(),
             guta_circuits.guta_circuit_whitelist_root,
         );
+
+        let checkpoint_root_transition = QEDCheckpointStateTransitionCircuit::<C,D>::new(
+            agg_user_register_deploy_contracts_guta.get_common_circuit_data_ref(),
+            agg_user_register_deploy_contracts_guta.get_verifier_config_ref().constants_sigmas_cap.height(),
+            agg_user_register_deploy_contracts_guta.get_fingerprint(),
+        );
+
         Self {
             append_user_registration_tree,
             batch_deploy_contracts,
             agg_state_transition,
             dummy_agg_state_transition,
             guta_circuits,
+            checkpoint_root_transition,
             agg_user_register_deploy_contracts_guta,
             append_register_users_circuit_whitelist,
             batch_deploy_contracts_circuit_whitelist,
@@ -120,6 +129,10 @@ where
         println!(
             "================================\n[agg_user_register_deploy_contracts_guta.common]:\n{:?}",
             self.agg_user_register_deploy_contracts_guta.get_common_circuit_data_ref()
+        );
+        println!(
+            "================================\n[checkpoint_root_transition.common]:\n{:?}",
+            self.checkpoint_root_transition.get_common_circuit_data_ref()
         );
         println!("===============================\n\n\n\n");
         self.guta_circuits.print_common_config();
@@ -164,6 +177,11 @@ where
             self.agg_user_register_deploy_contracts_guta.get_fingerprint(),
             self.agg_user_register_deploy_contracts_guta.get_verifier_config_ref().into()
         );
+        library.register_circuit(
+            ProvingJobCircuitType::GenerateRollupStateTransitionProof,
+            self.checkpoint_root_transition.get_fingerprint(),
+            self.checkpoint_root_transition.get_verifier_config_ref().into()
+        );
         
 
         self.guta_circuits.register_library(library);
@@ -188,6 +206,7 @@ where
             ProvingJobCircuitType::BatchDeployContractsAggregate => true,
             ProvingJobCircuitType::DummyBatchDeployContractsAggregate => true,
             ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA => true,
+            ProvingJobCircuitType::GenerateRollupStateTransitionProof => true,
             _ => self.guta_circuits.can_process_job(job_id),
         }
     }
@@ -222,6 +241,7 @@ where
 
 
             ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA => self.agg_user_register_deploy_contracts_guta.prove_with_proof_store_async(store, library, job_id).await,
+            ProvingJobCircuitType::GenerateRollupStateTransitionProof => self.checkpoint_root_transition.prove_with_proof_store_async(store, library, job_id).await,
 
             _ => self.guta_circuits.worker_prove_mut_async(store, library, job_id).await,
         }

@@ -43,7 +43,7 @@ impl SubTreeNodeTopLineGadget {
 
         let new_state_transition = SubTreeNodeStateTransitionGadget {
             old_node_value: top_line_proof.old_root,
-            new_node_value: top_line_proof.old_value,
+            new_node_value: top_line_proof.new_root,
             node_index,
             node_level,
         };

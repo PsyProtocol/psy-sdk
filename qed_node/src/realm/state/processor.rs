@@ -401,7 +401,7 @@ impl<
                     guta_proof_header: guta,
                     top_line_siblings: good_sibs,
                 },
-                dependencies: vec![*jobs.last().as_ref().unwrap().last().unwrap()],
+                dependencies: vec![jobs.last().as_ref().unwrap().last().unwrap().get_output_id()],
             };
 
             self.proof_store
@@ -498,7 +498,7 @@ impl<
                         .end_user_leaf_hash,
                     user_id: guta_queue_items[0].input.state_transition.user_id,
                 },
-                dependencies: vec![guta_queue_items[0].proof_id],
+                dependencies: vec![guta_queue_items[0].proof_id.get_output_id()],
             };
             self.store
                 .injest_user_leaves_batch_imm(
@@ -587,8 +587,8 @@ impl<
                         nca_proof: res.nca_proofs[i].to_partial(),
                     },
                     dependencies: vec![
-                        guta_queue_items[i * 2].proof_id,
-                        guta_queue_items[i * 2 + 1].proof_id,
+                        guta_queue_items[i * 2].proof_id.get_output_id(),
+                        guta_queue_items[i * 2 + 1].proof_id.get_output_id(),
                     ],
                 };
                 let w_id = QProvingJobDataID::new(
@@ -636,7 +636,7 @@ impl<
                         stats_b: r_stats,
                         nca_proof: res.nca_proofs[i].to_partial(),
                     },
-                    dependencies: vec![l_proof_id, r_proof_id],
+                    dependencies: vec![l_proof_id.get_output_id(), r_proof_id.get_output_id()],
                 };
 
                 updates.push(KVQPair {
@@ -660,8 +660,8 @@ impl<
                         nca_proof: res.nca_proofs[i].to_partial(),
                     },
                     dependencies: vec![
-                        l_proof_id,
-                        guta_queue_items.last().as_ref().unwrap().proof_id,
+                        l_proof_id.get_output_id(),
+                        guta_queue_items.last().as_ref().unwrap().proof_id.get_output_id(),
                     ],
                 };
                 let w_id = QProvingJobDataID::new(

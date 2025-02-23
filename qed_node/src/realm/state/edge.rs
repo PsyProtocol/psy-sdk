@@ -174,6 +174,8 @@ impl<
             anyhow::bail!("already submitted proof for this block");
         }
 
+        println!("input proof_id: {:?}", proof_id);
+
         let next_checkpoint_id = checkpoint_id+1;
         //self.proof_store.set_bytes_by_id(proof_id.get_input_witness_id(), data)
         self.proof_store.set_proof_by_id(proof_id, proof).await?;

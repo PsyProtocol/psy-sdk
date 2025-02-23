@@ -14,8 +14,8 @@ use qed_crypto::hash::
     merkle::treeprover::{AggStateTransition, TPAltCircuitFingerprintConfig, TPCircuitFingerprintConfig}
 ;
 
-use crate::
-    treeprover::aggregation::gadgets::AggStateTransitionProofValidityGadget
+use crate::{builder::connect::CircuitBuilderConnectHelpers, 
+    treeprover::aggregation::gadgets::AggStateTransitionProofValidityGadget}
 ;
 
 use super::AggStateTransitionGadget;

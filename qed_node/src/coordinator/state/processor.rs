@@ -3,9 +3,10 @@ use std::sync::Arc;
 use chrono::Utc;
 use kvq::traits::KVQPair;
 use plonky2::{
-    field::types::Field,
+    field::{packed::PackedField, types::Field},
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
+use qed_common_circuit::treeprover::aggregation::state_transition;
 use qed_core::{
     config::network_constants::{
         BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORD_API_DEPLOY_CONTRACT_CHANNEL_ID, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, COORD_API_REGISTER_USER_CHANNEL_ID, DA_CHALLENGE_WINDOW, REALM_USER_TREE_HEIGHT
@@ -48,7 +49,7 @@ use qed_data::{
         stats::GUTAStats,
     },
     proof_store::builder::ProofStoreBuilder,
-    protocol::circuit_inputs::agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput,
+    protocol::circuit_inputs::{agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput, checkpoint_transition::{QCQEDCheckpointStateTransitionInput, QCQEDCheckpointStateTransitionInputPartial}},
     qblock::cmds::deploy_contract::QBCDeployContractWithRoot,
     qdata::{
         checkpoint::{
@@ -59,6 +60,7 @@ use qed_data::{
         pm_reward_commitment::PMRewardCommitment,
     },
 };
+use qed_rollup_circuit::guta::gadgets::guta_header;
 use qed_store::{
     config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
     node::coordinator::store_traits::{
@@ -201,6 +203,9 @@ impl<
         u32,
         //Vec<ZKPublicKeyInfo<F>>,
     )> {
+        let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+
+        let last_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
         let deploy_contract_items = self
             .checkpoint_queue
             .cdq_drain_imm::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
@@ -228,7 +233,7 @@ impl<
             .map(|x| x.qfhash::<QEDHasher>())
             .collect::<Vec<_>>();
 
-        let start_contract_id = self.latest_block_state.next_contract_id;
+        let start_contract_id = last_l2_blockstate.next_contract_id;
 
         for (i, dc) in deploy_contract_items.iter().enumerate() {
             self.store.set_contract_code_definition_imm(
@@ -280,15 +285,19 @@ impl<
                     0,
                     0,
                 ),
-                self.coordinator_config.deploy_contracts_dummy_state_root,
+                last_contract_tree_root,
                 self.coordinator_config.deploy_contracts_circuit_whitelist,
             )?;
 
         self.proof_store.set_bytes_by_id_batch(&psb.kvs).await?;
+        let new_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
 
         Ok((
             batch_deploy_contract_tree_job_ids,
-            root_transition_batch_deploy_contract_tree,
+            AggStateTransition {
+                state_transition_start: last_contract_tree_root,
+                state_transition_end: new_contract_tree_root,
+            },
             next_contract_id,
             //user_registrations,
         ))
@@ -303,18 +312,22 @@ impl<
         Vec<ZKPublicKeyInfo<F>>,
         Vec<QHashOut<F>>,
     )> {
+        let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+
+        let last_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
         let user_registrations = self
             .checkpoint_queue
             .cdq_drain_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID, 0)
             .await?;
-        println!("usr: {:?}", user_registrations);
+        //println!("usr: {:?}", user_registrations);
+
 
         let new_public_keys = user_registrations
             .iter()
             .map(|x| x.to_hash::<QEDHasher>())
             .collect::<Vec<_>>();
 
-        let start_user_id = self.latest_block_state.next_user_id;
+        let start_user_id = last_l2_blockstate.next_user_id;
 
         let mut psb = ProofStoreBuilder::new();
         let wits = self
@@ -359,15 +372,19 @@ impl<
                     0,
                     0,
                 ),
-                self.coordinator_config.register_user_dummy_state_root,
+                last_user_registration_tree_root,
                 self.coordinator_config.register_users_circuit_whitelist,
             )?;
 
         self.proof_store.set_bytes_by_id_batch(&psb.kvs).await?;
+        let new_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
 
         Ok((
             append_user_registration_tree_job_ids,
-            root_transition_append_user_registration_tree,
+            AggStateTransition {
+                state_transition_start: last_user_registration_tree_root,
+                state_transition_end: new_user_registration_tree_root,
+            },
             user_registrations,
             siblings,
         ))
@@ -476,7 +493,6 @@ impl<
                 ]
                 .concat(),
             };
-
             let r_with_deps = CircuitInputWithDependencies {
                 input: rw,
                 dependencies: vec![guta_queue_items[0].proof_id],
@@ -513,14 +529,17 @@ impl<
         let good_old = self.store.get_user_top_tree_cap_root(checkpoint_id-1, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index).await?;
 
         res.link_proof.old_value = good_old;
-            self.proof_store
+
+        self.proof_store
                 .set_bytes_by_id(
                     id.get_input_witness_id(),
                     &bincode::serialize(&r_with_deps)?,
                 )
                 .await?;
 
-            return Ok((vec![vec![id]], r_with_deps.input.guta_proof_header));
+         
+
+            return Ok((vec![vec![id]],r_with_deps.input.get_new_guta_header::<QEDHasher>()))// r_with_deps.input.guta_proof_header));
         }
 
         // TODO: OPT: Maybe use a sorted queue/zset so we don't have to sort after we drain
@@ -731,16 +750,12 @@ impl<
 
     pub async fn build_block(&self) -> anyhow::Result<()> {
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+        let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
+        let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
+        let last_user_tree_root = self.store.get_user_tree_root(last_l2_blockstate.checkpoint_id).await?;
 
-        let deposit_tree_root = self
-            .store
-            .get_deposit_tree_root(last_l2_blockstate.checkpoint_id)
-            .await?;
-        let withdrawal_tree_root = self
-            .store
-            .get_withdrawal_tree_root(last_l2_blockstate.checkpoint_id)
-            .await?;
-
+        let state_roots = self.store.get_checkpoint_global_state_roots(last_l2_blockstate.checkpoint_id).await?;
+        let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_l2_blockstate.checkpoint_id).await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
         let (deploy_jobs, deploy_transition, next_contract_id) =
             self.handle_deploy_contracts(new_checkpoint_id).await?;
@@ -750,6 +765,8 @@ impl<
             new_accounts,
             regsitered_users_start_pivot_siblings,
         ) = self.handle_user_registrations(new_checkpoint_id).await?;
+
+
 
         let (guta_jobs, guta_transition) = self.handle_guta_from_realms(new_checkpoint_id).await?;
 
@@ -768,20 +785,21 @@ impl<
             op_agg_group_parts_common_id,
             0,
         );
+/* 
         let state_part_2_common_id = QProvingJobDataID::get_block_aggregate_jobs_group(
             new_checkpoint_id,
             op_agg_group_parts_common_id,
             1,
         );
+        */
 
         let state_part_1_id =
             QProvingJobDataID::block_agg_state_part_1_input_witness(new_checkpoint_id);
-        let state_part_2_id =
-            QProvingJobDataID::block_agg_state_part_2_input_witness(new_checkpoint_id);
+        //let state_part_2_id =QProvingJobDataID::block_agg_state_part_2_input_witness(new_checkpoint_id);
 
         self.proof_store
             .write_next_jobs(
-                &[state_part_1_common_id, state_part_2_common_id],
+                &[state_part_1_common_id],//, state_part_2_common_id],
                 &[root_state_transition],
             )
             .await?;
@@ -789,9 +807,9 @@ impl<
         self.proof_store
             .write_next_jobs(&[state_part_1_id], &[state_part_1_common_id])
             .await?;
-        self.proof_store
-            .write_next_jobs(&[state_part_2_id], &[state_part_2_common_id])
-            .await?;
+        //self.proof_store  .write_next_jobs(&[state_part_2_id], &[state_part_2_common_id]).await?;
+
+
 
         let op_agg_group_part_1_id = 11;
         let register_users_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(
@@ -829,11 +847,33 @@ impl<
         self.proof_store
             .write_multidimensional_jobs(&guta_jobs, &[guta_agg_job_id])
             .await?;
-
+        //let new_user_tree_root = self.store.get_user_tree_root(last_l2_blockstate.checkpoint_id).await?;
+        /*let user_agg = AggStateTransition {
+            state_transition_start: last_user_tree_root,
+            state_transition_end: new_user_tree_root,
+        };
+        let user_agg_alt = AggStateTransition {
+            state_transition_start: guta_transition.state_transition.old_node_value,
+            state_transition_end: guta_transition.state_transition.new_node_value,
+        };*/
         let part_1_input = CircuitInputWithDependencies {
             input: QCAggUserRegistartionDeployContractsGUTAInput {
-                register_users_state_transition: user_registration_transition,
-                deploy_contracts_state_transition: deploy_transition,
+                register_users_state_transition: if user_registration_transition.state_transition_start == QHashOut::ZERO {
+                    AggStateTransition {
+                        state_transition_start: last_user_registration_tree_root,
+                        state_transition_end: last_user_registration_tree_root,
+                    }
+                }else{
+                    user_registration_transition
+                },
+                deploy_contracts_state_transition: if deploy_transition.state_transition_start == QHashOut::ZERO {
+                    AggStateTransition {
+                        state_transition_start: last_contract_tree_root,
+                        state_transition_end: last_contract_tree_root,
+                    }
+                }else{
+                    deploy_transition
+                },
                 guta_proof_header: guta_transition,
             },
             dependencies: vec![
@@ -855,28 +895,59 @@ impl<
             )
             .await?;
 
-        let state_roots = self.store.get_checkpoint_global_state_roots(new_checkpoint_id).await?;/*QEDCheckpointGlobalStateRoots {
+        /*QEDCheckpointGlobalStateRoots {
             contract_tree_root: deploy_transition.state_transition_end,
             deposit_tree_root,
             user_tree_root: guta_transition.state_transition.new_node_value,
             withdrawal_tree_root,
             user_registration_tree_root: user_registration_transition.state_transition_end,
         };*/
-
-        let checkpoint_leaf = QEDCheckpointLeaf {
-            global_chain_root: state_roots.qfhash::<QEDHasher>(),
-            stats: QEDCheckpointLeafStats {
-                fees_collected: guta_transition.stats.fees_collected,
-                user_ops_processed: guta_transition.stats.user_ops_processed,
-                total_transactions: guta_transition.stats.total_transactions,
-                slots_modified: guta_transition.stats.slots_modified,
-                pm_jobs_completed: F::ZERO,
+        let partial_input = QCQEDCheckpointStateTransitionInputPartial{
+                part_1_header: part_1_input.input,
+                old_stats: last_checkpoint_leaf.stats,
                 block_time: F::from_canonical_u64(Utc::now().timestamp_millis() as u64),
-                random_seed: QHashOut::rand(),
-                pm_rewards_commitment: PMRewardCommitment::default(),
-                da_challenges_claimed: [F::ZERO; DA_CHALLENGE_WINDOW],
-            },
+                final_random_seed_contribution: QHashOut::rand(),
         };
+
+        //let old_checkpoint_leaf = partial_input.get_old_checkpoint_leaf::<QEDHasher>();
+        let new_checkpoint_leaf = partial_input.get_new_checkpoint_leaf::<QEDHasher>();
+        let new_checkpoint_leaf_hash= new_checkpoint_leaf.qfhash::<QEDHasher>();
+        //let old_checkpoint_leaf_hash= old_checkpoint_leaf.qfhash::<QEDHasher>();
+
+        /*println!("stateroottss: {}, {:?}",serde_json::to_string_pretty(&state_roots).unwrap(), state_roots.qfhash::<QEDHasher>());
+
+        println!("got: get_old_state_roots: {}, {:?}",serde_json::to_string_pretty(&partial_input.get_old_state_roots::<QEDHasher>()).unwrap(), partial_input.get_old_state_roots::<QEDHasher>().qfhash::<QEDHasher>());
+        println!("[{}] 1ostr: {:?}",new_checkpoint_id, old_checkpoint_leaf.global_chain_root);
+        println!("[{}] 1leafo: {:?}",new_checkpoint_id, old_checkpoint_leaf_hash);
+        println!("[{}] 1nstr: {:?}",new_checkpoint_id, new_checkpoint_leaf.global_chain_root);
+        println!("[{}] 1leafn: {:?}",new_checkpoint_id, new_checkpoint_leaf_hash);
+        */
+        let previous_checkpoint_proof = self.store.get_checkpoint_tree_merkle_proof(last_l2_blockstate.checkpoint_id, last_l2_blockstate.checkpoint_id).await?;
+        //println!("last_chpk_leaf_hash: {:?}, {}",last_checkpoint_leaf.qfhash::<QEDHasher>(), serde_json::to_string_pretty(&last_checkpoint_leaf).unwrap());
+        //println!("previous_checkpoint_proof[{}]: {:?}", previous_checkpoint_proof.index, previous_checkpoint_proof.value);
+
+        let checkpoint_dmp = self.store.set_checkpoint_tree_leaf_hash_imm(new_checkpoint_id, new_checkpoint_leaf_hash).await?;
+        
+        
+        let checkpoint_tree_update_siblings = checkpoint_dmp.siblings.clone();
+        let witness_checkpoint_state_transition = CircuitInputWithDependencies{
+            input: QCQEDCheckpointStateTransitionInput::<F>{
+            partial: partial_input,
+                append_checkpoint_tree_proof: checkpoint_dmp,
+                previous_checkpoint_proof,
+            },
+            dependencies: vec![state_part_1_id.get_output_id()],
+        };
+
+
+        self.proof_store
+            .set_bytes_by_id(
+                root_state_transition.get_input_witness_id(),
+                &bincode::serialize(&witness_checkpoint_state_transition).map_err(|e| anyhow::anyhow!("{:?}", e))?,
+            )
+            .await?;
+
+
 
         let new_l2_block_state = QEDL2BlockState {
             checkpoint_id: last_l2_blockstate.checkpoint_id + 1,
@@ -898,16 +969,10 @@ impl<
                 .concat()),
             )
             .await?;
-
+            let lf_state = self.store.get_checkpoint_global_state_roots(new_checkpoint_id).await?;
+            //println!("set new leaf: {:#?}\n\nnew_leaf_hash {}: {:?},\nlf: {:?}, {:?}",new_checkpoint_leaf,new_checkpoint_id,new_checkpoint_leaf.qfhash::<QEDHasher>(),lf_state,lf_state.qfhash::<QEDHasher>());
         self.store
-            .set_checkpoint_leaf_data_imm(new_checkpoint_id, &checkpoint_leaf)
-            .await?;
-        let checkpoint_dmp = self
-            .store
-            .set_checkpoint_tree_leaf_hash_imm(
-                new_checkpoint_id,
-                checkpoint_leaf.qfhash::<QEDHasher>(),
-            )
+            .set_checkpoint_leaf_data_imm(new_checkpoint_id, &new_checkpoint_leaf)
             .await?;
         self.store
             .set_l2_block_state_imm(&new_l2_block_state)
@@ -915,9 +980,9 @@ impl<
 
         let l2_sync = QCheckpointSyncInfoCompact {
             l2_block_state: new_l2_block_state,
-            stats: checkpoint_leaf.stats,
-            state_roots,
-            checkpoint_tree_update_siblings: checkpoint_dmp.siblings,
+            stats: new_checkpoint_leaf.stats,
+            state_roots: lf_state,
+            checkpoint_tree_update_siblings,
             regsitered_users_start_pivot_siblings,
             registered_users: new_accounts,
         };

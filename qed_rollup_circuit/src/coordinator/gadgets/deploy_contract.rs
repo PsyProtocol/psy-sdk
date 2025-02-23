@@ -68,6 +68,12 @@ impl BatchDeployContractsGadget {
         for (g, v) in self.contract_leaves.iter().zip(contract_leaves.iter()) {
             g.set_witness(witness, v)?;
         }
+        if contract_leaves.len() < self.contract_leaves.len() {
+            let empty = QEDContractLeaf::default();
+            for i in contract_leaves.len()..self.contract_leaves.len() {
+                self.contract_leaves[i].set_witness(witness, &empty)?;
+            }
+        }
         Ok(())
     }
 }
