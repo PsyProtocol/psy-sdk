@@ -11,6 +11,36 @@ use serde::{Deserialize, Serialize};
 use crate::{qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf}, qstore::uct_merkle_nodes::CSTUserUpdateStore};
 
 use super::{end_cap_input::SubmitUserEndCapNonProofInput, proof_input::VerifyEndCapSimpleStandardInput, stats::GUTAStats};
+use std::collections::HashMap;
+
+#[derive(Clone, Debug)]
+pub struct SimpleContractHeightCache<F: RichField> {
+    mapping: HashMap<u64, (u8, QHashOut<F>)>
+}
+
+impl<F: RichField> SimpleContractHeightCache<F> {
+    pub fn new() -> Self {
+        Self {
+            mapping: HashMap::new(),
+        }
+    }
+    pub fn add_contract(&mut self, contract_id: u64, height: u8, zero_hash: QHashOut<F>) {
+        self.mapping.insert(contract_id, (height, zero_hash));
+    }
+    pub fn get_contract_height(&self, contract_id: u64) -> anyhow::Result<u8> {
+        match self.mapping.get(&contract_id) {
+            Some(x) => Ok(x.0),
+            None => anyhow::bail!("contract {} not loaded",contract_id),
+        }
+    }
+    pub fn get_contract_zero_hash(&self, contract_id: u64) -> anyhow::Result<QHashOut<F>> {
+        match self.mapping.get(&contract_id) {
+            Some(x) => Ok(x.1),
+            None => anyhow::bail!("contract {} not loaded",contract_id),
+        }
+    }
+}
+
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -20,19 +50,26 @@ pub struct QEDContractStateUpdateHistory<F: RichField> {
 }
 
 impl<F: RichField> QEDContractStateUpdateHistory<F> {
-    pub fn ensure_basic_consistency(&self) -> anyhow::Result<()> {
+    pub fn ensure_basic_consistency(&self, contract_helper: &SimpleContractHeightCache<F>) -> anyhow::Result<()> {
         if self.contract_state_tree_updates.len() == 0 {
             anyhow::bail!("contract_state_tree_updates cannot be empty")
         }
-        if self.contract_state_tree_updates[0].old_root != self.user_contract_tree_update_proof.old_value {
+        if self.contract_state_tree_updates[0].old_root != self.user_contract_tree_update_proof.old_value && (
+            self.user_contract_tree_update_proof.old_value != QHashOut::ZERO || (self.contract_state_tree_updates[0].old_root != contract_helper.get_contract_zero_hash(self.user_contract_tree_update_proof.index)?)   
+        ){
             anyhow::bail!("first CST old root does not match UCT old value");
         }
         if self.contract_state_tree_updates.last().as_ref().unwrap().new_root != self.user_contract_tree_update_proof.new_value {
+
             anyhow::bail!("first CST new root does not match UCT new value");
         }
 
+        let height = self.contract_state_tree_updates[0].siblings.len();
 
         for i in 1..self.contract_state_tree_updates.len() {
+            if self.contract_state_tree_updates[i].siblings.len() != height {
+                anyhow::bail!("invalid tree height in siblings");
+            }
             if self.contract_state_tree_updates[i].old_root != self.contract_state_tree_updates[i-1].new_root {
                 anyhow::bail!("invalid cst transition proof: current old_root != last new_root");
             }
@@ -66,6 +103,7 @@ pub struct UserEndCapNonProofCoreInputQueueItem<F: RichField> {
     pub input: SubmitUserEndCapNonProofCoreInput<F>,
     pub checkpoint_tree_proof: MerkleProofCore<QHashOut<F>>,
     pub proof_id: QProvingJobDataID,
+    pub checkpoint_id: u64,
     pub channel_id: u64,
 }
 
@@ -84,7 +122,7 @@ impl<F: RichField> DrainQueueMetadataTagged for UserEndCapNonProofCoreInputQueue
     fn get_dq_metadata(&self) -> DrainQueueMetadata {
         DrainQueueMetadata {
             channel_id: self.channel_id,
-            checkpoint_id: self.input.checkpoint_id.to_canonical_u64(),
+            checkpoint_id: self.checkpoint_id,
             item_id: self.input.new_user_leaf.user_id.to_canonical_u64(),
         }
     }
@@ -174,6 +212,26 @@ impl<F: RichField> KVQSerializable for SubmitUserEndCapProofIDAPIInput<F> {
 
 
 
+
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct GUTARealmCheckpointResult<F: RichField> {
+    pub checkpoint_id: u64,
+    pub guta_stats: GUTAStats<F>,
+    pub top_line_proof: DeltaMerkleProofCore<QHashOut<F>>,
+    pub checkpoint_tree_root: QHashOut<F>,
+    pub proof_id: QProvingJobDataID,
+}
+impl<F: RichField> KVQSerializable for GUTARealmCheckpointResult<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
 
 
 

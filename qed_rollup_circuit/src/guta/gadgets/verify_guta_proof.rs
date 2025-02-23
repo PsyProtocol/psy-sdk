@@ -34,7 +34,7 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
         verifier_data_cap_height: usize,
     ) -> Self
     where
-        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
+        <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
     {
         let verifier_data = builder.add_virtual_verifier_data(verifier_data_cap_height);
         let proof_target = builder.add_virtual_proof_with_pis(proof_common_data);
@@ -47,7 +47,7 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
         let guta_whitelist_merkle_proof = MerkleProofGadget::add_virtual_to::<C::Hasher, F, D>(builder, GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT as usize);
 
 
-        let guta_proof_header_gadget = GlobalUserTreeAggregatorHeaderGadget::add_virtual_to::<C::Hasher, F, D>(builder);
+        let guta_proof_header_gadget = GlobalUserTreeAggregatorHeaderGadget::add_virtual_to::<F, D>(builder);
 
         // ensure that the header gadget and merkle proof have the same whitelist root
         builder.connect_hashes(

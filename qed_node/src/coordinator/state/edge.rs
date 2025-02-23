@@ -82,7 +82,9 @@ impl<
 
     pub async fn handle_deploy_contract(&self, contract_data: QBCDeployContract<F>) -> anyhow::Result<()> {
         let checkpoint_id = self.get_next_checkpoint_id_async().await?;
-        let cd_for_queue = WithDrainQueueMetadata::new_params(self.coordinator_config.deploy_contract_channel_id, checkpoint_id, thread_rng().next_u64(), contract_data);
+        let with_root = contract_data.into_with_whitelist_root::<QEDHasher>()?;
+
+        let cd_for_queue = WithDrainQueueMetadata::new_params(self.coordinator_config.deploy_contract_channel_id, checkpoint_id, thread_rng().next_u64(), with_root);
 
         self.checkpoint_queue.cdq_push_imm(cd_for_queue).await?;
         Ok(())
@@ -106,7 +108,7 @@ impl<
             .store_reader
             .get_user_latest_top_tree_cap_root(self.coordinator_config.realm_root_level, input.realm_id)
             .await?;
-        if old_value != input.top_line_proof.old_root {
+        if old_value != input.top_line_proof.old_root &&(old_value != input.top_line_proof.new_root) {
             anyhow::bail!("invalid top line proof old value from realm");
         }
         //let checkpoint_id = input.checkpoint_id;

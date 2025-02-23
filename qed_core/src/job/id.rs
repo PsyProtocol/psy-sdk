@@ -132,7 +132,7 @@ pub enum ProvingJobCircuitType {
     GenerateFinalSigHashProofGroth16 = 35,
     WrapFinalSigHashProofBLS12381 = 36,
 
-    AggUserRegisterClaimDepositL2Transfer = 40,
+    AggUserRegisterDeployContractsGUTA = 40,
     AggAddProcessL1WithdrawalAddL1Deposit = 41,
 
     DummyAppendUserRegistrationTreeAggregate = 48,
@@ -145,6 +145,9 @@ pub enum ProvingJobCircuitType {
 
     WrappedSignatureProof = 64,
     Secp256K1SignatureProof = 65,
+
+
+    NotifyRealmComplete = 192,
 
 
     // fake circuits but useful for placeholders
@@ -258,7 +261,7 @@ impl TryFrom<u8> for ProvingJobCircuitType {
             34 => Ok(ProvingJobCircuitType::GenerateFinalSigHashProof),
             35 => Ok(ProvingJobCircuitType::GenerateFinalSigHashProofGroth16),
             36 => Ok(ProvingJobCircuitType::WrapFinalSigHashProofBLS12381),
-            40 => Ok(ProvingJobCircuitType::AggUserRegisterClaimDepositL2Transfer),
+            40 => Ok(ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA),
             41 => Ok(ProvingJobCircuitType::AggAddProcessL1WithdrawalAddL1Deposit),
             48 => Ok(ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate),
             49 => Ok(ProvingJobCircuitType::DummyAddL1DepositAggregate),
@@ -269,6 +272,7 @@ impl TryFrom<u8> for ProvingJobCircuitType {
             54 => Ok(ProvingJobCircuitType::DummyBatchDeployContractsAggregate),
             64 => Ok(ProvingJobCircuitType::WrappedSignatureProof),
             65 => Ok(ProvingJobCircuitType::Secp256K1SignatureProof),
+            192 => Ok(ProvingJobCircuitType::NotifyRealmComplete),
 
             224 => Ok(ProvingJobCircuitType::TypeA),
             225 => Ok(ProvingJobCircuitType::TypeB),
@@ -329,6 +333,20 @@ pub struct QProvingJobDataID {
     pub data_index: u8,
 }
 impl QProvingJobDataID {
+    pub fn new_notify_realm_complete_witness(checkpoint_id: u64, realm_id: u32) -> Self {
+
+        Self {
+            topic: QJobTopic::GenerateStandardProof,
+            goal_id: checkpoint_id,
+            circuit_type: ProvingJobCircuitType::NotifyRealmComplete,
+            group_id: ProvingJobCircuitType::NotifyRealmComplete.to_circuit_group_id(),
+            sub_group_id: realm_id,
+            task_index: 0,
+            data_type: ProvingJobDataType::InputWitness,
+            data_index: 0,
+        }
+
+    }
     pub fn with_ps_prefix(&self, prefix: [u8; 4]) -> [u8; 28] {
         let mut result = [0u8; 28];
         result[0..3].copy_from_slice(&prefix);
@@ -615,9 +633,9 @@ impl QProvingJobDataID {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: block_id,
-            group_id: ProvingJobCircuitType::AggUserRegisterClaimDepositL2Transfer
+            group_id: ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA
                 .to_circuit_group_id(),
-            circuit_type: ProvingJobCircuitType::AggUserRegisterClaimDepositL2Transfer,
+            circuit_type: ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA,
             sub_group_id: 0,
             task_index: 0,
             data_type: ProvingJobDataType::InputWitness,

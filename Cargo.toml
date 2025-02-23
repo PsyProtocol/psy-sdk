@@ -19,6 +19,7 @@ members = [
   "qed_node_common",
   "qed_node",
   "qed_scylla_store",
+  "qed_test_sandbox",
 ]
 resolver = "2"
 
@@ -82,6 +83,15 @@ bitflags = "2.5.0"
 ripemd = "0.1.3"
 log = { version = "0.4.14", default-features = false }
 env_logger = { version = "0.9.0", default-features = false }
+
+
+tokio = { version = "1.43.0", features = ["full"] }
+tokio-executor-trait = "2.1.3"
+tokio-reactor-trait = "1.1.0"
+
+futures = "0.3.0"
+redis = { version = "^0.25", default-features = false, features = ["acl", "keep-alive", "script"] }
+fred = "10.0.4"
 
 
 [patch.'https://github.com/0xPolygonZero/plonky2.git']

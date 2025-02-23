@@ -10,8 +10,6 @@ use crate::dpn::vm::compile::QEDContractFunctionBuilderGadget;
 
 #[derive(Debug)]
 pub struct DapenContractFunctionCircuit<C: GenericConfig<D>, const D: usize>
-where
-    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub inputs: Vec<Target>,
     pub fn_builder_gadget: QEDContractFunctionBuilderGadget,
@@ -93,8 +91,6 @@ where
 }
 
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for DapenContractFunctionCircuit<C, D>
-where
-    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint

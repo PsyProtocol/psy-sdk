@@ -1,4 +1,5 @@
 
+
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOutTarget, RichField},
@@ -16,6 +17,7 @@ use crate::builder::{
     verify::CircuitBuilderVerifyProofHelpers,
 };
 
+pub mod verify_state_transition;
 #[derive(Debug, Clone, Copy)]
 pub struct AggStateTransitionGadget {
     pub state_transition_start: HashOutTarget,

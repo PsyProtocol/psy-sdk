@@ -12,7 +12,7 @@ use qed_data::{
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_store::{
-    controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::QEDUserSessionUpdateHistory}, store::imm::{cache::QEDCmdStoreWithCache, cmd::{QSRCmdGetCheckpointLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
+    config::store_config::QEDHasher, controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::QEDUserSessionUpdateHistory}, store::imm::{cache::QEDCmdStoreWithCache, cmd::{QSRCmdGetCheckpointLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
 };
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
@@ -99,7 +99,7 @@ impl<
 
         let current_global_state_roots = lps.get_global_state_tree_roots(latest_checkpoint_id_u64)?;
 
-
+        println!("current_state_roots: {}",serde_json::to_string_pretty(&current_global_state_roots).unwrap());
 
 
         let current_state = UserProvingSessionCurrentState{
@@ -173,8 +173,26 @@ impl<
         let input = self.get_ups_start_witness()?;
         //println!("witness:\n{:?}",input);
         //println!("\n\n\nwitness json:\n{}\n\n\n\n\n\n",serde_json::to_string_pretty(&input).unwrap());
-        
+        /*let st_roots = input.state_roots.qfhash::<QEDHasher>();
+
+            println!("[prove_ups_start] current_state_roots: {}",serde_json::to_string_pretty(&input.state_roots).unwrap());
+        if st_roots != input.checkpoint_leaf.global_chain_root {
+            println!("input.checkpoint_leaf.global_chain_root != st_roots\n{:?} != {:?}",input.checkpoint_leaf.global_chain_root, st_roots);
+        }*/
+
         timer.lap("gen_witness");
+        if !input.checkpoint_tree_proof.verify::<QEDHasher>() {
+            anyhow::bail!("invalid checkpoint tree proof");
+        }
+
+        if !input.user_tree_proof.verify::<QEDHasher>() {
+            anyhow::bail!("invalid user tree proof");
+        }
+
+        if input.ups_header.session_start_context.start_session_user_leaf.qfhash::<QEDHasher>() != input.user_tree_proof.value{
+            anyhow::bail!("value doesn't match user leaf");
+        }
+
         
         let proof = circuit_mgr.ups_start.prove_base(&input)?;
 
@@ -451,6 +469,8 @@ impl<
             slots_modified: self.lps.get_total_slots_modified(),
         };
 
+        //println!("endcap_from_proof_tree: {:?}",end_cap_from_proof_tree_input);
+
 
         let finalized_proof_tree_record = self.proof_tree_state.get_finalized_proot_tree_record()?;
         let agg_whitelist_merkle_proof = circuit_mgr.proof_tree_agg_circuits.circuit_inclusion_proofs.get_inclusion_proof_for_type(finalized_proof_tree_record.circuit_type);
@@ -531,6 +551,9 @@ impl<
     }
     pub fn get_user_session_update_history(&mut self) -> anyhow::Result<QEDUserSessionUpdateHistory<F>> {
         let (contract_updates, total_slots_modified) = self.lps.get_all_state_updates()?;
+        //println!("contract_updates: {:?}",contract_updates);
+        //println!("contract_updates: {}",serde_json::to_string_pretty(&contract_updates).unwrap());
+        
         Ok(
             QEDUserSessionUpdateHistory{
                 start_user_leaf: self.current_ups_header.session_start_context.start_session_user_leaf,

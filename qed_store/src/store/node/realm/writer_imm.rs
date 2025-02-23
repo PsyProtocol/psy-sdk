@@ -16,8 +16,8 @@ use crate::{
         realm::QEDRealmStoreWriterAsyncImm
     ,
     store::imm::core::QEDStorageAdapterImmutable,
-    traits::qdatastore::{
-        qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync}
+    traits::qdatastore::
+        qmetadata::QMetaDataStoreWriterSync
     ,
 };
 use async_trait::async_trait;
@@ -27,7 +27,7 @@ use plonky2::{
     util::log2_ceil,
 };
 use qed_core::{
-    config::network_constants::{GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT},
+    config::network_constants::GLOBAL_USER_TREE_HEIGHT,
     data::qhashout::QHashOut,
 };
 use qed_crypto::hash::{

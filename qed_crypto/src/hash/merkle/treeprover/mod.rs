@@ -326,6 +326,14 @@ impl<IL: AggStateTrackableWithEventsInput<F>, F: RichField>
         }
     }
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct TPAltCircuitFingerprintConfig<F: RichField> {
+    pub leaf_fingerprint: QHashOut<F>,
+    pub aggregator_fingerprint: QHashOut<F>,
+    pub dummy_fingerprint: QHashOut<F>,
+    pub verifier_data_cap_height: usize,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]

@@ -139,7 +139,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
 #[async_trait]
 impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreFred {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
-        let metadata = item.get_dq_metadata();
+        let metadata: qed_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
         self.pool
             .lpush::<(), String, &[u8]>(

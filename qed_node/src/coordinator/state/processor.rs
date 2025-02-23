@@ -8,9 +8,7 @@ use plonky2::{
 };
 use qed_core::{
     config::network_constants::{
-        BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES,
-        BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID,
-        COORD_API_REGISTER_USER_CHANNEL_ID, DA_CHALLENGE_WINDOW, REALM_USER_TREE_HEIGHT,
+        BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORD_API_DEPLOY_CONTRACT_CHANNEL_ID, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, COORD_API_REGISTER_USER_CHANNEL_ID, DA_CHALLENGE_WINDOW, REALM_USER_TREE_HEIGHT
     },
     data::qhashout::QHashOut,
     job::{
@@ -24,8 +22,7 @@ use qed_core::{
 use qed_crypto::{
     common::{
         cached_circuit_library::get_cached_circuit_library,
-        circuit_library::CircuitInfoLibraryCore,
-        generic_circuit_verifier::GenericCircuitVerifier,
+        circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier,
     },
     hash::{
         merkle::{
@@ -45,15 +42,18 @@ use qed_data::{
         api::SubmitGUTARealmResultAPIQueueItem,
         header::GlobalUserTreeAggregatorHeader,
         proof_input::{
-            GUTANoChangeFullInput, VerifyGUTAToCapCircuitInputSimple, VerifyTwoGUTAProofGadgetStandardInputSimple
+            GUTANoChangeFullInput, VerifyGUTAToCapCircuitInputSimple,
+            VerifyTwoGUTAProofGadgetStandardInputSimple,
         },
         stats::GUTAStats,
     },
     proof_store::builder::ProofStoreBuilder,
+    protocol::circuit_inputs::agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput,
     qblock::cmds::deploy_contract::QBCDeployContractWithRoot,
     qdata::{
         checkpoint::{
-            QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompactWithStateRoots, QEDCheckpointLeafStats, QEDL2BlockState
+            QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf,
+            QEDCheckpointLeafCompactWithStateRoots, QEDCheckpointLeafStats, QEDL2BlockState,
         },
         contract::QEDContractLeaf,
         pm_reward_commitment::PMRewardCommitment,
@@ -107,7 +107,7 @@ impl CoordinatorConfig {
             realm_root_level,
             guta_channel_id: COORD_API_GUTA_FROM_REALMS_CHANNEL_ID,
             register_user_channel_id: COORD_API_REGISTER_USER_CHANNEL_ID,
-            deploy_contract_channel_id: COORD_API_REGISTER_USER_CHANNEL_ID,
+            deploy_contract_channel_id: COORD_API_DEPLOY_CONTRACT_CHANNEL_ID,
             register_user_tree_batch_height: BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT as u8,
             register_user_tree_batch_size: BATCH_USER_REGISTRAITION_MAX_SUB_TREES,
             deploy_contracts_tree_batch_height: BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT as u8,
@@ -209,6 +209,7 @@ impl<
             )
             .await?;
 
+
         let new_contract_leaves = deploy_contract_items
             .iter()
             .map(|x| QEDContractLeaf {
@@ -220,12 +221,27 @@ impl<
             })
             .collect::<Vec<_>>();
 
+
+
         let new_hashes = new_contract_leaves
             .iter()
             .map(|x| x.qfhash::<QEDHasher>())
             .collect::<Vec<_>>();
 
         let start_contract_id = self.latest_block_state.next_contract_id;
+
+        for (i, dc) in deploy_contract_items.iter().enumerate() {
+            self.store.set_contract_code_definition_imm(
+                checkpoint_id,
+                start_contract_id as u64+ i as u64,
+                &dc.payload.code_definition,
+            ).await?;
+            self.store.set_contract_function_whitelist_imm(checkpoint_id, start_contract_id as u64+ i as u64, &dc.payload.function_whitelist).await?;
+
+        }
+        for (i, l) in new_contract_leaves.iter().enumerate() {
+            self.store.set_contract_leaf_data_imm(checkpoint_id, start_contract_id as u64+ i as u64, l).await?;
+        }
         let next_contract_id = start_contract_id + new_contract_leaves.len() as u32;
         let mut psb = ProofStoreBuilder::new();
         let wits = self
@@ -291,7 +307,7 @@ impl<
             .checkpoint_queue
             .cdq_drain_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID, 0)
             .await?;
-        println!("usr: {:?}",user_registrations);
+        println!("usr: {:?}", user_registrations);
 
         let new_public_keys = user_registrations
             .iter()
@@ -375,12 +391,21 @@ impl<
         if guta_queue_items.len() == 0 {
             let last_checkpoint_id = if checkpoint_id == 0 {
                 checkpoint_id
-            }else{
-                checkpoint_id-1
+            } else {
+                checkpoint_id - 1
             };
-            let roots = self.store.get_checkpoint_global_state_roots(last_checkpoint_id).await?;
-            let checkpoint_tree_proof = self.store.get_checkpoint_tree_merkle_proof(checkpoint_id, last_checkpoint_id).await?;
-            let checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_checkpoint_id).await?;
+            let roots = self
+                .store
+                .get_checkpoint_global_state_roots(last_checkpoint_id)
+                .await?;
+            let checkpoint_tree_proof = self
+                .store
+                .get_checkpoint_tree_merkle_proof(checkpoint_id, last_checkpoint_id)
+                .await?;
+            let checkpoint_leaf = self
+                .store
+                .get_checkpoint_leaf_data(last_checkpoint_id)
+                .await?;
 
             let guta_header = GlobalUserTreeAggregatorHeader {
                 guta_circuit_whitelist: self.coordinator_config.guta_circuit_whitelist,
@@ -400,12 +425,11 @@ impl<
             };
             let input = GUTANoChangeFullInput {
                 checkpoint_tree_proof,
-                checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots{
+                checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots {
                     checkpoint_leaf: checkpoint_leaf.to_compact::<QEDHasher>(),
                     global_state_roots: roots,
                 },
             };
-
 
             let id = QProvingJobDataID::core_op_witness(
                 ProvingJobCircuitType::GUTANoChange,
@@ -414,14 +438,10 @@ impl<
             );
 
             self.proof_store
-                .set_bytes_by_id(
-                    id.get_input_witness_id(),
-                    &bincode::serialize(&input)?,
-                )
+                .set_bytes_by_id(id.get_input_witness_id(), &bincode::serialize(&input)?)
                 .await?;
 
             return Ok((vec![vec![id]], guta_header));
-
         } else if guta_queue_items.len() == 1 {
             let old_mp = self
                 .store
@@ -437,8 +457,8 @@ impl<
                     guta_circuit_whitelist: self.coordinator_config.guta_circuit_whitelist,
                     checkpoint_tree_root: self.store.get_latest_checkpoint_tree_root().await?,
                     state_transition: SubTreeNodeStateTransition {
-                        old_node_value: guta_queue_items[0].top_line_proof.old_value,
-                        new_node_value: guta_queue_items[0].top_line_proof.new_value,
+                        old_node_value: guta_queue_items[0].top_line_proof.old_root,
+                        new_node_value: guta_queue_items[0].top_line_proof.new_root,
                         node_index: F::from_noncanonical_u64(
                             guta_queue_items[0].top_line_proof.index,
                         ),
@@ -468,6 +488,31 @@ impl<
                 0,
             );
 
+            let new_nodes = guta_queue_items
+            .iter()
+            .map(|x| {
+                assert_eq!(
+                    x.top_line_proof.index, x.realm_id,
+                    "right now guta proofs with top line are not allowed"
+                );
+                SimpleMerkleNode {
+                    key: SimpleMerkleNodeKey {
+                        level: self.coordinator_config.realm_root_level,
+                        index: x.realm_id,
+                    },
+                    value: x.top_line_proof.new_root,
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let mut res = self
+            .store
+            .injest_user_tree_nodes_imm(checkpoint_id, 0, &new_nodes)
+            .await?;
+        //for local testing conv
+        let good_old = self.store.get_user_top_tree_cap_root(checkpoint_id-1, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index).await?;
+
+        res.link_proof.old_value = good_old;
             self.proof_store
                 .set_bytes_by_id(
                     id.get_input_witness_id(),
@@ -785,13 +830,38 @@ impl<
             .write_multidimensional_jobs(&guta_jobs, &[guta_agg_job_id])
             .await?;
 
-        let state_roots = QEDCheckpointGlobalStateRoots {
+        let part_1_input = CircuitInputWithDependencies {
+            input: QCAggUserRegistartionDeployContractsGUTAInput {
+                register_users_state_transition: user_registration_transition,
+                deploy_contracts_state_transition: deploy_transition,
+                guta_proof_header: guta_transition,
+            },
+            dependencies: vec![
+                user_registration_jobs
+                    .last()
+                    .as_ref()
+                    .unwrap()
+                    .last()
+                    .unwrap().get_output_id(),
+                deploy_jobs.last().as_ref().unwrap().last().unwrap().get_output_id(),
+                guta_jobs.last().as_ref().unwrap().last().unwrap().get_output_id(),
+            ],
+        };
+
+        self.proof_store
+            .set_bytes_by_id(
+                state_part_1_id.get_input_witness_id(),
+                &bincode::serialize(&part_1_input).map_err(|e| anyhow::anyhow!("{:?}", e))?,
+            )
+            .await?;
+
+        let state_roots = self.store.get_checkpoint_global_state_roots(new_checkpoint_id).await?;/*QEDCheckpointGlobalStateRoots {
             contract_tree_root: deploy_transition.state_transition_end,
             deposit_tree_root,
             user_tree_root: guta_transition.state_transition.new_node_value,
             withdrawal_tree_root,
             user_registration_tree_root: user_registration_transition.state_transition_end,
-        };
+        };*/
 
         let checkpoint_leaf = QEDCheckpointLeaf {
             global_chain_root: state_roots.qfhash::<QEDHasher>(),
@@ -818,12 +888,16 @@ impl<
             end_balance: last_l2_blockstate.end_balance,
             next_contract_id: next_contract_id,
         };
-        
-        self.prover_queue.enqueue_jobs_imm(&([
-            guta_jobs[0].to_vec(),
-            deploy_jobs[0].to_vec(),
-            user_registration_jobs[0].to_vec(),
-        ].concat())).await?;
+        self.prover_queue
+            .enqueue_jobs_imm(
+                &([
+                    guta_jobs[0].to_vec(),
+                    deploy_jobs[0].to_vec(),
+                    user_registration_jobs[0].to_vec(),
+                ]
+                .concat()),
+            )
+            .await?;
 
         self.store
             .set_checkpoint_leaf_data_imm(new_checkpoint_id, &checkpoint_leaf)

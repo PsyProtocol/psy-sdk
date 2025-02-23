@@ -34,6 +34,7 @@ pub trait CircuitBuilderHashCore<F: RichField + Extendable<D>, const D: usize> {
         right: HashOutTarget,
     ) -> HashOutTarget;
 
+
     fn safe_hash_fixed_length<H:AlgebraicHasher<F>>(&mut self, targets: &[Target]) -> HashOutTarget;
 
 

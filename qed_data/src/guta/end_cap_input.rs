@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::qstore::uct_merkle_nodes::{CSTUserUpdate, CSTUserUpdateStore};
 
-use super::api::{QEDContractStateUpdateHistory, SubmitUserEndCapNonProofCoreInput};
+use super::api::{QEDContractStateUpdateHistory, SimpleContractHeightCache, SubmitUserEndCapNonProofCoreInput};
 
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
@@ -16,7 +16,7 @@ pub struct SubmitUserEndCapNonProofInput<F: RichField> {
     pub contract_state_updates: Vec<QEDContractStateUpdateHistory<F>>,
 }
 impl<F: RichField> SubmitUserEndCapNonProofInput<F> {
-    pub fn ensure_simple_self_consistent<H: FieldQHasher<F>>(&self, proof_public_inputs_hash: QHashOut<F>) -> anyhow::Result<()> {
+    pub fn ensure_simple_self_consistent<H: FieldQHasher<F>>(&self, proof_public_inputs_hash: QHashOut<F>, contract_helper: &SimpleContractHeightCache<F>) -> anyhow::Result<()> {
         if self.core.checkpoint_id != self.core.new_user_leaf.last_checkpoint_id {
             anyhow::bail!("invalid checkpoint id");
         }
@@ -43,12 +43,21 @@ impl<F: RichField> SubmitUserEndCapNonProofInput<F> {
         }
 
         for csu in self.contract_state_updates.iter() {
-            csu.ensure_basic_consistency()?;
+            csu.ensure_basic_consistency(contract_helper)?;
         }
 
         
 
         Ok(())
+    }
+    pub fn get_needed_contract_zero_hashes(&self) -> Vec<(u64, usize)> {
+        self.contract_state_updates.iter().filter_map(|x|{
+            if x.user_contract_tree_update_proof.old_value == QHashOut::ZERO && x.contract_state_tree_updates.len() != 0{
+                Some((x.user_contract_tree_update_proof.index, x.contract_state_tree_updates[0].siblings.len()))
+            }else{
+                None
+            }
+        }).collect()
     }
     pub fn verify_and_generate_cst_updates<H: FieldQHasher<F>>(&self, checkpoint_id: u64, old_user_state_tree_root: QHashOut<F>) -> anyhow::Result<CSTUserUpdate<QHashOut<F>>> {
 
@@ -58,7 +67,8 @@ impl<F: RichField> SubmitUserEndCapNonProofInput<F> {
 
 
         if self.contract_state_updates[0].user_contract_tree_update_proof.old_root != old_user_state_tree_root {
-            anyhow::bail!("old_user_state_tree_root does not match the first old root");
+            
+            anyhow::bail!("old_user_state_tree_root does not match the first old root ({:?}, {:?})",self.contract_state_updates[0].user_contract_tree_update_proof.old_root,old_user_state_tree_root);
         }
         let mut injestor = CSTUserUpdateStore::<QHashOut<F>>::new();
         

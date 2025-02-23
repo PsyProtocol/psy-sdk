@@ -15,7 +15,7 @@ pub struct GlobalUserTreeAggregatorHeaderGadget {
 }
 
 impl GlobalUserTreeAggregatorHeaderGadget {
-    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to< F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let guta_circuit_whitelist = builder.add_virtual_hash();

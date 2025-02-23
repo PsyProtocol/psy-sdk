@@ -201,7 +201,7 @@ pub trait KVQMerkleTreeModelCoreImmutable<
 
 
         
-        let mut current_value = old_value;
+        let mut current_value = new_value;
         let mut current = node;
         updates.reserve(sub_height+1);
         updates.push(KVQPair { key: node, value: new_value });

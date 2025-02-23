@@ -2,11 +2,11 @@ use async_trait::async_trait;
 use plonky2::{gates::gate::GateRef, hash::hash_types::HashOut, plonk::{config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
 use qed_common_circuit::{builder::pad_circuit::new_coset_gate_with_max_degree, circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, treeprover::{aggregation::{state_transition::AggStateTransitionCircuit, state_transition_dummy::AggStateTransitionDummyCircuit}, traits::TreeProverAggCircuit}};
 use qed_core::{config::network_constants::{BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::{ProvingJobCircuitType, QProvingJobDataID}, traits::QProofStoreReaderAsync}};
-use qed_crypto::{common::{circuit_library::{CircuitInfoLibrary, CircuitInfoLibraryBuilder}, worker::{QNextGenWorkerGenericInfo, QNextGenWorkerGenericProverAsyncMut}}, hash::traits::hasher::{MerkleHasher, MerkleZeroHasher}};
+use qed_crypto::{common::{circuit_library::{CircuitInfoLibrary, CircuitInfoLibraryBuilder}, worker::{QNextGenWorkerGenericInfo, QNextGenWorkerGenericProverAsyncMut}}, hash::{merkle::treeprover::TPAltCircuitFingerprintConfig, traits::hasher::{MerkleHasher, MerkleZeroHasher}}};
 
 use crate::guta::guta_helper::QEDGUTACircuitManager;
 
-use super::circuits::{append_user_registration_tree::BatchAppendUserRegistrationTreeCircuit, batch_deploy_contract::BatchDeployContractsCircuit};
+use super::circuits::{agg_user_registration_deploy_guta::VerifyAggUserRegistartionDeployContractsGUTACircuit, append_user_registration_tree::BatchAppendUserRegistrationTreeCircuit, batch_deploy_contract::BatchDeployContractsCircuit};
 
 
 #[derive(Debug)]
@@ -22,6 +22,7 @@ where
     
     pub agg_state_transition: AggStateTransitionCircuit<C, D>,
     pub dummy_agg_state_transition: AggStateTransitionDummyCircuit<C, D>,
+    pub agg_user_register_deploy_contracts_guta: VerifyAggUserRegistartionDeployContractsGUTACircuit<C, D>,
     pub guta_circuits: QEDGUTACircuitManager<C,D>,
 }
 
@@ -66,12 +67,34 @@ where
             &agg_state_transition.get_fingerprint(),
         );
 
+        let user_reg_transition_circuit_config = TPAltCircuitFingerprintConfig{
+            leaf_fingerprint: append_user_registration_tree.get_fingerprint(),
+            aggregator_fingerprint: agg_state_transition.get_fingerprint(),
+            dummy_fingerprint: dummy_agg_state_transition.get_fingerprint(),
+            verifier_data_cap_height: append_user_registration_tree.get_verifier_config_ref().constants_sigmas_cap.height(),
+        };
+        let deploy_contracts_transition_circuit_config = TPAltCircuitFingerprintConfig{
+            leaf_fingerprint: batch_deploy_contracts.get_fingerprint(),
+            aggregator_fingerprint: agg_state_transition.get_fingerprint(),
+            dummy_fingerprint: dummy_agg_state_transition.get_fingerprint(),
+            verifier_data_cap_height: batch_deploy_contracts.get_verifier_config_ref().constants_sigmas_cap.height(),
+        };
+        let agg_user_register_deploy_contracts_guta = VerifyAggUserRegistartionDeployContractsGUTACircuit::<C, D>::new(
+            append_user_registration_tree.get_common_circuit_data_ref(),
+            &user_reg_transition_circuit_config,
+            batch_deploy_contracts.get_common_circuit_data_ref(),
+            &deploy_contracts_transition_circuit_config,
+            guta_circuits.verify_two_guta.get_common_circuit_data_ref(),
+            guta_circuits.verify_two_guta.get_verifier_config_ref().constants_sigmas_cap.height(),
+            guta_circuits.guta_circuit_whitelist_root,
+        );
         Self {
             append_user_registration_tree,
             batch_deploy_contracts,
             agg_state_transition,
             dummy_agg_state_transition,
             guta_circuits,
+            agg_user_register_deploy_contracts_guta,
             append_register_users_circuit_whitelist,
             batch_deploy_contracts_circuit_whitelist,
         }
@@ -93,6 +116,10 @@ where
         println!(
             "================================\n[dummy_agg_state_transition.common]:\n{:?}",
             self.dummy_agg_state_transition.get_common_circuit_data_ref()
+        );
+        println!(
+            "================================\n[agg_user_register_deploy_contracts_guta.common]:\n{:?}",
+            self.agg_user_register_deploy_contracts_guta.get_common_circuit_data_ref()
         );
         println!("===============================\n\n\n\n");
         self.guta_circuits.print_common_config();
@@ -130,6 +157,13 @@ where
             self.dummy_agg_state_transition.get_fingerprint(),
             self.dummy_agg_state_transition.get_verifier_config_ref().into()
         );
+
+
+        library.register_circuit(
+            ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA,
+            self.agg_user_register_deploy_contracts_guta.get_fingerprint(),
+            self.agg_user_register_deploy_contracts_guta.get_verifier_config_ref().into()
+        );
         
 
         self.guta_circuits.register_library(library);
@@ -153,6 +187,7 @@ where
             ProvingJobCircuitType::BatchDeployContracts => true,
             ProvingJobCircuitType::BatchDeployContractsAggregate => true,
             ProvingJobCircuitType::DummyBatchDeployContractsAggregate => true,
+            ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA => true,
             _ => self.guta_circuits.can_process_job(job_id),
         }
     }
@@ -184,6 +219,10 @@ where
             ProvingJobCircuitType::BatchDeployContracts => self.batch_deploy_contracts.prove_with_proof_store_async(store, library, job_id).await,
             ProvingJobCircuitType::BatchDeployContractsAggregate => self.agg_state_transition.prove_with_proof_store_async(store, library, job_id).await,
             ProvingJobCircuitType::DummyBatchDeployContractsAggregate => self.dummy_agg_state_transition.prove_with_proof_store_async(store, library, job_id).await,
+
+
+            ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA => self.agg_user_register_deploy_contracts_guta.prove_with_proof_store_async(store, library, job_id).await,
+
             _ => self.guta_circuits.worker_prove_mut_async(store, library, job_id).await,
         }
     }

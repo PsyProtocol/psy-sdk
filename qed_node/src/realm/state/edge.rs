@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use anyhow::bail;
-use plonky2::{field::types::PrimeField64, hash::hash_types::HashOut, plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs}};
+use plonky2::{field::{goldilocks_field::GoldilocksField, types::PrimeField64}, hash::hash_types::HashOut, plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs}};
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{
     drain_queue::{CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata}, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
     traits::QProofStoreAsyncImm,
 }};
-use qed_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable}, signature::zk::data::ZKPublicKeyInfo};
-use qed_data::{guta::{api::{SubmitGUTARealmResultAPINoProofInput, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}, qblock::cmds::deploy_contract::QBCDeployContract};
+use qed_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher, PoseidonHasher}, qhashable::QFieldHashable}, signature::zk::data::ZKPublicKeyInfo};
+use qed_data::{guta::{api::{SimpleContractHeightCache, SubmitGUTARealmResultAPINoProofInput, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}, qblock::cmds::deploy_contract::QBCDeployContract};
 use qed_store::{config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher}, node::realm::QEDRealmStoreReaderAsync};
 use rand::{thread_rng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -76,8 +76,8 @@ impl<
         self.proof_verifier
             .verify_proof_of_type(circuit_type, proof)
     }
-    pub async fn get_checkpoint_id_async(&self) -> anyhow::Result<u64> {
-        Ok(self.chkpnt_id)
+    pub async fn get_checkpoint_id_async(&self) -> anyhow::Result<u64> {        
+        Ok(self.store_reader.get_latest_l2_block_state().await?.checkpoint_id)
     } 
     pub async fn ensure_checkpoint_hash_valid(&self, checkpoint_id: F, checkpoint_root_hash: QHashOut<F>) -> anyhow::Result<()> {
         let expected = self.store_reader.get_checkpoint_tree_root_f(checkpoint_id).await?;
@@ -98,15 +98,23 @@ impl<
         }else if input.contract_state_updates.len() == 0 {
             anyhow::bail!("invalid contract_state_updates: cannot be empty");
         }
-        let proof_public_inputs_hash = QHashOut::from_felt_slice(&proof.public_inputs);
-
-
-        input.ensure_simple_self_consistent::<H>(proof_public_inputs_hash)?;
+        let proof_public_inputs_hash: QHashOut<GoldilocksField> = QHashOut::from_felt_slice(&proof.public_inputs);
 
         let user_id_u64 =  input.core.new_user_leaf.user_id.to_canonical_u64();
         if !self.includes_user_id(user_id_u64) {
             anyhow::bail!("user id {} is not in this realm", user_id_u64);
         }
+
+
+
+        let mut contracts_helper = SimpleContractHeightCache::<F>::new();
+        for (contract_id, insecure_unvalidated_user_provided_cst_height) in input.get_needed_contract_zero_hashes() {
+            // SECURITY - TODO: check the heights against the ones stored on chain 
+
+            let qh: QHashOut<GoldilocksField> = PoseidonHasher::get_zero_hash(insecure_unvalidated_user_provided_cst_height);
+            contracts_helper.add_contract(contract_id, insecure_unvalidated_user_provided_cst_height as u8, qh);
+        }
+        input.ensure_simple_self_consistent::<H>(proof_public_inputs_hash, &contracts_helper)?;
 
 
 
@@ -142,6 +150,8 @@ impl<
         }
         
         let old_user_state_tree_root = user_leaf.user_state_tree_root;
+        println!("old_user_state_tree_root: {:?}",old_user_state_tree_root);
+        println!("old_user_state_tree_root: {}",serde_json::to_string(&old_user_state_tree_root).unwrap());
 
         let cst_user_update = input.verify_and_generate_cst_updates::<H>(checkpoint_id, old_user_state_tree_root)?;
 
@@ -164,13 +174,14 @@ impl<
             anyhow::bail!("already submitted proof for this block");
         }
 
-         
+        let next_checkpoint_id = checkpoint_id+1;
         //self.proof_store.set_bytes_by_id(proof_id.get_input_witness_id(), data)
         self.proof_store.set_proof_by_id(proof_id, proof).await?;
         let queue_item = UserEndCapNonProofCoreInputQueueItem{
             input: input.core,
             proof_id,
             checkpoint_tree_proof,
+            checkpoint_id: next_checkpoint_id,
             channel_id: self.realm_config.guta_channel_id,
         };
 
@@ -179,6 +190,8 @@ impl<
 
         self.checkpoint_queue.cdq_push_imm(cst_user_update).await?;
         self.checkpoint_queue.cdq_push_imm(queue_item).await?;
+
+        println!("enqueued queue item");
 
 
         
