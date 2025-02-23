@@ -238,6 +238,8 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn cset<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V;
     fn cset_state_at<V: ToFelts<F>>(&mut self, sub_index: F, new_value: V) -> V;
     fn cset_state_hash_at(&mut self, slot_index: F, new_value: [F; 4]) -> [F; 4];
+    fn cset_state_range_at(&mut self, sub_slot_index: F, values: &[F]);
+
 
     fn cinvoke_external_contract_function_deferred(
         &mut self,
@@ -246,6 +248,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
         input_args: Vec<SymFeltRef>,
     ) -> [SymFeltRef; 4];
     fn get_state_hash_at(&mut self, slot_index: F) -> [F; 4];
+    fn get_state_range_at(&mut self, sub_slot_index: F, length: F) -> Vec<F>;
     fn get_other_contract_state_hash_at(&mut self, contract_state_tree_height: F, contract_id: F, slot_index: F) -> [F; 4];
     fn get_other_user_contract_state_hash_at(&mut self, contract_state_tree_height: F, user_id: F, contract_id: F, slot_index: F) -> [F; 4];
     

@@ -14,6 +14,7 @@ serde_with = { workspace = true }
 hex = { workspace = true }
 hex-literal = { workspace = true }
 lazy_static = { workspace = true }
+async-trait = { workspace = true }
 plonky2 = { workspace = true }
 twox-hash = { workspace = true }
 tracing = { workspace = true }

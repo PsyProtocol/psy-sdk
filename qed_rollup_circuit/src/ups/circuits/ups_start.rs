@@ -78,7 +78,7 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
-        self.start_step_gadget.set_witness(&mut pw, target);
+        self.start_step_gadget.set_witness(&mut pw, target)?;
 
 
         self.circuit_data.prove(pw)

@@ -72,19 +72,19 @@ impl AttestTreeAwareProofInTreeGadget {
         &self,
         witness: &mut W,
         input: &AttestTreeAwareProofInTreeInput<F>,
-    ) {
-        witness.set_hash_target(self.fingerprint, input.fingerprint.0);
-        witness.set_hash_target(self.inner_public_inputs_hash, input.inner_public_inputs_hash.0);
+    )  -> anyhow::Result<()> {
+        witness.set_hash_target(self.fingerprint, input.fingerprint.0)?;
+        witness.set_hash_target(self.inner_public_inputs_hash, input.inner_public_inputs_hash.0)?;
         self.inclusion_proof.set_witness_generic(
             witness,
             F::from_noncanonical_u64(input.inclusion_proof.index), 
             input.inclusion_proof.value,
             &input.inclusion_proof.siblings,
-        );
+        )?;
         self.historical_root_proof.set_witness_proof_core(
             witness, 
             &input.historical_root_proof
-        );
+        )
     }
     pub fn set_witness_values<W: Witness<F>, F: RichField>(
         &self,
@@ -92,14 +92,14 @@ impl AttestTreeAwareProofInTreeGadget {
         fingerprint: QHashOut<F>,
         public_inputs_hash: QHashOut<F>,
         inclusion_proof: MerkleProofCore<QHashOut<F>>,
-    ) {
-        witness.set_hash_target(self.fingerprint, fingerprint.0);
-        witness.set_hash_target(self.public_inputs_hash, public_inputs_hash.0);
+    )  -> anyhow::Result<()> {
+        witness.set_hash_target(self.fingerprint, fingerprint.0)?;
+        witness.set_hash_target(self.public_inputs_hash, public_inputs_hash.0)?;
         self.inclusion_proof.set_witness_generic(
             witness,
             F::from_noncanonical_u64(inclusion_proof.index), 
             inclusion_proof.value,
             &inclusion_proof.siblings,
-        );
+        )
     }
 }

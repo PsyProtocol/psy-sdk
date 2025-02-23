@@ -55,19 +55,19 @@ impl QEDContractInclusionProofGadget {
         witness: &mut impl Witness<F>,
         contract_leaf: &QEDContractLeaf<F>,
         contract_tree_merkle_proof: &MerkleProofCore<QHashOut<F>>,
-    ) {
-        self.contract_leaf.set_witness(witness, contract_leaf);
+    ) -> anyhow::Result<()> {
+        self.contract_leaf.set_witness(witness, contract_leaf)?;
         self.contract_tree_merkle_proof.set_witness_core_proof_q_generic(
             witness,
             contract_tree_merkle_proof,
-        );
+        )
     }
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDContractInclusionProof<F>) {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDContractInclusionProof<F>) -> anyhow::Result<()> {
         self.set_witness_params(
             witness,
             &target.contract_leaf,
             &target.contract_tree_merkle_proof,
-        );
+        )
     }
 }
 impl CreatableWithHasherTarget for QEDContractInclusionProofGadget {
@@ -79,14 +79,14 @@ impl CreatableWithHasherTarget for QEDContractInclusionProofGadget {
 }
 
 impl<F: RichField> WitnessValueFor<QEDContractInclusionProofGadget, F, true> for QEDContractInclusionProof<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractInclusionProofGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractInclusionProofGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<QEDContractInclusionProofGadget, F, false> for QEDContractInclusionProof<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractInclusionProofGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractInclusionProofGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -168,19 +168,19 @@ impl QEDContractFunctionInclusionProofGadget {
         witness: &mut impl Witness<F>,
         contract_inclusion_proof: &QEDContractInclusionProof<F>,
         contract_function_merkle_proof: &MerkleProofCore<QHashOut<F>>,
-    ) {
-        self.contract_inclusion_proof.set_witness(witness, contract_inclusion_proof);
+    ) -> anyhow::Result<()> {
+        self.contract_inclusion_proof.set_witness(witness, contract_inclusion_proof)?;
         self.contract_function_merkle_proof.set_witness_core_proof_q_generic(
             witness,
             contract_function_merkle_proof,
-        );
+        )
     }
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDContractFunctionInclusionProof<F>) {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDContractFunctionInclusionProof<F>) -> anyhow::Result<()> {
         self.set_witness_params(
             witness,
             &target.contract_inclusion_proof,
             &target.contract_function_merkle_proof,
-        );
+        )
     }
 }
 impl CreatableWithHasherTarget for QEDContractFunctionInclusionProofGadget {
@@ -192,14 +192,14 @@ impl CreatableWithHasherTarget for QEDContractFunctionInclusionProofGadget {
 }
 
 impl<F: RichField> WitnessValueFor<QEDContractFunctionInclusionProofGadget, F, true> for QEDContractFunctionInclusionProof<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractFunctionInclusionProofGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractFunctionInclusionProofGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<QEDContractFunctionInclusionProofGadget, F, false> for QEDContractFunctionInclusionProof<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractFunctionInclusionProofGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractFunctionInclusionProofGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 

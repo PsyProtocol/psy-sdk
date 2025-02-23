@@ -27,15 +27,16 @@ pub fn read_hash256_bytes_target_from_array(
 }
 
 pub trait WitnessHash256Bytes<F: PrimeField64>: Witness<F> {
-    fn set_hash256_bytes_target(&mut self, target: &Hash256BytesTarget, value: &[u8]);
+    fn set_hash256_bytes_target(&mut self, target: &Hash256BytesTarget, value: &[u8]) -> anyhow::Result<()>;
 }
 
 impl<T: Witness<F>, F: PrimeField64> WitnessHash256Bytes<F> for T {
-    fn set_hash256_bytes_target(&mut self, target: &Hash256BytesTarget, value: &[u8]) {
-        target.iter().enumerate().for_each(|(i, t)| {
+    fn set_hash256_bytes_target(&mut self, target: &Hash256BytesTarget, value: &[u8]) -> anyhow::Result<()> {
+        for (i, t) in target.iter().enumerate() {
             // TODO: range check u8?
-            self.set_target(*t, F::from_canonical_u8(value[i]));
-        });
+            self.set_target(*t, F::from_canonical_u8(value[i]))?;
+        }
+        Ok(())
     }
 }
 

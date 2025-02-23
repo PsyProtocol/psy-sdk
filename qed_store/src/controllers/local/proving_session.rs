@@ -1,3 +1,4 @@
+use hashbrown::HashMap;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{
     field::{
@@ -35,7 +36,6 @@ use qed_data::{
         ups_standard_cfc_input::UPSCFCStandardStateDeltaInput,
     }
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
     config::store_config::{QEDHasher, UserContractTreeStore},
@@ -48,13 +48,7 @@ use crate::{
     store::imm::{
         cache::QEDCmdStoreWithCache,
         cmd::{
-            QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData,
-            QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot,
-            QSRHashCmdGetDepositTreeRoot, QSRHashCmdGetUserTreeRoot,
-            QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd,
-            QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof,
-            QSRMerkleCmdGetUserContractStateTreeMerkleProof,
-            QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof,
+            QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot, QSRHashCmdGetDepositTreeRoot, QSRHashCmdGetUserRegistrationTreeRoot, QSRHashCmdGetUserTreeRoot, QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd, QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof
         },
         cmd_processor::{
             DPNReadOtherUserLeafMerkleProof, QEDReadCommandProcessorSync,
@@ -108,6 +102,20 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
             .call_data
             .call_data
             .contract_id
+    }
+    pub fn get_start_contract_state_roots(&self) -> Vec<(u64, QHashOut<F>)> {
+        let mut mapping = HashMap::<u64, QHashOut<F>>::new();
+        for t in self.transaction_records.iter() {
+            let c_id = t.user_contract_tree_update_proof.index;
+            if !mapping.contains_key(&c_id) {
+                mapping.insert(c_id, t.user_contract_tree_update_proof.old_value);
+            }
+        }
+
+        mapping.into_iter().map(|(k,v)|{
+            (k, v)
+        }).collect()
+
     }
     pub fn get_total_slots_modified(&self) -> F {
         F::from_canonical_u32(self.local_state_tracker.total_slots_modified)
@@ -408,12 +416,18 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                 .resolve_get_hash_mut(&QSRHashCmd::GetWithdrawalTreeRoot(
                     QSRHashCmdGetWithdrawalTreeRoot { checkpoint_id },
                 ))?;
+        let user_registration_tree_root =
+            self.cmd_store
+                .resolve_get_hash_mut(&QSRHashCmd::GetUserRegistrationTreeRoot(
+                    QSRHashCmdGetUserRegistrationTreeRoot { checkpoint_id },
+                ))?;
 
         Ok(QEDCheckpointGlobalStateRoots {
             contract_tree_root,
             deposit_tree_root,
             user_tree_root,
             withdrawal_tree_root,
+            user_registration_tree_root,
         })
     }
     pub fn get_fresh_start_ctx_for_user(
@@ -586,6 +600,37 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             self.write_checkpoint_u64,
             self.user_id_u64,
             contract_id.to_canonical_u64(),
+        )
+    }
+    fn set_user_contract_tree_leaf(
+        &mut self,
+        contract_id: GF,
+        leaf: QHashOut<GF>,
+    ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
+        //let latest_root = self.get_contract_state_slot(contract_id, GF::ZERO)?.root;
+
+        let old_upper_merkle_proof = self.cmd_store.resolve_get_merkle_proof_mut(
+            &QSRMerkleCmd::GetUserContractTreeMerkleProof(
+                QSRMerkleCmdGetUserContractTreeMerkleProof {
+                    checkpoint_id: self.start_checkpoint_u64,
+                    user_id: self.user_id_u64,
+                    contract_id: contract_id.to_canonical_u64() as u32,
+                },
+            ),
+        )?;
+
+        UserContractTreeStore::injest_merkle_proof_sfc(
+            &mut self.state_tree_store,
+            self.user_id_u64,
+            self.start_checkpoint_u64,
+            &old_upper_merkle_proof,
+        )?;
+        UserContractTreeStore::set_leaf_sfc(
+            &mut self.state_tree_store,
+            self.write_checkpoint_u64,
+            self.user_id_u64,
+            contract_id.to_canonical_u64(),
+            leaf,
         )
     }
 
@@ -786,6 +831,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
     pub fn get_all_state_updates(
         &mut self,
     ) -> anyhow::Result<(Vec<QEDContractStateUpdateHistory<GF>>, u32)> {
+        
         let total_slots_modified = self.local_state_tracker.total_slots_modified;
         let tracker_results = self.local_state_tracker.get_results();
 
@@ -798,8 +844,24 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                     slot.start_value,
                 )?;
             }
+            //self.set_user_contract_tree_leaf(c, r.start_state_root)?;
             self.update_contract_state_root_in_user_contract_tree(c)?;
         }
+
+        let start_state_roots = self.get_start_contract_state_roots();
+        //println!("start_state_roots: {}", serde_json::to_string_pretty(&start_state_roots).unwrap());
+
+        for (c, h) in start_state_roots.into_iter() {
+            self.set_user_contract_tree_leaf(GF::from_canonical_u64(c), h)?;
+        }
+
+        
+       // let records = self.transaction_records.iter().map(|x| (x.call_data.call_data.contract_id, x.user_contract_tree_update_proof.old_value)).collect::<Vec<_>>();
+
+        //let gt= self.get_self_user_contract_tree_leaf(GF::ZERO)?;
+        //println!("gt.root: {:?} ({})",gt.root, serde_json::to_string(&gt).unwrap());
+
+
         let mut update_results = Vec::with_capacity(tracker_results.len());
 
         for r in tracker_results.iter() {

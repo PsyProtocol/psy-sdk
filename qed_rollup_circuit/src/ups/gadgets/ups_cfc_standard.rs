@@ -123,27 +123,27 @@ impl UPSVerifyCFCStandardStepGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &UPSVerifyCFCStandardStepInput<F>,
-    ) {
+    )  -> anyhow::Result<()> {
         self.verify_cfc_exists_and_valid_gadget.set_witness_params(
             witness, 
             &target.checkpoint_state,
             &target.verify_cfc_proof_input,
             &target.cfc_inclusion_proof
-        );
+        )?;
 
-        self.process_cfc_state_delta_gadget.set_witness(witness, &target.process_cfc_state_delta_input);
+        self.process_cfc_state_delta_gadget.set_witness(witness, &target.process_cfc_state_delta_input)
     }
 }
 
 
 impl<F: RichField> WitnessValueFor<UPSVerifyCFCStandardStepGadget, F, true> for UPSVerifyCFCStandardStepInput<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyCFCStandardStepGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyCFCStandardStepGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<UPSVerifyCFCStandardStepGadget, F, false> for UPSVerifyCFCStandardStepInput<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyCFCStandardStepGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyCFCStandardStepGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }

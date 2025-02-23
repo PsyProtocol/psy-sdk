@@ -15,7 +15,7 @@ use crate::
 
 use super::super::traits::qstandard::QStandardCircuit;
 #[derive(Debug)]
-pub struct SimpleWrapper<C: GenericConfig<D> + 'static, const D: usize>
+pub struct SimpleWrapper<C: GenericConfig<D>, const D: usize>
 {
     pub proof_target: ProofWithPublicInputsTarget<D>,
     pub circuit_data: CircuitData<C::F, C, D>,
@@ -46,7 +46,7 @@ where
         proof: &ProofWithPublicInputs<C::F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::new();
-        pw.set_proof_with_pis_target(&self.proof_target, proof);
+        pw.set_proof_with_pis_target(&self.proof_target, proof)?;
         self.circuit_data.prove(pw)
     }
 }

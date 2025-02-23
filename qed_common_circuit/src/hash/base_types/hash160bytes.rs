@@ -27,15 +27,15 @@ pub fn read_hash160_bytes_target_from_array(
 }
 
 pub trait WitnessHash160Bytes<F: PrimeField64>: Witness<F> {
-    fn set_hash160_bytes_target(&mut self, target: &Hash160BytesTarget, value: &[u8]);
+    fn set_hash160_bytes_target(&mut self, target: &Hash160BytesTarget, value: &[u8]) -> anyhow::Result<()>;
 }
 
 impl<T: Witness<F>, F: PrimeField64> WitnessHash160Bytes<F> for T {
-    fn set_hash160_bytes_target(&mut self, target: &Hash160BytesTarget, value: &[u8]) {
-        target.iter().enumerate().for_each(|(i, t)| {
-            // TODO: range check u8?
-            self.set_target(*t, F::from_canonical_u8(value[i]));
-        });
+    fn set_hash160_bytes_target(&mut self, target: &Hash160BytesTarget, value: &[u8]) -> anyhow::Result<()> {
+        for (i, t) in target.iter().enumerate() {
+            self.set_target(*t, F::from_canonical_u8(value[i]))?;
+        }
+        Ok(())
     }
 }
 

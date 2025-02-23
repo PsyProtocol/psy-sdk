@@ -26,7 +26,7 @@ pub struct ZKSignatureCircuitInput<F: RichField> {
 }
 
 #[derive(Debug)]
-pub struct ZKSignatureCircuitSimpleFixedPublicKey<C: GenericConfig<D> + 'static, const D: usize>
+pub struct ZKSignatureCircuitSimpleFixedPublicKey<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {
@@ -102,7 +102,7 @@ where
         inner_proof: &ProofWithPublicInputs<C::F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::new();
-        pw.set_proof_with_pis_target(&self.proof_target, inner_proof);
+        pw.set_proof_with_pis_target(&self.proof_target, inner_proof)?;
         self.circuit_data.prove(pw)
     }
 }

@@ -76,7 +76,7 @@ impl<T: Witness<F>, F: PrimeField64> WitnessHelpersCore<F> for T {
         value
             .iter()
             .zip(targets)
-            .for_each(|(b, t)| self.set_target(*t, F::from_canonical_u8(*b)));
+            .for_each(|(b, t)| self.set_target(*t, F::from_canonical_u8(*b)).unwrap());
     }
 
     fn get_byte_targets(&self, targets: &[Target]) -> Vec<u8> {

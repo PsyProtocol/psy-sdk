@@ -138,7 +138,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Wir
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()>{
         let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
 
         for &gate in &self.gates {
@@ -155,7 +155,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Wir
                 integer_value = 0;
             };
 
-            out_buffer.set_target(sum, F::from_canonical_u64(truncated_value));
+            out_buffer.set_target(sum, F::from_canonical_u64(truncated_value))?;
+
         }
 
         debug_assert_eq!(
@@ -164,6 +165,9 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Wir
             "Integer too large to fit in {} many `BaseSumGate`s",
             self.gates.len()
         );
+
+
+        anyhow::Ok(())
     }
 
     fn id(&self) -> String {

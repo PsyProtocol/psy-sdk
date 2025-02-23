@@ -3,6 +3,7 @@ use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDCmdWithInputAndWitness};
+use qed_store::store::imm::cmd_processor::DPNStateCmdWitness;
 use qedlang_core::dpn::{ops::state_cmd::data::DPNStateCmd, vm::def::DPNFunctionCircuitDefinition};
 
 use super::state_readers::{CKInvokeDeferredMethodCall, StateCommandCacheKey, StateReaderGadget, StateReaderReferenceKeyType};
@@ -62,7 +63,7 @@ impl StateReaderGadget {
                         witness_value.old_value, 
                         witness_value.new_value, 
                         &witness_value.siblings
-                    );
+                    )?;
                 },
                 v => anyhow::bail!("set_witness_for_key_dmp expects to set the witness for a DeltaMerkleMerkleProof gadget, but got {:?}", v)
             }
@@ -85,7 +86,7 @@ impl StateReaderGadget {
                         F::from_noncanonical_u64(witness_value.index), 
                         witness_value.value, 
                         &witness_value.siblings,
-                    );
+                    )?;
                 },
                 v => anyhow::bail!("set_witness_for_key_dmp expects to set the witness for a DeltaMerkleMerkleProof gadget, but got {:?}", v)
             }
@@ -106,7 +107,7 @@ impl StateReaderGadget {
                     self.user_leaves[reader_ref_key.gadget_index].set_witness(
                         witness,
                         witness_value,
-                    );
+                    )?;
                 },
                 v => anyhow::bail!("set_witness_for_key_user_leaf expects to set the witness for a UserLeaf gadget, but got {:?}", v)
             }
@@ -147,7 +148,26 @@ impl StateReaderGadget {
                 )?;
                 wb_state.inc_write_epoch();
             }
-            DPNStateCmd::SetContractStateSlotRange(_c) => todo!(),
+            DPNStateCmd::SetContractStateSlotRange(c) => {                
+                let dmps = cmd_witness.witness.get_delta_merkle_proof_array_ref();
+                for (i, p) in dmps.iter().enumerate() {
+                    let ck = StateCommandCacheKey::new_write_current_contract_range(
+                        c.sub_slot_index,
+                        c.condition,
+                        c.value.len() as u32,
+                        i as u64,
+                        wb_state.write_epoch,
+                    );
+                    self.set_witness_for_key_dmp(
+                        witness, 
+                        &ck, 
+                        p,
+                    )?;
+                }
+                wb_state.inc_write_epoch();
+
+
+            },
             DPNStateCmd::InvokeExternalContractFunctionSync(_c) => todo!(),
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
                 let ck = StateCommandCacheKey::InvokeDeferredMethodCall(CKInvokeDeferredMethodCall::new(
@@ -188,7 +208,24 @@ impl StateReaderGadget {
                     cmd_witness.witness.get_merkle_proof_ref(),
                 )?;
             },
-            DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(_c) => todo!(),
+            DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => {
+                let mps = cmd_witness.witness.get_merkle_proof_array_ref();
+                for (i, p) in mps.iter().enumerate() {
+                    
+                    let ck = StateCommandCacheKey::new_read_current_contract_range(
+                        c.sub_slot_index,
+                        c.length,
+                        i as u64,
+                        wb_state.write_epoch,
+                    );
+                    self.set_witness_for_key_mp(
+                        witness, 
+                        &ck,
+                        p
+                    )?;
+                }
+
+            },
             DPNStateCmd::GetSelfUserExternalContractStateSlotHash(c) => {
 
                 let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(
@@ -210,7 +247,33 @@ impl StateReaderGadget {
                 self.set_witness_for_key_mp(witness, &contract_state_tree_ck, &proofs[1])?;
             },
             DPNStateCmd::GetSelfUserExternalContractStateSlotSingle(_c) => todo!(),
-            DPNStateCmd::GetSelfUserExternalContractStateSlotRange(_c) => todo!(),
+            DPNStateCmd::GetSelfUserExternalContractStateSlotRange(c) => {
+
+                let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(
+                    c.contract_id,
+                    self.contract_call_epoch,
+                );
+
+                let proofs = cmd_witness.witness.get_merkle_proof_array_ref();
+                self.set_witness_for_key_mp(witness, &read_root_ck, &proofs[0])?;
+
+
+
+                for (i, p) in proofs.iter().skip(1).enumerate() {
+
+                    let contract_state_tree_ck =
+                        StateCommandCacheKey::new_read_self_user_external_contract_range(
+                            c.contract_id,
+                            c.sub_slot_index,
+                            self.contract_call_epoch,
+                            c.length,
+                            i as u64
+                        );
+                    
+                    self.set_witness_for_key_mp(witness, &contract_state_tree_ck, p)?;
+                }
+
+            },
             DPNStateCmd::GetOtherUserContractStateSlotHash(c) => {
 /* 
         let user_tree_ck =
@@ -267,7 +330,62 @@ impl StateReaderGadget {
                 )?;
             },
             DPNStateCmd::GetOtherUserContractStateSlotSingle(_c) => todo!(),
-            DPNStateCmd::GetOtherUserContractStateSlotRange(_c) => todo!(),
+            DPNStateCmd::GetOtherUserContractStateSlotRange(c) => {
+
+                let user_target_id = c.user_id;
+                let contract_target_id = c.contract_id;
+
+                let user_tree_ck = StateCommandCacheKey::new_read_other_user_leaf_hash(
+                    user_target_id
+                );
+
+                let user_leaf_ck = StateCommandCacheKey::new_read_other_user_leaf(
+                    user_target_id
+                );
+
+                let uct_ck = StateCommandCacheKey::new_read_other_user_contract_root(
+                    user_target_id,
+                    contract_target_id,
+                );
+                let read_witness = cmd_witness.witness.get_read_other_contract_state_ref();
+
+                self.set_witness_for_key_mp(
+                    witness, 
+                    &user_tree_ck, 
+                    &read_witness.user_leaf_witness.user_tree_proof
+                )?;
+                self.set_witness_for_key_user_leaf(
+                    witness, 
+                    &user_leaf_ck, 
+                    &read_witness.user_leaf_witness.user_leaf
+                )?;
+                self.set_witness_for_key_mp(
+                    witness, 
+                    &uct_ck, 
+                    &read_witness.contract_state_proof
+                )?;
+
+                for (i , mp) in read_witness.state_slot_proofs.iter().enumerate() {
+
+
+                    let cst_ck = StateCommandCacheKey::new_read_other_user_contract_range(
+                        user_target_id,
+                        contract_target_id,
+                        c.sub_slot_index,
+                        c.length,
+                        i as u64,
+                    );
+
+
+                    self.set_witness_for_key_mp(
+                        witness, 
+                        &cst_ck, 
+                        mp
+                    )?;
+                }
+
+
+            },
         };
         Ok(())
     }

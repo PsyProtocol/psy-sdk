@@ -6,3 +6,4 @@ pub mod zk_signature;
 pub mod zk_signature_wrapper;
 pub mod simple_wrapper;
 pub mod zk_signature3;
+pub mod lookalikes;

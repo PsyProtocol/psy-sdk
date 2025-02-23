@@ -1,8 +1,8 @@
-use crate::builder::hash::core::CircuitBuilderHashCore;
+use crate::builder::{hash::core::CircuitBuilderHashCore, select::CircuitBuilderSelectHelpers};
 use bitflags::bitflags;
 use plonky2::{
     field::extension::Extendable,
-    hash::hash_types::{HashOutTarget, RichField},
+    hash::hash_types::{HashOut, HashOutTarget, RichField},
     iop::{
         target::{BoolTarget, Target},
         witness::{PartialWitness, Witness},
@@ -10,7 +10,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::{MerkleProof, MerkleProofBase, MerkleProofCore};
+use qed_crypto::hash::{merkle::core::{MerkleProof, MerkleProofBase, MerkleProofCore}, traits::hasher::MerkleZeroHasher};
 
 use crate::builder::optional_inputs::CircuitBuilderOptionalInputs;
 
@@ -127,6 +127,35 @@ impl MerkleProofGadget {
             option_flags: MerkleProofGadgetOptionFlags::from_bits(option_flags).unwrap(),
         }
     }
+    pub fn add_virtual_to_append_only<H:AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
+      builder: &mut CircuitBuilder<F, D>,
+      height: usize,
+    ) -> Self {
+      let (gadget, bits) = Self::add_virtual_to_get_index_bits::<H,F,D>(builder, height);
+
+      for (reverse_level, (bit, sibling)) in bits.iter().zip(gadget.siblings.iter()).enumerate() {
+        let zero_hash_at_level = builder.constant_hash(H::get_zero_hash(reverse_level));
+
+        // if the bit is a zero, then the current path node is a left child, so the right child must be a zero hash
+        // if the bit is a one, then we leave the sibling alone
+        let required_hash = builder.select_hash(
+          *bit,
+          *sibling, // if the path is a 1 bit, then the sibling is before us and non zero
+          zero_hash_at_level // if the path is 0 bit, then the right sibling should have empty leaves
+        );
+        builder.connect_hashes(
+          required_hash,
+          *sibling
+        );
+
+
+      }
+
+      gadget
+
+      
+
+    }
     pub fn add_virtual_to_get_index_bits<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
@@ -208,27 +237,28 @@ impl MerkleProofGadget {
         index: F,
         value: QHashOut<F>,
         siblings: &[QHashOut<F>],
-    ) {
+    ) -> anyhow::Result<()> {
         if !self
             .option_flags
             .contains(MerkleProofGadgetOptionFlags::index)
         {
-            witness.set_target(self.index, index);
+            witness.set_target(self.index, index)?;
         }
         if !self
             .option_flags
             .contains(MerkleProofGadgetOptionFlags::value)
         {
-            witness.set_hash_target(self.value, value.0);
+            witness.set_hash_target(self.value, value.0)?;
         }
         if !self
             .option_flags
             .contains(MerkleProofGadgetOptionFlags::siblings)
         {
             for (i, sibling) in self.siblings.iter().enumerate() {
-                witness.set_hash_target(*sibling, siblings[i].0);
+                witness.set_hash_target(*sibling, siblings[i].0)?;
             }
         }
+        Ok(())
     }
     pub fn set_witness<F: RichField>(
         &self,
@@ -236,46 +266,46 @@ impl MerkleProofGadget {
         index: F,
         value: QHashOut<F>,
         siblings: &[QHashOut<F>],
-    ) {
-        self.set_witness_generic(witness, index, value, siblings);
+    ) -> anyhow::Result<()> {
+        self.set_witness_generic(witness, index, value, siblings)
     }
     pub fn set_witness_proof<F: RichField>(
         &self,
         witness: &mut PartialWitness<F>,
         input: &MerkleProof<F>,
-    ) {
-        self.set_witness(witness, input.index, input.value, &input.siblings);
+    ) -> anyhow::Result<()> {
+        self.set_witness(witness, input.index, input.value, &input.siblings)
     }
     pub fn set_witness_base_proof<F: RichField>(
         &self,
         witness: &mut PartialWitness<F>,
         input: &MerkleProofBase<F>,
-    ) {
-        self.set_witness(witness, input.index, input.value, &input.siblings);
+    ) -> anyhow::Result<()> {
+        self.set_witness(witness, input.index, input.value, &input.siblings)
     }
     pub fn set_witness_core_proof_q_generic<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         input: &MerkleProofCore<QHashOut<F>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness_generic(
             witness,
             F::from_noncanonical_u64(input.index),
             input.value,
             &input.siblings,
-        );
+        )
     }
     pub fn set_witness_core_proof_q<F: RichField>(
         &self,
         witness: &mut PartialWitness<F>,
         input: &MerkleProofCore<QHashOut<F>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness(
             witness,
             F::from_noncanonical_u64(input.index),
             input.value,
             &input.siblings,
-        );
+        )
     }
 }
 
@@ -1189,7 +1219,7 @@ mod tests {
         builder.register_public_inputs(&mp_gadget.root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        mp_gadget.set_witness_proof(&mut pw, mp);
+        mp_gadget.set_witness_proof(&mut pw, mp).unwrap();
         let proof = data.prove(pw).unwrap();
         let pub_inputs = proof.public_inputs.clone();
         assert_eq!(pub_inputs[0..4], mp.root.0.elements);
@@ -1214,7 +1244,7 @@ mod tests {
         builder.register_public_inputs(&mp_gadget.root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        mp_gadget.set_witness_proof(&mut pw, mp);
+        mp_gadget.set_witness_proof(&mut pw, mp).unwrap();
         let proof = data.prove(pw).unwrap();
         let pub_inputs = proof.public_inputs.clone();
         assert_eq!(pub_inputs[0..4], mp.root.0.elements);
@@ -1241,7 +1271,7 @@ mod tests {
         builder.register_public_inputs(&mp_gadget.root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        mp_gadget.set_witness_proof(&mut pw, mp);
+        mp_gadget.set_witness_proof(&mut pw, mp).unwrap();
         let proof = data.prove(pw).unwrap();
         let pub_inputs = proof.public_inputs.clone();
         assert_eq!(pub_inputs[0..4], mp.root.0.elements);
@@ -1268,7 +1298,7 @@ mod tests {
         builder.register_public_inputs(&mp_gadget.root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        mp_gadget.set_witness_proof(&mut pw, mp);
+        mp_gadget.set_witness_proof(&mut pw, mp).unwrap();
         let proof = data.prove(pw).unwrap();
         let pub_inputs = proof.public_inputs.clone();
         assert_eq!(pub_inputs[0..4], mp.root.0.elements);

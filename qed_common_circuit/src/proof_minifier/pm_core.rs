@@ -44,7 +44,7 @@ where
 pub struct QEDProofMinifier<
     const D: usize,
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
+    C: GenericConfig<D, F = F>,
 > where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
 {
@@ -53,7 +53,7 @@ pub struct QEDProofMinifier<
     pub proof_target: ProofWithPublicInputsTarget<D>,
 }
 
-impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>
+impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
     QEDProofMinifier<D, F, C>
 where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
@@ -146,7 +146,7 @@ where
                                                      //proof: &ProofWithPublicInputs<F, C, D>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::new();
-        pw.set_proof_with_pis_target(&self.proof_target, base_proof);
+        pw.set_proof_with_pis_target(&self.proof_target, base_proof)?;
         let mut timer = DebugTimer::new("compress");
         let result = self.circuit_data.prove(pw);
         timer.lap("proved compress");

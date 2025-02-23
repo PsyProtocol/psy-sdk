@@ -5,3 +5,4 @@ pub mod traits;
 pub mod store;
 pub mod controllers;
 pub mod qblock;
+pub mod node;

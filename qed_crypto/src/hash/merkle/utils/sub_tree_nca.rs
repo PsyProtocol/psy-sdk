@@ -1,8 +1,12 @@
-use serde::{Deserialize, Serialize};
+use hashbrown::HashSet;
+use kvq::traits::KVQSerializable;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::MerkleHasher};
 
 use super::common::SimpleMerkleNodeKey;
+
+
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UpdateNearestCommonAncestorProof<Hash: PartialEq + Copy> {
@@ -17,6 +21,26 @@ pub struct UpdateNearestCommonAncestorProof<Hash: PartialEq + Copy> {
 
     pub level_a: u8,
     pub level_b: u8,
+}
+
+
+impl<Hash: PartialEq + Copy + Serialize + DeserializeOwned> KVQSerializable for UpdateNearestCommonAncestorProof<Hash> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+impl<Hash: PartialEq + Copy> UpdateNearestCommonAncestorProof<Hash> {
+    pub fn to_partial(&self) -> PartialUpdateNearestCommonAncestorProof<Hash> {
+        PartialUpdateNearestCommonAncestorProof {
+            child_a: self.child_a.clone(),
+            child_b: self.child_b.clone(),
+            nearest_common_ancestor_level: self.nearest_common_ancestor_level,
+        }
+    }
 }
 
 impl<Hash: PartialEq + Copy> From<UpdateNearestCommonAncestorProof<Hash>>
@@ -55,6 +79,9 @@ impl<Hash: PartialEq + Copy> UpdateNearestCommonAncestorProof<Hash> {
             level: self.level_b,
             index: self.child_b.index,
         }
+    }
+    pub fn is_solo_filler(&self) -> bool {
+        self.child_a.new_root == self.child_b.new_root && self.child_a.eq(&self.child_b)
     }
     pub fn verify<H: MerkleHasher<Hash>>(&self) -> bool {
         if self.level_a
@@ -159,12 +186,47 @@ impl<Hash: PartialEq + Copy> UpdateNearestCommonAncestorProof<Hash> {
     }
 }
 
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct NCAProofsWithTopLine<Hash: PartialEq + Copy> {
+    pub nca_proofs: Vec<UpdateNCAWithAdditionalLink<Hash>>,
+    pub top_line_proof: DeltaMerkleProofCore<Hash>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PartialNCAProofsWithTopLine<Hash: PartialEq + Copy> {
+    pub nca_proofs: Vec<PartialUpdateNearestCommonAncestorProof<Hash>>,
+    pub top_line_proof: DeltaMerkleProofCore<Hash>,
+}
+
+
+impl<Hash: PartialEq + Copy + Serialize + DeserializeOwned> KVQSerializable for PartialNCAProofsWithTopLine<Hash> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PartialUpdateNearestCommonAncestorProof<Hash: PartialEq + Copy> {
     pub child_a: DeltaMerkleProofCore<Hash>,
     pub child_b: DeltaMerkleProofCore<Hash>,
 
     pub nearest_common_ancestor_level: u8,
+}
+
+
+impl<Hash: PartialEq + Copy + Serialize + DeserializeOwned> KVQSerializable for PartialUpdateNearestCommonAncestorProof<Hash> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
 }
 
 impl<Hash: PartialEq + Copy> PartialUpdateNearestCommonAncestorProof<Hash> {
@@ -281,6 +343,15 @@ pub struct PartialUpdateNCAWithAdditionalLink<Hash: PartialEq + Copy> {
     pub nca_proof: PartialUpdateNearestCommonAncestorProof<Hash>,
     pub link_siblings: Vec<Hash>,
 }
+impl<Hash: PartialEq + Copy + Serialize + DeserializeOwned> KVQSerializable for PartialUpdateNCAWithAdditionalLink<Hash> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
 
 impl<Hash: PartialEq + Copy> PartialUpdateNCAWithAdditionalLink<Hash> {
     pub fn from_delta_merkle_proof_pair<H: MerkleHasher<Hash>>(
@@ -314,6 +385,43 @@ impl<Hash: PartialEq + Copy> PartialUpdateNCAWithAdditionalLink<Hash> {
                 nearest_common_ancestor_level: nearest_common_ancestor.level,
                 child_a: dmp_a.shorten_height::<H>(dist_to_nca - 1),
                 child_b: dmp_b.shorten_height::<H>(dist_to_nca - 1),
+            },
+            link_siblings,
+        }
+    }
+    pub fn from_delta_merkle_proof_pair_alt_height<H: MerkleHasher<Hash>>(
+        dmp_a: &DeltaMerkleProofCore<Hash>,
+        dmp_b: &DeltaMerkleProofCore<Hash>,
+    ) -> Self {
+        let height_a = dmp_a.siblings.len() as u8;
+        let height_b = dmp_a.siblings.len() as u8;
+       
+
+
+        
+
+        let leaf_key_a = SimpleMerkleNodeKey::new(height_a, dmp_a.index);
+        let leaf_key_b = SimpleMerkleNodeKey::new(height_b, dmp_b.index);
+        assert!(
+            leaf_key_a != leaf_key_b,
+            "delta merkle proofs must be different"
+        );
+        assert!(!leaf_key_a.is_direct_path_related(&leaf_key_b), "delta merkle proofs cannot be on the same path");
+        let nearest_common_ancestor = leaf_key_a.find_nearest_common_ancestor(&leaf_key_b);
+
+        let dist_to_nca_a = (height_a - nearest_common_ancestor.level) as usize;
+        let dist_to_nca_b = (height_b - nearest_common_ancestor.level) as usize;
+        let link_siblings = dmp_a.siblings[dist_to_nca_a..].to_vec();
+        assert!(
+            link_siblings.eq(&dmp_b.siblings[dist_to_nca_b..]),
+            "from_delta_merkle_proof_pair requires valid delta merkle proofs to the same root"
+        );
+
+        Self {
+            nca_proof: PartialUpdateNearestCommonAncestorProof {
+                nearest_common_ancestor_level: nearest_common_ancestor.level,
+                child_a: dmp_a.shorten_height::<H>(dist_to_nca_a - 1),
+                child_b: dmp_b.shorten_height::<H>(dist_to_nca_b - 1),
             },
             link_siblings,
         }
@@ -388,8 +496,72 @@ impl<Hash: PartialEq + Copy> UpdateNCAWithAdditionalLink<Hash> {
     }
 }
 
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub struct UpdateNCAProofsWithDependencies<Hash: PartialEq + Copy> {
+    pub nca_proofs: Vec<UpdateNearestCommonAncestorProof<Hash>>,
+    //pub levels: Vec<usize>,
+    pub dependencies: Vec<(i64, i64)>,
+    pub root_proof_index: usize,
+
+    pub nearest_common_ancestor_level: u8,
+    pub nearest_common_ancestor_index: u64,
+
+    pub link_level: u8,
+    pub link_index: u64,
+    pub link_proof: DeltaMerkleProofCore<Hash>,
+}
+impl<Hash: PartialEq + Copy + Default> UpdateNCAProofsWithDependencies<Hash> {
+    pub fn new() -> Self {
+        Self::default()
+    }   
+}
+impl<Hash: PartialEq + Copy + Default> UpdateNCAProofsWithDependencies<Hash> {
+    pub fn get_index_levels(&self) -> Vec<Vec<usize>> {
+
+        let mut solved = HashSet::<i64>::new();
+
+        let total_values = self.nca_proofs.len();
+        let mut solved_values = 0;
+        let mut remaining = (0..total_values).collect::<Vec<_>>();
+
+        let mut levels = Vec::new();
+        while solved_values < total_values {
+            let mut new_remaining = Vec::new();
+            let mut level = Vec::new();
+
+            for x in remaining {
+                let (l,r) =  self.dependencies[x];
+                if (l == -1 || solved.contains(&l)) && (r == -1 || solved.contains(&r)) {
+                    level.push(x);
+                    solved_values += 1;
+                }else{
+                    new_remaining.push(x);
+                }
+            }
+            for i in level.iter() {
+                solved.insert(*i as i64);
+            }
+            remaining = new_remaining;
+            levels.push(level);
+        }
+
+        levels
+
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct BinaryXWithDependencyLevels<T> {
+    pub data: Vec<T>,
+    pub levels: Vec<usize>,
+    pub dependencies: Vec<(i64, i64)>,
+}
+
 #[cfg(test)]
 mod tests {
+    use std::fmt::Debug;
+
     use crate::hash::merkle::utils::common::SimpleMerkleNodeKey;
     use crate::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
     use crate::hash::traits::hasher::{MerkleZeroHasher, PoseidonHasher};
@@ -405,7 +577,7 @@ mod tests {
     type QEDHash = QHashOut<F>;
     type H = PoseidonHasher;
 
-    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default>(
+    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>(
         tree: &SimpleMerkleTree<Hasher, Hash>,
     ) -> SimpleMerkleNodeKey {
         let index = thread_rng().gen::<u64>() & tree.get_max_leaf_index();
@@ -598,3 +770,5 @@ mod tests {
         }
     }
 }
+
+

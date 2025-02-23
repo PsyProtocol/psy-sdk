@@ -1,0 +1,49 @@
+use qed_core::utils::debug_timer::DebugTimer;
+use rabbitmq_stream_client::{
+    types::{ByteCapacity, Message},
+    Environment, TlsConfiguration,
+};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+    let mut timer = DebugTimer::new("rb1");
+    let environment = Environment::builder()
+        .host("localhost")
+        .port(5552)
+        .build()
+        .await?;
+
+    println!("creating batch_send stream");
+    let _ = environment.delete_stream("batch_send").await;
+    let messages_to_batch = 1<<12;
+    let iterations = 100;
+    environment
+        .stream_creator()
+        .max_length(ByteCapacity::GB(2))
+        .create("batch_send")
+        .await?;
+
+    let producer = environment.producer().build("batch_send").await?;
+
+    for _ in 0..iterations {
+        timer.lap("accumulating messages in buffer");
+        let mut messages = Vec::with_capacity(messages_to_batch);
+        for i in 0..messages_to_batch {
+            let msg = Message::builder().body(format!("message{}", i)).build();
+            messages.push(msg);
+        }
+
+        timer.lap("sending in batch mode");
+        producer
+            .batch_send(messages, |confirmation_status| async move {
+                //println!("Message confirmed with status {:?}", confirmation_status);
+            })
+            .await?;
+        timer.lap("confirmed");
+    }
+
+    producer.close().await?;
+
+    Ok(())
+}

@@ -20,7 +20,7 @@ use super::{
     super::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit}, ZKSignatureCircuitInput,
 };
 #[derive(Debug)]
-pub struct ZKSignatureCircuitInner<C: GenericConfig<D> + 'static, const D: usize>
+pub struct ZKSignatureCircuitInner<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {
@@ -110,8 +110,8 @@ where
         action_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::new();
-        pw.set_hash_target(self.private_key, private_key.0);
-        pw.set_hash_target(self.action_hash, action_hash.0);
+        pw.set_hash_target(self.private_key, private_key.0)?;
+        pw.set_hash_target(self.action_hash, action_hash.0)?;
         let inner_proof = self.circuit_data.prove(pw)?;
         self.minifier_chain.prove(&inner_proof)
     }

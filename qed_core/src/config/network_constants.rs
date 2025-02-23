@@ -26,6 +26,10 @@ impl QEDTreeConfig for QEDTestnetTreeConfig {
 }
 */
 
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::HashOut};
+
+use crate::data::qhashout::QHashOut;
+
 
 // Network Magic
 pub const QED_NETWORK_MAGIC_MAINNET: u64 = 0x1337CF514544C069u64;
@@ -34,8 +38,12 @@ pub const QED_NETWORK_MAGIC_REGTEST: u64 = 0x1337CF514544CF69u64;
 
 
 
-pub const CHECKPOINT_TREE_HEIGHT: u8 = 32;
 pub const GLOBAL_USER_TREE_HEIGHT: u8 = 24;
+pub const COORDINATOR_USER_TREE_HEIGHT: u8 = 12;
+pub const REALM_USER_TREE_HEIGHT: u8 = 12;
+
+
+pub const CHECKPOINT_TREE_HEIGHT: u8 = 32;
 pub const GLOBAL_CONTRACT_TREE_HEIGHT: u8 = 24;
 pub const GLOBAL_DEPOSIT_TREE_HEIGHT: u8 = 32;
 pub const GLOBAL_WITHDRAWAL_TREE_HEIGHT: u8 = 32;
@@ -69,4 +77,44 @@ pub const QED_SIG_ACTION_SIGN_UPS_END_CAP: u64 = 0x51454445434150CFu64;
 pub const VM_TYPE_STANRDARD_DAPEN_V1: u32 = 1;
 
 
-pub const GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT: u8 = 3;
+pub const GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT: u8 = 4;
+
+
+
+pub const DEFAULT_USER_STATE_TREE_ROOT_U64: [u64; 4] = [
+    3896366420105793420,
+    17410332186442776169,
+    7329967984378645716,
+    6310665049578686403,
+];
+pub const DEFAULT_USER_STATE_TREE_ROOT: QHashOut<GoldilocksField> = QHashOut::<GoldilocksField>(
+    HashOut {
+        elements: [
+            GoldilocksField(3896366420105793420),
+            GoldilocksField(17410332186442776169),
+            GoldilocksField(7329967984378645716),
+            GoldilocksField(6310665049578686403),
+        ],
+    }
+);
+
+
+
+// start circuit specific config
+pub const BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT: usize = 8;
+pub const BATCH_USER_REGISTRAITION_MAX_SUB_TREES: usize = 4;
+
+pub const BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT: usize = 8;
+
+
+// start constant channels
+pub const COORD_API_REGISTER_USER_CHANNEL_ID: u64 = 0xCC524547555352;
+pub const COORD_API_DEPLOY_CONTRACT_CHANNEL_ID: u64 = 0xCC444550434F4E;
+pub const COORD_API_GUTA_FROM_REALMS_CHANNEL_ID: u64 = 0xCC475554414652;
+
+
+pub const REALM_API_GUTA_FROM_USER_CHANNEL_ID: u64 = 0x22475554414652;
+pub const REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID: u64 = 0x22435354555044;
+
+pub const QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL: u64 = 0x901337123;
+pub const CST_USER_UPDATE_CHANNEL_ID: u64 = 0x101337;

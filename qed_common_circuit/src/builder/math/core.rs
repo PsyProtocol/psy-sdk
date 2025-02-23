@@ -15,12 +15,14 @@ pub trait CircuitBuilderCoreMathHelpers<F: RichField + Extendable<D>, const D: u
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCoreMathHelpers<F, D>
     for CircuitBuilder<F, D>
 {
+
+    // returns ( floor(x/4), (x % 4) )
     fn div_rem4(&mut self, x: Target) -> (Target, Target) {
         // TODO/UNSURE: can we skip the 63 bit range check and just use self.split_low_high(x, 2, 64)?
         self.range_check(x, 63);
 
         // TODO/UNSURE: can we make this num_bits = 64?
-        let (div, rem) = self.split_low_high(x, 2, 63);
+        let (rem, div) = self.split_low_high(x, 2, 63);
         (div, rem)
     }
     

@@ -1,10 +1,11 @@
 use async_trait::async_trait;
-use qed_core::{data::qhashout::QHashOut, job::traits::{QProofStoreReaderAsync, QProofStoreReaderSync}};
+use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
 use plonky2::plonk::{
     circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
     config::GenericConfig,
     proof::ProofWithPublicInputs,
 };
+use qed_crypto::common::circuit_library::CircuitInfoLibrary;
 use serde::{de::DeserializeOwned, Serialize};
 
 pub mod provable;
@@ -113,3 +114,21 @@ pub trait QStandardCircuitProvableWithProofStoreAsync<
 pub trait VerifierDataStore<C: GenericConfig<D>, const D: usize> {
     fn get_verifier_data_by_fingerprint(&self, fingerprint: QHashOut<C::F>) -> Option<&VerifierOnlyCircuitData<C, D>>;
 }
+
+
+#[async_trait]
+pub trait QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<
+    S: QProofStoreReaderAsync + Send + Sync,
+    L: CircuitInfoLibrary<C,D> + Send + Sync,
+    C: GenericConfig<D>,
+    const D: usize,
+>: QStandardCircuit<C, D>
+{
+    async fn prove_with_proof_store_async(
+        &self,
+        store: &S,
+        library: &L,
+        job_id: QProvingJobDataID,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+}
+

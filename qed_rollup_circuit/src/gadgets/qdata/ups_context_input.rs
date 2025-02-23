@@ -66,12 +66,12 @@ impl UserProvingSessionStartContextGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &UserProvingSessionStartContext<F>,
-    ) {
-        witness.set_target(self.checkpoint_id, target.checkpoint_id);
-        witness.set_hash_target(self.checkpoint_tree_root, target.checkpoint_tree_root.0);
-        witness.set_hash_target(self.checkpoint_leaf_hash, target.checkpoint_leaf_hash.0);
+    ) -> anyhow::Result<()> {
+        witness.set_target(self.checkpoint_id, target.checkpoint_id)?;
+        witness.set_hash_target(self.checkpoint_tree_root, target.checkpoint_tree_root.0)?;
+        witness.set_hash_target(self.checkpoint_leaf_hash, target.checkpoint_leaf_hash.0)?;
         self.start_session_user_leaf
-            .set_witness(witness, &target.start_session_user_leaf);
+            .set_witness(witness, &target.start_session_user_leaf)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -121,8 +121,8 @@ impl<F: RichField> WitnessValueFor<UserProvingSessionStartContextGadget, F, true
         &self,
         witness: &mut impl Witness<F>,
         target: &UserProvingSessionStartContextGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -133,8 +133,8 @@ impl<F: RichField> WitnessValueFor<UserProvingSessionStartContextGadget, F, fals
         &self,
         witness: &mut impl Witness<F>,
         target: &UserProvingSessionStartContextGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -177,12 +177,12 @@ impl UserProvingSessionCurrentStateGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &UserProvingSessionCurrentState<F>,
-    ) {
-        self.user_leaf.set_witness(witness, &target.user_leaf);
-        witness.set_hash_target(self.deferred_tx_debt_tree_root, target.deferred_tx_debt_tree_root.0);
-        witness.set_hash_target(self.inline_tx_debt_tree_root, target.inline_tx_debt_tree_root.0);
-        witness.set_hash_target(self.tx_hash_stack, target.tx_hash_stack.0);
-        witness.set_target(self.tx_count, target.tx_count);
+    ) -> anyhow::Result<()> {
+        self.user_leaf.set_witness(witness, &target.user_leaf)?;
+        witness.set_hash_target(self.deferred_tx_debt_tree_root, target.deferred_tx_debt_tree_root.0)?;
+        witness.set_hash_target(self.inline_tx_debt_tree_root, target.inline_tx_debt_tree_root.0)?;
+        witness.set_hash_target(self.tx_hash_stack, target.tx_hash_stack.0)?;
+        witness.set_target(self.tx_count, target.tx_count)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -228,8 +228,8 @@ impl<F: RichField> WitnessValueFor<UserProvingSessionCurrentStateGadget, F, true
         &self,
         witness: &mut impl Witness<F>,
         target: &UserProvingSessionCurrentStateGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -240,8 +240,8 @@ impl<F: RichField> WitnessValueFor<UserProvingSessionCurrentStateGadget, F, fals
         &self,
         witness: &mut impl Witness<F>,
         target: &UserProvingSessionCurrentStateGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -328,13 +328,13 @@ impl UserProvingSessionHeaderGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &UserProvingSessionHeader<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         witness.set_hash_target(
             self.ups_step_circuit_whitelist_root, 
             target.ups_step_circuit_whitelist_root.0,
-        );
-        self.session_start_context.set_witness(witness, &target.session_start_context);
-        self.current_state.set_witness(witness, &target.current_state);
+        )?;
+        self.session_start_context.set_witness(witness, &target.session_start_context)?;
+        self.current_state.set_witness(witness, &target.current_state)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -373,8 +373,8 @@ impl<F: RichField> WitnessValueFor<UserProvingSessionHeaderGadget, F, true>
         &self,
         witness: &mut impl Witness<F>,
         target: &UserProvingSessionHeaderGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
@@ -385,8 +385,8 @@ impl<F: RichField> WitnessValueFor<UserProvingSessionHeaderGadget, F, false>
         &self,
         witness: &mut impl Witness<F>,
         target: &UserProvingSessionHeaderGadget,
-    ) {
-        target.set_witness(witness, self);
+    ) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 

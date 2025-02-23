@@ -30,27 +30,29 @@ impl ToTargets for Hash192Target {
     }
 }
 pub trait WitnessHash192<F: PrimeField64>: Witness<F> {
-    fn set_hash192_target(&mut self, target: &Hash192Target, value: &[u8]);
-    fn set_hash192_target_le(&mut self, target: &Hash192Target, value: &[u8]);
+    fn set_hash192_target(&mut self, target: &Hash192Target, value: &[u8]) -> anyhow::Result<()>;
+    fn set_hash192_target_le(&mut self, target: &Hash192Target, value: &[u8]) -> anyhow::Result<()>;
 }
 
 impl<T: Witness<F>, F: PrimeField64> WitnessHash192<F> for T {
-    fn set_hash192_target(&mut self, target: &Hash192Target, value: &[u8]) {
-        self.set_u32_target(target[0], read_u32_be_at(value, 0));
-        self.set_u32_target(target[1], read_u32_be_at(value, 4));
-        self.set_u32_target(target[2], read_u32_be_at(value, 8));
-        self.set_u32_target(target[3], read_u32_be_at(value, 12));
-        self.set_u32_target(target[4], read_u32_be_at(value, 16));
-        self.set_u32_target(target[5], read_u32_be_at(value, 20));
+    fn set_hash192_target(&mut self, target: &Hash192Target, value: &[u8]) -> anyhow::Result<()> {
+        self.set_u32_target(target[0], read_u32_be_at(value, 0))?;
+        self.set_u32_target(target[1], read_u32_be_at(value, 4))?;
+        self.set_u32_target(target[2], read_u32_be_at(value, 8))?;
+        self.set_u32_target(target[3], read_u32_be_at(value, 12))?;
+        self.set_u32_target(target[4], read_u32_be_at(value, 16))?;
+        self.set_u32_target(target[5], read_u32_be_at(value, 20))?;
+        Ok(())
     }
 
-    fn set_hash192_target_le(&mut self, target: &Hash192Target, value: &[u8]) {
-        self.set_u32_target(target[0], read_u32_le_at(value, 0));
-        self.set_u32_target(target[1], read_u32_le_at(value, 4));
-        self.set_u32_target(target[2], read_u32_le_at(value, 8));
-        self.set_u32_target(target[3], read_u32_le_at(value, 12));
-        self.set_u32_target(target[4], read_u32_le_at(value, 16));
-        self.set_u32_target(target[5], read_u32_le_at(value, 20));
+    fn set_hash192_target_le(&mut self, target: &Hash192Target, value: &[u8]) -> anyhow::Result<()>{
+        self.set_u32_target(target[0], read_u32_le_at(value, 0))?;
+        self.set_u32_target(target[1], read_u32_le_at(value, 4))?;
+        self.set_u32_target(target[2], read_u32_le_at(value, 8))?;
+        self.set_u32_target(target[3], read_u32_le_at(value, 12))?;
+        self.set_u32_target(target[4], read_u32_le_at(value, 16))?;
+        self.set_u32_target(target[5], read_u32_le_at(value, 20))?;
+        Ok(())
     }
 }
 
@@ -175,12 +177,13 @@ impl MerkleProofTruncatedSha256Gadget {
         &self,
         witness: &mut W,
         merkle_proof: &MerkleProof192,
-    ) {
-        witness.set_hash192_target(&self.value, &merkle_proof.value.0);
-        witness.set_target(self.index, F::from_noncanonical_u64(merkle_proof.index));
+    ) -> anyhow::Result<()> {
+        witness.set_hash192_target(&self.value, &merkle_proof.value.0)?;
+        witness.set_target(self.index, F::from_noncanonical_u64(merkle_proof.index))?;
         for (i, sibling) in self.siblings.iter().enumerate() {
-            witness.set_hash192_target(sibling, &merkle_proof.siblings[i].0);
+            witness.set_hash192_target(sibling, &merkle_proof.siblings[i].0)?;
         }
+        Ok(())
     }
 }
 
@@ -189,24 +192,25 @@ impl DeltaMerkleProofTruncatedSha256Gadget {
         &self,
         witness: &mut W,
         merkle_proof: &DeltaMerkleProof192,
-    ) {
-        witness.set_hash192_target(&self.old_value, &merkle_proof.old_value.0);
-        witness.set_hash192_target(&self.new_value, &merkle_proof.new_value.0);
-        witness.set_target(self.index, F::from_noncanonical_u64(merkle_proof.index));
+    ) -> anyhow::Result<()> {
+        witness.set_hash192_target(&self.old_value, &merkle_proof.old_value.0)?;
+        witness.set_hash192_target(&self.new_value, &merkle_proof.new_value.0)?;
+        witness.set_target(self.index, F::from_noncanonical_u64(merkle_proof.index))?;
         for (i, sibling) in self.siblings.iter().enumerate() {
-            witness.set_hash192_target(sibling, &merkle_proof.siblings[i].0);
+            witness.set_hash192_target(sibling, &merkle_proof.siblings[i].0)?;
         }
+        Ok(())
     }
 }
 
 impl<F: RichField> WitnessValueFor<Hash192Target, F, false> for Hash192 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash192Target) {
-        witness.set_hash192_target_le(&target, &self.0);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash192Target) -> anyhow::Result<()>{
+        witness.set_hash192_target_le(&target, &self.0)
     }
 }
 
 impl<F: RichField> WitnessValueFor<Hash192Target, F, true> for Hash192 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash192Target) {
-        witness.set_hash192_target(&target, &self.0);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash192Target) -> anyhow::Result<()> {
+        witness.set_hash192_target(&target, &self.0)
     }
 }

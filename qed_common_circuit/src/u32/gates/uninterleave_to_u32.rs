@@ -324,7 +324,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F,D> for Unin
         vec![local_target(self.gate.wire_ith_x_interleaved(self.i))]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()> {
         let local_wire = |column| Wire {
             row: self.row,
             column,
@@ -349,8 +349,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F,D> for Unin
             // Fill in the wire values for the bits
             let even_bit_wire = local_wire(2 * j + start_bits + num_bits * self.i);
             let odd_bit_wire = local_wire(2 * j + 1 + start_bits + num_bits * self.i);
-            out_buffer.set_wire(even_bit_wire, F::from_canonical_u64(jth_even));
-            out_buffer.set_wire(odd_bit_wire, F::from_canonical_u64(jth_odd));
+            out_buffer.set_wire(even_bit_wire, F::from_canonical_u64(jth_even))?;
+            out_buffer.set_wire(odd_bit_wire, F::from_canonical_u64(jth_odd))?;
 
             let coeff = 1 << (num_bits / 2 - j - 1);
             x_evens += jth_even * coeff;
@@ -359,8 +359,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F,D> for Unin
 
         let x_evens_wire = local_wire(self.gate.wire_ith_x_evens(self.i));
         let x_odds_wire = local_wire(self.gate.wire_ith_x_odds(self.i));
-        out_buffer.set_wire(x_evens_wire, F::from_canonical_u64(x_evens));
-        out_buffer.set_wire(x_odds_wire, F::from_canonical_u64(x_odds));
+        out_buffer.set_wire(x_evens_wire, F::from_canonical_u64(x_evens))?;
+        out_buffer.set_wire(x_odds_wire, F::from_canonical_u64(x_odds))?;
+
+
+        anyhow::Ok(())
     }
 
     fn id(&self) -> String {

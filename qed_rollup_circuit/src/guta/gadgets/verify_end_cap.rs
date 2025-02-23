@@ -110,23 +110,23 @@ impl<const D: usize> VerifyEndCapProofGadget<D> {
         checkpoint_historical_merkle_proof: &MerkleProofCore<QHashOut<F>>,
         proof: &ProofWithPublicInputs<F, C, D>,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
-    ) where
+    ) -> anyhow::Result<()> where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
         self.end_cap_result_gadget.set_witness(
             witness,
             end_cap_result,
-        );
+        )?;
         self.guta_stats.set_witness(
             witness,
             guta_stats,
-        );
+        )?;
         self.checkpoint_historical_merkle_proof.set_witness_proof_core(
             witness,
             checkpoint_historical_merkle_proof,
-        );
+        )?;
 
-        witness.set_proof_with_pis_target(&self.proof_target, &proof);
-        witness.set_verifier_data_target(&self.verifier_data, &verifier_data);
+        witness.set_proof_with_pis_target(&self.proof_target, &proof)?;
+        witness.set_verifier_data_target(&self.verifier_data, &verifier_data)
     }
 }
 

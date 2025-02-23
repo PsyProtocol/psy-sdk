@@ -1,5 +1,8 @@
+pub mod data;
 pub mod tree_planner;
 pub mod subtree;
+pub mod tree_helper;
+
 use crate::hash::merkle::treeprover::tree_planner::BinaryTreeJob;
 use plonky2::{
     hash::{hash_types::RichField, poseidon::PoseidonHash},
@@ -8,6 +11,7 @@ use plonky2::{
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 use tree_planner::BinaryTreePlanner;
+pub type QEDStateTrackingHash = PoseidonHash;
 
 pub trait WithDummyStateTransition<F: RichField> {
     fn get_dummy_value(state_root: QHashOut<F>) -> Self;
@@ -321,6 +325,14 @@ impl<IL: AggStateTrackableWithEventsInput<F>, F: RichField>
             right_proof_is_leaf: true,
         }
     }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct TPAltCircuitFingerprintConfig<F: RichField> {
+    pub leaf_fingerprint: QHashOut<F>,
+    pub aggregator_fingerprint: QHashOut<F>,
+    pub dummy_fingerprint: QHashOut<F>,
+    pub verifier_data_cap_height: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

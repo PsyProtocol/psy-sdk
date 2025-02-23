@@ -70,19 +70,19 @@ where
         single_proof: &ProofWithPublicInputs<C::F, C, D>,
         single_verifier_data: &VerifierOnlyCircuitData<C, D>,
 
-    ) -> ProofWithPublicInputs<C::F, C, D> {
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         
-        pw.set_hash_target(self.agg_circuit_whitelist_root, agg_circuit_whitelist_root.0);
+        pw.set_hash_target(self.agg_circuit_whitelist_root, agg_circuit_whitelist_root.0)?;
 
         self.single_leaf_gadget.set_witness(
             &mut pw,
             single_insert_leaf_proof,
             single_proof,
             single_verifier_data
-        );
+        )?;
         
-        self.circuit_data.prove(pw).unwrap()
+        self.circuit_data.prove(pw)
     }
 }
 

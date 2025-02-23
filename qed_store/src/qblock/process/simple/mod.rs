@@ -1,6 +1,7 @@
 use std::time::SystemTime;
 
 use plonky2::field::types::{Field, PrimeField64};
+use qed_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::traits::
     qhashable::QFieldHashable
@@ -19,7 +20,7 @@ use qed_data::{
 };
 
 use crate::{
-    config::store_config::{QEDFelt, QEDHasher, DEFAULT_USER_STATE_TREE_ROOT},
+    config::store_config::{QEDFelt, QEDHasher},
     models::user::contract_state_tree::UserContractStateTreeId,
     store::imm::core::QEDStorageAdapterImmutable,
     traits::qdatastore::{
@@ -45,6 +46,7 @@ impl SimpleBlockProcessor {
             deposit_tree_root: store.get_deposit_tree_root(old_checkpoint_id)?,
             user_tree_root: store.get_user_tree_root(old_checkpoint_id)?,
             withdrawal_tree_root: store.get_withdrawal_tree_root(old_checkpoint_id)?,
+            user_registration_tree_root: store.get_user_registration_tree_root(old_checkpoint_id)?,
         };
         let new_checkpoint_id = old_checkpoint_id+1;
         let new_checkpoint_id_f = QEDFelt::from_canonical_u64(new_checkpoint_id);
@@ -60,7 +62,7 @@ impl SimpleBlockProcessor {
         for (i, r) in cmds.register_users.iter().enumerate() {
             let user_id = current_block_state.next_user_id + i as u64;
             let user = QEDUserLeaf {
-                public_key: r.public_key,
+                public_key: r.get_public_key::<QEDHasher>(),
                 user_state_tree_root: DEFAULT_USER_STATE_TREE_ROOT,
                 balance: QEDFelt::ZERO,
                 nonce: QEDFelt::ZERO,
@@ -71,7 +73,7 @@ impl SimpleBlockProcessor {
 
             let leaf_hash = user.qfhash::<QEDHasher>();
 
-            store.set_user_leaf_data(&user)?;
+            store.set_user_leaf_data(new_checkpoint_id,&user)?;
             let user_reg_delta_merkle_proof =
                 store.set_user_tree_leaf_hash(new_checkpoint_id, user_id, leaf_hash)?;
             let user_reg_witness = QEDUserRegistrationCircuitInput {
@@ -179,7 +181,7 @@ impl SimpleBlockProcessor {
                     anyhow::bail!("User state tree root mismatch");
                 }
             }
-            store.set_user_leaf_data(&upd_user.updated_leaf)?;
+            store.set_user_leaf_data(new_checkpoint_id, &upd_user.updated_leaf)?;
             let user_leaf_hash = user.qfhash::<QEDHasher>();
             let user_delta_merkle_proof = store.set_user_tree_leaf_hash(
                 new_checkpoint_id,
@@ -199,6 +201,7 @@ impl SimpleBlockProcessor {
             deposit_tree_root: store.get_deposit_tree_root(new_checkpoint_id)?,
             user_tree_root: store.get_user_tree_root(new_checkpoint_id)?,
             withdrawal_tree_root: store.get_withdrawal_tree_root(new_checkpoint_id)?,
+            user_registration_tree_root: store.get_user_registration_tree_root(new_checkpoint_id)?,
         };
         let mut new_leaf_stats = QEDCheckpointLeafStats::<QEDFelt>::new_empty();
         new_leaf_stats.block_time = QEDFelt::from_canonical_u64(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs());

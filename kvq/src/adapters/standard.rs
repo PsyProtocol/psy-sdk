@@ -8,7 +8,14 @@ use crate::traits::KVQSerializable;
 use crate::traits::KVQStoreAdapter;
 use crate::traits::KVQStoreAdapterImmutable;
 use crate::traits::KVQStoreAdapterReader;
+use crate::traits::KVQBinaryStoreImmutableAsync;
+use crate::traits::KVQBinaryStoreReaderAsync;
+use crate::traits::KVQStoreAdapterImmutableAsync;
+use crate::traits::KVQStoreAdapterReaderAsync;
 
+
+
+use async_trait::async_trait;
 pub struct KVQStandardAdapter<S, K: KVQSerializable, V: KVQSerializable> {
     _s: PhantomData<S>,
     _k: PhantomData<K>,
@@ -255,6 +262,185 @@ impl<S: KVQBinaryStoreImmutable, K: KVQSerializable, V: KVQSerializable> KVQStor
         }
 
         s.imm_set_many_split_ref(&keys_bytes, &values_bytes)
+    }
+}
+
+
+
+
+
+
+#[async_trait]
+impl<S: KVQBinaryStoreReaderAsync+ Send + Sync, K: KVQSerializable + Send + Sync, V: KVQSerializable+ Send + Sync> KVQStoreAdapterReaderAsync<S, K, V>
+    for KVQStandardAdapter<S, K, V>
+{
+    async fn get_exact_if_exists(s: &S, key: &K) -> anyhow::Result<Option<V>> {
+        let r = s.get_exact_if_exists(&key.to_bytes()?).await?;
+        if r.is_some() {
+            let result = V::from_bytes(&r.unwrap())?;
+            Ok(Some(result))
+        } else {
+            Ok(None)
+        }
+    }
+    async fn get_exact(s: &S, key: &K) -> anyhow::Result<V> {
+        let r = s.get_exact(&key.to_bytes()?).await?;
+        Ok(V::from_bytes(&r)?)
+    }
+
+    async fn get_leq_kv(s: &S, key: &K, fuzzy_bytes: usize) -> anyhow::Result<Option<KVQPair<K, V>>> {
+        let r = s.get_leq_kv(&key.to_bytes()?, fuzzy_bytes).await?;
+        match r {
+            Some(kv) => Ok(Some(KVQPair {
+                key: K::from_bytes(&kv.key)?,
+                value: V::from_bytes(&kv.value)?,
+            })),
+            None => Ok(None),
+        }
+    }
+
+    async fn get_many_exact(s: &S, keys: &[K]) -> anyhow::Result<Vec<V>> {
+        let keys_bytes = keys
+            .iter()
+            .map(|k| k.to_bytes())
+            .collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
+        let values_bytes = s.get_many_exact(&keys_bytes).await?;
+        let values = values_bytes
+            .iter()
+            .map(|r| V::from_bytes(r))
+            .collect::<anyhow::Result<Vec<V>>>();
+        Ok(values?)
+    }
+
+    async fn get_leq(s: &S, key: &K, fuzzy_bytes: usize) -> anyhow::Result<Option<V>> {
+        let r = s.get_leq(&key.to_bytes()?, fuzzy_bytes).await?;
+        match r {
+            Some(v) => Ok(Some(V::from_bytes(&v)?)),
+            None => Ok(None),
+        }
+    }
+
+    async fn get_many_leq(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<V>>> {
+        let keys_bytes = keys
+            .iter()
+            .map(|k| k.to_bytes())
+            .collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
+        let values_bytes = s.get_many_leq(&keys_bytes, fuzzy_bytes).await?;
+        let values = values_bytes
+            .iter()
+            .map(|r| {
+                Ok(match r {
+                    Some(v) => Some(V::from_bytes(v)?),
+                    None => None,
+                })
+            })
+            .collect::<anyhow::Result<Vec<Option<V>>>>();
+        Ok(values?)
+    }
+
+    async fn get_many_leq_kv(
+        s: &S,
+        keys: &[K],
+        fuzzy_bytes: usize,
+    ) -> anyhow::Result<Vec<Option<KVQPair<K, V>>>> {
+        let keys_bytes = keys
+            .iter()
+            .map(|k| k.to_bytes())
+            .collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
+        let kvs_bytes = s.get_many_leq_kv(&keys_bytes, fuzzy_bytes).await?;
+        let kvs: anyhow::Result<Vec<Option<KVQPair<K, V>>>> = kvs_bytes
+            .iter()
+            .map(|r| {
+                Ok(match r {
+                    Some(kv) => Some(KVQPair {
+                        key: K::from_bytes(&kv.key)?,
+                        value: V::from_bytes(&kv.value)?,
+                    }),
+                    None => None,
+                })
+            })
+            .collect();
+        Ok(kvs?)
+    }
+
+    async fn get_fuzzy_range_leq_kv(
+        s: &S,
+        key: &K,
+        fuzzy_bytes: usize,
+    ) -> anyhow::Result<Vec<KVQPair<K, V>>> {
+        let key = key.to_bytes()?;
+        s.get_fuzzy_range_leq_kv(&key, fuzzy_bytes).await?
+            .into_iter()
+            .map(|kv| {
+                Ok(KVQPair {
+                    key: K::from_bytes(&kv.key)?,
+                    value: V::from_bytes(&kv.value)?,
+                })
+            })
+            .collect()
+    }
+}
+
+#[async_trait]
+impl<S: KVQBinaryStoreImmutableAsync + Send + Sync, K: KVQSerializable+ Send + Sync, V: KVQSerializable+ Send + Sync> KVQStoreAdapterImmutableAsync<S, K, V>
+    for KVQStandardAdapter<S, K, V>
+{
+    async fn imm_set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()> {
+        s.imm_set(key.to_bytes()?, value.to_bytes()?).await
+    }
+
+    async  fn imm_set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()> {
+        let pairs: anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> = items
+            .iter()
+            .map(|kv| {
+                Ok(KVQPair {
+                    key: kv.key.to_bytes()?,
+                    value: kv.value.to_bytes()?,
+                })
+            })
+            .collect();
+        s.imm_set_many_vec(pairs?).await
+    }
+
+    async fn imm_set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()> {
+        let pairs: anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> = items
+            .iter()
+            .map(|kv| {
+                Ok(KVQPair {
+                    key: kv.key.to_bytes()?,
+                    value: kv.value.to_bytes()?,
+                })
+            })
+            .collect();
+        s.imm_set_many_vec(pairs?).await
+    }
+
+    async fn imm_delete(s: &S, key: &K) -> anyhow::Result<bool> {
+        s.imm_delete(&key.to_bytes()?).await
+    }
+
+    async fn imm_delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>> {
+        let mut results: Vec<bool> = Vec::with_capacity(keys.len());
+
+        for k in keys {
+            let r = s.imm_delete(&k.to_bytes()?).await?;
+            results.push(r)
+        }
+        Ok(results)
+    }
+
+    async fn imm_set_many_split_ref(s: &S, keys: &[K], values: &[V]) -> anyhow::Result<()> {
+        if keys.len() != values.len() {
+            return Err(anyhow::anyhow!("Keys and values must have the same length"));
+        }
+        let mut keys_bytes: Vec<Vec<u8>> = Vec::with_capacity(keys.len());
+        let mut values_bytes: Vec<Vec<u8>> = Vec::with_capacity(values.len());
+        for (k, v) in keys.iter().zip(values.iter()) {
+            keys_bytes.push(k.to_bytes()?);
+            values_bytes.push(v.to_bytes()?);
+        }
+
+        s.imm_set_many_split_ref(&keys_bytes, &values_bytes).await
     }
 }
 

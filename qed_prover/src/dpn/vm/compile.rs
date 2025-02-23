@@ -43,6 +43,7 @@ impl QEDContractFunctionBuilderGadget {
         contract_state_tree_height: usize,
         session_proof_tree_height: usize,
         inputs: Vec<Target>,
+        force_four_align: bool,
     ) -> Self {
 
         let tx_ctx_header = DapenCFCUserTransactionInputContextGadget::add_virtual_to::<H,F,D>(builder);
@@ -56,6 +57,7 @@ impl QEDContractFunctionBuilderGadget {
             contract_state_tree_height,
             session_proof_tree_root,
             session_proof_tree_height,
+            force_four_align,
         );
         
         let mut g = Self {

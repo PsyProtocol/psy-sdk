@@ -10,11 +10,11 @@ pub trait CircuitBuilderSignatureHelpers<F: RichField + Extendable<D>, const D: 
 }
 
 pub trait WitnessSignatureHelpers<F: PrimeField64>: Witness<F> {
-    fn set_public_key_u32(&mut self, targets: &[Target], public_key_bytes: &[u8]);
+    fn set_public_key_u32(&mut self, targets: &[Target], public_key_bytes: &[u8]) -> anyhow::Result<()>;
 }
 
 impl<T: Witness<F>, F: PrimeField64> WitnessSignatureHelpers<F> for T {
-    fn set_public_key_u32(&mut self, targets: &[Target], public_key_bytes: &[u8]) {
+    fn set_public_key_u32(&mut self, targets: &[Target], public_key_bytes: &[u8]) -> anyhow::Result<()> {
         assert_eq!(
             targets.len(),
             9,
@@ -25,13 +25,14 @@ impl<T: Witness<F>, F: PrimeField64> WitnessSignatureHelpers<F> for T {
             33,
             "set_public_key_u32: data input should be 33 bytes (1 parity byte + 32 byte x value)"
         );
-        self.set_target(targets[0], F::from_canonical_u8(public_key_bytes[0]));
+        self.set_target(targets[0], F::from_canonical_u8(public_key_bytes[0]))?;
         for i in 0..8 {
             self.set_target(
                 targets[i + 1],
                 F::from_canonical_u32(read_u32_le_at(public_key_bytes, 1 + i * 4)),
-            );
+            )?;
         }
+        Ok(())
     }
 }
 

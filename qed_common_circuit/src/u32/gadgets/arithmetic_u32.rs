@@ -313,14 +313,15 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         vec![self.x]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()> {
         let x = witness.get_target(self.x);
         let x_u64 = x.to_canonical_u64();
         let low = x_u64 as u32;
         let high = (x_u64 >> 32) as u32;
 
-        out_buffer.set_u32_target(self.low, low);
-        out_buffer.set_u32_target(self.high, high);
+        out_buffer.set_u32_target(self.low, low)?;
+        out_buffer.set_u32_target(self.high, high)?;
+        anyhow::Ok(())
     }
 
     fn id(&self) -> String {

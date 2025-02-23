@@ -20,9 +20,10 @@ fn test_simple_block_processor() -> anyhow::Result<()> {
 
     let block_0_cmds = QEDBlockCommands::<GF>{
         register_users: vec![
-            QBCRegisterUser::new(QHashOut::from_values(1,2,3,4)),
-            QBCRegisterUser::new(QHashOut::from_values(5,6,7,8)),
-            QBCRegisterUser::new(QHashOut::from_values(13371,13372,13373,13374)),
+            QBCRegisterUser::new_from_u64s([1;4], [13371, 13372, 13373, 13374]),
+            QBCRegisterUser::new_from_u64s([1;4], [13375, 13376, 13377, 13378]),
+            QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+            QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
         ],
         deploy_contracts: vec![],
         update_users: vec![],

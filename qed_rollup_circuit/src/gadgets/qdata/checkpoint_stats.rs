@@ -25,21 +25,22 @@ pub struct QEDCheckpointLeafStatsGadget {
 }
 
 impl QEDCheckpointLeafStatsGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafStats<F>) {
-        witness.set_target(self.fees_collected, target.fees_collected);
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafStats<F>)  -> anyhow::Result<()>{
+        witness.set_target(self.fees_collected, target.fees_collected)?;
 
-        witness.set_target(self.user_ops_processed, target.user_ops_processed);
-        witness.set_target(self.total_transactions, target.total_transactions);
+        witness.set_target(self.user_ops_processed, target.user_ops_processed)?;
+        witness.set_target(self.total_transactions, target.total_transactions)?;
         
-        witness.set_target(self.slots_modified, target.slots_modified);
-        witness.set_target(self.pm_jobs_completed, target.pm_jobs_completed);
+        witness.set_target(self.slots_modified, target.slots_modified)?;
+        witness.set_target(self.pm_jobs_completed, target.pm_jobs_completed)?;
         
-        witness.set_target(self.block_time, target.block_time);
+        witness.set_target(self.block_time, target.block_time)?;
 
-        witness.set_hash_target(self.random_seed, target.random_seed.0);
-        self.pm_rewards_commitment.set_witness(witness, &target.pm_rewards_commitment);
+        witness.set_hash_target(self.random_seed, target.random_seed.0)?;
+        self.pm_rewards_commitment.set_witness(witness, &target.pm_rewards_commitment)?;
 
-        witness.set_target_arr(&self.da_challenges_claimed, &target.da_challenges_claimed);
+        witness.set_target_arr(&self.da_challenges_claimed, &target.da_challenges_claimed)?;
+        Ok(())
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
@@ -130,14 +131,14 @@ impl FromTargets for QEDCheckpointLeafStatsGadget {
 
 
 impl<F: RichField> WitnessValueFor<QEDCheckpointLeafStatsGadget, F, true> for QEDCheckpointLeafStats<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafStatsGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafStatsGadget) -> anyhow::Result<()>  {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<QEDCheckpointLeafStatsGadget, F, false> for QEDCheckpointLeafStats<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafStatsGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafStatsGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 

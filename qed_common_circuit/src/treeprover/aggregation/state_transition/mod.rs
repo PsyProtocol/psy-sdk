@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use plonky2::{
     field::extension::Extendable,
     hash::{
@@ -15,15 +16,15 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::treeprover::AggStateTransitionInput;
+use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
+use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::treeprover::{data::CircuitInputWithDependencies, AggStateTransitionInput}};
 
 use crate::{
     builder::{
         hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates,
         verify::CircuitBuilderVerifyProofHelpers,
     },
-    circuits::traits::qstandard::QStandardCircuit,
+    circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
     treeprover::traits::TreeProverAggCircuit,
 };
@@ -91,27 +92,27 @@ impl AggStateTrackableCircuitHeaderGadget {
         input: &AggStateTransitionInput<F>,
         agg_fingerprint: QHashOut<F>,
         leaf_fingerprint: QHashOut<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         //tracing::info!("set_witness: {}", serde_json::to_string(input).unwrap());
-        witness.set_hash_target(self.agg_fingerprint, agg_fingerprint.0);
-        witness.set_hash_target(self.leaf_fingerprint, leaf_fingerprint.0);
+        witness.set_hash_target(self.agg_fingerprint, agg_fingerprint.0)?;
+        witness.set_hash_target(self.leaf_fingerprint, leaf_fingerprint.0)?;
 
         witness.set_hash_target(
             self.left_state_transition_start,
             input.left_input.state_transition_start.0,
-        );
+        )?;
         witness.set_hash_target(
             self.left_state_transition_end,
             input.left_input.state_transition_end.0,
-        );
+        )?;
         witness.set_hash_target(
             self.right_state_transition_start,
             input.right_input.state_transition_start.0,
-        );
+        )?;
         witness.set_hash_target(
             self.right_state_transition_end,
             input.right_input.state_transition_end.0,
-        );
+        )
     }
 }
 
@@ -243,7 +244,7 @@ where
         builder.register_public_inputs(&header_gadget.allowed_circuit_hashes_root.elements);
         builder.register_public_inputs(&header_gadget.state_transition_hash.elements);
 
-        builder.add_qed_type_a_common_gates(None);
+        builder.add_qed_type_d_common_gates();
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
@@ -276,9 +277,9 @@ where
         println!("right_proof_public_inputs: {:?}", right_proof.public_inputs);
         println!("agg_input: {:?}",input);*/
         self.header_gadget
-            .set_witness(&mut pw, input, agg_fingerprint, leaf_fingerprint);
+            .set_witness(&mut pw, input, agg_fingerprint, leaf_fingerprint)?;
 
-        pw.set_proof_with_pis_target(&self.left_proof, left_proof);
+        pw.set_proof_with_pis_target(&self.left_proof, left_proof)?;
         pw.set_verifier_data_target(
             &self.left_verifier_data,
             if input.left_proof_is_leaf {
@@ -286,8 +287,8 @@ where
             } else {
                 agg_verifier_data
             },
-        );
-        pw.set_proof_with_pis_target(&self.right_proof, right_proof);
+        )?;
+        pw.set_proof_with_pis_target(&self.right_proof, right_proof)?;
         pw.set_verifier_data_target(
             &self.right_verifier_data,
             if input.right_proof_is_leaf {
@@ -295,7 +296,7 @@ where
             } else {
                 agg_verifier_data
             },
-        );
+        )?;
         let result = self.circuit_data.prove(pw);
 
         if result.is_err() {
@@ -346,5 +347,54 @@ where
             right_proof,
             input,
         )
+    }
+}
+
+#[async_trait]
+impl<
+        S: QProofStoreReaderAsync + Send + Sync,
+        L: CircuitInfoLibrary<C, D> + Send + Sync,
+        C: GenericConfig<D>,
+        const D: usize,
+    > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
+    for AggStateTransitionCircuit<C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>
+{
+    async fn prove_with_proof_store_async(
+        &self,
+        store: &S,
+        library: &L,
+        job_id: QProvingJobDataID,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        let r: CircuitInputWithDependencies<AggStateTransitionInput<C::F>> =
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
+                .map_err(|e| anyhow::anyhow!(e))?;
+        if r.dependencies.len() != 2 {
+            anyhow::bail!("invalid dependency count in two end guta input");
+        }
+
+        let child_a_proof = store.get_proof_by_id(r.dependencies[0]).await?;
+        let child_b_proof = store.get_proof_by_id(r.dependencies[1]).await?;
+
+        let leaf_circuit_type = job_id.circuit_type.get_agg_leaf_circuit_type_or_err()?;
+
+        let agg_verifier_data = self.get_verifier_config_ref();
+        let leaf_verifier_data = library.get_verifier_data(leaf_circuit_type)?;
+
+        let leaf_fingerprint = library.get_fingerprint(job_id.circuit_type.get_agg_leaf_circuit_type_or_err()?)?;
+        let agg_fingerprint = self.get_fingerprint();
+
+        let result = self.prove_base(
+            agg_fingerprint,
+            agg_verifier_data,
+            leaf_fingerprint,
+            &leaf_verifier_data,
+            &child_a_proof,
+            &child_b_proof,
+            &r.input
+        )?;
+
+        Ok(result)
     }
 }

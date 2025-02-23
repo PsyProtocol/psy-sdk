@@ -97,7 +97,7 @@ impl<const D: usize> VerifyLeafProofGadget<D> {
         insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<F>>,
         proof: &ProofWithPublicInputs<F, C, D>,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
-    ) where
+    ) -> anyhow::Result<()> where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
         self.insert_leaf_proof.set_witness(
             witness,
@@ -105,8 +105,8 @@ impl<const D: usize> VerifyLeafProofGadget<D> {
             insert_leaf_proof.old_value,
             insert_leaf_proof.new_value,
             &insert_leaf_proof.siblings,
-        );
-        witness.set_proof_with_pis_target(&self.proof_target, &proof);
-        witness.set_verifier_data_target(&self.verifier_data, &verifier_data);
+        )?;
+        witness.set_proof_with_pis_target(&self.proof_target, &proof)?;
+        witness.set_verifier_data_target(&self.verifier_data, &verifier_data)
     }
 }

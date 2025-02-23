@@ -10,8 +10,6 @@ use crate::dpn::vm::compile::QEDContractFunctionBuilderGadget;
 
 #[derive(Debug)]
 pub struct DapenContractFunctionCircuit<C: GenericConfig<D>, const D: usize>
-where
-    C::Hasher:AlgebraicHasher<C::F>,
 {
     pub inputs: Vec<Target>,
     pub fn_builder_gadget: QEDContractFunctionBuilderGadget,
@@ -33,6 +31,7 @@ where
         fn_def: &DPNFunctionCircuitDefinition,
         contract_state_tree_height: usize,
         session_proof_tree_height: usize,
+        force_four_align: bool,
     ) -> Self {
         
         let config = CircuitConfig::standard_recursion_config();
@@ -44,6 +43,7 @@ where
             contract_state_tree_height, 
             session_proof_tree_height,
             inputs.clone(),
+            force_four_align,
         );
 
         let inner_public_inputs_hash = fn_builder_gadget.tx_ctx_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
@@ -78,12 +78,12 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         
-        pw.set_target_arr(&self.inputs, &cfc_input.inputs);
+        pw.set_target_arr(&self.inputs, &cfc_input.inputs)?;
         
-        pw.set_hash_target(self.fn_builder_gadget.session_proof_tree_root, cfc_input.session_proof_tree_root.0);
+        pw.set_hash_target(self.fn_builder_gadget.session_proof_tree_root, cfc_input.session_proof_tree_root.0)?;
         
 
-        self.fn_builder_gadget.tx_ctx_header.set_witness(&mut pw, &cfc_input.tx_input_ctx);
+        self.fn_builder_gadget.tx_ctx_header.set_witness(&mut pw, &cfc_input.tx_input_ctx)?;
         self.fn_builder_gadget.state_reader.set_witness(&mut pw, cfc_input, &self.fn_def);
         
         self.circuit_data.prove(pw)
@@ -91,8 +91,6 @@ where
 }
 
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for DapenContractFunctionCircuit<C, D>
-where
-    C::Hasher:AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint

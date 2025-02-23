@@ -119,17 +119,19 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         self.k.value.limbs.iter().map(|l| l.0).collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()>{
         let k = Secp256K1Scalar::from_noncanonical_biguint(
             witness.get_biguint_target(self.k.value.clone()),
         );
 
         let (k1, k2, k1_neg, k2_neg) = decompose_secp256k1_scalar(k);
 
-        out_buffer.set_biguint_target(&self.k1.value, &k1.to_canonical_biguint());
-        out_buffer.set_biguint_target(&self.k2.value, &k2.to_canonical_biguint());
-        out_buffer.set_bool_target(self.k1_neg, k1_neg);
-        out_buffer.set_bool_target(self.k2_neg, k2_neg);
+        out_buffer.set_biguint_target(&self.k1.value, &k1.to_canonical_biguint())?;
+        out_buffer.set_biguint_target(&self.k2.value, &k2.to_canonical_biguint())?;
+        out_buffer.set_bool_target(self.k1_neg, k1_neg)?;
+        out_buffer.set_bool_target(self.k2_neg, k2_neg)?;
+
+        anyhow::Ok(())
     }
 
     fn id(&self) -> String {

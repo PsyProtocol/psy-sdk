@@ -166,7 +166,7 @@ fn gen_contract_deploy_and_circuits_for_functions(
     let mut fingerprints = Vec::with_capacity(defs.len()*2); 
     let circuits = defs.iter().map(|x| {
 
-        let c = DapenContractFunctionCircuit::<C, D>::new(x, contract_state_tree_height as usize, UPS_SESSION_PROOF_TREE_HEIGHT as usize);
+        let c = DapenContractFunctionCircuit::<C, D>::new(x, contract_state_tree_height as usize, UPS_SESSION_PROOF_TREE_HEIGHT as usize, false);
         fingerprints.push(c.get_fingerprint());
 
         // sibling is [method_id, (num_outputs<<32)|num_inputs, 0, 0]
@@ -187,7 +187,7 @@ fn gen_contract_deploy_and_circuits_for_functions(
     Ok((circuits, deploy))
 }
 fn prepare_environment_with_real_contract(
-    new_user_public_keys: Vec<QHashOut<GoldilocksField>>,
+    new_user_public_keys: Vec<QBCRegisterUser<GoldilocksField>>,
     deploy_contract: QBCDeployContract<GoldilocksField>,
 ) -> anyhow::Result<
     (QEDLocalProvingSessionStore<
@@ -215,22 +215,12 @@ fn prepare_environment_with_real_contract(
         &st,
         &QEDBlockCommands {
             register_users: [vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(1, 1, 1, 1),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(13371, 13372, 13373, 13374),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(13375, 13376, 13377, 13378),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-            ], new_user_public_keys.into_iter().map(|k| QBCRegisterUser{public_key:k}).collect::<Vec<_>>()].concat(),
+                QBCRegisterUser::new_from_u64s([1;4], [1;4]),
+                QBCRegisterUser::new_from_u64s([1;4], [13371, 13372, 13373, 13374]),
+                QBCRegisterUser::new_from_u64s([1;4], [13375, 13376, 13377, 13378]),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+            ], new_user_public_keys].concat(),
             deploy_contracts: vec![
                 QBCDeployContract {
                     deployer: QHashOut::from_values(13371, 13372, 13373, 13374),
@@ -259,12 +249,8 @@ fn prepare_environment_with_real_contract(
         &st,
         &QEDBlockCommands {
             register_users: vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
             ],
             deploy_contracts: vec![
             ],
@@ -277,12 +263,8 @@ fn prepare_environment_with_real_contract(
         &st,
         &QEDBlockCommands {
             register_users: vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
             ],
             deploy_contracts: vec![
             ],
@@ -391,8 +373,8 @@ fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     Ok(fn_circuit_def)
 }
 
-fn test_prove_simple() -> anyhow::Result<()> {
-    let mut timer = DebugTimer::new("test_prove_simple");
+fn demo_user_proving_session() -> anyhow::Result<()> {
+    let mut timer = DebugTimer::new("demo_user_proving_session");
 
     timer.lap("start");
 
@@ -425,8 +407,8 @@ fn test_prove_simple() -> anyhow::Result<()> {
     let priv_key_0 = QHashOut::rand();
     let priv_key_1 = QHashOut::rand();
     let mut wallet = SimpleQEDZKSignatureManager::<C,D>::new();
-    let pub_key_0 = wallet.add_private_key(SimpleQEDPrivateKey::new(priv_key_0));
-    let pub_key_1 = wallet.add_private_key(SimpleQEDPrivateKey::new(priv_key_1));
+    let pub_key_0 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_0));
+    let pub_key_1 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_1));
     timer.lap("finished building wallet/zksig circuits");
     
 
@@ -464,7 +446,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
 
     
     let (lps, st) = prepare_environment_with_real_contract(
-        vec![pub_key_0, pub_key_1],
+        vec![pub_key_0.into(), pub_key_1.into()],
         deploy_cmd,
     )?;
     
@@ -480,7 +462,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     let proof_store = SimpleProofStoreMemory::new();
     
     let mut api = SimpleAPI::<_,_,GoldilocksField,C,D>::new(proof_store, st, guta_circuits)?;
-    main_circuits.print_common_config();
+    //main_circuits.print_common_config();
     api.guta_circuits.print_common_config();
 
 
@@ -540,7 +522,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
             GoldilocksField::from_noncanonical_u64(1000)
         ]
     )?;
-    timer.lap("proved ups_cfc_standard_tx");
+    timer.lap("proved token.simple_mint_debug(amount: 1000)");
 
     
 
@@ -555,7 +537,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
             GoldilocksField::from_noncanonical_u64(100),
         ]
     )?;
-    timer.lap("proved ups_cfc_standard_tx");
+    timer.lap("proved token.simple_transfer(recipient: 2, amount: 100)");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
     let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
@@ -603,10 +585,10 @@ fn test_prove_simple() -> anyhow::Result<()> {
         &simple_mint_debug_circuit, 
         &simple_mint_debug_def,
         vec![
-            GoldilocksField::from_noncanonical_u64(1000)
+            GoldilocksField::from_noncanonical_u64(10000)
         ]
     )?;
-    timer.lap("proved ups_cfc_standard_tx");
+    timer.lap("proved token.simple_mint_debug(amount: 10000)");
 
     
 
@@ -617,11 +599,11 @@ fn test_prove_simple() -> anyhow::Result<()> {
         &simple_transfer_circuit, 
         &simple_transfer_def,
         vec![
-            GoldilocksField::from_noncanonical_u64(2),
-            GoldilocksField::from_noncanonical_u64(100),
+            GoldilocksField::from_noncanonical_u64(3),
+            GoldilocksField::from_noncanonical_u64(1337),
         ]
     )?;
-    timer.lap("proved ups_cfc_standard_tx");
+    timer.lap("proved token.simple_transfer(recipient: 3, amount: 1337)");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
     let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
@@ -661,7 +643,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("finished generating start witnesses");
     for p in pairs.into_iter() {
         let _proof = api.proof_start_dbg(p, main_circuits.ups_end_cap.get_verifier_config_ref())?;
-        timer.lap("proved GUTA verify two end cap");
+        timer.lap("Proved Recursive Global User Tree Aggregation");
 
     }
 
@@ -681,5 +663,5 @@ fn test_prove_simple() -> anyhow::Result<()> {
 }
 
 fn main() {
-    test_prove_simple().unwrap();
+    demo_user_proving_session().unwrap();
 }

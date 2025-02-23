@@ -94,25 +94,25 @@ impl UPSVerifyPopDeferredTxStepGadget {
         &self,
         witness: &mut impl Witness<F>,
         target: &UPSVerifyPopDeferredTxStepInput<F>,
-    ) {
+    )  -> anyhow::Result<()> {
         self.standard_cfc_verify_gadget.set_witness(
             witness, 
             &target.standard_cfc_verify_input
-        );
+        )?;
 
-        self.ups_pop_deferred_tx_proof.set_witness_core_proof_q(witness, &target.ups_pop_deferred_tx_proof);
+        self.ups_pop_deferred_tx_proof.set_witness_core_proof_q(witness, &target.ups_pop_deferred_tx_proof)
     }
 }
 
 
 impl<F: RichField> WitnessValueFor<UPSVerifyPopDeferredTxStepGadget, F, true> for UPSVerifyPopDeferredTxStepInput<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyPopDeferredTxStepGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyPopDeferredTxStepGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<UPSVerifyPopDeferredTxStepGadget, F, false> for UPSVerifyPopDeferredTxStepInput<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyPopDeferredTxStepGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyPopDeferredTxStepGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }

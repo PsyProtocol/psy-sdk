@@ -19,6 +19,23 @@ pub struct GUTAStatsGadget {
     // start computed
 }
 impl GUTAStatsGadget {
+    pub fn add_virtual_to_zero<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        let fees_collected = builder.zero();
+
+        let user_ops_processed = builder.zero();
+        let total_transactions = builder.zero();
+
+        let slots_modified = builder.zero();
+
+        Self {
+            fees_collected,
+            user_ops_processed,
+            total_transactions,
+            slots_modified,
+        }
+    }
     pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
@@ -54,11 +71,11 @@ impl GUTAStatsGadget {
             slots_modified,
         }
     }
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &GUTAStats<F>) {
-        witness.set_target(self.fees_collected, target.fees_collected);
-        witness.set_target(self.user_ops_processed, target.user_ops_processed);
-        witness.set_target(self.total_transactions, target.total_transactions);
-        witness.set_target(self.slots_modified, target.slots_modified);
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &GUTAStats<F>) -> anyhow::Result<()> {
+        witness.set_target(self.fees_collected, target.fees_collected)?;
+        witness.set_target(self.user_ops_processed, target.user_ops_processed)?;
+        witness.set_target(self.total_transactions, target.total_transactions)?;
+        witness.set_target(self.slots_modified, target.slots_modified)
     }
 
     pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
@@ -84,13 +101,13 @@ impl AlgebraicHashableTarget for GUTAStatsGadget {
     }
 }
 impl<F: RichField> WitnessValueFor<GUTAStatsGadget, F, true> for GUTAStats<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &GUTAStatsGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &GUTAStatsGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<GUTAStatsGadget, F, false> for GUTAStats<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &GUTAStatsGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &GUTAStatsGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }

@@ -102,7 +102,7 @@ mod tests {
         builder.curve_assert_valid(&res_expected);
 
         let n_target = builder.add_virtual_nonnative_target::<Secp256K1Scalar>();
-        pw.set_biguint_target(&n_target.value, &n.to_canonical_biguint());
+        pw.set_biguint_target(&n_target.value, &n.to_canonical_biguint()).unwrap();
 
         let res_target = fixed_base_curve_mul_circuit(&mut builder, g, &n_target);
         builder.curve_assert_valid(&res_target);

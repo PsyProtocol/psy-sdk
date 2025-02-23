@@ -1,5 +1,5 @@
 use kvq::adapters::standard::KVQStandardAdapter;
-use plonky2::{field::goldilocks_field::GoldilocksField, hash::{hash_types::HashOut, poseidon::PoseidonHash}};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonHash};
 use qed_core::{
     config::network_constants::{
         CHECKPOINT_TREE_HEIGHT, CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,
@@ -8,16 +8,12 @@ use qed_core::{
     data::qhashout::QHashOut,
 };
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
-use qed_data::qdata::{
-    checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
-    checkpoint_id_key::CheckpointTableIdKey,
-    contract::{ContractCodeDefinition, QEDContractLeaf},
-    u64_key::U64TableKey,
-    user::QEDUserLeaf,
-};
+use qed_data::{qdata::{
+    checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, checkpoint_id_key::CheckpointTableIdKey, contract::{ContractCodeDefinition, QEDContractLeaf}, hash_cache_result::QEDHashHelperResult, hash_key::Hash4x64Key, hash_key_with_id::Hash4x64KeyWithId, u64_key::U64TableKey, user::QEDUserLeaf, user_public_key::QEDUserPublicKeyRecord
+}, qsync::coordinator::QEDCheckpointSyncInfoCompact};
 
 use crate::models::{
-    checkpoint::{block_state::L2BlockStatesModel, checkpoint_leaf::QEDCheckpointLeafModel},
+    checkpoint::{block_state::L2BlockStatesModel, checkpoint_hash::QEDCheckpointHashHelperModel, checkpoint_leaf::QEDCheckpointLeafModel, sync_info::QEDCheckpointSyncInfoModel, user_public_keys::QEDUserPublicKeyHelperModel},
     contract::{contract_code::ContractCodeModel, contract_leaf::ContractLeafModel},
     kvq_merkle::{
         key::KVQMerkleNodeKey,
@@ -36,6 +32,7 @@ pub const DEPOSIT_TREE_ID: u8 = 5u8;
 pub const WITHDRAWAL_TREE_ID: u8 = 6u8;
 pub const USER_CONTRACT_TREE_ID: u8 = 7u8;
 pub const CONTRACT_STATE_TREE_ID: u8 = 8u8;
+pub const USER_REGISTRATION_TREE_ID: u8 = 9u8;
 
 pub const PROTOCOL_TREE_TABLE_TYPE: u16 = 1;
 pub const USER_CONTRACT_TREE_TABLE_TYPE: u16 = 2;
@@ -48,13 +45,19 @@ pub const CONTRACT_LEAF_TABLE_TYPE: u16 = 7;
 
 pub const CONTRACT_CODE_TABLE_TYPE: u16 = 8;
 
+
+pub const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16 = 9;
+pub const CHECKPOINT_HASH_HELPER_TABLE_TYPE: u16 = 10;
+pub const USER_PUBLIC_KEY_HELPER_TABLE_TYPE: u16 = 11;
+
 pub type QEDFelt = GoldilocksField;
 pub type QEDHash = QHashOut<QEDFelt>;
 pub type QEDHasher = PoseidonHash;
 pub type QEDMerkleProof = MerkleProofCore<QEDHash>;
 pub type QEDDeltaMerkleProof = DeltaMerkleProofCore<QEDHash>;
 pub type QCheckpointLeaf = QEDCheckpointLeaf<QEDFelt>;
-
+pub type QCheckpointSyncInfoCompact = QEDCheckpointSyncInfoCompact<QEDFelt>;
+pub type QUserPublicKeyRecord = QEDUserPublicKeyRecord<QEDFelt>;
 //pub type QEDParams = QEDTestnetTreeConfig;
 
 pub type UserLeafTableStore<S> = UserLeafModel<
@@ -84,6 +87,26 @@ pub type L2BlockStateTableStore<S> = L2BlockStatesModel<
     S,
     KVQStandardAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
 >;
+
+
+pub type CheckpointSyncInfoTableStore<S> = QEDCheckpointSyncInfoModel<
+    CHECKPOINT_SYNC_INFO_TABLE_TYPE,
+    S,
+    KVQStandardAdapter<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>,
+>;
+
+pub type CheckpointHashHelperTableStore<S> = QEDCheckpointHashHelperModel<
+    CHECKPOINT_HASH_HELPER_TABLE_TYPE,
+    S,
+    KVQStandardAdapter<S, Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>, QEDHashHelperResult>,
+>;
+
+pub type UserPublicKeyTableStore<S> = QEDUserPublicKeyHelperModel<
+    USER_PUBLIC_KEY_HELPER_TABLE_TYPE,
+    S,
+    KVQStandardAdapter<S, Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>, QUserPublicKeyRecord>,
+>;
+
 
 pub type ProtocolTreeStore<S, const TREE_ID: u8, const HEIGHT: u8> = KVQFixedConfigMerkleTreeModel<
     TREE_ID,
@@ -118,6 +141,7 @@ pub type BaseContractStateTreeStore<S> = KVQMerkleTreeModel<
     QEDHasher,
 >;
 
+pub type UserRegistrationTreeStore<S> = ProtocolTreeStore<S, USER_REGISTRATION_TREE_ID, GLOBAL_USER_TREE_HEIGHT>;
 pub type CheckpointTreeStore<S> = ProtocolTreeStore<S, CHECKPOINT_TREE_ID, CHECKPOINT_TREE_HEIGHT>;
 pub type UserTreeStore<S> = ProtocolTreeStore<S, USER_TREE_ID, GLOBAL_USER_TREE_HEIGHT>;
 pub type ContractTreeStore<S> = ProtocolTreeStore<S, CONTRACT_TREE_ID, GLOBAL_CONTRACT_TREE_HEIGHT>;
@@ -138,25 +162,13 @@ pub type DepositTreeStore<S> = ProtocolTreeStore<S, DEPOSIT_TREE_ID, GLOBAL_DEPO
 pub type WithdrawalTreeStore<S> = ProtocolTreeStore<S, WITHDRAWAL_TREE_ID, GLOBAL_WITHDRAWAL_TREE_HEIGHT>;
 
 // GLOBAL_CONTRACT_TREE_HEIGHT-th zero hash
-pub const DEFAULT_USER_STATE_TREE_ROOT: QHashOut<GoldilocksField> = QHashOut::<QEDFelt>(
-    HashOut {
-        elements: [
-            GoldilocksField(3896366420105793420),
-            GoldilocksField(17410332186442776169),
-            GoldilocksField(7329967984378645716),
-            GoldilocksField(6310665049578686403),
-        ],
-    }
-);
-
-
 #[cfg(test)]
 mod tests {
+    use qed_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
     use qed_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
     use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
     use qed_crypto::hash::traits::hasher::PoseidonHasher;
 
-    use crate::config::store_config::DEFAULT_USER_STATE_TREE_ROOT;
 
     #[test]
     fn check_default_user_state_tree_root() {

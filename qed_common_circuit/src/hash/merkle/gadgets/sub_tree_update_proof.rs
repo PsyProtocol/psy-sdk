@@ -146,15 +146,15 @@ impl UpdateNearestCommonAncestorProofGadget {
         child_b: &DeltaMerkleProofCore<QHashOut<F>>,
         nearest_common_ancestor_level: u8
         
-    ) {
-        self.child_a.set_witness(witness, child_a);
-        self.child_b.set_witness(witness, child_b);
+    )  -> anyhow::Result<()> {
+        self.child_a.set_witness(witness, child_a)?;
+        self.child_b.set_witness(witness, child_b)?;
 
         if self.has_witness_nearest_common_ancestor_level {
             witness.set_target(
                 self.nearest_common_ancestor_level,
                 F::from_canonical_u8(nearest_common_ancestor_level),
-            );
+            )?;
         }
         if self.has_witness_level_a {
             witness.set_target(
@@ -162,7 +162,7 @@ impl UpdateNearestCommonAncestorProofGadget {
                 F::from_canonical_u8(
                     nearest_common_ancestor_level + (child_a.siblings.len() as u8) + 1,
                 ),
-            );
+            )?;
         }
         if self.has_witness_level_b {
             witness.set_target(
@@ -170,37 +170,40 @@ impl UpdateNearestCommonAncestorProofGadget {
                 F::from_canonical_u8(
                     nearest_common_ancestor_level + (child_b.siblings.len() as u8) + 1,
                 ),
-            );
+            )?;
         }
+        Ok(())
     }
     pub fn set_witness_partial<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         input: &PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness_params(
             witness,
             &input.child_a,
             &input.child_b,
             input.nearest_common_ancestor_level,
-        );
+        )
     }
     pub fn set_witness_full<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         input: &UpdateNearestCommonAncestorProof<QHashOut<F>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness_params(
             witness,
             &input.child_a,
             &input.child_b,
             input.nearest_common_ancestor_level,
-        );
+        )
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Debug;
+
     use plonky2::field::types::PrimeField64;
     use plonky2::hash::poseidon::PoseidonHash;
     use plonky2::iop::witness::PartialWitness;
@@ -254,7 +257,7 @@ mod tests {
             nca_proof: &PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
         ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
             let mut pw = PartialWitness::new();
-            self.update_nca_gadget.set_witness_partial(&mut pw, nca_proof);
+            self.update_nca_gadget.set_witness_partial(&mut pw, nca_proof)?;
             self.circuit_data.prove(pw)
         }
     }
@@ -270,7 +273,7 @@ mod tests {
     type QEDHash = QHashOut<F>;
     type H = PoseidonHasher;
 
-    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default>(
+    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default+Debug>(
         tree: &SimpleMerkleTree<Hasher, Hash>,
     ) -> SimpleMerkleNodeKey {
         let index = thread_rng().gen::<u64>() & tree.get_max_leaf_index();

@@ -139,18 +139,18 @@ impl Secp256K1CircuitGadget {
         public_key: &ECDSAPublicKey<Secp256K1>,
         signature: &ECDSASignature<Secp256K1>,
         msg: &Secp256K1Scalar,
-    ) {
-        witness.set_biguint_target(&self.msg_biguint_target, &biguint_from_array(msg.0));
+    ) -> anyhow::Result<()> {
+        witness.set_biguint_target(&self.msg_biguint_target, &biguint_from_array(msg.0))?;
         witness.set_biguint_target(
             &self.public_key_x_target,
             &biguint_from_array(public_key.0.x.0),
-        );
+        )?;
         witness.set_biguint_target(
             &self.public_key_y_target,
             &biguint_from_array(public_key.0.y.0),
-        );
-        witness.set_biguint_target(&self.signature_r_target, &biguint_from_array(signature.r.0));
-        witness.set_biguint_target(&self.signature_s_target, &biguint_from_array(signature.s.0));
+        )?;
+        witness.set_biguint_target(&self.signature_r_target, &biguint_from_array(signature.r.0))?;
+        witness.set_biguint_target(&self.signature_s_target, &biguint_from_array(signature.s.0))
     }
 }
 
@@ -194,9 +194,10 @@ impl DogeQEDSignatureCombinedHashGadget {
         witness: &mut impl Witness<F>,
         public_key: &[F; 9],
         message_hash: HashOut<F>,
-    ) {
-        witness.set_hash_target(self.message_hash, message_hash);
-        witness.set_target_arr(&self.compressed_public_key, public_key);
+    ) -> anyhow::Result<()> {
+        witness.set_hash_target(self.message_hash, message_hash)?;
+        witness.set_target_arr(&self.compressed_public_key, public_key)?;
+        anyhow::Ok(())
     }
 
     pub fn set_witness_bytes<F: RichField>(
@@ -204,9 +205,10 @@ impl DogeQEDSignatureCombinedHashGadget {
         witness: &mut impl Witness<F>,
         public_key: &[u8; 33],
         message_hash: HashOut<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         let public_key_felts = bytes33_to_public_key(public_key);
-        self.set_witness(witness, &public_key_felts, message_hash);
+        self.set_witness(witness, &public_key_felts, message_hash)?;
+        Ok(())
     }
 }
 
@@ -311,10 +313,10 @@ impl DogeQEDSignatureGadget {
         public_key: &ECDSAPublicKey<Secp256K1>,
         signature: &ECDSASignature<Secp256K1>,
         msg: QHashOut<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         let msg_bytes = msg.to_le_bytes();
         //msg_bytes.reverse();
-        witness.set_hash256_bytes_target(&self.msg_bytes_target, &msg_bytes);
+        witness.set_hash256_bytes_target(&self.msg_bytes_target, &msg_bytes)?;
         //witness.set_hash_target(self.msg_hash_target, msg.0);
         /*witness.set_biguint_target(
             &self.msg_biguint_target,
@@ -323,13 +325,13 @@ impl DogeQEDSignatureGadget {
         witness.set_biguint_target(
             &self.public_key_x_target,
             &biguint_from_array(public_key.0.x.0),
-        );
+        )?;
         witness.set_biguint_target(
             &self.public_key_y_target,
             &biguint_from_array(public_key.0.y.0),
-        );
-        witness.set_biguint_target(&self.signature_r_target, &biguint_from_array(signature.r.0));
-        witness.set_biguint_target(&self.signature_s_target, &biguint_from_array(signature.s.0));
+        )?;
+        witness.set_biguint_target(&self.signature_r_target, &biguint_from_array(signature.r.0))?;
+        witness.set_biguint_target(&self.signature_s_target, &biguint_from_array(signature.s.0))
     }
 }
 
@@ -418,7 +420,7 @@ mod tests {
         let pk = ECDSAPublicKey((CurveScalar(sk.0) * Curve::GENERATOR_PROJECTIVE).to_affine());
 
         let sig = sign_message(msg, sk);
-        sig_gadget.set_witness_public_keys_update(&mut pw, &pk, &sig, &msg);
+        sig_gadget.set_witness_public_keys_update(&mut pw, &pk, &sig, &msg).unwrap();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -475,7 +477,7 @@ mod tests {
         let pk = ECDSAPublicKey(AffinePoint::nonzero(pub_x, pub_y));
 
         let sig = ECDSASignature { r, s };
-        sig_gadget.set_witness_public_keys_update(&mut pw, &pk, &sig, &msg);
+        sig_gadget.set_witness_public_keys_update(&mut pw, &pk, &sig, &msg).unwrap();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -545,7 +547,7 @@ mod tests {
                 .unwrap(),
         )
         .unwrap();
-        sig_gadget.set_witness_public_keys_update(&mut pw, &pk, &sig, ho);
+        sig_gadget.set_witness_public_keys_update(&mut pw, &pk, &sig, ho).unwrap();
         let proof = data.prove(pw).unwrap();
         tracing::info!("proof.public_inputs: {:?}", proof.public_inputs);
         data.verify(proof)

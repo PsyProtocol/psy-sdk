@@ -20,14 +20,9 @@ use qed_data::{
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
 use qed_store::{
-    controllers::local::proving_session::QEDLocalProvingSessionStore,
-    qblock::process::simple::SimpleBlockProcessor,
-    store::imm::cmd_processor::QEDReadCommandProcessorSync,
-    traits::qdatastore::
+    config::store_config::QEDHasher, controllers::local::proving_session::QEDLocalProvingSessionStore, qblock::process::simple::SimpleBlockProcessor, store::imm::cmd_processor::QEDReadCommandProcessorSync, traits::qdatastore::
         qtreedata::
             QEDComboDataStoreReaderWriterSync
-        
-    ,
 };
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
@@ -113,22 +108,14 @@ fn prepare_environment_with_contract(
         &st,
         &QEDBlockCommands {
             register_users: vec![
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(1, 1, 1, 1),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(13371, 13372, 13373, 13374),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::from_values(13375, 13376, 13377, 13378),
-                },
-                QBCRegisterUser {
-                    public_key: QHashOut::rand(),
-                },
+                QBCRegisterUser::new_from_u64s([1;4], [1;4]),
+                QBCRegisterUser::new_from_u64s([1;4], [13371, 13372, 13373, 13374]),
+                QBCRegisterUser::new_from_u64s([1;4], [13375, 13376, 13377, 13378]),
+                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
             ],
             deploy_contracts: vec![
                 QBCDeployContract {
-                    deployer: QHashOut::from_values(13371, 13372, 13373, 13374),
+                    deployer: QBCRegisterUser::new_from_u64s([1;4], [13371, 13372, 13373, 13374]).get_public_key::<QEDHasher>(),
                     code_definition: ContractCodeDefinition {
                         state_tree_height: state_tree_height as u16,
                         functions: vec![ContractFunctionCodeDefinition::default()],
@@ -136,7 +123,7 @@ fn prepare_environment_with_contract(
                     function_whitelist: whitelist.to_vec(),
                 },
                 QBCDeployContract {
-                    deployer: QHashOut::from_values(13375, 13376, 13377, 13378),
+                    deployer: QBCRegisterUser::new_from_u64s([1;4], [13375, 13376, 13377, 13378]).get_public_key::<QEDHasher>(),
                     code_definition: ContractCodeDefinition {
                         state_tree_height: state_tree_height as u16,
                         functions: vec![ContractFunctionCodeDefinition::default()],
@@ -210,7 +197,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     let session_proof_tree_height = 16;
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
-    let cf_circuit = DapenContractFunctionCircuit::<C, D>::new(&compiled, contract_state_tree_height, session_proof_tree_height);
+    let cf_circuit = DapenContractFunctionCircuit::<C, D>::new(&compiled, contract_state_tree_height, session_proof_tree_height, false);
     
     timer.lap("built circuit");
     

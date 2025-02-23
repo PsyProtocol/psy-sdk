@@ -33,7 +33,7 @@ impl<F: RichField> KVQSerializable for GlobalUserTreeAggregatorHeader<F> {
 impl<F: RichField> QFieldHashable<F> for GlobalUserTreeAggregatorHeader<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         let state_transition_hash = self.state_transition.qfhash::<H>();
-        let stats_hash = self.state_transition.qfhash::<H>();
+        let stats_hash = self.stats.qfhash::<H>();
 
 
 

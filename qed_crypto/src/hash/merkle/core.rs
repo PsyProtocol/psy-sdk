@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::hash::traits::hasher::{MerkleHasher, MerkleHasherWithMarkedLeaf, MerkleZeroHasher, QHasher};
 
+
+
 pub fn compute_partial_merkle_root_from_leaves_algebraic<F: RichField, H:AlgebraicHasher<F>>(
     leaves: &[HashOut<F>],
 ) -> HashOut<F> {
@@ -185,6 +187,15 @@ impl<Hash: PartialEq + Copy + Default> Default for MerkleProofCore<Hash> {
     }
 }
 impl<Hash: PartialEq + Copy> MerkleProofCore<Hash> {
+    pub fn new_from_params<Hasher: MerkleHasher<Hash>>(index: u64, value: Hash, siblings: Vec<Hash>) -> Self {
+        let root =compute_root_merkle_proof_generic::<Hash, Hasher>(value, index, &siblings);
+        Self {
+            root,
+            value,
+            index,
+            siblings,
+        }
+    }
     pub fn verify<Hasher: MerkleHasher<Hash>>(&self) -> bool {
         verify_merkle_proof_core::<Hash, Hasher>(self)
     }
@@ -256,6 +267,16 @@ impl<Hash: PartialEq + Copy> DeltaMerkleProofCore<Hash> {
             new_value,
             index,
             siblings,
+        }
+    }
+    pub fn single_value(index: u64, old_value: Hash, new_value: Hash) -> Self {
+        Self {
+            old_root: old_value,
+            old_value,
+            new_root: new_value,
+            new_value,
+            index,
+            siblings: Vec::new(),
         }
     }
     pub fn with_shortened_height_from_bottom<H: MerkleHasher<Hash>>(&self, new_height: usize) -> Self {
@@ -379,6 +400,8 @@ pub fn compute_historical_and_current_merkle_roots_core<Hash: PartialEq + Copy, 
     }
     (historical, current)
 }
+
+
 pub fn verify_delta_merkle_proof_core<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(
     proof: &DeltaMerkleProofCore<Hash>,
 ) -> bool {

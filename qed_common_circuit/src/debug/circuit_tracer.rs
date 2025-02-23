@@ -91,7 +91,7 @@ impl DebugCircuitTracer {
         common_data: &CommonCircuitData<F, D>,
         targets_to_constants: &hashbrown::HashMap<Target, F>,
     ) -> DebugCircuitTraceResult<F> {
-        let parition_witness = generate_partial_witness(witness.clone(), prover_data, common_data);
+        let parition_witness = generate_partial_witness(witness.clone(), prover_data, common_data).unwrap();
         let trace_groups =
             self.resolve::<PartitionWitness<F>, F>(&parition_witness, targets_to_constants);
         let mut trace_groups_hash: HashMap<String, QHashOut<F>> = HashMap::new();

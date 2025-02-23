@@ -121,25 +121,25 @@ impl UPSVerifyCFCProofExistsAndValidGadget {
         checkpoint_state: &QEDCheckpointLeafCompactWithStateRoots<F>,
         verify_cfc_proof_input: &AttestTreeAwareProofInTreeInput<F>,
         cfc_inclusion_proof: &QEDContractFunctionInclusionProof<F>,
-    ) {
+    )  -> anyhow::Result<()> {
         //self.checkpoint_state_gadget.set_witness_params(witness, global_state_roots, stats_hash);
-        self.checkpoint_state_gadget.set_witness(witness, checkpoint_state);
-        self.verify_cfc_proof_gadget.set_witness(witness, verify_cfc_proof_input);
-        self.cfc_inclusion_proof_gadget.set_witness(witness, cfc_inclusion_proof);
+        self.checkpoint_state_gadget.set_witness(witness, checkpoint_state)?;
+        self.verify_cfc_proof_gadget.set_witness(witness, verify_cfc_proof_input)?;
+        self.cfc_inclusion_proof_gadget.set_witness(witness, cfc_inclusion_proof)
     }
 }
 
 
 /*
 impl<F: RichField> WitnessValueFor<UPSVerifyCFCProofExistsAndValidGadget, F, true> for UPSVerifyCFCProofExistsAndValidInput<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyCFCProofExistsAndValidGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyCFCProofExistsAndValidGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<UPSVerifyCFCProofExistsAndValidGadget, F, false> for UPSVerifyCFCProofExistsAndValidInput<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyCFCProofExistsAndValidGadget) {
-        target.set_witness(witness, self);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UPSVerifyCFCProofExistsAndValidGadget) -> anyhow::Result<()> {
+        target.set_witness(witness, self)
     }
 }
 

@@ -103,28 +103,28 @@ impl AggStateTrackableWithEventsCircuitHeaderGadget {
         input: &AggStateTransitionWithEventsInput<F>,
         agg_fingerprint: QHashOut<F>,
         leaf_fingerprint: QHashOut<F>,
-    ) {
-        witness.set_hash_target(self.agg_fingerprint, agg_fingerprint.0);
-        witness.set_hash_target(self.leaf_fingerprint, leaf_fingerprint.0);
+    ) -> anyhow::Result<()> {
+        witness.set_hash_target(self.agg_fingerprint, agg_fingerprint.0)?;
+        witness.set_hash_target(self.leaf_fingerprint, leaf_fingerprint.0)?;
 
         witness.set_hash_target(
             self.left_state_transition_start,
             input.left_input.state_transition_start.0,
-        );
+        )?;
         witness.set_hash_target(
             self.left_state_transition_end,
             input.left_input.state_transition_end.0,
-        );
+        )?;
         witness.set_hash_target(
             self.right_state_transition_start,
             input.right_input.state_transition_start.0,
-        );
+        )?;
         witness.set_hash_target(
             self.right_state_transition_end,
             input.right_input.state_transition_end.0,
-        );
-        witness.set_hash_target(self.left_event_hash, input.left_input.event_hash.0);
-        witness.set_hash_target(self.right_event_hash, input.right_input.event_hash.0);
+        )?;
+        witness.set_hash_target(self.left_event_hash, input.left_input.event_hash.0)?;
+        witness.set_hash_target(self.right_event_hash, input.right_input.event_hash.0)
     }
 }
 
@@ -308,9 +308,9 @@ where
         */
         let mut pw = PartialWitness::<C::F>::new();
         self.header_gadget
-            .set_witness(&mut pw, input, agg_fingerprint, leaf_fingerprint);
+            .set_witness(&mut pw, input, agg_fingerprint, leaf_fingerprint)?;
 
-        pw.set_proof_with_pis_target(&self.left_proof, left_proof);
+        pw.set_proof_with_pis_target(&self.left_proof, left_proof)?;
         pw.set_verifier_data_target(
             &self.left_verifier_data,
             if input.left_proof_is_leaf {
@@ -318,8 +318,8 @@ where
             } else {
                 agg_verifier_data
             },
-        );
-        pw.set_proof_with_pis_target(&self.right_proof, right_proof);
+        )?;
+        pw.set_proof_with_pis_target(&self.right_proof, right_proof)?;
         pw.set_verifier_data_target(
             &self.right_verifier_data,
             if input.right_proof_is_leaf {
@@ -327,7 +327,7 @@ where
             } else {
                 agg_verifier_data
             },
-        );
+        )?;
         let result = self.circuit_data.prove(pw);
 
         if result.is_err() {

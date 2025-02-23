@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use plonky2::{
     hash::hash_types::{HashOut, HashOutTarget}, iop::
         witness::{PartialWitness, WitnessWrite}
@@ -9,14 +10,15 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::QStandardCircuit, proof_minifier::
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
-use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
+use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher}};
 use qed_data::guta::proof_input::VerifySingleEndCapInput;
 
 use crate::guta::gadgets::{helpers::ToGUTAHeader, verify_end_cap::VerifyEndCapProofGadget};
+
 
 #[derive(Debug)]
 pub struct GUTAVerifySingleEndCapCircuit<C: GenericConfig<D> + 'static, const D: usize>
@@ -83,7 +85,7 @@ where
         end_cap_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
-        pw.set_hash_target(self.guta_circuit_whitelist_root_hash, input.guta_circuit_whitelist.0);
+        pw.set_hash_target(self.guta_circuit_whitelist_root_hash, input.guta_circuit_whitelist.0)?;
 
         self.a_end_cap_gadget.set_witness(
             &mut pw,
@@ -92,7 +94,7 @@ where
             &input.a_end_cap.checkpoint_historical_merkle_proof,
             child_a_proof,
             end_cap_verifier_data
-        );
+        )?;
 
         self.circuit_data.prove(pw)
     }
@@ -117,3 +119,43 @@ where
     }
 }
 
+
+#[async_trait]
+impl<
+        S: QProofStoreReaderAsync + Send + Sync,
+        L: CircuitInfoLibrary<C, D> + Send + Sync,
+        C: GenericConfig<D> + 'static,
+        const D: usize,
+    > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
+    for GUTAVerifySingleEndCapCircuit<C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
+    async fn prove_with_proof_store_async(
+        &self,
+        store: &S,
+        library: &L,
+        job_id: QProvingJobDataID,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        let r: CircuitInputWithDependencies<VerifySingleEndCapInput<C::F>> =
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
+                .map_err(|e| anyhow::anyhow!(e))?;
+        if r.dependencies.len() != 1 {
+            anyhow::bail!("invalid dependency count in two end guta input");
+        }
+
+        let child_a_proof = store.get_proof_by_id(r.dependencies[0]).await?;
+
+        let dep_a_type = r.dependencies[0].circuit_type;
+
+        let child_a_verifier_data = library.get_verifier_data(dep_a_type)?;
+
+        let result = self.prove_base(
+            &r.input,
+            &child_a_proof,
+            &child_a_verifier_data,
+        )?;
+
+        Ok(result)
+    }
+}

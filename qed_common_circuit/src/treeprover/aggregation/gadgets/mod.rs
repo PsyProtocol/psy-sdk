@@ -1,4 +1,5 @@
 
+
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOutTarget, RichField},
@@ -16,6 +17,7 @@ use crate::builder::{
     verify::CircuitBuilderVerifyProofHelpers,
 };
 
+pub mod verify_state_transition;
 #[derive(Debug, Clone, Copy)]
 pub struct AggStateTransitionGadget {
     pub state_transition_start: HashOutTarget,
@@ -78,32 +80,32 @@ impl AggStateTransitionGadget {
         &self,
         witness: &mut W,
         transition: &AggStateTransition<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         witness.set_hash_target(
             self.state_transition_start,
             transition.state_transition_start.0,
-        );
-        witness.set_hash_target(self.state_transition_end, transition.state_transition_end.0);
+        )?;
+        witness.set_hash_target(self.state_transition_end, transition.state_transition_end.0)
     }
     pub fn set_witness_with_events<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         transition: &AggStateTransitionWithEvents<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         witness.set_hash_target(
             self.state_transition_start,
             transition.state_transition_start.0,
-        );
-        witness.set_hash_target(self.state_transition_end, transition.state_transition_end.0);
+        )?;
+        witness.set_hash_target(self.state_transition_end, transition.state_transition_end.0)
     }
     pub fn set_witness_values<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         state_transition_start: QHashOut<F>,
         state_transition_end: QHashOut<F>,
-    ) {
-        witness.set_hash_target(self.state_transition_start, state_transition_start.0);
-        witness.set_hash_target(self.state_transition_end, state_transition_end.0);
+    ) -> anyhow::Result<()> {
+        witness.set_hash_target(self.state_transition_start, state_transition_start.0)?;
+        witness.set_hash_target(self.state_transition_end, state_transition_end.0)
     }
 }
 

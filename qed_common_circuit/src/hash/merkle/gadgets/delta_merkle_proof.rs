@@ -1,6 +1,6 @@
 
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, types::Field},
     hash::hash_types::{HashOut, HashOutTarget, RichField},
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
@@ -426,128 +426,130 @@ impl DeltaMerkleProofGadget {
             option_flags: DeltaMerkleProofGadgetOptionFlags::from_bits(option_flags).unwrap(),
         }
     }
-    pub fn set_witness<W: Witness<F>, F: RichField>(
+    pub fn set_witness<W: Witness<F>, F: Field>(
         &self,
         witness: &mut W,
         index: F,
         old_value: QHashOut<F>,
         new_value: QHashOut<F>,
         siblings: &[QHashOut<F>],
-    ) {
+    ) -> anyhow::Result<()> {
         if !self
             .option_flags
             .contains(DeltaMerkleProofGadgetOptionFlags::index)
         {
-            witness.set_target(self.index, index);
+            witness.set_target(self.index, index)?;
         }
         if !self
             .option_flags
             .contains(DeltaMerkleProofGadgetOptionFlags::old_value)
         {
-            witness.set_hash_target(self.old_value, old_value.0);
+            witness.set_hash_target(self.old_value, old_value.0)?;
         }
         if !self
             .option_flags
             .contains(DeltaMerkleProofGadgetOptionFlags::siblings)
         {
             for (i, sibling) in self.siblings.iter().enumerate() {
-                witness.set_hash_target(*sibling, siblings[i].0);
+                witness.set_hash_target(*sibling, siblings[i].0)?;
             }
         }
         if !self
             .option_flags
             .contains(DeltaMerkleProofGadgetOptionFlags::new_value)
         {
-            witness.set_hash_target(self.new_value, new_value.0);
+            witness.set_hash_target(self.new_value, new_value.0)?;
         }
+        Ok(())
     }
 
-    pub fn set_witness_hash_out<W: Witness<F>, F: RichField>(
+    pub fn set_witness_hash_out<W: Witness<F>, F: Field>(
         &self,
         witness: &mut W,
         index: F,
         old_value: HashOut<F>,
         new_value: HashOut<F>,
         siblings: &[HashOut<F>],
-    ) {
+    )  -> anyhow::Result<()> {
         if !self
             .option_flags
             .contains(DeltaMerkleProofGadgetOptionFlags::index)
         {
-            witness.set_target(self.index, index);
+            witness.set_target(self.index, index)?;
         }
         if !self
             .option_flags
             .contains(DeltaMerkleProofGadgetOptionFlags::old_value)
         {
-            witness.set_hash_target(self.old_value, old_value);
+            witness.set_hash_target(self.old_value, old_value)?;
         }
         if !self
             .option_flags
             .contains(DeltaMerkleProofGadgetOptionFlags::siblings)
         {
             for (i, sibling) in self.siblings.iter().enumerate() {
-                witness.set_hash_target(*sibling, siblings[i]);
+                witness.set_hash_target(*sibling, siblings[i])?;
             }
         }
         if !self
             .option_flags
             .contains(DeltaMerkleProofGadgetOptionFlags::new_value)
         {
-            witness.set_hash_target(self.new_value, new_value);
+            witness.set_hash_target(self.new_value, new_value)?;
         }
+        Ok(())
     }
     pub fn set_witness_proof<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         input: &DeltaMerkleProof<F>,
-    ) {
+    )  -> anyhow::Result<()> {
         self.set_witness(
             witness,
             input.index,
             input.old_value,
             input.new_value,
             &input.siblings,
-        );
+        )
     }
     pub fn set_witness_base_proof<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         input: &DeltaMerkleProofBase<F>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness(
             witness,
             input.index,
             input.old_value,
             input.new_value,
             &input.siblings,
-        );
+        )
     }
-    pub fn set_witness_core_proof_q<W: Witness<F>, F: RichField>(
+    pub fn set_witness_core_proof_q<W: Witness<F>, F: Field>(
         &self,
         witness: &mut W,
         input: &DeltaMerkleProofCore<QHashOut<F>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness(
             witness,
             F::from_noncanonical_u64(input.index),
             input.old_value,
             input.new_value,
             &input.siblings,
-        );
+        )
     }
-    pub fn set_witness_core_proof<W: Witness<F>, F: RichField>(
+    pub fn set_witness_core_proof<W: Witness<F>, F: Field>(
         &self,
         witness: &mut W,
         input: &DeltaMerkleProofCore<HashOut<F>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness_hash_out(
             witness,
             F::from_noncanonical_u64(input.index),
             input.old_value,
             input.new_value,
             &input.siblings,
-        );
+        )
     }
 }
 
@@ -890,7 +892,7 @@ mod tests {
         builder.register_public_inputs(&dmp_gadget.new_root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        dmp_gadget.set_witness_proof(&mut pw, dmp);
+        dmp_gadget.set_witness_proof(&mut pw, dmp).unwrap();
         let proof = data.prove(pw).unwrap();
         let pub_inputs = proof.public_inputs.clone();
         assert_eq!(pub_inputs[0..4], dmp.old_root.0.elements);
@@ -920,7 +922,7 @@ mod tests {
         builder.register_public_inputs(&dmp_gadget.new_root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        dmp_gadget.set_witness_proof(&mut pw, dmp);
+        dmp_gadget.set_witness_proof(&mut pw, dmp).unwrap();
         let proof = data.prove(pw).unwrap();
         let pub_inputs = proof.public_inputs.clone();
         assert_eq!(pub_inputs[0..4], dmp.old_root.0.elements);
@@ -952,7 +954,7 @@ mod tests {
         builder.register_public_inputs(&dmp_gadget.new_root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        dmp_gadget.set_witness_proof(&mut pw, dmp);
+        dmp_gadget.set_witness_proof(&mut pw, dmp).unwrap();
 
         data.prove(pw).unwrap();
     }
@@ -981,7 +983,7 @@ mod tests {
         builder.register_public_inputs(&dmp_gadget.new_root.elements);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
-        dmp_gadget.set_witness_proof(&mut pw, dmp);
+        dmp_gadget.set_witness_proof(&mut pw, dmp).unwrap();
         data.prove(pw).unwrap();
     }
 

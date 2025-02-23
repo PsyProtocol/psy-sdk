@@ -23,25 +23,27 @@ impl ToTargets for Hash160Target {
     }
 }
 pub trait WitnessHash160<F: PrimeField64>: Witness<F> {
-    fn set_hash160_target(&mut self, target: &Hash160Target, value: &[u8]);
-    fn set_hash160_target_le(&mut self, target: &Hash160Target, value: &[u8]);
+    fn set_hash160_target(&mut self, target: &Hash160Target, value: &[u8]) -> anyhow::Result<()>;
+    fn set_hash160_target_le(&mut self, target: &Hash160Target, value: &[u8]) -> anyhow::Result<()>;
 }
 
 impl<T: Witness<F>, F: PrimeField64> WitnessHash160<F> for T {
-    fn set_hash160_target(&mut self, target: &Hash160Target, value: &[u8]) {
-        self.set_u32_target(target[0], read_u32_be_at(value, 0));
-        self.set_u32_target(target[1], read_u32_be_at(value, 4));
-        self.set_u32_target(target[2], read_u32_be_at(value, 8));
-        self.set_u32_target(target[3], read_u32_be_at(value, 12));
-        self.set_u32_target(target[4], read_u32_be_at(value, 16));
+    fn set_hash160_target(&mut self, target: &Hash160Target, value: &[u8]) -> anyhow::Result<()> {
+        self.set_u32_target(target[0], read_u32_be_at(value, 0))?;
+        self.set_u32_target(target[1], read_u32_be_at(value, 4))?;
+        self.set_u32_target(target[2], read_u32_be_at(value, 8))?;
+        self.set_u32_target(target[3], read_u32_be_at(value, 12))?;
+        self.set_u32_target(target[4], read_u32_be_at(value, 16))?;
+        Ok(())
     }
 
-    fn set_hash160_target_le(&mut self, target: &Hash160Target, value: &[u8]) {
-        self.set_u32_target(target[0], read_u32_le_at(value, 0));
-        self.set_u32_target(target[1], read_u32_le_at(value, 4));
-        self.set_u32_target(target[2], read_u32_le_at(value, 8));
-        self.set_u32_target(target[3], read_u32_le_at(value, 12));
-        self.set_u32_target(target[4], read_u32_le_at(value, 16));
+    fn set_hash160_target_le(&mut self, target: &Hash160Target, value: &[u8])  -> anyhow::Result<()> {
+        self.set_u32_target(target[0], read_u32_le_at(value, 0))?;
+        self.set_u32_target(target[1], read_u32_le_at(value, 4))?;
+        self.set_u32_target(target[2], read_u32_le_at(value, 8))?;
+        self.set_u32_target(target[3], read_u32_le_at(value, 12))?;
+        self.set_u32_target(target[4], read_u32_le_at(value, 16))?;
+        Ok(())
     }
 }
 
@@ -123,13 +125,15 @@ impl ConnectableTarget for Hash160Target {
 }
 
 impl<F: RichField> WitnessValueFor<Hash160Target, F, false> for Hash160 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash160Target) {
-        witness.set_hash160_target_le(&target, &self.0);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash160Target) -> anyhow::Result<()>{
+        witness.set_hash160_target_le(&target, &self.0)?;
+        Ok(())
     }
 }
 
 impl<F: RichField> WitnessValueFor<Hash160Target, F, true> for Hash160 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash160Target) {
-        witness.set_hash160_target(&target, &self.0);
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash160Target) -> anyhow::Result<()>{
+        witness.set_hash160_target(&target, &self.0)?;
+        Ok(())
     }
 }

@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
+use kvq::traits::KVQPair;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use qed_core::job::{id::QProvingJobDataID, traits::{QProofStoreReaderSync, QProofStoreWriterSync}};
+use qed_core::job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync, QProofStoreWriterAsyncImm, QProofStoreWriterSync}};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,6 +22,15 @@ impl SimpleProofStoreMemory {
     }
     pub fn from_serialized_bytes(data: &[u8]) -> anyhow::Result<Self> {
         bincode::deserialize(data).map_err(|err| anyhow::anyhow!("{}", err))
+    }
+    pub async fn dump_to_async_store<PS: QProofStoreWriterAsyncImm+QProofStoreReaderAsync>(self, store: &PS) -> anyhow::Result<()> {
+        store.set_bytes_by_id_batch(&self.proofs.into_iter().map(|(key, value)|{
+            KVQPair{
+                key,
+                value,
+            }
+        }).collect::<Vec<_>>()).await?;
+        Ok(())
     }
 }
 

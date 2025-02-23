@@ -298,18 +298,19 @@ impl VariableHeightMerkleProofGadget {
         index: F,
         value: QHashOut<F>,
         siblings: &[QHashOut<F>],
-    ) {
-            witness.set_target(self.index, index);
-            witness.set_hash_target(self.value, value.0);
+    ) -> anyhow::Result<()> {
+            witness.set_target(self.index, index)?;
+            witness.set_hash_target(self.value, value.0)?;
             if self.has_witness_height {
-                witness.set_target(self.height, F::from_canonical_usize(siblings.len()));
+                witness.set_target(self.height, F::from_canonical_usize(siblings.len()))?;
             }
             for i in 0..siblings.len() {
-                witness.set_hash_target(self.siblings[i], siblings[i].0);
+                witness.set_hash_target(self.siblings[i], siblings[i].0)?;
             }
             for i in siblings.len()..self.max_height {
-                witness.set_hash_target(self.siblings[i], HashOut::ZERO);
+                witness.set_hash_target(self.siblings[i], HashOut::ZERO)?;
             }
+            Ok(())
     }
     pub fn set_witness<F: RichField>(
         &self,
@@ -317,46 +318,46 @@ impl VariableHeightMerkleProofGadget {
         index: F,
         value: QHashOut<F>,
         siblings: &[QHashOut<F>],
-    ) {
-        self.set_witness_generic(witness, index, value, siblings);
+    ) -> anyhow::Result<()> {
+        self.set_witness_generic(witness, index, value, siblings)
     }
     pub fn set_witness_proof<F: RichField>(
         &self,
         witness: &mut PartialWitness<F>,
         input: &MerkleProof<F>,
-    ) {
-        self.set_witness(witness, input.index, input.value, &input.siblings);
+    ) -> anyhow::Result<()> {
+        self.set_witness(witness, input.index, input.value, &input.siblings)
     }
     pub fn set_witness_base_proof<F: RichField>(
         &self,
         witness: &mut PartialWitness<F>,
         input: &MerkleProofBase<F>,
-    ) {
-        self.set_witness(witness, input.index, input.value, &input.siblings);
+    ) -> anyhow::Result<()> {
+        self.set_witness(witness, input.index, input.value, &input.siblings)
     }
     pub fn set_witness_core_proof_q_generic<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         input: &MerkleProofCore<QHashOut<F>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness_generic(
             witness,
             F::from_noncanonical_u64(input.index),
             input.value,
             &input.siblings,
-        );
+        )
     }
     pub fn set_witness_core_proof_q<F: RichField>(
         &self,
         witness: &mut PartialWitness<F>,
         input: &MerkleProofCore<QHashOut<F>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.set_witness(
             witness,
             F::from_noncanonical_u64(input.index),
             input.value,
             &input.siblings,
-        );
+        )
     }
 }
 
@@ -413,11 +414,11 @@ mod tests {
         }
         pub fn prove(&self, height: usize, merkle_proof: &MerkleProofCore<QHashOut<F>>) -> anyhow::Result<ProofWithPublicInputs<F,C,D>> {
             let mut pw = PartialWitness::new();
-            pw.set_target(self.height, F::from_canonical_usize(height));
+            pw.set_target(self.height, F::from_canonical_usize(height))?;
             self.variable_merkle_proof_gadget.set_witness_core_proof_q_generic(
                 &mut pw,
                 merkle_proof,
-            );
+            )?;
             self.circuit_data.prove(pw)
         }
     }
@@ -494,18 +495,18 @@ mod tests {
             let level_b = (merkle_proof_b.siblings.len() as u8 +sub_root_level) as u8;
 
             let mut pw = PartialWitness::new();
-            pw.set_target(self.sub_root_level, F::from_canonical_u8(sub_root_level));
-            pw.set_target(self.level_a, F::from_canonical_u8(level_a));
-            pw.set_target(self.level_b, F::from_canonical_u8(level_b));
+            pw.set_target(self.sub_root_level, F::from_canonical_u8(sub_root_level))?;
+            pw.set_target(self.level_a, F::from_canonical_u8(level_a))?;
+            pw.set_target(self.level_b, F::from_canonical_u8(level_b))?;
             
             self.variable_merkle_proof_gadget_a.set_witness_core_proof_q_generic(
                 &mut pw,
                 merkle_proof_a,
-            );
+            )?;
             self.variable_merkle_proof_gadget_b.set_witness_core_proof_q_generic(
                 &mut pw,
                 merkle_proof_b,
-            );
+            )?;
             self.circuit_data.prove(pw)
         }
     }

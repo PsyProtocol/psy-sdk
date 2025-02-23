@@ -51,13 +51,14 @@ impl DeltaMerkleProofSha256Gadget {
         old_value: &[u8; 32],
         new_value: &[u8; 32],
         siblings: &[[u8; 32]],
-    ) {
-        witness.set_hash256_target(&self.old_value, old_value);
-        witness.set_hash256_target(&self.new_value, new_value);
-        witness.set_target(self.index, F::from_noncanonical_u64(index));
+    ) -> anyhow::Result<()> {
+        witness.set_hash256_target(&self.old_value, old_value)?;
+        witness.set_hash256_target(&self.new_value, new_value)?;
+        witness.set_target(self.index, F::from_noncanonical_u64(index))?;
         for (i, sibling) in self.siblings.iter().enumerate() {
-            witness.set_hash256_target(sibling, &siblings[i]);
+            witness.set_hash256_target(sibling, &siblings[i])?;
         }
+        Ok(())
     }
 }
 
@@ -112,9 +113,9 @@ mod tests {
       }
       "#;
         let proof = serde_json::from_str::<DeltaMerkleProof256>(proof_serialized).unwrap();
-        merkle_proof_gadget.set_witness_from_proof(&mut pw, &proof);
-        pw.set_hash256_target(&expected_old_root_target, &proof.old_root.0);
-        pw.set_hash256_target(&expected_new_root_target, &proof.new_root.0);
+        merkle_proof_gadget.set_witness_from_proof(&mut pw, &proof).unwrap();
+        pw.set_hash256_target(&expected_old_root_target, &proof.old_root.0).unwrap();
+        pw.set_hash256_target(&expected_new_root_target, &proof.new_root.0).unwrap();
 
         let start_time = std::time::Instant::now();
 

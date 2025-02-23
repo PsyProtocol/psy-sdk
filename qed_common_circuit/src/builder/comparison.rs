@@ -7,6 +7,8 @@ use plonky2::{
 
 use crate::u32::multiple_comparison::list_lte_circuit;
 
+use super::core::CircuitBuilderHelpersCore;
+
 pub trait CircuitBuilderComparison<F: RichField + Extendable<D>, const D: usize> {
     fn is_less_than_or_equal(&mut self, num_bits: usize, x: Target, y: Target) -> BoolTarget;
     fn is_less_than_or_equal_split(&mut self, num_bits: usize, x: Target, y: Target) -> BoolTarget;
@@ -16,6 +18,7 @@ pub trait CircuitBuilderComparison<F: RichField + Extendable<D>, const D: usize>
     fn is_not_equal(&mut self, x: Target, y: Target) -> BoolTarget;
     fn is_not_equal_bool(&mut self, x: BoolTarget, y: BoolTarget) -> BoolTarget;
     fn is_zero(&mut self, x: Target) -> BoolTarget;
+    fn is_equal_to_u64(&mut self, x: Target, value: u64) -> BoolTarget;
     fn is_zero_hash(&mut self, x: HashOutTarget) -> BoolTarget;
     fn is_not_zero(&mut self, x: Target) -> BoolTarget;
 
@@ -25,6 +28,9 @@ pub trait CircuitBuilderComparison<F: RichField + Extendable<D>, const D: usize>
     fn ensure_is_greater_than(&mut self, num_bits: usize, x: Target, y: Target);
     fn ensure_not_equal(&mut self, x: Target, y: Target);
     fn ensure_not_equal_bool(&mut self, x: BoolTarget, y: BoolTarget);
+    fn assert_zero_hash(&mut self, hash: HashOutTarget);
+    fn assert_non_zero_hash(&mut self, hash: HashOutTarget);
+    fn assert_non_zero(&mut self, x: Target);
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D>
@@ -166,5 +172,33 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
         let x_times_y = self.mul(x.target, y.target);
         let x_times_y_2 = self.add(x_times_y, x_times_y);
         BoolTarget::new_unsafe(self.sub(x_plus_y, x_times_y_2))
+    }
+    
+    fn is_equal_to_u64(&mut self, x: Target, value: u64) -> BoolTarget {
+        if value == 0 {
+            self.is_zero(x)
+        }else{
+            let constant_u64 = self.constant_u64(value);
+            self.is_equal(x, constant_u64)
+        }
+    }
+    
+    fn assert_zero_hash(&mut self, hash: HashOutTarget) {
+        self.assert_zero(hash.elements[0]);
+        self.assert_zero(hash.elements[1]);
+        self.assert_zero(hash.elements[2]);
+        self.assert_zero(hash.elements[3]);
+    }
+    
+    fn assert_non_zero(&mut self, x: Target) {
+        let is_zero = self.is_zero(x);
+        self.assert_zero(is_zero.target)
+    }
+    
+    fn assert_non_zero_hash(&mut self, hash: HashOutTarget) {
+        self.assert_non_zero(hash.elements[0]);
+        self.assert_non_zero(hash.elements[1]);
+        self.assert_non_zero(hash.elements[2]);
+        self.assert_non_zero(hash.elements[3]);
     }
 }

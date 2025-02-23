@@ -77,8 +77,8 @@ pub struct VariableHeightDeltaMerkleProofOptGadget {
 
     // computed
     pub bit_info: VariableHeightBitInfo,
-    max_height: usize,
-    has_witness_height: bool,
+    pub max_height: usize,
+    pub has_witness_height: bool,
 }
 impl VariableHeightDeltaMerkleProofOptGadget {
     pub fn add_virtual_to_full<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
@@ -96,6 +96,53 @@ impl VariableHeightDeltaMerkleProofOptGadget {
         let index = builder.add_virtual_target();
         let old_value = builder.add_virtual_hash();
         let new_value = builder.add_virtual_hash();
+        let siblings = (0..max_height)
+            .map(|_| builder.add_virtual_hash())
+            .collect::<Vec<_>>();
+
+        let has_witness_height = input_height_target.is_none();
+        let height = match input_height_target {
+            Some(v) => v,
+            None => builder.add_virtual_target(),
+        };
+        /*
+        let zero_target = builder.zero();
+        builder.ensure_not_equal(height, zero_target);*/
+
+        let (
+            old_root,
+            new_root,
+            bit_info,
+        ) = Self::compute_roots::<H,F,D>(
+            builder, 
+            index,
+            old_value, 
+            new_value,
+            &siblings, 
+            height
+        );
+        
+        Self {
+            old_root,
+            old_value,
+            new_root,
+            new_value,
+            index,
+            siblings,
+            max_height,
+            has_witness_height,
+            height,
+            bit_info,
+        }
+    }
+    pub fn add_virtual_to_full_with_subtree_root_index_known<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        max_height: usize,
+        input_height_target: Option<Target>,
+        index: Target,
+        old_value: HashOutTarget,
+        new_value: HashOutTarget,
+    ) -> Self {
         let siblings = (0..max_height)
             .map(|_| builder.add_virtual_hash())
             .collect::<Vec<_>>();
@@ -236,32 +283,33 @@ impl VariableHeightDeltaMerkleProofOptGadget {
         old_value: QHashOut<F>,
         new_value: QHashOut<F>,
         siblings: &[QHashOut<F>],
-    ) {
-            witness.set_target(self.index, index);
-            witness.set_hash_target(self.old_value, old_value.0);
-            witness.set_hash_target(self.new_value, new_value.0);
+    )  -> anyhow::Result<()> {
+            witness.set_target(self.index, index)?;
+            witness.set_hash_target(self.old_value, old_value.0)?;
+            witness.set_hash_target(self.new_value, new_value.0)?;
             if self.has_witness_height {
-                witness.set_target(self.height, F::from_canonical_usize(siblings.len()));
+                witness.set_target(self.height, F::from_canonical_usize(siblings.len()))?;
             }
             for i in 0..siblings.len() {
-                witness.set_hash_target(self.siblings[i], siblings[i].0);
+                witness.set_hash_target(self.siblings[i], siblings[i].0)?;
             }
             for i in siblings.len()..self.max_height {
-                witness.set_hash_target(self.siblings[i], HashOut::ZERO);
+                witness.set_hash_target(self.siblings[i], HashOut::ZERO)?;
             }
+            Ok(())
     }
     pub fn set_witness<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         input: &DeltaMerkleProofCore<QHashOut<F>>,
-    ) {
+    )  -> anyhow::Result<()> {
         self.set_witness_params(
             witness,
             F::from_noncanonical_u64(input.index),
             input.old_value,
             input.new_value,
             &input.siblings,
-        );
+        )
     }
 }
 
@@ -321,11 +369,11 @@ mod tests {
         }
         pub fn prove(&self, height: usize, merkle_proof: &DeltaMerkleProofCore<QHashOut<F>>) -> anyhow::Result<ProofWithPublicInputs<F,C,D>> {
             let mut pw = PartialWitness::new();
-            pw.set_target(self.height, F::from_canonical_usize(height));
+            pw.set_target(self.height, F::from_canonical_usize(height))?;
             self.variable_delta_merkle_proof_gadget.set_witness(
                 &mut pw,
                 merkle_proof,
-            );
+            )?;
             self.circuit_data.prove(pw)
         }
     }
@@ -431,18 +479,18 @@ mod tests {
             let level_b = (delta_merkle_proof_b.siblings.len() as u8 +sub_root_level+1) as u8;
 
             let mut pw = PartialWitness::new();
-            pw.set_target(self.sub_root_level, F::from_canonical_u8(sub_root_level));
-            pw.set_target(self.level_a, F::from_canonical_u8(level_a));
-            pw.set_target(self.level_b, F::from_canonical_u8(level_b));
+            pw.set_target(self.sub_root_level, F::from_canonical_u8(sub_root_level))?;
+            pw.set_target(self.level_a, F::from_canonical_u8(level_a))?;
+            pw.set_target(self.level_b, F::from_canonical_u8(level_b))?;
             
             self.variable_dmp_gadget_a.set_witness(
                 &mut pw,
                 delta_merkle_proof_a,
-            );
+            )?;
             self.variable_dmp_gadget_b.set_witness(
                 &mut pw,
                 delta_merkle_proof_b,
-            );
+            )?;
             self.circuit_data.prove(pw)
         }
     }

@@ -111,6 +111,8 @@ impl<F: RichField, R: QEDComboDataStoreReaderSync<F>> QEDReadCommandProcessorSyn
             QSRHashCmd::GetCheckpointTreeLeafHash(c) => {
                 self.get_checkpoint_tree_leaf_hash(c.checkpoint_id, c.leaf_checkpoint_id)
             }
+            QSRHashCmd::GetUserRegistrationTreeRoot(c) => self.get_user_registration_tree_root(c.checkpoint_id),
+            QSRHashCmd::GetUserRegistrationTreeLeafHash(c) => self.get_user_registration_tree_leaf_hash(c.checkpoint_id, c.leaf_index),
         }
     }
 
@@ -151,6 +153,9 @@ impl<F: RichField, R: QEDComboDataStoreReaderSync<F>> QEDReadCommandProcessorSyn
             QSRMerkleCmd::GetCheckpointTreeMerkleProof(c) => {
                 self.get_checkpoint_tree_merkle_proof(c.checkpoint_id, c.leaf_checkpoint_id)
             }
+            QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(c) => {
+                self.get_user_registration_tree_merkle_proof(c.checkpoint_id, c.leaf_index)
+            },
         }
     }
 

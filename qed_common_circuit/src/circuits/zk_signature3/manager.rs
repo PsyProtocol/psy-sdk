@@ -1,6 +1,6 @@
 use plonky2::{hash::hash_types::HashOut, plonk::{config::{AlgebraicHasher, GenericConfig, Hasher}, proof::ProofWithPublicInputs}};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+use qed_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey};
 
 use crate::circuits::traits::qstandard::QStandardCircuit;
 
@@ -52,6 +52,21 @@ C::Hasher: AlgebraicHasher<C::F> {
     }
     pub fn get_zksig_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.circuit.get_fingerprint()
+    }
+    pub fn add_private_key_get_info(&mut self, private_key: SimpleQEDPrivateKey<C::F>) -> ZKPublicKeyInfo<C::F> {
+        let public_key_param = private_key.get_public_key_param::<C::Hasher>();
+
+        let fingerprint = self.get_zksig_circuit_fingerprint();
+        self.add_private_key(private_key);
+
+        ZKPublicKeyInfo {
+            fingerprint,
+            public_key_param,
+        }
+
+
+
+
     }
     pub fn add_private_key(&mut self, private_key: SimpleQEDPrivateKey<C::F>) -> QHashOut<C::F>{
         let public_key = private_key.get_public_key_for_fingerprint::<C::Hasher>(

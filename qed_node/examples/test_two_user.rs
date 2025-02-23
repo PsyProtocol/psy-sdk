@@ -1,0 +1,153 @@
+use fred::prelude::*;
+use kvq::memory::{arc_imm::KVQArcImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore};
+use qed_core::
+    utils::debug_timer::DebugTimer
+;
+use qed_crypto::{
+    common::simple_circuit_library::SimpleCircuitLibrary, signature::zk::data::ZKPublicKeyInfo,
+};
+use qed_node::{
+    coordinator::{
+        demo::CoordinatorDemoEdgeNode,
+        state::{
+            edge::CoordinatorEdgeContext,
+            processor::{CoordinatorConfig, CoordinatorProcessorContext},
+        },
+    },
+    nimpl::proof_store_fred::ProofStoreFred,
+    worker::simple_async_coord::SimpleAsyncCoordinatorWorker,
+};
+use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use qed_store::
+    traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync
+;
+use std::{sync::Arc, time::Duration};
+
+
+use plonky2::{
+    field::goldilocks_field::GoldilocksField,
+    plonk::
+        config::PoseidonGoldilocksConfig
+    ,
+};
+use qed_core::
+    data::qhashout::QHashOut
+;
+
+
+async fn run_fred_test3() -> anyhow::Result<()> {
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+    let mut timer = DebugTimer::new("dq_rust_2v2");
+    timer.lap("start");
+
+    let pool_size = 8;
+    let config = Config::from_url("redis://127.0.0.1:6379")?;
+    let pool = Builder::from_config(config)
+        .with_connection_config(|config| {
+            config.connection_timeout = Duration::from_secs(10);
+        })
+        // use exponential backoff, starting at 100 ms and doubling on each failed attempt up to 30 sec
+        .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
+        .build_pool(pool_size)?;
+
+    pool.init().await?;
+    timer.lap("connected to redis");
+
+    let q = ProofStoreFred::new(pool, "wq1".to_string(), "nq1".to_string());
+
+    let store_reader: KVQArcImmutableStoreWrapper<KVQSimpleMemoryBackingStore> =
+        KVQArcImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
+            KVQSimpleMemoryBackingStore::new(),
+        );
+
+    store_reader.initialize_store()?;
+    //let worker_count = 16usize;
+    //let items_per_worker = 2000usize;
+
+    let coord_config = CoordinatorConfig::get_standard(0);
+
+    let qps = Arc::new(q.clone());
+
+    let st = Arc::new(store_reader);
+
+    timer.lap("initialized store");
+    let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
+    timer.lap("created proof verifier");
+
+    let coordinator_worker_circuits =
+        QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
+    timer.lap("built coordinator worker circuits");
+
+    let coordinator_edge_node = CoordinatorDemoEdgeNode {
+        ctx: CoordinatorEdgeContext::new(
+            coord_config,
+            Arc::clone(&st),
+            qps.clone(),
+            qps.clone(),
+            Arc::clone(&proof_verifier),
+        )
+        .await?,
+    };
+
+    let coordinator_processor_node = CoordinatorProcessorContext::new(
+        coord_config,
+        Arc::clone(&st),
+        qps.clone(),
+        qps.clone(),
+        qps.clone(),
+        qps.clone(),
+        Arc::clone(&proof_verifier),
+    )
+    .await?;
+    timer.lap("created coordinator nodes");
+
+    let user_a_info = ZKPublicKeyInfo {
+        public_key_param: QHashOut::rand(),
+        fingerprint: QHashOut::rand(),
+    };
+
+    coordinator_edge_node
+        .ctx
+        .handle_process_regsiter_user(user_a_info)
+        .await?;
+
+    let user_b_info = ZKPublicKeyInfo {
+        public_key_param: QHashOut::rand(),
+        fingerprint: QHashOut::rand(),
+    };
+
+    coordinator_edge_node
+        .ctx
+        .handle_process_regsiter_user(user_b_info)
+        .await?;
+    timer.lap("sent requests");
+
+    coordinator_processor_node.build_block().await?;
+    timer.lap("built block");
+
+    timer.lap("started up");
+
+    SimpleAsyncCoordinatorWorker::run_worker::<
+        _,
+        _,
+        SimpleCircuitLibrary<GoldilocksField>,
+        QEDCoordinatorCircuitManager<C, D>,
+        C,
+        D,
+    >(
+        &q,
+        &q,
+        &coordinator_worker_circuits,
+        &proof_verifier.library,
+    )
+    .await?;
+    timer.lap("finished jobs");
+
+    Ok(())
+}
+#[tokio::main]
+async fn main() {
+    run_fred_test3().await.unwrap();
+}

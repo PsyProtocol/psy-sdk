@@ -548,9 +548,9 @@ mod tests {
 
             // test circuit
             let mut pw = PartialWitness::new();
-            pw.set_hash256_target(&left_target, &left.0);
-            pw.set_hash256_target(&right_target, &right.0);
-            pw.set_hash256_target(&expected_output_target, &expected_output.0);
+            pw.set_hash256_target(&left_target, &left.0).unwrap();
+            pw.set_hash256_target(&right_target, &right.0).unwrap();
+            pw.set_hash256_target(&expected_output_target, &expected_output.0).unwrap();
 
             let start = Instant::now();
             let proof = data.prove(pw).unwrap();
@@ -594,8 +594,8 @@ mod tests {
             data.common.quotient_degree_factor
         );
         let mut pw = PartialWitness::new();
-        pw.set_u32_targets(&preimage_target, &bytes_to_u32_vec_be(&input));
-        pw.set_hash256_target(&expected_output_target, &output);
+        pw.set_u32_targets(&preimage_target, &bytes_to_u32_vec_be(&input)).unwrap();
+        pw.set_hash256_target(&expected_output_target, &output).unwrap();
 
         let start_time = std::time::Instant::now();
         let proof = data.prove(pw).unwrap();
@@ -646,8 +646,8 @@ mod tests {
                 data.common.quotient_degree_factor
             );
             let mut pw = PartialWitness::new();
-            pw.set_u32_targets(&preimage_target, &bytes_to_u32_vec_be(&input));
-            pw.set_hash256_target(&expected_output_target, &output);
+            pw.set_u32_targets(&preimage_target, &bytes_to_u32_vec_be(&input)).unwrap();
+            pw.set_hash256_target(&expected_output_target, &output).unwrap();
 
             let start_time = std::time::Instant::now();
             let proof = data.prove(pw).unwrap();
@@ -697,8 +697,8 @@ mod tests {
             data.common.quotient_degree_factor
         );*/
         let mut pw = PartialWitness::new();
-        pw.set_u32_targets(&preimage_target, &bytes_to_u32_vec_be(&padded_input));
-        pw.set_hash256_target(&expected_output_target, &expected_result.0);
+        pw.set_u32_targets(&preimage_target, &bytes_to_u32_vec_be(&padded_input)).unwrap();
+        pw.set_hash256_target(&expected_output_target, &expected_result.0).unwrap();
 
         let start_time = std::time::Instant::now();
         let proof = data.prove(pw).unwrap();
@@ -754,8 +754,8 @@ mod tests {
             data.common.quotient_degree_factor
         );*/
         let mut pw = PartialWitness::new();
-        pw.set_u32_targets(&preimage_target, &bytes_to_u32_vec_be(&padded_input));
-        pw.set_hash_target(expected_output_target, expected_result);
+        pw.set_u32_targets(&preimage_target, &bytes_to_u32_vec_be(&padded_input)).unwrap();
+        pw.set_hash_target(expected_output_target, expected_result).unwrap();
 
         let start_time = std::time::Instant::now();
         let proof = data.prove(pw).unwrap();

@@ -15,7 +15,11 @@ members = [
   "qed_common_circuit",
   "qed_rollup_circuit",
   "qcircuit_config_db",
-  "qcircuit_config_db_generator"
+  "qcircuit_config_db_generator",
+  "qed_node_common",
+  "qed_node",
+  "qed_scylla_store",
+  "qed_test_sandbox",
 ]
 resolver = "2"
 
@@ -31,12 +35,13 @@ lazy_static = "1.4.0"
 once_cell = "1.19.0"
 twox-hash = "1.6.3"
 hashbrown = "0.14.5"
-plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "6a8ca008da97890b67a84f64784cfbc488b5238d" }
-plonky2_maybe_rayon = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "6a8ca008da97890b67a84f64784cfbc488b5238d", default-features = false }
+plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c" }
+plonky2_maybe_rayon = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c", default-features = false }
 anyhow = "1.0.75"
 async-trait = { version = "0.1.80" }
 base64 = "0.21.0"
 bitcoin = { version = "0.31.1", features = ["serde", "rand"] }
+chrono = "0.4.39"
 
 
 rand = "0.8"
@@ -80,5 +85,14 @@ log = { version = "0.4.14", default-features = false }
 env_logger = { version = "0.9.0", default-features = false }
 
 
+tokio = { version = "1.43.0", features = ["full"] }
+tokio-executor-trait = "2.1.3"
+tokio-reactor-trait = "1.1.0"
+
+futures = "0.3.0"
+redis = { version = "^0.25", default-features = false, features = ["acl", "keep-alive", "script"] }
+fred = "10.0.4"
+
+
 [patch.'https://github.com/0xPolygonZero/plonky2.git']
-plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "6a8ca008da97890b67a84f64784cfbc488b5238d" }
+plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c" }
