@@ -41,7 +41,6 @@ pub enum ScopeKind {
     Block,
     Function,
     Struct,
-    StructInstance,
     Enum,
     Impl,
     ImplMethod,
@@ -319,15 +318,23 @@ impl<F: Clone> SymbolTable<F> {
         }
     }
 
-    pub fn add_type_variable(&mut self, end_scope_kind: ScopeKind, ty: IdentId) -> Result<TypeId> {
-        if let Some(type_id) = self.get_type_variable(None, end_scope_kind, ty) {
-            return Ok(type_id);
-        }
-
+    pub fn add_type_variable(&mut self, ty: IdentId) -> Result<TypeId> {
         let type_id = TypeId(self.types.len());
         self.types.push(Type::TypeVariable(ty));
         self.add_type_id(None, ty, type_id)?;
         Ok(type_id)
+    }
+
+    pub fn get_or_add_type_variable(
+        &mut self,
+        end_scope_kind: ScopeKind,
+        ty: IdentId,
+    ) -> Result<TypeId> {
+        if let Some(type_id) = self.get_type_variable(None, end_scope_kind, ty) {
+            return Ok(type_id);
+        }
+
+        Ok(self.add_type_variable(ty)?)
     }
 
     pub fn add_use(&mut self, use_path: &UsePath) -> Result<()> {

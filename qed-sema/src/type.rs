@@ -78,6 +78,27 @@ pub enum Type {
     GenericInstance(TypeId, Vec<TypeId>),
 }
 
+#[derive(Copy, Debug, Clone, PartialEq)]
+pub enum TypeKind {
+    Unknown,
+    VOID,
+
+    Felt,
+    Bool,
+    Array,
+    Struct,
+    Enum,
+    Function,
+    Trait,
+    Const,
+
+    LambdaFunction,
+    FunctionSignature,
+    TypeVariable,
+
+    GenericInstance,
+}
+
 #[derive(Debug, Clone, Eq)]
 pub struct TypeKey {
     pub name: Option<IdentId>,
@@ -402,6 +423,44 @@ impl Type {
             Type::Trait(CheckedTraitNode { name, .. }) => *name,
             Type::Const(CheckedConstNode { name, .. }) => *name,
             _ => unreachable!(),
+        }
+    }
+
+    pub fn generic_parameters(&self) -> Vec<TypeId> {
+        match self {
+            Type::Struct(CheckedStructNode {
+                generic_parameters, ..
+            }) => generic_parameters.to_vec(),
+            Type::Enum(CheckedEnumNode {
+                generic_parameters, ..
+            }) => generic_parameters.to_vec(),
+            Type::Function(CheckedFunctionNode {
+                generic_parameters, ..
+            }) => generic_parameters.to_vec(),
+            Type::Trait(CheckedTraitNode {
+                generic_parameters, ..
+            }) => generic_parameters.to_vec(),
+            Type::GenericInstance(_, generic_parameters) => generic_parameters.to_vec(),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn kind(&self) -> TypeKind {
+        match self {
+            Type::Unknown => TypeKind::Unknown,
+            Type::VOID => TypeKind::VOID,
+            Type::Felt(_) => TypeKind::Felt,
+            Type::Bool(_) => TypeKind::Bool,
+            Type::Array(_) => TypeKind::Array,
+            Type::Struct(_) => TypeKind::Struct,
+            Type::Enum(_) => TypeKind::Enum,
+            Type::Function(_) => TypeKind::Function,
+            Type::Trait(_) => TypeKind::Trait,
+            Type::Const(_) => TypeKind::Const,
+            Type::LambdaFunction(_) => TypeKind::LambdaFunction,
+            Type::FunctionSignature(_) => TypeKind::FunctionSignature,
+            Type::TypeVariable(_) => TypeKind::TypeVariable,
+            Type::GenericInstance(_, _) => TypeKind::GenericInstance,
         }
     }
 

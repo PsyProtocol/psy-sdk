@@ -22,12 +22,21 @@ struct Person<T> {
     pub age: T
 }
 
+
 // impl<T> Person<T> {
 //     pub fn new(age: T) -> Self {
 //         new Person#<T> { age: age }
 //     }
-// }
 //
+//     pub fn set_age(self: Self, age: T) {
+//         self.age = age;
+//     }
+//
+//     pub fn get_age(self: Self) -> T {
+//         self.age
+//     }
+// }
+
 // impl<T> PersonLike<T> for Person<T> {
 //     pub fn get_age(self: Self) -> T {
 //         self.age
@@ -40,6 +49,7 @@ struct Person<T> {
 
 fn main() -> Felt {
     let p = new Person#<Felt> { age: 10 };
+    // let arr: [Felt; 2] = [0, 1];
     // p.set_age(20);
     p.age
 }

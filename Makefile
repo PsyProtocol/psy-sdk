@@ -1,5 +1,5 @@
 PROFILE                 := release
-LOG_LEVE                := info
+LOG_LEVE                := debug
 RUSTFLAGS               := -g
 RUST_BACKTRACE          := full
 

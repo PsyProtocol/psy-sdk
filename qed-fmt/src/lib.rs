@@ -498,7 +498,6 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     ) -> Result<Self::StmtResult, Self::Error> {
         let ImplNode {
             generic_parameters,
-            trait_ty,
             ty,
             body,
         } = ctx.definition(def_id).as_impl().unwrap();
@@ -509,13 +508,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
         let s = format!(
-            "impl{} {}{} {{",
+            "impl{} {} {{",
             generic_parameters,
-            if let Some(trait_ty) = trait_ty {
-                format!("{} for ", self.visit_unchecked_type(&trait_ty, ctx))
-            } else {
-                "".to_string()
-            },
             self.visit_unchecked_type(&ty, ctx),
         );
         self.write_line(&s);
@@ -1042,5 +1036,39 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         );
 
         Ok(result)
+    }
+
+    fn visit_impl_trait(
+        &mut self,
+        def_id: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let ImplTraitNode {
+            generic_parameters,
+            trait_ty,
+            ty,
+            body,
+        } = ctx.definition(def_id).as_impl_trait().unwrap();
+        let generic_parameters = generic_parameters
+            .iter()
+            .map(|&generic_parameter| ctx.ident(generic_parameter).to_string())
+            .collect::<Vec<_>>();
+        let generic_parameters = self.visit_generic_parameters(generic_parameters);
+
+        let s = format!(
+            "impl{} {}{} {{",
+            generic_parameters,
+            format!("{} for ", self.visit_unchecked_type(&trait_ty, ctx)),
+            self.visit_unchecked_type(&ty, ctx),
+        );
+        self.write_line(&s);
+        self.indent();
+        // TODO: remove clone
+        for func in body.clone() {
+            self.visit_function(func, ctx)?;
+        }
+        self.dedent();
+        self.write_line("}");
+        Ok(Default::default())
     }
 }

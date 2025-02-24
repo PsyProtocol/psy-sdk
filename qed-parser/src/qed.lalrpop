@@ -117,6 +117,7 @@ IntrinsicStatement: StmtNode = {
 
 Definition: DefinitionNode = {
     ImplDef => DefinitionNode::Impl(<>),
+    ImplTraitDef => DefinitionNode::ImplTrait(<>),
     TraitDef => DefinitionNode::Trait(<>),
     EnumDef => DefinitionNode::Enum(<>),
     StructDef => DefinitionNode::Struct(<>),
@@ -130,16 +131,18 @@ ImplDef: ImplNode = {
        // assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplNode {
            generic_parameters: generic_parameters_lhs,
-           trait_ty: None,
            ty,
            body: def_nodes.alloc_items(body)
        }
-   },
+   }
+}
+
+ImplTraitDef: ImplTraitNode = {
    <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
        // assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
-       ImplNode {
+       ImplTraitNode {
            generic_parameters: generic_parameters_lhs,
-           trait_ty: Some(trait_ty),
+           trait_ty: trait_ty,
            ty,
            body: def_nodes.alloc_items(body)
        }
