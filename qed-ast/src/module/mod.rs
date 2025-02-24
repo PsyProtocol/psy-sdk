@@ -67,7 +67,7 @@ impl ModuleNode {
             file_id,
             modules: {
                 if !is_std {
-                    modules.insert(0, (IdentId::STD, Visibility::Public));
+                    modules.insert(0, (IdentId::STD, Visibility::Private));
                 }
                 modules
             },
@@ -77,7 +77,7 @@ impl ModuleNode {
                     uses.insert(
                         0,
                         UsePath {
-                            visibility: Visibility::Public,
+                            visibility: Visibility::Private,
                             kind: IdentId::STD,
                             segments: vec![IdentId::PRELUDE],
                             target: None,

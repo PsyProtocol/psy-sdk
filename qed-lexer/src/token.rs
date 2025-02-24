@@ -97,6 +97,8 @@ pub enum Token<'input> {
     TypeBool,
     #[token("Felt")]
     TypeFelt,
+    #[token("Array")]
+    TypeArray,
     #[token("Self")]
     TypeSelf,
 

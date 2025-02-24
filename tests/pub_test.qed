@@ -21,7 +21,7 @@ mod pub_mod{
 
 }
 
-pub use pub_mod::*;
+use pub_mod::*;
 
 struct Test{
     pub x: Felt,

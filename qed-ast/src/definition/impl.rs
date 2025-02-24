@@ -3,7 +3,7 @@ use crate::{DefId, IdentId, NodeInfo, NodeType, UncheckedType};
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImplNode {
     pub generic_parameters: Vec<IdentId>,
-    pub trait_name: Option<IdentId>,
+    pub trait_ty: Option<UncheckedType>,
     pub ty: UncheckedType,
     pub body: Vec<DefId>,
 }

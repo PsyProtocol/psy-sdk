@@ -35,7 +35,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::IndexAccessExpr => self.visit_index_access(expr_id, ctx)?,
             NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
             NodeType::IntrinsicExpr => self.visit_intrinsic_expr(expr_id, ctx)?,
-            NodeType::ClosureExpr => self.visit_closure(expr_id, ctx)?,
+            NodeType::LambdaFunctionExpr => self.visit_lambda_function(expr_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -176,7 +176,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_closure(
+    fn visit_lambda_function(
         &mut self,
         node: ExprId,
         ctx: &mut Self::Context,

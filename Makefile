@@ -19,8 +19,8 @@ fmt:
 for_test:
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/for_test.qed
 
-closure_test:
-	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/closure_test.qed
+lambda_function_test:
+	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/lambda_function_test.qed
 
 generics_test:
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/generics_test.qed
@@ -51,7 +51,7 @@ interpret:
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/const_test.qed --parameters 1
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/while_test.qed --parameters 2,3
 	# @RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/for_test.qed
-	# @RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/closure_test.qed
+	# @RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/lambda_function_test.qed
 	# @RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/generics_test.qed
 	# @RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/type_hint_test.qed
 	# @RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/enum_test.qed

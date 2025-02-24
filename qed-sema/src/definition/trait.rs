@@ -1,12 +1,12 @@
-use qed_ast::{IdentId, NodeInfo, NodeType, Visibility};
+use qed_ast::{DefId, IdentId, NodeInfo, NodeType, Visibility};
 
-use crate::{CheckedFunctionNode, ScopeId, TypeId};
+use crate::{ScopeId, TypeId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedTraitNode {
     pub name: IdentId,
     pub generic_parameters: Vec<TypeId>,
-    pub body: Vec<CheckedFunctionNode>,
+    pub body: Vec<DefId>,
     pub implementors: Vec<TypeId>,
     pub scope_id: ScopeId,
     pub visibility: Visibility,

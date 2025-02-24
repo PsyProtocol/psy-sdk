@@ -1,14 +1,45 @@
+// impl<N> [Felt; N] {
+//     pub fn len() -> Felt {
+//         return N;
+//     }
+// }
+//
+// fn main() -> Felt {
+//     let arr: [Felt; 2] = [0, 1];
+//     arr.len()
+// }
+// trait PersonLike<T> {
+//     pub fn get_age(self: Self) -> T {
+//         self.age
+//     }
+//
+//     pub fn set_age(self: Self, age: T) {
+//         self.age = age;
+//     }
+// }
+
 struct Person<T> {
-    age: T
+    pub age: T
 }
 
 // impl<T> Person<T> {
 //     pub fn new(age: T) -> Self {
-//         new Person { age: age }
+//         new Person#<T> { age: age }
+//     }
+// }
+//
+// impl<T> PersonLike<T> for Person<T> {
+//     pub fn get_age(self: Self) -> T {
+//         self.age
+//     }
+//
+//     pub fn set_age(self: Self, age: T) {
+//         self.age = age;
 //     }
 // }
 
 fn main() -> Felt {
-    let p = new Person#<Felt> { age: 10 };
+    let p: Person<Felt> = new Person#<Felt> { age: 10 };
+    // p.set_age(20);
     p.age
 }

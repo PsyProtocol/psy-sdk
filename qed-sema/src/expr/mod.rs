@@ -1,28 +1,27 @@
 mod binary;
 mod call;
 mod cast;
-mod closure;
 mod index;
 mod intrinsic;
+mod lambda;
 mod path;
 mod unary;
 
 pub use binary::*;
 pub use call::*;
 pub use cast::*;
-pub use closure::*;
 use enum_as_inner::EnumAsInner;
 pub use index::*;
 pub use intrinsic::*;
+pub use lambda::*;
 pub use path::*;
 pub use unary::*;
 
 use qed_ast::{IdentId, NodeInfo, NodeType};
 
 use crate::{CheckedValueNode, ScopeId, TypeId, BOOL_TYPE, FELT_TYPE};
-use strum::EnumTryAs;
 
-#[derive(Debug, Clone, PartialEq, EnumAsInner, EnumTryAs)]
+#[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum CheckedExprNode<F> {
     Path(CheckedPathNode),
     Value(CheckedValueNode<F>),
@@ -34,7 +33,7 @@ pub enum CheckedExprNode<F> {
     IndexAccess(CheckedIndexAccessNode),
     MemberAccess(CheckedMemberAccessNode),
     Intrinsic(CheckedIntrinsicExprNode),
-    Closure(CheckedClosureNode),
+    LambdaFunction(CheckedLambdaFunctionNode),
 }
 
 impl<F> NodeInfo for CheckedExprNode<F> {
@@ -50,7 +49,7 @@ impl<F> NodeInfo for CheckedExprNode<F> {
             CheckedExprNode::IndexAccess(node) => node.node_type(),
             CheckedExprNode::MemberAccess(node) => node.node_type(),
             CheckedExprNode::Intrinsic(node) => node.node_type(),
-            CheckedExprNode::Closure(node) => node.node_type(),
+            CheckedExprNode::LambdaFunction(node) => node.node_type(),
         }
     }
 }
@@ -95,7 +94,7 @@ impl<F> CheckedExprNode<F> {
                 } => type_id.clone(),
                 CheckedIntrinsicExprNode::Hash { type_id, .. } => type_id.clone(),
             },
-            CheckedExprNode::Closure(c) => c.type_id.clone(),
+            CheckedExprNode::LambdaFunction(c) => c.type_id.clone(),
         }
     }
 

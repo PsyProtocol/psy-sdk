@@ -58,7 +58,7 @@ pub enum NodeType {
     MemberAccessExpr,
     IndexAccessExpr,
     IntrinsicExpr,
-    ClosureExpr,
+    LambdaFunctionExpr,
 
     IfStmt,
     WhileStmt,

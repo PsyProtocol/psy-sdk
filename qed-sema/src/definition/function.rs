@@ -1,11 +1,11 @@
-use qed_ast::{AttrNode, IdentId, NodeInfo, NodeType, StmtId, Visibility};
+use qed_ast::{AttrNode, IdentId, NodeInfo, NodeType, StmtId, TypeQualifier, Visibility};
 
 use crate::{ScopeId, TypeId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedFunctionNode {
     pub name: IdentId,
-    pub parameters: Vec<(IdentId, bool, TypeId)>,
+    pub parameters: Vec<(IdentId, TypeQualifier, TypeId)>,
     pub generic_parameters: Vec<TypeId>,
     pub body: Option<StmtId>,
     pub return_type: Option<TypeId>,
@@ -20,7 +20,7 @@ impl CheckedFunctionNode {
             parameters: self
                 .parameters
                 .iter()
-                .map(|(_, mutable, ty)| (mutable.clone(), ty.clone()))
+                .map(|(_, _, ty)| ty.clone())
                 .collect(),
             return_type: self.return_type.clone(),
         }
@@ -35,6 +35,6 @@ impl NodeInfo for CheckedFunctionNode {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedFunctionSignature {
-    pub parameters: Vec<(bool, TypeId)>,
+    pub parameters: Vec<TypeId>,
     pub return_type: Option<TypeId>,
 }

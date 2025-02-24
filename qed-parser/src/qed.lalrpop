@@ -63,7 +63,6 @@ ModuleDecl: (IdentId, Visibility) = {
 
 ModuleUse: UsePath = {
     <l:@L> <visibility:Visibility> USE <path:UsePath> ";" <r:@R> => {
-        assert!(visibility.is_public());
         UsePath {
             visibility,
             kind: path.0,
@@ -131,16 +130,16 @@ ImplDef: ImplNode = {
        // assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplNode {
            generic_parameters: generic_parameters_lhs,
-           trait_name: None,
+           trait_ty: None,
            ty,
            body: def_nodes.alloc_items(body)
        }
    },
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_name:Identifier> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
        // assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplNode {
            generic_parameters: generic_parameters_lhs,
-           trait_name: Some(trait_name),
+           trait_ty: Some(trait_ty),
            ty,
            body: def_nodes.alloc_items(body)
        }
@@ -168,9 +167,10 @@ EnumDef: EnumNode = {
 }
 
 TypeAliasDef: DefinitionNode = {
-    <l:@L> TYPE <name:Identifier> "=" <ty:Ty> ";" <r:@R> => DefinitionNode::TypeAlias(TypeAliasNode {
+    <l:@L> <visibility:Visibility> TYPE <name:Identifier> "=" <ty:Ty> ";" <r:@R> => DefinitionNode::TypeAlias(TypeAliasNode {
         name,
-        ty
+        ty,
+        visibility
     })
 }
 
@@ -232,25 +232,29 @@ AttributeProperties: Vec<IdentId> = {
 }
 
 Qualifier: Qualifier = {
-    <l:@L> <is_extern:EXTERN?> <r:@R> => Qualifier { is_extern: is_extern.is_some() },
+    <l:@L> <is_const:CONST?> <is_extern:EXTERN?> <r:@R> => Qualifier {
+        is_extern: is_extern.is_some(),
+        is_const: is_const.is_some()
+    },
 }
 
+TypeQualifier: TypeQualifier = {
+    <l:@L> <is_mutable: MUT?> <r:@R> => TypeQualifier {
+        is_mutable: is_mutable.is_some(),
+    },
+}
 
 FunctionSignature: UncheckedType = {
-    <l:@L> FN "(" <parameters:Comma<AnonymousFunctionParameter>> ")" <return_type:FunctionReturn?> <r:@R> => UncheckedType::FunctionSignature(
+    <l:@L> FN "(" <parameters:Comma<Ty>> ")" <return_type:FunctionReturn?> <r:@R> => UncheckedType::FunctionSignature(
         Box::new(FunctionSignature {parameters, return_type})
     )
 }
 
-FunctionParameter: (IdentId, bool, UncheckedType) = {
-    <l:@L> <mutable:MUT?> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => (name, mutable.is_some(), ty),
-    <l:@L> <mutable:MUT?> <name:SELF> <r:@R> => {
-        (IdentId::SELF, mutable.is_some(), UncheckedType::Basic(IdentId::TYPE_SELF))
+FunctionParameter: (IdentId, TypeQualifier, UncheckedType) = {
+    <l:@L> <type_qualifier: TypeQualifier> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => (name, type_qualifier, ty),
+    <l:@L> <type_qualifier: TypeQualifier> <name:SELF> <r:@R> => {
+        (IdentId::SELF, type_qualifier, UncheckedType::Basic(IdentId::TYPE_SELF))
     },
-}
-
-AnonymousFunctionParameter: (bool, UncheckedType) = {
-    <l:@L> <mutable:MUT?> <ty:Ty> <r:@R> => (mutable.is_some(), ty)
 }
 
 FunctionReturn: UncheckedType = {
@@ -377,11 +381,11 @@ ReturnStatement: StmtNode = {
 }
 
 VariableStatement: StmtNode = {
-    <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
+    <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {
             name: decl.0,
             ty: decl.1,
-            mutable: mutable.is_some(),
+            qualifier: type_qualifier,
             value: expr_nodes.alloc_item(value)
         }
     ),
@@ -628,7 +632,7 @@ Expression: ExprNode<F> = {
     ),
 
     #[precedence(level="16")]
-    ClosureExpression
+    LambdaFunctionExpression
 }
 
 Term: ExprNode<F> = {
@@ -666,9 +670,9 @@ KeyValue: (IdentId, ExprId) = {
     <l:@L> <name:Identifier> ":" <value:Expression> <r:@R> => (name, expr_nodes.alloc_item(value))
 }
 
-ClosureExpression: ExprNode<F> = {
-    <l:@L> "|" <parameters:Comma<FunctionParameter>> "|" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => ExprNode::<F>::Closure(
-        ClosureNode {
+LambdaFunctionExpression: ExprNode<F> = {
+    <l:@L> "|" <parameters:Comma<FunctionParameter>> "|" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => ExprNode::<F>::LambdaFunction(
+        LambdaFunctionNode {
             parameters,
             body: stmt_nodes.alloc_item(block_stmt),
             return_type
@@ -720,7 +724,11 @@ Ty: UncheckedType = {
 }
 
 GenericType: UncheckedType = {
-    <l:@L> <name:Identifier> "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters)
+    <l:@L> <name:Identifier> "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters),
+    <l:@L>  "[" <ty:Ty> ";" <n:Identifier> "]" <r:@R> => UncheckedType::Generic(
+        IdentId::TYPE_ARRAY,
+        vec![ty, UncheckedType::Basic(n)]
+    )
 }
 
 ArrayType: UncheckedType = {
@@ -831,6 +839,7 @@ extern {
 
         TYPE_BOOL => Token::TypeBool,
         TYPE_FELT => Token::TypeFelt,
+        TYPE_ARRAY => Token::TypeArray,
         TYPE_SELF => Token::TypeSelf,
 
         AS => Token::KeywordAs,

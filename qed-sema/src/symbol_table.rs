@@ -35,12 +35,13 @@ impl ScopeId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ScopeKind {
     Module,
     Block,
     Function,
     Struct,
+    StructInstance,
     Enum,
     Impl,
     ImplMethod,
@@ -60,25 +61,40 @@ pub struct Scope<F: Clone> {
 
 #[derive(Clone, Debug)]
 pub struct Frame<T: Clone> {
-    pub variables: HashMap<ScopeId, HashMap<IdentId, T>>,
+    pub variables: Vec<(ScopeId, HashMap<IdentId, T>)>,
 }
 
 impl<T: Clone> Frame<T> {
-    pub fn new() -> Self {
+    pub fn new(scope_id: ScopeId) -> Self {
         Self {
-            variables: HashMap::new(),
+            variables: vec![(scope_id, HashMap::new())],
         }
     }
 
+    pub fn push_scope(&mut self, scope_id: ScopeId) {
+        self.variables.push((scope_id, HashMap::new()));
+    }
+
+    pub fn pop_scope(&mut self) {
+        self.variables.pop();
+    }
+
     pub fn set_value(&mut self, scope_id: ScopeId, key: IdentId, value: T) {
-        self.variables
-            .entry(scope_id)
-            .or_insert_with(HashMap::new)
-            .insert(key, value);
+        for (sid, vars) in self.variables.iter_mut().rev() {
+            if *sid == scope_id {
+                vars.insert(key, value);
+                return;
+            }
+        }
     }
 
     pub fn get_value(&self, scope_id: ScopeId, key: &IdentId) -> Option<&T> {
-        self.variables.get(&scope_id).and_then(|x| x.get(key))
+        for (sid, vars) in self.variables.iter().rev() {
+            if *sid == scope_id {
+                return vars.get(key);
+            }
+        }
+        None
     }
 }
 
@@ -255,34 +271,6 @@ impl<F: Clone> SymbolTable<F> {
         self.module_stack.last().cloned()
     }
 
-    // pub fn start_module(&mut self, name: IdentId, file_id: FileId) {
-    //     let scope_id = ScopeId(self.scopes.len());
-    //     self.scopes
-    //         .push(Scope::new(ScopeKind::Module, self.current_scope_id()));
-    //     self.scope_stack.push(scope_id);
-    //
-    //     let current_module_id = self.current_module_id();
-    //     let module_id = ModuleId(self.modules.len());
-    //
-    //     self.module_stack.push(module_id);
-    //     self.modules.push(Module::new(
-    //         name,
-    //         module_id,
-    //         scope_id,
-    //         file_id,
-    //         current_module_id,
-    //     ));
-    //
-    //     if let Some(current_module_id) = current_module_id {
-    //         self[current_module_id].children.push(module_id);
-    //     }
-    // }
-    //
-    // pub fn end_module(&mut self) {
-    //     self.scope_stack.pop();
-    //     self.module_stack.pop();
-    // }
-
     pub fn add_type_id<K: Into<TypeKey>>(
         &mut self,
         scope_id: Option<ScopeId>,
@@ -293,41 +281,49 @@ impl<F: Clone> SymbolTable<F> {
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
         if let Some(type_id) = self[scope_id].types.get(&key) {
-            return Ok(());
+            return Err(Error::TypeAlreadyDefined);
         }
 
         self[scope_id].types.insert(key, type_id);
         Ok(())
     }
 
-    pub fn add_type(&mut self, scope_id: Option<ScopeId>, ty: Type) -> Result<TypeId> {
-        let key = ty.key();
-        if let Some(_) = self.get_type_id(scope_id, key.clone()) {
-            return Err(Error::TypeAlreadyDefined);
-        }
-
+    pub fn add_type<K: Into<TypeKey>>(
+        &mut self,
+        scope_id: Option<ScopeId>,
+        name: K,
+        ty: Type,
+    ) -> Result<TypeId> {
+        let key = name.into();
         let type_id = TypeId(self.types.len());
         self.add_type_id(scope_id, key, type_id)?;
         self.types.push(ty);
         Ok(type_id)
     }
 
-    pub fn add_type_alias<K: Into<TypeKey>>(
+    pub fn get_or_add_type<K: Into<TypeKey>>(
         &mut self,
         scope_id: Option<ScopeId>,
         name: K,
         ty: Type,
     ) -> Result<TypeId> {
-        let key = ty.key();
-        let name = name.into();
-        let type_id = self.add_type(scope_id, ty)?;
-        if key != name {
-            self.add_type_id(scope_id, name, type_id)?;
+        let key = name.into();
+        let scope_id = scope_id.or(self.current_scope_id());
+        if let Some(type_id) = self.get_type_id(scope_id, ty.key()) {
+            Ok(type_id)
+        } else {
+            let type_id = TypeId(self.types.len());
+            self[scope_id.unwrap()].types.insert(key, type_id);
+            self.types.push(ty);
+            Ok(type_id)
         }
-        Ok(type_id)
     }
 
-    pub fn add_type_variable(&mut self, ty: IdentId) -> Result<TypeId> {
+    pub fn add_type_variable(&mut self, end_scope_kind: ScopeKind, ty: IdentId) -> Result<TypeId> {
+        if let Some(type_id) = self.get_type_variable(None, end_scope_kind, ty) {
+            return Ok(type_id);
+        }
+
         let type_id = TypeId(self.types.len());
         self.types.push(Type::TypeVariable(ty));
         self.add_type_id(None, ty, type_id)?;
@@ -340,8 +336,9 @@ impl<F: Clone> SymbolTable<F> {
             .into_iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect::<Vec<_>>();
-        for (ident, type_id) in type_ids {
-            self.add_type_id(None, ident, type_id)?;
+        for (mut key, type_id) in type_ids {
+            key.visibility = use_path.visibility;
+            let _ = self.add_type_id(None, key.clone(), type_id);
         }
         Ok(())
     }
@@ -358,19 +355,17 @@ impl<F: Clone> SymbolTable<F> {
                 if self[impl_scope].kind == ScopeKind::Impl {
                     for &fun_scope in &self[impl_scope].children {
                         if let Some(&type_id) = self[fun_scope].types.get(&method_name_key) {
-                            if self[type_id].is_function() {
-                                if is_trait {
-                                    if self[impl_scope].types.get(&IdentId::TYPE_SELF.into())
-                                        == Some(&implementor_id)
-                                        && self
-                                            .get_type_id(None, self[trait_type_id].key())
-                                            .is_some()
-                                    {
-                                        return Some(type_id);
-                                    }
-                                } else {
-                                    return Some(type_id);
-                                }
+                            if !self[type_id].is_function() {
+                                continue;
+                            }
+                            if !is_trait {
+                                return Some(type_id);
+                            }
+                            if self[impl_scope].types.get(&IdentId::TYPE_SELF.into())
+                                == Some(&implementor_id)
+                                && self.get_type_id(None, self[trait_type_id].key()).is_some()
+                            {
+                                return Some(type_id);
                             }
                         }
                     }
@@ -424,7 +419,8 @@ impl<F: Clone> SymbolTable<F> {
         if let Some(target) = use_path.target {
             let (key, type_id) = self[self[src_module].scope_id]
                 .types
-                .get_key_value(&target.into())?;
+                .get_key_value(&target.into())
+                .filter(|(key, _)| key.visibility.is_public())?;
             assert!(self[*type_id].visibility().is_public());
             Some(vec![(key, type_id)])
         } else {
@@ -432,7 +428,9 @@ impl<F: Clone> SymbolTable<F> {
                 self[self[src_module].scope_id]
                     .types
                     .iter()
-                    .filter(|(_, &type_id)| self[type_id].visibility().is_public())
+                    .filter(|(key, &type_id)| {
+                        key.visibility.is_public() && self[type_id].visibility().is_public()
+                    })
                     .collect::<Vec<_>>(),
             )
         }
@@ -520,30 +518,38 @@ impl<F: Clone> SymbolTable<F> {
         (self[trait_type_id].as_mut() as &mut CheckedTraitNode).add_implementor(implementor);
     }
 
-    pub fn push_module(&mut self, module_id: ModuleId) {
-        self.push_scope(self[module_id].scope_id);
+    pub fn enter_module(&mut self, module_id: ModuleId) {
+        self.enter_scope(self[module_id].scope_id);
         self.module_stack.push(module_id);
     }
 
-    pub fn pop_module(&mut self) {
-        self.pop_scope();
+    pub fn exit_module(&mut self) {
+        self.exit_scope();
         self.module_stack.pop();
     }
 
-    pub fn push_scope(&mut self, scope_id: ScopeId) {
+    pub fn enter_scope(&mut self, scope_id: ScopeId) {
         self.scope_stack.push(scope_id);
     }
 
-    pub fn pop_scope(&mut self) {
+    pub fn exit_scope(&mut self) {
         self.scope_stack.pop();
     }
 
-    pub fn push_frame(&mut self) {
-        self.frames.push(Frame::new());
+    pub fn enter_function(&mut self, scope_id: ScopeId) {
+        self.frames.push(Frame::new(scope_id));
     }
 
-    pub fn pop_frame(&mut self) {
+    pub fn exit_function(&mut self) {
         self.frames.pop();
+    }
+
+    pub fn enter_block(&mut self, scope_id: ScopeId) {
+        self.frames.last_mut().unwrap().push_scope(scope_id);
+    }
+
+    pub fn exit_block(&mut self) {
+        self.frames.last_mut().unwrap().pop_scope();
     }
 
     pub fn start_scope(&mut self, kind: ScopeKind) {
@@ -572,25 +578,36 @@ impl<F: Clone> SymbolTable<F> {
         name: K,
     ) -> Option<TypeId> {
         let name: TypeKey = name.into();
-        let scope_id = self.find_scope(start_scope, vec![ScopeKind::Module], |scope| {
-            scope.types.contains_key(&name)
-        })?;
-        self[scope_id].types.get(&name).cloned()
+        self.find(start_scope, vec![ScopeKind::Module], |scope| {
+            scope.types.get(&name).cloned()
+        })
     }
 
-    pub fn find_scope(
+    pub fn get_type_variable<K: Into<TypeKey>>(
         &self,
         start_scope: Option<ScopeId>,
-        scope_kinds: Vec<ScopeKind>,
-        f: impl Fn(&Scope<F>) -> bool,
-    ) -> Option<ScopeId> {
+        end_scope_kind: ScopeKind,
+        name: K,
+    ) -> Option<TypeId> {
+        let name: TypeKey = name.into();
+        self.find(start_scope, vec![end_scope_kind], |scope| {
+            scope.types.get(&name).cloned()
+        })
+    }
+
+    pub fn find<R>(
+        &self,
+        start_scope: Option<ScopeId>,
+        end_scope_kinds: Vec<ScopeKind>,
+        f: impl Fn(&Scope<F>) -> Option<R>,
+    ) -> Option<R> {
         let mut current_scope_id = start_scope.or(self.current_scope_id());
 
         while let Some(scope_id) = current_scope_id {
-            if f(&self[scope_id]) {
-                return Some(scope_id);
+            if let Some(r) = f(&self[scope_id]) {
+                return Some(r);
             }
-            if scope_kinds.iter().any(|x| x == &self[scope_id].kind) {
+            if end_scope_kinds.iter().any(|x| x == &self[scope_id].kind) {
                 return None;
             }
             current_scope_id = self[scope_id].parent;
@@ -604,27 +621,25 @@ impl<F: Clone> SymbolTable<F> {
         start_scope: Option<ScopeId>,
         key: &IdentId,
     ) -> Option<CheckedVariable<F>> {
-        let scope_id = self.find_scope(
+        let var_id = self.find(
             start_scope,
             vec![
                 ScopeKind::Function,
                 ScopeKind::ImplMethod,
                 ScopeKind::TraitMethod,
             ],
-            |scope| scope.variables.contains_key(key),
+            |scope| scope.variables.get(key).cloned(),
         )?;
 
         let value = self
             .frames
             .last()
-            .and_then(|frame| frame.get_value(scope_id, key))
+            .and_then(|frame| frame.get_value(self[var_id].scope_id, key))
             .cloned();
 
-        self[scope_id].variables.get(key).map(|var_id| {
-            let mut variable = self[var_id.clone()].clone();
-            variable.value = value;
-            variable
-        })
+        let mut variable = self[var_id].clone();
+        variable.value = value;
+        Some(variable)
     }
 
     pub fn set_variable(
@@ -640,7 +655,7 @@ impl<F: Clone> SymbolTable<F> {
                 .unwrap()
                 .get_value(scope_id, key)
                 .is_some()
-                && (!self[v.clone()].mutable)
+                && (!self[v.clone()].qualifier.is_mutable)
             {
                 return Err(Error::ImmutableVariable);
             }
@@ -655,7 +670,11 @@ impl<F: Clone> SymbolTable<F> {
         Err(Error::UndefinedVariable)
     }
 
-    pub fn declare_variable(&mut self, key: IdentId, variable: CheckedVariable<F>) -> Result<()> {
+    pub fn declare_variable(
+        &mut self,
+        key: IdentId,
+        variable: CheckedVariable<F>,
+    ) -> Result<VarId> {
         let scope_id = self.current_scope_id().unwrap();
         assert_eq!(variable.scope_id, scope_id);
         if self[scope_id].variables.contains_key(&key) {
@@ -664,7 +683,7 @@ impl<F: Clone> SymbolTable<F> {
         let var_id = VarId(self.variables.len());
         self.variables.push(variable);
         self[scope_id].variables.insert(key, var_id);
-        Ok(())
+        Ok(var_id)
     }
 
     pub fn size_of(&self, type_id: TypeId) -> usize {
@@ -681,107 +700,3 @@ impl<F: Clone> SymbolTable<F> {
         }
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use smol_str::SmolStr;
-//
-//     use super::*;
-//
-//     pub fn value(n: i32) -> CheckedVariable<i32> {
-//         CheckedVariable {
-//             ty: TypeId(0),
-//             mutable: true,
-//             cnst: false,
-//             scope_id: ScopeId(0),
-//             value: Some(n),
-//         }
-//     }
-//
-//     #[test]
-//     fn test_new_symbol_table() {
-//         let mut table: SymbolTable<i32> = SymbolTable::new();
-//         table.start_module(IdentId(0), FileId(0));
-//         assert_eq!(table.scope_stack.len(), 1);
-//         table.end_module();
-//     }
-//
-//     #[test]
-//     fn test_start_and_end_scope() {
-//         let mut table: SymbolTable<i32> = SymbolTable::new();
-//         table.start_module(IdentId(0), FileId(0));
-//         table.start_scope(ScopeKind::Block);
-//         assert_eq!(table.scope_stack.len(), 2);
-//         table.end_scope();
-//         assert_eq!(table.scope_stack.len(), 1);
-//         table.end_module();
-//     }
-//
-//     #[test]
-//     fn test_start_and_end_function() {
-//         let mut table: SymbolTable<i32> = SymbolTable::new();
-//         table.start_module(IdentId(0), FileId(0));
-//         table.start_function();
-//         assert_eq!(table.scope_stack.len(), 2);
-//         table.end_function();
-//         assert_eq!(table.scope_stack.len(), 1);
-//         table.end_module();
-//     }
-//
-//     #[test]
-//     fn test_scope_set_and_get() {
-//         let mut table: SymbolTable<i32> = SymbolTable::new();
-//         table.start_module(IdentId(0), FileId(0));
-//         table.start_scope(ScopeKind::Block);
-//         table.declare_variable(IdentId(0), value(42));
-//         assert_eq!(table.get_variable(None, &IdentId(0)), Some(value(42)));
-//
-//         table.start_scope(ScopeKind::Block);
-//         assert_eq!(table.get_variable(None, &IdentId(0)), Some(value(42)));
-//         table.declare_variable(IdentId(0), value(24));
-//         assert_eq!(table.get_variable(None, &IdentId(0)), Some(value(24)));
-//         table.end_scope();
-//         assert_eq!(table.get_variable(None, &IdentId(0)), Some(value(42)));
-//         table.end_scope();
-//         table.end_module();
-//     }
-//
-//     #[test]
-//     fn test_function_set_and_get() {
-//         let mut table: SymbolTable<i32> = SymbolTable::new();
-//         table.start_module(IdentId(0), FileId(0));
-//         table.start_function();
-//         table.push_frame();
-//         table.declare_variable(IdentId(0), value(42));
-//         table.set_variable(None, &IdentId(0), 42);
-//         assert_eq!(table.get_variable(None, &IdentId(0)), Some(value(42)));
-//         table.start_function();
-//         assert_eq!(table.get_variable(None, &IdentId(0)), None);
-//         table.set_variable(None, &IdentId(0), 24);
-//         assert_eq!(table.get_variable(None, &IdentId(0)), None);
-//         table.end_function();
-//         assert_eq!(table.get_variable(None, &IdentId(0)), Some(value(42)));
-//         table.pop_frame();
-//         table.end_function();
-//         table.end_module();
-//     }
-//
-//     #[test]
-//     fn test_global_value() {
-//         let mut table: SymbolTable<i32> = SymbolTable::new();
-//         table.start_module(IdentId(0), FileId(0));
-//         table.declare_variable(IdentId(0), value(42));
-//         table.set_variable(None, &IdentId(0), 42);
-//         table.start_scope(ScopeKind::Block);
-//         assert_eq!(table.get_variable(None, &IdentId(0)), Some(value(42)));
-//         table.end_scope();
-//         table.start_function();
-//         assert_eq!(table.get_variable(None, &IdentId(0)), None);
-//         table.declare_variable(IdentId(0), value(42));
-//         table.set_variable(None, &IdentId(0), 24);
-//         assert_eq!(table.get_variable(None, &IdentId(0)), Some(value(24)));
-//         table.end_function();
-//         assert_eq!(table.get_variable(None, &IdentId(0)), Some(value(42)));
-//         table.end_module();
-//     }
-// }

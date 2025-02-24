@@ -54,8 +54,6 @@ impl IdentId {
     pub const DERIVE: IdentId = IdentId(13);
     pub const NEW: IdentId = IdentId(14);
     pub const TEST: IdentId = IdentId(15);
-
-    pub const FN_SIG: IdentId = IdentId(16);
 }
 
 pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
@@ -63,7 +61,7 @@ pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
     (IdentId::TYPE_BOOL, "bool"),
     (IdentId::TYPE_FELT, "Felt"),
     (IdentId::TYPE_VOID, "void"),
-    (IdentId::TYPE_ARRAY, "[]"),
+    (IdentId::TYPE_ARRAY, "Array"),
     (IdentId::TYPE_HASH, "Hash"),
     (IdentId::TYPE_SELF, "Self"),
     (IdentId::SELF, "self"),
@@ -75,7 +73,6 @@ pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
     (IdentId::DERIVE, "derive"),
     (IdentId::NEW, "new"),
     (IdentId::TEST, "test"),
-    (IdentId::FN_SIG, "fn"),
 ];
 
 #[derive(Clone, Debug, Default)]

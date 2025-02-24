@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, IdentId, NodeInfo, NodeType};
+use qed_ast::{ExprId, IdentId, NodeInfo, NodeType, TypeQualifier};
 
 use crate::{ScopeId, TypeId};
 
@@ -6,7 +6,7 @@ use crate::{ScopeId, TypeId};
 pub struct CheckedVariableNode {
     pub name: IdentId,
     pub ty: TypeId,
-    pub mutable: bool,
+    pub qualifier: TypeQualifier,
     pub value: ExprId,
     pub scope_id: ScopeId,
 }

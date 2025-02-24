@@ -83,13 +83,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
                 let parameters = sig
                     .parameters
                     .iter()
-                    .map(|p| {
-                        format!(
-                            "{}{}",
-                            if p.0 { "mut " } else { "" },
-                            self.visit_unchecked_type(&p.1, ctx)
-                        )
-                    })
+                    .map(|p| format!("{}", self.visit_unchecked_type(&p, ctx)))
                     .collect::<Vec<_>>()
                     .join(", ");
                 format!(
@@ -455,7 +449,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     ) -> Result<Self::StmtResult, Self::Error> {
         let s = format!(
             "let{} {}: {} = {};",
-            if ctx.statement(stmt_id).as_variable().unwrap().mutable {
+            if ctx
+                .statement(stmt_id)
+                .as_variable()
+                .unwrap()
+                .qualifier
+                .is_mutable
+            {
                 " mut"
             } else {
                 ""
@@ -498,7 +498,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     ) -> Result<Self::StmtResult, Self::Error> {
         let ImplNode {
             generic_parameters,
-            trait_name,
+            trait_ty,
             ty,
             body,
         } = ctx.definition(def_id).as_impl().unwrap();
@@ -509,15 +509,14 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
         let s = format!(
-            "impl{} {}{}{} {{",
-            if let Some(trait_name) = trait_name {
-                format!(" {} for", &ctx.ident(trait_name.clone()))
+            "impl{} {}{} {{",
+            generic_parameters,
+            if let Some(trait_ty) = trait_ty {
+                format!("{} for ", self.visit_unchecked_type(&trait_ty, ctx))
             } else {
                 "".to_string()
             },
-            generic_parameters,
             self.visit_unchecked_type(&ty, ctx),
-            generic_parameters
         );
         self.write_line(&s);
         self.indent();
@@ -565,7 +564,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|p| {
                 format!(
                     "{}{}: {}",
-                    if p.1 { "mut " } else { "" },
+                    if p.1.is_mutable { "mut " } else { "" },
                     &ctx.ident(p.0),
                     self.visit_unchecked_type(&p.2, ctx)
                 )
@@ -739,7 +738,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 .map(|p| {
                     format!(
                         "{}{}: {}",
-                        if p.1 { "mut " } else { "" },
+                        if p.1.is_mutable { "mut " } else { "" },
                         &ctx.ident(p.0),
                         self.visit_unchecked_type(&p.2, ctx)
                     )
@@ -1008,22 +1007,22 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(Default::default())
     }
 
-    fn visit_closure(
+    fn visit_lambda_function(
         &mut self,
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let ClosureNode {
+        let LambdaFunctionNode {
             parameters,
             body,
             return_type,
-        } = ctx.expression(node).as_closure().cloned().unwrap();
+        } = ctx.expression(node).as_lambda_function().cloned().unwrap();
         let parameters = parameters
             .iter()
             .map(|p| {
                 format!(
                     "{}{}: {}",
-                    if p.1 { "mut " } else { "" },
+                    if p.1.is_mutable { "mut " } else { "" },
                     &ctx.ident(p.0),
                     self.visit_unchecked_type(&p.2, ctx)
                 )

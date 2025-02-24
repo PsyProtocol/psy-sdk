@@ -1,18 +1,18 @@
 mod binary;
 mod call;
 mod cast;
-mod closure;
 mod index;
 mod intrinsic;
+mod lambda;
 mod path;
 mod unary;
 
 pub use binary::*;
 pub use call::*;
 pub use cast::*;
-pub use closure::*;
 pub use index::*;
 pub use intrinsic::*;
+pub use lambda::*;
 pub use path::*;
 pub use unary::*;
 
@@ -31,7 +31,7 @@ pub enum ExprNode<F: Clone + From<u32>> {
     IndexAccess(IndexAccessNode),
     MemberAccess(MemberAccessNode),
     Intrinsic(IntrinsicExprNode),
-    Closure(ClosureNode),
+    LambdaFunction(LambdaFunctionNode),
 }
 
 impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
@@ -47,7 +47,7 @@ impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
             Self::IndexAccess(node) => node.node_type(),
             Self::MemberAccess(node) => node.node_type(),
             Self::Intrinsic(node) => node.node_type(),
-            Self::Closure(node) => node.node_type(),
+            Self::LambdaFunction(node) => node.node_type(),
         }
     }
 }
