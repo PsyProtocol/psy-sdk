@@ -1,16 +1,13 @@
 mod assignment;
 mod block;
-mod r#if;
 mod intrinsic;
 mod r#return;
 mod variable;
 mod r#while;
 
 pub use assignment::*;
-pub use block::*;
 use enum_as_inner::EnumAsInner;
 pub use intrinsic::*;
-pub use r#if::*;
 pub use r#return::*;
 pub use r#while::*;
 pub use variable::*;
@@ -19,9 +16,7 @@ use crate::{DefId, ExprId, NodeInfo, NodeType, UsePath};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum StmtNode {
-    If(IfNode),
     While(WhileNode),
-    Block(BlockNode),
     Assignment(AssignmentNode),
     Variable(VariableNode),
     Definition(DefId),
@@ -34,9 +29,7 @@ pub enum StmtNode {
 impl NodeInfo for StmtNode {
     fn node_type(&self) -> NodeType {
         match self {
-            StmtNode::If(node) => node.node_type(),
             StmtNode::While(node) => node.node_type(),
-            StmtNode::Block(node) => node.node_type(),
             StmtNode::Assignment(node) => node.node_type(),
             StmtNode::Variable(node) => node.node_type(),
             StmtNode::Definition(_) => NodeType::DefinitionStmt,

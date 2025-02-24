@@ -2,6 +2,9 @@ use qed_common::{FileId, Arena};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::*;
 use qed_lexer::{Token, Error};
+use qed_ast::BlockExprNode;
+use qed_ast::{IfExprNode, Case};
+
 
 grammar<'input, F, C>(
     file_content: &'input str,
@@ -263,24 +266,26 @@ GenericParameters: Vec<IdentId> = {
 }
 
 BlockStatement: StmtNode = {
-    <l:@L> "{" <mut stmts:Statement*> <ret:Expression> "}" <r:@R> => {
-        stmts.push(StmtNode::Return(ReturnNode(Some(expr_nodes.alloc_item(ret)))));
+    <l:@L> <block:BlockExpression> <r:@R> => {
+        StmtNode::Expression(expr_nodes.alloc_item(block))
+    }
+}
+
+BlockExpression: ExprNode<F> = {
+    <l:@L> "{" <mut stmts:Statement*> <ret:Expression?> "}" <r:@R> => {
+        if let Some(expr) = ret {
+            stmts.push(StmtNode::Return(ReturnNode(Some(expr_nodes.alloc_item(expr)))));
+        }
         let (uses, normal_stmts): (Vec<StmtNode>, Vec<StmtNode>) = stmts.into_iter().partition(|stmt| {
             stmt.is_use()
         });
-        StmtNode::Block(BlockNode {
-            stmts: stmt_nodes.alloc_items(normal_stmts),
-            uses: stmt_nodes.alloc_items(uses),
-        })
-    },
-    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => {
-        let (uses, normal_stmts): (Vec<StmtNode>, Vec<StmtNode>) = stmts.into_iter().partition(|stmt| {
-            stmt.is_use()
-        });
-        StmtNode::Block(BlockNode {
-            stmts: stmt_nodes.alloc_items(normal_stmts),
-            uses: stmt_nodes.alloc_items(uses),
-        })
+
+        ExprNode::BlockExpr(
+            BlockExprNode {
+                stmts: stmt_nodes.alloc_items(normal_stmts),
+                uses: stmt_nodes.alloc_items(uses),
+            }
+        )
     }
 }
 
@@ -292,15 +297,20 @@ WhileStatement: StmtNode = {
 }
 
 IfStatement: StmtNode = {
-    <l:@L> <if_branch:IfBranch> <elseif_branch:ElseIfBranch*> <else_branch:ElseBranch?> <r:@R> => StmtNode::If(
-        IfNode {
+    <l:@L> <expr:IfExpression> <r:@R> => {
+        StmtNode::Expression(expr_nodes.alloc_item(expr))
+    }
+}
+
+IfExpression: ExprNode<F> = {
+    <l:@L> <if_branch:IfBranch> <elseif_branches:ElseIfBranch*> <else_branch:ElseBranch?> <r:@R> => ExprNode::IfExpr(
+        IfExprNode {
             if_branch,
-            elseif_branch,
+            elseif_branches,
             else_branch
         }
     ),
 }
-
 IfBranch: Case = {
     <l:@L> IF <predicate:Expression> <block_stmt:BlockStatement> <r:@R> => Case::new(
         expr_nodes.alloc_item(predicate),
@@ -325,6 +335,24 @@ ReturnStatement: StmtNode = {
 
 VariableStatement: StmtNode = {
     <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
+        VariableNode {
+            name: decl.0,
+            ty: decl.1,
+            mutable: mutable.is_some(),
+            cnst: false,
+            value: expr_nodes.alloc_item(value)
+        }
+    ),
+    <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <value:IfExpression> ";" <r:@R>  => StmtNode::Variable(
+        VariableNode {
+            name: decl.0,
+            ty: decl.1,
+            mutable: mutable.is_some(),
+            cnst: false,
+            value: expr_nodes.alloc_item(value)
+        }
+    ),
+    <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <value:BlockExpression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {
             name: decl.0,
             ty: decl.1,

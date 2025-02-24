@@ -1,17 +1,21 @@
 mod binary;
+mod block_expr;
 mod call;
 mod cast;
+mod r#if;
 mod index;
 mod intrinsic;
 mod path;
 mod unary;
 
 pub use binary::*;
+pub use block_expr::*;
 pub use call::*;
 pub use cast::*;
 pub use index::*;
 pub use intrinsic::*;
 pub use path::*;
+pub use r#if::*;
 pub use unary::*;
 
 use crate::{NodeInfo, NodeType, ValueNode};
@@ -28,6 +32,9 @@ pub enum ExprNode<F: Clone + From<u32>> {
     Cast(CastNode),
     IndexAccess(IndexAccessNode),
     MemberAccess(MemberAccessNode),
+
+    BlockExpr(BlockExprNode),
+    IfExpr(IfExprNode),
     Intrinsic(IntrinsicExprNode),
 }
 
@@ -44,6 +51,8 @@ impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
             Self::IndexAccess(node) => node.node_type(),
             Self::MemberAccess(node) => node.node_type(),
             Self::Intrinsic(node) => node.node_type(),
+            Self::BlockExpr(node) => node.node_type(),
+            Self::IfExpr(node) => node.node_type(),
         }
     }
 }

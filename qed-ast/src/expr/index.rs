@@ -1,5 +1,4 @@
 use crate::{ExprId, IdentId, NodeInfo, NodeType};
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexAccessNode {
     pub target: ExprId,

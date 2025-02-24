@@ -1,15 +1,19 @@
 mod binary;
+mod block;
 mod call;
 mod cast;
+mod if_expr;
 mod index;
 mod intrinsic;
 mod path;
 mod unary;
 
 pub use binary::*;
+pub use block::*;
 pub use call::*;
 pub use cast::*;
 use enum_as_inner::EnumAsInner;
+pub use if_expr::*;
 pub use index::*;
 pub use intrinsic::*;
 pub use path::*;
@@ -32,6 +36,8 @@ pub enum CheckedExprNode<F> {
     IndexAccess(CheckedIndexAccessNode),
     MemberAccess(CheckedMemberAccessNode),
     Intrinsic(CheckedIntrinsicExprNode),
+    BlockExpr(CheckedBlockExprNode),
+    IfExpr(CheckedIfExprNode),
 }
 
 impl<F> NodeInfo for CheckedExprNode<F> {
@@ -47,6 +53,8 @@ impl<F> NodeInfo for CheckedExprNode<F> {
             CheckedExprNode::IndexAccess(node) => node.node_type(),
             CheckedExprNode::MemberAccess(node) => node.node_type(),
             CheckedExprNode::Intrinsic(node) => node.node_type(),
+            CheckedExprNode::BlockExpr(node) => node.node_type(),
+            CheckedExprNode::IfExpr(node) => node.node_type(),
         }
     }
 }
@@ -85,12 +93,14 @@ impl<F> CheckedExprNode<F> {
                 CheckedIntrinsicExprNode::CSetStateHashAt { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::Read { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::Write {
-                    offset,
-                    value,
+                    offset: _,
+                    value: _,
                     type_id,
                 } => type_id.clone(),
                 CheckedIntrinsicExprNode::Hash { type_id, .. } => type_id.clone(),
             },
+            CheckedExprNode::IfExpr(i) => i.type_id,
+            CheckedExprNode::BlockExpr(b) => b.type_id,
         }
     }
 

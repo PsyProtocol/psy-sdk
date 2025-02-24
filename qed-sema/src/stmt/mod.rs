@@ -1,16 +1,12 @@
 mod assignment;
-mod block;
-mod r#if;
 mod intrinsic;
 mod r#return;
 mod variable;
 mod r#while;
 
 pub use assignment::*;
-pub use block::*;
 use enum_as_inner::EnumAsInner;
 pub use intrinsic::*;
-pub use r#if::*;
 pub use r#return::*;
 pub use r#while::*;
 pub use variable::*;
@@ -21,29 +17,27 @@ use crate::{CheckedDefinitionNode, CheckedExprNode};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum CheckedStmtNode {
-    If(CheckedIfNode),
     While(CheckedWhileNode),
-    Block(CheckedBlockNode),
     Assignment(CheckedAssignmentNode),
     Variable(CheckedVariableNode),
     Definition(DefId),
     Expression(ExprId),
     Return(CheckedReturnNode),
     Intrinsic(CheckedIntrinsicStmtNode),
+    Use,
 }
 
 impl NodeInfo for CheckedStmtNode {
     fn node_type(&self) -> NodeType {
         match self {
-            Self::If(node) => node.node_type(),
             Self::While(node) => node.node_type(),
-            Self::Block(node) => node.node_type(),
             Self::Assignment(node) => node.node_type(),
             Self::Variable(node) => node.node_type(),
-            Self::Definition(node) => NodeType::DefinitionStmt,
-            Self::Expression(node) => NodeType::ExpressionStmt,
+            Self::Definition(_node) => NodeType::DefinitionStmt,
+            Self::Expression(_node) => NodeType::ExpressionStmt,
             Self::Return(node) => node.node_type(),
             Self::Intrinsic(node) => node.node_type(),
+            Self::Use => NodeType::UseStmt,
         }
     }
 
@@ -75,13 +69,13 @@ impl From<DefId> for CheckedStmtNode {
 }
 
 impl<F> From<CheckedExprNode<F>> for CheckedStmtNode {
-    fn from(value: CheckedExprNode<F>) -> Self {
+    fn from(_value: CheckedExprNode<F>) -> Self {
         todo!()
     }
 }
 
 impl From<CheckedDefinitionNode> for CheckedStmtNode {
-    fn from(value: CheckedDefinitionNode) -> Self {
+    fn from(_value: CheckedDefinitionNode) -> Self {
         todo!()
     }
 }

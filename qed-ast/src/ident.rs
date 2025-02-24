@@ -104,6 +104,12 @@ impl Interner {
             let idx = self.pool.len();
             self.pool.alloc_item(s.clone());
             self.index.insert(s.clone(), idx);
+
+            //#[cfg(test)]
+            {
+                use crate::utils::insert_ident;
+                insert_ident(idx, s.0.as_str());
+            }
             idx
         })
     }
