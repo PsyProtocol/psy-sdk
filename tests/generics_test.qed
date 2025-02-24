@@ -39,7 +39,7 @@ struct Person<T> {
 // }
 
 fn main() -> Felt {
-    let p: Person<Felt> = new Person#<Felt> { age: 10 };
+    let p = new Person#<Felt> { age: 10 };
     // p.set_age(20);
     p.age
 }

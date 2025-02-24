@@ -992,8 +992,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
-        ctx.push_inferences();
         ctx.symbols.start_scope(ScopeKind::Trait);
+        ctx.push_inferences();
         // TODO: remove clone
         let trait_node = ctx.definition(node).as_trait().cloned().unwrap();
 
@@ -1025,8 +1025,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), checked_trait.name, ty)?;
 
-        ctx.symbols.end_scope();
         ctx.pop_inferences();
+        ctx.symbols.end_scope();
         Ok(CheckedDefinitionNode::Trait(checked_trait))
     }
 
@@ -1044,8 +1044,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
-        ctx.push_inferences();
         ctx.symbols.start_scope(ScopeKind::Struct);
+        ctx.push_inferences();
         // TODO: remove clone
         let struct_node = ctx.definition(node).as_struct().cloned().unwrap();
 
@@ -1078,8 +1078,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), checked_struct.name, ty)?;
 
-        ctx.symbols.end_scope();
         ctx.pop_inferences();
+        ctx.symbols.end_scope();
         Ok(CheckedDefinitionNode::Struct(checked_struct))
     }
 
@@ -1088,8 +1088,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
-        ctx.push_inferences();
         ctx.symbols.start_scope(ScopeKind::Enum);
+        ctx.push_inferences();
         // TODO: remove clone
         let enum_node = ctx.definition(node).as_enum().cloned().unwrap();
         let current_scope_id = ctx.symbols.current_scope_id().unwrap();
@@ -1116,8 +1116,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             .symbols
             .add_type(ctx.symbols.parent_scope_id(), checked_enum.name, ty)?;
 
-        ctx.symbols.end_scope();
         ctx.pop_inferences();
+        ctx.symbols.end_scope();
         Ok(CheckedDefinitionNode::Enum(checked_enum))
     }
 
@@ -1152,15 +1152,15 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.push_node_id(NodeId::from(def_id));
         let res = match ctx.definition(def_id).node_type() {
             NodeType::FunctionDef => {
-                ctx.push_inferences();
                 ctx.symbols.start_scope(ScopeKind::Function);
+                ctx.push_inferences();
                 let checked_function = self.visit_function(def_id, ctx)?;
                 let ty = Type::Function(checked_function.as_function().cloned().unwrap());
                 ctx.symbols
                     .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
 
-                ctx.symbols.end_scope();
                 ctx.pop_inferences();
+                ctx.symbols.end_scope();
 
                 checked_function
             }
@@ -1440,8 +1440,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                     checked_generic_parameters.push(self.typecheck(generic_parameter, ctx)?);
                 }
 
-                let ty = ctx.symbols[underlying_type_id].clone();
-                match ty {
+                match &ctx.symbols[underlying_type_id] {
                     Type::Struct(checked_struct) => {
                         if checked_struct.generic_parameters.len()
                             != checked_generic_parameters.len()
@@ -1853,8 +1852,8 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
     ) -> Result<TypeId> {
         ctx.symbols
             .enter_scope(ctx.symbols[struct_type_id].scope_id());
-        ctx.push_inferences();
         ctx.symbols.start_scope(ScopeKind::StructInstance);
+        ctx.push_inferences();
         // TODO: remove clone
         let struct_node = ctx.symbols[struct_type_id].as_struct().cloned().unwrap();
 
@@ -1889,9 +1888,9 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
 
         // self.instantiate_trait_methods(struct_type_id, inst_type_id, ctx)?;
 
+        ctx.pop_inferences();
         ctx.symbols.end_scope();
         ctx.symbols.exit_scope();
-        ctx.pop_inferences();
         Ok(inst_type_id)
     }
 
@@ -2016,7 +2015,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             generic_parameters: vec![],
             body: func.body,
             return_type: inst_return_type,
-            scope_id: func.scope_id,
+            scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: func.visibility,
             attrs: func.attrs.clone(),
         });
