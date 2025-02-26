@@ -239,15 +239,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         parameters: Vec<CheckedValueRef<F>>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<ControlState<CheckedValueRef<F>>> {
-        if ctx.symbols[type_id].is_function() {
-            ctx.symbols.enter_function(ctx.symbols[type_id].scope_id());
-        }
-
+        let scope_id = ctx.symbols[type_id].scope_id();
+        ctx.symbols.enter_function(scope_id);
         let res = self.__interpret_function__(typechecker, type_id, parameters, ctx);
-
-        if ctx.symbols[type_id].is_function() {
-            ctx.symbols.exit_function();
-        }
+        ctx.symbols.exit_function(scope_id);
         res
     }
 

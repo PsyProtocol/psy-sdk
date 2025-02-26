@@ -545,11 +545,19 @@ impl<F: Clone> SymbolTable<F> {
     }
 
     pub fn enter_function(&mut self, scope_id: ScopeId) {
-        self.frames.push(Frame::new(scope_id));
+        if self[scope_id].kind == ScopeKind::LambdaFunction {
+            self.frames.last_mut().unwrap().push_scope(scope_id);
+        } else {
+            self.frames.push(Frame::new(scope_id));
+        }
     }
 
-    pub fn exit_function(&mut self) {
-        self.frames.pop();
+    pub fn exit_function(&mut self, scope_id: ScopeId) {
+        if self[scope_id].kind == ScopeKind::LambdaFunction {
+            self.frames.last_mut().unwrap().pop_scope();
+        } else {
+            self.frames.pop();
+        }
     }
 
     pub fn enter_block(&mut self, scope_id: ScopeId) {
