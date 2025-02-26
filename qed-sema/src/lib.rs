@@ -40,7 +40,7 @@ impl<F: Clone + From<u32>, C> TypeCheckerVisitorContext<F, C> {
             path_stack: vec![],
             program,
             symbols: SymbolTable::new(),
-            inferences: Vec::new(),
+            inferences: vec![vec![HashMap::new()]],
             _marker: std::marker::PhantomData,
         }
     }
@@ -490,6 +490,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     // TODO: remove clone
                     let checked_expr = self.visit_expr(e, ctx)?;
                     if !self.unify(checked_expr.ty(), inner_ty, ctx) {
+                        eprintln!("DEBUGPRINT[326]: lib.rs:492 (after if !self.unify(checked_expr.ty(), inner_…)");
                         return Err(Error::TypeMismatch);
                     }
                     inner_ty = checked_expr.ty();
@@ -501,7 +502,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     inner_ty: self.substitute_all(inner_ty, ctx)?,
                     size: size.clone(),
                 });
-                let type_id = ctx.symbols.get_or_add_type(None, ty.key(), ty)?;
+                let type_id = ctx.symbols.get_or_add_type(Some(scope_id), ty.key(), ty)?;
 
                 Ok(CheckedExprNode::Value(CheckedValueNode::Array(
                     type_id, elements,
@@ -521,7 +522,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     .unwrap()
                     .fields
                     .clone();
-                let mut generic_parameters = ctx.symbols[underlying_type_id].generic_parameters();
+                let generic_parameters = ctx.symbols[underlying_type_id].generic_parameters();
                 if fields.len() != data.len() {
                     return Err(Error::TypeMismatch);
                 }
@@ -1543,10 +1544,11 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         ctx: &TypeCheckerVisitorContext<F, C>,
     ) -> bool {
         let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-        let is_method = [ScopeKind::ImplMethod, ScopeKind::TraitMethod]
-            .contains(&ctx.symbols[current_scope_id].kind);
-
-        is_method
+        ctx.symbols
+            .find(None, vec![ScopeKind::Impl], |s| {
+                s.kind.eq(&ScopeKind::ImplMethod).then_some(true)
+            })
+            .is_some()
             && ctx
                 .expression(receiver)
                 .as_path()
@@ -1820,6 +1822,16 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         rhs_ty: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> bool {
+        eprintln!("DEBUGPRINT[327]: lib.rs:1821: lhs_ty={:#?}", lhs_ty);
+        eprintln!("DEBUGPRINT[328]: lib.rs:1822: rhs_ty={:#?}", rhs_ty);
+        eprintln!(
+            "DEBUGPRINT[324]: lib.rs:1823: &ctx.symbols[lhs_ty]={:#?}",
+            &ctx.symbols[lhs_ty]
+        );
+        eprintln!(
+            "DEBUGPRINT[325]: lib.rs:1824: &ctx.symbols[rhs_ty]={:#?}",
+            &ctx.symbols[rhs_ty]
+        );
         match (&ctx.symbols[lhs_ty], &ctx.symbols[rhs_ty]) {
             (Type::TypeVariable(_), _) => {
                 ctx.add_inference(lhs_ty, rhs_ty);
@@ -1926,7 +1938,8 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                     inner_ty,
                     size: array.size,
                 });
-                ctx.symbols.get_or_add_type(None, ty.key(), ty)
+                ctx.symbols
+                    .get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)
             }
 
             Type::GenericInstance(underlying_type_id, generic_parameters) => {
