@@ -283,7 +283,10 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let (fields, underlying_type_id) = if let Some(s) = ty.as_struct() {
             (&s.fields, type_id)
         } else {
-            let (&underlying_type_id, _) = ty.as_generic_instance().unwrap();
+            let (&underlying_type_id, generic_args) = ty.as_generic_instance().unwrap();
+
+            self.populate_generic_arguments(underlying_type_id, generic_args.to_vec(), ctx)?;
+
             (
                 &ctx.symbols[underlying_type_id].as_struct().unwrap().fields,
                 underlying_type_id,
@@ -601,19 +604,30 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             | BinaryOperator::BitShl
             | BinaryOperator::BitAnd
             | BinaryOperator::BitOr
-            | BinaryOperator::BitXor => lhs_ty,
+            | BinaryOperator::BitXor => {
+                if !self.unify(lhs_ty, FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch);
+                }
+                FELT_TYPE
+            }
             BinaryOperator::And | BinaryOperator::Or => {
                 if !self.unify(lhs_ty, BOOL_TYPE, ctx) {
                     return Err(Error::TypeMismatch);
                 }
                 BOOL_TYPE
             }
-            BinaryOperator::Eq
-            | BinaryOperator::Neq
-            | BinaryOperator::Lt
-            | BinaryOperator::Lte
-            | BinaryOperator::Gt
-            | BinaryOperator::Gte => BOOL_TYPE,
+            BinaryOperator::Eq | BinaryOperator::Neq => {
+                if !self.unify(lhs_ty, BOOL_TYPE, ctx) && !self.unify(lhs_ty, FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch);
+                }
+                BOOL_TYPE
+            }
+            BinaryOperator::Lt | BinaryOperator::Lte | BinaryOperator::Gt | BinaryOperator::Gte => {
+                if !self.unify(lhs_ty, FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch);
+                }
+                BOOL_TYPE
+            }
         };
 
         Ok(CheckedExprNode::Binary(CheckedBinaryNode {
@@ -635,6 +649,18 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let checked_expr = self.visit_expr(unary_node.rhs, ctx)?;
         let type_id = checked_expr.ty();
 
+        match unary_node.operator {
+            UnaryOperator::Neg => {
+                if !self.unify(type_id, FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch);
+                }
+            }
+            UnaryOperator::Not => {
+                if !self.unify(type_id, BOOL_TYPE, ctx) && !self.unify(type_id, FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch);
+                }
+            }
+        }
         if !self.unify(type_id, FELT_TYPE, ctx) && !self.unify(type_id, BOOL_TYPE, ctx) {
             return Err(Error::TypeMismatch);
         }
@@ -658,6 +684,15 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let ty = callee.ty();
         // TODO: remove clone
         let generic_parameters = ctx.symbols[ty].generic_parameters();
+        for (generic_param, generic_arg) in generic_parameters
+            .iter()
+            .zip(call_node.generic_parameters.iter())
+        {
+            let generic_arg = self.typecheck(generic_arg, ctx)?;
+            if !self.unify(generic_param.clone(), generic_arg, ctx) {
+                return Err(Error::TypeMismatch);
+            }
+        }
         let signature = ctx.symbols[ty].signature();
 
         if call_node.args.len() != signature.parameters.len() {
@@ -676,7 +711,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             callee: self.exprs.alloc_item(callee),
             generic_parameters: generic_parameters,
             args: self.exprs.alloc_items(args),
-            type_id: signature.return_type.unwrap_or(VOID_TYPE),
+            type_id: self.substitute_all(signature.return_type.unwrap_or(VOID_TYPE), ctx)?,
         }));
     }
 
@@ -692,14 +727,30 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let ty = variable.ty();
         // TODO: remove clone
         let f = ctx.symbols[ty].as_function().unwrap().clone();
+        for (generic_param, generic_arg) in f
+            .generic_parameters
+            .iter()
+            .zip(call_node.generic_parameters.iter())
+        {
+            let generic_arg = self.typecheck(generic_arg, ctx)?;
+            if !self.unify(generic_param.clone(), generic_arg, ctx) {
+                return Err(Error::TypeMismatch);
+            }
+        }
         let mut args = Vec::new();
         // TODO: add member call
         let receiver = {
-            let expr = self.visit_expr(call_node.receiver, ctx)?;
-            if !self.unify(expr.ty(), f.parameters[0].2, ctx) {
+            let receiver = self.visit_expr(call_node.receiver, ctx)?;
+            if let Some((&underlying_type_id, generic_args)) =
+                ctx.symbols[receiver.ty()].as_generic_instance()
+            {
+                self.populate_generic_arguments(underlying_type_id, generic_args.to_vec(), ctx)?;
+            }
+            if !self.unify(receiver.ty(), f.parameters[0].2, ctx) {
                 return Err(Error::FunctionParameterMismatch);
             }
-            self.exprs.alloc_item(expr)
+
+            self.exprs.alloc_item(receiver)
         };
 
         for (i, arg) in call_node.args.iter().enumerate() {
@@ -715,7 +766,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             receiver,
             generic_parameters: f.generic_parameters.clone(),
             args: self.exprs.alloc_items(args),
-            type_id: f.return_type.unwrap_or(VOID_TYPE),
+            type_id: self.substitute_all(f.return_type.unwrap_or(VOID_TYPE), ctx)?,
         }));
     }
 
@@ -832,10 +883,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             if ctx.parent_node_type() == NodeType::FunctionDef
                 || ctx.parent_node_type() == NodeType::LambdaFunctionExpr
             {
-                if checked_stmt.is_return() {
-                    if i != block.stmts.len() - 1 {
-                        return Err(Error::InvalidReturn);
-                    }
+                if checked_stmt.is_return() && i != block.stmts.len() - 1 {
+                    return Err(Error::InvalidReturn);
                 }
             }
             new_stmts.push(checked_stmt);
@@ -869,7 +918,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             variable: self.exprs.alloc_item(checked_lhs),
             operator: assignment_node.operator,
             value: self.exprs.alloc_item(checked_rhs),
-            type_id: lhs_ty,
+            type_id: self.substitute_all(lhs_ty, ctx)?,
         }));
     }
 
@@ -894,7 +943,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         )?;
         let checked_variable = CheckedVariableNode {
             name: variable_node.name,
-            ty: rhs_ty,
+            ty: self.substitute_all(rhs_ty, ctx)?,
             qualifier: variable_node.qualifier,
             value: self.exprs.alloc_item(checked_expr),
             scope_id: current_scope_id,
@@ -928,7 +977,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let ret = if let Some(expr) = return_node.0 {
             let expr = self.visit_expr(expr, ctx)?;
             let ty = expr.ty();
-            Some((self.exprs.alloc_item(expr), ty))
+            Some((self.exprs.alloc_item(expr), self.substitute_all(ty, ctx)?))
         } else {
             None
         };
@@ -1603,6 +1652,25 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
+    pub fn populate_generic_arguments(
+        &mut self,
+        underlying_type_id: TypeId,
+        generic_args: Vec<TypeId>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<()> {
+        for (generic_param, generic_arg) in ctx.symbols[underlying_type_id]
+            .generic_parameters()
+            .into_iter()
+            .zip(generic_args.clone().into_iter())
+        {
+            if !self.unify(generic_param, generic_arg, ctx) {
+                return Err(Error::TypeMismatch);
+            }
+        }
+        Ok(())
+    }
+
+    #[instrument(level = "debug", skip_all)]
     pub fn typecheck_method_receiver(
         &mut self,
         function: &FunctionNode,
@@ -1912,12 +1980,13 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                 other_ty.is_struct()
                     && other_ty.name() == checked_struct.name
                     && other_ty.scope_id() == checked_struct.scope_id
-                    && other_ty
-                        .generic_parameters()
+                    && args
+                        .clone()
                         .into_iter()
                         .zip(checked_struct.generic_parameters.clone().into_iter())
                         .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
+
             (Type::GenericInstance(lhs_ty, lhs_args), Type::GenericInstance(rhs_ty, rhs_args)) => {
                 if lhs_ty != rhs_ty {
                     return false;

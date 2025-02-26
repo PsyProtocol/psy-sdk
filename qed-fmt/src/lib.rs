@@ -1008,8 +1008,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     ) -> Result<Self::ExprResult, Self::Error> {
         let LambdaFunctionNode {
             parameters,
-            body,
             return_type,
+            ..
         } = ctx.expression(node).as_lambda_function().cloned().unwrap();
         let parameters = parameters
             .iter()

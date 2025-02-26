@@ -44,8 +44,8 @@ impl NodeInfo for CheckedStmtNode {
             Self::Block(node) => node.node_type(),
             Self::Assignment(node) => node.node_type(),
             Self::Variable(node) => node.node_type(),
-            Self::Definition(node) => NodeType::DefinitionStmt,
-            Self::Expression(node) => NodeType::ExpressionStmt,
+            Self::Definition(_) => NodeType::DefinitionStmt,
+            Self::Expression(_) => NodeType::ExpressionStmt,
             Self::Return(node) => node.node_type(),
             Self::Intrinsic(node) => node.node_type(),
         }
