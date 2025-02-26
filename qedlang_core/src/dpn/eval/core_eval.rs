@@ -272,6 +272,45 @@ impl ContextEval for SymFeltStore {
                 DPNOpType::GetStateCommandResultHash => todo!(),
                 DPNOpType::GetStateCommandResultSingle => todo!(),
                 DPNOpType::GetStateCommandResultArray => todo!(),
+                DPNOpType::U32InputTarget => input.get_input(felt_ref.get_input_index()),
+                DPNOpType::ConstantU32 => felt_ref.get_constant_value(),
+                DPNOpType::U32Add => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    assert!(a < 0xffffffffu64, "a is too large");
+                    assert!(b < 0xffffffffu64, "b is too large");
+                    assert!(a + b < 0xffffffffu64, "a + b is too large");
+                    (a + b) & 0xffffffffu64
+                }
+                DPNOpType::U32Sub => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    assert!(a < 0xffffffffu64, "a is too large");
+                    assert!(b < 0xffffffffu64, "b is too large");
+                    assert!(a > b , "a - b < 0");
+                    (a - b) & 0xffffffffu64
+                }
+                DPNOpType::U32Mul => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    assert!(a < 0xffffffffu64, "a is too large");
+                    assert!(b < 0xffffffffu64, "b is too large");
+                    assert!(a * b < 0xffffffffu64, "a * b is too large");
+                    (a * b) & 0xffffffffu64
+                }
+                DPNOpType::U32Div => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    assert!(a < 0xffffffffu64, "a is too large");
+                    assert!(b < 0xffffffffu64, "b is too large");
+                    assert!(a / b < 0xffffffffu64, "a / b is too large");
+                    (a / b) & 0xffffffffu64
+                }
+                DPNOpType::CastFelt => {
+                    let value = self.resolve_unary_felt_arg(felt_ref, input, cache);
+                    value
+                }
+                DPNOpType::CastBool => {
+                    let value = self.resolve_unary_felt_arg(felt_ref, input, cache);
+                    (value != 0) as u64
+                }
+                DPNOpType::BoolInputTarget => input.get_input(felt_ref.get_input_index()),
             };
             result
         }

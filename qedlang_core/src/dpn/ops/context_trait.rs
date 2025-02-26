@@ -292,8 +292,11 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn get_op_type(&self, a: F) -> DPNOpType;
 
     fn op_cast_u32(&mut self, a: F) -> F;
+    fn op_cast_felt(&mut self, a: F) -> F;
+    fn op_cast_bool(&mut self, a: F) -> F;
     fn op_select(&mut self, condition: F, a: F, b: F) -> F;
     fn op_const(&mut self, value: u64) -> F;
+    fn op_const_u32(&mut self, value: u32) -> F;
     fn op_bool_not(&mut self, a: F) -> F;
     fn op_bool_and(&mut self, a: F, b: F) -> F;
     fn op_bool_or(&mut self, a: F, b: F) -> F;
@@ -303,6 +306,10 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn op_sub(&mut self, a: F, b: F) -> F;
     fn op_mul(&mut self, a: F, b: F) -> F;
     fn op_div(&mut self, a: F, b: F) -> F;
+    fn op_u32_add(&mut self, a: F, b: F) -> F;
+    fn op_u32_sub(&mut self, a: F, b: F) -> F;
+    fn op_u32_mul(&mut self, a: F, b: F) -> F;
+    fn op_u32_div(&mut self, a: F, b: F) -> F;
     fn op_mod(&mut self, a: F, b: F) -> F;
     fn op_exp(&mut self, a: F, b: F) -> F;
     fn op_eq(&mut self, a: F, b: F) -> F;
@@ -325,6 +332,8 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn op_false(&mut self) -> F;
 
     fn add_input(&mut self) -> F;
+    fn add_u32_input(&mut self) -> F;
+    fn add_bool_input(&mut self) -> F;
     fn add_inputs(&mut self, count: u64) -> Vec<F>;
     fn assert_eq(&mut self, left: F, right: F, message: &'static str);
     fn assert_true(&mut self, left: F, message: &'static str);

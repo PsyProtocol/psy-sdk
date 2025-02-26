@@ -10,7 +10,7 @@ use plonky2::field::{goldilocks_field::GoldilocksField, types::Field64};
 use serde::{Deserialize, Serialize};
 use twox_hash::xxh3::HasherExt;
 use super::context_trait::{ContextFelt, DPNContext, FeltSized};
-use super::op_types::DPNOpType;
+use super::op_types::{DPNBuiltInDataType, DPNOpType};
 
 pub const SYM_FELT_REF_STORE_TYPE_MASK: u128 = 0xffff0000000000000000000000000000u128;
 pub const SYM_FELT_REF_STORE_VALUE_MASK: u128 = 0x0000ffffffffffffffffffffffffffffu128;
@@ -21,12 +21,21 @@ pub const CONSTANT_FALSE_OP: u128 = (DPNOpType::ConstantFalse as u128)<<112;
 #[derive(Clone, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
 pub struct SymFeltRef(pub u128);
 impl SymFeltRef {
-    pub fn new_input(index: u64) -> SymFeltRef {
-        SymFeltRef((DPNOpType::InputTarget as u128)<<112 | index as u128)
+    pub fn new_input(index: u64, input_type: DPNBuiltInDataType) -> SymFeltRef {
+        match input_type {
+            DPNBuiltInDataType::Target => SymFeltRef((DPNOpType::InputTarget as u128)<<112 | index as u128),
+            DPNBuiltInDataType::U32Target => SymFeltRef((DPNOpType::U32InputTarget as u128)<<112 | index as u128),
+            DPNBuiltInDataType::Bool => SymFeltRef((DPNOpType::BoolInputTarget as u128)<<112 | index as u128),
+            _ => unreachable!(),
+        }
     }
     pub const fn new_constant(value: u64) -> SymFeltRef {
         //assert!(value < GoldilocksField::ORDER, "Constant value {} is too large", value);
         SymFeltRef((DPNOpType::Constant as u128)<<112 | (value%GoldilocksField::ORDER) as u128)
+    }
+    pub const fn new_constant_u32(value: u32) -> SymFeltRef {
+        //assert!(value < GoldilocksField::ORDER, "Constant value {} is too large", value);
+        SymFeltRef((DPNOpType::ConstantU32 as u128)<<112 | value as u128)
     }
     pub fn cns<T: Into<SymFeltRef>>(val: T) -> SymFeltRef {
         val.into()
@@ -90,8 +99,13 @@ impl SymFeltRef {
                 GetCheckpointId = 48,
                 GetNonce = 49,
                 GetUserPublicKeyHash = 50,
+
+                U32InputTarget = 66,
+                ConstantU32 = 67,
+
+                BoolInputTarget = 74,
         */
-        type_id > 3 && (type_id < 46 || type_id > 50)
+        type_id > 3 && (type_id < 46 || type_id > 50) && (type_id < 66 || type_id > 67) && type_id < 74
     }
     pub fn constant_true() -> SymFeltRef {
         SymFeltRef((DPNOpType::ConstantTrue as u128)<<112)
