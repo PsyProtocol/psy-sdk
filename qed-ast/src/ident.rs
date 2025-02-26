@@ -105,6 +105,16 @@ impl Interner {
         })
     }
 
+    pub fn intern_lambda(&mut self) -> IdentId {
+        let s: Ident = "__LAMBDA_FUNCTON__".into();
+        IdentId({
+            let idx = self.pool.len();
+            self.pool.alloc_item(s.clone());
+            self.index.insert(s.clone(), idx);
+            idx
+        })
+    }
+
     pub fn intern_idents<S: Into<Ident>>(
         &mut self,
         s: impl IntoIterator<Item = S>,

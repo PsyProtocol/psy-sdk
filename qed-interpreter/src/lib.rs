@@ -249,26 +249,29 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         &mut self,
         typechecker: &TypeChecker<F, C>,
         type_id: TypeId,
-        parameters: Vec<CheckedValueRef<F>>,
+        args: Vec<CheckedValueRef<F>>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<ControlState<CheckedValueRef<F>>> {
         // TODO: remove clone
-        let node = ctx.symbols[type_id].as_function().cloned().unwrap();
+        let parameters = ctx.symbols[type_id].parameters();
 
         assert_eq!(
+            args.len(),
             parameters.len(),
-            node.parameters.len(),
             "expceted {} parameters for main function, got {}",
-            node.parameters.len(),
+            args.len(),
             parameters.len()
         );
 
-        for (i, (parameter, _, _)) in node.parameters.iter().enumerate() {
-            ctx.symbols
-                .set_variable(node.scope_id, parameter, parameters[i].clone())?;
+        for (i, (parameter, _, _)) in parameters.iter().enumerate() {
+            ctx.symbols.set_variable(
+                ctx.symbols[type_id].scope_id(),
+                parameter,
+                args[i].clone(),
+            )?;
         }
 
-        self.interpret_block(typechecker, node.body.unwrap(), ctx)
+        self.interpret_block(typechecker, ctx.symbols[type_id].body(), ctx)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -347,6 +350,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         let node = typechecker[stmt_id].as_for().unwrap();
         let start = self.interpret_expr(typechecker, node.start, ctx)?.unwrap();
         let end = self.interpret_expr(typechecker, node.end, ctx)?.unwrap();
+        ctx.symbols.enter_block(node.scope_id);
         ctx.symbols
             .set_variable(node.scope_id, &node.variable, start)?;
 
@@ -364,6 +368,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 ctx.symbols
                     .set_variable(node.scope_id, &node.variable, value)?;
             } else {
+                ctx.symbols.exit_block();
                 break Ok(());
             }
         }
@@ -860,7 +865,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             CheckedExprNode::MemberAccess(member_access_node) => Ok(Some(
                 self.interpret_member_access(typechecker, member_access_node, ctx)?,
             )),
-            CheckedExprNode::LambdaFunction(checked_lambda_function_node) => todo!(),
+            CheckedExprNode::LambdaFunction(checked_lambda_function_node) => Ok(Some(
+                CheckedValueRef::new_rc(CheckedValue::Type(checked_lambda_function_node.type_id)),
+            )),
         }
     }
 

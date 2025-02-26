@@ -1,0 +1,7 @@
+fn main() -> Felt {
+    let min = |a: Felt, b: Felt| -> Felt {
+        return a * ((a < b) as Felt) + b * ((a >=b) as Felt);
+    };
+
+    min(1, 2)
+}

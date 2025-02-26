@@ -40,6 +40,7 @@ pub enum ScopeKind {
     Module,
     Block,
     Function,
+    LambdaFunction,
     Struct,
     Enum,
     Impl,

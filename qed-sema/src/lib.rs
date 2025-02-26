@@ -181,6 +181,10 @@ impl<F: Clone + From<u32>, C> VisitorContext<F, C> for TypeCheckerVisitorContext
     fn replace_statement(&mut self, stmt_id: StmtId, statement: Self::Stmt) {
         unimplemented!()
     }
+
+    fn intern_lambda(&mut self) -> IdentId {
+        self.program.interner.intern_lambda()
+    }
 }
 
 #[derive(Debug)]
@@ -644,48 +648,26 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let callee = self.visit_expr(call_node.callee, ctx)?;
         let ty = callee.ty();
         // TODO: remove clone
-        let f = ctx.symbols[ty].clone();
-        let (args, generic_parameters, return_type) = match f {
-            Type::Function(n) => {
-                if call_node.args.len() != n.parameters.len() {
-                    return Err(Error::InvalidFunctionCall);
-                }
-                let mut args = Vec::new();
-                for (i, arg) in call_node.args.iter().enumerate() {
-                    let type_arg = self.visit_expr(arg.clone(), ctx)?;
-                    if !self.unify(type_arg.ty(), n.parameters[i].2, ctx) {
-                        return Err(Error::FunctionParameterMismatch);
-                    }
-                    args.push(type_arg);
-                }
-                (
-                    args,
-                    n.generic_parameters.clone(),
-                    n.return_type.unwrap_or(VOID_TYPE),
-                )
+        let generic_parameters = ctx.symbols[ty].generic_parameters();
+        let signature = ctx.symbols[ty].signature();
+
+        if call_node.args.len() != signature.parameters.len() {
+            return Err(Error::InvalidFunctionCall);
+        }
+        let mut args = Vec::new();
+        for (i, arg) in call_node.args.iter().enumerate() {
+            let type_arg = self.visit_expr(arg.clone(), ctx)?;
+            if !self.unify(type_arg.ty(), signature.parameters[i], ctx) {
+                return Err(Error::FunctionParameterMismatch);
             }
-            Type::FunctionSignature(sig) => {
-                if call_node.args.len() != sig.parameters.len() {
-                    return Err(Error::InvalidFunctionCall);
-                }
-                let mut args = Vec::new();
-                for (i, arg) in call_node.args.iter().enumerate() {
-                    let type_arg = self.visit_expr(arg.clone(), ctx)?;
-                    if !self.unify(type_arg.ty(), sig.parameters[i], ctx) {
-                        return Err(Error::FunctionParameterMismatch);
-                    }
-                    args.push(type_arg);
-                }
-                (args, vec![], sig.return_type.unwrap_or(VOID_TYPE))
-            }
-            _ => return Err(Error::TypeMismatch),
-        };
+            args.push(type_arg);
+        }
 
         return Ok(CheckedExprNode::Call(CheckedCallNode {
             callee: self.exprs.alloc_item(callee),
-            generic_parameters: generic_parameters.clone(),
+            generic_parameters: generic_parameters,
             args: self.exprs.alloc_items(args),
-            type_id: return_type,
+            type_id: signature.return_type.unwrap_or(VOID_TYPE),
         }));
     }
 
@@ -838,7 +820,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         for (i, stmt) in block.stmts.iter().enumerate() {
             let checked_stmt = self.visit_stmt(stmt.clone(), ctx)?;
-            if ctx.parent_node_type() == NodeType::FunctionDef {
+            if ctx.parent_node_type() == NodeType::FunctionDef
+                || ctx.parent_node_type() == NodeType::LambdaFunctionExpr
+            {
                 if checked_stmt.is_return() {
                     if i != block.stmts.len() - 1 {
                         return Err(Error::InvalidReturn);
@@ -923,6 +907,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             return Err(Error::InvalidReturn);
         }
         let valid_kinds = [
+            ScopeKind::LambdaFunction,
             ScopeKind::Function,
             ScopeKind::ImplMethod,
             ScopeKind::TraitMethod,
@@ -1216,6 +1201,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             NodeType::IndexAccessExpr => self.visit_index_access(expr_id, ctx)?,
             NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
             NodeType::IntrinsicExpr => self.visit_intrinsic_expr(expr_id, ctx)?,
+            NodeType::LambdaFunctionExpr => self.visit_lambda_function(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
         ctx.pop_inferences();
@@ -1420,7 +1406,67 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
-        todo!()
+        // TODO: remove clone
+        ctx.symbols.start_scope(ScopeKind::LambdaFunction);
+        let function = ctx.expression(node).as_lambda_function().cloned().unwrap();
+
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+
+        let mut parameters = Vec::new();
+
+        for (parameter, mutable, parameter_type) in &function.parameters {
+            let parameter_type = self.typecheck(parameter_type, ctx)?;
+            let variable = CheckedVariable::new(parameter_type, *mutable, current_scope_id, None);
+            ctx.symbols.declare_variable(parameter.clone(), variable)?;
+            parameters.push((parameter.clone(), *mutable, parameter_type));
+        }
+
+        let expected_return_type = if let Some(ref ret) = function.return_type {
+            Some(self.typecheck(ret, ctx)?)
+        } else {
+            None
+        };
+
+        let checked_body = self.visit_block(function.body, ctx)?;
+
+        let actual_return_type = checked_body
+            .as_block()
+            .unwrap()
+            .stmts
+            .last()
+            .and_then(|stmt| match self[stmt.clone()] {
+                CheckedStmtNode::Return(CheckedReturnNode { ret }) => {
+                    ret.as_ref().map(|(_, ty)| ty.clone())
+                }
+                _ => None,
+            });
+
+        if !self.unify(
+            actual_return_type.unwrap_or(VOID_TYPE),
+            expected_return_type.unwrap_or(VOID_TYPE),
+            ctx,
+        ) {
+            return Err(Error::TypeMismatch);
+        }
+
+        let mut checked_function = CheckedLambdaFunctionNode {
+            name: ctx.intern_lambda(),
+            parameters,
+            body: self.stmts.alloc_item(checked_body),
+            return_type: expected_return_type,
+            scope_id: current_scope_id,
+            type_id: UNKOWN_TYPE,
+        };
+
+        let ty = Type::LambdaFunction(checked_function.clone());
+        let type_id = ctx
+            .symbols
+            .add_type(ctx.symbols[current_scope_id].parent, ty.key(), ty)?;
+        (ctx.symbols[type_id].as_mut() as &mut CheckedLambdaFunctionNode).type_id = type_id;
+        checked_function.type_id = type_id;
+
+        ctx.symbols.end_scope();
+        Ok(CheckedExprNode::LambdaFunction(checked_function))
     }
 
     #[instrument(level = "debug", skip_all)]

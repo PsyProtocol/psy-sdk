@@ -4,10 +4,11 @@ use crate::{CheckedFunctionSignature, IdentId, NodeInfo, NodeType, ScopeId, Stmt
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedLambdaFunctionNode {
+    pub name: IdentId,
     pub parameters: Vec<(IdentId, TypeQualifier, TypeId)>,
     pub body: StmtId,
-    pub captures: Vec<(ScopeId, IdentId)>,
     pub return_type: Option<TypeId>,
+    pub scope_id: ScopeId,
     pub type_id: TypeId,
 }
 

@@ -99,6 +99,7 @@ pub trait VisitorContext<F: Clone + From<u32>, C> {
     fn parent_node_type(&self) -> NodeType;
     fn ident(&self, id: IdentId) -> &Ident;
     fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId;
+    fn intern_lambda(&mut self) -> IdentId;
     fn module(&self, module_id: ModuleId) -> &ModuleNode;
     fn program(&self) -> &Program<F>;
     fn dependency_graph(&self) -> Graph<ModuleId>;
@@ -269,5 +270,9 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
 
     fn replace_statement(&mut self, stmt_id: StmtId, statement: Self::Stmt) {
         self.program.stmts.replace_item(stmt_id, statement);
+    }
+
+    fn intern_lambda(&mut self) -> IdentId {
+        self.program.interner.intern_lambda()
     }
 }
