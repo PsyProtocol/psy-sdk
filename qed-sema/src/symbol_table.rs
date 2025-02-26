@@ -639,6 +639,7 @@ impl<F: Clone> SymbolTable<F> {
             |scope| scope.variables.get(key).cloned(),
         )?;
 
+        eprintln!("DEBUGPRINT[330]: symbol_table.rs:641 (after )?;)");
         let value = self
             .frames
             .last()

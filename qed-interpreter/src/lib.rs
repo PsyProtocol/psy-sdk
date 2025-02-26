@@ -239,9 +239,15 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         parameters: Vec<CheckedValueRef<F>>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<ControlState<CheckedValueRef<F>>> {
-        ctx.symbols.enter_function(ctx.symbols[type_id].scope_id());
+        if ctx.symbols[type_id].is_function() {
+            ctx.symbols.enter_function(ctx.symbols[type_id].scope_id());
+        }
+
         let res = self.__interpret_function__(typechecker, type_id, parameters, ctx);
-        ctx.symbols.exit_function();
+
+        if ctx.symbols[type_id].is_function() {
+            ctx.symbols.exit_function();
+        }
         res
     }
 
@@ -964,6 +970,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         path: &CheckedPathNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
+        eprintln!(
+            "DEBUGPRINT[329]: lib.rs:967: ctx.ident(path.name)={:#?}",
+            ctx.ident(path.name)
+        );
         if let Some(variable) = ctx.symbols.get_variable(Some(path.scope_id), &path.name) {
             return Ok(variable.value.clone().unwrap());
         } else if let Some(CheckedConstNode { value, .. }) = ctx.symbols[path.type_id].as_const() {

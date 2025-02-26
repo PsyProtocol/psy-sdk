@@ -674,6 +674,13 @@ KeyValue: (IdentId, ExprId) = {
 }
 
 LambdaFunctionExpression: ExprNode<F> = {
+    <l:@L> "||" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => ExprNode::<F>::LambdaFunction(
+        LambdaFunctionNode {
+            parameters: vec![],
+            body: stmt_nodes.alloc_item(block_stmt),
+            return_type
+        }
+    ),
     <l:@L> "|" <parameters:Comma<FunctionParameter>> "|" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => ExprNode::<F>::LambdaFunction(
         LambdaFunctionNode {
             parameters,
