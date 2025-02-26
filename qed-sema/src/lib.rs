@@ -506,7 +506,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     // TODO: remove clone
                     let checked_expr = self.visit_expr(e, ctx)?;
                     if !self.unify(checked_expr.ty(), inner_ty, ctx) {
-                        eprintln!("DEBUGPRINT[326]: lib.rs:492 (after if !self.unify(checked_expr.ty(), inner_…)");
                         return Err(Error::TypeMismatch);
                     }
                     inner_ty = checked_expr.ty();
@@ -525,10 +524,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 )))
             }
             ValueNode::Struct(name, generic_args, data) => Ok({
-                eprintln!(
-                    "DEBUGPRINT[313]: lib.rs:483: ctx.ident(name)={:#?}",
-                    ctx.ident(name)
-                );
                 let underlying_type_id = ctx
                     .symbols
                     .get_type_id(None, name)
@@ -1044,23 +1039,19 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             checked_generic_parameters.push(ctx.symbols.add_type_variable(generic_parameter)?);
         }
 
-        eprintln!("DEBUGPRINT[317]: lib.rs:952 (after let impl_node = ctx.definition(node).as_…)");
         let underlying_type_id = ctx.symbols.get_type_id(None, impl_node.ty.name()).unwrap();
         let implementor_scope = ctx.symbols[underlying_type_id].scope_id();
         ctx.symbols.enter_scope(implementor_scope);
         ctx.symbols.start_scope(ScopeKind::Impl);
         ctx.push_inferences_context();
 
-        eprintln!("DEBUGPRINT[318]: lib.rs:959 (after ctx.push_inferences();)");
         ctx.symbols
             .add_type_id(None, IdentId::TYPE_SELF, underlying_type_id)?;
         ctx.symbols
             .add_type_id(None, IdentId::SELF, underlying_type_id)?;
 
-        eprintln!("DEBUGPRINT[319]: lib.rs:963 (after ctx.symbols.add_type_id(None, IdentId::S…)");
         let mut methods = Vec::new();
 
-        eprintln!("DEBUGPRINT[320]: lib.rs:967 (after let mut methods = Vec::new();)");
         for (generic_parameter, generic_arg) in checked_generic_parameters.iter().zip(
             ctx.symbols[underlying_type_id]
                 .generic_parameters()
@@ -1071,11 +1062,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             }
         }
 
-        eprintln!("DEBUGPRINT[314]: lib.rs:981 (after generic_parameters.push(type_id);)");
         for &function_id in &impl_node.body {
             methods.push(self.typecheck_method(function_id, ctx)?);
         }
-        eprintln!("DEBUGPRINT[315]: lib.rs:985 (after methods.push(self.typecheck_method(funct…)");
 
         let checked_impl = CheckedImplNode {
             generic_parameters: checked_generic_parameters,
@@ -1530,9 +1519,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         // TODO: remove clone
         let impl_node = ctx.definition(node).as_impl_trait().cloned().unwrap();
 
-        eprintln!("DEBUGPRINT[322]: lib.rs:1433 (after let impl_node = ctx.definition(node).as_…)");
         let trait_type_id = self.typecheck(&impl_node.trait_ty, ctx)?;
-        eprintln!("DEBUGPRINT[323]: lib.rs:1435 (after let trait_type_id = self.typecheck(&impl…)");
         let implementor_type_id = ctx.symbols.get_type_id(None, impl_node.ty.name()).unwrap();
 
         ctx.symbols
@@ -1699,24 +1686,13 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         ty: &UncheckedType,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId> {
-        eprintln!(
-            "DEBUGPRINT[321]: lib.rs:1550: ctx.parent_node_type()={:#?}",
-            ctx.parent_node_type()
-        );
         match ty {
             UncheckedType::Basic(IdentId::TYPE_BOOL) => Ok(BOOL_TYPE),
             UncheckedType::Basic(IdentId::TYPE_FELT) => Ok(FELT_TYPE),
-            UncheckedType::Basic(name) => {
-                eprintln!(
-                    "DEBUGPRINT[313]: lib.rs:483: ctx.ident(name)={:#?}",
-                    ctx.ident(name.clone())
-                );
-
-                Ok(ctx
-                    .symbols
-                    .get_type_id(None, name.clone())
-                    .ok_or(Error::UnresolvedType)?)
-            }
+            UncheckedType::Basic(name) => Ok(ctx
+                .symbols
+                .get_type_id(None, name.clone())
+                .ok_or(Error::UnresolvedType)?),
             UncheckedType::Generic(name, generic_parameters) => {
                 let underlying_type_id = ctx
                     .symbols
@@ -1936,17 +1912,6 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         rhs_ty: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> bool {
-        eprintln!("DEBUGPRINT[327]: lib.rs:1821: lhs_ty={:#?}", lhs_ty);
-        eprintln!("DEBUGPRINT[328]: lib.rs:1822: rhs_ty={:#?}", rhs_ty);
-        eprintln!(
-            "DEBUGPRINT[324]: lib.rs:1823: &ctx.symbols[lhs_ty]={:#?}",
-            &ctx.symbols[lhs_ty]
-        );
-        eprintln!(
-            "DEBUGPRINT[325]: lib.rs:1824: &ctx.symbols[rhs_ty]={:#?}",
-            &ctx.symbols[rhs_ty]
-        );
-
         let lhs_ty = self.substitute_all(lhs_ty, ctx).unwrap();
         let rhs_ty = self.substitute_all(rhs_ty, ctx).unwrap();
 
