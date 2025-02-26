@@ -1,4 +1,4 @@
-// impl<N> [Felt; N] {
+// impl<T, N> [T; N] {
 //     pub fn len() -> Felt {
 //         return N;
 //     }
@@ -8,20 +8,14 @@
 //     let arr: [Felt; 2] = [0, 1];
 //     arr.len()
 // }
-// trait PersonLike<T> {
-//     pub fn get_age(self: Self) -> T {
-//         self.age
-//     }
-//
-//     pub fn set_age(self: Self, age: T) {
-//         self.age = age;
-//     }
-// }
 
 struct Person<T> {
     pub age: T
 }
 
+fn modify_person<T>(mut p: Person<T>) {
+    p.age += 1;
+}
 
 impl<T> Person<T> {
     pub fn new(age: T) -> Self {
@@ -37,19 +31,11 @@ impl<T> Person<T> {
     }
 }
 
-// impl<T> PersonLike<T> for Person<T> {
-//     pub fn get_age(self: Self) -> T {
-//         self.age
-//     }
-//
-//     pub fn set_age(self: Self, age: T) {
-//         self.age = age;
-//     }
-// }
-
 fn main() -> Felt {
-    let p = new Person#<Felt> { age: 10 };
+    let age = 10;
+    let p = new Person { age };
     // let arr: [Felt; 2] = [0, 1];
     p.set_age(20);
+    modify_person(p);
     p.age
 }

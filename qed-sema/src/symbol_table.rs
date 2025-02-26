@@ -360,21 +360,23 @@ impl<F: Clone> SymbolTable<F> {
             let is_trait = self[type_id].is_trait();
 
             for &impl_scope in &self[scope_id].children {
-                if self[impl_scope].kind == ScopeKind::Impl {
-                    for &fun_scope in &self[impl_scope].children {
-                        if let Some(&type_id) = self[fun_scope].types.get(&method_name_key) {
-                            if !self[type_id].is_function() {
-                                continue;
-                            }
-                            if !is_trait {
-                                return Some(type_id);
-                            }
-                            if self[impl_scope].types.get(&IdentId::TYPE_SELF.into())
-                                == Some(&implementor_id)
-                                && self.get_type_id(None, self[trait_type_id].key()).is_some()
-                            {
-                                return Some(type_id);
-                            }
+                if self[impl_scope].kind != ScopeKind::Impl {
+                    continue;
+                }
+
+                for &fun_scope in &self[impl_scope].children {
+                    if let Some(&type_id) = self[fun_scope].types.get(&method_name_key) {
+                        if !self[type_id].is_function() {
+                            continue;
+                        }
+                        if !is_trait {
+                            return Some(type_id);
+                        }
+                        if self[impl_scope].types.get(&IdentId::TYPE_SELF.into())
+                            == Some(&implementor_id)
+                            && self.get_type_id(None, self[trait_type_id].key()).is_some()
+                        {
+                            return Some(type_id);
                         }
                     }
                 }

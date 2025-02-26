@@ -670,7 +670,8 @@ StructExpression: ExprNode<F> = {
 }
 
 KeyValue: (IdentId, ExprId) = {
-    <l:@L> <name:Identifier> ":" <value:Expression> <r:@R> => (name, expr_nodes.alloc_item(value))
+    <l:@L> <name:Identifier> ":" <value:Expression> <r:@R> => (name, expr_nodes.alloc_item(value)),
+    <l:@L> <name:Identifier> <r:@R> => (name, expr_nodes.alloc_item(ExprNode::Path(PathNode::from_target(name))))
 }
 
 LambdaFunctionExpression: ExprNode<F> = {

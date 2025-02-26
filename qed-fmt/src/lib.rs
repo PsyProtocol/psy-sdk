@@ -298,8 +298,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &MemberCallNode {
             callee: variable,
             ref args,
-            receiver,
             ref generic_parameters,
+            ..
         } = ctx.expression(expr_id).as_member_call().unwrap();
         let generic_parameters = generic_parameters
             .iter()
