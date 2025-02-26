@@ -1902,6 +1902,9 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                         .zip(s2.generic_parameters.clone().into_iter())
                         .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
+            (Type::Array(a1), Type::Array(a2)) => {
+                a1.size == a2.size && self.unify(a1.inner_ty, a2.inner_ty, ctx)
+            }
 
             (Type::GenericInstance(underlying_type_id, args), Type::Struct(checked_struct))
             | (Type::Struct(checked_struct), Type::GenericInstance(underlying_type_id, args)) => {
