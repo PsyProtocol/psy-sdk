@@ -271,40 +271,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             )?;
         }
 
-        self.interpret_block(typechecker, ctx.symbols[type_id].body(), ctx)
-    }
-
-    #[instrument(level = "debug", skip_all)]
-    pub fn interpret_if(
-        &mut self,
-        typechecker: &TypeChecker<F, C>,
-        stmt_id: StmtId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
-        let node = typechecker[stmt_id].as_if().unwrap();
-        let predicate = self
-            .interpret_expr(typechecker, node.if_branch.predicate, ctx)?
-            .unwrap()
-            .to_bool();
-        self.context.start_if_block(predicate);
-        self.interpret_block(typechecker, node.if_branch.body, ctx)?;
-
-        for condition in &node.elseif_branch {
-            let predicate = self
-                .interpret_expr(typechecker, condition.predicate, ctx)?
-                .unwrap()
-                .to_bool();
-            self.context.start_else_if_block(predicate);
-            self.interpret_block(typechecker, condition.body, ctx)?;
-        }
-
-        if let Some(else_branch) = &node.else_branch {
-            self.context.start_else_block();
-            self.interpret_block(typechecker, else_branch.clone(), ctx)?;
-        }
-
-        self.context.end_if_block();
-        self.interpret_statement(typechecker, node.body.unwrap(), ctx)
+        self.interpret_statement(typechecker, ctx.symbols[type_id].body(), ctx)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -362,7 +329,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 .value
                 .unwrap();
             if value != end {
-                self.interpret_block(typechecker, node.body, ctx)?;
+                self.interpret_statement(typechecker, node.body, ctx)?;
                 let one = self.context.op_const(1);
                 let value = CheckedValueRef::from_felt(self.context.op_add(value.to_felt(), one));
                 ctx.symbols
@@ -372,25 +339,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 break Ok(());
             }
         }
-    }
-
-    #[instrument(level = "debug", skip_all)]
-    pub fn interpret_block(
-        &mut self,
-        typechecker: &TypeChecker<F, C>,
-        stmt_id: StmtId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<ControlState<CheckedValueRef<F>>> {
-        let node = typechecker[stmt_id].as_block().unwrap();
-        ctx.symbols.enter_block(node.scope_id);
-        for &stmt in &node.stmts {
-            match self.interpret_statement(typechecker, stmt, ctx)? {
-                ControlState::Return(value) => return Ok(ControlState::Return(value)),
-                ControlState::Normal => continue,
-            }
-        }
-        ctx.symbols.exit_block();
-        Ok(ControlState::Normal)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -419,9 +367,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             }
             CheckedStmtNode::Definition(_definition) => {}
             CheckedStmtNode::Expression(expr_id) => {
-                self.interpret_expr(typechecker, *expr_id, ctx)?;
-            }
-            CheckedStmtNode::Return(return_node) => {
                 return self.interpret_ret(typechecker, stmt_id, ctx);
                 match &typechecker[expr_id.clone()].node_type() {
                     NodeType::BlockExpr => {
@@ -639,7 +584,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         operator: AssignmentOperator,
         value: CheckedValueRef<F>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
-        _symbols: &mut SymbolTable<F>,
     ) -> Result<CheckedValueRef<F>> {
         let new_value = match operator {
             AssignmentOperator::Eq => value,
@@ -1141,8 +1085,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         path_node: &CheckedPathNode,
         path: &mut Vec<usize>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
-        symbols: &mut SymbolTable<F>,
-        _path: &mut Vec<usize>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
         let start_scope = Some(path_node.scope_id);
         let variable = ctx
