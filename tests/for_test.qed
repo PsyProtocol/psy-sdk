@@ -1,0 +1,9 @@
+fn main() -> Felt {
+    let mut sum: Felt = 0;
+
+    for n in 0..100 {
+        sum += n;
+    }
+
+    sum
+}

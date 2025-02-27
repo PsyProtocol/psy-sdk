@@ -1,30 +1,31 @@
 mod binary;
-mod block;
+mod block_expr;
 mod call;
 mod cast;
 mod if_expr;
 mod index;
 mod intrinsic;
+mod lambda;
 mod path;
 mod unary;
 
 pub use binary::*;
-pub use block::*;
+pub use block_expr::*;
 pub use call::*;
 pub use cast::*;
 use enum_as_inner::EnumAsInner;
 pub use if_expr::*;
 pub use index::*;
 pub use intrinsic::*;
+pub use lambda::*;
 pub use path::*;
 pub use unary::*;
 
 use qed_ast::{IdentId, NodeInfo, NodeType};
 
 use crate::{CheckedValueNode, ScopeId, TypeId, BOOL_TYPE, FELT_TYPE};
-use strum::EnumTryAs;
 
-#[derive(Debug, Clone, PartialEq, EnumAsInner, EnumTryAs)]
+#[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum CheckedExprNode<F> {
     Path(CheckedPathNode),
     Value(CheckedValueNode<F>),
@@ -36,6 +37,7 @@ pub enum CheckedExprNode<F> {
     IndexAccess(CheckedIndexAccessNode),
     MemberAccess(CheckedMemberAccessNode),
     Intrinsic(CheckedIntrinsicExprNode),
+    LambdaFunction(CheckedLambdaFunctionNode),
     BlockExpr(CheckedBlockExprNode),
     IfExpr(CheckedIfExprNode),
 }
@@ -53,6 +55,7 @@ impl<F> NodeInfo for CheckedExprNode<F> {
             CheckedExprNode::IndexAccess(node) => node.node_type(),
             CheckedExprNode::MemberAccess(node) => node.node_type(),
             CheckedExprNode::Intrinsic(node) => node.node_type(),
+            CheckedExprNode::LambdaFunction(node) => node.node_type(),
             CheckedExprNode::BlockExpr(node) => node.node_type(),
             CheckedExprNode::IfExpr(node) => node.node_type(),
         }
@@ -92,13 +95,10 @@ impl<F> CheckedExprNode<F> {
                 }
                 CheckedIntrinsicExprNode::CSetStateHashAt { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::Read { type_id, .. } => type_id.clone(),
-                CheckedIntrinsicExprNode::Write {
-                    offset: _,
-                    value: _,
-                    type_id,
-                } => type_id.clone(),
+                CheckedIntrinsicExprNode::Write { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::Hash { type_id, .. } => type_id.clone(),
             },
+            CheckedExprNode::LambdaFunction(c) => c.type_id.clone(),
             CheckedExprNode::IfExpr(i) => i.type_id,
             CheckedExprNode::BlockExpr(b) => b.type_id,
         }

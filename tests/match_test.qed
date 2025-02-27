@@ -1,0 +1,17 @@
+fn main() -> Felt {
+    let result: Felt = 0;
+    let mode: Felt = 0;
+    match mode {
+        0 => {
+            result += 1;
+        },
+        1 => {
+            result += 2;
+        },
+        _ => {
+            result += 3;
+        },
+    }
+    result
+
+}

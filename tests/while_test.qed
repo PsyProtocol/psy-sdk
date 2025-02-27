@@ -10,7 +10,8 @@ fn main(a: Felt, b: Felt) -> Felt {
     let mut c: Felt = 0;
 
     while i <= 10 {
-        c = a + b;
+        let d: Felt = a + b;
+        c = d;
         a = b;
         b = c;
         i += 1;

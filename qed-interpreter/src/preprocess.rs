@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use indexmap::IndexMap;
-use qed_ast::BlockExprNode;
 use qed_ast::*;
 
 #[derive(Debug)]
@@ -24,7 +23,7 @@ impl<'a> StorageProcessor<'a> {
         &self,
         struct_node: &StructNode,
         ctx: &mut V,
-    ) -> ImplNode {
+    ) -> ImplTraitNode {
         let mut methods = Vec::new();
 
         methods.push(self.generate_storage_size_method(struct_node, ctx));
@@ -33,10 +32,10 @@ impl<'a> StorageProcessor<'a> {
 
         methods.push(self.generate_storage_write_method(struct_node, ctx));
 
-        ImplNode {
+        ImplTraitNode {
             generic_parameters: vec![],
-            trait_name: Some(ctx.intern("Storage")),
-            ty: struct_node.name,
+            trait_ty: UncheckedType::Basic(ctx.intern("Storage")),
+            ty: UncheckedType::Basic(struct_node.name),
             body: methods,
         }
     }
@@ -68,8 +67,7 @@ impl<'a> StorageProcessor<'a> {
 
         ImplNode {
             generic_parameters: vec![],
-            trait_name: None,
-            ty: struct_node.name,
+            ty: UncheckedType::Basic(struct_node.name),
             body: methods,
         }
     }
@@ -109,7 +107,10 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             body: Some(block),
             return_type: Some(UncheckedType::Basic(IdentId::TYPE_FELT)),
-            qualifier: Qualifier { is_extern: false },
+            qualifier: Qualifier {
+                is_extern: false,
+                is_const: false,
+            },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -163,13 +164,16 @@ impl<'a> StorageProcessor<'a> {
             name: ctx.intern("read"),
             parameters: vec![(
                 offset_ident,
-                false,
+                TypeQualifier::new(false),
                 UncheckedType::Basic(IdentId::TYPE_FELT),
             )],
             generic_parameters: vec![],
             body: Some(block),
             return_type: Some(UncheckedType::Basic(IdentId::TYPE_SELF)),
-            qualifier: Qualifier { is_extern: false },
+            qualifier: Qualifier {
+                is_extern: false,
+                is_const: false,
+            },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -216,15 +220,22 @@ impl<'a> StorageProcessor<'a> {
             parameters: vec![
                 (
                     offset_ident,
-                    false,
+                    TypeQualifier::new(false),
                     UncheckedType::Basic(IdentId::TYPE_FELT),
                 ),
-                (value_ident, false, UncheckedType::Basic(IdentId::TYPE_SELF)),
+                (
+                    value_ident,
+                    TypeQualifier::new(false),
+                    UncheckedType::Basic(IdentId::TYPE_SELF),
+                ),
             ],
             generic_parameters: vec![],
             body: Some(block),
             return_type: None,
-            qualifier: Qualifier { is_extern: false },
+            qualifier: Qualifier {
+                is_extern: false,
+                is_const: false,
+            },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -276,7 +287,10 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             body: Some(block),
             return_type: Some(field_type.clone()),
-            qualifier: Qualifier { is_extern: false },
+            qualifier: Qualifier {
+                is_extern: false,
+                is_const: false,
+            },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -331,11 +345,14 @@ impl<'a> StorageProcessor<'a> {
 
         let function = FunctionNode {
             name: setter_ident,
-            parameters: vec![(value_ident, false, field_type.clone())],
+            parameters: vec![(value_ident, TypeQualifier::new(false), field_type.clone())],
             generic_parameters: vec![],
             body: Some(block),
             return_type: None,
-            qualifier: Qualifier { is_extern: false },
+            qualifier: Qualifier {
+                is_extern: false,
+                is_const: false,
+            },
             visibility: Visibility::Public,
             attrs: vec![],
         };
@@ -587,7 +604,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
                 let impl_node = self.generate_storage_impl(&s, ctx);
                 let pos = ctx.node_id().as_def().unwrap().clone();
                 ctx.insert_definition(
-                    DefinitionNode::Impl(impl_node),
+                    DefinitionNode::ImplTrait(impl_node),
                     InsertPosition::After(pos.into()),
                 );
             }
@@ -652,6 +669,39 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
+
+    fn visit_for(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        Ok(())
+    }
+
+    fn visit_match(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        Ok(())
+    }
+
+    fn visit_lambda_function(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        Ok(())
+    }
+
+    fn visit_impl_trait(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::DefinitionResult, Self::Error> {
+        Ok(())
+    }
+
     fn visit_if_expr(
         &mut self,
         _node: ExprId,
@@ -659,6 +709,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
+
     fn visit_block_expr(
         &mut self,
         _node: ExprId,

@@ -1,9 +1,12 @@
-use crate::{AttrNode, IdentId, NodeInfo, NodeType, Qualifier, StmtId, UncheckedType, Visibility};
+use crate::{
+    AttrNode, IdentId, NodeInfo, NodeType, Qualifier, StmtId, TypeQualifier, UncheckedType,
+    Visibility,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionNode {
     pub name: IdentId,
-    pub parameters: Vec<(IdentId, bool, UncheckedType)>,
+    pub parameters: Vec<(IdentId, TypeQualifier, UncheckedType)>,
     pub generic_parameters: Vec<IdentId>,
     pub body: Option<StmtId>,
     pub return_type: Option<UncheckedType>,
@@ -20,6 +23,6 @@ impl NodeInfo for FunctionNode {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionSignature {
-    pub parameters: Vec<(bool, UncheckedType)>,
+    pub parameters: Vec<UncheckedType>,
     pub return_type: Option<UncheckedType>,
 }

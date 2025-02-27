@@ -12,4 +12,3 @@ tracing = { workspace = true }
 enum-as-inner = { workspace = true }
 indexmap = { workspace = true }
 once_cell = { workspace = true }
-lazy_static = { workspace = true }

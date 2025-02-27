@@ -1,6 +1,6 @@
-pub mod primitive;
+mod primitive;
 
-pub use primitive::*;
+use primitive::*;
 
 pub fn get_user_id() -> Felt {
     __ctx_get_user_id()

@@ -5,11 +5,13 @@ pub struct Case {
     pub predicate: ExprId,
     pub body: StmtId,
 }
+
 impl Case {
     pub fn new(predicate: ExprId, body: StmtId) -> Self {
         Self { predicate, body }
     }
 }
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct IfExprNode {
     pub if_branch: Case,

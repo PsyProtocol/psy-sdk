@@ -2,9 +2,6 @@ use qed_common::{FileId, Arena};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::*;
 use qed_lexer::{Token, Error};
-use qed_ast::BlockExprNode;
-use qed_ast::{IfExprNode, Case};
-
 
 grammar<'input, F, C>(
     file_content: &'input str,
@@ -33,11 +30,29 @@ ModuleItem: ModuleItemNode = {
 }
 
 pub Module: ModuleNode = {
-    <l:@L> <module_items: ModuleItem*> <r:@R> => ModuleNode::new(module_name, file_id, _visibility_, module_items, is_std, is_self_std, is_self_prelude, is_self_primitive)
+    <l:@L> <module_items: ModuleItem*> <r:@R> => ModuleNode::new(
+        module_name,
+        file_id,
+        _visibility_,
+        module_items,
+        is_std,
+        is_self_std,
+        is_self_prelude,
+        is_self_primitive
+    )
 }
 
 InlineModule: ModuleNode = {
-    <l:@L> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> "}" <r:@R> => ModuleNode::new(name, file_id, visibility, module_items, is_std, is_self_std, is_self_prelude, is_self_primitive)
+    <l:@L> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> "}" <r:@R> => ModuleNode::new(
+        name,
+        file_id,
+        visibility,
+        module_items,
+        is_std,
+        is_self_std,
+        is_self_prelude,
+        is_self_primitive
+    )
 }
 
 ModuleDecl: (IdentId, Visibility) = {
@@ -48,7 +63,6 @@ ModuleDecl: (IdentId, Visibility) = {
 
 ModuleUse: UsePath = {
     <l:@L> <visibility:Visibility> USE <path:UsePath> ";" <r:@R> => {
-        assert!(visibility.is_public());
         UsePath {
             visibility,
             kind: path.0,
@@ -65,6 +79,8 @@ Statement: StmtNode = {
     WhileStatement,
     BlockStatement,
     IfStatement,
+    ForStatement,
+    MatchStatement,
     Definition => StmtNode::Definition(def_nodes.alloc_item(<>)),
     IntrinsicStatement,
     UseStatement,
@@ -101,6 +117,7 @@ IntrinsicStatement: StmtNode = {
 
 Definition: DefinitionNode = {
     ImplDef => DefinitionNode::Impl(<>),
+    ImplTraitDef => DefinitionNode::ImplTrait(<>),
     TraitDef => DefinitionNode::Trait(<>),
     EnumDef => DefinitionNode::Enum(<>),
     StructDef => DefinitionNode::Struct(<>),
@@ -110,20 +127,22 @@ Definition: DefinitionNode = {
 }
 
 ImplDef: ImplNode = {
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <ty:Identifier> <generic_parameters_rhs:GenericParameters> "{" <body:FunctionDef*> "}" <r:@R> => {
-       assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+       // assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplNode {
            generic_parameters: generic_parameters_lhs,
-           trait_name: None,
            ty,
            body: def_nodes.alloc_items(body)
        }
-   },
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_name:Identifier> FOR <ty:IdentifierOrBasicType> <generic_parameters_rhs:GenericParameters> "{" <body:FunctionDef*> "}" <r:@R> => {
-       assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
-       ImplNode {
+   }
+}
+
+ImplTraitDef: ImplTraitNode = {
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+       // assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
+       ImplTraitNode {
            generic_parameters: generic_parameters_lhs,
-           trait_name: Some(trait_name),
+           trait_ty: trait_ty,
            ty,
            body: def_nodes.alloc_items(body)
        }
@@ -151,9 +170,10 @@ EnumDef: EnumNode = {
 }
 
 TypeAliasDef: DefinitionNode = {
-    <l:@L> TYPE <name:Identifier> "=" <ty:Ty> ";" <r:@R> => DefinitionNode::TypeAlias(TypeAliasNode {
+    <l:@L> <visibility:Visibility> TYPE <name:Identifier> "=" <ty:Ty> ";" <r:@R> => DefinitionNode::TypeAlias(TypeAliasNode {
         name,
-        ty
+        ty,
+        visibility
     })
 }
 
@@ -215,26 +235,29 @@ AttributeProperties: Vec<IdentId> = {
 }
 
 Qualifier: Qualifier = {
-    <l:@L> <is_extern:EXTERN?> <r:@R> => Qualifier { is_extern: is_extern.is_some() },
-}
-
-
-FunctionSignature: UncheckedType = {
-    <l:@L> FN "(" <parameters:Comma<AnonymousFunctionParameter>> ")" <return_type:FunctionReturn?> <r:@R> => UncheckedType::FunctionSignature(Box::new(FunctionSignature {
-        parameters,
-        return_type
-    }))
-}
-
-FunctionParameter: (IdentId, bool, UncheckedType) = {
-    <l:@L> <mutable:MUT?> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => (name, mutable.is_some(), ty),
-    <l:@L> <mutable:MUT?> <name:SELF> <r:@R> => {
-        (IdentId::SELF, mutable.is_some(), UncheckedType::Basic(IdentId::TYPE_SELF))
+    <l:@L> <is_const:CONST?> <is_extern:EXTERN?> <r:@R> => Qualifier {
+        is_extern: is_extern.is_some(),
+        is_const: is_const.is_some()
     },
 }
 
-AnonymousFunctionParameter: (bool, UncheckedType) = {
-    <l:@L> <mutable:MUT?> <ty:Ty> <r:@R> => (mutable.is_some(), ty)
+TypeQualifier: TypeQualifier = {
+    <l:@L> <is_mutable: MUT?> <r:@R> => TypeQualifier {
+        is_mutable: is_mutable.is_some(),
+    },
+}
+
+FunctionSignature: UncheckedType = {
+    <l:@L> FN "(" <parameters:Comma<Ty>> ")" <return_type:FunctionReturn?> <r:@R> => UncheckedType::FunctionSignature(
+        Box::new(FunctionSignature {parameters, return_type})
+    )
+}
+
+FunctionParameter: (IdentId, TypeQualifier, UncheckedType) = {
+    <l:@L> <type_qualifier: TypeQualifier> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => (name, type_qualifier, ty),
+    <l:@L> <type_qualifier: TypeQualifier> <name:SELF> <r:@R> => {
+        (IdentId::SELF, type_qualifier, UncheckedType::Basic(IdentId::TYPE_SELF))
+    },
 }
 
 FunctionReturn: UncheckedType = {
@@ -244,11 +267,15 @@ FunctionReturn: UncheckedType = {
 EnumVariant: EnumVariant = {
     <l:@L> <name:Identifier> <r:@R> => EnumVariant::Basic(name),
     <l:@L> <name:Identifier> "(" <members:Comma<Ty>> ")" <r:@R> => EnumVariant::Tuple(name, members),
-    <l:@L> <name:Identifier> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => EnumVariant::Struct(name, fields.into_iter().map(|(field_name, field_type, visibility)| (field_name, (field_type, visibility))).collect())
+    <l:@L> <name:Identifier> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => EnumVariant::Struct(
+        name,
+        fields.into_iter().map(|(field_name, field_type, visibility)| (field_name, (field_type, visibility))).collect()
+    )
 }
 
 TypeAnnotation: (IdentId, UncheckedType) = {
-    <l:@L> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty)
+    <l:@L> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty),
+    <l:@L> <name:Identifier> <r:@R> => (name, UncheckedType::Unknown)
 }
 
 FieldTypeAnnotation: (IdentId, UncheckedType, Visibility) = {
@@ -296,6 +323,36 @@ WhileStatement: StmtNode = {
     }),
 }
 
+MatchStatement: StmtNode = {
+    <l:@L> MATCH <scrutinee:Expression> "{" <arms:Comma<MatchArm>> "}" <r:@R> => StmtNode::Match(MatchNode {
+        scrutinee: expr_nodes.alloc_item(scrutinee),
+        arms
+    }),
+}
+
+MatchArm: MatchArm = {
+    <l:@L> <pattern:MatchPattern> "=>" <block_stmt:BlockStatement> <r:@R> => MatchArm {
+        pattern,
+        body: stmt_nodes.alloc_item(block_stmt)
+    }
+}
+
+MatchPattern: MatchPattern = {
+    <l:@L> <pattern:Expression> <r:@R> => MatchPattern::Value(expr_nodes.alloc_item(pattern)),
+    <l:@L> "_" <r:@R> => MatchPattern::Placeholder
+}
+
+ForStatement: StmtNode = {
+    <l:@L> FOR <variable:Identifier> IN <start:Expression> ".." <end:Expression> <block_stmt:BlockStatement> <r:@R> => StmtNode::For(
+        ForNode {
+            variable,
+            start: expr_nodes.alloc_item(start),
+            end: expr_nodes.alloc_item(end),
+            body: stmt_nodes.alloc_item(block_stmt)
+        }
+    ),
+}
+
 IfStatement: StmtNode = {
     <l:@L> <expr:IfExpression> <r:@R> => {
         StmtNode::Expression(expr_nodes.alloc_item(expr))
@@ -311,6 +368,7 @@ IfExpression: ExprNode<F> = {
         }
     ),
 }
+
 IfBranch: Case = {
     <l:@L> IF <predicate:Expression> <block_stmt:BlockStatement> <r:@R> => Case::new(
         expr_nodes.alloc_item(predicate),
@@ -334,30 +392,27 @@ ReturnStatement: StmtNode = {
 }
 
 VariableStatement: StmtNode = {
-    <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
+    <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {
             name: decl.0,
             ty: decl.1,
-            mutable: mutable.is_some(),
-            cnst: false,
+            qualifier: type_qualifier,
             value: expr_nodes.alloc_item(value)
         }
     ),
-    <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <value:IfExpression> ";" <r:@R>  => StmtNode::Variable(
+    <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:IfExpression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {
             name: decl.0,
             ty: decl.1,
-            mutable: mutable.is_some(),
-            cnst: false,
+            qualifier: type_qualifier,
             value: expr_nodes.alloc_item(value)
         }
     ),
-    <l:@L> LET <mutable:MUT?> <decl:TypeAnnotation> "=" <value:BlockExpression> ";" <r:@R>  => StmtNode::Variable(
+    <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:BlockExpression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {
             name: decl.0,
             ty: decl.1,
-            mutable: mutable.is_some(),
-            cnst: false,
+            qualifier: type_qualifier,
             value: expr_nodes.alloc_item(value)
         }
     ),
@@ -484,7 +539,7 @@ Expression: ExprNode<F> = {
             }
         )
     },
-    <l:@L> <callee:Expression> <generic_parameters:Monomorphization> "(" <args:ExpressionList> ")" <r:@R> => {
+    <l:@L> <callee:Expression> <generic_parameters:Monomorphization> "(" <args:ArgumentList> ")" <r:@R> => {
        if let ExprNode::<F>::MemberAccess(MemberAccessNode {
           target: receiver, ..
        }) = &callee {
@@ -602,8 +657,10 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> "||" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Or, expr_nodes.alloc_item(rhs))
     ),
-}
 
+    #[precedence(level="16")]
+    LambdaFunctionExpression
+}
 
 Term: ExprNode<F> = {
     <l:@L> "(" <expr:Expression> ")" <r:@R> => expr,
@@ -627,15 +684,35 @@ BoolExpression: ExprNode<F> = {
 }
 
 StructExpression: ExprNode<F> = {
-   <l:@L> <name:Identifier> <generic_parameters:Monomorphization> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(ValueNode::Struct(
-       name,
-       generic_parameters,
-       kv.into_iter().collect()
-   )),
+   <l:@L> <name:Identifier> <generic_parameters:Monomorphization> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(
+       ValueNode::Struct(
+           name,
+           generic_parameters,
+           kv.into_iter().collect()
+       )
+   ),
 }
 
 KeyValue: (IdentId, ExprId) = {
-    <l:@L> <name:Identifier> ":" <value:Expression> <r:@R> => (name, expr_nodes.alloc_item(value))
+    <l:@L> <name:Identifier> ":" <value:Expression> <r:@R> => (name, expr_nodes.alloc_item(value)),
+    <l:@L> <name:Identifier> <r:@R> => (name, expr_nodes.alloc_item(ExprNode::Path(PathNode::from_target(name))))
+}
+
+LambdaFunctionExpression: ExprNode<F> = {
+    <l:@L> "||" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => ExprNode::<F>::LambdaFunction(
+        LambdaFunctionNode {
+            parameters: vec![],
+            body: stmt_nodes.alloc_item(block_stmt),
+            return_type
+        }
+    ),
+    <l:@L> "|" <parameters:Comma<FunctionParameter>> "|" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => ExprNode::<F>::LambdaFunction(
+        LambdaFunctionNode {
+            parameters,
+            body: stmt_nodes.alloc_item(block_stmt),
+            return_type
+        }
+    )
 }
 
 PathExpression: ExprNode<F> = {
@@ -654,7 +731,7 @@ PathExpression: ExprNode<F> = {
     },
 };
 
-ExpressionList: Vec<ExprNode<F>> = {
+ArgumentList: Vec<ExprNode<F>> = {
     <items:Sep<Expression, ",">> => items
 }
 
@@ -682,7 +759,11 @@ Ty: UncheckedType = {
 }
 
 GenericType: UncheckedType = {
-    <l:@L> <name:Identifier> "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters)
+    <l:@L> <name:Identifier> "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters),
+    <l:@L>  "[" <ty:Ty> ";" <n:Identifier> "]" <r:@R> => UncheckedType::Generic(
+        IdentId::TYPE_ARRAY,
+        vec![ty, UncheckedType::Basic(n)]
+    )
 }
 
 ArrayType: UncheckedType = {
@@ -754,10 +835,12 @@ extern {
         IMPL => Token::KeywordImpl,
         TRAIT => Token::KeywordTrait,
         RETURN => Token::KeywordReturn,
+        MATCH => Token::KeywordMatch,
         IF => Token::KeywordIf,
         ELSE => Token::KeywordElse,
         WHILE => Token::KeywordWhile,
         FOR => Token::KeywordFor,
+        IN => Token::KeywordIn,
         WHERE => Token::KeywordWhere,
 
         ASSERT => Token::IntrinsicAssert,
@@ -791,6 +874,7 @@ extern {
 
         TYPE_BOOL => Token::TypeBool,
         TYPE_FELT => Token::TypeFelt,
+        TYPE_ARRAY => Token::TypeArray,
         TYPE_SELF => Token::TypeSelf,
 
         AS => Token::KeywordAs,
@@ -800,6 +884,7 @@ extern {
         NEW => Token::KeywordNew,
 
         "#" => Token::Pound,
+        "_" => Token::Placeholder,
 
         "(" => Token::LParen,
         ")" => Token::RParen,
@@ -812,9 +897,11 @@ extern {
         ";" => Token::Semicolon,
         "," => Token::Comma,
         "." => Token::Dot,
+        ".." => Token::DoubleDot,
         ":" => Token::Colon,
         "::" => Token::DoubleColon,
         "->" => Token::Arrow,
+        "=>" => Token::FatArrow,
 
         "+" => Token::OperatorAdd,
         "-" => Token::OperatorSub,

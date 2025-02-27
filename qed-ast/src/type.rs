@@ -11,3 +11,15 @@ pub enum UncheckedType {
     FunctionSignature(Box<FunctionSignature>),
     Unknown,
 }
+
+impl UncheckedType {
+    pub fn name(&self) -> IdentId {
+        match self {
+            UncheckedType::Basic(ident_id) => ident_id.clone(),
+            UncheckedType::Generic(ident_id, _) => ident_id.clone(),
+            UncheckedType::Array(_, _) => IdentId::TYPE_ARRAY,
+            UncheckedType::Unknown => IdentId::TYPE_UNKNOWN,
+            _ => unreachable!(),
+        }
+    }
+}

@@ -7,7 +7,6 @@ use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::{ExprId, IdentId, NodeInfo, NodeType};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, ToFelts};
-pub use strum::EnumTryAs;
 
 use crate::{Result, TypeId, BOOL_TYPE, FELT_TYPE, VOID_TYPE};
 
@@ -92,12 +91,10 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValueRef<F> {
                 }
                 result
             }
-            CheckedValue::Type(type_id) => {
-                match type_id {
-                    &VOID_TYPE => vec![],
-                    _ => unreachable!(),
-                }
-            }
+            CheckedValue::Type(type_id) => match type_id {
+                &VOID_TYPE => vec![],
+                _ => unreachable!(),
+            },
         }
     }
 

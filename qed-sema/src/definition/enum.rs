@@ -1,12 +1,13 @@
+use indexmap::IndexMap;
 use qed_ast::{IdentId, NodeInfo, NodeType, Visibility};
 
 use crate::{ScopeId, TypeId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CheckedEnumVariant {
-    Basic(IdentId),
+    Basic(IdentId, TypeId),
     Tuple(IdentId, Vec<TypeId>),
-    Struct(IdentId, Vec<(IdentId, TypeId)>),
+    Struct(IdentId, IndexMap<IdentId, (TypeId, Visibility)>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
