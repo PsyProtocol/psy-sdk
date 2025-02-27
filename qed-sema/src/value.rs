@@ -8,7 +8,7 @@ use indexmap::IndexMap;
 use qed_ast::{ExprId, IdentId, NodeInfo, NodeType};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, ToFelts};
 
-use crate::{Result, TypeId, BOOL_TYPE, FELT_TYPE};
+use crate::{Result, TypeId, BOOL_TYPE, FELT_TYPE, VOID_TYPE};
 
 #[derive(Clone, Debug, PartialEq, EnumAsInner)]
 pub enum CheckedValueNode<F> {
@@ -46,8 +46,8 @@ impl<F: Clone> Clone for CheckedValueRef<F> {
             CheckedValue::Bool(b) => {
                 CheckedValueRef(Rc::new(RefCell::new(CheckedValue::Bool(b.clone()))))
             }
-            CheckedValue::Array(type_id, values) => CheckedValueRef(self.0.clone()),
-            CheckedValue::Struct(type_id, fields) => CheckedValueRef(self.0.clone()),
+            CheckedValue::Array(_type_id, _values) => CheckedValueRef(self.0.clone()),
+            CheckedValue::Struct(_type_id, _fields) => CheckedValueRef(self.0.clone()),
             CheckedValue::Type(type_id) => {
                 CheckedValueRef(Rc::new(RefCell::new(CheckedValue::Type(type_id.clone()))))
             }
@@ -60,10 +60,10 @@ impl<F: Clone + PartialEq> PartialEq for CheckedValueRef<F> {
         match (&*self.0.borrow(), &*other.0.borrow()) {
             (CheckedValue::Felt(f1), CheckedValue::Felt(f2)) => f1 == f2,
             (CheckedValue::Bool(b1), CheckedValue::Bool(b2)) => b1 == b2,
-            (CheckedValue::Array(_, a1), CheckedValue::Array(_, a2)) => {
+            (CheckedValue::Array(_, _a1), CheckedValue::Array(_, _a2)) => {
                 std::ptr::eq(Rc::as_ptr(&self.as_rc()), Rc::as_ptr(&other.as_rc()))
             }
-            (CheckedValue::Struct(_, s1), CheckedValue::Struct(_, s2)) => {
+            (CheckedValue::Struct(_, _s1), CheckedValue::Struct(_, _s2)) => {
                 std::ptr::eq(Rc::as_ptr(&self.as_rc()), Rc::as_ptr(&other.as_rc()))
             }
             (CheckedValue::Type(t1), CheckedValue::Type(t2)) => t1 == t2,
@@ -77,27 +77,35 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValueRef<F> {
         match &*self.0.borrow() {
             CheckedValue::Felt(f) => vec![f.clone()],
             CheckedValue::Bool(b) => vec![b.clone()],
-            CheckedValue::Array(type_id, values) => {
+            CheckedValue::Array(_type_id, values) => {
                 let mut result = Vec::new();
                 for value in values {
                     result.extend(value.to_felts());
                 }
                 result
             }
-            CheckedValue::Struct(type_id, fields) => {
+            CheckedValue::Struct(_type_id, fields) => {
                 let mut result = Vec::new();
                 for (_, value) in fields {
                     result.extend(value.to_felts());
                 }
                 result
             }
-            CheckedValue::Type(type_id) => {
-                unreachable!()
-            }
+            CheckedValue::Type(type_id) => match type_id {
+                &VOID_TYPE => vec![],
+                _ => unreachable!(),
+            },
         }
     }
 
     fn from_felts(felts: &[F]) -> Self {
+        if felts.is_empty() {
+            panic!("from_felts: empty input");
+        }
+        if felts.len() == 1 {
+            let value = felts[0].clone();
+            return CheckedValueRef::new_rc(CheckedValue::Felt(value));
+        }
         todo!()
     }
 }

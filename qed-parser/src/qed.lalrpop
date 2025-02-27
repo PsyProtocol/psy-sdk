@@ -293,24 +293,26 @@ GenericParameters: Vec<IdentId> = {
 }
 
 BlockStatement: StmtNode = {
-    <l:@L> "{" <mut stmts:Statement*> <ret:Expression> "}" <r:@R> => {
-        stmts.push(StmtNode::Return(ReturnNode(Some(expr_nodes.alloc_item(ret)))));
+    <l:@L> <block:BlockExpression> <r:@R> => {
+        StmtNode::Expression(expr_nodes.alloc_item(block))
+    }
+}
+
+BlockExpression: ExprNode<F> = {
+    <l:@L> "{" <mut stmts:Statement*> <ret:Expression?> "}" <r:@R> => {
+        if let Some(expr) = ret {
+            stmts.push(StmtNode::Return(ReturnNode(Some(expr_nodes.alloc_item(expr)))));
+        }
         let (uses, normal_stmts): (Vec<StmtNode>, Vec<StmtNode>) = stmts.into_iter().partition(|stmt| {
             stmt.is_use()
         });
-        StmtNode::Block(BlockNode {
-            stmts: stmt_nodes.alloc_items(normal_stmts),
-            uses: stmt_nodes.alloc_items(uses),
-        })
-    },
-    <l:@L> "{" <stmts:Statement*> "}" <r:@R> => {
-        let (uses, normal_stmts): (Vec<StmtNode>, Vec<StmtNode>) = stmts.into_iter().partition(|stmt| {
-            stmt.is_use()
-        });
-        StmtNode::Block(BlockNode {
-            stmts: stmt_nodes.alloc_items(normal_stmts),
-            uses: stmt_nodes.alloc_items(uses),
-        })
+
+        ExprNode::BlockExpr(
+            BlockExprNode {
+                stmts: stmt_nodes.alloc_items(normal_stmts),
+                uses: stmt_nodes.alloc_items(uses),
+            }
+        )
     }
 }
 
@@ -352,10 +354,16 @@ ForStatement: StmtNode = {
 }
 
 IfStatement: StmtNode = {
-    <l:@L> <if_branch:IfBranch> <elseif_branch:ElseIfBranch*> <else_branch:ElseBranch?> <r:@R> => StmtNode::If(
-        IfNode {
+    <l:@L> <expr:IfExpression> <r:@R> => {
+        StmtNode::Expression(expr_nodes.alloc_item(expr))
+    }
+}
+
+IfExpression: ExprNode<F> = {
+    <l:@L> <if_branch:IfBranch> <elseif_branches:ElseIfBranch*> <else_branch:ElseBranch?> <r:@R> => ExprNode::IfExpr(
+        IfExprNode {
             if_branch,
-            elseif_branch,
+            elseif_branches,
             else_branch
         }
     ),
@@ -385,6 +393,22 @@ ReturnStatement: StmtNode = {
 
 VariableStatement: StmtNode = {
     <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
+        VariableNode {
+            name: decl.0,
+            ty: decl.1,
+            qualifier: type_qualifier,
+            value: expr_nodes.alloc_item(value)
+        }
+    ),
+    <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:IfExpression> ";" <r:@R>  => StmtNode::Variable(
+        VariableNode {
+            name: decl.0,
+            ty: decl.1,
+            qualifier: type_qualifier,
+            value: expr_nodes.alloc_item(value)
+        }
+    ),
+    <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:BlockExpression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {
             name: decl.0,
             ty: decl.1,

@@ -9,8 +9,6 @@ mod variable;
 
 mod error;
 
-use std::{collections::HashMap, ops::Index};
-
 pub use definition::*;
 pub use expr::*;
 use indexmap::IndexMap;
@@ -24,6 +22,7 @@ pub use variable::*;
 pub use error::*;
 use qed_ast::*;
 
+use std::{collections::HashMap, ops::Index};
 use tracing::instrument;
 
 pub struct TypeCheckerVisitorContext<F: Clone + From<u32>, C> {
@@ -138,7 +137,7 @@ impl<F: Clone + From<u32>, C> VisitorContext<F, C> for TypeCheckerVisitorContext
         &self.program.interner[id]
     }
 
-    fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId {
+    fn intern<S: Into<Ident>>(&mut self, _s: S) -> IdentId {
         unimplemented!()
     }
 
@@ -166,27 +165,27 @@ impl<F: Clone + From<u32>, C> VisitorContext<F, C> for TypeCheckerVisitorContext
         &self.program.defs[def_id]
     }
 
-    fn insert_definition(&mut self, definition: Self::Definition, pos: InsertPosition) {
+    fn insert_definition(&mut self, _definition: Self::Definition, _pos: InsertPosition) {
         unimplemented!()
     }
 
-    fn alloc_expression(&mut self, expr: Self::Expr) -> ExprId {
+    fn alloc_expression(&mut self, _expr: Self::Expr) -> ExprId {
         unimplemented!()
     }
 
-    fn alloc_statement(&mut self, stmt: Self::Stmt) -> StmtId {
+    fn alloc_statement(&mut self, _stmt: Self::Stmt) -> StmtId {
         unimplemented!()
     }
 
-    fn alloc_definition(&mut self, definition: Self::Definition) -> DefId {
+    fn alloc_definition(&mut self, _definition: Self::Definition) -> DefId {
         unimplemented!()
     }
 
-    fn replace_definition(&mut self, def_id: DefId, definition: Self::Definition) {
+    fn replace_definition(&mut self, _def_id: DefId, _definition: Self::Definition) {
         unimplemented!()
     }
 
-    fn replace_statement(&mut self, stmt_id: StmtId, statement: Self::Stmt) {
+    fn replace_statement(&mut self, _stmt_id: StmtId, _statement: Self::Stmt) {
         unimplemented!()
     }
 
@@ -225,8 +224,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         &mut self,
         use_path: &UsePath,
         ctx: &mut Self::Context,
-    ) -> std::result::Result<(), Self::Error> {
-        Ok(ctx.symbols.add_use(use_path)?)
+    ) -> std::result::Result<Self::StmtResult, Self::Error> {
+        ctx.symbols.add_use(use_path)?;
+        Ok(CheckedStmtNode::Use)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -706,7 +706,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             callee: self.exprs.alloc_item(callee),
             generic_parameters: generic_parameters,
             args: self.exprs.alloc_items(args),
-            type_id: self.substitute_all(signature.return_type.unwrap_or(VOID_TYPE), ctx)?,
+            type_id: self.substitute_all(signature.return_type, ctx)?,
         }));
     }
 
@@ -761,7 +761,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             receiver,
             generic_parameters: f.generic_parameters.clone(),
             args: self.exprs.alloc_items(args),
-            type_id: self.substitute_all(f.return_type.unwrap_or(VOID_TYPE), ctx)?,
+            type_id: self.substitute_all(f.return_type, ctx)?,
         }));
     }
 
@@ -790,49 +790,63 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn visit_if(
+    fn visit_if_expr(
         &mut self,
-        node: StmtId,
+        node: ExprId,
         ctx: &mut Self::Context,
-    ) -> std::result::Result<Self::StmtResult, Self::Error> {
+    ) -> std::result::Result<Self::ExprResult, Self::Error> {
         // TODO: remove clone
-        let if_node = ctx.statement(node).as_if().cloned().unwrap();
-        let checked_expr = self.visit_expr(if_node.if_branch.predicate, ctx)?;
+        let if_expr_node = ctx.expression(node).as_if_expr().cloned().unwrap();
+        let checked_expr = self.visit_expr(if_expr_node.if_branch.predicate, ctx)?;
         if !self.unify(checked_expr.ty(), BOOL_TYPE, ctx) {
             return Err(Error::TypeMismatch);
         }
-        let checked_block = self.visit_block(if_node.if_branch.body, ctx)?;
+
+        let checked_block = self.visit_stmt(if_expr_node.if_branch.body, ctx)?;
+
+        let if_type = self.exprs[checked_block.as_expression().unwrap().clone()].ty();
         let if_branch = CheckedCase {
-            predicate: self.exprs.alloc_item(checked_expr),
+            predicate: self.exprs.alloc_item(checked_expr).clone(),
             type_id: BOOL_TYPE,
             body: self.stmts.alloc_item(checked_block),
         };
 
-        let mut elseif_branch = Vec::with_capacity(if_node.elseif_branch.len());
-        for branch in &if_node.elseif_branch {
+        let mut elseif_branches = Vec::with_capacity(if_expr_node.elseif_branches.len());
+        for branch in &if_expr_node.elseif_branches {
             let checked_expr = self.visit_expr(branch.predicate, ctx)?;
             if !self.unify(checked_expr.ty(), BOOL_TYPE, ctx) {
                 return Err(Error::TypeMismatch);
             }
-            let checked_block = self.visit_block(branch.body, ctx)?;
-            elseif_branch.push(CheckedCase {
-                predicate: self.exprs.alloc_item(checked_expr),
+            let checked_block = self.visit_stmt(branch.body, ctx)?;
+            let else_if_type = self.exprs[checked_block.as_expression().unwrap().clone()].ty();
+            if !self.unify(else_if_type, if_type, ctx) {
+                return Err(Error::TypeMismatch);
+            }
+
+            elseif_branches.push(CheckedCase {
+                predicate: self.exprs.alloc_item(checked_expr).clone(),
                 type_id: BOOL_TYPE,
                 body: self.stmts.alloc_item(checked_block),
             });
         }
 
-        let else_branch = if let Some(else_branch) = if_node.else_branch {
-            let block = self.visit_block(else_branch, ctx)?;
-            Some(self.stmts.alloc_item(block))
+        let else_branch = if let Some(else_branch) = if_expr_node.else_branch {
+            let checked_block = self.visit_stmt(else_branch, ctx)?;
+            let else_type = self.exprs[checked_block.as_expression().unwrap().clone()].ty();
+            if !self.unify(else_type, if_type, ctx) {
+                return Err(Error::TypeMismatch);
+            }
+
+            Some(self.stmts.alloc_item(checked_block))
         } else {
             None
         };
 
-        Ok(CheckedStmtNode::If(CheckedIfNode {
+        Ok(CheckedExprNode::IfExpr(CheckedIfExprNode {
             if_branch,
-            elseif_branch,
+            elseif_branches,
             else_branch,
+            type_id: self.substitute_all(if_type, ctx)?,
         }))
     }
 
@@ -848,7 +862,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         if !self.unify(predicate.ty(), BOOL_TYPE, ctx) {
             return Err(Error::TypeMismatch);
         }
-        let checked_block = self.visit_block(while_node.body, ctx)?;
+        let checked_block = self.visit_stmt(while_node.body, ctx)?;
         Ok(CheckedStmtNode::While(CheckedWhileNode {
             predicate: self.exprs.alloc_item(predicate),
             type_id: BOOL_TYPE,
@@ -856,41 +870,42 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }))
     }
 
-    #[instrument(level = "debug", skip_all)]
-    fn visit_block(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> std::result::Result<Self::StmtResult, Self::Error> {
-        ctx.symbols.start_scope(ScopeKind::Block);
-        // TODO: remove clone
-        let block = ctx.statement(node).as_block().cloned().unwrap();
-        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-        let mut new_stmts = Vec::with_capacity(block.stmts.len());
-
-        for &stmt in block.uses.iter() {
-            let use_path = ctx.statement(stmt).as_use().cloned().unwrap();
-            self.visit_use(&use_path, ctx)?;
-        }
-
-        for (i, stmt) in block.stmts.iter().enumerate() {
-            let checked_stmt = self.visit_stmt(stmt.clone(), ctx)?;
-            if ctx.parent_node_type() == NodeType::FunctionDef
-                || ctx.parent_node_type() == NodeType::LambdaFunctionExpr
-            {
-                if checked_stmt.is_return() && i != block.stmts.len() - 1 {
-                    return Err(Error::InvalidReturn);
-                }
-            }
-            new_stmts.push(checked_stmt);
-        }
-
-        ctx.symbols.end_scope();
-        Ok(CheckedStmtNode::Block(CheckedBlockNode {
-            stmts: self.stmts.alloc_items(new_stmts),
-            scope_id: current_scope_id,
-        }))
-    }
+    // #[instrument(level = "debug", skip_all)]
+    // fn visit_block_expr(
+    //     &mut self,
+    //     node: ExprId,
+    //     ctx: &mut Self::Context,
+    // ) -> std::result::Result<Self::ExprResult, Self::Error> {
+    //     ctx.symbols.start_scope(ScopeKind::Block);
+    //     // TODO: remove clone
+    //     let block = ctx.expression(node).as_block_expr().cloned().unwrap();
+    //     let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+    //     let mut new_stmts = Vec::with_capacity(block.stmts.len());
+    //
+    //     for &stmt in block.uses.iter() {
+    //         let use_path = ctx.statement(stmt).as_use().cloned().unwrap();
+    //         self.visit_use(&use_path, ctx)?;
+    //     }
+    //
+    //     for (i, stmt) in block.stmts.iter().enumerate() {
+    //         let checked_stmt = self.visit_stmt(stmt.clone(), ctx)?;
+    //         if ctx.parent_node_type() == NodeType::FunctionDef
+    //             || ctx.parent_node_type() == NodeType::LambdaFunctionExpr
+    //         {
+    //             if checked_stmt.is_return() && i != block.stmts.len() - 1 {
+    //                 return Err(Error::InvalidReturn);
+    //             }
+    //         }
+    //         new_stmts.push(checked_stmt);
+    //     }
+    //
+    //     ctx.symbols.end_scope();
+    //     Ok(CheckedExprNode::BlockExpr(CheckedBlockExprNode {
+    //         stmts: self.stmts.alloc_items(new_stmts),
+    //         type_id:
+    //         scope_id: current_scope_id,
+    //     }))
+    // }
 
     #[instrument(level = "debug", skip_all)]
     fn visit_assignment(
@@ -909,12 +924,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             return Err(Error::TypeMismatch);
         }
 
-        return Ok(CheckedStmtNode::Assignment(CheckedAssignmentNode {
+        Ok(CheckedStmtNode::Assignment(CheckedAssignmentNode {
             variable: self.exprs.alloc_item(checked_lhs),
             operator: assignment_node.operator,
             value: self.exprs.alloc_item(checked_rhs),
             type_id: self.substitute_all(lhs_ty, ctx)?,
-        }));
+        }))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -964,6 +979,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             ScopeKind::Function,
             ScopeKind::ImplMethod,
             ScopeKind::TraitMethod,
+            //todo!: check this
+            ScopeKind::Block,
         ];
         if !valid_kinds.contains(&ctx.symbols[parent_scope_id].kind) {
             return Err(Error::InvalidReturn);
@@ -972,7 +989,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let ret = if let Some(expr) = return_node.0 {
             let expr = self.visit_expr(expr, ctx)?;
             let ty = expr.ty();
-            Some((self.exprs.alloc_item(expr), self.substitute_all(ty, ctx)?))
+            Some(self.exprs.alloc_item(expr))
         } else {
             None
         };
@@ -1137,6 +1154,64 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let ty = Type::Function(checked_function.clone());
         ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
+        // TODO: remove clone
+        let function = ctx.definition(node).as_function().cloned().unwrap();
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+        let mut generic_parameters = Vec::new();
+        let mut parameters = Vec::new();
+
+        for &generic_parameter in &function.generic_parameters {
+            let type_id = ctx.symbols.add_type_variable(generic_parameter)?;
+            generic_parameters.push(type_id);
+        }
+
+        self.typecheck_method_receiver(&function, ctx)?;
+
+        for (parameter, mutable, parameter_type) in &function.parameters {
+            let parameter_type = self.typecheck(parameter_type, ctx)?;
+            let variable = CheckedVariable::new(parameter_type, *mutable, current_scope_id, None);
+            ctx.symbols.declare_variable(parameter.clone(), variable)?;
+            parameters.push((parameter.clone(), *mutable, parameter_type));
+        }
+
+        let expected_return_type = if let Some(ref ret) = function.return_type {
+            self.typecheck(ret, ctx)?
+        } else {
+            VOID_TYPE
+        };
+
+        let checked_body = if let Some(body) = &function.body {
+            let checked_body = self.visit_stmt(body.clone(), ctx)?;
+            let actual_return_type = match &checked_body {
+                CheckedStmtNode::Return(expr) => match expr {
+                    CheckedReturnNode { ret: Some(expr) } => self.exprs[expr.clone()].ty(),
+                    CheckedReturnNode { ret: None } => VOID_TYPE,
+                },
+                CheckedStmtNode::Expression(expr) => match self.exprs[expr.clone()].node_type() {
+                    NodeType::BlockExpr | NodeType::IfExpr => self.exprs[expr.clone()].ty(),
+                    _ => VOID_TYPE,
+                },
+                _ => VOID_TYPE,
+            };
+            if !self.unify(expected_return_type, actual_return_type, ctx) {
+                return Err(Error::TypeMismatch);
+            }
+
+            Some(checked_body)
+        } else {
+            None
+        };
+
+        let checked_function = CheckedFunctionNode {
+            name: function.name,
+            parameters,
+            generic_parameters,
+            body: checked_body.map(|x| self.stmts.alloc_item(x)),
+            return_type: expected_return_type,
+            scope_id: current_scope_id,
+            visibility: function.visibility,
+            attrs: function.attrs,
+        };
 
         ctx.pop_inferences_context();
         ctx.symbols.end_scope();
@@ -1220,7 +1295,14 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         ctx.pop_inferences_context();
         ctx.symbols.end_scope();
-        Ok(CheckedDefinitionNode::Enum(checked_enum))
+        for variant in &enum_node.variants {
+            match variant {
+                EnumVariant::Basic(_name) => todo!(),
+                EnumVariant::Tuple(_name, _members) => todo!(),
+                EnumVariant::Struct(_name, _fields) => todo!(),
+            }
+        }
+        todo!();
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1243,6 +1325,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
             NodeType::IntrinsicExpr => self.visit_intrinsic_expr(expr_id, ctx)?,
             NodeType::LambdaFunctionExpr => self.visit_lambda_function(expr_id, ctx)?,
+            NodeType::BlockExpr => self.visit_block_expr(expr_id, ctx)?,
+            NodeType::IfExpr => self.visit_if_expr(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
         ctx.pop_inferences();
@@ -1280,10 +1364,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     ) -> std::result::Result<Self::StmtResult, Self::Error> {
         ctx.push_node_id(NodeId::from(stmt_id));
         let res = match ctx.statement(stmt_id).node_type() {
-            NodeType::IfStmt => self.visit_if(stmt_id, ctx)?,
             NodeType::WhileStmt => self.visit_while(stmt_id, ctx)?,
             NodeType::ForStmt => self.visit_for(stmt_id, ctx)?,
-            NodeType::BlockStmt => self.visit_block(stmt_id, ctx)?,
             NodeType::AssignmentStmt => self.visit_assignment(stmt_id, ctx)?,
             NodeType::VariableStmt => self.visit_variable(stmt_id, ctx)?,
             NodeType::ReturnStmt => self.visit_return(stmt_id, ctx)?,
@@ -1301,7 +1383,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             }),
             NodeType::IntrinsicStmt => self.visit_intrinsic_stmt(stmt_id, ctx)?,
             NodeType::UseStmt => unreachable!(),
-            _ => std::unreachable!(),
+            _ => unreachable!(),
         };
         ctx.pop_node_id();
         Ok(res)
@@ -1350,6 +1432,66 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
+    fn visit_block_expr(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::ExprResult, Self::Error> {
+        ctx.symbols.start_scope(ScopeKind::Block);
+
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+        let BlockExprNode { stmts, uses } = ctx.expression(node).as_block_expr().unwrap().clone();
+        let mut checked_stmts = Vec::with_capacity(stmts.len());
+
+        for &stmt in uses.iter() {
+            let use_path = ctx.statement(stmt).as_use().cloned().unwrap();
+            self.visit_use(&use_path, ctx)?;
+        }
+
+        for stmt in stmts {
+            let checked_stmt = self.visit_stmt(stmt, ctx)?;
+            checked_stmts.push(checked_stmt);
+        }
+
+        //only the last statement in the block can have a return type
+        let mut insert_return = None;
+
+        let type_id = match checked_stmts.last() {
+            Some(s) => match s {
+                CheckedStmtNode::Return(ret) => match ret {
+                    CheckedReturnNode { ret: Some(expr) } => self.exprs[expr.clone()].ty(),
+                    CheckedReturnNode { ret: None } => VOID_TYPE,
+                },
+                //when block embedded in a block
+                CheckedStmtNode::Expression(expr) => {
+                    let type_id = match self.exprs[expr.clone()].node_type() {
+                        NodeType::BlockExpr | NodeType::IfExpr => {
+                            insert_return = Some(CheckedStmtNode::Return(CheckedReturnNode {
+                                ret: Some(expr.clone()),
+                            }));
+                            self.exprs[expr.clone()].ty()
+                        }
+                        _ => VOID_TYPE,
+                    };
+                    type_id
+                }
+                _ => VOID_TYPE,
+            },
+            None => VOID_TYPE,
+        };
+        match insert_return {
+            Some(s) => checked_stmts.push(s),
+            None => (),
+        }
+        ctx.symbols.end_scope();
+
+        Ok(CheckedExprNode::BlockExpr(CheckedBlockExprNode {
+            stmts: self.stmts.alloc_items(checked_stmts),
+            type_id,
+            scope_id: current_scope_id,
+        }))
+    }
+
     fn visit_type_alias(
         &mut self,
         node: DefId,
@@ -1419,7 +1561,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             return Err(Error::TypeMismatch);
         }
         ctx.symbols.start_scope(ScopeKind::Block);
-        let checked_block = self.visit_block(for_node.body, ctx)?;
+        let checked_block = self.visit_stmt(for_node.body, ctx)?;
         let node = CheckedStmtNode::For(CheckedForNode {
             variable: for_node.variable,
             start: self.exprs.alloc_item(start),
@@ -1463,32 +1605,30 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
 
         let expected_return_type = if let Some(ref ret) = function.return_type {
-            Some(self.typecheck(ret, ctx)?)
+            self.typecheck(ret, ctx)?
         } else {
-            None
+            VOID_TYPE
         };
 
-        let checked_body = self.visit_block(function.body, ctx)?;
+        let checked_body = {
+            let checked_body = self.visit_stmt(function.body.clone(), ctx)?;
+            let actual_return_type = match &checked_body {
+                CheckedStmtNode::Return(expr) => match expr {
+                    CheckedReturnNode { ret: Some(expr) } => self.exprs[expr.clone()].ty(),
+                    CheckedReturnNode { ret: None } => VOID_TYPE,
+                },
+                CheckedStmtNode::Expression(expr) => match self.exprs[expr.clone()].node_type() {
+                    NodeType::BlockExpr | NodeType::IfExpr => self.exprs[expr.clone()].ty(),
+                    _ => VOID_TYPE,
+                },
+                _ => VOID_TYPE,
+            };
+            if !self.unify(expected_return_type, actual_return_type, ctx) {
+                return Err(Error::TypeMismatch);
+            }
 
-        let actual_return_type = checked_body
-            .as_block()
-            .unwrap()
-            .stmts
-            .last()
-            .and_then(|stmt| match self[stmt.clone()] {
-                CheckedStmtNode::Return(CheckedReturnNode { ret }) => {
-                    ret.as_ref().map(|(_, ty)| ty.clone())
-                }
-                _ => None,
-            });
-
-        if !self.unify(
-            actual_return_type.unwrap_or(VOID_TYPE),
-            expected_return_type.unwrap_or(VOID_TYPE),
-            ctx,
-        ) {
-            return Err(Error::TypeMismatch);
-        }
+            checked_body
+        };
 
         let mut checked_function = CheckedLambdaFunctionNode {
             name: ctx.intern_lambda(),
@@ -1741,12 +1881,9 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                         {
                             return Err(Error::GenericParameterMismatch);
                         }
-
                         todo!()
                     }
-                    _ => {
-                        return Err(Error::TypeMismatch);
-                    }
+                    _ => unreachable!(),
                 }
             }
             UncheckedType::Array(inner, size) => {
@@ -1773,7 +1910,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
 
                 let ty = Type::FunctionSignature(CheckedFunctionSignature {
                     parameters,
-                    return_type,
+                    return_type: return_type.unwrap_or(VOID_TYPE),
                 });
 
                 ctx.symbols.get_or_add_type(None, ty.key(), ty)
@@ -1858,35 +1995,27 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         }
 
         let expected_return_type = if let Some(ref ret) = function.return_type {
-            Some(self.typecheck(ret, ctx)?)
+            self.typecheck(ret, ctx)?
         } else {
-            None
+            VOID_TYPE
         };
 
         let checked_body = if let Some(body) = &function.body {
-            let checked_body = self.visit_block(body.clone(), ctx)?;
-
-            let actual_return_type =
-                checked_body
-                    .as_block()
-                    .unwrap()
-                    .stmts
-                    .last()
-                    .and_then(|stmt| match self[stmt.clone()] {
-                        CheckedStmtNode::Return(CheckedReturnNode { ret }) => {
-                            ret.as_ref().map(|(_, ty)| ty.clone())
-                        }
-                        _ => None,
-                    });
-
-            if !self.unify(
-                actual_return_type.unwrap_or(VOID_TYPE),
-                expected_return_type.unwrap_or(VOID_TYPE),
-                ctx,
-            ) {
+            let checked_body = self.visit_stmt(body.clone(), ctx)?;
+            let actual_return_type = match &checked_body {
+                CheckedStmtNode::Return(expr) => match expr {
+                    CheckedReturnNode { ret: Some(expr) } => self.exprs[expr.clone()].ty(),
+                    CheckedReturnNode { ret: None } => VOID_TYPE,
+                },
+                CheckedStmtNode::Expression(expr) => match self.exprs[expr.clone()].node_type() {
+                    NodeType::BlockExpr | NodeType::IfExpr => self.exprs[expr.clone()].ty(),
+                    _ => VOID_TYPE,
+                },
+                _ => VOID_TYPE,
+            };
+            if !self.unify(expected_return_type, actual_return_type, ctx) {
                 return Err(Error::TypeMismatch);
             }
-
             Some(checked_body)
         } else {
             None

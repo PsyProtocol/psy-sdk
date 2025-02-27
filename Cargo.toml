@@ -120,7 +120,7 @@ nom = "8.0"
 logos = "0.14"
 
 either = "1"
-
+once-cell = "1.0"
 llvm-sys = "191.0"
 melior = { version = "0.21", features = ["ods-dialects"] }
 mlir-sys = { version = "0.4" }

@@ -5,7 +5,7 @@ use qed_ast::*;
 
 #[derive(Debug)]
 pub struct StorageProcessor<'a> {
-    _marker: std::marker::PhantomData<&'a ()>,
+    _marker: PhantomData<&'a ()>,
 }
 
 impl<'a> StorageProcessor<'a> {
@@ -93,10 +93,13 @@ impl<'a> StorageProcessor<'a> {
         }
 
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(sum))));
-        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-            stmts: vec![return_stmt],
-            uses: vec![],
-        }));
+        let stmt_node = StmtNode::Return(ReturnNode(Some(ctx.alloc_expression(
+            ExprNode::BlockExpr(BlockExprNode {
+                stmts: vec![return_stmt],
+                uses: vec![],
+            }),
+        ))));
+        let block = ctx.alloc_statement(stmt_node);
 
         let f = FunctionNode {
             name: ctx.intern("size"),
@@ -149,10 +152,14 @@ impl<'a> StorageProcessor<'a> {
             field_reads,
         )));
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(value_node))));
-        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-            stmts: vec![return_stmt],
-            uses: vec![],
-        }));
+        let stmt_node = StmtNode::Return(ReturnNode(Some(ctx.alloc_expression(
+            ExprNode::BlockExpr(BlockExprNode {
+                stmts: vec![return_stmt],
+                uses: vec![],
+            }),
+        ))));
+
+        let block = ctx.alloc_statement(stmt_node);
         let f = FunctionNode {
             name: ctx.intern("read"),
             parameters: vec![(
@@ -202,11 +209,12 @@ impl<'a> StorageProcessor<'a> {
             };
             offset = ctx.alloc_expression(ExprNode::Binary(node));
         }
-        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-            stmts: field_writes,
-            uses: vec![],
-        }));
-
+        let stmt_node =
+            StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+                stmts: field_writes,
+                uses: vec![],
+            })));
+        let block = ctx.alloc_statement(stmt_node);
         let f = FunctionNode {
             name: ctx.intern("write"),
             parameters: vec![
@@ -265,11 +273,14 @@ impl<'a> StorageProcessor<'a> {
 
         let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(read_expr))));
 
-        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-            stmts: vec![return_stmt],
-            uses: vec![],
-        }));
+        let stmt_node = StmtNode::Return(ReturnNode(Some(ctx.alloc_expression(
+            ExprNode::BlockExpr(BlockExprNode {
+                stmts: vec![return_stmt],
+                uses: vec![],
+            }),
+        ))));
 
+        let block = ctx.alloc_statement(stmt_node);
         let function = FunctionNode {
             name: getter_ident,
             parameters: vec![],
@@ -324,10 +335,13 @@ impl<'a> StorageProcessor<'a> {
         let write_expr = ctx.alloc_expression(ExprNode::Call(write_call));
 
         let write_stmt = ctx.alloc_statement(StmtNode::Expression(write_expr));
-        let block = ctx.alloc_statement(StmtNode::Block(BlockNode {
-            stmts: vec![write_stmt],
-            uses: vec![],
-        }));
+
+        let stmt_node =
+            StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+                stmts: vec![write_stmt],
+                uses: vec![],
+            })));
+        let block = ctx.alloc_statement(stmt_node);
 
         let function = FunctionNode {
             name: setter_ident,
@@ -446,120 +460,104 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
 
     fn visit_use(
         &mut self,
-        use_path: &UsePath,
-        ctx: &mut Self::Context,
-    ) -> Result<(), Self::Error> {
+        _use_path: &UsePath,
+        _ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
 
     fn visit_path(
         &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
 
     fn visit_index_access(
         &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
 
     fn visit_member_access(
         &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
 
     fn visit_value(
         &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
 
     fn visit_binary(
         &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
 
     fn visit_unary(
         &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
 
     fn visit_call(
         &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
 
     fn visit_cast(
         &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        Ok(())
-    }
-
-    fn visit_if(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
 
     fn visit_while(
         &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
-        Ok(())
-    }
-
-    fn visit_block(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
+        _node: StmtId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
 
     fn visit_assignment(
         &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
+        _node: StmtId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
 
     fn visit_variable(
         &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
+        _node: StmtId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
 
     fn visit_return(
         &mut self,
-        expr: StmtId,
-        ctx: &mut Self::Context,
+        _expr: StmtId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
@@ -578,16 +576,16 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
 
     fn visit_trait(
         &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
+        _node: DefId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
 
     fn visit_function(
         &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
+        _node: DefId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
@@ -626,48 +624,48 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
 
     fn visit_enum(
         &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
+        _node: DefId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
 
     fn visit_intrinsic_expr(
         &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
 
     fn visit_intrinsic_stmt(
         &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
+        _node: StmtId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
 
     fn visit_member_call(
         &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
 
     fn visit_type_alias(
         &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
+        _node: DefId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
 
     fn visit_const(
         &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
+        _node: DefId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
@@ -701,6 +699,22 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
+        Ok(())
+    }
+
+    fn visit_if_expr(
+        &mut self,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        Ok(())
+    }
+
+    fn visit_block_expr(
+        &mut self,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
 }

@@ -244,7 +244,7 @@ impl Type {
                     vec![],
                     vec![],
                     parameters.iter().map(|(_, _, ty)| ty.clone()).collect(),
-                    return_type.clone(),
+                    Some(return_type.clone()),
                 ),
                 Type::FunctionSignature(CheckedFunctionSignature {
                     parameters,
@@ -255,7 +255,10 @@ impl Type {
                     vec![],
                     vec![],
                     parameters.clone(),
-                    return_type.clone(),
+                    match return_type {
+                        &VOID_TYPE => None,
+                        ty => Some(ty.clone()),
+                    },
                 ),
                 Type::Trait(CheckedTraitNode {
                     name,
@@ -450,8 +453,8 @@ impl Type {
         ctx: &mut C,
     ) -> CheckedValue<F> {
         match self {
-            Type::Felt(f) => CheckedValue::Felt(ctx.add_input()),
-            Type::Bool(b) => CheckedValue::Bool(ctx.add_input()),
+            Type::Felt(_f) => CheckedValue::Felt(ctx.add_input()),
+            Type::Bool(_b) => CheckedValue::Bool(ctx.add_input()),
             Type::Array(a) => {
                 let mut result = Vec::new();
                 let inner_ty = symbols[a.inner_ty].clone();

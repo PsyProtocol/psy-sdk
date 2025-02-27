@@ -1,3 +1,6 @@
+use once_cell::sync::OnceCell;
+use qed_ast::{ModuleNode, PathNode, Visibility};
+use qed_common::{define_arena_id, FileId, TreeNode};
 use std::{
     collections::HashMap,
     convert::AsMut,
@@ -6,10 +9,6 @@ use std::{
     iter::once,
     ops::{Index, IndexMut},
 };
-
-use once_cell::sync::OnceCell;
-use qed_ast::{ModuleNode, PathNode, Visibility};
-use qed_common::{define_arena_id, FileId, TreeNode};
 
 use crate::{
     variable::CheckedVariable, CheckedTraitNode, CheckedValueRef, IdentId, ModuleId, ModuleKind,
@@ -187,22 +186,22 @@ impl<T: Clone> Display for SymbolTable<T> {
             writeln!(f, "  types:")?;
             //print scope type
             for (k, v) in &scope.types {
-                writeln!(f, "  {:?} : {:?}", k, v)?;
+                writeln!(f, "    {:?} : {:?} ", k, v)?;
             }
             //variables
             writeln!(f, "  variables:")?;
             for (k, v) in &scope.variables {
-                writeln!(f, "  {:?} : {:?}", k, v)?;
+                writeln!(f, "    {:?} : {:?}  ", k, v,)?;
             }
         }
         //print type
         for (i, ty) in self.types.iter().enumerate() {
-            writeln!(f, "TypeId({}) ： {:?}", i, ty)?;
+            writeln!(f, "TypeId({}) : {:?}", i, ty)?;
         }
         //print module
         for (i, module) in self.modules.iter().enumerate() {
             writeln!(f, "ModuleId({})", i)?;
-            writeln!(f, "  name: {:?}", module.name)?;
+            writeln!(f, "  name: I({:?})", module.name,)?;
             writeln!(f, "  id: {:?}", module.id)?;
             writeln!(f, "  scope_id: {:?}", module.scope_id)?;
             writeln!(f, "  kind: {:?}", module.kind)?;
@@ -480,12 +479,15 @@ impl<F: Clone> SymbolTable<F> {
                 }
             }
             None => {
-                assert!(path.segments.is_empty());
-                if let Some(variable) = self.get_variable(None, &path.target) {
-                    return Some((variable.ty, variable.scope_id));
+                assert!(
+                    path.segments.is_empty(),
+                    "path.segments is not empty and also path.root is None"
+                );
+                return if let Some(variable) = self.get_variable(None, &path.target) {
+                    Some((variable.ty, variable.scope_id))
                 } else {
                     let type_id = self.get_type_id(None, path.target)?;
-                    return Some((type_id, self[type_id].scope_id()));
+                    Some((type_id, self[type_id].scope_id()))
                 };
             }
         };
@@ -499,7 +501,7 @@ impl<F: Clone> SymbolTable<F> {
                 assert!(self[*target_module_id].visibility.is_public());
                 src_module = *target_module_id;
             } else {
-                assert!(segments.next().is_none());
+                assert!(segments.next().is_none(), "segments.next() is not None");
                 let type_id = self[self[src_module].scope_id]
                     .types
                     .get(&segment.clone().into())?
@@ -648,7 +650,6 @@ impl<F: Clone> SymbolTable<F> {
             ],
             |scope| scope.variables.get(key).cloned(),
         )?;
-
         let value = self
             .frames
             .last()
@@ -706,8 +707,8 @@ impl<F: Clone> SymbolTable<F> {
 
     pub fn size_of(&self, type_id: TypeId) -> usize {
         match &self[type_id] {
-            Type::Felt(f) => 1usize,
-            Type::Bool(b) => 1usize,
+            Type::Felt(_f) => 1usize,
+            Type::Bool(_b) => 1usize,
             Type::Array(a) => self.size_of(a.inner_ty) * a.size,
             Type::Struct(s) => s
                 .fields

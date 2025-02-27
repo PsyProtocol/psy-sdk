@@ -7,7 +7,7 @@ pub struct CheckedLambdaFunctionNode {
     pub name: IdentId,
     pub parameters: Vec<(IdentId, TypeQualifier, TypeId)>,
     pub body: StmtId,
-    pub return_type: Option<TypeId>,
+    pub return_type: TypeId,
     pub scope_id: ScopeId,
     pub type_id: TypeId,
 }

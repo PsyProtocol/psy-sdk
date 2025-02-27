@@ -13,14 +13,14 @@ impl Case {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct IfNode {
+pub struct IfExprNode {
     pub if_branch: Case,
-    pub elseif_branch: Vec<Case>,
+    pub elseif_branches: Vec<Case>,
     pub else_branch: Option<StmtId>,
 }
 
-impl NodeInfo for IfNode {
+impl NodeInfo for IfExprNode {
     fn node_type(&self) -> NodeType {
-        NodeType::IfStmt
+        NodeType::IfExpr
     }
 }

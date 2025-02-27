@@ -1,6 +1,8 @@
 mod binary;
+mod block_expr;
 mod call;
 mod cast;
+mod if_expr;
 mod index;
 mod intrinsic;
 mod lambda;
@@ -8,9 +10,11 @@ mod path;
 mod unary;
 
 pub use binary::*;
+pub use block_expr::*;
 pub use call::*;
 pub use cast::*;
 use enum_as_inner::EnumAsInner;
+pub use if_expr::*;
 pub use index::*;
 pub use intrinsic::*;
 pub use lambda::*;
@@ -34,6 +38,8 @@ pub enum CheckedExprNode<F> {
     MemberAccess(CheckedMemberAccessNode),
     Intrinsic(CheckedIntrinsicExprNode),
     LambdaFunction(CheckedLambdaFunctionNode),
+    BlockExpr(CheckedBlockExprNode),
+    IfExpr(CheckedIfExprNode),
 }
 
 impl<F> NodeInfo for CheckedExprNode<F> {
@@ -50,6 +56,8 @@ impl<F> NodeInfo for CheckedExprNode<F> {
             CheckedExprNode::MemberAccess(node) => node.node_type(),
             CheckedExprNode::Intrinsic(node) => node.node_type(),
             CheckedExprNode::LambdaFunction(node) => node.node_type(),
+            CheckedExprNode::BlockExpr(node) => node.node_type(),
+            CheckedExprNode::IfExpr(node) => node.node_type(),
         }
     }
 }
@@ -91,6 +99,8 @@ impl<F> CheckedExprNode<F> {
                 CheckedIntrinsicExprNode::Hash { type_id, .. } => type_id.clone(),
             },
             CheckedExprNode::LambdaFunction(c) => c.type_id.clone(),
+            CheckedExprNode::IfExpr(i) => i.type_id,
+            CheckedExprNode::BlockExpr(b) => b.type_id,
         }
     }
 

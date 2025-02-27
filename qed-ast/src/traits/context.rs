@@ -59,10 +59,10 @@ pub enum NodeType {
     IndexAccessExpr,
     IntrinsicExpr,
     LambdaFunctionExpr,
+    BlockExpr,
+    IfExpr,
 
-    IfStmt,
     WhileStmt,
-    BlockStmt,
     AssignmentStmt,
     VariableStmt,
     DefinitionStmt,

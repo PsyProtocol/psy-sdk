@@ -4,6 +4,7 @@ mod control;
 mod error;
 mod preprocess;
 
+use crate::control::ControlState;
 use error::{Error, Result};
 use indexmap::IndexMap;
 pub use preprocess::StorageProcessor;
@@ -20,13 +21,11 @@ use qedlang_core::dpn::{
     },
     vm::def::DPNFunctionCircuitDefinition,
 };
-use std::{collections::HashMap, iter::once, path::PathBuf};
+use std::iter::once;
 
+use std::{collections::HashMap, path::PathBuf};
 use tracing::instrument;
 
-use crate::control::ControlState;
-
-// type GF = GoldilocksField;
 #[derive(Debug)]
 pub struct Interpreter<F: Clone + From<u32>, C> {
     pub context: C,
@@ -305,7 +304,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         }
 
         self.context.end_if_block();
-        Ok(())
+        self.interpret_statement(typechecker, node.body.unwrap(), ctx)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -333,7 +332,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
 
             if self.context.get_constant_value(predicate) != 0 {
                 self.context.start_if_block(predicate);
-                self.interpret_block(typechecker, node.body, ctx)?;
+                self.interpret_statement(typechecker, node.body, ctx)?;
                 self.context.end_if_block();
             } else {
                 break Ok(());
@@ -403,23 +402,39 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     ) -> Result<ControlState<CheckedValueRef<F>>> {
         let node = &typechecker[stmt_id];
         match node {
-            CheckedStmtNode::If(r#if) => self.interpret_if(typechecker, stmt_id, ctx)?,
             CheckedStmtNode::While(r#while) => self.interpret_while(typechecker, stmt_id, ctx)?,
             CheckedStmtNode::For(r#for) => self.interpret_for(typechecker, stmt_id, ctx)?,
-            CheckedStmtNode::Block(block) => {
-                return self.interpret_block(typechecker, stmt_id, ctx);
-            }
             CheckedStmtNode::Assignment(r#assignment) => {
                 self.interpret_assignment(typechecker, stmt_id, ctx)?
             }
             CheckedStmtNode::Variable(variable) => {
                 self.interpret_variable(typechecker, stmt_id, ctx)?
             }
-            CheckedStmtNode::Definition(definition) => {}
+            CheckedStmtNode::While(r#_while) => self.interpret_while(typechecker, stmt_id, ctx)?,
+            CheckedStmtNode::Assignment(r#_assignment) => {
+                self.interpret_assignment(typechecker, stmt_id, ctx)?
+            }
+            CheckedStmtNode::Variable(_variable) => {
+                self.interpret_variable(typechecker, stmt_id, ctx)?
+            }
+            CheckedStmtNode::Definition(_definition) => {}
             CheckedStmtNode::Expression(expr_id) => {
                 self.interpret_expr(typechecker, *expr_id, ctx)?;
             }
             CheckedStmtNode::Return(return_node) => {
+                return self.interpret_ret(typechecker, stmt_id, ctx);
+                match &typechecker[expr_id.clone()].node_type() {
+                    NodeType::BlockExpr => {
+                        if let Some(r) = self.interpret_expr(typechecker, *expr_id, ctx)? {
+                            return Ok(ControlState::Return(r));
+                        };
+                    }
+                    _ => {
+                        self.interpret_expr(typechecker, *expr_id, ctx)?;
+                    }
+                }
+            }
+            CheckedStmtNode::Return(_return_node) => {
                 return self.interpret_ret(typechecker, stmt_id, ctx);
             }
             CheckedStmtNode::Intrinsic(intrinsic_node) => match intrinsic_node {
@@ -451,6 +466,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                     );
                 }
             },
+            CheckedStmtNode::Use => {}
         }
         Ok(ControlState::Normal)
     }
@@ -463,12 +479,14 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<ControlState<CheckedValueRef<F>>> {
         let return_node = typechecker[stmt_id].as_return().unwrap();
-        if let Some((expr, _)) = &return_node.ret {
+        if let Some(expr) = &return_node.ret {
             let value = self.interpret_expr(typechecker, *expr, ctx)?.unwrap();
-            return Ok(ControlState::Return(value));
-        } else {
-            return Ok(ControlState::Normal);
+            if let Some(expr) = &return_node.ret {
+                let value = self.interpret_expr(typechecker, *expr, ctx)?.unwrap();
+                return Ok(ControlState::Return(value));
+            }
         }
+        Ok(ControlState::Normal)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -616,11 +634,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_assignment_value(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
+        _typechecker: &TypeChecker<F, C>,
         old_value: &CheckedValueRef<F>,
         operator: AssignmentOperator,
         value: CheckedValueRef<F>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
+        _symbols: &mut SymbolTable<F>,
     ) -> Result<CheckedValueRef<F>> {
         let new_value = match operator {
             AssignmentOperator::Eq => value,
@@ -869,6 +888,14 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             CheckedExprNode::LambdaFunction(checked_lambda_function_node) => Ok(Some(
                 CheckedValueRef::new_rc(CheckedValue::Type(checked_lambda_function_node.type_id)),
             )),
+            CheckedExprNode::BlockExpr(block_expr) => Ok(Some(self.interpret_block_expr(
+                typechecker,
+                block_expr,
+                ctx,
+            )?)),
+            CheckedExprNode::IfExpr(if_expr) => {
+                Ok(Some(self.interpret_if_expr(typechecker, if_expr, ctx)?))
+            }
         }
     }
 
@@ -1109,11 +1136,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
 
     fn interpret_path_assignment(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        node: &CheckedAssignmentNode,
+        _typechecker: &TypeChecker<F, C>,
+        _node: &CheckedAssignmentNode,
         path_node: &CheckedPathNode,
         path: &mut Vec<usize>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
+        symbols: &mut SymbolTable<F>,
+        _path: &mut Vec<usize>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
         let start_scope = Some(path_node.scope_id);
         let variable = ctx
@@ -1132,6 +1161,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     ) -> Result<()> {
         let node = typechecker[stmt_id].as_variable().unwrap();
         let value = self.interpret_expr(typechecker, node.value, ctx)?.unwrap();
+        let value = match self.interpret_expr(typechecker, node.value, ctx)? {
+            Some(value) => value,
+            None => {
+                return Err(Error::SemaError(qed_sema::Error::UnresolvedVariable));
+            }
+        };
 
         ctx.symbols
             .set_variable(node.scope_id, &node.name, value.clone())?;
@@ -1173,10 +1208,86 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             }
         }
     }
+
+    #[instrument(level = "debug", skip_all)]
+    pub fn interpret_block_expr(
+        &mut self,
+        type_checker: &TypeChecker<F, C>,
+        block_expr: &CheckedBlockExprNode,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<CheckedValueRef<F>> {
+        let void_value: CheckedValueRef<F> = CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE));
+
+        for stmt_id in &block_expr.stmts {
+            match self.interpret_statement(type_checker, *stmt_id, ctx)? {
+                ControlState::Return(value) => {
+                    return Ok(value);
+                }
+                ControlState::Normal => {}
+            }
+        }
+        Ok(void_value)
+    }
+    #[instrument(level = "debug", skip_all)]
+    pub fn interpret_if_expr(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        if_expr: &CheckedIfExprNode,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<CheckedValueRef<F>> {
+        let node = if_expr;
+        let mut result: CheckedValueRef<F>;
+
+        //calculate the predicate
+        let predicate = self
+            .interpret_expr(typechecker, node.if_branch.predicate, ctx)?
+            .unwrap()
+            .to_bool();
+
+        //enter the if block
+        self.context.start_if_block(predicate);
+
+        //use if block return value to initialize the result
+        result = match self.interpret_statement(typechecker, node.if_branch.body.clone(), ctx)? {
+            ControlState::Return(value) => value,
+            //todo!: change type to CheckedValue::Type(Void)
+            ControlState::Normal => CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE)),
+        };
+
+        for condition in &node.elseif_branches {
+            let predicate = self
+                .interpret_expr(typechecker, condition.predicate, ctx)?
+                .unwrap()
+                .to_bool();
+
+            self.context.start_else_if_block(predicate);
+            let elseif_result =
+                match self.interpret_statement(typechecker, condition.body.clone(), ctx)? {
+                    ControlState::Return(value) => value,
+                    ControlState::Normal => CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE)),
+                };
+            result = self.context.cset(result, elseif_result);
+        }
+
+        if let Some(else_branch) = &node.else_branch {
+            self.context.start_else_block();
+
+            let else_result =
+                match self.interpret_statement(typechecker, else_branch.clone(), ctx)? {
+                    ControlState::Return(value) => value,
+                    ControlState::Normal => CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE)),
+                };
+            result = self.context.cset(result, else_result);
+        }
+
+        self.context.end_if_block();
+
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
     use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
     use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
