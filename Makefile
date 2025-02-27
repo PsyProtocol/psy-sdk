@@ -16,24 +16,6 @@ build:
 fmt:
 	@cargo fmt
 
-for_test:
-	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/for_test.qed
-
-lambda_test:
-	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/lambda_test.qed
-
-generics_test:
-	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/generics_test.qed
-
-match_test:
-	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/match_test.qed
-
-enum_test:
-	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/enum_test.qed
-
-type_hint_test:
-	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/type_hint_test.qed
-
 interpret:
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/assert_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/ctx_test.qed --parameters 2,3

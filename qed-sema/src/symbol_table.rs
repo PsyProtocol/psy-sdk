@@ -279,7 +279,7 @@ impl<F: Clone> SymbolTable<F> {
         let key = name.into();
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
-        if let Some(type_id) = self[scope_id].types.get(&key) {
+        if let Some(_) = self[scope_id].types.get(&key) {
             return Err(Error::TypeAlreadyDefined);
         }
 

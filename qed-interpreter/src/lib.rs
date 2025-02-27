@@ -350,7 +350,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     ) -> Result<ControlState<CheckedValueRef<F>>> {
         let node = &typechecker[stmt_id];
         match node {
-            CheckedStmtNode::While(r#while) => self.interpret_while(typechecker, stmt_id, ctx)?,
             CheckedStmtNode::For(r#for) => self.interpret_for(typechecker, stmt_id, ctx)?,
             CheckedStmtNode::Assignment(r#assignment) => {
                 self.interpret_assignment(typechecker, stmt_id, ctx)?
@@ -359,15 +358,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 self.interpret_variable(typechecker, stmt_id, ctx)?
             }
             CheckedStmtNode::While(r#_while) => self.interpret_while(typechecker, stmt_id, ctx)?,
-            CheckedStmtNode::Assignment(r#_assignment) => {
-                self.interpret_assignment(typechecker, stmt_id, ctx)?
-            }
-            CheckedStmtNode::Variable(_variable) => {
-                self.interpret_variable(typechecker, stmt_id, ctx)?
-            }
             CheckedStmtNode::Definition(_definition) => {}
             CheckedStmtNode::Expression(expr_id) => {
-                return self.interpret_ret(typechecker, stmt_id, ctx);
                 match &typechecker[expr_id.clone()].node_type() {
                     NodeType::BlockExpr => {
                         if let Some(r) = self.interpret_expr(typechecker, *expr_id, ctx)? {
@@ -426,10 +418,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         let return_node = typechecker[stmt_id].as_return().unwrap();
         if let Some(expr) = &return_node.ret {
             let value = self.interpret_expr(typechecker, *expr, ctx)?.unwrap();
-            if let Some(expr) = &return_node.ret {
-                let value = self.interpret_expr(typechecker, *expr, ctx)?.unwrap();
-                return Ok(ControlState::Return(value));
-            }
+            return Ok(ControlState::Return(value));
         }
         Ok(ControlState::Normal)
     }
@@ -1102,7 +1091,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()> {
         let node = typechecker[stmt_id].as_variable().unwrap();
-        let value = self.interpret_expr(typechecker, node.value, ctx)?.unwrap();
         let value = match self.interpret_expr(typechecker, node.value, ctx)? {
             Some(value) => value,
             None => {
@@ -1159,6 +1147,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
         let void_value: CheckedValueRef<F> = CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE));
+        ctx.symbols.enter_block(block_expr.scope_id);
 
         for stmt_id in &block_expr.stmts {
             match self.interpret_statement(type_checker, *stmt_id, ctx)? {
@@ -1168,6 +1157,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 ControlState::Normal => {}
             }
         }
+        ctx.symbols.exit_block();
         Ok(void_value)
     }
     #[instrument(level = "debug", skip_all)]

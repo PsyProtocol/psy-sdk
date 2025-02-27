@@ -969,26 +969,24 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     ) -> std::result::Result<Self::StmtResult, Self::Error> {
         // TODO: remove clone
         let return_node = ctx.statement(node).as_return().cloned().unwrap();
-        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-        let parent_scope_id = ctx.symbols.parent_scope_id().unwrap();
-        if ctx.symbols[current_scope_id].kind != ScopeKind::Block {
-            return Err(Error::InvalidReturn);
-        }
-        let valid_kinds = [
-            ScopeKind::LambdaFunction,
-            ScopeKind::Function,
-            ScopeKind::ImplMethod,
-            ScopeKind::TraitMethod,
-            //todo!: check this
-            ScopeKind::Block,
-        ];
-        if !valid_kinds.contains(&ctx.symbols[parent_scope_id].kind) {
-            return Err(Error::InvalidReturn);
-        }
+        // let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+        // let parent_scope_id = ctx.symbols.parent_scope_id().unwrap();
+        // if ctx.symbols[current_scope_id].kind != ScopeKind::Block {
+        //     return Err(Error::InvalidReturn);
+        // }
+        // let valid_kinds = [
+        //     ScopeKind::LambdaFunction,
+        //     ScopeKind::Function,
+        //     ScopeKind::ImplMethod,
+        //     ScopeKind::TraitMethod,
+        //     ScopeKind::LambdaFunction,
+        // ];
+        // if !valid_kinds.contains(&ctx.symbols[parent_scope_id].kind) {
+        //     return Err(Error::InvalidReturn);
+        // }
 
         let ret = if let Some(expr) = return_node.0 {
             let expr = self.visit_expr(expr, ctx)?;
-            let ty = expr.ty();
             Some(self.exprs.alloc_item(expr))
         } else {
             None
@@ -1154,65 +1152,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let ty = Type::Function(checked_function.clone());
         ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
-        // TODO: remove clone
-        let function = ctx.definition(node).as_function().cloned().unwrap();
-        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-        let mut generic_parameters = Vec::new();
-        let mut parameters = Vec::new();
-
-        for &generic_parameter in &function.generic_parameters {
-            let type_id = ctx.symbols.add_type_variable(generic_parameter)?;
-            generic_parameters.push(type_id);
-        }
-
-        self.typecheck_method_receiver(&function, ctx)?;
-
-        for (parameter, mutable, parameter_type) in &function.parameters {
-            let parameter_type = self.typecheck(parameter_type, ctx)?;
-            let variable = CheckedVariable::new(parameter_type, *mutable, current_scope_id, None);
-            ctx.symbols.declare_variable(parameter.clone(), variable)?;
-            parameters.push((parameter.clone(), *mutable, parameter_type));
-        }
-
-        let expected_return_type = if let Some(ref ret) = function.return_type {
-            self.typecheck(ret, ctx)?
-        } else {
-            VOID_TYPE
-        };
-
-        let checked_body = if let Some(body) = &function.body {
-            let checked_body = self.visit_stmt(body.clone(), ctx)?;
-            let actual_return_type = match &checked_body {
-                CheckedStmtNode::Return(expr) => match expr {
-                    CheckedReturnNode { ret: Some(expr) } => self.exprs[expr.clone()].ty(),
-                    CheckedReturnNode { ret: None } => VOID_TYPE,
-                },
-                CheckedStmtNode::Expression(expr) => match self.exprs[expr.clone()].node_type() {
-                    NodeType::BlockExpr | NodeType::IfExpr => self.exprs[expr.clone()].ty(),
-                    _ => VOID_TYPE,
-                },
-                _ => VOID_TYPE,
-            };
-            if !self.unify(expected_return_type, actual_return_type, ctx) {
-                return Err(Error::TypeMismatch);
-            }
-
-            Some(checked_body)
-        } else {
-            None
-        };
-
-        let checked_function = CheckedFunctionNode {
-            name: function.name,
-            parameters,
-            generic_parameters,
-            body: checked_body.map(|x| self.stmts.alloc_item(x)),
-            return_type: expected_return_type,
-            scope_id: current_scope_id,
-            visibility: function.visibility,
-            attrs: function.attrs,
-        };
-
         ctx.pop_inferences_context();
         ctx.symbols.end_scope();
         Ok(CheckedDefinitionNode::Function(checked_function))
@@ -1289,8 +1228,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             visibility: enum_node.visibility,
         };
         let ty = Type::Enum(checked_enum.clone());
-        let type_id = ctx
-            .symbols
+        ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), checked_enum.name, ty)?;
 
         ctx.pop_inferences_context();
@@ -1483,8 +1421,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             Some(s) => checked_stmts.push(s),
             None => (),
         }
-        ctx.symbols.end_scope();
 
+        ctx.symbols.end_scope();
         Ok(CheckedExprNode::BlockExpr(CheckedBlockExprNode {
             stmts: self.stmts.alloc_items(checked_stmts),
             type_id,
