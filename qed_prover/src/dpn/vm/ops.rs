@@ -339,8 +339,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             DPNOpType::DivRem4 => todo!(),
             DPNOpType::CastU32 => {
                 let target = self.resolve_target(op.inputs[0]);
-                let (low, _high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, target);
-                // builder.assert_zero(_high);
+                let (low, high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, target);
+                builder.assert_zero(high);
                 self.u32s.push(U32Target(low));
             }
             DPNOpType::U32And => todo!(),
@@ -428,7 +428,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             }
             DPNOpType::CastBool => {
                 let target = self.resolve_target(op.inputs[0]);
-                let bool_target = builder.is_not_zero(target);
+                let bool_target = BoolTarget::new_unsafe(target);
+                builder.assert_bool(bool_target);
                 self.bools.push(bool_target);
             }
             DPNOpType::BoolInputTarget => {

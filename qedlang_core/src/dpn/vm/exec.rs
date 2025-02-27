@@ -383,7 +383,9 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                     },
                     DPNBuiltInDataType::Target => {
                         assert!(index < self.targets.len(), "Invalid target index");
-                        (self.targets[index].to_canonical_u64() & 0xffffffffu64) as u32
+                        let value = self.targets[index].to_canonical_u64();
+                        assert!(value <= 0xffffffffu64, "Invalid u32 value");
+                        (value & 0xffffffffu64) as u32
                     },
                     _ => panic!("Invalid data type for U32Target"),
                 };
@@ -470,9 +472,9 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                     },
                     DPNBuiltInDataType::Target => {
                         assert!(index < self.targets.len(), "Invalid target index");
-                        self.targets[index].to_canonical_u64() & 0xffffffffu64
+                        self.targets[index].to_canonical_u64()
                     },
-                    _ => panic!("Invalid data type for U32Target"),
+                    _ => panic!("Invalid data type for Target"),
                 };
                 self.targets.push(F::from_canonical_u64(value));
             }
@@ -481,6 +483,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 let value = match t {
                     DPNBuiltInDataType::U32Target => {
                         assert!(index < self.u32s.len(), "Invalid u32 index");
+                        assert!(self.u32s[index]<= 1, "Invalid bool value");
                         self.u32s[index] != 0
                     },
                     DPNBuiltInDataType::Bool => {
@@ -489,9 +492,10 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                     },
                     DPNBuiltInDataType::Target => {
                         assert!(index < self.targets.len(), "Invalid target index");
+                        assert!(self.targets[index].to_canonical_u64()<= 1, "Invalid bool value");
                         self.targets[index].to_canonical_u64() != 0
                     },
-                    _ => panic!("Invalid data type for U32Target"),
+                    _ => panic!("Invalid data type for Target"),
                 };
                 self.bools.push(value);
             }

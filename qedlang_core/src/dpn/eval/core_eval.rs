@@ -223,6 +223,7 @@ impl ContextEval for SymFeltStore {
                 },
                 DPNOpType::CastU32 => {
                     let value = self.resolve_unary_felt_arg(felt_ref, input, cache);
+                    assert!(value < 0xffffffffu64, "invalid u32 value");
                     value & 0xFFFFFFFFu64
                 },
                 DPNOpType::U32And => {
@@ -308,6 +309,7 @@ impl ContextEval for SymFeltStore {
                 }
                 DPNOpType::CastBool => {
                     let value = self.resolve_unary_felt_arg(felt_ref, input, cache);
+                    assert!(value <= 1, "bool value must be 0 or 1");
                     (value != 0) as u64
                 }
                 DPNOpType::BoolInputTarget => input.get_input(felt_ref.get_input_index()),

@@ -406,6 +406,7 @@ impl DPNContext<SymFeltRef> for QExecContext {
             || op_type == DPNOpType::ConstantU32
         {
             let value = a.get_constant_value();
+            assert!(value <= 0xffffffffu64, "invalid u32 value {}", value);
             self.op_const_u32((value & 0xffffffffu64) as u32)
         } else {
             let value = SymFeltRefValue {
@@ -454,8 +455,10 @@ impl DPNContext<SymFeltRef> for QExecContext {
             let value = a.get_constant_value();
             if value == 0 {
                 SymFeltRef::constant_false()
-            } else {
+            } else if value == 1{
                 SymFeltRef::constant_true()
+            } else {
+                panic!("invalid bool value {}", value);
             }
         } else {
             let value = SymFeltRefValue {
