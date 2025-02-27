@@ -16,7 +16,7 @@ pub use r#return::*;
 pub use r#while::*;
 pub use variable::*;
 
-use crate::{DefId, ExprId, NodeInfo, NodeType, UsePath};
+use crate::{DefId, ExprId, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum StmtNode {
@@ -29,7 +29,6 @@ pub enum StmtNode {
     Return(ReturnNode),
     Intrinsic(IntrinsicStmtNode),
     Match(MatchNode),
-    Use(UsePath),
 }
 
 impl NodeInfo for StmtNode {
@@ -43,7 +42,6 @@ impl NodeInfo for StmtNode {
             StmtNode::Expression(_) => NodeType::ExpressionStmt,
             StmtNode::Return(node) => node.node_type(),
             StmtNode::Intrinsic(node) => node.node_type(),
-            StmtNode::Use(_) => NodeType::UseStmt,
             StmtNode::Match(node) => node.node_type(),
         }
     }

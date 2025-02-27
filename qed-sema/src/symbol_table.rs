@@ -12,7 +12,7 @@ use std::{
 
 use crate::{
     variable::CheckedVariable, CheckedTraitNode, CheckedValueRef, IdentId, ModuleId, ModuleKind,
-    Type, TypeId, TypeKey, UsePath,
+    Type, TypeId, TypeKey, UseNode,
 };
 use crate::{Error, Result};
 
@@ -337,7 +337,7 @@ impl<F: Clone> SymbolTable<F> {
         Ok(self.add_type_variable(ty)?)
     }
 
-    pub fn add_use(&mut self, use_path: &UsePath) -> Result<()> {
+    pub fn add_use(&mut self, use_path: &UseNode) -> Result<()> {
         let type_ids = self.resolve_use(&use_path).ok_or(Error::UnresolvedUse)?;
         let type_ids = type_ids
             .into_iter()
@@ -395,7 +395,7 @@ impl<F: Clone> SymbolTable<F> {
         None
     }
 
-    pub fn resolve_use(&self, use_path: &UsePath) -> Option<Vec<(&TypeKey, &TypeId)>> {
+    pub fn resolve_use(&self, use_path: &UseNode) -> Option<Vec<(&TypeKey, &TypeId)>> {
         let current_module_id = self.current_module_id()?;
 
         let mut src_module = match use_path.kind {

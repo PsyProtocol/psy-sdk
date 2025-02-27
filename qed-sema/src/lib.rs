@@ -222,11 +222,14 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     #[instrument(level = "debug", skip_all)]
     fn visit_use(
         &mut self,
-        use_path: &UsePath,
+        def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> std::result::Result<Self::StmtResult, Self::Error> {
-        ctx.symbols.add_use(use_path)?;
-        Ok(CheckedStmtNode::Use)
+    ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
+        // TODO: remove clone
+        let node = ctx.definition(def_id).as_use().cloned().unwrap();
+
+        ctx.symbols.add_use(&node)?;
+        Ok(CheckedDefinitionNode::Use(node))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1288,6 +1291,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             NodeType::TraitDef => self.visit_trait(def_id, ctx)?,
             NodeType::TypeAliasDef => self.visit_type_alias(def_id, ctx)?,
             NodeType::ConstDef => self.visit_const(def_id, ctx)?,
+            NodeType::UseDef => self.visit_use(def_id, ctx)?,
             _ => std::unreachable!(),
         };
         ctx.pop_node_id();
@@ -1320,7 +1324,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 self.exprs.alloc_item(expr)
             }),
             NodeType::IntrinsicStmt => self.visit_intrinsic_stmt(stmt_id, ctx)?,
-            NodeType::UseStmt => unreachable!(),
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -1338,10 +1341,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let module = ctx.module(module_id).clone();
         if module.is_std && module.is_self_primitive {
             self.typecheck_std_primitive_module(ctx)?;
-        }
-
-        for use_path in &module.uses {
-            self.visit_use(use_path, ctx)?;
         }
 
         for &def_id in &module.definitions {
@@ -1378,13 +1377,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.symbols.start_scope(ScopeKind::Block);
 
         let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-        let BlockExprNode { stmts, uses } = ctx.expression(node).as_block_expr().unwrap().clone();
+        let BlockExprNode { stmts } = ctx.expression(node).as_block_expr().unwrap().clone();
         let mut checked_stmts = Vec::with_capacity(stmts.len());
-
-        for &stmt in uses.iter() {
-            let use_path = ctx.statement(stmt).as_use().cloned().unwrap();
-            self.visit_use(&use_path, ctx)?;
-        }
 
         for stmt in stmts {
             let checked_stmt = self.visit_stmt(stmt, ctx)?;

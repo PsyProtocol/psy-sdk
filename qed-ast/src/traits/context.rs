@@ -69,7 +69,6 @@ pub enum NodeType {
     ExpressionStmt,
     ReturnStmt,
     IntrinsicStmt,
-    UseStmt,
     ForStmt,
     MatchStmt,
 
@@ -81,6 +80,7 @@ pub enum NodeType {
     TraitDef,
     TypeAliasDef,
     ConstDef,
+    UseDef,
 
     Module,
 }

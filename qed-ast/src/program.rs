@@ -4,8 +4,12 @@ use qed_common::{Arena, FileResolver, Graph, Tree, TreeNode};
 
 use crate::{
     DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, Interner, ModuleId, ModuleNode,
-    StmtId, StmtNode,
+    StmtId, StmtNode, UseNode, Visibility,
 };
+
+impl DefId {
+    pub const USE_STD_PRELUDE: DefId = DefId(0);
+}
 
 #[derive(Debug)]
 pub struct Program<F: Clone + From<u32>> {
@@ -43,13 +47,20 @@ impl_index!(ModuleId, TreeNode<ModuleId, ModuleNode>, modules);
 
 impl<F: Clone + From<u32>> Program<F> {
     pub fn new() -> Self {
+        let mut defs = Arena::new();
+        defs.alloc_item(DefinitionNode::Use(UseNode {
+            visibility: Visibility::Private,
+            kind: IdentId::STD,
+            segments: vec![IdentId::PRELUDE],
+            target: None,
+        }));
         Self {
             modules: Tree::new(),
             dependency_graph: Graph::new(),
             file_resolver: FileResolver::new(),
             exprs: Arena::new(),
             stmts: Arena::new(),
-            defs: Arena::new(),
+            defs,
             interner: Interner::new(),
         }
     }

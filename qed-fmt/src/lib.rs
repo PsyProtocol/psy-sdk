@@ -130,9 +130,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
     fn visit_use(
         &mut self,
-        u: &UsePath,
+        def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
+        let u = ctx.definition(def_id).as_use().cloned().unwrap();
         let mut path = vec![ctx.ident(u.kind.clone().into()).to_string()];
         let segments = u
             .segments
@@ -145,8 +146,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|t| ctx.ident(t).to_string())
             .unwrap_or("*".to_string());
 
-        let ret = format!("pub use {}::{};", path.join("::"), target);
-        Ok(ret)
+        self.write_line(&format!(
+            "{}use {}::{};",
+            if u.visibility.is_public() { "pub " } else { "" },
+            path.join("::"),
+            target
+        ));
+        Ok(Default::default())
     }
 
     fn visit_path(
@@ -465,7 +471,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         &mut self,
         def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let FunctionNode {
             name,
             parameters,
@@ -533,7 +539,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         &mut self,
         def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let StructNode {
             name,
             fields,
@@ -586,7 +592,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         &mut self,
         def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let EnumNode {
             name,
             generic_parameters,
@@ -644,7 +650,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         &mut self,
         def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let TraitNode {
             name,
             generic_parameters,
@@ -821,12 +827,6 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ));
         self.indent();
 
-        // TODO: remove clone
-        for u in &module.uses {
-            let t = self.visit_use(u, ctx)?;
-            self.write_line(&t);
-        }
-
         for &child_module in ctx.program().modules.nodes().clone()[module_id].children() {
             // let child_module = ctx.module(child_module).clone();
             self.visit_module(child_module, ctx)?;
@@ -853,7 +853,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let node = ctx.definition(node).as_type_alias().cloned().unwrap();
         self.write_line(&format!(
             "type {} = {};",
@@ -862,6 +862,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ));
         Ok(Default::default())
     }
+
     fn visit_const(
         &mut self,
         node: DefId,
@@ -1021,22 +1022,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let BlockExprNode { stmts, uses } = ctx.expression(node).as_block_expr().unwrap().clone();
+        let BlockExprNode { stmts } = ctx.expression(node).as_block_expr().unwrap().clone();
 
         let mut block_expr_result = String::new();
         block_expr_result.push_str(format!("{{\n").as_str());
 
         self.indent();
         let current_indent = self.read_indent(0);
-
-        for &stmt in uses.iter() {
-            let use_path = ctx.statement(stmt).as_use().cloned().unwrap();
-            block_expr_result.push_str(&format!(
-                "{}{}\n",
-                current_indent,
-                self.visit_use(&use_path, ctx)?
-            ));
-        }
 
         for stmt in stmts.iter() {
             let stmt_result = self.visit_stmt(*stmt, ctx)?;
