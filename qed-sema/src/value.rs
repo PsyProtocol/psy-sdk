@@ -16,6 +16,7 @@ pub enum CheckedValueNode<F> {
     Felt(F),
     Bool(F),
     Array(TypeId, Vec<ExprId>),
+    Tuple(TypeId, Vec<(TypeId, ExprId)>),
     Struct(TypeId, IndexMap<IdentId, ExprId>),
     Type(TypeId),
 }
@@ -32,6 +33,10 @@ pub enum CheckedValue<F> {
     Bool(F),
     Array(TypeId, Vec<CheckedValueRef<F>>),
     Struct(TypeId, IndexMap<IdentId, CheckedValueRef<F>>),
+    Tuple {
+        type_id: TypeId,
+        elements: Vec<(TypeId, CheckedValueRef<F>)>,
+    },
     Type(TypeId),
 }
 
@@ -48,6 +53,15 @@ impl<F: Clone> Clone for CheckedValueRef<F> {
                 CheckedValueRef(Rc::new(RefCell::new(CheckedValue::Bool(b.clone()))))
             }
             CheckedValue::Array(_type_id, _values) => CheckedValueRef(self.0.clone()),
+            CheckedValue::Tuple { type_id, elements } => {
+                CheckedValueRef(Rc::new(RefCell::new(CheckedValue::Tuple {
+                    type_id: type_id.clone(),
+                    elements: elements
+                        .iter()
+                        .map(|(t, v)| (t.clone(), v.clone()))
+                        .collect(),
+                })))
+            }
             CheckedValue::Struct(_type_id, _fields) => CheckedValueRef(self.0.clone()),
             CheckedValue::Type(type_id) => {
                 CheckedValueRef(Rc::new(RefCell::new(CheckedValue::Type(type_id.clone()))))
@@ -85,6 +99,10 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValueRef<F> {
                 }
                 result
             }
+            CheckedValue::Tuple { elements, .. } => {
+                elements.iter().flat_map(|(_, v)| v.to_felts()).collect()
+            }
+
             CheckedValue::Struct(_type_id, fields) => {
                 let mut result = Vec::new();
                 for (_, value) in fields {
@@ -92,12 +110,10 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValueRef<F> {
                 }
                 result
             }
-            CheckedValue::Type(type_id) => {
-                match type_id {
-                    &VOID_TYPE => vec![],
-                    _ => unreachable!(),
-                }
-            }
+            CheckedValue::Type(type_id) => match type_id {
+                &VOID_TYPE => vec![],
+                _ => unreachable!(),
+            },
         }
     }
 
@@ -160,6 +176,9 @@ impl<F: Clone> CheckedValueRef<F> {
     pub fn is_array(&self) -> bool {
         self.0.borrow().is_array()
     }
+    pub fn is_tuple(&self) -> bool {
+        self.0.borrow().is_tuple()
+    }
 
     pub fn to_felt(&self) -> F {
         match &*self.0.borrow() {
@@ -196,6 +215,7 @@ impl<F: Clone> CheckedValueRef<F> {
             CheckedValue::Array(type_id, _) => type_id.clone(),
             CheckedValue::Struct(type_id, _) => type_id.clone(),
             CheckedValue::Type(type_id) => type_id.clone(),
+            CheckedValue::Tuple { type_id, .. } => type_id.clone(),
         }
     }
 
@@ -210,6 +230,13 @@ impl<F: Clone> CheckedValueRef<F> {
                 let index = path[0];
                 let rest = &path[1..];
                 if let Some(inner) = arr.get_mut(index) {
+                    inner.set_path(rest, value)?;
+                }
+            }
+            CheckedValue::Tuple { elements, .. } => {
+                let index = path[0];
+                let rest = &path[1..];
+                if let Some((_, inner)) = elements.get_mut(index) {
                     inner.set_path(rest, value)?;
                 }
             }
@@ -238,6 +265,13 @@ impl<F: Clone> CheckedValueRef<F> {
                 let index = path[0];
                 let rest = &path[1..];
                 arr.get(index).and_then(|inner| inner.get_path(rest))
+            }
+            CheckedValue::Tuple { elements, .. } => {
+                let index = path[0];
+                let rest = &path[1..];
+                elements
+                    .get(index)
+                    .and_then(|(_, inner)| inner.get_path(rest))
             }
             CheckedValue::Struct(_, map) => {
                 let key = IdentId(path[0]);

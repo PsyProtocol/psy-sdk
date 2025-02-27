@@ -6,6 +6,7 @@ mod r#if;
 mod index;
 mod intrinsic;
 mod path;
+mod tuple;
 mod unary;
 
 pub use binary::*;
@@ -16,6 +17,7 @@ pub use index::*;
 pub use intrinsic::*;
 pub use path::*;
 pub use r#if::*;
+pub use tuple::*;
 pub use unary::*;
 
 use crate::{NodeInfo, NodeType, ValueNode};
@@ -32,10 +34,11 @@ pub enum ExprNode<F: Clone + From<u32>> {
     Cast(CastNode),
     IndexAccess(IndexAccessNode),
     MemberAccess(MemberAccessNode),
-
     BlockExpr(BlockExprNode),
     IfExpr(IfExprNode),
     Intrinsic(IntrinsicExprNode),
+    Tuple(TupleExprNode),
+    TupleAccess(TupleAccessNode),
 }
 
 impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
@@ -53,6 +56,8 @@ impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
             Self::Intrinsic(node) => node.node_type(),
             Self::BlockExpr(node) => node.node_type(),
             Self::IfExpr(node) => node.node_type(),
+            Self::Tuple(node) => node.node_type(),
+            Self::TupleAccess(node) => node.node_type(),
         }
     }
 }

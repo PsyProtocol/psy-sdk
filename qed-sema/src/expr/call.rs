@@ -30,3 +30,16 @@ impl NodeInfo for CheckedMemberCallNode {
         NodeType::MemberCallExpr
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CheckedTupleAccessNode {
+    pub value: ExprId,   // `ExprId` for the tuple being accessed
+    pub index: usize,    // The index of the tuple element being accessed
+    pub type_id: TypeId, // The type of the element at `index`
+}
+
+impl NodeInfo for CheckedTupleAccessNode {
+    fn node_type(&self) -> NodeType {
+        NodeType::TupleAccessExpr
+    }
+}

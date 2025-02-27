@@ -14,6 +14,10 @@ pub enum Error {
     UndefinedFunction,
     #[error("uncertain loop condition")]
     UncertainLoopCondition,
+    #[error("index out of bounds")]
+    IndexOutOfBounds,
+    #[error("type mismatch")]
+    TypeMismatch,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

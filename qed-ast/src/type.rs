@@ -7,7 +7,7 @@ pub enum UncheckedType {
     Basic(IdentId),                       // u8, T
     Generic(IdentId, Vec<UncheckedType>), // HashMap<K, V>
     Array(Box<UncheckedType>, usize),     // [u8; 10]
-    // Tuple(Vec<UncheckedType>),
+    Tuple(Vec<UncheckedType>),
     FunctionSignature(Box<FunctionSignature>),
     Unknown,
 }

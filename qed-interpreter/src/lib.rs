@@ -28,7 +28,7 @@ use std::iter::once;
 
 use std::{collections::HashMap, path::PathBuf};
 // use tracing::{debug, error, info, instrument, span, Level};
-use tracing::{instrument};
+use tracing::instrument;
 
 #[allow(dead_code)]
 type GF = GoldilocksField;
@@ -436,6 +436,20 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 CheckedValue::Struct(*type_id, values)
             }
             CheckedValueNode::Type(type_id) => CheckedValue::Type(*type_id),
+            CheckedValueNode::Tuple(type_id, elements) => {
+                let mut values = Vec::new();
+                for (elem_type, expr_id) in elements {
+                    let value = self
+                        .interpret_expr(typechecker, *expr_id, symbols)?
+                        .unwrap();
+
+                    values.push((*elem_type, value));
+                }
+                CheckedValue::Tuple {
+                    type_id: *type_id,
+                    elements: values,
+                }
+            }
         })
     }
 
@@ -809,6 +823,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             CheckedExprNode::IndexAccess(index_access_node) => Ok(Some(
                 self.interpret_index_access(typechecker, index_access_node, symbols)?,
             )),
+            CheckedExprNode::TupleAccess(tuple_access_node) => Ok(Some(
+                self.interpret_tuple_access(typechecker, tuple_access_node, symbols)?,
+            )),
             CheckedExprNode::MemberAccess(member_access_node) => Ok(Some(
                 self.interpret_member_access(typechecker, member_access_node, symbols)?,
             )),
@@ -862,6 +879,33 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         return Ok(a.get_path(&[index_access_node.index]).unwrap());
     }
 
+    fn interpret_tuple_access(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        tuple_access_node: &CheckedTupleAccessNode,
+        symbols: &mut SymbolTable<F>,
+    ) -> Result<CheckedValueRef<F>> {
+        // get the value of the tuple
+        let tuple_value = self
+            .interpret_expr(typechecker, tuple_access_node.value, symbols)?
+            .unwrap();
+
+        // store the value of the tuple to avoid lifetime issues
+        let tuple_ref = tuple_value.borrow();
+
+        if let CheckedValue::Tuple { type_id: _type_id, elements } = &*tuple_ref {
+            // check if the index is out of bounds
+            if tuple_access_node.index >= elements.len() {
+                return Err(Error::IndexOutOfBounds);
+            }
+
+            // get the value of the element
+            let (_, element_value) = &elements[tuple_access_node.index];
+            return Ok(element_value.clone());
+        }
+
+        Err(Error::TypeMismatch)
+    }
     fn interpret_cast(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -968,6 +1012,14 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 symbols,
                 &mut path,
             )?,
+            CheckedExprNode::TupleAccess(tuple_access_node) => self.interpret_tuple_assignment(
+                typechecker,
+                node,
+                tuple_access_node,
+                symbols,
+                &mut path,
+            )?,
+
             _ => unimplemented!(),
         };
 
@@ -1027,7 +1079,61 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             inner_var,
         ))
     }
+    fn interpret_tuple_assignment(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        node: &CheckedAssignmentNode,
+        tuple_access_node: &CheckedTupleAccessNode,
+        symbols: &mut SymbolTable<F>,
+        path: &mut Vec<usize>,
+    ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
+        // get the value of the tuple recursively
+        let (tuple_value, tuple_var_name, tuple_var) = match &typechecker[tuple_access_node.value] {
+            CheckedExprNode::Path(checked_path_node) => {
+                self.interpret_path_assignment(typechecker, node, checked_path_node, symbols, path)?
+            }
+            CheckedExprNode::IndexAccess(checked_index_access_node) => self
+                .interpret_index_assignment(
+                    typechecker,
+                    node,
+                    checked_index_access_node,
+                    symbols,
+                    path,
+                )?,
+            CheckedExprNode::MemberAccess(checked_member_access_node) => self
+                .interpret_member_assignment(
+                    typechecker,
+                    node,
+                    checked_member_access_node,
+                    symbols,
+                    path,
+                )?,
+            CheckedExprNode::TupleAccess(checked_tuple_access_node) => self
+                .interpret_tuple_assignment(
+                    typechecker,
+                    node,
+                    checked_tuple_access_node,
+                    symbols,
+                    path,
+                )?,
+            _ => unreachable!(),
+        };
 
+        // ensure that the value is a tuple
+        assert!(
+            tuple_value.is_tuple(),
+            "Expected tuple, found {:?}",
+            tuple_value
+        );
+
+        // push the index of the tuple element to the path
+        path.push(tuple_access_node.index);
+
+        // visit the tuple element and return it
+        let element_value = tuple_value.get_path(&[tuple_access_node.index]).unwrap();
+
+        Ok((element_value, tuple_var_name, tuple_var))
+    }
     fn interpret_member_assignment(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -1134,6 +1240,30 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                     self.cset_variable(old_field_value, new_field_value);
                 }
             }
+            (
+                CheckedValue::Tuple {
+                    type_id: lhs_tid,
+                    elements: old_elements,
+                },
+                CheckedValue::Tuple {
+                    type_id: rhs_tid,
+                    elements: new_elements,
+                },
+            ) if lhs_tid == rhs_tid => {
+                assert_eq!(
+                    old_elements.len(),
+                    new_elements.len(),
+                    "Tuple size mismatch"
+                );
+
+                for ((old_type_id, old_value), (new_type_id, new_value)) in
+                    old_elements.iter().zip(new_elements.iter_mut())
+                {
+                    assert_eq!(old_type_id, new_type_id, "Tuple element type mismatch");
+                    self.cset_variable(old_value, new_value);
+                }
+            }
+
             _ => {
                 unreachable!()
             }

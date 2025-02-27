@@ -22,3 +22,13 @@ impl NodeInfo for MemberAccessNode {
         NodeType::MemberAccessExpr
     }
 }
+#[derive(Clone, Debug, PartialEq)]
+pub struct TupleAccessNode {
+    pub target: ExprId,
+    pub index: usize,
+}
+impl NodeInfo for TupleAccessNode {
+    fn node_type(&self) -> NodeType {
+        NodeType::TupleAccessExpr
+    }
+}

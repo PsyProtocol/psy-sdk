@@ -666,4 +666,20 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
+
+    fn visit_tuple(
+        &mut self,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        todo!()
+    }
+
+    fn visit_tuple_access(
+        &mut self,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        todo!()
+    }
 }

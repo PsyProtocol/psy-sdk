@@ -60,6 +60,8 @@ pub enum NodeType {
     IntrinsicExpr,
     BlockExpr,
     IfExpr,
+    TupleExpr,
+    TupleAccessExpr,
 
     WhileStmt,
     AssignmentStmt,
@@ -69,7 +71,6 @@ pub enum NodeType {
     ReturnStmt,
     IntrinsicStmt,
     UseStmt,
-
     FunctionDef,
     StructDef,
     EnumDef,

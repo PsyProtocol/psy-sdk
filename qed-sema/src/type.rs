@@ -80,6 +80,7 @@ pub enum Type {
     Trait(CheckedTraitNode),
     Const(CheckedConstNode),
     TypeVariable(IdentId),
+    Tuple(Vec<TypeId>), // Tuple type
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -136,6 +137,13 @@ impl Type {
                 vec![],
                 None,
                 vec![size.clone()],
+            ),
+            Type::Tuple(inner_tys) => (
+                IdentId::TYPE_TUPLE,
+                inner_tys.clone(),
+                vec![],
+                None,
+                vec![inner_tys.len()],
             ),
             Type::Struct(CheckedStructNode {
                 name,
@@ -208,6 +216,7 @@ impl Type {
     pub fn scope_id(&self) -> ScopeId {
         match self {
             Type::Array(_) => ScopeId::primitive(),
+            Type::Tuple(_) => ScopeId::primitive(),
             Type::Struct(CheckedStructNode { scope_id, .. }) => *scope_id,
             Type::Enum(CheckedEnumNode { scope_id, .. }) => *scope_id,
             Type::Function(CheckedFunctionNode { scope_id, .. }) => *scope_id,
@@ -245,6 +254,8 @@ impl Type {
             }) => {
                 implementations.push(trait_type_id);
             }
+            Type::Tuple(_) => panic!("Tuple types do not support trait implementations"),
+
             _ => panic!("Type::add_implementation called on non-composite type"),
         }
     }
@@ -263,6 +274,7 @@ impl Type {
             Type::Bool(CheckedBoolNode {
                 implementations, ..
             }) => implementations,
+            Type::Tuple(_) => panic!("Tuple types do not support trait implementations"),
             _ => panic!("Type::implementations called on non-composite type"),
         }
     }
@@ -296,6 +308,23 @@ impl Type {
                     .get_type_id(Some(ScopeId::primitive()), self.key())
                     .unwrap();
                 CheckedValue::Array(type_id, result)
+            }
+            Type::Tuple(elements) => {
+                let mut result = Vec::new();
+                for &element_type in elements {
+                    let element_ty = symbols[element_type].clone();
+                    let value = CheckedValueRef::new_rc(element_ty.to_value(symbols, ctx));
+
+                    result.push((element_type, value));
+                }
+                let type_id = symbols
+                    .get_type_id(Some(ScopeId::primitive()), self.key())
+                    .unwrap();
+
+                CheckedValue::Tuple {
+                    type_id,
+                    elements: result,
+                }
             }
             Type::Struct(s) => {
                 let mut result = IndexMap::new();

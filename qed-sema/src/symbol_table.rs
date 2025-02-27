@@ -1,3 +1,7 @@
+use once_cell::sync::OnceCell;
+use qed_ast::{ModuleNode, PathNode, Visibility};
+use qed_common::{define_arena_id, FileId, TreeNode};
+use std::fmt::format;
 use std::{
     collections::HashMap,
     convert::AsMut,
@@ -6,9 +10,6 @@ use std::{
     iter::once,
     ops::{Index, IndexMut},
 };
-use once_cell::sync::OnceCell;
-use qed_ast::{ModuleNode, PathNode, Visibility};
-use qed_common::{define_arena_id, FileId, TreeNode};
 
 use crate::{
     variable::CheckedVariable, CheckedTraitNode, CheckedValueRef, IdentId, ModuleId, ModuleKind,
@@ -167,22 +168,45 @@ impl<T: Clone> Display for SymbolTable<T> {
             writeln!(f, "  types:")?;
             //print scope type
             for (k, v) in &scope.types {
-                writeln!(f, "    {:?} : {:?} ", k, v)?;
+                writeln!(
+                    f,
+                    "    {:?}:{:?} : {:?} ",
+                    qed_ast::get_ident(&k.name),
+                    k,
+                    v
+                )?;
             }
             //variables
             writeln!(f, "  variables:")?;
             for (k, v) in &scope.variables {
-                writeln!(f, "    {:?} : {:?}  ", k, v,)?;
+                writeln!(f, "    {:?}({:?}) : {:?}  ", k, qed_ast::get_ident(k), v,)?;
             }
         }
         //print type
         for (i, ty) in self.types.iter().enumerate() {
+            let ty = match ty {
+                Type::Felt(f) => format!("Felt({:?})", f),
+                Type::Bool(b) => format!("Bool({:?})", b),
+                Type::Array(a) => format!("Array({:?})", a),
+                Type::Struct(s) => format!("Struct({:?})", s),
+                Type::Function(f) => format!("Function({:?}:{:?})", qed_ast::get_ident(&f.name), f),
+                Type::TypeVariable(t) => format!("TypeVariable({:?})", t),
+                Type::Trait(t) => format!("Trait({:?})", t),
+                Type::Const(c) => format!("Const({:?})", c),
+                Type::Tuple(t) => format!("Tuple({:?})", t),
+                _ => format!("unknown"),
+            };
             writeln!(f, "TypeId({}) : {:?}", i, ty)?;
         }
         //print module
         for (i, module) in self.modules.iter().enumerate() {
             writeln!(f, "ModuleId({})", i)?;
-            writeln!(f, "  name: I({:?})", module.name,)?;
+            writeln!(
+                f,
+                "  name: I{:?}({:?})",
+                module.name,
+                qed_ast::get_ident(&module.name)
+            )?;
             writeln!(f, "  id: {:?}", module.id)?;
             writeln!(f, "  scope_id: {:?}", module.scope_id)?;
             writeln!(f, "  kind: {:?}", module.kind)?;
@@ -506,7 +530,7 @@ impl<F: Clone> SymbolTable<F> {
             .cloned()?;
         let visibility = self[type_id].visibility();
         assert!(visibility.is_public());
-        return Some((type_id, self[type_id].scope_id()));
+        Some((type_id, self[type_id].scope_id()))
     }
 
     pub fn impl_trait_for_type(&mut self, trait_type_id: TypeId, implementor: TypeId) {
@@ -591,7 +615,7 @@ impl<F: Clone> SymbolTable<F> {
             current_scope_id = self[scope_id].parent;
         }
 
-        return None;
+        None
     }
 
     pub fn get_variable(
