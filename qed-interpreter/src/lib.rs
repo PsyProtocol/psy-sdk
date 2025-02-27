@@ -893,7 +893,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         // store the value of the tuple to avoid lifetime issues
         let tuple_ref = tuple_value.borrow();
 
-        if let CheckedValue::Tuple { type_id: _type_id, elements } = &*tuple_ref {
+        if let CheckedValue::Tuple {
+            type_id: _type_id,
+            elements,
+        } = &*tuple_ref
+        {
             // check if the index is out of bounds
             if tuple_access_node.index >= elements.len() {
                 return Err(Error::IndexOutOfBounds);

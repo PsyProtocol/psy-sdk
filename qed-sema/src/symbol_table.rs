@@ -1,7 +1,6 @@
 use once_cell::sync::OnceCell;
 use qed_ast::{ModuleNode, PathNode, Visibility};
 use qed_common::{define_arena_id, FileId, TreeNode};
-use std::fmt::format;
 use std::{
     collections::HashMap,
     convert::AsMut,
