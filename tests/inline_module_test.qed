@@ -1,4 +1,4 @@
-pub use mod1::mod2::test_fn;
+use mod1::mod2::test_fn;
 
 pub mod mod1{
     pub mod mod2{

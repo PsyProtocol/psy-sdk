@@ -17,7 +17,7 @@ pub use r#struct::*;
 pub use r#trait::*;
 pub use type_alias::*;
 
-use crate::{NodeInfo, NodeType};
+use crate::{NodeInfo, NodeType, UseNode};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum DefinitionNode {
@@ -25,9 +25,11 @@ pub enum DefinitionNode {
     Struct(StructNode),
     Enum(EnumNode),
     Impl(ImplNode),
+    ImplTrait(ImplTraitNode),
     Trait(TraitNode),
     TypeAlias(TypeAliasNode),
     Const(ConstNode),
+    Use(UseNode),
 }
 
 impl NodeInfo for DefinitionNode {
@@ -37,9 +39,11 @@ impl NodeInfo for DefinitionNode {
             Self::Struct(node) => node.node_type(),
             Self::Enum(node) => node.node_type(),
             Self::Impl(node) => node.node_type(),
+            Self::ImplTrait(node) => node.node_type(),
             Self::Trait(node) => node.node_type(),
             Self::TypeAlias(node) => node.node_type(),
             Self::Const(node) => node.node_type(),
+            Self::Use(node) => node.node_type(),
         }
     }
 }

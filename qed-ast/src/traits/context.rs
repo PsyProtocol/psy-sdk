@@ -58,6 +58,7 @@ pub enum NodeType {
     MemberAccessExpr,
     IndexAccessExpr,
     IntrinsicExpr,
+    LambdaFunctionExpr,
     BlockExpr,
     IfExpr,
     TupleExpr,
@@ -70,14 +71,18 @@ pub enum NodeType {
     ExpressionStmt,
     ReturnStmt,
     IntrinsicStmt,
-    UseStmt,
+    ForStmt,
+    MatchStmt,
+
     FunctionDef,
     StructDef,
     EnumDef,
     ImplDef,
+    ImplTraitDef,
     TraitDef,
     TypeAliasDef,
     ConstDef,
+    UseDef,
 
     Module,
 }
@@ -108,6 +113,7 @@ pub trait VisitorContext<F: Clone + From<u32>, C> {
     fn insert_definition(&mut self, definition: Self::Definition, pos: InsertPosition);
     fn replace_definition(&mut self, def_id: DefId, definition: Self::Definition);
     fn replace_statement(&mut self, stmt_id: StmtId, statement: Self::Stmt);
+    fn intern_lambda(&mut self) -> IdentId;
 }
 
 pub struct DefaultVisitorContext<'a, F: Clone + From<u32>, C> {
@@ -266,5 +272,9 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
 
     fn replace_statement(&mut self, stmt_id: StmtId, statement: Self::Stmt) {
         self.program.stmts.replace_item(stmt_id, statement);
+    }
+
+    fn intern_lambda(&mut self) -> IdentId {
+        self.program.interner.intern_lambda()
     }
 }

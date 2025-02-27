@@ -1,6 +1,6 @@
-pub mod primitive;
+mod primitive;
 
-pub use primitive::*;
+use primitive::*;
 
 pub trait Storage {
     pub fn size() -> Felt;

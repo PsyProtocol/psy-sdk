@@ -28,6 +28,8 @@ pub enum Error {
     UnresolvedMember,
     #[error("function parameter mismatch")]
     FunctionParameterMismatch,
+    #[error("generic parameter mismatch")]
+    GenericParameterMismatch,
     #[error("invalid function call")]
     InvalidFunctionCall,
     #[error("invalid return")]

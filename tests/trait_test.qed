@@ -15,14 +15,14 @@ pub mod traits{
     }
 }
 
-pub use traits::Person;
+use traits::Person;
 
 // error if not import trait
-pub use traits::PersonLike;
+use traits::PersonLike;
 
-pub fn test_fn(p: Person) -> Felt {
+pub fn test_fn(p: Person)  -> Felt {
+    use traits::PersonLike;
     return p.age();
-    pub use traits::PersonLike;
 }
 
 
@@ -32,9 +32,8 @@ fn main(a: Felt, b: Felt) -> Felt {
         age_height: [[1, 1], [1, 1]]
     };
 
-    pub use traits::Person;
+    use traits::Person;
+    use traits::PersonLike;
 
     return person.age() + a;
-
-    pub use traits::PersonLike;
 }

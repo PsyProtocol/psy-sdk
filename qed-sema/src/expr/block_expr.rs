@@ -1,11 +1,12 @@
 use qed_ast::{NodeInfo, NodeType, StmtId};
 
-use crate::TypeId;
+use crate::{ScopeId, TypeId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedBlockExprNode {
     pub stmts: Vec<StmtId>,
     pub type_id: TypeId,
+    pub scope_id: ScopeId,
 }
 
 impl NodeInfo for CheckedBlockExprNode {

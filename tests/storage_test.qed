@@ -8,7 +8,7 @@ mod math{
     }
 }
 
-pub use math::*;
+use math::*;
 
 #[derive(Storage)]
 struct Person {

@@ -110,12 +110,16 @@ impl Interner {
             let idx = self.pool.len();
             self.pool.alloc_item(s.clone());
             self.index.insert(s.clone(), idx);
+            idx
+        })
+    }
 
-            //#[cfg(test)]
-            {
-                use crate::utils::insert_ident;
-                insert_ident(idx, s.0.as_str());
-            }
+    pub fn intern_lambda(&mut self) -> IdentId {
+        let s: Ident = "__LAMBDA_FUNCTON__".into();
+        IdentId({
+            let idx = self.pool.len();
+            self.pool.alloc_item(s.clone());
+            self.index.insert(s.clone(), idx);
             idx
         })
     }

@@ -43,11 +43,13 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         }
         result
     }
+
     #[allow(dead_code)]
     fn append_line(&mut self, s: &str) {
         self.output.push_str(s);
         self.output.push('\n');
     }
+
     #[allow(dead_code)]
     fn write(&mut self, s: &str) {
         self.write_indent();
@@ -92,13 +94,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
                 let parameters = sig
                     .parameters
                     .iter()
-                    .map(|p| {
-                        format!(
-                            "{}{}",
-                            if p.0 { "mut " } else { "" },
-                            self.visit_unchecked_type(&p.1, ctx)
-                        )
-                    })
+                    .map(|p| format!("{}", self.visit_unchecked_type(&p, ctx)))
                     .collect::<Vec<_>>()
                     .join(", ");
                 format!(
@@ -141,9 +137,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
     fn visit_use(
         &mut self,
-        u: &UsePath,
+        def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
+        let u = ctx.definition(def_id).as_use().cloned().unwrap();
         let mut path = vec![ctx.ident(u.kind.clone().into()).to_string()];
         let segments = u
             .segments
@@ -156,9 +153,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|t| ctx.ident(t).to_string())
             .unwrap_or("*".to_string());
 
-        let ret = format!("pub use {}::{};", path.join("::"), target);
-        //self.write_line(&format!("use {}::{};", path.join("::"), target));
-        Ok(ret)
+        self.write_line(&format!(
+            "{}use {}::{};",
+            if u.visibility.is_public() { "pub " } else { "" },
+            path.join("::"),
+            target
+        ));
+        Ok(Default::default())
     }
 
     fn visit_path(
@@ -318,8 +319,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &MemberCallNode {
             callee: variable,
             ref args,
-            receiver: _,
             ref generic_parameters,
+            ..
         } = ctx.expression(expr_id).as_member_call().unwrap();
         let generic_parameters = generic_parameters
             .iter()
@@ -369,7 +370,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         self.indent();
         self.visit_stmt(body, ctx)?;
         self.dedent();
-        self.write_line("};");
+        self.write_line("}");
         Ok(Default::default())
     }
 
@@ -399,13 +400,14 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let s = format!(
-            "{}{} {}: {} = {};",
-            if ctx.statement(stmt_id).as_variable().unwrap().cnst {
-                "const"
-            } else {
-                "let"
-            },
-            if ctx.statement(stmt_id).as_variable().unwrap().mutable {
+            "let{} {}: {} = {};",
+            if ctx
+                .statement(stmt_id)
+                .as_variable()
+                .unwrap()
+                .qualifier
+                .is_mutable
+            {
                 " mut"
             } else {
                 ""
@@ -437,7 +439,6 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 "".to_string()
             }
         );
-        // self.write_line(&s);
         Ok(s)
     }
 
@@ -448,7 +449,6 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     ) -> Result<Self::StmtResult, Self::Error> {
         let ImplNode {
             generic_parameters,
-            trait_name,
             ty,
             body,
         } = ctx.definition(def_id).as_impl().unwrap();
@@ -459,15 +459,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
         let s = format!(
-            "impl{} {}{}{} {{",
-            if let Some(trait_name) = trait_name {
-                format!(" {} for", &ctx.ident(trait_name.clone()))
-            } else {
-                "".to_string()
-            },
+            "impl{} {} {{",
             generic_parameters,
-            &ctx.ident(ty.clone()),
-            generic_parameters
+            self.visit_unchecked_type(&ty, ctx),
         );
         self.write_line(&s);
         self.indent();
@@ -484,7 +478,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         &mut self,
         def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let FunctionNode {
             name,
             parameters,
@@ -515,7 +509,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|p| {
                 format!(
                     "{}{}: {}",
-                    if p.1 { "mut " } else { "" },
+                    if p.1.is_mutable { "mut " } else { "" },
                     &ctx.ident(p.0),
                     self.visit_unchecked_type(&p.2, ctx)
                 )
@@ -552,7 +546,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         &mut self,
         def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let StructNode {
             name,
             fields,
@@ -605,7 +599,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         &mut self,
         def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let EnumNode {
             name,
             generic_parameters,
@@ -627,7 +621,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         for variant in variants {
             match variant {
                 EnumVariant::Basic(ident_id) => {
-                    let s = format!("{}", ctx.ident(ident_id.clone()));
+                    let s = format!("{},", ctx.ident(ident_id.clone()));
                     self.write_line(&s);
                 }
                 EnumVariant::Tuple(ident_id, types) => {
@@ -636,7 +630,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                         .map(|x| self.visit_unchecked_type(x, ctx))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    let s = format!("{}({})", ctx.ident(ident_id.clone()), types);
+                    let s = format!("{}({}),", ctx.ident(ident_id.clone()), types);
                     self.write_line(&s);
                 }
                 EnumVariant::Struct(ident_id, fields) => {
@@ -650,7 +644,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                         ));
                     }
                     self.dedent();
-                    self.write_line("}");
+                    self.write_line("},");
                 }
             }
         }
@@ -663,7 +657,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         &mut self,
         def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let TraitNode {
             name,
             generic_parameters,
@@ -690,7 +684,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 .map(|p| {
                     format!(
                         "{}{}: {}",
-                        if p.1 { "mut " } else { "" },
+                        if p.1.is_mutable { "mut " } else { "" },
                         &ctx.ident(p.0),
                         self.visit_unchecked_type(&p.2, ctx)
                     )
@@ -839,12 +833,6 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ));
         self.indent();
 
-        // TODO: remove clone
-        for u in &module.uses {
-            let t = self.visit_use(u, ctx)?;
-            self.write_line(&t);
-        }
-
         for &child_module in ctx.program().modules.nodes().clone()[module_id].children() {
             // let child_module = ctx.module(child_module).clone();
             self.visit_module(child_module, ctx)?;
@@ -871,7 +859,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::DefinitionResult, Self::Error> {
         let node = ctx.definition(node).as_type_alias().cloned().unwrap();
         self.write_line(&format!(
             "type {} = {};",
@@ -880,6 +868,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ));
         Ok(Default::default())
     }
+
     fn visit_const(
         &mut self,
         node: DefId,
@@ -901,27 +890,151 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(Default::default())
     }
 
+    fn visit_for(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let &ForNode {
+            variable,
+            start,
+            end,
+            body,
+        } = ctx.statement(node).as_for().unwrap();
+        let s = format!(
+            "for {} in {}..{} {{",
+            ctx.ident(variable).to_string(),
+            self.visit_expr(start, ctx)?,
+            self.visit_expr(end, ctx)?
+        );
+        self.write_line(&s);
+        self.indent();
+        let res =
+            self.visit_block_expr(ctx.statement(body).as_expression().unwrap().clone(), ctx)?;
+        self.write_line(&res);
+        self.dedent();
+        self.write_line("}");
+        Ok(Default::default())
+    }
+
+    fn visit_match(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let MatchNode { scrutinee, arms } = ctx.statement(node).as_match().cloned().unwrap();
+
+        let s = format!("match {} {{", self.visit_expr(scrutinee.clone(), ctx)?);
+        self.write_line(&s);
+        self.indent();
+
+        for arm in arms {
+            let s = format!(
+                "{} => {{",
+                if arm.pattern.is_placeholder() {
+                    "_".to_string()
+                } else {
+                    self.visit_expr(arm.pattern.as_value().unwrap().clone(), ctx)?
+                }
+            );
+            self.write_line(&s);
+            self.indent();
+            self.visit_block_expr(
+                ctx.statement(arm.body).as_expression().unwrap().clone(),
+                ctx,
+            )?;
+            self.dedent();
+            self.write_line("},");
+        }
+
+        self.dedent();
+        self.write_line("}");
+        Ok(Default::default())
+    }
+
+    fn visit_lambda_function(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let LambdaFunctionNode {
+            parameters,
+            return_type,
+            ..
+        } = ctx.expression(node).as_lambda_function().cloned().unwrap();
+        let parameters = parameters
+            .iter()
+            .map(|p| {
+                format!(
+                    "{}{}: {}",
+                    if p.1.is_mutable { "mut " } else { "" },
+                    &ctx.ident(p.0),
+                    self.visit_unchecked_type(&p.2, ctx)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let result = format!(
+            "|{}|{} {}",
+            parameters,
+            if let Some(ref ret) = return_type {
+                format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
+            } else {
+                "".to_string()
+            },
+            "{ .. }".to_string()
+        );
+
+        Ok(result)
+    }
+
+    fn visit_impl_trait(
+        &mut self,
+        def_id: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let ImplTraitNode {
+            generic_parameters,
+            trait_ty,
+            ty,
+            body,
+        } = ctx.definition(def_id).as_impl_trait().unwrap();
+        let generic_parameters = generic_parameters
+            .iter()
+            .map(|&generic_parameter| ctx.ident(generic_parameter).to_string())
+            .collect::<Vec<_>>();
+        let generic_parameters = self.visit_generic_parameters(generic_parameters);
+
+        let s = format!(
+            "impl{} {}{} {{",
+            generic_parameters,
+            format!("{} for ", self.visit_unchecked_type(&trait_ty, ctx)),
+            self.visit_unchecked_type(&ty, ctx),
+        );
+        self.write_line(&s);
+        self.indent();
+        // TODO: remove clone
+        for func in body.clone() {
+            self.visit_function(func, ctx)?;
+        }
+        self.dedent();
+        self.write_line("}");
+        Ok(Default::default())
+    }
+
     fn visit_block_expr(
         &mut self,
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let BlockExprNode { stmts, uses } = ctx.expression(node).as_block_expr().unwrap().clone();
+        let BlockExprNode { stmts } = ctx.expression(node).as_block_expr().unwrap().clone();
 
         let mut block_expr_result = String::new();
         block_expr_result.push_str(format!("{{\n").as_str());
 
         self.indent();
         let current_indent = self.read_indent(0);
-
-        for &stmt in uses.iter() {
-            let use_path = ctx.statement(stmt).as_use().cloned().unwrap();
-            block_expr_result.push_str(&format!(
-                "{}{}\n",
-                current_indent,
-                self.visit_use(&use_path, ctx)?
-            ));
-        }
 
         for stmt in stmts.iter() {
             let stmt_result = self.visit_stmt(*stmt, ctx)?;

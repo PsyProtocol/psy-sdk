@@ -5,6 +5,7 @@ mod cast;
 mod r#if;
 mod index;
 mod intrinsic;
+mod lambda;
 mod path;
 mod tuple;
 mod unary;
@@ -15,6 +16,7 @@ pub use call::*;
 pub use cast::*;
 pub use index::*;
 pub use intrinsic::*;
+pub use lambda::*;
 pub use path::*;
 pub use r#if::*;
 pub use tuple::*;
@@ -37,6 +39,7 @@ pub enum ExprNode<F: Clone + From<u32>> {
     BlockExpr(BlockExprNode),
     IfExpr(IfExprNode),
     Intrinsic(IntrinsicExprNode),
+    LambdaFunction(LambdaFunctionNode),
     Tuple(TupleExprNode),
     TupleAccess(TupleAccessNode),
 }
@@ -54,6 +57,7 @@ impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
             Self::IndexAccess(node) => node.node_type(),
             Self::MemberAccess(node) => node.node_type(),
             Self::Intrinsic(node) => node.node_type(),
+            Self::LambdaFunction(node) => node.node_type(),
             Self::BlockExpr(node) => node.node_type(),
             Self::IfExpr(node) => node.node_type(),
             Self::Tuple(node) => node.node_type(),

@@ -35,6 +35,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::IndexAccessExpr => self.visit_index_access(expr_id, ctx)?,
             NodeType::MemberAccessExpr => self.visit_member_access(expr_id, ctx)?,
             NodeType::IntrinsicExpr => self.visit_intrinsic_expr(expr_id, ctx)?,
+            NodeType::LambdaFunctionExpr => self.visit_lambda_function(expr_id, ctx)?,
             NodeType::BlockExpr => self.visit_block_expr(expr_id, ctx)?,
             NodeType::IfExpr => self.visit_if_expr(expr_id, ctx)?,
             NodeType::TupleExpr => self.visit_tuple(expr_id, ctx)?,
@@ -56,9 +57,11 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::StructDef => self.visit_struct(def_id, ctx)?,
             NodeType::EnumDef => self.visit_enum(def_id, ctx)?,
             NodeType::ImplDef => self.visit_impl(def_id, ctx)?,
+            NodeType::ImplTraitDef => self.visit_impl_trait(def_id, ctx)?,
             NodeType::TraitDef => self.visit_trait(def_id, ctx)?,
             NodeType::TypeAliasDef => self.visit_type_alias(def_id, ctx)?,
             NodeType::ConstDef => self.visit_const(def_id, ctx)?,
+            NodeType::UseDef => self.visit_use(def_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -73,6 +76,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         ctx.push_node_id(NodeId::from(stmt_id));
         let res = match ctx.statement(stmt_id).node_type() {
             NodeType::WhileStmt => self.visit_while(stmt_id, ctx)?,
+            NodeType::ForStmt => self.visit_for(stmt_id, ctx)?,
             NodeType::AssignmentStmt => self.visit_assignment(stmt_id, ctx)?,
             NodeType::VariableStmt => self.visit_variable(stmt_id, ctx)?,
             NodeType::ReturnStmt => self.visit_return(stmt_id, ctx)?,
@@ -84,8 +88,8 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
                 let expr_id = ctx.statement(stmt_id).as_expression().unwrap().clone();
                 Self::StmtResult::from(self.visit_expr(expr_id, ctx)?)
             }
-            NodeType::UseStmt => unreachable!(),
             NodeType::IntrinsicStmt => self.visit_intrinsic_stmt(stmt_id, ctx)?,
+            NodeType::MatchStmt => self.visit_match(stmt_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -94,9 +98,9 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
 
     fn visit_use(
         &mut self,
-        use_path: &UsePath,
+        def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
+    ) -> Result<Self::DefinitionResult, Self::Error>;
 
     fn visit_module(
         &mut self,
@@ -104,11 +108,6 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         ctx: &mut Self::Context,
     ) -> Result<(), Self::Error> {
         ctx.push_node_id(NodeId::from(module_id));
-        // TODO: remove clone
-        for u in &ctx.module(module_id).uses.clone() {
-            self.visit_use(u, ctx)?;
-        }
-
         // TODO: remove clone
         for &definition in &ctx.module(module_id).definitions.clone() {
             self.visit_definition(definition, ctx)?;
@@ -144,7 +143,6 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error>;
-
     fn visit_intrinsic_expr(
         &mut self,
         node: ExprId,
@@ -180,6 +178,11 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_lambda_function(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
 
     fn visit_block_expr(
         &mut self,
@@ -188,6 +191,11 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
     ) -> Result<Self::ExprResult, Self::Error>;
 
     fn visit_while(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_for(
         &mut self,
         node: StmtId,
         ctx: &mut Self::Context,
@@ -212,8 +220,18 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         node: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_match(
+        &mut self,
+        node: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error>;
 
     fn visit_impl(
+        &mut self,
+        node: DefId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_impl_trait(
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,

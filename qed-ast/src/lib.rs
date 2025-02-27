@@ -10,7 +10,6 @@ mod span;
 mod stmt;
 mod traits;
 mod r#type;
-pub mod utils;
 mod value;
 mod visibility;
 
@@ -26,6 +25,5 @@ pub use r#type::*;
 pub use span::*;
 pub use stmt::*;
 pub use traits::*;
-pub use utils::*;
 pub use value::*;
 pub use visibility::*;
