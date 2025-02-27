@@ -59,6 +59,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::TraitDef => self.visit_trait(def_id, ctx)?,
             NodeType::TypeAliasDef => self.visit_type_alias(def_id, ctx)?,
             NodeType::ConstDef => self.visit_const(def_id, ctx)?,
+            NodeType::UseDef => self.visit_use(def_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -85,7 +86,6 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
                 let expr_id = ctx.statement(stmt_id).as_expression().unwrap().clone();
                 Self::StmtResult::from(self.visit_expr(expr_id, ctx)?)
             }
-            NodeType::UseStmt => unreachable!(),
             NodeType::IntrinsicStmt => self.visit_intrinsic_stmt(stmt_id, ctx)?,
             NodeType::MatchStmt => self.visit_match(stmt_id, ctx)?,
             _ => unreachable!(),
@@ -96,9 +96,9 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
 
     fn visit_use(
         &mut self,
-        use_path: &UsePath,
+        def_id: DefId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
+    ) -> Result<Self::DefinitionResult, Self::Error>;
 
     fn visit_module(
         &mut self,
@@ -106,11 +106,6 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         ctx: &mut Self::Context,
     ) -> Result<(), Self::Error> {
         ctx.push_node_id(NodeId::from(module_id));
-        // TODO: remove clone
-        for u in &ctx.module(module_id).uses.clone() {
-            self.visit_use(u, ctx)?;
-        }
-
         // TODO: remove clone
         for &definition in &ctx.module(module_id).definitions.clone() {
             self.visit_definition(definition, ctx)?;

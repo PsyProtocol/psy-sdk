@@ -403,7 +403,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                     );
                 }
             },
-            CheckedStmtNode::Use => {}
         }
         Ok(ControlState::Normal)
     }

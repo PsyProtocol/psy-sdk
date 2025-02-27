@@ -25,7 +25,6 @@ use std::convert::TryFrom;
 ModuleItem: ModuleItemNode = {
     InlineModule => ModuleItemNode::InlineModule(<>),
     ModuleDecl => ModuleItemNode::ModuleDecl(<>),
-    ModuleUse => ModuleItemNode::ModuleUse(<>),
     Definition => ModuleItemNode::Definition(def_nodes.alloc_item(<>)),
 }
 
@@ -61,17 +60,6 @@ ModuleDecl: (IdentId, Visibility) = {
     },
 }
 
-ModuleUse: UsePath = {
-    <l:@L> <visibility:Visibility> USE <path:UsePath> ";" <r:@R> => {
-        UsePath {
-            visibility,
-            kind: path.0,
-            target: path.2,
-            segments: path.1,
-        }
-    }
-}
-
 Statement: StmtNode = {
     VariableStatement,
     AssignmentStatement,
@@ -83,12 +71,7 @@ Statement: StmtNode = {
     MatchStatement,
     Definition => StmtNode::Definition(def_nodes.alloc_item(<>)),
     IntrinsicStatement,
-    UseStatement,
     ExpressionStatement
-}
-
-UseStatement: StmtNode = {
-    ModuleUse => StmtNode::Use(<>),
 }
 
 ExpressionStatement: StmtNode = {
@@ -124,6 +107,18 @@ Definition: DefinitionNode = {
     TypeAliasDef => <>,
     FunctionDef => <>,
     ConstDef => <>,
+    UseDef => DefinitionNode::Use(<>),
+}
+
+UseDef: UseNode = {
+    <l:@L> <visibility:Visibility> USE <path:UseNode> ";" <r:@R> => {
+        UseNode {
+            visibility,
+            kind: path.0,
+            target: path.2,
+            segments: path.1,
+        }
+    }
 }
 
 ImplDef: ImplNode = {
@@ -204,7 +199,7 @@ FunctionDef: DefinitionNode = {
         body: Some(stmt_nodes.alloc_item(block_stmt)),
         return_type,
         qualifier: {
-           assert!(!qualifier.is_extern || is_std && is_self_prelude);
+           assert!(!qualifier.is_extern || is_std);
            qualifier
         },
         visibility,
@@ -217,7 +212,7 @@ FunctionDef: DefinitionNode = {
         body: None,
         return_type,
         qualifier: {
-           assert!(!qualifier.is_extern || is_std && is_self_prelude);
+           assert!(!qualifier.is_extern || is_std);
            qualifier
         },
         visibility,
@@ -303,14 +298,9 @@ BlockExpression: ExprNode<F> = {
         if let Some(expr) = ret {
             stmts.push(StmtNode::Return(ReturnNode(Some(expr_nodes.alloc_item(expr)))));
         }
-        let (uses, normal_stmts): (Vec<StmtNode>, Vec<StmtNode>) = stmts.into_iter().partition(|stmt| {
-            stmt.is_use()
-        });
-
         ExprNode::BlockExpr(
             BlockExprNode {
-                stmts: stmt_nodes.alloc_items(normal_stmts),
-                uses: stmt_nodes.alloc_items(uses),
+                stmts: stmt_nodes.alloc_items(stmts),
             }
         )
     }
@@ -741,7 +731,7 @@ ArrayExpression: ExprNode<F> = {
     ),
 }
 
-UsePath: (IdentId, Vec<IdentId>, Option<IdentId>) =
+UseNode: (IdentId, Vec<IdentId>, Option<IdentId>) =
     <a:ModuleUseKind> "::" <h:(<Identifier> "::")*> <t:IdentifierOrAll> => {
         (a, h, t)
     };

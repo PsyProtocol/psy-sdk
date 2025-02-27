@@ -96,7 +96,6 @@ impl<'a> StorageProcessor<'a> {
         let stmt_node = StmtNode::Return(ReturnNode(Some(ctx.alloc_expression(
             ExprNode::BlockExpr(BlockExprNode {
                 stmts: vec![return_stmt],
-                uses: vec![],
             }),
         ))));
         let block = ctx.alloc_statement(stmt_node);
@@ -155,7 +154,6 @@ impl<'a> StorageProcessor<'a> {
         let stmt_node = StmtNode::Return(ReturnNode(Some(ctx.alloc_expression(
             ExprNode::BlockExpr(BlockExprNode {
                 stmts: vec![return_stmt],
-                uses: vec![],
             }),
         ))));
 
@@ -212,7 +210,6 @@ impl<'a> StorageProcessor<'a> {
         let stmt_node =
             StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
                 stmts: field_writes,
-                uses: vec![],
             })));
         let block = ctx.alloc_statement(stmt_node);
         let f = FunctionNode {
@@ -276,7 +273,6 @@ impl<'a> StorageProcessor<'a> {
         let stmt_node = StmtNode::Return(ReturnNode(Some(ctx.alloc_expression(
             ExprNode::BlockExpr(BlockExprNode {
                 stmts: vec![return_stmt],
-                uses: vec![],
             }),
         ))));
 
@@ -339,7 +335,6 @@ impl<'a> StorageProcessor<'a> {
         let stmt_node =
             StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
                 stmts: vec![write_stmt],
-                uses: vec![],
             })));
         let block = ctx.alloc_statement(stmt_node);
 
@@ -460,7 +455,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
 
     fn visit_use(
         &mut self,
-        _use_path: &UsePath,
+        _def_id: DefId,
         _ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())

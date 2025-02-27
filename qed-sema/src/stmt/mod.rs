@@ -27,7 +27,6 @@ pub enum CheckedStmtNode {
     Expression(ExprId),
     Return(CheckedReturnNode),
     Intrinsic(CheckedIntrinsicStmtNode),
-    Use,
 }
 
 impl NodeInfo for CheckedStmtNode {
@@ -41,7 +40,6 @@ impl NodeInfo for CheckedStmtNode {
             Self::Expression(_node) => NodeType::ExpressionStmt,
             Self::Return(node) => node.node_type(),
             Self::Intrinsic(node) => node.node_type(),
-            Self::Use => NodeType::UseStmt,
         }
     }
 

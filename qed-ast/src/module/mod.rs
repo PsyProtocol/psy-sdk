@@ -1,6 +1,6 @@
 use qed_common::{define_arena_id, FileId};
 
-use crate::{DefId, IdentId, Visibility};
+use crate::{DefId, IdentId, NodeInfo, NodeType, Visibility};
 
 define_arena_id!(ModuleId);
 
@@ -16,11 +16,17 @@ pub enum ModuleKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct UsePath {
+pub struct UseNode {
     pub visibility: Visibility,
     pub kind: IdentId,
     pub segments: Vec<IdentId>,
     pub target: Option<IdentId>,
+}
+
+impl NodeInfo for UseNode {
+    fn node_type(&self) -> NodeType {
+        NodeType::UseDef
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -29,7 +35,6 @@ pub struct ModuleNode {
     pub file_id: FileId,
     pub modules: Vec<(IdentId, Visibility)>,
     pub inline_modules: Vec<ModuleNode>,
-    pub uses: Vec<UsePath>,
     pub definitions: Vec<DefId>,
     pub visibility: Visibility,
 
@@ -52,13 +57,11 @@ impl ModuleNode {
     ) -> Self {
         let mut inline_modules = vec![];
         let mut modules = vec![];
-        let mut uses = vec![];
         let mut definitions = vec![];
         for item in module_items.into_iter() {
             match item {
                 ModuleItemNode::InlineModule(m) => inline_modules.push(m),
                 ModuleItemNode::ModuleDecl(m) => modules.push(m),
-                ModuleItemNode::ModuleUse(m) => uses.push(m),
                 ModuleItemNode::Definition(d) => definitions.push(d),
             }
         }
@@ -72,21 +75,12 @@ impl ModuleNode {
                 modules
             },
             inline_modules,
-            uses: {
+            definitions: {
                 if !is_std {
-                    uses.insert(
-                        0,
-                        UsePath {
-                            visibility: Visibility::Private,
-                            kind: IdentId::STD,
-                            segments: vec![IdentId::PRELUDE],
-                            target: None,
-                        },
-                    );
+                    definitions.insert(0, DefId::USE_STD_PRELUDE);
                 }
-                uses
+                definitions
             },
-            definitions,
             visibility,
             is_std,
             is_self_std,
@@ -101,6 +95,5 @@ impl ModuleNode {
 pub enum ModuleItemNode {
     ModuleDecl((IdentId, Visibility)),
     InlineModule(ModuleNode),
-    ModuleUse(UsePath),
     Definition(DefId),
 }
