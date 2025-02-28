@@ -7,6 +7,7 @@ use crate::{ExprId, IdentId, NodeInfo, NodeType, UncheckedType};
 pub enum ValueNode<F: Clone + From<u32>> {
     Felt(F),
     Bool(F),
+    U32(F),
     Array(usize, Vec<ExprId>),
     Struct(IdentId, Vec<UncheckedType>, IndexMap<IdentId, ExprId>),
 }

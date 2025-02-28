@@ -290,7 +290,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             let constant_types = [
                 DPNOpType::Constant,
                 DPNOpType::ConstantTrue,
-                DPNOpType::ConstantTrue,
+                DPNOpType::ConstantFalse,
+                DPNOpType::ConstantU32,
             ];
 
             if !constant_types.contains(&self.context.get_op_type(predicate)) {
@@ -397,8 +398,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                         .unwrap();
 
                     self.context.assert_eq(
-                        lhs_value.to_felt(),
-                        rhs_value.to_felt(),
+                        lhs_value.to_value(),
+                        rhs_value.to_value(),
                         Box::leak(message.clone().unwrap_or_default().into_boxed_str()),
                     );
                 }
@@ -432,6 +433,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         Ok(match node {
             CheckedValueNode::Felt(value) => CheckedValue::Felt(*value),
             CheckedValueNode::Bool(value) => CheckedValue::Bool(*value),
+            CheckedValueNode::U32(value) => CheckedValue::U32(*value),
             CheckedValueNode::Array(type_id, elements) => {
                 let mut values = Vec::new();
                 for element in elements {
@@ -507,7 +509,51 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             .unwrap();
 
         let value = match binary_node.operator {
-            Add => self
+            Add => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    self.context
+                        .op_add(lhs_value.to_felt(), rhs_value.to_felt())
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context
+                        .op_u32_add(lhs_value.to_u32(), rhs_value.to_u32())
+                } else {
+                    unreachable!()
+                }
+            }
+            Sub => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    self.context
+                        .op_sub(lhs_value.to_felt(), rhs_value.to_felt())
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context
+                        .op_u32_sub(lhs_value.to_u32(), rhs_value.to_u32())
+                } else {
+                    unreachable!()
+                }
+            }
+            Mul => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    self.context
+                        .op_mul(lhs_value.to_felt(), rhs_value.to_felt())
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context
+                        .op_u32_mul(lhs_value.to_u32(), rhs_value.to_u32())
+                } else {
+                    unreachable!()
+                }
+            }
+            Div => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    self.context
+                        .op_div(lhs_value.to_felt(), rhs_value.to_felt())
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context
+                        .op_u32_div(lhs_value.to_u32(), rhs_value.to_u32())
+                } else {
+                    unreachable!()
+                }
+            }
+            Pow => self
                 .context
                 .op_add(lhs_value.to_felt(), rhs_value.to_felt()),
             Sub => self
@@ -525,21 +571,59 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             Mod => self
                 .context
                 .op_mod(lhs_value.to_felt(), rhs_value.to_felt()),
-            BitShr => self
-                .context
-                .op_u32_shr(lhs_value.to_felt(), rhs_value.to_felt()),
-            BitShl => self
-                .context
-                .op_u32_shl(lhs_value.to_felt(), rhs_value.to_felt()),
-            BitAnd => self
-                .context
-                .op_u32_and(lhs_value.to_felt(), rhs_value.to_felt()),
-            BitOr => self
-                .context
-                .op_u32_or(lhs_value.to_felt(), rhs_value.to_felt()),
-            BitXor => self
-                .context
-                .op_u32_xor(lhs_value.to_felt(), rhs_value.to_felt()),
+            BitShr => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    unimplemented!()
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context
+                        .op_u32_shr(lhs_value.to_u32(), rhs_value.to_u32())
+                } else {
+                    unreachable!()
+                }
+            }
+            BitShl => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    unimplemented!()
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context
+                        .op_u32_shl(lhs_value.to_u32(), rhs_value.to_u32())
+                } else {
+                    unreachable!()
+                }
+            }
+            BitAnd => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    self.context
+                        .op_u32_and(lhs_value.to_felt(), rhs_value.to_felt())
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context
+                        .op_u32_and(lhs_value.to_u32(), rhs_value.to_u32())
+                } else {
+                    unreachable!()
+                }
+            }
+            BitOr => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    self.context
+                        .op_u32_or(lhs_value.to_felt(), rhs_value.to_felt())
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context
+                        .op_u32_or(lhs_value.to_u32(), rhs_value.to_u32())
+                } else {
+                    unreachable!()
+                }
+            }
+            BitXor => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    self.context
+                        .op_u32_xor(lhs_value.to_felt(), rhs_value.to_felt())
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context
+                        .op_u32_xor(lhs_value.to_u32(), rhs_value.to_u32())
+                } else {
+                    unreachable!()
+                }
+            }
             And => self
                 .context
                 .op_bool_and(lhs_value.to_bool(), rhs_value.to_bool()),
@@ -547,33 +631,81 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 .context
                 .op_bool_or(lhs_value.to_bool(), rhs_value.to_bool()),
             Eq => {
-                if lhs_value.is_felt() {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
                     self.context.op_eq(lhs_value.to_felt(), rhs_value.to_felt())
-                } else {
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context.op_eq(lhs_value.to_u32(), rhs_value.to_u32())
+                } else if lhs_value.is_bool() && rhs_value.is_bool() {
                     self.context.op_eq(lhs_value.to_bool(), rhs_value.to_bool())
+                } else {
+                    unreachable!()
                 }
             }
             Neq => {
-                if lhs_value.is_felt() {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
                     self.context
                         .op_neq(lhs_value.to_felt(), rhs_value.to_felt())
-                } else {
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context.op_neq(lhs_value.to_u32(), rhs_value.to_u32())
+                } else if lhs_value.is_bool() && rhs_value.is_bool() {
                     self.context
                         .op_neq(lhs_value.to_bool(), rhs_value.to_bool())
+                } else {
+                    unreachable!()
                 }
             }
-            Lt => self.context.op_lt(lhs_value.to_felt(), rhs_value.to_felt()),
-            Lte => self
-                .context
-                .op_lte(lhs_value.to_felt(), rhs_value.to_felt()),
-            Gt => self.context.op_gt(lhs_value.to_felt(), rhs_value.to_felt()),
-            Gte => self
-                .context
-                .op_gte(lhs_value.to_felt(), rhs_value.to_felt()),
+            Lt => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    self.context.op_lt(lhs_value.to_felt(), rhs_value.to_felt())
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context.op_lt(lhs_value.to_u32(), rhs_value.to_u32())
+                } else if lhs_value.is_bool() && rhs_value.is_bool() {
+                    unimplemented!()
+                } else {
+                    unreachable!()
+                }
+            }
+            Lte => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    self.context
+                        .op_lte(lhs_value.to_felt(), rhs_value.to_felt())
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context.op_lte(lhs_value.to_u32(), rhs_value.to_u32())
+                } else if lhs_value.is_bool() && rhs_value.is_bool() {
+                    unimplemented!()
+                } else {
+                    unreachable!()
+                }
+            }
+            Gt => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    self.context.op_gt(lhs_value.to_felt(), rhs_value.to_felt())
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context.op_gt(lhs_value.to_u32(), rhs_value.to_u32())
+                } else if lhs_value.is_bool() && rhs_value.is_bool() {
+                    unimplemented!()
+                } else {
+                    unreachable!()
+                }
+            }
+            Gte => {
+                if lhs_value.is_felt() && rhs_value.is_felt() {
+                    self.context
+                        .op_gte(lhs_value.to_felt(), rhs_value.to_felt())
+                } else if lhs_value.is_u32() && rhs_value.is_u32() {
+                    self.context.op_gte(lhs_value.to_u32(), rhs_value.to_u32())
+                } else if lhs_value.is_bool() && rhs_value.is_bool() {
+                    unimplemented!()
+                } else {
+                    unreachable!()
+                }
+            }
         };
 
         if binary_node.type_id == BOOL_TYPE {
             Ok(CheckedValue::Bool(value))
+        } else if binary_node.type_id == U32_TYPE {
+            Ok(CheckedValue::U32(value))
         } else {
             Ok(CheckedValue::Felt(value))
         }
@@ -590,40 +722,126 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     ) -> Result<CheckedValueRef<F>> {
         let new_value = match operator {
             AssignmentOperator::Eq => value,
-            AssignmentOperator::AddAssign => CheckedValueRef::from_felt(
-                self.context.op_add(old_value.to_felt(), value.to_felt()),
-            ),
-            AssignmentOperator::SubAssign => CheckedValueRef::from_felt(
-                self.context.op_sub(old_value.to_felt(), value.to_felt()),
-            ),
-            AssignmentOperator::MulAssign => CheckedValueRef::from_felt(
-                self.context.op_mul(old_value.to_felt(), value.to_felt()),
-            ),
-            AssignmentOperator::DivAssign => CheckedValueRef::from_felt(
-                self.context.op_div(old_value.to_felt(), value.to_felt()),
-            ),
-            AssignmentOperator::ModAssign => CheckedValueRef::from_felt(
-                self.context.op_mod(old_value.to_felt(), value.to_felt()),
-            ),
-            AssignmentOperator::BitAndAssign => CheckedValueRef::from_felt(
-                self.context
-                    .op_u32_and(old_value.to_felt(), value.to_felt()),
-            ),
-            AssignmentOperator::BitOrAssign => CheckedValueRef::from_felt(
-                self.context.op_u32_or(old_value.to_felt(), value.to_felt()),
-            ),
-            AssignmentOperator::BitXorAssign => CheckedValueRef::from_felt(
-                self.context
-                    .op_u32_xor(old_value.to_felt(), value.to_felt()),
-            ),
-            AssignmentOperator::BitShlAssign => CheckedValueRef::from_felt(
-                self.context
-                    .op_u32_shl(old_value.to_felt(), value.to_felt()),
-            ),
-            AssignmentOperator::BitShrAssign => CheckedValueRef::from_felt(
-                self.context
-                    .op_u32_shr(old_value.to_felt(), value.to_felt()),
-            ),
+            AssignmentOperator::AddAssign => {
+                if old_value.is_felt() && value.is_felt() {
+                    CheckedValueRef::from_felt(
+                        self.context.op_add(old_value.to_felt(), value.to_felt()),
+                    )
+                } else if old_value.is_u32() && value.is_u32() {
+                    CheckedValueRef::from_u32(
+                        self.context.op_u32_add(old_value.to_u32(), value.to_u32()),
+                    )
+                } else {
+                    unreachable!()
+                }
+            }
+            AssignmentOperator::SubAssign => {
+                if old_value.is_felt() && value.is_felt() {
+                    CheckedValueRef::from_felt(
+                        self.context.op_sub(old_value.to_felt(), value.to_felt()),
+                    )
+                } else if old_value.is_u32() && value.is_u32() {
+                    CheckedValueRef::from_u32(
+                        self.context.op_u32_sub(old_value.to_u32(), value.to_u32()),
+                    )
+                } else {
+                    unreachable!()
+                }
+            }
+            AssignmentOperator::MulAssign => {
+                if old_value.is_felt() && value.is_felt() {
+                    CheckedValueRef::from_felt(
+                        self.context.op_mul(old_value.to_felt(), value.to_felt()),
+                    )
+                } else if old_value.is_u32() && value.is_u32() {
+                    CheckedValueRef::from_u32(
+                        self.context.op_u32_mul(old_value.to_u32(), value.to_u32()),
+                    )
+                } else {
+                    unreachable!()
+                }
+            }
+            AssignmentOperator::DivAssign => {
+                if old_value.is_felt() && value.is_felt() {
+                    CheckedValueRef::from_felt(
+                        self.context.op_div(old_value.to_felt(), value.to_felt()),
+                    )
+                } else if old_value.is_u32() && value.is_u32() {
+                    CheckedValueRef::from_u32(
+                        self.context.op_u32_div(old_value.to_u32(), value.to_u32()),
+                    )
+                } else {
+                    unreachable!()
+                }
+            }
+            AssignmentOperator::ModAssign => {
+                if old_value.is_felt() && value.is_felt() {
+                    CheckedValueRef::from_felt(
+                        self.context.op_mod(old_value.to_felt(), value.to_felt()),
+                    )
+                } else if old_value.is_u32() && value.is_u32() {
+                    CheckedValueRef::from_u32(
+                        self.context.op_mod(old_value.to_u32(), value.to_u32()),
+                    )
+                } else {
+                    unreachable!()
+                }
+            }
+            AssignmentOperator::BitAndAssign => {
+                if old_value.is_felt() && value.is_felt() {
+                    unimplemented!()
+                } else if old_value.is_u32() && value.is_u32() {
+                    CheckedValueRef::from_u32(
+                        self.context.op_u32_and(old_value.to_u32(), value.to_u32()),
+                    )
+                } else {
+                    unreachable!()
+                }
+            }
+            AssignmentOperator::BitOrAssign => {
+                if old_value.is_felt() && value.is_felt() {
+                    unimplemented!()
+                } else if old_value.is_u32() && value.is_u32() {
+                    CheckedValueRef::from_u32(
+                        self.context.op_u32_or(old_value.to_u32(), value.to_u32()),
+                    )
+                } else {
+                    unreachable!()
+                }
+            }
+            AssignmentOperator::BitXorAssign => {
+                if old_value.is_felt() && value.is_felt() {
+                    unimplemented!()
+                } else if old_value.is_u32() && value.is_u32() {
+                    CheckedValueRef::from_u32(
+                        self.context.op_u32_xor(old_value.to_u32(), value.to_u32()),
+                    )
+                } else {
+                    unreachable!()
+                }
+            }
+            AssignmentOperator::BitShlAssign => {
+                if old_value.is_felt() && value.is_felt() {
+                    unimplemented!()
+                } else if old_value.is_u32() && value.is_u32() {
+                    CheckedValueRef::from_u32(
+                        self.context.op_u32_shl(old_value.to_u32(), value.to_u32()),
+                    )
+                } else {
+                    unreachable!()
+                }
+            }
+            AssignmentOperator::BitShrAssign => {
+                if old_value.is_felt() && value.is_felt() {
+                    unimplemented!()
+                } else if old_value.is_u32() && value.is_u32() {
+                    CheckedValueRef::from_u32(
+                        self.context.op_u32_shr(old_value.to_u32(), value.to_u32()),
+                    )
+                } else {
+                    unreachable!()
+                }
+            }
         };
         self.cset_variable(old_value, &new_value);
         Ok(new_value)
@@ -938,12 +1156,38 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         let value = self
             .interpret_expr(typechecker, cast_node.value, ctx)?
             .unwrap();
-        if value.is_felt() && cast_node.target_type == BOOL_TYPE {
-            return Ok(CheckedValue::Bool(value.to_felt()));
-        } else if value.is_bool() && cast_node.target_type == FELT_TYPE {
-            return Ok(CheckedValue::Felt(value.to_bool()));
-        } else {
-            unimplemented!()
+
+        let val = value.to_value();
+        let constant_types = [
+            DPNOpType::Constant,
+            DPNOpType::ConstantTrue,
+            DPNOpType::ConstantFalse,
+            DPNOpType::ConstantU32,
+        ];
+
+        if constant_types.contains(&self.context.get_op_type(val)) {
+            let const_value = self.context.get_constant_value(val);
+            match cast_node.target_type {
+                BOOL_TYPE => {
+                    if const_value > 1 {
+                        return Err(Error::SemaError(qed_sema::Error::InvalidCast));
+                    }
+                }
+                FELT_TYPE => {}
+                U32_TYPE => {
+                    if const_value > 0xffffffffu64 {
+                        return Err(Error::SemaError(qed_sema::Error::InvalidCast));
+                    }
+                }
+                _ => unimplemented!(),
+            }
+        }
+
+        match cast_node.target_type {
+            BOOL_TYPE => Ok(CheckedValue::Bool(self.context.op_cast_bool(val))),
+            FELT_TYPE => Ok(CheckedValue::Felt(self.context.op_cast_felt(val))),
+            U32_TYPE => Ok(CheckedValue::U32(self.context.op_cast_u32(val))),
+            _ => unimplemented!(),
         }
     }
 
@@ -1255,6 +1499,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             }
             (CheckedValue::Bool(o), CheckedValue::Bool(ref mut n)) => {
                 *n = self.context.cset(o.clone(), n.clone());
+            }
+            (CheckedValue::U32(u), CheckedValue::U32(ref mut n)) => {
+                *n = self.context.cset(u.clone(), n.clone());
             }
             (CheckedValue::Array(lhs_type_id, o), CheckedValue::Array(rhs_type_id, n))
                 if lhs_type_id == rhs_type_id =>

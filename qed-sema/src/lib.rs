@@ -530,6 +530,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         match value_node {
             ValueNode::Felt(f) => Ok(CheckedExprNode::Value(CheckedValueNode::Felt(f.clone()))),
             ValueNode::Bool(b) => Ok(CheckedExprNode::Value(CheckedValueNode::Bool(b.clone()))),
+            ValueNode::U32(u) => Ok(CheckedExprNode::Value(CheckedValueNode::U32(u.clone()))),
             ValueNode::Array(size, arr) => {
                 if size != arr.len() {
                     return Err(Error::TypeMismatch);
@@ -636,10 +637,13 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             | BinaryOperator::BitAnd
             | BinaryOperator::BitOr
             | BinaryOperator::BitXor => {
-                if !self.unify(lhs_ty, FELT_TYPE, ctx) {
+                if self.unify(lhs_ty, FELT_TYPE, ctx) {
+                    FELT_TYPE
+                } else if self.unify(lhs_ty, U32_TYPE, ctx) {
+                    U32_TYPE
+                } else {
                     return Err(Error::TypeMismatch);
                 }
-                FELT_TYPE
             }
             BinaryOperator::And | BinaryOperator::Or => {
                 if !self.unify(lhs_ty, BOOL_TYPE, ctx) {
@@ -648,13 +652,16 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 BOOL_TYPE
             }
             BinaryOperator::Eq | BinaryOperator::Neq => {
-                if !self.unify(lhs_ty, BOOL_TYPE, ctx) && !self.unify(lhs_ty, FELT_TYPE, ctx) {
+                if !self.unify(lhs_ty, BOOL_TYPE, ctx)
+                    && !self.unify(lhs_ty, FELT_TYPE, ctx)
+                    && !self.unify(lhs_ty, U32_TYPE, ctx)
+                {
                     return Err(Error::TypeMismatch);
                 }
                 BOOL_TYPE
             }
             BinaryOperator::Lt | BinaryOperator::Lte | BinaryOperator::Gt | BinaryOperator::Gte => {
-                if !self.unify(lhs_ty, FELT_TYPE, ctx) {
+                if !self.unify(lhs_ty, FELT_TYPE, ctx) && !self.unify(lhs_ty, U32_TYPE, ctx) {
                     return Err(Error::TypeMismatch);
                 }
                 BOOL_TYPE
@@ -846,8 +853,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let src_type = src_expr.ty();
         let target_type = self.typecheck(&cast_node.target_type, ctx)?;
 
-        if !self.unify(src_type, FELT_TYPE, ctx) && !self.unify(target_type, BOOL_TYPE, ctx)
-            || !self.unify(src_type, BOOL_TYPE, ctx) && !self.unify(target_type, FELT_TYPE, ctx)
+        if (self.unify(src_type, FELT_TYPE, ctx)
+            || self.unify(src_type, BOOL_TYPE, ctx)
+            || self.unify(src_type, U32_TYPE, ctx))
+            && (self.unify(target_type, FELT_TYPE, ctx)
+                || self.unify(target_type, BOOL_TYPE, ctx)
+                || self.unify(target_type, U32_TYPE, ctx))
         {
             return Ok(CheckedExprNode::Cast(CheckedCastNode {
                 value: self.exprs.alloc_item(src_expr),
@@ -1852,6 +1863,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         match ty {
             UncheckedType::Basic(IdentId::TYPE_BOOL) => Ok(BOOL_TYPE),
             UncheckedType::Basic(IdentId::TYPE_FELT) => Ok(FELT_TYPE),
+            UncheckedType::Basic(IdentId::TYPE_U32) => Ok(U32_TYPE),
             UncheckedType::Basic(name) => Ok(ctx
                 .symbols
                 .get_type_id(None, name.clone())

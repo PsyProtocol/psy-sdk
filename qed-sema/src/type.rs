@@ -29,6 +29,7 @@ pub const VOID_TYPE: TypeId = TypeId(1);
 pub const BOOL_TYPE: TypeId = TypeId(2);
 pub const FELT_TYPE: TypeId = TypeId(3);
 pub const HASH_TYPE: TypeId = TypeId(4);
+pub const U32_TYPE: TypeId = TypeId(5);
 
 use once_cell::sync::Lazy;
 
@@ -46,6 +47,9 @@ pub static PRIMITIVE_TYPES: Lazy<Vec<Type>> = Lazy::new(|| {
             inner_ty: FELT_TYPE,
             size: 4,
         }),
+        Type::U32(CheckedU32Node {
+            implementations: vec![],
+        }),
     ]
 });
 
@@ -59,12 +63,18 @@ pub struct CheckedFeltNode {
     pub implementations: Vec<TypeId>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct CheckedU32Node {
+    pub implementations: Vec<TypeId>,
+}
+
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum Type {
     Unknown,
     VOID,
     Felt(CheckedFeltNode),
     Bool(CheckedBoolNode),
+    U32(CheckedU32Node),
     Array(CheckedArrayNode),
     Struct(CheckedStructNode),
     Enum(CheckedEnumNode),
@@ -86,6 +96,7 @@ pub enum TypeKind {
 
     Felt,
     Bool,
+    U32,
     Array,
     Struct,
     Enum,
@@ -189,6 +200,7 @@ impl Type {
                 Type::VOID => (Some(IdentId::TYPE_VOID), None, vec![], vec![], vec![], None),
                 Type::Felt(_) => (Some(IdentId::TYPE_FELT), None, vec![], vec![], vec![], None),
                 Type::Bool(_) => (Some(IdentId::TYPE_BOOL), None, vec![], vec![], vec![], None),
+                Type::U32(_) => (Some(IdentId::TYPE_U32), None, vec![], vec![], vec![], None),
                 Type::Array(CheckedArrayNode { inner_ty, size, .. }) => (
                     Some(IdentId::TYPE_ARRAY),
                     None,
@@ -346,7 +358,12 @@ impl Type {
                 implementations.push(trait_type_id);
             }
             Type::Tuple(_) => panic!("Tuple types do not support trait implementations"),
-
+            Type::U32(CheckedU32Node {
+                ref mut implementations,
+                ..
+            }) => {
+                implementations.push(trait_type_id);
+            }
             _ => panic!("Type::add_implementation called on non-composite type"),
         }
     }
@@ -363,6 +380,9 @@ impl Type {
                 implementations, ..
             }) => implementations,
             Type::Bool(CheckedBoolNode {
+                implementations, ..
+            }) => implementations,
+            Type::U32(CheckedU32Node {
                 implementations, ..
             }) => implementations,
             _ => panic!("Type::implementations called on non-composite type"),
@@ -445,6 +465,7 @@ impl Type {
             Type::VOID => TypeKind::VOID,
             Type::Felt(_) => TypeKind::Felt,
             Type::Bool(_) => TypeKind::Bool,
+            Type::U32(_) => TypeKind::U32,
             Type::Array(_) => TypeKind::Array,
             Type::Struct(_) => TypeKind::Struct,
             Type::Enum(_) => TypeKind::Enum,
@@ -466,7 +487,8 @@ impl Type {
     ) -> CheckedValue<F> {
         match self {
             Type::Felt(_f) => CheckedValue::Felt(ctx.add_input()),
-            Type::Bool(_b) => CheckedValue::Bool(ctx.add_input()),
+            Type::Bool(_b) => CheckedValue::Bool(ctx.add_bool_input()),
+            Type::U32(_u) => CheckedValue::U32(ctx.add_u32_input()),
             Type::Array(a) => {
                 let mut result = Vec::new();
                 let inner_ty = symbols[a.inner_ty].clone();

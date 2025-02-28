@@ -42,6 +42,8 @@ pub enum Error {
     TypeAlreadyDefined,
     #[error("index out of bounds")]
     IndexOutOfBounds,
+    #[error("invalid cast")]
+    InvalidCast,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

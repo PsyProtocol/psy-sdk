@@ -227,6 +227,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(match node {
             ValueNode::Felt(f) => format!("{:?}", f),
             ValueNode::Bool(b) => format!("{:?}", b),
+            ValueNode::U32(u) => format!("{:?}", u),
             ValueNode::Array(_, values) => format!(
                 "[{}]",
                 values

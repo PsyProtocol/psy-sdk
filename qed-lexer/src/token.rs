@@ -97,6 +97,8 @@ pub enum Token<'input> {
     TypeBool,
     #[token("Felt")]
     TypeFelt,
+    #[token("u32")]
+    TypeU32,
     #[token("Array")]
     TypeArray,
     #[token("Self")]
@@ -110,6 +112,8 @@ pub enum Token<'input> {
     #[token("false", |_| false)]
     #[token("true", |_| true)]
     Bool(bool),
+    #[regex(r"(?:0|[1-9]\d*)u32", |lex| lex.slice().strip_suffix("u32").expect("invalid u32 literal suffix").parse::<u32>())]
+    U32(u32),
     #[regex(r#""([^"\\]|\\.)*""#, |lex| lex.slice().strip_prefix('"').unwrap().strip_suffix('"').unwrap())]
     String(&'input str),
 

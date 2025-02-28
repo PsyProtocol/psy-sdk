@@ -23,7 +23,7 @@ pub use unary::*;
 
 use qed_ast::{IdentId, NodeInfo, NodeType};
 
-use crate::{CheckedValueNode, ScopeId, TypeId, BOOL_TYPE, FELT_TYPE};
+use crate::{CheckedValueNode, ScopeId, TypeId, BOOL_TYPE, FELT_TYPE, U32_TYPE};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum CheckedExprNode<F> {
@@ -71,6 +71,7 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Value(v) => match v {
                 CheckedValueNode::Felt(_) => FELT_TYPE,
                 CheckedValueNode::Bool(_) => BOOL_TYPE,
+                CheckedValueNode::U32(_) => U32_TYPE,
                 CheckedValueNode::Array(type_id, _) => type_id.clone(),
                 CheckedValueNode::Struct(type_id, _) => type_id.clone(),
                 CheckedValueNode::Type(type_id) => type_id.clone(),
