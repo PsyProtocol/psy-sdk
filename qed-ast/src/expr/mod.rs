@@ -7,6 +7,7 @@ mod index;
 mod intrinsic;
 mod lambda;
 mod path;
+mod tuple;
 mod unary;
 
 pub use binary::*;
@@ -18,6 +19,7 @@ pub use intrinsic::*;
 pub use lambda::*;
 pub use path::*;
 pub use r#if::*;
+pub use tuple::*;
 pub use unary::*;
 
 use crate::{NodeInfo, NodeType, ValueNode};
@@ -38,6 +40,8 @@ pub enum ExprNode<F: Clone + From<u32>> {
     IfExpr(IfExprNode),
     Intrinsic(IntrinsicExprNode),
     LambdaFunction(LambdaFunctionNode),
+    Tuple(TupleExprNode),
+    TupleAccess(TupleAccessNode),
 }
 
 impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
@@ -56,6 +60,8 @@ impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
             Self::LambdaFunction(node) => node.node_type(),
             Self::BlockExpr(node) => node.node_type(),
             Self::IfExpr(node) => node.node_type(),
+            Self::Tuple(node) => node.node_type(),
+            Self::TupleAccess(node) => node.node_type(),
         }
     }
 }

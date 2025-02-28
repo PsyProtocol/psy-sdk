@@ -38,6 +38,8 @@ pub enum Error {
     InvalidSelfParameter,
     #[error("type already defined")]
     TypeAlreadyDefined,
+    #[error("index out of bounds")]
+    IndexOutOfBounds,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

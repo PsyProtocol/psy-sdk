@@ -34,46 +34,55 @@ impl From<String> for Ident {
 
 define_arena_id!(IdentId);
 
-impl IdentId {
-    pub const TYPE_UNKNOWN: IdentId = IdentId(0);
-    pub const TYPE_BOOL: IdentId = IdentId(1);
-    pub const TYPE_FELT: IdentId = IdentId(2);
-    pub const TYPE_VOID: IdentId = IdentId(3);
-    pub const TYPE_ARRAY: IdentId = IdentId(4);
-    pub const TYPE_HASH: IdentId = IdentId(5);
-    pub const TYPE_SELF: IdentId = IdentId(6);
+macro_rules! ident_ids {
+    //deal with the first element, the starting index is 0
+    ($first:ident => $str_val:expr $(, $name:ident => $str_vals:expr)*) => {
+        impl IdentId {
+            pub const $first: IdentId = IdentId(0);
+            ident_ids!(@internal 1, $($name => $str_vals),*);
+        }
 
-    pub const SELF: IdentId = IdentId(7);
-    pub const SUPER: IdentId = IdentId(8);
-    pub const CRATE: IdentId = IdentId(9);
+        pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
+            (IdentId::$first, $str_val),
+            $( (IdentId::$name, $str_vals) ),*
+        ];
+    };
 
-    pub const STD: IdentId = IdentId(10);
-    pub const PRELUDE: IdentId = IdentId(11);
-    pub const PRIMITIVE: IdentId = IdentId(12);
+    // deal with the subsequent elements, the index increases
+    (@internal $index:expr, $first:ident => $str_val:expr $(, $name:ident => $str_vals:expr)*) => {
+        pub const $first: IdentId = IdentId($index);
+        ident_ids!(@internal $index + 1, $($name => $str_vals),*);
+    };
 
-    pub const DERIVE: IdentId = IdentId(13);
-    pub const NEW: IdentId = IdentId(14);
-    pub const TEST: IdentId = IdentId(15);
+
+    // recursion termination condition (no more elements)
+    (@internal $index:expr,) => {};
 }
+//
+ident_ids!(
+    TYPE_UNKNOWN => "unknown", // 0
+    TYPE_BOOL => "bool",
+    TYPE_FELT => "Felt",
+    TYPE_VOID => "void",
+    TYPE_ARRAY => "[]",
+    TYPE_TUPLE => "Tuple",
+    TYPE_HASH => "Hash",
+    TYPE_SELF => "Self",
 
-pub const IDENT_MAPPING: &[(IdentId, &str)] = &[
-    (IdentId::TYPE_UNKNOWN, "unknown"),
-    (IdentId::TYPE_BOOL, "bool"),
-    (IdentId::TYPE_FELT, "Felt"),
-    (IdentId::TYPE_VOID, "void"),
-    (IdentId::TYPE_ARRAY, "Array"),
-    (IdentId::TYPE_HASH, "Hash"),
-    (IdentId::TYPE_SELF, "Self"),
-    (IdentId::SELF, "self"),
-    (IdentId::SUPER, "super"),
-    (IdentId::CRATE, "crate"),
-    (IdentId::STD, "std"),
-    (IdentId::PRELUDE, "prelude"),
-    (IdentId::PRIMITIVE, "primitive"),
-    (IdentId::DERIVE, "derive"),
-    (IdentId::NEW, "new"),
-    (IdentId::TEST, "test"),
-];
+    SELF => "self", //8
+    SUPER => "super",
+    CRATE => "crate",
+
+    STD => "std", // 11
+    PRELUDE => "prelude",
+    PRIMITIVE => "primitive",
+
+    DERIVE => "derive", // 14
+    NEW => "new",
+    TEST => "test",
+
+    FN_SIG => "fn" // 17
+);
 
 #[derive(Clone, Debug, Default)]
 pub struct Interner {
@@ -137,5 +146,45 @@ impl Index<IdentId> for Interner {
 impl IndexMut<IdentId> for Interner {
     fn index_mut(&mut self, index: IdentId) -> &mut Self::Output {
         &mut self.pool[index]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ident_ids_mapping() {
+        //mapping of expected (IdentId, &str)
+        let expected_mapping = vec![
+            (IdentId::TYPE_UNKNOWN, "unknown"),
+            (IdentId::TYPE_BOOL, "bool"),
+            (IdentId::TYPE_FELT, "Felt"),
+            (IdentId::TYPE_VOID, "void"),
+            (IdentId::TYPE_ARRAY, "[]"),
+            (IdentId::TYPE_TUPLE, "Tuple"),
+            (IdentId::TYPE_HASH, "Hash"),
+            (IdentId::TYPE_SELF, "Self"),
+            (IdentId::SELF, "self"),
+            (IdentId::SUPER, "super"),
+            (IdentId::CRATE, "crate"),
+            (IdentId::STD, "std"),
+            (IdentId::PRELUDE, "prelude"),
+            (IdentId::PRIMITIVE, "primitive"),
+            (IdentId::DERIVE, "derive"),
+            (IdentId::NEW, "new"),
+            (IdentId::TEST, "test"),
+            (IdentId::FN_SIG, "fn"),
+        ];
+
+        // check if the length of the mapping is correct
+        assert_eq!(IDENT_MAPPING.len(), expected_mapping.len());
+
+        //iterate through each (IdentId, &str) and check if it matches
+        for (i, (ident, expected_str)) in expected_mapping.iter().enumerate() {
+            let (actual_ident, actual_str) = IDENT_MAPPING[i];
+            assert_eq!(actual_ident, *ident, "IdentId mismatch at index {}", i);
+            assert_eq!(actual_str, *expected_str, "String mismatch at index {}", i);
+        }
     }
 }

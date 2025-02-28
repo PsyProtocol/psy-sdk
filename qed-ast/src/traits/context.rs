@@ -61,6 +61,8 @@ pub enum NodeType {
     LambdaFunctionExpr,
     BlockExpr,
     IfExpr,
+    TupleExpr,
+    TupleAccessExpr,
 
     WhileStmt,
     AssignmentStmt,
@@ -99,7 +101,6 @@ pub trait VisitorContext<F: Clone + From<u32>, C> {
     fn parent_node_type(&self) -> NodeType;
     fn ident(&self, id: IdentId) -> &Ident;
     fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId;
-    fn intern_lambda(&mut self) -> IdentId;
     fn module(&self, module_id: ModuleId) -> &ModuleNode;
     fn program(&self) -> &Program<F>;
     fn dependency_graph(&self) -> Graph<ModuleId>;
@@ -112,6 +113,7 @@ pub trait VisitorContext<F: Clone + From<u32>, C> {
     fn insert_definition(&mut self, definition: Self::Definition, pos: InsertPosition);
     fn replace_definition(&mut self, def_id: DefId, definition: Self::Definition);
     fn replace_statement(&mut self, stmt_id: StmtId, statement: Self::Stmt);
+    fn intern_lambda(&mut self) -> IdentId;
 }
 
 pub struct DefaultVisitorContext<'a, F: Clone + From<u32>, C> {

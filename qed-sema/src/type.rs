@@ -63,7 +63,6 @@ pub struct CheckedFeltNode {
 pub enum Type {
     Unknown,
     VOID,
-
     Felt(CheckedFeltNode),
     Bool(CheckedBoolNode),
     Array(CheckedArrayNode),
@@ -72,10 +71,10 @@ pub enum Type {
     Function(CheckedFunctionNode),
     Trait(CheckedTraitNode),
     Const(CheckedConstNode),
-
     LambdaFunction(CheckedLambdaFunctionNode),
     FunctionSignature(CheckedFunctionSignature),
     TypeVariable(IdentId),
+    Tuple(Vec<TypeId>),
 
     GenericInstance(TypeId, Vec<TypeId>),
 }
@@ -90,6 +89,7 @@ pub enum TypeKind {
     Array,
     Struct,
     Enum,
+    Tuple,
     Function,
     Trait,
     Const,
@@ -221,6 +221,14 @@ impl Type {
                     vec![],
                     None,
                 ),
+                Type::Tuple(elements) => (
+                    Some(IdentId::TYPE_TUPLE),
+                    None,
+                    vec![],
+                    vec![],
+                    elements.clone(),
+                    None,
+                ),
                 Type::Function(CheckedFunctionNode {
                     name,
                     generic_parameters,
@@ -298,6 +306,7 @@ impl Type {
     pub fn scope_id(&self) -> ScopeId {
         match self {
             Type::Array(_) => ScopeId::primitive(),
+            Type::Tuple(_) => ScopeId::primitive(),
             Type::Struct(CheckedStructNode { scope_id, .. }) => *scope_id,
             Type::Enum(CheckedEnumNode { scope_id, .. }) => *scope_id,
             Type::Function(CheckedFunctionNode { scope_id, .. }) => *scope_id,
@@ -336,6 +345,8 @@ impl Type {
             }) => {
                 implementations.push(trait_type_id);
             }
+            Type::Tuple(_) => panic!("Tuple types do not support trait implementations"),
+
             _ => panic!("Type::add_implementation called on non-composite type"),
         }
     }
@@ -437,6 +448,7 @@ impl Type {
             Type::Array(_) => TypeKind::Array,
             Type::Struct(_) => TypeKind::Struct,
             Type::Enum(_) => TypeKind::Enum,
+            Type::Tuple(_) => TypeKind::Tuple,
             Type::Function(_) => TypeKind::Function,
             Type::Trait(_) => TypeKind::Trait,
             Type::Const(_) => TypeKind::Const,
@@ -465,6 +477,23 @@ impl Type {
                     .get_type_id(Some(ScopeId::primitive()), self.key())
                     .unwrap();
                 CheckedValue::Array(type_id, result)
+            }
+            Type::Tuple(elements) => {
+                let mut result = Vec::new();
+                for &element_type in elements {
+                    let element_ty = symbols[element_type].clone();
+                    let value = CheckedValueRef::new_rc(element_ty.to_value(symbols, ctx));
+
+                    result.push((element_type, value));
+                }
+                let type_id = symbols
+                    .get_type_id(Some(ScopeId::primitive()), self.key())
+                    .unwrap();
+
+                CheckedValue::Tuple {
+                    type_id,
+                    elements: result,
+                }
             }
             Type::Struct(s) => {
                 let mut result = IndexMap::new();

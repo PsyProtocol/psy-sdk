@@ -37,6 +37,7 @@ interpret:
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/generics_test.qed
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/type_hint_test.qed
 	# @RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/enum_test.qed
+	# @RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/tuple_test.qed
 	# @RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/match_test.qed
 
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 133700 --parameters 2,1000

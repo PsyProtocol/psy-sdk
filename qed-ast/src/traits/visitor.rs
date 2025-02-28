@@ -38,6 +38,8 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::LambdaFunctionExpr => self.visit_lambda_function(expr_id, ctx)?,
             NodeType::BlockExpr => self.visit_block_expr(expr_id, ctx)?,
             NodeType::IfExpr => self.visit_if_expr(expr_id, ctx)?,
+            NodeType::TupleExpr => self.visit_tuple(expr_id, ctx)?,
+            NodeType::TupleAccessExpr => self.visit_tuple_access(expr_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -269,4 +271,14 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_tuple(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_tuple_access(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error>;
 }

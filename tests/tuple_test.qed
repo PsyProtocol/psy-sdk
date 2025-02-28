@@ -1,0 +1,57 @@
+fn main() {
+    // ✅ basic tuple assignment
+    let a: Felt = 10;
+    let b: Felt = 11;
+    let c: (Felt, Felt) = (12, 13);
+    let d: (Felt, Felt) = (a, b);
+    let mut e: (Felt, Felt) = (14, 15);
+
+    // ✅ change the elements of a tuple
+    e.0 = 16;
+    e.1 = 17;
+    e = (18, 19);
+
+    // ✅ nested tuple
+    let nested_tuple: ((Felt, Felt), (Felt, Felt)) = ((1, 2), (3, 4));
+    let deeply_nested: (((Felt, Felt), Felt), Felt) = (((5, 6), 7), 8);
+
+    // ✅ change the elements of a nested tuple
+    let mut complex_tuple: ((Felt, Felt), (Felt, Felt)) = ((9, 10), (11, 12));
+    complex_tuple.0.1 = 42;
+    complex_tuple.1 = (20, 21);
+
+    // ✅ struct with tuple
+    struct TupleHolder {
+        pub pair: (Felt, Felt),
+        pub nested: ((Felt, Felt), Felt),
+    }
+
+    let mut struct_with_tuple: TupleHolder = new TupleHolder {
+        pair: (22, 23),
+        nested: ((24, 25), 26),
+    };
+
+    struct_with_tuple.pair.1 = 99;
+    struct_with_tuple.nested.0.0 = 88;
+
+    // ✅ function that returns a tuple
+    fn create_tuple(x: Felt, y: Felt) -> (Felt, Felt) {
+        (x + 1, y + 1)
+    }
+
+    let returned_tuple: (Felt, Felt) = create_tuple(30, 31);
+    assert_eq(returned_tuple.0, 31, "returned_tuple.0 should be 31");
+    assert_eq(returned_tuple.1, 32, "returned_tuple.1 should be 32");
+
+    // ✅ function that takes a tuple as input
+    fn sum_tuple(input: (Felt, Felt)) -> Felt {
+        input.0 + input.1
+    }
+
+    let result: Felt = sum_tuple((40, 50));
+    assert_eq(result, 90, "result should be 90");
+
+    // ❌ not supported yet
+    //let (x, y) = (50, 60);
+    //let ((a, b), c) = ((1, 2), 3);
+}

@@ -10,17 +10,16 @@ mod variable;
 mod error;
 
 pub use definition::*;
+pub use error::*;
 pub use expr::*;
 use indexmap::IndexMap;
+use qed_ast::*;
 use qed_common::{Arena, Graph};
 pub use r#type::*;
 pub use stmt::*;
 pub use symbol_table::*;
 pub use value::*;
 pub use variable::*;
-
-pub use error::*;
-use qed_ast::*;
 
 use std::{collections::HashMap, ops::Index};
 use tracing::instrument;
@@ -323,6 +322,34 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }));
     }
 
+    #[instrument(level = "debug", skip_all)]
+    fn visit_tuple_access(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::ExprResult, Self::Error> {
+        // get TupleAccessNode
+        let tuple_access_node = ctx.expression(node).as_tuple_access().cloned().unwrap();
+
+        let checked_expr = self.visit_expr(tuple_access_node.target, ctx)?;
+        let type_id = checked_expr.ty();
+        let ty = &ctx.symbols[type_id];
+        let element_types = ty.as_tuple().ok_or(Error::TypeMismatch)?;
+
+        if tuple_access_node.index >= element_types.len() {
+            return Err(Error::IndexOutOfBounds);
+        }
+
+        let field_type = element_types
+            .get(tuple_access_node.index)
+            .ok_or(Error::IndexOutOfBounds)?
+            .clone();
+        Ok(CheckedExprNode::TupleAccess(CheckedTupleAccessNode {
+            value: self.exprs.alloc_item(checked_expr),
+            index: tuple_access_node.index,
+            type_id: field_type,
+        }))
+    }
     #[instrument(level = "debug", skip_all)]
     fn visit_intrinsic_expr(
         &mut self,
@@ -768,6 +795,37 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }));
     }
 
+    #[instrument(level = "debug", skip_all)]
+    fn visit_tuple(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::ExprResult, Self::Error> {
+        let tuple_node = ctx.expression(node).as_tuple().cloned().unwrap();
+
+        let checked_elements: Result<Vec<CheckedExprNode<F>>> = tuple_node
+            .elements
+            .iter()
+            .map(|expr_id| self.visit_expr(*expr_id, ctx))
+            .collect();
+
+        let checked_elements = checked_elements?;
+        let element_types: Vec<TypeId> = checked_elements.iter().map(|e| e.ty()).collect();
+
+        let tuple_type = Type::Tuple(element_types.clone());
+        let scope_id = ScopeId::primitive();
+        let type_id = ctx.symbols.get_or_add_type(Some(scope_id), tuple_type.key(), tuple_type)?;
+
+        let elements_with_types = checked_elements
+            .into_iter()
+            .map(|e| (e.ty(), self.exprs.alloc_item(e)))
+            .collect();
+
+        let checked_expr =
+            CheckedExprNode::Value(CheckedValueNode::Tuple(type_id, elements_with_types));
+
+        Ok(checked_expr)
+    }
     #[instrument(level = "debug", skip_all)]
     fn visit_cast(
         &mut self,
@@ -1268,6 +1326,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             NodeType::LambdaFunctionExpr => self.visit_lambda_function(expr_id, ctx)?,
             NodeType::BlockExpr => self.visit_block_expr(expr_id, ctx)?,
             NodeType::IfExpr => self.visit_if_expr(expr_id, ctx)?,
+            NodeType::TupleExpr => self.visit_tuple(expr_id, ctx)?,
+            NodeType::TupleAccessExpr => self.visit_tuple_access(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
         ctx.pop_inferences();
@@ -1330,7 +1390,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         Ok(res)
     }
 
-    #[instrument(level = "debug", skip_all)]
     fn visit_module(
         &mut self,
         module_id: ModuleId,
@@ -1509,8 +1568,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     #[instrument(level = "debug", skip_all)]
     fn visit_match(
         &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
+        _node: StmtId,
+        _ctx: &mut Self::Context,
     ) -> std::result::Result<Self::StmtResult, Self::Error> {
         todo!()
     }
@@ -1826,6 +1885,21 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                     size: size.clone(),
                 });
                 ctx.symbols.get_or_add_type(Some(scope_id), ty.key(), ty)
+            }
+            UncheckedType::Tuple(elements) => {
+                // check each element and collect results into a Result<Vec<TypeId>>
+                let checked_elements: Result<Vec<TypeId>> = elements
+                    .iter()
+                    .map(|elem_ty| self.typecheck(elem_ty, ctx))
+                    .collect();
+
+                let checked_elements = checked_elements?;
+
+                let checked_tuple = Type::Tuple(checked_elements);
+
+                let scope_id = ScopeId::primitive();
+
+                ctx.symbols.get_or_add_type(Some(scope_id), checked_tuple.key(), checked_tuple)
             }
             UncheckedType::Unknown => Ok(UNKOWN_TYPE),
             UncheckedType::FunctionSignature(function_signature) => {

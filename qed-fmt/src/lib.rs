@@ -82,6 +82,13 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
             UncheckedType::Array(ty, size) => {
                 format!("[{};{}]", self.visit_unchecked_type(ty, ctx), size)
             }
+            UncheckedType::Tuple(tys) => format!(
+                "({})",
+                tys.iter()
+                    .map(|ty| self.visit_unchecked_type(ty, ctx))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             UncheckedType::Unknown => "unknown".to_string(),
             UncheckedType::FunctionSignature(sig) => {
                 let parameters = sig
@@ -805,7 +812,6 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         }
         Ok(Default::default())
     }
-
     fn visit_module(
         &mut self,
         module_id: ModuleId,
@@ -1082,5 +1088,38 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             self.dedent();
         }
         Ok(result)
+    }
+
+    fn visit_tuple(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let tuple_node = ctx.expression(node).as_tuple().unwrap();
+        let elements = tuple_node.elements.clone();
+
+        let formatted_elements = elements
+            .iter()
+            .map(|&expr_id| self.visit_expr(expr_id, ctx))
+            .collect::<Result<Vec<_>, Self::Error>>()?
+            .join(", ");
+
+        Ok(format!("({})", formatted_elements))
+    }
+
+    fn visit_tuple_access(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        // get tuple access node, avoid borrowing ctx twice in closure
+        let tuple_access_node = ctx.expression(node).as_tuple_access().unwrap();
+        let target_expr_id = tuple_access_node.target;
+
+        let index = tuple_access_node.index;
+
+        let tuple_expr = self.visit_expr(target_expr_id, ctx)?;
+
+        Ok(format!("{}.{}", tuple_expr, index))
     }
 }

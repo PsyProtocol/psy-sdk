@@ -667,32 +667,32 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
 
     fn visit_for(
         &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
+        _node: StmtId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
 
     fn visit_match(
         &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
+        _node: StmtId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
 
     fn visit_lambda_function(
         &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
 
     fn visit_impl_trait(
         &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
+        _node: DefId,
+        _ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
@@ -711,5 +711,21 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         _ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
+    }
+
+    fn visit_tuple(
+        &mut self,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        todo!()
+    }
+
+    fn visit_tuple_access(
+        &mut self,
+        _node: ExprId,
+        _ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        todo!()
     }
 }
