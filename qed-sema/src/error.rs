@@ -26,6 +26,8 @@ pub enum Error {
     UnresolvedTrait,
     #[error("unresolved member")]
     UnresolvedMember,
+    #[error("unresolved trait method")]
+    UnresolvedTraitMethod,
     #[error("function parameter mismatch")]
     FunctionParameterMismatch,
     #[error("generic parameter mismatch")]
@@ -40,6 +42,8 @@ pub enum Error {
     TypeAlreadyDefined,
     #[error("index out of bounds")]
     IndexOutOfBounds,
+    #[error("invalid cast")]
+    InvalidCast,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

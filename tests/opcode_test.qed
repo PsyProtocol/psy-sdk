@@ -13,11 +13,11 @@ fn main(a: Felt, b: Felt) -> Felt {
     let mut binopbool: bool = bool0 && bool1;
     binopbool = bool0 || bool1;
 
-    binop = a ^ b;
-    binop = a & b;
-    binop = a | b;
-    binop = a << b;
-    binop = a >> b;
+    // binop = a ^ b;
+    // binop = a & b;
+    // binop = a | b;
+    // binop = a << b;
+    // binop = a >> b;
 
     binop = 1;
 
@@ -33,11 +33,11 @@ fn main(a: Felt, b: Felt) -> Felt {
     binop *= b;
     binop /= b;
     binop %= b;
-    binop ^= b;
-    binop &= b;
-    binop |= b;
-    binop <<=b;
-    binop >>= b;
+    // binop ^= b;
+    // binop &= b;
+    // binop |= b;
+    // binop <<=b;
+    // binop >>= b;make in  
 
     let mut unop: Felt = !a;
     // let mut unop: Felt = -a;

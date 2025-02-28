@@ -259,13 +259,18 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         // TODO: remove clone
         let index_access_node = ctx.expression(node).as_index_access().cloned().unwrap();
         let checked_expr = self.visit_expr(index_access_node.target, ctx)?;
+        let checked_index = self.visit_expr(index_access_node.index, ctx)?;
 
         let type_id = checked_expr.ty();
         let inner_ty = ctx.symbols[type_id].as_array().unwrap().inner_ty.clone();
 
+        if checked_index.ty() != FELT_TYPE {
+            return Err(Error::TypeMismatch);
+        }
+
         Ok(CheckedExprNode::IndexAccess(CheckedIndexAccessNode {
             value: self.exprs.alloc_item(checked_expr),
-            index: index_access_node.index,
+            index: self.exprs.alloc_item(checked_index),
             type_id: self.substitute_all(inner_ty, ctx)?,
         }))
     }
@@ -525,6 +530,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         match value_node {
             ValueNode::Felt(f) => Ok(CheckedExprNode::Value(CheckedValueNode::Felt(f.clone()))),
             ValueNode::Bool(b) => Ok(CheckedExprNode::Value(CheckedValueNode::Bool(b.clone()))),
+            ValueNode::U32(u) => Ok(CheckedExprNode::Value(CheckedValueNode::U32(u.clone()))),
             ValueNode::Array(size, arr) => {
                 if size != arr.len() {
                     return Err(Error::TypeMismatch);
@@ -624,16 +630,20 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             | BinaryOperator::Sub
             | BinaryOperator::Mul
             | BinaryOperator::Div
+            | BinaryOperator::Pow
             | BinaryOperator::Mod
             | BinaryOperator::BitShr
             | BinaryOperator::BitShl
             | BinaryOperator::BitAnd
             | BinaryOperator::BitOr
             | BinaryOperator::BitXor => {
-                if !self.unify(lhs_ty, FELT_TYPE, ctx) {
+                if self.unify(lhs_ty, FELT_TYPE, ctx) {
+                    FELT_TYPE
+                } else if self.unify(lhs_ty, U32_TYPE, ctx) {
+                    U32_TYPE
+                } else {
                     return Err(Error::TypeMismatch);
                 }
-                FELT_TYPE
             }
             BinaryOperator::And | BinaryOperator::Or => {
                 if !self.unify(lhs_ty, BOOL_TYPE, ctx) {
@@ -642,13 +652,16 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 BOOL_TYPE
             }
             BinaryOperator::Eq | BinaryOperator::Neq => {
-                if !self.unify(lhs_ty, BOOL_TYPE, ctx) && !self.unify(lhs_ty, FELT_TYPE, ctx) {
+                if !self.unify(lhs_ty, BOOL_TYPE, ctx)
+                    && !self.unify(lhs_ty, FELT_TYPE, ctx)
+                    && !self.unify(lhs_ty, U32_TYPE, ctx)
+                {
                     return Err(Error::TypeMismatch);
                 }
                 BOOL_TYPE
             }
             BinaryOperator::Lt | BinaryOperator::Lte | BinaryOperator::Gt | BinaryOperator::Gte => {
-                if !self.unify(lhs_ty, FELT_TYPE, ctx) {
+                if !self.unify(lhs_ty, FELT_TYPE, ctx) && !self.unify(lhs_ty, U32_TYPE, ctx) {
                     return Err(Error::TypeMismatch);
                 }
                 BOOL_TYPE
@@ -814,7 +827,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         let tuple_type = Type::Tuple(element_types.clone());
         let scope_id = ScopeId::primitive();
-        let type_id = ctx.symbols.get_or_add_type(Some(scope_id), tuple_type.key(), tuple_type)?;
+        let type_id = ctx
+            .symbols
+            .get_or_add_type(Some(scope_id), tuple_type.key(), tuple_type)?;
 
         let elements_with_types = checked_elements
             .into_iter()
@@ -838,8 +853,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let src_type = src_expr.ty();
         let target_type = self.typecheck(&cast_node.target_type, ctx)?;
 
-        if !self.unify(src_type, FELT_TYPE, ctx) && !self.unify(target_type, BOOL_TYPE, ctx)
-            || !self.unify(src_type, BOOL_TYPE, ctx) && !self.unify(target_type, FELT_TYPE, ctx)
+        if (self.unify(src_type, FELT_TYPE, ctx)
+            || self.unify(src_type, BOOL_TYPE, ctx)
+            || self.unify(src_type, U32_TYPE, ctx))
+            && (self.unify(target_type, FELT_TYPE, ctx)
+                || self.unify(target_type, BOOL_TYPE, ctx)
+                || self.unify(target_type, U32_TYPE, ctx))
         {
             return Ok(CheckedExprNode::Cast(CheckedCastNode {
                 value: self.exprs.alloc_item(src_expr),
@@ -1186,6 +1205,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             generic_parameters,
             name: trait_node.name,
             body: self.defs.alloc_items(methods),
+            def_ids: trait_node.body.clone(),
             implementors: Vec::new(),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: trait_node.visibility,
@@ -1668,8 +1688,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.symbols
             .add_type_id(None, IdentId::SELF, implementor_type_id)?;
 
+        let trait_node = ctx.symbols[trait_type_id].clone().into_trait().unwrap();
         let mut generic_parameters = Vec::new();
-        let mut methods = Vec::new();
+        let mut methods = vec![Default::default(); trait_node.body.len()];
 
         for &generic_parameter in &impl_node.generic_parameters {
             let type_id = ctx.symbols.add_type_variable(generic_parameter)?;
@@ -1677,7 +1698,29 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
 
         for &function_id in &impl_node.body {
-            methods.push(self.typecheck_method(function_id, ctx)?);
+            let method = self.typecheck_method(function_id, ctx)?;
+            let i = trait_node
+                .body
+                .iter()
+                .position(|trait_def_id| {
+                    let trait_method = self.defs[*trait_def_id].clone().into_function().unwrap();
+                    trait_method.trait_impl_signature(implementor_type_id) == method.signature()
+                })
+                .ok_or(Error::UnresolvedTraitMethod)?;
+            methods[i] = method;
+        }
+
+        for i in 0..methods.len() {
+            if methods[i] == Default::default() {
+                let trait_method = self.defs[trait_node.body[i]]
+                    .clone()
+                    .into_function()
+                    .unwrap();
+                if trait_method.body.is_none() {
+                    return Err(Error::UnresolvedTraitMethod);
+                }
+                methods[i] = self.typecheck_method(trait_node.def_ids[i], ctx)?;
+            }
         }
 
         let checked_impl = CheckedImplTraitNode {
@@ -1820,6 +1863,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         match ty {
             UncheckedType::Basic(IdentId::TYPE_BOOL) => Ok(BOOL_TYPE),
             UncheckedType::Basic(IdentId::TYPE_FELT) => Ok(FELT_TYPE),
+            UncheckedType::Basic(IdentId::TYPE_U32) => Ok(U32_TYPE),
             UncheckedType::Basic(name) => Ok(ctx
                 .symbols
                 .get_type_id(None, name.clone())
@@ -1899,7 +1943,8 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
 
                 let scope_id = ScopeId::primitive();
 
-                ctx.symbols.get_or_add_type(Some(scope_id), checked_tuple.key(), checked_tuple)
+                ctx.symbols
+                    .get_or_add_type(Some(scope_id), checked_tuple.key(), checked_tuple)
             }
             UncheckedType::Unknown => Ok(UNKOWN_TYPE),
             UncheckedType::FunctionSignature(function_signature) => {

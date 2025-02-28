@@ -5,7 +5,7 @@ use crate::TypeId;
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedIndexAccessNode {
     pub value: ExprId,
-    pub index: usize,
+    pub index: ExprId,
     pub type_id: TypeId,
 }
 

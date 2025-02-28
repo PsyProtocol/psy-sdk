@@ -562,9 +562,9 @@ Expression: ExprNode<F> = {
             )
        }
     },
-    <l:@L> <variable:Expression> "[" <index:NUMBER> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
+    <l:@L> <variable:Expression> "[" <index:Expression> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
         target: expr_nodes.alloc_item(variable),
-        index: usize::try_from(index).unwrap()
+        index: expr_nodes.alloc_item(index),
     }),
     <l:@L> <variable:Expression> "." <index:NUMBER> <r:@R> => ExprNode::<F>::TupleAccess(TupleAccessNode {
         target: expr_nodes.alloc_item(variable),
@@ -580,6 +580,9 @@ Expression: ExprNode<F> = {
     <l:@L> <lhs:Expression> AS <ty:TYPE_BOOL> <r:@R> => ExprNode::<F>::Cast(
         CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_BOOL))
     ),
+    <l:@L> <lhs:Expression> AS <ty:TYPE_U32> <r:@R> => ExprNode::<F>::Cast(
+        CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_U32))
+    ),
 
     #[precedence(level="4")] #[assoc(side="right")]
     <l:@L> "!" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
@@ -591,6 +594,9 @@ Expression: ExprNode<F> = {
     ),
 
     #[precedence(level="6")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> "**" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Pow, expr_nodes.alloc_item(rhs))
+    ),
     <l:@L> <lhs:Expression> "*" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mul, expr_nodes.alloc_item(rhs))
     ),
@@ -677,6 +683,7 @@ Term: ExprNode<F> = {
 ValueExpression: ExprNode<F> = {
     FeltExpression,
     BoolExpression,
+    U32Expression,
     ArrayExpression,
     NEW <StructExpression>
 }
@@ -687,6 +694,12 @@ FeltExpression: ExprNode<F> = {
 
 BoolExpression: ExprNode<F> = {
     <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Bool(if b { ctx.op_true() } else { ctx.op_false() }))
+}
+
+U32Expression: ExprNode<F> = {
+    <l:@L> <n:U32> <r:@R> => {
+        ExprNode::<F>::Value(ValueNode::U32(ctx.op_const_u32(n)))
+    },
 }
 
 StructExpression: ExprNode<F> = {
@@ -780,6 +793,7 @@ ArrayType: UncheckedType = {
 BasicType: UncheckedType = {
     <l:@L> <ty:TYPE_FELT>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_FELT),
     <l:@L> <ty:TYPE_BOOL>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_BOOL),
+    <l:@L> <ty:TYPE_U32>   <r:@R> => UncheckedType::Basic(IdentId::TYPE_U32),
     <l:@L> <ty:TYPE_SELF>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_SELF),
     <l:@L> <ty:Identifier> <r:@R> => UncheckedType::Basic(ty)
 }
@@ -810,6 +824,7 @@ IdentifierOrBasicType: IdentId = {
     Identifier,
     <l:@L> <ty:TYPE_FELT> <r:@R> => IdentId::TYPE_FELT,
     <l:@L> <ty:TYPE_BOOL> <r:@R> => IdentId::TYPE_BOOL,
+    <l:@L> <ty:TYPE_U32> <r:@R> => IdentId::TYPE_U32,
     <l:@L> <ty:TYPE_SELF> <r:@R> => IdentId::TYPE_SELF,
 }
 
@@ -877,10 +892,12 @@ extern {
 
         BOOL => Token::Bool(<bool>),
         NUMBER => Token::Number(<u64>),
+        U32 => Token::U32(<u32>),
         STRING => Token::String(<&'input str>),
 
         TYPE_BOOL => Token::TypeBool,
         TYPE_FELT => Token::TypeFelt,
+        TYPE_U32 => Token::TypeU32,
         TYPE_ARRAY => Token::TypeArray,
         TYPE_SELF => Token::TypeSelf,
 
@@ -914,6 +931,7 @@ extern {
         "-" => Token::OperatorSub,
         "*" => Token::OperatorMul,
         "/" => Token::OperatorDiv,
+        "**" => Token::OperatorPow,
         "%" => Token::OperatorMod,
 
         "==" => Token::OperatorEq,

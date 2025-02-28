@@ -1,6 +1,8 @@
 pub mod traits{
     pub trait PersonLike {
-        pub fn age(self: Self) -> Felt;
+        pub fn age(self: Self) -> Felt{
+            return 1;
+        }
     }
 
     pub struct Person {
@@ -9,9 +11,9 @@ pub mod traits{
     }
 
     impl PersonLike for Person {
-        pub fn age(self: Person) -> Felt {
-            return self.age_height[0][0];
-        }
+        // pub fn age(self: Person) -> Felt {
+        //     return self.age_height[0][0];
+        // }
     }
 }
 

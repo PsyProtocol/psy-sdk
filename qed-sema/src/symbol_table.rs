@@ -721,6 +721,7 @@ impl<F: Clone> SymbolTable<F> {
         match &self[type_id] {
             Type::Felt(_f) => 1usize,
             Type::Bool(_b) => 1usize,
+            Type::U32(_u) => 1usize,
             Type::Array(a) => self.size_of(a.inner_ty) * a.size,
             Type::Struct(s) => s
                 .fields

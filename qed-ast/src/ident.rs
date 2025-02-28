@@ -81,7 +81,8 @@ ident_ids!(
     NEW => "new",
     TEST => "test",
 
-    FN_SIG => "fn" // 17
+    FN_SIG => "fn", // 17
+    TYPE_U32 => "u32"
 );
 
 #[derive(Clone, Debug, Default)]
@@ -175,6 +176,7 @@ mod tests {
             (IdentId::NEW, "new"),
             (IdentId::TEST, "test"),
             (IdentId::FN_SIG, "fn"),
+            (IdentId::TYPE_U32, "u32"),
         ];
 
         // check if the length of the mapping is correct

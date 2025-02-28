@@ -8,6 +8,7 @@ pub enum BinaryOperator {
     Sub,
     Mul,
     Div,
+    Pow,
 
     Mod,
 
@@ -43,6 +44,7 @@ impl Display for BinaryOperator {
             BinaryOperator::Sub => write!(f, "-"),
             BinaryOperator::Mul => write!(f, "*"),
             BinaryOperator::Div => write!(f, "/"),
+            BinaryOperator::Pow => write!(f, "**"),
             BinaryOperator::Mod => write!(f, "%"),
             BinaryOperator::BitShr => write!(f, ">>"),
             BinaryOperator::BitShl => write!(f, "<<"),
