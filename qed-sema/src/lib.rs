@@ -259,13 +259,18 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         // TODO: remove clone
         let index_access_node = ctx.expression(node).as_index_access().cloned().unwrap();
         let checked_expr = self.visit_expr(index_access_node.target, ctx)?;
+        let checked_index = self.visit_expr(index_access_node.index, ctx)?;
 
         let type_id = checked_expr.ty();
         let inner_ty = ctx.symbols[type_id].as_array().unwrap().inner_ty.clone();
 
+        if checked_index.ty() != FELT_TYPE {
+            return Err(Error::TypeMismatch);
+        }
+
         Ok(CheckedExprNode::IndexAccess(CheckedIndexAccessNode {
             value: self.exprs.alloc_item(checked_expr),
-            index: index_access_node.index,
+            index: self.exprs.alloc_item(checked_index),
             type_id: self.substitute_all(inner_ty, ctx)?,
         }))
     }

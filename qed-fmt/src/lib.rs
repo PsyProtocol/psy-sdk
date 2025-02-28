@@ -194,7 +194,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             target: value,
             index,
         } = ctx.expression(expr_id).as_index_access().unwrap();
-        Ok(format!("{}[{}]", self.visit_expr(value, ctx)?, index))
+        Ok(format!(
+            "{}[{}]",
+            self.visit_expr(value, ctx)?,
+            self.visit_expr(index, ctx)?
+        ))
     }
 
     fn visit_member_access(

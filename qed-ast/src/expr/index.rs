@@ -3,7 +3,7 @@ use crate::{ExprId, IdentId, NodeInfo, NodeType};
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexAccessNode {
     pub target: ExprId,
-    pub index: usize,
+    pub index: ExprId,
 }
 
 impl NodeInfo for IndexAccessNode {

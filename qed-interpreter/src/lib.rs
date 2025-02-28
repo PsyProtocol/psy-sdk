@@ -859,7 +859,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             .interpret_expr(typechecker, member_access_node.value, ctx)?
             .unwrap();
         assert!(s.is_struct());
-        if let Some(value) = s.get_path(&[member_access_node.field.into()]) {
+        if let Some(value) = s.get_path(
+            &mut self.context,
+            &[IndexPath::Normal(member_access_node.field.into())],
+        ) {
             return Ok(value.clone());
         } else if ctx.symbols[member_access_node.type_id]
             .as_function()
@@ -883,7 +886,16 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         let a = self
             .interpret_expr(typechecker, index_access_node.value, ctx)?
             .unwrap();
-        return Ok(a.get_path(&[index_access_node.index]).unwrap());
+        let index = self
+            .interpret_expr(typechecker, index_access_node.index, ctx)?
+            .unwrap();
+
+        if !index.is_felt() {
+            return Err(Error::SemaError(qed_sema::Error::TypeMismatch));
+        }
+        return Ok(a
+            .get_path(&mut self.context, &[IndexPath::Felt(index.to_felt())])
+            .unwrap());
     }
 
     fn interpret_tuple_access(
@@ -1030,7 +1042,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             self.interpret_assignment_value(typechecker, &old_value, node.operator, value, ctx)?;
 
         let mut variable_value = variable.value.unwrap();
-        variable_value.set_path(&path, new_value)?;
+        variable_value.set_path(&mut self.context, &path, new_value)?;
 
         ctx.symbols
             .set_variable(variable.scope_id, &name, variable_value)?;
@@ -1043,7 +1055,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         node: &CheckedAssignmentNode,
         index_access_node: &CheckedIndexAccessNode,
-        path: &mut Vec<usize>,
+        path: &mut Vec<IndexPath<F>>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
         let (inner_value, inner_var_name, inner_var) = match &typechecker[index_access_node.value] {
@@ -1069,11 +1081,21 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             _ => unreachable!(),
         };
 
-        path.push(index_access_node.index);
+        let index = self
+            .interpret_expr(typechecker, index_access_node.index, ctx)?
+            .unwrap();
+
+        if !index.is_felt() {
+            return Err(Error::SemaError(qed_sema::Error::TypeMismatch));
+        }
+
+        path.push(IndexPath::Felt(index.to_felt()));
 
         assert!(inner_value.is_array());
         Ok((
-            inner_value.get_path(&[index_access_node.index]).unwrap(),
+            inner_value
+                .get_path(&mut self.context, &[IndexPath::Felt(index.to_felt())])
+                .unwrap(),
             inner_var_name,
             inner_var,
         ))
@@ -1083,7 +1105,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         node: &CheckedAssignmentNode,
         tuple_access_node: &CheckedTupleAccessNode,
-        path: &mut Vec<usize>,
+        path: &mut Vec<IndexPath<F>>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
         // get the value of the tuple recursively
@@ -1126,10 +1148,15 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         );
 
         // push the index of the tuple element to the path
-        path.push(tuple_access_node.index);
+        path.push(IndexPath::Normal(tuple_access_node.index));
 
         // visit the tuple element and return it
-        let element_value = tuple_value.get_path(&[tuple_access_node.index]).unwrap();
+        let element_value = tuple_value
+            .get_path(
+                &mut self.context,
+                &[IndexPath::Normal(tuple_access_node.index)],
+            )
+            .unwrap();
 
         Ok((element_value, tuple_var_name, tuple_var))
     }
@@ -1138,7 +1165,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         typechecker: &TypeChecker<F, C>,
         node: &CheckedAssignmentNode,
         member_access_node: &CheckedMemberAccessNode,
-        path: &mut Vec<usize>,
+        path: &mut Vec<IndexPath<F>>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
         let (inner_value, inner_var_name, inner_var) = match &typechecker[member_access_node.value]
@@ -1165,12 +1192,15 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             _ => unreachable!(),
         };
 
-        path.push(member_access_node.field.into());
+        path.push(IndexPath::Normal(member_access_node.field.into()));
 
         assert!(inner_value.is_struct());
         Ok((
             inner_value
-                .get_path(&[member_access_node.field.into()])
+                .get_path(
+                    &mut self.context,
+                    &[IndexPath::Normal(member_access_node.field.into())],
+                )
                 .unwrap(),
             inner_var_name,
             inner_var,
@@ -1182,7 +1212,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         _typechecker: &TypeChecker<F, C>,
         _node: &CheckedAssignmentNode,
         path_node: &CheckedPathNode,
-        _path: &mut Vec<usize>,
+        path: &mut Vec<IndexPath<F>>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
         let start_scope = Some(path_node.scope_id);

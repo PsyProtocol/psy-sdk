@@ -562,9 +562,9 @@ Expression: ExprNode<F> = {
             )
        }
     },
-    <l:@L> <variable:Expression> "[" <index:NUMBER> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
+    <l:@L> <variable:Expression> "[" <index:Expression> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
         target: expr_nodes.alloc_item(variable),
-        index: usize::try_from(index).unwrap()
+        index: expr_nodes.alloc_item(index),
     }),
     <l:@L> <variable:Expression> "." <index:NUMBER> <r:@R> => ExprNode::<F>::TupleAccess(TupleAccessNode {
         target: expr_nodes.alloc_item(variable),
