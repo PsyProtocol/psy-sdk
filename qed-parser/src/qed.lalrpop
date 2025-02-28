@@ -591,6 +591,9 @@ Expression: ExprNode<F> = {
     ),
 
     #[precedence(level="6")] #[assoc(side="left")]
+    <l:@L> <lhs:Expression> "**" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Pow, expr_nodes.alloc_item(rhs))
+    ),
     <l:@L> <lhs:Expression> "*" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
         BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mul, expr_nodes.alloc_item(rhs))
     ),
@@ -914,6 +917,7 @@ extern {
         "-" => Token::OperatorSub,
         "*" => Token::OperatorMul,
         "/" => Token::OperatorDiv,
+        "**" => Token::OperatorPow,
         "%" => Token::OperatorMod,
 
         "==" => Token::OperatorEq,

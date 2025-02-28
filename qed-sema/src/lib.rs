@@ -624,6 +624,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             | BinaryOperator::Sub
             | BinaryOperator::Mul
             | BinaryOperator::Div
+            | BinaryOperator::Pow
             | BinaryOperator::Mod
             | BinaryOperator::BitShr
             | BinaryOperator::BitShl

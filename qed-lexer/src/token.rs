@@ -157,6 +157,8 @@ pub enum Token<'input> {
     OperatorMul,
     #[token("/")]
     OperatorDiv,
+    #[token("**")]
+    OperatorPow,
     #[token("%")]
     OperatorMod,
 

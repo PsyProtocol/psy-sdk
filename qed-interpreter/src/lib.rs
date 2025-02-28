@@ -519,6 +519,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             Div => self
                 .context
                 .op_div(lhs_value.to_felt(), rhs_value.to_felt()),
+            Pow => self
+                .context
+                .op_exp(lhs_value.to_felt(), rhs_value.to_felt()),
             Mod => self
                 .context
                 .op_mod(lhs_value.to_felt(), rhs_value.to_felt()),

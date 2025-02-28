@@ -1,0 +1,4 @@
+
+fn main(a: Felt, b: Felt) -> Felt {
+    a**b**b
+}
