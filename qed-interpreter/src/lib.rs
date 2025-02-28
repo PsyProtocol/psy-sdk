@@ -454,9 +454,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             CheckedValueNode::Tuple(type_id, elements) => {
                 let mut values = Vec::new();
                 for (elem_type, expr_id) in elements {
-                    let value = self
-                        .interpret_expr(typechecker, *expr_id, ctx)?
-                        .unwrap();
+                    let value = self.interpret_expr(typechecker, *expr_id, ctx)?.unwrap();
 
                     values.push((*elem_type, value));
                 }
@@ -1058,7 +1056,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                     ctx,
                 )?,
             CheckedExprNode::MemberAccess(checked_member_access_node) => self
-                .interpret_member_assignment(typechecker, node, checked_member_access_node, path, ctx)?,
+                .interpret_member_assignment(
+                    typechecker,
+                    node,
+                    checked_member_access_node,
+                    path,
+                    ctx,
+                )?,
             _ => unreachable!(),
         };
 

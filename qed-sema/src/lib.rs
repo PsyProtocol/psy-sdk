@@ -814,7 +814,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         let tuple_type = Type::Tuple(element_types.clone());
         let scope_id = ScopeId::primitive();
-        let type_id = ctx.symbols.get_or_add_type(Some(scope_id), tuple_type.key(), tuple_type)?;
+        let type_id = ctx
+            .symbols
+            .get_or_add_type(Some(scope_id), tuple_type.key(), tuple_type)?;
 
         let elements_with_types = checked_elements
             .into_iter()
@@ -1186,6 +1188,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             generic_parameters,
             name: trait_node.name,
             body: self.defs.alloc_items(methods),
+            def_ids: trait_node.body.clone(),
             implementors: Vec::new(),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: trait_node.visibility,
@@ -1668,8 +1671,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.symbols
             .add_type_id(None, IdentId::SELF, implementor_type_id)?;
 
+        let trait_node = ctx.symbols[trait_type_id].clone().into_trait().unwrap();
         let mut generic_parameters = Vec::new();
-        let mut methods = Vec::new();
+        let mut methods = vec![Default::default(); trait_node.body.len()];
 
         for &generic_parameter in &impl_node.generic_parameters {
             let type_id = ctx.symbols.add_type_variable(generic_parameter)?;
@@ -1677,7 +1681,29 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
 
         for &function_id in &impl_node.body {
-            methods.push(self.typecheck_method(function_id, ctx)?);
+            let method = self.typecheck_method(function_id, ctx)?;
+            let i = trait_node
+                .body
+                .iter()
+                .position(|trait_def_id| {
+                    let trait_method = self.defs[*trait_def_id].clone().into_function().unwrap();
+                    trait_method.trait_impl_signature(implementor_type_id) == method.signature()
+                })
+                .ok_or(Error::UnresolvedTraitMethod)?;
+            methods[i] = method;
+        }
+
+        for i in 0..methods.len() {
+            if methods[i] == Default::default() {
+                let trait_method = self.defs[trait_node.body[i]]
+                    .clone()
+                    .into_function()
+                    .unwrap();
+                if trait_method.body.is_none() {
+                    return Err(Error::UnresolvedTraitMethod);
+                }
+                methods[i] = self.typecheck_method(trait_node.def_ids[i], ctx)?;
+            }
         }
 
         let checked_impl = CheckedImplTraitNode {
@@ -1899,7 +1925,8 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
 
                 let scope_id = ScopeId::primitive();
 
-                ctx.symbols.get_or_add_type(Some(scope_id), checked_tuple.key(), checked_tuple)
+                ctx.symbols
+                    .get_or_add_type(Some(scope_id), checked_tuple.key(), checked_tuple)
             }
             UncheckedType::Unknown => Ok(UNKOWN_TYPE),
             UncheckedType::FunctionSignature(function_signature) => {
