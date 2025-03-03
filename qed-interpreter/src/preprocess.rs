@@ -709,7 +709,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         &mut self,
         _node: ExprId,
         _ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
 

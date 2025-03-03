@@ -1458,7 +1458,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             None => VOID_TYPE,
         };
         match insert_return {
-            Some(s) => checked_stmts.push(s),
+            Some(s) => *checked_stmts.last_mut().unwrap() = s,
             None => (),
         }
 
@@ -1529,15 +1529,19 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         // TODO: remove clone
         let for_node = ctx.statement(node).as_for().cloned().unwrap();
         ctx.symbols.start_scope(ScopeKind::Block);
-        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-        let variable =
-            CheckedVariable::new(FELT_TYPE, TypeQualifier::new(true), current_scope_id, None);
-        ctx.symbols.declare_variable(for_node.variable, variable)?;
         let start = self.visit_expr(for_node.start, ctx)?;
         let end = self.visit_expr(for_node.end, ctx)?;
-        if !self.unify(start.ty(), FELT_TYPE, ctx) || !self.unify(end.ty(), FELT_TYPE, ctx) {
+        if !(self.unify(start.ty(), FELT_TYPE, ctx) && self.unify(end.ty(), FELT_TYPE, ctx)
+            || self.unify(start.ty(), U32_TYPE, ctx) && self.unify(end.ty(), U32_TYPE, ctx))
+        {
             return Err(Error::TypeMismatch);
         }
+
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+        let variable =
+            CheckedVariable::new(start.ty(), TypeQualifier::new(true), current_scope_id, None);
+        ctx.symbols.declare_variable(for_node.variable, variable)?;
+
         ctx.symbols.start_scope(ScopeKind::Block);
         let checked_block = self.visit_stmt(for_node.body, ctx)?;
         let node = CheckedStmtNode::For(CheckedForNode {
