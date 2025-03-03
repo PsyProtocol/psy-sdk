@@ -5,14 +5,13 @@
 ## Features
 
 
-- Basic Types like Felt, bool, Array, Struct
+- Basic Types like Felt, u32, bool, Array, Struct
 - Functions
 - Modules
 - Traits
 - Type Checking
-- Generics (WIP)
-- Type Hint (WIP)
-- VM (WIP)
+- Generics
+- Type Hint
 
 ## Getting Started
 
