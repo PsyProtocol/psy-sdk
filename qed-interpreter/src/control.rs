@@ -6,21 +6,21 @@ use std::{
 
 #[derive(Clone, Debug, PartialEq, EnumAsInner)]
 pub enum ControlState<T> {
-    Normal,
+    Normal(T),
     Return(T),
 }
 
 impl<T> Try for ControlState<T> {
-    type Output = ();
+    type Output = T;
     type Residual = Self;
 
-    fn from_output(_: Self::Output) -> Self {
-        ControlState::Normal
+    fn from_output(value: Self::Output) -> Self {
+        ControlState::Normal(value)
     }
 
     fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
         match self {
-            ControlState::Normal => ControlFlow::Continue(()),
+            ControlState::Normal(value) => ControlFlow::Continue(value),
             other => ControlFlow::Break(other),
         }
     }
@@ -43,10 +43,9 @@ where
     }
 }
 impl<T> ControlState<T> {
-    pub fn unwrap(self) -> Option<T> {
+    pub fn unwrap(self) -> T {
         match self {
-            ControlState::Return(value) => Some(value),
-            ControlState::Normal => None,
+            ControlState::Return(value) | ControlState::Normal(value) => value,
         }
     }
 }
