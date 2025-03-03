@@ -571,7 +571,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    #[instrument(level = "debug", skip_all)]
     pub fn interpret_assignment_value(
         &mut self,
         _typechecker: &TypeChecker<F, C>,
