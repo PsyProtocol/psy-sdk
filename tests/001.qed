@@ -15,37 +15,37 @@ trait PersonLike {
 }
 
 struct Person {
-    pub age_height: [[Felt; 2]; 2],
+    pub age_height: ([Felt; 2], [Felt; 2]),
     pub year_of_birth: Felt
 }
 
 impl PersonLike for Person {
     pub fn age(self: Person) -> Felt {
-        return self.age_height[0][0];
+        return self.age_height.0[0];
     }
 }
 
 struct Family {
     father: Person,
     mother: Person,
-    children: [Person; 2]
+    pub children: [Person; 2]
 }
 
 impl Person {
     pub fn set_age(mut self: Person, new_age: Felt) {
-        self.age_height[0][0] = new_age;
+        self.age_height.0[0] = new_age;
     }
 
     pub fn get_age(self: Person) -> Felt {
-        return self.age_height[0][0];
+        return self.age_height.0[0];
     }
 
     pub fn set_height(mut self: Person, new_height: Felt) {
-        self.age_height[0][1] = new_height;
+        self.age_height.0[1] = new_height;
     }
 
     pub fn get_height(self: Person) -> Felt {
-        return self.age_height[0][1];
+        return self.age_height.0[1];
     }
 
     pub fn get_year_of_birth(self: Person) -> Felt {
@@ -89,7 +89,7 @@ fn main() {
 
     let person: Person = new Person{
         year_of_birth: 1990,
-        age_height: [[1, 1], [1, 1]]
+        age_height: ([1, 1], [1, 1])
     };
     let mut persons: [Person; 1] = [person];
     persons[0] = person;
@@ -103,7 +103,7 @@ fn main() {
     (person.set_age)(10);
     person.set_height(20);
     person.set_year_of_birth(2000);
-    let age: Felt = person.get_age();
+    let age: Felt = family.children[0].get_age();
     let age_via_trait: Felt = person.age();
     let height: Felt = ((person.get_height)());
     let year_of_birth: Felt = person.get_year_of_birth();

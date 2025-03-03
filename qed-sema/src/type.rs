@@ -327,6 +327,7 @@ impl Type {
             Type::LambdaFunction(CheckedLambdaFunctionNode { scope_id, .. }) => *scope_id,
             Type::Felt(_) => ScopeId::primitive(),
             Type::Bool(_) => ScopeId::primitive(),
+            Type::U32(_) => ScopeId::primitive(),
             _ => panic!("Type::scope_id called on non-composite type"),
         }
     }

@@ -1,7 +1,21 @@
+use std::fmt::Display;
+
 #[derive(Copy, Debug, Clone, PartialEq)]
 pub struct Qualifier {
     pub is_extern: bool,
     pub is_const: bool,
+}
+
+impl Display for Qualifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_extern {
+            write!(f, "extern ")?;
+        }
+        if self.is_const {
+            write!(f, "const ")?;
+        }
+        Ok(())
+    }
 }
 
 impl Qualifier {
@@ -16,6 +30,15 @@ impl Qualifier {
 #[derive(Copy, Debug, Clone, PartialEq)]
 pub struct TypeQualifier {
     pub is_mutable: bool,
+}
+
+impl Display for TypeQualifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_mutable {
+            write!(f, "mut ")?;
+        }
+        Ok(())
+    }
 }
 
 impl TypeQualifier {

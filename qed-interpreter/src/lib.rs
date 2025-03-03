@@ -258,9 +258,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         assert_eq!(
             args.len(),
             parameters.len(),
-            "expceted {} parameters for main function, got {}",
-            args.len(),
-            parameters.len()
+            "expected {} parameters for main function, got {}",
+            parameters.len(),
+            args.len()
         );
 
         for (i, (parameter, _, _)) in parameters.iter().enumerate() {
@@ -508,206 +508,65 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             .interpret_expr(typechecker, binary_node.rhs, ctx)?
             .unwrap();
 
-        let value = match binary_node.operator {
-            Add => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context
-                        .op_add(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context
-                        .op_u32_add(lhs_value.to_u32(), rhs_value.to_u32())
-                } else {
-                    unreachable!()
-                }
+        let value = match (
+            &*lhs_value.borrow(),
+            &*rhs_value.borrow(),
+            binary_node.operator,
+        ) {
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), Add) => self.context.op_add(*l, *r),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), Sub) => self.context.op_sub(*l, *r),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), Mul) => self.context.op_mul(*l, *r),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), Div) => self.context.op_div(*l, *r),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), Pow) => self.context.op_exp(*l, *r),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), Mod) => self.context.op_mod(*l, *r),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitShr) => unimplemented!(),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitShl) => unimplemented!(),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitAnd) => {
+                self.context.op_u32_and(*l, *r)
             }
-            Sub => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context
-                        .op_sub(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context
-                        .op_u32_sub(lhs_value.to_u32(), rhs_value.to_u32())
-                } else {
-                    unreachable!()
-                }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitOr) => self.context.op_u32_or(*l, *r),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitXor) => {
+                self.context.op_u32_xor(*l, *r)
             }
-            Mul => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context
-                        .op_mul(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context
-                        .op_u32_mul(lhs_value.to_u32(), rhs_value.to_u32())
-                } else {
-                    unreachable!()
-                }
-            }
-            Div => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context
-                        .op_div(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context
-                        .op_u32_div(lhs_value.to_u32(), rhs_value.to_u32())
-                } else {
-                    unreachable!()
-                }
-            }
-            Pow => self
-                .context
-                .op_add(lhs_value.to_felt(), rhs_value.to_felt()),
-            Sub => self
-                .context
-                .op_sub(lhs_value.to_felt(), rhs_value.to_felt()),
-            Mul => self
-                .context
-                .op_mul(lhs_value.to_felt(), rhs_value.to_felt()),
-            Div => self
-                .context
-                .op_div(lhs_value.to_felt(), rhs_value.to_felt()),
-            Pow => self
-                .context
-                .op_exp(lhs_value.to_felt(), rhs_value.to_felt()),
-            Mod => self
-                .context
-                .op_mod(lhs_value.to_felt(), rhs_value.to_felt()),
-            BitShr => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    unimplemented!()
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context
-                        .op_u32_shr(lhs_value.to_u32(), rhs_value.to_u32())
-                } else {
-                    unreachable!()
-                }
-            }
-            BitShl => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    unimplemented!()
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context
-                        .op_u32_shl(lhs_value.to_u32(), rhs_value.to_u32())
-                } else {
-                    unreachable!()
-                }
-            }
-            BitAnd => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context
-                        .op_u32_and(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context
-                        .op_u32_and(lhs_value.to_u32(), rhs_value.to_u32())
-                } else {
-                    unreachable!()
-                }
-            }
-            BitOr => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context
-                        .op_u32_or(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context
-                        .op_u32_or(lhs_value.to_u32(), rhs_value.to_u32())
-                } else {
-                    unreachable!()
-                }
-            }
-            BitXor => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context
-                        .op_u32_xor(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context
-                        .op_u32_xor(lhs_value.to_u32(), rhs_value.to_u32())
-                } else {
-                    unreachable!()
-                }
-            }
-            And => self
-                .context
-                .op_bool_and(lhs_value.to_bool(), rhs_value.to_bool()),
-            Or => self
-                .context
-                .op_bool_or(lhs_value.to_bool(), rhs_value.to_bool()),
-            Eq => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context.op_eq(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context.op_eq(lhs_value.to_u32(), rhs_value.to_u32())
-                } else if lhs_value.is_bool() && rhs_value.is_bool() {
-                    self.context.op_eq(lhs_value.to_bool(), rhs_value.to_bool())
-                } else {
-                    unreachable!()
-                }
-            }
-            Neq => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context
-                        .op_neq(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context.op_neq(lhs_value.to_u32(), rhs_value.to_u32())
-                } else if lhs_value.is_bool() && rhs_value.is_bool() {
-                    self.context
-                        .op_neq(lhs_value.to_bool(), rhs_value.to_bool())
-                } else {
-                    unreachable!()
-                }
-            }
-            Lt => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context.op_lt(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context.op_lt(lhs_value.to_u32(), rhs_value.to_u32())
-                } else if lhs_value.is_bool() && rhs_value.is_bool() {
-                    unimplemented!()
-                } else {
-                    unreachable!()
-                }
-            }
-            Lte => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context
-                        .op_lte(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context.op_lte(lhs_value.to_u32(), rhs_value.to_u32())
-                } else if lhs_value.is_bool() && rhs_value.is_bool() {
-                    unimplemented!()
-                } else {
-                    unreachable!()
-                }
-            }
-            Gt => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context.op_gt(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context.op_gt(lhs_value.to_u32(), rhs_value.to_u32())
-                } else if lhs_value.is_bool() && rhs_value.is_bool() {
-                    unimplemented!()
-                } else {
-                    unreachable!()
-                }
-            }
-            Gte => {
-                if lhs_value.is_felt() && rhs_value.is_felt() {
-                    self.context
-                        .op_gte(lhs_value.to_felt(), rhs_value.to_felt())
-                } else if lhs_value.is_u32() && rhs_value.is_u32() {
-                    self.context.op_gte(lhs_value.to_u32(), rhs_value.to_u32())
-                } else if lhs_value.is_bool() && rhs_value.is_bool() {
-                    unimplemented!()
-                } else {
-                    unreachable!()
-                }
-            }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), Eq) => self.context.op_eq(*l, *r),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), Neq) => self.context.op_neq(*l, *r),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), Lt) => self.context.op_lt(*l, *r),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), Lte) => self.context.op_lte(*l, *r),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), Gt) => self.context.op_gt(*l, *r),
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), Gte) => self.context.op_gte(*l, *r),
+
+            (CheckedValue::U32(l), CheckedValue::U32(r), Add) => self.context.op_u32_add(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Sub) => self.context.op_u32_sub(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Mul) => self.context.op_u32_mul(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Div) => self.context.op_u32_div(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), BitShr) => self.context.op_u32_shr(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), BitShl) => self.context.op_u32_shl(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), BitAnd) => self.context.op_u32_and(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), BitOr) => self.context.op_u32_or(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), BitXor) => self.context.op_u32_xor(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Eq) => self.context.op_eq(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Neq) => self.context.op_neq(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Lt) => self.context.op_lt(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Lte) => self.context.op_lte(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Gt) => self.context.op_gt(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Gte) => self.context.op_gte(*l, *r),
+
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), And) => self.context.op_bool_and(*l, *r),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), Or) => self.context.op_bool_or(*l, *r),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), Eq) => self.context.op_eq(*l, *r),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), Neq) => self.context.op_neq(*l, *r),
+            (CheckedValue::Bool(_), CheckedValue::Bool(_), Lt) => unimplemented!(),
+            (CheckedValue::Bool(_), CheckedValue::Bool(_), Lte) => unimplemented!(),
+            (CheckedValue::Bool(_), CheckedValue::Bool(_), Gt) => unimplemented!(),
+            (CheckedValue::Bool(_), CheckedValue::Bool(_), Gte) => unimplemented!(),
+
+            _ => unreachable!(),
         };
 
-        if binary_node.type_id == BOOL_TYPE {
-            Ok(CheckedValue::Bool(value))
-        } else if binary_node.type_id == U32_TYPE {
-            Ok(CheckedValue::U32(value))
-        } else {
-            Ok(CheckedValue::Felt(value))
+        match binary_node.type_id {
+            id if id == BOOL_TYPE => Ok(CheckedValue::Bool(value)),
+            id if id == U32_TYPE => Ok(CheckedValue::U32(value)),
+            _ => Ok(CheckedValue::Felt(value)),
         }
     }
 
@@ -720,129 +579,66 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         value: CheckedValueRef<F>,
         _ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
-        let new_value = match operator {
-            AssignmentOperator::Eq => value,
-            AssignmentOperator::AddAssign => {
-                if old_value.is_felt() && value.is_felt() {
-                    CheckedValueRef::from_felt(
-                        self.context.op_add(old_value.to_felt(), value.to_felt()),
-                    )
-                } else if old_value.is_u32() && value.is_u32() {
-                    CheckedValueRef::from_u32(
-                        self.context.op_u32_add(old_value.to_u32(), value.to_u32()),
-                    )
-                } else {
-                    unreachable!()
-                }
+        use AssignmentOperator::*;
+
+        let new_value = match (&*old_value.borrow(), &*value.borrow(), operator) {
+            (_, _, Eq) => value.clone(),
+
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), AddAssign) => {
+                CheckedValueRef::from_felt(self.context.op_add(*l, *r))
             }
-            AssignmentOperator::SubAssign => {
-                if old_value.is_felt() && value.is_felt() {
-                    CheckedValueRef::from_felt(
-                        self.context.op_sub(old_value.to_felt(), value.to_felt()),
-                    )
-                } else if old_value.is_u32() && value.is_u32() {
-                    CheckedValueRef::from_u32(
-                        self.context.op_u32_sub(old_value.to_u32(), value.to_u32()),
-                    )
-                } else {
-                    unreachable!()
-                }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), SubAssign) => {
+                CheckedValueRef::from_felt(self.context.op_sub(*l, *r))
             }
-            AssignmentOperator::MulAssign => {
-                if old_value.is_felt() && value.is_felt() {
-                    CheckedValueRef::from_felt(
-                        self.context.op_mul(old_value.to_felt(), value.to_felt()),
-                    )
-                } else if old_value.is_u32() && value.is_u32() {
-                    CheckedValueRef::from_u32(
-                        self.context.op_u32_mul(old_value.to_u32(), value.to_u32()),
-                    )
-                } else {
-                    unreachable!()
-                }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), MulAssign) => {
+                CheckedValueRef::from_felt(self.context.op_mul(*l, *r))
             }
-            AssignmentOperator::DivAssign => {
-                if old_value.is_felt() && value.is_felt() {
-                    CheckedValueRef::from_felt(
-                        self.context.op_div(old_value.to_felt(), value.to_felt()),
-                    )
-                } else if old_value.is_u32() && value.is_u32() {
-                    CheckedValueRef::from_u32(
-                        self.context.op_u32_div(old_value.to_u32(), value.to_u32()),
-                    )
-                } else {
-                    unreachable!()
-                }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), DivAssign) => {
+                CheckedValueRef::from_felt(self.context.op_div(*l, *r))
             }
-            AssignmentOperator::ModAssign => {
-                if old_value.is_felt() && value.is_felt() {
-                    CheckedValueRef::from_felt(
-                        self.context.op_mod(old_value.to_felt(), value.to_felt()),
-                    )
-                } else if old_value.is_u32() && value.is_u32() {
-                    CheckedValueRef::from_u32(
-                        self.context.op_mod(old_value.to_u32(), value.to_u32()),
-                    )
-                } else {
-                    unreachable!()
-                }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), ModAssign) => {
+                CheckedValueRef::from_felt(self.context.op_mod(*l, *r))
             }
-            AssignmentOperator::BitAndAssign => {
-                if old_value.is_felt() && value.is_felt() {
-                    unimplemented!()
-                } else if old_value.is_u32() && value.is_u32() {
-                    CheckedValueRef::from_u32(
-                        self.context.op_u32_and(old_value.to_u32(), value.to_u32()),
-                    )
-                } else {
-                    unreachable!()
-                }
+            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitAndAssign) => unimplemented!(),
+            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitOrAssign) => unimplemented!(),
+            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitXorAssign) => unimplemented!(),
+            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitShlAssign) => unimplemented!(),
+            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitShrAssign) => unimplemented!(),
+
+            (CheckedValue::U32(l), CheckedValue::U32(r), AddAssign) => {
+                CheckedValueRef::from_u32(self.context.op_u32_add(*l, *r))
             }
-            AssignmentOperator::BitOrAssign => {
-                if old_value.is_felt() && value.is_felt() {
-                    unimplemented!()
-                } else if old_value.is_u32() && value.is_u32() {
-                    CheckedValueRef::from_u32(
-                        self.context.op_u32_or(old_value.to_u32(), value.to_u32()),
-                    )
-                } else {
-                    unreachable!()
-                }
+            (CheckedValue::U32(l), CheckedValue::U32(r), SubAssign) => {
+                CheckedValueRef::from_u32(self.context.op_u32_sub(*l, *r))
             }
-            AssignmentOperator::BitXorAssign => {
-                if old_value.is_felt() && value.is_felt() {
-                    unimplemented!()
-                } else if old_value.is_u32() && value.is_u32() {
-                    CheckedValueRef::from_u32(
-                        self.context.op_u32_xor(old_value.to_u32(), value.to_u32()),
-                    )
-                } else {
-                    unreachable!()
-                }
+            (CheckedValue::U32(l), CheckedValue::U32(r), MulAssign) => {
+                CheckedValueRef::from_u32(self.context.op_u32_mul(*l, *r))
             }
-            AssignmentOperator::BitShlAssign => {
-                if old_value.is_felt() && value.is_felt() {
-                    unimplemented!()
-                } else if old_value.is_u32() && value.is_u32() {
-                    CheckedValueRef::from_u32(
-                        self.context.op_u32_shl(old_value.to_u32(), value.to_u32()),
-                    )
-                } else {
-                    unreachable!()
-                }
+            (CheckedValue::U32(l), CheckedValue::U32(r), DivAssign) => {
+                CheckedValueRef::from_u32(self.context.op_u32_div(*l, *r))
             }
-            AssignmentOperator::BitShrAssign => {
-                if old_value.is_felt() && value.is_felt() {
-                    unimplemented!()
-                } else if old_value.is_u32() && value.is_u32() {
-                    CheckedValueRef::from_u32(
-                        self.context.op_u32_shr(old_value.to_u32(), value.to_u32()),
-                    )
-                } else {
-                    unreachable!()
-                }
+            (CheckedValue::U32(l), CheckedValue::U32(r), ModAssign) => {
+                CheckedValueRef::from_u32(self.context.op_mod(*l, *r))
             }
+            (CheckedValue::U32(l), CheckedValue::U32(r), BitAndAssign) => {
+                CheckedValueRef::from_u32(self.context.op_u32_and(*l, *r))
+            }
+            (CheckedValue::U32(l), CheckedValue::U32(r), BitOrAssign) => {
+                CheckedValueRef::from_u32(self.context.op_u32_or(*l, *r))
+            }
+            (CheckedValue::U32(l), CheckedValue::U32(r), BitXorAssign) => {
+                CheckedValueRef::from_u32(self.context.op_u32_xor(*l, *r))
+            }
+            (CheckedValue::U32(l), CheckedValue::U32(r), BitShlAssign) => {
+                CheckedValueRef::from_u32(self.context.op_u32_shl(*l, *r))
+            }
+            (CheckedValue::U32(l), CheckedValue::U32(r), BitShrAssign) => {
+                CheckedValueRef::from_u32(self.context.op_u32_shr(*l, *r))
+            }
+
+            _ => unreachable!(),
         };
+
         self.cset_variable(old_value, &new_value);
         Ok(new_value)
     }
@@ -1074,24 +870,18 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
         let s = self
-            .interpret_expr(typechecker, member_access_node.value, ctx)?
+            .interpret_expr(typechecker, member_access_node.target, ctx)?
             .unwrap();
-        assert!(s.is_struct());
-        if let Some(value) = s.get_path(
-            &mut self.context,
-            &[IndexPath::Normal(member_access_node.field.into())],
-        ) {
-            return Ok(value.clone());
-        } else if ctx.symbols[member_access_node.type_id]
-            .as_function()
-            .map(|f| f.name == member_access_node.field)
-            .unwrap_or(false)
-        {
+        if ctx.symbols[member_access_node.type_id].is_function() {
             return Ok(CheckedValueRef::new_rc(CheckedValue::Type(
                 member_access_node.type_id,
             )));
         } else {
-            return Err(Error::SemaError(qed_sema::Error::UnresolvedMember));
+            Ok(s.get_path(
+                &mut self.context,
+                &[IndexPath::Normal(member_access_node.field.into())],
+            )
+            .unwrap())
         }
     }
 
@@ -1102,15 +892,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
         let a = self
-            .interpret_expr(typechecker, index_access_node.value, ctx)?
+            .interpret_expr(typechecker, index_access_node.target, ctx)?
             .unwrap();
         let index = self
             .interpret_expr(typechecker, index_access_node.index, ctx)?
             .unwrap();
 
-        if !index.is_felt() {
-            return Err(Error::SemaError(qed_sema::Error::TypeMismatch));
-        }
         return Ok(a
             .get_path(&mut self.context, &[IndexPath::Felt(index.to_felt())])
             .unwrap());
@@ -1124,7 +911,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     ) -> Result<CheckedValueRef<F>> {
         // get the value of the tuple
         let tuple_value = self
-            .interpret_expr(typechecker, tuple_access_node.value, ctx)?
+            .interpret_expr(typechecker, tuple_access_node.target, ctx)?
             .unwrap();
 
         // store the value of the tuple to avoid lifetime issues
@@ -1147,6 +934,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
 
         Err(Error::TypeMismatch)
     }
+
     fn interpret_cast(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -1253,34 +1041,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         let value = self.interpret_expr(typechecker, node.value, ctx)?.unwrap();
         let mut path = vec![];
 
-        let (old_value, name, variable) = match &typechecker[node.variable] {
-            CheckedExprNode::Path(path_node) => {
-                self.interpret_path_assignment(typechecker, node, path_node, &mut path, ctx)?
-            }
-            CheckedExprNode::MemberAccess(member_access_node) => self.interpret_member_assignment(
-                typechecker,
-                node,
-                member_access_node,
-                &mut path,
-                ctx,
-            )?,
-            CheckedExprNode::IndexAccess(index_access_node) => self.interpret_index_assignment(
-                typechecker,
-                node,
-                index_access_node,
-                &mut path,
-                ctx,
-            )?,
-            CheckedExprNode::TupleAccess(tuple_access_node) => self.interpret_tuple_assignment(
-                typechecker,
-                node,
-                tuple_access_node,
-                &mut path,
-                ctx,
-            )?,
-
-            _ => unimplemented!(),
-        };
+        let (old_value, name, variable) = self.interpret_assignment_target(
+            typechecker,
+            node,
+            &typechecker[node.target],
+            &mut path,
+            ctx,
+        )?;
 
         let new_value =
             self.interpret_assignment_value(typechecker, &old_value, node.operator, value, ctx)?;
@@ -1294,6 +1061,31 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         Ok(())
     }
 
+    fn interpret_assignment_target(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        node: &CheckedAssignmentNode,
+        expr_node: &CheckedExprNode<F>,
+        path: &mut Vec<IndexPath<F>>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
+        match expr_node {
+            CheckedExprNode::Path(path_node) => {
+                self.interpret_path_assignment(typechecker, node, path_node, path, ctx)
+            }
+            CheckedExprNode::MemberAccess(member_access_node) => {
+                self.interpret_member_assignment(typechecker, node, member_access_node, path, ctx)
+            }
+            CheckedExprNode::IndexAccess(index_access_node) => {
+                self.interpret_index_assignment(typechecker, node, index_access_node, path, ctx)
+            }
+            CheckedExprNode::TupleAccess(tuple_access_node) => {
+                self.interpret_tuple_assignment(typechecker, node, tuple_access_node, path, ctx)
+            }
+            _ => unreachable!(),
+        }
+    }
+
     fn interpret_index_assignment(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -1302,48 +1094,31 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         path: &mut Vec<IndexPath<F>>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
-        let (inner_value, inner_var_name, inner_var) = match &typechecker[index_access_node.value] {
-            CheckedExprNode::Path(checked_path_node) => {
-                self.interpret_path_assignment(typechecker, node, checked_path_node, path, ctx)?
-            }
-            CheckedExprNode::IndexAccess(checked_index_access_node) => self
-                .interpret_index_assignment(
-                    typechecker,
-                    node,
-                    checked_index_access_node,
-                    path,
-                    ctx,
-                )?,
-            CheckedExprNode::MemberAccess(checked_member_access_node) => self
-                .interpret_member_assignment(
-                    typechecker,
-                    node,
-                    checked_member_access_node,
-                    path,
-                    ctx,
-                )?,
-            _ => unreachable!(),
-        };
+        // Get the base value recursively
+        let (inner_value, inner_var_name, inner_var) = self.interpret_assignment_target(
+            typechecker,
+            node,
+            &typechecker[index_access_node.target],
+            path,
+            ctx,
+        )?;
 
-        let index = self
-            .interpret_expr(typechecker, index_access_node.index, ctx)?
-            .unwrap();
+        // Create the index path
+        let index = IndexPath::Felt(
+            self.interpret_expr(typechecker, index_access_node.index, ctx)?
+                .unwrap()
+                .to_felt(),
+        );
 
-        if !index.is_felt() {
-            return Err(Error::SemaError(qed_sema::Error::TypeMismatch));
-        }
+        path.push(index.clone());
 
-        path.push(IndexPath::Felt(index.to_felt()));
-
-        assert!(inner_value.is_array());
         Ok((
-            inner_value
-                .get_path(&mut self.context, &[IndexPath::Felt(index.to_felt())])
-                .unwrap(),
+            inner_value.get_path(&mut self.context, &[index]).unwrap(),
             inner_var_name,
             inner_var,
         ))
     }
+
     fn interpret_tuple_assignment(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -1352,58 +1127,25 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         path: &mut Vec<IndexPath<F>>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
-        // get the value of the tuple recursively
-        let (tuple_value, tuple_var_name, tuple_var) = match &typechecker[tuple_access_node.value] {
-            CheckedExprNode::Path(checked_path_node) => {
-                self.interpret_path_assignment(typechecker, node, checked_path_node, path, ctx)?
-            }
-            CheckedExprNode::IndexAccess(checked_index_access_node) => self
-                .interpret_index_assignment(
-                    typechecker,
-                    node,
-                    checked_index_access_node,
-                    path,
-                    ctx,
-                )?,
-            CheckedExprNode::MemberAccess(checked_member_access_node) => self
-                .interpret_member_assignment(
-                    typechecker,
-                    node,
-                    checked_member_access_node,
-                    path,
-                    ctx,
-                )?,
-            CheckedExprNode::TupleAccess(checked_tuple_access_node) => self
-                .interpret_tuple_assignment(
-                    typechecker,
-                    node,
-                    checked_tuple_access_node,
-                    path,
-                    ctx,
-                )?,
-            _ => unreachable!(),
-        };
+        // Get the tuple value recursively
+        let (tuple_value, tuple_var_name, tuple_var) = self.interpret_assignment_target(
+            typechecker,
+            node,
+            &typechecker[tuple_access_node.target],
+            path,
+            ctx,
+        )?;
 
-        // ensure that the value is a tuple
-        assert!(
-            tuple_value.is_tuple(),
-            "Expected tuple, found {:?}",
-            tuple_value
-        );
+        // Create the index path
+        let index = IndexPath::Normal(tuple_access_node.index);
+        path.push(index.clone());
 
-        // push the index of the tuple element to the path
-        path.push(IndexPath::Normal(tuple_access_node.index));
-
-        // visit the tuple element and return it
-        let element_value = tuple_value
-            .get_path(
-                &mut self.context,
-                &[IndexPath::Normal(tuple_access_node.index)],
-            )
-            .unwrap();
+        // Get the tuple element
+        let element_value = tuple_value.get_path(&mut self.context, &[index]).unwrap();
 
         Ok((element_value, tuple_var_name, tuple_var))
     }
+
     fn interpret_member_assignment(
         &mut self,
         typechecker: &TypeChecker<F, C>,
@@ -1412,40 +1154,21 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         path: &mut Vec<IndexPath<F>>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
-        let (inner_value, inner_var_name, inner_var) = match &typechecker[member_access_node.value]
-        {
-            CheckedExprNode::Path(checked_path_node) => {
-                self.interpret_path_assignment(typechecker, node, checked_path_node, path, ctx)?
-            }
-            CheckedExprNode::IndexAccess(checked_index_access_node) => self
-                .interpret_index_assignment(
-                    typechecker,
-                    node,
-                    checked_index_access_node,
-                    path,
-                    ctx,
-                )?,
-            CheckedExprNode::MemberAccess(checked_member_access_node) => self
-                .interpret_member_assignment(
-                    typechecker,
-                    node,
-                    checked_member_access_node,
-                    path,
-                    ctx,
-                )?,
-            _ => unreachable!(),
-        };
+        // Get the struct value recursively
+        let (inner_value, inner_var_name, inner_var) = self.interpret_assignment_target(
+            typechecker,
+            node,
+            &typechecker[member_access_node.target],
+            path,
+            ctx,
+        )?;
 
-        path.push(IndexPath::Normal(member_access_node.field.into()));
+        // Create the member path
+        let index = IndexPath::Normal(member_access_node.field.into());
+        path.push(index.clone());
 
-        assert!(inner_value.is_struct());
         Ok((
-            inner_value
-                .get_path(
-                    &mut self.context,
-                    &[IndexPath::Normal(member_access_node.field.into())],
-                )
-                .unwrap(),
+            inner_value.get_path(&mut self.context, &[index]).unwrap(),
             inner_var_name,
             inner_var,
         ))
@@ -1456,7 +1179,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         _typechecker: &TypeChecker<F, C>,
         _node: &CheckedAssignmentNode,
         path_node: &CheckedPathNode,
-        path: &mut Vec<IndexPath<F>>,
+        _path: &mut Vec<IndexPath<F>>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<(CheckedValueRef<F>, IdentId, CheckedVariable<F>)> {
         let start_scope = Some(path_node.scope_id);
@@ -1571,6 +1294,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         ctx.symbols.exit_block();
         Ok(void_value)
     }
+
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_if_expr(
         &mut self,

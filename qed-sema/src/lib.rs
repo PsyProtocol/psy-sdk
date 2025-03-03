@@ -264,12 +264,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let type_id = checked_expr.ty();
         let inner_ty = ctx.symbols[type_id].as_array().unwrap().inner_ty.clone();
 
-        if checked_index.ty() != FELT_TYPE {
+        if !self.unify(checked_index.ty(), FELT_TYPE, ctx) {
             return Err(Error::TypeMismatch);
         }
 
         Ok(CheckedExprNode::IndexAccess(CheckedIndexAccessNode {
-            value: self.exprs.alloc_item(checked_expr),
+            target: self.exprs.alloc_item(checked_expr),
             index: self.exprs.alloc_item(checked_index),
             type_id: self.substitute_all(inner_ty, ctx)?,
         }))
@@ -300,31 +300,35 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             )
         };
 
-        if let Some((field_type, visibility)) = fields.get(&member_access_node.field) {
+        if ctx.parent_node_type().is_member_call_expr() {
+            let type_id = ctx
+                .symbols
+                .resolve_method(underlying_type_id, member_access_node.field)
+                .ok_or(Error::UnresolvedMember)?;
+            let visibility = ctx.symbols[type_id].visibility();
             assert!(
                 visibility.is_public()
                     || self.typecheck_member_access(member_access_node.target, ctx)
             );
             return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
-                value: self.exprs.alloc_item(checked_expr),
+                target: self.exprs.alloc_item(checked_expr),
+                field: member_access_node.field,
+                type_id,
+            }));
+        } else {
+            let (field_type, visibility) = fields
+                .get(&member_access_node.field)
+                .ok_or(Error::UnresolvedMember)?;
+            assert!(
+                visibility.is_public()
+                    || self.typecheck_member_access(member_access_node.target, ctx)
+            );
+            return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
+                target: self.exprs.alloc_item(checked_expr),
                 field: member_access_node.field.clone(),
                 type_id: self.substitute_all(field_type.clone(), ctx)?,
             }));
         }
-
-        let type_id = ctx
-            .symbols
-            .resolve_method(underlying_type_id, member_access_node.field)
-            .ok_or(Error::UnresolvedMember)?;
-        let visibility = ctx.symbols[type_id].visibility();
-        assert!(
-            visibility.is_public() || self.typecheck_member_access(member_access_node.target, ctx)
-        );
-        return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
-            value: self.exprs.alloc_item(checked_expr),
-            field: member_access_node.field,
-            type_id,
-        }));
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -350,11 +354,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             .ok_or(Error::IndexOutOfBounds)?
             .clone();
         Ok(CheckedExprNode::TupleAccess(CheckedTupleAccessNode {
-            value: self.exprs.alloc_item(checked_expr),
+            target: self.exprs.alloc_item(checked_expr),
             index: tuple_access_node.index,
             type_id: field_type,
         }))
     }
+
     #[instrument(level = "debug", skip_all)]
     fn visit_intrinsic_expr(
         &mut self,
@@ -720,7 +725,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let call_node = ctx.expression(node).as_call().cloned().unwrap();
         let callee = self.visit_expr(call_node.callee, ctx)?;
         let ty = callee.ty();
-        // TODO: remove clone
         let generic_parameters = ctx.symbols[ty].generic_parameters();
         for (generic_param, generic_arg) in generic_parameters
             .iter()
@@ -950,43 +954,6 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }))
     }
 
-    // #[instrument(level = "debug", skip_all)]
-    // fn visit_block_expr(
-    //     &mut self,
-    //     node: ExprId,
-    //     ctx: &mut Self::Context,
-    // ) -> std::result::Result<Self::ExprResult, Self::Error> {
-    //     ctx.symbols.start_scope(ScopeKind::Block);
-    //     // TODO: remove clone
-    //     let block = ctx.expression(node).as_block_expr().cloned().unwrap();
-    //     let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-    //     let mut new_stmts = Vec::with_capacity(block.stmts.len());
-    //
-    //     for &stmt in block.uses.iter() {
-    //         let use_path = ctx.statement(stmt).as_use().cloned().unwrap();
-    //         self.visit_use(&use_path, ctx)?;
-    //     }
-    //
-    //     for (i, stmt) in block.stmts.iter().enumerate() {
-    //         let checked_stmt = self.visit_stmt(stmt.clone(), ctx)?;
-    //         if ctx.parent_node_type() == NodeType::FunctionDef
-    //             || ctx.parent_node_type() == NodeType::LambdaFunctionExpr
-    //         {
-    //             if checked_stmt.is_return() && i != block.stmts.len() - 1 {
-    //                 return Err(Error::InvalidReturn);
-    //             }
-    //         }
-    //         new_stmts.push(checked_stmt);
-    //     }
-    //
-    //     ctx.symbols.end_scope();
-    //     Ok(CheckedExprNode::BlockExpr(CheckedBlockExprNode {
-    //         stmts: self.stmts.alloc_items(new_stmts),
-    //         type_id:
-    //         scope_id: current_scope_id,
-    //     }))
-    // }
-
     #[instrument(level = "debug", skip_all)]
     fn visit_assignment(
         &mut self,
@@ -996,7 +963,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         // TODO: remove clone
         let assignment_node = ctx.statement(node).as_assignment().cloned().unwrap();
         let checked_rhs = self.visit_expr(assignment_node.value, ctx)?;
-        let checked_lhs = self.visit_expr(assignment_node.variable, ctx)?;
+        let checked_lhs = self.visit_expr(assignment_node.target, ctx)?;
 
         let lhs_ty = checked_lhs.ty();
 
@@ -1005,7 +972,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
 
         Ok(CheckedStmtNode::Assignment(CheckedAssignmentNode {
-            variable: self.exprs.alloc_item(checked_lhs),
+            target: self.exprs.alloc_item(checked_lhs),
             operator: assignment_node.operator,
             value: self.exprs.alloc_item(checked_rhs),
             type_id: self.substitute_all(lhs_ty, ctx)?,

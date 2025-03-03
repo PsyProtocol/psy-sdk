@@ -387,6 +387,26 @@ impl<F: Clone> CheckedValueRef<F> {
                     .collect();
                 CheckedValueRef::new_rc(CheckedValue::Array(type_id.clone(), arr_data))
             }
+            CheckedValue::Tuple { type_id, elements } => {
+                let mut index = 0;
+                let mut tuple_elements = Vec::new();
+                for (elem_type, elem_value) in elements.iter() {
+                    let elem_size = elem_value.felt_size();
+                    let elem_values = &value_felts[index..index + elem_size];
+                    index += elem_size;
+                    tuple_elements.push((
+                        elem_type.clone(),
+                        Self::convert(
+                            elem_value.clone(),
+                            CheckedValueRef::new_rc(CheckedValue::Stash(elem_values.to_vec())),
+                        ),
+                    ));
+                }
+                CheckedValueRef::new_rc(CheckedValue::Tuple {
+                    type_id: type_id.clone(),
+                    elements: tuple_elements,
+                })
+            }
             CheckedValue::Struct(type_id, fields) => {
                 let mut index = 0;
                 let mut fields_map = IndexMap::new();
