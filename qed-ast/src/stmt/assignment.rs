@@ -41,15 +41,15 @@ impl Display for AssignmentOperator {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AssignmentNode {
-    pub variable: ExprId,
+    pub target: ExprId,
     pub operator: AssignmentOperator,
     pub value: ExprId,
 }
 
 impl AssignmentNode {
-    pub fn new(variable: ExprId, operator: AssignmentOperator, value: ExprId) -> Self {
+    pub fn new(target: ExprId, operator: AssignmentOperator, value: ExprId) -> Self {
         Self {
-            variable,
+            target,
             operator,
             value,
         }

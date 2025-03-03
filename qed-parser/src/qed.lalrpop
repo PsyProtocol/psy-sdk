@@ -380,9 +380,11 @@ ElseBranch: StmtId = {
 ReturnStatement: StmtNode = {
     <l:@L> RETURN <ret:Expression?> ";" <r:@R> => StmtNode::Return(ReturnNode(ret.map(|x| expr_nodes.alloc_item(x))))
 }
+
 TupleType: UncheckedType = {
     "(" <types:Comma<Ty>> ")" => UncheckedType::Tuple(types)
 }
+
 TupleExpr: ExprNode<F> = {
     "(" <first:Expression> "," <rest:Comma<Expression>> ")" => {
         let mut elements = vec![expr_nodes.alloc_item(first)];
@@ -392,6 +394,7 @@ TupleExpr: ExprNode<F> = {
     //if the tuple has only one element, it should be treated as a normal expression
     "(" <expr:Expression> ")" => expr,
 }
+
 VariableStatement: StmtNode = {
     <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {

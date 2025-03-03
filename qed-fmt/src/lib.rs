@@ -385,13 +385,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let &AssignmentNode {
-            variable,
+            target,
             operator,
             value,
         } = ctx.statement(stmt_id).as_assignment().unwrap();
         let s = format!(
             "{} {} {};",
-            self.visit_expr(variable, ctx)?,
+            self.visit_expr(target, ctx)?,
             operator,
             self.visit_expr(value, ctx)?
         );

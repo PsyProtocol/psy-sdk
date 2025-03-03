@@ -81,7 +81,6 @@ ident_ids!(
     NEW => "new",
     TEST => "test",
 
-    FN_SIG => "fn", // 17
     TYPE_U32 => "u32"
 );
 
@@ -175,7 +174,6 @@ mod tests {
             (IdentId::DERIVE, "derive"),
             (IdentId::NEW, "new"),
             (IdentId::TEST, "test"),
-            (IdentId::FN_SIG, "fn"),
             (IdentId::TYPE_U32, "u32"),
         ];
 
