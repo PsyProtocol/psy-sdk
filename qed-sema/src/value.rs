@@ -6,7 +6,10 @@ use std::{
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::{ExprId, IdentId, NodeInfo, NodeType};
-use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, DPNContextArray, ToFelts};
+use qedlang_core::dpn::ops::{
+    context_trait::{ContextFelt, DPNContext, DPNContextArray, ToFelts},
+    op_types::DPNOpType,
+};
 
 use crate::{Result, TypeId, BOOL_TYPE, FELT_TYPE, U32_TYPE, VOID_TYPE};
 
@@ -130,11 +133,7 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValueRef<F> {
     }
 
     fn from_felts(felts: &[F]) -> Self {
-        if felts.len() == 1 {
-            Self::from_felt(felts[0].clone())
-        } else {
-            Self::new_rc(CheckedValue::Stash(felts.to_vec()))
-        }
+        Self::new_rc(CheckedValue::Stash(felts.to_vec()))
     }
 }
 
@@ -287,13 +286,32 @@ impl<F: Clone> CheckedValueRef<F> {
         }
     }
 
-    pub fn set_path<C>(&mut self, ctx: &mut C, path: &[IndexPath<F>], value: Self) -> Result<()>
+    pub fn set_path<C>(
+        &mut self,
+        ctx: &mut C,
+        path: &[IndexPath<F>],
+        index_condition: &mut Vec<F>,
+        value: Self,
+    ) -> Result<()>
     where
         F: Clone + From<u32> + ContextFelt,
         C: DPNContext<F>,
     {
         if path.is_empty() {
-            *self = value.clone();
+            if index_condition.is_empty() {
+                *self = value.clone();
+            } else {
+                let combine_condition = index_condition
+                    .iter()
+                    .fold(ctx.op_true(), |acc, condition| {
+                        ctx.op_bool_and(*condition, acc)
+                    });
+                let mut felts = self.to_felts();
+                for (val, new_val) in felts.iter_mut().zip(value.to_felts().iter()) {
+                    *val = ctx.op_select(combine_condition, *new_val, *val);
+                }
+                *self = Self::convert(self.clone(), CheckedValueRef::from_felts(&felts));
+            }
             return Ok(());
         }
 
@@ -301,21 +319,44 @@ impl<F: Clone> CheckedValueRef<F> {
             CheckedValue::Array(_, arr) => {
                 let index = path[0].as_felt().unwrap();
                 let rest = &path[1..];
-                let res = arr.q_get(ctx, *index);
-                Self::convert(arr[0].clone(), res).set_path(ctx, rest, value)?;
+                let const_types = [
+                    DPNOpType::Constant,
+                    DPNOpType::ConstantTrue,
+                    DPNOpType::ConstantFalse,
+                    DPNOpType::ConstantU32,
+                ];
+                if const_types.contains(&ctx.get_op_type(*index)) {
+                    let index = ctx.get_constant_value(*index) as usize;
+                    if let Some(inner) = arr.get_mut(index) {
+                        inner.set_path(ctx, rest, index_condition, value)?;
+                    }
+                } else {
+                    let arr_size = ctx.op_const(arr.len() as u64);
+                    let out_of_bounds = ctx.op_lt(*index, arr_size);
+                    ctx.assert_true(out_of_bounds, "felt index out of bounds");
+                    for i in 0..arr.len() {
+                        let arr_index = ctx.op_const(i as u64);
+                        let condition = ctx.op_eq(arr_index, *index);
+                        index_condition.push(condition);
+                        if let Some(inner) = arr.get_mut(i) {
+                            inner.set_path(ctx, rest, index_condition, value.clone())?;
+                        }
+                        index_condition.pop();
+                    }
+                }
             }
             CheckedValue::Tuple { elements, .. } => {
                 let index = path[0].as_normal().unwrap();
                 let rest = &path[1..];
                 if let Some((_, inner)) = elements.get_mut(*index) {
-                    inner.set_path(ctx, rest, value)?;
+                    inner.set_path(ctx, rest, index_condition, value)?;
                 }
             }
             CheckedValue::Struct(_, map) => {
                 let key = IdentId(*path[0].as_normal().unwrap());
                 let rest = &path[1..];
                 if let Some(inner) = map.get_mut(&key) {
-                    inner.set_path(ctx, rest, value)?;
+                    inner.set_path(ctx, rest, index_condition, value)?;
                 }
             }
             _ => {
@@ -339,8 +380,19 @@ impl<F: Clone> CheckedValueRef<F> {
             CheckedValue::Array(_, arr) => {
                 let index = path[0].clone().into_felt().unwrap();
                 let rest = &path[1..];
-                let res = arr.q_get(ctx, index);
-                Self::convert(arr[0].clone(), res).get_path(ctx, rest)
+                let const_types = [
+                    DPNOpType::Constant,
+                    DPNOpType::ConstantTrue,
+                    DPNOpType::ConstantFalse,
+                    DPNOpType::ConstantU32,
+                ];
+                if const_types.contains(&ctx.get_op_type(index)) {
+                    let index = ctx.get_constant_value(index) as usize;
+                    arr.get(index).and_then(|inner| inner.get_path(ctx, rest))
+                } else {
+                    let res = arr.q_get(ctx, index);
+                    Self::convert(arr[0].clone(), res).get_path(ctx, rest)
+                }
             }
             CheckedValue::Tuple { elements, .. } => {
                 let index = path[0].clone().into_normal().unwrap();
@@ -372,6 +424,10 @@ impl<F: Clone> CheckedValueRef<F> {
             CheckedValue::Bool(_) => {
                 assert!(value_felts.len() == 1);
                 CheckedValueRef::new_rc(CheckedValue::Bool(value_felts[0].clone()))
+            }
+            CheckedValue::U32(_) => {
+                assert!(value_felts.len() == 1);
+                CheckedValueRef::new_rc(CheckedValue::U32(value_felts[0].clone()))
             }
             CheckedValue::Array(type_id, arr) => {
                 assert!(value_felts.len() % arr.len() == 0);

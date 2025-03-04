@@ -979,7 +979,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
     ) -> Result<()> {
         let node = typechecker[stmt_id].as_assignment().unwrap();
         let value = self.interpret_expr(typechecker, node.value, ctx)?;
-        let mut path = vec![];
+        let mut path: Vec<IndexPath<F>> = vec![];
+        let mut index_condition = vec![];
 
         let (old_value, name, variable) = self.interpret_assignment_target(
             typechecker,
@@ -993,7 +994,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             self.interpret_assignment_value(typechecker, &old_value, node.operator, value, ctx)?;
 
         let mut variable_value = variable.value.unwrap();
-        variable_value.set_path(&mut self.context, &path, new_value)?;
+        variable_value.set_path(&mut self.context, &path, &mut index_condition, new_value)?;
 
         ctx.symbols
             .set_variable(variable.scope_id, &name, variable_value)?;
@@ -1253,6 +1254,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             .interpret_statement(typechecker, node.if_branch.body, ctx)?
             .unwrap();
 
+        let result_type = result.clone();
         for condition in &node.elseif_branches {
             let predicate = self
                 .interpret_expr(typechecker, condition.predicate, ctx)?
@@ -1276,7 +1278,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
 
         self.context.end_if_block();
 
-        Ok(result)
+        Ok(CheckedValueRef::convert(result_type, result))
     }
 
     pub fn is_constant(&self, value: F) -> bool {
