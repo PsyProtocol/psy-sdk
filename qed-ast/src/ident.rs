@@ -61,10 +61,11 @@ macro_rules! ident_ids {
 //
 ident_ids!(
     TYPE_UNKNOWN => "unknown", // 0
+    TYPE_VOID => "void",
     TYPE_BOOL => "bool",
     TYPE_FELT => "Felt",
-    TYPE_VOID => "void",
-    TYPE_ARRAY => "[]",
+    TYPE_U32 => "u32",
+    TYPE_ARRAY => "Array",
     TYPE_TUPLE => "Tuple",
     TYPE_HASH => "Hash",
     TYPE_SELF => "Self",
@@ -81,7 +82,8 @@ ident_ids!(
     NEW => "new",
     TEST => "test",
 
-    TYPE_U32 => "u32"
+    T => "T",
+    N => "N"
 );
 
 #[derive(Clone, Debug, Default)]
@@ -161,7 +163,7 @@ mod tests {
             (IdentId::TYPE_BOOL, "bool"),
             (IdentId::TYPE_FELT, "Felt"),
             (IdentId::TYPE_VOID, "void"),
-            (IdentId::TYPE_ARRAY, "[]"),
+            (IdentId::TYPE_ARRAY, "Array"),
             (IdentId::TYPE_TUPLE, "Tuple"),
             (IdentId::TYPE_HASH, "Hash"),
             (IdentId::TYPE_SELF, "Self"),

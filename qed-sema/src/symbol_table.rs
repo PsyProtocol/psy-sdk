@@ -1,6 +1,7 @@
 use once_cell::sync::OnceCell;
 use qed_ast::{ModuleNode, PathNode, Visibility};
 use qed_common::{define_arena_id, FileId, TreeNode};
+use qedlang_core::dpn::ops::context_trait::ContextFelt;
 use std::{
     collections::HashMap,
     convert::AsMut,
@@ -18,6 +19,7 @@ use crate::{Error, Result};
 
 define_arena_id!(ScopeId);
 define_arena_id!(VarId);
+define_arena_id!(ConstId);
 
 pub static mut STD_PRIMITIVE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
 
@@ -41,6 +43,7 @@ pub enum ScopeKind {
     Function,
     LambdaFunction,
     Struct,
+    Array,
     Enum,
     Impl,
     ImplMethod,
@@ -54,6 +57,7 @@ pub struct Scope<F: Clone> {
     pub parent: Option<ScopeId>,
     pub children: Vec<ScopeId>,
     pub variables: HashMap<IdentId, VarId>,
+    pub consts: HashMap<IdentId, ConstId>,
     pub types: HashMap<TypeKey, TypeId>,
     _marker: std::marker::PhantomData<F>,
 }
@@ -136,6 +140,7 @@ impl<F: Clone> Scope<F> {
             parent,
             children: vec![],
             variables: HashMap::with_capacity(10),
+            consts: HashMap::new(),
             types: HashMap::new(),
             _marker: std::marker::PhantomData,
         }
@@ -143,12 +148,13 @@ impl<F: Clone> Scope<F> {
 }
 
 #[derive(Clone, Debug)]
-pub struct SymbolTable<F: Clone> {
+pub struct SymbolTable<F: Clone + From<u32> + ContextFelt> {
     scopes: Vec<Scope<F>>,
     scope_stack: Vec<ScopeId>,
     frames: Vec<Frame<CheckedValueRef<F>>>,
 
     types: Vec<Type>,
+    consts: Vec<CheckedValueRef<F>>,
     variables: Vec<CheckedVariable<F>>,
     modules: Vec<Module>,
     module_stack: Vec<ModuleId>,
@@ -156,14 +162,14 @@ pub struct SymbolTable<F: Clone> {
 
 macro_rules! impl_index {
     ($index_type:ty, $output_type:ty, $field:ident) => {
-        impl<F: Clone> Index<$index_type> for SymbolTable<F> {
+        impl<F: Clone + From<u32> + ContextFelt> Index<$index_type> for SymbolTable<F> {
             type Output = $output_type;
             fn index(&self, index: $index_type) -> &Self::Output {
                 &self.$field[index.0]
             }
         }
 
-        impl<F: Clone> IndexMut<$index_type> for SymbolTable<F> {
+        impl<F: Clone + From<u32> + ContextFelt> IndexMut<$index_type> for SymbolTable<F> {
             fn index_mut(&mut self, index: $index_type) -> &mut Self::Output {
                 &mut self.$field[index.0]
             }
@@ -174,9 +180,10 @@ macro_rules! impl_index {
 impl_index!(ModuleId, Module, modules);
 impl_index!(TypeId, Type, types);
 impl_index!(VarId, CheckedVariable<F>, variables);
+impl_index!(ConstId, CheckedValueRef<F>, consts);
 impl_index!(ScopeId, Scope<F>, scopes);
 
-impl<T: Clone> Display for SymbolTable<T> {
+impl<T: Clone + From<u32> + ContextFelt> Display for SymbolTable<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for (i, scope) in self.scopes.iter().enumerate() {
             writeln!(f, "ScopeId({})", i)?;
@@ -224,7 +231,7 @@ impl<T: Clone> Display for SymbolTable<T> {
     }
 }
 
-impl<F: Clone> SymbolTable<F> {
+impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
     pub fn new() -> Self {
         SymbolTable {
             scopes: vec![],
@@ -232,6 +239,7 @@ impl<F: Clone> SymbolTable<F> {
             frames: vec![],
 
             types: vec![],
+            consts: vec![],
             variables: vec![],
             modules: vec![],
             module_stack: vec![],
@@ -264,6 +272,7 @@ impl<F: Clone> SymbolTable<F> {
                     .map(|&x| ScopeId(x.into()))
                     .collect(),
                 variables: HashMap::with_capacity(10),
+                consts: HashMap::new(),
                 types: HashMap::new(),
                 _marker: std::marker::PhantomData,
             })
@@ -347,6 +356,37 @@ impl<F: Clone> SymbolTable<F> {
         }
 
         Ok(self.add_type_variable(ty)?)
+    }
+
+    pub fn get_constant(&self, const_id: ConstId) -> CheckedValueRef<F> {
+        self[const_id].clone()
+    }
+
+    pub fn add_constant_id(&mut self, value: CheckedValueRef<F>) -> ConstId {
+        if let Some(idx) = self.consts.iter().position(|c| c.eq(&value)) {
+            ConstId(idx)
+        } else {
+            self.consts.push(value);
+            ConstId(self.consts.len() - 1)
+        }
+    }
+
+    pub fn add_constant(
+        &mut self,
+        scope_id: Option<ScopeId>,
+        name: IdentId,
+        value: CheckedValueRef<F>,
+    ) -> Result<ConstId> {
+        let key = name.into();
+        let const_id = self.add_constant_id(value);
+        let scope_id = scope_id.or(self.current_scope_id()).unwrap();
+
+        if let Some(&const_id) = self[scope_id].consts.get(&key) {
+            return Ok(const_id);
+        }
+
+        self[scope_id].consts.insert(key, const_id);
+        Ok(const_id)
     }
 
     pub fn add_use(&mut self, use_path: &UseNode) -> Result<()> {
@@ -715,20 +755,5 @@ impl<F: Clone> SymbolTable<F> {
         self.variables.push(variable);
         self[scope_id].variables.insert(key, var_id);
         Ok(var_id)
-    }
-
-    pub fn size_of(&self, type_id: TypeId) -> usize {
-        match &self[type_id] {
-            Type::Felt(_f) => 1usize,
-            Type::Bool(_b) => 1usize,
-            Type::U32(_u) => 1usize,
-            Type::Array(a) => self.size_of(a.inner_ty) * a.size,
-            Type::Struct(s) => s
-                .fields
-                .iter()
-                .map(|(_, (type_id, _))| self.size_of(type_id.clone()))
-                .sum(),
-            _ => unreachable!(),
-        }
     }
 }

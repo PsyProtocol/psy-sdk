@@ -1,5 +1,6 @@
 mod definition;
 mod expr;
+mod program;
 mod stmt;
 mod symbol_table;
 mod traits;
@@ -13,18 +14,21 @@ pub use definition::*;
 pub use error::*;
 pub use expr::*;
 use indexmap::IndexMap;
+pub use program::*;
 use qed_ast::*;
-use qed_common::{Arena, Graph};
+use qed_common::Graph;
+use qedlang_core::dpn::ops::context_trait::ContextFelt;
 pub use r#type::*;
 pub use stmt::*;
 pub use symbol_table::*;
+pub use traits::*;
 pub use value::*;
 pub use variable::*;
 
-use std::{collections::HashMap, ops::Index};
+use std::collections::HashMap;
 use tracing::instrument;
 
-pub struct TypeCheckerVisitorContext<F: Clone + From<u32>, C> {
+pub struct TypeCheckerVisitorContext<F: Clone + From<u32> + ContextFelt, C> {
     path_stack: Vec<NodeId>,
     pub program: Program<F>,
     pub symbols: SymbolTable<F>,
@@ -32,7 +36,7 @@ pub struct TypeCheckerVisitorContext<F: Clone + From<u32>, C> {
     _marker: std::marker::PhantomData<(F, C)>,
 }
 
-impl<F: Clone + From<u32>, C> TypeCheckerVisitorContext<F, C> {
+impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
     pub fn new(program: Program<F>) -> Self {
         TypeCheckerVisitorContext {
             path_stack: vec![],
@@ -87,7 +91,9 @@ impl<F: Clone + From<u32>, C> TypeCheckerVisitorContext<F, C> {
     }
 }
 
-impl<F: Clone + From<u32>, C> VisitorContext<F, C> for TypeCheckerVisitorContext<F, C> {
+impl<F: Clone + From<u32> + ContextFelt, C> VisitorContext<F, C>
+    for TypeCheckerVisitorContext<F, C>
+{
     type Expr = ExprNode<F>;
 
     type Stmt = StmtNode;
@@ -193,15 +199,13 @@ impl<F: Clone + From<u32>, C> VisitorContext<F, C> for TypeCheckerVisitorContext
     }
 }
 
-#[derive(Debug)]
-pub struct TypeChecker<F: Clone + From<u32>, C> {
-    pub exprs: Arena<ExprId, CheckedExprNode<F>>,
-    pub stmts: Arena<StmtId, CheckedStmtNode>,
-    pub defs: Arena<DefId, CheckedDefinitionNode>,
+pub struct TypeChecker<F: Clone + From<u32> + ContextFelt, C> {
+    pub program: CheckedProgram<F>,
+    evaluator: Box<dyn Evaluator<F, C>>,
     _marker: std::marker::PhantomData<C>,
 }
 
-impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
+impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, C> {
     type Expr = ExprNode<F>;
 
     type Stmt = StmtNode;
@@ -260,17 +264,25 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let index_access_node = ctx.expression(node).as_index_access().cloned().unwrap();
         let checked_expr = self.visit_expr(index_access_node.target, ctx)?;
         let checked_index = self.visit_expr(index_access_node.index, ctx)?;
-
         let type_id = checked_expr.ty();
-        let inner_ty = ctx.symbols[type_id].as_array().unwrap().inner_ty.clone();
+        let ty = &ctx.symbols[type_id];
+
+        let inner_ty = if let Some(a) = ty.as_array() {
+            a.inner_ty
+        } else {
+            let (&underlying_type_id, generic_args) = ty.as_generic_instance().unwrap();
+            let innner_ty = generic_args.first().unwrap().clone();
+            self.populate_generic_arguments(underlying_type_id, generic_args.to_vec(), ctx)?;
+            innner_ty
+        };
 
         if !self.unify(checked_index.ty(), FELT_TYPE, ctx) {
             return Err(Error::TypeMismatch);
         }
 
         Ok(CheckedExprNode::IndexAccess(CheckedIndexAccessNode {
-            target: self.exprs.alloc_item(checked_expr),
-            index: self.exprs.alloc_item(checked_index),
+            target: self.program.exprs.alloc_item(checked_expr),
+            index: self.program.exprs.alloc_item(checked_index),
             type_id: self.substitute_all(inner_ty, ctx)?,
         }))
     }
@@ -287,17 +299,14 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let type_id = checked_expr.ty();
         let ty = &ctx.symbols[type_id];
 
-        let (fields, underlying_type_id) = if let Some(s) = ty.as_struct() {
-            (&s.fields, type_id)
+        let underlying_type_id = if let Some(_) = ty.as_struct() {
+            type_id
         } else {
             let (&underlying_type_id, generic_args) = ty.as_generic_instance().unwrap();
 
             self.populate_generic_arguments(underlying_type_id, generic_args.to_vec(), ctx)?;
 
-            (
-                &ctx.symbols[underlying_type_id].as_struct().unwrap().fields,
-                underlying_type_id,
-            )
+            underlying_type_id
         };
 
         if ctx.parent_node_type().is_member_call_expr() {
@@ -311,11 +320,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     || self.typecheck_member_access(member_access_node.target, ctx)
             );
             return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
-                target: self.exprs.alloc_item(checked_expr),
+                target: self.program.exprs.alloc_item(checked_expr),
                 field: member_access_node.field,
                 type_id,
             }));
         } else {
+            let fields = &ctx.symbols[underlying_type_id].as_struct().unwrap().fields;
             let (field_type, visibility) = fields
                 .get(&member_access_node.field)
                 .ok_or(Error::UnresolvedMember)?;
@@ -324,7 +334,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     || self.typecheck_member_access(member_access_node.target, ctx)
             );
             return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
-                target: self.exprs.alloc_item(checked_expr),
+                target: self.program.exprs.alloc_item(checked_expr),
                 field: member_access_node.field.clone(),
                 type_id: self.substitute_all(field_type.clone(), ctx)?,
             }));
@@ -354,7 +364,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             .ok_or(Error::IndexOutOfBounds)?
             .clone();
         Ok(CheckedExprNode::TupleAccess(CheckedTupleAccessNode {
-            target: self.exprs.alloc_item(checked_expr),
+            target: self.program.exprs.alloc_item(checked_expr),
             index: tuple_access_node.index,
             type_id: field_type,
         }))
@@ -401,7 +411,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 }
                 return Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::GetStateHashAt {
-                        slot_index: self.exprs.alloc_item(slot_index),
+                        slot_index: self.program.exprs.alloc_item(slot_index),
                         type_id: HASH_TYPE,
                     },
                 ));
@@ -425,10 +435,11 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 return Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::GetOtherContractStateHashAt {
                         contract_state_tree_height: self
+                            .program
                             .exprs
                             .alloc_item(contract_state_tree_height),
-                        contract_id: self.exprs.alloc_item(contract_id),
-                        slot_index: self.exprs.alloc_item(slot_index),
+                        contract_id: self.program.exprs.alloc_item(contract_id),
+                        slot_index: self.program.exprs.alloc_item(slot_index),
                         type_id: HASH_TYPE,
                     },
                 ));
@@ -455,11 +466,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 return Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::GetOtherUserContractStateHashAt {
                         contract_state_tree_height: self
+                            .program
                             .exprs
                             .alloc_item(contract_state_tree_height),
-                        user_id: self.exprs.alloc_item(user_id),
-                        contract_id: self.exprs.alloc_item(contract_id),
-                        slot_index: self.exprs.alloc_item(slot_index),
+                        user_id: self.program.exprs.alloc_item(user_id),
+                        contract_id: self.program.exprs.alloc_item(contract_id),
+                        slot_index: self.program.exprs.alloc_item(slot_index),
                         type_id: HASH_TYPE,
                     },
                 ));
@@ -479,8 +491,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
                 return Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::CSetStateHashAt {
-                        slot_index: self.exprs.alloc_item(slot_index),
-                        new_value: self.exprs.alloc_item(new_value),
+                        slot_index: self.program.exprs.alloc_item(slot_index),
+                        new_value: self.program.exprs.alloc_item(new_value),
                         type_id: HASH_TYPE,
                     },
                 ));
@@ -492,7 +504,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     return Err(Error::TypeMismatch);
                 }
                 return Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::Read {
-                    offset: self.exprs.alloc_item(offset),
+                    offset: self.program.exprs.alloc_item(offset),
                     type_id: FELT_TYPE,
                 }));
             }
@@ -507,8 +519,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 }
                 Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::Write {
-                        offset: self.exprs.alloc_item(offset),
-                        value: self.exprs.alloc_item(value),
+                        offset: self.program.exprs.alloc_item(offset),
+                        value: self.program.exprs.alloc_item(value),
                         type_id: FELT_TYPE,
                     },
                 ))
@@ -517,7 +529,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 let data = self.visit_expr(data, ctx)?;
 
                 Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::Hash {
-                    data: self.exprs.alloc_item(data),
+                    data: self.program.exprs.alloc_item(data),
                     type_id: HASH_TYPE,
                 }))
             }
@@ -550,14 +562,33 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                         return Err(Error::TypeMismatch);
                     }
                     inner_ty = checked_expr.ty();
-                    elements.push(self.exprs.alloc_item(checked_expr));
+                    elements.push(self.program.exprs.alloc_item(checked_expr));
                 }
 
+                let underlying_type_id = ctx
+                    .symbols
+                    .get_type_id(Some(ScopeId::primitive()), IdentId::TYPE_ARRAY)
+                    .unwrap();
+
+                let size = self.evaluator.from_constant_value(size.clone() as u32);
+                let node = CheckedConstNode {
+                    name: None,
+                    ty: U32_TYPE,
+                    value: ctx.symbols.add_constant_id(size),
+                    scope_id: ctx.symbols.current_scope_id().unwrap(),
+                    visibility: Visibility::Public,
+                };
+                let size_ty = ctx.symbols.get_or_add_type(
+                    None,
+                    TypeKey::from_const_id(node.value),
+                    Type::Const(node),
+                )?;
+
                 let scope_id = ScopeId::primitive();
-                let ty = Type::Array(CheckedArrayNode {
-                    inner_ty: self.substitute_all(inner_ty, ctx)?,
-                    size: size.clone(),
-                });
+                let ty = Type::GenericInstance(
+                    underlying_type_id,
+                    vec![self.substitute_all(inner_ty, ctx)?, size_ty],
+                );
                 let type_id = ctx.symbols.get_or_add_type(Some(scope_id), ty.key(), ty)?;
 
                 Ok(CheckedExprNode::Value(CheckedValueNode::Array(
@@ -586,7 +617,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     if !self.unify(field_type, field_value.ty(), ctx) {
                         return Err(Error::TypeMismatch);
                     }
-                    new_data.insert(field_name, self.exprs.alloc_item(field_value));
+                    new_data.insert(field_name, self.program.exprs.alloc_item(field_value));
                 }
 
                 for (generic_arg, generic_param) in generic_args
@@ -674,9 +705,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         };
 
         Ok(CheckedExprNode::Binary(CheckedBinaryNode {
-            lhs: self.exprs.alloc_item(checked_lhs),
+            lhs: self.program.exprs.alloc_item(checked_lhs),
             operator: binary_node.operator,
-            rhs: self.exprs.alloc_item(checked_rhs),
+            rhs: self.program.exprs.alloc_item(checked_rhs),
             type_id,
         }))
     }
@@ -710,7 +741,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         Ok(CheckedExprNode::Unary(CheckedUnaryNode {
             operator: unary_node.operator,
-            rhs: self.exprs.alloc_item(checked_expr),
+            rhs: self.program.exprs.alloc_item(checked_expr),
             type_id,
         }))
     }
@@ -750,9 +781,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
 
         return Ok(CheckedExprNode::Call(CheckedCallNode {
-            callee: self.exprs.alloc_item(callee),
+            callee: self.program.exprs.alloc_item(callee),
             generic_parameters: generic_parameters,
-            args: self.exprs.alloc_items(args),
+            args: self.program.exprs.alloc_items(args),
             type_id: self.substitute_all(signature.return_type, ctx)?,
         }));
     }
@@ -792,7 +823,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 return Err(Error::FunctionParameterMismatch);
             }
 
-            self.exprs.alloc_item(receiver)
+            self.program.exprs.alloc_item(receiver)
         };
 
         for (i, arg) in call_node.args.iter().enumerate() {
@@ -804,10 +835,10 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
 
         return Ok(CheckedExprNode::MemberCall(CheckedMemberCallNode {
-            callee: self.exprs.alloc_item(variable),
+            callee: self.program.exprs.alloc_item(variable),
             receiver,
             generic_parameters: f.generic_parameters.clone(),
-            args: self.exprs.alloc_items(args),
+            args: self.program.exprs.alloc_items(args),
             type_id: self.substitute_all(f.return_type, ctx)?,
         }));
     }
@@ -837,7 +868,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         let elements_with_types = checked_elements
             .into_iter()
-            .map(|e| (e.ty(), self.exprs.alloc_item(e)))
+            .map(|e| (e.ty(), self.program.exprs.alloc_item(e)))
             .collect();
 
         let checked_expr =
@@ -865,7 +896,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 || self.unify(target_type, U32_TYPE, ctx))
         {
             return Ok(CheckedExprNode::Cast(CheckedCastNode {
-                value: self.exprs.alloc_item(src_expr),
+                value: self.program.exprs.alloc_item(src_expr),
                 target_type,
             }));
         } else {
@@ -888,11 +919,11 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         let checked_block = self.visit_stmt(if_expr_node.if_branch.body, ctx)?;
 
-        let if_type = self.exprs[checked_block.as_expression().unwrap().clone()].ty();
+        let if_type = self.program.exprs[checked_block.as_expression().unwrap().clone()].ty();
         let if_branch = CheckedCase {
-            predicate: self.exprs.alloc_item(checked_expr).clone(),
+            predicate: self.program.exprs.alloc_item(checked_expr).clone(),
             type_id: BOOL_TYPE,
-            body: self.stmts.alloc_item(checked_block),
+            body: self.program.stmts.alloc_item(checked_block),
         };
 
         let mut elseif_branches = Vec::with_capacity(if_expr_node.elseif_branches.len());
@@ -902,26 +933,27 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 return Err(Error::TypeMismatch);
             }
             let checked_block = self.visit_stmt(branch.body, ctx)?;
-            let else_if_type = self.exprs[checked_block.as_expression().unwrap().clone()].ty();
+            let else_if_type =
+                self.program.exprs[checked_block.as_expression().unwrap().clone()].ty();
             if !self.unify(else_if_type, if_type, ctx) {
                 return Err(Error::TypeMismatch);
             }
 
             elseif_branches.push(CheckedCase {
-                predicate: self.exprs.alloc_item(checked_expr).clone(),
+                predicate: self.program.exprs.alloc_item(checked_expr).clone(),
                 type_id: BOOL_TYPE,
-                body: self.stmts.alloc_item(checked_block),
+                body: self.program.stmts.alloc_item(checked_block),
             });
         }
 
         let else_branch = if let Some(else_branch) = if_expr_node.else_branch {
             let checked_block = self.visit_stmt(else_branch, ctx)?;
-            let else_type = self.exprs[checked_block.as_expression().unwrap().clone()].ty();
+            let else_type = self.program.exprs[checked_block.as_expression().unwrap().clone()].ty();
             if !self.unify(else_type, if_type, ctx) {
                 return Err(Error::TypeMismatch);
             }
 
-            Some(self.stmts.alloc_item(checked_block))
+            Some(self.program.stmts.alloc_item(checked_block))
         } else {
             None
         };
@@ -948,9 +980,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
         let checked_block = self.visit_stmt(while_node.body, ctx)?;
         Ok(CheckedStmtNode::While(CheckedWhileNode {
-            predicate: self.exprs.alloc_item(predicate),
+            predicate: self.program.exprs.alloc_item(predicate),
             type_id: BOOL_TYPE,
-            body: self.stmts.alloc_item(checked_block),
+            body: self.program.stmts.alloc_item(checked_block),
         }))
     }
 
@@ -972,9 +1004,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
 
         Ok(CheckedStmtNode::Assignment(CheckedAssignmentNode {
-            target: self.exprs.alloc_item(checked_lhs),
+            target: self.program.exprs.alloc_item(checked_lhs),
             operator: assignment_node.operator,
-            value: self.exprs.alloc_item(checked_rhs),
+            value: self.program.exprs.alloc_item(checked_rhs),
             type_id: self.substitute_all(lhs_ty, ctx)?,
         }))
     }
@@ -1002,7 +1034,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             name: variable_node.name,
             ty: self.substitute_all(rhs_ty, ctx)?,
             qualifier: variable_node.qualifier,
-            value: self.exprs.alloc_item(checked_expr),
+            value: self.program.exprs.alloc_item(checked_expr),
             scope_id: current_scope_id,
         };
         Ok(CheckedStmtNode::Variable(checked_variable))
@@ -1034,7 +1066,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         let ret = if let Some(expr) = return_node.0 {
             let expr = self.visit_expr(expr, ctx)?;
-            Some(self.exprs.alloc_item(expr))
+            Some(self.program.exprs.alloc_item(expr))
         } else {
             None
         };
@@ -1059,7 +1091,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
                 Ok(CheckedStmtNode::Intrinsic(
                     CheckedIntrinsicStmtNode::Assert {
-                        left: self.exprs.alloc_item(checked_lhs),
+                        left: self.program.exprs.alloc_item(checked_lhs),
                         message: message,
                     },
                 ))
@@ -1078,8 +1110,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
                 Ok(CheckedStmtNode::Intrinsic(
                     CheckedIntrinsicStmtNode::AssertEq {
-                        left: self.exprs.alloc_item(checked_lhs),
-                        right: self.exprs.alloc_item(checked_rhs),
+                        left: self.program.exprs.alloc_item(checked_lhs),
+                        right: self.program.exprs.alloc_item(checked_rhs),
                         message: message,
                     },
                 ))
@@ -1171,7 +1203,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let checked_trait = CheckedTraitNode {
             generic_parameters,
             name: trait_node.name,
-            body: self.defs.alloc_items(methods),
+            body: self.program.defs.alloc_items(methods),
             def_ids: trait_node.body.clone(),
             implementors: Vec::new(),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
@@ -1363,12 +1395,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     ctx.statement(stmt_id).as_definition().unwrap().clone(),
                     ctx,
                 )?;
-                self.defs.alloc_item(definition)
+                self.program.defs.alloc_item(definition)
             }),
             NodeType::ExpressionStmt => Self::StmtResult::from({
                 let expr =
                     self.visit_expr(ctx.statement(stmt_id).as_expression().unwrap().clone(), ctx)?;
-                self.exprs.alloc_item(expr)
+                self.program.exprs.alloc_item(expr)
             }),
             NodeType::IntrinsicStmt => self.visit_intrinsic_stmt(stmt_id, ctx)?,
             _ => unreachable!(),
@@ -1377,6 +1409,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         Ok(res)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn visit_module(
         &mut self,
         module_id: ModuleId,
@@ -1437,17 +1470,17 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let type_id = match checked_stmts.last() {
             Some(s) => match s {
                 CheckedStmtNode::Return(ret) => match ret {
-                    CheckedReturnNode { ret: Some(expr) } => self.exprs[expr.clone()].ty(),
+                    CheckedReturnNode { ret: Some(expr) } => self.program.exprs[expr.clone()].ty(),
                     CheckedReturnNode { ret: None } => VOID_TYPE,
                 },
                 //when block embedded in a block
                 CheckedStmtNode::Expression(expr) => {
-                    let type_id = match self.exprs[expr.clone()].node_type() {
+                    let type_id = match self.program.exprs[expr.clone()].node_type() {
                         NodeType::BlockExpr | NodeType::IfExpr => {
                             insert_return = Some(CheckedStmtNode::Return(CheckedReturnNode {
                                 ret: Some(expr.clone()),
                             }));
-                            self.exprs[expr.clone()].ty()
+                            self.program.exprs[expr.clone()].ty()
                         }
                         _ => VOID_TYPE,
                     };
@@ -1464,12 +1497,13 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         ctx.symbols.end_scope();
         Ok(CheckedExprNode::BlockExpr(CheckedBlockExprNode {
-            stmts: self.stmts.alloc_items(checked_stmts),
+            stmts: self.program.stmts.alloc_items(checked_stmts),
             type_id,
             scope_id: current_scope_id,
         }))
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn visit_type_alias(
         &mut self,
         node: DefId,
@@ -1505,10 +1539,15 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             return Err(Error::TypeMismatch);
         }
 
+        let value_expr_id = self.program.exprs.alloc_item(value);
+        let value = self
+            .evaluator
+            .evaluate_expr(&self.program, value_expr_id, ctx);
+
         let node = CheckedConstNode {
-            name: node.name,
+            name: Some(node.name),
             ty: rhs_ty,
-            value: self.exprs.alloc_item(value),
+            value: ctx.symbols.add_constant_id(value),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: node.visibility,
         };
@@ -1546,9 +1585,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let checked_block = self.visit_stmt(for_node.body, ctx)?;
         let node = CheckedStmtNode::For(CheckedForNode {
             variable: for_node.variable,
-            start: self.exprs.alloc_item(start),
-            end: self.exprs.alloc_item(end),
-            body: self.stmts.alloc_item(checked_block),
+            start: self.program.exprs.alloc_item(start),
+            end: self.program.exprs.alloc_item(end),
+            body: self.program.stmts.alloc_item(checked_block),
             scope_id: current_scope_id,
         });
         ctx.symbols.end_scope();
@@ -1596,11 +1635,13 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             let checked_body = self.visit_stmt(function.body.clone(), ctx)?;
             let actual_return_type = match &checked_body {
                 CheckedStmtNode::Return(expr) => match expr {
-                    CheckedReturnNode { ret: Some(expr) } => self.exprs[expr.clone()].ty(),
+                    CheckedReturnNode { ret: Some(expr) } => self.program.exprs[expr.clone()].ty(),
                     CheckedReturnNode { ret: None } => VOID_TYPE,
                 },
-                CheckedStmtNode::Expression(expr) => match self.exprs[expr.clone()].node_type() {
-                    NodeType::BlockExpr | NodeType::IfExpr => self.exprs[expr.clone()].ty(),
+                CheckedStmtNode::Expression(expr) => match self.program.exprs[expr.clone()]
+                    .node_type()
+                {
+                    NodeType::BlockExpr | NodeType::IfExpr => self.program.exprs[expr.clone()].ty(),
                     _ => VOID_TYPE,
                 },
                 _ => VOID_TYPE,
@@ -1615,7 +1656,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let mut checked_function = CheckedLambdaFunctionNode {
             name: ctx.intern_lambda(),
             parameters,
-            body: self.stmts.alloc_item(checked_body),
+            body: self.program.stmts.alloc_item(checked_body),
             return_type: expected_return_type,
             scope_id: current_scope_id,
             type_id: UNKOWN_TYPE,
@@ -1674,7 +1715,10 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 .body
                 .iter()
                 .position(|trait_def_id| {
-                    let trait_method = self.defs[*trait_def_id].clone().into_function().unwrap();
+                    let trait_method = self.program.defs[*trait_def_id]
+                        .clone()
+                        .into_function()
+                        .unwrap();
                     trait_method.trait_impl_signature(implementor_type_id) == method.signature()
                 })
                 .ok_or(Error::UnresolvedTraitMethod)?;
@@ -1683,7 +1727,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         for i in 0..methods.len() {
             if methods[i] == Default::default() {
-                let trait_method = self.defs[trait_node.body[i]]
+                let trait_method = self.program.defs[trait_node.body[i]]
                     .clone()
                     .into_function()
                     .unwrap();
@@ -1714,36 +1758,11 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     }
 }
 
-impl<F: Clone + From<u32>, C> Index<ExprId> for TypeChecker<F, C> {
-    type Output = CheckedExprNode<F>;
-
-    fn index(&self, index: ExprId) -> &Self::Output {
-        &self.exprs[index]
-    }
-}
-
-impl<F: Clone + From<u32>, C> Index<StmtId> for TypeChecker<F, C> {
-    type Output = CheckedStmtNode;
-
-    fn index(&self, index: StmtId) -> &Self::Output {
-        &self.stmts[index]
-    }
-}
-
-impl<F: Clone + From<u32>, C> Index<DefId> for TypeChecker<F, C> {
-    type Output = CheckedDefinitionNode;
-
-    fn index(&self, index: DefId) -> &Self::Output {
-        &self.defs[index]
-    }
-}
-
-impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
-    pub fn new() -> Self {
+impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
+    pub fn new(program: CheckedProgram<F>, evaluator: Box<dyn Evaluator<F, C>>) -> Self {
         Self {
-            exprs: Arena::new(),
-            stmts: Arena::new(),
-            defs: Arena::new(),
+            program,
+            evaluator,
             _marker: std::marker::PhantomData,
         }
     }
@@ -1762,6 +1781,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         for ty in &*PRIMITIVE_TYPES {
             ctx.symbols.add_type(None, ty.key(), ty.clone())?;
         }
+        self.typecheck_array(ctx)?;
         Ok(())
     }
 
@@ -1812,8 +1832,8 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         let is_method = [ScopeKind::ImplMethod, ScopeKind::TraitMethod]
             .contains(&ctx.symbols[current_scope_id].kind);
 
-        for (i, (parameter, _, parameter_type)) in function.parameters.iter().enumerate() {
-            if parameter == &IdentId::SELF && (i != 0 || !is_method) {
+        for (i, (parameter_name, _, parameter_type)) in function.parameters.iter().enumerate() {
+            if parameter_name == &IdentId::SELF && (i != 0 || !is_method) {
                 return Err(Error::InvalidSelfParameter);
             }
 
@@ -1823,6 +1843,31 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         }
 
         Ok(())
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    pub fn typecheck_array(&mut self, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<TypeId> {
+        ctx.symbols.start_scope(ScopeKind::Array);
+        ctx.push_inferences_context();
+
+        let inner_ty = ctx.symbols.add_type_variable(IdentId::T)?;
+        let size = ctx.symbols.add_type_variable(IdentId::N)?;
+
+        let checked_array = CheckedArrayNode {
+            inner_ty,
+            size,
+            scope_id: ctx.symbols.current_scope_id().unwrap(),
+            implementations: vec![],
+        };
+
+        let ty = Type::Array(checked_array.clone());
+        let type_id = ctx
+            .symbols
+            .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
+
+        ctx.pop_inferences_context();
+        ctx.symbols.end_scope();
+        Ok(type_id)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1889,26 +1934,53 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                         }
                         todo!()
                     }
+                    Type::Array(_) => {
+                        if checked_generic_parameters.len() != 2 {
+                            return Err(Error::GenericParameterMismatch);
+                        }
+
+                        let ty =
+                            Type::GenericInstance(underlying_type_id, checked_generic_parameters);
+                        let type_id = ctx.symbols.get_or_add_type(None, ty.key(), ty)?;
+
+                        Ok(type_id)
+                    }
                     _ => unreachable!(),
                 }
             }
             UncheckedType::Array(inner, size) => {
+                let underlying_type_id = ctx
+                    .symbols
+                    .get_type_id(Some(ScopeId::primitive()), IdentId::TYPE_ARRAY)
+                    .unwrap();
                 let inner_ty = self.typecheck(inner, ctx)?;
-                let scope_id = ScopeId::primitive();
-                let ty = Type::Array(CheckedArrayNode {
-                    inner_ty,
-                    size: size.clone(),
-                });
-                ctx.symbols.get_or_add_type(Some(scope_id), ty.key(), ty)
+
+                let size = self.evaluator.from_constant_value(size.clone() as u32);
+                let node = CheckedConstNode {
+                    name: None,
+                    ty: U32_TYPE,
+                    value: ctx.symbols.add_constant_id(size),
+                    scope_id: ctx.symbols.current_scope_id().unwrap(),
+                    visibility: Visibility::Public,
+                };
+
+                let size_ty = ctx.symbols.get_or_add_type(
+                    None,
+                    TypeKey::from_const_id(node.value),
+                    Type::Const(node),
+                )?;
+
+                let ty = Type::GenericInstance(underlying_type_id, vec![inner_ty, size_ty]);
+                let type_id = ctx.symbols.get_or_add_type(None, ty.key(), ty)?;
+
+                Ok(type_id)
             }
             UncheckedType::Tuple(elements) => {
                 // check each element and collect results into a Result<Vec<TypeId>>
-                let checked_elements: Result<Vec<TypeId>> = elements
+                let checked_elements = elements
                     .iter()
                     .map(|elem_ty| self.typecheck(elem_ty, ctx))
-                    .collect();
-
-                let checked_elements = checked_elements?;
+                    .collect::<Result<_>>()?;
 
                 let checked_tuple = Type::Tuple(checked_elements);
 
@@ -2026,11 +2098,13 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             let checked_body = self.visit_stmt(body.clone(), ctx)?;
             let actual_return_type = match &checked_body {
                 CheckedStmtNode::Return(expr) => match expr {
-                    CheckedReturnNode { ret: Some(expr) } => self.exprs[expr.clone()].ty(),
+                    CheckedReturnNode { ret: Some(expr) } => self.program.exprs[expr.clone()].ty(),
                     CheckedReturnNode { ret: None } => VOID_TYPE,
                 },
-                CheckedStmtNode::Expression(expr) => match self.exprs[expr.clone()].node_type() {
-                    NodeType::BlockExpr | NodeType::IfExpr => self.exprs[expr.clone()].ty(),
+                CheckedStmtNode::Expression(expr) => match self.program.exprs[expr.clone()]
+                    .node_type()
+                {
+                    NodeType::BlockExpr | NodeType::IfExpr => self.program.exprs[expr.clone()].ty(),
                     _ => VOID_TYPE,
                 },
                 _ => VOID_TYPE,
@@ -2047,7 +2121,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             name: function.name,
             parameters,
             generic_parameters,
-            body: checked_body.map(|x| self.stmts.alloc_item(x)),
+            body: checked_body.map(|x| self.program.stmts.alloc_item(x)),
             return_type: expected_return_type,
             scope_id: current_scope_id,
             visibility: function.visibility,
@@ -2092,7 +2166,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
 
             (Type::GenericInstance(underlying_type_id, args), Type::Struct(checked_struct))
             | (Type::Struct(checked_struct), Type::GenericInstance(underlying_type_id, args)) => {
-                let other_ty = ctx.symbols[*underlying_type_id].clone();
+                let other_ty = &ctx.symbols[*underlying_type_id];
                 other_ty.is_struct()
                     && other_ty.name() == checked_struct.name
                     && other_ty.scope_id() == checked_struct.scope_id
@@ -2100,6 +2174,16 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                         .clone()
                         .into_iter()
                         .zip(checked_struct.generic_parameters.clone().into_iter())
+                        .all(|(p1, p2)| self.unify(p1, p2, ctx))
+            }
+            (Type::GenericInstance(underlying_type_id, args), Type::Array(checked_array))
+            | (Type::Array(checked_array), Type::GenericInstance(underlying_type_id, args)) => {
+                let other_ty = &ctx.symbols[*underlying_type_id];
+                other_ty.is_array()
+                    && args
+                        .clone()
+                        .into_iter()
+                        .zip(vec![checked_array.inner_ty, checked_array.size])
                         .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
 
@@ -2131,6 +2215,10 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             | (Type::FunctionSignature(sig), Type::LambdaFunction(f)) => &f.signature() == sig,
             (Type::Const(c), Type::Felt(_)) => c.ty == rhs_ty,
             (Type::Felt(_), Type::Const(c)) => c.ty == lhs_ty,
+            (Type::Const(c), Type::U32(_)) => c.ty == rhs_ty,
+            (Type::U32(_), Type::Const(c)) => c.ty == lhs_ty,
+            (Type::Const(c), Type::Bool(_)) => c.ty == rhs_ty,
+            (Type::Bool(_), Type::Const(c)) => c.ty == lhs_ty,
             (Type::Const(c), Type::Const(d)) => c.ty == d.ty,
             (Type::Unknown, Type::Unknown) => false,
             (Type::Unknown, _) | (_, Type::Unknown) => true,
@@ -2175,10 +2263,11 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             Type::TypeVariable(_) => Ok(type_id),
 
             Type::Array(array) => {
-                let inner_ty = self.substitute_all(array.inner_ty, ctx)?;
                 let ty = Type::Array(CheckedArrayNode {
-                    inner_ty,
-                    size: array.size,
+                    inner_ty: self.substitute_all(array.inner_ty, ctx)?,
+                    size: self.substitute_all(array.size, ctx)?,
+                    scope_id: array.scope_id,
+                    implementations: array.implementations,
                 });
                 ctx.symbols
                     .get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)

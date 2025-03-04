@@ -28,7 +28,7 @@ impl<F> NodeInfo for CheckedValueNode<F> {
 }
 
 #[derive(Debug, EnumAsInner)]
-pub enum CheckedValue<F> {
+pub enum CheckedValue<F: Clone + From<u32> + ContextFelt> {
     Felt(F),
     Bool(F),
     U32(F),
@@ -43,9 +43,9 @@ pub enum CheckedValue<F> {
 }
 
 #[derive(Debug)]
-pub struct CheckedValueRef<F>(Rc<RefCell<CheckedValue<F>>>);
+pub struct CheckedValueRef<F: Clone + From<u32> + ContextFelt>(Rc<RefCell<CheckedValue<F>>>);
 
-impl<F: Clone> Clone for CheckedValueRef<F> {
+impl<F: Clone + From<u32> + ContextFelt> Clone for CheckedValueRef<F> {
     fn clone(&self) -> Self {
         match &*self.0.borrow() {
             CheckedValue::Felt(f) => {
@@ -138,7 +138,7 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValueRef<F> {
     }
 }
 
-impl<F: Clone> CheckedValueRef<F> {
+impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
     pub fn new_rc(value: CheckedValue<F>) -> Self {
         Self(Rc::new(RefCell::new(value)))
     }
@@ -223,7 +223,7 @@ impl<F: Clone> CheckedValueRef<F> {
             CheckedValue::Felt(f) => f.clone(),
             CheckedValue::U32(u) => u.clone(),
             CheckedValue::Bool(b) => b.clone(),
-            _ => panic!("Expected felt value"),
+            _ => panic!("Expected felt/u32/bool value"),
         }
     }
 
@@ -256,27 +256,27 @@ impl<F: Clone> CheckedValueRef<F> {
 
     pub fn felt_size(&self) -> usize {
         match &*self.0.borrow() {
-            CheckedValue::Felt(f) => 1,
-            CheckedValue::Bool(b) => 1,
-            CheckedValue::U32(u) => 1,
-            CheckedValue::Array(type_id, values) => {
+            CheckedValue::Felt(_) => 1,
+            CheckedValue::Bool(_) => 1,
+            CheckedValue::U32(_) => 1,
+            CheckedValue::Array(_, values) => {
                 let mut result = 0;
                 for value in values {
                     result += value.felt_size();
                 }
                 result
             }
-            CheckedValue::Struct(type_id, fields) => {
+            CheckedValue::Struct(_, fields) => {
                 let mut result = 0;
                 for (_, value) in fields {
                     result += value.felt_size();
                 }
                 result
             }
-            CheckedValue::Type(type_id) => {
+            CheckedValue::Type(_) => {
                 unreachable!()
             }
-            CheckedValue::Tuple { type_id, elements } => {
+            CheckedValue::Tuple { elements, .. } => {
                 let mut result = 0;
                 for (_, elem) in elements {
                     result += elem.felt_size();
