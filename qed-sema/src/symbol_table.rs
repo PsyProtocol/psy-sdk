@@ -12,8 +12,8 @@ use std::{
 };
 
 use crate::{
-    variable::CheckedVariable, CheckedTraitNode, CheckedValueRef, IdentId, ModuleId, ModuleKind,
-    Type, TypeId, TypeKey, UseNode,
+    variable::CheckedVariable, CheckedTraitNode, CheckedTypeVariableNode, CheckedValueRef, IdentId,
+    ModuleId, ModuleKind, Type, TypeId, TypeKey, UseNode,
 };
 use crate::{Error, Result};
 
@@ -300,7 +300,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         let key = name.into();
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
-        if let Some(_) = self[scope_id].types.get(&key) {
+        if self[scope_id].types.contains_key(&key) {
             return Err(Error::TypeAlreadyDefined);
         }
 
@@ -341,7 +341,10 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
 
     pub fn add_type_variable(&mut self, ty: IdentId) -> Result<TypeId> {
         let type_id = TypeId(self.types.len());
-        self.types.push(Type::TypeVariable(ty));
+        self.types.push(Type::TypeVariable(CheckedTypeVariableNode {
+            constraints: vec![],
+            scope_id: self.current_scope_id().unwrap(),
+        }));
         self.add_type_id(None, ty, type_id)?;
         Ok(type_id)
     }
@@ -362,31 +365,13 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         self[const_id].clone()
     }
 
-    pub fn add_constant_id(&mut self, value: CheckedValueRef<F>) -> ConstId {
+    pub fn add_constant(&mut self, value: CheckedValueRef<F>) -> ConstId {
         if let Some(idx) = self.consts.iter().position(|c| c.eq(&value)) {
             ConstId(idx)
         } else {
             self.consts.push(value);
             ConstId(self.consts.len() - 1)
         }
-    }
-
-    pub fn add_constant(
-        &mut self,
-        scope_id: Option<ScopeId>,
-        name: IdentId,
-        value: CheckedValueRef<F>,
-    ) -> Result<ConstId> {
-        let key = name.into();
-        let const_id = self.add_constant_id(value);
-        let scope_id = scope_id.or(self.current_scope_id()).unwrap();
-
-        if let Some(&const_id) = self[scope_id].consts.get(&key) {
-            return Ok(const_id);
-        }
-
-        self[scope_id].consts.insert(key, const_id);
-        Ok(const_id)
     }
 
     pub fn add_use(&mut self, use_path: &UseNode) -> Result<()> {

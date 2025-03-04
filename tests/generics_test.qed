@@ -1,13 +1,8 @@
-// impl<T, N> [T; N] {
-//     pub fn len() -> Felt {
-//         return N;
-//     }
-// }
-//
-// fn main() -> Felt {
-//     let arr: [Felt; 2] = [0, 1];
-//     arr.len()
-// }
+impl<T, N> [T; N] {
+    pub fn len(self) -> Felt {
+        return 1;
+    }
+}
 
 pub struct Data<T> {
     pub data: [T; 2]
@@ -38,8 +33,8 @@ impl<T> Person<T> {
 fn main() -> Felt {
     let data = new Data { data: [10, 20] };
     let p = new Person { data };
-    // let arr: [Felt; 2] = [0, 1];
+    let arr: [Felt; 2] = [0, 1];
     p.set_age(20);
     modify_person(p);
-    p.data.data[0]
+    p.data.data[0] + arr.len()
 }

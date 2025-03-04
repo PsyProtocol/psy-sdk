@@ -60,6 +60,12 @@ pub struct CheckedU32Node {
     pub implementations: Vec<TypeId>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct CheckedTypeVariableNode {
+    pub constraints: Vec<TypeId>,
+    pub scope_id: ScopeId,
+}
+
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum Type {
     Unknown,
@@ -75,7 +81,7 @@ pub enum Type {
     Const(CheckedConstNode),
     LambdaFunction(CheckedLambdaFunctionNode),
     FunctionSignature(CheckedFunctionSignature),
-    TypeVariable(IdentId),
+    TypeVariable(CheckedTypeVariableNode),
     Tuple(Vec<TypeId>),
 
     GenericInstance(TypeId, Vec<TypeId>),
@@ -332,7 +338,8 @@ impl Type {
             Type::Felt(_) => ScopeId::primitive(),
             Type::Bool(_) => ScopeId::primitive(),
             Type::U32(_) => ScopeId::primitive(),
-            _ => panic!("Type::scope_id called on non-composite type"),
+            Type::TypeVariable(CheckedTypeVariableNode { scope_id, .. }) => *scope_id,
+            _ => panic!("Type::scope_id called on non-composite type: {:?}", self),
         }
     }
 

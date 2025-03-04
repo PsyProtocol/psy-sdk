@@ -13,11 +13,7 @@ mod error;
 pub use definition::*;
 pub use error::*;
 pub use expr::*;
-use indexmap::IndexMap;
 pub use program::*;
-use qed_ast::*;
-use qed_common::Graph;
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
 pub use r#type::*;
 pub use stmt::*;
 pub use symbol_table::*;
@@ -25,6 +21,10 @@ pub use traits::*;
 pub use value::*;
 pub use variable::*;
 
+use indexmap::IndexMap;
+use qed_ast::*;
+use qed_common::Graph;
+use qedlang_core::dpn::ops::context_trait::ContextFelt;
 use std::collections::HashMap;
 use tracing::instrument;
 
@@ -574,7 +574,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let node = CheckedConstNode {
                     name: None,
                     ty: U32_TYPE,
-                    value: ctx.symbols.add_constant_id(size),
+                    value: ctx.symbols.add_constant(size),
                     scope_id: ctx.symbols.current_scope_id().unwrap(),
                     visibility: Visibility::Public,
                 };
@@ -811,7 +811,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             }
         }
         let mut args = Vec::new();
-        // TODO: add member call
         let receiver = {
             let receiver = self.visit_expr(call_node.receiver, ctx)?;
             if let Some((&underlying_type_id, generic_args)) =
@@ -1128,16 +1127,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         // TODO: remove clone
         let impl_node = ctx.definition(node).as_impl().cloned().unwrap();
 
-        let mut checked_generic_parameters = Vec::new();
-        for &generic_parameter in &impl_node.generic_parameters {
-            checked_generic_parameters.push(ctx.symbols.add_type_variable(generic_parameter)?);
-        }
-
         let underlying_type_id = ctx.symbols.get_type_id(None, impl_node.ty.name()).unwrap();
         let implementor_scope = ctx.symbols[underlying_type_id].scope_id();
         ctx.symbols.enter_scope(implementor_scope);
         ctx.symbols.start_scope(ScopeKind::Impl);
         ctx.push_inferences_context();
+
+        let mut checked_generic_parameters = Vec::new();
+        for &generic_parameter in &impl_node.generic_parameters {
+            checked_generic_parameters.push(ctx.symbols.add_type_variable(generic_parameter)?);
+        }
 
         ctx.symbols
             .add_type_id(None, IdentId::TYPE_SELF, underlying_type_id)?;
@@ -1146,11 +1145,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         let mut methods = Vec::new();
 
-        for (generic_parameter, generic_arg) in checked_generic_parameters.iter().zip(
-            ctx.symbols[underlying_type_id]
-                .generic_parameters()
-                .into_iter(),
-        ) {
+        for (generic_parameter, generic_arg) in checked_generic_parameters
+            .iter()
+            .zip(ctx.symbols[underlying_type_id].generic_parameters())
+        {
             if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
                 return Err(Error::TypeMismatch);
             }
@@ -1547,7 +1545,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let node = CheckedConstNode {
             name: Some(node.name),
             ty: rhs_ty,
-            value: ctx.symbols.add_constant_id(value),
+            value: ctx.symbols.add_constant(value),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: node.visibility,
         };
@@ -1813,7 +1811,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         for (generic_param, generic_arg) in ctx.symbols[underlying_type_id]
             .generic_parameters()
             .into_iter()
-            .zip(generic_args.clone().into_iter())
+            .zip(generic_args)
         {
             if !self.unify(generic_param, generic_arg, ctx) {
                 return Err(Error::TypeMismatch);
@@ -1959,7 +1957,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 let node = CheckedConstNode {
                     name: None,
                     ty: U32_TYPE,
-                    value: ctx.symbols.add_constant_id(size),
+                    value: ctx.symbols.add_constant(size),
                     scope_id: ctx.symbols.current_scope_id().unwrap(),
                     visibility: Visibility::Public,
                 };

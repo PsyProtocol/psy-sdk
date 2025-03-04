@@ -193,8 +193,13 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
     pub fn is_array(&self) -> bool {
         self.0.borrow().is_array()
     }
+
     pub fn is_tuple(&self) -> bool {
         self.0.borrow().is_tuple()
+    }
+
+    pub fn is_type(&self) -> bool {
+        self.0.borrow().is_type()
     }
 
     pub fn to_felt(&self) -> F {
@@ -215,6 +220,13 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
         match &*self.0.borrow() {
             CheckedValue::U32(f) => f.clone(),
             _ => panic!("Expected u32 value"),
+        }
+    }
+
+    pub fn to_type(&self) -> TypeId {
+        match &*self.0.borrow() {
+            CheckedValue::Type(type_id) => type_id.clone(),
+            _ => panic!("Expected type value"),
         }
     }
 
