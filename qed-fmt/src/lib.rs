@@ -785,14 +785,14 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let node = ctx.statement(node).as_intrinsic().cloned().unwrap();
-        match node {
+        let s = match node {
             IntrinsicStmtNode::Assert { left, message } => {
                 let expr = self.visit_expr(left, ctx)?;
-                self.write_line(&format!(
+                format!(
                     "assert({}, \"{}\")",
                     expr,
                     message.unwrap_or_default()
-                ))
+                )
             }
             IntrinsicStmtNode::AssertEq {
                 left,
@@ -801,15 +801,15 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             } => {
                 let left = self.visit_expr(left, ctx)?;
                 let right = self.visit_expr(right, ctx)?;
-                self.write_line(&format!(
+                format!(
                     "assert_eq({}, {}, \"{}\")",
                     left,
                     right,
                     message.unwrap_or_default()
-                ))
+                )
             }
-        }
-        Ok(Default::default())
+        };
+        Ok(s)
     }
     fn visit_module(
         &mut self,
