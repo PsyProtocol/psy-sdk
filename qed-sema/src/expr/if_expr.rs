@@ -1,15 +1,15 @@
 use crate::TypeId;
-use qed_ast::{ExprId, NodeInfo, NodeType, StmtId};
+use qed_ast::{ExprId, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedCase {
     pub predicate: ExprId,
     pub type_id: TypeId,
-    pub body: StmtId,
+    pub body: ExprId,
 }
 
 impl CheckedCase {
-    pub fn new(predicate: ExprId, type_id: TypeId, body: StmtId) -> Self {
+    pub fn new(predicate: ExprId, type_id: TypeId, body: ExprId) -> Self {
         Self {
             predicate,
             type_id,
@@ -22,7 +22,7 @@ impl CheckedCase {
 pub struct CheckedIfExprNode {
     pub if_branch: CheckedCase,
     pub elseif_branches: Vec<CheckedCase>,
-    pub else_branch: Option<StmtId>,
+    pub else_branch: Option<ExprId>,
     pub type_id: TypeId,
 }
 

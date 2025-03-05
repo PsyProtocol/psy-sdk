@@ -1,11 +1,11 @@
-use crate::{ExprId, IdentId, NodeInfo, NodeType, ScopeId, StmtId};
+use crate::{ExprId, IdentId, NodeInfo, NodeType, ScopeId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedForNode {
     pub variable: IdentId,
     pub start: ExprId,
     pub end: ExprId,
-    pub body: StmtId,
+    pub body: ExprId,
     pub scope_id: ScopeId,
 }
 

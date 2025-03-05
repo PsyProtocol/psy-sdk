@@ -268,10 +268,10 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
 
     pub fn felt_size(&self) -> usize {
         match &*self.0.borrow() {
-            CheckedValue::Felt(_) => 1,
-            CheckedValue::Bool(_) => 1,
-            CheckedValue::U32(_) => 1,
-            CheckedValue::Array(_, values) => {
+            CheckedValue::Felt(_f) => 1,
+            CheckedValue::Bool(_b) => 1,
+            CheckedValue::U32(_u) => 1,
+            CheckedValue::Array(_type_id, values) => {
                 let mut result = 0;
                 for value in values {
                     result += value.felt_size();
@@ -285,10 +285,13 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
                 }
                 result
             }
-            CheckedValue::Type(_) => {
+            CheckedValue::Type(_type_id) => {
                 unreachable!()
             }
-            CheckedValue::Tuple { elements, .. } => {
+            CheckedValue::Tuple {
+                type_id: _type_id,
+                elements,
+            } => {
                 let mut result = 0;
                 for (_, elem) in elements {
                     result += elem.felt_size();

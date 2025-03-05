@@ -916,13 +916,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             return Err(Error::TypeMismatch);
         }
 
-        let checked_block = self.visit_stmt(if_expr_node.if_branch.body, ctx)?;
-
-        let if_type = self.program.exprs[checked_block.as_expression().unwrap().clone()].ty();
+        let checked_block = self.visit_expr(if_expr_node.if_branch.body, ctx)?;
+        let if_type = checked_block.as_block_expr().unwrap().type_id;
         let if_branch = CheckedCase {
-            predicate: self.program.exprs.alloc_item(checked_expr).clone(),
+            predicate: self.program.exprs.alloc_item(checked_expr),
             type_id: BOOL_TYPE,
-            body: self.program.stmts.alloc_item(checked_block),
+            body: self.program.exprs.alloc_item(checked_block),
         };
 
         let mut elseif_branches = Vec::with_capacity(if_expr_node.elseif_branches.len());
@@ -931,9 +930,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if !self.unify(checked_expr.ty(), BOOL_TYPE, ctx) {
                 return Err(Error::TypeMismatch);
             }
-            let checked_block = self.visit_stmt(branch.body, ctx)?;
-            let else_if_type =
-                self.program.exprs[checked_block.as_expression().unwrap().clone()].ty();
+            let checked_block = self.visit_expr(branch.body, ctx)?;
+            let else_if_type = checked_block.as_block_expr().unwrap().type_id;
+
             if !self.unify(else_if_type, if_type, ctx) {
                 return Err(Error::TypeMismatch);
             }
@@ -941,18 +940,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             elseif_branches.push(CheckedCase {
                 predicate: self.program.exprs.alloc_item(checked_expr).clone(),
                 type_id: BOOL_TYPE,
-                body: self.program.stmts.alloc_item(checked_block),
+                body: self.program.exprs.alloc_item(checked_block),
             });
         }
 
         let else_branch = if let Some(else_branch) = if_expr_node.else_branch {
-            let checked_block = self.visit_stmt(else_branch, ctx)?;
-            let else_type = self.program.exprs[checked_block.as_expression().unwrap().clone()].ty();
+            let checked_block = self.visit_expr(else_branch, ctx)?;
+            let else_type = checked_block.as_block_expr().unwrap().type_id;
+
             if !self.unify(else_type, if_type, ctx) {
                 return Err(Error::TypeMismatch);
             }
 
-            Some(self.program.stmts.alloc_item(checked_block))
+            Some(self.program.exprs.alloc_item(checked_block))
         } else {
             None
         };
@@ -977,11 +977,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         if !self.unify(predicate.ty(), BOOL_TYPE, ctx) {
             return Err(Error::TypeMismatch);
         }
-        let checked_block = self.visit_stmt(while_node.body, ctx)?;
+        let checked_block = self.visit_expr(while_node.body, ctx)?;
         Ok(CheckedStmtNode::While(CheckedWhileNode {
             predicate: self.program.exprs.alloc_item(predicate),
             type_id: BOOL_TYPE,
-            body: self.program.stmts.alloc_item(checked_block),
+            body: self.program.exprs.alloc_item(checked_block),
         }))
     }
 
@@ -1453,52 +1453,65 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
         ctx.symbols.start_scope(ScopeKind::Block);
 
-        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-        let BlockExprNode { stmts } = ctx.expression(node).as_block_expr().unwrap().clone();
+        let current_scope_id = ctx
+            .symbols
+            .current_scope_id()
+            .expect("current scope not found");
+        let BlockExprNode { stmts, return_expr } =
+            ctx.expression(node).as_block_expr().unwrap().clone();
+
         let mut checked_stmts = Vec::with_capacity(stmts.len());
 
+        // if it's return statement, then skip the following execution
         for stmt in stmts {
             let checked_stmt = self.visit_stmt(stmt, ctx)?;
-            checked_stmts.push(checked_stmt);
-        }
-
-        //only the last statement in the block can have a return type
-        let mut insert_return = None;
-
-        let type_id = match checked_stmts.last() {
-            Some(s) => match s {
-                CheckedStmtNode::Return(ret) => match ret {
-                    CheckedReturnNode { ret: Some(expr) } => self.program.exprs[expr.clone()].ty(),
-                    CheckedReturnNode { ret: None } => VOID_TYPE,
-                },
-                //when block embedded in a block
-                CheckedStmtNode::Expression(expr) => {
-                    let type_id = match self.program.exprs[expr.clone()].node_type() {
-                        NodeType::BlockExpr | NodeType::IfExpr => {
-                            insert_return = Some(CheckedStmtNode::Return(CheckedReturnNode {
-                                ret: Some(expr.clone()),
-                            }));
+            match checked_stmt {
+                CheckedStmtNode::Return(r) => {
+                    //resolve return type
+                    let type_id = match r {
+                        CheckedReturnNode { ret: Some(expr) } => {
                             self.program.exprs[expr.clone()].ty()
                         }
-                        _ => VOID_TYPE,
+                        CheckedReturnNode { ret: None } => VOID_TYPE,
                     };
-                    type_id
+                    ctx.symbols.end_scope();
+
+                    checked_stmts.push(CheckedStmtNode::Return(r));
+
+                    let checked_block_expr = CheckedBlockExprNode {
+                        stmts: self.program.stmts.alloc_items(checked_stmts),
+                        return_expr: None,
+                        type_id,
+                        scope_id: current_scope_id,
+                    };
+
+                    return Ok(CheckedExprNode::BlockExpr(checked_block_expr));
                 }
-                _ => VOID_TYPE,
-            },
-            None => VOID_TYPE,
-        };
-        match insert_return {
-            Some(s) => *checked_stmts.last_mut().unwrap() = s,
-            None => (),
+                _ => {
+                    checked_stmts.push(checked_stmt);
+                }
+            }
         }
 
+        let (checked_return_expr, type_id) = match return_expr {
+            Some(expr) => {
+                let checked_expr = self.visit_expr(expr, ctx)?;
+                let type_id = checked_expr.ty();
+                (Some(checked_expr), type_id)
+            }
+            None => (None, VOID_TYPE),
+        };
+
         ctx.symbols.end_scope();
-        Ok(CheckedExprNode::BlockExpr(CheckedBlockExprNode {
+
+        let checked_block_expr = CheckedBlockExprNode {
             stmts: self.program.stmts.alloc_items(checked_stmts),
+            return_expr: checked_return_expr.map(|e| self.program.exprs.alloc_item(e)),
             type_id,
             scope_id: current_scope_id,
-        }))
+        };
+
+        Ok(CheckedExprNode::BlockExpr(checked_block_expr))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1580,12 +1593,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.symbols.declare_variable(for_node.variable, variable)?;
 
         ctx.symbols.start_scope(ScopeKind::Block);
-        let checked_block = self.visit_stmt(for_node.body, ctx)?;
+        let checked_block = self.visit_expr(for_node.body, ctx)?;
         let node = CheckedStmtNode::For(CheckedForNode {
             variable: for_node.variable,
             start: self.program.exprs.alloc_item(start),
             end: self.program.exprs.alloc_item(end),
-            body: self.program.stmts.alloc_item(checked_block),
+            body: self.program.exprs.alloc_item(checked_block),
             scope_id: current_scope_id,
         });
         ctx.symbols.end_scope();
@@ -1630,31 +1643,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         };
 
         let checked_body = {
-            let checked_body = self.visit_stmt(function.body.clone(), ctx)?;
-            let actual_return_type = match &checked_body {
-                CheckedStmtNode::Return(expr) => match expr {
-                    CheckedReturnNode { ret: Some(expr) } => self.program.exprs[expr.clone()].ty(),
-                    CheckedReturnNode { ret: None } => VOID_TYPE,
-                },
-                CheckedStmtNode::Expression(expr) => match self.program.exprs[expr.clone()]
-                    .node_type()
-                {
-                    NodeType::BlockExpr | NodeType::IfExpr => self.program.exprs[expr.clone()].ty(),
-                    _ => VOID_TYPE,
-                },
-                _ => VOID_TYPE,
-            };
+            let checked_body = self.visit_expr(function.body.clone(), ctx)?;
+            let actual_return_type = checked_body.ty();
             if !self.unify(expected_return_type, actual_return_type, ctx) {
                 return Err(Error::TypeMismatch);
             }
-
             checked_body
         };
 
         let mut checked_function = CheckedLambdaFunctionNode {
             name: ctx.intern_lambda(),
             parameters,
-            body: self.program.stmts.alloc_item(checked_body),
+            body: self.program.exprs.alloc_item(checked_body),
             return_type: expected_return_type,
             scope_id: current_scope_id,
             type_id: UNKOWN_TYPE,
@@ -1706,7 +1706,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             let type_id = ctx.symbols.add_type_variable(generic_parameter)?;
             generic_parameters.push(type_id);
         }
-
         for &function_id in &impl_node.body {
             let method = self.typecheck_method(function_id, ctx)?;
             let i = trait_node
@@ -2093,20 +2092,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         };
 
         let checked_body = if let Some(body) = &function.body {
-            let checked_body = self.visit_stmt(body.clone(), ctx)?;
-            let actual_return_type = match &checked_body {
-                CheckedStmtNode::Return(expr) => match expr {
-                    CheckedReturnNode { ret: Some(expr) } => self.program.exprs[expr.clone()].ty(),
-                    CheckedReturnNode { ret: None } => VOID_TYPE,
-                },
-                CheckedStmtNode::Expression(expr) => match self.program.exprs[expr.clone()]
-                    .node_type()
-                {
-                    NodeType::BlockExpr | NodeType::IfExpr => self.program.exprs[expr.clone()].ty(),
-                    _ => VOID_TYPE,
-                },
-                _ => VOID_TYPE,
-            };
+            let checked_body = self.visit_expr(body.clone(), ctx)?;
+            let actual_return_type = checked_body.ty();
+
             if !self.unify(expected_return_type, actual_return_type, ctx) {
                 return Err(Error::TypeMismatch);
             }
@@ -2119,7 +2107,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             name: function.name,
             parameters,
             generic_parameters,
-            body: checked_body.map(|x| self.program.stmts.alloc_item(x)),
+            body: checked_body.map(|x| self.program.exprs.alloc_item(x)),
             return_type: expected_return_type,
             scope_id: current_scope_id,
             visibility: function.visibility,

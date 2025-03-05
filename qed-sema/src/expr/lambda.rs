@@ -1,12 +1,12 @@
-use qed_ast::TypeQualifier;
+use qed_ast::{ExprId, TypeQualifier};
 
-use crate::{CheckedFunctionSignature, IdentId, NodeInfo, NodeType, ScopeId, StmtId, TypeId};
+use crate::{CheckedFunctionSignature, IdentId, NodeInfo, NodeType, ScopeId, TypeId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedLambdaFunctionNode {
     pub name: IdentId,
     pub parameters: Vec<(IdentId, TypeQualifier, TypeId)>,
-    pub body: StmtId,
+    pub body: ExprId,
     pub return_type: TypeId,
     pub scope_id: ScopeId,
     pub type_id: TypeId,
