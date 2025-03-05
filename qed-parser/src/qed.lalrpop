@@ -74,7 +74,6 @@ Statement: StmtNode = {
 
 ExpressionStatement: StmtNode = {
     <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr)),
-    <l:@L> <expr:BlockExpression> ";"? <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr)),
 }
 
 IntrinsicStatement: StmtNode = {
@@ -287,7 +286,7 @@ GenericParameters: Vec<IdentId> = {
 }
 
 BlockExpression: ExprNode<F> = {
-    <l:@L> "{" <mut stmts:Statement*> <ret:Expression?> "}" <r:@R> => {
+    <l:@L> "{" <stmts:Statement*> <ret:Expression?> "}" <r:@R> => {
         ExprNode::BlockExpr(
             BlockExprNode {
                 stmts: stmt_nodes.alloc_items(stmts),
@@ -644,11 +643,13 @@ Expression: ExprNode<F> = {
     #[precedence(level="16")]
     LambdaFunctionExpression
 }
+
 Term: ExprNode<F> = {
     ValueExpression,
     PathExpression,
     TupleExpr,
-    IfExpression
+    IfExpression,
+    BlockExpression
 }
 
 ValueExpression: ExprNode<F> = {

@@ -2,7 +2,7 @@ use qed_ast::BlockExprNode;
 use qed_ast::IfExprNode;
 use qed_ast::*;
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
-use std::fmt::{format, Debug};
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct Formatter<'a, F: Clone + From<u32>, C> {
@@ -788,11 +788,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let s = match node {
             IntrinsicStmtNode::Assert { left, message } => {
                 let expr = self.visit_expr(left, ctx)?;
-                format!(
-                    "assert({}, \"{}\")",
-                    expr,
-                    message.unwrap_or_default()
-                )
+                format!("assert({}, \"{}\")", expr, message.unwrap_or_default())
             }
             IntrinsicStmtNode::AssertEq {
                 left,
