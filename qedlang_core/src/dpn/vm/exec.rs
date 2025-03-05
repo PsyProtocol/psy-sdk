@@ -508,6 +508,19 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                     self.bools.push(self.inputs[index].to_canonical_u64() != 0);
                 }
             }
+            DPNOpType::U32Mod => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                assert!(right!= 0, "u32 mod by zero");
+                self.u32s.push(left % right);
+            }
+            DPNOpType::U32Exp => {
+                let left = self.resolve_target(op.inputs[0]);
+                let right = self.resolve_target(op.inputs[1]);
+                let res  = left.exp_u64(right.to_canonical_u64()).to_canonical_u64();
+                assert!( res <= 0xffffffffu64, "u32 exp value too large");
+                self.u32s.push(res as u32);
+            }
         }
         
     }

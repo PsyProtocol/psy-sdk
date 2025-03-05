@@ -552,6 +552,12 @@ impl DPNContext<SymFeltRef> for QExecContext {
     fn op_exp(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::Exp, a, b)
     }
+    fn op_u32_mod(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        self.op_std_binary_op_u32(DPNOpType::U32Mod, a, b)
+    }
+    fn op_u32_exp(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        self.op_std_binary_op_u32(DPNOpType::U32Exp, a, b)
+    }
     fn op_eq(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::Eq, a, b)
     }

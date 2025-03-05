@@ -105,7 +105,7 @@ impl SymFeltRef {
 
                 BoolInputTarget = 74,
         */
-        type_id > 3 && (type_id < 46 || type_id > 50) && (type_id < 66 || type_id > 67) && type_id < 74
+        type_id > 3 && (type_id < 46 || type_id > 50) && (type_id < 66 || type_id > 67) && type_id != 74
     }
     pub fn constant_true() -> SymFeltRef {
         SymFeltRef((DPNOpType::ConstantTrue as u128)<<112)

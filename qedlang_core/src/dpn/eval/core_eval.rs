@@ -313,6 +313,20 @@ impl ContextEval for SymFeltStore {
                     (value != 0) as u64
                 }
                 DPNOpType::BoolInputTarget => input.get_input(felt_ref.get_input_index()),
+                DPNOpType::U32Mod => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    assert!(b != 0, "b must be non-zero");
+                    a % b
+                }
+                DPNOpType::U32Exp => {
+                    let (base, exponent) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
+                    assert!(base.to_canonical_u64() < 0xffffffffu64, "a is too large");
+                    assert!(exponent.to_canonical_u64() < 0xffffffffu64, "b is too large");
+                    
+                    let res = base.exp_u64(exponent.to_canonical_u64()).to_canonical_u64();
+                    assert!(res < 0xffffffffu64, "u32 exp result is too large");
+                    res
+                }
             };
             result
         }

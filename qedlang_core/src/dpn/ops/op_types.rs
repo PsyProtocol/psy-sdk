@@ -98,6 +98,8 @@ pub enum DPNOpType {
     CastFelt = 72,
     CastBool = 73,
     BoolInputTarget = 74,
+    U32Mod = 75,
+    U32Exp = 76,
 }
 
 impl From<u16> for DPNOpType {
@@ -169,6 +171,8 @@ impl From<u16> for DPNOpType {
             72 => DPNOpType::CastFelt,
             73 => DPNOpType::CastBool,
             74 => DPNOpType::BoolInputTarget,
+            75 => DPNOpType::U32Mod,
+            76 => DPNOpType::U32Exp,
             _ => panic!("Unknown DPNOpType: {}", value),
         }
     }
@@ -205,6 +209,8 @@ impl DPNOpType {
             DPNOpType::U32Sub => a - b,
             DPNOpType::U32Mul => a * b,
             DPNOpType::U32Div => a / b,
+            DPNOpType::U32Mod => a % b,
+            DPNOpType::U32Exp => (GoldilocksField::from_canonical_u64(a).exp_u64(b)).to_canonical_u64(),
             _ => panic!("DPNOpType::eval_binary_constant not implemented for {:?}", self),
         }
     }
@@ -285,6 +291,8 @@ impl DPNOpType {
             DPNOpType::CastFelt => DPNBuiltInDataType::Target,
             DPNOpType::CastBool => DPNBuiltInDataType::Bool,
             DPNOpType::BoolInputTarget => DPNBuiltInDataType::Bool,
+            DPNOpType::U32Mod => DPNBuiltInDataType::U32Target,
+            DPNOpType::U32Exp => DPNBuiltInDataType::U32Target,
         }
     }
     pub fn is_inputless(&self) -> bool{
@@ -408,6 +416,8 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::CastFelt => "CastFelt",
             DPNOpType::CastBool => "CastBool",
             DPNOpType::BoolInputTarget => "BoolInputTarget",
+            DPNOpType::U32Mod => "U32Mod",
+            DPNOpType::U32Exp => "U32Exp",
         };
         write!(f, "DPNOpType::{}", r)
     }

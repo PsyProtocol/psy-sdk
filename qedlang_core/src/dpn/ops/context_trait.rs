@@ -312,6 +312,8 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn op_u32_div(&mut self, a: F, b: F) -> F;
     fn op_mod(&mut self, a: F, b: F) -> F;
     fn op_exp(&mut self, a: F, b: F) -> F;
+    fn op_u32_mod(&mut self, a: F, b: F) -> F;
+    fn op_u32_exp(&mut self, a: F, b: F) -> F;
     fn op_eq(&mut self, a: F, b: F) -> F;
     fn op_neq(&mut self, a: F, b: F) -> F;
     fn op_lt(&mut self, a: F, b: F) -> F;

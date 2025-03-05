@@ -138,6 +138,12 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     fn op_exp(&mut self, a: F, b: F) -> F {
         self.op_std_binary_op(DPNOpType::Exp, a, b)
     }
+    fn op_u32_mod(&mut self, a: F, b: F) -> F {
+        self.op_std_binary_op_u32(DPNOpType::U32Mod, a, b)
+    }
+    fn op_u32_exp(&mut self, a: F, b: F) -> F {
+        self.op_std_binary_op_u32(DPNOpType::U32Exp, a, b)
+    }
     fn op_eq(&mut self, a: F, b: F) -> F {
         self.op_std_binary_op(DPNOpType::Eq, a, b)
     }
