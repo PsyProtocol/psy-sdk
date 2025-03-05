@@ -1,6 +1,6 @@
 use enum_as_inner::EnumAsInner;
 
-use crate::{ExprId, NodeInfo, NodeType, StmtId};
+use crate::{ExprId, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchNode {
@@ -11,7 +11,7 @@ pub struct MatchNode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchArm {
     pub pattern: MatchPattern,
-    pub body: StmtId,
+    pub body: ExprId,
 }
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]

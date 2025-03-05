@@ -65,8 +65,6 @@ Statement: StmtNode = {
     AssignmentStatement,
     ReturnStatement,
     WhileStatement,
-    BlockStatement,
-    IfStatement,
     ForStatement,
     MatchStatement,
     Definition => StmtNode::Definition(def_nodes.alloc_item(<>)),
@@ -75,7 +73,8 @@ Statement: StmtNode = {
 }
 
 ExpressionStatement: StmtNode = {
-    <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr))
+    <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr)),
+    <l:@L> <expr:BlockExpression> ";"? <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr)),
 }
 
 IntrinsicStatement: StmtNode = {
@@ -192,11 +191,11 @@ ConstDef: DefinitionNode = {
 }
 
 FunctionDef: DefinitionNode = {
-    <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_expr:BlockExpression> <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
-        body: Some(stmt_nodes.alloc_item(block_stmt)),
+        body: Some(expr_nodes.alloc_item(block_expr)),
         return_type,
         qualifier: {
            assert!(!qualifier.is_extern || is_std);
@@ -287,29 +286,21 @@ GenericParameters: Vec<IdentId> = {
     () => vec![]
 }
 
-BlockStatement: StmtNode = {
-    <l:@L> <block:BlockExpression> <r:@R> => {
-        StmtNode::Expression(expr_nodes.alloc_item(block))
-    }
-}
-
 BlockExpression: ExprNode<F> = {
     <l:@L> "{" <mut stmts:Statement*> <ret:Expression?> "}" <r:@R> => {
-        if let Some(expr) = ret {
-            stmts.push(StmtNode::Return(ReturnNode(Some(expr_nodes.alloc_item(expr)))));
-        }
         ExprNode::BlockExpr(
             BlockExprNode {
                 stmts: stmt_nodes.alloc_items(stmts),
+                return_expr: ret.map(|x| expr_nodes.alloc_item(x))
             }
         )
     }
 }
 
 WhileStatement: StmtNode = {
-    <l:@L> WHILE <predicate:Expression> <block_stmt:BlockStatement> <r:@R>  => StmtNode::While(WhileNode {
+    <l:@L> WHILE <predicate:Expression> <block_expr:BlockExpression> <r:@R>  => StmtNode::While(WhileNode {
         predicate: expr_nodes.alloc_item(predicate),
-        body: stmt_nodes.alloc_item(block_stmt)
+        body: expr_nodes.alloc_item(block_expr)
     }),
 }
 
@@ -321,9 +312,9 @@ MatchStatement: StmtNode = {
 }
 
 MatchArm: MatchArm = {
-    <l:@L> <pattern:MatchPattern> "=>" <block_stmt:BlockStatement> <r:@R> => MatchArm {
+    <l:@L> <pattern:MatchPattern> "=>" <block_expr:BlockExpression> <r:@R> => MatchArm {
         pattern,
-        body: stmt_nodes.alloc_item(block_stmt)
+        body: expr_nodes.alloc_item(block_expr)
     }
 }
 
@@ -333,20 +324,14 @@ MatchPattern: MatchPattern = {
 }
 
 ForStatement: StmtNode = {
-    <l:@L> FOR <variable:Identifier> IN <start:Expression> ".." <end:Expression> <block_stmt:BlockStatement> <r:@R> => StmtNode::For(
+    <l:@L> FOR <variable:Identifier> IN <start:Expression> ".." <end:Expression> <block_expr:BlockExpression> <r:@R> => StmtNode::For(
         ForNode {
             variable,
             start: expr_nodes.alloc_item(start),
             end: expr_nodes.alloc_item(end),
-            body: stmt_nodes.alloc_item(block_stmt)
+            body: expr_nodes.alloc_item(block_expr)
         }
     ),
-}
-
-IfStatement: StmtNode = {
-    <l:@L> <expr:IfExpression> <r:@R> => {
-        StmtNode::Expression(expr_nodes.alloc_item(expr))
-    }
 }
 
 IfExpression: ExprNode<F> = {
@@ -360,21 +345,21 @@ IfExpression: ExprNode<F> = {
 }
 
 IfBranch: Case = {
-    <l:@L> IF <predicate:Expression> <block_stmt:BlockStatement> <r:@R> => Case::new(
+    <l:@L> IF <predicate:Expression> <block_expr:BlockExpression> <r:@R> => Case::new(
         expr_nodes.alloc_item(predicate),
-        stmt_nodes.alloc_item(block_stmt)
+        expr_nodes.alloc_item(block_expr)
     ),
 }
 
 ElseIfBranch: Case = {
-    <l:@L> ELSE IF <predicate:Expression> <block_stmt:BlockStatement> <r:@R> => Case::new(
+    <l:@L> ELSE IF <predicate:Expression> <block_expr:BlockExpression> <r:@R> => Case::new(
         expr_nodes.alloc_item(predicate),
-        stmt_nodes.alloc_item(block_stmt)
+        expr_nodes.alloc_item(block_expr)
     ),
 }
 
-ElseBranch: StmtId = {
-    <l:@L> ELSE <block_stmt:BlockStatement> <r:@R> => stmt_nodes.alloc_item(block_stmt),
+ElseBranch: ExprId = {
+    <l:@L> ELSE <block_expr:BlockExpression> <r:@R> => expr_nodes.alloc_item(block_expr),
 }
 
 ReturnStatement: StmtNode = {
@@ -397,22 +382,6 @@ TupleExpr: ExprNode<F> = {
 
 VariableStatement: StmtNode = {
     <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
-        VariableNode {
-            name: decl.0,
-            ty: decl.1,
-            qualifier: type_qualifier,
-            value: expr_nodes.alloc_item(value)
-        }
-    ),
-    <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:IfExpression> ";" <r:@R>  => StmtNode::Variable(
-        VariableNode {
-            name: decl.0,
-            ty: decl.1,
-            qualifier: type_qualifier,
-            value: expr_nodes.alloc_item(value)
-        }
-    ),
-    <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:BlockExpression> ";" <r:@R>  => StmtNode::Variable(
         VariableNode {
             name: decl.0,
             ty: decl.1,
@@ -462,7 +431,6 @@ AssignmentStatement: StmtNode = {
 Expression: ExprNode<F> = {
     #[precedence(level="1")]
     Term,
-
     #[precedence(level="2")]
     <l:@L> <variable:STORAGE_READ> "(" <offset: Expression> ")" <r:@R> => {
         ExprNode::Intrinsic(
@@ -676,11 +644,11 @@ Expression: ExprNode<F> = {
     #[precedence(level="16")]
     LambdaFunctionExpression
 }
-
 Term: ExprNode<F> = {
     ValueExpression,
     PathExpression,
     TupleExpr,
+    IfExpression
 }
 
 ValueExpression: ExprNode<F> = {
@@ -721,17 +689,17 @@ KeyValue: (IdentId, ExprId) = {
 }
 
 LambdaFunctionExpression: ExprNode<F> = {
-    <l:@L> "||" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => ExprNode::<F>::LambdaFunction(
+    <l:@L> "||" <return_type:FunctionReturn?> <block_expr:BlockExpression> <r:@R> => ExprNode::<F>::LambdaFunction(
         LambdaFunctionNode {
             parameters: vec![],
-            body: stmt_nodes.alloc_item(block_stmt),
+            body: expr_nodes.alloc_item(block_expr),
             return_type
         }
     ),
-    <l:@L> "|" <parameters:Comma<FunctionParameter>> "|" <return_type:FunctionReturn?> <block_stmt:BlockStatement> <r:@R> => ExprNode::<F>::LambdaFunction(
+    <l:@L> "|" <parameters:Comma<FunctionParameter>> "|" <return_type:FunctionReturn?> <block_expr:BlockExpression> <r:@R> => ExprNode::<F>::LambdaFunction(
         LambdaFunctionNode {
             parameters,
-            body: stmt_nodes.alloc_item(block_stmt),
+            body: expr_nodes.alloc_item(block_expr),
             return_type
         }
     )

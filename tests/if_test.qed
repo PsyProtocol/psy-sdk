@@ -98,4 +98,5 @@ fn main()  {
     let n1: Felt = 1;
     let n2: Felt = 2;
     cal2(n1, n2);
+    cal2(if n1 > n2 { n1 } else { n2 }, n2);
 }

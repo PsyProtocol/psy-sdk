@@ -2,7 +2,7 @@ use qed_ast::BlockExprNode;
 use qed_ast::IfExprNode;
 use qed_ast::*;
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
-use std::fmt::Debug;
+use std::fmt::{format, Debug};
 
 #[derive(Debug)]
 pub struct Formatter<'a, F: Clone + From<u32>, C> {
@@ -370,12 +370,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let &WhileNode { predicate, body } = ctx.statement(stmt_id).as_while().unwrap();
-        let s = format!("while {} {{", self.visit_expr(predicate, ctx)?);
-        self.write_line(&s);
-        self.indent();
-        self.visit_stmt(body, ctx)?;
-        self.dedent();
-        self.write_line("}");
+        let s = format!("while {} ", self.visit_expr(predicate, ctx)?);
+        let block = self.visit_block_expr(body, ctx)?;
+        self.write_line(&format!("{}{}", s, block));
         Ok(Default::default())
     }
 
@@ -395,8 +392,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             operator,
             self.visit_expr(value, ctx)?
         );
-        self.write_line(&s);
-        Ok(Default::default())
+        Ok(s)
     }
 
     fn visit_variable(
@@ -426,8 +422,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             ),
             self.visit_expr(ctx.statement(stmt_id).as_variable().unwrap().value, ctx)?
         );
-        self.write_line(&s);
-        Ok(Default::default())
+        Ok(s)
     }
 
     fn visit_return(
@@ -526,7 +521,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|x| ctx.ident(x.clone()).to_string())
             .collect::<Vec<_>>();
         let s = format!(
-            "{}{}fn {}{}({}){} {{",
+            "{}{}fn {}{}({}){} ",
             if visibility.is_public() { "pub " } else { "" },
             if qualifier.is_extern { "extern " } else { "" },
             ctx.ident(name.clone()),
@@ -538,12 +533,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 "".to_string()
             }
         );
-        self.write_line(&s);
-        self.indent();
-        let ret = self.visit_stmt(body.unwrap(), ctx)?;
-        self.write_line(&ret);
-        self.dedent();
-        self.write_line("}");
+        let block = match body {
+            Some(body) => self.visit_block_expr(body.clone(), ctx)?,
+            None => "{ }".to_string(),
+        };
+        self.write_line(&format!("{}{}", s, block));
         Ok(Default::default())
     }
 
@@ -907,18 +901,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             body,
         } = ctx.statement(node).as_for().unwrap();
         let s = format!(
-            "for {} in {}..{} {{",
+            "for {} in {}..{} ",
             ctx.ident(variable).to_string(),
             self.visit_expr(start, ctx)?,
             self.visit_expr(end, ctx)?
         );
-        self.write_line(&s);
-        self.indent();
-        let res =
-            self.visit_block_expr(ctx.statement(body).as_expression().unwrap().clone(), ctx)?;
-        self.write_line(&res);
-        self.dedent();
-        self.write_line("}");
+        let block = self.visit_block_expr(body, ctx)?;
+        self.write_line(&format!("{}{}", s, block));
         Ok(Default::default())
     }
 
@@ -935,21 +924,15 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
         for arm in arms {
             let s = format!(
-                "{} => {{",
+                "{} => ",
                 if arm.pattern.is_placeholder() {
                     "_".to_string()
                 } else {
                     self.visit_expr(arm.pattern.as_value().unwrap().clone(), ctx)?
                 }
             );
-            self.write_line(&s);
-            self.indent();
-            self.visit_block_expr(
-                ctx.statement(arm.body).as_expression().unwrap().clone(),
-                ctx,
-            )?;
-            self.dedent();
-            self.write_line("},");
+            let block = self.visit_block_expr(arm.body, ctx)?;
+            self.write_line(&format!("{}{}", s, block));
         }
 
         self.dedent();
@@ -1033,7 +1016,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let BlockExprNode { stmts } = ctx.expression(node).as_block_expr().unwrap().clone();
+        let BlockExprNode { stmts, return_expr } =
+            ctx.expression(node).as_block_expr().unwrap().clone();
 
         let mut block_expr_result = String::new();
         block_expr_result.push_str(format!("{{\n").as_str());
@@ -1046,6 +1030,14 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             if !stmt_result.is_empty() {
                 block_expr_result.push_str(&format!("{}{}\n", current_indent, stmt_result));
             }
+        }
+        //add return expr
+        match return_expr {
+            Some(expr) => {
+                let return_expr_result = self.visit_expr(expr, ctx)?;
+                block_expr_result.push_str(&format!("{}{}\n", current_indent, return_expr_result));
+            }
+            None => {}
         }
 
         self.dedent();
@@ -1069,9 +1061,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
         let current_indent = self.read_indent(0);
         let mut result = format!("if {} ", self.visit_expr(if_branch.predicate, ctx)?);
-        self.indent();
-        result.push_str(&format!("{}", self.visit_stmt(if_branch.body, ctx)?));
-        self.dedent();
+        result.push_str(&format!("{}", self.visit_expr(if_branch.body, ctx)?));
         result.push_str(&format!("{}\n", current_indent));
 
         for branch in elseif_branches.into_iter() {
@@ -1080,17 +1070,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 current_indent,
                 self.visit_expr(branch.predicate, ctx)?
             ));
-            self.indent();
-            result.push_str(&format!("{}", self.visit_stmt(branch.body, ctx)?));
-            self.dedent();
+            result.push_str(&format!("{}", self.visit_expr(branch.body, ctx)?));
             result.push_str(&format!("{}\n", current_indent));
         }
 
         if let Some(else_branch) = else_branch {
             result.push_str(&format!("{}else ", current_indent));
-            self.indent();
-            result.push_str(&format!("{}", self.visit_stmt(else_branch, ctx)?));
-            self.dedent();
+            result.push_str(&format!("{}", self.visit_expr(else_branch, ctx)?));
         }
         Ok(result)
     }
