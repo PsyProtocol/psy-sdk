@@ -538,6 +538,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             (CheckedValue::U32(l), CheckedValue::U32(r), Lte) => self.context.op_lte(*l, *r),
             (CheckedValue::U32(l), CheckedValue::U32(r), Gt) => self.context.op_gt(*l, *r),
             (CheckedValue::U32(l), CheckedValue::U32(r), Gte) => self.context.op_gte(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Mod) => self.context.op_u32_mod(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Pow) => self.context.op_u32_exp(*l, *r),
 
             (CheckedValue::Bool(l), CheckedValue::Bool(r), And) => self.context.op_bool_and(*l, *r),
             (CheckedValue::Bool(l), CheckedValue::Bool(r), Or) => self.context.op_bool_or(*l, *r),
