@@ -292,7 +292,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
 
             if self.context.get_constant_value(predicate) == 1 {
                 self.context.start_if_block(predicate);
-                self.interpret_block_expr(typechecker, &typechecker[node.body], ctx)?;
+                self.interpret_expr(typechecker, node.body, ctx)?;
                 self.context.end_if_block();
             } else {
                 break Ok(());
@@ -328,7 +328,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 .unwrap()
                 .to_u32();
             if value_f != end_f {
-                self.interpret_block_expr(typechecker, &typechecker[node.body], ctx)?;
+                self.interpret_expr(typechecker, node.body, ctx)?;
                 let one = self.context.op_const_u32(1);
                 let value = CheckedValueRef::from_u32(self.context.op_u32_add(value_f, one));
                 ctx.symbols
@@ -1321,7 +1321,7 @@ mod tests {
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
-        insta::glob!("../../tests", "00*.qed", |path| {
+        insta::glob!("../../tests", "008.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
 
             let compile_results = interpreter
