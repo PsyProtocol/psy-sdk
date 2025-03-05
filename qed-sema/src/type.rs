@@ -3,10 +3,9 @@ use std::convert::AsRef;
 
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
-use qed_ast::IdentId;
-use qed_ast::StmtId;
 use qed_ast::TypeQualifier;
 use qed_ast::Visibility;
+use qed_ast::{ExprId, IdentId};
 use qed_utils::impl_ref;
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
@@ -412,7 +411,7 @@ impl Type {
         }
     }
 
-    pub fn body(&self) -> StmtId {
+    pub fn body(&self) -> ExprId {
         match self {
             Type::Function(CheckedFunctionNode { body, .. }) => body.unwrap(),
             Type::LambdaFunction(CheckedLambdaFunctionNode { body, .. }) => body.clone(),

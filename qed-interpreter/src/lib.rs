@@ -266,8 +266,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 args[i].clone(),
             )?;
         }
-
-        self.interpret_statement(typechecker, ctx.symbols[type_id].body(), ctx)
+        Ok(ControlState::Return(self.interpret_expr(
+            typechecker,
+            ctx.symbols[type_id].body(),
+            ctx,
+        )?))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -289,7 +292,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
 
             if self.context.get_constant_value(predicate) == 1 {
                 self.context.start_if_block(predicate);
-                self.interpret_statement(typechecker, node.body, ctx)?;
+                self.interpret_expr(typechecker, node.body, ctx)?;
                 self.context.end_if_block();
             } else {
                 break Ok(());
@@ -325,7 +328,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 .unwrap()
                 .to_u32();
             if value_f != end_f {
-                self.interpret_statement(typechecker, node.body, ctx)?;
+                self.interpret_expr(typechecker, node.body, ctx)?;
                 let one = self.context.op_const_u32(1);
                 let value = CheckedValueRef::from_u32(self.context.op_u32_add(value_f, one));
                 ctx.symbols
@@ -495,7 +498,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         use BinaryOperator::*;
         let lhs_value = self.interpret_expr(typechecker, binary_node.lhs, ctx)?;
         let rhs_value = self.interpret_expr(typechecker, binary_node.rhs, ctx)?;
-
         let value = match (
             &*lhs_value.borrow(),
             &*rhs_value.borrow(),
@@ -1226,8 +1228,16 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             }
         }
 
+        let ret = match &block_expr.return_expr {
+            Some(return_expr) => {
+                let value = self.interpret_expr(type_checker, return_expr.clone(), ctx)?;
+                value
+            }
+            None => void_value,
+        };
         ctx.symbols.exit_block();
-        Ok(void_value)
+
+        Ok(ret)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1249,9 +1259,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
         self.context.start_if_block(predicate);
 
         //use if block return value to initialize the result
-        result = self
-            .interpret_statement(typechecker, node.if_branch.body, ctx)?
-            .unwrap();
+        result = self.interpret_expr(typechecker, node.if_branch.body, ctx)?;
 
         for condition in &node.elseif_branches {
             let predicate = self
@@ -1259,18 +1267,15 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 .to_bool();
 
             self.context.start_else_if_block(predicate);
-            let elseif_result = self
-                .interpret_statement(typechecker, condition.body, ctx)?
-                .unwrap();
+            let elseif_result = self.interpret_expr(typechecker, condition.body, ctx)?;
+
             result = self.context.cset(result, elseif_result);
         }
 
         if let Some(else_branch) = &node.else_branch {
             self.context.start_else_block();
 
-            let else_result = self
-                .interpret_statement(typechecker, else_branch.clone(), ctx)?
-                .unwrap();
+            let else_result = self.interpret_expr(typechecker, else_branch.clone(), ctx)?;
             result = self.context.cset(result, else_result);
         }
 
@@ -1316,7 +1321,7 @@ mod tests {
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
-        insta::glob!("../../tests", "00*.qed", |path| {
+        insta::glob!("../../tests", "008.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
 
             let compile_results = interpreter

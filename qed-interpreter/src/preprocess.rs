@@ -91,14 +91,10 @@ impl<'a> StorageProcessor<'a> {
             };
             sum = ctx.alloc_expression(ExprNode::Binary(node));
         }
-
-        let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(sum))));
-        let stmt_node = StmtNode::Return(ReturnNode(Some(ctx.alloc_expression(
-            ExprNode::BlockExpr(BlockExprNode {
-                stmts: vec![return_stmt],
-            }),
-        ))));
-        let block = ctx.alloc_statement(stmt_node);
+        let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+            stmts: Vec::new(),
+            return_expr: Some(sum),
+        }));
 
         let f = FunctionNode {
             name: ctx.intern("size"),
@@ -150,14 +146,10 @@ impl<'a> StorageProcessor<'a> {
             vec![],
             field_reads,
         )));
-        let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(value_node))));
-        let stmt_node = StmtNode::Return(ReturnNode(Some(ctx.alloc_expression(
-            ExprNode::BlockExpr(BlockExprNode {
-                stmts: vec![return_stmt],
-            }),
-        ))));
-
-        let block = ctx.alloc_statement(stmt_node);
+        let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+            stmts: Vec::new(),
+            return_expr: Some(value_node),
+        }));
         let f = FunctionNode {
             name: ctx.intern("read"),
             parameters: vec![(
@@ -207,11 +199,11 @@ impl<'a> StorageProcessor<'a> {
             };
             offset = ctx.alloc_expression(ExprNode::Binary(node));
         }
-        let stmt_node =
-            StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
-                stmts: field_writes,
-            })));
-        let block = ctx.alloc_statement(stmt_node);
+        let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+            stmts: field_writes,
+            return_expr: None,
+        }));
+
         let f = FunctionNode {
             name: ctx.intern("write"),
             parameters: vec![
@@ -268,15 +260,11 @@ impl<'a> StorageProcessor<'a> {
         };
         let read_expr = ctx.alloc_expression(ExprNode::Call(read_call));
 
-        let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode(Some(read_expr))));
+        let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+            stmts: Vec::new(),
+            return_expr: Some(read_expr),
+        }));
 
-        let stmt_node = StmtNode::Return(ReturnNode(Some(ctx.alloc_expression(
-            ExprNode::BlockExpr(BlockExprNode {
-                stmts: vec![return_stmt],
-            }),
-        ))));
-
-        let block = ctx.alloc_statement(stmt_node);
         let function = FunctionNode {
             name: getter_ident,
             parameters: vec![],
@@ -332,11 +320,10 @@ impl<'a> StorageProcessor<'a> {
 
         let write_stmt = ctx.alloc_statement(StmtNode::Expression(write_expr));
 
-        let stmt_node =
-            StmtNode::Expression(ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
-                stmts: vec![write_stmt],
-            })));
-        let block = ctx.alloc_statement(stmt_node);
+        let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+            stmts: vec![write_stmt],
+            return_expr: None,
+        }));
 
         let function = FunctionNode {
             name: setter_ident,
