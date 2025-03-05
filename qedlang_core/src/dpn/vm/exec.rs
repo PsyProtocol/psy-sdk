@@ -362,7 +362,12 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             },
             DPNOpType::ExpConstantPower => todo!(),
             DPNOpType::ExpConstantBase => todo!(),
-            DPNOpType::Mod => todo!(),
+            DPNOpType::Mod => {
+                let left = self.resolve_target(op.inputs[0]).to_canonical_u64();
+                let right = self.resolve_target(op.inputs[1]).to_canonical_u64();
+                assert!(right != 0, "Mod by zero");
+                self.targets.push(F::from_canonical_u64(left % right));
+            }
             DPNOpType::ModConstantDividend => todo!(),
             DPNOpType::ModConstantDivisor => todo!(),
             DPNOpType::DivRem4 => todo!(),
