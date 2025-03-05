@@ -1047,21 +1047,21 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
     ) -> std::result::Result<Self::StmtResult, Self::Error> {
         // TODO: remove clone
         let return_node = ctx.statement(node).as_return().cloned().unwrap();
-        // let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-        // let parent_scope_id = ctx.symbols.parent_scope_id().unwrap();
-        // if ctx.symbols[current_scope_id].kind != ScopeKind::Block {
-        //     return Err(Error::InvalidReturn);
-        // }
-        // let valid_kinds = [
-        //     ScopeKind::LambdaFunction,
-        //     ScopeKind::Function,
-        //     ScopeKind::ImplMethod,
-        //     ScopeKind::TraitMethod,
-        //     ScopeKind::LambdaFunction,
-        // ];
-        // if !valid_kinds.contains(&ctx.symbols[parent_scope_id].kind) {
-        //     return Err(Error::InvalidReturn);
-        // }
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+        let parent_scope_id = ctx.symbols.parent_scope_id().unwrap();
+        if ctx.symbols[current_scope_id].kind != ScopeKind::Block {
+            return Err(Error::InvalidReturn);
+        }
+        let valid_kinds = [
+            ScopeKind::LambdaFunction,
+            ScopeKind::Function,
+            ScopeKind::ImplMethod,
+            ScopeKind::TraitMethod,
+            ScopeKind::LambdaFunction,
+        ];
+        if !valid_kinds.contains(&ctx.symbols[parent_scope_id].kind) {
+            return Err(Error::InvalidReturn);
+        }
 
         let ret = if let Some(expr) = return_node.0 {
             let expr = self.visit_expr(expr, ctx)?;
