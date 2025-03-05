@@ -899,7 +899,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 CheckedValueRef::new_rc(CheckedValue::Type(checked_lambda_function_node.type_id)),
             ),
             CheckedExprNode::BlockExpr(block_expr) => {
-                Ok(self.interpret_block_expr(program, block_expr, ctx)?)
+                ctx.symbols.enter_block(block_expr.scope_id);
+                let res = self.interpret_block_expr(program, block_expr, ctx)?;
+                ctx.symbols.exit_block();
+                Ok(res)
             }
             CheckedExprNode::IfExpr(if_expr) => Ok(self.interpret_if_expr(program, if_expr, ctx)?),
         }
@@ -1288,8 +1291,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         block_expr: &CheckedBlockExprNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
-        ctx.symbols.enter_block(block_expr.scope_id);
-
         for stmt_id in &block_expr.stmts {
             match self.interpret_statement(program, *stmt_id, ctx)? {
                 ControlState::Return(value) => {
@@ -1299,15 +1300,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             }
         }
 
-        let ret = match &block_expr.return_expr {
+        let ret = match &block_expr.expr {
             Some(return_expr) => {
                 let value = self.interpret_expr(program, return_expr.clone(), ctx)?;
                 value
             }
             None => CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE)),
         };
-
-        ctx.symbols.exit_block();
 
         Ok(ret)
     }
@@ -1345,7 +1344,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         if let Some(else_branch) = &node.else_branch {
             self.context.start_else_block();
-
             let else_result = self.interpret_expr(program, else_branch.clone(), ctx)?;
             result = self.context.cset(result, else_result);
         }

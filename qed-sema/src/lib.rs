@@ -1451,63 +1451,44 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
+        // TODO: remove clone
+        let BlockExprNode { stmts, expr } = ctx.expression(node).as_block_expr().unwrap().clone();
         ctx.symbols.start_scope(ScopeKind::Block);
 
-        let current_scope_id = ctx
-            .symbols
-            .current_scope_id()
-            .expect("current scope not found");
-        let BlockExprNode { stmts, return_expr } =
-            ctx.expression(node).as_block_expr().unwrap().clone();
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
 
         let mut checked_stmts = Vec::with_capacity(stmts.len());
 
-        // if it's return statement, then skip the following execution
-        for stmt in stmts {
-            let checked_stmt = self.visit_stmt(stmt, ctx)?;
-            match checked_stmt {
-                CheckedStmtNode::Return(r) => {
-                    //resolve return type
-                    let type_id = match r {
-                        CheckedReturnNode { ret: Some(expr) } => {
-                            self.program.exprs[expr.clone()].ty()
-                        }
-                        CheckedReturnNode { ret: None } => VOID_TYPE,
-                    };
-                    ctx.symbols.end_scope();
-
-                    checked_stmts.push(CheckedStmtNode::Return(r));
-
-                    let checked_block_expr = CheckedBlockExprNode {
-                        stmts: self.program.stmts.alloc_items(checked_stmts),
-                        return_expr: None,
-                        type_id,
-                        scope_id: current_scope_id,
-                    };
-
-                    return Ok(CheckedExprNode::BlockExpr(checked_block_expr));
-                }
-                _ => {
-                    checked_stmts.push(checked_stmt);
-                }
+        for (i, stmt) in stmts.iter().enumerate() {
+            let checked_stmt = self.visit_stmt(stmt.clone(), ctx)?;
+            if checked_stmt.is_return() && (i != stmts.len() - 1 || expr.is_some()) {
+                return Err(Error::InvalidReturn);
             }
+            checked_stmts.push(checked_stmt);
         }
 
-        let (checked_return_expr, type_id) = match return_expr {
+        let (return_type_id, checked_return_expr) = match expr {
             Some(expr) => {
                 let checked_expr = self.visit_expr(expr, ctx)?;
-                let type_id = checked_expr.ty();
-                (Some(checked_expr), type_id)
+                (checked_expr.ty(), Some(checked_expr))
             }
-            None => (None, VOID_TYPE),
+            None => {
+                if let Some(CheckedReturnNode { ret: Some(ret) }) =
+                    checked_stmts.last().and_then(|x| x.as_return())
+                {
+                    (self.program.exprs[ret.clone()].ty(), None)
+                } else {
+                    (VOID_TYPE, None)
+                }
+            }
         };
 
         ctx.symbols.end_scope();
 
         let checked_block_expr = CheckedBlockExprNode {
             stmts: self.program.stmts.alloc_items(checked_stmts),
-            return_expr: checked_return_expr.map(|e| self.program.exprs.alloc_item(e)),
-            type_id,
+            expr: checked_return_expr.map(|e| self.program.exprs.alloc_item(e)),
+            type_id: return_type_id,
             scope_id: current_scope_id,
         };
 

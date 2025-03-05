@@ -3,7 +3,7 @@ use crate::{ExprId, NodeInfo, NodeType, StmtId};
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlockExprNode {
     pub stmts: Vec<StmtId>,
-    pub return_expr: Option<ExprId>,
+    pub expr: Option<ExprId>,
 }
 
 impl NodeInfo for BlockExprNode {

@@ -290,7 +290,7 @@ BlockExpression: ExprNode<F> = {
         ExprNode::BlockExpr(
             BlockExprNode {
                 stmts: stmt_nodes.alloc_items(stmts),
-                return_expr: ret.map(|x| expr_nodes.alloc_item(x))
+                expr: ret.map(|x| expr_nodes.alloc_item(x))
             }
         )
     }

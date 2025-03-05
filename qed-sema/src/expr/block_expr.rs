@@ -5,7 +5,7 @@ use crate::{ScopeId, TypeId};
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedBlockExprNode {
     pub stmts: Vec<StmtId>,
-    pub return_expr: Option<ExprId>,
+    pub expr: Option<ExprId>,
     pub type_id: TypeId,
     pub scope_id: ScopeId,
 }
