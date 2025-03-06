@@ -181,9 +181,9 @@ StructDef: StructNode = {
 }
 
 ConstDef: DefinitionNode = {
-    <l:@L> <visibility:Visibility> CONST <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R> => DefinitionNode::Const(ConstNode {
-        name: decl.0,
-        ty: decl.1,
+    <l:@L> <visibility:Visibility> CONST <name:Identifier> ":" <ty:ConstType> "=" <value:Expression> ";" <r:@R> => DefinitionNode::Const(ConstNode {
+        name,
+        ty,
         value: expr_nodes.alloc_item(value),
         visibility
     })
@@ -760,10 +760,14 @@ ArrayType: UncheckedType = {
     <l:@L> "[" <ty:Ty> ";" <n:U64> "]" <r:@R> => UncheckedType::Array(Box::new(ty), usize::try_from(n).unwrap())
 }
 
-BasicType: UncheckedType = {
+ConstType: UncheckedType = {
     <l:@L> <ty:TYPE_FELT>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_FELT),
     <l:@L> <ty:TYPE_BOOL>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_BOOL),
     <l:@L> <ty:TYPE_U32>   <r:@R> => UncheckedType::Basic(IdentId::TYPE_U32),
+}
+
+BasicType: UncheckedType = {
+    ConstType,
     <l:@L> <ty:TYPE_SELF>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_SELF),
     <l:@L> <ty:Identifier> <r:@R> => UncheckedType::Basic(ty)
 }
