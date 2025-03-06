@@ -1,3 +1,5 @@
+#![feature(if_let_guard)]
+
 mod definition;
 mod expr;
 mod infer;
@@ -101,8 +103,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> VisitorContext<F, C>
         &self.program.interner[id]
     }
 
-    fn intern<S: Into<Ident>>(&mut self, _s: S) -> IdentId {
-        unimplemented!()
+    fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId {
+        self.program.interner.intern_ident(s)
     }
 
     fn module(&self, module_id: ModuleId) -> &ModuleNode {
@@ -202,9 +204,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
         // TODO: remove clone
         let path_node = ctx.expression(node).as_path().cloned().unwrap();
-        if let Some((type_id, scope_id)) = ctx.symbols.resolve_path(&path_node) {
+        if let Some((root_type_id, type_id, scope_id)) = self.resolve_path(&path_node, ctx) {
             return Ok(CheckedExprNode::Path(CheckedPathNode {
-                name: path_node.target,
+                root: root_type_id,
+                target: path_node.target,
                 type_id: self.substitute_all(type_id, ctx)?,
                 scope_id,
             }));
@@ -706,6 +709,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let call_node = ctx.expression(node).as_call().cloned().unwrap();
         let callee = self.visit_expr(call_node.callee, ctx)?;
         let ty = callee.ty();
+        let root_ty = callee.root_ty();
         let generic_parameters = ctx.symbols[ty].generic_parameters();
         for (generic_param, generic_arg) in generic_parameters
             .iter()
@@ -715,6 +719,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if !self.unify(generic_param.clone(), generic_arg, ctx) {
                 return Err(Error::TypeMismatch);
             }
+        }
+        if let Some((&underlying_type_id, generic_args, _)) =
+            root_ty.and_then(|ty| ctx.symbols[ty].as_generic_instance())
+        {
+            self.populate_generic_arguments(underlying_type_id, generic_args.to_vec(), ctx)?;
         }
 
         let signature = ctx.symbols[ty].signature();
@@ -738,21 +747,30 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             type_id: self.substitute_all(signature.return_type, ctx)?,
         });
 
-        if ctx.symbols[ty].is_function()
-            && ctx.symbols[ty].as_function().unwrap().qualifier.is_const
+        if ctx.symbols[ty]
+            .as_function()
+            .map(|x| x.qualifier.is_const)
+            .unwrap_or(false)
         {
             let value = self
                 .evaluator
                 .evaluate_expr(&self.program, &checked_expr, ctx);
-            let value = if value.is_type() {
-                let type_id = self.substitute_all(value.to_type(), ctx)?;
-                let const_id = ctx.symbols[type_id].as_const().unwrap().value;
-                ctx.symbols.get_constant(const_id)
+            let (ty, value) = if let Some(ty) = value.as_type() {
+                let type_id = self.substitute_all(ty, ctx)?;
+                let const_node = ctx.symbols[type_id].as_const().unwrap();
+                let value = ctx.symbols.get_constant(const_node.value);
+                (const_node.ty, value)
             } else {
-                value.to_felt()
+                (value.type_id(), value.to_value())
             };
 
-            return Ok(CheckedExprNode::Value(CheckedValueNode::U32(value)));
+            if ty == BOOL_TYPE {
+                return Ok(CheckedExprNode::Value(CheckedValueNode::Bool(value)));
+            } else if ty == FELT_TYPE {
+                return Ok(CheckedExprNode::Value(CheckedValueNode::U32(value)));
+            } else {
+                return Ok(CheckedExprNode::Value(CheckedValueNode::Felt(value)));
+            }
         }
 
         return Ok(checked_expr);
@@ -816,16 +834,22 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             let value = self
                 .evaluator
                 .evaluate_expr(&self.program, &checked_expr, ctx);
-            eprintln!("DEBUGPRINT[391]: lib.rs:799: value={:#?}", value);
-            let value = if value.is_type() {
-                let type_id = self.substitute_all(value.to_type(), ctx)?;
-                let const_id = ctx.symbols[type_id].as_const().unwrap().value;
-                ctx.symbols.get_constant(const_id)
+            let (ty, value) = if let Some(ty) = value.as_type() {
+                let type_id = self.substitute_all(ty, ctx)?;
+                let const_node = ctx.symbols[type_id].as_const().unwrap();
+                let value = ctx.symbols.get_constant(const_node.value);
+                (const_node.ty, value)
             } else {
-                value.to_felt()
+                (value.type_id(), value.to_value())
             };
 
-            return Ok(CheckedExprNode::Value(CheckedValueNode::U32(value)));
+            if ty == BOOL_TYPE {
+                return Ok(CheckedExprNode::Value(CheckedValueNode::Bool(value)));
+            } else if ty == FELT_TYPE {
+                return Ok(CheckedExprNode::Value(CheckedValueNode::U32(value)));
+            } else {
+                return Ok(CheckedExprNode::Value(CheckedValueNode::Felt(value)));
+            }
         }
 
         return Ok(checked_expr);
@@ -1992,6 +2016,98 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 ctx.symbols.get_or_add_type(None, ty.key(), ty)
             }
         }
+    }
+
+    fn resolve_path(
+        &mut self,
+        path: &PathNode,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Option<(Option<TypeId>, TypeId, ScopeId)> {
+        let current_module_id = ctx.symbols.current_module_id()?;
+
+        let mut src_module = match path.root.as_ref() {
+            Some(UncheckedType::Basic(IdentId::SELF)) => current_module_id,
+            Some(UncheckedType::Basic(IdentId::CRATE)) => {
+                let mut module_id = current_module_id;
+                while let Some(parent) = ctx.symbols[module_id].parent {
+                    module_id = parent;
+                }
+                module_id
+            }
+            Some(UncheckedType::Basic(IdentId::SUPER)) => ctx.symbols[current_module_id].parent?,
+            Some(UncheckedType::Basic(name))
+                if let Some(&module_id) = ctx.symbols[current_module_id]
+                    .children
+                    .iter()
+                    .find(|&x| &ctx.symbols[x.clone()].name == name) =>
+            {
+                module_id
+            }
+            Some(ty) => {
+                let root_type_id = self.typecheck(ty, ctx).ok()?;
+                assert!(path.segments.is_empty());
+                let scope_id = ctx.symbols[root_type_id].scope_id();
+                if let Some(type_id) = ctx.symbols[scope_id].types.get(&path.target.into()) {
+                    return Some((Some(root_type_id), type_id.clone(), scope_id));
+                }
+
+                let method_type_id = ctx.symbols.resolve_method(root_type_id, path.target)?;
+                let visibility = ctx.symbols[method_type_id].visibility();
+                assert!(visibility.is_public());
+                return Some((
+                    Some(root_type_id),
+                    method_type_id,
+                    ctx.symbols[method_type_id].scope_id(),
+                ));
+            }
+            None => {
+                assert!(
+                    path.segments.is_empty(),
+                    "path.segments is not empty and also path.root is None"
+                );
+                return if let Some(variable) = ctx.symbols.get_variable(None, &path.target) {
+                    Some((None, variable.ty, variable.scope_id))
+                } else {
+                    let type_id = ctx.symbols.get_type_id(None, path.target)?;
+                    Some((None, type_id, ctx.symbols[type_id].scope_id()))
+                };
+            }
+        };
+
+        let mut segments = path.segments.iter();
+        while let Some(segment) = segments.next() {
+            if let Some(target_module_id) = ctx.symbols[src_module].children.iter().find(|&id| {
+                let module = &ctx.symbols[*id];
+                module.name == *segment
+            }) {
+                assert!(ctx.symbols[*target_module_id].visibility.is_public());
+                src_module = *target_module_id;
+            } else {
+                assert!(segments.next().is_none(), "segments.next() is not None");
+                let root_type_id = ctx.symbols[ctx.symbols[src_module].scope_id]
+                    .types
+                    .get(&segment.clone().into())?
+                    .clone();
+                let visibility = ctx.symbols[root_type_id].visibility();
+                assert!(visibility.is_public());
+                let method_type_id = ctx.symbols.resolve_method(root_type_id, path.target)?;
+                let visibility = ctx.symbols[method_type_id].visibility();
+                assert!(visibility.is_public());
+                return Some((
+                    Some(root_type_id),
+                    method_type_id,
+                    ctx.symbols[method_type_id].scope_id(),
+                ));
+            }
+        }
+
+        let type_id = ctx.symbols[ctx.symbols[src_module].scope_id]
+            .types
+            .get(&path.target.clone().into())
+            .cloned()?;
+        let visibility = ctx.symbols[type_id].visibility();
+        assert!(visibility.is_public());
+        Some((None, type_id, ctx.symbols[type_id].scope_id()))
     }
 
     #[instrument(level = "debug", skip_all)]

@@ -65,6 +65,13 @@ impl<F> NodeInfo for CheckedExprNode<F> {
 }
 
 impl<F> CheckedExprNode<F> {
+    pub fn root_ty(&self) -> Option<TypeId> {
+        match self {
+            CheckedExprNode::Path(p) => p.root,
+            _ => None,
+        }
+    }
+
     pub fn ty(&self) -> TypeId {
         match self {
             CheckedExprNode::Path(p) => p.type_id,
@@ -118,7 +125,7 @@ impl<F> CheckedExprNode<F> {
 
     pub fn name(&self) -> IdentId {
         match self {
-            CheckedExprNode::Path(p) => p.name,
+            CheckedExprNode::Path(p) => p.target,
             _ => panic!("Expected path node"),
         }
     }

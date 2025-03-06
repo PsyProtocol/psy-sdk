@@ -710,7 +710,7 @@ PathExpression: ExprNode<F> = {
         segments: vec![],
         target,
     }),
-    <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: IdentifierOrNew> => {
+    <root: PathRoot> "::" <segments: (<Identifier> "::")*> <target: IdentifierOrNew> => {
         let segs = segments.into_iter().map(|seg| seg).collect::<Vec<_>>();
         ExprNode::Path(PathNode {
             root: Some(root),
@@ -794,12 +794,11 @@ IdentifierOrNew: IdentId = {
     <l:@L> <name:NEW> <r:@R> => IdentId::NEW
 }
 
-IdentifierOrBasicType: IdentId = {
-    Identifier,
-    <l:@L> <ty:TYPE_FELT> <r:@R> => IdentId::TYPE_FELT,
-    <l:@L> <ty:TYPE_BOOL> <r:@R> => IdentId::TYPE_BOOL,
-    <l:@L> <ty:TYPE_U32> <r:@R> => IdentId::TYPE_U32,
-    <l:@L> <ty:TYPE_SELF> <r:@R> => IdentId::TYPE_SELF,
+PathRoot: UncheckedType = {
+    BasicType,
+    "<" <root: ArrayType> ">"   => root,
+    "<" <root: TupleType> ">"   => root,
+    "<" <root: GenericType> ">" => root
 }
 
 Identifier: IdentId = {

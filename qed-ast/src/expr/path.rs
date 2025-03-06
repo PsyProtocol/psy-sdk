@@ -1,8 +1,8 @@
-use crate::{IdentId, NodeInfo, NodeType};
+use crate::{IdentId, NodeInfo, NodeType, UncheckedType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PathNode {
-    pub root: Option<IdentId>,
+    pub root: Option<UncheckedType>,
     pub segments: Vec<IdentId>,
     pub target: IdentId,
 }
@@ -16,7 +16,7 @@ impl PathNode {
         }
     }
 
-    pub fn new(root: Option<IdentId>, target: IdentId, segments: Vec<IdentId>) -> Self {
+    pub fn new(root: Option<UncheckedType>, target: IdentId, segments: Vec<IdentId>) -> Self {
         Self {
             root,
             segments,

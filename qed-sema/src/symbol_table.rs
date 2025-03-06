@@ -1,5 +1,5 @@
 use once_cell::sync::OnceCell;
-use qed_ast::{ModuleNode, PathNode, Visibility};
+use qed_ast::{ModuleNode, Visibility};
 use qed_common::{define_arena_id, FileId, TreeNode};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 use std::{
@@ -354,7 +354,10 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         end_scope_kind: ScopeKind,
         ty: IdentId,
     ) -> Result<TypeId> {
-        if let Some(type_id) = self.get_type_variable(None, end_scope_kind, ty) {
+        let name: TypeKey = ty.into();
+        if let Some(type_id) = self.find(None, vec![end_scope_kind], |scope| {
+            scope.types.get(&name).cloned()
+        }) {
             return Ok(type_id);
         }
 
@@ -490,85 +493,6 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         }
     }
 
-    pub fn resolve_path(&self, path: &PathNode) -> Option<(TypeId, ScopeId)> {
-        let current_module_id = self.current_module_id()?;
-
-        let mut src_module = match path.root {
-            Some(IdentId::SELF) => current_module_id,
-            Some(IdentId::CRATE) => {
-                let mut module_id = current_module_id;
-                while let Some(parent) = self[module_id].parent {
-                    module_id = parent;
-                }
-                module_id
-            }
-            Some(IdentId::SUPER) => self[current_module_id].parent?,
-            Some(name) => {
-                if let Some(&module_id) = self[current_module_id]
-                    .children
-                    .iter()
-                    .find(|&x| self[x.clone()].name == name)
-                {
-                    module_id
-                } else {
-                    let type_id = self.get_type_id(None, name)?;
-                    assert!(path.segments.is_empty());
-                    let scope_id = self[type_id].scope_id();
-                    if let Some(type_id) = self[scope_id].types.get(&path.target.into()) {
-                        return Some((type_id.clone(), scope_id));
-                    }
-                    let method_type_id = self.resolve_method(type_id, path.target)?;
-                    let visibility = self[method_type_id].visibility();
-                    assert!(visibility.is_public());
-                    return Some((method_type_id, self[method_type_id].scope_id()));
-                }
-            }
-            None => {
-                assert!(
-                    path.segments.is_empty(),
-                    "path.segments is not empty and also path.root is None"
-                );
-                return if let Some(variable) = self.get_variable(None, &path.target) {
-                    Some((variable.ty, variable.scope_id))
-                } else {
-                    let type_id = self.get_type_id(None, path.target)?;
-                    Some((type_id, self[type_id].scope_id()))
-                };
-            }
-        };
-
-        let mut segments = path.segments.iter();
-        while let Some(segment) = segments.next() {
-            if let Some(target_module_id) = self[src_module].children.iter().find(|&id| {
-                let module = &self[*id];
-                module.name == *segment
-            }) {
-                assert!(self[*target_module_id].visibility.is_public());
-                src_module = *target_module_id;
-            } else {
-                assert!(segments.next().is_none(), "segments.next() is not None");
-                let type_id = self[self[src_module].scope_id]
-                    .types
-                    .get(&segment.clone().into())?
-                    .clone();
-                let visibility = self[type_id].visibility();
-                assert!(visibility.is_public());
-                let method_type_id = self.resolve_method(type_id, path.target)?;
-                let visibility = self[method_type_id].visibility();
-                assert!(visibility.is_public());
-                return Some((method_type_id, self[method_type_id].scope_id()));
-            }
-        }
-
-        let type_id = self[self[src_module].scope_id]
-            .types
-            .get(&path.target.clone().into())
-            .cloned()?;
-        let visibility = self[type_id].visibility();
-        assert!(visibility.is_public());
-        Some((type_id, self[type_id].scope_id()))
-    }
-
     pub fn impl_trait_for_type(&mut self, trait_type_id: TypeId, implementor: TypeId) {
         self[implementor].add_implementation(trait_type_id);
 
@@ -644,18 +568,6 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
     ) -> Option<TypeId> {
         let name: TypeKey = name.into();
         self.find(start_scope, vec![ScopeKind::Module], |scope| {
-            scope.types.get(&name).cloned()
-        })
-    }
-
-    pub fn get_type_variable<K: Into<TypeKey>>(
-        &self,
-        start_scope: Option<ScopeId>,
-        end_scope_kind: ScopeKind,
-        name: K,
-    ) -> Option<TypeId> {
-        let name: TypeKey = name.into();
-        self.find(start_scope, vec![end_scope_kind], |scope| {
             scope.types.get(&name).cloned()
         })
     }

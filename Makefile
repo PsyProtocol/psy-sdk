@@ -34,7 +34,7 @@ interpret:
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/while_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/for_test.qed
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/lambda_test.qed
-	# @RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/generics_test.qed
+	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/generics_test.qed
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/type_hint_test.qed
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/exp_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} RUSTFLAGS=${RUSTFLAGS} cargo run --release --package qed-cli interpret --file tests/array_test.qed --parameters 1,1

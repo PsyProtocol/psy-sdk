@@ -126,7 +126,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         let scope_id = ctx.symbols[ModuleId::root()].scope_id;
         let type_ids = if let Some(contract_name) = contract_name {
-            let contract_name = ctx.program.interner.intern_ident(contract_name.into());
+            let contract_name = ctx.intern(contract_name.into());
             let type_id = ctx.symbols[scope_id]
                 .types
                 .get(&contract_name.into())
@@ -136,7 +136,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             method_names
                 .into_iter()
                 .map(|method_name| {
-                    let method_name = ctx.program.interner.intern_ident(method_name.into());
+                    let method_name = ctx.intern(method_name.into());
                     ctx.symbols
                         .resolve_method(type_id, method_name)
                         .ok_or(Error::from(SemaError::UnresolvedMember))
@@ -146,7 +146,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             method_names
                 .into_iter()
                 .map(|method_name| {
-                    let method_name = ctx.program.interner.intern_ident(method_name.into());
+                    let method_name = ctx.intern(method_name.into());
                     ctx.symbols[scope_id]
                         .types
                         .get(&method_name.into())
@@ -1015,7 +1015,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         path: &CheckedPathNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
-        if let Some(variable) = ctx.symbols.get_variable(Some(path.scope_id), &path.name) {
+        if let Some(variable) = ctx.symbols.get_variable(Some(path.scope_id), &path.target) {
             return Ok(variable.value.clone().unwrap());
         } else if let Some(CheckedConstNode { value, ty, .. }) =
             ctx.symbols[path.type_id].as_const()
@@ -1185,9 +1185,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let start_scope = Some(path_node.scope_id);
         let variable = ctx
             .symbols
-            .get_variable(start_scope, &path_node.name)
+            .get_variable(start_scope, &path_node.target)
             .unwrap();
-        Ok((variable.value.clone().unwrap(), path_node.name, variable))
+        Ok((variable.value.clone().unwrap(), path_node.target, variable))
     }
 
     #[instrument(level = "debug", skip_all)]

@@ -248,7 +248,7 @@ impl<'a> StorageProcessor<'a> {
 
         let read_ident = ctx.intern("read");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            root: Some(field_type.as_basic().unwrap().clone()),
+            root: Some(field_type.clone()),
             segments: vec![],
             target: read_ident,
         }));
@@ -300,7 +300,7 @@ impl<'a> StorageProcessor<'a> {
 
         let write_ident = ctx.intern("write");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            root: Some(field_type.as_basic().unwrap().clone()),
+            root: Some(field_type.clone()),
             segments: vec![],
             target: write_ident,
         }));
@@ -353,7 +353,7 @@ impl<'a> StorageProcessor<'a> {
     ) -> ExprId {
         let size_ident = ctx.intern("size");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            root: Some(field_type.as_basic().unwrap().clone()),
+            root: Some(field_type.clone()),
             segments: vec![],
             target: size_ident,
         }));
@@ -378,7 +378,7 @@ impl<'a> StorageProcessor<'a> {
     ) -> (IdentId, ExprId) {
         let read_ident = ctx.intern("read");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            root: Some(field_type.as_basic().unwrap().clone()),
+            root: Some(field_type.clone()),
             segments: vec![],
             target: read_ident,
         }));
@@ -407,7 +407,7 @@ impl<'a> StorageProcessor<'a> {
         let value_ident = ctx.intern("value");
         let write_ident = ctx.intern("write");
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            root: Some(field_type.as_basic().unwrap().clone()),
+            root: Some(field_type.clone()),
             segments: vec![],
             target: write_ident,
         }));

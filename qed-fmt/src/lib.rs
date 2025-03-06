@@ -171,7 +171,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
         let mut path = node
             .root
-            .map(|r| vec![ctx.ident(r).to_string()])
+            .as_ref()
+            .map(|r| vec![self.visit_unchecked_type(r, ctx)])
             .unwrap_or_default();
         path.extend_from_slice(
             &node

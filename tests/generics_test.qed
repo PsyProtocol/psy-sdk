@@ -36,5 +36,5 @@ fn main() -> Felt {
     let arr: [Felt; 2] = [0, 1];
     p.set_age(20);
     modify_person(p);
-    p.data.data[0] + (Hash::len() as Felt)
+    p.data.data[0] + (<[Felt; 2]>::len() as Felt)
 }
