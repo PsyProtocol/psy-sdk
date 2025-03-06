@@ -948,7 +948,7 @@ dependencies = [
 [[package]]
 name = "kvq"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#3123ccf19abb683ae3737f0f900edd6769a412e1"
+source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#0cfad0a890c7ffa65b18dba2e1fe3537b3749a83"
 dependencies = [
  "anyhow",
  "hex",
@@ -1593,7 +1593,7 @@ dependencies = [
 [[package]]
 name = "qed_common_circuit"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#3123ccf19abb683ae3737f0f900edd6769a412e1"
+source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#0cfad0a890c7ffa65b18dba2e1fe3537b3749a83"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1627,7 +1627,7 @@ dependencies = [
 [[package]]
 name = "qed_core"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#3123ccf19abb683ae3737f0f900edd6769a412e1"
+source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#0cfad0a890c7ffa65b18dba2e1fe3537b3749a83"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1650,7 +1650,7 @@ dependencies = [
 [[package]]
 name = "qed_crypto"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#3123ccf19abb683ae3737f0f900edd6769a412e1"
+source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#0cfad0a890c7ffa65b18dba2e1fe3537b3749a83"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1682,7 +1682,7 @@ dependencies = [
 [[package]]
 name = "qed_data"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#3123ccf19abb683ae3737f0f900edd6769a412e1"
+source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#0cfad0a890c7ffa65b18dba2e1fe3537b3749a83"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1704,7 +1704,7 @@ dependencies = [
 [[package]]
 name = "qed_exec"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#3123ccf19abb683ae3737f0f900edd6769a412e1"
+source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#0cfad0a890c7ffa65b18dba2e1fe3537b3749a83"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1729,7 +1729,7 @@ dependencies = [
 [[package]]
 name = "qed_prover"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#3123ccf19abb683ae3737f0f900edd6769a412e1"
+source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#0cfad0a890c7ffa65b18dba2e1fe3537b3749a83"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1758,7 +1758,7 @@ dependencies = [
 [[package]]
 name = "qed_rollup_circuit"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#3123ccf19abb683ae3737f0f900edd6769a412e1"
+source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#0cfad0a890c7ffa65b18dba2e1fe3537b3749a83"
 dependencies = [
  "anyhow",
  "hex",
@@ -1780,7 +1780,7 @@ dependencies = [
 [[package]]
 name = "qed_store"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#3123ccf19abb683ae3737f0f900edd6769a412e1"
+source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#0cfad0a890c7ffa65b18dba2e1fe3537b3749a83"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1803,7 +1803,7 @@ dependencies = [
 [[package]]
 name = "qedlang_core"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#3123ccf19abb683ae3737f0f900edd6769a412e1"
+source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#0cfad0a890c7ffa65b18dba2e1fe3537b3749a83"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1821,7 +1821,7 @@ dependencies = [
 [[package]]
 name = "qedlang_macros"
 version = "0.1.0"
-source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#3123ccf19abb683ae3737f0f900edd6769a412e1"
+source = "git+ssh://git@github.com/QEDProtocol/qedlang-rust?branch=feat%2Fqed-lang#0cfad0a890c7ffa65b18dba2e1fe3537b3749a83"
 dependencies = [
  "anyhow",
  "hex",

@@ -27,5 +27,11 @@ fn main(a: Felt, b: Felt) -> Felt{
     };
     let mut arr: [Person; 2] = [person1, person2];
 
-    return arr[a].hw[b].height;
+    arr[a].hw[b] = new HW{
+        height: 160,
+        weight: 110,
+    };
+
+    // 175 + 160 = 335
+    return arr[a].hw[0].height + arr[a].hw[1].height;
 }

@@ -599,6 +599,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             (CheckedValue::U32(l), CheckedValue::U32(r), Lte) => self.context.op_lte(*l, *r),
             (CheckedValue::U32(l), CheckedValue::U32(r), Gt) => self.context.op_gt(*l, *r),
             (CheckedValue::U32(l), CheckedValue::U32(r), Gte) => self.context.op_gte(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Mod) => self.context.op_u32_mod(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r), Pow) => self.context.op_u32_exp(*l, *r),
 
             (CheckedValue::Bool(l), CheckedValue::Bool(r), And) => self.context.op_bool_and(*l, *r),
             (CheckedValue::Bool(l), CheckedValue::Bool(r), Or) => self.context.op_bool_or(*l, *r),
@@ -1038,7 +1040,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     ) -> Result<()> {
         let node = program[stmt_id].as_assignment().unwrap();
         let value = self.interpret_expr(program, node.value, ctx)?;
-        let mut path = vec![];
+        let mut path: Vec<IndexPath<F>> = vec![];
+        let mut index_condition = vec![];
 
         let (old_value, name, variable) =
             self.interpret_assignment_target(program, node, &program[node.target], &mut path, ctx)?;
@@ -1047,7 +1050,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             self.interpret_assignment_value(program, &old_value, node.operator, value, ctx)?;
 
         let mut variable_value = variable.value.unwrap();
-        variable_value.set_path(&mut self.context, &path, new_value)?;
+        variable_value.set_path(&mut self.context, &path, &mut index_condition, new_value)?;
 
         ctx.symbols
             .set_variable(variable.scope_id, &name, variable_value)?;
@@ -1300,14 +1303,17 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 .to_bool();
 
             self.context.start_else_if_block(predicate);
+
             let elseif_result = self.interpret_expr(program, condition.body, ctx)?;
-            result = self.context.cset(result, elseif_result);
+
+            result = CheckedValueRef::<F>::cset(&mut self.context, &result, &elseif_result);
         }
 
         if let Some(else_branch) = &node.else_branch {
             self.context.start_else_block();
+
             let else_result = self.interpret_expr(program, else_branch.clone(), ctx)?;
-            result = self.context.cset(result, else_result);
+            result = CheckedValueRef::<F>::cset(&mut self.context, &result, &else_result);
         }
 
         self.context.end_if_block();
