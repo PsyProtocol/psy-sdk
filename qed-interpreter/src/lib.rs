@@ -36,10 +36,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Evaluator<F, C> for
     fn evaluate_expr(
         &mut self,
         program: &CheckedProgram<F>,
-        expr_id: ExprId,
+        expr: &CheckedExprNode<F>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> CheckedValueRef<F> {
-        self.interpret_expr(program, expr_id, ctx).unwrap()
+        self.__interpret_expr__(program, expr, ctx).unwrap()
     }
 
     fn to_constant_u32(&mut self, value: F) -> u32 {
@@ -693,13 +693,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn interpret_expr(
+    fn __interpret_expr__(
         &mut self,
         program: &CheckedProgram<F>,
-        expr_id: ExprId,
+        node: &CheckedExprNode<F>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
-        let node = &program[expr_id];
         match node {
             CheckedExprNode::Path(path) => Ok(self.interpret_path(program, path, ctx)?),
             CheckedExprNode::Intrinsic(ctx_node) => Ok({
@@ -871,6 +870,17 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             }
             CheckedExprNode::IfExpr(if_expr) => Ok(self.interpret_if_expr(program, if_expr, ctx)?),
         }
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    pub fn interpret_expr(
+        &mut self,
+        program: &CheckedProgram<F>,
+        expr_id: ExprId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<CheckedValueRef<F>> {
+        let node = &program[expr_id];
+        self.__interpret_expr__(program, node, ctx)
     }
 
     #[instrument(level = "debug", skip_all)]

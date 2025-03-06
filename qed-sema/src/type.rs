@@ -83,7 +83,7 @@ pub enum Type {
     TypeVariable(CheckedTypeVariableNode),
     Tuple(Vec<TypeId>),
 
-    GenericInstance(TypeId, Vec<TypeId>),
+    GenericInstance(TypeId, Vec<TypeId>, ScopeId),
 }
 
 #[derive(Copy, Debug, Clone, PartialEq)]
@@ -308,7 +308,7 @@ impl Type {
                 Type::Const(CheckedConstNode { name, .. }) => {
                     (name.clone(), None, vec![], vec![], vec![], None)
                 }
-                Type::GenericInstance(underlying_type_id, generic_parameters) => (
+                Type::GenericInstance(underlying_type_id, generic_parameters, _) => (
                     None,
                     Some(underlying_type_id.clone()),
                     generic_parameters.clone(),
@@ -342,6 +342,7 @@ impl Type {
             Type::Bool(_) => ScopeId::primitive(),
             Type::U32(_) => ScopeId::primitive(),
             Type::TypeVariable(CheckedTypeVariableNode { scope_id, .. }) => *scope_id,
+            Type::GenericInstance(_, _, scope_id) => *scope_id,
             _ => panic!("Type::scope_id called on non-composite type: {:?}", self),
         }
     }
@@ -467,7 +468,7 @@ impl Type {
             }
             Type::LambdaFunction(_) => vec![],
             Type::FunctionSignature(_) => vec![],
-            Type::GenericInstance(_, generic_parameters) => generic_parameters.to_vec(),
+            Type::GenericInstance(_, generic_parameters, _) => generic_parameters.to_vec(),
             _ => unreachable!(),
         }
     }
@@ -508,7 +509,7 @@ impl Type {
             Type::LambdaFunction(_) => TypeKind::LambdaFunction,
             Type::FunctionSignature(_) => TypeKind::FunctionSignature,
             Type::TypeVariable(_) => TypeKind::TypeVariable,
-            Type::GenericInstance(_, _) => TypeKind::GenericInstance,
+            Type::GenericInstance(_, _, _) => TypeKind::GenericInstance,
         }
     }
 }

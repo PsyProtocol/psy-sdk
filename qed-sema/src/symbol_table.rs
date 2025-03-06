@@ -387,7 +387,15 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         Ok(())
     }
 
-    pub fn resolve_method(&self, implementor_id: TypeId, method_name: IdentId) -> Option<TypeId> {
+    pub fn resolve_method(
+        &self,
+        mut implementor_id: TypeId,
+        method_name: IdentId,
+    ) -> Option<TypeId> {
+        if let Some((underlying_type_id, _, _)) = self[implementor_id].as_generic_instance() {
+            implementor_id = *underlying_type_id;
+        }
+
         let method_name_key: TypeKey = method_name.into();
 
         let find_method = |type_id: TypeId| -> Option<TypeId> {

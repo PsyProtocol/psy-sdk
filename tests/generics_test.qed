@@ -1,5 +1,5 @@
 impl<T, N> [T; N] {
-    pub const fn len(self) -> u32 {
+    pub const fn len() -> u32 {
         return N;
     }
 }
@@ -36,5 +36,5 @@ fn main() -> Felt {
     let arr: [Felt; 2] = [0, 1];
     p.set_age(20);
     modify_person(p);
-    p.data.data[0] + (arr.len() as Felt)
+    p.data.data[0] + (Hash::len() as Felt)
 }

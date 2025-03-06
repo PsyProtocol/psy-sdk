@@ -229,7 +229,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let inner_ty = if let Some(a) = ty.as_array() {
             a.inner_ty
         } else {
-            let (&underlying_type_id, generic_args) = ty.as_generic_instance().unwrap();
+            let (&underlying_type_id, generic_args, _) = ty.as_generic_instance().unwrap();
             let innner_ty = generic_args.first().unwrap().clone();
             self.populate_generic_arguments(underlying_type_id, generic_args.to_vec(), ctx)?;
             innner_ty
@@ -261,7 +261,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let underlying_type_id = if let Some(_) = ty.as_struct() {
             type_id
         } else {
-            let (&underlying_type_id, generic_args) = ty.as_generic_instance().unwrap();
+            let (&underlying_type_id, generic_args, _) = ty.as_generic_instance().unwrap();
             self.populate_generic_arguments(underlying_type_id, generic_args.to_vec(), ctx)?;
             underlying_type_id
         };
@@ -533,6 +533,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let ty = Type::GenericInstance(
                     underlying_type_id,
                     vec![self.substitute_all(inner_ty, ctx)?, size_ty],
+                    scope_id,
                 );
                 let type_id = ctx.symbols.get_or_add_type(Some(scope_id), ty.key(), ty)?;
 
@@ -579,7 +580,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let type_id = if generic_parameters.is_empty() {
                     underlying_type_id
                 } else {
-                    let ty = Type::GenericInstance(underlying_type_id, generic_parameters);
+                    let ty = Type::GenericInstance(
+                        underlying_type_id,
+                        generic_parameters,
+                        ctx.symbols.current_scope_id().unwrap(),
+                    );
 
                     let type_id = ctx.symbols.get_or_add_type(None, ty.key(), ty)?;
                     self.substitute_all(type_id, ctx)?
@@ -711,6 +716,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 return Err(Error::TypeMismatch);
             }
         }
+
         let signature = ctx.symbols[ty].signature();
 
         if call_node.args.len() != signature.parameters.len() {
@@ -725,12 +731,31 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             args.push(type_arg);
         }
 
-        return Ok(CheckedExprNode::Call(CheckedCallNode {
+        let checked_expr = CheckedExprNode::Call(CheckedCallNode {
             callee: self.program.exprs.alloc_item(callee),
             generic_parameters: generic_parameters,
             args: self.program.exprs.alloc_items(args),
             type_id: self.substitute_all(signature.return_type, ctx)?,
-        }));
+        });
+
+        if ctx.symbols[ty].is_function()
+            && ctx.symbols[ty].as_function().unwrap().qualifier.is_const
+        {
+            let value = self
+                .evaluator
+                .evaluate_expr(&self.program, &checked_expr, ctx);
+            let value = if value.is_type() {
+                let type_id = self.substitute_all(value.to_type(), ctx)?;
+                let const_id = ctx.symbols[type_id].as_const().unwrap().value;
+                ctx.symbols.get_constant(const_id)
+            } else {
+                value.to_felt()
+            };
+
+            return Ok(CheckedExprNode::Value(CheckedValueNode::U32(value)));
+        }
+
+        return Ok(checked_expr);
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -759,7 +784,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let mut args = Vec::new();
         let receiver = {
             let receiver = self.visit_expr(call_node.receiver, ctx)?;
-            if let Some((&underlying_type_id, generic_args)) =
+            if let Some((&underlying_type_id, generic_args, _)) =
                 ctx.symbols[receiver.ty()].as_generic_instance()
             {
                 self.populate_generic_arguments(underlying_type_id, generic_args.to_vec(), ctx)?;
@@ -779,8 +804,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             args.push(type_arg);
         }
 
+        let checked_expr = CheckedExprNode::MemberCall(CheckedMemberCallNode {
+            callee: self.program.exprs.alloc_item(variable),
+            receiver,
+            generic_parameters: f.generic_parameters.clone(),
+            args: self.program.exprs.alloc_items(args),
+            type_id: self.substitute_all(f.return_type, ctx)?,
+        });
+
         if f.qualifier.is_const {
-            let value = self.evaluator.evaluate_expr(&self.program, node, ctx);
+            let value = self
+                .evaluator
+                .evaluate_expr(&self.program, &checked_expr, ctx);
+            eprintln!("DEBUGPRINT[391]: lib.rs:799: value={:#?}", value);
             let value = if value.is_type() {
                 let type_id = self.substitute_all(value.to_type(), ctx)?;
                 let const_id = ctx.symbols[type_id].as_const().unwrap().value;
@@ -792,13 +828,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             return Ok(CheckedExprNode::Value(CheckedValueNode::U32(value)));
         }
 
-        return Ok(CheckedExprNode::MemberCall(CheckedMemberCallNode {
-            callee: self.program.exprs.alloc_item(variable),
-            receiver,
-            generic_parameters: f.generic_parameters.clone(),
-            args: self.program.exprs.alloc_items(args),
-            type_id: self.substitute_all(f.return_type, ctx)?,
-        }));
+        return Ok(checked_expr);
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1490,10 +1520,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             return Err(Error::TypeMismatch);
         }
 
-        let value_expr_id = self.program.exprs.alloc_item(value);
         let value = self
             .evaluator
-            .evaluate_expr(&self.program, value_expr_id, ctx)
+            .evaluate_expr(&self.program, &value, ctx)
             .to_value();
 
         let node = CheckedConstNode {
@@ -1862,8 +1891,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                             return Err(Error::GenericParameterMismatch);
                         }
 
-                        let ty =
-                            Type::GenericInstance(underlying_type_id, checked_generic_parameters);
+                        let ty = Type::GenericInstance(
+                            underlying_type_id,
+                            checked_generic_parameters,
+                            ctx.symbols.current_scope_id().unwrap(),
+                        );
                         let type_id = ctx.symbols.get_or_add_type(None, ty.key(), ty)?;
 
                         Ok(type_id)
@@ -1898,8 +1930,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                             return Err(Error::GenericParameterMismatch);
                         }
 
-                        let ty =
-                            Type::GenericInstance(underlying_type_id, checked_generic_parameters);
+                        let ty = Type::GenericInstance(
+                            underlying_type_id,
+                            checked_generic_parameters,
+                            ctx.symbols.current_scope_id().unwrap(),
+                        );
                         let type_id = ctx.symbols.get_or_add_type(None, ty.key(), ty)?;
 
                         Ok(type_id)
@@ -1916,7 +1951,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
                 let size_ty = self.populate_constant_u32(size.clone(), ctx)?;
 
-                let ty = Type::GenericInstance(underlying_type_id, vec![inner_ty, size_ty]);
+                let ty = Type::GenericInstance(
+                    underlying_type_id,
+                    vec![inner_ty, size_ty],
+                    ctx.symbols.current_scope_id().unwrap(),
+                );
                 let type_id = ctx.symbols.get_or_add_type(None, ty.key(), ty)?;
 
                 Ok(type_id)
@@ -2111,8 +2150,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 true
             }
 
-            (Type::GenericInstance(underlying_type_id, args), Type::Struct(checked_struct))
-            | (Type::Struct(checked_struct), Type::GenericInstance(underlying_type_id, args)) => {
+            (Type::GenericInstance(underlying_type_id, args, _), Type::Struct(checked_struct))
+            | (Type::Struct(checked_struct), Type::GenericInstance(underlying_type_id, args, _)) => {
                 let other_ty = &ctx.symbols[*underlying_type_id];
                 other_ty.is_struct()
                     && other_ty.name() == checked_struct.name
@@ -2123,8 +2162,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         .zip(checked_struct.generic_parameters.clone().into_iter())
                         .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
-            (Type::GenericInstance(underlying_type_id, args), Type::Array(checked_array))
-            | (Type::Array(checked_array), Type::GenericInstance(underlying_type_id, args)) => {
+            (Type::GenericInstance(underlying_type_id, args, _), Type::Array(checked_array))
+            | (Type::Array(checked_array), Type::GenericInstance(underlying_type_id, args, _)) => {
                 let other_ty = &ctx.symbols[*underlying_type_id];
                 other_ty.is_array()
                     && args
@@ -2134,7 +2173,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
 
-            (Type::GenericInstance(lhs_ty, lhs_args), Type::GenericInstance(rhs_ty, rhs_args)) => {
+            (
+                Type::GenericInstance(lhs_ty, lhs_args, _),
+                Type::GenericInstance(rhs_ty, rhs_args, _),
+            ) => {
                 if lhs_ty != rhs_ty {
                     return false;
                 }
@@ -2216,13 +2258,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     .get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)
             }
 
-            Type::GenericInstance(underlying_type_id, generic_parameters) => {
+            Type::GenericInstance(underlying_type_id, generic_parameters, scope_id) => {
                 let mut new_generic_parameters = Vec::new();
                 for generic_parameter in generic_parameters {
                     new_generic_parameters.push(self.substitute_all(generic_parameter, ctx)?);
                 }
 
-                let ty = Type::GenericInstance(underlying_type_id, new_generic_parameters);
+                let ty =
+                    Type::GenericInstance(underlying_type_id, new_generic_parameters, scope_id);
                 ctx.symbols.get_or_add_type(None, ty.key(), ty)
             }
 
