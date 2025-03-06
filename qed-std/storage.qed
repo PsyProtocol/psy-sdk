@@ -35,3 +35,17 @@ impl Storage for bool {
         __storage_write(offset, value as Felt);
     }
 }
+
+impl Storage for u32 {
+    pub fn size() -> Felt {
+        return 1;
+    }
+
+    pub fn read(offset: Felt) -> Self {
+        __storage_read(offset) as u32
+    }
+
+    pub fn write(offset: Felt, value: Self) {
+        __storage_write(offset, value as Felt);
+    }
+}

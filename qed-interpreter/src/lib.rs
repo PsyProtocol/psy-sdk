@@ -690,8 +690,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             _ => unreachable!(),
         };
 
-        self.cset_variable(old_value, &new_value);
-        Ok(new_value)
+        Ok(CheckedValueRef::<F>::select(
+            &mut self.context,
+            &new_value,
+            &old_value,
+            &|ctx: &mut C, n: &F, o: &F| ctx.cset(o.clone(), n.clone()),
+        ))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1201,64 +1205,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         Ok(())
     }
 
-    fn cset_variable(&mut self, old_value: &CheckedValueRef<F>, new_value: &CheckedValueRef<F>) {
-        if old_value == new_value {
-            return;
-        }
-
-        let mut new_value_mut = new_value.borrow_mut();
-        match (&*old_value.borrow(), &mut *new_value_mut) {
-            (CheckedValue::Felt(o), CheckedValue::Felt(ref mut n)) => {
-                *n = self.context.cset(o.clone(), n.clone());
-            }
-            (CheckedValue::Bool(o), CheckedValue::Bool(ref mut n)) => {
-                *n = self.context.cset(o.clone(), n.clone());
-            }
-            (CheckedValue::U32(u), CheckedValue::U32(ref mut n)) => {
-                *n = self.context.cset(u.clone(), n.clone());
-            }
-            (CheckedValue::Array(_, o), CheckedValue::Array(_, n)) => {
-                for (old_value, new_value) in o.iter().zip(n.iter()) {
-                    self.cset_variable(old_value, new_value);
-                }
-            }
-            (CheckedValue::Struct(_, o), CheckedValue::Struct(_, n)) => {
-                for ((old_field_name, old_field_value), (new_field_name, new_field_value)) in
-                    o.iter().zip(n.iter())
-                {
-                    assert_eq!(old_field_name, new_field_name);
-                    self.cset_variable(old_field_value, new_field_value);
-                }
-            }
-            (
-                CheckedValue::Tuple {
-                    elements: old_elements,
-                    ..
-                },
-                CheckedValue::Tuple {
-                    elements: new_elements,
-                    ..
-                },
-            ) => {
-                assert_eq!(
-                    old_elements.len(),
-                    new_elements.len(),
-                    "Tuple size mismatch"
-                );
-
-                for ((_, old_value), (_, new_value)) in
-                    old_elements.iter().zip(new_elements.iter_mut())
-                {
-                    self.cset_variable(old_value, new_value);
-                }
-            }
-
-            _ => {
-                unreachable!()
-            }
-        }
-    }
-
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_block_expr(
         &mut self,
@@ -1286,15 +1232,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         node: &CheckedIfExprNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
-        //calculate the predicate
         let predicate = self
             .interpret_expr(program, node.if_branch.predicate, ctx)?
             .to_bool();
 
-        //enter the if block
         self.context.start_if_block(predicate);
 
-        //use if block return value to initialize the result
         let mut result = self.interpret_expr(program, node.if_branch.body, ctx)?;
 
         for condition in &node.elseif_branches {
@@ -1306,14 +1249,24 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
             let elseif_result = self.interpret_expr(program, condition.body, ctx)?;
 
-            result = CheckedValueRef::<F>::cset(&mut self.context, &result, &elseif_result);
+            result = CheckedValueRef::<F>::select(
+                &mut self.context,
+                &elseif_result,
+                &result,
+                &|ctx: &mut C, n: &F, o: &F| ctx.cset(o.clone(), n.clone()),
+            );
         }
 
         if let Some(else_branch) = &node.else_branch {
             self.context.start_else_block();
 
             let else_result = self.interpret_expr(program, else_branch.clone(), ctx)?;
-            result = CheckedValueRef::<F>::cset(&mut self.context, &result, &else_result);
+            result = CheckedValueRef::<F>::select(
+                &mut self.context,
+                &else_result,
+                &result,
+                &|ctx: &mut C, n: &F, o: &F| ctx.cset(o.clone(), n.clone()),
+            );
         }
 
         self.context.end_if_block();
