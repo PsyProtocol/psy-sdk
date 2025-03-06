@@ -5,8 +5,12 @@
 ## Features
 
 
-- Basic Types like Felt, u32, bool, Array, Struct
+- Basic Types like Felt, Tuple, u32, bool, Array, Struct
 - Functions
+- Closures
+- Constants
+- Comptime
+- If/Block/Match Expression
 - Modules
 - Traits
 - Type Checking
@@ -20,7 +24,7 @@
 make test
 ```
 
-2. Run opcode tests
+2. Run examples
 ```
 make interpret
 ```

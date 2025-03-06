@@ -36,6 +36,8 @@ pub enum Error {
     InvalidFunctionCall,
     #[error("invalid return")]
     InvalidReturn,
+    #[error("unreachable expression")]
+    UnreachableExpression,
     #[error("invalid self parameter")]
     InvalidSelfParameter,
     #[error("type already defined")]

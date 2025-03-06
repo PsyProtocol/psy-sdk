@@ -1,16 +1,17 @@
 use qed_ast::TypeQualifier;
+use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{CheckedValueRef, ScopeId, TypeId};
 
 #[derive(Clone, Debug)]
-pub struct CheckedVariable<F> {
+pub struct CheckedVariable<F: Clone + From<u32> + ContextFelt> {
     pub ty: TypeId,
     pub qualifier: TypeQualifier,
     pub scope_id: ScopeId,
     pub value: Option<CheckedValueRef<F>>,
 }
 
-impl<F> CheckedVariable<F> {
+impl<F: Clone + From<u32> + ContextFelt> CheckedVariable<F> {
     pub fn new(
         ty: TypeId,
         qualifier: TypeQualifier,

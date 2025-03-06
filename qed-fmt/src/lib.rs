@@ -1012,8 +1012,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let BlockExprNode { stmts, return_expr } =
-            ctx.expression(node).as_block_expr().unwrap().clone();
+        let BlockExprNode {
+            stmts,
+            expr: return_expr,
+        } = ctx.expression(node).as_block_expr().unwrap().clone();
 
         let mut block_expr_result = String::new();
         block_expr_result.push_str(format!("{{\n").as_str());

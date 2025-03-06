@@ -7,7 +7,7 @@ pub struct CheckedTraitNode {
     pub name: IdentId,
     pub generic_parameters: Vec<TypeId>,
     pub body: Vec<DefId>,
-    pub def_ids: Vec<DefId>,
+    pub unchecked_body: Vec<DefId>,
     pub implementors: Vec<TypeId>,
     pub scope_id: ScopeId,
     pub visibility: Visibility,

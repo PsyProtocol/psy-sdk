@@ -1,5 +1,7 @@
 mod definition;
 mod expr;
+mod infer;
+mod program;
 mod stmt;
 mod symbol_table;
 mod traits;
@@ -12,82 +14,45 @@ mod error;
 pub use definition::*;
 pub use error::*;
 pub use expr::*;
-use indexmap::IndexMap;
-use qed_ast::*;
-use qed_common::{Arena, Graph};
+pub use infer::*;
+pub use program::*;
 pub use r#type::*;
 pub use stmt::*;
 pub use symbol_table::*;
+pub use traits::*;
 pub use value::*;
 pub use variable::*;
 
-use std::{collections::HashMap, ops::Index};
+use indexmap::IndexMap;
+use qed_ast::*;
+use qed_common::Graph;
+use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use std::collections::{HashMap, HashSet};
 use tracing::instrument;
 
-pub struct TypeCheckerVisitorContext<F: Clone + From<u32>, C> {
+pub struct TypeCheckerVisitorContext<F: Clone + From<u32> + ContextFelt, C> {
     path_stack: Vec<NodeId>,
     pub program: Program<F>,
     pub symbols: SymbolTable<F>,
-    inferences: Vec<Vec<HashMap<TypeId, TypeId>>>,
+    infcx: InferCtxt,
     _marker: std::marker::PhantomData<(F, C)>,
 }
 
-impl<F: Clone + From<u32>, C> TypeCheckerVisitorContext<F, C> {
+impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
     pub fn new(program: Program<F>) -> Self {
         TypeCheckerVisitorContext {
             path_stack: vec![],
             program,
             symbols: SymbolTable::new(),
-            inferences: vec![vec![HashMap::new()]],
+            infcx: InferCtxt::new(),
             _marker: std::marker::PhantomData,
         }
     }
-
-    pub fn push_inferences_context(&mut self) {
-        self.inferences.push(vec![HashMap::new()]);
-    }
-
-    pub fn has_inferences(&self) -> bool {
-        self.inferences
-            .last()
-            .unwrap()
-            .iter()
-            .any(|x| !x.is_empty())
-    }
-
-    pub fn resolve_type(&self, type_id: TypeId) -> Option<TypeId> {
-        self.inferences
-            .last()
-            .unwrap()
-            .iter()
-            .rev()
-            .find_map(|x| x.get(&type_id))
-            .cloned()
-    }
-
-    pub fn add_inference(&mut self, lhs_ty: TypeId, rhs_ty: TypeId) {
-        self.inferences
-            .last_mut()
-            .unwrap()
-            .last_mut()
-            .unwrap()
-            .insert(lhs_ty, rhs_ty);
-    }
-
-    pub fn pop_inferences_context(&mut self) {
-        self.inferences.pop();
-    }
-
-    pub fn push_inferences(&mut self) {
-        self.inferences.last_mut().unwrap().push(HashMap::new());
-    }
-
-    pub fn pop_inferences(&mut self) {
-        self.inferences.last_mut().unwrap().pop();
-    }
 }
 
-impl<F: Clone + From<u32>, C> VisitorContext<F, C> for TypeCheckerVisitorContext<F, C> {
+impl<F: Clone + From<u32> + ContextFelt, C> VisitorContext<F, C>
+    for TypeCheckerVisitorContext<F, C>
+{
     type Expr = ExprNode<F>;
 
     type Stmt = StmtNode;
@@ -193,15 +158,13 @@ impl<F: Clone + From<u32>, C> VisitorContext<F, C> for TypeCheckerVisitorContext
     }
 }
 
-#[derive(Debug)]
-pub struct TypeChecker<F: Clone + From<u32>, C> {
-    pub exprs: Arena<ExprId, CheckedExprNode<F>>,
-    pub stmts: Arena<StmtId, CheckedStmtNode>,
-    pub defs: Arena<DefId, CheckedDefinitionNode>,
+pub struct TypeChecker<F: Clone + From<u32> + ContextFelt, C> {
+    pub program: CheckedProgram<F>,
+    evaluator: Box<dyn Evaluator<F, C>>,
     _marker: std::marker::PhantomData<C>,
 }
 
-impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
+impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, C> {
     type Expr = ExprNode<F>;
 
     type Stmt = StmtNode;
@@ -260,17 +223,25 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let index_access_node = ctx.expression(node).as_index_access().cloned().unwrap();
         let checked_expr = self.visit_expr(index_access_node.target, ctx)?;
         let checked_index = self.visit_expr(index_access_node.index, ctx)?;
-
         let type_id = checked_expr.ty();
-        let inner_ty = ctx.symbols[type_id].as_array().unwrap().inner_ty.clone();
+        let ty = &ctx.symbols[type_id];
+
+        let inner_ty = if let Some(a) = ty.as_array() {
+            a.inner_ty
+        } else {
+            let (&underlying_type_id, generic_args, _) = ty.as_generic_instance().unwrap();
+            let innner_ty = generic_args.first().unwrap().clone();
+            self.populate_generic_arguments(underlying_type_id, generic_args.to_vec(), ctx)?;
+            innner_ty
+        };
 
         if !self.unify(checked_index.ty(), FELT_TYPE, ctx) {
             return Err(Error::TypeMismatch);
         }
 
         Ok(CheckedExprNode::IndexAccess(CheckedIndexAccessNode {
-            target: self.exprs.alloc_item(checked_expr),
-            index: self.exprs.alloc_item(checked_index),
+            target: self.program.exprs.alloc_item(checked_expr),
+            index: self.program.exprs.alloc_item(checked_index),
             type_id: self.substitute_all(inner_ty, ctx)?,
         }))
     }
@@ -287,17 +258,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let type_id = checked_expr.ty();
         let ty = &ctx.symbols[type_id];
 
-        let (fields, underlying_type_id) = if let Some(s) = ty.as_struct() {
-            (&s.fields, type_id)
+        let underlying_type_id = if let Some(_) = ty.as_struct() {
+            type_id
         } else {
-            let (&underlying_type_id, generic_args) = ty.as_generic_instance().unwrap();
-
+            let (&underlying_type_id, generic_args, _) = ty.as_generic_instance().unwrap();
             self.populate_generic_arguments(underlying_type_id, generic_args.to_vec(), ctx)?;
-
-            (
-                &ctx.symbols[underlying_type_id].as_struct().unwrap().fields,
-                underlying_type_id,
-            )
+            underlying_type_id
         };
 
         if ctx.parent_node_type().is_member_call_expr() {
@@ -311,11 +277,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     || self.typecheck_member_access(member_access_node.target, ctx)
             );
             return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
-                target: self.exprs.alloc_item(checked_expr),
+                target: self.program.exprs.alloc_item(checked_expr),
                 field: member_access_node.field,
                 type_id,
             }));
         } else {
+            let fields = &ctx.symbols[underlying_type_id].as_struct().unwrap().fields;
             let (field_type, visibility) = fields
                 .get(&member_access_node.field)
                 .ok_or(Error::UnresolvedMember)?;
@@ -324,7 +291,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     || self.typecheck_member_access(member_access_node.target, ctx)
             );
             return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
-                target: self.exprs.alloc_item(checked_expr),
+                target: self.program.exprs.alloc_item(checked_expr),
                 field: member_access_node.field.clone(),
                 type_id: self.substitute_all(field_type.clone(), ctx)?,
             }));
@@ -354,7 +321,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             .ok_or(Error::IndexOutOfBounds)?
             .clone();
         Ok(CheckedExprNode::TupleAccess(CheckedTupleAccessNode {
-            target: self.exprs.alloc_item(checked_expr),
+            target: self.program.exprs.alloc_item(checked_expr),
             index: tuple_access_node.index,
             type_id: field_type,
         }))
@@ -401,7 +368,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 }
                 return Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::GetStateHashAt {
-                        slot_index: self.exprs.alloc_item(slot_index),
+                        slot_index: self.program.exprs.alloc_item(slot_index),
                         type_id: HASH_TYPE,
                     },
                 ));
@@ -425,10 +392,11 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 return Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::GetOtherContractStateHashAt {
                         contract_state_tree_height: self
+                            .program
                             .exprs
                             .alloc_item(contract_state_tree_height),
-                        contract_id: self.exprs.alloc_item(contract_id),
-                        slot_index: self.exprs.alloc_item(slot_index),
+                        contract_id: self.program.exprs.alloc_item(contract_id),
+                        slot_index: self.program.exprs.alloc_item(slot_index),
                         type_id: HASH_TYPE,
                     },
                 ));
@@ -455,11 +423,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 return Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::GetOtherUserContractStateHashAt {
                         contract_state_tree_height: self
+                            .program
                             .exprs
                             .alloc_item(contract_state_tree_height),
-                        user_id: self.exprs.alloc_item(user_id),
-                        contract_id: self.exprs.alloc_item(contract_id),
-                        slot_index: self.exprs.alloc_item(slot_index),
+                        user_id: self.program.exprs.alloc_item(user_id),
+                        contract_id: self.program.exprs.alloc_item(contract_id),
+                        slot_index: self.program.exprs.alloc_item(slot_index),
                         type_id: HASH_TYPE,
                     },
                 ));
@@ -479,8 +448,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
                 return Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::CSetStateHashAt {
-                        slot_index: self.exprs.alloc_item(slot_index),
-                        new_value: self.exprs.alloc_item(new_value),
+                        slot_index: self.program.exprs.alloc_item(slot_index),
+                        new_value: self.program.exprs.alloc_item(new_value),
                         type_id: HASH_TYPE,
                     },
                 ));
@@ -492,7 +461,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     return Err(Error::TypeMismatch);
                 }
                 return Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::Read {
-                    offset: self.exprs.alloc_item(offset),
+                    offset: self.program.exprs.alloc_item(offset),
                     type_id: FELT_TYPE,
                 }));
             }
@@ -507,8 +476,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 }
                 Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::Write {
-                        offset: self.exprs.alloc_item(offset),
-                        value: self.exprs.alloc_item(value),
+                        offset: self.program.exprs.alloc_item(offset),
+                        value: self.program.exprs.alloc_item(value),
                         type_id: FELT_TYPE,
                     },
                 ))
@@ -517,7 +486,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 let data = self.visit_expr(data, ctx)?;
 
                 Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::Hash {
-                    data: self.exprs.alloc_item(data),
+                    data: self.program.exprs.alloc_item(data),
                     type_id: HASH_TYPE,
                 }))
             }
@@ -550,14 +519,22 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                         return Err(Error::TypeMismatch);
                     }
                     inner_ty = checked_expr.ty();
-                    elements.push(self.exprs.alloc_item(checked_expr));
+                    elements.push(self.program.exprs.alloc_item(checked_expr));
                 }
 
+                let underlying_type_id = ctx
+                    .symbols
+                    .get_type_id(Some(ScopeId::primitive()), IdentId::TYPE_ARRAY)
+                    .unwrap();
+
+                let size_ty = self.populate_constant_u32(size, ctx)?;
+
                 let scope_id = ScopeId::primitive();
-                let ty = Type::Array(CheckedArrayNode {
-                    inner_ty: self.substitute_all(inner_ty, ctx)?,
-                    size: size.clone(),
-                });
+                let ty = Type::GenericInstance(
+                    underlying_type_id,
+                    vec![self.substitute_all(inner_ty, ctx)?, size_ty],
+                    scope_id,
+                );
                 let type_id = ctx.symbols.get_or_add_type(Some(scope_id), ty.key(), ty)?;
 
                 Ok(CheckedExprNode::Value(CheckedValueNode::Array(
@@ -586,7 +563,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     if !self.unify(field_type, field_value.ty(), ctx) {
                         return Err(Error::TypeMismatch);
                     }
-                    new_data.insert(field_name, self.exprs.alloc_item(field_value));
+                    new_data.insert(field_name, self.program.exprs.alloc_item(field_value));
                 }
 
                 for (generic_arg, generic_param) in generic_args
@@ -603,7 +580,11 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 let type_id = if generic_parameters.is_empty() {
                     underlying_type_id
                 } else {
-                    let ty = Type::GenericInstance(underlying_type_id, generic_parameters);
+                    let ty = Type::GenericInstance(
+                        underlying_type_id,
+                        generic_parameters,
+                        ctx.symbols.current_scope_id().unwrap(),
+                    );
 
                     let type_id = ctx.symbols.get_or_add_type(None, ty.key(), ty)?;
                     self.substitute_all(type_id, ctx)?
@@ -674,9 +655,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         };
 
         Ok(CheckedExprNode::Binary(CheckedBinaryNode {
-            lhs: self.exprs.alloc_item(checked_lhs),
+            lhs: self.program.exprs.alloc_item(checked_lhs),
             operator: binary_node.operator,
-            rhs: self.exprs.alloc_item(checked_rhs),
+            rhs: self.program.exprs.alloc_item(checked_rhs),
             type_id,
         }))
     }
@@ -710,7 +691,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         Ok(CheckedExprNode::Unary(CheckedUnaryNode {
             operator: unary_node.operator,
-            rhs: self.exprs.alloc_item(checked_expr),
+            rhs: self.program.exprs.alloc_item(checked_expr),
             type_id,
         }))
     }
@@ -735,6 +716,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 return Err(Error::TypeMismatch);
             }
         }
+
         let signature = ctx.symbols[ty].signature();
 
         if call_node.args.len() != signature.parameters.len() {
@@ -749,12 +731,31 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             args.push(type_arg);
         }
 
-        return Ok(CheckedExprNode::Call(CheckedCallNode {
-            callee: self.exprs.alloc_item(callee),
+        let checked_expr = CheckedExprNode::Call(CheckedCallNode {
+            callee: self.program.exprs.alloc_item(callee),
             generic_parameters: generic_parameters,
-            args: self.exprs.alloc_items(args),
+            args: self.program.exprs.alloc_items(args),
             type_id: self.substitute_all(signature.return_type, ctx)?,
-        }));
+        });
+
+        if ctx.symbols[ty].is_function()
+            && ctx.symbols[ty].as_function().unwrap().qualifier.is_const
+        {
+            let value = self
+                .evaluator
+                .evaluate_expr(&self.program, &checked_expr, ctx);
+            let value = if value.is_type() {
+                let type_id = self.substitute_all(value.to_type(), ctx)?;
+                let const_id = ctx.symbols[type_id].as_const().unwrap().value;
+                ctx.symbols.get_constant(const_id)
+            } else {
+                value.to_felt()
+            };
+
+            return Ok(CheckedExprNode::Value(CheckedValueNode::U32(value)));
+        }
+
+        return Ok(checked_expr);
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -769,6 +770,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let ty = variable.ty();
         // TODO: remove clone
         let f = ctx.symbols[ty].as_function().unwrap().clone();
+
         for (generic_param, generic_arg) in f
             .generic_parameters
             .iter()
@@ -780,10 +782,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             }
         }
         let mut args = Vec::new();
-        // TODO: add member call
         let receiver = {
             let receiver = self.visit_expr(call_node.receiver, ctx)?;
-            if let Some((&underlying_type_id, generic_args)) =
+            if let Some((&underlying_type_id, generic_args, _)) =
                 ctx.symbols[receiver.ty()].as_generic_instance()
             {
                 self.populate_generic_arguments(underlying_type_id, generic_args.to_vec(), ctx)?;
@@ -792,7 +793,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 return Err(Error::FunctionParameterMismatch);
             }
 
-            self.exprs.alloc_item(receiver)
+            self.program.exprs.alloc_item(receiver)
         };
 
         for (i, arg) in call_node.args.iter().enumerate() {
@@ -803,13 +804,31 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             args.push(type_arg);
         }
 
-        return Ok(CheckedExprNode::MemberCall(CheckedMemberCallNode {
-            callee: self.exprs.alloc_item(variable),
+        let checked_expr = CheckedExprNode::MemberCall(CheckedMemberCallNode {
+            callee: self.program.exprs.alloc_item(variable),
             receiver,
             generic_parameters: f.generic_parameters.clone(),
-            args: self.exprs.alloc_items(args),
+            args: self.program.exprs.alloc_items(args),
             type_id: self.substitute_all(f.return_type, ctx)?,
-        }));
+        });
+
+        if f.qualifier.is_const {
+            let value = self
+                .evaluator
+                .evaluate_expr(&self.program, &checked_expr, ctx);
+            eprintln!("DEBUGPRINT[391]: lib.rs:799: value={:#?}", value);
+            let value = if value.is_type() {
+                let type_id = self.substitute_all(value.to_type(), ctx)?;
+                let const_id = ctx.symbols[type_id].as_const().unwrap().value;
+                ctx.symbols.get_constant(const_id)
+            } else {
+                value.to_felt()
+            };
+
+            return Ok(CheckedExprNode::Value(CheckedValueNode::U32(value)));
+        }
+
+        return Ok(checked_expr);
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -837,7 +856,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         let elements_with_types = checked_elements
             .into_iter()
-            .map(|e| (e.ty(), self.exprs.alloc_item(e)))
+            .map(|e| (e.ty(), self.program.exprs.alloc_item(e)))
             .collect();
 
         let checked_expr =
@@ -865,7 +884,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 || self.unify(target_type, U32_TYPE, ctx))
         {
             return Ok(CheckedExprNode::Cast(CheckedCastNode {
-                value: self.exprs.alloc_item(src_expr),
+                value: self.program.exprs.alloc_item(src_expr),
                 target_type,
             }));
         } else {
@@ -889,9 +908,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let checked_block = self.visit_expr(if_expr_node.if_branch.body, ctx)?;
         let if_type = checked_block.as_block_expr().unwrap().type_id;
         let if_branch = CheckedCase {
-            predicate: self.exprs.alloc_item(checked_expr),
+            predicate: self.program.exprs.alloc_item(checked_expr),
             type_id: BOOL_TYPE,
-            body: self.exprs.alloc_item(checked_block),
+            body: self.program.exprs.alloc_item(checked_block),
         };
 
         let mut elseif_branches = Vec::with_capacity(if_expr_node.elseif_branches.len());
@@ -908,9 +927,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             }
 
             elseif_branches.push(CheckedCase {
-                predicate: self.exprs.alloc_item(checked_expr).clone(),
+                predicate: self.program.exprs.alloc_item(checked_expr).clone(),
                 type_id: BOOL_TYPE,
-                body: self.exprs.alloc_item(checked_block),
+                body: self.program.exprs.alloc_item(checked_block),
             });
         }
 
@@ -922,7 +941,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                 return Err(Error::TypeMismatch);
             }
 
-            Some(self.exprs.alloc_item(checked_block))
+            Some(self.program.exprs.alloc_item(checked_block))
         } else {
             None
         };
@@ -949,9 +968,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
         let checked_block = self.visit_expr(while_node.body, ctx)?;
         Ok(CheckedStmtNode::While(CheckedWhileNode {
-            predicate: self.exprs.alloc_item(predicate),
+            predicate: self.program.exprs.alloc_item(predicate),
             type_id: BOOL_TYPE,
-            body: self.exprs.alloc_item(checked_block),
+            body: self.program.exprs.alloc_item(checked_block),
         }))
     }
 
@@ -973,9 +992,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         }
 
         Ok(CheckedStmtNode::Assignment(CheckedAssignmentNode {
-            target: self.exprs.alloc_item(checked_lhs),
+            target: self.program.exprs.alloc_item(checked_lhs),
             operator: assignment_node.operator,
-            value: self.exprs.alloc_item(checked_rhs),
+            value: self.program.exprs.alloc_item(checked_rhs),
             type_id: self.substitute_all(lhs_ty, ctx)?,
         }))
     }
@@ -1003,7 +1022,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             name: variable_node.name,
             ty: self.substitute_all(rhs_ty, ctx)?,
             qualifier: variable_node.qualifier,
-            value: self.exprs.alloc_item(checked_expr),
+            value: self.program.exprs.alloc_item(checked_expr),
             scope_id: current_scope_id,
         };
         Ok(CheckedStmtNode::Variable(checked_variable))
@@ -1017,25 +1036,25 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     ) -> std::result::Result<Self::StmtResult, Self::Error> {
         // TODO: remove clone
         let return_node = ctx.statement(node).as_return().cloned().unwrap();
-        // let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-        // let parent_scope_id = ctx.symbols.parent_scope_id().unwrap();
-        // if ctx.symbols[current_scope_id].kind != ScopeKind::Block {
-        //     return Err(Error::InvalidReturn);
-        // }
-        // let valid_kinds = [
-        //     ScopeKind::LambdaFunction,
-        //     ScopeKind::Function,
-        //     ScopeKind::ImplMethod,
-        //     ScopeKind::TraitMethod,
-        //     ScopeKind::LambdaFunction,
-        // ];
-        // if !valid_kinds.contains(&ctx.symbols[parent_scope_id].kind) {
-        //     return Err(Error::InvalidReturn);
-        // }
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+        let parent_scope_id = ctx.symbols.parent_scope_id().unwrap();
+        if ctx.symbols[current_scope_id].kind != ScopeKind::Block {
+            return Err(Error::InvalidReturn);
+        }
+        let valid_kinds = [
+            ScopeKind::LambdaFunction,
+            ScopeKind::Function,
+            ScopeKind::ImplMethod,
+            ScopeKind::TraitMethod,
+            ScopeKind::LambdaFunction,
+        ];
+        if !valid_kinds.contains(&ctx.symbols[parent_scope_id].kind) {
+            return Err(Error::InvalidReturn);
+        }
 
         let ret = if let Some(expr) = return_node.0 {
             let expr = self.visit_expr(expr, ctx)?;
-            Some(self.exprs.alloc_item(expr))
+            Some(self.program.exprs.alloc_item(expr))
         } else {
             None
         };
@@ -1060,7 +1079,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
                 Ok(CheckedStmtNode::Intrinsic(
                     CheckedIntrinsicStmtNode::Assert {
-                        left: self.exprs.alloc_item(checked_lhs),
+                        left: self.program.exprs.alloc_item(checked_lhs),
                         message: message,
                     },
                 ))
@@ -1079,8 +1098,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
                 Ok(CheckedStmtNode::Intrinsic(
                     CheckedIntrinsicStmtNode::AssertEq {
-                        left: self.exprs.alloc_item(checked_lhs),
-                        right: self.exprs.alloc_item(checked_rhs),
+                        left: self.program.exprs.alloc_item(checked_lhs),
+                        right: self.program.exprs.alloc_item(checked_rhs),
                         message: message,
                     },
                 ))
@@ -1097,16 +1116,16 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         // TODO: remove clone
         let impl_node = ctx.definition(node).as_impl().cloned().unwrap();
 
-        let mut checked_generic_parameters = Vec::new();
-        for &generic_parameter in &impl_node.generic_parameters {
-            checked_generic_parameters.push(ctx.symbols.add_type_variable(generic_parameter)?);
-        }
-
         let underlying_type_id = ctx.symbols.get_type_id(None, impl_node.ty.name()).unwrap();
         let implementor_scope = ctx.symbols[underlying_type_id].scope_id();
         ctx.symbols.enter_scope(implementor_scope);
         ctx.symbols.start_scope(ScopeKind::Impl);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
+
+        let mut checked_generic_parameters = Vec::new();
+        for &generic_parameter in &impl_node.generic_parameters {
+            checked_generic_parameters.push(ctx.symbols.add_type_variable(generic_parameter)?);
+        }
 
         ctx.symbols
             .add_type_id(None, IdentId::TYPE_SELF, underlying_type_id)?;
@@ -1115,30 +1134,31 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         let mut methods = Vec::new();
 
-        for (generic_parameter, generic_arg) in checked_generic_parameters.iter().zip(
-            ctx.symbols[underlying_type_id]
-                .generic_parameters()
-                .into_iter(),
-        ) {
+        for (generic_parameter, generic_arg) in checked_generic_parameters
+            .iter()
+            .zip(ctx.symbols[underlying_type_id].generic_parameters())
+        {
             if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
                 return Err(Error::TypeMismatch);
             }
         }
 
         for &function_id in &impl_node.body {
-            methods.push(self.typecheck_method(function_id, ctx)?);
+            methods.push(CheckedDefinitionNode::Function(
+                self.typecheck_method(function_id, ctx)?,
+            ));
         }
 
         let checked_impl = CheckedImplNode {
             generic_parameters: checked_generic_parameters,
             ty: underlying_type_id,
-            body: methods,
+            body: self.program.defs.alloc_items(methods),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
         };
         // let ty = Type::Impl(checked_impl.clone());
         // symbols.add_type(symbols.parent_scope_id(), ty);
 
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         ctx.symbols.end_scope();
         ctx.symbols.exit_scope();
         Ok(CheckedDefinitionNode::Impl(checked_impl))
@@ -1152,7 +1172,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
         ctx.symbols.start_scope(ScopeKind::Trait);
         // ctx.symbols.start_scope(ScopeKind::Impl);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
         // TODO: remove clone
         let trait_node = ctx.definition(node).as_trait().cloned().unwrap();
 
@@ -1172,8 +1192,8 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let checked_trait = CheckedTraitNode {
             generic_parameters,
             name: trait_node.name,
-            body: self.defs.alloc_items(methods),
-            def_ids: trait_node.body.clone(),
+            body: self.program.defs.alloc_items(methods),
+            unchecked_body: trait_node.body.clone(),
             implementors: Vec::new(),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: trait_node.visibility,
@@ -1183,7 +1203,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), checked_trait.name, ty)?;
 
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         // ctx.symbols.end_scope();
         ctx.symbols.end_scope();
         Ok(CheckedDefinitionNode::Trait(checked_trait))
@@ -1196,12 +1216,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
         ctx.symbols.start_scope(ScopeKind::Function);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
         let checked_function = self.typecheck_function(node, ctx)?;
         let ty = Type::Function(checked_function.clone());
         ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         ctx.symbols.end_scope();
         Ok(CheckedDefinitionNode::Function(checked_function))
     }
@@ -1213,7 +1233,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
         ctx.symbols.start_scope(ScopeKind::Struct);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
         // TODO: remove clone
         let struct_node = ctx.definition(node).as_struct().cloned().unwrap();
 
@@ -1244,7 +1264,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), checked_struct.name, ty)?;
 
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         ctx.symbols.end_scope();
         Ok(CheckedDefinitionNode::Struct(checked_struct))
     }
@@ -1256,7 +1276,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
         ctx.symbols.start_scope(ScopeKind::Enum);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
         // TODO: remove clone
         let enum_node = ctx.definition(node).as_enum().cloned().unwrap();
         let current_scope_id = ctx.symbols.current_scope_id().unwrap();
@@ -1280,7 +1300,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), checked_enum.name, ty)?;
 
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         ctx.symbols.end_scope();
         for variant in &enum_node.variants {
             match variant {
@@ -1299,7 +1319,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
         ctx.push_node_id(NodeId::from(expr_id));
-        ctx.push_inferences();
+        ctx.infcx.enter_scope();
         let res = match ctx.expression(expr_id).node_type() {
             NodeType::PathExpr => self.visit_path(expr_id, ctx)?,
             NodeType::ValueExpr => self.visit_value(expr_id, ctx)?,
@@ -1318,7 +1338,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             NodeType::TupleAccessExpr => self.visit_tuple_access(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
-        ctx.pop_inferences();
+        ctx.infcx.exit_scope();
         ctx.pop_node_id();
         Ok(res)
     }
@@ -1364,12 +1384,12 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
                     ctx.statement(stmt_id).as_definition().unwrap().clone(),
                     ctx,
                 )?;
-                self.defs.alloc_item(definition)
+                self.program.defs.alloc_item(definition)
             }),
             NodeType::ExpressionStmt => Self::StmtResult::from({
                 let expr =
                     self.visit_expr(ctx.statement(stmt_id).as_expression().unwrap().clone(), ctx)?;
-                self.exprs.alloc_item(expr)
+                self.program.exprs.alloc_item(expr)
             }),
             NodeType::IntrinsicStmt => self.visit_intrinsic_stmt(stmt_id, ctx)?,
             _ => unreachable!(),
@@ -1378,6 +1398,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         Ok(res)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn visit_module(
         &mut self,
         module_id: ModuleId,
@@ -1421,67 +1442,51 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         node: ExprId,
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
+        // TODO: remove clone
+        let BlockExprNode { stmts, expr } = ctx.expression(node).as_block_expr().unwrap().clone();
         ctx.symbols.start_scope(ScopeKind::Block);
 
-        let current_scope_id = ctx
-            .symbols
-            .current_scope_id()
-            .expect("current scope not found");
-        let BlockExprNode { stmts, return_expr } =
-            ctx.expression(node).as_block_expr().unwrap().clone();
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
 
         let mut checked_stmts = Vec::with_capacity(stmts.len());
 
-        // if it's return statement, then skip the following execution
-        for stmt in stmts {
-            let checked_stmt = self.visit_stmt(stmt, ctx)?;
-            match checked_stmt {
-                CheckedStmtNode::Return(r) => {
-                    //resolve return type
-                    let type_id = match r {
-                        CheckedReturnNode { ret: Some(expr) } => self.exprs[expr.clone()].ty(),
-                        CheckedReturnNode { ret: None } => VOID_TYPE,
-                    };
-                    ctx.symbols.end_scope();
-
-                    checked_stmts.push(CheckedStmtNode::Return(r));
-
-                    let checked_block_expr = CheckedBlockExprNode {
-                        stmts: self.stmts.alloc_items(checked_stmts),
-                        return_expr: None,
-                        type_id,
-                        scope_id: current_scope_id,
-                    };
-
-                    return Ok(CheckedExprNode::BlockExpr(checked_block_expr));
-                }
-                _ => {
-                    checked_stmts.push(checked_stmt);
-                }
+        for (i, stmt) in stmts.iter().enumerate() {
+            let checked_stmt = self.visit_stmt(stmt.clone(), ctx)?;
+            if checked_stmt.is_return() && (i != stmts.len() - 1 || expr.is_some()) {
+                return Err(Error::InvalidReturn);
             }
+            checked_stmts.push(checked_stmt);
         }
 
-        let (checked_return_expr, type_id) = match return_expr {
+        let (return_type_id, checked_return_expr) = match expr {
             Some(expr) => {
                 let checked_expr = self.visit_expr(expr, ctx)?;
-                let type_id = checked_expr.ty();
-                (Some(checked_expr), type_id)
+                (checked_expr.ty(), Some(checked_expr))
             }
-            None => (None, VOID_TYPE),
+            None => {
+                if let Some(CheckedReturnNode { ret: Some(ret) }) =
+                    checked_stmts.last().and_then(|x| x.as_return())
+                {
+                    (self.program.exprs[ret.clone()].ty(), None)
+                } else {
+                    (VOID_TYPE, None)
+                }
+            }
         };
 
         ctx.symbols.end_scope();
 
         let checked_block_expr = CheckedBlockExprNode {
-            stmts: self.stmts.alloc_items(checked_stmts),
-            return_expr: checked_return_expr.map(|e| self.exprs.alloc_item(e)),
-            type_id,
+            stmts: self.program.stmts.alloc_items(checked_stmts),
+            expr: checked_return_expr.map(|e| self.program.exprs.alloc_item(e)),
+            type_id: return_type_id,
             scope_id: current_scope_id,
         };
 
         Ok(CheckedExprNode::BlockExpr(checked_block_expr))
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn visit_type_alias(
         &mut self,
         node: DefId,
@@ -1517,10 +1522,15 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             return Err(Error::TypeMismatch);
         }
 
+        let value = self
+            .evaluator
+            .evaluate_expr(&self.program, &value, ctx)
+            .to_value();
+
         let node = CheckedConstNode {
-            name: node.name,
+            name: Some(node.name),
             ty: rhs_ty,
-            value: self.exprs.alloc_item(value),
+            value: ctx.symbols.add_constant(value),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: node.visibility,
         };
@@ -1558,9 +1568,9 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let checked_block = self.visit_expr(for_node.body, ctx)?;
         let node = CheckedStmtNode::For(CheckedForNode {
             variable: for_node.variable,
-            start: self.exprs.alloc_item(start),
-            end: self.exprs.alloc_item(end),
-            body: self.exprs.alloc_item(checked_block),
+            start: self.program.exprs.alloc_item(start),
+            end: self.program.exprs.alloc_item(end),
+            body: self.program.exprs.alloc_item(checked_block),
             scope_id: current_scope_id,
         });
         ctx.symbols.end_scope();
@@ -1616,7 +1626,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         let mut checked_function = CheckedLambdaFunctionNode {
             name: ctx.intern_lambda(),
             parameters,
-            body: self.exprs.alloc_item(checked_body),
+            body: self.program.exprs.alloc_item(checked_body),
             return_type: expected_return_type,
             scope_id: current_scope_id,
             type_id: UNKOWN_TYPE,
@@ -1648,7 +1658,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.symbols
             .enter_scope(ctx.symbols[trait_type_id].scope_id());
         ctx.symbols.start_scope(ScopeKind::Impl);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
 
         ctx.symbols
             .add_type_id(None, IdentId::TYPE_SELF, implementor_type_id)?;
@@ -1662,43 +1672,41 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
 
         let trait_node = ctx.symbols[trait_type_id].clone().into_trait().unwrap();
         let mut generic_parameters = Vec::new();
-        let mut methods = vec![Default::default(); trait_node.body.len()];
+        let mut unimplemented_methods: HashSet<DefId> =
+            trait_node.unchecked_body.iter().cloned().collect();
+        let mut checked_methods = Vec::with_capacity(trait_node.body.len());
 
         for &generic_parameter in &impl_node.generic_parameters {
             let type_id = ctx.symbols.add_type_variable(generic_parameter)?;
             generic_parameters.push(type_id);
         }
+
         for &function_id in &impl_node.body {
             let method = self.typecheck_method(function_id, ctx)?;
             let i = trait_node
                 .body
                 .iter()
-                .position(|trait_def_id| {
-                    let trait_method = self.defs[*trait_def_id].clone().into_function().unwrap();
-                    trait_method.trait_impl_signature(implementor_type_id) == method.signature()
+                .position(|&trait_def_id| {
+                    let trait_function = self.program.defs[trait_def_id].as_function().unwrap();
+                    trait_function.trait_impl_signature(implementor_type_id) == method.signature()
+                        && trait_function.name == method.name
                 })
                 .ok_or(Error::UnresolvedTraitMethod)?;
-            methods[i] = method;
+            unimplemented_methods.remove(&trait_node.unchecked_body[i]);
+            checked_methods.push(CheckedDefinitionNode::Function(method));
         }
 
-        for i in 0..methods.len() {
-            if methods[i] == Default::default() {
-                let trait_method = self.defs[trait_node.body[i]]
-                    .clone()
-                    .into_function()
-                    .unwrap();
-                if trait_method.body.is_none() {
-                    return Err(Error::UnresolvedTraitMethod);
-                }
-                methods[i] = self.typecheck_method(trait_node.def_ids[i], ctx)?;
-            }
+        for unimplemented_method in unimplemented_methods {
+            let method = self.typecheck_method(unimplemented_method, ctx)?;
+            assert!(method.body.is_some());
+            checked_methods.push(CheckedDefinitionNode::Function(method));
         }
 
         let checked_impl = CheckedImplTraitNode {
             generic_parameters,
             trait_ty: trait_type_id,
             ty: implementor_type_id,
-            body: methods,
+            body: self.program.defs.alloc_items(checked_methods),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
         };
         // let ty = Type::Impl(checked_impl.clone());
@@ -1707,49 +1715,24 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
         ctx.symbols
             .impl_trait_for_type(trait_type_id, implementor_type_id);
 
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         ctx.symbols.end_scope();
         ctx.symbols.exit_scope();
         Ok(CheckedDefinitionNode::ImplTrait(checked_impl))
     }
 }
 
-impl<F: Clone + From<u32>, C> Index<ExprId> for TypeChecker<F, C> {
-    type Output = CheckedExprNode<F>;
-
-    fn index(&self, index: ExprId) -> &Self::Output {
-        &self.exprs[index]
-    }
-}
-
-impl<F: Clone + From<u32>, C> Index<StmtId> for TypeChecker<F, C> {
-    type Output = CheckedStmtNode;
-
-    fn index(&self, index: StmtId) -> &Self::Output {
-        &self.stmts[index]
-    }
-}
-
-impl<F: Clone + From<u32>, C> Index<DefId> for TypeChecker<F, C> {
-    type Output = CheckedDefinitionNode;
-
-    fn index(&self, index: DefId) -> &Self::Output {
-        &self.defs[index]
-    }
-}
-
-impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
-    pub fn new() -> Self {
+impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
+    pub fn new(program: CheckedProgram<F>, evaluator: Box<dyn Evaluator<F, C>>) -> Self {
         Self {
-            exprs: Arena::new(),
-            stmts: Arena::new(),
-            defs: Arena::new(),
+            program,
+            evaluator,
             _marker: std::marker::PhantomData,
         }
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_std_primitive_module(
+    fn typecheck_std_primitive_module(
         &mut self,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()> {
@@ -1762,11 +1745,12 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         for ty in &*PRIMITIVE_TYPES {
             ctx.symbols.add_type(None, ty.key(), ty.clone())?;
         }
+        self.typecheck_array(ctx)?;
         Ok(())
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_member_access(
+    fn typecheck_member_access(
         &mut self,
         receiver: ExprId,
         ctx: &TypeCheckerVisitorContext<F, C>,
@@ -1784,7 +1768,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn populate_generic_arguments(
+    fn populate_generic_arguments(
         &mut self,
         underlying_type_id: TypeId,
         generic_args: Vec<TypeId>,
@@ -1793,7 +1777,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         for (generic_param, generic_arg) in ctx.symbols[underlying_type_id]
             .generic_parameters()
             .into_iter()
-            .zip(generic_args.clone().into_iter())
+            .zip(generic_args)
         {
             if !self.unify(generic_param, generic_arg, ctx) {
                 return Err(Error::TypeMismatch);
@@ -1803,7 +1787,28 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_method_receiver(
+    fn populate_constant_u32(
+        &mut self,
+        value: usize,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<TypeId> {
+        let value = self
+            .evaluator
+            .from_constant_u32(u32::try_from(value).unwrap());
+        let node = CheckedConstNode {
+            name: None,
+            ty: U32_TYPE,
+            value: ctx.symbols.add_constant(value),
+            scope_id: ctx.symbols.current_scope_id().unwrap(),
+            visibility: Visibility::Public,
+        };
+
+        ctx.symbols
+            .get_or_add_type(None, TypeKey::from_const_id(node.value), Type::Const(node))
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    fn typecheck_method_receiver(
         &mut self,
         function: &FunctionNode,
         ctx: &TypeCheckerVisitorContext<F, C>,
@@ -1812,8 +1817,8 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         let is_method = [ScopeKind::ImplMethod, ScopeKind::TraitMethod]
             .contains(&ctx.symbols[current_scope_id].kind);
 
-        for (i, (parameter, _, parameter_type)) in function.parameters.iter().enumerate() {
-            if parameter == &IdentId::SELF && (i != 0 || !is_method) {
+        for (i, (parameter_name, _, parameter_type)) in function.parameters.iter().enumerate() {
+            if parameter_name == &IdentId::SELF && (i != 0 || !is_method) {
                 return Err(Error::InvalidSelfParameter);
             }
 
@@ -1826,7 +1831,32 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck(
+    fn typecheck_array(&mut self, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<TypeId> {
+        ctx.symbols.start_scope(ScopeKind::Array);
+        ctx.infcx.enter_context();
+
+        let inner_ty = ctx.symbols.add_type_variable(IdentId::T)?;
+        let size = ctx.symbols.add_type_variable(IdentId::N)?;
+
+        let checked_array = CheckedArrayNode {
+            inner_ty,
+            size_ty: size,
+            scope_id: ctx.symbols.current_scope_id().unwrap(),
+            implementations: vec![],
+        };
+
+        let ty = Type::Array(checked_array.clone());
+        let type_id = ctx
+            .symbols
+            .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
+
+        ctx.infcx.exit_context();
+        ctx.symbols.end_scope();
+        Ok(type_id)
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    fn typecheck(
         &mut self,
         ty: &UncheckedType,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
@@ -1858,8 +1888,11 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                             return Err(Error::GenericParameterMismatch);
                         }
 
-                        let ty =
-                            Type::GenericInstance(underlying_type_id, checked_generic_parameters);
+                        let ty = Type::GenericInstance(
+                            underlying_type_id,
+                            checked_generic_parameters,
+                            ctx.symbols.current_scope_id().unwrap(),
+                        );
                         let type_id = ctx.symbols.get_or_add_type(None, ty.key(), ty)?;
 
                         Ok(type_id)
@@ -1889,26 +1922,47 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                         }
                         todo!()
                     }
+                    Type::Array(_) => {
+                        if checked_generic_parameters.len() != 2 {
+                            return Err(Error::GenericParameterMismatch);
+                        }
+
+                        let ty = Type::GenericInstance(
+                            underlying_type_id,
+                            checked_generic_parameters,
+                            ctx.symbols.current_scope_id().unwrap(),
+                        );
+                        let type_id = ctx.symbols.get_or_add_type(None, ty.key(), ty)?;
+
+                        Ok(type_id)
+                    }
                     _ => unreachable!(),
                 }
             }
             UncheckedType::Array(inner, size) => {
+                let underlying_type_id = ctx
+                    .symbols
+                    .get_type_id(Some(ScopeId::primitive()), IdentId::TYPE_ARRAY)
+                    .unwrap();
                 let inner_ty = self.typecheck(inner, ctx)?;
-                let scope_id = ScopeId::primitive();
-                let ty = Type::Array(CheckedArrayNode {
-                    inner_ty,
-                    size: size.clone(),
-                });
-                ctx.symbols.get_or_add_type(Some(scope_id), ty.key(), ty)
+
+                let size_ty = self.populate_constant_u32(size.clone(), ctx)?;
+
+                let ty = Type::GenericInstance(
+                    underlying_type_id,
+                    vec![inner_ty, size_ty],
+                    ctx.symbols.current_scope_id().unwrap(),
+                );
+                let type_id = ctx.symbols.get_or_add_type(None, ty.key(), ty)?;
+
+                Ok(type_id)
             }
             UncheckedType::Tuple(elements) => {
                 // check each element and collect results into a Result<Vec<TypeId>>
-                let checked_elements: Result<Vec<TypeId>> = elements
+                let checked_elements = elements
                     .iter()
                     .map(|elem_ty| self.typecheck(elem_ty, ctx))
-                    .collect();
-
-                let checked_elements = checked_elements?;
+                    .collect::<Result<_>>()?;
 
                 let checked_tuple = Type::Tuple(checked_elements);
 
@@ -1947,7 +2001,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedFunctionNode> {
         ctx.symbols.start_scope(ScopeKind::TraitMethod);
-        ctx.push_inferences();
+        ctx.infcx.enter_scope();
 
         ctx.symbols
             .add_type_id(None, IdentId::TYPE_SELF, UNKOWN_TYPE)?;
@@ -1956,7 +2010,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         let ty = Type::Function(checked_function.clone());
         ctx.symbols.add_type(None, checked_function.name, ty)?;
 
-        ctx.pop_inferences();
+        ctx.infcx.exit_scope();
         ctx.symbols.end_scope();
         Ok(checked_function)
     }
@@ -1968,13 +2022,13 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedFunctionNode> {
         ctx.symbols.start_scope(ScopeKind::ImplMethod);
-        ctx.push_inferences();
+        ctx.infcx.enter_scope();
 
         let checked_function = self.typecheck_function(function_id, ctx)?;
         let ty = Type::Function(checked_function.clone());
         ctx.symbols.add_type(None, checked_function.name, ty)?;
 
-        ctx.pop_inferences();
+        ctx.infcx.exit_scope();
         ctx.symbols.end_scope();
         Ok(checked_function)
     }
@@ -2037,8 +2091,9 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         let checked_function = CheckedFunctionNode {
             name: function.name,
             parameters,
+            qualifier: function.qualifier,
             generic_parameters,
-            body: checked_body.map(|x| self.exprs.alloc_item(x)),
+            body: checked_body.map(|x| self.program.exprs.alloc_item(x)),
             return_type: expected_return_type,
             scope_id: current_scope_id,
             visibility: function.visibility,
@@ -2059,11 +2114,11 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
 
         match (&ctx.symbols[lhs_ty], &ctx.symbols[rhs_ty]) {
             (Type::TypeVariable(_), _) => {
-                ctx.add_inference(lhs_ty, rhs_ty);
+                ctx.infcx.equate(lhs_ty, rhs_ty);
                 true
             }
             (_, Type::TypeVariable(_)) => {
-                ctx.add_inference(rhs_ty, lhs_ty);
+                ctx.infcx.equate(rhs_ty, lhs_ty);
                 true
             }
             (Type::Struct(s1), Type::Struct(s2)) => {
@@ -2078,12 +2133,23 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                         .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
             (Type::Array(a1), Type::Array(a2)) => {
-                a1.size == a2.size && self.unify(a1.inner_ty, a2.inner_ty, ctx)
+                // TODO: remove clone
+                let a1 = a1.clone();
+                let a2 = a2.clone();
+                self.unify(a1.inner_ty, a2.inner_ty, ctx) && self.unify(a1.size_ty, a2.size_ty, ctx)
+            }
+            (Type::Tuple(t1), Type::Tuple(t2)) => {
+                for (lhs_ty, rhs_ty) in t1.clone().into_iter().zip(t2.clone().into_iter()) {
+                    if !self.unify(lhs_ty, rhs_ty, ctx) {
+                        return false;
+                    }
+                }
+                true
             }
 
-            (Type::GenericInstance(underlying_type_id, args), Type::Struct(checked_struct))
-            | (Type::Struct(checked_struct), Type::GenericInstance(underlying_type_id, args)) => {
-                let other_ty = ctx.symbols[*underlying_type_id].clone();
+            (Type::GenericInstance(underlying_type_id, args, _), Type::Struct(checked_struct))
+            | (Type::Struct(checked_struct), Type::GenericInstance(underlying_type_id, args, _)) => {
+                let other_ty = &ctx.symbols[*underlying_type_id];
                 other_ty.is_struct()
                     && other_ty.name() == checked_struct.name
                     && other_ty.scope_id() == checked_struct.scope_id
@@ -2093,8 +2159,21 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
                         .zip(checked_struct.generic_parameters.clone().into_iter())
                         .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
+            (Type::GenericInstance(underlying_type_id, args, _), Type::Array(checked_array))
+            | (Type::Array(checked_array), Type::GenericInstance(underlying_type_id, args, _)) => {
+                let other_ty = &ctx.symbols[*underlying_type_id];
+                other_ty.is_array()
+                    && args
+                        .clone()
+                        .into_iter()
+                        .zip(vec![checked_array.inner_ty, checked_array.size_ty])
+                        .all(|(p1, p2)| self.unify(p1, p2, ctx))
+            }
 
-            (Type::GenericInstance(lhs_ty, lhs_args), Type::GenericInstance(rhs_ty, rhs_args)) => {
+            (
+                Type::GenericInstance(lhs_ty, lhs_args, _),
+                Type::GenericInstance(rhs_ty, rhs_args, _),
+            ) => {
                 if lhs_ty != rhs_ty {
                     return false;
                 }
@@ -2120,9 +2199,9 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             | (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,
             (Type::LambdaFunction(f), Type::FunctionSignature(sig))
             | (Type::FunctionSignature(sig), Type::LambdaFunction(f)) => &f.signature() == sig,
-            (Type::Const(c), Type::Felt(_)) => c.ty == rhs_ty,
-            (Type::Felt(_), Type::Const(c)) => c.ty == lhs_ty,
             (Type::Const(c), Type::Const(d)) => c.ty == d.ty,
+            (Type::Const(c), _) => c.ty == rhs_ty,
+            (_, Type::Const(c)) => c.ty == lhs_ty,
             (Type::Unknown, Type::Unknown) => false,
             (Type::Unknown, _) | (_, Type::Unknown) => true,
             _ => lhs_ty == rhs_ty,
@@ -2134,7 +2213,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         type_id: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId> {
-        if !ctx.has_inferences() {
+        if !ctx.infcx.has_equations() {
             return Ok(type_id);
         }
 
@@ -2158,7 +2237,7 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         type_id: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId> {
-        if let Some(subst_type) = ctx.resolve_type(type_id) {
+        if let Some(subst_type) = ctx.infcx.probe(type_id) {
             return Ok(subst_type);
         }
 
@@ -2166,22 +2245,24 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
             Type::TypeVariable(_) => Ok(type_id),
 
             Type::Array(array) => {
-                let inner_ty = self.substitute_all(array.inner_ty, ctx)?;
                 let ty = Type::Array(CheckedArrayNode {
-                    inner_ty,
-                    size: array.size,
+                    inner_ty: self.substitute_all(array.inner_ty, ctx)?,
+                    size_ty: self.substitute_all(array.size_ty, ctx)?,
+                    scope_id: array.scope_id,
+                    implementations: array.implementations,
                 });
                 ctx.symbols
                     .get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)
             }
 
-            Type::GenericInstance(underlying_type_id, generic_parameters) => {
+            Type::GenericInstance(underlying_type_id, generic_parameters, scope_id) => {
                 let mut new_generic_parameters = Vec::new();
                 for generic_parameter in generic_parameters {
                     new_generic_parameters.push(self.substitute_all(generic_parameter, ctx)?);
                 }
 
-                let ty = Type::GenericInstance(underlying_type_id, new_generic_parameters);
+                let ty =
+                    Type::GenericInstance(underlying_type_id, new_generic_parameters, scope_id);
                 ctx.symbols.get_or_add_type(None, ty.key(), ty)
             }
 
