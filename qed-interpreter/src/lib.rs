@@ -1256,7 +1256,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             .interpret_statement(typechecker, node.if_branch.body, ctx)?
             .unwrap();
 
-        let result_type = result.clone();
         for condition in &node.elseif_branches {
             let predicate = self
                 .interpret_expr(typechecker, condition.predicate, ctx)?
@@ -1266,7 +1265,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             let elseif_result = self
                 .interpret_statement(typechecker, condition.body, ctx)?
                 .unwrap();
-            result = self.context.cset(result, elseif_result);
+            result = CheckedValueRef::<F>::cset(&mut self.context, &result, &elseif_result);
         }
 
         if let Some(else_branch) = &node.else_branch {
@@ -1275,12 +1274,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             let else_result = self
                 .interpret_statement(typechecker, else_branch.clone(), ctx)?
                 .unwrap();
-            result = self.context.cset(result, else_result);
+            result = CheckedValueRef::<F>::cset(&mut self.context, &result, &else_result);
         }
 
         self.context.end_if_block();
 
-        Ok(CheckedValueRef::convert(result_type, result))
+        Ok(result)
     }
 
     pub fn is_constant(&self, value: F) -> bool {
