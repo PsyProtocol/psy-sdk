@@ -255,27 +255,30 @@ impl<F: Clone> CheckedValueRef<F> {
 
     pub fn felt_size(&self) -> usize {
         match &*self.0.borrow() {
-            CheckedValue::Felt(f) => 1,
-            CheckedValue::Bool(b) => 1,
-            CheckedValue::U32(u) => 1,
-            CheckedValue::Array(type_id, values) => {
+            CheckedValue::Felt(_f) => 1,
+            CheckedValue::Bool(_b) => 1,
+            CheckedValue::U32(_u) => 1,
+            CheckedValue::Array(_type_id, values) => {
                 let mut result = 0;
                 for value in values {
                     result += value.felt_size();
                 }
                 result
             }
-            CheckedValue::Struct(type_id, fields) => {
+            CheckedValue::Struct(_, fields) => {
                 let mut result = 0;
                 for (_, value) in fields {
                     result += value.felt_size();
                 }
                 result
             }
-            CheckedValue::Type(type_id) => {
+            CheckedValue::Type(_type_id) => {
                 unreachable!()
             }
-            CheckedValue::Tuple { type_id, elements } => {
+            CheckedValue::Tuple {
+                type_id: _type_id,
+                elements,
+            } => {
                 let mut result = 0;
                 for (_, elem) in elements {
                     result += elem.felt_size();
