@@ -27,7 +27,7 @@ use indexmap::IndexMap;
 use qed_ast::*;
 use qed_common::Graph;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tracing::instrument;
 
 pub struct TypeCheckerVisitorContext<F: Clone + From<u32> + ContextFelt, C> {
@@ -1144,13 +1144,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         }
 
         for &function_id in &impl_node.body {
-            methods.push(self.typecheck_method(function_id, ctx)?);
+            methods.push(CheckedDefinitionNode::Function(
+                self.typecheck_method(function_id, ctx)?,
+            ));
         }
 
         let checked_impl = CheckedImplNode {
             generic_parameters: checked_generic_parameters,
             ty: underlying_type_id,
-            body: methods,
+            body: self.program.defs.alloc_items(methods),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
         };
         // let ty = Type::Impl(checked_impl.clone());
@@ -1191,7 +1193,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             generic_parameters,
             name: trait_node.name,
             body: self.program.defs.alloc_items(methods),
-            def_ids: trait_node.body.clone(),
+            unchecked_body: trait_node.body.clone(),
             implementors: Vec::new(),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: trait_node.visibility,
@@ -1670,46 +1672,41 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         let trait_node = ctx.symbols[trait_type_id].clone().into_trait().unwrap();
         let mut generic_parameters = Vec::new();
-        let mut methods = vec![Default::default(); trait_node.body.len()];
+        let mut unimplemented_methods: HashSet<DefId> =
+            trait_node.unchecked_body.iter().cloned().collect();
+        let mut checked_methods = Vec::with_capacity(trait_node.body.len());
 
         for &generic_parameter in &impl_node.generic_parameters {
             let type_id = ctx.symbols.add_type_variable(generic_parameter)?;
             generic_parameters.push(type_id);
         }
+
         for &function_id in &impl_node.body {
             let method = self.typecheck_method(function_id, ctx)?;
             let i = trait_node
                 .body
                 .iter()
-                .position(|trait_def_id| {
-                    let trait_method = self.program.defs[*trait_def_id]
-                        .clone()
-                        .into_function()
-                        .unwrap();
-                    trait_method.trait_impl_signature(implementor_type_id) == method.signature()
+                .position(|&trait_def_id| {
+                    let trait_function = self.program.defs[trait_def_id].as_function().unwrap();
+                    trait_function.trait_impl_signature(implementor_type_id) == method.signature()
+                        && trait_function.name == method.name
                 })
                 .ok_or(Error::UnresolvedTraitMethod)?;
-            methods[i] = method;
+            unimplemented_methods.remove(&trait_node.unchecked_body[i]);
+            checked_methods.push(CheckedDefinitionNode::Function(method));
         }
 
-        for i in 0..methods.len() {
-            if methods[i] == Default::default() {
-                let trait_method = self.program.defs[trait_node.body[i]]
-                    .clone()
-                    .into_function()
-                    .unwrap();
-                if trait_method.body.is_none() {
-                    return Err(Error::UnresolvedTraitMethod);
-                }
-                methods[i] = self.typecheck_method(trait_node.def_ids[i], ctx)?;
-            }
+        for unimplemented_method in unimplemented_methods {
+            let method = self.typecheck_method(unimplemented_method, ctx)?;
+            assert!(method.body.is_some());
+            checked_methods.push(CheckedDefinitionNode::Function(method));
         }
 
         let checked_impl = CheckedImplTraitNode {
             generic_parameters,
             trait_ty: trait_type_id,
             ty: implementor_type_id,
-            body: methods,
+            body: self.program.defs.alloc_items(checked_methods),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
         };
         // let ty = Type::Impl(checked_impl.clone());

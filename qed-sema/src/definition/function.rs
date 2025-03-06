@@ -17,22 +17,6 @@ pub struct CheckedFunctionNode {
     pub attrs: Vec<AttrNode>,
 }
 
-impl Default for CheckedFunctionNode {
-    fn default() -> Self {
-        Self {
-            name: IdentId(0),
-            parameters: Vec::new(),
-            generic_parameters: Vec::new(),
-            body: None,
-            qualifier: Default::default(),
-            return_type: TypeId(0),
-            scope_id: ScopeId(0),
-            visibility: Visibility::Public,
-            attrs: Vec::new(),
-        }
-    }
-}
-
 impl CheckedFunctionNode {
     pub fn signature(&self) -> CheckedFunctionSignature {
         CheckedFunctionSignature {
