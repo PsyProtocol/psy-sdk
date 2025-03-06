@@ -7,6 +7,10 @@
 
 - Basic Types like Felt, Tuple, u32, bool, Array, Struct
 - Functions
+- Closures
+- Constants
+- Comptime
+- If/Block/Match Expression
 - Modules
 - Traits
 - Type Checking
