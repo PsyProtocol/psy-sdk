@@ -10,6 +10,6 @@ pub trait Evaluator<F: Clone + From<u32> + ContextFelt, C> {
         expr_id: ExprId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> CheckedValueRef<F>;
-    fn to_constant_value(&mut self, value: CheckedValueRef<F>) -> u64;
-    fn from_constant_value(&mut self, value: u32) -> CheckedValueRef<F>;
+    fn to_constant_u32(&mut self, value: F) -> u32;
+    fn from_constant_u32(&mut self, value: u32) -> F;
 }

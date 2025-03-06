@@ -210,7 +210,11 @@ impl Type {
                 Type::Felt(_) => (Some(IdentId::TYPE_FELT), None, vec![], vec![], vec![], None),
                 Type::Bool(_) => (Some(IdentId::TYPE_BOOL), None, vec![], vec![], vec![], None),
                 Type::U32(_) => (Some(IdentId::TYPE_U32), None, vec![], vec![], vec![], None),
-                Type::Array(CheckedArrayNode { inner_ty, size, .. }) => (
+                Type::Array(CheckedArrayNode {
+                    inner_ty,
+                    size_ty: size,
+                    ..
+                }) => (
                     Some(IdentId::TYPE_ARRAY),
                     None,
                     vec![inner_ty.clone(), size.clone()],
@@ -454,7 +458,11 @@ impl Type {
             Type::Trait(CheckedTraitNode {
                 generic_parameters, ..
             }) => generic_parameters.to_vec(),
-            Type::Array(CheckedArrayNode { inner_ty, size, .. }) => {
+            Type::Array(CheckedArrayNode {
+                inner_ty,
+                size_ty: size,
+                ..
+            }) => {
                 vec![inner_ty.clone(), size.clone()]
             }
             Type::LambdaFunction(_) => vec![],

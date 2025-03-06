@@ -154,7 +154,7 @@ pub struct SymbolTable<F: Clone + From<u32> + ContextFelt> {
     frames: Vec<Frame<CheckedValueRef<F>>>,
 
     types: Vec<Type>,
-    consts: Vec<CheckedValueRef<F>>,
+    consts: Vec<F>,
     variables: Vec<CheckedVariable<F>>,
     modules: Vec<Module>,
     module_stack: Vec<ModuleId>,
@@ -180,7 +180,7 @@ macro_rules! impl_index {
 impl_index!(ModuleId, Module, modules);
 impl_index!(TypeId, Type, types);
 impl_index!(VarId, CheckedVariable<F>, variables);
-impl_index!(ConstId, CheckedValueRef<F>, consts);
+impl_index!(ConstId, F, consts);
 impl_index!(ScopeId, Scope<F>, scopes);
 
 impl<T: Clone + From<u32> + ContextFelt> Display for SymbolTable<T> {
@@ -361,11 +361,11 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         Ok(self.add_type_variable(ty)?)
     }
 
-    pub fn get_constant(&self, const_id: ConstId) -> CheckedValueRef<F> {
+    pub fn get_constant(&self, const_id: ConstId) -> F {
         self[const_id].clone()
     }
 
-    pub fn add_constant(&mut self, value: CheckedValueRef<F>) -> ConstId {
+    pub fn add_constant(&mut self, value: F) -> ConstId {
         if let Some(idx) = self.consts.iter().position(|c| c.eq(&value)) {
             ConstId(idx)
         } else {

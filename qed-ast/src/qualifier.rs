@@ -6,6 +6,15 @@ pub struct Qualifier {
     pub is_const: bool,
 }
 
+impl Default for Qualifier {
+    fn default() -> Self {
+        Self {
+            is_extern: false,
+            is_const: false,
+        }
+    }
+}
+
 impl Display for Qualifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_extern {

@@ -1,5 +1,6 @@
 mod definition;
 mod expr;
+mod infer;
 mod program;
 mod stmt;
 mod symbol_table;
@@ -13,6 +14,7 @@ mod error;
 pub use definition::*;
 pub use error::*;
 pub use expr::*;
+pub use infer::*;
 pub use program::*;
 pub use r#type::*;
 pub use stmt::*;
@@ -32,7 +34,7 @@ pub struct TypeCheckerVisitorContext<F: Clone + From<u32> + ContextFelt, C> {
     path_stack: Vec<NodeId>,
     pub program: Program<F>,
     pub symbols: SymbolTable<F>,
-    inferences: Vec<Vec<HashMap<TypeId, TypeId>>>,
+    infcx: InferCtxt,
     _marker: std::marker::PhantomData<(F, C)>,
 }
 
@@ -42,52 +44,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
             path_stack: vec![],
             program,
             symbols: SymbolTable::new(),
-            inferences: vec![vec![HashMap::new()]],
+            infcx: InferCtxt::new(),
             _marker: std::marker::PhantomData,
         }
-    }
-
-    pub fn push_inferences_context(&mut self) {
-        self.inferences.push(vec![HashMap::new()]);
-    }
-
-    pub fn has_inferences(&self) -> bool {
-        self.inferences
-            .last()
-            .unwrap()
-            .iter()
-            .any(|x| !x.is_empty())
-    }
-
-    pub fn resolve_type(&self, type_id: TypeId) -> Option<TypeId> {
-        self.inferences
-            .last()
-            .unwrap()
-            .iter()
-            .rev()
-            .find_map(|x| x.get(&type_id))
-            .cloned()
-    }
-
-    pub fn add_inference(&mut self, lhs_ty: TypeId, rhs_ty: TypeId) {
-        self.inferences
-            .last_mut()
-            .unwrap()
-            .last_mut()
-            .unwrap()
-            .insert(lhs_ty, rhs_ty);
-    }
-
-    pub fn pop_inferences_context(&mut self) {
-        self.inferences.pop();
-    }
-
-    pub fn push_inferences(&mut self) {
-        self.inferences.last_mut().unwrap().push(HashMap::new());
-    }
-
-    pub fn pop_inferences(&mut self) {
-        self.inferences.last_mut().unwrap().pop();
     }
 }
 
@@ -303,9 +262,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             type_id
         } else {
             let (&underlying_type_id, generic_args) = ty.as_generic_instance().unwrap();
-
             self.populate_generic_arguments(underlying_type_id, generic_args.to_vec(), ctx)?;
-
             underlying_type_id
         };
 
@@ -570,19 +527,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     .get_type_id(Some(ScopeId::primitive()), IdentId::TYPE_ARRAY)
                     .unwrap();
 
-                let size = self.evaluator.from_constant_value(size.clone() as u32);
-                let node = CheckedConstNode {
-                    name: None,
-                    ty: U32_TYPE,
-                    value: ctx.symbols.add_constant(size),
-                    scope_id: ctx.symbols.current_scope_id().unwrap(),
-                    visibility: Visibility::Public,
-                };
-                let size_ty = ctx.symbols.get_or_add_type(
-                    None,
-                    TypeKey::from_const_id(node.value),
-                    Type::Const(node),
-                )?;
+                let size_ty = self.populate_constant_u32(size, ctx)?;
 
                 let scope_id = ScopeId::primitive();
                 let ty = Type::GenericInstance(
@@ -800,6 +745,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let ty = variable.ty();
         // TODO: remove clone
         let f = ctx.symbols[ty].as_function().unwrap().clone();
+
         for (generic_param, generic_arg) in f
             .generic_parameters
             .iter()
@@ -831,6 +777,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 return Err(Error::FunctionParameterMismatch);
             }
             args.push(type_arg);
+        }
+
+        if f.qualifier.is_const {
+            let value = self.evaluator.evaluate_expr(&self.program, node, ctx);
+            let value = if value.is_type() {
+                let type_id = self.substitute_all(value.to_type(), ctx)?;
+                let const_id = ctx.symbols[type_id].as_const().unwrap().value;
+                ctx.symbols.get_constant(const_id)
+            } else {
+                value.to_felt()
+            };
+
+            return Ok(CheckedExprNode::Value(CheckedValueNode::U32(value)));
         }
 
         return Ok(CheckedExprNode::MemberCall(CheckedMemberCallNode {
@@ -1131,7 +1090,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let implementor_scope = ctx.symbols[underlying_type_id].scope_id();
         ctx.symbols.enter_scope(implementor_scope);
         ctx.symbols.start_scope(ScopeKind::Impl);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
 
         let mut checked_generic_parameters = Vec::new();
         for &generic_parameter in &impl_node.generic_parameters {
@@ -1167,7 +1126,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         // let ty = Type::Impl(checked_impl.clone());
         // symbols.add_type(symbols.parent_scope_id(), ty);
 
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         ctx.symbols.end_scope();
         ctx.symbols.exit_scope();
         Ok(CheckedDefinitionNode::Impl(checked_impl))
@@ -1181,7 +1140,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
         ctx.symbols.start_scope(ScopeKind::Trait);
         // ctx.symbols.start_scope(ScopeKind::Impl);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
         // TODO: remove clone
         let trait_node = ctx.definition(node).as_trait().cloned().unwrap();
 
@@ -1212,7 +1171,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), checked_trait.name, ty)?;
 
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         // ctx.symbols.end_scope();
         ctx.symbols.end_scope();
         Ok(CheckedDefinitionNode::Trait(checked_trait))
@@ -1225,12 +1184,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
         ctx.symbols.start_scope(ScopeKind::Function);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
         let checked_function = self.typecheck_function(node, ctx)?;
         let ty = Type::Function(checked_function.clone());
         ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         ctx.symbols.end_scope();
         Ok(CheckedDefinitionNode::Function(checked_function))
     }
@@ -1242,7 +1201,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
         ctx.symbols.start_scope(ScopeKind::Struct);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
         // TODO: remove clone
         let struct_node = ctx.definition(node).as_struct().cloned().unwrap();
 
@@ -1273,7 +1232,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), checked_struct.name, ty)?;
 
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         ctx.symbols.end_scope();
         Ok(CheckedDefinitionNode::Struct(checked_struct))
     }
@@ -1285,7 +1244,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::DefinitionResult, Self::Error> {
         ctx.symbols.start_scope(ScopeKind::Enum);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
         // TODO: remove clone
         let enum_node = ctx.definition(node).as_enum().cloned().unwrap();
         let current_scope_id = ctx.symbols.current_scope_id().unwrap();
@@ -1309,7 +1268,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), checked_enum.name, ty)?;
 
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         ctx.symbols.end_scope();
         for variant in &enum_node.variants {
             match variant {
@@ -1328,7 +1287,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx: &mut Self::Context,
     ) -> std::result::Result<Self::ExprResult, Self::Error> {
         ctx.push_node_id(NodeId::from(expr_id));
-        ctx.push_inferences();
+        ctx.infcx.enter_scope();
         let res = match ctx.expression(expr_id).node_type() {
             NodeType::PathExpr => self.visit_path(expr_id, ctx)?,
             NodeType::ValueExpr => self.visit_value(expr_id, ctx)?,
@@ -1347,7 +1306,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             NodeType::TupleAccessExpr => self.visit_tuple_access(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
-        ctx.pop_inferences();
+        ctx.infcx.exit_scope();
         ctx.pop_node_id();
         Ok(res)
     }
@@ -1534,7 +1493,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let value_expr_id = self.program.exprs.alloc_item(value);
         let value = self
             .evaluator
-            .evaluate_expr(&self.program, value_expr_id, ctx);
+            .evaluate_expr(&self.program, value_expr_id, ctx)
+            .to_value();
 
         let node = CheckedConstNode {
             name: Some(node.name),
@@ -1667,7 +1627,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.symbols
             .enter_scope(ctx.symbols[trait_type_id].scope_id());
         ctx.symbols.start_scope(ScopeKind::Impl);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
 
         ctx.symbols
             .add_type_id(None, IdentId::TYPE_SELF, implementor_type_id)?;
@@ -1729,7 +1689,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.symbols
             .impl_trait_for_type(trait_type_id, implementor_type_id);
 
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         ctx.symbols.end_scope();
         ctx.symbols.exit_scope();
         Ok(CheckedDefinitionNode::ImplTrait(checked_impl))
@@ -1746,7 +1706,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_std_primitive_module(
+    fn typecheck_std_primitive_module(
         &mut self,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()> {
@@ -1764,7 +1724,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_member_access(
+    fn typecheck_member_access(
         &mut self,
         receiver: ExprId,
         ctx: &TypeCheckerVisitorContext<F, C>,
@@ -1782,7 +1742,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn populate_generic_arguments(
+    fn populate_generic_arguments(
         &mut self,
         underlying_type_id: TypeId,
         generic_args: Vec<TypeId>,
@@ -1801,7 +1761,28 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_method_receiver(
+    fn populate_constant_u32(
+        &mut self,
+        value: usize,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<TypeId> {
+        let value = self
+            .evaluator
+            .from_constant_u32(u32::try_from(value).unwrap());
+        let node = CheckedConstNode {
+            name: None,
+            ty: U32_TYPE,
+            value: ctx.symbols.add_constant(value),
+            scope_id: ctx.symbols.current_scope_id().unwrap(),
+            visibility: Visibility::Public,
+        };
+
+        ctx.symbols
+            .get_or_add_type(None, TypeKey::from_const_id(node.value), Type::Const(node))
+    }
+
+    #[instrument(level = "debug", skip_all)]
+    fn typecheck_method_receiver(
         &mut self,
         function: &FunctionNode,
         ctx: &TypeCheckerVisitorContext<F, C>,
@@ -1824,16 +1805,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck_array(&mut self, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<TypeId> {
+    fn typecheck_array(&mut self, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<TypeId> {
         ctx.symbols.start_scope(ScopeKind::Array);
-        ctx.push_inferences_context();
+        ctx.infcx.enter_context();
 
         let inner_ty = ctx.symbols.add_type_variable(IdentId::T)?;
         let size = ctx.symbols.add_type_variable(IdentId::N)?;
 
         let checked_array = CheckedArrayNode {
             inner_ty,
-            size,
+            size_ty: size,
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             implementations: vec![],
         };
@@ -1843,13 +1824,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             .symbols
             .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
 
-        ctx.pop_inferences_context();
+        ctx.infcx.exit_context();
         ctx.symbols.end_scope();
         Ok(type_id)
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn typecheck(
+    fn typecheck(
         &mut self,
         ty: &UncheckedType,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
@@ -1933,20 +1914,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     .unwrap();
                 let inner_ty = self.typecheck(inner, ctx)?;
 
-                let size = self.evaluator.from_constant_value(size.clone() as u32);
-                let node = CheckedConstNode {
-                    name: None,
-                    ty: U32_TYPE,
-                    value: ctx.symbols.add_constant(size),
-                    scope_id: ctx.symbols.current_scope_id().unwrap(),
-                    visibility: Visibility::Public,
-                };
-
-                let size_ty = ctx.symbols.get_or_add_type(
-                    None,
-                    TypeKey::from_const_id(node.value),
-                    Type::Const(node),
-                )?;
+                let size_ty = self.populate_constant_u32(size.clone(), ctx)?;
 
                 let ty = Type::GenericInstance(underlying_type_id, vec![inner_ty, size_ty]);
                 let type_id = ctx.symbols.get_or_add_type(None, ty.key(), ty)?;
@@ -1997,7 +1965,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedFunctionNode> {
         ctx.symbols.start_scope(ScopeKind::TraitMethod);
-        ctx.push_inferences();
+        ctx.infcx.enter_scope();
 
         ctx.symbols
             .add_type_id(None, IdentId::TYPE_SELF, UNKOWN_TYPE)?;
@@ -2006,7 +1974,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let ty = Type::Function(checked_function.clone());
         ctx.symbols.add_type(None, checked_function.name, ty)?;
 
-        ctx.pop_inferences();
+        ctx.infcx.exit_scope();
         ctx.symbols.end_scope();
         Ok(checked_function)
     }
@@ -2018,13 +1986,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedFunctionNode> {
         ctx.symbols.start_scope(ScopeKind::ImplMethod);
-        ctx.push_inferences();
+        ctx.infcx.enter_scope();
 
         let checked_function = self.typecheck_function(function_id, ctx)?;
         let ty = Type::Function(checked_function.clone());
         ctx.symbols.add_type(None, checked_function.name, ty)?;
 
-        ctx.pop_inferences();
+        ctx.infcx.exit_scope();
         ctx.symbols.end_scope();
         Ok(checked_function)
     }
@@ -2087,6 +2055,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let checked_function = CheckedFunctionNode {
             name: function.name,
             parameters,
+            qualifier: function.qualifier,
             generic_parameters,
             body: checked_body.map(|x| self.program.exprs.alloc_item(x)),
             return_type: expected_return_type,
@@ -2109,11 +2078,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
         match (&ctx.symbols[lhs_ty], &ctx.symbols[rhs_ty]) {
             (Type::TypeVariable(_), _) => {
-                ctx.add_inference(lhs_ty, rhs_ty);
+                ctx.infcx.equate(lhs_ty, rhs_ty);
                 true
             }
             (_, Type::TypeVariable(_)) => {
-                ctx.add_inference(rhs_ty, lhs_ty);
+                ctx.infcx.equate(rhs_ty, lhs_ty);
                 true
             }
             (Type::Struct(s1), Type::Struct(s2)) => {
@@ -2128,7 +2097,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
             (Type::Array(a1), Type::Array(a2)) => {
-                a1.size == a2.size && self.unify(a1.inner_ty, a2.inner_ty, ctx)
+                // TODO: remove clone
+                let a1 = a1.clone();
+                let a2 = a2.clone();
+                self.unify(a1.inner_ty, a2.inner_ty, ctx) && self.unify(a1.size_ty, a2.size_ty, ctx)
+            }
+            (Type::Tuple(t1), Type::Tuple(t2)) => {
+                for (lhs_ty, rhs_ty) in t1.clone().into_iter().zip(t2.clone().into_iter()) {
+                    if !self.unify(lhs_ty, rhs_ty, ctx) {
+                        return false;
+                    }
+                }
+                true
             }
 
             (Type::GenericInstance(underlying_type_id, args), Type::Struct(checked_struct))
@@ -2150,7 +2130,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     && args
                         .clone()
                         .into_iter()
-                        .zip(vec![checked_array.inner_ty, checked_array.size])
+                        .zip(vec![checked_array.inner_ty, checked_array.size_ty])
                         .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
 
@@ -2180,13 +2160,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             | (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,
             (Type::LambdaFunction(f), Type::FunctionSignature(sig))
             | (Type::FunctionSignature(sig), Type::LambdaFunction(f)) => &f.signature() == sig,
-            (Type::Const(c), Type::Felt(_)) => c.ty == rhs_ty,
-            (Type::Felt(_), Type::Const(c)) => c.ty == lhs_ty,
-            (Type::Const(c), Type::U32(_)) => c.ty == rhs_ty,
-            (Type::U32(_), Type::Const(c)) => c.ty == lhs_ty,
-            (Type::Const(c), Type::Bool(_)) => c.ty == rhs_ty,
-            (Type::Bool(_), Type::Const(c)) => c.ty == lhs_ty,
             (Type::Const(c), Type::Const(d)) => c.ty == d.ty,
+            (Type::Const(c), _) => c.ty == rhs_ty,
+            (_, Type::Const(c)) => c.ty == lhs_ty,
             (Type::Unknown, Type::Unknown) => false,
             (Type::Unknown, _) | (_, Type::Unknown) => true,
             _ => lhs_ty == rhs_ty,
@@ -2198,7 +2174,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         type_id: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId> {
-        if !ctx.has_inferences() {
+        if !ctx.infcx.has_equations() {
             return Ok(type_id);
         }
 
@@ -2222,7 +2198,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         type_id: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId> {
-        if let Some(subst_type) = ctx.resolve_type(type_id) {
+        if let Some(subst_type) = ctx.infcx.probe(type_id) {
             return Ok(subst_type);
         }
 
@@ -2232,7 +2208,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             Type::Array(array) => {
                 let ty = Type::Array(CheckedArrayNode {
                     inner_ty: self.substitute_all(array.inner_ty, ctx)?,
-                    size: self.substitute_all(array.size, ctx)?,
+                    size_ty: self.substitute_all(array.size_ty, ctx)?,
                     scope_id: array.scope_id,
                     implementations: array.implementations,
                 });

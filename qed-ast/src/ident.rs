@@ -160,9 +160,10 @@ mod tests {
         //mapping of expected (IdentId, &str)
         let expected_mapping = vec![
             (IdentId::TYPE_UNKNOWN, "unknown"),
+            (IdentId::TYPE_VOID, "void"),
             (IdentId::TYPE_BOOL, "bool"),
             (IdentId::TYPE_FELT, "Felt"),
-            (IdentId::TYPE_VOID, "void"),
+            (IdentId::TYPE_U32, "u32"),
             (IdentId::TYPE_ARRAY, "Array"),
             (IdentId::TYPE_TUPLE, "Tuple"),
             (IdentId::TYPE_HASH, "Hash"),
@@ -176,7 +177,8 @@ mod tests {
             (IdentId::DERIVE, "derive"),
             (IdentId::NEW, "new"),
             (IdentId::TEST, "test"),
-            (IdentId::TYPE_U32, "u32"),
+            (IdentId::T, "T"),
+            (IdentId::N, "N"),
         ];
 
         // check if the length of the mapping is correct

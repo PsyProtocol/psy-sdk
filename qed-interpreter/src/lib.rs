@@ -42,13 +42,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Evaluator<F, C> for
         self.interpret_expr(program, expr_id, ctx).unwrap()
     }
 
-    fn to_constant_value(&mut self, value: CheckedValueRef<F>) -> u64 {
-        self.context.get_constant_value(value.to_value())
+    fn to_constant_u32(&mut self, value: F) -> u32 {
+        u32::try_from(self.context.get_constant_value(value)).unwrap()
     }
 
-    fn from_constant_value(&mut self, value: u32) -> CheckedValueRef<F> {
-        let value_f = self.context.op_const_u32(value);
-        CheckedValueRef::from_u32(value_f)
+    fn from_constant_u32(&mut self, value: u32) -> F {
+        self.context.op_const_u32(value)
     }
 }
 
@@ -65,35 +64,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             Type::Felt(_f) => CheckedValue::Felt(self.context.add_input()),
             Type::Bool(_b) => CheckedValue::Bool(self.context.add_bool_input()),
             Type::U32(_u) => CheckedValue::U32(self.context.add_u32_input()),
-            Type::Array(a) => {
-                let mut result = Vec::new();
-                let inner_ty = symbols[a.inner_ty].clone();
-
-                let size = if let Some(CheckedConstNode {
-                    scope_id,
-                    name,
-                    value,
-                    ..
-                }) = symbols[a.size].as_const()
-                {
-                    let value = symbols.get_constant(value.clone());
-                    self.context.get_constant_value(value.to_u32()) as usize
-                } else {
-                    unreachable!()
-                };
-
-                for _ in 0..size {
-                    result.push(CheckedValueRef::new_rc(self.to_input(a.inner_ty, symbols)));
-                }
-                let type_id = symbols
-                    .get_type_id(Some(ScopeId::primitive()), symbols[ty].key())
-                    .unwrap();
-                CheckedValue::Array(type_id, result)
-            }
             Type::Tuple(elements) => {
                 let mut result = Vec::new();
                 for element_type in elements {
-                    let element_ty = symbols[element_type].clone();
                     let value = CheckedValueRef::new_rc(self.to_input(element_type, symbols));
 
                     result.push((element_type, value));
@@ -120,7 +93,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     .unwrap();
                 CheckedValue::Struct(type_id, result)
             }
-            _ => unreachable!(),
+            _ => todo!(),
         }
     }
 
@@ -129,13 +102,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             Type::Felt(_f) => 1usize,
             Type::Bool(_b) => 1usize,
             Type::U32(_u) => 1usize,
-            // Type::Array(a) => self.size_of(a.inner_ty, ctx) * a.size,
             Type::Struct(s) => s
                 .fields
                 .iter()
                 .map(|(_, (type_id, _))| self.size_of(type_id.clone(), symbols))
                 .sum(),
-            _ => unreachable!(),
+            _ => todo!(),
         }
     }
 
@@ -455,16 +427,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             }
             CheckedStmtNode::While(r#_while) => self.interpret_while(program, stmt_id, ctx)?,
             CheckedStmtNode::Definition(_definition) => {}
-            CheckedStmtNode::Expression(expr_id) => match &program[expr_id.clone()].node_type() {
-                NodeType::BlockExpr => {
-                    return Ok(ControlState::Normal(
-                        self.interpret_expr(program, *expr_id, ctx)?,
-                    ));
-                }
-                _ => {
-                    self.interpret_expr(program, *expr_id, ctx)?;
-                }
-            },
+            CheckedStmtNode::Expression(expr_id) => {
+                self.interpret_expr(program, *expr_id, ctx)?;
+            }
             CheckedStmtNode::Return(_return_node) => {
                 return self.interpret_ret(program, stmt_id, ctx);
             }
@@ -1036,15 +1001,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     ) -> Result<CheckedValueRef<F>> {
         if let Some(variable) = ctx.symbols.get_variable(Some(path.scope_id), &path.name) {
             return Ok(variable.value.clone().unwrap());
-        } else if let Some(CheckedConstNode {
-            scope_id,
-            name,
-            value,
-            ..
-        }) = ctx.symbols[path.type_id].as_const()
-        {
+        } else if let Some(CheckedConstNode { value, .. }) = ctx.symbols[path.type_id].as_const() {
             let value = ctx.symbols.get_constant(value.clone());
-            return Ok(value);
+            return Ok(CheckedValueRef::from_u32(value));
         } else {
             return Ok(CheckedValueRef::new_rc(CheckedValue::Type(
                 path.type_id.clone(),
@@ -1237,16 +1196,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             (CheckedValue::U32(u), CheckedValue::U32(ref mut n)) => {
                 *n = self.context.cset(u.clone(), n.clone());
             }
-            (CheckedValue::Array(lhs_type_id, o), CheckedValue::Array(rhs_type_id, n))
-                if lhs_type_id == rhs_type_id =>
-            {
+            (CheckedValue::Array(_, o), CheckedValue::Array(_, n)) => {
                 for (old_value, new_value) in o.iter().zip(n.iter()) {
                     self.cset_variable(old_value, new_value);
                 }
             }
-            (CheckedValue::Struct(lhs_type_id, o), CheckedValue::Struct(rhs_type_id, n))
-                if lhs_type_id == rhs_type_id =>
-            {
+            (CheckedValue::Struct(_, o), CheckedValue::Struct(_, n)) => {
                 for ((old_field_name, old_field_value), (new_field_name, new_field_value)) in
                     o.iter().zip(n.iter())
                 {
@@ -1256,24 +1211,23 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             }
             (
                 CheckedValue::Tuple {
-                    type_id: lhs_tid,
                     elements: old_elements,
+                    ..
                 },
                 CheckedValue::Tuple {
-                    type_id: rhs_tid,
                     elements: new_elements,
+                    ..
                 },
-            ) if lhs_tid == rhs_tid => {
+            ) => {
                 assert_eq!(
                     old_elements.len(),
                     new_elements.len(),
                     "Tuple size mismatch"
                 );
 
-                for ((old_type_id, old_value), (new_type_id, new_value)) in
+                for ((_, old_value), (_, new_value)) in
                     old_elements.iter().zip(new_elements.iter_mut())
                 {
-                    assert_eq!(old_type_id, new_type_id, "Tuple element type mismatch");
                     self.cset_variable(old_value, new_value);
                 }
             }
@@ -1292,35 +1246,25 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
         for stmt_id in &block_expr.stmts {
-            match self.interpret_statement(program, *stmt_id, ctx)? {
-                ControlState::Return(value) => {
-                    return Ok(value);
-                }
-                ControlState::Normal(_) => {}
+            if let ControlState::Return(value) = self.interpret_statement(program, *stmt_id, ctx)? {
+                return Ok(value);
             }
         }
 
-        let ret = match &block_expr.expr {
-            Some(return_expr) => {
-                let value = self.interpret_expr(program, return_expr.clone(), ctx)?;
-                value
-            }
-            None => CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE)),
+        if let Some(return_expr) = block_expr.expr {
+            return self.interpret_expr(program, return_expr.clone(), ctx);
         };
 
-        Ok(ret)
+        Ok(CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE)))
     }
 
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_if_expr(
         &mut self,
         program: &CheckedProgram<F>,
-        if_expr: &CheckedIfExprNode,
+        node: &CheckedIfExprNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
-        let node = if_expr;
-        let mut result: CheckedValueRef<F>;
-
         //calculate the predicate
         let predicate = self
             .interpret_expr(program, node.if_branch.predicate, ctx)?
@@ -1330,7 +1274,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         self.context.start_if_block(predicate);
 
         //use if block return value to initialize the result
-        result = self.interpret_expr(program, node.if_branch.body, ctx)?;
+        let mut result = self.interpret_expr(program, node.if_branch.body, ctx)?;
 
         for condition in &node.elseif_branches {
             let predicate = self
@@ -1390,7 +1334,7 @@ mod tests {
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
-        insta::glob!("../../tests", "008.qed", |path| {
+        insta::glob!("../../tests", "00*.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
 
             let compile_results = interpreter

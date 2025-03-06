@@ -1,6 +1,6 @@
 impl<T, N> [T; N] {
-    pub fn len(self) -> Felt {
-        return 1;
+    pub const fn len(self) -> u32 {
+        return N;
     }
 }
 
@@ -36,5 +36,5 @@ fn main() -> Felt {
     let arr: [Felt; 2] = [0, 1];
     p.set_age(20);
     modify_person(p);
-    p.data.data[0] + arr.len()
+    p.data.data[0] + (arr.len() as Felt)
 }
