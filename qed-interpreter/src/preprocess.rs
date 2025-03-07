@@ -93,7 +93,7 @@ impl<'a> StorageProcessor<'a> {
         }
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: Vec::new(),
-            return_expr: Some(sum),
+            expr: Some(sum),
         }));
 
         let f = FunctionNode {
@@ -148,7 +148,7 @@ impl<'a> StorageProcessor<'a> {
         )));
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: Vec::new(),
-            return_expr: Some(value_node),
+            expr: Some(value_node),
         }));
         let f = FunctionNode {
             name: ctx.intern("read"),
@@ -201,7 +201,7 @@ impl<'a> StorageProcessor<'a> {
         }
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: field_writes,
-            return_expr: None,
+            expr: None,
         }));
 
         let f = FunctionNode {
@@ -262,7 +262,7 @@ impl<'a> StorageProcessor<'a> {
 
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: Vec::new(),
-            return_expr: Some(read_expr),
+            expr: Some(read_expr),
         }));
 
         let function = FunctionNode {
@@ -322,7 +322,7 @@ impl<'a> StorageProcessor<'a> {
 
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: vec![write_stmt],
-            return_expr: None,
+            expr: None,
         }));
 
         let function = FunctionNode {

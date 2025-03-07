@@ -1,4 +1,6 @@
-use qed_ast::{AttrNode, ExprId, IdentId, NodeInfo, NodeType, TypeQualifier, Visibility};
+use qed_ast::{
+    AttrNode, ExprId, IdentId, NodeInfo, NodeType, Qualifier, TypeQualifier, Visibility,
+};
 
 use crate::{ScopeId, TypeId, UNKOWN_TYPE};
 
@@ -8,25 +10,11 @@ pub struct CheckedFunctionNode {
     pub parameters: Vec<(IdentId, TypeQualifier, TypeId)>,
     pub generic_parameters: Vec<TypeId>,
     pub body: Option<ExprId>,
+    pub qualifier: Qualifier,
     pub return_type: TypeId,
     pub scope_id: ScopeId,
     pub visibility: Visibility,
     pub attrs: Vec<AttrNode>,
-}
-
-impl Default for CheckedFunctionNode {
-    fn default() -> Self {
-        Self {
-            name: IdentId(0),
-            parameters: Vec::new(),
-            generic_parameters: Vec::new(),
-            body: None,
-            return_type: TypeId(0),
-            scope_id: ScopeId(0),
-            visibility: Visibility::Public,
-            attrs: Vec::new(),
-        }
-    }
 }
 
 impl CheckedFunctionNode {

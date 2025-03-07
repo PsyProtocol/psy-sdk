@@ -73,7 +73,6 @@ Statement: StmtNode = {
 
 ExpressionStatement: StmtNode = {
     <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr)),
-    <l:@L> <expr:BlockExpression> ";"? <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr)),
 }
 
 IntrinsicStatement: StmtNode = {
@@ -181,9 +180,9 @@ StructDef: StructNode = {
 }
 
 ConstDef: DefinitionNode = {
-    <l:@L> <visibility:Visibility> CONST <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R> => DefinitionNode::Const(ConstNode {
-        name: decl.0,
-        ty: decl.1,
+    <l:@L> <visibility:Visibility> CONST <name:Identifier> ":" <ty:ConstType> "=" <value:Expression> ";" <r:@R> => DefinitionNode::Const(ConstNode {
+        name,
+        ty,
         value: expr_nodes.alloc_item(value),
         visibility
     })
@@ -286,11 +285,11 @@ GenericParameters: Vec<IdentId> = {
 }
 
 BlockExpression: ExprNode<F> = {
-    <l:@L> "{" <mut stmts:Statement*> <ret:Expression?> "}" <r:@R> => {
+    <l:@L> "{" <stmts:Statement*> <ret:Expression?> "}" <r:@R> => {
         ExprNode::BlockExpr(
             BlockExprNode {
                 stmts: stmt_nodes.alloc_items(stmts),
-                return_expr: ret.map(|x| expr_nodes.alloc_item(x))
+                expr: ret.map(|x| expr_nodes.alloc_item(x))
             }
         )
     }
@@ -370,7 +369,7 @@ TupleType: UncheckedType = {
     "(" <types:Comma<Ty>> ")" => UncheckedType::Tuple(types)
 }
 
-TupleExpr: ExprNode<F> = {
+TupleExpression: ExprNode<F> = {
     "(" <first:Expression> "," <rest:Comma<Expression>> ")" => {
         let mut elements = vec![expr_nodes.alloc_item(first)];
         elements.extend(rest.into_iter().map(|e| expr_nodes.alloc_item(e)));
@@ -537,7 +536,7 @@ Expression: ExprNode<F> = {
         target: expr_nodes.alloc_item(variable),
         index: expr_nodes.alloc_item(index),
     }),
-    <l:@L> <variable:Expression> "." <index:NUMBER> <r:@R> => ExprNode::<F>::TupleAccess(TupleAccessNode {
+    <l:@L> <variable:Expression> "." <index:U64> <r:@R> => ExprNode::<F>::TupleAccess(TupleAccessNode {
         target: expr_nodes.alloc_item(variable),
         index: index as usize,
     }),
@@ -644,12 +643,14 @@ Expression: ExprNode<F> = {
     #[precedence(level="16")]
     LambdaFunctionExpression
 }
+
 Term: ExprNode<F> = {
     ValueExpression,
     PathExpression,
-    TupleExpr,
     IfExpression,
-    MatchExpression
+    MatchExpression,
+    BlockExpression,
+
 }
 
 ValueExpression: ExprNode<F> = {
@@ -657,11 +658,12 @@ ValueExpression: ExprNode<F> = {
     BoolExpression,
     U32Expression,
     ArrayExpression,
+    TupleExpression,
     NEW <StructExpression>
 }
 
 FeltExpression: ExprNode<F> = {
-    <l:@L> <n:NUMBER> <r:@R> => ExprNode::<F>::Value(ValueNode::Felt(ctx.op_const(n))),
+    <l:@L> <n:U64> <r:@R> => ExprNode::<F>::Value(ValueNode::Felt(ctx.op_const(n))),
 }
 
 BoolExpression: ExprNode<F> = {
@@ -669,9 +671,7 @@ BoolExpression: ExprNode<F> = {
 }
 
 U32Expression: ExprNode<F> = {
-    <l:@L> <n:U32> <r:@R> => {
-        ExprNode::<F>::Value(ValueNode::U32(ctx.op_const_u32(n)))
-    },
+    <l:@L> <n:U32> <r:@R> => ExprNode::<F>::Value(ValueNode::U32(ctx.op_const_u32(n)))
 }
 
 StructExpression: ExprNode<F> = {
@@ -759,13 +759,17 @@ GenericType: UncheckedType = {
 }
 
 ArrayType: UncheckedType = {
-    <l:@L> "[" <ty:Ty> ";" <n:NUMBER> "]" <r:@R> => UncheckedType::Array(Box::new(ty), usize::try_from(n).unwrap())
+    <l:@L> "[" <ty:Ty> ";" <n:U64> "]" <r:@R> => UncheckedType::Array(Box::new(ty), usize::try_from(n).unwrap())
 }
 
-BasicType: UncheckedType = {
+ConstType: UncheckedType = {
     <l:@L> <ty:TYPE_FELT>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_FELT),
     <l:@L> <ty:TYPE_BOOL>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_BOOL),
     <l:@L> <ty:TYPE_U32>   <r:@R> => UncheckedType::Basic(IdentId::TYPE_U32),
+}
+
+BasicType: UncheckedType = {
+    ConstType,
     <l:@L> <ty:TYPE_SELF>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_SELF),
     <l:@L> <ty:Identifier> <r:@R> => UncheckedType::Basic(ty)
 }
@@ -863,7 +867,7 @@ extern {
         IDENT => Token::Ident(<&'input str>),
 
         BOOL => Token::Bool(<bool>),
-        NUMBER => Token::Number(<u64>),
+        U64 => Token::U64(<u64>),
         U32 => Token::U32(<u32>),
         STRING => Token::String(<&'input str>),
 

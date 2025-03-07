@@ -108,7 +108,7 @@ pub enum Token<'input> {
     Ident(&'input str),
 
     #[regex(r"(?:0|[1-9]\d*)", |lex| lex.slice().parse())]
-    Number(u64),
+    U64(u64),
     #[token("false", |_| false)]
     #[token("true", |_| true)]
     Bool(bool),
@@ -234,7 +234,7 @@ fn test_lex_comment() {
     assert_eq!(lex.next(), Some(Ok(Token::KeywordLet)));
     assert_eq!(lex.next(), Some(Ok(Token::Ident("x"))));
     assert_eq!(lex.next(), Some(Ok(Token::Assign)));
-    assert_eq!(lex.next(), Some(Ok(Token::Number(5))));
+    assert_eq!(lex.next(), Some(Ok(Token::U64(5))));
     assert_eq!(lex.next(), Some(Ok(Token::Semicolon)));
     assert_eq!(lex.next(), None);
 
@@ -242,7 +242,7 @@ fn test_lex_comment() {
     assert_eq!(lex.next(), Some(Ok(Token::KeywordLet)));
     assert_eq!(lex.next(), Some(Ok(Token::Ident("y"))));
     assert_eq!(lex.next(), Some(Ok(Token::Assign)));
-    assert_eq!(lex.next(), Some(Ok(Token::Number(10))));
+    assert_eq!(lex.next(), Some(Ok(Token::U64(10))));
     assert_eq!(lex.next(), Some(Ok(Token::Semicolon)));
     assert_eq!(lex.next(), None);
 }
@@ -250,9 +250,9 @@ fn test_lex_comment() {
 #[test]
 fn test_lex_integer() {
     let mut lex = Token::lexer("42 0 1234567890");
-    assert_eq!(lex.next(), Some(Ok(Token::Number(42))));
-    assert_eq!(lex.next(), Some(Ok(Token::Number(0))));
-    assert_eq!(lex.next(), Some(Ok(Token::Number(1234567890))));
+    assert_eq!(lex.next(), Some(Ok(Token::U64(42))));
+    assert_eq!(lex.next(), Some(Ok(Token::U64(0))));
+    assert_eq!(lex.next(), Some(Ok(Token::U64(1234567890))));
     assert_eq!(lex.next(), None);
 }
 #[cfg(test)]

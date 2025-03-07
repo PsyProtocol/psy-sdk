@@ -6,7 +6,10 @@ use std::{
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::{ExprId, IdentId, NodeInfo, NodeType};
-use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext, DPNContextArray, ToFelts};
+use qedlang_core::dpn::ops::{
+    context_trait::{ContextFelt, DPNContext, ToFelts},
+    op_types::DPNOpType,
+};
 
 use crate::{Result, TypeId, BOOL_TYPE, FELT_TYPE, U32_TYPE, VOID_TYPE};
 
@@ -28,7 +31,7 @@ impl<F> NodeInfo for CheckedValueNode<F> {
 }
 
 #[derive(Debug, EnumAsInner)]
-pub enum CheckedValue<F> {
+pub enum CheckedValue<F: Clone + From<u32> + ContextFelt> {
     Felt(F),
     Bool(F),
     U32(F),
@@ -39,13 +42,13 @@ pub enum CheckedValue<F> {
         elements: Vec<(TypeId, CheckedValueRef<F>)>,
     },
     Type(TypeId),
-    Stash(Vec<F>),
 }
 
+/// **NOTE**: please dont implement Deref for CheckedValueRef in case of wrong usage
 #[derive(Debug)]
-pub struct CheckedValueRef<F>(Rc<RefCell<CheckedValue<F>>>);
+pub struct CheckedValueRef<F: Clone + From<u32> + ContextFelt>(Rc<RefCell<CheckedValue<F>>>);
 
-impl<F: Clone> Clone for CheckedValueRef<F> {
+impl<F: Clone + From<u32> + ContextFelt> Clone for CheckedValueRef<F> {
     fn clone(&self) -> Self {
         match &*self.0.borrow() {
             CheckedValue::Felt(f) => {
@@ -71,9 +74,6 @@ impl<F: Clone> Clone for CheckedValueRef<F> {
             CheckedValue::Type(type_id) => {
                 CheckedValueRef(Rc::new(RefCell::new(CheckedValue::Type(type_id.clone()))))
             }
-            CheckedValue::Stash(data) => {
-                CheckedValueRef(Rc::new(RefCell::new(CheckedValue::Stash(data.clone()))))
-            }
         }
     }
 }
@@ -91,7 +91,6 @@ impl<F: Clone + From<u32> + ContextFelt> PartialEq for CheckedValueRef<F> {
                 std::ptr::eq(Rc::as_ptr(&self.as_rc()), Rc::as_ptr(&other.as_rc()))
             }
             (CheckedValue::Type(t1), CheckedValue::Type(t2)) => t1 == t2,
-            (CheckedValue::Stash(d1), CheckedValue::Stash(d2)) => d1 == d2,
             _ => false,
         }
     }
@@ -125,20 +124,15 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValueRef<F> {
                 &VOID_TYPE => vec![],
                 _ => unreachable!(),
             },
-            CheckedValue::Stash(data) => data.clone(),
         }
     }
 
-    fn from_felts(felts: &[F]) -> Self {
-        if felts.len() == 1 {
-            Self::from_felt(felts[0].clone())
-        } else {
-            Self::new_rc(CheckedValue::Stash(felts.to_vec()))
-        }
+    fn from_felts(_felts: &[F]) -> Self {
+        todo!()
     }
 }
 
-impl<F: Clone> CheckedValueRef<F> {
+impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
     pub fn new_rc(value: CheckedValue<F>) -> Self {
         Self(Rc::new(RefCell::new(value)))
     }
@@ -193,8 +187,13 @@ impl<F: Clone> CheckedValueRef<F> {
     pub fn is_array(&self) -> bool {
         self.0.borrow().is_array()
     }
+
     pub fn is_tuple(&self) -> bool {
         self.0.borrow().is_tuple()
+    }
+
+    pub fn is_type(&self) -> bool {
+        self.0.borrow().is_type()
     }
 
     pub fn to_felt(&self) -> F {
@@ -218,12 +217,19 @@ impl<F: Clone> CheckedValueRef<F> {
         }
     }
 
+    pub fn to_type(&self) -> TypeId {
+        match &*self.0.borrow() {
+            CheckedValue::Type(type_id) => type_id.clone(),
+            _ => panic!("Expected type value"),
+        }
+    }
+
     pub fn to_value(&self) -> F {
         match &*self.0.borrow() {
             CheckedValue::Felt(f) => f.clone(),
             CheckedValue::U32(u) => u.clone(),
             CheckedValue::Bool(b) => b.clone(),
-            _ => panic!("Expected felt value"),
+            _ => panic!("Expected felt/u32/bool value"),
         }
     }
 
@@ -250,53 +256,33 @@ impl<F: Clone> CheckedValueRef<F> {
             CheckedValue::Struct(type_id, _) => type_id.clone(),
             CheckedValue::Type(type_id) => type_id.clone(),
             CheckedValue::Tuple { type_id, .. } => type_id.clone(),
-            CheckedValue::Stash(_) => unreachable!(),
         }
     }
 
-    pub fn felt_size(&self) -> usize {
-        match &*self.0.borrow() {
-            CheckedValue::Felt(_f) => 1,
-            CheckedValue::Bool(_b) => 1,
-            CheckedValue::U32(_u) => 1,
-            CheckedValue::Array(_type_id, values) => {
-                let mut result = 0;
-                for value in values {
-                    result += value.felt_size();
-                }
-                result
-            }
-            CheckedValue::Struct(_, fields) => {
-                let mut result = 0;
-                for (_, value) in fields {
-                    result += value.felt_size();
-                }
-                result
-            }
-            CheckedValue::Type(_type_id) => {
-                unreachable!()
-            }
-            CheckedValue::Tuple {
-                type_id: _type_id,
-                elements,
-            } => {
-                let mut result = 0;
-                for (_, elem) in elements {
-                    result += elem.felt_size();
-                }
-                result
-            }
-            CheckedValue::Stash(data) => data.len(),
-        }
-    }
-
-    pub fn set_path<C>(&mut self, ctx: &mut C, path: &[IndexPath<F>], value: Self) -> Result<()>
+    pub fn set_path<C>(
+        &mut self,
+        ctx: &mut C,
+        path: &[IndexPath<F>],
+        index_condition: &mut Vec<F>,
+        value: Self,
+    ) -> Result<()>
     where
         F: Clone + From<u32> + ContextFelt,
         C: DPNContext<F>,
     {
         if path.is_empty() {
-            *self = value.clone();
+            if index_condition.is_empty() {
+                *self = value.clone();
+            } else {
+                let combine_condition = index_condition
+                    .iter()
+                    .fold(ctx.op_true(), |acc, condition| {
+                        ctx.op_bool_and(*condition, acc)
+                    });
+                *self = Self::select(ctx, &value, &self, &|ctx: &mut C, n: &F, o: &F| {
+                    ctx.op_select(combine_condition, n.clone(), o.clone())
+                });
+            }
             return Ok(());
         }
 
@@ -304,21 +290,44 @@ impl<F: Clone> CheckedValueRef<F> {
             CheckedValue::Array(_, arr) => {
                 let index = path[0].as_felt().unwrap();
                 let rest = &path[1..];
-                let res = arr.q_get(ctx, *index);
-                Self::convert(arr[0].clone(), res).set_path(ctx, rest, value)?;
+                let const_types = [
+                    DPNOpType::Constant,
+                    DPNOpType::ConstantTrue,
+                    DPNOpType::ConstantFalse,
+                    DPNOpType::ConstantU32,
+                ];
+                if const_types.contains(&ctx.get_op_type(*index)) {
+                    let index = ctx.get_constant_value(*index) as usize;
+                    if let Some(inner) = arr.get_mut(index) {
+                        inner.set_path(ctx, rest, index_condition, value)?;
+                    }
+                } else {
+                    let arr_size = ctx.op_const(arr.len() as u64);
+                    let out_of_bounds = ctx.op_lt(*index, arr_size);
+                    ctx.assert_true(out_of_bounds, "felt index out of bounds");
+                    for i in 0..arr.len() {
+                        let arr_index = ctx.op_const(i as u64);
+                        let condition = ctx.op_eq(arr_index, *index);
+                        index_condition.push(condition);
+                        if let Some(inner) = arr.get_mut(i) {
+                            inner.set_path(ctx, rest, index_condition, value.clone())?;
+                        }
+                        index_condition.pop();
+                    }
+                }
             }
             CheckedValue::Tuple { elements, .. } => {
                 let index = path[0].as_normal().unwrap();
                 let rest = &path[1..];
                 if let Some((_, inner)) = elements.get_mut(*index) {
-                    inner.set_path(ctx, rest, value)?;
+                    inner.set_path(ctx, rest, index_condition, value)?;
                 }
             }
             CheckedValue::Struct(_, map) => {
                 let key = IdentId(*path[0].as_normal().unwrap());
                 let rest = &path[1..];
                 if let Some(inner) = map.get_mut(&key) {
-                    inner.set_path(ctx, rest, value)?;
+                    inner.set_path(ctx, rest, index_condition, value)?;
                 }
             }
             _ => {
@@ -342,8 +351,31 @@ impl<F: Clone> CheckedValueRef<F> {
             CheckedValue::Array(_, arr) => {
                 let index = path[0].clone().into_felt().unwrap();
                 let rest = &path[1..];
-                let res = arr.q_get(ctx, index);
-                Self::convert(arr[0].clone(), res).get_path(ctx, rest)
+                let const_types = [
+                    DPNOpType::Constant,
+                    DPNOpType::ConstantTrue,
+                    DPNOpType::ConstantFalse,
+                    DPNOpType::ConstantU32,
+                ];
+                if const_types.contains(&ctx.get_op_type(index)) {
+                    let index = ctx.get_constant_value(index) as usize;
+                    arr.get(index).and_then(|inner| inner.get_path(ctx, rest))
+                } else {
+                    let arr_size = ctx.op_const(arr.len() as u64);
+                    let out_of_bounds = ctx.op_lt(index, arr_size);
+                    ctx.assert_true(out_of_bounds, "felt index out of bounds");
+
+                    let mut result = arr[0].clone();
+                    for i in 1..arr.len() {
+                        let arr_index = ctx.op_const(i as u64);
+                        let condition = ctx.op_eq(arr_index, index);
+                        result =
+                            Self::select(ctx, &arr[i], &result, &|ctx: &mut C, n: &F, o: &F| {
+                                ctx.op_select(condition, n.clone(), o.clone())
+                            });
+                    }
+                    result.get_path(ctx, rest)
+                }
             }
             CheckedValue::Tuple { elements, .. } => {
                 let index = path[0].clone().into_normal().unwrap();
@@ -361,72 +393,82 @@ impl<F: Clone> CheckedValueRef<F> {
         }
     }
 
-    pub fn convert(value_type: CheckedValueRef<F>, value: CheckedValueRef<F>) -> CheckedValueRef<F>
+    pub fn select<C>(
+        ctx: &mut C,
+        new_value: &CheckedValueRef<F>,
+        old_value: &CheckedValueRef<F>,
+        select_fn: &impl Fn(&mut C, &F, &F) -> F,
+    ) -> CheckedValueRef<F>
     where
         F: Clone + From<u32> + ContextFelt,
+        C: DPNContext<F>,
     {
-        assert!(value_type.felt_size() == value.felt_size());
-        let value_felts = value.to_felts();
-        match &*value_type.0.borrow() {
-            CheckedValue::Felt(_) => {
-                assert!(value_felts.len() == 1);
-                CheckedValueRef::new_rc(CheckedValue::Felt(value_felts[0].clone()))
+        if old_value == new_value {
+            return old_value.clone();
+        }
+        match (&*old_value.borrow(), &*new_value.borrow()) {
+            (CheckedValue::Felt(o), CheckedValue::Felt(n)) => {
+                CheckedValueRef::new_rc(CheckedValue::Felt(select_fn(ctx, n, o)))
             }
-            CheckedValue::Bool(_) => {
-                assert!(value_felts.len() == 1);
-                CheckedValueRef::new_rc(CheckedValue::Bool(value_felts[0].clone()))
+            (CheckedValue::Bool(o), CheckedValue::Bool(n)) => {
+                CheckedValueRef::new_rc(CheckedValue::Bool(select_fn(ctx, n, o)))
             }
-            CheckedValue::Array(type_id, arr) => {
-                assert!(value_felts.len() % arr.len() == 0);
-                let arr_data = value_felts
-                    .chunks(value_felts.len() / arr.len())
-                    .zip(arr.iter())
-                    .map(|(value, val_type)| {
-                        Self::convert(
-                            val_type.clone(),
-                            CheckedValueRef::new_rc(CheckedValue::Stash(value.to_vec())),
-                        )
-                    })
-                    .collect();
-                CheckedValueRef::new_rc(CheckedValue::Array(type_id.clone(), arr_data))
+            (CheckedValue::U32(o), CheckedValue::U32(n)) => {
+                CheckedValueRef::new_rc(CheckedValue::U32(select_fn(ctx, n, o)))
             }
-            CheckedValue::Tuple { type_id, elements } => {
-                let mut index = 0;
-                let mut tuple_elements = Vec::new();
-                for (elem_type, elem_value) in elements.iter() {
-                    let elem_size = elem_value.felt_size();
-                    let elem_values = &value_felts[index..index + elem_size];
-                    index += elem_size;
+            (CheckedValue::Array(lhs_type_id, o), CheckedValue::Array(_, n)) => {
+                let mut arr_data = vec![];
+                for (old_value, new_value) in o.iter().zip(n.iter()) {
+                    arr_data.push(Self::select(ctx, new_value, old_value, select_fn));
+                }
+                CheckedValueRef::new_rc(CheckedValue::Array(lhs_type_id.clone(), arr_data))
+            }
+            (CheckedValue::Struct(lhs_type_id, o), CheckedValue::Struct(_, n)) => {
+                let mut struct_map = IndexMap::new();
+                for ((old_field_name, old_field_value), (new_field_name, new_field_value)) in
+                    o.iter().zip(n.iter())
+                {
+                    assert_eq!(old_field_name, new_field_name);
+                    struct_map.insert(
+                        old_field_name.clone(),
+                        Self::select(ctx, new_field_value, old_field_value, select_fn),
+                    );
+                }
+                CheckedValueRef::new_rc(CheckedValue::Struct(lhs_type_id.clone(), struct_map))
+            }
+            (
+                CheckedValue::Tuple {
+                    type_id: lhs_tid,
+                    elements: old_elements,
+                },
+                CheckedValue::Tuple {
+                    elements: new_elements,
+                    ..
+                },
+            ) => {
+                assert_eq!(
+                    old_elements.len(),
+                    new_elements.len(),
+                    "Tuple size mismatch"
+                );
+
+                let mut tuple_elements = vec![];
+                for ((old_type_id, old_value), (_, new_value)) in
+                    old_elements.iter().zip(new_elements.iter())
+                {
                     tuple_elements.push((
-                        elem_type.clone(),
-                        Self::convert(
-                            elem_value.clone(),
-                            CheckedValueRef::new_rc(CheckedValue::Stash(elem_values.to_vec())),
-                        ),
+                        old_type_id.clone(),
+                        Self::select(ctx, new_value, old_value, select_fn),
                     ));
                 }
                 CheckedValueRef::new_rc(CheckedValue::Tuple {
-                    type_id: type_id.clone(),
+                    type_id: lhs_tid.clone(),
                     elements: tuple_elements,
                 })
             }
-            CheckedValue::Struct(type_id, fields) => {
-                let mut index = 0;
-                let mut fields_map = IndexMap::new();
-                for (ident_id, field) in fields.iter() {
-                    let field_values = &value_felts[index..index + field.felt_size()];
-                    index += field.felt_size();
-                    fields_map.insert(
-                        ident_id.clone(),
-                        Self::convert(
-                            field.clone(),
-                            CheckedValueRef::new_rc(CheckedValue::Stash(field_values.to_vec())),
-                        ),
-                    );
-                }
-                CheckedValueRef::new_rc(CheckedValue::Struct(type_id.clone(), fields_map))
+            _ => {
+                unreachable!()
             }
-            _ => unimplemented!(),
         }
     }
 }

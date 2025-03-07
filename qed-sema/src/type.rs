@@ -2,19 +2,15 @@ use std::convert::AsMut;
 use std::convert::AsRef;
 
 use enum_as_inner::EnumAsInner;
-use indexmap::IndexMap;
 use qed_ast::TypeQualifier;
 use qed_ast::Visibility;
 use qed_ast::{ExprId, IdentId};
 use qed_utils::impl_ref;
-use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
 use crate::CheckedConstNode;
 use crate::CheckedFunctionSignature;
 use crate::CheckedLambdaFunctionNode;
-use crate::CheckedValue;
-use crate::CheckedValueRef;
-use crate::SymbolTable;
+use crate::ConstId;
 use crate::{
     CheckedArrayNode, CheckedEnumNode, CheckedFunctionNode, CheckedStructNode, CheckedTraitNode,
     ScopeId,
@@ -27,8 +23,8 @@ pub const UNKOWN_TYPE: TypeId = TypeId(0);
 pub const VOID_TYPE: TypeId = TypeId(1);
 pub const BOOL_TYPE: TypeId = TypeId(2);
 pub const FELT_TYPE: TypeId = TypeId(3);
-pub const HASH_TYPE: TypeId = TypeId(4);
-pub const U32_TYPE: TypeId = TypeId(5);
+pub const U32_TYPE: TypeId = TypeId(4);
+pub const HASH_TYPE: TypeId = TypeId(9);
 
 use once_cell::sync::Lazy;
 
@@ -41,10 +37,6 @@ pub static PRIMITIVE_TYPES: Lazy<Vec<Type>> = Lazy::new(|| {
         }),
         Type::Felt(CheckedFeltNode {
             implementations: vec![],
-        }),
-        Type::Array(CheckedArrayNode {
-            inner_ty: FELT_TYPE,
-            size: 4,
         }),
         Type::U32(CheckedU32Node {
             implementations: vec![],
@@ -67,6 +59,12 @@ pub struct CheckedU32Node {
     pub implementations: Vec<TypeId>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct CheckedTypeVariableNode {
+    pub constraints: Vec<TypeId>,
+    pub scope_id: ScopeId,
+}
+
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum Type {
     Unknown,
@@ -82,10 +80,10 @@ pub enum Type {
     Const(CheckedConstNode),
     LambdaFunction(CheckedLambdaFunctionNode),
     FunctionSignature(CheckedFunctionSignature),
-    TypeVariable(IdentId),
+    TypeVariable(CheckedTypeVariableNode),
     Tuple(Vec<TypeId>),
 
-    GenericInstance(TypeId, Vec<TypeId>),
+    GenericInstance(TypeId, Vec<TypeId>, ScopeId),
 }
 
 #[derive(Copy, Debug, Clone, PartialEq)]
@@ -165,6 +163,18 @@ impl TypeKey {
             visibility: Visibility::Public,
         }
     }
+
+    pub fn from_const_id(const_id: ConstId) -> Self {
+        Self {
+            name: None,
+            underlying_type_id: None,
+            generic_parameters: vec![],
+            consts: vec![const_id.into()],
+            parameters: vec![],
+            return_type: None,
+            visibility: Visibility::Public,
+        }
+    }
 }
 
 impl_ref!(Type,
@@ -200,11 +210,15 @@ impl Type {
                 Type::Felt(_) => (Some(IdentId::TYPE_FELT), None, vec![], vec![], vec![], None),
                 Type::Bool(_) => (Some(IdentId::TYPE_BOOL), None, vec![], vec![], vec![], None),
                 Type::U32(_) => (Some(IdentId::TYPE_U32), None, vec![], vec![], vec![], None),
-                Type::Array(CheckedArrayNode { inner_ty, size, .. }) => (
+                Type::Array(CheckedArrayNode {
+                    inner_ty,
+                    size_ty: size,
+                    ..
+                }) => (
                     Some(IdentId::TYPE_ARRAY),
                     None,
-                    vec![inner_ty.clone()],
-                    vec![size.clone()],
+                    vec![inner_ty.clone(), size.clone()],
+                    vec![],
                     vec![],
                     None,
                 ),
@@ -292,9 +306,9 @@ impl Type {
                     None,
                 ),
                 Type::Const(CheckedConstNode { name, .. }) => {
-                    (Some(name.clone()), None, vec![], vec![], vec![], None)
+                    (name.clone(), None, vec![], vec![], vec![], None)
                 }
-                Type::GenericInstance(underlying_type_id, generic_parameters) => (
+                Type::GenericInstance(underlying_type_id, generic_parameters, _) => (
                     None,
                     Some(underlying_type_id.clone()),
                     generic_parameters.clone(),
@@ -316,7 +330,7 @@ impl Type {
 
     pub fn scope_id(&self) -> ScopeId {
         match self {
-            Type::Array(_) => ScopeId::primitive(),
+            Type::Array(CheckedArrayNode { scope_id, .. }) => *scope_id,
             Type::Tuple(_) => ScopeId::primitive(),
             Type::Struct(CheckedStructNode { scope_id, .. }) => *scope_id,
             Type::Enum(CheckedEnumNode { scope_id, .. }) => *scope_id,
@@ -327,7 +341,9 @@ impl Type {
             Type::Felt(_) => ScopeId::primitive(),
             Type::Bool(_) => ScopeId::primitive(),
             Type::U32(_) => ScopeId::primitive(),
-            _ => panic!("Type::scope_id called on non-composite type"),
+            Type::TypeVariable(CheckedTypeVariableNode { scope_id, .. }) => *scope_id,
+            Type::GenericInstance(_, _, scope_id) => *scope_id,
+            _ => panic!("Type::scope_id called on non-composite type: {:?}", self),
         }
     }
 
@@ -346,6 +362,12 @@ impl Type {
                 implementations.push(trait_type_id);
             }
             Type::Felt(CheckedFeltNode {
+                ref mut implementations,
+                ..
+            }) => {
+                implementations.push(trait_type_id);
+            }
+            Type::Array(CheckedArrayNode {
                 ref mut implementations,
                 ..
             }) => {
@@ -385,6 +407,9 @@ impl Type {
             Type::U32(CheckedU32Node {
                 implementations, ..
             }) => implementations,
+            Type::Array(CheckedArrayNode {
+                implementations, ..
+            }) => implementations,
             _ => panic!("Type::implementations called on non-composite type"),
         }
     }
@@ -406,7 +431,8 @@ impl Type {
             Type::Enum(CheckedEnumNode { name, .. }) => *name,
             Type::Function(CheckedFunctionNode { name, .. }) => *name,
             Type::Trait(CheckedTraitNode { name, .. }) => *name,
-            Type::Const(CheckedConstNode { name, .. }) => *name,
+            Type::Const(CheckedConstNode { name, .. }) => name.unwrap(),
+            Type::Array(_) => IdentId::TYPE_ARRAY,
             _ => unreachable!(),
         }
     }
@@ -433,9 +459,16 @@ impl Type {
             Type::Trait(CheckedTraitNode {
                 generic_parameters, ..
             }) => generic_parameters.to_vec(),
+            Type::Array(CheckedArrayNode {
+                inner_ty,
+                size_ty: size,
+                ..
+            }) => {
+                vec![inner_ty.clone(), size.clone()]
+            }
             Type::LambdaFunction(_) => vec![],
             Type::FunctionSignature(_) => vec![],
-            Type::GenericInstance(_, generic_parameters) => generic_parameters.to_vec(),
+            Type::GenericInstance(_, generic_parameters, _) => generic_parameters.to_vec(),
             _ => unreachable!(),
         }
     }
@@ -476,60 +509,7 @@ impl Type {
             Type::LambdaFunction(_) => TypeKind::LambdaFunction,
             Type::FunctionSignature(_) => TypeKind::FunctionSignature,
             Type::TypeVariable(_) => TypeKind::TypeVariable,
-            Type::GenericInstance(_, _) => TypeKind::GenericInstance,
-        }
-    }
-
-    pub fn to_value<F: ContextFelt + From<u32>, C: DPNContext<F>>(
-        &self,
-        symbols: &SymbolTable<F>,
-        ctx: &mut C,
-    ) -> CheckedValue<F> {
-        match self {
-            Type::Felt(_f) => CheckedValue::Felt(ctx.add_input()),
-            Type::Bool(_b) => CheckedValue::Bool(ctx.add_bool_input()),
-            Type::U32(_u) => CheckedValue::U32(ctx.add_u32_input()),
-            Type::Array(a) => {
-                let mut result = Vec::new();
-                let inner_ty = symbols[a.inner_ty].clone();
-                for _ in 0..a.size {
-                    result.push(CheckedValueRef::new_rc(inner_ty.to_value(symbols, ctx)));
-                }
-                let type_id = symbols
-                    .get_type_id(Some(ScopeId::primitive()), self.key())
-                    .unwrap();
-                CheckedValue::Array(type_id, result)
-            }
-            Type::Tuple(elements) => {
-                let mut result = Vec::new();
-                for &element_type in elements {
-                    let element_ty = symbols[element_type].clone();
-                    let value = CheckedValueRef::new_rc(element_ty.to_value(symbols, ctx));
-
-                    result.push((element_type, value));
-                }
-                let type_id = symbols
-                    .get_type_id(Some(ScopeId::primitive()), self.key())
-                    .unwrap();
-
-                CheckedValue::Tuple {
-                    type_id,
-                    elements: result,
-                }
-            }
-            Type::Struct(s) => {
-                let mut result = IndexMap::new();
-                for (field_name, (field_type, _)) in &s.fields {
-                    let field_type = symbols[field_type.clone()].clone();
-                    result.insert(
-                        field_name.clone(),
-                        CheckedValueRef::new_rc(field_type.to_value(symbols, ctx)),
-                    );
-                }
-                let type_id = symbols.get_type_id(Some(s.scope_id), self.key()).unwrap();
-                CheckedValue::Struct(type_id, result)
-            }
-            _ => unreachable!(),
+            Type::GenericInstance(_, _, _) => TypeKind::GenericInstance,
         }
     }
 }
