@@ -2,7 +2,6 @@ mod assignment;
 mod block;
 mod r#for;
 mod intrinsic;
-mod r#match;
 mod r#return;
 mod variable;
 mod r#while;
@@ -11,7 +10,6 @@ pub use assignment::*;
 use enum_as_inner::EnumAsInner;
 pub use intrinsic::*;
 pub use r#for::*;
-pub use r#match::*;
 pub use r#return::*;
 pub use r#while::*;
 pub use variable::*;
@@ -28,7 +26,6 @@ pub enum StmtNode {
     Expression(ExprId),
     Return(ReturnNode),
     Intrinsic(IntrinsicStmtNode),
-    Match(MatchNode),
 }
 
 impl NodeInfo for StmtNode {
@@ -42,7 +39,6 @@ impl NodeInfo for StmtNode {
             StmtNode::Expression(_) => NodeType::ExpressionStmt,
             StmtNode::Return(node) => node.node_type(),
             StmtNode::Intrinsic(node) => node.node_type(),
-            StmtNode::Match(node) => node.node_type(),
         }
     }
 

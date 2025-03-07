@@ -92,6 +92,10 @@ pub enum Error {
         expected: String,
         found: String,
     },
+    #[error("unreachable match")]
+    UnreachableMatch,
+    #[error("unreachable code")]
+    DuplicateWildcard,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -350,5 +354,7 @@ pub fn lowering_error_to_report(error: Error) -> Report<'static, FileSpan> {
             )
             .with_message("InvalidCast.")
             .finish(),
+        Error::DuplicateWildcard { .. } => todo!(),
+        Error::UnreachableMatch { .. } => todo!(),
     }
 }

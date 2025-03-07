@@ -883,9 +883,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 Ok(res)
             }
             CheckedExprNode::IfExpr(if_expr) => Ok(self.interpret_if_expr(program, if_expr, ctx)?),
+            CheckedExprNode::Match(match_expr) => {
+                Ok(self.interpret_match(program, match_expr, ctx)?)
+            }
         }
     }
-
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_expr(
         &mut self,
@@ -896,7 +898,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let node = &program[expr_id];
         self.__interpret_expr__(program, node, ctx)
     }
-
     #[instrument(level = "debug", skip_all)]
     fn interpret_member_access(
         &mut self,
@@ -1289,7 +1290,81 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         Ok(result)
     }
+    #[instrument(level = "debug", skip_all)]
+    pub fn interpret_match(
+        &mut self,
+        program: &CheckedProgram<F>,
+        match_node: &CheckedMatchNode,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<CheckedValueRef<F>> {
+        let scrutinee_value = self.interpret_expr(program, match_node.value, ctx)?;
+        let mut return_value = CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE));
+        let mut wildcard_case: Option<&CheckedMatchArm> = None;
+        let mut match_cases = match_node.cases.iter();
 
+        if let Some(first_arm) = match_cases.next() {
+            if let Some(pattern_expr) = &first_arm.pattern {
+                let matched =
+                    self.match_pattern(program, ctx, pattern_expr, &scrutinee_value)?;
+                self.context.start_if_block(matched);
+                //note: use the first arm return value to initialize the return value
+                return_value = self.interpret_expr(program, first_arm.body, ctx)?;
+            } else {
+                wildcard_case = Some(first_arm);
+            }
+        }
+
+        for arm in match_cases {
+            if let Some(pattern_expr) = &arm.pattern {
+                let matched =
+                    self.match_pattern(program, ctx, pattern_expr, &scrutinee_value)?;
+                self.context.start_else_if_block(matched);
+                let body_value = self.interpret_expr(program, arm.body, ctx)?;
+
+                return_value = CheckedValueRef::<F>::select(
+                    &mut self.context,
+                    &body_value,
+                    &return_value,
+                    &|ctx: &mut C, n: &F, o: &F| ctx.cset(o.clone(), n.clone()),
+                );
+
+            } else {
+                if wildcard_case.is_some() {
+                    return Err(Error::SemaError(SemaError::DuplicateWildcard));
+                }
+                wildcard_case = Some(arm);
+            }
+        }
+        //Caution: Must have a "_" in the match
+        if let Some(wildcard_arm) = wildcard_case {
+            self.context.start_else_block();
+            let body_value = self.interpret_expr(program, wildcard_arm.body, ctx)?;
+            return_value = CheckedValueRef::<F>::select(
+                &mut self.context,
+                &body_value,
+                &return_value,
+                &|ctx: &mut C, n: &F, o: &F| ctx.cset(o.clone(), n.clone()),
+            );
+        } else {
+            return Err(Error::SemaError(SemaError::UnreachableMatch));
+        }
+
+        self.context.end_if_block();
+
+        Ok(return_value)
+    }
+    fn match_pattern(
+        &mut self,
+        program: &CheckedProgram<F>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+        pattern_expr: &ExprId,
+        scrutinee_value: &CheckedValueRef<F>,
+    ) -> Result<F> {
+        let pattern_value = self.interpret_expr(program, *pattern_expr, ctx)?;
+        Ok(self
+            .context
+            .op_eq(scrutinee_value.to_felt(), pattern_value.to_felt()))
+    }
     pub fn is_constant(&self, value: F) -> bool {
         let constant_types = [
             DPNOpType::Constant,

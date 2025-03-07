@@ -1,7 +1,5 @@
 use qed_common::FileId;
 
-use crate::position::Position;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Span {
     pub file_id: FileId,

@@ -17,6 +17,7 @@ pub use expr::*;
 pub use infer::*;
 pub use program::*;
 pub use r#type::*;
+use regex::Regex;
 pub use stmt::*;
 pub use symbol_table::*;
 pub use traits::*;
@@ -101,6 +102,35 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
                 format!("<{}>", self.get_type_detail(*type_id))
             }
         }
+    }
+
+
+    //warn: debug only
+    pub fn print_symbol_table_to_string(&self) {
+        let debug_output = format!("{}", self.symbols);
+
+        let ident_regex = Regex::new(r"IdentId\((\d+)\)").unwrap();
+
+        // parse all `IdentId(NUM)` to `NUM`
+        let mut id_to_name = HashMap::new();
+        for capture in ident_regex.captures_iter(&debug_output) {
+            let ident_id_str = &capture[1]; // get the number
+            if let Ok(ident_id) = ident_id_str.parse::<usize>() {
+                let ident_name = self.program[IdentId(ident_id)].clone();
+                id_to_name.insert(ident_id_str.to_string(), ident_name);
+            }
+        }
+
+        // replace all `IdentId(NUM)` to `IdentId(NUM: "name")`
+        let formatted_output = ident_regex.replace_all(&debug_output, |caps: &regex::Captures| {
+            let ident_id_str = &caps[1];
+            if let Some(name) = id_to_name.get(ident_id_str) {
+                format!("IdentId({}: \"{}\")", ident_id_str, name)
+            } else {
+                caps[0].to_string()
+            }
+        });
+        println!("Symbol Table \n{}", formatted_output);
     }
 }
 
@@ -1661,6 +1691,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             NodeType::IfExpr => self.visit_if_expr(expr_id, ctx)?,
             NodeType::TupleExpr => self.visit_tuple(expr_id, ctx)?,
             NodeType::TupleAccessExpr => self.visit_tuple_access(expr_id, ctx)?,
+            NodeType::MatchExpr => self.visit_match(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
         ctx.infcx.exit_scope();
@@ -1937,10 +1968,80 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
     #[instrument(level = "debug", skip_all)]
     fn visit_match(
         &mut self,
-        _node: StmtId,
-        _ctx: &mut Self::Context,
-    ) -> std::result::Result<Self::StmtResult, Self::Error> {
-        todo!()
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::ExprResult, Self::Error> {
+        //get match node
+        let match_node = ctx.expression(node).as_match().cloned().unwrap();
+        let checked_scrutinee = self.visit_expr(match_node.scrutinee, ctx)?;
+
+        //There are two type constraints here, one is that the scrutinee_type must be consistent with the type of the value of the pattern
+        //The other is that the return types of all cases must be consistent
+        let scrutinee_type = checked_scrutinee.ty();
+
+        let mut checked_arms = Vec::new();
+        let mut match_expr_type: Option<TypeId> = None;
+        let mut wildcard_case: Option<CheckedMatchArm> = None;
+
+        for (_idx, arm) in match_node.arms.iter().enumerate() {
+            let checked_pattern = match &arm.pattern {
+                MatchPattern::Value(pattern_expr) => {
+                    let checked_pattern_expr = self.visit_expr(*pattern_expr, ctx)?;
+                    let pattern_type = checked_pattern_expr.ty();
+
+                    if !self.unify(scrutinee_type, pattern_type, ctx) {
+                        return Err(Error::TypeMismatch {
+                            span: ctx.program.convert_span(&match_node.span),
+                            expected: ctx.get_type_detail(scrutinee_type),
+                            found: ctx.get_type_detail(pattern_type),
+                        });
+
+                    }
+                    Some(self.program.exprs.alloc_item(checked_pattern_expr))
+                }
+                MatchPattern::PlaceHolder => {
+                    if wildcard_case.is_some() {
+                        return Err(Error::DuplicateWildcard);
+                    }
+                    None
+                }
+            };
+
+            let checked_body = self.visit_expr(arm.body, ctx)?;
+            let arm_body_type = checked_body.ty();
+
+            match_expr_type.get_or_insert(arm_body_type);
+            if !self.unify(match_expr_type.unwrap(), arm_body_type, ctx) {
+                return Err(Error::TypeMismatch {
+                    span: ctx.program.convert_span(&match_node.span),
+                    expected: ctx.get_type_detail(match_expr_type.unwrap()),
+                    found: ctx.get_type_detail(arm_body_type),
+                });
+            }
+
+            let checked_arm = CheckedMatchArm {
+                pattern: checked_pattern,
+                body: self.program.exprs.alloc_item(checked_body),
+            };
+
+            //note: move the wildcard case to the end
+            if checked_arm.pattern.is_none() {
+                wildcard_case = Some(checked_arm);
+            } else {
+                checked_arms.push(checked_arm);
+            }
+        }
+
+        if let Some(placeholder) = wildcard_case {
+            checked_arms.push(placeholder);
+        }
+
+        Ok(CheckedExprNode::Match(CheckedMatchNode {
+            value: self.program.exprs.alloc_item(checked_scrutinee),
+            cases: checked_arms,
+            type_id: match_expr_type.unwrap_or(VOID_TYPE),
+            scope_id: ctx.symbols.current_scope_id().unwrap(),
+        }))
     }
 
     #[instrument(level = "debug", skip_all)]

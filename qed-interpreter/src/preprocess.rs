@@ -697,7 +697,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
 
     fn visit_match(
         &mut self,
-        _node: StmtId,
+        _node: ExprId,
         _ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())

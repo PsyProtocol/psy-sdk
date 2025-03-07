@@ -938,35 +938,31 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
     fn visit_match(
         &mut self,
-        node: StmtId,
+        node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let MatchNode {
             scrutinee,
             arms,
             span,
-        } = ctx.statement(node).as_match().cloned().unwrap();
+        } = ctx.expression(node).as_match().cloned().unwrap();
 
-        let s = format!("match {} {{", self.visit_expr(scrutinee.clone(), ctx)?);
-        self.write_line(&s);
-        self.indent();
+        let mut m = format!("match {} {{ ", self.visit_expr(scrutinee.clone(), ctx)?);
 
         for arm in arms {
             let s = format!(
-                "{} => ",
-                if arm.pattern.is_placeholder() {
+                " {} => ",
+                if arm.pattern.is_place_holder() {
                     "_".to_string()
                 } else {
                     self.visit_expr(arm.pattern.as_value().unwrap().clone(), ctx)?
                 }
             );
-            let block = self.visit_block_expr(arm.body, ctx)?;
-            self.write_line(&format!("{}{}", s, block));
+            let block = self.visit_expr(arm.body, ctx)?;
+            m.push_str(&format!("{}{}", s, block));
         }
 
-        self.dedent();
-        self.write_line("}");
-        Ok(Default::default())
+        Ok(m)
     }
 
     fn visit_lambda_function(
