@@ -1,4 +1,5 @@
 use crate::{ScopeId, TypeId};
+use qed_ast::Span;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedArrayNode {

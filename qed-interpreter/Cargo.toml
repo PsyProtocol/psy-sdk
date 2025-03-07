@@ -24,6 +24,7 @@ qedlang_core = { workspace = true }
 qed_crypto = { workspace = true }
 qed_store = { workspace = true }
 qed_exec = { workspace = true }
+ariadne = { workspace = true }
 
 [dev-dependencies]
 kvq = { workspace = true }

@@ -1,5 +1,5 @@
 use qed_ast::{
-    AttrNode, ExprId, IdentId, NodeInfo, NodeType, Qualifier, TypeQualifier, Visibility,
+    AttrNode, ExprId, IdentId, NodeInfo, NodeType, Qualifier, Span, TypeQualifier, Visibility,
 };
 
 use crate::{ScopeId, TypeId, UNKOWN_TYPE};
@@ -15,6 +15,7 @@ pub struct CheckedFunctionNode {
     pub scope_id: ScopeId,
     pub visibility: Visibility,
     pub attrs: Vec<AttrNode>,
+    pub span: Span,
 }
 
 impl CheckedFunctionNode {

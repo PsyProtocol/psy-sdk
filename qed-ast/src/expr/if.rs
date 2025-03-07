@@ -1,14 +1,19 @@
-use crate::{ExprId, NodeInfo, NodeType};
+use crate::{ExprId, NodeInfo, NodeType, Span};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Case {
     pub predicate: ExprId,
     pub body: ExprId,
+    pub span: Span,
 }
 
 impl Case {
-    pub fn new(predicate: ExprId, body: ExprId) -> Self {
-        Self { predicate, body }
+    pub fn new(predicate: ExprId, body: ExprId, span: Span) -> Self {
+        Self {
+            predicate,
+            body,
+            span,
+        }
     }
 }
 
@@ -17,6 +22,7 @@ pub struct IfExprNode {
     pub if_branch: Case,
     pub elseif_branches: Vec<Case>,
     pub else_branch: Option<ExprId>,
+    pub span: Span,
 }
 
 impl NodeInfo for IfExprNode {

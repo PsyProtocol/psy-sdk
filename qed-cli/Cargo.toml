@@ -26,3 +26,4 @@ qed_core = { workspace = true }
 qed_prover = { workspace = true }
 qed_common_circuit = { workspace = true }
 bincode = { workspace = true }
+ariadne = { workspace = true }

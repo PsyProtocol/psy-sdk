@@ -4,7 +4,7 @@ use std::convert::AsRef;
 use enum_as_inner::EnumAsInner;
 use qed_ast::TypeQualifier;
 use qed_ast::Visibility;
-use qed_ast::{ExprId, IdentId};
+use qed_ast::{ExprId, IdentId, Span};
 use qed_utils::impl_ref;
 
 use crate::CheckedConstNode;

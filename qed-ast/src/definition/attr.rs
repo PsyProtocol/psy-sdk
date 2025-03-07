@@ -1,9 +1,10 @@
-use crate::IdentId;
+use crate::{IdentId, Span};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AttrNode {
     pub name: IdentId,
     pub properties: Vec<IdentId>,
+    pub span: Span,
 }
 
 impl AttrNode {
