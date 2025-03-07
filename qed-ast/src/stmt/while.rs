@@ -1,9 +1,10 @@
-use crate::{ExprId, NodeInfo, NodeType};
+use crate::{ExprId, NodeInfo, NodeType, Span};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WhileNode {
     pub predicate: ExprId,
     pub body: ExprId,
+    pub span: Span,
 }
 
 impl NodeInfo for WhileNode {

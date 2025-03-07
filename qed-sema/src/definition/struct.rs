@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use qed_ast::{IdentId, NodeInfo, NodeType, Visibility};
+use qed_ast::{IdentId, NodeInfo, NodeType, Span, Visibility};
 
 use crate::{ScopeId, TypeId};
 
@@ -11,6 +11,7 @@ pub struct CheckedStructNode {
     pub scope_id: ScopeId,
     pub implementations: Vec<TypeId>,
     pub visibility: Visibility,
+    pub span: Span,
 }
 
 impl NodeInfo for CheckedStructNode {

@@ -1,7 +1,7 @@
 #![feature(try_trait_v2)]
 
 mod control;
-mod error;
+pub mod error;
 mod preprocess;
 
 use crate::control::ControlState;
@@ -21,7 +21,7 @@ use qedlang_core::dpn::{
     },
     vm::def::DPNFunctionCircuitDefinition,
 };
-use std::iter::once;
+use std::{fmt::format, iter::once};
 
 use std::{collections::HashMap, path::PathBuf};
 use tracing::instrument;
@@ -139,7 +139,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     let method_name = ctx.program.interner.intern_ident(method_name.into());
                     ctx.symbols
                         .resolve_method(type_id, method_name)
-                        .ok_or(Error::from(SemaError::UnresolvedMember))
+                        .ok_or(Error::from(SemaError::UnresolvedMember {
+                            span: FileSpan::default(),
+                            member_name: ctx.ident(method_name.into()).to_string(),
+                        }))
                 })
                 .collect::<Result<Vec<TypeId>>>()?
         } else {
@@ -352,7 +355,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             let predicate = self.interpret_expr(program, node.predicate, ctx)?.to_bool();
 
             if !self.is_constant(predicate) {
-                return Err(Error::UncertainLoopCondition);
+                return Err(Error::UncertainLoopCondition {
+                    loop_span: ctx.program.convert_span(&node.span),
+                });
             }
 
             if self.context.get_constant_value(predicate) == 1 {
@@ -377,7 +382,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let end_f = self.interpret_expr(program, node.end, ctx)?.to_value();
 
         if !self.is_constant(start.to_value()) || !self.is_constant(end_f) {
-            return Err(Error::UncertainLoopCondition);
+            return Err(Error::UncertainLoopCondition {
+                loop_span: ctx.program.convert_span(&node.span),
+            });
         }
 
         ctx.symbols.enter_block(node.scope_id);
@@ -430,7 +437,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 return self.interpret_ret(program, stmt_id, ctx);
             }
             CheckedStmtNode::Intrinsic(intrinsic_node) => match intrinsic_node {
-                CheckedIntrinsicStmtNode::Assert { left, message } => {
+                CheckedIntrinsicStmtNode::Assert {
+                    left,
+                    message,
+                    span,
+                } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     self.context.assert_true(
                         lhs_value.to_bool(),
@@ -441,6 +452,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     left,
                     right,
                     message,
+                    span,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     let rhs_value = self.interpret_expr(program, right.clone(), ctx)?;
@@ -953,13 +965,21 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             match cast_node.target_type {
                 BOOL_TYPE => {
                     if const_value > 1 {
-                        return Err(Error::SemaError(qed_sema::Error::InvalidCast));
+                        return Err(Error::SemaError(qed_sema::Error::InvalidCast {
+                            span: ctx.program.convert_span(&cast_node.span),
+                            expected: "cast to bool".to_string(),
+                            found: format!("value {} > 1", const_value),
+                        }));
                     }
                 }
                 FELT_TYPE => {}
                 U32_TYPE => {
                     if const_value > 0xffffffffu64 {
-                        return Err(Error::SemaError(qed_sema::Error::InvalidCast));
+                        return Err(Error::SemaError(qed_sema::Error::InvalidCast {
+                            span: ctx.program.convert_span(&cast_node.span),
+                            expected: "cast to u32".to_string(),
+                            found: format!("value {} > 0xffffffffu64", const_value),
+                        }));
                     }
                 }
                 _ => unimplemented!(),

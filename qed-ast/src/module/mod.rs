@@ -1,6 +1,6 @@
 use qed_common::{define_arena_id, FileId};
 
-use crate::{DefId, IdentId, NodeInfo, NodeType, Visibility};
+use crate::{DefId, IdentId, NodeInfo, NodeType, Span, Visibility};
 
 define_arena_id!(ModuleId);
 
@@ -21,6 +21,7 @@ pub struct UseNode {
     pub kind: IdentId,
     pub segments: Vec<IdentId>,
     pub target: Option<IdentId>,
+    pub span: Span,
 }
 
 impl NodeInfo for UseNode {
@@ -33,7 +34,7 @@ impl NodeInfo for UseNode {
 pub struct ModuleNode {
     pub name: IdentId,
     pub file_id: FileId,
-    pub modules: Vec<(IdentId, Visibility)>,
+    pub modules: Vec<(IdentId, Visibility, Span)>,
     pub inline_modules: Vec<ModuleNode>,
     pub definitions: Vec<DefId>,
     pub visibility: Visibility,
@@ -42,6 +43,8 @@ pub struct ModuleNode {
     pub is_self_std: bool,
     pub is_self_prelude: bool,
     pub is_self_primitive: bool,
+
+    pub span: Span,
 }
 
 impl ModuleNode {
@@ -54,6 +57,7 @@ impl ModuleNode {
         is_self_std: bool,
         is_self_prelude: bool,
         is_self_primitive: bool,
+        span: Span,
     ) -> Self {
         let mut inline_modules = vec![];
         let mut modules = vec![];
@@ -70,7 +74,7 @@ impl ModuleNode {
             file_id,
             modules: {
                 if !is_std {
-                    modules.insert(0, (IdentId::STD, Visibility::Private));
+                    modules.insert(0, (IdentId::STD, Visibility::Private, Default::default()));
                 }
                 modules
             },
@@ -86,6 +90,7 @@ impl ModuleNode {
             is_self_std,
             is_self_prelude,
             is_self_primitive,
+            span,
         };
         module
     }
@@ -93,7 +98,7 @@ impl ModuleNode {
 
 #[derive(Clone, Debug)]
 pub enum ModuleItemNode {
-    ModuleDecl((IdentId, Visibility)),
+    ModuleDecl((IdentId, Visibility, Span)),
     InlineModule(ModuleNode),
     Definition(DefId),
 }

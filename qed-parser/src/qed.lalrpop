@@ -37,7 +37,8 @@ pub Module: ModuleNode = {
         is_std,
         is_self_std,
         is_self_prelude,
-        is_self_primitive
+        is_self_primitive,
+        Span::new(file_id, l, r),
     )
 }
 
@@ -50,13 +51,14 @@ InlineModule: ModuleNode = {
         is_std,
         is_self_std,
         is_self_prelude,
-        is_self_primitive
+        is_self_primitive,
+        Span::new(file_id, l, r),
     )
 }
 
-ModuleDecl: (IdentId, Visibility) = {
+ModuleDecl: (IdentId, Visibility, Span) = {
     <l:@L> <visibility:Visibility> MOD <name:Identifier> ";" <r:@R> => {
-        (name, visibility)
+        (name, visibility, Span::new(file_id, l, r))
     },
 }
 
@@ -82,6 +84,7 @@ IntrinsicStatement: StmtNode = {
             IntrinsicStmtNode::Assert {
                 left: expr_nodes.alloc_item(left),
                 message: message.map(|m| m.to_string()),
+                span: Span::new(file_id, l, r),
             }
         )
     },
@@ -91,6 +94,7 @@ IntrinsicStatement: StmtNode = {
                 left: expr_nodes.alloc_item(left),
                 right: expr_nodes.alloc_item(right),
                 message: message.map(|m| m.to_string()),
+                span: Span::new(file_id, l, r),
             }
         )
     },
@@ -115,6 +119,7 @@ UseDef: UseNode = {
             kind: path.0,
             target: path.2,
             segments: path.1,
+            span: Span::new(file_id, l, r),
         }
     }
 }
@@ -125,7 +130,8 @@ ImplDef: ImplNode = {
        ImplNode {
            generic_parameters: generic_parameters_lhs,
            ty,
-           body: def_nodes.alloc_items(body)
+           body: def_nodes.alloc_items(body),
+           span: Span::new(file_id, l, r),
        }
    }
 }
@@ -137,7 +143,8 @@ ImplTraitDef: ImplTraitNode = {
            generic_parameters: generic_parameters_lhs,
            trait_ty: trait_ty,
            ty,
-           body: def_nodes.alloc_items(body)
+           body: def_nodes.alloc_items(body),
+           span: Span::new(file_id, l, r),
        }
    }
 }
@@ -148,7 +155,8 @@ TraitDef: TraitNode = {
            generic_parameters,
            name,
            body: def_nodes.alloc_items(body),
-           visibility
+           visibility,
+           span: Span::new(file_id, l, r),
        }
    }
 }
@@ -158,7 +166,8 @@ EnumDef: EnumNode = {
         name,
         generic_parameters,
         variants,
-        visibility
+        visibility,
+        span: Span::new(file_id, l, r),
     }
 }
 
@@ -166,7 +175,8 @@ TypeAliasDef: DefinitionNode = {
     <l:@L> <visibility:Visibility> TYPE <name:Identifier> "=" <ty:Ty> ";" <r:@R> => DefinitionNode::TypeAlias(TypeAliasNode {
         name,
         ty,
-        visibility
+        visibility,
+        span: Span::new(file_id, l, r),
     })
 }
 
@@ -176,7 +186,8 @@ StructDef: StructNode = {
         generic_parameters,
         fields: fields.into_iter().map(|(field_name, field_type, visibility)| (field_name, (field_type, visibility))).collect(),
         attrs,
-        visibility
+        visibility,
+        span: Span::new(file_id, l, r),
     }
 }
 
@@ -185,7 +196,8 @@ ConstDef: DefinitionNode = {
         name,
         ty,
         value: expr_nodes.alloc_item(value),
-        visibility
+        visibility,
+        span: Span::new(file_id, l, r),
     })
 }
 
@@ -201,7 +213,8 @@ FunctionDef: DefinitionNode = {
            qualifier
         },
         visibility,
-        attrs
+        attrs,
+        span: Span::new(file_id, l, r),
     }),
     <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => DefinitionNode::Function(FunctionNode {
         name,
@@ -214,12 +227,13 @@ FunctionDef: DefinitionNode = {
            qualifier
         },
         visibility,
-        attrs
+        attrs,
+        span: Span::new(file_id, l, r),
     })
 }
 
 Attribute: AttrNode = {
-    <l:@L> "#" "[" <name:Identifier>  <properties:AttributeProperties> "]" <r:@R> => AttrNode { name, properties }
+    <l:@L> "#" "[" <name:Identifier>  <properties:AttributeProperties> "]" <r:@R> => AttrNode { name, properties, span: Span::new(file_id, l, r) }
 }
 
 AttributeProperties: Vec<IdentId> = {
@@ -290,7 +304,8 @@ BlockExpression: ExprNode<F> = {
         ExprNode::BlockExpr(
             BlockExprNode {
                 stmts: stmt_nodes.alloc_items(stmts),
-                expr: ret.map(|x| expr_nodes.alloc_item(x))
+                expr: ret.map(|x| expr_nodes.alloc_item(x)),
+                span: Span::new(file_id, l, r),
             }
         )
     }
@@ -299,21 +314,24 @@ BlockExpression: ExprNode<F> = {
 WhileStatement: StmtNode = {
     <l:@L> WHILE <predicate:Expression> <block_expr:BlockExpression> <r:@R>  => StmtNode::While(WhileNode {
         predicate: expr_nodes.alloc_item(predicate),
-        body: expr_nodes.alloc_item(block_expr)
+        body: expr_nodes.alloc_item(block_expr),
+        span: Span::new(file_id, l, r),
     }),
 }
 
 MatchStatement: StmtNode = {
     <l:@L> MATCH <scrutinee:Expression> "{" <arms:Comma<MatchArm>> "}" <r:@R> => StmtNode::Match(MatchNode {
         scrutinee: expr_nodes.alloc_item(scrutinee),
-        arms
+        arms,
+        span: Span::new(file_id, l, r),
     }),
 }
 
 MatchArm: MatchArm = {
     <l:@L> <pattern:MatchPattern> "=>" <block_expr:BlockExpression> <r:@R> => MatchArm {
         pattern,
-        body: expr_nodes.alloc_item(block_expr)
+        body: expr_nodes.alloc_item(block_expr),
+        span: Span::new(file_id, l, r),
     }
 }
 
@@ -328,7 +346,8 @@ ForStatement: StmtNode = {
             variable,
             start: expr_nodes.alloc_item(start),
             end: expr_nodes.alloc_item(end),
-            body: expr_nodes.alloc_item(block_expr)
+            body: expr_nodes.alloc_item(block_expr),
+            span: Span::new(file_id, l, r),
         }
     ),
 }
@@ -338,7 +357,8 @@ IfExpression: ExprNode<F> = {
         IfExprNode {
             if_branch,
             elseif_branches,
-            else_branch
+            else_branch,
+            span: Span::new(file_id, l, r),
         }
     ),
 }
@@ -346,14 +366,16 @@ IfExpression: ExprNode<F> = {
 IfBranch: Case = {
     <l:@L> IF <predicate:Expression> <block_expr:BlockExpression> <r:@R> => Case::new(
         expr_nodes.alloc_item(predicate),
-        expr_nodes.alloc_item(block_expr)
+        expr_nodes.alloc_item(block_expr),
+        Span::new(file_id, l, r)
     ),
 }
 
 ElseIfBranch: Case = {
     <l:@L> ELSE IF <predicate:Expression> <block_expr:BlockExpression> <r:@R> => Case::new(
         expr_nodes.alloc_item(predicate),
-        expr_nodes.alloc_item(block_expr)
+        expr_nodes.alloc_item(block_expr),
+        Span::new(file_id, l, r)
     ),
 }
 
@@ -362,7 +384,10 @@ ElseBranch: ExprId = {
 }
 
 ReturnStatement: StmtNode = {
-    <l:@L> RETURN <ret:Expression?> ";" <r:@R> => StmtNode::Return(ReturnNode(ret.map(|x| expr_nodes.alloc_item(x))))
+    <l:@L> RETURN <ret:Expression?> ";" <r:@R> => StmtNode::Return(ReturnNode{
+        expr_id: ret.map(|x| expr_nodes.alloc_item(x)),
+        span: Span::new(file_id, l, r),
+    })
 }
 
 TupleType: UncheckedType = {
@@ -370,10 +395,10 @@ TupleType: UncheckedType = {
 }
 
 TupleExpression: ExprNode<F> = {
-    "(" <first:Expression> "," <rest:Comma<Expression>> ")" => {
+    <l:@L> "(" <first:Expression> "," <rest:Comma<Expression>> ")" <r:@R> => {
         let mut elements = vec![expr_nodes.alloc_item(first)];
         elements.extend(rest.into_iter().map(|e| expr_nodes.alloc_item(e)));
-        ExprNode::<F>::Tuple(TupleExprNode { elements })
+        ExprNode::<F>::Tuple(TupleExprNode { elements, span: Span::new(file_id, l, r) })
     },
     //if the tuple has only one element, it should be treated as a normal expression
     "(" <expr:Expression> ")" => expr,
@@ -385,44 +410,45 @@ VariableStatement: StmtNode = {
             name: decl.0,
             ty: decl.1,
             qualifier: type_qualifier,
-            value: expr_nodes.alloc_item(value)
+            value: expr_nodes.alloc_item(value),
+            span: Span::new(file_id, l, r),
         }
     ),
 }
 
 AssignmentStatement: StmtNode = {
     <l:@L> <variable:Expression> "=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::Eq, expr_nodes.alloc_item(value))
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::Eq, expr_nodes.alloc_item(value), Span::new(file_id, l, r))
     ),
     <l:@L> <variable:Expression> "+=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::AddAssign, expr_nodes.alloc_item(value))
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::AddAssign, expr_nodes.alloc_item(value), Span::new(file_id, l, r))
     ),
     <l:@L> <variable:Expression> "-=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::SubAssign, expr_nodes.alloc_item(value))
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::SubAssign, expr_nodes.alloc_item(value), Span::new(file_id, l, r))
     ),
     <l:@L> <variable:Expression> "*=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::MulAssign, expr_nodes.alloc_item(value))
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::MulAssign, expr_nodes.alloc_item(value), Span::new(file_id, l, r))
     ),
     <l:@L> <variable:Expression> "/=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::DivAssign, expr_nodes.alloc_item(value))
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::DivAssign, expr_nodes.alloc_item(value), Span::new(file_id, l, r))
     ),
     <l:@L> <variable:Expression> "%=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::ModAssign, expr_nodes.alloc_item(value))
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::ModAssign, expr_nodes.alloc_item(value), Span::new(file_id, l, r))
     ),
     <l:@L> <variable:Expression> "&=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitAndAssign, expr_nodes.alloc_item(value))
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitAndAssign, expr_nodes.alloc_item(value), Span::new(file_id, l, r))
     ),
     <l:@L> <variable:Expression> "|=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitOrAssign, expr_nodes.alloc_item(value))
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitOrAssign, expr_nodes.alloc_item(value), Span::new(file_id, l, r))
     ),
     <l:@L> <variable:Expression> "^=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitXorAssign, expr_nodes.alloc_item(value))
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitXorAssign, expr_nodes.alloc_item(value), Span::new(file_id, l, r))
     ),
     <l:@L> <variable:Expression> "<<=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitShlAssign, expr_nodes.alloc_item(value))
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitShlAssign, expr_nodes.alloc_item(value), Span::new(file_id, l, r))
     ),
     <l:@L> <variable:Expression> ">>=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitShrAssign, expr_nodes.alloc_item(value))
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitShrAssign, expr_nodes.alloc_item(value), Span::new(file_id, l, r))
     )
 }
 
@@ -519,7 +545,8 @@ Expression: ExprNode<F> = {
                    receiver: receiver.clone(),
                    callee: expr_nodes.alloc_item(callee),
                    generic_parameters,
-                   args: expr_nodes.alloc_items(args)
+                   args: expr_nodes.alloc_items(args),
+                   span: Span::new(file_id, l, r),
                }
             )
        } else {
@@ -527,7 +554,8 @@ Expression: ExprNode<F> = {
                CallNode {
                    callee: expr_nodes.alloc_item(callee),
                    generic_parameters,
-                   args: expr_nodes.alloc_items(args)
+                   args: expr_nodes.alloc_items(args),
+                   span: Span::new(file_id, l, r),
                }
             )
        }
@@ -535,109 +563,112 @@ Expression: ExprNode<F> = {
     <l:@L> <variable:Expression> "[" <index:Expression> "]" <r:@R> => ExprNode::<F>::IndexAccess(IndexAccessNode {
         target: expr_nodes.alloc_item(variable),
         index: expr_nodes.alloc_item(index),
+        span: Span::new(file_id, l, r),
     }),
     <l:@L> <variable:Expression> "." <index:U64> <r:@R> => ExprNode::<F>::TupleAccess(TupleAccessNode {
         target: expr_nodes.alloc_item(variable),
         index: index as usize,
+        span: Span::new(file_id, l, r),
     }),
     <l:@L> <variable:Expression> "." <field:Identifier> <r:@R> => ExprNode::<F>::MemberAccess(MemberAccessNode {
         target: expr_nodes.alloc_item(variable),
-        field
+        field,
+        span: Span::new(file_id, l, r),
     }),
     <l:@L> <lhs:Expression> AS <ty:TYPE_FELT> <r:@R> => ExprNode::<F>::Cast(
-        CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_FELT))
+        CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_FELT), Span::new(file_id, l, r))
     ),
     <l:@L> <lhs:Expression> AS <ty:TYPE_BOOL> <r:@R> => ExprNode::<F>::Cast(
-        CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_BOOL))
+        CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_BOOL), Span::new(file_id, l, r))
     ),
     <l:@L> <lhs:Expression> AS <ty:TYPE_U32> <r:@R> => ExprNode::<F>::Cast(
-        CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_U32))
+        CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_U32), Span::new(file_id, l, r))
     ),
 
     #[precedence(level="4")] #[assoc(side="right")]
     <l:@L> "!" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
-        UnaryNode{operator: UnaryOperator::Not, rhs: expr_nodes.alloc_item(rhs)}
+        UnaryNode{operator: UnaryOperator::Not, rhs: expr_nodes.alloc_item(rhs), span: Span::new(file_id, l, r)}
     ),
     #[precedence(level="4")] #[assoc(side="right")]
     <l:@L> "-" <rhs:Expression> <r:@R> => ExprNode::<F>::Unary(
-        UnaryNode{operator: UnaryOperator::Neg, rhs: expr_nodes.alloc_item(rhs)}
+        UnaryNode{operator: UnaryOperator::Neg, rhs: expr_nodes.alloc_item(rhs), span: Span::new(file_id, l, r)}
     ),
 
     #[precedence(level="6")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "**" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Pow, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Pow, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
     <l:@L> <lhs:Expression> "*" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mul, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mul, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
     <l:@L> <lhs:Expression> "/" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Div, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Div, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
     <l:@L> <lhs:Expression> "%" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mod, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Mod, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
 
     #[precedence(level="7")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "+" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Add, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Add, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
     <l:@L> <lhs:Expression> "-" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Sub, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Sub, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
 
     #[precedence(level="8")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "<<" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitShl, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitShl, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
     <l:@L> <lhs:Expression> ">>" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitShr, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitShr, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
 
     #[precedence(level="9")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "&" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitAnd, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitAnd, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
 
     #[precedence(level="10")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "^" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitXor, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitXor, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
 
     #[precedence(level="11")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "|" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitOr, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::BitOr, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
 
     #[precedence(level="12")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> ">" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Gt, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Gt, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
     <l:@L> <lhs:Expression> "<" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Lt, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Lt, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
     <l:@L> <lhs:Expression> ">=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Gte, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Gte, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
     <l:@L> <lhs:Expression> "<=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Lte, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Lte, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
 
     #[precedence(level="13")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "==" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Eq, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Eq, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
     <l:@L> <lhs:Expression> "!=" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Neq, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Neq, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
 
     #[precedence(level="14")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "&&" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::And, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::And, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
 
     #[precedence(level="15")] #[assoc(side="left")]
     <l:@L> <lhs:Expression> "||" <rhs:Expression> <r:@R> => ExprNode::<F>::Binary(
-        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Or, expr_nodes.alloc_item(rhs))
+        BinaryNode::new(expr_nodes.alloc_item(lhs), BinaryOperator::Or, expr_nodes.alloc_item(rhs), Span::new(file_id, l, r))
     ),
 
     #[precedence(level="16")]
@@ -661,15 +692,17 @@ ValueExpression: ExprNode<F> = {
 }
 
 FeltExpression: ExprNode<F> = {
-    <l:@L> <n:U64> <r:@R> => ExprNode::<F>::Value(ValueNode::Felt(ctx.op_const(n))),
+    <l:@L> <n:U64> <r:@R> => ExprNode::<F>::Value(ValueNode::Felt(ctx.op_const(n), Span::new(file_id, l, r))),
 }
 
 BoolExpression: ExprNode<F> = {
-    <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Bool(if b { ctx.op_true() } else { ctx.op_false() }))
+    <l:@L> <b:BOOL> <r:@R> => ExprNode::<F>::Value(ValueNode::Bool(if b { ctx.op_true() } else { ctx.op_false() }, Span::new(file_id, l, r)))
 }
 
 U32Expression: ExprNode<F> = {
-    <l:@L> <n:U32> <r:@R> => ExprNode::<F>::Value(ValueNode::U32(ctx.op_const_u32(n)))
+    <l:@L> <n:U32> <r:@R> => {
+        ExprNode::<F>::Value(ValueNode::U32(ctx.op_const_u32(n), Span::new(file_id, l, r)))
+    },
 }
 
 StructExpression: ExprNode<F> = {
@@ -677,7 +710,8 @@ StructExpression: ExprNode<F> = {
        ValueNode::Struct(
            name,
            generic_parameters,
-           kv.into_iter().collect()
+           kv.into_iter().collect(),
+           Span::new(file_id, l, r),
        )
    ),
 }
@@ -692,30 +726,34 @@ LambdaFunctionExpression: ExprNode<F> = {
         LambdaFunctionNode {
             parameters: vec![],
             body: expr_nodes.alloc_item(block_expr),
-            return_type
+            return_type,
+            span: Span::new(file_id, l, r),
         }
     ),
     <l:@L> "|" <parameters:Comma<FunctionParameter>> "|" <return_type:FunctionReturn?> <block_expr:BlockExpression> <r:@R> => ExprNode::<F>::LambdaFunction(
         LambdaFunctionNode {
             parameters,
             body: expr_nodes.alloc_item(block_expr),
-            return_type
+            return_type,
+            span: Span::new(file_id, l, r),
         }
     )
 }
 
 PathExpression: ExprNode<F> = {
-    <target: IdentifierOrSelf> => ExprNode::Path(PathNode {
+    <l:@L> <target: IdentifierOrSelf> <r:@R> => ExprNode::Path(PathNode {
         root: None,
         segments: vec![],
         target,
+        span: Span::new(file_id, l, r),
     }),
-    <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: IdentifierOrNew> => {
+    <l:@L> <root: IdentifierOrBasicType> "::" <segments: (<Identifier> "::")*> <target: IdentifierOrNew> <r:@R> => {
         let segs = segments.into_iter().map(|seg| seg).collect::<Vec<_>>();
         ExprNode::Path(PathNode {
             root: Some(root),
             segments: segs,
             target,
+            span: Span::new(file_id, l, r),
         })
     },
 };
@@ -726,7 +764,7 @@ ArgumentList: Vec<ExprNode<F>> = {
 
 ArrayExpression: ExprNode<F> = {
     <l:@L> "[" <elements:Comma<Expression>> "]" <r:@R> => ExprNode::<F>::Value(
-        ValueNode::Array(elements.len(), expr_nodes.alloc_items(elements))
+        ValueNode::Array(elements.len(), expr_nodes.alloc_items(elements), Span::new(file_id, l, r)),
     ),
 }
 
