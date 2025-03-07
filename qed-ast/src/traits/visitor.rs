@@ -108,9 +108,11 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         ctx: &mut Self::Context,
     ) -> Result<(), Self::Error> {
         ctx.push_node_id(NodeId::from(module_id));
-        // TODO: remove clone
-        for &definition in &ctx.module(module_id).definitions.clone() {
-            self.visit_definition(definition, ctx)?;
+        // Avoid clone
+        let len = ctx.module(module_id).definitions.len();
+        for i in 0..len {
+            let definition = ctx.module(module_id).definitions[i];
+            let _ = self.visit_definition(definition, ctx)?;
         }
         ctx.pop_node_id();
 

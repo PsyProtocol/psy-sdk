@@ -319,7 +319,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         args: Vec<CheckedValueRef<F>>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<ControlState<CheckedValueRef<F>>> {
-        // TODO: remove clone
         let parameters = ctx.symbols[type_id].parameters();
 
         assert_eq!(
@@ -330,12 +329,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             args.len()
         );
 
-        for (i, (parameter, _, _)) in parameters.iter().enumerate() {
-            ctx.symbols.set_variable(
-                ctx.symbols[type_id].scope_id(),
-                parameter,
-                args[i].clone(),
-            )?;
+        for ((parameter, _, _), arg) in parameters.iter().zip(args.into_iter()) {
+            ctx.symbols
+                .set_variable(ctx.symbols[type_id].scope_id(), parameter, arg)?;
         }
         Ok(ControlState::Return(self.interpret_expr(
             program,
