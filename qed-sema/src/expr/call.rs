@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, NodeInfo, NodeType};
+use qed_ast::{ExprId, NodeInfo, NodeType, Span};
 
 use crate::TypeId;
 
@@ -8,6 +8,7 @@ pub struct CheckedCallNode {
     pub generic_parameters: Vec<TypeId>,
     pub args: Vec<ExprId>,
     pub type_id: TypeId,
+    pub span: Span,
 }
 
 impl NodeInfo for CheckedCallNode {
@@ -23,6 +24,7 @@ pub struct CheckedMemberCallNode {
     pub generic_parameters: Vec<TypeId>,
     pub args: Vec<ExprId>,
     pub type_id: TypeId,
+    pub span: Span,
 }
 
 impl NodeInfo for CheckedMemberCallNode {

@@ -1,5 +1,5 @@
 use crate::{
-    AttrNode, ExprId, IdentId, NodeInfo, NodeType, Qualifier, TypeQualifier, UncheckedType,
+    AttrNode, ExprId, IdentId, NodeInfo, NodeType, Qualifier, Span, TypeQualifier, UncheckedType,
     Visibility,
 };
 
@@ -13,6 +13,7 @@ pub struct FunctionNode {
     pub qualifier: Qualifier,
     pub visibility: Visibility,
     pub attrs: Vec<AttrNode>,
+    pub span: Span,
 }
 
 impl NodeInfo for FunctionNode {

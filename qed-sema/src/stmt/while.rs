@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, NodeInfo, NodeType};
+use qed_ast::{ExprId, NodeInfo, NodeType, Span};
 
 use crate::TypeId;
 
@@ -7,6 +7,7 @@ pub struct CheckedWhileNode {
     pub predicate: ExprId,
     pub type_id: TypeId,
     pub body: ExprId,
+    pub span: Span,
 }
 
 impl NodeInfo for CheckedWhileNode {

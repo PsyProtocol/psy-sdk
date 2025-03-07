@@ -1,4 +1,4 @@
-use crate::{DefId, IdentId, NodeInfo, NodeType, Visibility};
+use crate::{DefId, IdentId, NodeInfo, NodeType, Span, Visibility};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TraitNode {
@@ -6,6 +6,7 @@ pub struct TraitNode {
     pub generic_parameters: Vec<IdentId>,
     pub body: Vec<DefId>,
     pub visibility: Visibility,
+    pub span: Span,
 }
 
 impl NodeInfo for TraitNode {
