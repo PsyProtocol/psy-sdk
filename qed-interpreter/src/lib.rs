@@ -1304,7 +1304,14 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     self.match_pattern(program, ctx, pattern_expr, &scrutinee_value)?;
                 self.context.start_else_if_block(matched);
                 let body_value = self.interpret_expr(program, arm.body, ctx)?;
-                return_value = self.context.cset(return_value, body_value);
+
+                return_value = CheckedValueRef::<F>::select(
+                    &mut self.context,
+                    &body_value,
+                    &return_value,
+                    &|ctx: &mut C, n: &F, o: &F| ctx.cset(o.clone(), n.clone()),
+                );
+
             } else {
                 if wildcard_case.is_some() {
                     return Err(Error::SemaError(SemaError::DuplicateWildcard));
@@ -1312,11 +1319,16 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 wildcard_case = Some(arm);
             }
         }
-
+        //Caution: Must have a "_" in the match
         if let Some(wildcard_arm) = wildcard_case {
             self.context.start_else_block();
             let body_value = self.interpret_expr(program, wildcard_arm.body, ctx)?;
-            return_value = self.context.cset(return_value, body_value);
+            return_value = CheckedValueRef::<F>::select(
+                &mut self.context,
+                &body_value,
+                &return_value,
+                &|ctx: &mut C, n: &F, o: &F| ctx.cset(o.clone(), n.clone()),
+            );
         } else {
             return Err(Error::SemaError(SemaError::UnreachableMatch));
         }

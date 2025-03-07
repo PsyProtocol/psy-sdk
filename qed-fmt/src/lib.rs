@@ -925,7 +925,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     self.visit_expr(arm.pattern.as_value().unwrap().clone(), ctx)?
                 }
             );
-            let block = self.visit_block_expr(arm.body, ctx)?;
+            let block = self.visit_expr(arm.body, ctx)?;
             m.push_str(&format!("{}{}", s, block));
         }
 

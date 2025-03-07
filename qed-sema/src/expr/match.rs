@@ -18,5 +18,5 @@ impl NodeInfo for CheckedMatchNode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedMatchArm {
     pub pattern: Option<ExprId>,
-    pub body: ExprId,
+    pub body: ExprId,  //indeed it's a block
 }

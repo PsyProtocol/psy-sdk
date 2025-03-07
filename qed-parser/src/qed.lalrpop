@@ -301,7 +301,6 @@ WhileStatement: StmtNode = {
         body: expr_nodes.alloc_item(block_expr)
     }),
 }
-
 MatchExpression: ExprNode<F> = {
     <l:@L> MATCH <scrutinee:Expression> "{" <arms:Comma<MatchArm>> "}" <r:@R> => ExprNode::Match(MatchNode {
         scrutinee: expr_nodes.alloc_item(scrutinee),
@@ -310,9 +309,9 @@ MatchExpression: ExprNode<F> = {
 }
 
 MatchArm: MatchArm = {
-    <l:@L> <pattern:MatchPattern> "=>" <block_expr:BlockExpression> <r:@R> => MatchArm {
+    <l:@L> <pattern:MatchPattern> "=>" <expr:Expression> <r:@R> => MatchArm {
         pattern,
-        body: expr_nodes.alloc_item(block_expr)
+        body: expr_nodes.alloc_item(expr)
     }
 }
 

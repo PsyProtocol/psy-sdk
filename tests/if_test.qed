@@ -42,6 +42,7 @@ fn main()  {
     } else {
         e
     };
+    assert_eq(basic, 13, "test if ");
     let embedded1: Felt = if a > b { if b > c { a } else { b } } else { c };
     let embedded2: Felt = if a > b {
         if a > b {
@@ -91,7 +92,10 @@ fn main()  {
     let m4: Felt = 4;
 
     let min1: Felt = min(m1, m2);
+    assert_eq(min1, 1, "test if ");
     let min2: Felt = min(m2, m3);
+    assert_eq(min2, 2, "test if ");
+
     let middle1: Felt = middle(m1, m2, m3);
     let middle2: Felt = middle(m2, m3, m4);
 
