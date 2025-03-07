@@ -124,7 +124,7 @@ once-cell = "1.0"
 llvm-sys = "191.0"
 melior = { version = "0.21", features = ["ods-dialects"] }
 mlir-sys = { version = "0.4" }
-
+regex = "1.11"
 qedlang_core = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
 qed_crypto = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
 qed_exec = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }

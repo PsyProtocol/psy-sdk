@@ -119,7 +119,7 @@ pub enum Token<'input> {
 
     #[token("#")]
     Pound,
-    #[token("_", priority = 1)]
+    #[token("_", priority = 3)]
     Placeholder,
 
     #[token("(")]

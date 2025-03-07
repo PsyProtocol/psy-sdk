@@ -16,13 +16,13 @@ use indexmap::IndexMap;
 use qed_ast::*;
 use qed_common::{Arena, Graph};
 pub use r#type::*;
+use regex::Regex;
+use std::{collections::HashMap, ops::Index};
 pub use stmt::*;
 pub use symbol_table::*;
+use tracing::instrument;
 pub use value::*;
 pub use variable::*;
-
-use std::{collections::HashMap, ops::Index};
-use tracing::instrument;
 
 pub struct TypeCheckerVisitorContext<F: Clone + From<u32>, C> {
     path_stack: Vec<NodeId>,
@@ -84,6 +84,34 @@ impl<F: Clone + From<u32>, C> TypeCheckerVisitorContext<F, C> {
 
     pub fn pop_inferences(&mut self) {
         self.inferences.last_mut().unwrap().pop();
+    }
+
+    //warn: debug only
+    pub fn print_symbol_table_to_string(&self) {
+        let debug_output = format!("{}", self.symbols);
+
+        let ident_regex = Regex::new(r"IdentId\((\d+)\)").unwrap();
+
+        // parse all `IdentId(NUM)` to `NUM`
+        let mut id_to_name = HashMap::new();
+        for capture in ident_regex.captures_iter(&debug_output) {
+            let ident_id_str = &capture[1]; // get the number
+            if let Ok(ident_id) = ident_id_str.parse::<usize>() {
+                let ident_name = self.program[IdentId(ident_id)].clone();
+                id_to_name.insert(ident_id_str.to_string(), ident_name);
+            }
+        }
+
+        // replace all `IdentId(NUM)` to `IdentId(NUM: "name")`
+        let formatted_output = ident_regex.replace_all(&debug_output, |caps: &regex::Captures| {
+            let ident_id_str = &caps[1];
+            if let Some(name) = id_to_name.get(ident_id_str) {
+                format!("IdentId({}: \"{}\")", ident_id_str, name)
+            } else {
+                caps[0].to_string()
+            }
+        });
+        println!("Symbol Table \n{}", formatted_output);
     }
 }
 
@@ -1316,6 +1344,7 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
             NodeType::IfExpr => self.visit_if_expr(expr_id, ctx)?,
             NodeType::TupleExpr => self.visit_tuple(expr_id, ctx)?,
             NodeType::TupleAccessExpr => self.visit_tuple_access(expr_id, ctx)?,
+            NodeType::MatchExpr => self.visit_match(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
         ctx.pop_inferences();
@@ -1571,10 +1600,71 @@ impl<F: Clone + From<u32>, C> AstVisitor<F, C> for TypeChecker<F, C> {
     #[instrument(level = "debug", skip_all)]
     fn visit_match(
         &mut self,
-        _node: StmtId,
-        _ctx: &mut Self::Context,
-    ) -> std::result::Result<Self::StmtResult, Self::Error> {
-        todo!()
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> std::result::Result<Self::ExprResult, Self::Error> {
+        //get match node
+        let match_node = ctx.expression(node).as_match().cloned().unwrap();
+        let checked_scrutinee = self.visit_expr(match_node.scrutinee, ctx)?;
+
+        //There are two type constraints here, one is that the scrutinee_type must be consistent with the type of the value of the pattern
+        //The other is that the return types of all cases must be consistent
+        let scrutinee_type = checked_scrutinee.ty();
+
+        let mut checked_arms = Vec::new();
+        let mut match_expr_type: Option<TypeId> = None;
+        let mut wildcard_case: Option<CheckedMatchArm> = None;
+
+        for (_idx, arm) in match_node.arms.iter().enumerate() {
+            let checked_pattern = match &arm.pattern {
+                MatchPattern::Value(pattern_expr) => {
+                    let checked_pattern_expr = self.visit_expr(*pattern_expr, ctx)?;
+                    let pattern_type = checked_pattern_expr.ty();
+
+                    if !self.unify(scrutinee_type, pattern_type, ctx) {
+                        return Err(Error::TypeMismatch);
+                    }
+                    Some(self.exprs.alloc_item(checked_pattern_expr))
+                }
+                MatchPattern::PlaceHolder => {
+                    if wildcard_case.is_some() {
+                        return Err(Error::DuplicateWildcard);
+                    }
+                    None
+                }
+            };
+
+            let checked_body = self.visit_expr(arm.body, ctx)?;
+            let arm_body_type = checked_body.ty();
+
+            match_expr_type.get_or_insert(arm_body_type);
+            if !self.unify(match_expr_type.unwrap(), arm_body_type, ctx) {
+                return Err(Error::TypeMismatch);
+            }
+
+            let checked_arm = CheckedMatchArm {
+                pattern: checked_pattern,
+                body: self.exprs.alloc_item(checked_body),
+            };
+
+            //note: move the wildcard case to the end
+            if checked_arm.pattern.is_none() {
+                wildcard_case = Some(checked_arm);
+            } else {
+                checked_arms.push(checked_arm);
+            }
+        }
+
+        if let Some(placeholder) = wildcard_case {
+            checked_arms.push(placeholder);
+        }
+
+        Ok(CheckedExprNode::Match(CheckedMatchNode {
+            value: self.exprs.alloc_item(checked_scrutinee),
+            cases: checked_arms,
+            type_id: match_expr_type.unwrap_or(VOID_TYPE),
+            scope_id: ctx.symbols.current_scope_id().unwrap(),
+        }))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -2021,7 +2111,6 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         } else {
             VOID_TYPE
         };
-
         let checked_body = if let Some(body) = &function.body {
             let checked_body = self.visit_expr(body.clone(), ctx)?;
             let actual_return_type = checked_body.ty();
@@ -2033,7 +2122,6 @@ impl<F: Clone + From<u32>, C> TypeChecker<F, C> {
         } else {
             None
         };
-
         let checked_function = CheckedFunctionNode {
             name: function.name,
             parameters,

@@ -6,6 +6,7 @@ mod r#if;
 mod index;
 mod intrinsic;
 mod lambda;
+mod r#match;
 mod path;
 mod tuple;
 mod unary;
@@ -19,6 +20,7 @@ pub use intrinsic::*;
 pub use lambda::*;
 pub use path::*;
 pub use r#if::*;
+pub use r#match::*;
 pub use tuple::*;
 pub use unary::*;
 
@@ -42,6 +44,7 @@ pub enum ExprNode<F: Clone + From<u32>> {
     LambdaFunction(LambdaFunctionNode),
     Tuple(TupleExprNode),
     TupleAccess(TupleAccessNode),
+    Match(MatchNode),
 }
 
 impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
@@ -62,6 +65,7 @@ impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
             Self::IfExpr(node) => node.node_type(),
             Self::Tuple(node) => node.node_type(),
             Self::TupleAccess(node) => node.node_type(),
+            Self::Match(node) => node.node_type(),
         }
     }
 }

@@ -44,6 +44,10 @@ pub enum Error {
     IndexOutOfBounds,
     #[error("invalid cast")]
     InvalidCast,
+    #[error("unreachable match")]
+    UnreachableMatch,
+    #[error("unreachable code")]
+    DuplicateWildcard,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

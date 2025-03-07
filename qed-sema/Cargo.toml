@@ -18,3 +18,4 @@ anyhow = { workspace = true }
 enum-as-inner = { workspace = true }
 qedlang_core = { workspace = true }
 smallvec = { workspace = true }
+regex = { workspace = true }

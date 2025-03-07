@@ -6,6 +6,7 @@ mod if_expr;
 mod index;
 mod intrinsic;
 mod lambda;
+mod r#match;
 mod path;
 mod unary;
 
@@ -19,6 +20,7 @@ pub use index::*;
 pub use intrinsic::*;
 pub use lambda::*;
 pub use path::*;
+pub use r#match::*;
 pub use unary::*;
 
 use qed_ast::{IdentId, NodeInfo, NodeType};
@@ -41,6 +43,7 @@ pub enum CheckedExprNode<F> {
     LambdaFunction(CheckedLambdaFunctionNode),
     BlockExpr(CheckedBlockExprNode),
     IfExpr(CheckedIfExprNode),
+    Match(CheckedMatchNode),
 }
 
 impl<F> NodeInfo for CheckedExprNode<F> {
@@ -60,6 +63,7 @@ impl<F> NodeInfo for CheckedExprNode<F> {
             CheckedExprNode::LambdaFunction(node) => node.node_type(),
             CheckedExprNode::BlockExpr(node) => node.node_type(),
             CheckedExprNode::IfExpr(node) => node.node_type(),
+            CheckedExprNode::Match(node) => node.node_type(),
         }
     }
 }
@@ -106,6 +110,7 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::LambdaFunction(c) => c.type_id.clone(),
             CheckedExprNode::IfExpr(i) => i.type_id,
             CheckedExprNode::BlockExpr(b) => b.type_id,
+            CheckedExprNode::Match(m) => m.type_id,
         }
     }
 

@@ -63,6 +63,7 @@ pub enum NodeType {
     IfExpr,
     TupleExpr,
     TupleAccessExpr,
+    MatchExpr,
 
     WhileStmt,
     AssignmentStmt,
@@ -72,8 +73,6 @@ pub enum NodeType {
     ReturnStmt,
     IntrinsicStmt,
     ForStmt,
-    MatchStmt,
-
     FunctionDef,
     StructDef,
     EnumDef,

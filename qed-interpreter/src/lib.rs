@@ -390,7 +390,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
                 } => {
                     let lhs_value = self.interpret_expr(typechecker, left.clone(), ctx)?;
                     let rhs_value = self.interpret_expr(typechecker, right.clone(), ctx)?;
-
                     self.context.assert_eq(
                         lhs_value.to_value(),
                         rhs_value.to_value(),
@@ -831,6 +830,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
             }
             CheckedExprNode::IfExpr(if_expr) => {
                 Ok(self.interpret_if_expr(typechecker, if_expr, ctx)?)
+            }
+            CheckedExprNode::Match(match_expr) => {
+                Ok(self.interpret_match(typechecker, match_expr, ctx)?)
             }
         }
     }
@@ -1283,7 +1285,69 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F>> Interpreter<F, C> {
 
         Ok(result)
     }
+    #[instrument(level = "debug", skip_all)]
+    pub fn interpret_match(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        match_node: &CheckedMatchNode,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<CheckedValueRef<F>> {
+        let scrutinee_value = self.interpret_expr(typechecker, match_node.value, ctx)?;
+        let mut return_value = CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE));
+        let mut wildcard_case: Option<&CheckedMatchArm> = None;
+        let mut match_cases = match_node.cases.iter();
 
+        if let Some(first_arm) = match_cases.next() {
+            if let Some(pattern_expr) = &first_arm.pattern {
+                let matched =
+                    self.match_pattern(typechecker, ctx, pattern_expr, &scrutinee_value)?;
+                self.context.start_if_block(matched);
+                //note: use the first arm return value to initialize the return value
+                return_value = self.interpret_expr(typechecker, first_arm.body, ctx)?;
+            } else {
+                wildcard_case = Some(first_arm);
+            }
+        }
+
+        for arm in match_cases {
+            if let Some(pattern_expr) = &arm.pattern {
+                let matched =
+                    self.match_pattern(typechecker, ctx, pattern_expr, &scrutinee_value)?;
+                self.context.start_else_if_block(matched);
+                let body_value = self.interpret_expr(typechecker, arm.body, ctx)?;
+                return_value = self.context.cset(return_value, body_value);
+            } else {
+                if wildcard_case.is_some() {
+                    return Err(Error::SemaError(SemaError::DuplicateWildcard));
+                }
+                wildcard_case = Some(arm);
+            }
+        }
+
+        if let Some(wildcard_arm) = wildcard_case {
+            self.context.start_else_block();
+            let body_value = self.interpret_expr(typechecker, wildcard_arm.body, ctx)?;
+            return_value = self.context.cset(return_value, body_value);
+        } else {
+            return Err(Error::SemaError(SemaError::UnreachableMatch));
+        }
+
+        self.context.end_if_block();
+
+        Ok(return_value)
+    }
+    fn match_pattern(
+        &mut self,
+        typechecker: &TypeChecker<F, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+        pattern_expr: &ExprId,
+        scrutinee_value: &CheckedValueRef<F>,
+    ) -> Result<F> {
+        let pattern_value = self.interpret_expr(typechecker, *pattern_expr, ctx)?;
+        Ok(self
+            .context
+            .op_eq(scrutinee_value.to_felt(), pattern_value.to_felt()))
+    }
     pub fn is_constant(&self, value: F) -> bool {
         let constant_types = [
             DPNOpType::Constant,
@@ -1321,7 +1385,7 @@ mod tests {
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
-        insta::glob!("../../tests", "008.qed", |path| {
+        insta::glob!("../../tests", "00*.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
 
             let compile_results = interpreter

@@ -40,6 +40,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::IfExpr => self.visit_if_expr(expr_id, ctx)?,
             NodeType::TupleExpr => self.visit_tuple(expr_id, ctx)?,
             NodeType::TupleAccessExpr => self.visit_tuple_access(expr_id, ctx)?,
+            NodeType::MatchExpr => self.visit_match(expr_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -89,7 +90,6 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
                 Self::StmtResult::from(self.visit_expr(expr_id, ctx)?)
             }
             NodeType::IntrinsicStmt => self.visit_intrinsic_stmt(stmt_id, ctx)?,
-            NodeType::MatchStmt => self.visit_match(stmt_id, ctx)?,
             _ => unreachable!(),
         };
         ctx.pop_node_id();
@@ -222,9 +222,9 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
     ) -> Result<Self::StmtResult, Self::Error>;
     fn visit_match(
         &mut self,
-        node: StmtId,
+        node: ExprId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
+    ) -> Result<Self::ExprResult, Self::Error>;
 
     fn visit_impl(
         &mut self,

@@ -66,7 +66,6 @@ Statement: StmtNode = {
     ReturnStatement,
     WhileStatement,
     ForStatement,
-    MatchStatement,
     Definition => StmtNode::Definition(def_nodes.alloc_item(<>)),
     IntrinsicStatement,
     ExpressionStatement
@@ -304,8 +303,8 @@ WhileStatement: StmtNode = {
     }),
 }
 
-MatchStatement: StmtNode = {
-    <l:@L> MATCH <scrutinee:Expression> "{" <arms:Comma<MatchArm>> "}" <r:@R> => StmtNode::Match(MatchNode {
+MatchExpression: ExprNode<F> = {
+    <l:@L> MATCH <scrutinee:Expression> "{" <arms:Comma<MatchArm>> "}" <r:@R> => ExprNode::Match(MatchNode {
         scrutinee: expr_nodes.alloc_item(scrutinee),
         arms
     }),
@@ -320,7 +319,8 @@ MatchArm: MatchArm = {
 
 MatchPattern: MatchPattern = {
     <l:@L> <pattern:Expression> <r:@R> => MatchPattern::Value(expr_nodes.alloc_item(pattern)),
-    <l:@L> "_" <r:@R> => MatchPattern::Placeholder
+    <l:@L>  "_" => MatchPattern::PlaceHolder,
+
 }
 
 ForStatement: StmtNode = {
@@ -648,7 +648,8 @@ Term: ExprNode<F> = {
     ValueExpression,
     PathExpression,
     TupleExpr,
-    IfExpression
+    IfExpression,
+    MatchExpression
 }
 
 ValueExpression: ExprNode<F> = {

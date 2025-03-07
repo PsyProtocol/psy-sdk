@@ -17,11 +17,11 @@ pub struct MatchArm {
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum MatchPattern {
     Value(ExprId),
-    Placeholder,
+    PlaceHolder,
 }
 
 impl NodeInfo for MatchNode {
     fn node_type(&self) -> NodeType {
-        NodeType::MatchStmt
+        NodeType::MatchExpr
     }
 }

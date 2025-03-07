@@ -2,7 +2,7 @@ use qed_ast::BlockExprNode;
 use qed_ast::IfExprNode;
 use qed_ast::*;
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
-use std::fmt::{format, Debug};
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct Formatter<'a, F: Clone + From<u32>, C> {
@@ -788,11 +788,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let s = match node {
             IntrinsicStmtNode::Assert { left, message } => {
                 let expr = self.visit_expr(left, ctx)?;
-                format!(
-                    "assert({}, \"{}\")",
-                    expr,
-                    message.unwrap_or_default()
-                )
+                format!("assert({}, \"{}\")", expr, message.unwrap_or_default())
             }
             IntrinsicStmtNode::AssertEq {
                 left,
@@ -913,31 +909,27 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
     fn visit_match(
         &mut self,
-        node: StmtId,
+        node: ExprId,
         ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
-        let MatchNode { scrutinee, arms } = ctx.statement(node).as_match().cloned().unwrap();
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let MatchNode { scrutinee, arms } = ctx.expression(node).as_match().cloned().unwrap();
 
-        let s = format!("match {} {{", self.visit_expr(scrutinee.clone(), ctx)?);
-        self.write_line(&s);
-        self.indent();
+        let mut m = format!("match {} {{ ", self.visit_expr(scrutinee.clone(), ctx)?);
 
         for arm in arms {
             let s = format!(
-                "{} => ",
-                if arm.pattern.is_placeholder() {
+                " {} => ",
+                if arm.pattern.is_place_holder() {
                     "_".to_string()
                 } else {
                     self.visit_expr(arm.pattern.as_value().unwrap().clone(), ctx)?
                 }
             );
             let block = self.visit_block_expr(arm.body, ctx)?;
-            self.write_line(&format!("{}{}", s, block));
+            m.push_str(&format!("{}{}", s, block));
         }
 
-        self.dedent();
-        self.write_line("}");
-        Ok(Default::default())
+        Ok(m)
     }
 
     fn visit_lambda_function(
