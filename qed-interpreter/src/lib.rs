@@ -59,6 +59,58 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         }
     }
 
+    pub fn to_input(&mut self, ty: TypeId, symbols: &SymbolTable<F>) -> CheckedValue<F> {
+        match symbols[ty].clone() {
+            Type::Felt(_f) => CheckedValue::Felt(self.context.add_input()),
+            Type::Bool(_b) => CheckedValue::Bool(self.context.add_bool_input()),
+            Type::U32(_u) => CheckedValue::U32(self.context.add_u32_input()),
+            Type::Tuple(elements) => {
+                let mut result = Vec::new();
+                for element_type in elements {
+                    let value = CheckedValueRef::new_rc(self.to_input(element_type, symbols));
+
+                    result.push((element_type, value));
+                }
+                let type_id = symbols
+                    .get_type_id(Some(ScopeId::primitive()), symbols[ty].key())
+                    .unwrap();
+
+                CheckedValue::Tuple {
+                    type_id,
+                    elements: result,
+                }
+            }
+            Type::Struct(s) => {
+                let mut result = IndexMap::new();
+                for (field_name, (field_type, _)) in &s.fields {
+                    result.insert(
+                        field_name.clone(),
+                        CheckedValueRef::new_rc(self.to_input(field_type.clone(), symbols)),
+                    );
+                }
+                let type_id = symbols
+                    .get_type_id(Some(s.scope_id), symbols[ty].key())
+                    .unwrap();
+                CheckedValue::Struct(type_id, result)
+            }
+            _ => todo!(),
+        }
+    }
+
+    pub fn size_of(&self, type_id: TypeId, symbols: &SymbolTable<F>) -> usize {
+        match &symbols[type_id] {
+            Type::Felt(_f) => 1usize,
+            Type::Bool(_b) => 1usize,
+            Type::U32(_u) => 1usize,
+            Type::Struct(s) => s
+                .fields
+                .iter()
+                .map(|(_, (type_id, _))| self.size_of(type_id.clone(), symbols))
+                .sum(),
+            _ => todo!(),
+        }
+    }
+
     #[instrument(level = "debug", skip_all)]
     pub fn interpret<I: Into<Ident>>(
         &mut self,
@@ -824,7 +876,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             }
             CheckedExprNode::IfExpr(if_expr) => Ok(self.interpret_if_expr(program, if_expr, ctx)?),
             CheckedExprNode::Match(match_expr) => {
-                Ok(self.interpret_match(typechecker, match_expr, ctx)?)
+                Ok(self.interpret_match(program, match_expr, ctx)?)
             }
         }
     }
@@ -1225,11 +1277,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_match(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
+        program: &CheckedProgram<F>,
         match_node: &CheckedMatchNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
-        let scrutinee_value = self.interpret_expr(typechecker, match_node.value, ctx)?;
+        let scrutinee_value = self.interpret_expr(program, match_node.value, ctx)?;
         let mut return_value = CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE));
         let mut wildcard_case: Option<&CheckedMatchArm> = None;
         let mut match_cases = match_node.cases.iter();
@@ -1237,10 +1289,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         if let Some(first_arm) = match_cases.next() {
             if let Some(pattern_expr) = &first_arm.pattern {
                 let matched =
-                    self.match_pattern(typechecker, ctx, pattern_expr, &scrutinee_value)?;
+                    self.match_pattern(program, ctx, pattern_expr, &scrutinee_value)?;
                 self.context.start_if_block(matched);
                 //note: use the first arm return value to initialize the return value
-                return_value = self.interpret_expr(typechecker, first_arm.body, ctx)?;
+                return_value = self.interpret_expr(program, first_arm.body, ctx)?;
             } else {
                 wildcard_case = Some(first_arm);
             }
@@ -1249,9 +1301,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         for arm in match_cases {
             if let Some(pattern_expr) = &arm.pattern {
                 let matched =
-                    self.match_pattern(typechecker, ctx, pattern_expr, &scrutinee_value)?;
+                    self.match_pattern(program, ctx, pattern_expr, &scrutinee_value)?;
                 self.context.start_else_if_block(matched);
-                let body_value = self.interpret_expr(typechecker, arm.body, ctx)?;
+                let body_value = self.interpret_expr(program, arm.body, ctx)?;
                 return_value = self.context.cset(return_value, body_value);
             } else {
                 if wildcard_case.is_some() {
@@ -1263,7 +1315,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         if let Some(wildcard_arm) = wildcard_case {
             self.context.start_else_block();
-            let body_value = self.interpret_expr(typechecker, wildcard_arm.body, ctx)?;
+            let body_value = self.interpret_expr(program, wildcard_arm.body, ctx)?;
             return_value = self.context.cset(return_value, body_value);
         } else {
             return Err(Error::SemaError(SemaError::UnreachableMatch));
@@ -1275,12 +1327,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     }
     fn match_pattern(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
+        program: &CheckedProgram<F>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
         pattern_expr: &ExprId,
         scrutinee_value: &CheckedValueRef<F>,
     ) -> Result<F> {
-        let pattern_value = self.interpret_expr(typechecker, *pattern_expr, ctx)?;
+        let pattern_value = self.interpret_expr(program, *pattern_expr, ctx)?;
         Ok(self
             .context
             .op_eq(scrutinee_value.to_felt(), pattern_value.to_felt()))

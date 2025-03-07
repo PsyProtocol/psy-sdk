@@ -18,7 +18,6 @@ pub use infer::*;
 pub use program::*;
 pub use r#type::*;
 use regex::Regex;
-use std::{collections::HashMap, ops::Index};
 pub use stmt::*;
 pub use symbol_table::*;
 pub use traits::*;
@@ -1637,7 +1636,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     if !self.unify(scrutinee_type, pattern_type, ctx) {
                         return Err(Error::TypeMismatch);
                     }
-                    Some(self.exprs.alloc_item(checked_pattern_expr))
+                    Some(self.program.exprs.alloc_item(checked_pattern_expr))
                 }
                 MatchPattern::PlaceHolder => {
                     if wildcard_case.is_some() {
@@ -1657,7 +1656,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
             let checked_arm = CheckedMatchArm {
                 pattern: checked_pattern,
-                body: self.exprs.alloc_item(checked_body),
+                body: self.program.exprs.alloc_item(checked_body),
             };
 
             //note: move the wildcard case to the end
@@ -1673,7 +1672,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         }
 
         Ok(CheckedExprNode::Match(CheckedMatchNode {
-            value: self.exprs.alloc_item(checked_scrutinee),
+            value: self.program.exprs.alloc_item(checked_scrutinee),
             cases: checked_arms,
             type_id: match_expr_type.unwrap_or(VOID_TYPE),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
