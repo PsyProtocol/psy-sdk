@@ -335,7 +335,7 @@ MatchArm: MatchArm = {
 }
 
 MatchPattern: MatchPattern = {
-    <l:@L> <pattern:Expression> <r:@R> => MatchPattern::Value((expr_nodes.alloc_item(pattern)), Span::new(file_id, l, r)),
+    <l:@L> <pattern:Expression> <r:@R> => MatchPattern::Value(expr_nodes.alloc_item(pattern), Span::new(file_id, l, r)),
     <l:@L>  "_" <r:@R> =>  MatchPattern::PlaceHolder(Span::new(file_id, l, r)),
 
 }

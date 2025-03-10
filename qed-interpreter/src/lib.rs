@@ -22,8 +22,6 @@ use qedlang_core::dpn::{
     vm::def::DPNFunctionCircuitDefinition,
 };
 use std::iter::once;
-
-use qed_sema::Error::TypeMismatch;
 use std::{collections::HashMap, path::PathBuf};
 use tracing::instrument;
 

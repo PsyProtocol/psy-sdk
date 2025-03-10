@@ -951,10 +951,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         } = ctx.expression(node).as_match().cloned().unwrap();
 
         let mut m = format!("match {} {{ ", self.visit_expr(scrutinee.clone(), ctx)?);
-
+        self.indent();
+        let current_indent = self.read_indent(0);
         for arm in arms {
             let s = format!(
-                " {} => ",
+                " \n{}{} => ",
+                current_indent,
                 if arm.pattern.is_place_holder() {
                     "_".to_string()
                 } else {
@@ -962,10 +964,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     self.visit_expr(pattern_expr.clone(), ctx)?
                 }
             );
-            let block = self.visit_expr(arm.body, ctx)?;
-            m.push_str(&format!("{}{}", s, block));
+            let expr = self.visit_expr(arm.body, ctx)?;
+            m.push_str(&format!("{}{},", s, expr));
         }
-
+        self.dedent();
+        m.push_str(&format!("\n{}}}", self.read_indent(0)));
         Ok(m)
     }
 

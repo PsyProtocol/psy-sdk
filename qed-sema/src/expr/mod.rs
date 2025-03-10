@@ -115,8 +115,9 @@ impl<F> CheckedExprNode<F> {
     }
     pub fn span(&self) -> Option<Span> {
         match self {
+            //todo!: need refactor when implementing span for Value and Intrinsic
             CheckedExprNode::Path(p) => Some(p.span),
-            CheckedExprNode::Value(v) => None,
+            CheckedExprNode::Value(_) => None,
             CheckedExprNode::Binary(b) => Some(b.span),
             CheckedExprNode::Unary(u) => Some(u.span),
             CheckedExprNode::Cast(c) => Some(c.span),
@@ -125,7 +126,7 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::IndexAccess(i) => Some(i.span),
             CheckedExprNode::TupleAccess(t) => Some(t.span),
             CheckedExprNode::MemberAccess(m) => Some(m.span),
-            CheckedExprNode::Intrinsic(i) => None,
+            CheckedExprNode::Intrinsic(_) => None,
             CheckedExprNode::LambdaFunction(c) => Some(c.span),
             CheckedExprNode::BlockExpr(b) => Some(b.span),
             CheckedExprNode::IfExpr(i) => Some(i.span),
