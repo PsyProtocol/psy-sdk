@@ -1367,12 +1367,23 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let pattern_borrow = pattern_value.borrow();
         let scrutinee_borrow = scrutinee_value.borrow();
 
-        match (&*scrutinee_borrow, &*pattern_borrow) {
-            (CheckedValue::Felt(l), CheckedValue::Felt(r)) => Ok(self.context.op_eq(*l, *r)),
-            (CheckedValue::U32(l), CheckedValue::U32(r)) => Ok(self.context.op_eq(*l, *r)),
-            (CheckedValue::Bool(l), CheckedValue::Bool(r)) => Ok(self.context.op_eq(*l, *r)),
+        let ret = match (&*scrutinee_borrow, &*pattern_borrow) {
+            (CheckedValue::Felt(l), CheckedValue::Felt(r)) => self.context.op_eq(*l, *r),
+            (CheckedValue::U32(l), CheckedValue::U32(r)) => {
+                //todo!: need add op_eq for u32
+                let const_0 = self.context.op_const_u32(0);
+                let sub = self.context.op_u32_xor(*l, *r);
+                if const_0 == sub {
+                    self.context.op_const(1)
+                }else {
+                    self.context.op_const(0)
+                }
+            },
+            (CheckedValue::Bool(l), CheckedValue::Bool(r)) => self.context.op_eq(*l, *r),
             _ => unreachable!(),
-        }
+        };
+
+        Ok(ret)
     }
     pub fn is_constant(&self, value: F) -> bool {
         let constant_types = [
