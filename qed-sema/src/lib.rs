@@ -54,9 +54,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
         match &self.symbols[type_id] {
             Type::Unknown => format!("Unknown"),
             Type::VOID => format!("void"),
-            Type::Felt(checked_felt_node) => format!("Felt"),
-            Type::Bool(checked_bool_node) => format!("Bool"),
-            Type::U32(checked_u32_node) => format!("U32"),
+            Type::Felt(_checked_felt_node) => format!("Felt"),
+            Type::Bool(_checked_bool_node) => format!("Bool"),
+            Type::U32(_checked_u32_node) => format!("U32"),
             Type::Array(checked_array_node) => {
                 format!(
                     "[{}; {}]",
@@ -83,7 +83,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
             Type::LambdaFunction(checked_lambda_function_node) => {
                 format!("lamba fn {}", self.ident(checked_lambda_function_node.name))
             }
-            Type::FunctionSignature(checked_function_signature) => format!("fn sig"),
+            Type::FunctionSignature(_checked_function_signature) => format!("fn sig"),
             Type::TypeVariable(type_variable_node) => {
                 let mut type_variable_details = vec![];
                 for type_id in type_variable_node.constraints.iter() {
@@ -98,12 +98,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
                 }
                 format!("({})", tuple_details.join(", "))
             }
-            Type::GenericInstance(type_id, type_ids, scope_id) => {
+            Type::GenericInstance(type_id, _type_ids, _scope_id) => {
                 format!("<{}>", self.get_type_detail(*type_id))
             }
         }
     }
-
 
     //warn: debug only
     pub fn print_symbol_table_to_string(&self) {
@@ -682,14 +681,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         // TODO: remove clone
         let value_node = ctx.expression(node).as_value().cloned().unwrap();
         match value_node {
-            ValueNode::Felt(f, span) => {
+            ValueNode::Felt(f, _span) => {
                 Ok(CheckedExprNode::Value(CheckedValueNode::Felt(f.clone())))
             }
-            ValueNode::Bool(b, span) => {
+            ValueNode::Bool(b, _span) => {
                 Ok(CheckedExprNode::Value(CheckedValueNode::Bool(b.clone())))
             }
-            ValueNode::U32(u, span) => Ok(CheckedExprNode::Value(CheckedValueNode::U32(u.clone()))),
-            ValueNode::Array(size, arr, span) => {
+            ValueNode::U32(u, _span) => {
+                Ok(CheckedExprNode::Value(CheckedValueNode::U32(u.clone())))
+            }
+            ValueNode::Array(size, arr, _span) => {
                 if size != arr.len() {
                     return Err(Error::TypeMismatch {
                         span: FileSpan::default(),
@@ -1836,7 +1837,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             None => {
                 if let Some(CheckedReturnNode {
                     ret: Some(ret),
-                    span,
+                    span: _span,
                 }) = checked_stmts.last().and_then(|x| x.as_return())
                 {
                     (self.program.exprs[ret.clone()].ty(), None)
@@ -1995,7 +1996,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                             expected: ctx.get_type_detail(scrutinee_type),
                             found: ctx.get_type_detail(pattern_type),
                         });
-
                     }
                     Some(self.program.exprs.alloc_item(checked_pattern_expr))
                 }
@@ -2442,7 +2442,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         }
                         todo!()
                     }
-                    Type::Array(checked_array) => {
+                    Type::Array(_checked_array) => {
                         if checked_generic_parameters.len() != 2 {
                             return Err(Error::GenericParameterMismatch {
                                 span: Default::default(),

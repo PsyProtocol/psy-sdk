@@ -104,7 +104,7 @@ pub fn lowering_error_to_report(error: Error) -> Report<'static, FileSpan> {
     let mut colors = ColorGenerator::new();
     colors.next();
     match error {
-        Error::AnyError(error) => todo!(),
+        Error::AnyError(_error) => todo!(),
         Error::TypeMismatch {
             span,
             expected,
@@ -273,7 +273,7 @@ pub fn lowering_error_to_report(error: Error) -> Report<'static, FileSpan> {
             .finish(),
         Error::InvalidFunctionCall {
             span,
-            method_name,
+            method_name: _method_name,
             expected,
             found,
         } => Report::build(ReportKind::Error, span.clone())
