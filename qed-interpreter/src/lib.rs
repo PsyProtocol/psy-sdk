@@ -21,7 +21,7 @@ use qedlang_core::dpn::{
     },
     vm::def::DPNFunctionCircuitDefinition,
 };
-use std::{fmt::format, iter::once};
+use std::iter::once;
 
 use std::{collections::HashMap, path::PathBuf};
 use tracing::instrument;
@@ -440,7 +440,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 CheckedIntrinsicStmtNode::Assert {
                     left,
                     message,
-                    span,
+                    span: _span,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     self.context.assert_true(
@@ -452,7 +452,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     left,
                     right,
                     message,
-                    span,
+                    span: _span,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     let rhs_value = self.interpret_expr(program, right.clone(), ctx)?;
@@ -1304,8 +1304,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         if let Some(first_arm) = match_cases.next() {
             if let Some(pattern_expr) = &first_arm.pattern {
-                let matched =
-                    self.match_pattern(program, ctx, pattern_expr, &scrutinee_value)?;
+                let matched = self.match_pattern(program, ctx, pattern_expr, &scrutinee_value)?;
                 self.context.start_if_block(matched);
                 //note: use the first arm return value to initialize the return value
                 return_value = self.interpret_expr(program, first_arm.body, ctx)?;
@@ -1316,8 +1315,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         for arm in match_cases {
             if let Some(pattern_expr) = &arm.pattern {
-                let matched =
-                    self.match_pattern(program, ctx, pattern_expr, &scrutinee_value)?;
+                let matched = self.match_pattern(program, ctx, pattern_expr, &scrutinee_value)?;
                 self.context.start_else_if_block(matched);
                 let body_value = self.interpret_expr(program, arm.body, ctx)?;
 
@@ -1327,7 +1325,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     &return_value,
                     &|ctx: &mut C, n: &F, o: &F| ctx.cset(o.clone(), n.clone()),
                 );
-
             } else {
                 if wildcard_case.is_some() {
                     return Err(Error::SemaError(SemaError::DuplicateWildcard));

@@ -6,7 +6,6 @@ use std::{
     collections::HashMap,
     convert::AsMut,
     fmt::{Display, Formatter},
-    fs::File,
     hash::Hash,
     iter::once,
     ops::{Index, IndexMut},
