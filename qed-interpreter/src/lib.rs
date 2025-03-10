@@ -23,6 +23,7 @@ use qedlang_core::dpn::{
 };
 use std::iter::once;
 
+use qed_sema::Error::TypeMismatch;
 use std::{collections::HashMap, path::PathBuf};
 use tracing::instrument;
 
@@ -1298,6 +1299,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValueRef<F>> {
         let scrutinee_value = self.interpret_expr(program, match_node.value, ctx)?;
+        let scrutinee_type = scrutinee_value.type_id();
         let mut return_value = CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE));
         let mut wildcard_case: Option<&CheckedMatchArm> = None;
         let mut match_cases = match_node.cases.iter();
@@ -1327,7 +1329,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 );
             } else {
                 if wildcard_case.is_some() {
-                    return Err(Error::SemaError(SemaError::DuplicateWildcard));
+                    return Err(Error::SemaError(SemaError::DuplicateWildcard {
+                        span: ctx.program.convert_span(&arm.span),
+                    }));
                 }
                 wildcard_case = Some(arm);
             }
@@ -1343,7 +1347,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 &|ctx: &mut C, n: &F, o: &F| ctx.cset(o.clone(), n.clone()),
             );
         } else {
-            return Err(Error::SemaError(SemaError::UnreachableMatch));
+            //Caution: in white list, no need to have a "_" in the match
+            let white_list = vec![BOOL_TYPE];
+            if !white_list.contains(&scrutinee_type) {
+                return Err(Error::SemaError(SemaError::UnreachableMatch));
+            }
         }
 
         self.context.end_if_block();
@@ -1358,9 +1366,15 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         scrutinee_value: &CheckedValueRef<F>,
     ) -> Result<F> {
         let pattern_value = self.interpret_expr(program, *pattern_expr, ctx)?;
-        Ok(self
-            .context
-            .op_eq(scrutinee_value.to_felt(), pattern_value.to_felt()))
+        let pattern_borrow = pattern_value.borrow();
+        let scrutinee_borrow = scrutinee_value.borrow();
+
+        match (&*scrutinee_borrow, &*pattern_borrow) {
+            (CheckedValue::Felt(l), CheckedValue::Felt(r)) => Ok(self.context.op_eq(*l, *r)),
+            (CheckedValue::U32(l), CheckedValue::U32(r)) => Ok(self.context.op_eq(*l, *r)),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r)) => Ok(self.context.op_eq(*l, *r)),
+            _ => unreachable!(),
+        }
     }
     pub fn is_constant(&self, value: F) -> bool {
         let constant_types = [

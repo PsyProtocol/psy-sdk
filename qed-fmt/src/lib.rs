@@ -958,7 +958,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 if arm.pattern.is_place_holder() {
                     "_".to_string()
                 } else {
-                    self.visit_expr(arm.pattern.as_value().unwrap().clone(), ctx)?
+                    let (pattern_expr, _) = arm.pattern.as_value().unwrap();
+                    self.visit_expr(pattern_expr.clone(), ctx)?
                 }
             );
             let block = self.visit_expr(arm.body, ctx)?;

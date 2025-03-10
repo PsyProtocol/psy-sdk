@@ -95,7 +95,7 @@ pub enum Error {
     #[error("unreachable match")]
     UnreachableMatch,
     #[error("unreachable code")]
-    DuplicateWildcard,
+    DuplicateWildcard { span: FileSpan },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

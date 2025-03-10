@@ -23,7 +23,7 @@ pub use path::*;
 pub use r#match::*;
 pub use unary::*;
 
-use qed_ast::{IdentId, NodeInfo, NodeType};
+use qed_ast::{IdentId, NodeInfo, NodeType, Span};
 
 use crate::{CheckedValueNode, ScopeId, TypeId, BOOL_TYPE, FELT_TYPE, U32_TYPE};
 
@@ -111,6 +111,25 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::IfExpr(i) => i.type_id,
             CheckedExprNode::BlockExpr(b) => b.type_id,
             CheckedExprNode::Match(m) => m.type_id,
+        }
+    }
+    pub fn span(&self) -> Option<Span> {
+        match self {
+            CheckedExprNode::Path(p) => Some(p.span),
+            CheckedExprNode::Value(v) => None,
+            CheckedExprNode::Binary(b) => Some(b.span),
+            CheckedExprNode::Unary(u) => Some(u.span),
+            CheckedExprNode::Cast(c) => Some(c.span),
+            CheckedExprNode::Call(c) => Some(c.span),
+            CheckedExprNode::MemberCall(c) => Some(c.span),
+            CheckedExprNode::IndexAccess(i) => Some(i.span),
+            CheckedExprNode::TupleAccess(t) => Some(t.span),
+            CheckedExprNode::MemberAccess(m) => Some(m.span),
+            CheckedExprNode::Intrinsic(i) => None,
+            CheckedExprNode::LambdaFunction(c) => Some(c.span),
+            CheckedExprNode::BlockExpr(b) => Some(b.span),
+            CheckedExprNode::IfExpr(i) => Some(i.span),
+            CheckedExprNode::Match(m) => Some(m.span),
         }
     }
 

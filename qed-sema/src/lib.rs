@@ -1986,22 +1986,32 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         for (_idx, arm) in match_node.arms.iter().enumerate() {
             let checked_pattern = match &arm.pattern {
-                MatchPattern::Value(pattern_expr) => {
+                MatchPattern::Value(pattern_expr, _pattern_span) => {
                     let checked_pattern_expr = self.visit_expr(*pattern_expr, ctx)?;
                     let pattern_type = checked_pattern_expr.ty();
 
                     if !self.unify(scrutinee_type, pattern_type, ctx) {
+                        //todo!: When the span of value is implemented, you need to refactor here
+                        let span = match checked_pattern_expr.span() {
+                            Some(span) => span,
+                            None => {
+                                let mut span = arm.span.clone();
+                                span.end = span.start + 1;
+                                span
+                            }
+                        };
                         return Err(Error::TypeMismatch {
-                            span: ctx.program.convert_span(&match_node.span),
+                            span: ctx.program.convert_span(&span),
                             expected: ctx.get_type_detail(scrutinee_type),
                             found: ctx.get_type_detail(pattern_type),
                         });
                     }
                     Some(self.program.exprs.alloc_item(checked_pattern_expr))
                 }
-                MatchPattern::PlaceHolder => {
+                MatchPattern::PlaceHolder(span) => {
                     if wildcard_case.is_some() {
-                        return Err(Error::DuplicateWildcard);
+                        let file_span = ctx.program.convert_span(span);
+                        return Err(Error::DuplicateWildcard { span: file_span });
                     }
                     None
                 }
@@ -2009,11 +2019,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
             let checked_body = self.visit_expr(arm.body, ctx)?;
             let arm_body_type = checked_body.ty();
-
             match_expr_type.get_or_insert(arm_body_type);
             if !self.unify(match_expr_type.unwrap(), arm_body_type, ctx) {
+                let span = match checked_body.span() {
+                    Some(span) => span,
+                    None => match_node.span,
+                };
                 return Err(Error::TypeMismatch {
-                    span: ctx.program.convert_span(&match_node.span),
+                    span: ctx.program.convert_span(&span),
                     expected: ctx.get_type_detail(match_expr_type.unwrap()),
                     found: ctx.get_type_detail(arm_body_type),
                 });
@@ -2022,6 +2035,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             let checked_arm = CheckedMatchArm {
                 pattern: checked_pattern,
                 body: self.program.exprs.alloc_item(checked_body),
+                span: arm.span,
             };
 
             //note: move the wildcard case to the end
@@ -2041,6 +2055,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             cases: checked_arms,
             type_id: match_expr_type.unwrap_or(VOID_TYPE),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
+            span: match_node.span,
         }))
     }
 

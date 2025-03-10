@@ -1,6 +1,6 @@
 use qed_common::FileId;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub struct Span {
     pub file_id: FileId,
     pub start: usize,
