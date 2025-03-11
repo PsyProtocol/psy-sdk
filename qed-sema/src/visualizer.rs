@@ -112,18 +112,23 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
             Type::Trait(checked_trait_node) => {
                 format!("Trait {}", self.ident(checked_trait_node.name))
             }
-            Type::Const(checked_const_node) => {
-                format!(
-                    "{}const {} {:?}",
-                    if checked_const_node.visibility == Visibility::Public {
-                        "pub "
-                    } else {
-                        ""
-                    },
-                    self.ident(checked_const_node.name.unwrap_or(IdentId::TYPE_VOID)),
-                    self.symbols.get_constant(checked_const_node.value)
-                )
-            }
+            Type::Const(checked_const_node) => match checked_const_node.name {
+                Some(name) => {
+                    format!(
+                        "{}const {} {:?}",
+                        if checked_const_node.visibility == Visibility::Public {
+                            "pub "
+                        } else {
+                            ""
+                        },
+                        self.ident(name),
+                        self.symbols.get_constant(checked_const_node.value)
+                    )
+                }
+                None => {
+                    format!("{:?}", self.symbols.get_constant(checked_const_node.value))
+                }
+            },
             Type::LambdaFunction(checked_lambda_function_node) => {
                 format!("lamba fn {}", self.ident(checked_lambda_function_node.name))
             }
