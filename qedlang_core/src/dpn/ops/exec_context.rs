@@ -559,22 +559,41 @@ impl DPNContext<SymFeltRef> for QExecContext {
         self.op_std_binary_op_u32(DPNOpType::U32Exp, a, b)
     }
     fn op_eq(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::Eq, a, b);
+        } 
         self.op_std_binary_op(DPNOpType::Eq, a, b)
     }
     fn op_neq(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
-        let eq = self.op_std_binary_op(DPNOpType::Eq, a, b);
+        let eq = if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            self.op_std_binary_op_u32(DPNOpType::Eq, a, b)
+        } else {
+            self.op_std_binary_op(DPNOpType::Eq, a, b)
+        };
         self.op_bool_not(eq)
     }
     fn op_lt(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::Lt, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Lt, a, b)
     }
     fn op_lte(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::Lte, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Lte, a, b)
     }
     fn op_gt(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::Gt, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Gt, a, b)
     }
     fn op_gte(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::Gte, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Gte, a, b)
     }
 
