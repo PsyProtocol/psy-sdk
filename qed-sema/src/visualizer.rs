@@ -33,25 +33,34 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
         let variables = scope
             .variables
             .iter()
-            .map(|(ident_id, var_id)| format!("{:?}: {:?}", var_id, self.ident(*ident_id)))
+            .map(|(ident_id, var_id)| format!("\n{:?}: {:?}", var_id, self.ident(*ident_id)))
             .collect::<Vec<_>>()
             .join(", ");
         let consts = scope
             .consts
             .iter()
-            .map(|(ident_id, const_id)| format!("{:?}: {:?}", const_id, self.ident(*ident_id)))
+            .map(|(ident_id, const_id)| format!("\n{:?}: {:?}", const_id, self.ident(*ident_id)))
             .collect::<Vec<_>>()
             .join(", ");
         let types = scope
             .types
             .iter()
-            .map(|(type_key, type_id)| format!("{:?}: {:?}", type_key, self.debug_type(*type_id),))
+            .map(
+                |(type_key, type_id)| format!("\n{:?}: {:?}", type_key, self.debug_type(*type_id),),
+            )
             .collect::<Vec<_>>()
             .join(", ");
 
         format!(
-            "{{\nvariables: {},\nconsts: {},\ntypes: {},\n}}",
-            variables, consts, types
+            r#"ScopeId({}) {{
+    variables: {}
+    consts: {}
+    types: {}
+}}"#,
+            usize::from(scope_id),
+            variables,
+            consts,
+            types
         )
     }
 
@@ -125,20 +134,24 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
                         self.symbols.get_constant(checked_const_node.value)
                     )
                 }
-                None => {
-                    format!("{:?}", self.symbols.get_constant(checked_const_node.value))
-                }
+                None => self.debug_type_name(type_id),
             },
             Type::LambdaFunction(checked_lambda_function_node) => {
                 format!("lamba fn {}", self.ident(checked_lambda_function_node.name))
             }
             Type::FunctionSignature(checked_function_signature) => format!("fn sig"),
-            Type::TypeVariable(type_variable_node) => {
-                let mut type_variable_details = vec![];
-                for type_id in type_variable_node.constraints.iter() {
-                    type_variable_details.push(self.debug_type(type_id.clone()));
+            Type::TypeVariable(checked_type_variable_node) => {
+                let len = checked_type_variable_node.constraints.len();
+                match len {
+                    0 => self.debug_type_name(type_id),
+                    _ => {
+                        let mut type_variable_details = vec![];
+                        for type_id in checked_type_variable_node.constraints.iter() {
+                            type_variable_details.push(self.debug_type(type_id.clone()));
+                        }
+                        format!("{}", type_variable_details.join(" + "))
+                    }
                 }
-                format!("{}", type_variable_details.join(" + "))
             }
             Type::Tuple(type_ids) => {
                 let tuple_elems = type_ids
@@ -148,14 +161,26 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
 
                 format!("({})", tuple_elems.join(", "))
             }
-            Type::GenericInstance(type_id, type_ids, scope_id) => {
-                let struct_name = self.debug_type_name(*type_id);
-                let generic_args = type_ids
-                    .iter()
-                    .map(|type_id| self.debug_type(*type_id))
-                    .collect::<Vec<_>>();
-                format!("{}<{}>", struct_name, generic_args.join(", "))
-            }
+            Type::GenericInstance(type_id, type_ids, scope_id) => match &self.symbols[*type_id] {
+                Type::Array(_) => {
+                    format!(
+                        "[{}; {}]",
+                        self.debug_type_name(type_ids[0]),
+                        self.debug_type_name(type_ids[1])
+                    )
+                }
+                Type::Struct(_) => {
+                    let struct_name = self.debug_type_name(*type_id);
+                    let generic_args = type_ids
+                        .iter()
+                        .map(|type_id| self.debug_type(*type_id))
+                        .collect::<Vec<_>>();
+                    format!("{}<{}>", struct_name, generic_args.join(", "))
+                }
+                _ => {
+                    unimplemented!()
+                }
+            },
         }
     }
 
@@ -184,9 +209,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
                 let name = checked_const_node.name;
                 match name {
                     Some(name) => {
-                        format!("=const= {}", self.ident(name))
+                        format!("{}", self.ident(name))
                     }
-                    None => self.debug_type(type_id),
+                    None => {
+                        format!("{:?}", self.symbols.get_constant(checked_const_node.value))
+                    }
                 }
             }
             Type::Tuple(type_ids) => {
