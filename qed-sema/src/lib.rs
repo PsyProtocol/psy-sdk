@@ -10,6 +10,7 @@ mod value;
 mod variable;
 
 mod error;
+mod visualizer;
 
 pub use definition::*;
 pub use error::*;
@@ -23,6 +24,7 @@ pub use symbol_table::*;
 pub use traits::*;
 pub use value::*;
 pub use variable::*;
+pub use visualizer::*;
 
 use indexmap::IndexMap;
 use qed_ast::*;
@@ -2205,6 +2207,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
     }
 
+    // NOTE: primitive???
     #[instrument(level = "debug", skip_all)]
     fn typecheck_std_primitive_module(
         &mut self,
