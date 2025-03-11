@@ -341,7 +341,18 @@ impl QExecContext {
             assert!(a_val <= 0xffffffffu64);
             assert!(b_val <= 0xffffffffu64);
             assert!(op_type.eval_binary_constant(a_val, b_val) <= 0xffffffffu64);
-            return self.op_const_u32(op_type.eval_binary_constant(a_val, b_val) as u32);
+            let res = op_type.eval_binary_constant(a_val, b_val);
+            let return_bool_ops = [
+                DPNOpType::Eq,
+                DPNOpType::Gt,
+                DPNOpType::Gte,
+                DPNOpType::Lt,
+                DPNOpType::Lte,
+            ];
+            if return_bool_ops.contains(&op_type) {
+                return self.op_const(res);
+            }
+            return self.op_const_u32(res as u32);
         }
         // let a_u32 = self.op_cast_u32(a);
         // let b_u32 = self.op_cast_u32(b);
@@ -503,9 +514,15 @@ impl DPNContext<SymFeltRef> for QExecContext {
         self.op_std_unary_op(DPNOpType::BoolNot, a)
     }
     fn op_bool_and(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32  {
+            return self.op_std_binary_op_u32(DPNOpType::BoolAnd, a, b);
+        }
         self.op_std_binary_op(DPNOpType::BoolAnd, a, b)
     }
     fn op_bool_or(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32  {
+            return self.op_std_binary_op_u32(DPNOpType::BoolOr, a, b);
+        }
         self.op_std_binary_op(DPNOpType::BoolOr, a, b)
     }
     fn op_bool_or_many(&mut self, values: &[SymFeltRef]) -> SymFeltRef {
@@ -523,15 +540,27 @@ impl DPNContext<SymFeltRef> for QExecContext {
         result
     }
     fn op_add(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32  {
+            return self.op_std_binary_op_u32(DPNOpType::U32Add, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Add, a, b)
     }
     fn op_sub(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32  {
+            return self.op_std_binary_op_u32(DPNOpType::U32Sub, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Sub, a, b)
     }
     fn op_mul(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32  {
+            return self.op_std_binary_op_u32(DPNOpType::U32Mul, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Mul, a, b)
     }
     fn op_div(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32  {
+            return self.op_std_binary_op_u32(DPNOpType::U32Div, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Div, a, b)
     }
     fn op_u32_add(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
