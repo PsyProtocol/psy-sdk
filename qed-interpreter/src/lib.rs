@@ -1348,7 +1348,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             //Caution: in white list, no need to have a "_" in the match
             let white_list = vec![BOOL_TYPE];
             if !white_list.contains(&scrutinee_type) {
-                return Err(Error::SemaError(SemaError::UnreachableMatch));
+                return Err(Error::SemaError(SemaError::IncompleteMatch {
+                    span: ctx.program.convert_span(&match_node.span),
+                    message: "need a \"_\" for match".to_string(),
+                }));
             }
         }
 

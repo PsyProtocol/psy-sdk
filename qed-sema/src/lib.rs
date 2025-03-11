@@ -1979,7 +1979,23 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         //There are two type constraints here, one is that the scrutinee_type must be consistent with the type of the value of the pattern
         //The other is that the return types of all cases must be consistent
         let scrutinee_type = checked_scrutinee.ty();
+        let white_list = vec![FELT_TYPE, BOOL_TYPE, U32_TYPE];
+        if !white_list.contains(&scrutinee_type) {
+            return Err(Error::TypeMismatch {
+                span: ctx.program.convert_span(&match_node.span),
+                expected: format!("{:?} for match scrutinee", white_list),
+                found: ctx.get_type_detail(scrutinee_type),
+            });
+        }
 
+        if scrutinee_type == BOOL_TYPE {
+            if !match_node.arms.len() == 2 {
+                return Err(Error::IncompleteMatch {
+                    span: ctx.program.convert_span(&match_node.span),
+                    message: "Boolean match must have 2 arms".to_string(),
+                });
+            }
+        }
         let mut checked_arms = Vec::new();
         let mut match_expr_type: Option<TypeId> = None;
         let mut wildcard_case: Option<CheckedMatchArm> = None;
