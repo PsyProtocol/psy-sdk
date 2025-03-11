@@ -72,9 +72,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
             Type::U32(checked_u32_node) => format!("U32"),
             Type::Array(checked_array_node) => {
                 format!(
-                    "[{}; {}]",
-                    self.debug_type(checked_array_node.inner_ty),
-                    self.debug_type(checked_array_node.size_ty),
+                    "Array [{}; {}]",
+                    self.debug_type_name(checked_array_node.inner_ty),
+                    self.debug_type_name(checked_array_node.size_ty),
                 )
             }
             Type::Struct(checked_struct_node) => {
@@ -181,10 +181,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
                 format!("{}", self.ident(checked_trait_node.name))
             }
             Type::Const(checked_const_node) => {
-                format!(
-                    "const {}",
-                    self.ident(checked_const_node.name.unwrap_or(IdentId::TYPE_VOID))
-                )
+                let name = checked_const_node.name;
+                match name {
+                    Some(name) => {
+                        format!("=const= {}", self.ident(name))
+                    }
+                    None => self.debug_type(type_id),
+                }
             }
             Type::Tuple(type_ids) => {
                 let tuple_elems = type_ids
