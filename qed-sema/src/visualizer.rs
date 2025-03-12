@@ -1,16 +1,27 @@
+use indexmap::IndexMap;
 use qed_ast::{
     AssignmentNode, BinaryNode, BlockExprNode, CallNode, CastNode, DefId, DefinitionNode, EnumNode,
-    EnumVariant, ExprId, ExprNode, ForNode, FunctionNode, IdentId, IfExprNode, ImplNode,
+    EnumVariant, ExprId, ExprNode, ForNode, FunctionNode, Ident, IdentId, IfExprNode, ImplNode,
     ImplTraitNode, IndexAccessNode, IntrinsicExprNode, IntrinsicStmtNode, LambdaFunctionNode,
     MatchNode, MemberAccessNode, MemberCallNode, ModuleId, NodeId, NodeInfo, NodeType, ReturnNode,
-    StmtId, StmtNode, StructNode, TraitNode, UnaryNode, UncheckedType, ValueNode, Visibility,
-    VisitorContext, WhileNode,
+    Span, StmtId, StmtNode, StructNode, TraitNode, TypeQualifier, UnaryNode, UncheckedType,
+    ValueNode, Visibility, VisitorContext, WhileNode,
 };
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use std::fmt::{format, Display};
+use std::ops::Deref;
+// debug_ident
+// debug_scope
+// debug_module
+// debug_trait
+// debug_path
+// debug_expr
+// debug_stmt
+// debug_def
 
 use crate::{
-    CheckedDefinitionNode, CheckedExprNode, CheckedStmtNode, Error, ScopeId, Type, TypeChecker,
-    TypeCheckerVisitorContext, TypeId,
+    CheckedDefinitionNode, CheckedExprNode, CheckedStmtNode, Error, Scope, ScopeId, Type,
+    TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
 };
 
 pub trait AstVisualizer<F: Clone + From<u32>, C>: VisitorContext<F, C> {
@@ -56,12 +67,208 @@ impl IndentFormatter {
         self.output.push_str("\n");
     }
 
+    // pub fn writeln_kv<T: AsRef<str>, U: Display>(&mut self, k: T, v: U) {
+    //     self.writeln(format!("{}: {}", k, v));
+    // }
+
     pub fn write_indent(&mut self) {
         self.output.push_str(&Self::INDENT.repeat(self.indent));
     }
+    //
+    // pub fn writeln_indent(&mut self) {
+    //     self.write_indent();
+    //     self.output.push_str(&Self::INDENT.repeat(self.indent));
+    // }
 
     pub fn finish(self) -> String {
         self.output
+    }
+}
+
+pub struct TypeCheckerVisitorVisualizerInner<'a, F: Clone + From<u32> + ContextFelt, C> {
+    pub context: &'a TypeCheckerVisitorContext<F, C>,
+}
+
+impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInner<'a, F, C> {
+    pub fn debug_scope(&self, scope_id: ScopeId, formatter: &mut IndentFormatter) {
+        let scope = &self.context.symbols[scope_id];
+        formatter.writeln(format!("Kind: {:?}", scope.kind));
+        formatter.writeln("Constants:");
+        formatter.indent();
+        for (indent_id, const_id) in &scope.consts {
+            formatter.writeln(format!(
+                "{:?}: {:?}",
+                const_id,
+                self.context.ident(*indent_id)
+            ));
+        }
+        formatter.dedent();
+
+        formatter.writeln("Variables:");
+        formatter.indent();
+        for (indent_id, var_id) in &scope.variables {
+            formatter.writeln(format!(
+                "{:?}: {:?}",
+                var_id,
+                self.context.ident(*indent_id)
+            ));
+        }
+        formatter.dedent();
+
+        formatter.writeln("Types:");
+        formatter.indent();
+        for (type_key, type_id) in &scope.types {
+            self.debug_type(type_key, type_id, formatter);
+        }
+        formatter.dedent();
+
+        formatter.writeln("")
+    }
+
+    pub fn debug_type(&self, type_key: &TypeKey, type_id: &TypeId, fmt: &mut IndentFormatter) {
+        let ident_id = type_key.name.unwrap_or(IdentId::TYPE_UNKNOWN);
+        let ident_name = &self.context.ident(ident_id).0;
+        let type_kind = self.context.symbols[*type_id].kind();
+
+        fmt.writeln(format!("{}: ", ident_name));
+
+        fmt.indent();
+        fmt.writeln(format!("Type: {:?}", type_kind));
+        fmt.writeln(format!("IndentId: {:?}", ident_id));
+        fmt.writeln(format!("Visibility: {:?}", type_key.visibility));
+
+        // fmt.write_indent();
+        // fmt.write(format!(
+        //     "{}: {:?} {:?} ",
+        //     ident_name, type_key.visibility, type_kind
+        // ));
+        // fmt.write("\n");
+
+        // fmt.writeln(ident_name);
+        // let ident_id = type_key.name;
+        if !type_key.generic_parameters.is_empty() {
+            fmt.writeln(format!(
+                "Generic Parameters: {:?}",
+                type_key.generic_parameters
+            ));
+        }
+        if let Some(return_type) = type_key.return_type {
+            fmt.writeln(format!(
+                "Return Type: {:?}",
+                self.context.debug_type(return_type)
+            ));
+        }
+        if !type_key.consts.is_empty() {
+            fmt.writeln(format!("Consts: {:?}", type_key.consts));
+        }
+        if let Some(underlying_type_id) = type_key.underlying_type_id {
+            fmt.writeln(format!(
+                "Underlying Type: {:?}",
+                self.context.debug_type(underlying_type_id)
+            ));
+        }
+        if !type_key.parameters.is_empty() {
+            fmt.writeln(format!("Parameters: {:?}", type_key.parameters));
+        }
+        // fmt.writeln(format!(
+        //     "Type Content: {}",
+        //     self.context.debug_type(*type_id)
+        // ));
+        self.debug_definition(*type_id, fmt);
+        fmt.dedent();
+    }
+
+    pub fn debug_definition(&self, type_id: TypeId, fmt: &mut IndentFormatter) {
+        match &self.context.symbols[type_id] {
+            Type::Struct(node) => {
+                fmt.writeln(format!("Fields: {:?}", node.fields));
+                fmt.writeln(format!("Generic Parameters: {:?}", node.generic_parameters));
+                fmt.writeln(format!("Implementation: {:?}", node.implementations));
+                fmt.writeln(format!("Scope Id: {:?}", node.scope_id));
+                fmt.writeln(format!("Span: {:?}", node.span));
+            }
+            Type::Function(node) => {
+                if node.parameters.len() == 0 {
+                    fmt.writeln("Parameters: []");
+                } else {
+                    fmt.writeln("Parameters:");
+                    fmt.indent();
+                    for (ident_id, type_qualifier, type_id) in node.parameters.iter() {
+                        let ident_name = &self.context.ident(*ident_id).0;
+                        fmt.writeln(format!(
+                            "{}: {:?}, is_mutable == {}",
+                            ident_name, ident_id, type_qualifier.is_mutable
+                        ));
+                    }
+                    fmt.dedent();
+                };
+                fmt.writeln(format!("Body: {:?}", node.body));
+                fmt.writeln(format!("Return Type: {:?}", node.return_type));
+                fmt.writeln(format!("Generic Parameters: {:?}", node.generic_parameters));
+                fmt.writeln(format!("Attrs: {:?}", node.attrs));
+                fmt.writeln(format!(
+                    "Qualifier: is_extern: {}, is_const: {}",
+                    node.qualifier.is_extern, node.qualifier.is_const
+                ));
+                fmt.writeln(format!("Scope Id: {:?}", node.scope_id));
+                fmt.writeln(format!("Span: {:?}", node.span));
+            }
+            Type::Const(checked_const_node) => match checked_const_node.name {
+                Some(name) => {
+                    let line = format!(
+                        "Definition: {:?}",
+                        self.context.symbols.get_constant(checked_const_node.value)
+                    );
+                    fmt.writeln(line);
+                }
+                None => {
+                    fmt.writeln(format!("Definition: {:?}", checked_const_node));
+                }
+            },
+            Type::Array(node) => {
+                let type_name = self.get_type_name(node.inner_ty);
+                let size_name = self.get_type_name(node.size_ty);
+                // let type_name = &self.context.ident(node.inner_ty).0;
+                // let size_name = &self.context.ident(node.size_ty).0;
+                fmt.writeln(format!(
+                    "Array [{}; {}], {:?}",
+                    type_name, size_name, node.implementations
+                ));
+            }
+            x => fmt.writeln(format!("Remaining {:?}", x)),
+        }
+    }
+
+    pub fn get_type_name(&self, type_id: TypeId) -> String {
+        match &self.context.symbols[type_id] {
+            Type::Unknown => "Unknown".to_string(),
+            Type::VOID => "Void".to_string(),
+            Type::Felt(_) => "Felt".to_string(),
+            Type::Bool(_) => "Bool".to_string(),
+            Type::U32(_) => "U32".to_string(),
+            Type::Array(_) => "Array".to_string(),
+            Type::Struct(node) => self.context.ident(node.name).0.to_string(),
+            // Type::TypeVariable(node) => {
+            //     let len = node.constraints.len();
+            //     match len {
+            //         // 0 => self.context.debug_type_name(type_id),
+            //         // 0 => self.context.
+            //         0 => unreachable!(),
+            //         _ => {
+            //             let mut type_variable_details = vec![];
+            //             for type_id in node.constraints.iter() {
+            //                 type_variable_details.push(self.debug_type(type_id.clone()));
+            //             }
+            //             format!("{}", type_variable_details.join(" + "))
+            //         }
+            //     }
+            // }
+            // Type::Enum(node) => self.context.ident(node.name).into(),
+            // Type::Function(node) => self.context.ident(node.name).into(),
+            node => {
+                format!("?Type: {:?}", node)
+            }
+        }
     }
 }
 
@@ -92,7 +299,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
             )
             .collect::<Vec<_>>()
             .join(", ");
-
         format!(
             r#"ScopeId({}) {{
     variables: {}
@@ -158,7 +364,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
             }
             Type::Enum(checked_enum_node) => format!("Enum {}", self.ident(checked_enum_node.name)),
             Type::Function(checked_function_node) => {
-                format!("fn {}", self.ident(checked_function_node.name))
+                format!(
+                    "fn {}. {:?}",
+                    self.ident(checked_function_node.name),
+                    checked_function_node
+                )
             }
             Type::Trait(checked_trait_node) => {
                 format!("Trait {}", self.ident(checked_trait_node.name))
@@ -266,7 +476,26 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
 
                 format!("({})", tuple_elems.join(", "))
             }
-            _ => "Unknown Type".to_string(),
+            Type::Function(node) => {
+                format!("fn {:?} {:?}", self.ident(node.name), node)
+            }
+            Type::LambdaFunction(node) => {
+                format!("lambda fn {:?}", self.ident(node.name))
+            }
+            Type::FunctionSignature(node) => {
+                format!("fn sig {:?}", node)
+            }
+            Type::TypeVariable(node) => {
+                format!("type variable {:?}", node)
+            }
+            Type::GenericInstance(type_id, type_ids, scope_id) => {
+                format!("generic instance {:?}", type_id)
+                // format!(
+                //     "{}<{}>",
+                //     self.debug_type_name(*type_id),
+                //     type_ids.iter().map(String::from).join(", ")
+                // )
+            }
         }
     }
 }
