@@ -23,6 +23,48 @@ pub trait AstVisualizer<F: Clone + From<u32>, C>: VisitorContext<F, C> {
     fn debug_type_name(&self, type_id: TypeId) -> Self::DebugResult;
 }
 
+pub struct IndentFormatter {
+    output: String,
+    indent: usize,
+}
+
+impl IndentFormatter {
+    const INDENT: &'static str = "    ";
+
+    pub fn new() -> Self {
+        Self {
+            output: String::new(),
+            indent: 0,
+        }
+    }
+
+    pub fn indent(&mut self) {
+        self.indent += 1;
+    }
+
+    pub fn dedent(&mut self) {
+        self.indent -= 1;
+    }
+
+    pub fn write<T: AsRef<str>>(&mut self, s: T) {
+        self.output.push_str(s.as_ref());
+    }
+
+    pub fn writeln<T: AsRef<str>>(&mut self, s: T) {
+        self.write_indent();
+        self.output.push_str(s.as_ref());
+        self.output.push_str("\n");
+    }
+
+    pub fn write_indent(&mut self) {
+        self.output.push_str(&Self::INDENT.repeat(self.indent));
+    }
+
+    pub fn finish(self) -> String {
+        self.output
+    }
+}
+
 impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
     for TypeCheckerVisitorContext<F, C>
 {
