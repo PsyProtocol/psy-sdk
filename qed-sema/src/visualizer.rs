@@ -236,6 +236,33 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
 
         fmt.indent();
         match &self.context.symbols[type_id] {
+            Type::Unknown | Type::VOID => {}
+            Type::U32(node) => {
+                if !node.implementations.is_empty() {
+                    writeln!(fmt, "Implementations: {:?}", node.implementations);
+                }
+            }
+            Type::Felt(node) => {
+                if !node.implementations.is_empty() {
+                    writeln!(fmt, "Implementations: {:?}", node.implementations);
+                }
+            }
+            Type::Bool(node) => {
+                if !node.implementations.is_empty() {
+                    writeln!(fmt, "Implementations: {:?}", node.implementations);
+                }
+            }
+            Type::Array(node) => {
+                writeln!(
+                    fmt,
+                    "Definition: [{}; {}]",
+                    self.get_type_name(node.inner_ty),
+                    self.get_type_name(node.size_ty),
+                );
+                if !node.implementations.is_empty() {
+                    writeln!(fmt, "Implementations: {:?}", node.implementations);
+                }
+            }
             Type::Struct(node) => {
                 if !node.fields.is_empty() {
                     writeln!(fmt, "Fields:");
@@ -313,7 +340,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 Some(name) => {
                     writeln!(
                         fmt,
-                        "Definition: {:?}",
+                        "Value: {:?}",
                         self.context.symbols.get_constant(checked_const_node.value)
                     );
                 }
