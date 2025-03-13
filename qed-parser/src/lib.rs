@@ -113,7 +113,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
 
             let module_id = self.program.modules.next_idx();
 
-            for (dep_module, visibility) in module.modules.iter().rev() {
+            for (dep_module, visibility, _span) in module.modules.iter().rev() {
                 let dep_path = self.resolve_module_path(dep_module, &current_path).unwrap();
                 module_stack.push((
                     false,

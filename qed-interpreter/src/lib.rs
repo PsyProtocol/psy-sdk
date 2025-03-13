@@ -1,7 +1,7 @@
 #![feature(try_trait_v2)]
 
 mod control;
-mod error;
+pub mod error;
 mod preprocess;
 
 use crate::control::ControlState;
@@ -139,7 +139,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     let method_name = ctx.intern(method_name.into());
                     ctx.symbols
                         .resolve_method(type_id, method_name)
-                        .ok_or(Error::from(SemaError::UnresolvedMember))
+                        .ok_or(Error::from(SemaError::UnresolvedMember {
+                            span: FileSpan::default(),
+                            member_name: ctx.ident(method_name.into()).to_string(),
+                        }))
                 })
                 .collect::<Result<Vec<TypeId>>>()?
         } else {
@@ -352,7 +355,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             let predicate = self.interpret_expr(program, node.predicate, ctx)?.to_bool();
 
             if !self.is_constant(predicate) {
-                return Err(Error::UncertainLoopCondition);
+                return Err(Error::UncertainLoopCondition {
+                    loop_span: ctx.program.convert_span(&node.span),
+                });
             }
 
             if self.context.get_constant_value(predicate) == 1 {
@@ -377,7 +382,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let end_f = self.interpret_expr(program, node.end, ctx)?.to_value();
 
         if !self.is_constant(start.to_value()) || !self.is_constant(end_f) {
-            return Err(Error::UncertainLoopCondition);
+            return Err(Error::UncertainLoopCondition {
+                loop_span: ctx.program.convert_span(&node.span),
+            });
         }
 
         ctx.symbols.enter_block(node.scope_id);
@@ -430,7 +437,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 return self.interpret_ret(program, stmt_id, ctx);
             }
             CheckedStmtNode::Intrinsic(intrinsic_node) => match intrinsic_node {
-                CheckedIntrinsicStmtNode::Assert { left, message } => {
+                CheckedIntrinsicStmtNode::Assert {
+                    left,
+                    message,
+                    span: _span,
+                } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     self.context.assert_true(
                         lhs_value.to_bool(),
@@ -441,6 +452,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     left,
                     right,
                     message,
+                    span: _span,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     let rhs_value = self.interpret_expr(program, right.clone(), ctx)?;
@@ -871,9 +883,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 Ok(res)
             }
             CheckedExprNode::IfExpr(if_expr) => Ok(self.interpret_if_expr(program, if_expr, ctx)?),
+            CheckedExprNode::Match(match_expr) => {
+                Ok(self.interpret_match(program, match_expr, ctx)?)
+            }
         }
     }
-
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_expr(
         &mut self,
@@ -884,7 +898,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let node = &program[expr_id];
         self.__interpret_expr__(program, node, ctx)
     }
-
     #[instrument(level = "debug", skip_all)]
     fn interpret_member_access(
         &mut self,
@@ -953,13 +966,21 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             match cast_node.target_type {
                 BOOL_TYPE => {
                     if const_value > 1 {
-                        return Err(Error::SemaError(qed_sema::Error::InvalidCast));
+                        return Err(Error::SemaError(qed_sema::Error::InvalidCast {
+                            span: ctx.program.convert_span(&cast_node.span),
+                            expected: "cast to bool".to_string(),
+                            found: format!("value {} > 1", const_value),
+                        }));
                     }
                 }
                 FELT_TYPE => {}
                 U32_TYPE => {
                     if const_value > 0xffffffffu64 {
-                        return Err(Error::SemaError(qed_sema::Error::InvalidCast));
+                        return Err(Error::SemaError(qed_sema::Error::InvalidCast {
+                            span: ctx.program.convert_span(&cast_node.span),
+                            expected: "cast to u32".to_string(),
+                            found: format!("value {} > 0xffffffffu64", const_value),
+                        }));
                     }
                 }
                 _ => unimplemented!(),
@@ -1269,7 +1290,78 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         Ok(result)
     }
+    #[instrument(level = "debug", skip_all)]
+    pub fn interpret_match(
+        &mut self,
+        program: &CheckedProgram<F>,
+        match_node: &CheckedMatchNode,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<CheckedValueRef<F>> {
+        let scrutinee_value = self.interpret_expr(program, match_node.value, ctx)?;
+        let mut return_value = CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE));
+        let mut wildcard_case: Option<&CheckedMatchArm> = None;
+        let mut match_cases = match_node.cases.iter();
 
+        if let Some(first_arm) = match_cases.next() {
+            if let Some(pattern_expr) = &first_arm.pattern {
+                let matched = self.match_pattern(program, ctx, pattern_expr, &scrutinee_value)?;
+                self.context.start_if_block(matched);
+                //note: use the first arm return value to initialize the return value
+                return_value = self.interpret_expr(program, first_arm.body, ctx)?;
+            } else {
+                wildcard_case = Some(first_arm);
+            }
+        }
+
+        for arm in match_cases {
+            if let Some(pattern_expr) = &arm.pattern {
+                let matched = self.match_pattern(program, ctx, pattern_expr, &scrutinee_value)?;
+                self.context.start_else_if_block(matched);
+                let body_value = self.interpret_expr(program, arm.body, ctx)?;
+
+                return_value = CheckedValueRef::<F>::select(
+                    &mut self.context,
+                    &body_value,
+                    &return_value,
+                    &|ctx: &mut C, n: &F, o: &F| ctx.cset(o.clone(), n.clone()),
+                );
+            } else {
+                if wildcard_case.is_some() {
+                    return Err(Error::SemaError(SemaError::DuplicateWildcard));
+                }
+                wildcard_case = Some(arm);
+            }
+        }
+        //Caution: Must have a "_" in the match
+        if let Some(wildcard_arm) = wildcard_case {
+            self.context.start_else_block();
+            let body_value = self.interpret_expr(program, wildcard_arm.body, ctx)?;
+            return_value = CheckedValueRef::<F>::select(
+                &mut self.context,
+                &body_value,
+                &return_value,
+                &|ctx: &mut C, n: &F, o: &F| ctx.cset(o.clone(), n.clone()),
+            );
+        } else {
+            return Err(Error::SemaError(SemaError::UnreachableMatch));
+        }
+
+        self.context.end_if_block();
+
+        Ok(return_value)
+    }
+    fn match_pattern(
+        &mut self,
+        program: &CheckedProgram<F>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+        pattern_expr: &ExprId,
+        scrutinee_value: &CheckedValueRef<F>,
+    ) -> Result<F> {
+        let pattern_value = self.interpret_expr(program, *pattern_expr, ctx)?;
+        Ok(self
+            .context
+            .op_eq(scrutinee_value.to_felt(), pattern_value.to_felt()))
+    }
     pub fn is_constant(&self, value: F) -> bool {
         let constant_types = [
             DPNOpType::Constant,

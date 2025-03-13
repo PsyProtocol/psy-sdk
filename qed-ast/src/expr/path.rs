@@ -1,10 +1,11 @@
-use crate::{IdentId, NodeInfo, NodeType, UncheckedType};
+use crate::{IdentId, NodeInfo, NodeType, Span, UncheckedType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PathNode {
     pub root: Option<UncheckedType>,
     pub segments: Vec<IdentId>,
     pub target: IdentId,
+    pub span: Span,
 }
 
 impl PathNode {
@@ -13,6 +14,7 @@ impl PathNode {
             root: None,
             segments: vec![],
             target,
+            span: Default::default(),
         }
     }
 
@@ -21,6 +23,7 @@ impl PathNode {
             root,
             segments,
             target,
+            span: Default::default(),
         }
     }
 

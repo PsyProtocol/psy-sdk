@@ -1,5 +1,5 @@
 use once_cell::sync::OnceCell;
-use qed_ast::{ModuleNode, Visibility};
+use qed_ast::*;
 use qed_common::{define_arena_id, FileId, TreeNode};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 use std::{
@@ -301,7 +301,10 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
         if self[scope_id].types.contains_key(&key) {
-            return Err(Error::TypeAlreadyDefined);
+            return Err(Error::TypeAlreadyDefined {
+                span: FileSpan::default(),
+                type_name: format!("{:?}", key.name),
+            });
         }
 
         self[scope_id].types.insert(key, type_id);
@@ -377,8 +380,8 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         }
     }
 
-    pub fn add_use(&mut self, use_path: &UseNode) -> Result<()> {
-        let type_ids = self.resolve_use(&use_path).ok_or(Error::UnresolvedUse)?;
+    pub fn add_use(&mut self, use_path: &UseNode) -> Option<()> {
+        let type_ids = self.resolve_use(&use_path)?;
         let type_ids = type_ids
             .into_iter()
             .map(|(k, v)| (k.clone(), v.clone()))
@@ -387,7 +390,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
             key.visibility = use_path.visibility;
             let _ = self.add_type_id(None, key.clone(), type_id);
         }
-        Ok(())
+        Some(())
     }
 
     pub fn resolve_method(
@@ -633,7 +636,10 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
                 .is_some()
                 && (!self[v.clone()].qualifier.is_mutable)
             {
-                return Err(Error::ImmutableVariable);
+                return Err(Error::ImmutableVariable {
+                    span: FileSpan::default(),
+                    variable: format!("{:?}", key),
+                });
             }
 
             self.frames
@@ -643,22 +649,25 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
             return Ok(());
         }
 
-        Err(Error::UndefinedVariable)
+        Err(Error::UndefinedVariable {
+            span: FileSpan::default(),
+            variable: format!("{:?}", key),
+        })
     }
 
     pub fn declare_variable(
         &mut self,
         key: IdentId,
         variable: CheckedVariable<F>,
-    ) -> Result<VarId> {
+    ) -> Option<VarId> {
         let scope_id = self.current_scope_id().unwrap();
         assert_eq!(variable.scope_id, scope_id);
         if self[scope_id].variables.contains_key(&key) {
-            return Err(Error::VariableAlreadyDefined);
+            return None;
         }
         let var_id = VarId(self.variables.len());
         self.variables.push(variable);
         self[scope_id].variables.insert(key, var_id);
-        Ok(var_id)
+        Some(var_id)
     }
 }

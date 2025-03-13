@@ -3,8 +3,8 @@ use std::ops::{Index, IndexMut};
 use qed_common::{Arena, FileResolver, Graph, Tree, TreeNode};
 
 use crate::{
-    DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, Interner, ModuleId, ModuleNode,
-    StmtId, StmtNode, UseNode, Visibility,
+    DefId, DefinitionNode, ExprId, ExprNode, FileSpan, Ident, IdentId, Interner, ModuleId,
+    ModuleNode, Span, StmtId, StmtNode, UseNode, Visibility,
 };
 
 impl DefId {
@@ -53,6 +53,7 @@ impl<F: Clone + From<u32>> Program<F> {
             kind: IdentId::STD,
             segments: vec![IdentId::PRELUDE],
             target: None,
+            span: Default::default(),
         }));
         Self {
             modules: Tree::new(),
@@ -62,6 +63,20 @@ impl<F: Clone + From<u32>> Program<F> {
             stmts: Arena::new(),
             defs,
             interner: Interner::new(),
+        }
+    }
+
+    pub fn convert_span(&self, span: &Span) -> FileSpan {
+        let path = self
+            .file_resolver
+            .resolve_path(&span.file_id)
+            .unwrap()
+            .display()
+            .to_string();
+        FileSpan {
+            path: path,
+            start: span.start,
+            end: span.end,
         }
     }
 }

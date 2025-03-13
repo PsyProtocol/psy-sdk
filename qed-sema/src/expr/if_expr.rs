@@ -1,5 +1,5 @@
 use crate::TypeId;
-use qed_ast::{ExprId, NodeInfo, NodeType};
+use qed_ast::{ExprId, NodeInfo, NodeType, Span};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedCase {
@@ -24,6 +24,7 @@ pub struct CheckedIfExprNode {
     pub elseif_branches: Vec<CheckedCase>,
     pub else_branch: Option<ExprId>,
     pub type_id: TypeId,
+    pub span: Span,
 }
 
 impl NodeInfo for CheckedIfExprNode {

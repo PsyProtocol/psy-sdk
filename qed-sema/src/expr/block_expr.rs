@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, NodeInfo, NodeType, StmtId};
+use qed_ast::{ExprId, NodeInfo, NodeType, Span, StmtId};
 
 use crate::{ScopeId, TypeId};
 
@@ -8,6 +8,7 @@ pub struct CheckedBlockExprNode {
     pub expr: Option<ExprId>,
     pub type_id: TypeId,
     pub scope_id: ScopeId,
+    pub span: Span,
 }
 
 impl NodeInfo for CheckedBlockExprNode {

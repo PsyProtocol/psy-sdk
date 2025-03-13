@@ -1,4 +1,4 @@
-use qed_ast::{IdentId, NodeInfo, NodeType};
+use qed_ast::{IdentId, NodeInfo, NodeType, Span};
 
 use crate::{ScopeId, TypeId};
 
@@ -8,6 +8,7 @@ pub struct CheckedPathNode {
     pub target: IdentId,
     pub type_id: TypeId,
     pub scope_id: ScopeId,
+    pub span: Span,
 }
 
 impl NodeInfo for CheckedPathNode {

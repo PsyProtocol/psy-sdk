@@ -1,10 +1,11 @@
-use crate::{ExprId, NodeInfo, NodeType, UncheckedType};
+use crate::{ExprId, NodeInfo, NodeType, Span, UncheckedType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CallNode {
     pub callee: ExprId,
     pub generic_parameters: Vec<UncheckedType>,
     pub args: Vec<ExprId>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -13,6 +14,7 @@ pub struct MemberCallNode {
     pub receiver: ExprId,
     pub generic_parameters: Vec<UncheckedType>,
     pub args: Vec<ExprId>,
+    pub span: Span,
 }
 
 impl NodeInfo for CallNode {

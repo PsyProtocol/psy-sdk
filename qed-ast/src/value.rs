@@ -1,15 +1,15 @@
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 
-use crate::{ExprId, IdentId, NodeInfo, NodeType, UncheckedType};
+use crate::{ExprId, IdentId, NodeInfo, NodeType, Span, UncheckedType};
 
 #[derive(Clone, Debug, PartialEq, EnumAsInner)]
 pub enum ValueNode<F: Clone + From<u32>> {
-    Felt(F),
-    Bool(F),
-    U32(F),
-    Array(usize, Vec<ExprId>),
-    Struct(IdentId, Vec<UncheckedType>, IndexMap<IdentId, ExprId>),
+    Felt(F, Span),
+    Bool(F, Span),
+    U32(F, Span),
+    Array(usize, Vec<ExprId>, Span),
+    Struct(IdentId, Vec<UncheckedType>, IndexMap<IdentId, ExprId>, Span),
 }
 
 impl<F: Clone + From<u32>> NodeInfo for ValueNode<F> {

@@ -7,6 +7,7 @@ pub struct FileId(pub usize);
 pub struct FileResolver {
     file_contents: UnsafeCell<Vec<String>>,
     file_ids: UnsafeCell<HashMap<PathBuf, FileId>>,
+    file_paths: UnsafeCell<Vec<PathBuf>>,
 }
 
 unsafe impl Sync for FileResolver {}
@@ -16,6 +17,7 @@ impl FileResolver {
         Self {
             file_contents: UnsafeCell::new(Vec::with_capacity(20)),
             file_ids: UnsafeCell::new(HashMap::new()),
+            file_paths: UnsafeCell::new(Vec::with_capacity(20)),
         }
     }
 
@@ -24,6 +26,14 @@ impl FileResolver {
         unsafe {
             let file_ids = &mut *self.file_ids.get();
             file_ids.get(&file_path)
+        }
+    }
+
+    pub fn resolve_path(&self, file_id: &FileId) -> Option<&PathBuf> {
+        unsafe {
+            let file_paths = &mut *self.file_paths.get();
+            let file_id = file_id.0;
+            file_paths.get(file_id)
         }
     }
 
@@ -36,8 +46,10 @@ impl FileResolver {
             }
 
             let file_contents = &mut *self.file_contents.get();
+            let file_paths = &mut *self.file_paths.get();
             let file_id = FileId(file_contents.len());
             file_contents.push(std::fs::read_to_string(&file_path)?);
+            file_paths.push(file_path.clone());
             file_ids.insert(file_path, file_id);
             Ok(file_id)
         }

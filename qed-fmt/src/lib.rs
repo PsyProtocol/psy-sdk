@@ -194,6 +194,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &IndexAccessNode {
             target: value,
             index,
+            span: ref _span,
         } = ctx.expression(expr_id).as_index_access().unwrap();
         Ok(format!(
             "{}[{}]",
@@ -210,6 +211,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &MemberAccessNode {
             target: value,
             field,
+            span: ref _span,
         } = ctx.expression(expr_id).as_member_access().unwrap();
         Ok(format!(
             "{}.{}",
@@ -226,10 +228,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         // TODO: remove clone
         let node = ctx.expression(expr_id).as_value().unwrap().clone();
         Ok(match node {
-            ValueNode::Felt(f) => format!("{:?}", f),
-            ValueNode::Bool(b) => format!("{:?}", b),
-            ValueNode::U32(u) => format!("{:?}", u),
-            ValueNode::Array(_, values) => format!(
+            ValueNode::Felt(f, _) => format!("{:?}", f),
+            ValueNode::Bool(b, _) => format!("{:?}", b),
+            ValueNode::U32(u, _) => format!("{:?}", u),
+            ValueNode::Array(_, values, _) => format!(
                 "[{}]",
                 values
                     // TODO: remove clone
@@ -239,7 +241,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     .collect::<Result<Vec<_>, Self::Error>>()?
                     .join(", ")
             ),
-            ValueNode::Struct(name, generic_parameters, field_values) => {
+            ValueNode::Struct(name, generic_parameters, field_values, _span) => {
                 let name = ctx.ident(name.clone());
                 let generic_parameters = self.visit_generic_parameters(
                     generic_parameters
@@ -270,7 +272,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let &BinaryNode { lhs, operator, rhs } = ctx.expression(expr_id).as_binary().unwrap();
+        let &BinaryNode {
+            lhs,
+            operator,
+            rhs,
+            span: ref _span,
+        } = ctx.expression(expr_id).as_binary().unwrap();
         Ok(format!(
             "{} {} {}",
             self.visit_expr(lhs, ctx)?,
@@ -284,7 +291,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         expr_id: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        let &UnaryNode { operator, rhs } = ctx.expression(expr_id).as_unary().unwrap();
+        let &UnaryNode {
+            operator,
+            rhs,
+            span: ref _span,
+        } = ctx.expression(expr_id).as_unary().unwrap();
         Ok(format!("{}{}", operator, self.visit_expr(rhs, ctx)?))
     }
 
@@ -297,6 +308,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             callee: variable,
             ref args,
             ref generic_parameters,
+            span: ref _span,
         } = ctx.expression(expr_id).as_call().unwrap();
         let generic_parameters = generic_parameters
             .iter()
@@ -355,6 +367,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &CastNode {
             value,
             ref target_type,
+            span: ref _span,
         } = ctx.expression(expr_id).as_cast().unwrap();
         // TODO: remove clone
         let target_type = target_type.clone();
@@ -370,7 +383,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        let &WhileNode { predicate, body } = ctx.statement(stmt_id).as_while().unwrap();
+        let &WhileNode {
+            predicate,
+            body,
+            span: ref _span,
+        } = ctx.statement(stmt_id).as_while().unwrap();
         let s = format!("while {} ", self.visit_expr(predicate, ctx)?);
         let block = self.visit_block_expr(body, ctx)?;
         self.write_line(&format!("{}{}", s, block));
@@ -386,6 +403,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             target,
             operator,
             value,
+            span: ref _span,
         } = ctx.statement(stmt_id).as_assignment().unwrap();
         let s = format!(
             "{} {} {};",
@@ -431,7 +449,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        let ReturnNode(expr_id) = ctx.statement(stmt_id).as_return().unwrap();
+        let ReturnNode {
+            expr_id,
+            span: ref _span,
+        } = ctx.statement(stmt_id).as_return().unwrap();
         let s = format!(
             "return{};",
             if let Some(ret) = expr_id {
@@ -452,6 +473,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             ty,
             body,
+            span: _span,
         } = ctx.definition(def_id).as_impl().unwrap();
         let generic_parameters = generic_parameters
             .iter()
@@ -489,6 +511,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             qualifier,
             visibility,
             attrs,
+            span: _span,
         } = ctx.definition(def_id).as_function().unwrap();
         for attr in attrs {
             if !attr.properties.is_empty() {
@@ -553,6 +576,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             attrs,
             visibility,
+            span: _span,
         } = ctx.definition(def_id).as_struct().unwrap();
         for attr in attrs {
             if !attr.properties.is_empty() {
@@ -605,6 +629,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             variants,
             visibility,
+            span: _span,
         } = ctx.definition(def_id).as_enum().unwrap();
         self.write_line(&format!(
             "{}enum {}{} {{",
@@ -663,6 +688,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             body,
             visibility,
+            span: _span,
         } = ctx.definition(def_id).as_trait().unwrap();
         self.write_line(&format!(
             "{}trait {}{} {{",
@@ -787,7 +813,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     ) -> Result<Self::StmtResult, Self::Error> {
         let node = ctx.statement(node).as_intrinsic().cloned().unwrap();
         let s = match node {
-            IntrinsicStmtNode::Assert { left, message } => {
+            IntrinsicStmtNode::Assert {
+                left,
+                message,
+                span: _span,
+            } => {
                 let expr = self.visit_expr(left, ctx)?;
                 format!("assert({}, \"{}\")", expr, message.unwrap_or_default())
             }
@@ -795,6 +825,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 left,
                 right,
                 message,
+                span: _span,
             } => {
                 let left = self.visit_expr(left, ctx)?;
                 let right = self.visit_expr(right, ctx)?;
@@ -896,6 +927,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             start,
             end,
             body,
+            span: ref _span,
         } = ctx.statement(node).as_for().unwrap();
         let s = format!(
             "for {} in {}..{} ",
@@ -910,31 +942,31 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
     fn visit_match(
         &mut self,
-        node: StmtId,
+        node: ExprId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        let MatchNode { scrutinee, arms } = ctx.statement(node).as_match().cloned().unwrap();
+        let MatchNode {
+            scrutinee,
+            arms,
+            span: _span,
+        } = ctx.expression(node).as_match().cloned().unwrap();
 
-        let s = format!("match {} {{", self.visit_expr(scrutinee.clone(), ctx)?);
-        self.write_line(&s);
-        self.indent();
+        let mut m = format!("match {} {{ ", self.visit_expr(scrutinee.clone(), ctx)?);
 
         for arm in arms {
             let s = format!(
-                "{} => ",
-                if arm.pattern.is_placeholder() {
+                " {} => ",
+                if arm.pattern.is_place_holder() {
                     "_".to_string()
                 } else {
                     self.visit_expr(arm.pattern.as_value().unwrap().clone(), ctx)?
                 }
             );
-            let block = self.visit_block_expr(arm.body, ctx)?;
-            self.write_line(&format!("{}{}", s, block));
+            let block = self.visit_expr(arm.body, ctx)?;
+            m.push_str(&format!("{}{}", s, block));
         }
 
-        self.dedent();
-        self.write_line("}");
-        Ok(Default::default())
+        Ok(m)
     }
 
     fn visit_lambda_function(
@@ -984,6 +1016,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             trait_ty,
             ty,
             body,
+            span: _span,
         } = ctx.definition(def_id).as_impl_trait().unwrap();
         let generic_parameters = generic_parameters
             .iter()
@@ -1016,6 +1049,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let BlockExprNode {
             stmts,
             expr: return_expr,
+            span: _span,
         } = ctx.expression(node).as_block_expr().unwrap().clone();
 
         let mut block_expr_result = String::new();
