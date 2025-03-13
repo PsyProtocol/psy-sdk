@@ -1,4 +1,5 @@
 use indexmap::IndexMap;
+use qed_ast::Visibility::Public;
 use qed_ast::{
     AssignmentNode, BinaryNode, BlockExprNode, CallNode, CastNode, DefId, DefinitionNode, EnumNode,
     EnumVariant, ExprId, ExprNode, ForNode, FunctionNode, Ident, IdentId, IfExprNode, ImplNode,
@@ -27,6 +28,11 @@ use crate::{
 macro_rules! writeln {
     ($fmt:expr, $($arg:tt)*) => {
         $fmt.writeln(format!($($arg)*))
+    };
+}
+macro_rules! write {
+    ($fmt:expr, $($arg:tt)*) => {
+        $fmt.write(format!($($arg)*))
     };
 }
 pub trait AstVisualizer<F: Clone + From<u32>, C>: VisitorContext<F, C> {
@@ -129,97 +135,123 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         let ident_name = &self.context.ident(ident_id).0;
         let type_kind = ty.kind();
 
-        writeln!(fmt, "{}: ", ident_name);
+        // writeln!(
+        //     fmt,
+        //     "{} {:?} {} ({:?}, {:?})",
+        //     ty.visibility(),
+        //     type_kind,
+        //     ident_name,
+        //     ident_id,
+        //     type_id
+        // );
+        // fmt.indent();
 
-        fmt.indent();
-        writeln!(fmt, "IndentId: {:?}", ident_id);
-        writeln!(fmt, "TypeId: {:?}", type_id);
-        writeln!(fmt, "Type: {:?}", type_kind);
-        writeln!(fmt, "Visibility: {:?}", ty.visibility());
+        // if !type_key.generic_parameters.is_empty() {
+        //     writeln!(fmt, "Generic Parameters: {:?}", type_key.generic_parameters);
+        // }
+        // if let Some(return_type) = type_key.return_type {
+        //     writeln!(
+        //         fmt,
+        //         "Return Type: {:?}",
+        //         self.context.debug_type(return_type)
+        //     );
+        // }
+        // if !type_key.consts.is_empty() {
+        //     writeln!(fmt, "Consts: {:?}", type_key.consts);
+        // }
+        // if let Some(underlying_type_id) = type_key.underlying_type_id {
+        //     writeln!(
+        //         fmt,
+        //         "Underlying Type: {:?}",
+        //         self.context.debug_type(underlying_type_id)
+        //     );
+        // }
+        // if !type_key.parameters.is_empty() {
+        //     writeln!(fmt, "Parameters: {:?}", type_key.parameters);
+        // }
 
-        match &ty {
-            Type::Unknown => {}
-            Type::VOID => {}
-            Type::Felt(_) => {}
-            Type::Bool(_) => {}
-            Type::U32(_) => {}
-            Type::Array(_) => {}
-            Type::Struct(_) => {}
-            Type::Enum(_) => {}
-            Type::Function(_) => {}
-            Type::Trait(_) => {}
-            Type::Const(_) => {}
-            Type::LambdaFunction(_) => {}
-            Type::FunctionSignature(_) => {}
-            Type::TypeVariable(_) => {}
-            Type::Tuple(_) => {}
-            Type::GenericInstance(_, _, _) => {}
-        }
-        if !type_key.generic_parameters.is_empty() {
-            writeln!(fmt, "Generic Parameters: {:?}", type_key.generic_parameters);
-        }
-        if let Some(return_type) = type_key.return_type {
-            writeln!(
-                fmt,
-                "Return Type: {:?}",
-                self.context.debug_type(return_type)
-            );
-        }
-        if !type_key.consts.is_empty() {
-            writeln!(fmt, "Consts: {:?}", type_key.consts);
-        }
-        if let Some(underlying_type_id) = type_key.underlying_type_id {
-            writeln!(
-                fmt,
-                "Underlying Type: {:?}",
-                self.context.debug_type(underlying_type_id)
-            );
-        }
-        if !type_key.parameters.is_empty() {
-            writeln!(fmt, "Parameters: {:?}", type_key.parameters);
-        }
         // writeln!(fmt,
         //     "Type Content: {}",
         //     self.context.debug_type(*type_id)
         // );
         self.debug_definition(*type_id, fmt);
-        fmt.dedent();
+        // fmt.dedent();
+    }
+
+    pub fn debug_type_declaration(&self, type_id: TypeId, fmt: &mut IndentFormatter) {
+        let ty = &self.context.symbols[type_id];
+        let ident_id = ty.name();
+        let ident_name = &self.context.ident(ident_id).0;
+        let type_kind = ty.kind();
+        let visibility = ty.visibility();
+        fmt.write_indent();
+        if visibility == Visibility::Public {
+            write!(fmt, "pub ");
+        };
+        let type_name_id = ty.name();
+        let type_name = &self.context.ident(type_name_id).0;
+        match &ty {
+            Type::Unknown | Type::VOID | Type::Felt(_) | Type::Bool(_) | Type::U32(_) => {
+                write!(fmt, "{:?} ", ty.kind())
+            }
+            Type::Function(node) => {
+                if node.qualifier.is_extern {
+                    write!(fmt, "extern ");
+                }
+                if node.qualifier.is_const {
+                    write!(fmt, "const ");
+                }
+                write!(fmt, "fn {}", type_name)
+            }
+            _ => {
+                write!(fmt, "{:?} {} ", ty.kind(), type_name)
+            }
+        };
+        write!(fmt, "{} ({:?}, {:?})", ident_name, ident_id, type_id);
+        write!(fmt, "\n");
     }
 
     pub fn debug_definition(&self, type_id: TypeId, fmt: &mut IndentFormatter) {
+        self.debug_type_declaration(type_id, fmt);
+
+        fmt.indent();
         match &self.context.symbols[type_id] {
             Type::Struct(node) => {
-                // writeln!(fmt, "Fields: {:?}", node.fields);
-                if node.fields.len() == 0 {
-                    writeln!(fmt, "Fields: []");
-                } else {
+                if !node.fields.is_empty() {
                     writeln!(fmt, "Fields:");
                     fmt.indent();
                     for (ident_id, (type_id, visibility)) in node.fields.iter() {
-                        let ty = &self.context.symbols[*type_id];
                         let ident_name = &self.context.ident(*ident_id).0;
-                        writeln!(fmt, "{}:", ident_name);
-                        fmt.indent();
-                        // abc (Const) Private, Const(10)
-                        // IdentId, TypeId (x)
-                        //
-                        writeln!(fmt, "Type: {:?}", ty.kind());
-                        writeln!(fmt, "IndentId: {:?}", ident_id);
-                        writeln!(fmt, "TypeId: {:?}", type_id);
-                        writeln!(fmt, "Visibility: {:?}", visibility);
-                        fmt.dedent();
+                        let ty = &self.context.symbols[*type_id];
+                        fmt.write_indent();
+                        if visibility == &Visibility::Public {
+                            write!(fmt, "pub ");
+                        };
+                        let type_name_id = ty.name();
+                        let type_name = &self.context.ident(type_name_id).0;
+                        match &ty {
+                            Type::Unknown
+                            | Type::VOID
+                            | Type::Felt(_)
+                            | Type::Bool(_)
+                            | Type::U32(_) => {
+                                write!(fmt, "{:?} ", ty.kind())
+                            }
+                            _ => {
+                                write!(fmt, "{:?} {} ", ty.kind(), type_name)
+                            }
+                        };
+                        write!(fmt, "{} ({:?}, {:?})", ident_name, ident_id, type_id);
+                        write!(fmt, "\n");
                     }
                     fmt.dedent();
                 };
-                writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
-                writeln!(fmt, "Implementation: {:?}", node.implementations);
-                writeln!(fmt, "ScopeId: {:?}", node.scope_id);
-                writeln!(fmt, "Span:");
-                fmt.indent();
-                writeln!(fmt, "{:?}", node.span.file_id);
-                writeln!(fmt, "Start: {}", node.span.start);
-                writeln!(fmt, "End: {}", node.span.end);
-                fmt.dedent();
+                if !node.generic_parameters.is_empty() {
+                    writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
+                }
+                if !node.implementations.is_empty() {
+                    writeln!(fmt, "Implementation: {:?}", node.implementations);
+                }
             }
             Type::Function(node) => {
                 if node.parameters.len() == 0 {
@@ -244,15 +276,6 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 writeln!(fmt, "Return Type: {:?}", node.return_type);
                 writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
                 writeln!(fmt, "Attrs: {:?}", node.attrs);
-                writeln!(fmt, "Is Extern: {}", node.qualifier.is_extern);
-                writeln!(fmt, "Is Const: {}", node.qualifier.is_const);
-                writeln!(fmt, "ScopeId: {:?}", node.scope_id);
-                writeln!(fmt, "Span:");
-                fmt.indent();
-                writeln!(fmt, "{:?}", node.span.file_id);
-                writeln!(fmt, "Start: {}", node.span.start);
-                writeln!(fmt, "End: {}", node.span.end);
-                fmt.dedent();
             }
             Type::Const(checked_const_node) => match checked_const_node.name {
                 Some(name) => {
@@ -279,6 +302,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             }
             x => writeln!(fmt, "Remaining {:?}", x),
         }
+        fmt.dedent();
     }
 
     pub fn get_type_name(&self, type_id: TypeId) -> String {
