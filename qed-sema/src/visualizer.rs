@@ -93,96 +93,45 @@ pub struct TypeCheckerVisitorVisualizerInner<'a, F: Clone + From<u32> + ContextF
 }
 
 impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInner<'a, F, C> {
-    pub fn debug_scope(&self, scope_id: ScopeId, formatter: &mut IndentFormatter) {
+    pub fn debug_scope(&self, scope_id: ScopeId, fmt: &mut IndentFormatter) {
         let scope = &self.context.symbols[scope_id];
-        writeln!(formatter, "Kind: {:?}", scope.kind);
-        writeln!(formatter, "Constants:");
-        formatter.indent();
-        for (indent_id, const_id) in &scope.consts {
-            writeln!(
-                formatter,
-                "{:?}: {:?}",
-                const_id,
-                self.context.ident(*indent_id)
-            );
-        }
-        formatter.dedent();
+        writeln!(fmt, "{:?} ({:?})", scope_id, scope.kind);
+        fmt.indent();
 
-        writeln!(formatter, "Variables:");
-        formatter.indent();
-        for (indent_id, var_id) in &scope.variables {
-            writeln!(
-                formatter,
-                "{:?}: {:?}",
-                var_id,
-                self.context.ident(*indent_id)
-            );
+        if !scope.consts.is_empty() {
+            writeln!(fmt, "Constants:");
+            fmt.indent();
+            for (indent_id, const_id) in &scope.consts {
+                writeln!(fmt, "{:?}: {:?}", const_id, self.context.ident(*indent_id));
+            }
+            fmt.dedent();
         }
-        formatter.dedent();
 
-        writeln!(formatter, "Types:");
-        formatter.indent();
-        for (type_key, type_id) in &scope.types {
-            self.debug_type(type_key, type_id, formatter);
+        if !scope.variables.is_empty() {
+            writeln!(fmt, "Variables:");
+            fmt.indent();
+            for (indent_id, var_id) in &scope.variables {
+                writeln!(fmt, "{:?}: {:?}", var_id, self.context.ident(*indent_id));
+            }
+            fmt.dedent();
         }
-        formatter.dedent();
+
+        if !scope.types.is_empty() {
+            writeln!(fmt, "Types:");
+            fmt.indent();
+            for (_type_key, type_id) in &scope.types {
+                self.debug_type(*type_id, fmt);
+            }
+            fmt.dedent();
+        }
 
         for child in &scope.children {
-            writeln!(formatter, "{:?}", child);
-            formatter.indent();
-            self.debug_scope(*child, formatter);
-            formatter.dedent();
+            // writeln!(formatter, "{:?}", child);
+            fmt.indent();
+            self.debug_scope(*child, fmt);
+            fmt.dedent();
         }
-        writeln!(formatter, "")
-    }
-
-    pub fn debug_type(&self, type_key: &TypeKey, type_id: &TypeId, fmt: &mut IndentFormatter) {
-        // let ty = &self.context.symbols[*type_id];
-        // let ident_id = ty.name();
-        // let ident_name = &self.context.ident(ident_id).0;
-        // let type_kind = ty.kind();
-
-        // writeln!(
-        //     fmt,
-        //     "{} {:?} {} ({:?}, {:?})",
-        //     ty.visibility(),
-        //     type_kind,
-        //     ident_name,
-        //     ident_id,
-        //     type_id
-        // );
-        // fmt.indent();
-
-        // if !type_key.generic_parameters.is_empty() {
-        //     writeln!(fmt, "Generic Parameters: {:?}", type_key.generic_parameters);
-        // }
-        // if let Some(return_type) = type_key.return_type {
-        //     writeln!(
-        //         fmt,
-        //         "Return Type: {:?}",
-        //         self.context.debug_type(return_type)
-        //     );
-        // }
-        // if !type_key.consts.is_empty() {
-        //     writeln!(fmt, "Consts: {:?}", type_key.consts);
-        // }
-        // if let Some(underlying_type_id) = type_key.underlying_type_id {
-        //     writeln!(
-        //         fmt,
-        //         "Underlying Type: {:?}",
-        //         self.context.debug_type(underlying_type_id)
-        //     );
-        // }
-        // if !type_key.parameters.is_empty() {
-        //     writeln!(fmt, "Parameters: {:?}", type_key.parameters);
-        // }
-
-        // writeln!(fmt,
-        //     "Type Content: {}",
-        //     self.context.debug_type(*type_id)
-        // );
-        self.debug_definition(*type_id, fmt);
-        // fmt.dedent();
+        fmt.dedent();
     }
 
     pub fn debug_type_declaration(&self, type_id: TypeId, fmt: &mut IndentFormatter) {
@@ -237,7 +186,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         write!(fmt, "\n");
     }
 
-    pub fn debug_definition(&self, type_id: TypeId, fmt: &mut IndentFormatter) {
+    pub fn debug_type(&self, type_id: TypeId, fmt: &mut IndentFormatter) {
         self.debug_type_declaration(type_id, fmt);
 
         fmt.indent();
