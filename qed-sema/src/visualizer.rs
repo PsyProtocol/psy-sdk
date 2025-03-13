@@ -21,8 +21,9 @@ use std::ops::Deref;
 // debug_def
 
 use crate::{
-    CheckedDefinitionNode, CheckedExprNode, CheckedStmtNode, Error, Scope, ScopeId, Type,
-    TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
+    CheckedConstNode, CheckedDefinitionNode, CheckedEnumNode, CheckedExprNode, CheckedFunctionNode,
+    CheckedStmtNode, CheckedStructNode, CheckedTraitNode, Error, Scope, ScopeId, Type, TypeChecker,
+    TypeCheckerVisitorContext, TypeId, TypeKey,
 };
 
 macro_rules! writeln {
@@ -130,10 +131,10 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
     }
 
     pub fn debug_type(&self, type_key: &TypeKey, type_id: &TypeId, fmt: &mut IndentFormatter) {
-        let ty = &self.context.symbols[*type_id];
-        let ident_id = ty.name();
-        let ident_name = &self.context.ident(ident_id).0;
-        let type_kind = ty.kind();
+        // let ty = &self.context.symbols[*type_id];
+        // let ident_id = ty.name();
+        // let ident_name = &self.context.ident(ident_id).0;
+        // let type_kind = ty.kind();
 
         // writeln!(
         //     fmt,
@@ -180,34 +181,53 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
 
     pub fn debug_type_declaration(&self, type_id: TypeId, fmt: &mut IndentFormatter) {
         let ty = &self.context.symbols[type_id];
-        let ident_id = ty.name();
-        let ident_name = &self.context.ident(ident_id).0;
-        let type_kind = ty.kind();
         let visibility = ty.visibility();
         fmt.write_indent();
         if visibility == Visibility::Public {
             write!(fmt, "pub ");
         };
-        let type_name_id = ty.name();
-        let type_name = &self.context.ident(type_name_id).0;
         match &ty {
-            Type::Unknown | Type::VOID | Type::Felt(_) | Type::Bool(_) | Type::U32(_) => {
-                write!(fmt, "{:?} ", ty.kind())
+            Type::Struct(CheckedStructNode { name, .. }) => {
+                let type_name = &self.context.ident(*name).0;
+                write!(fmt, "struct {} ", type_name);
             }
-            Type::Function(node) => {
-                if node.qualifier.is_extern {
+            Type::Enum(CheckedEnumNode { name, .. }) => {
+                let type_name = &self.context.ident(*name).0;
+                write!(fmt, "enum {} ", type_name);
+            }
+            Type::Trait(CheckedTraitNode { name, .. }) => {
+                let type_name = &self.context.ident(*name).0;
+                write!(fmt, "trait {} ", type_name);
+            }
+            Type::Function(CheckedFunctionNode {
+                name, qualifier, ..
+            }) => {
+                if qualifier.is_extern {
                     write!(fmt, "extern ");
                 }
-                if node.qualifier.is_const {
+                if qualifier.is_const {
                     write!(fmt, "const ");
                 }
-                write!(fmt, "fn {}", type_name)
+                let type_name = &self.context.ident(*name).0;
+                write!(fmt, "fn {} ", type_name);
+            }
+            Type::Const(CheckedConstNode { name, .. }) => match name {
+                None => {
+                    write!(fmt, "Const ");
+                }
+                Some(name) => {
+                    let type_name = &self.context.ident(*name).0;
+                    write!(fmt, "const {} ", type_name);
+                }
+            },
+            Type::Array(_) => {
+                write!(fmt, "Array");
             }
             _ => {
-                write!(fmt, "{:?} {} ", ty.kind(), type_name)
+                write!(fmt, "{:?} ", ty.kind());
             }
         };
-        write!(fmt, "{} ({:?}, {:?})", ident_name, ident_id, type_id);
+        write!(fmt, "({:?})", type_id);
         write!(fmt, "\n");
     }
 
@@ -227,21 +247,12 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                         if visibility == &Visibility::Public {
                             write!(fmt, "pub ");
                         };
-                        let type_name_id = ty.name();
-                        let type_name = &self.context.ident(type_name_id).0;
-                        match &ty {
-                            Type::Unknown
-                            | Type::VOID
-                            | Type::Felt(_)
-                            | Type::Bool(_)
-                            | Type::U32(_) => {
-                                write!(fmt, "{:?} ", ty.kind())
-                            }
-                            _ => {
-                                write!(fmt, "{:?} {} ", ty.kind(), type_name)
-                            }
-                        };
-                        write!(fmt, "{} ({:?}, {:?})", ident_name, ident_id, type_id);
+                        let type_name = self.get_type_name(*type_id);
+                        write!(
+                            fmt,
+                            "{} {} ({:?}, {:?})",
+                            type_name, ident_name, ident_id, type_id
+                        );
                         write!(fmt, "\n");
                     }
                     fmt.dedent();
@@ -254,28 +265,35 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 }
             }
             Type::Function(node) => {
-                if node.parameters.len() == 0 {
-                    writeln!(fmt, "Parameters: []");
-                } else {
+                if !node.parameters.is_empty() {
                     writeln!(fmt, "Parameters:");
                     fmt.indent();
                     for (ident_id, type_qualifier, type_id) in node.parameters.iter() {
-                        let ty = &self.context.symbols[*type_id];
+                        fmt.write_indent();
+                        if type_qualifier.is_mutable {
+                            write!(fmt, "mut ")
+                        }
+                        let type_name = self.get_type_name(*type_id);
                         let ident_name = &self.context.ident(*ident_id).0;
-                        writeln!(fmt, "{}:", ident_name);
-                        fmt.indent();
-                        writeln!(fmt, "Type: {:?}", ty.kind());
-                        writeln!(fmt, "IndentId: {:?}", ident_id);
-                        writeln!(fmt, "TypeId: {:?}", type_id);
-                        writeln!(fmt, "Mutable: {}", type_qualifier.is_mutable);
-                        fmt.dedent();
+                        write!(
+                            fmt,
+                            "{} {} ({:?}, {:?})",
+                            type_name, ident_name, ident_id, type_id
+                        );
+                        write!(fmt, "\n");
                     }
                     fmt.dedent();
                 };
-                writeln!(fmt, "Body: {:?}", node.body);
-                writeln!(fmt, "Return Type: {:?}", node.return_type);
-                writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
-                writeln!(fmt, "Attrs: {:?}", node.attrs);
+                writeln!(fmt, "Return Type: {}", self.get_type_name(node.return_type));
+                if let Some(body) = node.body {
+                    writeln!(fmt, "Body: {:?}", body);
+                }
+                if !node.generic_parameters.is_empty() {
+                    writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
+                }
+                if !node.attrs.is_empty() {
+                    writeln!(fmt, "Attrs: {:?}", node.attrs);
+                }
             }
             Type::Const(checked_const_node) => match checked_const_node.name {
                 Some(name) => {
@@ -306,35 +324,23 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
     }
 
     pub fn get_type_name(&self, type_id: TypeId) -> String {
-        match &self.context.symbols[type_id] {
-            Type::Unknown => "Unknown".to_string(),
-            Type::VOID => "Void".to_string(),
-            Type::Felt(_) => "Felt".to_string(),
-            Type::Bool(_) => "Bool".to_string(),
-            Type::U32(_) => "U32".to_string(),
-            Type::Array(_) => "Array".to_string(),
-            Type::Struct(node) => self.context.ident(node.name).0.to_string(),
-            // Type::TypeVariable(node) => {
-            //     let len = node.constraints.len();
-            //     match len {
-            //         // 0 => self.context.debug_type_name(type_id),
-            //         // 0 => self.context.
-            //         0 => unreachable!(),
-            //         _ => {
-            //             let mut type_variable_details = vec![];
-            //             for type_id in node.constraints.iter() {
-            //                 type_variable_details.push(self.debug_type(type_id.clone()));
-            //             }
-            //             format!("{}", type_variable_details.join(" + "))
-            //         }
-            //     }
-            // }
-            // Type::Enum(node) => self.context.ident(node.name).into(),
-            // Type::Function(node) => self.context.ident(node.name).into(),
-            node => {
-                format!("?Type: {:?}", node)
-            }
-        }
+        let ty = &self.context.symbols[type_id];
+        let ty_indent_id = match &ty {
+            Type::Struct(CheckedStructNode { name, .. }) => *name,
+            Type::Enum(CheckedEnumNode { name, .. }) => *name,
+            Type::Function(CheckedFunctionNode { name, .. }) => *name,
+            Type::Trait(CheckedTraitNode { name, .. }) => *name,
+            Type::Const(CheckedConstNode { name, .. }) => name.unwrap_or(IdentId::TYPE_UNKNOWN),
+            Type::Array(_) => IdentId::TYPE_ARRAY,
+            Type::VOID => IdentId::TYPE_VOID,
+            Type::Felt(_) => IdentId::TYPE_FELT,
+            Type::Bool(_) => IdentId::TYPE_BOOL,
+            Type::U32(_) => IdentId::TYPE_U32,
+            Type::Tuple(_) => IdentId::TYPE_TUPLE,
+            _ => IdentId::TYPE_UNKNOWN,
+        };
+        let type_name = &self.context.ident(ty_indent_id).0;
+        return type_name.to_string();
     }
 }
 
