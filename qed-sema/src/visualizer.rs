@@ -120,16 +120,19 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             writeln!(fmt, "Types:");
             fmt.indent();
             for (_type_key, type_id) in &scope.types {
-                self.debug_type(*type_id, fmt);
+                let ty = &self.context.symbols[*type_id];
+                match &ty {
+                    Type::Unknown | Type::VOID | Type::Bool(_) | Type::U32(_) => {}
+                    _ => {
+                        self.debug_type(*type_id, fmt);
+                    }
+                }
             }
             fmt.dedent();
         }
 
         for child in &scope.children {
-            // writeln!(formatter, "{:?}", child);
-            fmt.indent();
             self.debug_scope(*child, fmt);
-            fmt.dedent();
         }
         fmt.dedent();
     }
@@ -188,7 +191,6 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
 
     pub fn debug_type(&self, type_id: TypeId, fmt: &mut IndentFormatter) {
         self.debug_type_declaration(type_id, fmt);
-
         fmt.indent();
         match &self.context.symbols[type_id] {
             Type::Unknown | Type::VOID => {}
