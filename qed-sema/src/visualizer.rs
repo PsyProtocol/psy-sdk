@@ -127,6 +127,12 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         }
         formatter.dedent();
 
+        for child in &scope.children {
+            writeln!(formatter, "{:?}", child);
+            formatter.indent();
+            self.debug_scope(*child, formatter);
+            formatter.dedent();
+        }
         writeln!(formatter, "")
     }
 
