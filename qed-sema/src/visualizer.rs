@@ -295,6 +295,20 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                     writeln!(fmt, "Attrs: {:?}", node.attrs);
                 }
             }
+            Type::Trait(node) => {
+                if !node.body.is_empty() {
+                    writeln!(fmt, "Body: {:?}", node.body);
+                }
+                if !node.unchecked_body.is_empty() {
+                    writeln!(fmt, "Unchecked Body: {:?}", node.unchecked_body);
+                }
+                if !node.generic_parameters.is_empty() {
+                    writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
+                }
+                if !node.implementors.is_empty() {
+                    writeln!(fmt, "Implementor: {:?}", node.implementors);
+                }
+            }
             Type::Const(checked_const_node) => match checked_const_node.name {
                 Some(name) => {
                     writeln!(
