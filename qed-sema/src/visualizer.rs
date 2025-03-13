@@ -349,15 +349,16 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 }
             },
             Type::Array(node) => {
-                let type_name = self.get_type_name(node.inner_ty);
-                let size_name = self.get_type_name(node.size_ty);
-                // let type_name = &self.context.ident(node.inner_ty).0;
-                // let size_name = &self.context.ident(node.size_ty).0;
-                writeln!(
-                    fmt,
-                    "Array [{}; {}], {:?}",
-                    type_name, size_name, node.implementations
-                );
+                // let type_name = self.get_type_name(node.inner_ty);
+                // let size_name = self.get_type_name(node.size_ty);
+                // writeln!(
+                //     fmt,
+                //     "Array [{}; {}], {:?}",
+                //     type_name, size_name, node.implementations
+                // );
+                if !node.implementations.is_empty() {
+                    writeln!(fmt, "Implementations: {:?}", node.implementations);
+                }
             }
             x => writeln!(fmt, "Remaining {:?}", x),
         }
@@ -367,6 +368,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
     pub fn get_type_name(&self, type_id: TypeId) -> String {
         let ty = &self.context.symbols[type_id];
         let ty_indent_id = match &ty {
+            Type::Unknown => IdentId::TYPE_UNKNOWN,
             Type::Struct(CheckedStructNode { name, .. }) => *name,
             Type::Enum(CheckedEnumNode { name, .. }) => *name,
             Type::Function(CheckedFunctionNode { name, .. }) => *name,
@@ -378,7 +380,14 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             Type::Bool(_) => IdentId::TYPE_BOOL,
             Type::U32(_) => IdentId::TYPE_U32,
             Type::Tuple(_) => IdentId::TYPE_TUPLE,
+            Type::TypeVariable(node) => {
+                // println!("{:?}", node);
+                IdentId::TYPE_UNKNOWN
+            }
             _ => IdentId::TYPE_UNKNOWN,
+            Type::LambdaFunction(_)
+            | Type::FunctionSignature(_)
+            | Type::GenericInstance(_, _, _) => IdentId::TYPE_UNKNOWN,
         };
         let type_name = &self.context.ident(ty_indent_id).0;
         return type_name.to_string();
