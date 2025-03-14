@@ -24,7 +24,7 @@ use std::ops::Deref;
 use crate::{
     CheckedConstNode, CheckedDefinitionNode, CheckedEnumNode, CheckedExprNode, CheckedFunctionNode,
     CheckedStmtNode, CheckedStructNode, CheckedTraitNode, Error, Scope, ScopeId, Type, TypeChecker,
-    TypeCheckerVisitorContext, TypeId, TypeKey,
+    TypeCheckerVisitorContext, TypeId, TypeKey, VarId,
 };
 
 macro_rules! writeln {
@@ -112,7 +112,8 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             writeln!(fmt, "Variables:");
             fmt.indent();
             for (indent_id, var_id) in &scope.variables {
-                writeln!(fmt, "{:?}: {:?}", var_id, self.context.ident(*indent_id));
+                self.debug_variable_inline(*indent_id, *var_id, fmt);
+                // writeln!(fmt, "{:?}: {:?}", var_id, self.context.ident(*indent_id));
             }
             fmt.dedent();
         }
@@ -347,7 +348,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             },
         };
         let type_name = &self.context.ident(ty_indent_id).0;
-        return type_name.to_string();
+        type_name.to_string()
     }
 
     pub fn fmt_type_names(&self, attr: &str, values: &[TypeId], fmt: &mut IndentFormatter) {
@@ -359,6 +360,23 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 .join(", ");
             writeln!(fmt, "{}: {}", attr, implementations);
         }
+    }
+
+    pub fn debug_variable_inline(
+        &self,
+        ident_id: IdentId,
+        var_id: VarId,
+        fmt: &mut IndentFormatter,
+    ) {
+        let var_name = &self.context.ident(ident_id).0;
+        let checked_var = &self.context.symbols[var_id];
+        fmt.write_indent();
+        if checked_var.qualifier.is_mutable {
+            write!(fmt, "mut ");
+        };
+        let type_name = self.get_type_name(checked_var.ty);
+        write!(fmt, "{}: {}", var_name, type_name);
+        write!(fmt, "\n")
     }
 }
 
