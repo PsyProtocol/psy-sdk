@@ -197,19 +197,13 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         match &self.context.symbols[type_id] {
             Type::Unknown | Type::VOID => {}
             Type::U32(node) => {
-                if !node.implementations.is_empty() {
-                    writeln!(fmt, "Implementations: {:?}", node.implementations);
-                }
+                self.fmt_type_ids("Implementations", &node.implementations, fmt);
             }
             Type::Felt(node) => {
-                if !node.implementations.is_empty() {
-                    writeln!(fmt, "Implementations: {:?}", node.implementations);
-                }
+                self.fmt_type_ids("Implementations", &node.implementations, fmt);
             }
             Type::Bool(node) => {
-                if !node.implementations.is_empty() {
-                    writeln!(fmt, "Implementations: {:?}", node.implementations);
-                }
+                self.fmt_type_ids("Implementations", &node.implementations, fmt);
             }
             Type::Array(node) => {
                 writeln!(
@@ -218,9 +212,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                     self.get_type_name(node.inner_ty),
                     self.get_type_name(node.size_ty),
                 );
-                if !node.implementations.is_empty() {
-                    writeln!(fmt, "Implementations: {:?}", node.implementations);
-                }
+                self.fmt_type_ids("Implementations", &node.implementations, fmt);
             }
             Type::Struct(node) => {
                 if !node.fields.is_empty() {
@@ -246,9 +238,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 if !node.generic_parameters.is_empty() {
                     writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
                 }
-                if !node.implementations.is_empty() {
-                    writeln!(fmt, "Implementation: {:?}", node.implementations);
-                }
+                self.fmt_type_ids("Implementations", &node.implementations, fmt);
             }
             Type::Function(node) => {
                 if !node.parameters.is_empty() {
@@ -291,9 +281,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 if !node.generic_parameters.is_empty() {
                     writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
                 }
-                if !node.implementors.is_empty() {
-                    writeln!(fmt, "Implementor: {:?}", node.implementors);
-                }
+                self.fmt_type_ids("Implementor", &node.implementors, fmt);
             }
             Type::Const(node) => {
                 writeln!(
@@ -318,9 +306,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 //     "Array [{}; {}], {:?}",
                 //     type_name, size_name, node.implementations
                 // );
-                if !node.implementations.is_empty() {
-                    writeln!(fmt, "Implementations: {:?}", node.implementations);
-                }
+                self.fmt_type_ids("Implementations", &node.implementations, fmt);
             }
 
             Type::TypeVariable(_) => {}
@@ -385,6 +371,17 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         };
         let type_name = &self.context.ident(ty_indent_id).0;
         return type_name.to_string();
+    }
+
+    pub fn fmt_type_ids(&self, attr: &str, values: &[TypeId], fmt: &mut IndentFormatter) {
+        if !values.is_empty() {
+            let implementations = values
+                .iter()
+                .map(|ty| self.get_type_name(*ty))
+                .collect::<Vec<_>>()
+                .join(", ");
+            writeln!(fmt, "{}: {}", attr, implementations);
+        }
     }
 }
 
