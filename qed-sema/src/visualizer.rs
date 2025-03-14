@@ -9,6 +9,7 @@ use qed_ast::{
     ValueNode, Visibility, VisitorContext, WhileNode,
 };
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use std::any::Any;
 use std::fmt::{format, Display};
 use std::ops::Deref;
 // debug_ident
@@ -212,7 +213,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             Type::Array(node) => {
                 writeln!(
                     fmt,
-                    "Definition: [{}; {}]",
+                    "[{}; {}]",
                     self.get_type_name(node.inner_ty),
                     self.get_type_name(node.size_ty),
                 );
@@ -293,18 +294,21 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                     writeln!(fmt, "Implementor: {:?}", node.implementors);
                 }
             }
-            Type::Const(checked_const_node) => match checked_const_node.name {
-                Some(name) => {
-                    writeln!(
-                        fmt,
-                        "Value: {:?}",
-                        self.context.symbols.get_constant(checked_const_node.value)
-                    );
-                }
-                None => {
-                    writeln!(fmt, "Definition: {:?}", checked_const_node);
-                }
-            },
+            Type::Const(node) => {
+                writeln!(
+                    fmt,
+                    "Value: {:?}",
+                    self.context.symbols.get_constant(node.value)
+                );
+                match node.name {
+                    Some(name) => {
+                        writeln!(fmt, "Name: {:?}", name);
+                    }
+                    None => {
+                        writeln!(fmt, "Type: {} ({:?})", self.get_type_name(node.ty), node.ty);
+                    }
+                };
+            }
             Type::Array(node) => {
                 // let type_name = self.get_type_name(node.inner_ty);
                 // let size_name = self.get_type_name(node.size_ty);
@@ -315,6 +319,23 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 // );
                 if !node.implementations.is_empty() {
                     writeln!(fmt, "Implementations: {:?}", node.implementations);
+                }
+            }
+
+            Type::TypeVariable(_) => {}
+            Type::GenericInstance(type_id, type_ids, scope_id) => {
+                match &self.context.symbols[*type_id] {
+                    Type::Array(node) => {
+                        let t = self.get_type_name(type_ids[0]);
+                        let n = self.get_type_name(type_ids[1]);
+                        writeln!(fmt, "[{}; {}]", t, n);
+                    }
+                    Type::Struct(node) => {
+                        self.debug_type(*type_id, fmt);
+                    }
+                    _ => {
+                        unimplemented!()
+                    }
                 }
             }
             x => writeln!(fmt, "Remaining {:?}", x),
@@ -330,7 +351,10 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             Type::Enum(CheckedEnumNode { name, .. }) => *name,
             Type::Function(CheckedFunctionNode { name, .. }) => *name,
             Type::Trait(CheckedTraitNode { name, .. }) => *name,
-            Type::Const(CheckedConstNode { name, .. }) => name.unwrap_or(IdentId::TYPE_UNKNOWN),
+            Type::Const(node) => match node.name {
+                Some(name) => name,
+                None => return self.get_type_name(node.ty),
+            },
             Type::Array(_) => IdentId::TYPE_ARRAY,
             Type::VOID => IdentId::TYPE_VOID,
             Type::Felt(_) => IdentId::TYPE_FELT,
@@ -338,13 +362,17 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             Type::U32(_) => IdentId::TYPE_U32,
             Type::Tuple(_) => IdentId::TYPE_TUPLE,
             Type::TypeVariable(node) => {
-                // println!("{:?}", node);
-                IdentId::TYPE_UNKNOWN
+                return "TypeVariable".to_string();
             }
-            _ => IdentId::TYPE_UNKNOWN,
-            Type::LambdaFunction(_)
-            | Type::FunctionSignature(_)
-            | Type::GenericInstance(_, _, _) => IdentId::TYPE_UNKNOWN,
+            Type::LambdaFunction(_) => {
+                return "LambdaFunction".to_string();
+            }
+            Type::FunctionSignature(_) => {
+                return "FunctionSignature".to_string();
+            }
+            Type::GenericInstance(_, _, _) => {
+                return "GenericInstance".to_string();
+            }
         };
         let type_name = &self.context.ident(ty_indent_id).0;
         return type_name.to_string();
