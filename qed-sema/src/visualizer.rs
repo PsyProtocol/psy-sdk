@@ -170,19 +170,27 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 let type_name = &self.context.ident(*name).0;
                 write!(fmt, "fn {} ", type_name);
             }
-            Type::Const(CheckedConstNode { name, .. }) => match name {
-                None => {
-                    write!(fmt, "Const ");
-                }
-                Some(name) => {
-                    let type_name = &self.context.ident(*name).0;
-                    write!(fmt, "const {} ", type_name);
-                }
-            },
-            Type::Array(_) => {
-                write!(fmt, "Array");
+            Type::Const(node) => {
+                write!(fmt, "{:?} ", self.context.symbols.get_constant(node.value));
             }
-            Type::GenericInstance(type_id, type_ids, scope) => {}
+            Type::Array(_) => {
+                write!(fmt, "Array ");
+            }
+            Type::GenericInstance(type_id, type_ids, scope) => {
+                match &self.context.symbols[*type_id] {
+                    Type::Array(node) => {
+                        let t = self.get_type_name(type_ids[0]);
+                        let n = self.get_type_name(type_ids[1]);
+                        write!(fmt, "[{}; {}] ", t, n);
+                    }
+                    Type::Struct(node) => {
+                        self.debug_type(*type_id, fmt);
+                    }
+                    _ => {
+                        unimplemented!()
+                    }
+                }
+            }
             _ => {
                 write!(fmt, "{:?} ", ty.kind());
             }
@@ -193,26 +201,21 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
 
     pub fn debug_type(&self, type_id: TypeId, fmt: &mut IndentFormatter) {
         self.debug_type_declaration(type_id, fmt);
+        match &self.context.symbols[type_id] {
+            Type::Array(_) | Type::GenericInstance(_, _, _) | Type::Const(_) => return,
+            _ => {}
+        }
         fmt.indent();
         match &self.context.symbols[type_id] {
             Type::Unknown | Type::VOID => {}
             Type::U32(node) => {
-                self.fmt_type_ids("Implementations", &node.implementations, fmt);
+                self.fmt_type_names("Implementations", &node.implementations, fmt);
             }
             Type::Felt(node) => {
-                self.fmt_type_ids("Implementations", &node.implementations, fmt);
+                self.fmt_type_names("Implementations", &node.implementations, fmt);
             }
             Type::Bool(node) => {
-                self.fmt_type_ids("Implementations", &node.implementations, fmt);
-            }
-            Type::Array(node) => {
-                writeln!(
-                    fmt,
-                    "[{}; {}]",
-                    self.get_type_name(node.inner_ty),
-                    self.get_type_name(node.size_ty),
-                );
-                self.fmt_type_ids("Implementations", &node.implementations, fmt);
+                self.fmt_type_names("Implementations", &node.implementations, fmt);
             }
             Type::Struct(node) => {
                 if !node.fields.is_empty() {
@@ -238,7 +241,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 if !node.generic_parameters.is_empty() {
                     writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
                 }
-                self.fmt_type_ids("Implementations", &node.implementations, fmt);
+                self.fmt_type_names("Implementations", &node.implementations, fmt);
             }
             Type::Function(node) => {
                 if !node.parameters.is_empty() {
@@ -260,7 +263,12 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                     }
                     fmt.dedent();
                 };
-                writeln!(fmt, "Return Type: {}", self.get_type_name(node.return_type));
+                writeln!(
+                    fmt,
+                    "Return Type: {} ({:?})",
+                    self.get_type_name(node.return_type),
+                    node.return_type
+                );
                 if let Some(body) = node.body {
                     writeln!(fmt, "Body: {:?}", body);
                 }
@@ -281,50 +289,19 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 if !node.generic_parameters.is_empty() {
                     writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
                 }
-                self.fmt_type_ids("Implementor", &node.implementors, fmt);
-            }
-            Type::Const(node) => {
-                writeln!(
-                    fmt,
-                    "Value: {:?}",
-                    self.context.symbols.get_constant(node.value)
-                );
-                match node.name {
-                    Some(name) => {
-                        writeln!(fmt, "Name: {:?}", name);
-                    }
-                    None => {
-                        writeln!(fmt, "Type: {} ({:?})", self.get_type_name(node.ty), node.ty);
-                    }
-                };
+                self.fmt_type_names("Implementor", &node.implementors, fmt);
             }
             Type::Array(node) => {
-                // let type_name = self.get_type_name(node.inner_ty);
-                // let size_name = self.get_type_name(node.size_ty);
-                // writeln!(
-                //     fmt,
-                //     "Array [{}; {}], {:?}",
-                //     type_name, size_name, node.implementations
-                // );
-                self.fmt_type_ids("Implementations", &node.implementations, fmt);
+                writeln!(
+                    fmt,
+                    "[{}; {}]",
+                    self.get_type_name(node.inner_ty),
+                    self.get_type_name(node.size_ty),
+                );
+                self.fmt_type_names("Implementations", &node.implementations, fmt);
             }
-
             Type::TypeVariable(_) => {}
-            Type::GenericInstance(type_id, type_ids, scope_id) => {
-                match &self.context.symbols[*type_id] {
-                    Type::Array(node) => {
-                        let t = self.get_type_name(type_ids[0]);
-                        let n = self.get_type_name(type_ids[1]);
-                        writeln!(fmt, "[{}; {}]", t, n);
-                    }
-                    Type::Struct(node) => {
-                        self.debug_type(*type_id, fmt);
-                    }
-                    _ => {
-                        unimplemented!()
-                    }
-                }
-            }
+            Type::GenericInstance(type_id, type_ids, scope_id) => {}
             x => writeln!(fmt, "Remaining {:?}", x),
         }
         fmt.dedent();
@@ -373,7 +350,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         return type_name.to_string();
     }
 
-    pub fn fmt_type_ids(&self, attr: &str, values: &[TypeId], fmt: &mut IndentFormatter) {
+    pub fn fmt_type_names(&self, attr: &str, values: &[TypeId], fmt: &mut IndentFormatter) {
         if !values.is_empty() {
             let implementations = values
                 .iter()
