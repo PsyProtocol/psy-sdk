@@ -182,6 +182,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             Type::Array(_) => {
                 write!(fmt, "Array");
             }
+            Type::GenericInstance(type_id, type_ids, scope) => {}
             _ => {
                 write!(fmt, "{:?} ", ty.kind());
             }
@@ -370,9 +371,17 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             Type::FunctionSignature(_) => {
                 return "FunctionSignature".to_string();
             }
-            Type::GenericInstance(_, _, _) => {
-                return "GenericInstance".to_string();
-            }
+            Type::GenericInstance(type_id, type_ids, _) => match &self.context.symbols[*type_id] {
+                Type::Array(node) => {
+                    let t = self.get_type_name(type_ids[0]);
+                    let n = self.get_type_name(type_ids[1]);
+                    return format!("[{}; {}]", t, n);
+                }
+                Type::Struct(node) => return self.get_type_name(*type_id),
+                _ => {
+                    unimplemented!()
+                }
+            },
         };
         let type_name = &self.context.ident(ty_indent_id).0;
         return type_name.to_string();
