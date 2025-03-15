@@ -35,7 +35,7 @@ pub trait AstVisualizer<F: Clone + From<u32>, C>: VisitorContext<F, C> {
     fn debug_type_name(&self, type_id: TypeId) -> Self::DebugResult;
 }
 
-pub struct IndentFormatter {
+struct IndentFormatter {
     output: String,
     indent: usize,
 }
@@ -77,7 +77,7 @@ impl IndentFormatter {
     }
 }
 
-pub struct TypeCheckerVisitorVisualizerInner<'a, F: Clone + From<u32> + ContextFelt, C> {
+struct TypeCheckerVisitorVisualizerInner<'a, F: Clone + From<u32> + ContextFelt, C> {
     pub context: &'a TypeCheckerVisitorContext<F, C>,
 }
 
