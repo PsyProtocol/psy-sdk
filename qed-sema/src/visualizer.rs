@@ -1,17 +1,6 @@
-use indexmap::IndexMap;
-use qed_ast::Visibility::Public;
-use qed_ast::{
-    AssignmentNode, BinaryNode, BlockExprNode, CallNode, CastNode, DefId, DefinitionNode, EnumNode,
-    EnumVariant, ExprId, ExprNode, ForNode, FunctionNode, Ident, IdentId, IfExprNode, ImplNode,
-    ImplTraitNode, IndexAccessNode, IntrinsicExprNode, IntrinsicStmtNode, LambdaFunctionNode,
-    MatchNode, MemberAccessNode, MemberCallNode, ModuleId, NodeId, NodeInfo, NodeType, ReturnNode,
-    Span, StmtId, StmtNode, StructNode, TraitNode, TypeQualifier, UnaryNode, UncheckedType,
-    ValueNode, Visibility, VisitorContext, WhileNode,
-};
+use qed_ast::{DefId, IdentId, Visibility, VisitorContext};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
-use std::any::Any;
-use std::fmt::{format, Display};
-use std::ops::Deref;
+
 // debug_ident
 // debug_scope
 // debug_module
@@ -22,9 +11,8 @@ use std::ops::Deref;
 // debug_def
 
 use crate::{
-    CheckedConstNode, CheckedDefinitionNode, CheckedEnumNode, CheckedExprNode, CheckedFunctionNode,
-    CheckedStmtNode, CheckedStructNode, CheckedTraitNode, Error, Scope, ScopeId, Type, TypeChecker,
-    TypeCheckerVisitorContext, TypeId, TypeKey, VarId,
+    CheckedEnumNode, CheckedFunctionNode, CheckedStructNode, CheckedTraitNode, ScopeId, Type,
+    TypeCheckerVisitorContext, TypeId, VarId,
 };
 
 macro_rules! writeln {
@@ -177,14 +165,14 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             Type::Array(_) => {
                 write!(fmt, "Array ");
             }
-            Type::GenericInstance(type_id, type_ids, scope) => {
+            Type::GenericInstance(type_id, type_ids, _scope) => {
                 match &self.context.symbols[*type_id] {
-                    Type::Array(node) => {
+                    Type::Array(_) => {
                         let t = self.get_type_name(type_ids[0]);
                         let n = self.get_type_name(type_ids[1]);
                         write!(fmt, "[{}; {}] ", t, n);
                     }
-                    Type::Struct(node) => {
+                    Type::Struct(_) => {
                         self.debug_type(*type_id, fmt);
                     }
                     _ => {
@@ -224,7 +212,6 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                     fmt.indent();
                     for (ident_id, (type_id, visibility)) in node.fields.iter() {
                         let ident_name = &self.context.ident(*ident_id).0;
-                        let ty = &self.context.symbols[*type_id];
                         fmt.write_indent();
                         if visibility == &Visibility::Public {
                             write!(fmt, "pub ");
@@ -302,7 +289,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 self.fmt_type_names("Implementations", &node.implementations, fmt);
             }
             Type::TypeVariable(_) => {}
-            Type::GenericInstance(type_id, type_ids, scope_id) => {}
+            Type::GenericInstance(_type_id, _type_ids, _scope_id) => {}
             x => writeln!(fmt, "Remaining {:?}", x),
         }
         fmt.dedent();
@@ -326,7 +313,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             Type::Bool(_) => IdentId::TYPE_BOOL,
             Type::U32(_) => IdentId::TYPE_U32,
             Type::Tuple(_) => IdentId::TYPE_TUPLE,
-            Type::TypeVariable(node) => {
+            Type::TypeVariable(_) => {
                 return "TypeVariable".to_string();
             }
             Type::LambdaFunction(_) => {
@@ -336,12 +323,12 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 return "FunctionSignature".to_string();
             }
             Type::GenericInstance(type_id, type_ids, _) => match &self.context.symbols[*type_id] {
-                Type::Array(node) => {
+                Type::Array(_) => {
                     let t = self.get_type_name(type_ids[0]);
                     let n = self.get_type_name(type_ids[1]);
                     return format!("[{}; {}]", t, n);
                 }
-                Type::Struct(node) => return self.get_type_name(*type_id),
+                Type::Struct(_) => return self.get_type_name(*type_id),
                 _ => {
                     unimplemented!()
                 }
@@ -391,19 +378,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
         fmt.finish()
     }
 
-    fn debug_function(&self, def_id: DefId) -> Self::DebugResult {
+    fn debug_function(&self, _def_id: DefId) -> Self::DebugResult {
         todo!()
     }
 
-    fn debug_struct(&self, def_id: DefId) -> Self::DebugResult {
+    fn debug_struct(&self, _def_id: DefId) -> Self::DebugResult {
         todo!()
     }
 
-    fn debug_type(&self, type_id: TypeId) -> Self::DebugResult {
+    fn debug_type(&self, _type_id: TypeId) -> Self::DebugResult {
         todo!()
     }
 
-    fn debug_type_name(&self, type_id: TypeId) -> Self::DebugResult {
+    fn debug_type_name(&self, _type_id: TypeId) -> Self::DebugResult {
         todo!()
     }
 }
