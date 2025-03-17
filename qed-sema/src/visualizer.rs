@@ -23,7 +23,6 @@ pub trait AstVisualizer<F: Clone + From<u32>, C>: VisitorContext<F, C> {
     fn debug_function(&self, def_id: DefId) -> Self::DebugResult;
     fn debug_struct(&self, def_id: DefId) -> Self::DebugResult;
     fn debug_type(&self, type_id: TypeId) -> Self::DebugResult;
-    fn debug_type_name(&self, type_id: TypeId) -> Self::DebugResult;
 }
 
 struct IndentFormatter {
@@ -377,11 +376,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
         todo!()
     }
 
-    fn debug_type(&self, _type_id: TypeId) -> Self::DebugResult {
-        todo!()
-    }
-
-    fn debug_type_name(&self, _type_id: TypeId) -> Self::DebugResult {
-        todo!()
+    fn debug_type(&self, type_id: TypeId) -> Self::DebugResult {
+        let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
+        let mut fmt = IndentFormatter::new();
+        visualizer.debug_type(type_id, &mut fmt);
+        fmt.finish()
     }
 }
