@@ -2207,7 +2207,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
     }
 
-    // NOTE: primitive???
     #[instrument(level = "debug", skip_all)]
     fn typecheck_std_primitive_module(
         &mut self,
