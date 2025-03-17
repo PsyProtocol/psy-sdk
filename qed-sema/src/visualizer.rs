@@ -1,4 +1,4 @@
-use qed_ast::{DefId, ExprNode, IdentId, Visibility, VisitorContext};
+use qed_ast::{IdentId, Visibility, VisitorContext};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
@@ -20,9 +20,9 @@ pub trait AstVisualizer<F: Clone + From<u32>, C>: VisitorContext<F, C> {
     type DebugResult;
 
     fn debug_scope(&self, scope_id: ScopeId) -> Self::DebugResult;
-    fn debug_function(&self, def_id: DefId) -> Self::DebugResult;
-    fn debug_struct(&self, def_id: DefId) -> Self::DebugResult;
     fn debug_type(&self, type_id: TypeId) -> Self::DebugResult;
+
+    fn debug_variable(&self, ident_id: IdentId, var_id: VarId) -> Self::DebugResult;
 }
 
 struct IndentFormatter {
@@ -368,18 +368,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
         fmt.finish()
     }
 
-    fn debug_function(&self, _def_id: DefId) -> Self::DebugResult {
-        todo!()
-    }
-
-    fn debug_struct(&self, _def_id: DefId) -> Self::DebugResult {
-        todo!()
-    }
-
     fn debug_type(&self, type_id: TypeId) -> Self::DebugResult {
         let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
         let mut fmt = IndentFormatter::new();
         visualizer.debug_type(type_id, &mut fmt);
+        fmt.finish()
+    }
+
+    fn debug_variable(&self, ident_id: IdentId, var_id: VarId) -> Self::DebugResult {
+        let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
+        let mut fmt = IndentFormatter::new();
+        visualizer.debug_variable_inline(ident_id, var_id, &mut fmt);
         fmt.finish()
     }
 }
