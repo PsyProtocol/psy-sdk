@@ -1,6 +1,7 @@
 mod arena;
 mod file_resolver;
 mod graph;
+mod macros;
 mod tree;
 
 pub use arena::Arena;

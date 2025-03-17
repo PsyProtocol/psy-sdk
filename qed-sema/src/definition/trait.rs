@@ -8,16 +8,9 @@ pub struct CheckedTraitNode {
     pub generic_parameters: Vec<TypeId>,
     pub body: Vec<DefId>,
     pub unchecked_body: Vec<DefId>,
-    pub implementors: Vec<TypeId>,
     pub scope_id: ScopeId,
     pub visibility: Visibility,
     pub span: Span,
-}
-
-impl CheckedTraitNode {
-    pub fn add_implementor(&mut self, implementor: TypeId) {
-        self.implementors.push(implementor);
-    }
 }
 
 impl NodeInfo for CheckedTraitNode {

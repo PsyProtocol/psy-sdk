@@ -1,14 +1,17 @@
 use std::fmt::Display;
 
-use crate::ParseError;
+use crate::LalrpopError;
 
 #[derive(Debug)]
 pub enum Error<'a> {
-    Lexical(ParseError<'a>),
+    Lexical(Box<LalrpopError<'a>>),
     CycleDependency,
     IoError(std::io::Error),
     FileUnresolved,
     InvalidModuleName,
+    ExternFnNotInStd,
+    FunctionBodyMissing,
+    InvalidSelfParameter,
 }
 
 impl<'a> Display for Error<'a> {
@@ -19,13 +22,22 @@ impl<'a> Display for Error<'a> {
             Self::IoError(err) => write!(f, "{}", err),
             Self::FileUnresolved => write!(f, "File could not be resolved"),
             Self::InvalidModuleName => write!(f, "Invalid module name"),
+            Self::ExternFnNotInStd => {
+                write!(f, "Extern function can only be defined in std")
+            }
+            Self::FunctionBodyMissing => {
+                write!(f, "missing function body")
+            }
+            Self::InvalidSelfParameter => {
+                write!(f, "Invalid self parameter")
+            }
         }
     }
 }
 
-impl<'a> From<ParseError<'a>> for Error<'a> {
-    fn from(err: ParseError<'a>) -> Self {
-        Self::Lexical(err)
+impl<'a> From<LalrpopError<'a>> for Error<'a> {
+    fn from(err: LalrpopError<'a>) -> Self {
+        Self::Lexical(Box::new(err))
     }
 }
 

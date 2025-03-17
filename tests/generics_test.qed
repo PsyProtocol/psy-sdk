@@ -4,37 +4,19 @@ impl<T, N> [T; N] {
     }
 }
 
-pub struct Data<T> {
-    pub data: [T; 2]
+struct Box<T> {
+    pub data: T
 }
 
-struct Person<T> {
-    pub data: Data<T>
-}
 
-fn modify_person<T>(mut p: Person<T>) {
-    p.data.data[0] += 1;
-}
-
-impl<T> Person<T> {
-    pub fn new(data: Data<T>) -> Self {
-        new Person#<T> { data }
-    }
-
-    pub fn set_age(mut self: Self, age: T) {
-        self.data.data[0] = age;
-    }
-
-    pub fn get_age(self: Self) -> T {
-        self.data.data[0]
+impl<T> Box<T> {
+    pub fn new(data: T) -> Box<T> {
+        return new Box { data };
     }
 }
 
 fn main() -> Felt {
-    let data = new Data { data: [10, 20] };
-    let p = new Person { data };
-    let arr: [Felt; 2] = [0, 1];
-    p.set_age(20);
-    modify_person(p);
-    p.data.data[0] + (<[Felt; 2]>::len() as Felt)
+    let mut b: Box<Felt> = Box::new(42);
+    b.data += 1;
+    b.data
 }

@@ -1,12 +1,12 @@
 use indexmap::IndexMap;
 
-use crate::{IdentId, NodeInfo, NodeType, Span, UncheckedType, Visibility};
+use crate::{IdentId, NodeInfo, NodeType, Span, StructField, UncheckedType, Visibility};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EnumVariant {
     Basic(IdentId),
     Tuple(IdentId, Vec<UncheckedType>),
-    Struct(IdentId, IndexMap<IdentId, (UncheckedType, Visibility)>),
+    Struct(IdentId, IndexMap<IdentId, StructField>),
 }
 
 #[derive(Clone, Debug, PartialEq)]

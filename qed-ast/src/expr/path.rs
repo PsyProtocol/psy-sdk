@@ -9,21 +9,12 @@ pub struct PathNode {
 }
 
 impl PathNode {
-    pub fn from_target(target: IdentId) -> Self {
+    pub fn from_target(target: IdentId, span: Span) -> Self {
         Self {
             root: None,
             segments: vec![],
             target,
-            span: Default::default(),
-        }
-    }
-
-    pub fn new(root: Option<UncheckedType>, target: IdentId, segments: Vec<IdentId>) -> Self {
-        Self {
-            root,
-            segments,
-            target,
-            span: Default::default(),
+            span,
         }
     }
 

@@ -1,28 +1,30 @@
-use qed_ast::TypeQualifier;
+use qed_ast::{IdentId, TypeQualifier};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
-use crate::{CheckedValueRef, ScopeId, TypeId};
+use crate::{ScopeId, TypeId};
 
 #[derive(Clone, Debug)]
 pub struct CheckedVariable<F: Clone + From<u32> + ContextFelt> {
+    pub name: IdentId,
     pub ty: TypeId,
     pub qualifier: TypeQualifier,
     pub scope_id: ScopeId,
-    pub value: Option<CheckedValueRef<F>>,
+    _phantom: std::marker::PhantomData<F>,
 }
 
 impl<F: Clone + From<u32> + ContextFelt> CheckedVariable<F> {
     pub fn new(
+        name: IdentId,
         ty: TypeId,
         qualifier: TypeQualifier,
         scope_id: ScopeId,
-        value: Option<CheckedValueRef<F>>,
     ) -> CheckedVariable<F> {
         Self {
+            name,
             ty,
             qualifier,
             scope_id,
-            value,
+            _phantom: std::marker::PhantomData,
         }
     }
 }

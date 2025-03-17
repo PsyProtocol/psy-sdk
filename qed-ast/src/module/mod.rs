@@ -74,7 +74,10 @@ impl ModuleNode {
             file_id,
             modules: {
                 if !is_std {
-                    modules.insert(0, (IdentId::STD, Visibility::Private, Default::default()));
+                    modules.insert(
+                        0,
+                        (IdentId::STD, Visibility::Private, Span::new(file_id, 0, 0)),
+                    );
                 }
                 modules
             },

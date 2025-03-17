@@ -15,7 +15,7 @@ use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::Program;
 
 pub type Loc = usize;
-pub type ParseError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, LexicalError>;
+pub type LalrpopError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, Error<'input>>;
 
 lalrpop_mod!(pub qed);
 
@@ -64,6 +64,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                 self.program.modules.add_child(parent_module_id, module_id);
                 continue;
             }
+
             let module: ModuleNode = if !is_inline {
                 let file_id = self
                     .program

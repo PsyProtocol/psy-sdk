@@ -7,7 +7,7 @@ use crate::{ScopeId, TypeId, UNKOWN_TYPE};
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedFunctionNode {
     pub name: IdentId,
-    pub parameters: Vec<(IdentId, TypeQualifier, TypeId)>,
+    pub parameters: Vec<CheckedFunctionParameter>,
     pub generic_parameters: Vec<TypeId>,
     pub body: Option<ExprId>,
     pub qualifier: Qualifier,
@@ -18,13 +18,32 @@ pub struct CheckedFunctionNode {
     pub span: Span,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct CheckedFunctionParameter {
+    pub name: IdentId,
+    pub qualifier: TypeQualifier,
+    pub ty: TypeId,
+    pub span: Span,
+}
+
+impl CheckedFunctionParameter {
+    pub fn new(name: IdentId, qualifier: TypeQualifier, ty: TypeId, span: Span) -> Self {
+        Self {
+            name,
+            qualifier,
+            ty,
+            span,
+        }
+    }
+}
+
 impl CheckedFunctionNode {
     pub fn signature(&self) -> CheckedFunctionSignature {
         CheckedFunctionSignature {
             parameters: self
                 .parameters
                 .iter()
-                .map(|(_, _, ty)| ty.clone())
+                .map(|parameter| parameter.ty.clone())
                 .collect(),
             return_type: self.return_type,
         }
@@ -35,11 +54,11 @@ impl CheckedFunctionNode {
             parameters: self
                 .parameters
                 .iter()
-                .map(|(_, _, ty)| {
-                    if ty == &UNKOWN_TYPE {
+                .map(|parameter| {
+                    if parameter.ty == UNKOWN_TYPE {
                         implementor_type_id.clone()
                     } else {
-                        ty.clone()
+                        parameter.ty.clone()
                     }
                 })
                 .collect(),

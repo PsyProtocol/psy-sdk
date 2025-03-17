@@ -6,8 +6,15 @@ use crate::{AttrNode, IdentId, NodeInfo, NodeType, Span, UncheckedType, Visibili
 pub struct StructNode {
     pub name: IdentId,
     pub generic_parameters: Vec<IdentId>,
-    pub fields: IndexMap<IdentId, (UncheckedType, Visibility)>,
+    pub fields: IndexMap<IdentId, StructField>,
     pub attrs: Vec<AttrNode>,
+    pub visibility: Visibility,
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct StructField {
+    pub ty: UncheckedType,
     pub visibility: Visibility,
     pub span: Span,
 }

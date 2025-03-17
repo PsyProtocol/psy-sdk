@@ -6,7 +6,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionNode {
     pub name: IdentId,
-    pub parameters: Vec<(IdentId, TypeQualifier, UncheckedType)>,
+    pub parameters: Vec<FunctionParameter>,
     pub generic_parameters: Vec<IdentId>,
     pub body: Option<ExprId>,
     pub return_type: Option<UncheckedType>,
@@ -14,6 +14,25 @@ pub struct FunctionNode {
     pub visibility: Visibility,
     pub attrs: Vec<AttrNode>,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionParameter {
+    pub name: IdentId,
+    pub qualifier: TypeQualifier,
+    pub ty: UncheckedType,
+    pub span: Span,
+}
+
+impl FunctionParameter {
+    pub fn new(name: IdentId, qualifier: TypeQualifier, ty: UncheckedType, span: Span) -> Self {
+        Self {
+            name,
+            qualifier,
+            ty,
+            span,
+        }
+    }
 }
 
 impl NodeInfo for FunctionNode {

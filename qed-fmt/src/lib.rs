@@ -68,8 +68,8 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         ctx: &impl VisitorContext<F, C>,
     ) -> String {
         match node {
-            UncheckedType::Basic(name) => ctx.ident(name.clone()).to_string(),
-            UncheckedType::Generic(name, generic_parameters) => format!(
+            UncheckedType::Basic(name, _) => ctx.ident(name.clone()).to_string(),
+            UncheckedType::Generic(name, generic_parameters, _) => format!(
                 "{}{}",
                 &ctx.ident(name.clone()),
                 self.visit_generic_parameters(
@@ -79,10 +79,10 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
                         .collect::<Vec<_>>()
                 )
             ),
-            UncheckedType::Array(ty, size) => {
+            UncheckedType::Array(ty, size, _) => {
                 format!("[{};{}]", self.visit_unchecked_type(ty, ctx), size)
             }
-            UncheckedType::Tuple(tys) => format!(
+            UncheckedType::Tuple(tys, _) => format!(
                 "({})",
                 tys.iter()
                     .map(|ty| self.visit_unchecked_type(ty, ctx))
@@ -90,7 +90,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
                     .join(", ")
             ),
             UncheckedType::Unknown => "unknown".to_string(),
-            UncheckedType::FunctionSignature(sig) => {
+            UncheckedType::FunctionSignature(sig, _) => {
                 let parameters = sig
                     .parameters
                     .iter()
@@ -533,9 +533,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|p| {
                 format!(
                     "{}{}: {}",
-                    if p.1.is_mutable { "mut " } else { "" },
-                    &ctx.ident(p.0),
-                    self.visit_unchecked_type(&p.2, ctx)
+                    if p.qualifier.is_mutable { "mut " } else { "" },
+                    &ctx.ident(p.name),
+                    self.visit_unchecked_type(&p.ty, ctx)
                 )
             })
             .collect::<Vec<_>>()
@@ -605,12 +605,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             )
         ));
         self.indent();
-        for (field, (value, visibility)) in fields {
+        for (field_name, field) in fields {
             let s = format!(
                 "{}{}: {},",
                 if visibility.is_public() { "pub " } else { "" },
-                ctx.ident(field.clone()),
-                self.visit_unchecked_type(&value, ctx)
+                ctx.ident(field_name.clone()),
+                self.visit_unchecked_type(&field.ty, ctx)
             );
             self.write_line(&s);
         }
@@ -661,11 +661,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 EnumVariant::Struct(ident_id, fields) => {
                     self.write_line(&format!("{} {{", ctx.ident(ident_id.clone())));
                     self.indent();
-                    for (field, (ty, _visibility)) in fields {
+                    for (field_name, field) in fields {
                         self.write_line(&format!(
                             "{}: {},",
-                            ctx.ident(field.clone()),
-                            self.visit_unchecked_type(&ty, ctx)
+                            ctx.ident(field_name.clone()),
+                            self.visit_unchecked_type(&field.ty, ctx)
                         ));
                     }
                     self.dedent();
@@ -710,9 +710,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 .map(|p| {
                     format!(
                         "{}{}: {}",
-                        if p.1.is_mutable { "mut " } else { "" },
-                        &ctx.ident(p.0),
-                        self.visit_unchecked_type(&p.2, ctx)
+                        if p.qualifier.is_mutable { "mut " } else { "" },
+                        &ctx.ident(p.name),
+                        self.visit_unchecked_type(&p.ty, ctx)
                     )
                 })
                 .collect::<Vec<_>>()
@@ -751,14 +751,16 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     ) -> Result<Self::ExprResult, Self::Error> {
         let node = ctx.expression(node).as_intrinsic().cloned().unwrap();
         match node {
-            IntrinsicExprNode::GetUserId => Ok("__ctx_get_user_id()".to_string()),
-            IntrinsicExprNode::GetContractId => Ok("__ctx_get_contract_id()".to_string()),
-            IntrinsicExprNode::GetLastNonce => Ok("__ctx_get_last_nonce()".to_string()),
-            IntrinsicExprNode::GetCheckpointId => Ok("__ctx_get_checkpoint_id()".to_string()),
-            IntrinsicExprNode::GetUserPublicKeyHash => {
+            IntrinsicExprNode::GetUserId { .. } => Ok("__ctx_get_user_id()".to_string()),
+            IntrinsicExprNode::GetContractId { .. } => Ok("__ctx_get_contract_id()".to_string()),
+            IntrinsicExprNode::GetLastNonce { .. } => Ok("__ctx_get_last_nonce()".to_string()),
+            IntrinsicExprNode::GetCheckpointId { .. } => {
+                Ok("__ctx_get_checkpoint_id()".to_string())
+            }
+            IntrinsicExprNode::GetUserPublicKeyHash { .. } => {
                 Ok("__ctx_get_user_public_key_hash()".to_string())
             }
-            IntrinsicExprNode::GetStateHashAt { slot_index } => Ok(format!(
+            IntrinsicExprNode::GetStateHashAt { slot_index, .. } => Ok(format!(
                 "__ctx_get_state_hash_at({})",
                 self.visit_expr(slot_index.clone(), ctx)?
             )),
@@ -766,6 +768,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 contract_state_tree_height,
                 contract_id,
                 slot_index,
+                ..
             } => Ok(format!(
                 "__ctx_get_other_contract_state_hash_at({}, {}, {})",
                 self.visit_expr(contract_state_tree_height.clone(), ctx)?,
@@ -777,6 +780,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 user_id,
                 contract_id,
                 slot_index,
+                ..
             } => Ok(format!(
                 "__ctx_get_other_user_contract_state_hash_at({}, {}, {}, {})",
                 self.visit_expr(contract_state_tree_height.clone(), ctx)?,
@@ -787,20 +791,21 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             IntrinsicExprNode::CSetStateHashAt {
                 slot_index,
                 new_value,
+                ..
             } => Ok(format!(
                 "__ctx_cset_state_hash_at({}, {})",
                 self.visit_expr(slot_index.clone(), ctx)?,
                 self.visit_expr(new_value.clone(), ctx)?
             )),
-            IntrinsicExprNode::Read { offset } => {
+            IntrinsicExprNode::Read { offset, .. } => {
                 Ok(format!("__storage_read({})", self.visit_expr(offset, ctx)?))
             }
-            IntrinsicExprNode::Write { offset, value } => Ok(format!(
+            IntrinsicExprNode::Write { offset, value, .. } => Ok(format!(
                 "__storage_write({}, {})",
                 self.visit_expr(offset, ctx)?,
                 self.visit_expr(value, ctx)?
             )),
-            IntrinsicExprNode::Hash { data } => {
+            IntrinsicExprNode::Hash { data, .. } => {
                 Ok(format!("hash({})", self.visit_expr(data, ctx)?,))
             }
         }
@@ -984,9 +989,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|p| {
                 format!(
                     "{}{}: {}",
-                    if p.1.is_mutable { "mut " } else { "" },
-                    &ctx.ident(p.0),
-                    self.visit_unchecked_type(&p.2, ctx)
+                    if p.qualifier.is_mutable { "mut " } else { "" },
+                    &ctx.ident(p.name),
+                    self.visit_unchecked_type(&p.ty, ctx)
                 )
             })
             .collect::<Vec<_>>()

@@ -17,6 +17,8 @@ pub enum Error {
         span: FileSpan,
         resolved_path: String,
     },
+    #[error("invalid path segment")]
+    InvalidPathSegment { span: FileSpan, segment: String },
     #[error("unresolved value")]
     UnresolvedVariable {
         span: FileSpan,
@@ -80,6 +82,43 @@ pub enum Error {
     InvalidSelfParameter { span: FileSpan, message: String },
     #[error("type already defined")]
     TypeAlreadyDefined { span: FileSpan, type_name: String },
+    #[error("member not public")]
+    MemberNotPublic {
+        span: FileSpan,
+        ty: String,
+        field: String,
+    },
+    #[error("module not public")]
+    ModuleNotPublic { span: FileSpan, module: String },
+    #[error("type not public")]
+    TypeNotPublic { span: FileSpan, ty: String },
+    #[error("trait already implemented")]
+    TraitAlreadyImplemented {
+        span: FileSpan,
+        trait_ty: String,
+        ty: String,
+    },
+    #[error("trait method unimplemented")]
+    TraitMethodUnimplemented {
+        span: FileSpan,
+        trait_ty: String,
+        ty: String,
+        method: String,
+    },
+    #[error("Method has no body")]
+    MethodHasNoBody {
+        span: FileSpan,
+        ty: String,
+        method: String,
+    },
+    #[error("Function has no body")]
+    FunctionHasNoBody { span: FileSpan, function: String },
+    #[error("DuplicatedMethod")]
+    DuplicatedMethod {
+        span: FileSpan,
+        ty: String,
+        method: String,
+    },
     #[error("index out of bounds")]
     IndexOutOfBounds {
         span: FileSpan,
@@ -92,6 +131,10 @@ pub enum Error {
         expected: String,
         found: String,
     },
+    #[error("no parent module")]
+    NoParentModule { span: FileSpan },
+    #[error("module not found")]
+    ModuleNotFound { span: FileSpan, module: String },
     #[error("unreachable match")]
     UnreachableMatch,
     #[error("unreachable code")]
@@ -129,6 +172,16 @@ pub fn lowering_error_to_report(error: Error) -> Report<'static, FileSpan> {
                     .with_color(colors.next()),
             )
             .finish(),
+        Error::InvalidPathSegment { span, segment } => {
+            Report::build(ReportKind::Error, span.clone())
+                .with_code("InvalidPathSegment")
+                .with_label(
+                    Label::new(span)
+                        .with_message(format!("Invalid path segment {}.", segment))
+                        .with_color(colors.next()),
+                )
+                .finish()
+        }
         Error::UnresolvedVariable {
             span,
             resolved_variable,
@@ -160,6 +213,59 @@ pub fn lowering_error_to_report(error: Error) -> Report<'static, FileSpan> {
                     Label::new(span).with_message(format!("Unresolved use {}.", resolved_use)),
                 )
                 .with_message("Unresolved Use.")
+                .finish()
+        }
+        Error::TraitAlreadyImplemented { span, trait_ty, ty } => {
+            Report::build(ReportKind::Error, span.clone())
+                .with_code("TraitAlreadyImplemented")
+                .with_label(
+                    Label::new(span)
+                        .with_message(format!(
+                            "Trait {} already implemented for {}.",
+                            trait_ty, ty
+                        ))
+                        .with_color(colors.next()),
+                )
+                .with_message("Trait Already Implemented.")
+                .finish()
+        }
+        Error::TraitMethodUnimplemented {
+            span,
+            trait_ty,
+            ty,
+            method,
+        } => Report::build(ReportKind::Error, span.clone())
+            .with_code("TraitMethodUnimplemented")
+            .with_label(
+                Label::new(span)
+                    .with_message(format!(
+                        "Trait {} unimplemented {}  for {}.",
+                        trait_ty, method, ty
+                    ))
+                    .with_color(colors.next()),
+            )
+            .with_message("Trait Method Unimplemented.")
+            .finish(),
+        Error::MethodHasNoBody { span, ty, method } => {
+            Report::build(ReportKind::Error, span.clone())
+                .with_code("MethodHasNoBody")
+                .with_label(
+                    Label::new(span)
+                        .with_message(format!(" {} of {} has no body.", method, ty))
+                        .with_color(colors.next()),
+                )
+                .with_message("Method Has No Body.")
+                .finish()
+        }
+        Error::FunctionHasNoBody { span, function } => {
+            Report::build(ReportKind::Error, span.clone())
+                .with_code("FunctionHasNoBody")
+                .with_label(
+                    Label::new(span)
+                        .with_message(format!(" {} has no body.", function))
+                        .with_color(colors.next()),
+                )
+                .with_message("Function Has No Body.")
                 .finish()
         }
         Error::VariableAlreadyDefined { span, variable } => {
@@ -328,6 +434,36 @@ pub fn lowering_error_to_report(error: Error) -> Report<'static, FileSpan> {
                 .with_message("TypeAlreadyDefined.")
                 .finish()
         }
+        Error::MemberNotPublic { span, ty, field } => {
+            Report::build(ReportKind::Error, span.clone())
+                .with_code("MemberNotPublic")
+                .with_label(
+                    Label::new(span)
+                        .with_message(format!("{} not a public member of {}.", field, ty))
+                        .with_color(colors.next()),
+                )
+                .with_message("MemberNotPublic.")
+                .finish()
+        }
+
+        Error::ModuleNotPublic { span, module } => Report::build(ReportKind::Error, span.clone())
+            .with_code("ModuleNotPublic")
+            .with_label(
+                Label::new(span)
+                    .with_message(format!("{} not a public module.", module))
+                    .with_color(colors.next()),
+            )
+            .with_message("ModuleNotPublic.")
+            .finish(),
+        Error::TypeNotPublic { span, ty } => Report::build(ReportKind::Error, span.clone())
+            .with_code("TypeNotPublic")
+            .with_label(
+                Label::new(span)
+                    .with_message(format!("{} not public.", ty))
+                    .with_color(colors.next()),
+            )
+            .with_message("TypeNotPublic.")
+            .finish(),
         Error::IndexOutOfBounds {
             span,
             index,
@@ -356,5 +492,34 @@ pub fn lowering_error_to_report(error: Error) -> Report<'static, FileSpan> {
             .finish(),
         Error::DuplicateWildcard { .. } => todo!(),
         Error::UnreachableMatch { .. } => todo!(),
+        Error::DuplicatedMethod { span, ty, method } => {
+            Report::build(ReportKind::Error, span.clone())
+                .with_code("DuplicatedMethod")
+                .with_label(
+                    Label::new(span)
+                        .with_message(format!("Method {} already exists on {}.", method, ty))
+                        .with_color(colors.next()),
+                )
+                .with_message("DuplicatedMethod.")
+                .finish()
+        }
+        Error::NoParentModule { span } => Report::build(ReportKind::Error, span.clone())
+            .with_code("NoParentModule")
+            .with_label(
+                Label::new(span)
+                    .with_message("No parent module.")
+                    .with_color(colors.next()),
+            )
+            .with_message("NoParentModule.")
+            .finish(),
+        Error::ModuleNotFound { span, module } => Report::build(ReportKind::Error, span.clone())
+            .with_code("ModuleNotFound")
+            .with_label(
+                Label::new(span)
+                    .with_message(format!("Module {} not found.", module))
+                    .with_color(colors.next()),
+            )
+            .with_message("ModuleNotFound.")
+            .finish(),
     }
 }

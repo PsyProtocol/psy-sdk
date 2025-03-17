@@ -1,13 +1,11 @@
-use std::convert::AsMut;
-use std::convert::AsRef;
-
+use derivative::Derivative;
 use enum_as_inner::EnumAsInner;
-use qed_ast::TypeQualifier;
+
 use qed_ast::Visibility;
 use qed_ast::{ExprId, IdentId};
-use qed_utils::impl_ref;
 
 use crate::CheckedConstNode;
+use crate::CheckedFunctionParameter;
 use crate::CheckedFunctionSignature;
 use crate::CheckedLambdaFunctionNode;
 use crate::ConstId;
@@ -28,36 +26,8 @@ pub const HASH_TYPE: TypeId = TypeId(9);
 
 use once_cell::sync::Lazy;
 
-pub static PRIMITIVE_TYPES: Lazy<Vec<Type>> = Lazy::new(|| {
-    vec![
-        Type::Unknown,
-        Type::VOID,
-        Type::Bool(CheckedBoolNode {
-            implementations: vec![],
-        }),
-        Type::Felt(CheckedFeltNode {
-            implementations: vec![],
-        }),
-        Type::U32(CheckedU32Node {
-            implementations: vec![],
-        }),
-    ]
-});
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct CheckedBoolNode {
-    pub implementations: Vec<TypeId>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct CheckedFeltNode {
-    pub implementations: Vec<TypeId>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct CheckedU32Node {
-    pub implementations: Vec<TypeId>,
-}
+pub static PRIMITIVE_TYPES: Lazy<Vec<Type>> =
+    Lazy::new(|| vec![Type::Unknown, Type::VOID, Type::Bool, Type::Felt, Type::U32]);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedTypeVariableNode {
@@ -69,9 +39,9 @@ pub struct CheckedTypeVariableNode {
 pub enum Type {
     Unknown,
     VOID,
-    Felt(CheckedFeltNode),
-    Bool(CheckedBoolNode),
-    U32(CheckedU32Node),
+    Felt,
+    Bool,
+    U32,
     Array(CheckedArrayNode),
     Struct(CheckedStructNode),
     Enum(CheckedEnumNode),
@@ -82,8 +52,6 @@ pub enum Type {
     FunctionSignature(CheckedFunctionSignature),
     TypeVariable(CheckedTypeVariableNode),
     Tuple(Vec<TypeId>),
-
-    GenericInstance(TypeId, Vec<TypeId>, ScopeId),
 }
 
 #[derive(Copy, Debug, Clone, PartialEq)]
@@ -109,39 +77,19 @@ pub enum TypeKind {
     GenericInstance,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, Eq, Derivative)]
+#[derivative(PartialEq, Hash)]
 pub struct TypeKey {
     pub name: Option<IdentId>,
     pub underlying_type_id: Option<TypeId>,
     pub generic_parameters: Vec<TypeId>,
-    pub consts: Vec<usize>,
+    pub consts: Vec<ConstId>,
 
     pub parameters: Vec<TypeId>,
     pub return_type: Option<TypeId>,
 
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub visibility: Visibility,
-}
-
-impl PartialEq for TypeKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-            && self.underlying_type_id == other.underlying_type_id
-            && self.generic_parameters == other.generic_parameters
-            && self.parameters == other.parameters
-            && self.return_type == other.return_type
-            && self.consts == other.consts
-    }
-}
-
-impl std::hash::Hash for TypeKey {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
-        self.underlying_type_id.hash(state);
-        self.generic_parameters.hash(state);
-        self.parameters.hash(state);
-        self.return_type.hash(state);
-        self.consts.hash(state);
-    }
 }
 
 impl TypeKey {
@@ -149,7 +97,7 @@ impl TypeKey {
         name: Option<IdentId>,
         underlying_type_id: Option<TypeId>,
         generic_parameters: Vec<TypeId>,
-        consts: Vec<usize>,
+        consts: Vec<ConstId>,
         parameters: Vec<TypeId>,
         return_type: Option<TypeId>,
     ) -> Self {
@@ -163,34 +111,17 @@ impl TypeKey {
             visibility: Visibility::Public,
         }
     }
-
-    pub fn from_const_id(const_id: ConstId) -> Self {
-        Self {
-            name: None,
-            underlying_type_id: None,
-            generic_parameters: vec![],
-            consts: vec![const_id.into()],
-            parameters: vec![],
-            return_type: None,
-            visibility: Visibility::Public,
-        }
-    }
 }
-
-impl_ref!(Type,
-    Array => CheckedArrayNode,
-    Struct => CheckedStructNode,
-    Enum => CheckedEnumNode,
-    Function => CheckedFunctionNode,
-    Trait => CheckedTraitNode,
-    Const => CheckedConstNode,
-
-    LambdaFunction => CheckedLambdaFunctionNode
-);
 
 impl From<IdentId> for TypeKey {
     fn from(value: IdentId) -> Self {
         TypeKey::new(Some(value), None, vec![], vec![], vec![], None)
+    }
+}
+
+impl From<ConstId> for TypeKey {
+    fn from(value: ConstId) -> Self {
+        TypeKey::new(None, None, vec![], vec![value], vec![], None)
     }
 }
 
@@ -207,9 +138,9 @@ impl Type {
                     None,
                 ),
                 Type::VOID => (Some(IdentId::TYPE_VOID), None, vec![], vec![], vec![], None),
-                Type::Felt(_) => (Some(IdentId::TYPE_FELT), None, vec![], vec![], vec![], None),
-                Type::Bool(_) => (Some(IdentId::TYPE_BOOL), None, vec![], vec![], vec![], None),
-                Type::U32(_) => (Some(IdentId::TYPE_U32), None, vec![], vec![], vec![], None),
+                Type::Felt => (Some(IdentId::TYPE_FELT), None, vec![], vec![], vec![], None),
+                Type::Bool => (Some(IdentId::TYPE_BOOL), None, vec![], vec![], vec![], None),
+                Type::U32 => (Some(IdentId::TYPE_U32), None, vec![], vec![], vec![], None),
                 Type::Array(CheckedArrayNode {
                     inner_ty,
                     size_ty: size,
@@ -276,7 +207,10 @@ impl Type {
                     None,
                     vec![],
                     vec![],
-                    parameters.iter().map(|(_, _, ty)| ty.clone()).collect(),
+                    parameters
+                        .iter()
+                        .map(|parameter| parameter.ty.clone())
+                        .collect(),
                     Some(return_type.clone()),
                 ),
                 Type::FunctionSignature(CheckedFunctionSignature {
@@ -308,14 +242,6 @@ impl Type {
                 Type::Const(CheckedConstNode { name, .. }) => {
                     (name.clone(), None, vec![], vec![], vec![], None)
                 }
-                Type::GenericInstance(underlying_type_id, generic_parameters, _) => (
-                    None,
-                    Some(underlying_type_id.clone()),
-                    generic_parameters.clone(),
-                    vec![],
-                    vec![],
-                    None,
-                ),
                 _ => panic!("Type::key called on TypeVariable type"),
             };
         TypeKey::new(
@@ -338,79 +264,11 @@ impl Type {
             Type::Trait(CheckedTraitNode { scope_id, .. }) => *scope_id,
             Type::Const(CheckedConstNode { scope_id, .. }) => *scope_id,
             Type::LambdaFunction(CheckedLambdaFunctionNode { scope_id, .. }) => *scope_id,
-            Type::Felt(_) => ScopeId::primitive(),
-            Type::Bool(_) => ScopeId::primitive(),
-            Type::U32(_) => ScopeId::primitive(),
+            Type::Felt => ScopeId::primitive(),
+            Type::Bool => ScopeId::primitive(),
+            Type::U32 => ScopeId::primitive(),
             Type::TypeVariable(CheckedTypeVariableNode { scope_id, .. }) => *scope_id,
-            Type::GenericInstance(_, _, scope_id) => *scope_id,
             _ => panic!("Type::scope_id called on non-composite type: {:?}", self),
-        }
-    }
-
-    pub fn add_implementation(&mut self, trait_type_id: TypeId) {
-        match self {
-            Type::Struct(CheckedStructNode {
-                ref mut implementations,
-                ..
-            }) => {
-                implementations.push(trait_type_id);
-            }
-            Type::Enum(CheckedEnumNode {
-                ref mut implementations,
-                ..
-            }) => {
-                implementations.push(trait_type_id);
-            }
-            Type::Felt(CheckedFeltNode {
-                ref mut implementations,
-                ..
-            }) => {
-                implementations.push(trait_type_id);
-            }
-            Type::Array(CheckedArrayNode {
-                ref mut implementations,
-                ..
-            }) => {
-                implementations.push(trait_type_id);
-            }
-            Type::Bool(CheckedBoolNode {
-                ref mut implementations,
-                ..
-            }) => {
-                implementations.push(trait_type_id);
-            }
-            Type::Tuple(_) => panic!("Tuple types do not support trait implementations"),
-            Type::U32(CheckedU32Node {
-                ref mut implementations,
-                ..
-            }) => {
-                implementations.push(trait_type_id);
-            }
-            _ => panic!("Type::add_implementation called on non-composite type"),
-        }
-    }
-
-    pub fn implementations(&self) -> &Vec<TypeId> {
-        match self {
-            Type::Struct(CheckedStructNode {
-                implementations, ..
-            }) => implementations,
-            Type::Enum(CheckedEnumNode {
-                implementations, ..
-            }) => implementations,
-            Type::Felt(CheckedFeltNode {
-                implementations, ..
-            }) => implementations,
-            Type::Bool(CheckedBoolNode {
-                implementations, ..
-            }) => implementations,
-            Type::U32(CheckedU32Node {
-                implementations, ..
-            }) => implementations,
-            Type::Array(CheckedArrayNode {
-                implementations, ..
-            }) => implementations,
-            _ => panic!("Type::implementations called on non-composite type"),
         }
     }
 
@@ -468,12 +326,11 @@ impl Type {
             }
             Type::LambdaFunction(_) => vec![],
             Type::FunctionSignature(_) => vec![],
-            Type::GenericInstance(_, generic_parameters, _) => generic_parameters.to_vec(),
             _ => unreachable!(),
         }
     }
 
-    pub fn parameters(&self) -> Vec<(IdentId, TypeQualifier, TypeId)> {
+    pub fn parameters(&self) -> Vec<CheckedFunctionParameter> {
         match self {
             Type::Function(CheckedFunctionNode { parameters, .. }) => parameters.to_vec(),
             Type::LambdaFunction(CheckedLambdaFunctionNode { parameters, .. }) => {
@@ -496,9 +353,9 @@ impl Type {
         match self {
             Type::Unknown => TypeKind::Unknown,
             Type::VOID => TypeKind::VOID,
-            Type::Felt(_) => TypeKind::Felt,
-            Type::Bool(_) => TypeKind::Bool,
-            Type::U32(_) => TypeKind::U32,
+            Type::Felt => TypeKind::Felt,
+            Type::Bool => TypeKind::Bool,
+            Type::U32 => TypeKind::U32,
             Type::Array(_) => TypeKind::Array,
             Type::Struct(_) => TypeKind::Struct,
             Type::Enum(_) => TypeKind::Enum,
@@ -509,7 +366,6 @@ impl Type {
             Type::LambdaFunction(_) => TypeKind::LambdaFunction,
             Type::FunctionSignature(_) => TypeKind::FunctionSignature,
             Type::TypeVariable(_) => TypeKind::TypeVariable,
-            Type::GenericInstance(_, _, _) => TypeKind::GenericInstance,
         }
     }
 }

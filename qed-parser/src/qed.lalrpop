@@ -1,7 +1,7 @@
 use qed_common::{FileId, Arena};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::*;
-use qed_lexer::{Token, Error};
+use qed_lexer::{Token, Error as LexicalError};
 
 grammar<'input, F, C>(
     file_content: &'input str,
@@ -19,7 +19,7 @@ grammar<'input, F, C>(
     ctx: &mut C
 ) where F: ContextFelt + From<u32>, C: DPNContext<F>;
 
-use super::Loc;
+use super::{Loc, Error as SyntacticError, LalrpopError};
 use std::convert::TryFrom;
 
 ModuleItem: ModuleItemNode = {
@@ -106,7 +106,16 @@ Definition: DefinitionNode = {
     EnumDef => DefinitionNode::Enum(<>),
     StructDef => DefinitionNode::Struct(<>),
     TypeAliasDef => <>,
-    FunctionDef => <>,
+    <f:FunctionDef> => {
+        if f.as_function().unwrap().body.is_none() {
+            panic!("{:?}", LalrpopError::User { error: SyntacticError::FunctionBodyMissing });
+
+        }
+        if f.as_function().unwrap().parameters.iter().any(|p| p.name == IdentId::SELF || matches!(p.ty, UncheckedType::Basic(IdentId::TYPE_SELF, _))) {
+            panic!("{:?}", LalrpopError::User { error: SyntacticError::InvalidSelfParameter });
+        }
+        f
+    },
     ConstDef => <>,
     UseDef => DefinitionNode::Use(<>),
 }
@@ -125,11 +134,18 @@ UseDef: UseNode = {
 
 ImplDef: ImplNode = {
    <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
-       // assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplNode {
            generic_parameters: generic_parameters_lhs,
            ty,
-           body: def_nodes.alloc_items(body),
+           body: {
+                if body.iter().any(|f| f.as_function().unwrap().body.is_none()) {
+                    panic!("{:?}", LalrpopError::User { error: SyntacticError::FunctionBodyMissing });
+                }
+                if body.iter().any(|f| f.as_function().unwrap().parameters.iter().enumerate().any(|(i, p)| p.name == IdentId::SELF && i != 0)) {
+                    panic!("{:?}", LalrpopError::User { error: SyntacticError::InvalidSelfParameter });
+                }
+                def_nodes.alloc_items(body)
+           },
            span: Span::new(file_id, l, r),
        }
    }
@@ -137,12 +153,19 @@ ImplDef: ImplNode = {
 
 ImplTraitDef: ImplTraitNode = {
    <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
-       // assert_eq!(generic_parameters_lhs, generic_parameters_rhs);
        ImplTraitNode {
            generic_parameters: generic_parameters_lhs,
            trait_ty: trait_ty,
            ty,
-           body: def_nodes.alloc_items(body),
+           body: {
+                if body.iter().any(|f| f.as_function().unwrap().body.is_none()) {
+                    panic!("{:?}", LalrpopError::User { error: SyntacticError::FunctionBodyMissing });
+                }
+                if body.iter().any(|f| f.as_function().unwrap().parameters.iter().enumerate().any(|(i, p)| p.name == IdentId::SELF && i != 0)) {
+                    panic!("{:?}", LalrpopError::User { error: SyntacticError::InvalidSelfParameter });
+                }
+                def_nodes.alloc_items(body)
+           },
            span: Span::new(file_id, l, r),
        }
    }
@@ -183,7 +206,7 @@ StructDef: StructNode = {
     <l:@L> <attrs:Attribute*> <visibility: Visibility> STRUCT <name:Identifier> <generic_parameters:GenericParameters> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => StructNode {
         name,
         generic_parameters,
-        fields: fields.into_iter().map(|(field_name, field_type, visibility)| (field_name, (field_type, visibility))).collect(),
+        fields: fields.into_iter().map(|(field_name, field_type)| (field_name, field_type)).collect(),
         attrs,
         visibility,
         span: Span::new(file_id, l, r),
@@ -208,7 +231,9 @@ FunctionDef: DefinitionNode = {
         body: Some(expr_nodes.alloc_item(block_expr)),
         return_type,
         qualifier: {
-           assert!(!qualifier.is_extern || is_std);
+           if qualifier.is_extern && !is_std {
+             panic!("{:?}", LalrpopError::User { error: SyntacticError::ExternFnNotInStd });
+           }
            qualifier
         },
         visibility,
@@ -222,7 +247,9 @@ FunctionDef: DefinitionNode = {
         body: None,
         return_type,
         qualifier: {
-           assert!(!qualifier.is_extern || is_std);
+           if qualifier.is_extern && !is_std {
+             panic!("{:?}", LalrpopError::User { error: SyntacticError::ExternFnNotInStd });
+           }
            qualifier
         },
         visibility,
@@ -255,14 +282,20 @@ TypeQualifier: TypeQualifier = {
 
 FunctionSignature: UncheckedType = {
     <l:@L> FN "(" <parameters:Comma<Ty>> ")" <return_type:FunctionReturn?> <r:@R> => UncheckedType::FunctionSignature(
-        Box::new(FunctionSignature {parameters, return_type})
+        Box::new(FunctionSignature {parameters, return_type}),
+        Span::new(file_id, l, r)
     )
 }
 
-FunctionParameter: (IdentId, TypeQualifier, UncheckedType) = {
-    <l:@L> <type_qualifier: TypeQualifier> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => (name, type_qualifier, ty),
+FunctionParameter: FunctionParameter = {
+    <l:@L> <type_qualifier: TypeQualifier> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => FunctionParameter::new(name, type_qualifier, ty, Span::new(file_id, l, r)),
     <l:@L> <type_qualifier: TypeQualifier> <name:SELF> <r:@R> => {
-        (IdentId::SELF, type_qualifier, UncheckedType::Basic(IdentId::TYPE_SELF))
+        FunctionParameter::new(
+            IdentId::SELF,
+            type_qualifier,
+            UncheckedType::Basic(IdentId::TYPE_SELF, Span::new(file_id, l, r)),
+            Span::new(file_id, l, r)
+        )
     },
 }
 
@@ -275,7 +308,7 @@ EnumVariant: EnumVariant = {
     <l:@L> <name:Identifier> "(" <members:Comma<Ty>> ")" <r:@R> => EnumVariant::Tuple(name, members),
     <l:@L> <name:Identifier> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => EnumVariant::Struct(
         name,
-        fields.into_iter().map(|(field_name, field_type, visibility)| (field_name, (field_type, visibility))).collect()
+        fields.into_iter().map(|(field_name, field_type)| (field_name, field_type)).collect()
     )
 }
 
@@ -284,8 +317,11 @@ TypeAnnotation: (IdentId, UncheckedType) = {
     <l:@L> <name:Identifier> <r:@R> => (name, UncheckedType::Unknown)
 }
 
-FieldTypeAnnotation: (IdentId, UncheckedType, Visibility) = {
-    <l:@L> <visibility:Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty, visibility)
+FieldTypeAnnotation: (IdentId, StructField)  = {
+    <l:@L> <visibility:Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (
+        name,
+        StructField { ty, visibility, span: Span::new(file_id, l, r) }
+    ),
 }
 
 Visibility: Visibility = {
@@ -391,7 +427,7 @@ ReturnStatement: StmtNode = {
 }
 
 TupleType: UncheckedType = {
-    "(" <types:Comma<Ty>> ")" => UncheckedType::Tuple(types)
+    <l:@L> "(" <types:Comma<Ty>> ")" <r:@R> => UncheckedType::Tuple(types, Span::new(file_id, l, r))
 }
 
 TupleExpression: ExprNode<F> = {
@@ -461,6 +497,7 @@ Expression: ExprNode<F> = {
         ExprNode::Intrinsic(
             IntrinsicExprNode::Read {
                 offset: expr_nodes.alloc_item(offset),
+                span: Span::new(file_id, l, r)
             }
         )
     },
@@ -469,6 +506,7 @@ Expression: ExprNode<F> = {
             IntrinsicExprNode::Write {
                 offset: expr_nodes.alloc_item(offset),
                 value: expr_nodes.alloc_item(value),
+                span: Span::new(file_id, l, r)
             }
         )
     },
@@ -476,37 +514,51 @@ Expression: ExprNode<F> = {
         ExprNode::Intrinsic(
             IntrinsicExprNode::Hash {
                 data: expr_nodes.alloc_item(data),
+                span: Span::new(file_id, l, r)
             }
         )
     },
     <l:@L> <variable:CTX_GET_USER_ID> "(" ")" <r:@R> => {
         ExprNode::Intrinsic(
-            IntrinsicExprNode::GetUserId
+            IntrinsicExprNode::GetUserId {
+                span: Span::new(file_id, l, r)
+            }
         )
     },
     <l:@L> <variable:CTX_GET_CONTRACT_ID> "(" ")" <r:@R> => {
         ExprNode::Intrinsic(
-            IntrinsicExprNode::GetContractId
+            IntrinsicExprNode::GetContractId {
+                span: Span::new(file_id, l, r)
+            }
         )
     },
     <l:@L> <variable:CTX_GET_CHECKPOINT_ID> "(" ")" <r:@R> => {
         ExprNode::Intrinsic(
-            IntrinsicExprNode::GetCheckpointId
+            IntrinsicExprNode::GetCheckpointId {
+                span: Span::new(file_id, l, r)
+            }
         )
     },
     <l:@L> <variable:CTX_GET_LAST_NONCE> "(" ")" <r:@R> => {
         ExprNode::Intrinsic(
-            IntrinsicExprNode::GetLastNonce
+            IntrinsicExprNode::GetLastNonce {
+                span: Span::new(file_id, l, r)
+            }
         )
     },
     <l:@L> <variable:CTX_GET_USER_PUBLIC_KEY_HASH> "(" ")" <r:@R> => {
         ExprNode::Intrinsic(
-            IntrinsicExprNode::GetUserPublicKeyHash
+            IntrinsicExprNode::GetUserPublicKeyHash {
+                span: Span::new(file_id, l, r)
+            }
         )
     },
     <l:@L> <variable:CTX_GET_STATE_HASH_AT> "(" <slot_index: Expression> ")" <r:@R> => {
         ExprNode::Intrinsic(
-            IntrinsicExprNode::GetStateHashAt { slot_index: expr_nodes.alloc_item(slot_index) }
+            IntrinsicExprNode::GetStateHashAt {
+                slot_index: expr_nodes.alloc_item(slot_index),
+                span: Span::new(file_id, l, r)
+            }
         )
     },
     <l:@L> <variable:CTX_GET_OTHER_CONTRACT_STATE_HASH_AT> "(" <contract_state_tree_height: Expression> "," <contract_id: Expression> "," <slot_index: Expression> ")" <r:@R> => {
@@ -515,6 +567,7 @@ Expression: ExprNode<F> = {
                 contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
                 contract_id: expr_nodes.alloc_item(contract_id),
                 slot_index: expr_nodes.alloc_item(slot_index),
+                span: Span::new(file_id, l, r)
             }
         )
     },
@@ -525,6 +578,7 @@ Expression: ExprNode<F> = {
                 user_id: expr_nodes.alloc_item(user_id),
                 contract_id: expr_nodes.alloc_item(contract_id),
                 slot_index: expr_nodes.alloc_item(slot_index),
+                span: Span::new(file_id, l, r)
             }
         )
     },
@@ -533,6 +587,7 @@ Expression: ExprNode<F> = {
             IntrinsicExprNode::CSetStateHashAt {
                 slot_index: expr_nodes.alloc_item(slot_index),
                 new_value: expr_nodes.alloc_item(new_value),
+                span: Span::new(file_id, l, r)
             }
         )
     },
@@ -575,14 +630,8 @@ Expression: ExprNode<F> = {
         field,
         span: Span::new(file_id, l, r),
     }),
-    <l:@L> <lhs:Expression> AS <ty:TYPE_FELT> <r:@R> => ExprNode::<F>::Cast(
-        CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_FELT), Span::new(file_id, l, r))
-    ),
-    <l:@L> <lhs:Expression> AS <ty:TYPE_BOOL> <r:@R> => ExprNode::<F>::Cast(
-        CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_BOOL), Span::new(file_id, l, r))
-    ),
-    <l:@L> <lhs:Expression> AS <ty:TYPE_U32> <r:@R> => ExprNode::<F>::Cast(
-        CastNode::new(expr_nodes.alloc_item(lhs), UncheckedType::Basic(IdentId::TYPE_U32), Span::new(file_id, l, r))
+    <l:@L> <lhs:Expression> AS <ty:ConstType> <r:@R> => ExprNode::<F>::Cast(
+        CastNode::new(expr_nodes.alloc_item(lhs), ty, Span::new(file_id, l, r))
     ),
 
     #[precedence(level="4")] #[assoc(side="right")]
@@ -720,7 +769,7 @@ StructExpression: ExprNode<F> = {
 
 KeyValue: (IdentId, ExprId) = {
     <l:@L> <name:Identifier> ":" <value:Expression> <r:@R> => (name, expr_nodes.alloc_item(value)),
-    <l:@L> <name:Identifier> <r:@R> => (name, expr_nodes.alloc_item(ExprNode::Path(PathNode::from_target(name))))
+    <l:@L> <name:Identifier> <r:@R> => (name, expr_nodes.alloc_item(ExprNode::Path(PathNode::from_target(name, Span::new(file_id, l, r)))))
 }
 
 LambdaFunctionExpression: ExprNode<F> = {
@@ -789,27 +838,28 @@ Ty: UncheckedType = {
 }
 
 GenericType: UncheckedType = {
-    <l:@L> <name:Identifier> "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters),
+    <l:@L> <name:Identifier> "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters, Span::new(file_id, l, r)),
     <l:@L>  "[" <ty:Ty> ";" <n:Identifier> "]" <r:@R> => UncheckedType::Generic(
         IdentId::TYPE_ARRAY,
-        vec![ty, UncheckedType::Basic(n)]
+        vec![ty, UncheckedType::Basic(n, Span::new(file_id, l, r))],
+        Span::new(file_id, l, r)
     )
 }
 
 ArrayType: UncheckedType = {
-    <l:@L> "[" <ty:Ty> ";" <n:U64> "]" <r:@R> => UncheckedType::Array(Box::new(ty), usize::try_from(n).unwrap())
+    <l:@L> "[" <ty:Ty> ";" <n:U64> "]" <r:@R> => UncheckedType::Array(Box::new(ty), usize::try_from(n).unwrap(), Span::new(file_id, l, r))
 }
 
 ConstType: UncheckedType = {
-    <l:@L> <ty:TYPE_FELT>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_FELT),
-    <l:@L> <ty:TYPE_BOOL>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_BOOL),
-    <l:@L> <ty:TYPE_U32>   <r:@R> => UncheckedType::Basic(IdentId::TYPE_U32),
+    <l:@L> <ty:TYPE_FELT>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_FELT, Span::new(file_id, l, r)),
+    <l:@L> <ty:TYPE_BOOL>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_BOOL, Span::new(file_id, l, r)),
+    <l:@L> <ty:TYPE_U32>   <r:@R> => UncheckedType::Basic(IdentId::TYPE_U32, Span::new(file_id, l, r)),
 }
 
 BasicType: UncheckedType = {
     ConstType,
-    <l:@L> <ty:TYPE_SELF>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_SELF),
-    <l:@L> <ty:Identifier> <r:@R> => UncheckedType::Basic(ty)
+    <l:@L> <ty:TYPE_SELF>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_SELF, Span::new(file_id, l, r)),
+    <l:@L> <ty:Identifier> <r:@R> => UncheckedType::Basic(ty, Span::new(file_id, l, r))
 }
 
 ModuleUseKind: IdentId = {
@@ -856,7 +906,7 @@ Plus<E>: Vec<E> = Sep<E, "+">;
 
 extern {
     type Location = Loc;
-    type Error = Error;
+    type Error = LexicalError;
 
     enum Token<'input> {
         CONST => Token::KeywordConst,

@@ -7,9 +7,15 @@ use crate::{ScopeId, TypeId};
 pub struct CheckedStructNode {
     pub name: IdentId,
     pub generic_parameters: Vec<TypeId>,
-    pub fields: IndexMap<IdentId, (TypeId, Visibility)>,
+    pub fields: IndexMap<IdentId, CheckedStructField>,
     pub scope_id: ScopeId,
-    pub implementations: Vec<TypeId>,
+    pub visibility: Visibility,
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CheckedStructField {
+    pub ty: TypeId,
     pub visibility: Visibility,
     pub span: Span,
 }

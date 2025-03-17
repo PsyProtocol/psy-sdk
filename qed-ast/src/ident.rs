@@ -7,8 +7,18 @@ use std::{
 use qed_common::{define_arena_id, Arena};
 use smol_str::SmolStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Ident(pub SmolStr);
+
+impl Ident {
+    pub fn new(s: &str) -> Self {
+        if s.len() <= 22 {
+            Ident(SmolStr::new_inline(s))
+        } else {
+            Ident(SmolStr::new(s))
+        }
+    }
+}
 
 impl Display for Ident {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -18,11 +28,7 @@ impl Display for Ident {
 
 impl From<&str> for Ident {
     fn from(s: &str) -> Self {
-        if s.len() <= 22 {
-            Ident(SmolStr::new_inline(s))
-        } else {
-            Ident(SmolStr::new(s))
-        }
+        Ident::new(s)
     }
 }
 
