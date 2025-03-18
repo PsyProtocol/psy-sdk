@@ -36,9 +36,9 @@ use std::collections::{HashMap, HashSet};
 use std::result::Result as StdResult;
 use tracing::instrument;
 
-use qed_common::FileId;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use qed_common::FileId;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 pub struct TypeChecker<F: Clone + From<u32> + ContextFelt, C> {
