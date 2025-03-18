@@ -18,10 +18,18 @@ pub struct MatchArm {
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum MatchPattern {
-    Value(ExprId),
-    PlaceHolder,
+    Value(ExprId, Span),
+    PlaceHolder(Span),
 }
 
+impl MatchPattern {
+    pub fn span(&self) -> Span {
+        match self {
+            MatchPattern::Value(_, span) => span.clone(),
+            MatchPattern::PlaceHolder(span) => span.clone(),
+        }
+    }
+}
 impl NodeInfo for MatchNode {
     fn node_type(&self) -> NodeType {
         NodeType::MatchExpr

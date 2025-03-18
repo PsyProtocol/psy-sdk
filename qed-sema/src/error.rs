@@ -92,10 +92,11 @@ pub enum Error {
         expected: String,
         found: String,
     },
-    #[error("unreachable match")]
-    UnreachableMatch,
+
     #[error("unreachable code")]
-    DuplicateWildcard,
+    DuplicateWildcard { span: FileSpan },
+    #[error("Incomplete Match")]
+    IncompleteMatch { span: FileSpan, message: String },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -354,7 +355,24 @@ pub fn lowering_error_to_report(error: Error) -> Report<'static, FileSpan> {
             )
             .with_message("InvalidCast.")
             .finish(),
-        Error::DuplicateWildcard { .. } => todo!(),
-        Error::UnreachableMatch { .. } => todo!(),
+        Error::DuplicateWildcard { span } => Report::build(ReportKind::Error, span.clone())
+            .with_code("DuplicateWildcard")
+            .with_label(
+                Label::new(span)
+                    .with_message("Duplicate Wildcard.")
+                    .with_color(colors.next()),
+            )
+            .with_message("Duplicate Wildcard.")
+            .finish(),
+
+        Error::IncompleteMatch { span, message } => Report::build(ReportKind::Error, span.clone())
+            .with_code("IncompleteMatch")
+            .with_label(
+                Label::new(span)
+                    .with_message(message)
+                    .with_color(colors.next()),
+            )
+            .with_message("Incomplete Match.")
+            .finish(),
     }
 }
