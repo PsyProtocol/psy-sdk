@@ -196,10 +196,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let mut type_ids = Vec::new();
 
         let mut visited = HashMap::new();
-        ctx.program
-            .dependency_graph
-            .clone()
-            .ts(&ModuleId::root(), &mut visited, &mut |&module_id| {
+        ctx.program.dependency_graph.clone().ts::<SemaError>(
+            &ModuleId::root(),
+            &mut visited,
+            &mut |&module_id| {
                 let scope_id = ctx.symbols[module_id].scope_id;
                 let functions = ctx.symbols[scope_id]
                     .types
@@ -214,8 +214,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     .map(|(_, v)| v.clone())
                     .collect::<Vec<_>>();
                 type_ids.push((module_id, functions));
-            })
-            .unwrap();
+                Ok(())
+            },
+        )?;
 
         let mut outputs = Vec::new();
         // backup context

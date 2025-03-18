@@ -143,9 +143,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
 
         self.program.dependency_graph = self.program.modules.to_graph();
 
-        if self.program.dependency_graph.has_cycle() {
-            return Err(Error::CycleDependency);
-        }
+        self.program.dependency_graph.check_cycle::<Error>()?;
 
         Ok(())
     }

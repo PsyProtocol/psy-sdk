@@ -1568,18 +1568,20 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.dependency_graph()
             .ts(&ModuleId::root(), &mut colors, &mut |&module_id| {
                 ctx.symbols.enter_module(module_id);
-                self.visit_module(module_id, ctx).unwrap_or_else(|err| {
-                    let report = crate::error::lowering_error_to_report(err);
-                    report
-                        .eprint(ariadne::FnCache::new(|x: &String| {
-                            Ok(std::fs::read_to_string(std::path::Path::new(x.as_str())).unwrap())
-                        }))
-                        .unwrap();
-                    std::process::exit(1);
-                });
+                self.visit_module(module_id, ctx)?;
                 ctx.symbols.exit_module();
+
+                Ok(())
             })
-            .unwrap();
+            .unwrap_or_else(|err| {
+                let report = crate::error::lowering_error_to_report(err);
+                report
+                    .eprint(ariadne::FnCache::new(|x: &String| {
+                        Ok(std::fs::read_to_string(std::path::Path::new(x.as_str())).unwrap())
+                    }))
+                    .unwrap();
+                std::process::exit(1);
+            });
 
         Ok(())
     }

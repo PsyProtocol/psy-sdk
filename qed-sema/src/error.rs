@@ -5,7 +5,9 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("{0:?}")]
-    AnyError(#[from] anyhow::Error),
+    AnyhowError(#[from] anyhow::Error),
+    #[error("{0:?}")]
+    CommonError(#[from] qed_common::Error),
     #[error("type mismatch")]
     TypeMismatch {
         span: FileSpan,
@@ -147,7 +149,8 @@ pub fn lowering_error_to_report(error: Error) -> Report<'static, FileSpan> {
     let mut colors = ColorGenerator::new();
     colors.next();
     match error {
-        Error::AnyError(_error) => todo!(),
+        Error::AnyhowError(error) => panic!("{}", error),
+        Error::CommonError(error) => panic!("{}", error),
         Error::TypeMismatch {
             span,
             expected,

@@ -485,7 +485,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     type Context = DefaultVisitorContext<'a, F, C>;
     type ExprResult = ();
     type StmtResult = ();
-    type Error = ();
+    type Error = qed_common::Error;
     type Expr = ExprNode<F>;
     type Stmt = StmtNode;
     type Definition = DefinitionNode;

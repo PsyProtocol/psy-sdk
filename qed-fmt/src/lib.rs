@@ -129,7 +129,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     type ExprResult = String;
     type StmtResult = String;
     type Context = DefaultVisitorContext<'a, F, C>;
-    type Error = ();
+    type Error = qed_common::Error;
     type Expr = ExprNode<F>;
     type Stmt = StmtNode;
     type Definition = DefinitionNode;

@@ -1497,6 +1497,9 @@ dependencies = [
 [[package]]
 name = "qed-common"
 version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "qed-derive"
