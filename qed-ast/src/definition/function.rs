@@ -1,13 +1,13 @@
 use crate::{
-    AttrNode, ExprId, IdentId, NodeInfo, NodeType, Qualifier, Span, TypeQualifier, UncheckedType,
-    Visibility,
+    AttrNode, ExprId, GenericParameter, IdentId, NodeInfo, NodeType, Qualifier, Span,
+    TypeQualifier, UncheckedType, Visibility,
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionNode {
     pub name: IdentId,
     pub parameters: Vec<FunctionParameter>,
-    pub generic_parameters: Vec<IdentId>,
+    pub generic_parameters: Vec<GenericParameter>,
     pub body: Option<ExprId>,
     pub return_type: Option<UncheckedType>,
     pub qualifier: Qualifier,

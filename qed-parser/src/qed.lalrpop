@@ -129,9 +129,9 @@ UseDef: UseNode = {
 }
 
 ImplDef: ImplNode = {
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> IMPL <generic_parameters:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
        ImplNode {
-           generic_parameters: generic_parameters_lhs,
+           generic_parameters,
            ty,
            body: {
                 if body.iter().any(|f| f.as_function().unwrap().body.is_none()) {
@@ -148,10 +148,10 @@ ImplDef: ImplNode = {
 }
 
 ImplTraitDef: ImplTraitNode = {
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> IMPL <generic_parameters:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
        ImplTraitNode {
-           generic_parameters: generic_parameters_lhs,
-           trait_ty: trait_ty,
+           generic_parameters,
+           trait_ty,
            ty,
            body: {
                 if body.iter().any(|f| f.as_function().unwrap().body.is_none()) {
@@ -325,8 +325,21 @@ Visibility: Visibility = {
     () => Visibility::Private
 }
 
-GenericParameters: Vec<IdentId> = {
-    <l:@L> "<" <generic_parameters:Comma<Identifier>> ">" <r:@R> => generic_parameters,
+GenericParameters: Vec<GenericParameter> = {
+    <l:@L> "<" <generic_parameters:Comma<GenericParameter>> ">" <r:@R> => generic_parameters,
+    () => vec![]
+}
+
+GenericParameter: GenericParameter = {
+    <l:@L> <name:Identifier> <constraints: GenericConstraints> <r:@R> => GenericParameter::new(
+        name,
+        constraints,
+        Span::new(file_id, l, r)
+    )
+}
+
+GenericConstraints: Vec<UncheckedType> = {
+    <l:@L> ":" <constraints:Plus<Ty>> <r:@R> => constraints,
     () => vec![]
 }
 

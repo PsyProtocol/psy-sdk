@@ -477,7 +477,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         } = ctx.definition(def_id).as_impl().unwrap();
         let generic_parameters = generic_parameters
             .iter()
-            .map(|&generic_parameter| ctx.ident(generic_parameter).to_string())
+            .map(|generic_parameter| ctx.ident(generic_parameter.name).to_string())
             .collect::<Vec<_>>();
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
@@ -542,7 +542,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .join(", ");
         let generic_parameters = generic_parameters
             .iter()
-            .map(|x| ctx.ident(x.clone()).to_string())
+            .map(|x| ctx.ident(x.name.clone()).to_string())
             .collect::<Vec<_>>();
         let s = format!(
             "{}{}fn {}{}({}){} ",
@@ -600,7 +600,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             self.visit_generic_parameters(
                 generic_parameters
                     .iter()
-                    .map(|p| ctx.ident(p.clone()).to_string())
+                    .map(|p| ctx.ident(p.name.clone()).to_string())
                     .collect::<Vec<_>>()
             )
         ));
@@ -638,7 +638,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             self.visit_generic_parameters(
                 generic_parameters
                     .iter()
-                    .map(|p| ctx.ident(p.clone()).to_string())
+                    .map(|p| ctx.ident(p.name.clone()).to_string())
                     .collect::<Vec<_>>()
             )
         ));
@@ -697,7 +697,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             self.visit_generic_parameters(
                 generic_parameters
                     .iter()
-                    .map(|p| ctx.ident(p.clone()).to_string())
+                    .map(|p| ctx.ident(p.name.clone()).to_string())
                     .collect::<Vec<_>>()
             )
         ));
@@ -1029,7 +1029,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         } = ctx.definition(def_id).as_impl_trait().unwrap();
         let generic_parameters = generic_parameters
             .iter()
-            .map(|&generic_parameter| ctx.ident(generic_parameter).to_string())
+            .map(|generic_parameter| ctx.ident(generic_parameter.name).to_string())
             .collect::<Vec<_>>();
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 

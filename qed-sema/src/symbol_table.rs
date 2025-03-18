@@ -345,8 +345,8 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         }
     }
 
-    pub fn add_type_variable(&mut self, kind: ScopeKind, ty: IdentId) -> Result<TypeId> {
-        let key: TypeKey = ty.into();
+    pub fn add_type_variable(&mut self, kind: ScopeKind, ty: &GenericParameter) -> Result<TypeId> {
+        let key: TypeKey = ty.name.into();
         if let Some(_) = self.find(None, vec![kind], |scope| scope.types.get(&key).cloned()) {
             return Err(Error::TypeAlreadyDefined {
                 span: FileSpan::default(),
