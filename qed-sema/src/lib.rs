@@ -10,6 +10,7 @@ mod value;
 mod variable;
 
 mod error;
+mod visualizer;
 
 pub use definition::*;
 pub use error::*;
@@ -23,6 +24,7 @@ pub use symbol_table::*;
 pub use traits::*;
 pub use value::*;
 pub use variable::*;
+pub use visualizer::*;
 
 use indexmap::IndexMap;
 use qed_ast::*;
