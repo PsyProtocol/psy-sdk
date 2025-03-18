@@ -73,8 +73,6 @@ pub enum TypeKind {
     LambdaFunction,
     FunctionSignature,
     TypeVariable,
-
-    GenericInstance,
 }
 
 #[derive(Debug, Clone, Eq, Derivative)]

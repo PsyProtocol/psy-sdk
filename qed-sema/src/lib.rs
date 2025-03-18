@@ -108,8 +108,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         if !self.unify(checked_index.ty(), FELT_TYPE, ctx) {
             return Err(Error::TypeMismatch {
                 span: ctx.program.convert_span(&index_access_node.span),
-                expected: ctx.get_type_detail(FELT_TYPE),
-                found: ctx.get_type_detail(checked_index.ty()),
+                expected: ctx.debug_type(FELT_TYPE),
+                found: ctx.debug_type(checked_index.ty()),
             });
         }
 
@@ -145,7 +145,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             {
                 return Err(Error::MemberNotPublic {
                     span: ctx.program.convert_span(&member_access_node.span),
-                    ty: ctx.get_type_detail(type_id),
+                    ty: ctx.debug_type(type_id),
                     field: ctx.ident(member_access_node.field).to_string(),
                 });
             }
@@ -172,7 +172,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             {
                 return Err(Error::MemberNotPublic {
                     span: ctx.program.convert_span(&member_access_node.span),
-                    ty: ctx.get_type_detail(type_id),
+                    ty: ctx.debug_type(type_id),
                     field: ctx.ident(member_access_node.field).to_string(),
                 });
             }
@@ -200,7 +200,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let element_types = ty.as_tuple().ok_or(Error::TypeMismatch {
             span: ctx.program.convert_span(&tuple_access_node.span),
             expected: format!("Tuple"),
-            found: ctx.get_type_detail(type_id),
+            found: ctx.debug_type(type_id),
         })?;
 
         if tuple_access_node.index >= element_types.len() {
@@ -281,8 +281,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 if !self.unify(slot_index.ty(), FELT_TYPE, ctx) {
                     return Err(Error::TypeMismatch {
                         span: ctx.program.convert_span(&slot_index.span()),
-                        expected: ctx.get_type_detail(FELT_TYPE),
-                        found: ctx.get_type_detail(slot_index.ty()),
+                        expected: ctx.debug_type(FELT_TYPE),
+                        found: ctx.debug_type(slot_index.ty()),
                     });
                 }
                 return Ok(CheckedExprNode::Intrinsic(
@@ -309,12 +309,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 {
                     return Err(Error::TypeMismatch {
                         span: ctx.program.convert_span(&span),
-                        expected: ctx.get_type_detail(FELT_TYPE),
+                        expected: ctx.debug_type(FELT_TYPE),
                         found: format!(
                             "contract_state_tree_height: {}, contract_id: {} slot_index: {}",
-                            ctx.get_type_detail(contract_state_tree_height.ty()),
-                            ctx.get_type_detail(contract_id.ty()),
-                            ctx.get_type_detail(slot_index.ty()),
+                            ctx.debug_type(contract_state_tree_height.ty()),
+                            ctx.debug_type(contract_id.ty()),
+                            ctx.debug_type(slot_index.ty()),
                         ),
                     });
                 }
@@ -351,13 +351,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 {
                     return Err(Error::TypeMismatch {
                         span: ctx.program.convert_span(&span),
-                        expected: ctx.get_type_detail(FELT_TYPE),
+                        expected: ctx.debug_type(FELT_TYPE),
                         found: format!(
                             "contract_state_tree_height: {}, user_id: {}, contract_id: {} slot_index: {}",
-                            ctx.get_type_detail(contract_state_tree_height.ty()),
-                            ctx.get_type_detail(user_id.ty()),
-                            ctx.get_type_detail(contract_id.ty()),
-                            ctx.get_type_detail(slot_index.ty()),
+                            ctx.debug_type(contract_state_tree_height.ty()),
+                            ctx.debug_type(user_id.ty()),
+                            ctx.debug_type(contract_id.ty()),
+                            ctx.debug_type(slot_index.ty()),
                         ),
                     });
                 }
@@ -392,8 +392,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         expected: format!("Felt, Hash"),
                         found: format!(
                             "slot_index: {}, new_value: {}",
-                            ctx.get_type_detail(slot_index.ty()),
-                            ctx.get_type_detail(new_value.ty()),
+                            ctx.debug_type(slot_index.ty()),
+                            ctx.debug_type(new_value.ty()),
                         ),
                     });
                 }
@@ -413,8 +413,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 if !self.unify(offset.ty(), FELT_TYPE, ctx) {
                     return Err(Error::TypeMismatch {
                         span: ctx.program.convert_span(&offset.span()),
-                        expected: ctx.get_type_detail(FELT_TYPE),
-                        found: ctx.get_type_detail(offset.ty()),
+                        expected: ctx.debug_type(FELT_TYPE),
+                        found: ctx.debug_type(offset.ty()),
                     });
                 }
                 return Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::Read {
@@ -436,11 +436,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 {
                     return Err(Error::TypeMismatch {
                         span: ctx.program.convert_span(&span),
-                        expected: ctx.get_type_detail(FELT_TYPE),
+                        expected: ctx.debug_type(FELT_TYPE),
                         found: format!(
                             "offset: {}, value: {}",
-                            ctx.get_type_detail(offset.ty()),
-                            ctx.get_type_detail(value.ty()),
+                            ctx.debug_type(offset.ty()),
+                            ctx.debug_type(value.ty()),
                         ),
                     });
                 }
@@ -503,8 +503,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     if !self.unify(checked_expr.ty(), inner_ty, ctx) {
                         return Err(Error::TypeMismatch {
                             span: ctx.program.convert_span(&checked_expr.span()),
-                            expected: ctx.get_type_detail(inner_ty),
-                            found: ctx.get_type_detail(checked_expr.ty()),
+                            expected: ctx.debug_type(inner_ty),
+                            found: ctx.debug_type(checked_expr.ty()),
                         });
                     }
                     inner_ty = checked_expr.ty();
@@ -562,8 +562,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     if !self.unify(field_type, field_value.ty(), ctx) {
                         return Err(Error::TypeMismatch {
                             span: ctx.program.convert_span(&field_value.span()),
-                            expected: ctx.get_type_detail(field_type),
-                            found: ctx.get_type_detail(field_value.ty()),
+                            expected: ctx.debug_type(field_type),
+                            found: ctx.debug_type(field_value.ty()),
                         });
                     }
                     new_data.insert(field_name, self.program.exprs.alloc_item(field_value));
@@ -578,8 +578,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     if !self.unify(generic_param, generic_arg, ctx) {
                         return Err(Error::TypeMismatch {
                             span: ctx.program.convert_span(&span),
-                            expected: ctx.get_type_detail(generic_arg),
-                            found: ctx.get_type_detail(generic_param),
+                            expected: ctx.debug_type(generic_arg),
+                            found: ctx.debug_type(generic_param),
                         });
                     }
                 }
@@ -593,8 +593,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     if !self.unify(generic_param, generic_arg, ctx) {
                         return Err(Error::TypeMismatch {
                             span: FileSpan::default(),
-                            expected: ctx.get_type_detail(generic_arg),
-                            found: ctx.get_type_detail(generic_param),
+                            expected: ctx.debug_type(generic_arg),
+                            found: ctx.debug_type(generic_param),
                         });
                     }
                 }
@@ -621,12 +621,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         if !self.unify(lhs_ty, checked_rhs.ty(), ctx) {
             return Err(Error::TypeMismatch {
                 span: ctx.program.convert_span(&binary_node.span),
-                expected: format!(
-                    "{} for {}",
-                    ctx.get_type_detail(lhs_ty),
-                    binary_node.operator
-                ),
-                found: ctx.get_type_detail(checked_rhs.ty()),
+                expected: format!("{} for {}", ctx.debug_type(lhs_ty), binary_node.operator),
+                found: ctx.debug_type(checked_rhs.ty()),
             });
         }
 
@@ -650,7 +646,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     return Err(Error::TypeMismatch {
                         span: ctx.program.convert_span(&binary_node.span),
                         expected: format!("Felt, U32 for {}", binary_node.operator),
-                        found: ctx.get_type_detail(lhs_ty),
+                        found: ctx.debug_type(lhs_ty),
                     });
                 }
             }
@@ -659,7 +655,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     return Err(Error::TypeMismatch {
                         span: ctx.program.convert_span(&binary_node.span),
                         expected: format!("Bool for {}", binary_node.operator),
-                        found: ctx.get_type_detail(lhs_ty),
+                        found: ctx.debug_type(lhs_ty),
                     });
                 }
                 BOOL_TYPE
@@ -672,7 +668,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     return Err(Error::TypeMismatch {
                         span: ctx.program.convert_span(&binary_node.span),
                         expected: format!("Felt, U32, Bool for {}", binary_node.operator),
-                        found: ctx.get_type_detail(lhs_ty),
+                        found: ctx.debug_type(lhs_ty),
                     });
                 }
                 BOOL_TYPE
@@ -682,7 +678,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     return Err(Error::TypeMismatch {
                         span: ctx.program.convert_span(&binary_node.span),
                         expected: format!("Felt, U32 for {}", binary_node.operator),
-                        found: ctx.get_type_detail(lhs_ty),
+                        found: ctx.debug_type(lhs_ty),
                     });
                 }
                 BOOL_TYPE
@@ -716,10 +712,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         span: ctx.program.convert_span(&unary_node.span),
                         expected: format!(
                             "{} for {}",
-                            ctx.get_type_detail(FELT_TYPE),
+                            ctx.debug_type(FELT_TYPE),
                             unary_node.operator
                         ),
-                        found: ctx.get_type_detail(type_id),
+                        found: ctx.debug_type(type_id),
                     });
                 }
             }
@@ -728,7 +724,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     return Err(Error::TypeMismatch {
                         span: ctx.program.convert_span(&unary_node.span),
                         expected: format!("Bool, Felt for {}", unary_node.operator),
-                        found: ctx.get_type_detail(type_id),
+                        found: ctx.debug_type(type_id),
                     });
                 }
             }
@@ -768,8 +764,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if !self.unify(generic_param.clone(), generic_arg, ctx) {
                 return Err(Error::TypeMismatch {
                     span: ctx.program.convert_span(&call_node.span),
-                    expected: ctx.get_type_detail(generic_param.clone()),
-                    found: ctx.get_type_detail(generic_arg),
+                    expected: ctx.debug_type(generic_param.clone()),
+                    found: ctx.debug_type(generic_arg),
                 });
             }
         }
@@ -779,7 +775,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         if call_node.args.len() != signature.parameters.len() {
             return Err(Error::InvalidFunctionCall {
                 span: ctx.program.convert_span(&call_node.span),
-                method_name: ctx.get_type_detail(ty),
+                method_name: ctx.debug_type(ty),
                 expected: format!("{} parameters", signature.parameters.len()),
                 found: format!("{}", call_node.args.len()),
             });
@@ -790,8 +786,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if !self.unify(type_arg.ty(), signature.parameters[i], ctx) {
                 return Err(Error::FunctionParameterMismatch {
                     span: ctx.program.convert_span(&call_node.span),
-                    expected: ctx.get_type_detail(signature.parameters[i]),
-                    found: ctx.get_type_detail(type_arg.ty()),
+                    expected: ctx.debug_type(signature.parameters[i]),
+                    found: ctx.debug_type(type_arg.ty()),
                 });
             }
             args.push(type_arg);
@@ -830,8 +826,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if !self.unify(generic_param.clone(), generic_arg, ctx) {
                 return Err(Error::TypeMismatch {
                     span: ctx.program.convert_span(&call_node.span),
-                    expected: ctx.get_type_detail(generic_param.clone()),
-                    found: ctx.get_type_detail(generic_arg),
+                    expected: ctx.debug_type(generic_param.clone()),
+                    found: ctx.debug_type(generic_arg),
                 });
             }
         }
@@ -841,8 +837,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if !self.unify(receiver.ty(), f.parameters[0].ty, ctx) {
                 return Err(Error::FunctionParameterMismatch {
                     span: ctx.program.convert_span(&call_node.span),
-                    expected: ctx.get_type_detail(f.parameters[0].ty),
-                    found: ctx.get_type_detail(receiver.ty()),
+                    expected: ctx.debug_type(f.parameters[0].ty),
+                    found: ctx.debug_type(receiver.ty()),
                 });
             }
 
@@ -854,8 +850,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if !self.unify(type_arg.ty(), f.parameters[i + 1].ty, ctx) {
                 return Err(Error::FunctionParameterMismatch {
                     span: ctx.program.convert_span(&call_node.span),
-                    expected: ctx.get_type_detail(f.parameters[i + 1].ty),
-                    found: ctx.get_type_detail(type_arg.ty()),
+                    expected: ctx.debug_type(f.parameters[i + 1].ty),
+                    found: ctx.debug_type(type_arg.ty()),
                 });
             }
             args.push(type_arg);
@@ -937,8 +933,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         } else {
             return Err(Error::TypeMismatch {
                 span: ctx.program.convert_span(&cast_node.span),
-                expected: ctx.get_type_detail(target_type),
-                found: ctx.get_type_detail(src_type),
+                expected: ctx.debug_type(target_type),
+                found: ctx.debug_type(src_type),
             });
         };
     }
@@ -955,8 +951,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         if !self.unify(checked_expr.ty(), BOOL_TYPE, ctx) {
             return Err(Error::TypeMismatch {
                 span: ctx.program.convert_span(&if_expr_node.span),
-                expected: ctx.get_type_detail(BOOL_TYPE),
-                found: ctx.get_type_detail(checked_expr.ty()),
+                expected: ctx.debug_type(BOOL_TYPE),
+                found: ctx.debug_type(checked_expr.ty()),
             });
         }
 
@@ -974,8 +970,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if !self.unify(checked_expr.ty(), BOOL_TYPE, ctx) {
                 return Err(Error::TypeMismatch {
                     span: ctx.program.convert_span(&branch.span),
-                    expected: ctx.get_type_detail(BOOL_TYPE),
-                    found: ctx.get_type_detail(checked_expr.ty()),
+                    expected: ctx.debug_type(BOOL_TYPE),
+                    found: ctx.debug_type(checked_expr.ty()),
                 });
             }
             let checked_block = self.visit_expr(branch.body, ctx)?;
@@ -984,8 +980,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if !self.unify(else_if_type, if_type, ctx) {
                 return Err(Error::TypeMismatch {
                     span: ctx.program.convert_span(&branch.span),
-                    expected: ctx.get_type_detail(else_if_type),
-                    found: ctx.get_type_detail(if_type),
+                    expected: ctx.debug_type(else_if_type),
+                    found: ctx.debug_type(if_type),
                 });
             }
 
@@ -1003,8 +999,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if !self.unify(else_type, if_type, ctx) {
                 return Err(Error::TypeMismatch {
                     span: ctx.program.convert_span(&if_expr_node.span),
-                    expected: ctx.get_type_detail(if_type),
-                    found: ctx.get_type_detail(else_type),
+                    expected: ctx.debug_type(if_type),
+                    found: ctx.debug_type(else_type),
                 });
             }
 
@@ -1034,8 +1030,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         if !self.unify(predicate.ty(), BOOL_TYPE, ctx) {
             return Err(Error::TypeMismatch {
                 span: ctx.program.convert_span(&while_node.span),
-                expected: ctx.get_type_detail(BOOL_TYPE),
-                found: ctx.get_type_detail(predicate.ty()),
+                expected: ctx.debug_type(BOOL_TYPE),
+                found: ctx.debug_type(predicate.ty()),
             });
         }
         let checked_block = self.visit_expr(while_node.body, ctx)?;
@@ -1063,8 +1059,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         if !self.unify(lhs_ty, checked_rhs.ty(), ctx) {
             return Err(Error::TypeMismatch {
                 span: ctx.program.convert_span(&assignment_node.span),
-                expected: ctx.get_type_detail(lhs_ty),
-                found: ctx.get_type_detail(checked_rhs.ty()),
+                expected: ctx.debug_type(lhs_ty),
+                found: ctx.debug_type(checked_rhs.ty()),
             });
         }
 
@@ -1091,8 +1087,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         if !self.unify(rhs_ty, lhs_ty, ctx) {
             return Err(Error::TypeMismatch {
                 span: ctx.program.convert_span(&variable_node.span),
-                expected: format!("{} for let", ctx.get_type_detail(lhs_ty)),
-                found: ctx.get_type_detail(rhs_ty),
+                expected: format!("{} for let", ctx.debug_type(lhs_ty)),
+                found: ctx.debug_type(rhs_ty),
             });
         }
         let current_scope_id = ctx.symbols.current_scope_id().unwrap();
@@ -1165,8 +1161,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 if !self.unify(checked_lhs.ty(), BOOL_TYPE, ctx) {
                     return Err(Error::TypeMismatch {
                         span: ctx.program.convert_span(&span),
-                        expected: ctx.get_type_detail(BOOL_TYPE),
-                        found: ctx.get_type_detail(checked_lhs.ty()),
+                        expected: ctx.debug_type(BOOL_TYPE),
+                        found: ctx.debug_type(checked_lhs.ty()),
                     });
                 }
 
@@ -1190,8 +1186,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 if !self.unify(checked_lhs.ty(), checked_rhs.ty(), ctx) {
                     return Err(Error::TypeMismatch {
                         span: ctx.program.convert_span(&span),
-                        expected: ctx.get_type_detail(checked_lhs.ty()),
-                        found: ctx.get_type_detail(checked_rhs.ty()),
+                        expected: ctx.debug_type(checked_lhs.ty()),
+                        found: ctx.debug_type(checked_rhs.ty()),
                     });
                 }
 
@@ -1240,8 +1236,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
                 return Err(Error::TypeMismatch {
                     span: ctx.program.convert_span(&impl_node.span),
-                    expected: ctx.get_type_detail(generic_parameter.clone()),
-                    found: ctx.get_type_detail(generic_arg),
+                    expected: ctx.debug_type(generic_parameter.clone()),
+                    found: ctx.debug_type(generic_arg),
                 });
             }
         }
@@ -1684,8 +1680,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         if !self.unify(lhs_ty, rhs_ty, ctx) {
             return Err(Error::TypeMismatch {
                 span: ctx.program.convert_span(&node.span),
-                expected: ctx.get_type_detail(rhs_ty),
-                found: ctx.get_type_detail(lhs_ty),
+                expected: ctx.debug_type(rhs_ty),
+                found: ctx.debug_type(lhs_ty),
             });
         }
 
@@ -1723,7 +1719,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             return Err(Error::TypeMismatch {
                 span: ctx.program.convert_span(&for_node.span),
                 expected: format!("Felt or U32 for for loop variable"),
-                found: ctx.get_type_detail(start.ty()),
+                found: ctx.debug_type(start.ty()),
             });
         }
 
@@ -1775,7 +1771,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             return Err(Error::TypeMismatch {
                 span: ctx.program.convert_span(&match_node.span),
                 expected: format!("{:?} for match scrutinee", white_list),
-                found: ctx.get_type_detail(scrutinee_type),
+                found: ctx.debug_type(scrutinee_type),
             });
         }
 
@@ -1802,8 +1798,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         let span = checked_pattern_expr.span();
                         return Err(Error::TypeMismatch {
                             span: ctx.program.convert_span(&span),
-                            expected: ctx.get_type_detail(scrutinee_type),
-                            found: ctx.get_type_detail(pattern_type),
+                            expected: ctx.debug_type(scrutinee_type),
+                            found: ctx.debug_type(pattern_type),
                         });
                     }
                     Some(self.program.exprs.alloc_item(checked_pattern_expr))
@@ -1824,8 +1820,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let span = checked_body.span();
                 return Err(Error::TypeMismatch {
                     span: ctx.program.convert_span(&span),
-                    expected: ctx.get_type_detail(match_expr_type.unwrap()),
-                    found: ctx.get_type_detail(arm_body_type),
+                    expected: ctx.debug_type(match_expr_type.unwrap()),
+                    found: ctx.debug_type(arm_body_type),
                 });
             }
 
@@ -1905,11 +1901,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if !self.unify(expected_return_type, actual_return_type, ctx) {
                 return Err(Error::TypeMismatch {
                     span: ctx.program.convert_span(&function.span),
-                    expected: format!(
-                        "{} for return value",
-                        ctx.get_type_detail(expected_return_type)
-                    ),
-                    found: ctx.get_type_detail(actual_return_type),
+                    expected: format!("{} for return value", ctx.debug_type(expected_return_type)),
+                    found: ctx.debug_type(actual_return_type),
                 });
             }
             checked_body
@@ -2004,8 +1997,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if method.body.is_none() {
                 return Err(Error::TraitMethodUnimplemented {
                     span: ctx.program.convert_span(&method.span),
-                    trait_ty: ctx.get_type_detail(trait_type_id),
-                    ty: ctx.get_type_detail(implementor_type_id),
+                    trait_ty: ctx.debug_type(trait_type_id),
+                    ty: ctx.debug_type(implementor_type_id),
                     method: ctx.ident(method.name).to_string(),
                 });
             }
@@ -2182,8 +2175,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                             if !self.unify(*generic_param, *generic_arg, ctx) {
                                 return Err(Error::TypeMismatch {
                                     span: ctx.program.convert_span(span),
-                                    expected: ctx.get_type_detail(*generic_param),
-                                    found: ctx.get_type_detail(*generic_arg),
+                                    expected: ctx.debug_type(*generic_param),
+                                    found: ctx.debug_type(*generic_arg),
                                 });
                             }
                         }
@@ -2298,7 +2291,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             if !ctx.symbols[type_id].visibility().is_public() {
                 return Err(Error::TypeNotPublic {
                     span: ctx.program.convert_span(&path.span),
-                    ty: ctx.get_type_detail(type_id),
+                    ty: ctx.debug_type(type_id),
                 });
             }
             return Ok(type_id);
@@ -2313,7 +2306,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         if !ctx.symbols[method_type_id].visibility().is_public() {
             return Err(Error::MemberNotPublic {
                 span: ctx.program.convert_span(&path.span),
-                ty: ctx.get_type_detail(root),
+                ty: ctx.debug_type(root),
                 field: ctx.ident(target).to_string(),
             });
         }
@@ -2339,7 +2332,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         if !ctx.symbols[type_id].visibility().is_public() {
             return Err(Error::TypeNotPublic {
                 span: ctx.program.convert_span(&path.span),
-                ty: ctx.get_type_detail(type_id),
+                ty: ctx.debug_type(type_id),
             });
         }
         return Ok(type_id);
@@ -2518,7 +2511,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     if !key.visibility.is_public() || !symbols[type_id].visibility().is_public() {
                         return Err(Error::TypeNotPublic {
                             span: ctx.program.convert_span(&use_path.span),
-                            ty: ctx.get_type_detail(type_id),
+                            ty: ctx.debug_type(type_id),
                         });
                     }
                     Ok(vec![(key.clone(), type_id)])
@@ -2556,8 +2549,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             if !map.entry(key).or_insert_with(HashSet::new).insert(value) {
                 return Err(Error::TraitAlreadyImplemented {
                     span,
-                    trait_ty: ctx.get_type_detail(trait_type_id),
-                    ty: ctx.get_type_detail(implementor_type_id),
+                    trait_ty: ctx.debug_type(trait_type_id),
+                    ty: ctx.debug_type(implementor_type_id),
                 });
             }
         }
@@ -2577,7 +2570,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             return Err(Error::DuplicatedMethod {
                 span: ctx.program.convert_span(span),
                 method: ctx.ident(method_name).to_string(),
-                ty: ctx.get_type_detail(ty),
+                ty: ctx.debug_type(ty),
             });
         }
         Ok(())
@@ -2600,8 +2593,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         {
             return Err(Error::TraitAlreadyImplemented {
                 span: ctx.program.convert_span(span),
-                trait_ty: ctx.get_type_detail(trait_type_id),
-                ty: ctx.get_type_detail(implementor_type_id),
+                trait_ty: ctx.debug_type(trait_type_id),
+                ty: ctx.debug_type(implementor_type_id),
             });
         }
 
@@ -2615,7 +2608,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             return Err(Error::DuplicatedMethod {
                 span: ctx.program.convert_span(span),
                 method: ctx.ident(method_name).to_string(),
-                ty: ctx.get_type_detail(implementor_type_id),
+                ty: ctx.debug_type(implementor_type_id),
             });
         }
         Ok(())
@@ -2756,7 +2749,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         if checked_function.body.is_none() {
             return Err(Error::MethodHasNoBody {
                 span: ctx.program.convert_span(&checked_function.span),
-                ty: ctx.get_type_detail(implementor_type_id),
+                ty: ctx.debug_type(implementor_type_id),
                 method: ctx.ident(checked_function.name).to_string(),
             });
         }
@@ -2823,11 +2816,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             if !self.unify(expected_return_type, actual_return_type, ctx) {
                 return Err(Error::TypeMismatch {
                     span: ctx.program.convert_span(&function.span),
-                    expected: format!(
-                        "{} for return value",
-                        ctx.get_type_detail(expected_return_type)
-                    ),
-                    found: ctx.get_type_detail(actual_return_type),
+                    expected: format!("{} for return value", ctx.debug_type(expected_return_type)),
+                    found: ctx.debug_type(actual_return_type),
                 });
             }
             Some(checked_body)
