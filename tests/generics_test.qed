@@ -4,7 +4,11 @@ impl<T, N> [T; N] {
     }
 }
 
-struct Box<T> {
+pub trait Hello {
+    pub fn hello(self);
+}
+
+struct Box<T: Hello> {
     pub data: T
 }
 
@@ -16,7 +20,7 @@ impl<T> Box<T> {
 }
 
 fn main() -> Felt {
-    let mut b: Box<Felt> = Box::new(42);
-    b.data += 1;
-    b.data
+    let mut b: Box<Box<Felt>> = Box::new(Box::new(42));
+    b.data.data += 1;
+    b.data.data
 }

@@ -12,6 +12,7 @@ qed-common = { workspace = true }
 petgraph = { workspace = true }
 thiserror = { workspace = true }
 qedlang_core = { workspace = true }
+logos = { workspace = true }
 
 [build-dependencies]
 lalrpop = { workspace = true }

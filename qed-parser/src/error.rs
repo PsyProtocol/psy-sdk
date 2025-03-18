@@ -6,6 +6,8 @@ use thiserror::Error as ThisError;
 #[derive(Debug, ThisError)]
 pub enum Error<'a> {
     #[error("{0}")]
+    LexicalError(#[from] qed_lexer::Error),
+    #[error("{0}")]
     Lexical(Box<LalrpopError<'a>>),
     #[error("{0}")]
     CommonError(#[from] qed_common::Error),

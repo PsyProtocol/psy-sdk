@@ -1588,6 +1588,7 @@ dependencies = [
  "insta",
  "lalrpop",
  "lalrpop-util",
+ "logos",
  "petgraph",
  "qed-ast",
  "qed-common",
