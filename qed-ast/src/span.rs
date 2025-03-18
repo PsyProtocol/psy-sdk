@@ -7,16 +7,6 @@ pub struct Span {
     pub end: usize,
 }
 
-impl Default for Span {
-    fn default() -> Self {
-        Self {
-            file_id: FileId(0),
-            start: 0,
-            end: 0,
-        }
-    }
-}
-
 impl Span {
     pub fn new(file_id: FileId, start: usize, end: usize) -> Self {
         Self {

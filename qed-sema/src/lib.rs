@@ -1100,6 +1100,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 rhs_ty,
                 variable_node.qualifier,
                 current_scope_id,
+                variable_node.span,
             ))
             .ok_or(error::Error::VariableAlreadyDefined {
                 span: ctx.program.convert_span(&variable_node.span),
@@ -1726,6 +1727,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             start.ty(),
             TypeQualifier::new(true),
             current_scope_id,
+            for_node.span,
         );
         ctx.symbols
             .declare_variable(variable)
@@ -1850,6 +1852,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 parameter_type,
                 parameter.qualifier,
                 current_scope_id,
+                parameter.span,
             );
             ctx.symbols
                 .declare_variable(variable)
@@ -2153,7 +2156,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         {
                             if !self.unify(*generic_param, *generic_arg, ctx) {
                                 return Err(Error::TypeMismatch {
-                                    span: ctx.program.convert_span(&Default::default()),
+                                    span: ctx.program.convert_span(span),
                                     expected: ctx.get_type_detail(*generic_param),
                                     found: ctx.get_type_detail(*generic_arg),
                                 });
@@ -2166,7 +2169,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     Type::Array(checked_array) => {
                         if checked_generic_args.len() != 2 {
                             return Err(Error::GenericParameterMismatch {
-                                span: ctx.program.convert_span(&Span::default()),
+                                span: ctx.program.convert_span(span),
                                 expected: format!("2 generic parameters",),
                                 found: format!("{}", checked_generic_args.len()),
                             });
@@ -2766,6 +2769,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 parameter_type,
                 parameter.qualifier,
                 current_scope_id,
+                parameter.span,
             );
             ctx.symbols
                 .declare_variable(variable)

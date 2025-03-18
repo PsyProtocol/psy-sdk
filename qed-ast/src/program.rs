@@ -7,10 +7,6 @@ use crate::{
     ModuleNode, Span, StmtId, StmtNode, UseNode, Visibility,
 };
 
-impl DefId {
-    pub const USE_STD_PRELUDE: DefId = DefId(0);
-}
-
 #[derive(Debug)]
 pub struct Program<F: Clone + From<u32>> {
     pub modules: Tree<ModuleId, ModuleNode>,
@@ -47,21 +43,13 @@ impl_index!(ModuleId, TreeNode<ModuleId, ModuleNode>, modules);
 
 impl<F: Clone + From<u32>> Program<F> {
     pub fn new() -> Self {
-        let mut defs = Arena::new();
-        defs.alloc_item(DefinitionNode::Use(UseNode {
-            visibility: Visibility::Private,
-            kind: IdentId::STD,
-            segments: vec![IdentId::PRELUDE],
-            target: None,
-            span: Default::default(),
-        }));
         Self {
             modules: Tree::new(),
             dependency_graph: Graph::new(),
             file_resolver: FileResolver::new(),
             exprs: Arena::new(),
             stmts: Arena::new(),
-            defs,
+            defs: Arena::new(),
             interner: Interner::new(),
         }
     }

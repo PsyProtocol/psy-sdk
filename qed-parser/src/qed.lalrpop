@@ -14,8 +14,6 @@ grammar<'input, F, C>(
     _visibility_: Visibility,
     is_std: bool,
     is_self_std: bool,
-    is_self_prelude: bool,
-    is_self_primitive: bool,
     ctx: &mut C
 ) where F: ContextFelt + From<u32>, C: DPNContext<F>;
 
@@ -36,8 +34,7 @@ pub Module: ModuleNode = {
         module_items,
         is_std,
         is_self_std,
-        is_self_prelude,
-        is_self_primitive,
+        def_nodes,
         Span::new(file_id, l, r),
     )
 }
@@ -50,8 +47,7 @@ InlineModule: ModuleNode = {
         module_items,
         is_std,
         is_self_std,
-        is_self_prelude,
-        is_self_primitive,
+        def_nodes,
         Span::new(file_id, l, r),
     )
 }

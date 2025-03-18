@@ -1,6 +1,6 @@
-use qed_common::{define_arena_id, FileId};
+use qed_common::{define_arena_id, Arena, FileId};
 
-use crate::{DefId, IdentId, NodeInfo, NodeType, Span, Visibility};
+use crate::{DefId, DefinitionNode, IdentId, NodeInfo, NodeType, Span, Visibility};
 
 define_arena_id!(ModuleId);
 
@@ -55,8 +55,7 @@ impl ModuleNode {
         module_items: Vec<ModuleItemNode>,
         is_std: bool,
         is_self_std: bool,
-        is_self_prelude: bool,
-        is_self_primitive: bool,
+        def_nodes: &mut Arena<DefId, DefinitionNode>,
         span: Span,
     ) -> Self {
         let mut inline_modules = vec![];
@@ -84,15 +83,23 @@ impl ModuleNode {
             inline_modules,
             definitions: {
                 if !is_std {
-                    definitions.insert(0, DefId::USE_STD_PRELUDE);
+                    let def_id = def_nodes.alloc_item(DefinitionNode::Use(UseNode {
+                        visibility: Visibility::Private,
+                        kind: IdentId::STD,
+                        segments: vec![IdentId::PRELUDE],
+                        target: None,
+                        span: Span::new(file_id, 0, 0),
+                    }));
+
+                    definitions.insert(0, def_id);
                 }
                 definitions
             },
             visibility,
             is_std,
             is_self_std,
-            is_self_prelude,
-            is_self_primitive,
+            is_self_prelude: name == IdentId::PRELUDE,
+            is_self_primitive: name == IdentId::PRIMITIVE,
             span,
         };
         module

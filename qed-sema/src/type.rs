@@ -254,6 +254,8 @@ impl Type {
         )
     }
 
+    // Note: return the outer scope id for Felt, Bool, U32, Const, TypeVariable
+    // but return the inner scope id for Array, Struct, Enum, Function, Trait
     pub fn scope_id(&self) -> ScopeId {
         match self {
             Type::Array(CheckedArrayNode { scope_id, .. }) => *scope_id,

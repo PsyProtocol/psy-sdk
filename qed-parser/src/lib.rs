@@ -80,8 +80,6 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                     .ok_or(Error::FileUnresolved)?;
 
                 let is_self_std = module_name == IdentId::STD;
-                let is_self_prelude = module_name == IdentId::PRELUDE;
-                let is_self_primitive = module_name == IdentId::PRIMITIVE;
                 let is_std = is_parent_std || is_self_std;
 
                 let lexer = Lexer::new(file_content);
@@ -96,8 +94,6 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                     visibility,
                     is_std,
                     is_self_std,
-                    is_self_prelude,
-                    is_self_primitive,
                     ctx,
                     lexer,
                 ) {
