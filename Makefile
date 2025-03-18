@@ -41,7 +41,7 @@ interpret:
 	# @RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} cargo run --release --package qed-cli interpret --file tests/enum_test.qed
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} cargo run --release --package qed-cli interpret --file tests/tuple_test.qed
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} cargo run --release --package qed-cli interpret --file tests/ambiguity_test.qed
-	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} cargo run --release --package qed-cli interpret --file tests/match_test.qed
+	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} cargo run --release --package qed-cli interpret --file tests/match_test.qed --parameters 100
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} cargo run --release --package qed-cli interpret --file tests/if_test.qed
 	@RUST_LOG=${LOG_LEVE} RUST_BACKTRACE=${RUST_BACKTRACE} cargo run --release --package qed-cli interpret --file tests/block_test.qed
 

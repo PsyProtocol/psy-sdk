@@ -1,4 +1,4 @@
-use qed_interpreter::Interpreter;
+use qed_interpreter::{error::Error, Interpreter};
 use qed_utils::CompilerArgs;
 use qedlang_core::dpn::{
     ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
@@ -26,7 +26,9 @@ pub fn run(args: CompilerArgs) -> anyhow::Result<()> {
             let report = qed_interpreter::error::lowering_error_to_report(err);
             report
                 .eprint(ariadne::FnCache::new(|x: &String| {
-                    Ok(std::fs::read_to_string(std::path::Path::new(x.as_str())).unwrap())
+                    Ok::<_, Error>(
+                        std::fs::read_to_string(std::path::Path::new(x.as_str())).unwrap(),
+                    )
                 }))
                 .unwrap();
             std::process::exit(1);

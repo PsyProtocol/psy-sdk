@@ -13,6 +13,7 @@ mod value;
 mod variable;
 
 mod error;
+mod visualizer;
 
 pub use context::*;
 pub use definition::*;
@@ -26,6 +27,7 @@ pub use symbol_table::*;
 pub use traits::*;
 pub use value::*;
 pub use variable::*;
+pub use visualizer::*;
 
 use qed_ast::*;
 use std::collections::{HashMap, HashSet};
@@ -1566,7 +1568,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .load_modules(ctx.program().modules.clone().iter());
         let mut colors = HashMap::new();
         ctx.dependency_graph()
-            .ts(&ModuleId::root(), &mut colors, &mut |&module_id| {
+            .ts::<Self::Error>(&ModuleId::root(), &mut colors, &mut |&module_id| {
                 ctx.symbols.enter_module(module_id);
                 self.visit_module(module_id, ctx)?;
                 ctx.symbols.exit_module();
@@ -1577,7 +1579,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let report = crate::error::lowering_error_to_report(err);
                 report
                     .eprint(ariadne::FnCache::new(|x: &String| {
-                        Ok(std::fs::read_to_string(std::path::Path::new(x.as_str())).unwrap())
+                        Ok::<_, Error>(
+                            std::fs::read_to_string(std::path::Path::new(x.as_str())).unwrap(),
+                        )
                     }))
                     .unwrap();
                 std::process::exit(1);
@@ -1766,29 +1770,48 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         //There are two type constraints here, one is that the scrutinee_type must be consistent with the type of the value of the pattern
         //The other is that the return types of all cases must be consistent
         let scrutinee_type = checked_scrutinee.ty();
+        let white_list = vec![FELT_TYPE, BOOL_TYPE, U32_TYPE];
+        if !white_list.contains(&scrutinee_type) {
+            return Err(Error::TypeMismatch {
+                span: ctx.program.convert_span(&match_node.span),
+                expected: format!("{:?} for match scrutinee", white_list),
+                found: ctx.get_type_detail(scrutinee_type),
+            });
+        }
 
+        if scrutinee_type == BOOL_TYPE {
+            if !match_node.arms.len() == 2 {
+                return Err(Error::IncompleteMatch {
+                    span: ctx.program.convert_span(&match_node.span),
+                    message: "Boolean match must have 2 arms".to_string(),
+                });
+            }
+        }
         let mut checked_arms = Vec::new();
         let mut match_expr_type: Option<TypeId> = None;
         let mut wildcard_case: Option<CheckedMatchArm> = None;
 
         for (_idx, arm) in match_node.arms.iter().enumerate() {
             let checked_pattern = match &arm.pattern {
-                MatchPattern::Value(pattern_expr) => {
+                MatchPattern::Value(pattern_expr, _pattern_span) => {
                     let checked_pattern_expr = self.visit_expr(*pattern_expr, ctx)?;
                     let pattern_type = checked_pattern_expr.ty();
 
                     if !self.unify(scrutinee_type, pattern_type, ctx) {
+                        //todo!: When the span of value is implemented, you need to refactor here
+                        let span = checked_pattern_expr.span();
                         return Err(Error::TypeMismatch {
-                            span: ctx.program.convert_span(&match_node.span),
+                            span: ctx.program.convert_span(&span),
                             expected: ctx.get_type_detail(scrutinee_type),
                             found: ctx.get_type_detail(pattern_type),
                         });
                     }
                     Some(self.program.exprs.alloc_item(checked_pattern_expr))
                 }
-                MatchPattern::PlaceHolder => {
+                MatchPattern::PlaceHolder(span) => {
                     if wildcard_case.is_some() {
-                        return Err(Error::DuplicateWildcard);
+                        let file_span = ctx.program.convert_span(span);
+                        return Err(Error::DuplicateWildcard { span: file_span });
                     }
                     None
                 }
@@ -1796,11 +1819,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
             let checked_body = self.visit_expr(arm.body, ctx)?;
             let arm_body_type = checked_body.ty();
-
             match_expr_type.get_or_insert(arm_body_type);
             if !self.unify(match_expr_type.unwrap(), arm_body_type, ctx) {
+                let span = checked_body.span();
                 return Err(Error::TypeMismatch {
-                    span: ctx.program.convert_span(&match_node.span),
+                    span: ctx.program.convert_span(&span),
                     expected: ctx.get_type_detail(match_expr_type.unwrap()),
                     found: ctx.get_type_detail(arm_body_type),
                 });

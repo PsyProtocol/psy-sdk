@@ -4,7 +4,7 @@ use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashou
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::qblock::cmds::register_user::QBCRegisterUser;
 use qed_exec::vm::exec::QEDEvalSessionResult;
-use qed_interpreter::Interpreter;
+use qed_interpreter::{error::Error, Interpreter};
 use qed_store::config::store_config::QEDHasher;
 use qed_utils::{
     gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract,
@@ -37,7 +37,9 @@ pub fn run(mut args: InterpreterArgs) -> anyhow::Result<()> {
             let report = qed_interpreter::error::lowering_error_to_report(error);
             report
                 .eprint(ariadne::FnCache::new(|x: &String| {
-                    Ok(std::fs::read_to_string(std::path::Path::new(x.as_str())).unwrap())
+                    Ok::<_, Error>(
+                        std::fs::read_to_string(std::path::Path::new(x.as_str())).unwrap(),
+                    )
                 }))
                 .unwrap();
             std::process::exit(1);
