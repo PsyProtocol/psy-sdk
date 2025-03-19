@@ -1,6 +1,12 @@
-use crate::CheckedGenericParameter;
+use crate::{CheckedGenericParameter, TypeId};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Constraint {
-    constraints: Vec<CheckedGenericParameter>,
+    pub constraints: Vec<TypeId>,
+}
+
+impl Constraint {
+    pub fn new(constraints: Vec<TypeId>) -> Self {
+        Self { constraints }
+    }
 }

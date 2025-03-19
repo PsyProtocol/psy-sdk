@@ -5,7 +5,7 @@ use itertools::Itertools;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    CheckedArrayNode, CheckedStructField, CheckedStructNode, Result, ScopeId, Type,
+    CheckedArrayNode, CheckedStructField, CheckedStructNode, Result, ScopeId, Type, TypeChecker,
     TypeCheckerVisitorContext, TypeId,
 };
 
@@ -64,21 +64,39 @@ impl<F: Clone + From<u32> + ContextFelt, C> InferCtxt<F, C> {
 }
 
 pub trait Inferer<F: Clone + From<u32> + ContextFelt, C> {
-    fn unify(&mut self, lhs_ty: TypeId, rhs_ty: TypeId) -> bool;
+    fn unify(
+        &mut self,
+        lhs_ty: TypeId,
+        rhs_ty: TypeId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> bool;
 
-    fn substitute_all(&mut self, type_id: TypeId) -> Result<TypeId>;
+    fn substitute_all(
+        &mut self,
+        type_id: TypeId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<TypeId>;
 
-    fn substitute_type(&mut self, type_id: TypeId) -> Result<TypeId>;
+    fn substitute_type(
+        &mut self,
+        type_id: TypeId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<TypeId>;
 
-    fn is_concrete(&self, type_id: TypeId) -> bool;
+    // fn is_concrete(&self, type_id: TypeId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> bool;
 }
 
-impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeCheckerVisitorContext<F, C> {
-    fn unify(&mut self, lhs_ty: TypeId, rhs_ty: TypeId) -> bool {
-        let lhs_ty = self.substitute_all(lhs_ty).unwrap();
-        let rhs_ty = self.substitute_all(rhs_ty).unwrap();
+impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> {
+    fn unify(
+        &mut self,
+        lhs_ty: TypeId,
+        rhs_ty: TypeId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> bool {
+        let lhs_ty = self.substitute_all(lhs_ty, ctx).unwrap();
+        let rhs_ty = self.substitute_all(rhs_ty, ctx).unwrap();
 
-        match (&self.symbols[lhs_ty], &self.symbols[rhs_ty]) {
+        match (&ctx.symbols[lhs_ty], &ctx.symbols[rhs_ty]) {
             (Type::TypeVariable(_), _) => {
                 self.infcx.equate(lhs_ty, rhs_ty);
                 true
@@ -96,17 +114,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeCheckerVisitor
                         .clone()
                         .into_iter()
                         .zip_eq(s2.generic_parameters.clone().into_iter())
-                        .all(|(p1, p2)| self.unify(p1, p2))
+                        .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
             (Type::Array(a1), Type::Array(a2)) => {
                 // TODO: remove clone
                 let a1 = a1.clone();
                 let a2 = a2.clone();
-                self.unify(a1.inner_ty, a2.inner_ty) && self.unify(a1.size_ty, a2.size_ty)
+                self.unify(a1.inner_ty, a2.inner_ty, ctx) && self.unify(a1.size_ty, a2.size_ty, ctx)
             }
             (Type::Tuple(t1), Type::Tuple(t2)) => {
                 for (lhs_ty, rhs_ty) in t1.clone().into_iter().zip_eq(t2.clone().into_iter()) {
-                    if !self.unify(lhs_ty, rhs_ty) {
+                    if !self.unify(lhs_ty, rhs_ty, ctx) {
                         return false;
                     }
                 }
@@ -126,15 +144,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeCheckerVisitor
         }
     }
 
-    fn substitute_all(&mut self, type_id: TypeId) -> Result<TypeId> {
+    fn substitute_all(
+        &mut self,
+        type_id: TypeId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<TypeId> {
         if !self.infcx.has_equations() {
             return Ok(type_id);
         }
 
-        let mut result = self.substitute_type(type_id)?;
+        let mut result = self.substitute_type(type_id, ctx)?;
 
         loop {
-            let fixed_point = self.substitute_type(type_id)?;
+            let fixed_point = self.substitute_type(type_id, ctx)?;
 
             if fixed_point == result {
                 break;
@@ -146,21 +168,25 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeCheckerVisitor
         Ok(result)
     }
 
-    fn substitute_type(&mut self, type_id: TypeId) -> Result<TypeId> {
+    fn substitute_type(
+        &mut self,
+        type_id: TypeId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<TypeId> {
         if let Some(subst_type) = self.infcx.probe(type_id) {
             return Ok(subst_type);
         }
 
-        match self.symbols[type_id].clone() {
+        match ctx.symbols[type_id].clone() {
             Type::TypeVariable(_) => Ok(type_id),
 
             Type::Array(array) => {
                 let ty = Type::Array(CheckedArrayNode {
-                    inner_ty: self.substitute_all(array.inner_ty)?,
-                    size_ty: self.substitute_all(array.size_ty)?,
+                    inner_ty: self.substitute_all(array.inner_ty, ctx)?,
+                    size_ty: self.substitute_all(array.size_ty, ctx)?,
                     scope_id: array.scope_id,
                 });
-                self.symbols
+                ctx.symbols
                     .get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)
             }
 
@@ -175,7 +201,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeCheckerVisitor
                     },
                 ) in struct_node.fields
                 {
-                    let substituted_type = self.substitute_all(field_type)?;
+                    let substituted_type = self.substitute_all(field_type, ctx)?;
                     new_fields.insert(
                         field_name,
                         CheckedStructField {
@@ -188,7 +214,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeCheckerVisitor
 
                 let mut new_generic_parameters = Vec::new();
                 for generic_param in struct_node.generic_parameters {
-                    new_generic_parameters.push(self.substitute_all(generic_param)?);
+                    new_generic_parameters.push(self.substitute_all(generic_param, ctx)?);
                 }
 
                 let ty = Type::Struct(CheckedStructNode {
@@ -199,69 +225,73 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeCheckerVisitor
                     visibility: struct_node.visibility,
                     span: struct_node.span,
                 });
-                let scope_id = self.symbols[struct_node.scope_id].parent;
-                self.symbols.get_or_add_type(scope_id, ty.key(), ty)
+                let scope_id = ctx.symbols[struct_node.scope_id].parent;
+                ctx.symbols.get_or_add_type(scope_id, ty.key(), ty)
             }
 
             _ => Ok(type_id),
         }
     }
 
-    fn is_concrete(&self, type_id: TypeId) -> bool {
-        match &self.symbols[type_id] {
-            Type::TypeVariable(_) => false,
-
-            Type::Struct(struct_node) => {
-                struct_node
-                    .generic_parameters
-                    .iter()
-                    .all(|&param| self.is_concrete(param))
-                    && struct_node
-                        .fields
-                        .values()
-                        .all(|field| self.is_concrete(field.ty))
-            }
-
-            Type::Array(array) => {
-                self.is_concrete(array.inner_ty) && self.is_concrete(array.size_ty)
-            }
-
-            Type::Tuple(elements) => elements.iter().all(|&elem| self.is_concrete(elem)),
-
-            Type::Function(func) => {
-                func.generic_parameters
-                    .iter()
-                    .all(|&param| self.is_concrete(param))
-                    && func
-                        .parameters
-                        .iter()
-                        .all(|parameter| self.is_concrete(parameter.ty))
-                    && self.is_concrete(func.return_type)
-            }
-
-            Type::LambdaFunction(lambda) => {
-                lambda
-                    .parameters
-                    .iter()
-                    .all(|parameter| self.is_concrete(parameter.ty))
-                    && self.is_concrete(lambda.return_type)
-            }
-
-            Type::FunctionSignature(sig) => {
-                sig.parameters.iter().all(|&param| self.is_concrete(param))
-                    && self.is_concrete(sig.return_type)
-            }
-
-            Type::Enum(enum_node) => enum_node
-                .generic_parameters
-                .iter()
-                .all(|&param| self.is_concrete(param)),
-
-            Type::Const(const_node) => self.is_concrete(const_node.ty),
-
-            Type::Bool | Type::Felt | Type::U32 | Type::Unknown | Type::VOID => true,
-
-            Type::Trait(_) => true,
-        }
-    }
+    // fn is_concrete(&self, type_id: TypeId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> bool {
+    //     match &ctx.symbols[type_id] {
+    //         Type::TypeVariable(_) => false,
+    //
+    //         Type::Struct(struct_node) => {
+    //             struct_node
+    //                 .generic_parameters
+    //                 .clone()
+    //                 .into_iter()
+    //                 .all(|param| self.is_concrete(param, ctx))
+    //                 && struct_node
+    //                     .fields
+    //                     .values()
+    //                     .clone()
+    //                     .all(|field| self.is_concrete(field.ty, ctx))
+    //         }
+    //
+    //         Type::Array(array) => {
+    //             self.is_concrete(array.inner_ty, ctx) && self.is_concrete(array.size_ty, ctx)
+    //         }
+    //
+    //         Type::Tuple(elements) => elements.iter().all(|&elem| self.is_concrete(elem, ctx)),
+    //
+    //         Type::Function(func) => {
+    //             func.generic_parameters
+    //                 .iter()
+    //                 .all(|&param| self.is_concrete(param, ctx))
+    //                 && func
+    //                     .parameters
+    //                     .iter()
+    //                     .all(|parameter| self.is_concrete(parameter.ty, ctx))
+    //                 && self.is_concrete(func.return_type, ctx)
+    //         }
+    //
+    //         Type::LambdaFunction(lambda) => {
+    //             lambda
+    //                 .parameters
+    //                 .iter()
+    //                 .all(|parameter| self.is_concrete(parameter.ty, ctx))
+    //                 && self.is_concrete(lambda.return_type, ctx)
+    //         }
+    //
+    //         Type::FunctionSignature(sig) => {
+    //             sig.parameters
+    //                 .iter()
+    //                 .all(|&param| self.is_concrete(param, ctx))
+    //                 && self.is_concrete(sig.return_type, ctx)
+    //         }
+    //
+    //         Type::Enum(enum_node) => enum_node
+    //             .generic_parameters
+    //             .iter()
+    //             .all(|&param| self.is_concrete(param, ctx)),
+    //
+    //         Type::Const(const_node) => self.is_concrete(const_node.ty, ctx),
+    //
+    //         Type::Bool | Type::Felt | Type::U32 | Type::Unknown | Type::VOID => true,
+    //
+    //         Type::Trait(_) => true,
+    //     }
+    // }
 }

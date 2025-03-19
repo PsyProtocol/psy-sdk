@@ -12,7 +12,6 @@ use crate::{InferCtxt, SymbolTable, Type, TypeId};
 
 pub struct TypeCheckerVisitorContext<F: Clone + From<u32> + ContextFelt, C> {
     path_stack: Vec<NodeId>,
-    pub infcx: InferCtxt<F, C>,
     pub program: Program<F>,
     pub symbols: SymbolTable<F>,
     _marker: std::marker::PhantomData<(F, C)>,
@@ -23,7 +22,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
         TypeCheckerVisitorContext {
             path_stack: vec![],
             program,
-            infcx: InferCtxt::new(),
             symbols: SymbolTable::new(),
             _marker: std::marker::PhantomData,
         }
