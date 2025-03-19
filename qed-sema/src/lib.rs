@@ -2378,7 +2378,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Trait, &checked_generic_parameter)?;
+                .add_type_variable(ScopeKind::Trait, checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
         let checked_function =
@@ -2411,7 +2411,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Impl, &checked_generic_parameter)?;
+                .add_type_variable(ScopeKind::Impl, checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
         let checked_function =
@@ -2452,7 +2452,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Impl, &checked_generic_parameter)?;
+                .add_type_variable(ScopeKind::Impl, checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
         let checked_function =
