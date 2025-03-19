@@ -4,7 +4,6 @@ use enum_as_inner::EnumAsInner;
 use qed_ast::Visibility;
 use qed_ast::{ExprId, IdentId};
 
-use crate::CheckedConstNode;
 use crate::CheckedFunctionParameter;
 use crate::CheckedFunctionSignature;
 use crate::CheckedLambdaFunctionNode;
@@ -13,6 +12,7 @@ use crate::{
     CheckedArrayNode, CheckedEnumNode, CheckedFunctionNode, CheckedStructNode, CheckedTraitNode,
     ScopeId,
 };
+use crate::{CheckedConstNode, CheckedGenericParameter};
 use qed_common::define_arena_id;
 
 define_arena_id!(TypeId);
@@ -29,12 +29,6 @@ use once_cell::sync::Lazy;
 pub static PRIMITIVE_TYPES: Lazy<Vec<Type>> =
     Lazy::new(|| vec![Type::Unknown, Type::VOID, Type::Bool, Type::Felt, Type::U32]);
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct CheckedTypeVariableNode {
-    pub constraints: Vec<TypeId>,
-    pub scope_id: ScopeId,
-}
-
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum Type {
     Unknown,
@@ -50,7 +44,7 @@ pub enum Type {
     Const(CheckedConstNode),
     LambdaFunction(CheckedLambdaFunctionNode),
     FunctionSignature(CheckedFunctionSignature),
-    TypeVariable(CheckedTypeVariableNode),
+    TypeVariable(CheckedGenericParameter),
     Tuple(Vec<TypeId>),
 }
 
@@ -267,7 +261,7 @@ impl Type {
             Type::Felt => ScopeId::primitive(),
             Type::Bool => ScopeId::primitive(),
             Type::U32 => ScopeId::primitive(),
-            Type::TypeVariable(CheckedTypeVariableNode { scope_id, .. }) => *scope_id,
+            Type::TypeVariable(CheckedGenericParameter { scope_id, .. }) => *scope_id,
             _ => panic!("Type::scope_id called on non-composite type: {:?}", self),
         }
     }

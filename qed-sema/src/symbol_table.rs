@@ -13,8 +13,8 @@ use std::{
 };
 
 use crate::{
-    variable::CheckedVariable, CheckedGenericParameter, CheckedTypeVariableNode, CheckedValueRef,
-    IdentId, ModuleId, ModuleKind, Type, TypeId, TypeKey,
+    variable::CheckedVariable, CheckedGenericParameter, CheckedValueRef, IdentId, ModuleId,
+    ModuleKind, Type, TypeId, TypeKey,
 };
 use crate::{Error, Result};
 
@@ -347,7 +347,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
     pub fn add_type_variable(
         &mut self,
         kind: ScopeKind,
-        ty: &CheckedGenericParameter,
+        ty: CheckedGenericParameter,
     ) -> Result<TypeId> {
         let key: TypeKey = ty.name.into();
         if let Some(_) = self.find(None, vec![kind], |scope| scope.types.get(&key).cloned()) {
@@ -359,10 +359,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
 
         let type_id = TypeId(self.types.len());
         let current_scope_id = self.current_scope_id().unwrap();
-        self.types.push(Type::TypeVariable(CheckedTypeVariableNode {
-            constraints: ty.constraints.clone(),
-            scope_id: current_scope_id,
-        }));
+        self.types.push(Type::TypeVariable(ty));
         self[current_scope_id].types.insert(key, type_id);
         Ok(type_id)
     }

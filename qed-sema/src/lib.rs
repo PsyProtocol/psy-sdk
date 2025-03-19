@@ -1,5 +1,6 @@
 #![feature(if_let_guard)]
 
+mod constraint;
 mod context;
 mod definition;
 mod expr;
@@ -18,6 +19,7 @@ mod variable;
 mod error;
 mod visualizer;
 
+pub use constraint::*;
 pub use context::*;
 pub use definition::*;
 pub use error::*;
@@ -1226,7 +1228,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Impl, &checked_generic_parameter)?;
+                .add_type_variable(ScopeKind::Impl, checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
 
@@ -1291,7 +1293,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Trait, &checked_generic_parameter)?;
+                .add_type_variable(ScopeKind::Trait, checked_generic_parameter)?;
             generic_parameters.push(type_id);
         }
 
@@ -1342,7 +1344,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Function, &checked_generic_parameter)?;
+                .add_type_variable(ScopeKind::Function, checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
 
@@ -1383,7 +1385,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 self.typecheck_generic_parameter(&generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Struct, &checked_generic_parameter)?;
+                .add_type_variable(ScopeKind::Struct, checked_generic_parameter)?;
             generic_parameters.push(type_id);
         }
 
@@ -1447,7 +1449,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 self.typecheck_generic_parameter(&generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Enum, &checked_generic_parameter)?;
+                .add_type_variable(ScopeKind::Enum, checked_generic_parameter)?;
             generic_parameters.push(type_id);
         }
 
@@ -1982,7 +1984,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Impl, &checked_generic_parameter)?;
+                .add_type_variable(ScopeKind::Impl, checked_generic_parameter)?;
             generic_parameters.push(type_id);
         }
 
@@ -2123,9 +2125,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
         let inner_ty = ctx.symbols.add_type_variable(
             ScopeKind::Module,
-            &CheckedGenericParameter::new(
+            CheckedGenericParameter::new(
                 IdentId::T,
                 vec![],
+                ScopeId::primitive(),
                 Span {
                     file_id: FileId(0),
                     start: 0,
@@ -2135,9 +2138,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         )?;
         let size = ctx.symbols.add_type_variable(
             ScopeKind::Module,
-            &CheckedGenericParameter::new(
+            CheckedGenericParameter::new(
                 IdentId::N,
                 vec![],
+                ScopeId::primitive(),
                 Span {
                     file_id: FileId(0),
                     start: 0,
@@ -2335,6 +2339,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         Ok(CheckedGenericParameter {
             name: ty.name,
             constraints,
+            scope_id: ctx.symbols.current_scope_id().unwrap(),
             span: ty.span,
         })
     }
