@@ -1,8 +1,10 @@
+use anyhow::anyhow;
 use enum_as_inner::EnumAsInner;
 use once_cell::sync::OnceCell;
 use qed_ast::*;
 use qed_common::{define_arena_id, FileId, TreeNode};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
+
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
@@ -299,16 +301,12 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         scope_id: Option<ScopeId>,
         name: K,
         type_id: TypeId,
-    ) -> Result<()> {
+    ) -> anyhow::Result<()> {
         let key = name.into();
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
         if self[scope_id].types.contains_key(&key) {
-            // TODO: FIx
-            // return Err(Error::TypeAlreadyDefined {
-            //     span: FileSpan::default(),
-            //     type_name: format!("{:?}", key.name),
-            // });
+            return Err(anyhow!("Type already defined"));
         }
 
         self[scope_id].types.insert(key, type_id);

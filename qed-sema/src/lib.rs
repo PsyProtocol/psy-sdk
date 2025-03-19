@@ -34,6 +34,7 @@ pub use value::*;
 pub use variable::*;
 pub use visualizer::*;
 
+use anyhow::anyhow;
 use qed_ast::*;
 use std::collections::{HashMap, HashSet};
 use std::result::Result as StdResult;
@@ -201,8 +202,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let checked_expr = self.visit_expr(tuple_access_node.target, ctx)?;
         let type_id = checked_expr.ty();
         let ty = &ctx.symbols[type_id];
-        // TODO: better error
-        let element_types = ty.as_tuple().unwrap();
+        let element_types = ty.as_tuple().ok_or(anyhow!("Expected tuple type"))?;
 
         if tuple_access_node.index >= element_types.len() {
             return Err(Error::IndexOutOfBounds {
@@ -568,14 +568,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     .fields
                     .clone();
                 let generic_parameters = ctx.symbols[underlying_type_id].generic_parameters();
-                // TODO
-                // if fields.len() != data.len() {
-                //     return Err(Error::TypeMismatch {
-                //         span: span,
-                //         expected: format!("{} fields for Struct {}", fields.len(), ctx.ident(name)),
-                //         found: format!("{}", data.len(),),
-                //     });
-                // }
+                if fields.len() != data.len() {
+                    return Err(anyhow!(format!(
+                        "Expected {} fields for Struct {} but found {} fields",
+                        fields.len(),
+                        ctx.ident(name),
+                        data.len()
+                    ))
+                    .into());
+                }
 
                 let mut new_data = IndexMap::new();
                 for (field_name, CheckedStructField { ty: field_type, .. }) in fields {
