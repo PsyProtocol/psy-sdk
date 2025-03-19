@@ -507,15 +507,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 span,
             ))),
             ValueNode::Array(size, arr, span) => {
-                // TODO: fix
-                // if size != arr.len() {
-                //     return Err(Error::TypeMismatch {
-                //         span: span,
-                //         expected: format!("{} size array", size),
-                //         found: format!("{}", arr.len(),),
-                //     });
-                // }
-
                 let mut inner_ty = UNKOWN_TYPE;
                 let mut elements = Vec::with_capacity(arr.len());
                 for e in arr {
@@ -543,7 +534,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let generic_size_ty = ctx.symbols[underlying_type_id].as_array().unwrap().size_ty;
 
                 if !ctx.unify(generic_inner_ty, inner_ty) || !ctx.unify(generic_size_ty, size_ty) {
-                    panic!("Type mismatch");
+                    return Err(Error::TypeMismatch {
+                        span: span,
+                        expected: vec![generic_inner_ty],
+                        found: inner_ty,
+                    });
+                }
+                if !ctx.unify(generic_size_ty, size_ty) {
+                    return Err(Error::TypeMismatch {
+                        span: span,
+                        expected: vec![generic_size_ty],
+                        found: size_ty,
+                    });
                 }
 
                 let type_id = ctx.substitute_all(underlying_type_id)?;
@@ -2218,17 +2220,26 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                                 found: format!("{}", checked_generic_args.len()),
                             });
                         }
-                        if !ctx.unify(checked_array.inner_ty, checked_generic_args[0])
-                            || !ctx.unify(checked_array.size_ty, checked_generic_args[1])
-                        {
-                            panic!("Type mismatch");
+                        if !ctx.unify(checked_array.inner_ty, checked_generic_args[0]) {
+                            return Err(Error::TypeMismatch {
+                                span: span.clone(),
+                                expected: vec![checked_array.inner_ty],
+                                found: checked_generic_args[0],
+                            });
+                        }
+                        if !ctx.unify(checked_array.size_ty, checked_generic_args[1]) {
+                            return Err(Error::TypeMismatch {
+                                span: span.clone(),
+                                expected: vec![checked_array.size_ty],
+                                found: checked_generic_args[1],
+                            });
                         }
                         ctx.substitute_all(underlying_type_id)?
                     }
                     _ => unreachable!(),
                 }
             }
-            UncheckedType::Array(inner_ty, size, _) => {
+            UncheckedType::Array(inner_ty, size, span) => {
                 let underlying_type_id = ctx
                     .symbols
                     .get_type_id(Some(ScopeId::primitive()), IdentId::TYPE_ARRAY)
@@ -2241,8 +2252,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
                 let size_ty = self.populate_constant_u32(size.clone(), ctx)?;
 
-                if !ctx.unify(generic_inner_ty, inner_ty) || !ctx.unify(generic_size_ty, size_ty) {
-                    panic!("Type mismatch");
+                if !ctx.unify(generic_inner_ty, inner_ty) {
+                    return Err(Error::TypeMismatch {
+                        span: span.clone(),
+                        expected: vec![generic_inner_ty],
+                        found: inner_ty,
+                    });
+                }
+                if !ctx.unify(generic_size_ty, size_ty) {
+                    return Err(Error::TypeMismatch {
+                        span: span.clone(),
+                        expected: vec![generic_size_ty],
+                        found: size_ty,
+                    });
                 }
 
                 ctx.substitute_all(underlying_type_id)?

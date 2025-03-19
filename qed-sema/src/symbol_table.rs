@@ -349,11 +349,10 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
     pub fn add_type_variable(&mut self, kind: ScopeKind, ty: &GenericParameter) -> Result<TypeId> {
         let key: TypeKey = ty.name.into();
         if let Some(_) = self.find(None, vec![kind], |scope| scope.types.get(&key).cloned()) {
-            // TODO: fix
-            // return Err(Error::TypeAlreadyDefined {
-            //     span: FileSpan::default(),
-            //     type_name: format!("{:?}", key.name),
-            // });
+            return Err(Error::TypeAlreadyDefined {
+                span: ty.span,
+                type_name: ty.name,
+            });
         }
 
         let type_id = TypeId(self.types.len());
@@ -496,9 +495,10 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
             .cloned()
     }
 
-    pub fn set_value(&mut self, var_id: VarId, value: CheckedValueRef<F>) -> Option<bool> {
+    pub fn set_value(&mut self, var_id: VarId, value: CheckedValueRef<F>) -> Result<()> {
         let scope_id = self[var_id].scope_id;
         let key = self[var_id].name;
+        let span = self[var_id].span;
 
         if self
             .frames
@@ -508,13 +508,16 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
             .is_some()
             && (!self[var_id.clone()].qualifier.is_mutable)
         {
-            return Some(false);
+            return Err(Error::ImmutableVariable {
+                span: span,
+                variable: key,
+            });
         }
         self.frames
             .last_mut()
             .unwrap()
             .set_value(scope_id, key, value);
-        Some(true)
+        Ok(())
     }
 
     pub fn set_variable(
@@ -522,12 +525,9 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         scope_id: ScopeId,
         key: IdentId,
         value: CheckedValueRef<F>,
-    ) -> Option<bool> {
-        if let Some(&var_id) = self[scope_id].variables.get(&key) {
-            return self.set_value(var_id, value);
-        }
-
-        None
+    ) -> Result<()> {
+        let var_id = self[scope_id].variables.get(&key).unwrap();
+        return self.set_value(var_id.clone(), value);
     }
 
     pub fn declare_variable(&mut self, variable: CheckedVariable<F>) -> Option<VarId> {

@@ -99,6 +99,7 @@ pub trait VisitorContext<F: Clone + From<u32>, C> {
     type Expr: NodeInfo;
     type Stmt: NodeInfo;
     type Definition: NodeInfo;
+    type Program;
 
     fn node_id(&self) -> NodeId;
     fn ancestor_node_id(&self, offset_from_top: usize) -> NodeId;
@@ -110,7 +111,7 @@ pub trait VisitorContext<F: Clone + From<u32>, C> {
     fn ident(&self, id: IdentId) -> &Ident;
     fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId;
     fn module(&self, module_id: ModuleId) -> &ModuleNode;
-    fn program(&self) -> &Program<F>;
+    fn program(&self) -> &Self::Program;
     fn dependency_graph(&self) -> Graph<ModuleId>;
     fn alloc_expression(&mut self, expr: Self::Expr) -> ExprId;
     fn alloc_statement(&mut self, stmt: Self::Stmt) -> StmtId;
@@ -146,6 +147,8 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
     type Stmt = StmtNode;
 
     type Definition = DefinitionNode;
+
+    type Program = Program<F>;
 
     fn node_id(&self) -> NodeId {
         self.path_stack.last().unwrap().clone()

@@ -4,7 +4,7 @@ mod control;
 pub mod error;
 mod preprocess;
 
-use crate::control::ControlState;
+use crate::{control::ControlState, error::lowering_error_to_report};
 use error::{Error, Result};
 use indexmap::IndexMap;
 pub use preprocess::StorageProcessor;
@@ -113,15 +113,16 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret<I: Into<Ident>>(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
+        entry: PathBuf,
         contract_name: Option<I>,
         method_names: Vec<I>,
         compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
-    ) -> Result<Vec<DPNFunctionCircuitDefinition>>
+    ) -> anyhow::Result<Vec<DPNFunctionCircuitDefinition>>
     where
         F: 'static,
     {
+        let (typechecker, mut ctx) = self.typecheck(entry)?;
+
         let scope_id = ctx.symbols[ModuleId::root()].scope_id;
         let type_ids = if let Some(contract_name) = contract_name {
             let contract_name = ctx.intern(contract_name.into());
@@ -136,10 +137,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 .map(|method_name| {
                     let method_name = ctx.intern(method_name.into());
                     typechecker
-                        .resolve_method(type_id, method_name, ctx)
-                        .unwrap()
+                        .resolve_method(type_id, method_name, &mut ctx)
+                        .ok_or(Error::UndefinedFunction)
                 })
-                .collect::<Vec<TypeId>>()
+                .collect::<Result<Vec<TypeId>>>()?
         } else {
             method_names
                 .into_iter()
@@ -167,7 +168,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     self.to_input(parameter.ty, &ctx.symbols),
                 ));
             }
-            let res = self.__interpret__(&typechecker.program, type_id, parameters, ctx)?;
+            let res = self.__interpret__(&typechecker.program, type_id, parameters, &mut ctx)?;
             outputs.push(compile_fn(&self.context, res));
 
             // restore context
@@ -180,13 +181,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn test(
         &mut self,
-        typechecker: &TypeChecker<F, C>,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
+        entry: PathBuf,
         compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
-    ) -> Result<Vec<DPNFunctionCircuitDefinition>>
+    ) -> anyhow::Result<Vec<DPNFunctionCircuitDefinition>>
     where
         F: 'static,
     {
+        let (typechecker, mut ctx) = self.typecheck(entry)?;
         let mut type_ids = Vec::new();
 
         let mut visited = HashMap::new();
@@ -222,7 +223,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     .unwrap()
                     .parameters
                     .is_empty());
-                let res = self.__interpret__(&typechecker.program, type_id, vec![], ctx)?;
+                let res = self.__interpret__(&typechecker.program, type_id, vec![], &mut ctx)?;
                 outputs.push(compile_fn(&self.context, res));
                 // resotre context
                 self.context = context.clone();
@@ -262,10 +263,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         Ok((method_name, method_id, outputs.to_felts()))
     }
 
-    pub fn typecheck(
+    fn typecheck(
         &mut self,
         entry: PathBuf,
-    ) -> Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>)>
+    ) -> anyhow::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>)>
     where
         F: 'static,
     {
@@ -291,7 +292,14 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         println!("formatted:\n{}", formatter.get_output());
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
-        typechecker.visit_program(&mut typechecker_context)?;
+        typechecker
+            .visit_program(&mut typechecker_context)
+            .map_err(|err| {
+                anyhow::anyhow!(lowering_error_to_report(
+                    Error::SemaError(err),
+                    &mut typechecker_context
+                ))
+            })?;
         Ok((typechecker, typechecker_context))
     }
 
@@ -328,13 +336,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         );
 
         for (parameter, arg) in parameters.iter().zip(args.into_iter()) {
-            if !ctx
-                .symbols
-                .set_variable(ctx.symbols[type_id].scope_id(), parameter.name.clone(), arg)
-                .unwrap()
-            {
-                //
-            }
+            ctx.symbols.set_variable(
+                ctx.symbols[type_id].scope_id(),
+                parameter.name.clone(),
+                arg,
+            )?
         }
         Ok(ControlState::Return(self.interpret_expr(
             program,
@@ -388,19 +394,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         }
 
         ctx.symbols.enter_block(node.scope_id);
-        if !ctx
-            .symbols
-            .set_variable(node.scope_id, node.variable, start)
-            .ok_or(Error::SemaError(SemaError::UndefinedVariable {
-                span: node.span,
-                variable: node.variable,
-            }))?
-        {
-            return Err(Error::SemaError(SemaError::ImmutableVariable {
-                span: node.span,
-                variable: node.variable,
-            }));
-        }
+        ctx.symbols
+            .set_variable(node.scope_id, node.variable, start)?;
 
         loop {
             let var_id = ctx
@@ -412,16 +407,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 self.interpret_expr(program, node.body, ctx)?;
                 let one = self.context.op_const_u32(1);
                 let value = CheckedValueRef::from_u32(self.context.op_u32_add(value_f, one));
-                if !ctx
-                    .symbols
-                    .set_variable(node.scope_id, node.variable, value)
-                    .unwrap()
-                {
-                    return Err(Error::SemaError(SemaError::ImmutableVariable {
-                        span: node.span,
-                        variable: node.variable,
-                    }));
-                }
+                ctx.symbols
+                    .set_variable(node.scope_id, node.variable, value)?;
             } else {
                 ctx.symbols.exit_block();
                 break Ok(());
@@ -1085,12 +1072,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let mut variable_value = ctx.symbols.get_value(var_id).unwrap();
         variable_value.set_path(&mut self.context, &path, &mut index_condition, new_value)?;
 
-        if !ctx.symbols.set_value(var_id, variable_value).unwrap() {
-            return Err(Error::SemaError(SemaError::ImmutableVariable {
-                span: node.span,
-                variable: ctx.symbols[var_id].name,
-            }));
-        }
+        ctx.symbols.set_value(var_id, variable_value)?;
 
         Ok(())
     }
@@ -1220,16 +1202,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let node = program[stmt_id].as_variable().unwrap();
         let value = self.interpret_expr(program, node.value, ctx)?;
 
-        if !ctx
-            .symbols
-            .set_variable(node.scope_id, node.name, value.clone())
-            .unwrap()
-        {
-            return Err(Error::SemaError(SemaError::ImmutableVariable {
-                span: node.span,
-                variable: node.name,
-            }));
-        }
+        ctx.symbols
+            .set_variable(node.scope_id, node.name, value.clone())?;
         Ok(())
     }
 
@@ -1431,12 +1405,10 @@ mod tests {
 
         insta::glob!("../../tests", "00*.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-            let (typechecker, mut ctx) = interpreter.typecheck(path.into()).unwrap();
 
             let compile_results = interpreter
                 .interpret(
-                    &typechecker,
-                    &mut ctx,
+                    path.into(),
                     None,
                     vec!["main"],
                     |context, (method_name, method_id, outputs)| {

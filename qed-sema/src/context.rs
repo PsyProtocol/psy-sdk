@@ -45,6 +45,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> VisitorContext<F, C>
 
     type Definition = DefinitionNode;
 
+    type Program = Program<F>;
+
     fn node_id(&self) -> NodeId {
         self.path_stack.last().unwrap().clone()
     }

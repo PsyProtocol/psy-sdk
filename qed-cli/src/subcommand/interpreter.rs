@@ -18,28 +18,20 @@ use qedlang_core::dpn::{
 pub fn run(mut args: InterpreterArgs) -> anyhow::Result<()> {
     args.parameters.resize(args.method_names.len(), Vec::new());
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let (typechecker, mut ctx) = interpreter.typecheck(args.file.into()).unwrap();
-    let compile_results = interpreter
-        .interpret(
-            &typechecker,
-            &mut ctx,
-            args.contract_name,
-            args.method_names,
-            |context, (method_name, method_id, outputs)| {
-                QEDCompileResult::compile_exec(
-                    method_name,
-                    method_id,
-                    &context.store,
-                    &context,
-                    &outputs,
-                )
-            },
-        )
-        .unwrap_or_else(|error| {
-            let report = qed_interpreter::error::lowering_error_to_report(error, &mut ctx);
-            println!("{}", report);
-            std::process::exit(1);
-        });
+    let compile_results = interpreter.interpret(
+        args.file.into(),
+        args.contract_name,
+        args.method_names,
+        |context, (method_name, method_id, outputs)| {
+            QEDCompileResult::compile_exec(
+                method_name,
+                method_id,
+                &context.store,
+                &context,
+                &outputs,
+            )
+        },
+    )?;
 
     println!("compile_result: {:?}", compile_results);
 
