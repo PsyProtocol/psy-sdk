@@ -1221,10 +1221,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.infcx.enter_context();
 
         let mut checked_generic_parameters = Vec::new();
-        for generic_parameter in impl_node.generic_parameters {
+        for generic_parameter in &impl_node.generic_parameters {
+            let checked_generic_parameter =
+                self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Impl, &generic_parameter)?;
+                .add_type_variable(ScopeKind::Impl, &checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
 
@@ -1284,10 +1286,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let mut generic_parameters = Vec::new();
         let mut methods = Vec::new();
 
-        for generic_parameter in trait_node.generic_parameters {
+        for generic_parameter in &trait_node.generic_parameters {
+            let checked_generic_parameter =
+                self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Trait, &generic_parameter)?;
+                .add_type_variable(ScopeKind::Trait, &checked_generic_parameter)?;
             generic_parameters.push(type_id);
         }
 
@@ -1334,9 +1338,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         let mut checked_generic_parameters = Vec::with_capacity(function.generic_parameters.len());
         for generic_parameter in &function.generic_parameters {
+            let checked_generic_parameter =
+                self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Function, &generic_parameter)?;
+                .add_type_variable(ScopeKind::Function, &checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
 
@@ -1372,10 +1378,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         let mut generic_parameters = Vec::new();
 
-        for parameter in struct_node.generic_parameters {
+        for generic_parameter in struct_node.generic_parameters {
+            let checked_generic_parameter =
+                self.typecheck_generic_parameter(&generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Struct, &parameter)?;
+                .add_type_variable(ScopeKind::Struct, &checked_generic_parameter)?;
             generic_parameters.push(type_id);
         }
 
@@ -1435,9 +1443,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let mut generic_parameters = Vec::new();
 
         for generic_parameter in enum_node.generic_parameters {
+            let checked_generic_parameter =
+                self.typecheck_generic_parameter(&generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Enum, &generic_parameter)?;
+                .add_type_variable(ScopeKind::Enum, &checked_generic_parameter)?;
             generic_parameters.push(type_id);
         }
 
@@ -1968,9 +1978,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let mut checked_methods = Vec::with_capacity(trait_node.body.len());
 
         for generic_parameter in &impl_node.generic_parameters {
+            let checked_generic_parameter =
+                self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Impl, &generic_parameter)?;
+                .add_type_variable(ScopeKind::Impl, &checked_generic_parameter)?;
             generic_parameters.push(type_id);
         }
 
@@ -2111,7 +2123,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
         let inner_ty = ctx.symbols.add_type_variable(
             ScopeKind::Module,
-            &GenericParameter::new(
+            &CheckedGenericParameter::new(
                 IdentId::T,
                 vec![],
                 Span {
@@ -2123,7 +2135,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         )?;
         let size = ctx.symbols.add_type_variable(
             ScopeKind::Module,
-            &GenericParameter::new(
+            &CheckedGenericParameter::new(
                 IdentId::N,
                 vec![],
                 Span {
@@ -2309,6 +2321,24 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         Ok(type_id)
     }
 
+    fn typecheck_generic_parameter(
+        &mut self,
+        ty: &GenericParameter,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<CheckedGenericParameter> {
+        let mut constraints = Vec::with_capacity(ty.constraints.len());
+        for constraint in &ty.constraints {
+            let constraint = self.typecheck(constraint, ctx)?;
+            constraints.push(constraint);
+        }
+
+        Ok(CheckedGenericParameter {
+            name: ty.name,
+            constraints,
+            span: ty.span,
+        })
+    }
+
     pub fn add_use(
         &mut self,
         use_path: &UseNode,
@@ -2339,9 +2369,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let function = ctx.definition(function_id).as_function().cloned().unwrap();
         let mut checked_generic_parameters = Vec::with_capacity(function.generic_parameters.len());
         for generic_parameter in &function.generic_parameters {
+            let checked_generic_parameter =
+                self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Trait, &generic_parameter)?;
+                .add_type_variable(ScopeKind::Trait, &checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
         let checked_function =
@@ -2370,9 +2402,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let function = ctx.definition(function_id).as_function().cloned().unwrap();
         let mut checked_generic_parameters = Vec::with_capacity(function.generic_parameters.len());
         for generic_parameter in &function.generic_parameters {
+            let checked_generic_parameter =
+                self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Impl, &generic_parameter)?;
+                .add_type_variable(ScopeKind::Impl, &checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
         let checked_function =
@@ -2409,9 +2443,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let function = ctx.definition(function_id).as_function().cloned().unwrap();
         let mut checked_generic_parameters = Vec::with_capacity(function.generic_parameters.len());
         for generic_parameter in &function.generic_parameters {
+            let checked_generic_parameter =
+                self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
-                .add_type_variable(ScopeKind::Impl, &generic_parameter)?;
+                .add_type_variable(ScopeKind::Impl, &checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
         let checked_function =
