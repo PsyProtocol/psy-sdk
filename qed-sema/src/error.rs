@@ -1,6 +1,8 @@
 use ariadne::{ColorGenerator, Label, Report, ReportKind};
-use qed_ast::FileSpan;
+use qed_ast::{IdentId, Span};
 use thiserror::Error;
+
+use crate::TypeId;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -10,536 +12,119 @@ pub enum Error {
     CommonError(#[from] qed_common::Error),
     #[error("type mismatch")]
     TypeMismatch {
-        span: FileSpan,
-        expected: String,
-        found: String,
+        span: Span,
+        expected: Vec<TypeId>,
+        found: TypeId,
     },
     #[error("unresolved path")]
-    UnresolvedPath {
-        span: FileSpan,
-        resolved_path: String,
-    },
+    UnresolvedPath { span: Span, resolved_path: String },
     #[error("invalid path segment")]
-    InvalidPathSegment { span: FileSpan, segment: String },
+    InvalidPathSegment { span: Span, segment: IdentId },
     #[error("unresolved value")]
     UnresolvedVariable {
-        span: FileSpan,
-        resolved_variable: String,
+        span: Span,
+        resolved_variable: IdentId,
     },
     #[error("unresolved type")]
-    UnresolvedType {
-        span: FileSpan,
-        resolved_type: String,
-    },
-    #[error("unresolved use")]
-    UnresolvedUse {
-        span: FileSpan,
-        resolved_use: String,
-    },
+    UnresolvedType { span: Span, resolved_type: IdentId },
     #[error("variable already defined")]
-    VariableAlreadyDefined { span: FileSpan, variable: String },
+    VariableAlreadyDefined { span: Span, variable: IdentId },
     #[error("undefined variable")]
-    UndefinedVariable { span: FileSpan, variable: String },
+    UndefinedVariable { span: Span, variable: IdentId },
     #[error("immutable variable")]
-    ImmutableVariable { span: FileSpan, variable: String },
-    #[error("unresolved implementor")]
-    UnresolvedImplementor {
-        span: FileSpan,
-        resolved_implementor: String,
-    },
-    #[error("unresolved trait")]
-    UnresolvedTrait { span: FileSpan, trait_name: String },
+    ImmutableVariable { span: Span, variable: IdentId },
     #[error("unresolved member")]
-    UnresolvedMember { span: FileSpan, member_name: String },
+    UnresolvedMember { span: Span, member_name: IdentId },
     #[error("unresolved trait method")]
     UnresolvedTraitMethod {
-        method_span: FileSpan,
-        method_name: String,
-        trait_name: String,
+        method_span: Span,
+        method_name: IdentId,
+        trait_name: IdentId,
     },
     #[error("function parameter mismatch")]
     FunctionParameterMismatch {
-        span: FileSpan,
-        expected: String,
-        found: String,
+        span: Span,
+        expected: TypeId,
+        found: TypeId,
     },
     #[error("generic parameter mismatch")]
     GenericParameterMismatch {
-        span: FileSpan,
+        span: Span,
         expected: String,
         found: String,
     },
     #[error("invalid function call")]
     InvalidFunctionCall {
-        span: FileSpan,
-        method_name: String,
+        span: Span,
+        method_name: TypeId,
         expected: String,
         found: String,
     },
     #[error("invalid return")]
-    InvalidReturn { span: FileSpan, message: String },
+    InvalidReturn { span: Span, message: String },
     #[error("unreachable expression")]
-    UnreachableExpression { span: FileSpan },
+    UnreachableExpression { span: Span },
     #[error("invalid self parameter")]
-    InvalidSelfParameter { span: FileSpan, message: String },
+    InvalidSelfParameter { span: Span, message: IdentId },
     #[error("type already defined")]
-    TypeAlreadyDefined { span: FileSpan, type_name: String },
+    TypeAlreadyDefined { span: Span, type_name: IdentId },
     #[error("member not public")]
     MemberNotPublic {
-        span: FileSpan,
-        ty: String,
-        field: String,
+        span: Span,
+        ty: TypeId,
+        field: IdentId,
     },
     #[error("module not public")]
-    ModuleNotPublic { span: FileSpan, module: String },
+    ModuleNotPublic { span: Span, module: IdentId },
     #[error("type not public")]
-    TypeNotPublic { span: FileSpan, ty: String },
+    TypeNotPublic { span: Span, ty: TypeId },
     #[error("trait already implemented")]
     TraitAlreadyImplemented {
-        span: FileSpan,
-        trait_ty: String,
-        ty: String,
+        span: Span,
+        trait_ty: TypeId,
+        ty: TypeId,
     },
     #[error("trait method unimplemented")]
     TraitMethodUnimplemented {
-        span: FileSpan,
-        trait_ty: String,
-        ty: String,
-        method: String,
+        span: Span,
+        trait_ty: TypeId,
+        ty: TypeId,
+        method: IdentId,
     },
     #[error("Method has no body")]
     MethodHasNoBody {
-        span: FileSpan,
-        ty: String,
-        method: String,
+        span: Span,
+        ty: TypeId,
+        method: IdentId,
     },
     #[error("Function has no body")]
-    FunctionHasNoBody { span: FileSpan, function: String },
+    FunctionHasNoBody { span: Span, function: IdentId },
     #[error("DuplicatedMethod")]
     DuplicatedMethod {
-        span: FileSpan,
-        ty: String,
-        method: String,
+        span: Span,
+        ty: TypeId,
+        method: IdentId,
     },
     #[error("index out of bounds")]
     IndexOutOfBounds {
-        span: FileSpan,
+        span: Span,
         index: usize,
         length: usize,
     },
     #[error("invalid cast")]
     InvalidCast {
-        span: FileSpan,
+        span: Span,
         expected: String,
         found: String,
     },
     #[error("no parent module")]
-    NoParentModule { span: FileSpan },
+    NoParentModule { span: Span },
     #[error("module not found")]
-    ModuleNotFound { span: FileSpan, module: String },
+    ModuleNotFound { span: Span, module: IdentId },
     #[error("unreachable code")]
-    DuplicateWildcard { span: FileSpan },
+    DuplicateWildcard { span: Span },
     #[error("Incomplete Match")]
-    IncompleteMatch { span: FileSpan, message: String },
+    IncompleteMatch { span: Span, message: String },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
-
-pub fn lowering_error_to_report(error: Error) -> Report<'static, FileSpan> {
-    let mut colors = ColorGenerator::new();
-    colors.next();
-    match error {
-        Error::AnyhowError(error) => panic!("{}", error),
-        Error::CommonError(error) => panic!("{}", error),
-        Error::TypeMismatch {
-            span,
-            expected,
-            found,
-        } => Report::build(ReportKind::Error, span.clone())
-            .with_code("TypeMismatch")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!("Expected {}, but founded {}.", expected, found))
-                    .with_color(colors.next()),
-            )
-            .with_message("Type Mismatch.")
-            .finish(),
-        Error::UnresolvedPath {
-            span,
-            resolved_path,
-        } => Report::build(ReportKind::Error, span.clone())
-            .with_code("UnresolvedPath")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!("Unresolved path {}.", resolved_path))
-                    .with_color(colors.next()),
-            )
-            .finish(),
-        Error::InvalidPathSegment { span, segment } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("InvalidPathSegment")
-                .with_label(
-                    Label::new(span)
-                        .with_message(format!("Invalid path segment {}.", segment))
-                        .with_color(colors.next()),
-                )
-                .finish()
-        }
-        Error::UnresolvedVariable {
-            span,
-            resolved_variable,
-        } => Report::build(ReportKind::Error, span.clone())
-            .with_code("UnresolvedVariable")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!("Unresolved variable {}.", resolved_variable))
-                    .with_color(colors.next()),
-            )
-            .with_message("Unresolved Variable.")
-            .finish(),
-        Error::UnresolvedType {
-            span,
-            resolved_type,
-        } => Report::build(ReportKind::Error, span.clone())
-            .with_code("UnresolvedType")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!("Unresolved type {}.", resolved_type))
-                    .with_color(colors.next()),
-            )
-            .with_message("Unresolved Type.")
-            .finish(),
-        Error::UnresolvedUse { span, resolved_use } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("UnresolvedUse")
-                .with_label(
-                    Label::new(span).with_message(format!("Unresolved use {}.", resolved_use)),
-                )
-                .with_message("Unresolved Use.")
-                .finish()
-        }
-        Error::TraitAlreadyImplemented { span, trait_ty, ty } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("TraitAlreadyImplemented")
-                .with_label(
-                    Label::new(span)
-                        .with_message(format!(
-                            "Trait {} already implemented for {}.",
-                            trait_ty, ty
-                        ))
-                        .with_color(colors.next()),
-                )
-                .with_message("Trait Already Implemented.")
-                .finish()
-        }
-        Error::TraitMethodUnimplemented {
-            span,
-            trait_ty,
-            ty,
-            method,
-        } => Report::build(ReportKind::Error, span.clone())
-            .with_code("TraitMethodUnimplemented")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!(
-                        "Trait {} unimplemented {}  for {}.",
-                        trait_ty, method, ty
-                    ))
-                    .with_color(colors.next()),
-            )
-            .with_message("Trait Method Unimplemented.")
-            .finish(),
-        Error::MethodHasNoBody { span, ty, method } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("MethodHasNoBody")
-                .with_label(
-                    Label::new(span)
-                        .with_message(format!(" {} of {} has no body.", method, ty))
-                        .with_color(colors.next()),
-                )
-                .with_message("Method Has No Body.")
-                .finish()
-        }
-        Error::FunctionHasNoBody { span, function } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("FunctionHasNoBody")
-                .with_label(
-                    Label::new(span)
-                        .with_message(format!(" {} has no body.", function))
-                        .with_color(colors.next()),
-                )
-                .with_message("Function Has No Body.")
-                .finish()
-        }
-        Error::VariableAlreadyDefined { span, variable } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("VariableAlreadyDefined")
-                .with_label(
-                    Label::new(span)
-                        .with_message(format!("Variable {} already defined.", variable))
-                        .with_color(colors.next()),
-                )
-                .with_message("Variable Already Defined.")
-                .finish()
-        }
-        Error::UndefinedVariable { span, variable } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("UndefinedVariable")
-                .with_label(
-                    Label::new(span)
-                        .with_message(format!("Variable {} is undefined.", variable))
-                        .with_color(colors.next()),
-                )
-                .with_message("Undefined Variable.")
-                .finish()
-        }
-        Error::ImmutableVariable { span, variable } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("ImmutableVariable")
-                .with_label(
-                    Label::new(span)
-                        .with_message(format!("Variable {} is immutable.", variable))
-                        .with_color(colors.next()),
-                )
-                .with_message("Immutable Variable.")
-                .finish()
-        }
-        Error::UnresolvedImplementor {
-            span,
-            resolved_implementor,
-        } => Report::build(ReportKind::Error, span.clone())
-            .with_code("UnresolvedImplementor")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!("Unresolved implementor {}.", resolved_implementor))
-                    .with_color(colors.next()),
-            )
-            .with_message("Unresolved Implementor.")
-            .finish(),
-        Error::UnresolvedTrait { span, trait_name } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("UnresolvedTrait")
-                .with_label(
-                    Label::new(span)
-                        .with_message(format!("Unresolved trait {}.", trait_name))
-                        .with_color(colors.next()),
-                )
-                .with_message("Unresolved Trait.")
-                .finish()
-        }
-        Error::UnresolvedMember { span, member_name } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("UnresolvedMember")
-                .with_label(
-                    Label::new(span)
-                        .with_message(format!("Unresolved member {}", member_name))
-                        .with_color(colors.next()),
-                )
-                .with_message("Unresolved Member.")
-                .finish()
-        }
-        Error::UnresolvedTraitMethod {
-            method_span,
-            method_name,
-            trait_name,
-        } => Report::build(ReportKind::Error, method_span.clone())
-            .with_code("UnresolvedTraitMethod")
-            .with_label(
-                Label::new(method_span)
-                    .with_message(format!(
-                        "Unresolved trait method {} in trait {}.",
-                        method_name, trait_name
-                    ))
-                    .with_color(colors.next()),
-            )
-            .with_message("Unresolved Trait Method.")
-            .finish(),
-        Error::FunctionParameterMismatch {
-            span,
-            expected,
-            found,
-        } => Report::build(ReportKind::Error, span.clone())
-            .with_code("FunctionParameterMismatch")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!("Expected {}, but founded {}.", expected, found))
-                    .with_color(colors.next()),
-            )
-            .with_message("FunctionParameterMismatch.")
-            .finish(),
-        Error::GenericParameterMismatch {
-            span,
-            expected,
-            found,
-        } => Report::build(ReportKind::Error, span.clone())
-            .with_code("GenericParameterMismatch")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!("Expected {}, but founded {}.", expected, found))
-                    .with_color(colors.next()),
-            )
-            .with_message("GenericParameterMismatch.")
-            .finish(),
-        Error::InvalidFunctionCall {
-            span,
-            method_name: _method_name,
-            expected,
-            found,
-        } => Report::build(ReportKind::Error, span.clone())
-            .with_code("InvalidFunctionCall")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!(
-                        "Expected {} parameters, but founded {}.",
-                        expected, found
-                    ))
-                    .with_color(colors.next()),
-            )
-            .with_message("InvalidFunctionCall.")
-            .finish(),
-        Error::InvalidReturn { span, message } => Report::build(ReportKind::Error, span.clone())
-            .with_code("InvalidReturn")
-            .with_label(
-                Label::new(span)
-                    .with_message(message)
-                    .with_color(colors.next()),
-            )
-            .with_message("InvalidReturn.")
-            .finish(),
-        Error::UnreachableExpression { span } => Report::build(ReportKind::Error, span.clone())
-            .with_code("UnreachableExpression")
-            .with_label(
-                Label::new(span)
-                    .with_message("Unreachable Expression.")
-                    .with_color(colors.next()),
-            )
-            .with_message("Unreachable Expression.")
-            .finish(),
-        Error::InvalidSelfParameter { span, message } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("InvalidSelfParameter")
-                .with_label(
-                    Label::new(span)
-                        .with_message(message)
-                        .with_color(colors.next()),
-                )
-                .with_message("Unresolved import.")
-                .finish()
-        }
-        Error::TypeAlreadyDefined { span, type_name } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("TypeAlreadyDefined")
-                .with_label(
-                    Label::new(span)
-                        .with_message(format!("Type {} already defined.", type_name))
-                        .with_color(colors.next()),
-                )
-                .with_message("TypeAlreadyDefined.")
-                .finish()
-        }
-        Error::MemberNotPublic { span, ty, field } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("MemberNotPublic")
-                .with_label(
-                    Label::new(span)
-                        .with_message(format!("{} not a public member of {}.", field, ty))
-                        .with_color(colors.next()),
-                )
-                .with_message("MemberNotPublic.")
-                .finish()
-        }
-
-        Error::ModuleNotPublic { span, module } => Report::build(ReportKind::Error, span.clone())
-            .with_code("ModuleNotPublic")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!("{} not a public module.", module))
-                    .with_color(colors.next()),
-            )
-            .with_message("ModuleNotPublic.")
-            .finish(),
-        Error::TypeNotPublic { span, ty } => Report::build(ReportKind::Error, span.clone())
-            .with_code("TypeNotPublic")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!("{} not public.", ty))
-                    .with_color(colors.next()),
-            )
-            .with_message("TypeNotPublic.")
-            .finish(),
-        Error::IndexOutOfBounds {
-            span,
-            index,
-            length,
-        } => Report::build(ReportKind::Error, span.clone())
-            .with_code("IndexOutOfBounds")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!("Index {} Out Of Bounds {}", index, length))
-                    .with_color(colors.next()),
-            )
-            .with_message("IndexOutOfBounds.")
-            .finish(),
-        Error::InvalidCast {
-            span,
-            expected,
-            found,
-        } => Report::build(ReportKind::Error, span.clone())
-            .with_code("InvalidCast")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!("Expected {}, but founded {}.", expected, found))
-                    .with_color(colors.next()),
-            )
-            .with_message("InvalidCast.")
-            .finish(),
-        Error::DuplicateWildcard { span } => Report::build(ReportKind::Error, span.clone())
-            .with_code("DuplicateWildcard")
-            .with_label(
-                Label::new(span)
-                    .with_message("Duplicate Wildcard.")
-                    .with_color(colors.next()),
-            )
-            .with_message("Duplicate Wildcard.")
-            .finish(),
-
-        Error::IncompleteMatch { span, message } => Report::build(ReportKind::Error, span.clone())
-            .with_code("IncompleteMatch")
-            .with_label(
-                Label::new(span)
-                    .with_message(message)
-                    .with_color(colors.next()),
-            )
-            .with_message("Incomplete Match.")
-            .finish(),
-        Error::DuplicatedMethod { span, ty, method } => {
-            Report::build(ReportKind::Error, span.clone())
-                .with_code("DuplicatedMethod")
-                .with_label(
-                    Label::new(span)
-                        .with_message(format!("Method {} already exists on {}.", method, ty))
-                        .with_color(colors.next()),
-                )
-                .with_message("DuplicatedMethod.")
-                .finish()
-        }
-        Error::NoParentModule { span } => Report::build(ReportKind::Error, span.clone())
-            .with_code("NoParentModule")
-            .with_label(
-                Label::new(span)
-                    .with_message("No parent module.")
-                    .with_color(colors.next()),
-            )
-            .with_message("NoParentModule.")
-            .finish(),
-        Error::ModuleNotFound { span, module } => Report::build(ReportKind::Error, span.clone())
-            .with_code("ModuleNotFound")
-            .with_label(
-                Label::new(span)
-                    .with_message(format!("Module {} not found.", module))
-                    .with_color(colors.next()),
-            )
-            .with_message("ModuleNotFound.")
-            .finish(),
-    }
-}

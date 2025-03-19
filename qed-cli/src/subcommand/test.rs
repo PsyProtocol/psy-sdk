@@ -17,8 +17,10 @@ use qedlang_core::dpn::{
 
 pub fn run(args: TestArgs) -> anyhow::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+    let (typechecker, mut ctx) = interpreter.typecheck(args.file.into()).unwrap();
     let compile_results = interpreter.test(
-        args.file.into(),
+        &typechecker,
+        &mut ctx,
         |context, (method_name, method_id, outputs)| {
             QEDCompileResult::compile_exec(
                 method_name,

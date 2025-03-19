@@ -304,10 +304,11 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
         if self[scope_id].types.contains_key(&key) {
-            return Err(Error::TypeAlreadyDefined {
-                span: FileSpan::default(),
-                type_name: format!("{:?}", key.name),
-            });
+            // TODO: FIx
+            // return Err(Error::TypeAlreadyDefined {
+            //     span: FileSpan::default(),
+            //     type_name: format!("{:?}", key.name),
+            // });
         }
 
         self[scope_id].types.insert(key, type_id);
@@ -348,10 +349,11 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
     pub fn add_type_variable(&mut self, kind: ScopeKind, ty: &GenericParameter) -> Result<TypeId> {
         let key: TypeKey = ty.name.into();
         if let Some(_) = self.find(None, vec![kind], |scope| scope.types.get(&key).cloned()) {
-            return Err(Error::TypeAlreadyDefined {
-                span: FileSpan::default(),
-                type_name: format!("{:?}", key.name),
-            });
+            // TODO: fix
+            // return Err(Error::TypeAlreadyDefined {
+            //     span: FileSpan::default(),
+            //     type_name: format!("{:?}", key.name),
+            // });
         }
 
         let type_id = TypeId(self.types.len());

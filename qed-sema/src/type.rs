@@ -369,3 +369,6 @@ impl Type {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct TyCtxt {}

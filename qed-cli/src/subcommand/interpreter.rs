@@ -18,9 +18,11 @@ use qedlang_core::dpn::{
 pub fn run(mut args: InterpreterArgs) -> anyhow::Result<()> {
     args.parameters.resize(args.method_names.len(), Vec::new());
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+    let (typechecker, mut ctx) = interpreter.typecheck(args.file.into()).unwrap();
     let compile_results = interpreter
         .interpret(
-            args.file.into(),
+            &typechecker,
+            &mut ctx,
             args.contract_name,
             args.method_names,
             |context, (method_name, method_id, outputs)| {
@@ -34,14 +36,8 @@ pub fn run(mut args: InterpreterArgs) -> anyhow::Result<()> {
             },
         )
         .unwrap_or_else(|error| {
-            let report = qed_interpreter::error::lowering_error_to_report(error);
-            report
-                .eprint(ariadne::FnCache::new(|x: &String| {
-                    Ok::<_, Error>(
-                        std::fs::read_to_string(std::path::Path::new(x.as_str())).unwrap(),
-                    )
-                }))
-                .unwrap();
+            let report = qed_interpreter::error::lowering_error_to_report(error, &mut ctx);
+            println!("{}", report);
             std::process::exit(1);
         });
 

@@ -113,7 +113,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret<I: Into<Ident>>(
         &mut self,
-        entry: PathBuf,
+        typechecker: &TypeChecker<F, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
         contract_name: Option<I>,
         method_names: Vec<I>,
         compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
@@ -121,8 +122,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     where
         F: 'static,
     {
-        let (mut typechecker, mut ctx) = self.typecheck(entry)?;
-
         let scope_id = ctx.symbols[ModuleId::root()].scope_id;
         let type_ids = if let Some(contract_name) = contract_name {
             let contract_name = ctx.intern(contract_name.into());
@@ -137,13 +136,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 .map(|method_name| {
                     let method_name = ctx.intern(method_name.into());
                     typechecker
-                        .resolve_method(type_id, method_name, &mut ctx)
-                        .ok_or(Error::from(SemaError::UnresolvedMember {
-                            span: FileSpan::default(),
-                            member_name: ctx.ident(method_name.into()).to_string(),
-                        }))
+                        .resolve_method(type_id, method_name, ctx)
+                        .unwrap()
                 })
-                .collect::<Result<Vec<TypeId>>>()?
+                .collect::<Vec<TypeId>>()
         } else {
             method_names
                 .into_iter()
@@ -171,7 +167,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     self.to_input(parameter.ty, &ctx.symbols),
                 ));
             }
-            let res = self.__interpret__(&typechecker.program, type_id, parameters, &mut ctx)?;
+            let res = self.__interpret__(&typechecker.program, type_id, parameters, ctx)?;
             outputs.push(compile_fn(&self.context, res));
 
             // restore context
@@ -184,14 +180,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn test(
         &mut self,
-        entry: PathBuf,
+        typechecker: &TypeChecker<F, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
         compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
     ) -> Result<Vec<DPNFunctionCircuitDefinition>>
     where
         F: 'static,
     {
-        let (typechecker, mut ctx) = self.typecheck(entry)?;
-
         let mut type_ids = Vec::new();
 
         let mut visited = HashMap::new();
@@ -227,7 +222,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     .unwrap()
                     .parameters
                     .is_empty());
-                let res = self.__interpret__(&typechecker.program, type_id, vec![], &mut ctx)?;
+                let res = self.__interpret__(&typechecker.program, type_id, vec![], ctx)?;
                 outputs.push(compile_fn(&self.context, res));
                 // resotre context
                 self.context = context.clone();
@@ -336,15 +331,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             if !ctx
                 .symbols
                 .set_variable(ctx.symbols[type_id].scope_id(), parameter.name.clone(), arg)
-                .ok_or(Error::SemaError(SemaError::UnresolvedVariable {
-                    span: ctx.program.convert_span(&parameter.span),
-                    resolved_variable: ctx.ident(parameter.name).to_string(),
-                }))?
+                .unwrap()
             {
-                return Err(Error::SemaError(SemaError::ImmutableVariable {
-                    span: ctx.program.convert_span(&parameter.span),
-                    variable: ctx.ident(parameter.name).to_string(),
-                }));
+                //
             }
         }
         Ok(ControlState::Return(self.interpret_expr(
@@ -367,7 +356,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
             if !self.is_constant(predicate) {
                 return Err(Error::UncertainLoopCondition {
-                    loop_span: ctx.program.convert_span(&node.span),
+                    loop_span: node.span,
                 });
             }
 
@@ -394,7 +383,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         if !self.is_constant(start.to_value()) || !self.is_constant(end_f) {
             return Err(Error::UncertainLoopCondition {
-                loop_span: ctx.program.convert_span(&node.span),
+                loop_span: node.span,
             });
         }
 
@@ -403,13 +392,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             .symbols
             .set_variable(node.scope_id, node.variable, start)
             .ok_or(Error::SemaError(SemaError::UndefinedVariable {
-                span: ctx.program.convert_span(&node.span),
-                variable: ctx.ident(node.variable).to_string(),
+                span: node.span,
+                variable: node.variable,
             }))?
         {
             return Err(Error::SemaError(SemaError::ImmutableVariable {
-                span: ctx.program.convert_span(&node.span),
-                variable: ctx.ident(node.variable).to_string(),
+                span: node.span,
+                variable: node.variable,
             }));
         }
 
@@ -426,14 +415,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 if !ctx
                     .symbols
                     .set_variable(node.scope_id, node.variable, value)
-                    .ok_or(Error::SemaError(SemaError::UndefinedVariable {
-                        span: ctx.program.convert_span(&node.span),
-                        variable: ctx.ident(node.variable).to_string(),
-                    }))?
+                    .unwrap()
                 {
                     return Err(Error::SemaError(SemaError::ImmutableVariable {
-                        span: ctx.program.convert_span(&node.span),
-                        variable: ctx.ident(node.variable).to_string(),
+                        span: node.span,
+                        variable: node.variable,
                     }));
                 }
             } else {
@@ -1002,7 +988,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 BOOL_TYPE => {
                     if const_value > 1 {
                         return Err(Error::SemaError(qed_sema::Error::InvalidCast {
-                            span: ctx.program.convert_span(&cast_node.span),
+                            span: cast_node.span,
                             expected: "cast to bool".to_string(),
                             found: format!("value {} > 1", const_value),
                         }));
@@ -1012,7 +998,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 U32_TYPE => {
                     if const_value > 0xffffffffu64 {
                         return Err(Error::SemaError(qed_sema::Error::InvalidCast {
-                            span: ctx.program.convert_span(&cast_node.span),
+                            span: cast_node.span,
                             expected: "cast to u32".to_string(),
                             found: format!("value {} > 0xffffffffu64", const_value),
                         }));
@@ -1099,17 +1085,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let mut variable_value = ctx.symbols.get_value(var_id).unwrap();
         variable_value.set_path(&mut self.context, &path, &mut index_condition, new_value)?;
 
-        if !ctx
-            .symbols
-            .set_value(var_id, variable_value)
-            .ok_or(Error::SemaError(SemaError::UndefinedVariable {
-                span: ctx.program.convert_span(&node.span),
-                variable: ctx.ident(ctx.symbols[var_id].name).to_string(),
-            }))?
-        {
+        if !ctx.symbols.set_value(var_id, variable_value).unwrap() {
             return Err(Error::SemaError(SemaError::ImmutableVariable {
-                span: ctx.program.convert_span(&node.span),
-                variable: ctx.ident(ctx.symbols[var_id].name).to_string(),
+                span: node.span,
+                variable: ctx.symbols[var_id].name,
             }));
         }
 
@@ -1244,14 +1223,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         if !ctx
             .symbols
             .set_variable(node.scope_id, node.name, value.clone())
-            .ok_or(Error::SemaError(SemaError::UndefinedVariable {
-                span: ctx.program.convert_span(&node.span),
-                variable: ctx.ident(node.name).to_string(),
-            }))?
+            .unwrap()
         {
             return Err(Error::SemaError(SemaError::ImmutableVariable {
-                span: ctx.program.convert_span(&node.span),
-                variable: ctx.ident(node.name).to_string(),
+                span: node.span,
+                variable: node.name,
             }));
         }
         Ok(())
@@ -1364,7 +1340,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             } else {
                 if wildcard_case.is_some() {
                     return Err(Error::SemaError(SemaError::DuplicateWildcard {
-                        span: ctx.program.convert_span(&arm.span),
+                        span: arm.span,
                     }));
                 }
                 wildcard_case = Some(arm);
@@ -1385,7 +1361,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             let white_list = vec![BOOL_TYPE];
             if !white_list.contains(&scrutinee_type) {
                 return Err(Error::SemaError(SemaError::IncompleteMatch {
-                    span: ctx.program.convert_span(&match_node.span),
+                    span: match_node.span,
                     message: "need a \"_\" for match".to_string(),
                 }));
             }
@@ -1455,10 +1431,12 @@ mod tests {
 
         insta::glob!("../../tests", "00*.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+            let (typechecker, mut ctx) = interpreter.typecheck(path.into()).unwrap();
 
             let compile_results = interpreter
                 .interpret(
-                    path.into(),
+                    &typechecker,
+                    &mut ctx,
                     None,
                     vec!["main"],
                     |context, (method_name, method_id, outputs)| {

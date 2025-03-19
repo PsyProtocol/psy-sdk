@@ -20,7 +20,7 @@ impl<T> Box<T> {
 }
 
 fn main() -> Felt {
-    let mut b: Box<Box<Felt>> = Box::new(Box::new(42));
+    let mut b: Box<Box<bool>> = Box::new(Box::new(42));
     b.data.data += 1;
     b.data.data
 }

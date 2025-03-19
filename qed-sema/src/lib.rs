@@ -6,6 +6,8 @@ mod expr;
 mod generic;
 mod infer;
 mod program;
+mod resolver;
+mod rewriter;
 mod stmt;
 mod symbol_table;
 mod traits;
@@ -24,6 +26,7 @@ pub use generic::*;
 pub use infer::*;
 pub use program::*;
 pub use r#type::*;
+pub use resolver::*;
 pub use stmt::*;
 pub use symbol_table::*;
 pub use traits::*;
@@ -44,12 +47,7 @@ use qedlang_core::dpn::ops::context_trait::ContextFelt;
 pub struct TypeChecker<F: Clone + From<u32> + ContextFelt, C> {
     pub program: CheckedProgram<F>,
     evaluator: Box<dyn Evaluator<F, C>>,
-
-    impl_traits: HashMap<TypeId, HashSet<TypeId>>,
-    trait_impls: HashMap<TypeId, HashSet<TypeId>>,
-
-    impl_methods: HashMap<TypeId, HashMap<IdentId, TypeId>>,
-    trait_methods: HashMap<TypeId, HashMap<TypeId, HashMap<IdentId, TypeId>>>,
+    pub resolver: ResolverCtxt,
 
     _marker: std::marker::PhantomData<C>,
 }
@@ -65,7 +63,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
     type StmtResult = CheckedStmtNode;
 
-    type DefinitionResult = CheckedDefinitionNode;
+    type DefinitionResult = DefId;
 
     type Context = TypeCheckerVisitorContext<F, C>;
 
@@ -80,7 +78,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         // TODO: remove clone
         let node = ctx.definition(def_id).as_use().cloned().unwrap();
         self.add_use(&node, ctx)?;
-        Ok(CheckedDefinitionNode::Use(node))
+        Ok(self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Use(node)))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -108,18 +109,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let ty = &ctx.symbols[type_id];
 
         let inner_ty = ty.as_array().unwrap().inner_ty;
-        if !self.unify(checked_index.ty(), FELT_TYPE, ctx) {
+        if !ctx.unify(checked_index.ty(), FELT_TYPE) {
             return Err(Error::TypeMismatch {
-                span: ctx.program.convert_span(&index_access_node.span),
-                expected: ctx.debug_type(FELT_TYPE),
-                found: ctx.debug_type(checked_index.ty()),
+                span: checked_index.span(),
+                expected: vec![FELT_TYPE],
+                found: checked_index.ty(),
             });
         }
 
         Ok(CheckedExprNode::IndexAccess(CheckedIndexAccessNode {
             target: self.program.exprs.alloc_item(checked_expr),
             index: self.program.exprs.alloc_item(checked_index),
-            type_id: self.substitute_all(inner_ty, ctx)?,
+            type_id: ctx.substitute_all(inner_ty)?,
             span: index_access_node.span,
         }))
     }
@@ -139,17 +140,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             let type_id = self
                 .resolve_method(type_id, member_access_node.field, ctx)
                 .ok_or(Error::UnresolvedMember {
-                    span: ctx.program.convert_span(&member_access_node.span),
-                    member_name: format!("{}()", ctx.ident(member_access_node.field)),
+                    span: member_access_node.span,
+                    member_name: member_access_node.field,
                 })?;
             let visibility = ctx.symbols[type_id].visibility();
             if !(visibility.is_public()
                 || self.typecheck_member_access(member_access_node.target, ctx))
             {
                 return Err(Error::MemberNotPublic {
-                    span: ctx.program.convert_span(&member_access_node.span),
-                    ty: ctx.debug_type(type_id),
-                    field: ctx.ident(member_access_node.field).to_string(),
+                    span: member_access_node.span,
+                    ty: type_id,
+                    field: member_access_node.field,
                 });
             }
             return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
@@ -167,22 +168,22 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             } = fields
                 .get(&member_access_node.field)
                 .ok_or(Error::UnresolvedMember {
-                    span: ctx.program.convert_span(&member_access_node.span),
-                    member_name: format!("{}", ctx.ident(member_access_node.field)),
+                    span: member_access_node.span,
+                    member_name: member_access_node.field,
                 })?;
             if !(visibility.is_public()
                 || self.typecheck_member_access(member_access_node.target, ctx))
             {
                 return Err(Error::MemberNotPublic {
-                    span: ctx.program.convert_span(&member_access_node.span),
-                    ty: ctx.debug_type(type_id),
-                    field: ctx.ident(member_access_node.field).to_string(),
+                    span: member_access_node.span,
+                    ty: type_id,
+                    field: member_access_node.field,
                 });
             }
             return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
                 target: self.program.exprs.alloc_item(checked_expr),
                 field: member_access_node.field.clone(),
-                type_id: self.substitute_all(field_type.clone(), ctx)?,
+                type_id: ctx.substitute_all(field_type.clone())?,
                 span: member_access_node.span,
             }));
         }
@@ -200,15 +201,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let checked_expr = self.visit_expr(tuple_access_node.target, ctx)?;
         let type_id = checked_expr.ty();
         let ty = &ctx.symbols[type_id];
-        let element_types = ty.as_tuple().ok_or(Error::TypeMismatch {
-            span: ctx.program.convert_span(&tuple_access_node.span),
-            expected: format!("Tuple"),
-            found: ctx.debug_type(type_id),
-        })?;
+        // TODO: better error
+        let element_types = ty.as_tuple().unwrap();
 
         if tuple_access_node.index >= element_types.len() {
             return Err(Error::IndexOutOfBounds {
-                span: ctx.program.convert_span(&tuple_access_node.span),
+                span: tuple_access_node.span,
                 index: tuple_access_node.index,
                 length: element_types.len(),
             });
@@ -217,7 +215,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let field_type = element_types
             .get(tuple_access_node.index)
             .ok_or(Error::IndexOutOfBounds {
-                span: ctx.program.convert_span(&tuple_access_node.span),
+                span: tuple_access_node.span,
                 index: tuple_access_node.index,
                 length: element_types.len(),
             })?
@@ -281,11 +279,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             }
             IntrinsicExprNode::GetStateHashAt { slot_index, span } => {
                 let slot_index = self.visit_expr(slot_index, ctx)?;
-                if !self.unify(slot_index.ty(), FELT_TYPE, ctx) {
+                if !ctx.unify(slot_index.ty(), FELT_TYPE) {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&slot_index.span()),
-                        expected: ctx.debug_type(FELT_TYPE),
-                        found: ctx.debug_type(slot_index.ty()),
+                        span: slot_index.span(),
+                        expected: vec![FELT_TYPE],
+                        found: slot_index.ty(),
                     });
                 }
                 return Ok(CheckedExprNode::Intrinsic(
@@ -306,19 +304,25 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     self.visit_expr(contract_state_tree_height, ctx)?;
                 let contract_id = self.visit_expr(contract_id, ctx)?;
                 let slot_index = self.visit_expr(slot_index, ctx)?;
-                if !self.unify(contract_state_tree_height.ty(), FELT_TYPE, ctx)
-                    || !self.unify(contract_id.ty(), FELT_TYPE, ctx)
-                    || !self.unify(slot_index.ty(), FELT_TYPE, ctx)
-                {
+                if !ctx.unify(contract_state_tree_height.ty(), FELT_TYPE) {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&span),
-                        expected: ctx.debug_type(FELT_TYPE),
-                        found: format!(
-                            "contract_state_tree_height: {}, contract_id: {} slot_index: {}",
-                            ctx.debug_type(contract_state_tree_height.ty()),
-                            ctx.debug_type(contract_id.ty()),
-                            ctx.debug_type(slot_index.ty()),
-                        ),
+                        span: contract_state_tree_height.span(),
+                        expected: vec![FELT_TYPE],
+                        found: contract_state_tree_height.ty(),
+                    });
+                }
+                if !ctx.unify(contract_id.ty(), FELT_TYPE) {
+                    return Err(Error::TypeMismatch {
+                        span: contract_id.span(),
+                        expected: vec![FELT_TYPE],
+                        found: contract_id.ty(),
+                    });
+                }
+                if !ctx.unify(slot_index.ty(), FELT_TYPE) {
+                    return Err(Error::TypeMismatch {
+                        span: slot_index.span(),
+                        expected: vec![FELT_TYPE],
+                        found: slot_index.ty(),
                     });
                 }
 
@@ -347,21 +351,32 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let user_id = self.visit_expr(user_id, ctx)?;
                 let contract_id = self.visit_expr(contract_id, ctx)?;
                 let slot_index = self.visit_expr(slot_index, ctx)?;
-                if !self.unify(contract_state_tree_height.ty(), FELT_TYPE, ctx)
-                    || !self.unify(user_id.ty(), FELT_TYPE, ctx)
-                    || !self.unify(contract_id.ty(), FELT_TYPE, ctx)
-                    || !self.unify(slot_index.ty(), FELT_TYPE, ctx)
-                {
+                if !ctx.unify(contract_state_tree_height.ty(), FELT_TYPE) {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&span),
-                        expected: ctx.debug_type(FELT_TYPE),
-                        found: format!(
-                            "contract_state_tree_height: {}, user_id: {}, contract_id: {} slot_index: {}",
-                            ctx.debug_type(contract_state_tree_height.ty()),
-                            ctx.debug_type(user_id.ty()),
-                            ctx.debug_type(contract_id.ty()),
-                            ctx.debug_type(slot_index.ty()),
-                        ),
+                        span: contract_state_tree_height.span(),
+                        expected: vec![FELT_TYPE],
+                        found: contract_state_tree_height.ty(),
+                    });
+                }
+                if !ctx.unify(user_id.ty(), FELT_TYPE) {
+                    return Err(Error::TypeMismatch {
+                        span: user_id.span(),
+                        expected: vec![FELT_TYPE],
+                        found: user_id.ty(),
+                    });
+                }
+                if !ctx.unify(contract_id.ty(), FELT_TYPE) {
+                    return Err(Error::TypeMismatch {
+                        span: contract_id.span(),
+                        expected: vec![FELT_TYPE],
+                        found: contract_id.ty(),
+                    });
+                }
+                if !ctx.unify(slot_index.ty(), FELT_TYPE) {
+                    return Err(Error::TypeMismatch {
+                        span: slot_index.span(),
+                        expected: vec![FELT_TYPE],
+                        found: slot_index.ty(),
                     });
                 }
 
@@ -387,17 +402,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let slot_index = self.visit_expr(slot_index, ctx)?;
                 let new_value = self.visit_expr(new_value, ctx)?;
 
-                if !self.unify(slot_index.ty(), FELT_TYPE, ctx)
-                    || !self.unify(new_value.ty(), HASH_TYPE, ctx)
-                {
+                if !ctx.unify(slot_index.ty(), FELT_TYPE) {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&span),
-                        expected: format!("Felt, Hash"),
-                        found: format!(
-                            "slot_index: {}, new_value: {}",
-                            ctx.debug_type(slot_index.ty()),
-                            ctx.debug_type(new_value.ty()),
-                        ),
+                        span: slot_index.span(),
+                        expected: vec![FELT_TYPE],
+                        found: slot_index.ty(),
+                    });
+                }
+                if !ctx.unify(new_value.ty(), HASH_TYPE) {
+                    return Err(Error::TypeMismatch {
+                        span: new_value.span(),
+                        expected: vec![HASH_TYPE],
+                        found: new_value.ty(),
                     });
                 }
 
@@ -413,11 +429,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             IntrinsicExprNode::Read { offset, span } => {
                 // TODO: remove clone
                 let offset = self.visit_expr(offset, ctx)?;
-                if !self.unify(offset.ty(), FELT_TYPE, ctx) {
+                if !ctx.unify(offset.ty(), FELT_TYPE) {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&offset.span()),
-                        expected: ctx.debug_type(FELT_TYPE),
-                        found: ctx.debug_type(offset.ty()),
+                        span: offset.span(),
+                        expected: vec![FELT_TYPE],
+                        found: offset.ty(),
                     });
                 }
                 return Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::Read {
@@ -434,17 +450,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 // TODO: remove clone
                 let offset = self.visit_expr(offset, ctx)?;
                 let value = self.visit_expr(value, ctx)?;
-                if !self.unify(offset.ty(), FELT_TYPE, ctx)
-                    || !self.unify(value.ty(), FELT_TYPE, ctx)
-                {
+                if !ctx.unify(offset.ty(), FELT_TYPE) {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&span),
-                        expected: ctx.debug_type(FELT_TYPE),
-                        found: format!(
-                            "offset: {}, value: {}",
-                            ctx.debug_type(offset.ty()),
-                            ctx.debug_type(value.ty()),
-                        ),
+                        span: offset.span(),
+                        expected: vec![FELT_TYPE],
+                        found: offset.ty(),
+                    });
+                }
+                if !ctx.unify(value.ty(), FELT_TYPE) {
+                    return Err(Error::TypeMismatch {
+                        span: value.span(),
+                        expected: vec![FELT_TYPE],
+                        found: value.ty(),
                     });
                 }
                 Ok(CheckedExprNode::Intrinsic(
@@ -490,24 +507,25 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 span,
             ))),
             ValueNode::Array(size, arr, span) => {
-                if size != arr.len() {
-                    return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&span),
-                        expected: format!("{} size array", size),
-                        found: format!("{}", arr.len(),),
-                    });
-                }
+                // TODO: fix
+                // if size != arr.len() {
+                //     return Err(Error::TypeMismatch {
+                //         span: span,
+                //         expected: format!("{} size array", size),
+                //         found: format!("{}", arr.len(),),
+                //     });
+                // }
 
                 let mut inner_ty = UNKOWN_TYPE;
                 let mut elements = Vec::with_capacity(arr.len());
                 for e in arr {
                     // TODO: remove clone
                     let checked_expr = self.visit_expr(e, ctx)?;
-                    if !self.unify(checked_expr.ty(), inner_ty, ctx) {
+                    if !ctx.unify(checked_expr.ty(), inner_ty) {
                         return Err(Error::TypeMismatch {
-                            span: ctx.program.convert_span(&checked_expr.span()),
-                            expected: ctx.debug_type(inner_ty),
-                            found: ctx.debug_type(checked_expr.ty()),
+                            span: checked_expr.span(),
+                            expected: vec![inner_ty],
+                            found: checked_expr.ty(),
                         });
                     }
                     inner_ty = checked_expr.ty();
@@ -524,13 +542,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let generic_inner_ty = ctx.symbols[underlying_type_id].as_array().unwrap().inner_ty;
                 let generic_size_ty = ctx.symbols[underlying_type_id].as_array().unwrap().size_ty;
 
-                if !self.unify(generic_inner_ty, inner_ty, ctx)
-                    || !self.unify(generic_size_ty, size_ty, ctx)
-                {
+                if !ctx.unify(generic_inner_ty, inner_ty) || !ctx.unify(generic_size_ty, size_ty) {
                     panic!("Type mismatch");
                 }
 
-                let type_id = self.substitute_all(underlying_type_id, ctx)?;
+                let type_id = ctx.substitute_all(underlying_type_id)?;
 
                 Ok(CheckedExprNode::Value(CheckedValueNode::Array(
                     type_id, elements, span,
@@ -541,8 +557,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     ctx.symbols
                         .get_type_id(None, name)
                         .ok_or(Error::UnresolvedType {
-                            span: ctx.program.convert_span(&span),
-                            resolved_type: format!("{}", ctx.ident(name)),
+                            span: span,
+                            resolved_type: name,
                         })?;
                 let fields = ctx.symbols[underlying_type_id]
                     .as_struct()
@@ -550,23 +566,24 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     .fields
                     .clone();
                 let generic_parameters = ctx.symbols[underlying_type_id].generic_parameters();
-                if fields.len() != data.len() {
-                    return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&span),
-                        expected: format!("{} fields for Struct {}", fields.len(), ctx.ident(name)),
-                        found: format!("{}", data.len(),),
-                    });
-                }
+                // TODO
+                // if fields.len() != data.len() {
+                //     return Err(Error::TypeMismatch {
+                //         span: span,
+                //         expected: format!("{} fields for Struct {}", fields.len(), ctx.ident(name)),
+                //         found: format!("{}", data.len(),),
+                //     });
+                // }
 
                 let mut new_data = IndexMap::new();
                 for (field_name, CheckedStructField { ty: field_type, .. }) in fields {
                     let field_value =
                         self.visit_expr(data.get(&field_name).unwrap().clone(), ctx)?;
-                    if !self.unify(field_type, field_value.ty(), ctx) {
+                    if !ctx.unify(field_type, field_value.ty()) {
                         return Err(Error::TypeMismatch {
-                            span: ctx.program.convert_span(&field_value.span()),
-                            expected: ctx.debug_type(field_type),
-                            found: ctx.debug_type(field_value.ty()),
+                            span: field_value.span(),
+                            expected: vec![field_type],
+                            found: field_value.ty(),
                         });
                     }
                     new_data.insert(field_name, self.program.exprs.alloc_item(field_value));
@@ -578,31 +595,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     .zip(generic_parameters.clone().into_iter())
                 {
                     let generic_arg = self.typecheck(generic_arg, ctx)?;
-                    if !self.unify(generic_param, generic_arg, ctx) {
+                    if !ctx.unify(generic_param, generic_arg) {
                         return Err(Error::TypeMismatch {
-                            span: ctx.program.convert_span(&span),
-                            expected: ctx.debug_type(generic_arg),
-                            found: ctx.debug_type(generic_param),
+                            span: span,
+                            expected: vec![generic_arg],
+                            found: generic_param,
                         });
                     }
                 }
 
-                for (generic_arg, generic_param) in generic_args
-                    .clone()
-                    .iter()
-                    .zip(generic_parameters.clone().into_iter())
-                {
-                    let generic_arg = self.typecheck(generic_arg, ctx)?;
-                    if !self.unify(generic_param, generic_arg, ctx) {
-                        return Err(Error::TypeMismatch {
-                            span: FileSpan::default(),
-                            expected: ctx.debug_type(generic_arg),
-                            found: ctx.debug_type(generic_param),
-                        });
-                    }
-                }
-
-                let type_id = self.substitute_all(underlying_type_id, ctx)?;
+                let type_id = ctx.substitute_all(underlying_type_id)?;
 
                 CheckedExprNode::Value(CheckedValueNode::Struct(type_id, new_data, span))
             }),
@@ -621,11 +623,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let checked_rhs = self.visit_expr(binary_node.rhs, ctx)?;
 
         let lhs_ty = checked_lhs.ty();
-        if !self.unify(lhs_ty, checked_rhs.ty(), ctx) {
+        if !ctx.unify(lhs_ty, checked_rhs.ty()) {
             return Err(Error::TypeMismatch {
-                span: ctx.program.convert_span(&binary_node.span),
-                expected: format!("{} for {}", ctx.debug_type(lhs_ty), binary_node.operator),
-                found: ctx.debug_type(checked_rhs.ty()),
+                span: checked_rhs.span(),
+                expected: vec![lhs_ty],
+                found: checked_rhs.ty(),
             });
         }
 
@@ -641,47 +643,47 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             | BinaryOperator::BitAnd
             | BinaryOperator::BitOr
             | BinaryOperator::BitXor => {
-                if self.unify(lhs_ty, FELT_TYPE, ctx) {
+                if ctx.unify(lhs_ty, FELT_TYPE) {
                     FELT_TYPE
-                } else if self.unify(lhs_ty, U32_TYPE, ctx) {
+                } else if ctx.unify(lhs_ty, U32_TYPE) {
                     U32_TYPE
                 } else {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&binary_node.span),
-                        expected: format!("Felt, U32 for {}", binary_node.operator),
-                        found: ctx.debug_type(lhs_ty),
+                        span: binary_node.span,
+                        expected: vec![FELT_TYPE, U32_TYPE],
+                        found: lhs_ty,
                     });
                 }
             }
             BinaryOperator::And | BinaryOperator::Or => {
-                if !self.unify(lhs_ty, BOOL_TYPE, ctx) {
+                if !ctx.unify(lhs_ty, BOOL_TYPE) {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&binary_node.span),
-                        expected: format!("Bool for {}", binary_node.operator),
-                        found: ctx.debug_type(lhs_ty),
+                        span: binary_node.span,
+                        expected: vec![BOOL_TYPE],
+                        found: lhs_ty,
                     });
                 }
                 BOOL_TYPE
             }
             BinaryOperator::Eq | BinaryOperator::Neq => {
-                if !self.unify(lhs_ty, BOOL_TYPE, ctx)
-                    && !self.unify(lhs_ty, FELT_TYPE, ctx)
-                    && !self.unify(lhs_ty, U32_TYPE, ctx)
+                if !ctx.unify(lhs_ty, BOOL_TYPE)
+                    && !ctx.unify(lhs_ty, FELT_TYPE)
+                    && !ctx.unify(lhs_ty, U32_TYPE)
                 {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&binary_node.span),
-                        expected: format!("Felt, U32, Bool for {}", binary_node.operator),
-                        found: ctx.debug_type(lhs_ty),
+                        span: binary_node.span,
+                        expected: vec![BOOL_TYPE, FELT_TYPE, U32_TYPE],
+                        found: lhs_ty,
                     });
                 }
                 BOOL_TYPE
             }
             BinaryOperator::Lt | BinaryOperator::Lte | BinaryOperator::Gt | BinaryOperator::Gte => {
-                if !self.unify(lhs_ty, FELT_TYPE, ctx) && !self.unify(lhs_ty, U32_TYPE, ctx) {
+                if !ctx.unify(lhs_ty, FELT_TYPE) && !ctx.unify(lhs_ty, U32_TYPE) {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&binary_node.span),
-                        expected: format!("Felt, U32 for {}", binary_node.operator),
-                        found: ctx.debug_type(lhs_ty),
+                        span: binary_node.span,
+                        expected: vec![FELT_TYPE, U32_TYPE],
+                        found: lhs_ty,
                     });
                 }
                 BOOL_TYPE
@@ -710,33 +712,29 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         match unary_node.operator {
             UnaryOperator::Neg => {
-                if !self.unify(type_id, FELT_TYPE, ctx) {
+                if !ctx.unify(type_id, FELT_TYPE) {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&unary_node.span),
-                        expected: format!(
-                            "{} for {}",
-                            ctx.debug_type(FELT_TYPE),
-                            unary_node.operator
-                        ),
-                        found: ctx.debug_type(type_id),
+                        span: unary_node.span,
+                        expected: vec![FELT_TYPE],
+                        found: type_id,
                     });
                 }
             }
             UnaryOperator::Not => {
-                if !self.unify(type_id, BOOL_TYPE, ctx) && !self.unify(type_id, FELT_TYPE, ctx) {
+                if !ctx.unify(type_id, BOOL_TYPE) && !ctx.unify(type_id, FELT_TYPE) {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&unary_node.span),
-                        expected: format!("Bool, Felt for {}", unary_node.operator),
-                        found: ctx.debug_type(type_id),
+                        span: unary_node.span,
+                        expected: vec![FELT_TYPE, BOOL_TYPE],
+                        found: type_id,
                     });
                 }
             }
         }
-        if !self.unify(type_id, FELT_TYPE, ctx) && !self.unify(type_id, BOOL_TYPE, ctx) {
+        if !ctx.unify(type_id, FELT_TYPE) && !ctx.unify(type_id, BOOL_TYPE) {
             return Err(Error::TypeMismatch {
-                span: ctx.program.convert_span(&unary_node.span),
-                expected: format!("Felt, Bool"),
-                found: format!("{:?}", ctx.symbols[type_id].kind()),
+                span: unary_node.span,
+                expected: vec![FELT_TYPE, BOOL_TYPE],
+                found: type_id,
             });
         }
 
@@ -764,11 +762,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .zip(call_node.generic_parameters.iter())
         {
             let generic_arg = self.typecheck(generic_arg, ctx)?;
-            if !self.unify(generic_param.clone(), generic_arg, ctx) {
+            if !ctx.unify(generic_param.clone(), generic_arg) {
                 return Err(Error::TypeMismatch {
-                    span: ctx.program.convert_span(&call_node.span),
-                    expected: ctx.debug_type(generic_param.clone()),
-                    found: ctx.debug_type(generic_arg),
+                    span: call_node.span,
+                    expected: vec![generic_param.clone()],
+                    found: generic_arg,
                 });
             }
         }
@@ -777,8 +775,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         if call_node.args.len() != signature.parameters.len() {
             return Err(Error::InvalidFunctionCall {
-                span: ctx.program.convert_span(&call_node.span),
-                method_name: ctx.debug_type(ty),
+                span: call_node.span,
+                method_name: ty,
                 expected: format!("{} parameters", signature.parameters.len()),
                 found: format!("{}", call_node.args.len()),
             });
@@ -786,11 +784,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let mut args = Vec::new();
         for (i, arg) in call_node.args.iter().enumerate() {
             let type_arg = self.visit_expr(arg.clone(), ctx)?;
-            if !self.unify(type_arg.ty(), signature.parameters[i], ctx) {
+            if !ctx.unify(type_arg.ty(), signature.parameters[i]) {
                 return Err(Error::FunctionParameterMismatch {
-                    span: ctx.program.convert_span(&call_node.span),
-                    expected: ctx.debug_type(signature.parameters[i]),
-                    found: ctx.debug_type(type_arg.ty()),
+                    span: call_node.span,
+                    expected: signature.parameters[i],
+                    found: type_arg.ty(),
                 });
             }
             args.push(type_arg);
@@ -800,7 +798,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             callee: self.program.exprs.alloc_item(callee),
             generic_parameters: generic_parameters,
             args: self.program.exprs.alloc_items(args),
-            type_id: self.substitute_all(signature.return_type, ctx)?,
+            type_id: ctx.substitute_all(signature.return_type)?,
             span: call_node.span,
         });
 
@@ -826,22 +824,22 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .zip(call_node.generic_parameters.iter())
         {
             let generic_arg = self.typecheck(generic_arg, ctx)?;
-            if !self.unify(generic_param.clone(), generic_arg, ctx) {
+            if !ctx.unify(generic_param.clone(), generic_arg) {
                 return Err(Error::TypeMismatch {
-                    span: ctx.program.convert_span(&call_node.span),
-                    expected: ctx.debug_type(generic_param.clone()),
-                    found: ctx.debug_type(generic_arg),
+                    span: call_node.span,
+                    expected: vec![generic_param.clone()],
+                    found: generic_arg,
                 });
             }
         }
         let mut args = Vec::new();
         let receiver = {
             let receiver = self.visit_expr(call_node.receiver, ctx)?;
-            if !self.unify(receiver.ty(), f.parameters[0].ty, ctx) {
+            if !ctx.unify(receiver.ty(), f.parameters[0].ty) {
                 return Err(Error::FunctionParameterMismatch {
-                    span: ctx.program.convert_span(&call_node.span),
-                    expected: ctx.debug_type(f.parameters[0].ty),
-                    found: ctx.debug_type(receiver.ty()),
+                    span: call_node.span,
+                    expected: f.parameters[0].ty,
+                    found: receiver.ty(),
                 });
             }
 
@@ -850,11 +848,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         for (i, arg) in call_node.args.iter().enumerate() {
             let type_arg = self.visit_expr(arg.clone(), ctx)?;
-            if !self.unify(type_arg.ty(), f.parameters[i + 1].ty, ctx) {
+            if !ctx.unify(type_arg.ty(), f.parameters[i + 1].ty) {
                 return Err(Error::FunctionParameterMismatch {
-                    span: ctx.program.convert_span(&call_node.span),
-                    expected: ctx.debug_type(f.parameters[i + 1].ty),
-                    found: ctx.debug_type(type_arg.ty()),
+                    span: call_node.span,
+                    expected: f.parameters[i + 1].ty,
+                    found: type_arg.ty(),
                 });
             }
             args.push(type_arg);
@@ -865,7 +863,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             receiver,
             generic_parameters: f.generic_parameters.clone(),
             args: self.program.exprs.alloc_items(args),
-            type_id: self.substitute_all(f.return_type, ctx)?,
+            type_id: ctx.substitute_all(f.return_type)?,
             span: call_node.span,
         });
 
@@ -921,12 +919,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let src_type = src_expr.ty();
         let target_type = self.typecheck(&cast_node.target_type, ctx)?;
 
-        if (self.unify(src_type, FELT_TYPE, ctx)
-            || self.unify(src_type, BOOL_TYPE, ctx)
-            || self.unify(src_type, U32_TYPE, ctx))
-            && (self.unify(target_type, FELT_TYPE, ctx)
-                || self.unify(target_type, BOOL_TYPE, ctx)
-                || self.unify(target_type, U32_TYPE, ctx))
+        if (ctx.unify(src_type, FELT_TYPE)
+            || ctx.unify(src_type, BOOL_TYPE)
+            || ctx.unify(src_type, U32_TYPE))
+            && (ctx.unify(target_type, FELT_TYPE)
+                || ctx.unify(target_type, BOOL_TYPE)
+                || ctx.unify(target_type, U32_TYPE))
         {
             return Ok(CheckedExprNode::Cast(CheckedCastNode {
                 value: self.program.exprs.alloc_item(src_expr),
@@ -935,9 +933,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             }));
         } else {
             return Err(Error::TypeMismatch {
-                span: ctx.program.convert_span(&cast_node.span),
-                expected: ctx.debug_type(target_type),
-                found: ctx.debug_type(src_type),
+                span: cast_node.span,
+                expected: vec![target_type],
+                found: src_type,
             });
         };
     }
@@ -951,11 +949,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         // TODO: remove clone
         let if_expr_node = ctx.expression(node).as_if_expr().cloned().unwrap();
         let checked_expr = self.visit_expr(if_expr_node.if_branch.predicate, ctx)?;
-        if !self.unify(checked_expr.ty(), BOOL_TYPE, ctx) {
+        if !ctx.unify(checked_expr.ty(), BOOL_TYPE) {
             return Err(Error::TypeMismatch {
-                span: ctx.program.convert_span(&if_expr_node.span),
-                expected: ctx.debug_type(BOOL_TYPE),
-                found: ctx.debug_type(checked_expr.ty()),
+                span: if_expr_node.span,
+                expected: vec![BOOL_TYPE],
+                found: checked_expr.ty(),
             });
         }
 
@@ -970,21 +968,21 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let mut elseif_branches = Vec::with_capacity(if_expr_node.elseif_branches.len());
         for branch in &if_expr_node.elseif_branches {
             let checked_expr = self.visit_expr(branch.predicate, ctx)?;
-            if !self.unify(checked_expr.ty(), BOOL_TYPE, ctx) {
+            if !ctx.unify(checked_expr.ty(), BOOL_TYPE) {
                 return Err(Error::TypeMismatch {
-                    span: ctx.program.convert_span(&branch.span),
-                    expected: ctx.debug_type(BOOL_TYPE),
-                    found: ctx.debug_type(checked_expr.ty()),
+                    span: branch.span,
+                    expected: vec![BOOL_TYPE],
+                    found: checked_expr.ty(),
                 });
             }
             let checked_block = self.visit_expr(branch.body, ctx)?;
             let else_if_type = checked_block.as_block_expr().unwrap().type_id;
 
-            if !self.unify(else_if_type, if_type, ctx) {
+            if !ctx.unify(else_if_type, if_type) {
                 return Err(Error::TypeMismatch {
-                    span: ctx.program.convert_span(&branch.span),
-                    expected: ctx.debug_type(else_if_type),
-                    found: ctx.debug_type(if_type),
+                    span: branch.span,
+                    expected: vec![else_if_type],
+                    found: if_type,
                 });
             }
 
@@ -999,11 +997,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             let checked_block = self.visit_expr(else_branch, ctx)?;
             let else_type = checked_block.as_block_expr().unwrap().type_id;
 
-            if !self.unify(else_type, if_type, ctx) {
+            if !ctx.unify(else_type, if_type) {
                 return Err(Error::TypeMismatch {
-                    span: ctx.program.convert_span(&if_expr_node.span),
-                    expected: ctx.debug_type(if_type),
-                    found: ctx.debug_type(else_type),
+                    span: if_expr_node.span,
+                    expected: vec![if_type],
+                    found: else_type,
                 });
             }
 
@@ -1016,7 +1014,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             if_branch,
             elseif_branches,
             else_branch,
-            type_id: self.substitute_all(if_type, ctx)?,
+            type_id: ctx.substitute_all(if_type)?,
             span: if_expr_node.span,
         }))
     }
@@ -1030,11 +1028,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         // TODO: remove clone
         let while_node = ctx.statement(node).as_while().cloned().unwrap();
         let predicate = self.visit_expr(while_node.predicate, ctx)?;
-        if !self.unify(predicate.ty(), BOOL_TYPE, ctx) {
+        if !ctx.unify(predicate.ty(), BOOL_TYPE) {
             return Err(Error::TypeMismatch {
-                span: ctx.program.convert_span(&while_node.span),
-                expected: ctx.debug_type(BOOL_TYPE),
-                found: ctx.debug_type(predicate.ty()),
+                span: while_node.span,
+                expected: vec![BOOL_TYPE],
+                found: predicate.ty(),
             });
         }
         let checked_block = self.visit_expr(while_node.body, ctx)?;
@@ -1059,11 +1057,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         let lhs_ty = checked_lhs.ty();
 
-        if !self.unify(lhs_ty, checked_rhs.ty(), ctx) {
+        if !ctx.unify(lhs_ty, checked_rhs.ty()) {
             return Err(Error::TypeMismatch {
-                span: ctx.program.convert_span(&assignment_node.span),
-                expected: ctx.debug_type(lhs_ty),
-                found: ctx.debug_type(checked_rhs.ty()),
+                span: assignment_node.span,
+                expected: vec![lhs_ty],
+                found: checked_rhs.ty(),
             });
         }
 
@@ -1071,7 +1069,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             target: self.program.exprs.alloc_item(checked_lhs),
             operator: assignment_node.operator,
             value: self.program.exprs.alloc_item(checked_rhs),
-            type_id: self.substitute_all(lhs_ty, ctx)?,
+            type_id: ctx.substitute_all(lhs_ty)?,
             span: assignment_node.span,
         }))
     }
@@ -1087,11 +1085,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let lhs_ty = self.typecheck(&variable_node.ty, ctx)?;
         let checked_expr = self.visit_expr(variable_node.value, ctx)?;
         let rhs_ty = checked_expr.ty();
-        if !self.unify(rhs_ty, lhs_ty, ctx) {
+        if !ctx.unify(rhs_ty, lhs_ty) {
             return Err(Error::TypeMismatch {
-                span: ctx.program.convert_span(&variable_node.span),
-                expected: format!("{} for let", ctx.debug_type(lhs_ty)),
-                found: ctx.debug_type(rhs_ty),
+                span: variable_node.span,
+                expected: vec![lhs_ty],
+                found: rhs_ty,
             });
         }
         let current_scope_id = ctx.symbols.current_scope_id().unwrap();
@@ -1104,12 +1102,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 variable_node.span,
             ))
             .ok_or(error::Error::VariableAlreadyDefined {
-                span: ctx.program.convert_span(&variable_node.span),
-                variable: ctx.ident(variable_node.name).to_string(),
+                span: variable_node.span,
+                variable: variable_node.name,
             })?;
         let checked_variable = CheckedVariableNode {
             name: variable_node.name,
-            ty: self.substitute_all(rhs_ty, ctx)?,
+            ty: ctx.substitute_all(rhs_ty)?,
             qualifier: variable_node.qualifier,
             value: self.program.exprs.alloc_item(checked_expr),
             scope_id: current_scope_id,
@@ -1128,7 +1126,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let return_node = ctx.statement(node).as_return().cloned().unwrap();
         if !ctx.ancestor_node_type(1).is_block_expr() || !ctx.ancestor_node_type(2).is_function() {
             return Err(Error::InvalidReturn {
-                span: ctx.program.convert_span(&return_node.span),
+                span: return_node.span,
                 message: format!("Cannot return from {:?} node", ctx.ancestor_node_type(2)),
             });
         }
@@ -1161,11 +1159,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             } => {
                 let checked_lhs = self.visit_expr(left, ctx)?;
 
-                if !self.unify(checked_lhs.ty(), BOOL_TYPE, ctx) {
+                if !ctx.unify(checked_lhs.ty(), BOOL_TYPE) {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&span),
-                        expected: ctx.debug_type(BOOL_TYPE),
-                        found: ctx.debug_type(checked_lhs.ty()),
+                        span: span,
+                        expected: vec![BOOL_TYPE],
+                        found: checked_lhs.ty(),
                     });
                 }
 
@@ -1186,11 +1184,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let checked_lhs = self.visit_expr(left, ctx)?;
                 let checked_rhs = self.visit_expr(right, ctx)?;
 
-                if !self.unify(checked_lhs.ty(), checked_rhs.ty(), ctx) {
+                if !ctx.unify(checked_lhs.ty(), checked_rhs.ty()) {
                     return Err(Error::TypeMismatch {
-                        span: ctx.program.convert_span(&span),
-                        expected: ctx.debug_type(checked_lhs.ty()),
-                        found: ctx.debug_type(checked_rhs.ty()),
+                        span: span,
+                        expected: vec![checked_lhs.ty()],
+                        found: checked_rhs.ty(),
                     });
                 }
 
@@ -1236,11 +1234,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .iter()
             .zip_eq(ctx.symbols[implementor_type_id].generic_parameters())
         {
-            if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
+            if !ctx.unify(generic_parameter.clone(), generic_arg) {
                 return Err(Error::TypeMismatch {
-                    span: ctx.program.convert_span(&impl_node.span),
-                    expected: ctx.debug_type(generic_parameter.clone()),
-                    found: ctx.debug_type(generic_arg),
+                    span: impl_node.span,
+                    expected: vec![generic_parameter.clone()],
+                    found: generic_arg,
                 });
             }
         }
@@ -1262,7 +1260,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         ctx.infcx.exit_context();
         ctx.symbols.end_scope();
-        Ok(CheckedDefinitionNode::Impl(checked_impl))
+        Ok(self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Impl(checked_impl)))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1312,7 +1313,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.infcx.exit_context();
         // ctx.symbols.end_scope();
         ctx.symbols.end_scope();
-        Ok(CheckedDefinitionNode::Trait(checked_trait))
+        Ok(self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Trait(checked_trait)))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1337,8 +1341,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
         if checked_function.body.is_none() {
             return Err(Error::FunctionHasNoBody {
-                span: ctx.program.convert_span(&checked_function.span),
-                function: ctx.ident(checked_function.name).to_string(),
+                span: checked_function.span,
+                function: checked_function.name,
             });
         }
         let ty = Type::Function(checked_function.clone());
@@ -1346,7 +1350,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
         ctx.infcx.exit_context();
         ctx.symbols.end_scope();
-        Ok(CheckedDefinitionNode::Function(checked_function))
+        Ok(self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Function(checked_function)))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1404,7 +1411,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         ctx.infcx.exit_context();
         ctx.symbols.end_scope();
-        Ok(CheckedDefinitionNode::Struct(checked_struct))
+        Ok(self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Struct(checked_struct)))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1525,7 +1535,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     ctx.statement(stmt_id).as_definition().unwrap().clone(),
                     ctx,
                 )?;
-                self.program.defs.alloc_item(definition)
+                definition
             }),
             NodeType::ExpressionStmt => Self::StmtResult::from({
                 let expr =
@@ -1566,25 +1576,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.symbols
             .load_modules(ctx.program().modules.clone().iter());
         let mut colors = HashMap::new();
-        ctx.dependency_graph()
-            .ts::<Self::Error>(&ModuleId::root(), &mut colors, &mut |&module_id| {
+        ctx.dependency_graph().ts::<Self::Error>(
+            &ModuleId::root(),
+            &mut colors,
+            &mut |&module_id| {
                 ctx.symbols.enter_module(module_id);
                 self.visit_module(module_id, ctx)?;
                 ctx.symbols.exit_module();
 
                 Ok(())
-            })
-            .unwrap_or_else(|err| {
-                let report = crate::error::lowering_error_to_report(err);
-                report
-                    .eprint(ariadne::FnCache::new(|x: &String| {
-                        Ok::<_, Error>(
-                            std::fs::read_to_string(std::path::Path::new(x.as_str())).unwrap(),
-                        )
-                    }))
-                    .unwrap();
-                std::process::exit(1);
-            });
+            },
+        )?;
 
         Ok(())
     }
@@ -1608,9 +1610,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             let checked_stmt = self.visit_stmt(stmt.clone(), ctx)?;
             if checked_stmt.is_return() && (i != stmts.len() - 1 || expr.is_some()) {
                 return Err(Error::InvalidReturn {
-                    span: ctx
-                        .program
-                        .convert_span(&checked_stmt.as_return().unwrap().span),
+                    span: checked_stmt.as_return().unwrap().span,
                     message: format!("Quick return"),
                 });
             }
@@ -1662,11 +1662,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         key.visibility = node.visibility;
         ctx.symbols.add_type_id(None, key, type_id)?;
 
-        Ok(CheckedDefinitionNode::TypeAlias(CheckedTypeAliasNode {
-            name: node.name,
-            ty: type_id,
-            visibility: node.visibility,
-        }))
+        Ok(self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::TypeAlias(CheckedTypeAliasNode {
+                name: node.name,
+                ty: type_id,
+                visibility: node.visibility,
+            })))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1680,11 +1683,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let lhs_ty = self.typecheck(&node.ty, ctx)?;
         let value = self.visit_expr(node.value, ctx)?;
         let rhs_ty = value.ty();
-        if !self.unify(lhs_ty, rhs_ty, ctx) {
+        if !ctx.unify(lhs_ty, rhs_ty) {
             return Err(Error::TypeMismatch {
-                span: ctx.program.convert_span(&node.span),
-                expected: ctx.debug_type(rhs_ty),
-                found: ctx.debug_type(lhs_ty),
+                span: node.span,
+                expected: vec![rhs_ty],
+                found: lhs_ty,
             });
         }
 
@@ -1702,7 +1705,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         ctx.symbols.add_type(None, ty.key(), ty)?;
 
-        Ok(CheckedDefinitionNode::Const(node))
+        Ok(self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Const(node)))
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1716,13 +1722,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.symbols.start_scope(ScopeKind::Block);
         let start = self.visit_expr(for_node.start, ctx)?;
         let end = self.visit_expr(for_node.end, ctx)?;
-        if !(self.unify(start.ty(), FELT_TYPE, ctx) && self.unify(end.ty(), FELT_TYPE, ctx)
-            || self.unify(start.ty(), U32_TYPE, ctx) && self.unify(end.ty(), U32_TYPE, ctx))
+        if !(ctx.unify(start.ty(), FELT_TYPE) && ctx.unify(end.ty(), FELT_TYPE)
+            || ctx.unify(start.ty(), U32_TYPE) && ctx.unify(end.ty(), U32_TYPE))
         {
             return Err(Error::TypeMismatch {
-                span: ctx.program.convert_span(&for_node.span),
-                expected: format!("Felt or U32 for for loop variable"),
-                found: ctx.debug_type(start.ty()),
+                span: for_node.span,
+                expected: vec![FELT_TYPE, U32_TYPE],
+                found: start.ty(),
             });
         }
 
@@ -1737,8 +1743,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.symbols
             .declare_variable(variable)
             .ok_or(error::Error::VariableAlreadyDefined {
-                span: ctx.program.convert_span(&for_node.span),
-                variable: ctx.ident(for_node.variable).to_string(),
+                span: for_node.span,
+                variable: for_node.variable,
             })?;
 
         ctx.symbols.start_scope(ScopeKind::Block);
@@ -1772,16 +1778,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let white_list = vec![FELT_TYPE, BOOL_TYPE, U32_TYPE];
         if !white_list.contains(&scrutinee_type) {
             return Err(Error::TypeMismatch {
-                span: ctx.program.convert_span(&match_node.span),
-                expected: format!("{:?} for match scrutinee", white_list),
-                found: ctx.debug_type(scrutinee_type),
+                span: match_node.span,
+                expected: white_list,
+                found: scrutinee_type,
             });
         }
 
         if scrutinee_type == BOOL_TYPE {
             if !match_node.arms.len() == 2 {
                 return Err(Error::IncompleteMatch {
-                    span: ctx.program.convert_span(&match_node.span),
+                    span: match_node.span,
                     message: "Boolean match must have 2 arms".to_string(),
                 });
             }
@@ -1796,21 +1802,20 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     let checked_pattern_expr = self.visit_expr(*pattern_expr, ctx)?;
                     let pattern_type = checked_pattern_expr.ty();
 
-                    if !self.unify(scrutinee_type, pattern_type, ctx) {
+                    if !ctx.unify(scrutinee_type, pattern_type) {
                         //todo!: When the span of value is implemented, you need to refactor here
                         let span = checked_pattern_expr.span();
                         return Err(Error::TypeMismatch {
-                            span: ctx.program.convert_span(&span),
-                            expected: ctx.debug_type(scrutinee_type),
-                            found: ctx.debug_type(pattern_type),
+                            span: span,
+                            expected: vec![scrutinee_type],
+                            found: pattern_type,
                         });
                     }
                     Some(self.program.exprs.alloc_item(checked_pattern_expr))
                 }
                 MatchPattern::PlaceHolder(span) => {
                     if wildcard_case.is_some() {
-                        let file_span = ctx.program.convert_span(span);
-                        return Err(Error::DuplicateWildcard { span: file_span });
+                        return Err(Error::DuplicateWildcard { span: span.clone() });
                     }
                     None
                 }
@@ -1819,12 +1824,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             let checked_body = self.visit_expr(arm.body, ctx)?;
             let arm_body_type = checked_body.ty();
             match_expr_type.get_or_insert(arm_body_type);
-            if !self.unify(match_expr_type.unwrap(), arm_body_type, ctx) {
+            if !ctx.unify(match_expr_type.unwrap(), arm_body_type) {
                 let span = checked_body.span();
                 return Err(Error::TypeMismatch {
-                    span: ctx.program.convert_span(&span),
-                    expected: ctx.debug_type(match_expr_type.unwrap()),
-                    found: ctx.debug_type(arm_body_type),
+                    span: span,
+                    expected: vec![match_expr_type.unwrap()],
+                    found: arm_body_type,
                 });
             }
 
@@ -1881,8 +1886,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             ctx.symbols
                 .declare_variable(variable)
                 .ok_or(error::Error::VariableAlreadyDefined {
-                    span: ctx.program.convert_span(&function.span),
-                    variable: ctx.ident(parameter.name.clone()).to_string(),
+                    span: function.span,
+                    variable: parameter.name.clone(),
                 })?;
             parameters.push(CheckedFunctionParameter::new(
                 parameter.name,
@@ -1901,11 +1906,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let checked_body = {
             let checked_body = self.visit_expr(function.body.clone(), ctx)?;
             let actual_return_type = checked_body.ty();
-            if !self.unify(expected_return_type, actual_return_type, ctx) {
+            if !ctx.unify(expected_return_type, actual_return_type) {
                 return Err(Error::TypeMismatch {
-                    span: ctx.program.convert_span(&function.span),
-                    expected: format!("{} for return value", ctx.debug_type(expected_return_type)),
-                    found: ctx.debug_type(actual_return_type),
+                    span: function.span,
+                    expected: vec![expected_return_type],
+                    found: actual_return_type,
                 });
             }
             checked_body
@@ -1982,9 +1987,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         && trait_function.name == method.name
                 })
                 .ok_or(Error::UnresolvedTraitMethod {
-                    method_span: ctx.program.convert_span(&method.span),
-                    trait_name: format!("{}", ctx.ident(trait_node.name)),
-                    method_name: format!("{}", ctx.ident(method.name)),
+                    method_span: method.span,
+                    trait_name: trait_node.name,
+                    method_name: method.name,
                 })?;
             unimplemented_methods.remove(&trait_node.unchecked_body[i]);
             checked_methods.push(CheckedDefinitionNode::Function(method));
@@ -1999,10 +2004,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             )?;
             if method.body.is_none() {
                 return Err(Error::TraitMethodUnimplemented {
-                    span: ctx.program.convert_span(&method.span),
-                    trait_ty: ctx.debug_type(trait_type_id),
-                    ty: ctx.debug_type(implementor_type_id),
-                    method: ctx.ident(method.name).to_string(),
+                    span: method.span,
+                    trait_ty: trait_type_id,
+                    ty: implementor_type_id,
+                    method: method.name,
                 });
             }
             checked_methods.push(CheckedDefinitionNode::Function(method));
@@ -2022,7 +2027,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         ctx.infcx.exit_context();
         ctx.symbols.end_scope();
-        Ok(CheckedDefinitionNode::ImplTrait(checked_impl))
+        Ok(self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::ImplTrait(checked_impl)))
     }
 }
 
@@ -2031,10 +2039,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         Self {
             program,
             evaluator,
-            impl_traits: HashMap::new(),
-            trait_impls: HashMap::new(),
-            impl_methods: HashMap::new(),
-            trait_methods: HashMap::new(),
+            resolver: ResolverCtxt::new(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -2157,8 +2162,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 ctx.symbols
                     .get_type_id(None, name.clone())
                     .ok_or(Error::UnresolvedType {
-                        span: ctx.program.convert_span(&span),
-                        resolved_type: format!("{}", ctx.ident(name.clone())),
+                        span: span.clone(),
+                        resolved_type: name.clone(),
                     })?
             }
             UncheckedType::Generic(name, generic_parameters, span) => {
@@ -2166,8 +2171,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     ctx.symbols
                         .get_type_id(None, name.clone())
                         .ok_or(Error::UnresolvedType {
-                            span: ctx.program.convert_span(&span),
-                            resolved_type: format!("{}", ctx.ident(name.clone())),
+                            span: span.clone(),
+                            resolved_type: name.clone(),
                         })?;
 
                 let mut checked_generic_args = Vec::new();
@@ -2179,7 +2184,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     Type::Struct(checked_struct) => {
                         if checked_struct.generic_parameters.len() != checked_generic_args.len() {
                             return Err(Error::GenericParameterMismatch {
-                                span: ctx.program.convert_span(&checked_struct.span),
+                                span: checked_struct.span,
                                 expected: format!(
                                     "{} generic parameters",
                                     checked_struct.generic_parameters.len()
@@ -2193,32 +2198,32 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                             .iter()
                             .zip(checked_generic_args.iter())
                         {
-                            if !self.unify(*generic_param, *generic_arg, ctx) {
+                            if !ctx.unify(*generic_param, *generic_arg) {
                                 return Err(Error::TypeMismatch {
-                                    span: ctx.program.convert_span(span),
-                                    expected: ctx.debug_type(*generic_param),
-                                    found: ctx.debug_type(*generic_arg),
+                                    span: span.clone(),
+                                    expected: vec![*generic_param],
+                                    found: *generic_arg,
                                 });
                             }
                         }
 
-                        self.substitute_all(underlying_type_id, ctx)?
+                        ctx.substitute_all(underlying_type_id)?
                     }
 
                     Type::Array(checked_array) => {
                         if checked_generic_args.len() != 2 {
                             return Err(Error::GenericParameterMismatch {
-                                span: ctx.program.convert_span(span),
+                                span: span.clone(),
                                 expected: format!("2 generic parameters",),
                                 found: format!("{}", checked_generic_args.len()),
                             });
                         }
-                        if !self.unify(checked_array.inner_ty, checked_generic_args[0], ctx)
-                            || !self.unify(checked_array.size_ty, checked_generic_args[1], ctx)
+                        if !ctx.unify(checked_array.inner_ty, checked_generic_args[0])
+                            || !ctx.unify(checked_array.size_ty, checked_generic_args[1])
                         {
                             panic!("Type mismatch");
                         }
-                        self.substitute_all(underlying_type_id, ctx)?
+                        ctx.substitute_all(underlying_type_id)?
                     }
                     _ => unreachable!(),
                 }
@@ -2236,13 +2241,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
                 let size_ty = self.populate_constant_u32(size.clone(), ctx)?;
 
-                if !self.unify(generic_inner_ty, inner_ty, ctx)
-                    || !self.unify(generic_size_ty, size_ty, ctx)
-                {
+                if !ctx.unify(generic_inner_ty, inner_ty) || !ctx.unify(generic_size_ty, size_ty) {
                     panic!("Type mismatch");
                 }
 
-                self.substitute_all(underlying_type_id, ctx)?
+                ctx.substitute_all(underlying_type_id)?
             }
             UncheckedType::Tuple(elements, _) => {
                 // check each element and collect results into a Result<Vec<TypeId>>
@@ -2298,383 +2301,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             let _ = ctx.symbols.add_type_id(None, key.clone(), type_id);
         }
         Ok(())
-    }
-
-    fn resolve_member_type(
-        &mut self,
-        path: &PathNode,
-        root: TypeId,
-        target: IdentId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> StdResult<TypeId, Error> {
-        let scope_id = ctx.symbols[root].scope_id();
-        if let Some(&type_id) = ctx.symbols[scope_id].types.get(&target.into()) {
-            if !ctx.symbols[type_id].visibility().is_public() {
-                return Err(Error::TypeNotPublic {
-                    span: ctx.program.convert_span(&path.span),
-                    ty: ctx.debug_type(type_id),
-                });
-            }
-            return Ok(type_id);
-        }
-
-        let method_type_id =
-            self.resolve_method(root, target, ctx)
-                .ok_or_else(|| Error::UnresolvedType {
-                    span: ctx.program.convert_span(&path.span),
-                    resolved_type: ctx.ident(target).to_string(),
-                })?;
-        if !ctx.symbols[method_type_id].visibility().is_public() {
-            return Err(Error::MemberNotPublic {
-                span: ctx.program.convert_span(&path.span),
-                ty: ctx.debug_type(root),
-                field: ctx.ident(target).to_string(),
-            });
-        }
-        return Ok(method_type_id);
-    }
-
-    fn resolve_module_type(
-        &mut self,
-        path: &PathNode,
-        module: ModuleId,
-        ty: IdentId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> StdResult<TypeId, Error> {
-        let scope_id = ctx.symbols[module].scope_id;
-        let type_id = ctx.symbols[scope_id]
-            .types
-            .get(&ty.into())
-            .ok_or_else(|| Error::UnresolvedType {
-                span: ctx.program.convert_span(&path.span),
-                resolved_type: ctx.ident(ty).to_string(),
-            })?
-            .clone();
-        if !ctx.symbols[type_id].visibility().is_public() {
-            return Err(Error::TypeNotPublic {
-                span: ctx.program.convert_span(&path.span),
-                ty: ctx.debug_type(type_id),
-            });
-        }
-        return Ok(type_id);
-    }
-
-    fn resolve_path(
-        &mut self,
-        path: &PathNode,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> StdResult<CheckedPathNode, Error> {
-        let current_module_id = ctx.symbols.current_module_id().unwrap();
-
-        let mut src_module = match path.root.as_ref() {
-            Some(UncheckedType::Basic(IdentId::SELF, _)) => current_module_id,
-            Some(UncheckedType::Basic(IdentId::CRATE, _)) => {
-                let mut module_id = current_module_id;
-                while let Some(parent) = ctx.symbols[module_id].parent {
-                    module_id = parent;
-                }
-                module_id
-            }
-            Some(UncheckedType::Basic(IdentId::SUPER, _)) => ctx.symbols[current_module_id]
-                .parent
-                .ok_or(Error::NoParentModule {
-                    span: ctx.program.convert_span(&path.span),
-                })?,
-            Some(ty) => match ty {
-                UncheckedType::Basic(name, _)
-                    if let Some(&module_id) = ctx.symbols[current_module_id]
-                        .children
-                        .iter()
-                        .find(|&x| &ctx.symbols[*x].name == name) =>
-                {
-                    module_id
-                }
-                _ => {
-                    if !path.segments.is_empty() {
-                        return Err(Error::InvalidPathSegment {
-                            span: ctx.program.convert_span(&path.span),
-                            segment: ctx.ident(path.segments[0]).to_string(),
-                        });
-                    }
-                    let root_type_id = self.typecheck(ty, ctx)?;
-                    return Ok(CheckedPathNode::new(
-                        None,
-                        Some(root_type_id),
-                        self.resolve_member_type(path, root_type_id, path.target, ctx)?,
-                        path.span,
-                    ));
-                }
-            },
-            None => {
-                if !path.segments.is_empty() {
-                    return Err(Error::InvalidPathSegment {
-                        span: ctx.program.convert_span(&path.span),
-                        segment: ctx.ident(path.segments[0]).to_string(),
-                    });
-                }
-                if let Some(var_id) = ctx.symbols.get_variable(None, &path.target) {
-                    return Ok(CheckedPathNode::new(
-                        Some(var_id),
-                        None,
-                        ctx.symbols[var_id].ty,
-                        path.span,
-                    ));
-                }
-                let type_id = ctx.symbols.get_type_id(None, path.target).ok_or_else(|| {
-                    Error::UnresolvedType {
-                        span: ctx.program.convert_span(&path.span),
-                        resolved_type: ctx.ident(path.target).to_string(),
-                    }
-                })?;
-                return Ok(CheckedPathNode::new(None, None, type_id, path.span));
-            }
-        };
-
-        for (i, segment) in path.segments.iter().enumerate() {
-            if let Some(&target_module_id) = ctx.symbols[src_module]
-                .children
-                .iter()
-                .find(|&&id| ctx.symbols[id].name == *segment)
-            {
-                if !ctx.symbols[target_module_id].visibility.is_public() {
-                    return Err(Error::ModuleNotPublic {
-                        span: ctx.program.convert_span(&path.span),
-                        module: ctx.ident(ctx.symbols[target_module_id].name).to_string(),
-                    });
-                }
-                src_module = target_module_id;
-            } else {
-                if i != path.segments.len() - 1 {
-                    return Err(Error::InvalidPathSegment {
-                        span: ctx.program.convert_span(&path.span),
-                        segment: ctx.ident(*segment).to_string(),
-                    });
-                }
-                let root_type_id =
-                    self.resolve_module_type(path, src_module, segment.clone(), ctx)?;
-                return Ok(CheckedPathNode::new(
-                    None,
-                    Some(root_type_id),
-                    self.resolve_member_type(path, root_type_id, path.target, ctx)?,
-                    path.span,
-                ));
-            }
-        }
-
-        let type_id = self.resolve_module_type(path, src_module, path.target, ctx)?;
-        return Ok(CheckedPathNode::new(None, None, type_id, path.span));
-    }
-
-    pub fn resolve_use(
-        &self,
-        use_path: &UseNode,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> StdResult<Vec<(TypeKey, TypeId)>, Error> {
-        let symbols = &ctx.symbols;
-        let current_module_id = symbols.current_module_id().unwrap();
-
-        let mut module_id = match use_path.kind {
-            IdentId::SELF => current_module_id,
-            IdentId::CRATE => {
-                let mut root_id = current_module_id;
-                while let Some(parent) = symbols[root_id].parent {
-                    root_id = parent;
-                }
-                root_id
-            }
-            IdentId::SUPER => symbols[current_module_id]
-                .parent
-                .ok_or(Error::NoParentModule {
-                    span: ctx.program.convert_span(&use_path.span),
-                })?,
-            name => symbols
-                .modules()
-                .iter()
-                .position(|x| x.name == name)
-                .map(ModuleId)
-                .filter(|&id| symbols[current_module_id].children.contains(&id))
-                .ok_or(Error::ModuleNotFound {
-                    span: ctx.program.convert_span(&use_path.span),
-                    module: ctx.ident(name).to_string(),
-                })?,
-        };
-
-        module_id = use_path
-            .segments
-            .iter()
-            .try_fold(module_id, |current, &segment| {
-                if let Some(module) = symbols[current]
-                    .children
-                    .iter()
-                    .find(|&&id| symbols[id].name == segment)
-                    .copied()
-                {
-                    if ctx.symbols[module].visibility.is_public() {
-                        Ok(module)
-                    } else {
-                        Err(Error::ModuleNotPublic {
-                            span: ctx.program.convert_span(&use_path.span),
-                            module: ctx.ident(segment).to_string(),
-                        })
-                    }
-                } else {
-                    Err(Error::ModuleNotFound {
-                        span: ctx.program.convert_span(&use_path.span),
-                        module: ctx.ident(segment).to_string(),
-                    })
-                }
-            })?;
-
-        let scope = &symbols[symbols[module_id].scope_id].types;
-        match use_path.target {
-            Some(target) => {
-                if let Some((key, &type_id)) = scope.get_key_value(&target.into()) {
-                    if !key.visibility.is_public() || !symbols[type_id].visibility().is_public() {
-                        return Err(Error::TypeNotPublic {
-                            span: ctx.program.convert_span(&use_path.span),
-                            ty: ctx.debug_type(type_id),
-                        });
-                    }
-                    Ok(vec![(key.clone(), type_id)])
-                } else {
-                    return Err(Error::UnresolvedType {
-                        span: ctx.program.convert_span(&use_path.span),
-                        resolved_type: format!("{}", ctx.ident(target)),
-                    });
-                }
-            }
-            None => Ok(scope
-                .iter()
-                .filter_map(|(k, &id)| {
-                    (k.visibility.is_public() && symbols[id].visibility().is_public())
-                        .then_some((k.clone(), id))
-                })
-                .collect()),
-        }
-    }
-
-    pub fn impl_trait_for_type(
-        &mut self,
-        impl_node: &ImplTraitNode,
-        trait_type_id: TypeId,
-        implementor_type_id: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
-        let span = ctx.program.convert_span(&impl_node.span);
-        let pairs = [
-            (&mut self.impl_traits, implementor_type_id, trait_type_id),
-            (&mut self.trait_impls, trait_type_id, implementor_type_id),
-        ];
-
-        for (map, key, value) in pairs {
-            if !map.entry(key).or_insert_with(HashSet::new).insert(value) {
-                return Err(Error::TraitAlreadyImplemented {
-                    span,
-                    trait_ty: ctx.debug_type(trait_type_id),
-                    ty: ctx.debug_type(implementor_type_id),
-                });
-            }
-        }
-        Ok(())
-    }
-
-    pub fn add_method(
-        &mut self,
-        span: &Span,
-        ty: TypeId,
-        method_name: IdentId,
-        method: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
-        let methods = self.impl_methods.entry(ty).or_insert_with(HashMap::new);
-        if methods.insert(method_name, method).is_some() {
-            return Err(Error::DuplicatedMethod {
-                span: ctx.program.convert_span(span),
-                method: ctx.ident(method_name).to_string(),
-                ty: ctx.debug_type(ty),
-            });
-        }
-        Ok(())
-    }
-
-    pub fn add_trait_method(
-        &mut self,
-        span: &Span,
-        trait_type_id: TypeId,
-        implementor_type_id: TypeId,
-        method_name: IdentId,
-        method: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
-        if self
-            .trait_impls
-            .get(&trait_type_id)
-            .map(|x| x.contains(&implementor_type_id))
-            .unwrap_or(false)
-        {
-            return Err(Error::TraitAlreadyImplemented {
-                span: ctx.program.convert_span(span),
-                trait_ty: ctx.debug_type(trait_type_id),
-                ty: ctx.debug_type(implementor_type_id),
-            });
-        }
-
-        let methods = self
-            .trait_methods
-            .entry(trait_type_id)
-            .or_insert_with(HashMap::new)
-            .entry(implementor_type_id)
-            .or_insert_with(HashMap::new);
-        if methods.insert(method_name, method).is_some() {
-            return Err(Error::DuplicatedMethod {
-                span: ctx.program.convert_span(span),
-                method: ctx.ident(method_name).to_string(),
-                ty: ctx.debug_type(implementor_type_id),
-            });
-        }
-        Ok(())
-    }
-
-    pub fn methods_of(
-        &self,
-        implementor: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Vec<TypeId> {
-        let mut all_methods = Vec::new();
-
-        if let Some(methods) = self.impl_methods.get(&implementor) {
-            all_methods.extend(methods.iter().map(|(_, &ty)| ty));
-        }
-
-        if let Some(trait_type_ids) = self.impl_traits.get(&implementor) {
-            for &trait_type_id in trait_type_ids {
-                if !ctx.is_trait_imported(trait_type_id) {
-                    continue;
-                }
-                if let Some(trait_impls) = self.trait_methods.get(&trait_type_id) {
-                    if let Some(trait_methods) = trait_impls.get(&implementor) {
-                        all_methods.extend(trait_methods.iter().map(|(_, &ty)| ty));
-                    }
-                }
-            }
-        }
-
-        all_methods
-    }
-
-    pub fn resolve_method(
-        &mut self,
-        implementor_id: TypeId,
-        method_name: IdentId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Option<TypeId> {
-        for type_id in self.methods_of(implementor_id, ctx) {
-            if ctx.symbols[type_id].as_function().unwrap().name == method_name {
-                return Some(type_id);
-            }
-        }
-
-        None
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -2769,9 +2395,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
         if checked_function.body.is_none() {
             return Err(Error::MethodHasNoBody {
-                span: ctx.program.convert_span(&checked_function.span),
-                ty: ctx.debug_type(implementor_type_id),
-                method: ctx.ident(checked_function.name).to_string(),
+                span: checked_function.span,
+                ty: implementor_type_id,
+                method: checked_function.name,
             });
         }
         let ty = Type::Function(checked_function.clone());
@@ -2813,8 +2439,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             ctx.symbols
                 .declare_variable(variable)
                 .ok_or(error::Error::VariableAlreadyDefined {
-                    span: ctx.program.convert_span(&function.span),
-                    variable: format!("{}", ctx.ident(parameter.name.clone())),
+                    span: function.span,
+                    variable: parameter.name,
                 })?;
             parameters.push(CheckedFunctionParameter::new(
                 parameter.name,
@@ -2834,11 +2460,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             let checked_body = self.visit_expr(body.clone(), ctx)?;
             let actual_return_type = checked_body.ty();
 
-            if !self.unify(expected_return_type, actual_return_type, ctx) {
+            if !ctx.unify(expected_return_type, actual_return_type) {
                 return Err(Error::TypeMismatch {
-                    span: ctx.program.convert_span(&function.span),
-                    expected: format!("{} for return value", ctx.debug_type(expected_return_type)),
-                    found: ctx.debug_type(actual_return_type),
+                    span: function.span,
+                    expected: vec![expected_return_type],
+                    found: actual_return_type,
                 });
             }
             Some(checked_body)
@@ -2860,211 +2486,5 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         };
 
         Ok(checked_function)
-    }
-
-    fn unify(
-        &self,
-        lhs_ty: TypeId,
-        rhs_ty: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> bool {
-        let lhs_ty = self.substitute_all(lhs_ty, ctx).unwrap();
-        let rhs_ty = self.substitute_all(rhs_ty, ctx).unwrap();
-
-        match (&ctx.symbols[lhs_ty], &ctx.symbols[rhs_ty]) {
-            (Type::TypeVariable(_), _) => {
-                ctx.infcx.equate(lhs_ty, rhs_ty);
-                true
-            }
-            (_, Type::TypeVariable(_)) => {
-                ctx.infcx.equate(rhs_ty, lhs_ty);
-                true
-            }
-            (Type::Struct(s1), Type::Struct(s2)) => {
-                s1.name == s2.name
-                    && s1.scope_id == s2.scope_id
-                    && s1.generic_parameters.len() == s2.generic_parameters.len()
-                    && s1
-                        .generic_parameters
-                        .clone()
-                        .into_iter()
-                        .zip_eq(s2.generic_parameters.clone().into_iter())
-                        .all(|(p1, p2)| self.unify(p1, p2, ctx))
-            }
-            (Type::Array(a1), Type::Array(a2)) => {
-                // TODO: remove clone
-                let a1 = a1.clone();
-                let a2 = a2.clone();
-                self.unify(a1.inner_ty, a2.inner_ty, ctx) && self.unify(a1.size_ty, a2.size_ty, ctx)
-            }
-            (Type::Tuple(t1), Type::Tuple(t2)) => {
-                for (lhs_ty, rhs_ty) in t1.clone().into_iter().zip_eq(t2.clone().into_iter()) {
-                    if !self.unify(lhs_ty, rhs_ty, ctx) {
-                        return false;
-                    }
-                }
-                true
-            }
-
-            (Type::Function(f), Type::FunctionSignature(sig))
-            | (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,
-            (Type::LambdaFunction(f), Type::FunctionSignature(sig))
-            | (Type::FunctionSignature(sig), Type::LambdaFunction(f)) => &f.signature() == sig,
-            (Type::Const(c), Type::Const(d)) => c.ty == d.ty,
-            (Type::Const(c), _) => c.ty == rhs_ty,
-            (_, Type::Const(c)) => c.ty == lhs_ty,
-            (Type::Unknown, Type::Unknown) => false,
-            (Type::Unknown, _) | (_, Type::Unknown) => true,
-            _ => lhs_ty == rhs_ty,
-        }
-    }
-
-    fn substitute_all(
-        &self,
-        type_id: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<TypeId> {
-        if !ctx.infcx.has_equations() {
-            return Ok(type_id);
-        }
-
-        let mut result = self.substitute_type(type_id, ctx)?;
-
-        loop {
-            let fixed_point = self.substitute_type(type_id, ctx)?;
-
-            if fixed_point == result {
-                break;
-            } else {
-                result = fixed_point;
-            }
-        }
-
-        Ok(result)
-    }
-
-    fn substitute_type(
-        &self,
-        type_id: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<TypeId> {
-        if let Some(subst_type) = ctx.infcx.probe(type_id) {
-            return Ok(subst_type);
-        }
-
-        match ctx.symbols[type_id].clone() {
-            Type::TypeVariable(_) => Ok(type_id),
-
-            Type::Array(array) => {
-                let ty = Type::Array(CheckedArrayNode {
-                    inner_ty: self.substitute_all(array.inner_ty, ctx)?,
-                    size_ty: self.substitute_all(array.size_ty, ctx)?,
-                    scope_id: array.scope_id,
-                });
-                ctx.symbols
-                    .get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)
-            }
-
-            Type::Struct(struct_node) => {
-                let mut new_fields = IndexMap::new();
-                for (
-                    field_name,
-                    CheckedStructField {
-                        ty: field_type,
-                        visibility,
-                        span,
-                    },
-                ) in struct_node.fields
-                {
-                    let substituted_type = self.substitute_all(field_type, ctx)?;
-                    new_fields.insert(
-                        field_name,
-                        CheckedStructField {
-                            ty: substituted_type,
-                            visibility,
-                            span,
-                        },
-                    );
-                }
-
-                let mut new_generic_parameters = Vec::new();
-                for generic_param in struct_node.generic_parameters {
-                    new_generic_parameters.push(self.substitute_all(generic_param, ctx)?);
-                }
-
-                let ty = Type::Struct(CheckedStructNode {
-                    name: struct_node.name,
-                    generic_parameters: new_generic_parameters,
-                    fields: new_fields,
-                    scope_id: struct_node.scope_id,
-                    visibility: struct_node.visibility,
-                    span: struct_node.span,
-                });
-                let scope_id = ctx.symbols[struct_node.scope_id].parent;
-                ctx.symbols.get_or_add_type(scope_id, ty.key(), ty)
-            }
-
-            _ => Ok(type_id),
-        }
-    }
-
-    fn is_concrete(&self, type_id: TypeId, ctx: &TypeCheckerVisitorContext<F, C>) -> bool {
-        match &ctx.symbols[type_id] {
-            Type::TypeVariable(_) => false,
-
-            Type::Struct(struct_node) => {
-                struct_node
-                    .generic_parameters
-                    .iter()
-                    .all(|&param| self.is_concrete(param, ctx))
-                    && struct_node
-                        .fields
-                        .values()
-                        .all(|field| self.is_concrete(field.ty, ctx))
-            }
-
-            Type::Array(array) => {
-                self.is_concrete(array.inner_ty, ctx) && self.is_concrete(array.size_ty, ctx)
-            }
-
-            Type::Tuple(elements) => elements.iter().all(|&elem| self.is_concrete(elem, ctx)),
-
-            Type::Function(func) => {
-                func.generic_parameters
-                    .iter()
-                    .all(|&param| self.is_concrete(param, ctx))
-                    && func
-                        .parameters
-                        .iter()
-                        .all(|parameter| self.is_concrete(parameter.ty, ctx))
-                    && self.is_concrete(func.return_type, ctx)
-            }
-
-            Type::LambdaFunction(lambda) => {
-                lambda
-                    .parameters
-                    .iter()
-                    .all(|parameter| self.is_concrete(parameter.ty, ctx))
-                    && self.is_concrete(lambda.return_type, ctx)
-            }
-
-            Type::FunctionSignature(sig) => {
-                sig.parameters
-                    .iter()
-                    .all(|&param| self.is_concrete(param, ctx))
-                    && self.is_concrete(sig.return_type, ctx)
-            }
-
-            Type::Enum(enum_node) => enum_node
-                .generic_parameters
-                .iter()
-                .all(|&param| self.is_concrete(param, ctx)),
-
-            Type::Const(const_node) => self.is_concrete(const_node.ty, ctx),
-
-            Type::Bool | Type::Felt | Type::U32 | Type::Unknown | Type::VOID => true,
-
-            Type::Trait(_) => true,
-        }
     }
 }
