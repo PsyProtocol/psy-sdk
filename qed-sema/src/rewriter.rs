@@ -36,6 +36,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId> {
         let mut checked_impl = self.program[impl_id].as_impl().cloned().unwrap();
+        checked_impl.ty = self.substitute_all(checked_impl.ty, ctx)?;
+        for method in &mut checked_impl.body {
+            *method = self.instantiate_function(*method, ctx)?;
+        }
 
         Ok(self
             .program
@@ -49,6 +53,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId> {
         let mut checked_function = self.program[function_id].as_function().cloned().unwrap();
+        if let Some(ref mut body) = checked_function.body {
+            *body = self.rewrite_expr(*body, ctx)?;
+        }
+        for parameter in &mut checked_function.parameters {
+            parameter.ty = self.substitute_all(parameter.ty, ctx)?;
+        }
+        checked_function.return_type = self.substitute_all(checked_function.return_type, ctx)?;
 
         Ok(self
             .program
