@@ -5,8 +5,8 @@ use itertools::Itertools;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    CheckedArrayNode, CheckedStructField, CheckedStructNode, Result, ScopeId, Type, TypeChecker,
-    TypeCheckerVisitorContext, TypeId,
+    CheckedArrayNode, CheckedStructField, CheckedStructNode, Implementer, Result, ScopeId, Type,
+    TypeChecker, TypeCheckerVisitorContext, TypeId,
 };
 
 #[derive(Debug)]
@@ -98,12 +98,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
 
         match (&ctx.symbols[lhs_ty], &ctx.symbols[rhs_ty]) {
             (Type::TypeVariable(_), _) => {
-                self.infcx.equate(lhs_ty, rhs_ty);
-                true
+                if self.satisfies_constraint(rhs_ty, lhs_ty, ctx) {
+                    self.infcx.equate(lhs_ty, rhs_ty);
+                    return true;
+                }
+                false
             }
             (_, Type::TypeVariable(_)) => {
-                self.infcx.equate(rhs_ty, lhs_ty);
-                true
+                if self.satisfies_constraint(lhs_ty, rhs_ty, ctx) {
+                    self.infcx.equate(rhs_ty, lhs_ty);
+                    return true;
+
+                }
+                false
             }
             (Type::Struct(s1), Type::Struct(s2)) => {
                 s1.name == s2.name
