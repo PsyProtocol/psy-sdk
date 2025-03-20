@@ -1326,7 +1326,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         // TODO: remove clone
         let ty = Type::Trait(checked_trait.clone());
         ctx.symbols
-            .add_type(ctx.symbols.parent_scope_id(), checked_trait.name.id, ty)?;
+            .add_type(ctx.symbols.parent_scope_id(), checked_trait.name, ty)?;
 
         self.infcx.exit_context();
         // ctx.symbols.end_scope();
@@ -1475,7 +1475,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         };
         let ty = Type::Enum(checked_enum.clone());
         ctx.symbols
-            .add_type(ctx.symbols.parent_scope_id(), checked_enum.name.id, ty)?;
+            .add_type(ctx.symbols.parent_scope_id(), checked_enum.name, ty)?;
 
         self.infcx.exit_context();
         ctx.symbols.end_scope();
@@ -2409,7 +2409,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
         let ty = Type::Function(checked_function.clone());
-        ctx.symbols.add_type(None, checked_function.name.id, ty)?;
+        ctx.symbols.add_type(None, checked_function.name, ty)?;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
@@ -2442,7 +2442,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
         let ty = Type::Function(checked_function.clone());
-        let type_id = ctx.symbols.add_type(None, checked_function.name.id, ty)?;
+        let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
@@ -2481,7 +2481,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             });
         }
         let ty = Type::Function(checked_function.clone());
-        let type_id = ctx.symbols.add_type(None, checked_function.name.id, ty)?;
+        let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();

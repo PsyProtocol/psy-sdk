@@ -1,7 +1,7 @@
 use derivative::Derivative;
 use enum_as_inner::EnumAsInner;
 
-use qed_ast::ExprId;
+use qed_ast::{ExprId, Identifier};
 use qed_ast::{IdentId, Visibility};
 
 use crate::CheckedFunctionParameter;
@@ -108,6 +108,12 @@ impl TypeKey {
 impl From<IdentId> for TypeKey {
     fn from(value: IdentId) -> Self {
         TypeKey::new(Some(value), None, vec![], vec![], vec![], None)
+    }
+}
+
+impl From<Identifier> for TypeKey {
+    fn from(value: Identifier) -> Self {
+        TypeKey::new(Some(value.id), None, vec![], vec![], vec![], None)
     }
 }
 

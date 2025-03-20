@@ -126,15 +126,15 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         };
         match &ty {
             Type::Struct(CheckedStructNode { name, .. }) => {
-                let type_name = &self.context.ident(name.id).0;
+                let type_name = &self.context.ident(name);
                 write!(fmt, "struct {} ", type_name);
             }
             Type::Enum(CheckedEnumNode { name, .. }) => {
-                let type_name = &self.context.ident(name.id).0;
+                let type_name = &self.context.ident(name);
                 write!(fmt, "enum {} ", type_name);
             }
             Type::Trait(CheckedTraitNode { name, .. }) => {
-                let type_name = &self.context.ident(name.id).0;
+                let type_name = &self.context.ident(name);
                 write!(fmt, "trait {} ", type_name);
             }
             Type::Function(CheckedFunctionNode {
@@ -146,7 +146,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 if qualifier.is_const {
                     write!(fmt, "const ");
                 }
-                let type_name = &self.context.ident(name.id).0;
+                let type_name = &self.context.ident(name);
                 write!(fmt, "fn {} ", type_name);
             }
             Type::Const(node) => {
@@ -189,7 +189,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                     writeln!(fmt, "Fields:");
                     fmt.indent();
                     for (ident_id, field) in node.fields.iter() {
-                        let ident_name = &self.context.ident(ident_id.id).0;
+                        let ident_name = &self.context.ident(ident_id);
                         fmt.write_indent();
                         if field.visibility == Visibility::Public {
                             write!(fmt, "pub ");
@@ -219,7 +219,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                             write!(fmt, "mut ")
                         }
                         let type_name = self.get_type_name(parameter.ty);
-                        let ident_name = &self.context.ident(parameter.name.id).0;
+                        let ident_name = &self.context.ident(parameter.name);
                         write!(
                             fmt,
                             "{} {} ({:?}, {:?})",
