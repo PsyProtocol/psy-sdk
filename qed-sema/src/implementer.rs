@@ -119,10 +119,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         method: IdentId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<(DefId, TypeId)> {
-        eprintln!(
-            "DEBUGPRINT[20]: implementer.rs:121: ctx.debug_type(ty)={:#?}",
-            ctx.debug_type(ty)
-        );
         let poly_ty = self.poly_of(ty, ctx).unwrap();
 
         let get_impl_id = |poly_ty: TypeId,
