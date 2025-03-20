@@ -1223,7 +1223,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         // TODO: remove clone
         let impl_node = ctx.definition(node).as_impl().cloned().unwrap();
 
-        let implementor_type_id = ctx.symbols.get_type_id(None, impl_node.ty.name()).unwrap();
         ctx.symbols.start_scope(ScopeKind::Impl);
         self.infcx.enter_context();
 
@@ -1237,14 +1236,27 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             checked_generic_parameters.push(type_id);
         }
 
+        let implementor_type_id = self.typecheck(&impl_node.ty, ctx)?;
+        let poly_type_id = self.poly_of(implementor_type_id, ctx).unwrap();
+        if ctx.symbols[implementor_type_id]
+            .generic_parameters()
+            .iter()
+            .any(|&p| !ctx.symbols[p].is_type_variable())
+        {
+            return Err(Error::SpecializationNotAllowed {
+                location: impl_node.location,
+            });
+        }
+
         ctx.symbols
-            .add_type_id(None, IdentId::TYPE_SELF, implementor_type_id)?;
+            .add_type_id(None, IdentId::TYPE_SELF, poly_type_id)?;
 
         let mut methods = Vec::new();
 
-        for (generic_parameter, generic_arg) in checked_generic_parameters
+        for (generic_parameter, generic_arg) in ctx.symbols[implementor_type_id]
+            .generic_parameters()
             .iter()
-            .zip_eq(ctx.symbols[implementor_type_id].generic_parameters())
+            .zip_eq(ctx.symbols[poly_type_id].generic_parameters())
         {
             if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
                 return Err(Error::TypeMismatch {
@@ -1257,16 +1269,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         for &function_id in &impl_node.body {
             methods.push(CheckedDefinitionNode::Function(
-                self.typecheck_impl_method(implementor_type_id, function_id, ctx)?,
+                self.typecheck_impl_method(poly_type_id, function_id, ctx)?,
             ));
         }
 
         let checked_impl = CheckedImplNode {
             generic_parameters: checked_generic_parameters,
-            ty: implementor_type_id,
+            ty: poly_type_id,
             body: self.program.defs.alloc_items(methods),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
         };
+
         // let ty = Type::Impl(checked_impl.clone());
         // symbols.add_type(symbols.parent_scope_id(), ty);
 
@@ -1981,29 +1994,76 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         // TODO: remove clone
         let impl_node = ctx.definition(node).as_impl_trait().cloned().unwrap();
 
-        let trait_type_id = self.typecheck(&impl_node.trait_ty, ctx)?;
-        let implementor_type_id = ctx.symbols.get_type_id(None, impl_node.ty.name()).unwrap();
-
         ctx.symbols.start_scope(ScopeKind::Impl);
         self.infcx.enter_context();
 
-        ctx.symbols
-            .add_type_id(None, IdentId::TYPE_SELF, implementor_type_id)?;
-
-        let trait_node = ctx.symbols[trait_type_id].clone().into_trait().unwrap();
-        let mut generic_parameters = Vec::new();
-        let mut unimplemented_methods: HashSet<DefId> =
-            trait_node.unchecked_body.iter().cloned().collect();
-        let mut checked_methods = Vec::with_capacity(trait_node.body.len());
-
+        let mut checked_generic_parameters = Vec::new();
         for generic_parameter in &impl_node.generic_parameters {
             let checked_generic_parameter =
                 self.typecheck_generic_parameter(generic_parameter, ctx)?;
             let type_id = ctx
                 .symbols
                 .add_type_variable(ScopeKind::Impl, checked_generic_parameter)?;
-            generic_parameters.push(type_id);
+            checked_generic_parameters.push(type_id);
         }
+
+        let trait_type_id = self.typecheck(&impl_node.trait_ty, ctx)?;
+        let trait_poly_type_id = self.poly_of(trait_type_id, ctx).unwrap();
+        let implementor_type_id = self.typecheck(&impl_node.ty, ctx)?;
+        let implementor_poly_type_id = self.poly_of(implementor_type_id, ctx).unwrap();
+
+        if ctx.symbols[implementor_type_id]
+            .generic_parameters()
+            .iter()
+            .any(|&p| !ctx.symbols[p].is_type_variable())
+            || ctx.symbols[trait_type_id]
+                .generic_parameters()
+                .iter()
+                .any(|&p| !ctx.symbols[p].is_type_variable())
+        {
+            return Err(Error::SpecializationNotAllowed {
+                location: impl_node.location,
+            });
+        }
+
+        for (generic_parameter, generic_arg) in ctx.symbols[implementor_type_id]
+            .generic_parameters()
+            .iter()
+            .zip_eq(ctx.symbols[implementor_poly_type_id].generic_parameters())
+        {
+            if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
+                return Err(Error::TypeMismatch {
+                    location: impl_node.location,
+                    expected: vec![generic_parameter.clone()],
+                    found: generic_arg,
+                });
+            }
+        }
+
+        for (generic_parameter, generic_arg) in ctx.symbols[trait_type_id]
+            .generic_parameters()
+            .iter()
+            .zip_eq(ctx.symbols[trait_poly_type_id].generic_parameters())
+        {
+            if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
+                return Err(Error::TypeMismatch {
+                    location: impl_node.location,
+                    expected: vec![generic_parameter.clone()],
+                    found: generic_arg,
+                });
+            }
+        }
+
+        ctx.symbols
+            .add_type_id(None, IdentId::TYPE_SELF, implementor_poly_type_id)?;
+
+        let trait_node = ctx.symbols[trait_poly_type_id]
+            .clone()
+            .into_trait()
+            .unwrap();
+        let mut unimplemented_methods: HashSet<DefId> =
+            trait_node.unchecked_body.iter().cloned().collect();
+        let mut checked_methods = Vec::with_capacity(trait_node.body.len());
 
         for &function_id in &impl_node.body {
             let method = self.typecheck_impl_trait_method(
@@ -2048,12 +2108,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         }
 
         let checked_impl = CheckedImplTraitNode {
-            generic_parameters,
-            trait_ty: trait_type_id,
-            ty: implementor_type_id,
+            generic_parameters: checked_generic_parameters,
+            trait_ty: trait_poly_type_id,
+            ty: implementor_poly_type_id,
             body: self.program.defs.alloc_items(checked_methods),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
         };
+
         // let ty = Type::Impl(checked_impl.clone());
         // symbols.add_type(symbols.parent_scope_id(), ty);
 

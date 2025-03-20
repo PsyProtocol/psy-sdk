@@ -154,6 +154,8 @@ pub enum Error {
     DuplicateWildcard { location: Location },
     #[error("Incomplete Match")]
     IncompleteMatch { location: Location, message: String },
+    #[error("Specialization not allowed")]
+    SpecializationNotAllowed { location: Location },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

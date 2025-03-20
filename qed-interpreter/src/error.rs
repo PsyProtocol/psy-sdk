@@ -406,6 +406,13 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
+            SemaError::SpecializationNotAllowed { location } => build_report(
+                location,
+                "SpecializationNotAllowed",
+                "Specialization not allowed.",
+                ctx,
+            )
+            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
         },
         Error::UndefinedFunction => format!("{}", error),
         Error::UncertainLoopCondition { loop_location } => build_report(
