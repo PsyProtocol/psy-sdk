@@ -229,7 +229,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         Ok(CheckedExprNode::TupleAccess(CheckedTupleAccessNode {
             target: self.program.exprs.alloc_item(checked_expr),
             index: tuple_access_node.index,
-            type_id: field_type,
+            type_id: self.substitute_all(field_type, ctx)?,
             span: tuple_access_node.span,
         }))
     }
@@ -536,12 +536,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
                 let size_ty = self.populate_constant_u32(size, ctx)?;
 
-                let generic_inner_ty = ctx.symbols[underlying_type_id].as_array().unwrap().inner_ty;
-                let generic_size_ty = ctx.symbols[underlying_type_id].as_array().unwrap().size_ty;
+                let &CheckedArrayNode {
+                    inner_ty: generic_inner_ty,
+                    size_ty: generic_size_ty,
+                    ..
+                } = ctx.symbols[underlying_type_id].as_array().unwrap();
 
-                if !self.unify(generic_inner_ty, inner_ty, ctx)
-                    || !self.unify(generic_size_ty, size_ty, ctx)
-                {
+                if !self.unify(generic_inner_ty, inner_ty, ctx) {
                     return Err(Error::TypeMismatch {
                         span: span,
                         expected: vec![generic_inner_ty],
@@ -705,7 +706,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             lhs: self.program.exprs.alloc_item(checked_lhs),
             operator: binary_node.operator,
             rhs: self.program.exprs.alloc_item(checked_rhs),
-            type_id,
+            type_id: self.substitute_all(type_id, ctx)?,
             span: binary_node.span,
         }))
     }
@@ -752,7 +753,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         Ok(CheckedExprNode::Unary(CheckedUnaryNode {
             operator: unary_node.operator,
             rhs: self.program.exprs.alloc_item(checked_expr),
-            type_id,
+            type_id: self.substitute_all(type_id, ctx)?,
             span: unary_node.span,
         }))
     }
@@ -1273,6 +1274,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         self.infcx.exit_context();
         ctx.symbols.end_scope();
+
         Ok(self
             .program
             .defs
@@ -1328,6 +1330,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         self.infcx.exit_context();
         // ctx.symbols.end_scope();
         ctx.symbols.end_scope();
+
         Ok(self
             .program
             .defs
@@ -1367,6 +1370,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
         self.infcx.exit_context();
         ctx.symbols.end_scope();
+
         Ok(self
             .program
             .defs
@@ -1430,6 +1434,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         self.infcx.exit_context();
         ctx.symbols.end_scope();
+
         Ok(self
             .program
             .defs
@@ -2050,6 +2055,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         self.infcx.exit_context();
         ctx.symbols.end_scope();
+
         Ok(self
             .program
             .defs
@@ -2270,8 +2276,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     .get_type_id(Some(ScopeId::primitive()), IdentId::TYPE_ARRAY)
                     .unwrap();
 
-                let generic_inner_ty = ctx.symbols[underlying_type_id].as_array().unwrap().inner_ty;
-                let generic_size_ty = ctx.symbols[underlying_type_id].as_array().unwrap().size_ty;
+                let &CheckedArrayNode {
+                    inner_ty: generic_inner_ty,
+                    size_ty: generic_size_ty,
+                    ..
+                } = ctx.symbols[underlying_type_id].as_array().unwrap();
 
                 let inner_ty = self.typecheck(inner_ty.as_ref(), ctx)?;
 
