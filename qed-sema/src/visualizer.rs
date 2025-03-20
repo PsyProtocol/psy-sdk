@@ -65,6 +65,9 @@ impl IndentFormatter {
     pub fn finish(self) -> String {
         self.output
     }
+    pub fn finish_without_new_line(self) -> String {
+        self.finish().trim_end_matches('\n').to_string()
+    }
 }
 
 struct TypeCheckerVisitorVisualizerInner<'a, F: Clone + From<u32> + ContextFelt, C> {
@@ -365,20 +368,20 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
         let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
         let mut fmt = IndentFormatter::new();
         visualizer.debug_scope(scope_id, &mut fmt);
-        fmt.finish()
+        fmt.finish_without_new_line()
     }
 
     fn debug_type(&self, type_id: TypeId) -> Self::DebugResult {
         let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
         let mut fmt = IndentFormatter::new();
         visualizer.debug_type(type_id, &mut fmt);
-        fmt.finish()
+        fmt.finish_without_new_line()
     }
 
     fn debug_variable(&self, ident_id: IdentId, var_id: VarId) -> Self::DebugResult {
         let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
         let mut fmt = IndentFormatter::new();
         visualizer.debug_variable_inline(ident_id, var_id, &mut fmt);
-        fmt.finish()
+        fmt.finish_without_new_line()
     }
 }
