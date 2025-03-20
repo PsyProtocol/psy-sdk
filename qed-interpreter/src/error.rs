@@ -1,6 +1,7 @@
 use ariadne::{ColorGenerator, Label, Report, ReportKind};
 use core::fmt;
 use qed_ast::{Location, VisitorContext};
+use qed_parser::Error as ParseError;
 use qed_sema::{AstVisualizer, Error as SemaError, TypeCheckerVisitorContext};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 use std::io::Error as IoError;
@@ -9,7 +10,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("parse error: {0}")]
-    ParseError(String),
+    ParseError(#[from] ParseError),
     #[error("io error: {0}")]
     IoError(#[from] IoError),
     #[error("sema error: {0}")]
@@ -55,7 +56,48 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
     ctx: &TypeCheckerVisitorContext<F, C>,
 ) -> String {
     match error {
-        Error::ParseError(error) => format!("{}", error),
+        Error::ParseError(error) => match error {
+            ParseError::LexicalError(error) => format!("{}", error),
+            ParseError::CommonError(error) => format!("{}", error),
+            ParseError::IoError(error) => format!("{}", error),
+            ParseError::FileUnresolved => format!("{}", error),
+            ParseError::InvalidModuleName => format!("{}", error),
+            ParseError::ExternFnNotInStd => format!("{}", error),
+            ParseError::FunctionBodyMissing => format!("{}", error),
+            ParseError::InvalidSelfParameter => format!("{}", error),
+            ParseError::InvalidToken { location } => {
+                build_report(location, "InvalidToken", "Invalid Token.", ctx)
+                    .unwrap_or_else(|e| format!("Failed to build report: {}", e))
+            }
+            ParseError::UnrecognizedEof { expected, location } => build_report(
+                location,
+                "UnrecognizedEof",
+                format!("Expected {:?}.", expected),
+                ctx,
+            )
+            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
+            ParseError::UnrecognizedToken {
+                token,
+                expected,
+                location,
+            } => build_report(
+                location,
+                "UnrecognizedToken",
+                format!(
+                    "Found unrecognized token {}, expected {:?}.",
+                    token, expected,
+                ),
+                ctx,
+            )
+            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
+            ParseError::ExtraToken { token, location } => build_report(
+                location,
+                "ExtraToken",
+                format!("Extra token {} found.", token),
+                ctx,
+            )
+            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
+        },
         Error::IoError(error) => format!("{}", error),
         Error::SemaError(error) => match error {
             SemaError::AnyhowError(error) => format!("{}", error),

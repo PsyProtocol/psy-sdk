@@ -17,7 +17,7 @@ grammar<'input, F, C>(
     ctx: &mut C
 ) where F: ContextFelt + From<u32>, C: DPNContext<F>;
 
-use super::{Loc, Error as SyntacticError, LalrpopError};
+use super::{Loc, CustomError as SyntacticError, LalrpopError};
 use std::convert::TryFrom;
 
 ModuleItem: ModuleItemNode = {

@@ -5,9 +5,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use error::CustomError;
 use lalrpop_util::lalrpop_mod;
 
-use error::{Error, Result};
+pub use error::{Error, Result};
 use qed_ast::*;
 use qed_lexer::{Error as LexicalError, *};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
@@ -15,7 +16,7 @@ use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::Program;
 
 pub type Loc = usize;
-pub type LalrpopError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, Error<'input>>;
+pub type LalrpopError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, CustomError<'input>>;
 
 lalrpop_mod!(pub qed);
 
@@ -27,7 +28,7 @@ where
 {
     underlying: I,
     in_generics: i32,
-    buffered: Option<Spanned<Token<'input>, usize, Error<'input>>>,
+    buffered: Option<Spanned<Token<'input>, usize, Error>>,
 }
 
 impl<'input, I> GenericTokenTransformer<'input, I>
@@ -47,7 +48,7 @@ impl<'input, I> Iterator for GenericTokenTransformer<'input, I>
 where
     I: Iterator<Item = Spanned<Token<'input>, usize, qed_lexer::Error>>,
 {
-    type Item = Spanned<Token<'input>, usize, Error<'input>>;
+    type Item = Spanned<Token<'input>, usize, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(buffered) = self.buffered.take() {
@@ -105,11 +106,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
     // modB/
     //     std/
     //         prelude
-    pub fn parse<'input>(
-        &'input mut self,
-        ctx: &mut C,
-        root_module_path: PathBuf,
-    ) -> Result<'input, ()> {
+    pub fn parse<'input>(&'input mut self, ctx: &mut C, root_module_path: PathBuf) -> Result<()> {
         let mut module_stack: Vec<(bool, PathBuf, Option<ModuleId>, Visibility, bool)> = vec![(
             false,
             root_module_path.clone(),

@@ -274,7 +274,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let mut parser = Parser::new(&mut program);
         parser
             .parse(&mut self.context, entry)
-            .map_err(|err| Error::ParseError(err.to_string()))?;
+            .map_err(|err| Error::ParseError(err))?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
 
