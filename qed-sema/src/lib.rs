@@ -1288,11 +1288,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         node: DefId,
         ctx: &mut Self::Context,
     ) -> StdResult<Self::DefinitionResult, Self::Error> {
-        ctx.symbols.start_scope(ScopeKind::Trait);
-        // ctx.symbols.start_scope(ScopeKind::Impl);
-        self.infcx.enter_context();
-        // TODO: remove clone
         let trait_node = ctx.definition(node).as_trait().cloned().unwrap();
+
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+        let is_in_module = ctx.symbols[current_scope_id].kind == ScopeKind::Module;
+        if is_in_module {
+            let trait_type_id = ctx.symbols.get_type_id(None, trait_node.name.id).unwrap();
+            let trait_scope_id = ctx.symbols[trait_type_id].scope_id();
+            ctx.symbols.enter_scope(trait_scope_id);
+        } else {
+            ctx.symbols.start_scope(ScopeKind::Trait);
+        }
+        self.infcx.enter_context();
 
         let mut generic_parameters = Vec::new();
         let mut methods = Vec::new();
@@ -1325,12 +1332,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         };
         // TODO: remove clone
         let ty = Type::Trait(checked_trait.clone());
-        ctx.symbols
-            .add_type(ctx.symbols.parent_scope_id(), checked_trait.name.id, ty)?;
-
-        self.infcx.exit_context();
-        // ctx.symbols.end_scope();
-        ctx.symbols.end_scope();
+        if is_in_module {
+            let trait_type_id = ctx.symbols.get_type_id(None, trait_node.name.id).unwrap();
+            ctx.symbols[trait_type_id] = ty;
+            self.infcx.exit_context();
+            ctx.symbols.exit_scope();
+        } else {
+            ctx.symbols
+                .add_type(ctx.symbols.parent_scope_id(), checked_trait.name.id, ty)?;
+            self.infcx.exit_context();
+            // ctx.symbols.end_scope();
+            ctx.symbols.end_scope();
+        }
 
         Ok(self
             .program
@@ -1384,10 +1397,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         node: DefId,
         ctx: &mut Self::Context,
     ) -> StdResult<Self::DefinitionResult, Self::Error> {
-        ctx.symbols.start_scope(ScopeKind::Struct);
-        self.infcx.enter_context();
-        // TODO: remove clone
         let struct_node = ctx.definition(node).as_struct().cloned().unwrap();
+
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+        let is_in_module = ctx.symbols[current_scope_id].kind == ScopeKind::Module;
+        if is_in_module {
+            let struct_type_id = ctx.symbols.get_type_id(None, struct_node.name.id).unwrap();
+            let struct_scope_id = ctx.symbols[struct_type_id].scope_id();
+            ctx.symbols.enter_scope(struct_scope_id);
+        } else {
+            ctx.symbols.start_scope(ScopeKind::Struct);
+        }
+        self.infcx.enter_context();
 
         let mut generic_parameters = Vec::new();
 
@@ -1430,11 +1451,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         }
 
         let ty = Type::Struct(checked_struct.clone());
-        ctx.symbols
-            .add_type(ctx.symbols.parent_scope_id(), checked_struct.name.id, ty)?;
-
-        self.infcx.exit_context();
-        ctx.symbols.end_scope();
+        if is_in_module {
+            let struct_type_id = ctx.symbols.get_type_id(None, struct_node.name.id).unwrap();
+            ctx.symbols[struct_type_id] = ty;
+            self.infcx.exit_context();
+            ctx.symbols.exit_scope();
+        } else {
+            ctx.symbols
+                .add_type(ctx.symbols.parent_scope_id(), checked_struct.name.id, ty)?;
+            self.infcx.exit_context();
+            ctx.symbols.end_scope();
+        }
 
         Ok(self
             .program
@@ -1585,9 +1612,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.push_node_id(NodeId::from(module_id));
         // TODO: remove clone
         let module = ctx.module(module_id).clone();
-        if module.is_std && module.is_self_primitive {
-            self.typecheck_std_primitive_module(ctx)?;
-        }
+        // if module.is_std && module.is_self_primitive {
+        //     self.typecheck_std_primitive_module(ctx)?;
+        // }
 
         for &def_id in &module.definitions {
             self.visit_definition(def_id, ctx)?;
@@ -1603,6 +1630,23 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.symbols
             .load_modules(ctx.program().modules.clone().iter());
         let mut colors = HashMap::new();
+        ctx.dependency_graph()
+            .ts::<Self::Error>(&ModuleId::root(), &mut colors.clone(), &mut |&module_id| {
+                ctx.symbols.enter_module(module_id);
+                let module = ctx.program().modules[module_id].clone();
+
+                if module.data().is_std && module.data().is_self_primitive {
+                    self.typecheck_std_primitive_module(ctx)?;
+                }
+                for &def_id in &module.data().definitions {
+                    self.pre_visit_definition(def_id, ctx);
+                }
+                ctx.symbols.exit_module();
+
+                Ok(())
+            })
+            .unwrap();
+
         ctx.dependency_graph().ts::<Self::Error>(
             &ModuleId::root(),
             &mut colors,
@@ -2097,6 +2141,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             ctx.symbols.add_type(None, ty.key(), ty.clone())?;
         }
         self.typecheck_array(ctx)?;
+
+        let felt_type = UncheckedType::Basic(
+            Identifier::new(IdentId::TYPE_FELT, Location::default()),
+            Location::default(),
+        );
+        let hash_ty_node = UncheckedType::Array(Box::new(felt_type), 4, Location::default());
+
+        let checked_hash_ty = self.typecheck(&hash_ty_node, ctx)?;
+
+        let mut key: TypeKey = ctx.program.interner.intern_ident("Hash").into();
+        key.visibility = Visibility::Public;
+        ctx.symbols.add_type_id(None, key, checked_hash_ty)?;
+
         Ok(())
     }
 
@@ -2559,5 +2616,71 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         };
 
         Ok(checked_function)
+    }
+
+    pub fn pre_visit_definition(
+        &mut self,
+        def_id: DefId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) {
+        let node = ctx.definition(def_id).clone();
+        match node {
+            DefinitionNode::Function(_function_node) => {}
+            DefinitionNode::Struct(struct_node) => {
+                ctx.symbols.start_scope(ScopeKind::Struct);
+                self.infcx.enter_context();
+
+                let checked_struct = CheckedStructNode {
+                    name: struct_node.name.clone(),
+                    generic_parameters: vec![],
+                    fields: IndexMap::new(),
+                    scope_id: ctx.symbols.current_scope_id().unwrap(),
+                    visibility: struct_node.visibility,
+                    location: struct_node.location,
+                };
+
+                let ty = Type::Struct(checked_struct.clone());
+                ctx.symbols
+                    .add_type(ctx.symbols.parent_scope_id(), checked_struct.name.id, ty)
+                    .unwrap();
+
+                self.infcx.exit_context();
+                ctx.symbols.end_scope();
+                self.program
+                    .defs
+                    .alloc_item(CheckedDefinitionNode::Struct(checked_struct));
+            }
+            DefinitionNode::Enum(_enum_node) => {}
+            DefinitionNode::Impl(_impl_node) => {}
+            DefinitionNode::ImplTrait(_impl_trait_node) => {}
+            DefinitionNode::Trait(trait_node) => {
+                ctx.symbols.start_scope(ScopeKind::Trait);
+                self.infcx.enter_context();
+
+                let checked_trait = CheckedTraitNode {
+                    generic_parameters: vec![],
+                    name: trait_node.name,
+                    body: vec![],
+                    unchecked_body: trait_node.body.clone(),
+                    scope_id: ctx.symbols.current_scope_id().unwrap(),
+                    visibility: trait_node.visibility,
+                    location: trait_node.location,
+                };
+
+                let ty = Type::Trait(checked_trait.clone());
+                ctx.symbols
+                    .add_type(ctx.symbols.parent_scope_id(), checked_trait.name.id, ty)
+                    .unwrap();
+
+                self.infcx.exit_context();
+                ctx.symbols.end_scope();
+                self.program
+                    .defs
+                    .alloc_item(CheckedDefinitionNode::Trait(checked_trait));
+            }
+            DefinitionNode::TypeAlias(_type_alias_node) => {}
+            DefinitionNode::Const(_const_node) => {}
+            DefinitionNode::Use(_use_node) => {}
+        }
     }
 }

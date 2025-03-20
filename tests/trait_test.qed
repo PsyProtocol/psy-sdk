@@ -1,4 +1,11 @@
+pub struct Person2 {
+    pub age_height: [[Felt; 2]; 2],
+    pub year_of_birth: Felt
+}
+
 pub mod traits{
+
+    pub use super::Person2;
     pub trait PersonLike {
         pub fn age(self: Self) -> Felt{
             return 1;
@@ -12,6 +19,12 @@ pub mod traits{
 
     impl PersonLike for Person {
         // pub fn age(self: Person) -> Felt {
+        //     return self.age_height[0][0];
+        // }
+    }
+
+    impl PersonLike for Person2 {
+        // pub fn age(self: Person2) -> Felt {
         //     return self.age_height[0][0];
         // }
     }
