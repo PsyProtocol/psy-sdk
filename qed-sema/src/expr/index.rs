@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, IdentId, NodeInfo, NodeType, Span};
+use qed_ast::{ExprId, Identifier, Location, NodeInfo, NodeType};
 
 use crate::TypeId;
 
@@ -7,7 +7,7 @@ pub struct CheckedIndexAccessNode {
     pub target: ExprId,
     pub index: ExprId,
     pub type_id: TypeId,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for CheckedIndexAccessNode {
@@ -19,9 +19,9 @@ impl NodeInfo for CheckedIndexAccessNode {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedMemberAccessNode {
     pub target: ExprId,
-    pub field: IdentId,
+    pub field: Identifier,
     pub type_id: TypeId,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for CheckedMemberAccessNode {
@@ -35,7 +35,7 @@ pub struct CheckedTupleAccessNode {
     pub target: ExprId,  // `ExprId` for the tuple being accessed
     pub index: usize,    // The index of the tuple element being accessed
     pub type_id: TypeId, // The type of the element at `index`
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for CheckedTupleAccessNode {

@@ -1,6 +1,7 @@
 use ariadne::{ColorGenerator, Label, Report, ReportKind};
 use core::fmt;
-use qed_ast::{FileSpan, Span, VisitorContext};
+use qed_ast::{Location, VisitorContext};
+use qed_parser::Error as ParseError;
 use qed_sema::{AstVisualizer, Error as SemaError, TypeCheckerVisitorContext};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 use std::io::Error as IoError;
@@ -9,7 +10,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("parse error: {0}")]
-    ParseError(String),
+    ParseError(#[from] ParseError),
     #[error("io error: {0}")]
     IoError(#[from] IoError),
     #[error("sema error: {0}")]
@@ -17,7 +18,7 @@ pub enum Error {
     #[error("undefined function")]
     UndefinedFunction,
     #[error("uncertain loop condition")]
-    UncertainLoopCondition { loop_span: Span },
+    UncertainLoopCondition { loop_span: Location },
     // #[error("index out of bounds")]
     // IndexOutOfBounds,
     // #[error("type mismatch")]
@@ -27,12 +28,12 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 fn build_report<F: Clone + From<u32> + ContextFelt, C>(
-    span: Span,
+    location: Location,
     code: impl fmt::Display,
     message: impl fmt::Display,
     ctx: &TypeCheckerVisitorContext<F, C>,
 ) -> Result<String> {
-    let file_span = ctx.program.convert_span(&span);
+    let file_span = ctx.program.convert_span(&location);
     let report = Report::build(ReportKind::Error, file_span.clone())
         .with_code(code)
         .with_label(Label::new(file_span).with_message(message))
@@ -55,17 +56,58 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
     ctx: &TypeCheckerVisitorContext<F, C>,
 ) -> String {
     match error {
-        Error::ParseError(error) => format!("{}", error),
+        Error::ParseError(error) => match error {
+            ParseError::LexicalError(error) => format!("{}", error),
+            ParseError::CommonError(error) => format!("{}", error),
+            ParseError::IoError(error) => format!("{}", error),
+            ParseError::FileUnresolved => format!("{}", error),
+            ParseError::InvalidModuleName => format!("{}", error),
+            ParseError::ExternFnNotInStd => format!("{}", error),
+            ParseError::FunctionBodyMissing => format!("{}", error),
+            ParseError::InvalidSelfParameter => format!("{}", error),
+            ParseError::InvalidToken { location } => {
+                build_report(location, "InvalidToken", "Invalid Token.", ctx)
+                    .unwrap_or_else(|e| format!("Failed to build report: {}", e))
+            }
+            ParseError::UnrecognizedEof { expected, location } => build_report(
+                location,
+                "UnrecognizedEof",
+                format!("Expected {:?}.", expected),
+                ctx,
+            )
+            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
+            ParseError::UnrecognizedToken {
+                token,
+                expected,
+                location,
+            } => build_report(
+                location,
+                "UnrecognizedToken",
+                format!(
+                    "Found unrecognized token {}, expected {:?}.",
+                    token, expected,
+                ),
+                ctx,
+            )
+            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
+            ParseError::ExtraToken { token, location } => build_report(
+                location,
+                "ExtraToken",
+                format!("Extra token {} found.", token),
+                ctx,
+            )
+            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
+        },
         Error::IoError(error) => format!("{}", error),
         Error::SemaError(error) => match error {
             SemaError::AnyhowError(error) => format!("{}", error),
             SemaError::CommonError(error) => format!("{}", error),
             SemaError::TypeMismatch {
-                span,
+                location,
                 expected,
                 found,
             } => build_report(
-                span,
+                location,
                 "TypeMismatch",
                 format!(
                     "Expected {}, but found {}.",
@@ -80,44 +122,48 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::UnresolvedPath {
-                span,
+                location,
                 resolved_path,
             } => build_report(
-                span,
+                location,
                 "UnresolvedPath",
                 format!("Unresolved path {}.", resolved_path),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::InvalidPathSegment { span, segment } => build_report(
-                span,
+            SemaError::InvalidPathSegment { location, segment } => build_report(
+                location,
                 "InvalidPathSegment",
                 format!("Invalid path segment {}.", ctx.ident(segment)),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::UnresolvedVariable {
-                span,
+                location,
                 resolved_variable,
             } => build_report(
-                span,
+                location,
                 "UnresolvedVariable",
                 format!("Unresolved variable {}.", ctx.ident(resolved_variable)),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::UnresolvedType {
-                span,
+                location,
                 resolved_type,
             } => build_report(
-                span,
+                location,
                 "UnresolvedType",
                 format!("Unresolved type {}.", ctx.ident(resolved_type)),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::TraitAlreadyImplemented { span, trait_ty, ty } => build_report(
-                span,
+            SemaError::TraitAlreadyImplemented {
+                location,
+                trait_ty,
+                ty,
+            } => build_report(
+                location,
                 "TraitAlreadyImplemented",
                 format!(
                     "Trait {} already implemented for {}.",
@@ -128,12 +174,12 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::TraitMethodUnimplemented {
-                span,
+                location,
                 trait_ty,
                 ty,
                 method,
             } => build_report(
-                span,
+                location,
                 "TraitMethodUnimplemented",
                 format!(
                     "Trait {} unimplemented {} for {}.",
@@ -144,8 +190,12 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::MethodHasNoBody { span, ty, method } => build_report(
-                span,
+            SemaError::MethodHasNoBody {
+                location,
+                ty,
+                method,
+            } => build_report(
+                location,
                 "MethodHasNoBody",
                 format!(
                     "{} of {} has no body.",
@@ -155,36 +205,39 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::FunctionHasNoBody { span, function } => build_report(
-                span,
+            SemaError::FunctionHasNoBody { location, function } => build_report(
+                location,
                 "FunctionHasNoBody",
                 format!("{} has no body.", ctx.ident(function)),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::VariableAlreadyDefined { span, variable } => build_report(
-                span,
+            SemaError::VariableAlreadyDefined { location, variable } => build_report(
+                location,
                 "VariableAlreadyDefined",
                 format!("Variable {} already defined.", ctx.ident(variable)),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::UndefinedVariable { span, variable } => build_report(
-                span,
+            SemaError::UndefinedVariable { location, variable } => build_report(
+                location,
                 "UndefinedVariable",
                 format!("Variable {} is undefined.", ctx.ident(variable)),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::ImmutableVariable { span, variable } => build_report(
-                span,
+            SemaError::ImmutableVariable { location, variable } => build_report(
+                location,
                 "ImmutableVariable",
                 format!("Variable {} is immutable.", ctx.ident(variable)),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::UnresolvedMember { span, member_name } => build_report(
-                span,
+            SemaError::UnresolvedMember {
+                location,
+                member_name,
+            } => build_report(
+                location,
                 "UnresolvedMember",
                 format!("Unresolved member {}.", ctx.ident(member_name)),
                 ctx,
@@ -206,11 +259,11 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::FunctionParameterMismatch {
-                span,
+                location,
                 expected,
                 found,
             } => build_report(
-                span,
+                location,
                 "FunctionParameterMismatch",
                 format!(
                     "Expected {}, but found {}.",
@@ -221,52 +274,59 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::GenericParameterMismatch {
-                span,
+                location,
                 expected,
                 found,
             } => build_report(
-                span,
+                location,
                 "GenericParameterMismatch",
                 format!("Expected {}, but found {}.", expected, found),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::InvalidFunctionCall {
-                span,
+                location,
                 method_name: _method_name,
                 expected,
                 found,
             } => build_report(
-                span,
+                location,
                 "InvalidFunctionCall",
                 format!("Expected {} parameters, but found {}.", expected, found),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::InvalidReturn { span, message } => {
-                build_report(span, "InvalidReturn", message, ctx)
+            SemaError::InvalidReturn { location, message } => {
+                build_report(location, "InvalidReturn", message, ctx)
                     .unwrap_or_else(|e| format!("Failed to build report: {}", e))
             }
-            SemaError::UnreachableExpression { span } => build_report(
-                span,
+            SemaError::UnreachableExpression { location } => build_report(
+                location,
                 "UnreachableExpression",
                 "Unreachable Expression.",
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::InvalidSelfParameter { span, message } => {
-                build_report(span, "InvalidSelfParameter", ctx.ident(message), ctx)
+            SemaError::InvalidSelfParameter { location, message } => {
+                build_report(location, "InvalidSelfParameter", ctx.ident(message), ctx)
                     .unwrap_or_else(|e| format!("Failed to build report: {}", e))
             }
-            SemaError::TypeAlreadyDefined { span, type_name } => build_report(
-                span,
+            SemaError::TypeAlreadyDefined {
+                location,
+                type_name,
+            } => build_report(
+                location,
                 "TypeAlreadyDefined",
                 format!("Type {} already defined.", ctx.ident(type_name)),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::MemberNotPublic { span, ty, field } => build_report(
-                span,
+            SemaError::MemberNotPublic {
+                location,
+                ty,
+                field,
+            } => build_report(
+                location,
                 "MemberNotPublic",
                 format!(
                     "{} not a public member of {}.",
@@ -276,52 +336,56 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::ModuleNotPublic { span, module } => build_report(
-                span,
+            SemaError::ModuleNotPublic { location, module } => build_report(
+                location,
                 "ModuleNotPublic",
                 format!("{} not a public module.", ctx.ident(module)),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::TypeNotPublic { span, ty } => build_report(
-                span,
+            SemaError::TypeNotPublic { location, ty } => build_report(
+                location,
                 "TypeNotPublic",
                 format!("{} not public.", ctx.debug_type(ty)),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::IndexOutOfBounds {
-                span,
+                location,
                 index,
                 length,
             } => build_report(
-                span,
+                location,
                 "IndexOutOfBounds",
                 format!("Index {} Out Of Bounds {}.", index, length),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::InvalidCast {
-                span,
+                location,
                 expected,
                 found,
             } => build_report(
-                span,
+                location,
                 "InvalidCast",
                 format!("Expected {}, but found {}.", expected, found),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::DuplicateWildcard { span } => {
-                build_report(span, "DuplicateWildcard", "Duplicate Wildcard.", ctx)
+            SemaError::DuplicateWildcard { location } => {
+                build_report(location, "DuplicateWildcard", "Duplicate Wildcard.", ctx)
                     .unwrap_or_else(|e| format!("Failed to build report: {}", e))
             }
-            SemaError::IncompleteMatch { span, message } => {
-                build_report(span, "IncompleteMatch", message, ctx)
+            SemaError::IncompleteMatch { location, message } => {
+                build_report(location, "IncompleteMatch", message, ctx)
                     .unwrap_or_else(|e| format!("Failed to build report: {}", e))
             }
-            SemaError::DuplicatedMethod { span, ty, method } => build_report(
-                span,
+            SemaError::DuplicatedMethod {
+                location,
+                ty,
+                method,
+            } => build_report(
+                location,
                 "DuplicatedMethod",
                 format!(
                     "Method {} already exists on {}.",
@@ -331,12 +395,12 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::NoParentModule { span } => {
-                build_report(span, "NoParentModule", "No parent module.", ctx)
+            SemaError::NoParentModule { location } => {
+                build_report(location, "NoParentModule", "No parent module.", ctx)
                     .unwrap_or_else(|e| format!("Failed to build report: {}", e))
             }
-            SemaError::ModuleNotFound { span, module } => build_report(
-                span,
+            SemaError::ModuleNotFound { location, module } => build_report(
+                location,
                 "ModuleNotFound",
                 format!("Module {} not found.", ctx.ident(module)),
                 ctx,

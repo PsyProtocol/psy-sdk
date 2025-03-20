@@ -1,11 +1,11 @@
 use crate::{
-    AttrNode, ExprId, GenericParameter, IdentId, NodeInfo, NodeType, Qualifier, Span,
+    AttrNode, ExprId, GenericParameter, Identifier, Location, NodeInfo, NodeType, Qualifier,
     TypeQualifier, UncheckedType, Visibility,
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionNode {
-    pub name: IdentId,
+    pub name: Identifier,
     pub parameters: Vec<FunctionParameter>,
     pub generic_parameters: Vec<GenericParameter>,
     pub body: Option<ExprId>,
@@ -13,24 +13,29 @@ pub struct FunctionNode {
     pub qualifier: Qualifier,
     pub visibility: Visibility,
     pub attrs: Vec<AttrNode>,
-    pub span: Span,
+    pub location: Location,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionParameter {
-    pub name: IdentId,
+    pub name: Identifier,
     pub qualifier: TypeQualifier,
     pub ty: UncheckedType,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl FunctionParameter {
-    pub fn new(name: IdentId, qualifier: TypeQualifier, ty: UncheckedType, span: Span) -> Self {
+    pub fn new(
+        name: Identifier,
+        qualifier: TypeQualifier,
+        ty: UncheckedType,
+        location: Location,
+    ) -> Self {
         Self {
             name,
             qualifier,
             ty,
-            span,
+            location,
         }
     }
 }

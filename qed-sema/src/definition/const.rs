@@ -1,10 +1,10 @@
 use qed_ast::Visibility;
 
-use crate::{ConstId, IdentId, NodeInfo, NodeType, ScopeId, TypeId};
+use crate::{ConstId, Identifier, NodeInfo, NodeType, ScopeId, TypeId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedConstNode {
-    pub name: Option<IdentId>,
+    pub name: Option<Identifier>,
     pub ty: TypeId,
     pub value: ConstId,
     pub visibility: Visibility,

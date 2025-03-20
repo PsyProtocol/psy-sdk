@@ -1,13 +1,13 @@
 use qed_common::FileId;
 
 #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Span {
+pub struct Location {
     pub file_id: FileId,
     pub start: usize,
     pub end: usize,
 }
 
-impl Span {
+impl Location {
     pub fn new(file_id: FileId, start: usize, end: usize) -> Self {
         Self {
             file_id,
@@ -17,14 +17,24 @@ impl Span {
     }
 }
 
+impl Default for Location {
+    fn default() -> Self {
+        Self {
+            file_id: FileId(0),
+            start: 0,
+            end: 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FileSpan {
+pub struct FileLocation {
     pub path: String,
     pub start: usize,
     pub end: usize,
 }
 
-impl Default for FileSpan {
+impl Default for FileLocation {
     fn default() -> Self {
         Self {
             path: String::new(),
@@ -34,13 +44,13 @@ impl Default for FileSpan {
     }
 }
 
-impl FileSpan {
+impl FileLocation {
     pub fn new(path: String, start: usize, end: usize) -> Self {
         Self { path, start, end }
     }
 }
 
-impl ariadne::Span for FileSpan {
+impl ariadne::Span for FileLocation {
     type SourceId = String;
 
     fn source(&self) -> &Self::SourceId {

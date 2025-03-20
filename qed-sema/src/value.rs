@@ -5,7 +5,7 @@ use std::{
 
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
-use qed_ast::{ExprId, IdentId, NodeInfo, NodeType, Span};
+use qed_ast::{ExprId, IdentId, Identifier, Location, NodeInfo, NodeType};
 use qedlang_core::dpn::ops::{
     context_trait::{ContextFelt, DPNContext, ToFelts},
     op_types::DPNOpType,
@@ -15,12 +15,12 @@ use crate::{Result, TypeId, BOOL_TYPE, FELT_TYPE, U32_TYPE, VOID_TYPE};
 
 #[derive(Clone, Debug, PartialEq, EnumAsInner)]
 pub enum CheckedValueNode<F> {
-    Felt(F, Span),
-    Bool(F, Span),
-    U32(F, Span),
-    Array(TypeId, Vec<ExprId>, Span),
-    Tuple(TypeId, Vec<(TypeId, ExprId)>, Span),
-    Struct(TypeId, IndexMap<IdentId, ExprId>, Span),
+    Felt(F, Location),
+    Bool(F, Location),
+    U32(F, Location),
+    Array(TypeId, Vec<ExprId>, Location),
+    Tuple(TypeId, Vec<(TypeId, ExprId)>, Location),
+    Struct(TypeId, IndexMap<Identifier, ExprId>, Location),
     Type(TypeId),
 }
 
@@ -36,7 +36,7 @@ pub enum CheckedValue<F: Clone + From<u32> + ContextFelt> {
     Bool(F),
     U32(F),
     Array(TypeId, Vec<CheckedValueRef<F>>),
-    Struct(TypeId, IndexMap<IdentId, CheckedValueRef<F>>),
+    Struct(TypeId, IndexMap<Identifier, CheckedValueRef<F>>),
     Tuple {
         type_id: TypeId,
         elements: Vec<(TypeId, CheckedValueRef<F>)>,
@@ -296,7 +296,8 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
                 }
             }
             CheckedValue::Struct(_, map) => {
-                let key = IdentId(*path[0].as_normal().unwrap());
+                let key =
+                    Identifier::new(IdentId(*path[0].as_normal().unwrap()), Location::default());
                 let rest = &path[1..];
                 if let Some(inner) = map.get_mut(&key) {
                     inner.set_path(ctx, rest, index_condition, value)?;
@@ -357,7 +358,10 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
                     .and_then(|(_, inner)| inner.get_path(ctx, rest))
             }
             CheckedValue::Struct(_, map) => {
-                let key = IdentId(path[0].clone().into_normal().unwrap());
+                let key = Identifier::new(
+                    IdentId(path[0].clone().into_normal().unwrap()),
+                    Location::default(),
+                );
                 let rest = &path[1..];
                 map.get(&key).and_then(|inner| inner.get_path(ctx, rest))
             }

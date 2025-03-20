@@ -201,7 +201,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
                     CheckedStructField {
                         ty: field_type,
                         visibility,
-                        span,
+                        location,
                     },
                 ) in struct_node.fields
                 {
@@ -211,7 +211,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
                         CheckedStructField {
                             ty: substituted_type,
                             visibility,
-                            span,
+                            location,
                         },
                     );
                 }
@@ -227,7 +227,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
                     fields: new_fields,
                     scope_id: struct_node.scope_id,
                     visibility: struct_node.visibility,
-                    span: struct_node.span,
+                    location: struct_node.location,
                 });
                 let scope_id = ctx.symbols[struct_node.scope_id].parent;
                 ctx.symbols.get_or_add_type(scope_id, ty.key(), ty)

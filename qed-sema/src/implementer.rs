@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::anyhow;
-use qed_ast::{DefId, IdentId, ImplTraitNode, Span, VisitorContext};
+use qed_ast::{DefId, IdentId, Identifier};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
@@ -130,7 +130,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                     for &impl_id in impl_set {
                         if let Some(impl_node) = self.program[impl_id].as_impl() {
                             if impl_node.body.iter().any(|&def_id| {
-                                self.program[def_id].as_function().unwrap().name == method
+                                self.program[def_id].as_function().unwrap().name.id == method
                             }) {
                                 return Some((constraint.clone(), impl_node.scope_id, impl_id));
                             }
@@ -138,7 +138,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
 
                         if let Some(impl_node) = self.program[impl_id].as_impl_trait() {
                             if impl_node.body.iter().any(|&def_id| {
-                                self.program[def_id].as_function().unwrap().name == method
+                                self.program[def_id].as_function().unwrap().name.id == method
                             }) {
                                 return Some((constraint.clone(), impl_node.scope_id, impl_id));
                             }

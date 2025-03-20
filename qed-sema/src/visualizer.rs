@@ -126,15 +126,15 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         };
         match &ty {
             Type::Struct(CheckedStructNode { name, .. }) => {
-                let type_name = &self.context.ident(*name).0;
+                let type_name = &self.context.ident(name.id).0;
                 write!(fmt, "struct {} ", type_name);
             }
             Type::Enum(CheckedEnumNode { name, .. }) => {
-                let type_name = &self.context.ident(*name).0;
+                let type_name = &self.context.ident(name.id).0;
                 write!(fmt, "enum {} ", type_name);
             }
             Type::Trait(CheckedTraitNode { name, .. }) => {
-                let type_name = &self.context.ident(*name).0;
+                let type_name = &self.context.ident(name.id).0;
                 write!(fmt, "trait {} ", type_name);
             }
             Type::Function(CheckedFunctionNode {
@@ -146,7 +146,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 if qualifier.is_const {
                     write!(fmt, "const ");
                 }
-                let type_name = &self.context.ident(*name).0;
+                let type_name = &self.context.ident(name.id).0;
                 write!(fmt, "fn {} ", type_name);
             }
             Type::Const(node) => {
@@ -189,7 +189,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                     writeln!(fmt, "Fields:");
                     fmt.indent();
                     for (ident_id, field) in node.fields.iter() {
-                        let ident_name = &self.context.ident(*ident_id).0;
+                        let ident_name = &self.context.ident(ident_id.id).0;
                         fmt.write_indent();
                         if field.visibility == Visibility::Public {
                             write!(fmt, "pub ");
@@ -219,7 +219,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                             write!(fmt, "mut ")
                         }
                         let type_name = self.get_type_name(parameter.ty);
-                        let ident_name = &self.context.ident(parameter.name).0;
+                        let ident_name = &self.context.ident(parameter.name.id).0;
                         write!(
                             fmt,
                             "{} {} ({:?}, {:?})",
@@ -276,12 +276,12 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         let ty = &self.context.symbols[type_id];
         let ty_indent_id = match &ty {
             Type::Unknown => IdentId::TYPE_UNKNOWN,
-            Type::Struct(CheckedStructNode { name, .. }) => *name,
-            Type::Enum(CheckedEnumNode { name, .. }) => *name,
-            Type::Function(CheckedFunctionNode { name, .. }) => *name,
-            Type::Trait(CheckedTraitNode { name, .. }) => *name,
+            Type::Struct(CheckedStructNode { name, .. }) => name.id,
+            Type::Enum(CheckedEnumNode { name, .. }) => name.id,
+            Type::Function(CheckedFunctionNode { name, .. }) => name.id,
+            Type::Trait(CheckedTraitNode { name, .. }) => name.id,
             Type::Const(node) => match node.name {
-                Some(name) => name,
+                Some(name) => name.id,
                 None => return self.get_type_name(node.ty),
             },
             Type::Array(_) => IdentId::TYPE_ARRAY,

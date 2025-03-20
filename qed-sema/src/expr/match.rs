@@ -1,5 +1,5 @@
 use crate::{ScopeId, TypeId};
-use qed_ast::{ExprId, NodeInfo, NodeType, Span};
+use qed_ast::{ExprId, Location, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedMatchNode {
@@ -7,7 +7,7 @@ pub struct CheckedMatchNode {
     pub cases: Vec<CheckedMatchArm>,
     pub type_id: TypeId,
     pub scope_id: ScopeId,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for CheckedMatchNode {
@@ -20,5 +20,5 @@ impl NodeInfo for CheckedMatchNode {
 pub struct CheckedMatchArm {
     pub pattern: Option<ExprId>,
     pub body: ExprId, //indeed it's a block
-    pub span: Span,
+    pub location: Location,
 }

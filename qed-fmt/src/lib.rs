@@ -68,10 +68,10 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         ctx: &impl VisitorContext<F, C>,
     ) -> String {
         match node {
-            UncheckedType::Basic(name, _) => ctx.ident(name.clone()).to_string(),
+            UncheckedType::Basic(name, _) => ctx.ident(name).to_string(),
             UncheckedType::Generic(name, generic_parameters, _) => format!(
                 "{}{}",
-                &ctx.ident(name.clone()),
+                &ctx.ident(name),
                 self.visit_generic_parameters(
                     generic_parameters
                         .into_iter()
@@ -141,7 +141,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         let u = ctx.definition(def_id).as_use().cloned().unwrap();
-        let mut path = vec![ctx.ident(u.kind.clone().into()).to_string()];
+        let mut path = vec![ctx.ident(u.kind).to_string()];
         let segments = u
             .segments
             .iter()
@@ -194,7 +194,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &IndexAccessNode {
             target: value,
             index,
-            span: ref _span,
+            location: ref _span,
         } = ctx.expression(expr_id).as_index_access().unwrap();
         Ok(format!(
             "{}[{}]",
@@ -211,7 +211,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &MemberAccessNode {
             target: value,
             field,
-            span: ref _span,
+            location: ref _span,
         } = ctx.expression(expr_id).as_member_access().unwrap();
         Ok(format!(
             "{}.{}",
@@ -242,7 +242,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     .join(", ")
             ),
             ValueNode::Struct(name, generic_parameters, field_values, _span) => {
-                let name = ctx.ident(name.clone());
+                let name = ctx.ident(name);
                 let generic_parameters = self.visit_generic_parameters(
                     generic_parameters
                         .iter()
@@ -276,7 +276,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             lhs,
             operator,
             rhs,
-            span: ref _span,
+            location: ref _span,
         } = ctx.expression(expr_id).as_binary().unwrap();
         Ok(format!(
             "{} {} {}",
@@ -294,7 +294,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &UnaryNode {
             operator,
             rhs,
-            span: ref _span,
+            location: ref _span,
         } = ctx.expression(expr_id).as_unary().unwrap();
         Ok(format!("{}{}", operator, self.visit_expr(rhs, ctx)?))
     }
@@ -308,7 +308,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             callee: variable,
             ref args,
             ref generic_parameters,
-            span: ref _span,
+            location: ref _span,
         } = ctx.expression(expr_id).as_call().unwrap();
         let generic_parameters = generic_parameters
             .iter()
@@ -367,7 +367,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &CastNode {
             value,
             ref target_type,
-            span: ref _span,
+            location: ref _span,
         } = ctx.expression(expr_id).as_cast().unwrap();
         // TODO: remove clone
         let target_type = target_type.clone();
@@ -386,7 +386,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &WhileNode {
             predicate,
             body,
-            span: ref _span,
+            location: ref _span,
         } = ctx.statement(stmt_id).as_while().unwrap();
         let s = format!("while {} ", self.visit_expr(predicate, ctx)?);
         let block = self.visit_block_expr(body, ctx)?;
@@ -403,7 +403,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             target,
             operator,
             value,
-            span: ref _span,
+            location: ref _span,
         } = ctx.statement(stmt_id).as_assignment().unwrap();
         let s = format!(
             "{} {} {};",
@@ -433,7 +433,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 ""
             },
             // TODO: remove to_owned
-            ctx.ident(ctx.statement(stmt_id).as_variable().unwrap().name)
+            ctx.ident(ctx.statement(stmt_id).as_variable().unwrap().name.id)
                 .to_owned(),
             self.visit_unchecked_type(
                 &ctx.statement(stmt_id).as_variable().unwrap().ty.clone(),
@@ -451,7 +451,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     ) -> Result<Self::StmtResult, Self::Error> {
         let ReturnNode {
             expr_id,
-            span: ref _span,
+            location: ref _span,
         } = ctx.statement(stmt_id).as_return().unwrap();
         let s = format!(
             "return{};",
@@ -473,7 +473,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             ty,
             body,
-            span: _span,
+            location: _span,
         } = ctx.definition(def_id).as_impl().unwrap();
         let generic_parameters = generic_parameters
             .iter()
@@ -511,7 +511,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             qualifier,
             visibility,
             attrs,
-            span: _span,
+            location: _span,
         } = ctx.definition(def_id).as_function().unwrap();
         for attr in attrs {
             if !attr.properties.is_empty() {
@@ -520,7 +520,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     ctx.ident(attr.name),
                     attr.properties
                         .iter()
-                        .map(|p| ctx.ident(p.clone()).to_string())
+                        .map(|p| ctx.ident(p).to_string())
                         .collect::<Vec<_>>()
                         .join(", ")
                 ));
@@ -548,7 +548,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             "{}{}fn {}{}({}){} ",
             if visibility.is_public() { "pub " } else { "" },
             if qualifier.is_extern { "extern " } else { "" },
-            ctx.ident(name.clone()),
+            ctx.ident(name),
             self.visit_generic_parameters(generic_parameters),
             parameters,
             if let Some(ref ret) = return_type {
@@ -576,7 +576,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             attrs,
             visibility,
-            span: _span,
+            location: _span,
         } = ctx.definition(def_id).as_struct().unwrap();
         for attr in attrs {
             if !attr.properties.is_empty() {
@@ -585,7 +585,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     ctx.ident(attr.name),
                     attr.properties
                         .iter()
-                        .map(|p| ctx.ident(p.clone()).to_string())
+                        .map(|p| ctx.ident(p).to_string())
                         .collect::<Vec<_>>()
                         .join(", ")
                 ));
@@ -596,7 +596,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         self.write_line(&format!(
             "{}struct {}{} {{",
             if visibility.is_public() { "pub " } else { "" },
-            &ctx.ident(name.clone()),
+            &ctx.ident(name),
             self.visit_generic_parameters(
                 generic_parameters
                     .iter()
@@ -609,7 +609,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             let s = format!(
                 "{}{}: {},",
                 if visibility.is_public() { "pub " } else { "" },
-                ctx.ident(field_name.clone()),
+                ctx.ident(field_name),
                 self.visit_unchecked_type(&field.ty, ctx)
             );
             self.write_line(&s);
@@ -629,12 +629,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             variants,
             visibility,
-            span: _span,
+            location: _span,
         } = ctx.definition(def_id).as_enum().unwrap();
         self.write_line(&format!(
             "{}enum {}{} {{",
             if visibility.is_public() { "pub " } else { "" },
-            &ctx.ident(name.clone()),
+            &ctx.ident(name),
             self.visit_generic_parameters(
                 generic_parameters
                     .iter()
@@ -646,7 +646,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         for variant in variants {
             match variant {
                 EnumVariant::Basic(ident_id) => {
-                    let s = format!("{},", ctx.ident(ident_id.clone()));
+                    let s = format!("{},", ctx.ident(ident_id));
                     self.write_line(&s);
                 }
                 EnumVariant::Tuple(ident_id, types) => {
@@ -655,16 +655,16 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                         .map(|x| self.visit_unchecked_type(x, ctx))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    let s = format!("{}({}),", ctx.ident(ident_id.clone()), types);
+                    let s = format!("{}({}),", ctx.ident(ident_id), types);
                     self.write_line(&s);
                 }
                 EnumVariant::Struct(ident_id, fields) => {
-                    self.write_line(&format!("{} {{", ctx.ident(ident_id.clone())));
+                    self.write_line(&format!("{} {{", ctx.ident(ident_id)));
                     self.indent();
                     for (field_name, field) in fields {
                         self.write_line(&format!(
                             "{}: {},",
-                            ctx.ident(field_name.clone()),
+                            ctx.ident(field_name),
                             self.visit_unchecked_type(&field.ty, ctx)
                         ));
                     }
@@ -688,12 +688,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             body,
             visibility,
-            span: _span,
+            location: _span,
         } = ctx.definition(def_id).as_trait().unwrap();
         self.write_line(&format!(
             "{}trait {}{} {{",
             if visibility.is_public() { "pub " } else { "" },
-            &ctx.ident(name.clone()),
+            &ctx.ident(name),
             self.visit_generic_parameters(
                 generic_parameters
                     .iter()
@@ -729,7 +729,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 } else {
                     ""
                 },
-                ctx.ident(func.name.clone()),
+                ctx.ident(func.name),
                 parameters,
                 if let Some(ref ret) = func.return_type {
                     format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
@@ -821,7 +821,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             IntrinsicStmtNode::Assert {
                 left,
                 message,
-                span: _span,
+                location: _span,
             } => {
                 let expr = self.visit_expr(left, ctx)?;
                 format!("assert({}, \"{}\")", expr, message.unwrap_or_default())
@@ -830,7 +830,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 left,
                 right,
                 message,
-                span: _span,
+                location: _span,
             } => {
                 let left = self.visit_expr(left, ctx)?;
                 let right = self.visit_expr(right, ctx)?;
@@ -932,7 +932,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             start,
             end,
             body,
-            span: ref _span,
+            location: ref _span,
         } = ctx.statement(node).as_for().unwrap();
         let s = format!(
             "for {} in {}..{} ",
@@ -953,7 +953,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let MatchNode {
             scrutinee,
             arms,
-            span: _span,
+            location: _span,
         } = ctx.expression(node).as_match().cloned().unwrap();
 
         let mut m = format!("match {} {{ ", self.visit_expr(scrutinee.clone(), ctx)?);
@@ -1025,7 +1025,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             trait_ty,
             ty,
             body,
-            span: _span,
+            location: _span,
         } = ctx.definition(def_id).as_impl_trait().unwrap();
         let generic_parameters = generic_parameters
             .iter()
@@ -1058,7 +1058,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let BlockExprNode {
             stmts,
             expr: return_expr,
-            span: _span,
+            location: _span,
         } = ctx.expression(node).as_block_expr().unwrap().clone();
 
         let mut block_expr_result = String::new();
