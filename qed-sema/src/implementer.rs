@@ -240,6 +240,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         let is_gen_var = ctx.symbols[gen_ty].is_type_variable();
         let is_constr_var = ctx.symbols[constr_ty].is_type_variable();
 
+        self.infcx.enter_scope();
         let satisfied = match (is_constr_var, is_gen_var) {
             (false, false) => self.unify(constr_ty, gen_ty, ctx),
 
@@ -254,7 +255,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                         if ctx.symbols[type_id].is_trait() {
                             return self.implements_trait(gen_ty, type_id, ctx);
                         }
-                        type_id == gen_ty
+                        self.unify(type_id, gen_ty, ctx)
                     })
             }
 
@@ -269,7 +270,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                         if ctx.symbols[type_id].is_trait() {
                             return self.implements_trait(constr_ty, type_id, ctx);
                         }
-                        type_id == constr_ty
+                        self.unify(type_id, constr_ty, ctx)
                     })
             }
 
@@ -293,6 +294,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                 }
             }
         };
+        self.infcx.exit_scope();
 
         satisfied
     }
