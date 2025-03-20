@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use qed_ast::{IdentId, NodeInfo, NodeType, Span, Visibility};
+use qed_ast::{IdentId, Location, NodeInfo, NodeType, Visibility};
 
 use crate::{CheckedStructField, ScopeId, TypeId};
 
@@ -17,7 +17,7 @@ pub struct CheckedEnumNode {
     pub variants: Vec<CheckedEnumVariant>,
     pub scope_id: ScopeId,
     pub visibility: Visibility,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for CheckedEnumNode {

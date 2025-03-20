@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, Span};
+use qed_ast::{ExprId, Location};
 
 use crate::{
     CheckedFunctionParameter, CheckedFunctionSignature, IdentId, NodeInfo, NodeType, ScopeId,
@@ -13,7 +13,7 @@ pub struct CheckedLambdaFunctionNode {
     pub return_type: TypeId,
     pub scope_id: ScopeId,
     pub type_id: TypeId,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl CheckedLambdaFunctionNode {

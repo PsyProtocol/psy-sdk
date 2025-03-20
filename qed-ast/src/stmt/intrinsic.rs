@@ -1,17 +1,17 @@
-use crate::{ExprId, NodeInfo, NodeType, Span};
+use crate::{ExprId, Location, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IntrinsicStmtNode {
     Assert {
         left: ExprId,
         message: Option<String>,
-        span: Span,
+        location: Location,
     },
     AssertEq {
         left: ExprId,
         right: ExprId,
         message: Option<String>,
-        span: Span,
+        location: Location,
     },
 }
 

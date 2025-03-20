@@ -1,56 +1,56 @@
-use crate::{ExprId, NodeInfo, NodeType, Span};
+use crate::{ExprId, Location, NodeInfo, NodeType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum IntrinsicExprNode {
     GetUserId {
-        span: Span,
+        location: Location,
     },
     GetContractId {
-        span: Span,
+        location: Location,
     },
     GetCheckpointId {
-        span: Span,
+        location: Location,
     },
     GetLastNonce {
-        span: Span,
+        location: Location,
     },
     GetUserPublicKeyHash {
-        span: Span,
+        location: Location,
     },
     GetStateHashAt {
         slot_index: ExprId,
-        span: Span,
+        location: Location,
     },
     GetOtherContractStateHashAt {
         contract_state_tree_height: ExprId,
         contract_id: ExprId,
         slot_index: ExprId,
-        span: Span,
+        location: Location,
     },
     GetOtherUserContractStateHashAt {
         contract_state_tree_height: ExprId,
         user_id: ExprId,
         contract_id: ExprId,
         slot_index: ExprId,
-        span: Span,
+        location: Location,
     },
     CSetStateHashAt {
         slot_index: ExprId,
         new_value: ExprId,
-        span: Span,
+        location: Location,
     },
     Read {
         offset: ExprId,
-        span: Span,
+        location: Location,
     },
     Write {
         offset: ExprId,
         value: ExprId,
-        span: Span,
+        location: Location,
     },
     Hash {
         data: ExprId,
-        span: Span,
+        location: Location,
     },
 }
 

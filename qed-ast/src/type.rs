@@ -1,14 +1,14 @@
 use enum_as_inner::EnumAsInner;
 
-use crate::{FunctionSignature, IdentId, Span};
+use crate::{FunctionSignature, IdentId, Location};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum UncheckedType {
-    Basic(IdentId, Span),                       // u8, T
-    Generic(IdentId, Vec<UncheckedType>, Span), // HashMap<K, V>
-    Array(Box<UncheckedType>, usize, Span),     // [u8; 10]
-    Tuple(Vec<UncheckedType>, Span),
-    FunctionSignature(Box<FunctionSignature>, Span),
+    Basic(IdentId, Location),                       // u8, T
+    Generic(IdentId, Vec<UncheckedType>, Location), // HashMap<K, V>
+    Array(Box<UncheckedType>, usize, Location),     // [u8; 10]
+    Tuple(Vec<UncheckedType>, Location),
+    FunctionSignature(Box<FunctionSignature>, Location),
     Unknown,
 }
 

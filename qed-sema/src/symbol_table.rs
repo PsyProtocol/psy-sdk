@@ -352,7 +352,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         let key: TypeKey = ty.name.into();
         if let Some(_) = self.find(None, vec![kind], |scope| scope.types.get(&key).cloned()) {
             return Err(Error::TypeAlreadyDefined {
-                span: ty.span,
+                location: ty.location,
                 type_name: ty.name,
             });
         }
@@ -497,7 +497,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
     pub fn set_value(&mut self, var_id: VarId, value: CheckedValueRef<F>) -> Result<()> {
         let scope_id = self[var_id].scope_id;
         let key = self[var_id].name;
-        let span = self[var_id].span;
+        let location = self[var_id].location;
 
         if self
             .frames
@@ -508,7 +508,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
             && (!self[var_id.clone()].qualifier.is_mutable)
         {
             return Err(Error::ImmutableVariable {
-                span: span,
+                location: location,
                 variable: key,
             });
         }

@@ -362,7 +362,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
             if !self.is_constant(predicate) {
                 return Err(Error::UncertainLoopCondition {
-                    loop_span: node.span,
+                    loop_span: node.location,
                 });
             }
 
@@ -389,7 +389,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         if !self.is_constant(start.to_value()) || !self.is_constant(end_f) {
             return Err(Error::UncertainLoopCondition {
-                loop_span: node.span,
+                loop_span: node.location,
             });
         }
 
@@ -444,7 +444,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 CheckedIntrinsicStmtNode::Assert {
                     left,
                     message,
-                    span: _span,
+                    location: _span,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     self.context.assert_true(
@@ -456,7 +456,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     left,
                     right,
                     message,
-                    span: _span,
+                    location: _span,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     let rhs_value = self.interpret_expr(program, right.clone(), ctx)?;
@@ -975,7 +975,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 BOOL_TYPE => {
                     if const_value > 1 {
                         return Err(Error::SemaError(qed_sema::Error::InvalidCast {
-                            span: cast_node.span,
+                            location: cast_node.location,
                             expected: "cast to bool".to_string(),
                             found: format!("value {} > 1", const_value),
                         }));
@@ -985,7 +985,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 U32_TYPE => {
                     if const_value > 0xffffffffu64 {
                         return Err(Error::SemaError(qed_sema::Error::InvalidCast {
-                            span: cast_node.span,
+                            location: cast_node.location,
                             expected: "cast to u32".to_string(),
                             found: format!("value {} > 0xffffffffu64", const_value),
                         }));
@@ -1314,7 +1314,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             } else {
                 if wildcard_case.is_some() {
                     return Err(Error::SemaError(SemaError::DuplicateWildcard {
-                        span: arm.span,
+                        location: arm.location,
                     }));
                 }
                 wildcard_case = Some(arm);
@@ -1335,7 +1335,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             let white_list = vec![BOOL_TYPE];
             if !white_list.contains(&scrutinee_type) {
                 return Err(Error::SemaError(SemaError::IncompleteMatch {
-                    span: match_node.span,
+                    location: match_node.location,
                     message: "need a \"_\" for match".to_string(),
                 }));
             }

@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 
 use crate::{
-    GenericParameter, IdentId, NodeInfo, NodeType, Span, StructField, UncheckedType, Visibility,
+    GenericParameter, IdentId, Location, NodeInfo, NodeType, StructField, UncheckedType, Visibility,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -17,7 +17,7 @@ pub struct EnumNode {
     pub generic_parameters: Vec<GenericParameter>,
     pub variants: Vec<EnumVariant>,
     pub visibility: Visibility,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for EnumNode {

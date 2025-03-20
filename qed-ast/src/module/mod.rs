@@ -1,6 +1,6 @@
 use qed_common::{define_arena_id, Arena, FileId};
 
-use crate::{DefId, DefinitionNode, IdentId, NodeInfo, NodeType, Span, Visibility};
+use crate::{DefId, DefinitionNode, IdentId, Location, NodeInfo, NodeType, Visibility};
 
 define_arena_id!(ModuleId);
 
@@ -21,7 +21,7 @@ pub struct UseNode {
     pub kind: IdentId,
     pub segments: Vec<IdentId>,
     pub target: Option<IdentId>,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for UseNode {
@@ -34,7 +34,7 @@ impl NodeInfo for UseNode {
 pub struct ModuleNode {
     pub name: IdentId,
     pub file_id: FileId,
-    pub modules: Vec<(IdentId, Visibility, Span)>,
+    pub modules: Vec<(IdentId, Visibility, Location)>,
     pub inline_modules: Vec<ModuleNode>,
     pub definitions: Vec<DefId>,
     pub visibility: Visibility,
@@ -44,7 +44,7 @@ pub struct ModuleNode {
     pub is_self_prelude: bool,
     pub is_self_primitive: bool,
 
-    pub span: Span,
+    pub location: Location,
 }
 
 impl ModuleNode {
@@ -56,7 +56,7 @@ impl ModuleNode {
         is_std: bool,
         is_self_std: bool,
         def_nodes: &mut Arena<DefId, DefinitionNode>,
-        span: Span,
+        location: Location,
     ) -> Self {
         let mut inline_modules = vec![];
         let mut modules = vec![];
@@ -75,7 +75,11 @@ impl ModuleNode {
                 if !is_std {
                     modules.insert(
                         0,
-                        (IdentId::STD, Visibility::Private, Span::new(file_id, 0, 0)),
+                        (
+                            IdentId::STD,
+                            Visibility::Private,
+                            Location::new(file_id, 0, 0),
+                        ),
                     );
                 }
                 modules
@@ -88,7 +92,7 @@ impl ModuleNode {
                         kind: IdentId::STD,
                         segments: vec![IdentId::PRELUDE],
                         target: None,
-                        span: Span::new(file_id, 0, 0),
+                        location: Location::new(file_id, 0, 0),
                     }));
 
                     definitions.insert(0, def_id);
@@ -100,7 +104,7 @@ impl ModuleNode {
             is_self_std,
             is_self_prelude: name == IdentId::PRELUDE,
             is_self_primitive: name == IdentId::PRIMITIVE,
-            span,
+            location,
         };
         module
     }
@@ -108,7 +112,7 @@ impl ModuleNode {
 
 #[derive(Clone, Debug)]
 pub enum ModuleItemNode {
-    ModuleDecl((IdentId, Visibility, Span)),
+    ModuleDecl((IdentId, Visibility, Location)),
     InlineModule(ModuleNode),
     Definition(DefId),
 }

@@ -1,17 +1,17 @@
-use qed_ast::{ExprId, NodeInfo, NodeType, Span};
+use qed_ast::{ExprId, Location, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CheckedIntrinsicStmtNode {
     Assert {
         left: ExprId,
         message: Option<String>,
-        span: Span,
+        location: Location,
     },
     AssertEq {
         left: ExprId,
         right: ExprId,
         message: Option<String>,
-        span: Span,
+        location: Location,
     },
 }
 

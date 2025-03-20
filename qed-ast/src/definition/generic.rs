@@ -1,18 +1,18 @@
-use crate::{IdentId, Span, UncheckedType};
+use crate::{IdentId, Location, UncheckedType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GenericParameter {
     pub name: IdentId,
     pub constraints: Vec<UncheckedType>,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl GenericParameter {
-    pub fn new(name: IdentId, constraints: Vec<UncheckedType>, span: Span) -> Self {
+    pub fn new(name: IdentId, constraints: Vec<UncheckedType>, location: Location) -> Self {
         Self {
             name,
             constraints,
-            span,
+            location,
         }
     }
 }

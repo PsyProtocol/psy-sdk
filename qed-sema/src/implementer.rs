@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::anyhow;
-use qed_ast::{DefId, IdentId, ImplTraitNode, Span, VisitorContext};
+use qed_ast::{DefId, IdentId, ImplTraitNode, Location, VisitorContext};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{

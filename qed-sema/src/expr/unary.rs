@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, NodeInfo, NodeType, Span, UnaryOperator};
+use qed_ast::{ExprId, Location, NodeInfo, NodeType, UnaryOperator};
 
 use crate::TypeId;
 
@@ -7,7 +7,7 @@ pub struct CheckedUnaryNode {
     pub operator: UnaryOperator,
     pub rhs: ExprId,
     pub type_id: TypeId,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for CheckedUnaryNode {

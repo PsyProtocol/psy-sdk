@@ -1,5 +1,5 @@
 use ariadne::{ColorGenerator, Label, Report, ReportKind};
-use qed_ast::{IdentId, Span};
+use qed_ast::{IdentId, Location};
 use thiserror::Error;
 
 use crate::TypeId;
@@ -12,119 +12,149 @@ pub enum Error {
     CommonError(#[from] qed_common::Error),
     #[error("type mismatch")]
     TypeMismatch {
-        span: Span,
+        location: Location,
         expected: Vec<TypeId>,
         found: TypeId,
     },
     #[error("unresolved path")]
-    UnresolvedPath { span: Span, resolved_path: String },
+    UnresolvedPath {
+        location: Location,
+        resolved_path: String,
+    },
     #[error("invalid path segment")]
-    InvalidPathSegment { span: Span, segment: IdentId },
+    InvalidPathSegment {
+        location: Location,
+        segment: IdentId,
+    },
     #[error("unresolved value")]
     UnresolvedVariable {
-        span: Span,
+        location: Location,
         resolved_variable: IdentId,
     },
     #[error("unresolved type")]
-    UnresolvedType { span: Span, resolved_type: IdentId },
+    UnresolvedType {
+        location: Location,
+        resolved_type: IdentId,
+    },
     #[error("variable already defined")]
-    VariableAlreadyDefined { span: Span, variable: IdentId },
+    VariableAlreadyDefined {
+        location: Location,
+        variable: IdentId,
+    },
     #[error("undefined variable")]
-    UndefinedVariable { span: Span, variable: IdentId },
+    UndefinedVariable {
+        location: Location,
+        variable: IdentId,
+    },
     #[error("immutable variable")]
-    ImmutableVariable { span: Span, variable: IdentId },
+    ImmutableVariable {
+        location: Location,
+        variable: IdentId,
+    },
     #[error("unresolved member")]
-    UnresolvedMember { span: Span, member_name: IdentId },
+    UnresolvedMember {
+        location: Location,
+        member_name: IdentId,
+    },
     #[error("unresolved trait method")]
     UnresolvedTraitMethod {
-        method_span: Span,
+        method_span: Location,
         method_name: IdentId,
         trait_name: IdentId,
     },
     #[error("function parameter mismatch")]
     FunctionParameterMismatch {
-        span: Span,
+        location: Location,
         expected: TypeId,
         found: TypeId,
     },
     #[error("generic parameter mismatch")]
     GenericParameterMismatch {
-        span: Span,
+        location: Location,
         expected: String,
         found: String,
     },
     #[error("invalid function call")]
     InvalidFunctionCall {
-        span: Span,
+        location: Location,
         method_name: TypeId,
         expected: String,
         found: String,
     },
     #[error("invalid return")]
-    InvalidReturn { span: Span, message: String },
+    InvalidReturn { location: Location, message: String },
     #[error("unreachable expression")]
-    UnreachableExpression { span: Span },
+    UnreachableExpression { location: Location },
     #[error("invalid self parameter")]
-    InvalidSelfParameter { span: Span, message: IdentId },
+    InvalidSelfParameter {
+        location: Location,
+        message: IdentId,
+    },
     #[error("type already defined")]
-    TypeAlreadyDefined { span: Span, type_name: IdentId },
+    TypeAlreadyDefined {
+        location: Location,
+        type_name: IdentId,
+    },
     #[error("member not public")]
     MemberNotPublic {
-        span: Span,
+        location: Location,
         ty: TypeId,
         field: IdentId,
     },
     #[error("module not public")]
-    ModuleNotPublic { span: Span, module: IdentId },
+    ModuleNotPublic { location: Location, module: IdentId },
     #[error("type not public")]
-    TypeNotPublic { span: Span, ty: TypeId },
+    TypeNotPublic { location: Location, ty: TypeId },
     #[error("trait already implemented")]
     TraitAlreadyImplemented {
-        span: Span,
+        location: Location,
         trait_ty: TypeId,
         ty: TypeId,
     },
     #[error("trait method unimplemented")]
     TraitMethodUnimplemented {
-        span: Span,
+        location: Location,
         trait_ty: TypeId,
         ty: TypeId,
         method: IdentId,
     },
     #[error("Method has no body")]
     MethodHasNoBody {
-        span: Span,
+        location: Location,
         ty: TypeId,
         method: IdentId,
     },
     #[error("Function has no body")]
-    FunctionHasNoBody { span: Span, function: IdentId },
+    FunctionHasNoBody {
+        location: Location,
+        function: IdentId,
+    },
     #[error("DuplicatedMethod")]
     DuplicatedMethod {
-        span: Span,
+        location: Location,
         ty: TypeId,
         method: IdentId,
     },
     #[error("index out of bounds")]
     IndexOutOfBounds {
-        span: Span,
+        location: Location,
         index: usize,
         length: usize,
     },
     #[error("invalid cast")]
     InvalidCast {
-        span: Span,
+        location: Location,
         expected: String,
         found: String,
     },
     #[error("no parent module")]
-    NoParentModule { span: Span },
+    NoParentModule { location: Location },
     #[error("module not found")]
-    ModuleNotFound { span: Span, module: IdentId },
+    ModuleNotFound { location: Location, module: IdentId },
     #[error("unreachable code")]
-    DuplicateWildcard { span: Span },
+    DuplicateWildcard { location: Location },
     #[error("Incomplete Match")]
-    IncompleteMatch { span: Span, message: String },
+    IncompleteMatch { location: Location, message: String },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

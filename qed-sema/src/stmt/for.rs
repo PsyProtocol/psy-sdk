@@ -1,4 +1,4 @@
-use qed_ast::Span;
+use qed_ast::Location;
 
 use crate::{ExprId, IdentId, NodeInfo, NodeType, ScopeId};
 
@@ -9,7 +9,7 @@ pub struct CheckedForNode {
     pub end: ExprId,
     pub body: ExprId,
     pub scope_id: ScopeId,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for CheckedForNode {

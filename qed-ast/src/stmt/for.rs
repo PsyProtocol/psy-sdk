@@ -1,4 +1,4 @@
-use crate::{ExprId, IdentId, NodeInfo, NodeType, Span};
+use crate::{ExprId, IdentId, Location, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ForNode {
@@ -6,7 +6,7 @@ pub struct ForNode {
     pub start: ExprId,
     pub end: ExprId,
     pub body: ExprId,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for ForNode {
