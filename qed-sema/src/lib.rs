@@ -1655,7 +1655,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             None => {
                 if let Some(CheckedReturnNode {
                     ret: Some(ret),
-                    location: _span,
+                    location: _location,
                 }) = checked_stmts.last().and_then(|x| x.as_return())
                 {
                     (self.program.exprs[ret.clone()].ty(), None)
@@ -1828,7 +1828,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         for (_idx, arm) in match_node.arms.iter().enumerate() {
             let checked_pattern = match &arm.pattern {
-                MatchPattern::Value(pattern_expr, _pattern_span) => {
+                MatchPattern::Value(pattern_expr, _pattern_location) => {
                     let checked_pattern_expr = self.visit_expr(*pattern_expr, ctx)?;
                     let pattern_type = checked_pattern_expr.ty();
 
@@ -2021,7 +2021,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         && trait_function.name == method.name
                 })
                 .ok_or(Error::UnresolvedTraitMethod {
-                    method_span: method.location,
+                    method_location: method.location,
                     trait_name: trait_node.name.id,
                     method_name: method.name.id,
                 })?;

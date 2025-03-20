@@ -4,12 +4,14 @@ use qedlang_core::dpn::ops::context_trait::ContextFelt;
 use crate::{
     CheckedDefinitionNode, CheckedExprNode, CheckedIntrinsicExprNode, CheckedIntrinsicStmtNode,
     CheckedStmtNode, CheckedValueNode, Inferer, Result, TypeChecker, TypeCheckerVisitorContext,
+    TypeId,
 };
 
 pub trait Rewriter<F: Clone + From<u32> + ContextFelt, C> {
     fn instantiate_impl(
         &mut self,
         impl_id: DefId,
+        generic_parameters: Vec<TypeId>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId>;
     fn instantiate_function(
@@ -33,6 +35,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
     fn instantiate_impl(
         &mut self,
         impl_id: DefId,
+        generic_parameters: Vec<TypeId>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId> {
         let mut checked_impl = self.program[impl_id].as_impl().cloned().unwrap();
@@ -99,7 +102,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                 checked_variable_node.value =
                     self.rewrite_expr(checked_variable_node.value, ctx)?;
             }
-            CheckedStmtNode::Definition(def_id) => unreachable!(),
+            CheckedStmtNode::Definition(def_id) => {}
             CheckedStmtNode::Expression(expr_id) => {
                 *expr_id = self.rewrite_expr(*expr_id, ctx)?;
             }
@@ -324,7 +327,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     }
                 }
             }
-            CheckedExprNode::LambdaFunction(ref mut checked_lambda_function_node) => todo!(),
+            CheckedExprNode::LambdaFunction(ref mut checked_lambda_function_node) => {}
             CheckedExprNode::BlockExpr(ref mut checked_block_expr_node) => {
                 checked_block_expr_node.type_id =
                     self.substitute_all(checked_block_expr_node.type_id, ctx)?;

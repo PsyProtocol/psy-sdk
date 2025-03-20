@@ -57,7 +57,7 @@ pub enum Error {
     },
     #[error("unresolved trait method")]
     UnresolvedTraitMethod {
-        method_span: Location,
+        method_location: Location,
         method_name: IdentId,
         trait_name: IdentId,
     },

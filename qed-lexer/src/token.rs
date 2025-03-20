@@ -279,9 +279,9 @@ mod tests {
 
         // 4. recursive Lexer output Token
         while let Some(token) = lexer.next() {
-            let location = lexer.span();
-            let start = location.start;
-            let end = location.end;
+            let span = lexer.span();
+            let start = span.start;
+            let end = span.end;
 
             println!(
                 "{:<10} | {:<20} | {:<10}",

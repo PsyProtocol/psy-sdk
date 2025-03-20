@@ -54,7 +54,7 @@ impl<F: Clone + From<u32>> Program<F> {
         }
     }
 
-    pub fn convert_span(&self, location: &Location) -> FileLocation {
+    pub fn convert_location(&self, location: &Location) -> FileLocation {
         let path = self
             .file_resolver
             .resolve_path(&location.file_id)

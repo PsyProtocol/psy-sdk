@@ -141,7 +141,7 @@ ImplDef: ImplNode = {
                         panic!(
                             "{:?}",
                             LalrpopError::User {
-                                error: SyntacticError::FunctionBodyMissing 
+                                error: SyntacticError::FunctionBodyMissing
                             }
                         );
                     }
@@ -181,7 +181,7 @@ ImplTraitDef: ImplTraitNode = {
                         panic!(
                             "{:?}",
                             LalrpopError::User {
-                                error: SyntacticError::FunctionBodyMissing 
+                                error: SyntacticError::FunctionBodyMissing
                             }
                         );
                     }

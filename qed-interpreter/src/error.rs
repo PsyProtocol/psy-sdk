@@ -18,7 +18,7 @@ pub enum Error {
     #[error("undefined function")]
     UndefinedFunction,
     #[error("uncertain loop condition")]
-    UncertainLoopCondition { loop_span: Location },
+    UncertainLoopCondition { loop_location: Location },
     // #[error("index out of bounds")]
     // IndexOutOfBounds,
     // #[error("type mismatch")]
@@ -33,10 +33,10 @@ fn build_report<F: Clone + From<u32> + ContextFelt, C>(
     message: impl fmt::Display,
     ctx: &TypeCheckerVisitorContext<F, C>,
 ) -> Result<String> {
-    let file_span = ctx.program.convert_span(&location);
-    let report = Report::build(ReportKind::Error, file_span.clone())
+    let file_location = ctx.program.convert_location(&location);
+    let report = Report::build(ReportKind::Error, file_location.clone())
         .with_code(code)
-        .with_label(Label::new(file_span).with_message(message))
+        .with_label(Label::new(file_location).with_message(message))
         .finish();
 
     let mut output = Vec::new();
@@ -244,11 +244,11 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::UnresolvedTraitMethod {
-                method_span,
+                method_location,
                 method_name,
                 trait_name,
             } => build_report(
-                method_span,
+                method_location,
                 "UnresolvedTraitMethod",
                 format!(
                     "Unresolved trait method {} in trait {}.",
@@ -408,8 +408,8 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
         },
         Error::UndefinedFunction => format!("{}", error),
-        Error::UncertainLoopCondition { loop_span } => build_report(
-            loop_span,
+        Error::UncertainLoopCondition { loop_location } => build_report(
+            loop_location,
             "UncertainLoopCondition",
             "Uncertain Loop Condition",
             ctx,

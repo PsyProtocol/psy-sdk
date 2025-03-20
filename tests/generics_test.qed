@@ -25,7 +25,7 @@ impl<T: Hello> Box<T> {
 }
 
 fn main() -> Felt {
-    let mut b: Box<Felt> = Box::new(42);
+    let mut b: Box<Felt> = <Box<Felt>>::new(42);
     b.data += 1;
     b.data
 }

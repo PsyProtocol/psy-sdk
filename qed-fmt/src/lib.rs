@@ -194,7 +194,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &IndexAccessNode {
             target: value,
             index,
-            location: ref _span,
+            location: ref _location,
         } = ctx.expression(expr_id).as_index_access().unwrap();
         Ok(format!(
             "{}[{}]",
@@ -211,7 +211,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &MemberAccessNode {
             target: value,
             field,
-            location: ref _span,
+            location: ref _location,
         } = ctx.expression(expr_id).as_member_access().unwrap();
         Ok(format!(
             "{}.{}",
@@ -241,7 +241,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     .collect::<Result<Vec<_>, Self::Error>>()?
                     .join(", ")
             ),
-            ValueNode::Struct(name, generic_parameters, field_values, _span) => {
+            ValueNode::Struct(name, generic_parameters, field_values, _location) => {
                 let name = ctx.ident(name);
                 let generic_parameters = self.visit_generic_parameters(
                     generic_parameters
@@ -276,7 +276,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             lhs,
             operator,
             rhs,
-            location: ref _span,
+            location: ref _location,
         } = ctx.expression(expr_id).as_binary().unwrap();
         Ok(format!(
             "{} {} {}",
@@ -294,7 +294,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &UnaryNode {
             operator,
             rhs,
-            location: ref _span,
+            location: ref _location,
         } = ctx.expression(expr_id).as_unary().unwrap();
         Ok(format!("{}{}", operator, self.visit_expr(rhs, ctx)?))
     }
@@ -308,7 +308,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             callee: variable,
             ref args,
             ref generic_parameters,
-            location: ref _span,
+            location: ref _location,
         } = ctx.expression(expr_id).as_call().unwrap();
         let generic_parameters = generic_parameters
             .iter()
@@ -367,7 +367,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &CastNode {
             value,
             ref target_type,
-            location: ref _span,
+            location: ref _location,
         } = ctx.expression(expr_id).as_cast().unwrap();
         // TODO: remove clone
         let target_type = target_type.clone();
@@ -386,7 +386,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &WhileNode {
             predicate,
             body,
-            location: ref _span,
+            location: ref _location,
         } = ctx.statement(stmt_id).as_while().unwrap();
         let s = format!("while {} ", self.visit_expr(predicate, ctx)?);
         let block = self.visit_block_expr(body, ctx)?;
@@ -403,7 +403,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             target,
             operator,
             value,
-            location: ref _span,
+            location: ref _location,
         } = ctx.statement(stmt_id).as_assignment().unwrap();
         let s = format!(
             "{} {} {};",
@@ -451,7 +451,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     ) -> Result<Self::StmtResult, Self::Error> {
         let ReturnNode {
             expr_id,
-            location: ref _span,
+            location: ref _location,
         } = ctx.statement(stmt_id).as_return().unwrap();
         let s = format!(
             "return{};",
@@ -473,7 +473,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             ty,
             body,
-            location: _span,
+            location: _location,
         } = ctx.definition(def_id).as_impl().unwrap();
         let generic_parameters = generic_parameters
             .iter()
@@ -511,7 +511,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             qualifier,
             visibility,
             attrs,
-            location: _span,
+            location: _location,
         } = ctx.definition(def_id).as_function().unwrap();
         for attr in attrs {
             if !attr.properties.is_empty() {
@@ -576,7 +576,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             attrs,
             visibility,
-            location: _span,
+            location: _location,
         } = ctx.definition(def_id).as_struct().unwrap();
         for attr in attrs {
             if !attr.properties.is_empty() {
@@ -629,7 +629,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             variants,
             visibility,
-            location: _span,
+            location: _location,
         } = ctx.definition(def_id).as_enum().unwrap();
         self.write_line(&format!(
             "{}enum {}{} {{",
@@ -688,7 +688,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             body,
             visibility,
-            location: _span,
+            location: _location,
         } = ctx.definition(def_id).as_trait().unwrap();
         self.write_line(&format!(
             "{}trait {}{} {{",
@@ -821,7 +821,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             IntrinsicStmtNode::Assert {
                 left,
                 message,
-                location: _span,
+                location: _location,
             } => {
                 let expr = self.visit_expr(left, ctx)?;
                 format!("assert({}, \"{}\")", expr, message.unwrap_or_default())
@@ -830,7 +830,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 left,
                 right,
                 message,
-                location: _span,
+                location: _location,
             } => {
                 let left = self.visit_expr(left, ctx)?;
                 let right = self.visit_expr(right, ctx)?;
@@ -932,7 +932,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             start,
             end,
             body,
-            location: ref _span,
+            location: ref _location,
         } = ctx.statement(node).as_for().unwrap();
         let s = format!(
             "for {} in {}..{} ",
@@ -953,7 +953,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let MatchNode {
             scrutinee,
             arms,
-            location: _span,
+            location: _location,
         } = ctx.expression(node).as_match().cloned().unwrap();
 
         let mut m = format!("match {} {{ ", self.visit_expr(scrutinee.clone(), ctx)?);
@@ -1025,7 +1025,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             trait_ty,
             ty,
             body,
-            location: _span,
+            location: _location,
         } = ctx.definition(def_id).as_impl_trait().unwrap();
         let generic_parameters = generic_parameters
             .iter()
@@ -1058,7 +1058,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let BlockExprNode {
             stmts,
             expr: return_expr,
-            location: _span,
+            location: _location,
         } = ctx.expression(node).as_block_expr().unwrap().clone();
 
         let mut block_expr_result = String::new();
