@@ -36,6 +36,18 @@ impl Hash for Identifier {
     }
 }
 
+impl From<Identifier> for IdentId {
+    fn from(id: Identifier) -> Self {
+        id.id
+    }
+}
+
+impl From<&Identifier> for IdentId {
+    fn from(id: &Identifier) -> Self {
+        id.id
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Ident(pub SmolStr);
 

@@ -583,7 +583,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     return Err(anyhow!(format!(
                         "Expected {} fields for Struct {} but found {} fields",
                         fields.len(),
-                        ctx.ident(name.id),
+                        ctx.ident(name),
                         data.len()
                     ))
                     .into());

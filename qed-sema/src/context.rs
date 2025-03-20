@@ -80,8 +80,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> VisitorContext<F, C>
         }
     }
 
-    fn ident(&self, id: IdentId) -> &Ident {
-        &self.program.interner[id]
+    fn ident(&self, id: impl Into<IdentId>) -> &Ident {
+        &self.program.interner[id.into()]
     }
 
     fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId {

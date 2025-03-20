@@ -108,7 +108,7 @@ pub trait VisitorContext<F: Clone + From<u32>, C> {
     fn pop_node_id(&mut self);
     fn node_type(&self) -> NodeType;
     fn ancestor_node_type(&self, offset_from_top: usize) -> NodeType;
-    fn ident(&self, id: IdentId) -> &Ident;
+    fn ident(&self, id: impl Into<IdentId>) -> &Ident;
     fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId;
     fn module(&self, module_id: ModuleId) -> &ModuleNode;
     fn program(&self) -> &Self::Program;
@@ -188,8 +188,8 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
         }
     }
 
-    fn ident(&self, id: IdentId) -> &Ident {
-        &self.program.interner[id]
+    fn ident(&self, id: impl Into<IdentId>) -> &Ident {
+        &self.program.interner[id.into()]
     }
 
     fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId {

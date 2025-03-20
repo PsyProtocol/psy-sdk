@@ -68,10 +68,10 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         ctx: &impl VisitorContext<F, C>,
     ) -> String {
         match node {
-            UncheckedType::Basic(name, _) => ctx.ident(name.id).to_string(),
+            UncheckedType::Basic(name, _) => ctx.ident(name).to_string(),
             UncheckedType::Generic(name, generic_parameters, _) => format!(
                 "{}{}",
-                &ctx.ident(name.id),
+                &ctx.ident(name),
                 self.visit_generic_parameters(
                     generic_parameters
                         .into_iter()
@@ -141,16 +141,16 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         let u = ctx.definition(def_id).as_use().cloned().unwrap();
-        let mut path = vec![ctx.ident(u.kind.id.into()).to_string()];
+        let mut path = vec![ctx.ident(u.kind).to_string()];
         let segments = u
             .segments
             .iter()
-            .map(|&s| ctx.ident(s.id).to_string())
+            .map(|&s| ctx.ident(s).to_string())
             .collect::<Vec<_>>();
         path.extend(segments);
         let target = u
             .target
-            .map(|t| ctx.ident(t.id).to_string())
+            .map(|t| ctx.ident(t).to_string())
             .unwrap_or("*".to_string());
 
         self.write_line(&format!(
@@ -178,10 +178,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             &node
                 .segments
                 .iter()
-                .map(|&s| ctx.ident(s.id).to_string())
+                .map(|&s| ctx.ident(s).to_string())
                 .collect::<Vec<String>>(),
         );
-        path.extend_from_slice(&vec![ctx.ident(node.target.id).to_string()]);
+        path.extend_from_slice(&vec![ctx.ident(node.target).to_string()]);
 
         Ok(format!("{}", path.join("::")))
     }
@@ -216,7 +216,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(format!(
             "{}.{}",
             self.visit_expr(value, ctx)?,
-            ctx.ident(field.id)
+            ctx.ident(field)
         ))
     }
 
@@ -242,7 +242,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     .join(", ")
             ),
             ValueNode::Struct(name, generic_parameters, field_values, _span) => {
-                let name = ctx.ident(name.id);
+                let name = ctx.ident(name);
                 let generic_parameters = self.visit_generic_parameters(
                     generic_parameters
                         .iter()
@@ -255,7 +255,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     result.push_str(&self.read_indent(1));
                     result.push_str(&format!(
                         "{}: {},\n",
-                        ctx.ident(field.id).to_owned(),
+                        ctx.ident(field).to_owned(),
                         self.visit_expr(value, ctx)?
                     ));
                 }
@@ -517,15 +517,15 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             if !attr.properties.is_empty() {
                 self.write_line(&format!(
                     "#[{}({})]",
-                    ctx.ident(attr.name.id),
+                    ctx.ident(attr.name),
                     attr.properties
                         .iter()
-                        .map(|p| ctx.ident(p.id).to_string())
+                        .map(|p| ctx.ident(p).to_string())
                         .collect::<Vec<_>>()
                         .join(", ")
                 ));
             } else {
-                self.write_line(&format!("#[{}]", ctx.ident(attr.name.id),));
+                self.write_line(&format!("#[{}]", ctx.ident(attr.name),));
             }
         }
         let parameters = parameters
@@ -534,7 +534,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 format!(
                     "{}{}: {}",
                     if p.qualifier.is_mutable { "mut " } else { "" },
-                    &ctx.ident(p.name.id),
+                    &ctx.ident(p.name),
                     self.visit_unchecked_type(&p.ty, ctx)
                 )
             })
@@ -548,7 +548,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             "{}{}fn {}{}({}){} ",
             if visibility.is_public() { "pub " } else { "" },
             if qualifier.is_extern { "extern " } else { "" },
-            ctx.ident(name.id),
+            ctx.ident(name),
             self.visit_generic_parameters(generic_parameters),
             parameters,
             if let Some(ref ret) = return_type {
@@ -582,21 +582,21 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             if !attr.properties.is_empty() {
                 self.write_line(&format!(
                     "#[{}({})]",
-                    ctx.ident(attr.name.id),
+                    ctx.ident(attr.name),
                     attr.properties
                         .iter()
-                        .map(|p| ctx.ident(p.id).to_string())
+                        .map(|p| ctx.ident(p).to_string())
                         .collect::<Vec<_>>()
                         .join(", ")
                 ));
             } else {
-                self.write_line(&format!("#[{}]", ctx.ident(attr.name.id),));
+                self.write_line(&format!("#[{}]", ctx.ident(attr.name),));
             }
         }
         self.write_line(&format!(
             "{}struct {}{} {{",
             if visibility.is_public() { "pub " } else { "" },
-            &ctx.ident(name.id),
+            &ctx.ident(name),
             self.visit_generic_parameters(
                 generic_parameters
                     .iter()
@@ -609,7 +609,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             let s = format!(
                 "{}{}: {},",
                 if visibility.is_public() { "pub " } else { "" },
-                ctx.ident(field_name.id),
+                ctx.ident(field_name),
                 self.visit_unchecked_type(&field.ty, ctx)
             );
             self.write_line(&s);
@@ -634,7 +634,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         self.write_line(&format!(
             "{}enum {}{} {{",
             if visibility.is_public() { "pub " } else { "" },
-            &ctx.ident(name.id),
+            &ctx.ident(name),
             self.visit_generic_parameters(
                 generic_parameters
                     .iter()
@@ -646,7 +646,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         for variant in variants {
             match variant {
                 EnumVariant::Basic(ident_id) => {
-                    let s = format!("{},", ctx.ident(ident_id.id));
+                    let s = format!("{},", ctx.ident(ident_id));
                     self.write_line(&s);
                 }
                 EnumVariant::Tuple(ident_id, types) => {
@@ -655,16 +655,16 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                         .map(|x| self.visit_unchecked_type(x, ctx))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    let s = format!("{}({}),", ctx.ident(ident_id.id), types);
+                    let s = format!("{}({}),", ctx.ident(ident_id), types);
                     self.write_line(&s);
                 }
                 EnumVariant::Struct(ident_id, fields) => {
-                    self.write_line(&format!("{} {{", ctx.ident(ident_id.id)));
+                    self.write_line(&format!("{} {{", ctx.ident(ident_id)));
                     self.indent();
                     for (field_name, field) in fields {
                         self.write_line(&format!(
                             "{}: {},",
-                            ctx.ident(field_name.id),
+                            ctx.ident(field_name),
                             self.visit_unchecked_type(&field.ty, ctx)
                         ));
                     }
@@ -693,7 +693,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         self.write_line(&format!(
             "{}trait {}{} {{",
             if visibility.is_public() { "pub " } else { "" },
-            &ctx.ident(name.id),
+            &ctx.ident(name),
             self.visit_generic_parameters(
                 generic_parameters
                     .iter()
@@ -711,7 +711,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     format!(
                         "{}{}: {}",
                         if p.qualifier.is_mutable { "mut " } else { "" },
-                        &ctx.ident(p.name.id),
+                        &ctx.ident(p.name),
                         self.visit_unchecked_type(&p.ty, ctx)
                     )
                 })
@@ -729,7 +729,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 } else {
                     ""
                 },
-                ctx.ident(func.name.id),
+                ctx.ident(func.name),
                 parameters,
                 if let Some(ref ret) = func.return_type {
                     format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
@@ -895,7 +895,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let node = ctx.definition(node).as_type_alias().cloned().unwrap();
         self.write_line(&format!(
             "type {} = {};",
-            ctx.ident(node.name.id),
+            ctx.ident(node.name),
             self.visit_unchecked_type(&node.ty, ctx)
         ));
         Ok(Default::default())
@@ -915,7 +915,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             } else {
                 ""
             },
-            ctx.ident(node.name.id),
+            ctx.ident(node.name),
             self.visit_unchecked_type(&node.ty, ctx),
             value
         ));
@@ -936,7 +936,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         } = ctx.statement(node).as_for().unwrap();
         let s = format!(
             "for {} in {}..{} ",
-            ctx.ident(variable.id).to_string(),
+            ctx.ident(variable).to_string(),
             self.visit_expr(start, ctx)?,
             self.visit_expr(end, ctx)?
         );
@@ -994,7 +994,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 format!(
                     "{}{}: {}",
                     if p.qualifier.is_mutable { "mut " } else { "" },
-                    &ctx.ident(p.name.id),
+                    &ctx.ident(p.name),
                     self.visit_unchecked_type(&p.ty, ctx)
                 )
             })
