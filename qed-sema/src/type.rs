@@ -279,6 +279,9 @@ impl Type {
 
     pub fn name(&self) -> IdentId {
         match self {
+            Type::Felt => IdentId::TYPE_FELT,
+            Type::Bool => IdentId::TYPE_BOOL,
+            Type::U32 => IdentId::TYPE_U32,
             Type::Struct(CheckedStructNode { name, .. }) => *name,
             Type::Enum(CheckedEnumNode { name, .. }) => *name,
             Type::Function(CheckedFunctionNode { name, .. }) => *name,
