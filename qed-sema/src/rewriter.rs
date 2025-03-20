@@ -1,29 +1,363 @@
 use qed_ast::{DefId, ExprId, StmtId};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
-use crate::TypeChecker;
+use crate::{
+    CheckedDefinitionNode, CheckedExprNode, CheckedIntrinsicExprNode, CheckedIntrinsicStmtNode,
+    CheckedStmtNode, CheckedValueNode, Inferer, Result, TypeChecker, TypeCheckerVisitorContext,
+};
 
-pub trait Rewriter {
-    fn instantiate_impl(&self, impl_id: DefId) -> DefId;
-    fn instantiate_function(&self, function_id: DefId) -> DefId;
-    fn rewrite_stmt(&self, stmt_id: StmtId) -> StmtId;
-    fn rewrite_expr(&self, expr_id: ExprId) -> ExprId;
+pub trait Rewriter<F: Clone + From<u32> + ContextFelt, C> {
+    fn instantiate_impl(
+        &mut self,
+        impl_id: DefId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<DefId>;
+    fn instantiate_function(
+        &mut self,
+        function_id: DefId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<DefId>;
+    fn rewrite_stmt(
+        &mut self,
+        stmt_id: StmtId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<StmtId>;
+    fn rewrite_expr(
+        &mut self,
+        expr_id: ExprId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<ExprId>;
 }
 
-impl<F: Clone + From<u32> + ContextFelt, C> Rewriter for TypeChecker<F, C> {
-    fn instantiate_impl(&self, impl_id: DefId) -> DefId {
-        todo!()
+impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C> {
+    fn instantiate_impl(
+        &mut self,
+        impl_id: DefId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<DefId> {
+        let mut checked_impl = self.program[impl_id].as_impl().cloned().unwrap();
+
+        Ok(self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Impl(checked_impl)))
     }
 
-    fn instantiate_function(&self, function_id: DefId) -> DefId {
-        todo!()
+    fn instantiate_function(
+        &mut self,
+        function_id: DefId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<DefId> {
+        let mut checked_function = self.program[function_id].as_function().cloned().unwrap();
+
+        Ok(self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Function(checked_function)))
     }
 
-    fn rewrite_stmt(&self, stmt_id: StmtId) -> StmtId {
-        todo!()
+    fn rewrite_stmt(
+        &mut self,
+        stmt_id: StmtId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<StmtId> {
+        let mut checked_stmt = self.program[stmt_id].clone();
+        match &mut checked_stmt {
+            CheckedStmtNode::While(checked_while_node) => {
+                checked_while_node.type_id =
+                    self.substitute_all(checked_while_node.type_id, ctx)?;
+                checked_while_node.predicate =
+                    self.rewrite_expr(checked_while_node.predicate, ctx)?;
+                checked_while_node.body = self.rewrite_expr(checked_while_node.body, ctx)?;
+            }
+            CheckedStmtNode::For(checked_for_node) => {
+                checked_for_node.start = self.rewrite_expr(checked_for_node.start, ctx)?;
+                checked_for_node.end = self.rewrite_expr(checked_for_node.end, ctx)?;
+                checked_for_node.body = self.rewrite_expr(checked_for_node.body, ctx)?;
+            }
+            CheckedStmtNode::Assignment(checked_assignment_node) => {
+                checked_assignment_node.type_id =
+                    self.substitute_all(checked_assignment_node.type_id, ctx)?;
+                checked_assignment_node.target =
+                    self.rewrite_expr(checked_assignment_node.target, ctx)?;
+                checked_assignment_node.value =
+                    self.rewrite_expr(checked_assignment_node.value, ctx)?;
+            }
+            CheckedStmtNode::Variable(checked_variable_node) => {
+                checked_variable_node.ty = self.substitute_all(checked_variable_node.ty, ctx)?;
+                checked_variable_node.value =
+                    self.rewrite_expr(checked_variable_node.value, ctx)?;
+            }
+            CheckedStmtNode::Definition(def_id) => unreachable!(),
+            CheckedStmtNode::Expression(expr_id) => {
+                *expr_id = self.rewrite_expr(*expr_id, ctx)?;
+            }
+            CheckedStmtNode::Return(checked_return_node) => {
+                if let Some(ret) = checked_return_node.ret {
+                    checked_return_node.ret = Some(self.rewrite_expr(ret, ctx)?);
+                }
+            }
+            CheckedStmtNode::Intrinsic(checked_intrinsic_stmt_node) => {
+                match checked_intrinsic_stmt_node {
+                    CheckedIntrinsicStmtNode::Assert {
+                        left,
+                        message,
+                        span,
+                    } => {
+                        *left = self.rewrite_expr(*left, ctx)?;
+                    }
+                    CheckedIntrinsicStmtNode::AssertEq {
+                        left,
+                        right,
+                        message,
+                        span,
+                    } => {
+                        *left = self.rewrite_expr(*left, ctx)?;
+                        *right = self.rewrite_expr(*right, ctx)?;
+                    }
+                }
+            }
+        }
+
+        Ok(self.program.stmts.alloc_item(checked_stmt))
     }
 
-    fn rewrite_expr(&self, expr_id: ExprId) -> ExprId {
-        todo!()
+    fn rewrite_expr(
+        &mut self,
+        expr_id: ExprId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<ExprId> {
+        let mut checked_expr = self.program[expr_id].clone();
+        match &mut checked_expr {
+            CheckedExprNode::Path(checked_path_node) => {
+                checked_path_node.type_id = self.substitute_all(checked_path_node.type_id, ctx)?;
+                if let Some(ref mut root) = checked_path_node.root {
+                    *root = self.substitute_all(*root, ctx)?;
+                }
+            }
+            CheckedExprNode::Value(checked_value_node) => match checked_value_node {
+                CheckedValueNode::Felt(_, span) => {}
+                CheckedValueNode::Bool(_, span) => {}
+                CheckedValueNode::U32(_, span) => {}
+                CheckedValueNode::Array(type_id, vec, span) => {
+                    *type_id = self.substitute_all(*type_id, ctx)?;
+                    for value in vec {
+                        *value = self.rewrite_expr(*value, ctx)?;
+                    }
+                }
+                CheckedValueNode::Tuple(type_id, vec, span) => {
+                    *type_id = self.substitute_all(*type_id, ctx)?;
+                    for value in vec {
+                        value.0 = self.substitute_all(value.0, ctx)?;
+                        value.1 = self.rewrite_expr(value.1, ctx)?;
+                    }
+                }
+                CheckedValueNode::Struct(type_id, index_map, span) => {
+                    *type_id = self.substitute_all(*type_id, ctx)?;
+                    for (index, value) in index_map {
+                        *value = self.rewrite_expr(*value, ctx)?;
+                    }
+                }
+                CheckedValueNode::Type(type_id) => {
+                    *type_id = self.substitute_all(*type_id, ctx)?;
+                }
+            },
+            CheckedExprNode::Binary(ref mut checked_binary_node) => {
+                checked_binary_node.type_id =
+                    self.substitute_all(checked_binary_node.type_id, ctx)?;
+                checked_binary_node.lhs = self.rewrite_expr(checked_binary_node.lhs, ctx)?;
+                checked_binary_node.rhs = self.rewrite_expr(checked_binary_node.rhs, ctx)?;
+            }
+            CheckedExprNode::Unary(ref mut checked_unary_node) => {
+                checked_unary_node.type_id =
+                    self.substitute_all(checked_unary_node.type_id, ctx)?;
+                checked_unary_node.rhs = self.rewrite_expr(checked_unary_node.rhs, ctx)?;
+            }
+            CheckedExprNode::Cast(ref mut checked_cast_node) => {
+                checked_cast_node.value = self.rewrite_expr(checked_cast_node.value, ctx)?;
+                checked_cast_node.target_type =
+                    self.substitute_all(checked_cast_node.target_type, ctx)?;
+            }
+            CheckedExprNode::Call(ref mut checked_call_node) => {
+                checked_call_node.type_id = self.substitute_all(checked_call_node.type_id, ctx)?;
+                checked_call_node.callee = self.rewrite_expr(checked_call_node.callee, ctx)?;
+                for arg in &mut checked_call_node.args {
+                    *arg = self.rewrite_expr(*arg, ctx)?;
+                }
+                for generic_parameter in &mut checked_call_node.generic_parameters {
+                    *generic_parameter = self.substitute_all(*generic_parameter, ctx)?;
+                }
+            }
+            CheckedExprNode::MemberCall(ref mut checked_member_call_node) => {
+                checked_member_call_node.type_id =
+                    self.substitute_all(checked_member_call_node.type_id, ctx)?;
+                checked_member_call_node.callee =
+                    self.rewrite_expr(checked_member_call_node.callee, ctx)?;
+                checked_member_call_node.receiver =
+                    self.rewrite_expr(checked_member_call_node.receiver, ctx)?;
+                for arg in &mut checked_member_call_node.args {
+                    *arg = self.rewrite_expr(*arg, ctx)?;
+                }
+                for generic_parameter in &mut checked_member_call_node.generic_parameters {
+                    *generic_parameter = self.substitute_all(*generic_parameter, ctx)?;
+                }
+            }
+            CheckedExprNode::IndexAccess(ref mut checked_index_access_node) => {
+                checked_index_access_node.type_id =
+                    self.substitute_all(checked_index_access_node.type_id, ctx)?;
+                checked_index_access_node.index =
+                    self.rewrite_expr(checked_index_access_node.index, ctx)?;
+                checked_index_access_node.target =
+                    self.rewrite_expr(checked_index_access_node.target, ctx)?;
+            }
+            CheckedExprNode::TupleAccess(ref mut checked_tuple_access_node) => {
+                checked_tuple_access_node.type_id =
+                    self.substitute_all(checked_tuple_access_node.type_id, ctx)?;
+                checked_tuple_access_node.target =
+                    self.rewrite_expr(checked_tuple_access_node.target, ctx)?;
+            }
+            CheckedExprNode::MemberAccess(ref mut checked_member_access_node) => {
+                checked_member_access_node.type_id =
+                    self.substitute_all(checked_member_access_node.type_id, ctx)?;
+                checked_member_access_node.target =
+                    self.rewrite_expr(checked_member_access_node.target, ctx)?;
+            }
+            CheckedExprNode::Intrinsic(ref mut checked_intrinsic_expr_node) => {
+                match checked_intrinsic_expr_node {
+                    CheckedIntrinsicExprNode::GetUserId { type_id, span } => {
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetContractId { type_id, span } => {
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetCheckpointId { type_id, span } => {
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetLastNonce { type_id, span } => {
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetUserPublicKeyHash { type_id, span } => {
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetStateHashAt {
+                        slot_index,
+                        type_id,
+                        span,
+                    } => {
+                        *slot_index = self.rewrite_expr(*slot_index, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetOtherContractStateHashAt {
+                        contract_state_tree_height,
+                        contract_id,
+                        slot_index,
+                        type_id,
+                        span,
+                    } => {
+                        *contract_state_tree_height =
+                            self.rewrite_expr(*contract_state_tree_height, ctx)?;
+                        *contract_id = self.rewrite_expr(*contract_id, ctx)?;
+                        *slot_index = self.rewrite_expr(*slot_index, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetOtherUserContractStateHashAt {
+                        contract_state_tree_height,
+                        user_id,
+                        contract_id,
+                        slot_index,
+                        type_id,
+                        span,
+                    } => {
+                        *contract_state_tree_height =
+                            self.rewrite_expr(*contract_state_tree_height, ctx)?;
+                        *user_id = self.rewrite_expr(*user_id, ctx)?;
+                        *contract_id = self.rewrite_expr(*contract_id, ctx)?;
+                        *slot_index = self.rewrite_expr(*slot_index, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::CSetStateHashAt {
+                        slot_index,
+                        new_value,
+                        type_id,
+                        span,
+                    } => {
+                        *new_value = self.rewrite_expr(*new_value, ctx)?;
+                        *slot_index = self.rewrite_expr(*slot_index, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::Read {
+                        offset,
+                        type_id,
+                        span,
+                    } => {
+                        *offset = self.rewrite_expr(*offset, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::Write {
+                        offset,
+                        value,
+                        type_id,
+                        span,
+                    } => {
+                        *offset = self.rewrite_expr(*offset, ctx)?;
+                        *value = self.rewrite_expr(*value, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::Hash {
+                        data,
+                        type_id,
+                        span,
+                    } => {
+                        *data = self.rewrite_expr(*data, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                }
+            }
+            CheckedExprNode::LambdaFunction(ref mut checked_lambda_function_node) => todo!(),
+            CheckedExprNode::BlockExpr(ref mut checked_block_expr_node) => {
+                checked_block_expr_node.type_id =
+                    self.substitute_all(checked_block_expr_node.type_id, ctx)?;
+                for stmt in &mut checked_block_expr_node.stmts {
+                    *stmt = self.rewrite_stmt(*stmt, ctx)?;
+                }
+                if let Some(expr) = checked_block_expr_node.expr {
+                    checked_block_expr_node.expr = Some(self.rewrite_expr(expr, ctx)?);
+                }
+            }
+            CheckedExprNode::IfExpr(ref mut checked_if_expr_node) => {
+                checked_if_expr_node.type_id =
+                    self.substitute_all(checked_if_expr_node.type_id, ctx)?;
+
+                checked_if_expr_node.if_branch.type_id =
+                    self.substitute_all(checked_if_expr_node.if_branch.type_id, ctx)?;
+                checked_if_expr_node.if_branch.predicate =
+                    self.rewrite_expr(checked_if_expr_node.if_branch.predicate, ctx)?;
+                checked_if_expr_node.if_branch.body =
+                    self.rewrite_expr(checked_if_expr_node.if_branch.body, ctx)?;
+
+                for elseif_branch in &mut checked_if_expr_node.elseif_branches {
+                    elseif_branch.type_id = self.substitute_all(elseif_branch.type_id, ctx)?;
+                    elseif_branch.predicate = self.rewrite_expr(elseif_branch.predicate, ctx)?;
+                    elseif_branch.body = self.rewrite_expr(elseif_branch.body, ctx)?;
+                }
+
+                if let Some(else_branch) = checked_if_expr_node.else_branch {
+                    checked_if_expr_node.else_branch = Some(self.rewrite_expr(else_branch, ctx)?);
+                }
+            }
+            CheckedExprNode::Match(ref mut checked_match_node) => {
+                checked_match_node.type_id =
+                    self.substitute_all(checked_match_node.type_id, ctx)?;
+                checked_match_node.value = self.rewrite_expr(checked_match_node.value, ctx)?;
+                for case in &mut checked_match_node.cases {
+                    if let Some(pattern) = &mut case.pattern {
+                        *pattern = self.rewrite_expr(*pattern, ctx)?;
+                    }
+                    case.body = self.rewrite_expr(case.body, ctx)?;
+                }
+            }
+        }
+
+        Ok(self.program.exprs.alloc_item(checked_expr))
     }
 }
