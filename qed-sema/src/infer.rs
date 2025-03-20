@@ -108,7 +108,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
                 if self.satisfies_constraint(lhs_ty, rhs_ty, ctx) {
                     self.infcx.equate(rhs_ty, lhs_ty);
                     return true;
-
                 }
                 false
             }
