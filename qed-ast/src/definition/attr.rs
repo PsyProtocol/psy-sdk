@@ -1,18 +1,18 @@
-use crate::{IdentId, Span};
+use crate::{IdentId, Identifier, Location};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AttrNode {
-    pub name: IdentId,
-    pub properties: Vec<IdentId>,
-    pub span: Span,
+    pub name: Identifier,
+    pub properties: Vec<Identifier>,
+    pub location: Location,
 }
 
 impl AttrNode {
     pub fn is_derive(&self) -> bool {
-        self.name == IdentId::DERIVE
+        self.name.id == IdentId::DERIVE
     }
 
     pub fn is_test(&self) -> bool {
-        self.name == IdentId::TEST
+        self.name.id == IdentId::TEST
     }
 }

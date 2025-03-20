@@ -1,9 +1,9 @@
-use qed_ast::{ExprId, NodeInfo, NodeType, Span};
+use qed_ast::{ExprId, Location, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedReturnNode {
     pub ret: Option<ExprId>,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for CheckedReturnNode {

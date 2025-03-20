@@ -1,8 +1,8 @@
 use derivative::Derivative;
 use enum_as_inner::EnumAsInner;
 
-use qed_ast::Visibility;
-use qed_ast::{ExprId, IdentId};
+use qed_ast::ExprId;
+use qed_ast::{IdentId, Visibility};
 
 use crate::CheckedFunctionParameter;
 use crate::CheckedFunctionSignature;
@@ -150,7 +150,7 @@ impl Type {
                     generic_parameters,
                     ..
                 }) => (
-                    Some(name.clone()),
+                    Some(name.id),
                     None,
                     generic_parameters.clone(),
                     vec![],
@@ -162,7 +162,7 @@ impl Type {
                     generic_parameters,
                     ..
                 }) => (
-                    Some(name.clone()),
+                    Some(name.id),
                     None,
                     generic_parameters.clone(),
                     vec![],
@@ -182,7 +182,7 @@ impl Type {
                     generic_parameters,
                     ..
                 }) => (
-                    Some(name.clone()),
+                    Some(name.id),
                     None,
                     generic_parameters.clone(),
                     vec![],
@@ -195,7 +195,7 @@ impl Type {
                     return_type,
                     ..
                 }) => (
-                    Some(name.clone()),
+                    Some(name.id),
                     None,
                     vec![],
                     vec![],
@@ -224,7 +224,7 @@ impl Type {
                     generic_parameters,
                     ..
                 }) => (
-                    Some(name.clone()),
+                    Some(name.id),
                     None,
                     generic_parameters.clone(),
                     vec![],
@@ -232,7 +232,7 @@ impl Type {
                     None,
                 ),
                 Type::Const(CheckedConstNode { name, .. }) => {
-                    (name.clone(), None, vec![], vec![], vec![], None)
+                    (name.map(|name| name.id), None, vec![], vec![], vec![], None)
                 }
                 _ => panic!("Type::key called on TypeVariable type"),
             };
@@ -279,11 +279,11 @@ impl Type {
 
     pub fn name(&self) -> IdentId {
         match self {
-            Type::Struct(CheckedStructNode { name, .. }) => *name,
-            Type::Enum(CheckedEnumNode { name, .. }) => *name,
-            Type::Function(CheckedFunctionNode { name, .. }) => *name,
-            Type::Trait(CheckedTraitNode { name, .. }) => *name,
-            Type::Const(CheckedConstNode { name, .. }) => name.unwrap(),
+            Type::Struct(CheckedStructNode { name, .. }) => name.id,
+            Type::Enum(CheckedEnumNode { name, .. }) => name.id,
+            Type::Function(CheckedFunctionNode { name, .. }) => name.id,
+            Type::Trait(CheckedTraitNode { name, .. }) => name.id,
+            Type::Const(CheckedConstNode { name, .. }) => name.unwrap().id,
             Type::Array(_) => IdentId::TYPE_ARRAY,
             _ => unreachable!(),
         }

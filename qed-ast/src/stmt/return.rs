@@ -1,9 +1,9 @@
-use crate::{ExprId, NodeInfo, NodeType, Span};
+use crate::{ExprId, Location, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReturnNode {
     pub expr_id: Option<ExprId>,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for ReturnNode {

@@ -3,8 +3,8 @@ use std::ops::{Index, IndexMut};
 use qed_common::{Arena, FileResolver, Graph, Tree, TreeNode};
 
 use crate::{
-    DefId, DefinitionNode, ExprId, ExprNode, FileSpan, Ident, IdentId, Interner, ModuleId,
-    ModuleNode, Span, StmtId, StmtNode, UseNode, Visibility,
+    DefId, DefinitionNode, ExprId, ExprNode, FileLocation, Ident, IdentId, Interner, Location,
+    ModuleId, ModuleNode, StmtId, StmtNode, UseNode, Visibility,
 };
 
 #[derive(Debug)]
@@ -54,17 +54,17 @@ impl<F: Clone + From<u32>> Program<F> {
         }
     }
 
-    pub fn convert_span(&self, span: &Span) -> FileSpan {
+    pub fn convert_span(&self, location: &Location) -> FileLocation {
         let path = self
             .file_resolver
-            .resolve_path(&span.file_id)
+            .resolve_path(&location.file_id)
             .unwrap()
             .display()
             .to_string();
-        FileSpan {
+        FileLocation {
             path: path,
-            start: span.start,
-            end: span.end,
+            start: location.start,
+            end: location.end,
         }
     }
 }

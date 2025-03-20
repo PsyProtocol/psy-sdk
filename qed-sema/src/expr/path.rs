@@ -1,4 +1,4 @@
-use qed_ast::{NodeInfo, NodeType, Span};
+use qed_ast::{Location, NodeInfo, NodeType};
 
 use crate::{TypeId, VarId};
 
@@ -7,16 +7,21 @@ pub struct CheckedPathNode {
     pub variable: Option<VarId>,
     pub root: Option<TypeId>,
     pub type_id: TypeId,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl CheckedPathNode {
-    pub fn new(variable: Option<VarId>, root: Option<TypeId>, type_id: TypeId, span: Span) -> Self {
+    pub fn new(
+        variable: Option<VarId>,
+        root: Option<TypeId>,
+        type_id: TypeId,
+        location: Location,
+    ) -> Self {
         Self {
             variable,
             root,
             type_id,
-            span,
+            location,
         }
     }
 }

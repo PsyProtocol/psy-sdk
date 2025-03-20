@@ -244,12 +244,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         F: 'static,
     {
         let node: &CheckedFunctionNode = ctx.symbols[type_id.clone()].as_function().unwrap();
-        let method_name = ctx.program[node.name].to_string();
+        let method_name = ctx.program[node.name.id].to_string();
         let mut method_args = Vec::with_capacity(node.parameters.len());
 
         for parameter in node.parameters.iter() {
             method_args.push((
-                ctx.program[parameter.name.clone()].to_string(),
+                ctx.program[parameter.name.id].to_string(),
                 self.size_of(parameter.ty.clone(), &ctx.symbols),
             ));
         }
@@ -274,7 +274,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let mut parser = Parser::new(&mut program);
         parser
             .parse(&mut self.context, entry)
-            .map_err(|err| Error::ParseError(err.to_string()))?;
+            .map_err(|err| Error::ParseError(err))?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
 
@@ -336,11 +336,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         );
 
         for (parameter, arg) in parameters.iter().zip(args.into_iter()) {
-            ctx.symbols.set_variable(
-                ctx.symbols[type_id].scope_id(),
-                parameter.name.clone(),
-                arg,
-            )?
+            ctx.symbols
+                .set_variable(ctx.symbols[type_id].scope_id(), parameter.name.id, arg)?
         }
         Ok(ControlState::Return(self.interpret_expr(
             program,
@@ -362,7 +359,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
             if !self.is_constant(predicate) {
                 return Err(Error::UncertainLoopCondition {
-                    loop_span: node.span,
+                    loop_span: node.location,
                 });
             }
 
@@ -389,18 +386,18 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         if !self.is_constant(start.to_value()) || !self.is_constant(end_f) {
             return Err(Error::UncertainLoopCondition {
-                loop_span: node.span,
+                loop_span: node.location,
             });
         }
 
         ctx.symbols.enter_block(node.scope_id);
         ctx.symbols
-            .set_variable(node.scope_id, node.variable, start)?;
+            .set_variable(node.scope_id, node.variable.id, start)?;
 
         loop {
             let var_id = ctx
                 .symbols
-                .get_variable(Some(node.scope_id), &node.variable)
+                .get_variable(Some(node.scope_id), &node.variable.id)
                 .unwrap();
             let value_f = ctx.symbols.get_value(var_id).unwrap().to_u32();
             if value_f != end_f {
@@ -408,7 +405,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 let one = self.context.op_const_u32(1);
                 let value = CheckedValueRef::from_u32(self.context.op_u32_add(value_f, one));
                 ctx.symbols
-                    .set_variable(node.scope_id, node.variable, value)?;
+                    .set_variable(node.scope_id, node.variable.id, value)?;
             } else {
                 ctx.symbols.exit_block();
                 break Ok(());
@@ -444,7 +441,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 CheckedIntrinsicStmtNode::Assert {
                     left,
                     message,
-                    span: _span,
+                    location: _span,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     self.context.assert_true(
@@ -456,7 +453,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     left,
                     right,
                     message,
-                    span: _span,
+                    location: _span,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     let rhs_value = self.interpret_expr(program, right.clone(), ctx)?;
@@ -921,7 +918,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         } else {
             Ok(s.get_path(
                 &mut self.context,
-                &[IndexPath::Normal(member_access_node.field.into())],
+                &[IndexPath::Normal(member_access_node.field.id.into())],
             )
             .unwrap())
         }
@@ -975,7 +972,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 BOOL_TYPE => {
                     if const_value > 1 {
                         return Err(Error::SemaError(qed_sema::Error::InvalidCast {
-                            span: cast_node.span,
+                            location: cast_node.location,
                             expected: "cast to bool".to_string(),
                             found: format!("value {} > 1", const_value),
                         }));
@@ -985,7 +982,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 U32_TYPE => {
                     if const_value > 0xffffffffu64 {
                         return Err(Error::SemaError(qed_sema::Error::InvalidCast {
-                            span: cast_node.span,
+                            location: cast_node.location,
                             expected: "cast to u32".to_string(),
                             found: format!("value {} > 0xffffffffu64", const_value),
                         }));
@@ -1171,7 +1168,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             ctx,
         )?;
 
-        let index = IndexPath::Normal(member_access_node.field.into());
+        let index = IndexPath::Normal(member_access_node.field.id.into());
         path.push(index.clone());
 
         Ok((
@@ -1203,7 +1200,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let value = self.interpret_expr(program, node.value, ctx)?;
 
         ctx.symbols
-            .set_variable(node.scope_id, node.name, value.clone())?;
+            .set_variable(node.scope_id, node.name.id, value.clone())?;
         Ok(())
     }
 
@@ -1314,7 +1311,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             } else {
                 if wildcard_case.is_some() {
                     return Err(Error::SemaError(SemaError::DuplicateWildcard {
-                        span: arm.span,
+                        location: arm.location,
                     }));
                 }
                 wildcard_case = Some(arm);
@@ -1335,7 +1332,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             let white_list = vec![BOOL_TYPE];
             if !white_list.contains(&scrutinee_type) {
                 return Err(Error::SemaError(SemaError::IncompleteMatch {
-                    span: match_node.span,
+                    location: match_node.location,
                     message: "need a \"_\" for match".to_string(),
                 }));
             }

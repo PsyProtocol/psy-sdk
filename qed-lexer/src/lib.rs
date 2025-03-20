@@ -25,6 +25,6 @@ impl<'input> Iterator for Lexer<'input> {
     fn next(&mut self) -> Option<Self::Item> {
         self.token_stream
             .next()
-            .map(|(token, span)| Ok((span.start, token?, span.end)))
+            .map(|(token, location)| Ok((location.start, token?, location.end)))
     }
 }

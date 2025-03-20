@@ -1,10 +1,10 @@
-use crate::{ExprId, IdentId, NodeInfo, NodeType, Span};
+use crate::{ExprId, Identifier, Location, NodeInfo, NodeType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexAccessNode {
     pub target: ExprId,
     pub index: ExprId,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for IndexAccessNode {
@@ -16,8 +16,8 @@ impl NodeInfo for IndexAccessNode {
 #[derive(Clone, Debug, PartialEq)]
 pub struct MemberAccessNode {
     pub target: ExprId,
-    pub field: IdentId,
-    pub span: Span,
+    pub field: Identifier,
+    pub location: Location,
 }
 
 impl NodeInfo for MemberAccessNode {
@@ -30,7 +30,7 @@ impl NodeInfo for MemberAccessNode {
 pub struct TupleAccessNode {
     pub target: ExprId,
     pub index: usize,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl NodeInfo for TupleAccessNode {
