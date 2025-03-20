@@ -144,12 +144,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let type_id = checked_expr.ty();
 
         if ctx.ancestor_node_type(1).is_member_call_expr() {
-            let type_id = self
-                .resolve_method(type_id, member_access_node.field, ctx)
-                .ok_or(Error::UnresolvedMember {
-                    span: member_access_node.span,
-                    member_name: member_access_node.field,
-                })?;
+            let (_, type_id) = self.find_impl(type_id, member_access_node.field, ctx)?;
             let visibility = ctx.symbols[type_id].visibility();
             if !(visibility.is_public()
                 || self.typecheck_member_access(member_access_node.target, ctx))
@@ -1275,10 +1270,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         self.infcx.exit_context();
         ctx.symbols.end_scope();
 
-        Ok(self
+        let impl_id = self
             .program
             .defs
-            .alloc_item(CheckedDefinitionNode::Impl(checked_impl)))
+            .alloc_item(CheckedDefinitionNode::Impl(checked_impl));
+        self.register_impl(impl_id, ctx)?;
+
+        Ok(impl_id)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -2051,15 +2049,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         // let ty = Type::Impl(checked_impl.clone());
         // symbols.add_type(symbols.parent_scope_id(), ty);
 
-        self.impl_trait_for_type(&impl_node, trait_type_id, implementor_type_id, ctx)?;
-
         self.infcx.exit_context();
         ctx.symbols.end_scope();
 
-        Ok(self
+        let trait_impl_id = self
             .program
             .defs
-            .alloc_item(CheckedDefinitionNode::ImplTrait(checked_impl)))
+            .alloc_item(CheckedDefinitionNode::ImplTrait(checked_impl));
+        self.register_trait_impl(trait_impl_id, ctx)?;
+
+        Ok(trait_impl_id)
     }
 }
 
@@ -2436,15 +2435,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let ty = Type::Function(checked_function.clone());
         let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
 
-        self.add_trait_method(
-            &checked_function.span,
-            trait_type_id,
-            implementor_type_id,
-            checked_function.name,
-            type_id,
-            ctx,
-        )?;
-
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
         ctx.pop_node_id();
@@ -2483,13 +2473,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
         let ty = Type::Function(checked_function.clone());
         let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
-        self.add_method(
-            &checked_function.span,
-            implementor_type_id,
-            checked_function.name,
-            type_id,
-            ctx,
-        )?;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();

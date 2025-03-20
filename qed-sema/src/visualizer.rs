@@ -155,6 +155,9 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             Type::Array(_) => {
                 write!(fmt, "Array ");
             }
+            Type::TypeVariable(tvar) => {
+                write!(fmt, "{} ", self.get_type_name(type_id));
+            }
             _ => {
                 write!(fmt, "{:?} ", ty.kind());
             }
@@ -287,9 +290,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             Type::Bool => IdentId::TYPE_BOOL,
             Type::U32 => IdentId::TYPE_U32,
             Type::Tuple(_) => IdentId::TYPE_TUPLE,
-            Type::TypeVariable(_) => {
-                return "TypeVariable".to_string();
-            }
+            Type::TypeVariable(tvar) => tvar.name,
             Type::LambdaFunction(_) => {
                 return "LambdaFunction".to_string();
             }
@@ -297,7 +298,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 return "FunctionSignature".to_string();
             }
         };
-        let type_name = &self.context.ident(ty_indent_id).0;
+        let type_name = &self.context.ident(ty_indent_id);
         type_name.to_string()
     }
 

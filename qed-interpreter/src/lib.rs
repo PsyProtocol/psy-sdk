@@ -121,7 +121,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     where
         F: 'static,
     {
-        let (typechecker, mut ctx) = self.typecheck(entry)?;
+        let (mut typechecker, mut ctx) = self.typecheck(entry)?;
 
         let scope_id = ctx.symbols[ModuleId::root()].scope_id;
         let type_ids = if let Some(contract_name) = contract_name {
@@ -136,9 +136,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 .into_iter()
                 .map(|method_name| {
                     let method_name = ctx.intern(method_name.into());
-                    typechecker
-                        .resolve_method(type_id, method_name, &mut ctx)
-                        .ok_or(Error::UndefinedFunction)
+                    Ok(typechecker.find_impl(type_id, method_name, &mut ctx)?.1)
                 })
                 .collect::<Result<Vec<TypeId>>>()?
         } else {

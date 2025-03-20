@@ -321,9 +321,7 @@ impl Type {
             }) => {
                 vec![inner_ty.clone(), size.clone()]
             }
-            Type::LambdaFunction(_) => vec![],
-            Type::FunctionSignature(_) => vec![],
-            _ => unreachable!(),
+            _ => vec![],
         }
     }
 

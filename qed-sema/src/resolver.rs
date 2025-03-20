@@ -6,71 +6,20 @@ use qed_ast::{
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    AstVisualizer, CheckedPathNode, Error, Result, TypeChecker, TypeCheckerVisitorContext, TypeId,
-    TypeKey,
+    AstVisualizer, CheckedPathNode, Error, Implementer, Result, TypeChecker,
+    TypeCheckerVisitorContext, TypeId, TypeKey,
 };
 
 #[derive(Debug)]
-pub struct ResolverCtxt {
-    impl_traits: HashMap<TypeId, HashSet<TypeId>>,
-    trait_impls: HashMap<TypeId, HashSet<TypeId>>,
-
-    impl_methods: HashMap<TypeId, HashMap<IdentId, TypeId>>,
-    trait_methods: HashMap<TypeId, HashMap<TypeId, HashMap<IdentId, TypeId>>>,
-}
+pub struct ResolverCtxt {}
 
 impl ResolverCtxt {
     pub fn new() -> Self {
-        Self {
-            impl_traits: HashMap::new(),
-            trait_impls: HashMap::new(),
-            impl_methods: HashMap::new(),
-            trait_methods: HashMap::new(),
-        }
+        Self {}
     }
 }
 
 pub trait Resolver<F: Clone + From<u32> + ContextFelt, C> {
-    fn impl_trait_for_type(
-        &mut self,
-        impl_node: &ImplTraitNode,
-        trait_type_id: TypeId,
-        implementor_type_id: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()>;
-
-    fn add_method(
-        &mut self,
-        span: &Span,
-        ty: TypeId,
-        method_name: IdentId,
-        method: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()>;
-
-    fn add_trait_method(
-        &mut self,
-        span: &Span,
-        trait_type_id: TypeId,
-        implementor_type_id: TypeId,
-        method_name: IdentId,
-        method: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()>;
-
-    fn methods_of(
-        &self,
-        implementor: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Vec<TypeId>;
-
-    fn resolve_method(
-        &self,
-        implementor_id: TypeId,
-        method_name: IdentId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Option<TypeId>;
-
     fn resolve_path(
         &mut self,
         path: &PathNode,
@@ -101,144 +50,6 @@ pub trait Resolver<F: Clone + From<u32> + ContextFelt, C> {
 }
 
 impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C> {
-    fn impl_trait_for_type(
-        &mut self,
-        impl_node: &ImplTraitNode,
-        trait_type_id: TypeId,
-        implementor_type_id: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
-        let span = impl_node.span;
-        let pairs = [
-            (
-                &mut self.resolver.impl_traits,
-                implementor_type_id,
-                trait_type_id,
-            ),
-            (
-                &mut self.resolver.trait_impls,
-                trait_type_id,
-                implementor_type_id,
-            ),
-        ];
-
-        for (map, key, value) in pairs {
-            if !map.entry(key).or_insert_with(HashSet::new).insert(value) {
-                return Err(Error::TraitAlreadyImplemented {
-                    span,
-                    trait_ty: trait_type_id,
-                    ty: implementor_type_id,
-                });
-            }
-        }
-        Ok(())
-    }
-
-    fn add_method(
-        &mut self,
-        span: &Span,
-        ty: TypeId,
-        method_name: IdentId,
-        method: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
-        let methods = self
-            .resolver
-            .impl_methods
-            .entry(ty)
-            .or_insert_with(HashMap::new);
-        if methods.insert(method_name, method).is_some() {
-            return Err(Error::DuplicatedMethod {
-                span: span.clone(),
-                method: method_name,
-                ty: ty,
-            });
-        }
-        Ok(())
-    }
-
-    fn add_trait_method(
-        &mut self,
-        span: &Span,
-        trait_type_id: TypeId,
-        implementor_type_id: TypeId,
-        method_name: IdentId,
-        method: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
-        if self
-            .resolver
-            .trait_impls
-            .get(&trait_type_id)
-            .map(|x| x.contains(&implementor_type_id))
-            .unwrap_or(false)
-        {
-            return Err(Error::TraitAlreadyImplemented {
-                span: span.clone(),
-                trait_ty: trait_type_id,
-                ty: implementor_type_id,
-            });
-        }
-
-        let methods = self
-            .resolver
-            .trait_methods
-            .entry(trait_type_id)
-            .or_insert_with(HashMap::new)
-            .entry(implementor_type_id)
-            .or_insert_with(HashMap::new);
-        if methods.insert(method_name, method).is_some() {
-            return Err(Error::DuplicatedMethod {
-                span: span.clone(),
-                method: method_name,
-                ty: implementor_type_id,
-            });
-        }
-        Ok(())
-    }
-
-    fn methods_of(
-        &self,
-        implementor: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Vec<TypeId> {
-        let mut all_methods = Vec::new();
-
-        if let Some(methods) = self.resolver.impl_methods.get(&implementor) {
-            all_methods.extend(methods.iter().map(|(_, &ty)| ty));
-        }
-
-        if let Some(trait_type_ids) = self.resolver.impl_traits.get(&implementor) {
-            for &trait_type_id in trait_type_ids {
-                if !ctx.is_trait_imported(trait_type_id) {
-                    continue;
-                }
-                if let Some(trait_impls) = self.resolver.trait_methods.get(&trait_type_id) {
-                    if let Some(trait_methods) = trait_impls.get(&implementor) {
-                        all_methods.extend(trait_methods.iter().map(|(_, &ty)| ty));
-                    }
-                }
-            }
-        }
-
-        all_methods
-    }
-
-    fn resolve_method(
-        &self,
-        implementor_id: TypeId,
-        method_name: IdentId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Option<TypeId> {
-        for type_id in self.methods_of(implementor_id, ctx) {
-            if ctx.symbols[type_id].as_function().unwrap().name == method_name {
-                return Some(type_id);
-            }
-        }
-
-        None
-    }
-
     fn resolve_path(
         &mut self,
         path: &PathNode,
@@ -449,12 +260,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
             return Ok(type_id);
         }
 
-        let method_type_id =
-            self.resolve_method(root, target, ctx)
-                .ok_or_else(|| Error::UnresolvedType {
-                    span: path.span,
-                    resolved_type: target,
-                })?;
+        let method_type_id = self.find_impl(root, target, ctx)?.1;
         if !ctx.symbols[method_type_id].visibility().is_public() {
             return Err(Error::MemberNotPublic {
                 span: path.span,

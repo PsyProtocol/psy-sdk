@@ -5,7 +5,8 @@ use qed_ast::{DefId, IdentId, ImplTraitNode, Span, VisitorContext};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    Constraint, Inferer, Result, ScopeKind, TypeChecker, TypeCheckerVisitorContext, TypeId,
+    AstVisualizer, Constraint, Inferer, Result, ScopeKind, TypeChecker, TypeCheckerVisitorContext,
+    TypeId,
 };
 
 #[derive(Debug)]
@@ -73,7 +74,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         let impl_node = self.program[impl_id].as_impl().unwrap();
         let constraint = Constraint::new(ctx.symbols[impl_node.ty].generic_parameters());
 
-        self.implementer
+        let res = self
+            .implementer
             .impl_ids
             .entry(impl_node.ty)
             .or_insert_with(HashMap::new)
@@ -117,6 +119,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         method: IdentId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<(DefId, TypeId)> {
+        eprintln!(
+            "DEBUGPRINT[20]: implementer.rs:121: ctx.debug_type(ty)={:#?}",
+            ctx.debug_type(ty)
+        );
         let poly_ty = self.poly_of(ty, ctx).unwrap();
 
         let get_impl_id = |poly_ty: TypeId,
@@ -128,7 +134,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                     for &impl_id in impl_set {
                         if let Some(impl_node) = self.program[impl_id].as_impl() {
                             if impl_node.body.iter().any(|&def_id| {
-                                ctx.program[def_id].as_function().unwrap().name == method
+                                self.program[def_id].as_function().unwrap().name == method
                             }) {
                                 return Some((constraint.clone(), impl_node.scope_id, impl_id));
                             }
@@ -136,7 +142,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
 
                         if let Some(impl_node) = self.program[impl_id].as_impl_trait() {
                             if impl_node.body.iter().any(|&def_id| {
-                                ctx.program[def_id].as_function().unwrap().name == method
+                                self.program[def_id].as_function().unwrap().name == method
                             }) {
                                 return Some((constraint.clone(), impl_node.scope_id, impl_id));
                             }

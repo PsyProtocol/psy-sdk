@@ -5,8 +5,8 @@ use itertools::Itertools;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    CheckedArrayNode, CheckedStructField, CheckedStructNode, Implementer, Result, ScopeId, Type,
-    TypeChecker, TypeCheckerVisitorContext, TypeId,
+    AstVisualizer, CheckedArrayNode, CheckedStructField, CheckedStructNode, Implementer, Result,
+    ScopeId, Type, TypeChecker, TypeCheckerVisitorContext, TypeId,
 };
 
 #[derive(Debug)]
@@ -82,8 +82,6 @@ pub trait Inferer<F: Clone + From<u32> + ContextFelt, C> {
         type_id: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId>;
-
-    // fn is_concrete(&self, type_id: TypeId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> bool;
 }
 
 impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> {
