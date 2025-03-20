@@ -18,7 +18,7 @@ struct Box<T: Hello> {
 }
 
 
-impl<T> Box<T> {
+impl<T: Hello> Box<T> {
     pub fn new(data: T) -> Box<T> {
         return new Box { data };
     }
