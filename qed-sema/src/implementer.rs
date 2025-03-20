@@ -330,6 +330,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Option<TypeId> {
         let name = ctx.symbols[type_id].name();
-        ctx.symbols.get_type_id(None, name)
+        ctx.symbols
+            .get_type_id(Some(ctx.symbols[type_id].scope_id()), name)
     }
 }
