@@ -1,8 +1,8 @@
-use crate::{IdentId, Location, NodeInfo, NodeType, UncheckedType, Visibility};
+use crate::{Identifier, Location, NodeInfo, NodeType, UncheckedType, Visibility};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeAliasNode {
-    pub name: IdentId,
+    pub name: Identifier,
     pub ty: UncheckedType,
     pub visibility: Visibility,
     pub location: Location,

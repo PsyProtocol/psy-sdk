@@ -1,6 +1,6 @@
 use qed_common::{define_arena_id, Arena, FileId};
 
-use crate::{DefId, DefinitionNode, IdentId, Location, NodeInfo, NodeType, Visibility};
+use crate::{DefId, DefinitionNode, IdentId, Identifier, Location, NodeInfo, NodeType, Visibility};
 
 define_arena_id!(ModuleId);
 
@@ -18,9 +18,9 @@ pub enum ModuleKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UseNode {
     pub visibility: Visibility,
-    pub kind: IdentId,
-    pub segments: Vec<IdentId>,
-    pub target: Option<IdentId>,
+    pub kind: Identifier,
+    pub segments: Vec<Identifier>,
+    pub target: Option<Identifier>,
     pub location: Location,
 }
 
@@ -34,7 +34,7 @@ impl NodeInfo for UseNode {
 pub struct ModuleNode {
     pub name: IdentId,
     pub file_id: FileId,
-    pub modules: Vec<(IdentId, Visibility, Location)>,
+    pub modules: Vec<(Identifier, Visibility, Location)>,
     pub inline_modules: Vec<ModuleNode>,
     pub definitions: Vec<DefId>,
     pub visibility: Visibility,
@@ -76,7 +76,7 @@ impl ModuleNode {
                     modules.insert(
                         0,
                         (
-                            IdentId::STD,
+                            Identifier::new(IdentId::STD, Location::new(file_id, 0, 0)),
                             Visibility::Private,
                             Location::new(file_id, 0, 0),
                         ),
@@ -89,8 +89,11 @@ impl ModuleNode {
                 if !is_std {
                     let def_id = def_nodes.alloc_item(DefinitionNode::Use(UseNode {
                         visibility: Visibility::Private,
-                        kind: IdentId::STD,
-                        segments: vec![IdentId::PRELUDE],
+                        kind: Identifier::new(IdentId::STD, Location::new(file_id, 0, 0)),
+                        segments: vec![Identifier::new(
+                            IdentId::PRELUDE,
+                            Location::new(file_id, 0, 0),
+                        )],
                         target: None,
                         location: Location::new(file_id, 0, 0),
                     }));
@@ -112,7 +115,7 @@ impl ModuleNode {
 
 #[derive(Clone, Debug)]
 pub enum ModuleItemNode {
-    ModuleDecl((IdentId, Visibility, Location)),
+    ModuleDecl((Identifier, Visibility, Location)),
     InlineModule(ModuleNode),
     Definition(DefId),
 }

@@ -1,10 +1,10 @@
 use qed_ast::Location;
 
-use crate::{ExprId, IdentId, NodeInfo, NodeType, ScopeId};
+use crate::{ExprId, Identifier, NodeInfo, NodeType, ScopeId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedForNode {
-    pub variable: IdentId,
+    pub variable: Identifier,
     pub start: ExprId,
     pub end: ExprId,
     pub body: ExprId,

@@ -41,7 +41,7 @@ pub Module: ModuleNode = {
 
 InlineModule: ModuleNode = {
     <l:@L> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> "}" <r:@R> => ModuleNode::new(
-        name,
+        name.id,
         file_id,
         visibility,
         module_items,
@@ -52,7 +52,7 @@ InlineModule: ModuleNode = {
     )
 }
 
-ModuleDecl: (IdentId, Visibility, Location) = {
+ModuleDecl: (Identifier, Visibility, Location) = {
     <l:@L> <visibility:Visibility> MOD <name:Identifier> ";" <r:@R> => {
         (name, visibility, Location::new(file_id, l, r))
     },
@@ -107,9 +107,11 @@ Definition: DefinitionNode = {
             panic!("{:?}", LalrpopError::User { error: SyntacticError::FunctionBodyMissing });
 
         }
-        if f.as_function().unwrap().parameters.iter().any(|p| p.name == IdentId::SELF || matches!(p.ty, UncheckedType::Basic(IdentId::TYPE_SELF, _))) {
-            panic!("{:?}", LalrpopError::User { error: SyntacticError::InvalidSelfParameter });
-        }
+        f.as_function().unwrap().parameters.iter().for_each(|p|{
+            if p.name.id == IdentId::SELF || (p.ty.is_basic() && p.ty.as_basic().unwrap().0.id == IdentId::TYPE_SELF){
+                panic!("{:?}", LalrpopError::User { error: SyntacticError::InvalidSelfParameter });
+            }
+        } );
         f
     },
     ConstDef => <>,
@@ -129,41 +131,81 @@ UseDef: UseNode = {
 }
 
 ImplDef: ImplNode = {
-   <l:@L> IMPL <generic_parameters:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
-       ImplNode {
-           generic_parameters,
-           ty,
-           body: {
-                if body.iter().any(|f| f.as_function().unwrap().body.is_none()) {
-                    panic!("{:?}", LalrpopError::User { error: SyntacticError::FunctionBodyMissing });
-                }
-                if body.iter().any(|f| f.as_function().unwrap().parameters.iter().enumerate().any(|(i, p)| p.name == IdentId::SELF && i != 0)) {
-                    panic!("{:?}", LalrpopError::User { error: SyntacticError::InvalidSelfParameter });
-                }
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+        ImplNode {
+            generic_parameters: generic_parameters_lhs,
+            ty,
+            body: {
+                body.iter().for_each(|f| {
+                    if f.as_function().unwrap().body.is_none() {
+                        panic!(
+                            "{:?}",
+                            LalrpopError::User {
+                                error: SyntacticError::FunctionBodyMissing 
+                            }
+                        );
+                    }
+                });
+                body.iter().for_each(|f| {
+                    if f.as_function()
+                        .unwrap()
+                        .parameters
+                        .iter()
+                        .enumerate()
+                        .any(|(i, p)| p.name.id == IdentId::SELF && i != 0)
+                    {
+                        panic!(
+                            "{:?}",
+                            LalrpopError::User {
+                                error: SyntacticError::InvalidSelfParameter
+                            }
+                        );
+                    }
+                });
                 def_nodes.alloc_items(body)
-           },
-           location: Location::new(file_id, l, r),
-       }
+            },
+            location: Location::new(file_id, l, r),
+        }
    }
 }
 
 ImplTraitDef: ImplTraitNode = {
-   <l:@L> IMPL <generic_parameters:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
-       ImplTraitNode {
-           generic_parameters,
-           trait_ty,
-           ty,
-           body: {
-                if body.iter().any(|f| f.as_function().unwrap().body.is_none()) {
-                    panic!("{:?}", LalrpopError::User { error: SyntacticError::FunctionBodyMissing });
-                }
-                if body.iter().any(|f| f.as_function().unwrap().parameters.iter().enumerate().any(|(i, p)| p.name == IdentId::SELF && i != 0)) {
-                    panic!("{:?}", LalrpopError::User { error: SyntacticError::InvalidSelfParameter });
-                }
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+        ImplTraitNode {
+            generic_parameters: generic_parameters_lhs,
+            trait_ty: trait_ty,
+            ty,
+            body: {
+                body.iter().for_each(|f| {
+                    if f.as_function().unwrap().body.is_none() {
+                        panic!(
+                            "{:?}",
+                            LalrpopError::User {
+                                error: SyntacticError::FunctionBodyMissing 
+                            }
+                        );
+                    }
+                });
+                body.iter().for_each(|f| {
+                    if f.as_function()
+                        .unwrap()
+                        .parameters
+                        .iter()
+                        .enumerate()
+                        .any(|(i, p)| p.name.id == IdentId::SELF && i != 0)
+                    {
+                        panic!(
+                            "{:?}",
+                            LalrpopError::User {
+                                error: SyntacticError::InvalidSelfParameter
+                            }
+                        );
+                    }
+                });
                 def_nodes.alloc_items(body)
-           },
-           location: Location::new(file_id, l, r),
-       }
+            },
+            location: Location::new(file_id, l, r),
+        }
    }
 }
 
@@ -202,7 +244,7 @@ StructDef: StructNode = {
     <l:@L> <attrs:Attribute*> <visibility: Visibility> STRUCT <name:Identifier> <generic_parameters:GenericParameters> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => StructNode {
         name,
         generic_parameters,
-        fields: fields.into_iter().map(|(field_name, field_type)| (field_name, field_type)).collect(),
+        fields: fields.into_iter().collect(),
         attrs,
         visibility,
         location: Location::new(file_id, l, r),
@@ -258,7 +300,7 @@ Attribute: AttrNode = {
     <l:@L> "#" "[" <name:Identifier>  <properties:AttributeProperties> "]" <r:@R> => AttrNode { name, properties, location: Location::new(file_id, l, r) }
 }
 
-AttributeProperties: Vec<IdentId> = {
+AttributeProperties: Vec<Identifier> = {
     <l:@L> "(" <properties:Comma<Identifier>> ")" <r:@R> => properties,
     () => vec![]
 }
@@ -266,13 +308,15 @@ AttributeProperties: Vec<IdentId> = {
 Qualifier: Qualifier = {
     <l:@L> <is_const:CONST?> <is_extern:EXTERN?> <r:@R> => Qualifier {
         is_extern: is_extern.is_some(),
-        is_const: is_const.is_some()
+        is_const: is_const.is_some(),
+        location: Location::new(file_id, l, r),
     },
 }
 
 TypeQualifier: TypeQualifier = {
     <l:@L> <is_mutable: MUT?> <r:@R> => TypeQualifier {
         is_mutable: is_mutable.is_some(),
+        location: Location::new(file_id, l, r),
     },
 }
 
@@ -287,9 +331,9 @@ FunctionParameter: FunctionParameter = {
     <l:@L> <type_qualifier: TypeQualifier> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => FunctionParameter::new(name, type_qualifier, ty, Location::new(file_id, l, r)),
     <l:@L> <type_qualifier: TypeQualifier> <name:SELF> <r:@R> => {
         FunctionParameter::new(
-            IdentId::SELF,
+            Identifier::new(IdentId::SELF, Location::new(file_id, l, r)),
             type_qualifier,
-            UncheckedType::Basic(IdentId::TYPE_SELF, Location::new(file_id, l, r)),
+            UncheckedType::Basic(Identifier::new(IdentId::TYPE_SELF, Location::new(file_id, l, r)), Location::new(file_id, l, r)),
             Location::new(file_id, l, r)
         )
     },
@@ -308,12 +352,12 @@ EnumVariant: EnumVariant = {
     )
 }
 
-TypeAnnotation: (IdentId, UncheckedType) = {
+TypeAnnotation: (Identifier, UncheckedType) = {
     <l:@L> <name:Identifier> ":" <ty:Ty> <r:@R> => (name, ty),
     <l:@L> <name:Identifier> <r:@R> => (name, UncheckedType::Unknown)
 }
 
-FieldTypeAnnotation: (IdentId, StructField)  = {
+FieldTypeAnnotation: (Identifier, StructField)  = {
     <l:@L> <visibility:Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (
         name,
         StructField { ty, visibility, location: Location::new(file_id, l, r) }
@@ -332,7 +376,7 @@ GenericParameters: Vec<GenericParameter> = {
 
 GenericParameter: GenericParameter = {
     <l:@L> <name:Identifier> <constraints: GenericConstraints> <r:@R> => GenericParameter::new(
-        name,
+        name.id,
         constraints,
         Location::new(file_id, l, r)
     )
@@ -776,7 +820,7 @@ StructExpression: ExprNode<F> = {
    ),
 }
 
-KeyValue: (IdentId, ExprId) = {
+KeyValue: (Identifier, ExprId) = {
     <l:@L> <name:Identifier> ":" <value:Expression> <r:@R> => (name, expr_nodes.alloc_item(value)),
     <l:@L> <name:Identifier> <r:@R> => (name, expr_nodes.alloc_item(ExprNode::Path(PathNode::from_target(name, Location::new(file_id, l, r)))))
 }
@@ -828,7 +872,7 @@ ArrayExpression: ExprNode<F> = {
     ),
 }
 
-UseNode: (IdentId, Vec<IdentId>, Option<IdentId>) =
+UseNode: (Identifier, Vec<Identifier>, Option<Identifier>) =
     <a:ModuleUseKind> "::" <h:(<Identifier> "::")*> <t:IdentifierOrAll> => {
         (a, h, t)
     };
@@ -849,7 +893,7 @@ Ty: UncheckedType = {
 GenericType: UncheckedType = {
     <l:@L> <name:Identifier> "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters, Location::new(file_id, l, r)),
     <l:@L>  "[" <ty:Ty> ";" <n:Identifier> "]" <r:@R> => UncheckedType::Generic(
-        IdentId::TYPE_ARRAY,
+        Identifier::new(IdentId::TYPE_ARRAY, Location::new(file_id, l, r)),
         vec![ty, UncheckedType::Basic(n, Location::new(file_id, l, r))],
         Location::new(file_id, l, r)
     )
@@ -860,37 +904,37 @@ ArrayType: UncheckedType = {
 }
 
 ConstType: UncheckedType = {
-    <l:@L> <ty:TYPE_FELT>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_FELT, Location::new(file_id, l, r)),
-    <l:@L> <ty:TYPE_BOOL>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_BOOL, Location::new(file_id, l, r)),
-    <l:@L> <ty:TYPE_U32>   <r:@R> => UncheckedType::Basic(IdentId::TYPE_U32, Location::new(file_id, l, r)),
+    <l:@L> <ty:TYPE_FELT>  <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, Location::new(file_id, l, r)), Location::new(file_id, l, r)),
+    <l:@L> <ty:TYPE_BOOL>  <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_BOOL, Location::new(file_id, l, r)), Location::new(file_id, l, r)),
+    <l:@L> <ty:TYPE_U32>   <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_U32, Location::new(file_id, l, r)), Location::new(file_id, l, r)),
 }
 
 BasicType: UncheckedType = {
     ConstType,
-    <l:@L> <ty:TYPE_SELF>  <r:@R> => UncheckedType::Basic(IdentId::TYPE_SELF, Location::new(file_id, l, r)),
+    <l:@L> <ty:TYPE_SELF>  <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_SELF, Location::new(file_id, l, r)), Location::new(file_id, l, r)),
     <l:@L> <ty:Identifier> <r:@R> => UncheckedType::Basic(ty, Location::new(file_id, l, r))
 }
 
-ModuleUseKind: IdentId = {
-    <l:@L> SELF            <r:@R> => IdentId::SELF,
-    <l:@L> SUPER           <r:@R> => IdentId::SUPER,
-    <l:@L> CRATE           <r:@R> => IdentId::CRATE,
+ModuleUseKind: Identifier = {
+    <l:@L> SELF            <r:@R> => Identifier::new(IdentId::SELF, Location::new(file_id, l, r)),
+    <l:@L> SUPER           <r:@R> => Identifier::new(IdentId::SUPER, Location::new(file_id, l, r)),
+    <l:@L> CRATE           <r:@R> => Identifier::new(IdentId::CRATE, Location::new(file_id, l, r)),
     <l:@L>  <k:Identifier> <r:@R> => k
 }
 
-IdentifierOrAll: Option<IdentId> = {
+IdentifierOrAll: Option<Identifier> = {
     Identifier => Some(<>),
     <l:@L> "*" <r:@R> => None
 }
 
-IdentifierOrSelf: IdentId = {
+IdentifierOrSelf: Identifier = {
     Identifier,
-    <l:@L> <name:SELF> <r:@R> => IdentId::SELF
+    <l:@L> <name:SELF> <r:@R> => Identifier::new(IdentId::SELF, Location::new(file_id, l, r)),
 }
 
-IdentifierOrNew: IdentId = {
+IdentifierOrNew: Identifier = {
     Identifier,
-    <l:@L> <name:NEW> <r:@R> => IdentId::NEW
+    <l:@L> <name:NEW> <r:@R> => Identifier::new(IdentId::NEW, Location::new(file_id, l, r))
 }
 
 PathRoot: UncheckedType = {
@@ -900,8 +944,8 @@ PathRoot: UncheckedType = {
     "<" <root: GenericType> ">" => root
 }
 
-Identifier: IdentId = {
-    <l:@L> <name:IDENT> <r:@R> => interner.intern_ident(name)
+Identifier: Identifier = {
+    <l:@L> <name:IDENT> <r:@R> => Identifier::new(interner.intern_ident(name), Location::new(file_id, l, r))
 }
 
 Sep<E,S>: Vec<E> =

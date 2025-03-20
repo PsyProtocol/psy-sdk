@@ -1,14 +1,11 @@
-use std::collections::HashMap;
-
 use qed_ast::{
     DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, InsertPosition, ModuleId, ModuleNode,
     NodeId, NodeInfo, NodeType, Program, StmtId, StmtNode, VisitorContext,
 };
 use qed_common::Graph;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
-use regex::Regex;
 
-use crate::{InferCtxt, SymbolTable, Type, TypeId};
+use crate::{SymbolTable, TypeId};
 
 pub struct TypeCheckerVisitorContext<F: Clone + From<u32> + ContextFelt, C> {
     path_stack: Vec<NodeId>,

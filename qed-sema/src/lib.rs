@@ -145,10 +145,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         if ctx.ancestor_node_type(1).is_member_call_expr() {
             let type_id = self
-                .resolve_method(type_id, member_access_node.field, ctx)
+                .resolve_method(type_id, member_access_node.field.id, ctx)
                 .ok_or(Error::UnresolvedMember {
                     location: member_access_node.location,
-                    member_name: member_access_node.field,
+                    member_name: member_access_node.field.id,
                 })?;
             let visibility = ctx.symbols[type_id].visibility();
             if !(visibility.is_public()
@@ -157,7 +157,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 return Err(Error::MemberNotPublic {
                     location: member_access_node.location,
                     ty: type_id,
-                    field: member_access_node.field,
+                    field: member_access_node.field.id,
                 });
             }
             return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
@@ -176,7 +176,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 .get(&member_access_node.field)
                 .ok_or(Error::UnresolvedMember {
                     location: member_access_node.location,
-                    member_name: member_access_node.field,
+                    member_name: member_access_node.field.id,
                 })?;
             if !(visibility.is_public()
                 || self.typecheck_member_access(member_access_node.target, ctx))
@@ -184,7 +184,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 return Err(Error::MemberNotPublic {
                     location: member_access_node.location,
                     ty: type_id,
-                    field: member_access_node.field,
+                    field: member_access_node.field.id,
                 });
             }
             return Ok(CheckedExprNode::MemberAccess(CheckedMemberAccessNode {
@@ -568,10 +568,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             ValueNode::Struct(name, generic_args, data, location) => Ok({
                 let underlying_type_id =
                     ctx.symbols
-                        .get_type_id(None, name)
+                        .get_type_id(None, name.id)
                         .ok_or(Error::UnresolvedType {
                             location: location,
-                            resolved_type: name,
+                            resolved_type: name.id,
                         })?;
                 let fields = ctx.symbols[underlying_type_id]
                     .as_struct()
@@ -583,7 +583,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     return Err(anyhow!(format!(
                         "Expected {} fields for Struct {} but found {} fields",
                         fields.len(),
-                        ctx.ident(name),
+                        ctx.ident(name.id),
                         data.len()
                     ))
                     .into());
@@ -1117,7 +1117,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             ))
             .ok_or(error::Error::VariableAlreadyDefined {
                 location: variable_node.location,
-                variable: variable_node.name,
+                variable: variable_node.name.id,
             })?;
         let checked_variable = CheckedVariableNode {
             name: variable_node.name,
@@ -1326,7 +1326,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         // TODO: remove clone
         let ty = Type::Trait(checked_trait.clone());
         ctx.symbols
-            .add_type(ctx.symbols.parent_scope_id(), checked_trait.name, ty)?;
+            .add_type(ctx.symbols.parent_scope_id(), checked_trait.name.id, ty)?;
 
         self.infcx.exit_context();
         // ctx.symbols.end_scope();
@@ -1362,7 +1362,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         if checked_function.body.is_none() {
             return Err(Error::FunctionHasNoBody {
                 location: checked_function.location,
-                function: checked_function.name,
+                function: checked_function.name.id,
             });
         }
         let ty = Type::Function(checked_function.clone());
@@ -1429,7 +1429,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         let ty = Type::Struct(checked_struct.clone());
         ctx.symbols
-            .add_type(ctx.symbols.parent_scope_id(), checked_struct.name, ty)?;
+            .add_type(ctx.symbols.parent_scope_id(), checked_struct.name.id, ty)?;
 
         self.infcx.exit_context();
         ctx.symbols.end_scope();
@@ -1472,7 +1472,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         };
         let ty = Type::Enum(checked_enum.clone());
         ctx.symbols
-            .add_type(ctx.symbols.parent_scope_id(), checked_enum.name, ty)?;
+            .add_type(ctx.symbols.parent_scope_id(), checked_enum.name.id, ty)?;
 
         self.infcx.exit_context();
         ctx.symbols.end_scope();
@@ -1685,7 +1685,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let node = ctx.definition(node).as_type_alias().cloned().unwrap();
 
         let type_id = self.typecheck(&node.ty, ctx)?;
-        let mut key: TypeKey = node.name.into();
+        let mut key: TypeKey = node.name.id.into();
         key.visibility = node.visibility;
         ctx.symbols.add_type_id(None, key, type_id)?;
 
@@ -1763,7 +1763,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let variable = CheckedVariable::new(
             for_node.variable,
             start.ty(),
-            TypeQualifier::new(true),
+            TypeQualifier::new(true, for_node.location),
             current_scope_id,
             for_node.location,
         );
@@ -1771,7 +1771,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .declare_variable(variable)
             .ok_or(error::Error::VariableAlreadyDefined {
                 location: for_node.location,
-                variable: for_node.variable,
+                variable: for_node.variable.id,
             })?;
 
         ctx.symbols.start_scope(ScopeKind::Block);
@@ -1916,7 +1916,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 .declare_variable(variable)
                 .ok_or(error::Error::VariableAlreadyDefined {
                     location: function.location,
-                    variable: parameter.name.clone(),
+                    variable: parameter.name.id,
                 })?;
             parameters.push(CheckedFunctionParameter::new(
                 parameter.name,
@@ -1946,7 +1946,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         };
 
         let mut checked_function = CheckedLambdaFunctionNode {
-            name: ctx.intern_lambda(),
+            name: Identifier::new(ctx.intern_lambda(), function.location),
             parameters,
             body: self.program.exprs.alloc_item(checked_body),
             return_type: expected_return_type,
@@ -2019,8 +2019,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 })
                 .ok_or(Error::UnresolvedTraitMethod {
                     method_span: method.location,
-                    trait_name: trait_node.name,
-                    method_name: method.name,
+                    trait_name: trait_node.name.id,
+                    method_name: method.name.id,
                 })?;
             unimplemented_methods.remove(&trait_node.unchecked_body[i]);
             checked_methods.push(CheckedDefinitionNode::Function(method));
@@ -2038,7 +2038,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     location: method.location,
                     trait_ty: trait_type_id,
                     ty: implementor_type_id,
-                    method: method.name,
+                    method: method.name.id,
                 });
             }
             checked_methods.push(CheckedDefinitionNode::Function(method));
@@ -2190,23 +2190,25 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     ) -> Result<TypeId> {
         self.infcx.enter_scope();
         let type_id = match ty {
-            UncheckedType::Basic(IdentId::TYPE_BOOL, _) => BOOL_TYPE,
-            UncheckedType::Basic(IdentId::TYPE_FELT, _) => FELT_TYPE,
-            UncheckedType::Basic(IdentId::TYPE_U32, _) => U32_TYPE,
-            UncheckedType::Basic(name, location) => ctx
-                .symbols
-                .get_type_id(None, name.clone())
-                .ok_or(Error::UnresolvedType {
-                    location: location.clone(),
-                    resolved_type: name.clone(),
-                })?,
+            UncheckedType::Basic(name, location) => match name.id {
+                IdentId::TYPE_BOOL => BOOL_TYPE,
+                IdentId::TYPE_FELT => FELT_TYPE,
+                IdentId::TYPE_U32 => U32_TYPE,
+                _ => ctx
+                    .symbols
+                    .get_type_id(None, name.id)
+                    .ok_or(Error::UnresolvedType {
+                        location: *location,
+                        resolved_type: name.id,
+                    })?,
+            },
             UncheckedType::Generic(name, generic_parameters, location) => {
                 let underlying_type_id =
                     ctx.symbols
-                        .get_type_id(None, name.clone())
+                        .get_type_id(None, name.id)
                         .ok_or(Error::UnresolvedType {
                             location: location.clone(),
-                            resolved_type: name.clone(),
+                            resolved_type: name.id,
                         })?;
 
                 let mut checked_generic_args = Vec::new();
@@ -2399,7 +2401,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
         let ty = Type::Function(checked_function.clone());
-        ctx.symbols.add_type(None, checked_function.name, ty)?;
+        ctx.symbols.add_type(None, checked_function.name.id, ty)?;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
@@ -2432,13 +2434,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
         let ty = Type::Function(checked_function.clone());
-        let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
+        let type_id = ctx.symbols.add_type(None, checked_function.name.id, ty)?;
 
         self.add_trait_method(
             &checked_function.location,
             trait_type_id,
             implementor_type_id,
-            checked_function.name,
+            checked_function.name.id,
             type_id,
             ctx,
         )?;
@@ -2476,15 +2478,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             return Err(Error::MethodHasNoBody {
                 location: checked_function.location,
                 ty: implementor_type_id,
-                method: checked_function.name,
+                method: checked_function.name.id,
             });
         }
         let ty = Type::Function(checked_function.clone());
-        let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
+        let type_id = ctx.symbols.add_type(None, checked_function.name.id, ty)?;
         self.add_method(
             &checked_function.location,
             implementor_type_id,
-            checked_function.name,
+            checked_function.name.id,
             type_id,
             ctx,
         )?;
@@ -2519,7 +2521,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 .declare_variable(variable)
                 .ok_or(error::Error::VariableAlreadyDefined {
                     location: function.location,
-                    variable: parameter.name,
+                    variable: parameter.name.id,
                 })?;
             parameters.push(CheckedFunctionParameter::new(
                 parameter.name,

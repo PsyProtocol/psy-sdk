@@ -1,4 +1,3 @@
-use ariadne::{ColorGenerator, Label, Report, ReportKind};
 use qed_ast::{IdentId, Location};
 use thiserror::Error;
 

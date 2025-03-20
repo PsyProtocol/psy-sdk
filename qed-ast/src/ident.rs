@@ -1,11 +1,40 @@
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
+    hash::Hash,
     ops::{Index, IndexMut},
 };
 
 use qed_common::{define_arena_id, Arena};
 use smol_str::SmolStr;
+
+use crate::Location;
+
+#[derive(Debug, Copy, Clone)]
+pub struct Identifier {
+    pub id: IdentId,
+    pub location: Location,
+}
+
+impl Identifier {
+    pub fn new(id: IdentId, location: Location) -> Self {
+        Self { id, location }
+    }
+}
+
+impl PartialEq for Identifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Identifier {}
+
+impl Hash for Identifier {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Ident(pub SmolStr);

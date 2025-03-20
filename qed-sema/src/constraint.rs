@@ -1,4 +1,4 @@
-use crate::{CheckedGenericParameter, TypeId};
+use crate::TypeId;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Constraint {

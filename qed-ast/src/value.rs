@@ -1,7 +1,7 @@
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 
-use crate::{ExprId, IdentId, Location, NodeInfo, NodeType, UncheckedType};
+use crate::{ExprId, Identifier, Location, NodeInfo, NodeType, UncheckedType};
 
 #[derive(Clone, Debug, PartialEq, EnumAsInner)]
 pub enum ValueNode<F: Clone + From<u32>> {
@@ -10,9 +10,9 @@ pub enum ValueNode<F: Clone + From<u32>> {
     U32(F, Location),
     Array(usize, Vec<ExprId>, Location),
     Struct(
-        IdentId,
+        Identifier,
         Vec<UncheckedType>,
-        IndexMap<IdentId, ExprId>,
+        IndexMap<Identifier, ExprId>,
         Location,
     ),
 }

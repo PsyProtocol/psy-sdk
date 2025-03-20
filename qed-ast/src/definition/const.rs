@@ -1,8 +1,8 @@
-use crate::{ExprId, IdentId, Location, NodeInfo, NodeType, UncheckedType, Visibility};
+use crate::{ExprId, Identifier, Location, NodeInfo, NodeType, UncheckedType, Visibility};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConstNode {
-    pub name: IdentId,
+    pub name: Identifier,
     pub ty: UncheckedType,
     pub value: ExprId,
     pub visibility: Visibility,

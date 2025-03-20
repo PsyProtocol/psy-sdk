@@ -1,4 +1,4 @@
-use crate::{ExprId, IdentId, Location, NodeInfo, NodeType};
+use crate::{ExprId, Identifier, Location, NodeInfo, NodeType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexAccessNode {
@@ -16,7 +16,7 @@ impl NodeInfo for IndexAccessNode {
 #[derive(Clone, Debug, PartialEq)]
 pub struct MemberAccessNode {
     pub target: ExprId,
-    pub field: IdentId,
+    pub field: Identifier,
     pub location: Location,
 }
 

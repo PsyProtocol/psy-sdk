@@ -1,8 +1,8 @@
-use crate::{ExprId, IdentId, Location, NodeInfo, NodeType, TypeQualifier, UncheckedType};
+use crate::{ExprId, Identifier, Location, NodeInfo, NodeType, TypeQualifier, UncheckedType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariableNode {
-    pub name: IdentId,
+    pub name: Identifier,
     pub ty: UncheckedType,
     pub qualifier: TypeQualifier,
     pub value: ExprId,

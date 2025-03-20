@@ -1,6 +1,6 @@
 use ariadne::{ColorGenerator, Label, Report, ReportKind};
 use core::fmt;
-use qed_ast::{FileLocation, Location, VisitorContext};
+use qed_ast::{Location, VisitorContext};
 use qed_sema::{AstVisualizer, Error as SemaError, TypeCheckerVisitorContext};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 use std::io::Error as IoError;

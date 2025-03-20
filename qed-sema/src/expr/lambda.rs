@@ -1,13 +1,13 @@
 use qed_ast::{ExprId, Location};
 
 use crate::{
-    CheckedFunctionParameter, CheckedFunctionSignature, IdentId, NodeInfo, NodeType, ScopeId,
+    CheckedFunctionParameter, CheckedFunctionSignature, Identifier, NodeInfo, NodeType, ScopeId,
     TypeId,
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedLambdaFunctionNode {
-    pub name: IdentId,
+    pub name: Identifier,
     pub parameters: Vec<CheckedFunctionParameter>,
     pub body: ExprId,
     pub return_type: TypeId,

@@ -1,4 +1,4 @@
-use crate::{IdentId, Location, ScopeId, TypeId, UncheckedType};
+use crate::{IdentId, Location, ScopeId, TypeId};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct CheckedGenericParameter {

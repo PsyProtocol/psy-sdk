@@ -17,6 +17,16 @@ impl Location {
     }
 }
 
+impl Default for Location {
+    fn default() -> Self {
+        Self {
+            file_id: FileId(0),
+            start: 0,
+            end: 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileLocation {
     pub path: String,

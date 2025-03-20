@@ -244,12 +244,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         F: 'static,
     {
         let node: &CheckedFunctionNode = ctx.symbols[type_id.clone()].as_function().unwrap();
-        let method_name = ctx.program[node.name].to_string();
+        let method_name = ctx.program[node.name.id].to_string();
         let mut method_args = Vec::with_capacity(node.parameters.len());
 
         for parameter in node.parameters.iter() {
             method_args.push((
-                ctx.program[parameter.name.clone()].to_string(),
+                ctx.program[parameter.name.id].to_string(),
                 self.size_of(parameter.ty.clone(), &ctx.symbols),
             ));
         }
@@ -336,11 +336,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         );
 
         for (parameter, arg) in parameters.iter().zip(args.into_iter()) {
-            ctx.symbols.set_variable(
-                ctx.symbols[type_id].scope_id(),
-                parameter.name.clone(),
-                arg,
-            )?
+            ctx.symbols
+                .set_variable(ctx.symbols[type_id].scope_id(), parameter.name.id, arg)?
         }
         Ok(ControlState::Return(self.interpret_expr(
             program,
@@ -395,12 +392,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         ctx.symbols.enter_block(node.scope_id);
         ctx.symbols
-            .set_variable(node.scope_id, node.variable, start)?;
+            .set_variable(node.scope_id, node.variable.id, start)?;
 
         loop {
             let var_id = ctx
                 .symbols
-                .get_variable(Some(node.scope_id), &node.variable)
+                .get_variable(Some(node.scope_id), &node.variable.id)
                 .unwrap();
             let value_f = ctx.symbols.get_value(var_id).unwrap().to_u32();
             if value_f != end_f {
@@ -408,7 +405,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 let one = self.context.op_const_u32(1);
                 let value = CheckedValueRef::from_u32(self.context.op_u32_add(value_f, one));
                 ctx.symbols
-                    .set_variable(node.scope_id, node.variable, value)?;
+                    .set_variable(node.scope_id, node.variable.id, value)?;
             } else {
                 ctx.symbols.exit_block();
                 break Ok(());
@@ -921,7 +918,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         } else {
             Ok(s.get_path(
                 &mut self.context,
-                &[IndexPath::Normal(member_access_node.field.into())],
+                &[IndexPath::Normal(member_access_node.field.id.into())],
             )
             .unwrap())
         }
@@ -1171,7 +1168,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             ctx,
         )?;
 
-        let index = IndexPath::Normal(member_access_node.field.into());
+        let index = IndexPath::Normal(member_access_node.field.id.into());
         path.push(index.clone());
 
         Ok((
@@ -1203,7 +1200,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let value = self.interpret_expr(program, node.value, ctx)?;
 
         ctx.symbols
-            .set_variable(node.scope_id, node.name, value.clone())?;
+            .set_variable(node.scope_id, node.name.id, value.clone())?;
         Ok(())
     }
 

@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::LalrpopError;
 use thiserror::Error as ThisError;
 

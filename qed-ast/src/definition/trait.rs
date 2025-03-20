@@ -1,8 +1,8 @@
-use crate::{DefId, GenericParameter, IdentId, Location, NodeInfo, NodeType, Visibility};
+use crate::{DefId, GenericParameter, Identifier, Location, NodeInfo, NodeType, Visibility};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TraitNode {
-    pub name: IdentId,
+    pub name: Identifier,
     pub generic_parameters: Vec<GenericParameter>,
     pub body: Vec<DefId>,
     pub visibility: Visibility,

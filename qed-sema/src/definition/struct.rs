@@ -1,13 +1,13 @@
 use indexmap::IndexMap;
-use qed_ast::{IdentId, Location, NodeInfo, NodeType, Visibility};
+use qed_ast::{Identifier, Location, NodeInfo, NodeType, Visibility};
 
 use crate::{ScopeId, TypeId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedStructNode {
-    pub name: IdentId,
+    pub name: Identifier,
     pub generic_parameters: Vec<TypeId>,
-    pub fields: IndexMap<IdentId, CheckedStructField>,
+    pub fields: IndexMap<Identifier, CheckedStructField>,
     pub scope_id: ScopeId,
     pub visibility: Visibility,
     pub location: Location,

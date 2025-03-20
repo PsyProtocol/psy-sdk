@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::anyhow;
-use qed_ast::{DefId, IdentId, ImplTraitNode, Location, VisitorContext};
+use qed_ast::{DefId, Identifier};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
@@ -39,7 +39,7 @@ pub trait Implementer<F: Clone + From<u32> + ContextFelt, C> {
     fn find_impl(
         &mut self,
         ty: TypeId,
-        method: IdentId,
+        method: Identifier,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<(DefId, TypeId)>;
     fn implements_trait(
@@ -114,13 +114,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
     fn find_impl(
         &mut self,
         ty: TypeId, // mono OR poly
-        method: IdentId,
+        method: Identifier,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<(DefId, TypeId)> {
         let poly_ty = self.poly_of(ty, ctx).unwrap();
 
         let get_impl_id = |poly_ty: TypeId,
-                           method: IdentId,
+                           method: Identifier,
                            ctx: &mut TypeCheckerVisitorContext<F, C>|
          -> Option<_> {
             if let Some(impl_map) = self.implementer.impl_ids.get(&poly_ty) {
@@ -152,7 +152,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
             if self.satisfies_constraints(ctx.symbols[ty].generic_parameters(), &constraint, ctx) {
                 for &scope_id in &ctx.symbols[scope_id].children {
                     if ctx.symbols[scope_id].kind == ScopeKind::ImplMethod {
-                        if let Some(&type_id) = ctx.symbols[scope_id].types.get(&method.into()) {
+                        if let Some(&type_id) = ctx.symbols[scope_id].types.get(&method.id.into()) {
                             return Ok((impl_id, type_id));
                         }
                     }

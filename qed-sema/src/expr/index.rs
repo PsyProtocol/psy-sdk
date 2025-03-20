@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, IdentId, Location, NodeInfo, NodeType};
+use qed_ast::{ExprId, Identifier, Location, NodeInfo, NodeType};
 
 use crate::TypeId;
 
@@ -19,7 +19,7 @@ impl NodeInfo for CheckedIndexAccessNode {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedMemberAccessNode {
     pub target: ExprId,
-    pub field: IdentId,
+    pub field: Identifier,
     pub type_id: TypeId,
     pub location: Location,
 }

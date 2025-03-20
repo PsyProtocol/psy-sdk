@@ -13,8 +13,8 @@ use std::{
 };
 
 use crate::{
-    variable::CheckedVariable, CheckedGenericParameter, CheckedValueRef, IdentId, ModuleId,
-    ModuleKind, Type, TypeId, TypeKey,
+    variable::CheckedVariable, CheckedGenericParameter, CheckedValueRef, ModuleId, ModuleKind,
+    Type, TypeId, TypeKey,
 };
 use crate::{Error, Result};
 
@@ -254,7 +254,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         for module in modules {
             let data = module.data();
             self.modules.push(Module {
-                name: data.name.clone(),
+                name: data.name,
                 id: module.id(),
                 scope_id: ScopeId(module.id().into()),
                 kind: ModuleKind::File {
@@ -490,7 +490,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         self.frames
             .last()
             .unwrap()
-            .get_value(scope_id, key)
+            .get_value(scope_id, key.id)
             .cloned()
     }
 
@@ -503,19 +503,19 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
             .frames
             .last()
             .unwrap()
-            .get_value(scope_id, key)
+            .get_value(scope_id, key.id)
             .is_some()
             && (!self[var_id.clone()].qualifier.is_mutable)
         {
             return Err(Error::ImmutableVariable {
                 location: location,
-                variable: key,
+                variable: key.id,
             });
         }
         self.frames
             .last_mut()
             .unwrap()
-            .set_value(scope_id, key, value);
+            .set_value(scope_id, key.id, value);
         Ok(())
     }
 
@@ -532,11 +532,11 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
     pub fn declare_variable(&mut self, variable: CheckedVariable<F>) -> Option<VarId> {
         let scope_id = self.current_scope_id().unwrap();
         assert_eq!(variable.scope_id, scope_id);
-        if self[scope_id].variables.contains_key(&variable.name) {
+        if self[scope_id].variables.contains_key(&variable.name.id) {
             return None;
         }
         let var_id = VarId(self.variables.len());
-        self[scope_id].variables.insert(variable.name, var_id);
+        self[scope_id].variables.insert(variable.name.id, var_id);
         self.variables.push(variable);
         Some(var_id)
     }

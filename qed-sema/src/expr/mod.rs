@@ -23,7 +23,7 @@ pub use path::*;
 pub use r#match::*;
 pub use unary::*;
 
-use qed_ast::{IdentId, Location, NodeInfo, NodeType};
+use qed_ast::{Location, NodeInfo, NodeType};
 
 use crate::{CheckedValueNode, TypeId, BOOL_TYPE, FELT_TYPE, U32_TYPE};
 

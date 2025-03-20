@@ -1,9 +1,12 @@
 use std::fmt::Display;
 
+use crate::Location;
+
 #[derive(Copy, Debug, Clone, PartialEq)]
 pub struct Qualifier {
     pub is_extern: bool,
     pub is_const: bool,
+    pub location: Location,
 }
 
 impl Default for Qualifier {
@@ -11,6 +14,7 @@ impl Default for Qualifier {
         Self {
             is_extern: false,
             is_const: false,
+            location: Location::default(),
         }
     }
 }
@@ -28,10 +32,11 @@ impl Display for Qualifier {
 }
 
 impl Qualifier {
-    pub fn new(is_extern: bool, is_const: bool) -> Self {
+    pub fn new(is_extern: bool, is_const: bool, location: Location) -> Self {
         Self {
             is_extern,
             is_const,
+            location,
         }
     }
 }
@@ -39,6 +44,7 @@ impl Qualifier {
 #[derive(Copy, Debug, Clone, PartialEq)]
 pub struct TypeQualifier {
     pub is_mutable: bool,
+    pub location: Location,
 }
 
 impl Display for TypeQualifier {
@@ -51,7 +57,10 @@ impl Display for TypeQualifier {
 }
 
 impl TypeQualifier {
-    pub fn new(is_mutable: bool) -> TypeQualifier {
-        TypeQualifier { is_mutable }
+    pub fn new(is_mutable: bool, location: Location) -> TypeQualifier {
+        TypeQualifier {
+            is_mutable,
+            location,
+        }
     }
 }
