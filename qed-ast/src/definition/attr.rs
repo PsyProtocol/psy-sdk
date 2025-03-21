@@ -9,10 +9,10 @@ pub struct AttrNode {
 
 impl AttrNode {
     pub fn is_derive(&self) -> bool {
-        self.name.id == IdentId::DERIVE
+        self.name == IdentId::DERIVE
     }
 
     pub fn is_test(&self) -> bool {
-        self.name.id == IdentId::TEST
+        self.name == IdentId::TEST
     }
 }

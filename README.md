@@ -16,6 +16,9 @@
 - Type Checking
 - Generics
 - Type Hint
+- Trait Constraint
+- Crate (WIP)
+- LSP
 
 ## Getting Started
 

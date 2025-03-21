@@ -23,12 +23,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
             _marker: std::marker::PhantomData,
         }
     }
-
-    pub fn is_trait_imported(&self, trait_type_id: TypeId) -> bool {
-        self.symbols
-            .get_type_id(None, self.symbols[trait_type_id].key())
-            .is_some()
-    }
 }
 
 impl<F: Clone + From<u32> + ContextFelt, C> VisitorContext<F, C>

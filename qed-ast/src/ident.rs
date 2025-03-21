@@ -10,7 +10,7 @@ use smol_str::SmolStr;
 
 use crate::Location;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct Identifier {
     pub id: IdentId,
     pub location: Location,
@@ -28,7 +28,17 @@ impl PartialEq for Identifier {
     }
 }
 
-impl Eq for Identifier {}
+impl PartialEq<Identifier> for IdentId {
+    fn eq(&self, other: &Identifier) -> bool {
+        self.0 == other.id.0
+    }
+}
+
+impl PartialEq<IdentId> for Identifier {
+    fn eq(&self, other: &IdentId) -> bool {
+        self.id.0 == other.0
+    }
+}
 
 impl Hash for Identifier {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

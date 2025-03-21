@@ -15,73 +15,11 @@ use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
 use qed_ast::Program;
 
-pub type Loc = usize;
 pub type LalrpopError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, CustomError<'input>>;
 
 lalrpop_mod!(pub qed);
 
 use crate::Token;
-
-pub struct GenericTokenTransformer<'input, I>
-where
-    I: Iterator<Item = Spanned<Token<'input>, usize, qed_lexer::Error>>,
-{
-    underlying: I,
-    in_generics: i32,
-    buffered: Option<Spanned<Token<'input>, usize, Error>>,
-}
-
-impl<'input, I> GenericTokenTransformer<'input, I>
-where
-    I: Iterator<Item = Spanned<Token<'input>, usize, qed_lexer::Error>>,
-{
-    pub fn new(lexer: I) -> Self {
-        Self {
-            underlying: lexer,
-            in_generics: 0,
-            buffered: None,
-        }
-    }
-}
-
-impl<'input, I> Iterator for GenericTokenTransformer<'input, I>
-where
-    I: Iterator<Item = Spanned<Token<'input>, usize, qed_lexer::Error>>,
-{
-    type Item = Spanned<Token<'input>, usize, Error>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(buffered) = self.buffered.take() {
-            return Some(buffered);
-        }
-
-        let next = self.underlying.next()?;
-        match next {
-            Ok((start, Token::OperatorLt, end)) => {
-                self.in_generics += 1;
-                Some(Ok((start, Token::OperatorLt, end)))
-            }
-            Ok((start, Token::OperatorGt, end)) => {
-                self.in_generics -= 1;
-                if self.in_generics < 0 {
-                    self.in_generics = 0;
-                }
-                Some(Ok((start, Token::OperatorGt, end)))
-            }
-            Ok((start, Token::OperatorShr, end)) => {
-                if self.in_generics > 0 {
-                    let mid = start + 1;
-                    self.buffered = Some(Ok((mid, Token::OperatorGt, end)));
-                    Some(Ok((start, Token::OperatorGt, mid)))
-                } else {
-                    Some(Ok((start, Token::OperatorShr, end)))
-                }
-            }
-            Ok((start, token, end)) => Some(Ok((start, token, end))),
-            Err(e) => Some(Err(crate::Error::from(e))),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct Parser<'a, F: Clone + From<u32>, C> {
@@ -144,7 +82,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
 
                 let lexer = Lexer::new(file_content);
                 let transformer = GenericTokenTransformer::new(lexer);
-                let tokens: Vec<_> = transformer.collect::<Result<Vec<_>>>()?;
+                let tokens: Vec<_> = transformer.collect::<qed_lexer::Result<Vec<_>>>()?;
                 let module = match qed::ModuleParser::new().parse(
                     file_content,
                     file_id,
