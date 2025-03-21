@@ -1,10 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
-use qed_ast::{IdentId, ImplTraitNode, Location, ModuleId, PathNode, UncheckedType, UseNode};
+use qed_ast::{
+    IdentId, Identifier, ImplTraitNode, Location, ModuleId, PathNode, UncheckedType, UseNode,
+};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    AstVisualizer, CheckedPathNode, Error, Implementer, Result, TypeChecker,
+    AstVisualizer, CheckedPathNode, Error, Implementer, Inferer, Result, TypeChecker,
     TypeCheckerVisitorContext, TypeId, TypeKey,
 };
 
@@ -29,6 +31,12 @@ pub trait Resolver<F: Clone + From<u32> + ContextFelt, C> {
         use_path: &UseNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<Vec<(TypeKey, TypeId)>>;
+
+    fn resolve_module(
+        &self,
+        module: &Identifier,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<ModuleId>;
 
     fn resolve_member_type(
         &mut self,
@@ -57,46 +65,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
 
         let mut src_module = match path.root.as_ref() {
             Some(ty) => match ty {
-                UncheckedType::Basic(name, _) => match name.id {
-                    IdentId::SELF => current_module_id,
-                    IdentId::CRATE => {
-                        let mut module_id = current_module_id;
-                        while let Some(parent) = ctx.symbols[module_id].parent {
-                            module_id = parent;
-                        }
-                        module_id
-                    }
-                    IdentId::SUPER => {
-                        ctx.symbols[current_module_id]
-                            .parent
-                            .ok_or(Error::NoParentModule {
-                                location: path.location,
-                            })?
-                    }
-                    _ => {
-                        if let Some(&module_id) = ctx.symbols[current_module_id]
-                            .children
-                            .iter()
-                            .find(|&x| ctx.symbols[*x].name == name.id)
-                        {
-                            module_id
-                        } else {
-                            if !path.segments.is_empty() {
-                                return Err(Error::InvalidPathSegment {
-                                    location: path.location,
-                                    segment: path.segments[0].id,
-                                });
-                            }
-                            let root_type_id = self.typecheck(ty, ctx)?;
-                            return Ok(CheckedPathNode::new(
-                                None,
-                                Some(root_type_id),
-                                self.resolve_member_type(path, root_type_id, path.target.id, ctx)?,
-                                path.location,
-                            ));
-                        }
-                    }
-                },
+                UncheckedType::Basic(name, _)
+                    if let Ok(module) = self.resolve_module(name, ctx) =>
+                {
+                    module
+                }
                 _ => {
                     if !path.segments.is_empty() {
                         return Err(Error::InvalidPathSegment {
@@ -105,10 +78,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
                         });
                     }
                     let root_type_id = self.typecheck(ty, ctx)?;
+                    let type_id =
+                        self.resolve_member_type(path, root_type_id, path.target.id, ctx)?;
                     return Ok(CheckedPathNode::new(
                         None,
-                        Some(root_type_id),
-                        self.resolve_member_type(path, root_type_id, path.target.id, ctx)?,
+                        self.substitute_all(type_id, ctx)?,
                         path.location,
                     ));
                 }
@@ -123,8 +97,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
                 if let Some(var_id) = ctx.symbols.get_variable(None, &path.target.id) {
                     return Ok(CheckedPathNode::new(
                         Some(var_id),
-                        None,
-                        ctx.symbols[var_id].ty,
+                        self.substitute_all(ctx.symbols[var_id].ty, ctx)?,
                         path.location,
                     ));
                 }
@@ -135,7 +108,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
                         location: path.location,
                         resolved_type: path.target.id,
                     })?;
-                return Ok(CheckedPathNode::new(None, None, type_id, path.location));
+                return Ok(CheckedPathNode::new(
+                    None,
+                    self.substitute_all(type_id, ctx)?,
+                    path.location,
+                ));
             }
         };
 
@@ -160,17 +137,53 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
                     });
                 }
                 let root_type_id = self.resolve_module_type(path, src_module, segment.id, ctx)?;
+                let type_id = self.resolve_member_type(path, root_type_id, path.target.id, ctx)?;
                 return Ok(CheckedPathNode::new(
                     None,
-                    Some(root_type_id),
-                    self.resolve_member_type(path, root_type_id, path.target.id, ctx)?,
+                    self.substitute_all(type_id, ctx)?,
                     path.location,
                 ));
             }
         }
 
         let type_id = self.resolve_module_type(path, src_module, path.target.id, ctx)?;
-        return Ok(CheckedPathNode::new(None, None, type_id, path.location));
+        return Ok(CheckedPathNode::new(None, type_id, path.location));
+    }
+
+    fn resolve_module(
+        &self,
+        module: &Identifier,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<ModuleId> {
+        let current_module_id = ctx.symbols.current_module_id().unwrap();
+        Ok(match module.id {
+            IdentId::SELF => current_module_id,
+            IdentId::CRATE => {
+                let mut root_id = current_module_id;
+                while let Some(parent) = ctx.symbols[root_id].parent {
+                    root_id = parent;
+                }
+                root_id
+            }
+            IdentId::SUPER => {
+                ctx.symbols[current_module_id]
+                    .parent
+                    .ok_or(Error::NoParentModule {
+                        location: module.location,
+                    })?
+            }
+            name => ctx
+                .symbols
+                .modules()
+                .iter()
+                .position(|x| x.name == name)
+                .map(ModuleId)
+                .filter(|&id| ctx.symbols[current_module_id].children.contains(&id))
+                .ok_or(Error::ModuleNotFound {
+                    location: module.location,
+                    module: name,
+                })?,
+        })
     }
 
     fn resolve_use(
@@ -178,43 +191,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
         use_path: &UseNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<Vec<(TypeKey, TypeId)>> {
-        let symbols = &ctx.symbols;
-        let current_module_id = symbols.current_module_id().unwrap();
-
-        let mut module_id = match use_path.kind.id {
-            IdentId::SELF => current_module_id,
-            IdentId::CRATE => {
-                let mut root_id = current_module_id;
-                while let Some(parent) = symbols[root_id].parent {
-                    root_id = parent;
-                }
-                root_id
-            }
-            IdentId::SUPER => symbols[current_module_id]
-                .parent
-                .ok_or(Error::NoParentModule {
-                    location: use_path.location,
-                })?,
-            name => symbols
-                .modules()
-                .iter()
-                .position(|x| x.name == name)
-                .map(ModuleId)
-                .filter(|&id| symbols[current_module_id].children.contains(&id))
-                .ok_or(Error::ModuleNotFound {
-                    location: use_path.location,
-                    module: name,
-                })?,
-        };
+        let mut module_id = self.resolve_module(&use_path.kind, ctx)?;
 
         module_id = use_path
             .segments
             .iter()
             .try_fold(module_id, |current, &segment| {
-                if let Some(module) = symbols[current]
+                if let Some(module) = ctx.symbols[current]
                     .children
                     .iter()
-                    .find(|&&id| symbols[id].name == segment.id)
+                    .find(|&&id| ctx.symbols[id].name == segment.id)
                     .copied()
                 {
                     if ctx.symbols[module].visibility.is_public() {
@@ -233,11 +219,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
                 }
             })?;
 
-        let scope = &symbols[symbols[module_id].scope_id].types;
+        let scope = &ctx.symbols[ctx.symbols[module_id].scope_id].types;
         match use_path.target {
             Some(target) => {
                 if let Some((key, &type_id)) = scope.get_key_value(&target.id.into()) {
-                    if !key.visibility.is_public() || !symbols[type_id].visibility().is_public() {
+                    if !key.visibility.is_public() || !ctx.symbols[type_id].visibility().is_public()
+                    {
                         return Err(Error::TypeNotPublic {
                             location: use_path.location,
                             ty: type_id,
@@ -254,7 +241,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
             None => Ok(scope
                 .iter()
                 .filter_map(|(k, &id)| {
-                    (k.visibility.is_public() && symbols[id].visibility().is_public())
+                    (k.visibility.is_public() && ctx.symbols[id].visibility().is_public())
                         .then_some((k.clone(), id))
                 })
                 .collect()),

@@ -42,8 +42,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         let mut checked_impl = self.program[impl_id].as_impl().cloned().unwrap();
         self.infcx.enter_context();
 
-        for (generic_parameter, generic_arg) in checked_impl
-            .generic_parameters
+        for (generic_parameter, generic_arg) in ctx.symbols[checked_impl.ty]
+            .generic_parameters()
             .iter()
             .zip_eq(generic_parameters.into_iter())
         {
@@ -186,9 +186,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         match &mut checked_expr {
             CheckedExprNode::Path(checked_path_node) => {
                 checked_path_node.type_id = self.substitute_all(checked_path_node.type_id, ctx)?;
-                if let Some(ref mut root) = checked_path_node.root {
-                    *root = self.substitute_all(*root, ctx)?;
-                }
             }
             CheckedExprNode::Value(checked_value_node) => match checked_value_node {
                 CheckedValueNode::Felt(_, location) => {}
