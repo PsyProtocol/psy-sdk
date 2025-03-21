@@ -61,13 +61,10 @@ pub enum Error {
     },
     #[error("invalid return")]
     InvalidReturn { location: Location, message: String },
+    #[error("invalid generic constraint")]
+    InvalidGenericConstraint { location: Location },
     #[error("unreachable expression")]
     UnreachableExpression { location: Location },
-    #[error("invalid self parameter")]
-    InvalidSelfParameter {
-        location: Location,
-        message: IdentId,
-    },
     #[error("type already defined")]
     TypeAlreadyDefined {
         location: Location,

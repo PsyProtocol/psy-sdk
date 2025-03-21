@@ -2412,6 +2412,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             constraints.push(constraint);
         }
 
+        if !(constraints.iter().all(|&c| ctx.symbols[c].is_trait())
+            || (constraints.len() == 1
+                && matches!(constraints[0], FELT_TYPE | BOOL_TYPE | U32_TYPE)))
+        {
+            return Err(Error::InvalidGenericConstraint {
+                location: ty.location,
+            });
+        }
+
         Ok(CheckedGenericParameter {
             name: ty.name,
             constraints,

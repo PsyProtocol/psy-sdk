@@ -219,6 +219,10 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 build_report(location, "InvalidReturn", message, ctx)
                     .unwrap_or_else(|e| format!("Failed to build report: {}", e))
             }
+            SemaError::InvalidGenericConstraint { location } => {
+                build_report(location, "InvalidGenericConstraint", "Generic constraint should either be a concrete type or a list of trait requirements", ctx)
+                    .unwrap_or_else(|e| format!("Failed to build report: {}", e))
+            }
             SemaError::UnreachableExpression { location } => build_report(
                 location,
                 "UnreachableExpression",
@@ -226,10 +230,6 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::InvalidSelfParameter { location, message } => {
-                build_report(location, "InvalidSelfParameter", ctx.ident(message), ctx)
-                    .unwrap_or_else(|e| format!("Failed to build report: {}", e))
-            }
             SemaError::TypeAlreadyDefined {
                 location,
                 type_name,
