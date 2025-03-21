@@ -24,7 +24,7 @@ impl<'a> StorageProcessor<'a> {
         struct_node: &StructNode,
         attr: &AttrNode,
         ctx: &mut V,
-    ) -> ImplTraitNode {
+    ) -> TraitImplNode {
         let mut methods = Vec::new();
 
         methods.push(self.generate_storage_size_method(struct_node, attr, ctx));
@@ -33,7 +33,7 @@ impl<'a> StorageProcessor<'a> {
 
         methods.push(self.generate_storage_write_method(struct_node, attr, ctx));
 
-        ImplTraitNode {
+        TraitImplNode {
             generic_parameters: vec![],
             trait_ty: UncheckedType::Basic(Identifier::new(ctx.intern("Storage"), attr.location)),
             ty: UncheckedType::Basic(struct_node.name),
@@ -649,7 +649,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
                 let impl_node = self.generate_storage_impl(&s, attr, ctx);
                 let pos = ctx.node_id().as_def().unwrap().clone();
                 ctx.insert_definition(
-                    DefinitionNode::ImplTrait(impl_node),
+                    DefinitionNode::TraitImpl(impl_node),
                     InsertPosition::After(pos.into()),
                 );
             }
@@ -739,7 +739,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         Ok(())
     }
 
-    fn visit_impl_trait(
+    fn visit_trait_impl(
         &mut self,
         _node: DefId,
         _ctx: &mut Self::Context,

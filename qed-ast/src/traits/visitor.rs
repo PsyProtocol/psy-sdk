@@ -58,7 +58,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
             NodeType::StructDef => self.visit_struct(def_id, ctx)?,
             NodeType::EnumDef => self.visit_enum(def_id, ctx)?,
             NodeType::ImplDef => self.visit_impl(def_id, ctx)?,
-            NodeType::ImplTraitDef => self.visit_impl_trait(def_id, ctx)?,
+            NodeType::TraitImplDef => self.visit_trait_impl(def_id, ctx)?,
             NodeType::TraitDef => self.visit_trait(def_id, ctx)?,
             NodeType::TypeAliasDef => self.visit_type_alias(def_id, ctx)?,
             NodeType::ConstDef => self.visit_const(def_id, ctx)?,
@@ -233,7 +233,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         node: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error>;
-    fn visit_impl_trait(
+    fn visit_trait_impl(
         &mut self,
         node: DefId,
         ctx: &mut Self::Context,

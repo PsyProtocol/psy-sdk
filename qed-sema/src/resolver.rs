@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use qed_ast::{
-    IdentId, Identifier, ImplTraitNode, Location, ModuleId, PathNode, UncheckedType, UseNode,
+    IdentId, Identifier, Location, ModuleId, PathNode, TraitImplNode, UncheckedType, UseNode,
 };
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 

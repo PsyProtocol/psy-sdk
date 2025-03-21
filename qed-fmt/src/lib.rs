@@ -1015,18 +1015,18 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(result)
     }
 
-    fn visit_impl_trait(
+    fn visit_trait_impl(
         &mut self,
         def_id: DefId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        let ImplTraitNode {
+        let TraitImplNode {
             generic_parameters,
             trait_ty,
             ty,
             body,
             location: _location,
-        } = ctx.definition(def_id).as_impl_trait().unwrap();
+        } = ctx.definition(def_id).as_trait_impl().unwrap();
         let generic_parameters = generic_parameters
             .iter()
             .map(|generic_parameter| ctx.ident(generic_parameter.name).to_string())

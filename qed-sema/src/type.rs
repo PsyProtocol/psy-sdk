@@ -192,14 +192,19 @@ impl Type {
                 Type::Function(CheckedFunctionNode {
                     name,
                     generic_parameters,
+                    parameters,
+                    return_type,
                     ..
                 }) => (
                     Some(name.id),
                     None,
                     generic_parameters.clone(),
                     vec![],
-                    vec![],
-                    None,
+                    parameters
+                        .iter()
+                        .map(|parameter| parameter.ty.clone())
+                        .collect(),
+                    Some(return_type.clone()),
                 ),
                 Type::LambdaFunction(CheckedLambdaFunctionNode {
                     name,

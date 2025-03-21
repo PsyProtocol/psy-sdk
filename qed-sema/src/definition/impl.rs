@@ -12,7 +12,7 @@ pub struct CheckedImplNode {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CheckedImplTraitNode {
+pub struct CheckedTraitImplNode {
     pub generic_parameters: Vec<TypeId>,
     pub trait_ty: TypeId,
     pub ty: TypeId,
@@ -27,8 +27,8 @@ impl NodeInfo for CheckedImplNode {
     }
 }
 
-impl NodeInfo for CheckedImplTraitNode {
+impl NodeInfo for CheckedTraitImplNode {
     fn node_type(&self) -> NodeType {
-        NodeType::ImplTraitDef
+        NodeType::TraitImplDef
     }
 }
