@@ -1,39 +1,32 @@
 pub struct Person2 {
     pub age_height: [[Felt; 2]; 2],
-    pub year_of_birth: Felt
+    pub year_of_birth: Person,
 }
 
 pub mod traits{
 
     pub use super::Person2;
     pub trait PersonLike {
-        pub fn age(self: Self) -> Felt{
-            return 1;
-        }
+        pub fn age(self: Self) -> Felt;
     }
 
     pub struct Person {
-        pub age_height: [[Felt; 2]; 2],
         pub year_of_birth: Felt
     }
 
     impl PersonLike for Person {
-        // pub fn age(self: Person) -> Felt {
-        //     return self.age_height[0][0];
-        // }
+        pub fn age(self: Person) -> Felt {
+            return self.year_of_birth;
+        }
     }
 
     impl PersonLike for Person2 {
-        // pub fn age(self: Person2) -> Felt {
-        //     return self.age_height[0][0];
-        // }
+        pub fn age(self: Person2) -> Felt {
+            return self.year_of_birth.year_of_birth;
+        }
     }
 }
 
-use traits::Person;
-
-// error if not import trait
-use traits::PersonLike;
 
 pub fn test_fn(p: Person)  -> Felt {
     use traits::PersonLike;
@@ -42,13 +35,20 @@ pub fn test_fn(p: Person)  -> Felt {
 
 
 fn main(a: Felt, b: Felt) -> Felt {
-    let person: Person = new Person{
-        year_of_birth: 1990,
+
+    let person = new Person{
+        year_of_birth: 2025,
+    };
+    let person2: Person2 = new Person2{
+        year_of_birth: person,
         age_height: [[1, 1], [1, 1]]
     };
 
-    use traits::Person;
-    use traits::PersonLike;
-
-    return person.age() + a;
+    return person2.age() + a;
 }
+
+
+use traits::Person;
+
+// error if not import trait
+use traits::PersonLike;

@@ -49,3 +49,9 @@ impl NodeInfo for DefinitionNode {
         }
     }
 }
+
+impl PartialOrd for DefinitionNode {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.is_use().partial_cmp(&other.is_use())
+    }
+}

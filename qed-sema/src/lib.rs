@@ -1357,9 +1357,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         node: DefId,
         ctx: &mut Self::Context,
     ) -> StdResult<Self::DefinitionResult, Self::Error> {
-        ctx.symbols.start_scope(ScopeKind::Function);
-        self.infcx.enter_context();
         let function = ctx.definition(node).as_function().cloned().unwrap();
+
+        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
+        let is_in_module = ctx.symbols[current_scope_id].kind == ScopeKind::Module;
+        if is_in_module {
+            let function_type_id = ctx.symbols.get_type_id(None, function.name.id).unwrap();
+            let struct_scope_id = ctx.symbols[function_type_id].scope_id();
+            ctx.symbols.enter_scope(struct_scope_id);
+        } else {
+            ctx.symbols.start_scope(ScopeKind::Struct);
+        }
+        self.infcx.enter_context();
 
         let mut checked_generic_parameters = Vec::with_capacity(function.generic_parameters.len());
         for generic_parameter in &function.generic_parameters {
@@ -1380,10 +1389,20 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             });
         }
         let ty = Type::Function(checked_function.clone());
-        ctx.symbols
-            .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
-        self.infcx.exit_context();
-        ctx.symbols.end_scope();
+        if is_in_module {
+            let function_type_id = ctx
+                .symbols
+                .get_type_id(None, checked_function.name.id)
+                .unwrap();
+            ctx.symbols[function_type_id] = ty;
+            self.infcx.exit_context();
+            ctx.symbols.exit_scope();
+        } else {
+            ctx.symbols
+                .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
+            self.infcx.exit_context();
+            ctx.symbols.end_scope();
+        }
 
         Ok(self
             .program
@@ -1609,17 +1628,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         module_id: ModuleId,
         ctx: &mut Self::Context,
     ) -> StdResult<(), Self::Error> {
-        ctx.push_node_id(NodeId::from(module_id));
+        // ctx.push_node_id(NodeId::from(module_id));
         // TODO: remove clone
-        let module = ctx.module(module_id).clone();
+        // let module = ctx.module(module_id).clone();
         // if module.is_std && module.is_self_primitive {
         //     self.typecheck_std_primitive_module(ctx)?;
         // }
 
-        for &def_id in &module.definitions {
-            self.visit_definition(def_id, ctx)?;
-        }
-        ctx.pop_node_id();
+        // for &def_id in &module.definitions {
+        //     self.visit_definition(def_id, ctx)?;
+        // }
+        // ctx.pop_node_id();
 
         Ok(())
     }
@@ -1639,7 +1658,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     self.typecheck_std_primitive_module(ctx)?;
                 }
                 for &def_id in &module.data().definitions {
-                    self.pre_visit_definition(def_id, ctx);
+                    self.visit_module_definition_step1(def_id, ctx)?;
                 }
                 ctx.symbols.exit_module();
 
@@ -1649,10 +1668,30 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         ctx.dependency_graph().ts::<Self::Error>(
             &ModuleId::root(),
+            &mut colors.clone(),
+            &mut |&module_id| {
+                ctx.symbols.enter_module(module_id);
+                let module = ctx.program().modules[module_id].clone();
+
+                for &def_id in &module.data().definitions {
+                    self.visit_module_definition_step2(def_id, ctx)?;
+                }
+                ctx.symbols.exit_module();
+
+                Ok(())
+            },
+        )?;
+
+        ctx.dependency_graph().ts::<Self::Error>(
+            &ModuleId::root(),
             &mut colors,
             &mut |&module_id| {
                 ctx.symbols.enter_module(module_id);
-                self.visit_module(module_id, ctx)?;
+                let module = ctx.program().modules[module_id].clone();
+
+                for &def_id in &module.data().definitions {
+                    self.visit_module_definition_step3(def_id, ctx)?;
+                }
                 ctx.symbols.exit_module();
 
                 Ok(())
@@ -2618,14 +2657,37 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         Ok(checked_function)
     }
 
-    pub fn pre_visit_definition(
+    pub fn visit_module_definition_step1(
         &mut self,
         def_id: DefId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) {
+    ) -> StdResult<(), Error> {
         let node = ctx.definition(def_id).clone();
         match node {
-            DefinitionNode::Function(_function_node) => {}
+            DefinitionNode::Function(function_node) => {
+                ctx.symbols.start_scope(ScopeKind::Function);
+                self.infcx.enter_context();
+
+                let checked_function = CheckedFunctionNode {
+                    name: function_node.name,
+                    parameters: vec![],
+                    qualifier: function_node.qualifier,
+                    generic_parameters: vec![],
+                    body: None,
+                    return_type: VOID_TYPE,
+                    scope_id: ctx.symbols.current_scope_id().unwrap(),
+                    visibility: function_node.visibility,
+                    attrs: function_node.attrs,
+                    location: function_node.location,
+                };
+
+                let ty = Type::Function(checked_function.clone());
+                ctx.symbols
+                    .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)
+                    .unwrap();
+                self.infcx.exit_context();
+                ctx.symbols.end_scope();
+            }
             DefinitionNode::Struct(struct_node) => {
                 ctx.symbols.start_scope(ScopeKind::Struct);
                 self.infcx.enter_context();
@@ -2682,5 +2744,69 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             DefinitionNode::Const(_const_node) => {}
             DefinitionNode::Use(_use_node) => {}
         }
+
+        Ok(())
+    }
+
+    pub fn visit_module_definition_step2(
+        &mut self,
+        def_id: DefId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> StdResult<(), Error> {
+        ctx.push_node_id(NodeId::from(def_id));
+        match ctx.definition(def_id).node_type() {
+            NodeType::FunctionDef => {}
+            NodeType::StructDef => {
+                self.visit_struct(def_id, ctx)?;
+            }
+            NodeType::EnumDef => {}
+            NodeType::ImplDef => {}
+            NodeType::ImplTraitDef => {}
+            NodeType::TraitDef => {
+                self.visit_trait(def_id, ctx)?;
+            }
+            NodeType::TypeAliasDef => {
+                self.visit_type_alias(def_id, ctx)?;
+            }
+            NodeType::ConstDef => {}
+            NodeType::UseDef => {
+                self.visit_use(def_id, ctx)?;
+            }
+            _ => std::unreachable!(),
+        };
+        ctx.pop_node_id();
+        Ok(())
+    }
+
+    fn visit_module_definition_step3(
+        &mut self,
+        def_id: DefId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> StdResult<(), Error> {
+        ctx.push_node_id(NodeId::from(def_id));
+        match ctx.definition(def_id).node_type() {
+            NodeType::FunctionDef => {
+                self.visit_function(def_id, ctx)?;
+            }
+            NodeType::StructDef => {}
+            NodeType::EnumDef => {
+                self.visit_enum(def_id, ctx)?;
+            }
+            NodeType::ImplDef => {
+                self.visit_impl(def_id, ctx)?;
+            }
+            NodeType::ImplTraitDef => {
+                self.visit_impl_trait(def_id, ctx)?;
+            }
+            NodeType::TraitDef => {}
+            NodeType::TypeAliasDef => {}
+            NodeType::ConstDef => {
+                self.visit_const(def_id, ctx)?;
+            }
+            NodeType::UseDef => {}
+            _ => std::unreachable!(),
+        };
+        ctx.pop_node_id();
+        Ok(())
     }
 }
