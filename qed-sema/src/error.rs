@@ -15,20 +15,10 @@ pub enum Error {
         expected: Vec<TypeId>,
         found: TypeId,
     },
-    #[error("unresolved path")]
-    UnresolvedPath {
-        location: Location,
-        resolved_path: String,
-    },
     #[error("invalid path segment")]
     InvalidPathSegment {
         location: Location,
         segment: IdentId,
-    },
-    #[error("unresolved value")]
-    UnresolvedVariable {
-        location: Location,
-        resolved_variable: IdentId,
     },
     #[error("unresolved type")]
     UnresolvedType {
@@ -37,11 +27,6 @@ pub enum Error {
     },
     #[error("variable already defined")]
     VariableAlreadyDefined {
-        location: Location,
-        variable: IdentId,
-    },
-    #[error("undefined variable")]
-    UndefinedVariable {
         location: Location,
         variable: IdentId,
     },
@@ -61,20 +46,14 @@ pub enum Error {
         method_name: IdentId,
         trait_name: IdentId,
     },
-    #[error("function parameter mismatch")]
-    FunctionParameterMismatch {
-        location: Location,
-        expected: TypeId,
-        found: TypeId,
-    },
-    #[error("generic parameter mismatch")]
-    GenericParameterMismatch {
+    #[error("invalid generic arguments")]
+    InvalidGenericArguments {
         location: Location,
         expected: String,
         found: String,
     },
-    #[error("invalid function call")]
-    InvalidFunctionCall {
+    #[error("invalid function arguments")]
+    InvalidFunctionArguments {
         location: Location,
         method_name: TypeId,
         expected: String,
@@ -109,30 +88,6 @@ pub enum Error {
         location: Location,
         trait_ty: TypeId,
         ty: TypeId,
-    },
-    #[error("trait method unimplemented")]
-    TraitMethodUnimplemented {
-        location: Location,
-        trait_ty: TypeId,
-        ty: TypeId,
-        method: IdentId,
-    },
-    #[error("Method has no body")]
-    MethodHasNoBody {
-        location: Location,
-        ty: TypeId,
-        method: IdentId,
-    },
-    #[error("Function has no body")]
-    FunctionHasNoBody {
-        location: Location,
-        function: IdentId,
-    },
-    #[error("DuplicatedMethod")]
-    DuplicatedMethod {
-        location: Location,
-        ty: TypeId,
-        method: IdentId,
     },
     #[error("index out of bounds")]
     IndexOutOfBounds {
