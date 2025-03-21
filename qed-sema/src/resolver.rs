@@ -153,54 +153,57 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
         use_path: &UseNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<Vec<(TypeKey, TypeId)>> {
-        let mut module_id = self.resolve_module(&use_path.kind, ctx)?;
+        let mut current_module_id = self.resolve_module(&use_path.kind, ctx)?;
 
-        module_id = use_path
-            .segments
-            .iter()
-            .try_fold(module_id, |current, &segment| {
-                if let Some(module) = ctx.symbols[current]
-                    .children
-                    .iter()
-                    .find(|&&id| ctx.symbols[id].name == segment.id)
-                    .copied()
-                {
-                    if ctx.symbols[module].visibility.is_public() {
-                        Ok(module)
-                    } else {
-                        Err(Error::ModuleNotPublic {
-                            location: use_path.location,
-                            module: segment.id,
-                        })
-                    }
+        let traverse_path_segment = |current: ModuleId, segment: &Identifier| {
+            if let Some(module) = ctx.symbols[current]
+                .children
+                .iter()
+                .find(|&&id| ctx.symbols[id].name == segment.id)
+                .copied()
+            {
+                if ctx.symbols[module].visibility.is_public() {
+                    Ok(module)
                 } else {
-                    Err(Error::ModuleNotFound {
+                    Err(Error::ModuleNotPublic {
                         location: use_path.location,
                         module: segment.id,
                     })
                 }
-            })?;
+            } else {
+                Err(Error::ModuleNotFound {
+                    location: use_path.location,
+                    module: segment.id,
+                })
+            }
+        };
 
-        let scope = &ctx.symbols[ctx.symbols[module_id].scope_id].types;
+        current_module_id = use_path
+            .segments
+            .iter()
+            .try_fold(current_module_id, traverse_path_segment)?;
+
+        let scope_id = ctx.symbols[current_module_id].scope_id;
+
         match use_path.target {
-            Some(target) => {
-                if let Some((key, &type_id)) = scope.get_key_value(&target.id.into()) {
-                    if !key.visibility.is_public() || !ctx.symbols[type_id].visibility().is_public()
-                    {
-                        return Err(Error::TypeNotPublic {
-                            location: use_path.location,
-                            ty: type_id,
-                        });
-                    }
-                    Ok(vec![(key.clone(), type_id)])
-                } else {
-                    return Err(Error::UnresolvedType {
+            Some(target)
+                if let Some((key, &type_id)) =
+                    ctx.symbols[scope_id].types.get_key_value(&target.id.into()) =>
+            {
+                if !key.visibility.is_public() || !ctx.symbols[type_id].visibility().is_public() {
+                    return Err(Error::TypeNotPublic {
                         location: use_path.location,
-                        resolved_type: target.id,
+                        ty: type_id,
                     });
                 }
+                Ok(vec![(key.clone(), type_id)])
             }
-            None => Ok(scope
+            Some(target) => Err(Error::UnresolvedType {
+                location: use_path.location,
+                resolved_type: target.id,
+            }),
+            None => Ok(ctx.symbols[scope_id]
+                .types
                 .iter()
                 .filter_map(|(k, &id)| {
                     (k.visibility.is_public() && ctx.symbols[id].visibility().is_public())
