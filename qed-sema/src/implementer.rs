@@ -136,7 +136,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                                 .map(|impl_node| &impl_node.body))
                         {
                             if let Some(&function_id) = body.iter().find(|&&function_id| {
-                                self.program[function_id].as_function().unwrap().name.id == method
+                                self.program[function_id].as_function().unwrap().name == method
                             }) {
                                 return Some((constraint.clone(), impl_id, function_id));
                             }
@@ -156,7 +156,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                     if let Some(function_id) =
                         self.program[instance].as_impl().unwrap().body.iter().find(
                             |&&function_id| {
-                                self.program[function_id].as_function().unwrap().name.id == method
+                                self.program[function_id].as_function().unwrap().name == method
                             },
                         )
                     {

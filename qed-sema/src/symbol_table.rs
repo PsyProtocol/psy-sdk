@@ -471,7 +471,12 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         None
     }
 
-    pub fn get_variable(&self, start_scope: Option<ScopeId>, key: &IdentId) -> Option<VarId> {
+    pub fn get_variable<I: Into<IdentId>>(
+        &self,
+        start_scope: Option<ScopeId>,
+        key: I,
+    ) -> Option<VarId> {
+        let key = key.into();
         let var_id = self.find(
             start_scope,
             vec![
@@ -479,7 +484,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
                 ScopeKind::ImplMethod,
                 ScopeKind::TraitMethod,
             ],
-            |scope| scope.variables.get(key).cloned(),
+            |scope| scope.variables.get(&key).cloned(),
         )?;
         Some(var_id)
     }

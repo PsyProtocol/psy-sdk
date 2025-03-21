@@ -564,7 +564,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             ValueNode::Struct(name, generic_args, data, location) => Ok({
                 let underlying_type_id =
                     ctx.symbols
-                        .get_type_id(None, name.id)
+                        .get_type_id(None, name)
                         .ok_or(Error::UnresolvedType {
                             location: location,
                             resolved_type: name.id,
@@ -2252,7 +2252,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 IdentId::TYPE_U32 => U32_TYPE,
                 _ => ctx
                     .symbols
-                    .get_type_id(None, name.id)
+                    .get_type_id(None, name)
                     .ok_or(Error::UnresolvedType {
                         location: name.location,
                         resolved_type: name.id,
@@ -2261,7 +2261,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             UncheckedType::Generic(name, generic_parameters, location) => {
                 let underlying_type_id =
                     ctx.symbols
-                        .get_type_id(None, name.id)
+                        .get_type_id(None, name)
                         .ok_or(Error::UnresolvedType {
                             location: location.clone(),
                             resolved_type: name.id,

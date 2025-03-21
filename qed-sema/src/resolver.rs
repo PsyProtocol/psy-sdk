@@ -92,20 +92,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
                         segment: path.segments[0].id,
                     });
                 }
-                if let Some(var_id) = ctx.symbols.get_variable(None, &path.target.id) {
+                if let Some(var_id) = ctx.symbols.get_variable(None, &path.target) {
                     return Ok(CheckedPathNode::new(
                         Some(var_id),
                         self.substitute_all(ctx.symbols[var_id].ty, ctx)?,
                         path.location,
                     ));
                 }
-                let type_id = ctx
-                    .symbols
-                    .get_type_id(None, path.target.id)
-                    .ok_or_else(|| Error::UnresolvedType {
+                let type_id = ctx.symbols.get_type_id(None, path.target).ok_or_else(|| {
+                    Error::UnresolvedType {
                         location: path.location,
                         resolved_type: path.target.id,
-                    })?;
+                    }
+                })?;
                 return Ok(CheckedPathNode::new(
                     None,
                     self.substitute_all(type_id, ctx)?,

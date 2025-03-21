@@ -108,7 +108,7 @@ Definition: DefinitionNode = {
 
         }
         f.as_function().unwrap().parameters.iter().for_each(|p|{
-            if p.name.id == IdentId::SELF || (p.ty.is_basic() && p.ty.as_basic().unwrap().id == IdentId::TYPE_SELF){
+            if p.name == IdentId::SELF || (p.ty.is_basic() && p.ty.as_basic().unwrap() == &IdentId::TYPE_SELF){
                 panic!("{:?}", LalrpopError::User { error: SyntacticError::InvalidSelfParameter });
             }
         } );
@@ -152,7 +152,7 @@ ImplDef: ImplNode = {
                         .parameters
                         .iter()
                         .enumerate()
-                        .any(|(i, p)| p.name.id == IdentId::SELF && i != 0)
+                        .any(|(i, p)| p.name == IdentId::SELF && i != 0)
                     {
                         panic!(
                             "{:?}",
@@ -192,7 +192,7 @@ ImplTraitDef: ImplTraitNode = {
                         .parameters
                         .iter()
                         .enumerate()
-                        .any(|(i, p)| p.name.id == IdentId::SELF && i != 0)
+                        .any(|(i, p)| p.name == IdentId::SELF && i != 0)
                     {
                         panic!(
                             "{:?}",

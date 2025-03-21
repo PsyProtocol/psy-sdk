@@ -117,6 +117,12 @@ impl From<Identifier> for TypeKey {
     }
 }
 
+impl From<&Identifier> for TypeKey {
+    fn from(value: &Identifier) -> Self {
+        TypeKey::new(Some(value.id), None, vec![], vec![], vec![], None)
+    }
+}
+
 impl From<ConstId> for TypeKey {
     fn from(value: ConstId) -> Self {
         TypeKey::new(None, None, vec![], vec![value], vec![], None)

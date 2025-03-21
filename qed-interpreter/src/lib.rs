@@ -395,7 +395,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         loop {
             let var_id = ctx
                 .symbols
-                .get_variable(Some(node.scope_id), &node.variable.id)
+                .get_variable(Some(node.scope_id), &node.variable)
                 .unwrap();
             let value_f = ctx.symbols.get_value(var_id).unwrap().to_u32();
             if value_f != end_f {
