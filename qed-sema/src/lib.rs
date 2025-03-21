@@ -144,7 +144,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let type_id = checked_expr.ty();
 
         if ctx.ancestor_node_type(1).is_member_call_expr() {
-            let (_, type_id) = self.find_impl(type_id, member_access_node.field.id, ctx)?;
+            let type_id = self.find_method(type_id, member_access_node.field.id, ctx)?;
             let visibility = ctx.symbols[type_id].visibility();
             if !(visibility.is_public()
                 || self.typecheck_member_access(member_access_node.target, ctx))
@@ -1237,7 +1237,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         }
 
         let implementor_type_id = self.typecheck(&impl_node.ty, ctx)?;
-        let poly_type_id = self.poly_of(implementor_type_id, ctx).unwrap();
+        let implementor_poly_type_id = self.poly_of(implementor_type_id, ctx).unwrap();
         if ctx.symbols[implementor_type_id]
             .generic_parameters()
             .iter()
@@ -1249,14 +1249,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         }
 
         ctx.symbols
-            .add_type_id(None, IdentId::TYPE_SELF, poly_type_id)?;
+            .add_type_id(None, IdentId::TYPE_SELF, implementor_poly_type_id)?;
 
         let mut methods = Vec::new();
 
         for (generic_parameter, generic_arg) in ctx.symbols[implementor_type_id]
             .generic_parameters()
             .iter()
-            .zip_eq(ctx.symbols[poly_type_id].generic_parameters())
+            .zip_eq(ctx.symbols[implementor_poly_type_id].generic_parameters())
         {
             if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
                 return Err(Error::TypeMismatch {
@@ -1269,15 +1269,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         for &function_id in &impl_node.body {
             methods.push(CheckedDefinitionNode::Function(
-                self.typecheck_impl_method(poly_type_id, function_id, ctx)?,
+                self.typecheck_impl_method(implementor_poly_type_id, function_id, ctx)?,
             ));
         }
 
         let checked_impl = CheckedImplNode {
             generic_parameters: checked_generic_parameters,
-            ty: poly_type_id,
+            ty: implementor_poly_type_id,
             body: self.program.defs.alloc_items(methods),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
+            location: impl_node.location,
         };
 
         // let ty = Type::Impl(checked_impl.clone());
@@ -1302,7 +1303,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx: &mut Self::Context,
     ) -> StdResult<Self::DefinitionResult, Self::Error> {
         ctx.symbols.start_scope(ScopeKind::Trait);
-        // ctx.symbols.start_scope(ScopeKind::Impl);
         self.infcx.enter_context();
         // TODO: remove clone
         let trait_node = ctx.definition(node).as_trait().cloned().unwrap();
@@ -1342,7 +1342,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .add_type(ctx.symbols.parent_scope_id(), checked_trait.name, ty)?;
 
         self.infcx.exit_context();
-        // ctx.symbols.end_scope();
         ctx.symbols.end_scope();
 
         Ok(self
@@ -1371,7 +1370,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             checked_generic_parameters.push(type_id);
         }
 
-        let checked_function =
+        let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
         if checked_function.body.is_none() {
             return Err(Error::FunctionHasNoBody {
@@ -1380,8 +1379,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             });
         }
         let ty = Type::Function(checked_function.clone());
-        ctx.symbols
+        let type_id = ctx
+            .symbols
             .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
+        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
+        checked_function.type_id = type_id;
+
         self.infcx.exit_context();
         ctx.symbols.end_scope();
 
@@ -2113,6 +2116,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             ty: implementor_poly_type_id,
             body: self.program.defs.alloc_items(checked_methods),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
+            location: impl_node.location,
         };
 
         // let ty = Type::Impl(checked_impl.clone());
@@ -2222,7 +2226,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             ScopeKind::Module,
             CheckedGenericParameter::new(
                 IdentId::N,
-                vec![],
+                vec![U32_TYPE],
                 ScopeId::primitive(),
                 Location {
                     file_id: FileId(0),
@@ -2467,10 +2471,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 .add_type_variable(ScopeKind::Trait, checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
-        let checked_function =
+        let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
         let ty = Type::Function(checked_function.clone());
-        ctx.symbols.add_type(None, checked_function.name, ty)?;
+        let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
+        checked_function.type_id = type_id;
+        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
@@ -2500,10 +2506,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 .add_type_variable(ScopeKind::Impl, checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
-        let checked_function =
+        let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
         let ty = Type::Function(checked_function.clone());
         let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
+        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
+        checked_function.type_id = type_id;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
@@ -2532,7 +2540,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 .add_type_variable(ScopeKind::Impl, checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
-        let checked_function =
+        let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
         if checked_function.body.is_none() {
             return Err(Error::MethodHasNoBody {
@@ -2543,6 +2551,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
         let ty = Type::Function(checked_function.clone());
         let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
+        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
+        checked_function.type_id = type_id;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
@@ -2616,6 +2626,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             scope_id: current_scope_id,
             visibility: function.visibility,
             attrs: function.attrs,
+            type_id: UNKOWN_TYPE,
             location: function.location,
         };
 

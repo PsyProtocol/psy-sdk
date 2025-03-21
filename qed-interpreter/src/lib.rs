@@ -136,7 +136,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 .into_iter()
                 .map(|method_name| {
                     let method_name = ctx.intern(method_name.into());
-                    Ok(typechecker.find_impl(type_id, method_name, &mut ctx)?.1)
+                    Ok(typechecker.find_method(type_id, method_name, &mut ctx)?)
                 })
                 .collect::<Result<Vec<TypeId>>>()?
         } else {

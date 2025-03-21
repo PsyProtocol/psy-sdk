@@ -279,7 +279,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
             return Ok(type_id);
         }
 
-        let method_type_id = self.find_impl(root, target, ctx)?.1;
+        let method_type_id = self.find_method(root, target, ctx)?;
         if !ctx.symbols[method_type_id].visibility().is_public() {
             return Err(Error::MemberNotPublic {
                 location: path.location,
