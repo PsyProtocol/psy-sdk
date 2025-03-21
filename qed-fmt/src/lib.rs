@@ -68,7 +68,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         ctx: &impl VisitorContext<F, C>,
     ) -> String {
         match node {
-            UncheckedType::Basic(name, _) => ctx.ident(name).to_string(),
+            UncheckedType::Basic(name) => ctx.ident(name).to_string(),
             UncheckedType::Generic(name, generic_parameters, _) => format!(
                 "{}{}",
                 &ctx.ident(name),

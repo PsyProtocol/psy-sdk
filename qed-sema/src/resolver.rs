@@ -65,9 +65,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
 
         let mut src_module = match path.root.as_ref() {
             Some(ty) => match ty {
-                UncheckedType::Basic(name, _)
-                    if let Ok(module) = self.resolve_module(name, ctx) =>
-                {
+                UncheckedType::Basic(name) if let Ok(module) = self.resolve_module(name, ctx) => {
                     module
                 }
                 _ => {
@@ -150,42 +148,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
         return Ok(CheckedPathNode::new(None, type_id, path.location));
     }
 
-    fn resolve_module(
-        &self,
-        module: &Identifier,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<ModuleId> {
-        let current_module_id = ctx.symbols.current_module_id().unwrap();
-        Ok(match module.id {
-            IdentId::SELF => current_module_id,
-            IdentId::CRATE => {
-                let mut root_id = current_module_id;
-                while let Some(parent) = ctx.symbols[root_id].parent {
-                    root_id = parent;
-                }
-                root_id
-            }
-            IdentId::SUPER => {
-                ctx.symbols[current_module_id]
-                    .parent
-                    .ok_or(Error::NoParentModule {
-                        location: module.location,
-                    })?
-            }
-            name => ctx
-                .symbols
-                .modules()
-                .iter()
-                .position(|x| x.name == name)
-                .map(ModuleId)
-                .filter(|&id| ctx.symbols[current_module_id].children.contains(&id))
-                .ok_or(Error::ModuleNotFound {
-                    location: module.location,
-                    module: name,
-                })?,
-        })
-    }
-
     fn resolve_use(
         &self,
         use_path: &UseNode,
@@ -246,6 +208,42 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
                 })
                 .collect()),
         }
+    }
+
+    fn resolve_module(
+        &self,
+        module: &Identifier,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<ModuleId> {
+        let current_module_id = ctx.symbols.current_module_id().unwrap();
+        Ok(match module.id {
+            IdentId::SELF => current_module_id,
+            IdentId::CRATE => {
+                let mut root_id = current_module_id;
+                while let Some(parent) = ctx.symbols[root_id].parent {
+                    root_id = parent;
+                }
+                root_id
+            }
+            IdentId::SUPER => {
+                ctx.symbols[current_module_id]
+                    .parent
+                    .ok_or(Error::NoParentModule {
+                        location: module.location,
+                    })?
+            }
+            name => ctx
+                .symbols
+                .modules()
+                .iter()
+                .position(|x| x.name == name)
+                .map(ModuleId)
+                .filter(|&id| ctx.symbols[current_module_id].children.contains(&id))
+                .ok_or(Error::ModuleNotFound {
+                    location: module.location,
+                    module: name,
+                })?,
+        })
     }
 
     fn resolve_member_type(

@@ -2246,7 +2246,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     ) -> Result<TypeId> {
         self.infcx.enter_scope();
         let type_id = match ty {
-            UncheckedType::Basic(name, location) => match name.id {
+            UncheckedType::Basic(name) => match name.id {
                 IdentId::TYPE_BOOL => BOOL_TYPE,
                 IdentId::TYPE_FELT => FELT_TYPE,
                 IdentId::TYPE_U32 => U32_TYPE,
@@ -2254,7 +2254,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     .symbols
                     .get_type_id(None, name.id)
                     .ok_or(Error::UnresolvedType {
-                        location: *location,
+                        location: name.location,
                         resolved_type: name.id,
                     })?,
             },

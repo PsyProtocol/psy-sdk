@@ -35,11 +35,8 @@ impl<'a> StorageProcessor<'a> {
 
         ImplTraitNode {
             generic_parameters: vec![],
-            trait_ty: UncheckedType::Basic(
-                Identifier::new(ctx.intern("Storage"), attr.location),
-                attr.location,
-            ),
-            ty: UncheckedType::Basic(struct_node.name, attr.location),
+            trait_ty: UncheckedType::Basic(Identifier::new(ctx.intern("Storage"), attr.location)),
+            ty: UncheckedType::Basic(struct_node.name),
             body: methods,
             location: attr.location,
         }
@@ -75,7 +72,7 @@ impl<'a> StorageProcessor<'a> {
 
         ImplNode {
             generic_parameters: vec![],
-            ty: UncheckedType::Basic(struct_node.name, attr.location),
+            ty: UncheckedType::Basic(struct_node.name),
             body: methods,
             location: attr.location,
         }
@@ -113,10 +110,10 @@ impl<'a> StorageProcessor<'a> {
             parameters: vec![],
             generic_parameters: vec![],
             body: Some(block),
-            return_type: Some(UncheckedType::Basic(
-                Identifier::new(IdentId::TYPE_FELT, attr.location),
+            return_type: Some(UncheckedType::Basic(Identifier::new(
+                IdentId::TYPE_FELT,
                 attr.location,
-            )),
+            ))),
             qualifier: Qualifier {
                 is_extern: false,
                 is_const: false,
@@ -178,18 +175,15 @@ impl<'a> StorageProcessor<'a> {
             parameters: vec![FunctionParameter::new(
                 offset_ident,
                 TypeQualifier::new(false, attr.location),
-                UncheckedType::Basic(
-                    Identifier::new(IdentId::TYPE_FELT, attr.location),
-                    attr.location,
-                ),
+                UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, attr.location)),
                 attr.location,
             )],
             generic_parameters: vec![],
             body: Some(block),
-            return_type: Some(UncheckedType::Basic(
-                Identifier::new(IdentId::TYPE_SELF, attr.location),
+            return_type: Some(UncheckedType::Basic(Identifier::new(
+                IdentId::TYPE_SELF,
                 attr.location,
-            )),
+            ))),
             qualifier: Qualifier {
                 is_extern: false,
                 is_const: false,
@@ -246,19 +240,13 @@ impl<'a> StorageProcessor<'a> {
                 FunctionParameter::new(
                     offset_ident,
                     TypeQualifier::new(false, attr.location),
-                    UncheckedType::Basic(
-                        Identifier::new(IdentId::TYPE_FELT, attr.location),
-                        attr.location,
-                    ),
+                    UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, attr.location)),
                     attr.location,
                 ),
                 FunctionParameter::new(
                     value_ident,
                     TypeQualifier::new(false, attr.location),
-                    UncheckedType::Basic(
-                        Identifier::new(IdentId::TYPE_SELF, attr.location),
-                        attr.location,
-                    ),
+                    UncheckedType::Basic(Identifier::new(IdentId::TYPE_SELF, attr.location)),
                     attr.location,
                 ),
             ],

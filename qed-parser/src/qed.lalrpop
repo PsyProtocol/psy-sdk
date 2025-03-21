@@ -108,7 +108,7 @@ Definition: DefinitionNode = {
 
         }
         f.as_function().unwrap().parameters.iter().for_each(|p|{
-            if p.name.id == IdentId::SELF || (p.ty.is_basic() && p.ty.as_basic().unwrap().0.id == IdentId::TYPE_SELF){
+            if p.name.id == IdentId::SELF || (p.ty.is_basic() && p.ty.as_basic().unwrap().id == IdentId::TYPE_SELF){
                 panic!("{:?}", LalrpopError::User { error: SyntacticError::InvalidSelfParameter });
             }
         } );
@@ -333,7 +333,7 @@ FunctionParameter: FunctionParameter = {
         FunctionParameter::new(
             Identifier::new(IdentId::SELF, Location::new(file_id, l, r)),
             type_qualifier,
-            UncheckedType::Basic(Identifier::new(IdentId::TYPE_SELF, Location::new(file_id, l, r)), Location::new(file_id, l, r)),
+            UncheckedType::Basic(Identifier::new(IdentId::TYPE_SELF, Location::new(file_id, l, r))),
             Location::new(file_id, l, r)
         )
     },
@@ -894,7 +894,7 @@ GenericType: UncheckedType = {
     <l:@L> <name:Identifier> "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters, Location::new(file_id, l, r)),
     <l:@L>  "[" <ty:Ty> ";" <n:Identifier> "]" <r:@R> => UncheckedType::Generic(
         Identifier::new(IdentId::TYPE_ARRAY, Location::new(file_id, l, r)),
-        vec![ty, UncheckedType::Basic(n, Location::new(file_id, l, r))],
+        vec![ty, UncheckedType::Basic(n)],
         Location::new(file_id, l, r)
     )
 }
@@ -904,15 +904,15 @@ ArrayType: UncheckedType = {
 }
 
 ConstType: UncheckedType = {
-    <l:@L> <ty:TYPE_FELT>  <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, Location::new(file_id, l, r)), Location::new(file_id, l, r)),
-    <l:@L> <ty:TYPE_BOOL>  <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_BOOL, Location::new(file_id, l, r)), Location::new(file_id, l, r)),
-    <l:@L> <ty:TYPE_U32>   <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_U32, Location::new(file_id, l, r)), Location::new(file_id, l, r)),
+    <l:@L> <ty:TYPE_FELT>  <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, Location::new(file_id, l, r))),
+    <l:@L> <ty:TYPE_BOOL>  <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_BOOL, Location::new(file_id, l, r))),
+    <l:@L> <ty:TYPE_U32>   <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_U32, Location::new(file_id, l, r))),
 }
 
 BasicType: UncheckedType = {
     ConstType,
-    <l:@L> <ty:TYPE_SELF>  <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_SELF, Location::new(file_id, l, r)), Location::new(file_id, l, r)),
-    <l:@L> <ty:Identifier> <r:@R> => UncheckedType::Basic(ty, Location::new(file_id, l, r))
+    <l:@L> <ty:TYPE_SELF>  <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_SELF, Location::new(file_id, l, r))),
+    <l:@L> <ty:Identifier> <r:@R> => UncheckedType::Basic(ty)
 }
 
 ModuleUseKind: Identifier = {
