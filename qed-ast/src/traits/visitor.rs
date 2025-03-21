@@ -16,7 +16,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         Stmt = Self::Stmt,
         Definition = Self::Definition,
     >;
-    type Error: std::fmt::Debug;
+    type Error: std::fmt::Debug + From<qed_common::Error>;
 
     fn visit_expr(
         &mut self,
@@ -121,11 +121,11 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
 
     fn visit_program(&mut self, ctx: &mut Self::Context) -> Result<(), Self::Error> {
         let mut visited = HashMap::new();
-        ctx.dependency_graph()
-            .ts(&ModuleId::root(), &mut visited, &mut |&module_id| {
-                self.visit_module(module_id, ctx).unwrap();
-            })
-            .unwrap();
+        ctx.dependency_graph().ts::<Self::Error>(
+            &ModuleId::root(),
+            &mut visited,
+            &mut |&module_id| self.visit_module(module_id, ctx),
+        )?;
 
         Ok(())
     }

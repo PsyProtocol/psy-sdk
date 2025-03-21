@@ -5,9 +5,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use error::CustomError;
 use lalrpop_util::lalrpop_mod;
 
-use error::{Error, Result};
+pub use error::{Error, Result};
 use qed_ast::*;
 use qed_lexer::{Error as LexicalError, *};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
@@ -15,9 +16,72 @@ use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::Program;
 
 pub type Loc = usize;
-pub type ParseError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, LexicalError>;
+pub type LalrpopError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, CustomError<'input>>;
 
 lalrpop_mod!(pub qed);
+
+use crate::Token;
+
+pub struct GenericTokenTransformer<'input, I>
+where
+    I: Iterator<Item = Spanned<Token<'input>, usize, qed_lexer::Error>>,
+{
+    underlying: I,
+    in_generics: i32,
+    buffered: Option<Spanned<Token<'input>, usize, Error>>,
+}
+
+impl<'input, I> GenericTokenTransformer<'input, I>
+where
+    I: Iterator<Item = Spanned<Token<'input>, usize, qed_lexer::Error>>,
+{
+    pub fn new(lexer: I) -> Self {
+        Self {
+            underlying: lexer,
+            in_generics: 0,
+            buffered: None,
+        }
+    }
+}
+
+impl<'input, I> Iterator for GenericTokenTransformer<'input, I>
+where
+    I: Iterator<Item = Spanned<Token<'input>, usize, qed_lexer::Error>>,
+{
+    type Item = Spanned<Token<'input>, usize, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(buffered) = self.buffered.take() {
+            return Some(buffered);
+        }
+
+        let next = self.underlying.next()?;
+        match next {
+            Ok((start, Token::OperatorLt, end)) => {
+                self.in_generics += 1;
+                Some(Ok((start, Token::OperatorLt, end)))
+            }
+            Ok((start, Token::OperatorGt, end)) => {
+                self.in_generics -= 1;
+                if self.in_generics < 0 {
+                    self.in_generics = 0;
+                }
+                Some(Ok((start, Token::OperatorGt, end)))
+            }
+            Ok((start, Token::OperatorShr, end)) => {
+                if self.in_generics > 0 {
+                    let mid = start + 1;
+                    self.buffered = Some(Ok((mid, Token::OperatorGt, end)));
+                    Some(Ok((start, Token::OperatorGt, mid)))
+                } else {
+                    Some(Ok((start, Token::OperatorShr, end)))
+                }
+            }
+            Ok((start, token, end)) => Some(Ok((start, token, end))),
+            Err(e) => Some(Err(crate::Error::from(e))),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct Parser<'a, F: Clone + From<u32>, C> {
@@ -42,11 +106,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
     // modB/
     //     std/
     //         prelude
-    pub fn parse<'input>(
-        &'input mut self,
-        ctx: &mut C,
-        root_module_path: PathBuf,
-    ) -> Result<'input, ()> {
+    pub fn parse<'input>(&'input mut self, ctx: &mut C, root_module_path: PathBuf) -> Result<()> {
         let mut module_stack: Vec<(bool, PathBuf, Option<ModuleId>, Visibility, bool)> = vec![(
             false,
             root_module_path.clone(),
@@ -64,6 +124,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                 self.program.modules.add_child(parent_module_id, module_id);
                 continue;
             }
+
             let module: ModuleNode = if !is_inline {
                 let file_id = self
                     .program
@@ -79,11 +140,11 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                     .ok_or(Error::FileUnresolved)?;
 
                 let is_self_std = module_name == IdentId::STD;
-                let is_self_prelude = module_name == IdentId::PRELUDE;
-                let is_self_primitive = module_name == IdentId::PRIMITIVE;
                 let is_std = is_parent_std || is_self_std;
 
                 let lexer = Lexer::new(file_content);
+                let transformer = GenericTokenTransformer::new(lexer);
+                let tokens: Vec<_> = transformer.collect::<Result<Vec<_>>>()?;
                 let module = match qed::ModuleParser::new().parse(
                     file_content,
                     file_id,
@@ -95,10 +156,8 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                     visibility,
                     is_std,
                     is_self_std,
-                    is_self_prelude,
-                    is_self_primitive,
                     ctx,
-                    lexer,
+                    tokens,
                 ) {
                     Ok(module) => module,
                     Err(e) => {
@@ -113,8 +172,10 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
 
             let module_id = self.program.modules.next_idx();
 
-            for (dep_module, visibility, _span) in module.modules.iter().rev() {
-                let dep_path = self.resolve_module_path(dep_module, &current_path).unwrap();
+            for (dep_module, visibility, _location) in module.modules.iter().rev() {
+                let dep_path = self
+                    .resolve_module_path(&dep_module.id, &current_path)
+                    .unwrap();
                 module_stack.push((
                     false,
                     dep_path,
@@ -146,9 +207,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
 
         self.program.dependency_graph = self.program.modules.to_graph();
 
-        if self.program.dependency_graph.has_cycle() {
-            return Err(Error::CycleDependency);
-        }
+        self.program.dependency_graph.check_cycle::<Error>()?;
 
         Ok(())
     }

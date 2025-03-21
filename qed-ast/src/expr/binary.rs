@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{ExprId, NodeInfo, NodeType, Span};
+use crate::{ExprId, Location, NodeInfo, NodeType};
 
 #[derive(Copy, Debug, Clone, PartialEq)]
 pub enum BinaryOperator {
@@ -35,7 +35,7 @@ pub struct BinaryNode {
     pub lhs: ExprId,
     pub operator: BinaryOperator,
     pub rhs: ExprId,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl Display for BinaryOperator {
@@ -65,12 +65,12 @@ impl Display for BinaryOperator {
 }
 
 impl BinaryNode {
-    pub fn new(lhs: ExprId, operator: BinaryOperator, rhs: ExprId, span: Span) -> Self {
+    pub fn new(lhs: ExprId, operator: BinaryOperator, rhs: ExprId, location: Location) -> Self {
         Self {
             lhs,
             operator,
             rhs,
-            span,
+            location,
         }
     }
 }

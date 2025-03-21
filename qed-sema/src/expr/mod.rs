@@ -23,9 +23,9 @@ pub use path::*;
 pub use r#match::*;
 pub use unary::*;
 
-use qed_ast::{IdentId, NodeInfo, NodeType, Span};
+use qed_ast::{Location, NodeInfo, NodeType};
 
-use crate::{CheckedValueNode, ScopeId, TypeId, BOOL_TYPE, FELT_TYPE, U32_TYPE};
+use crate::{CheckedValueNode, TypeId, BOOL_TYPE, FELT_TYPE, U32_TYPE};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum CheckedExprNode<F> {
@@ -73,13 +73,13 @@ impl<F> CheckedExprNode<F> {
         match self {
             CheckedExprNode::Path(p) => p.type_id,
             CheckedExprNode::Value(v) => match v {
-                CheckedValueNode::Felt(_) => FELT_TYPE,
-                CheckedValueNode::Bool(_) => BOOL_TYPE,
-                CheckedValueNode::U32(_) => U32_TYPE,
-                CheckedValueNode::Array(type_id, _) => type_id.clone(),
-                CheckedValueNode::Struct(type_id, _) => type_id.clone(),
+                CheckedValueNode::Felt(_, _) => FELT_TYPE,
+                CheckedValueNode::Bool(_, _) => BOOL_TYPE,
+                CheckedValueNode::U32(_, _) => U32_TYPE,
+                CheckedValueNode::Array(type_id, _, _) => type_id.clone(),
+                CheckedValueNode::Struct(type_id, _, _) => type_id.clone(),
                 CheckedValueNode::Type(type_id) => type_id.clone(),
-                CheckedValueNode::Tuple(type_id, _) => type_id.clone(),
+                CheckedValueNode::Tuple(type_id, _, _) => type_id.clone(),
             },
             CheckedExprNode::Binary(b) => b.type_id,
             CheckedExprNode::Unary(u) => u.type_id,
@@ -90,11 +90,11 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::MemberAccess(m) => m.type_id,
             CheckedExprNode::TupleAccess(t) => t.type_id,
             CheckedExprNode::Intrinsic(i) => match i {
-                CheckedIntrinsicExprNode::GetUserId { type_id } => type_id.clone(),
-                CheckedIntrinsicExprNode::GetContractId { type_id } => type_id.clone(),
-                CheckedIntrinsicExprNode::GetCheckpointId { type_id } => type_id.clone(),
-                CheckedIntrinsicExprNode::GetLastNonce { type_id } => type_id.clone(),
-                CheckedIntrinsicExprNode::GetUserPublicKeyHash { type_id } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetUserId { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetContractId { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetCheckpointId { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetLastNonce { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetUserPublicKeyHash { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::GetStateHashAt { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::GetOtherContractStateHashAt { type_id, .. } => {
                     type_id.clone()
@@ -113,38 +113,49 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Match(m) => m.type_id,
         }
     }
-    pub fn span(&self) -> Option<Span> {
-        match self {
-            //todo!: need refactor when implementing span for Value and Intrinsic
-            CheckedExprNode::Path(p) => Some(p.span),
-            CheckedExprNode::Value(_) => None,
-            CheckedExprNode::Binary(b) => Some(b.span),
-            CheckedExprNode::Unary(u) => Some(u.span),
-            CheckedExprNode::Cast(c) => Some(c.span),
-            CheckedExprNode::Call(c) => Some(c.span),
-            CheckedExprNode::MemberCall(c) => Some(c.span),
-            CheckedExprNode::IndexAccess(i) => Some(i.span),
-            CheckedExprNode::TupleAccess(t) => Some(t.span),
-            CheckedExprNode::MemberAccess(m) => Some(m.span),
-            CheckedExprNode::Intrinsic(_) => None,
-            CheckedExprNode::LambdaFunction(c) => Some(c.span),
-            CheckedExprNode::BlockExpr(b) => Some(b.span),
-            CheckedExprNode::IfExpr(i) => Some(i.span),
-            CheckedExprNode::Match(m) => Some(m.span),
-        }
-    }
 
-    pub fn scope_id(&self) -> Option<ScopeId> {
+    pub fn location(&self) -> Location {
         match self {
-            CheckedExprNode::Path(p) => Some(p.scope_id),
-            _ => None,
-        }
-    }
-
-    pub fn name(&self) -> IdentId {
-        match self {
-            CheckedExprNode::Path(p) => p.name,
-            _ => panic!("Expected path node"),
+            CheckedExprNode::Path(p) => p.location,
+            CheckedExprNode::Value(v) => match v {
+                CheckedValueNode::Felt(_, location) => location.clone(),
+                CheckedValueNode::Bool(_, location) => location.clone(),
+                CheckedValueNode::U32(_, location) => location.clone(),
+                CheckedValueNode::Array(_, _, location) => location.clone(),
+                CheckedValueNode::Struct(_, _, location) => location.clone(),
+                CheckedValueNode::Type(_) => unreachable!(),
+                CheckedValueNode::Tuple(_, _, location) => location.clone(),
+            },
+            CheckedExprNode::Binary(b) => b.location,
+            CheckedExprNode::Unary(u) => u.location,
+            CheckedExprNode::Cast(c) => c.location,
+            CheckedExprNode::Call(c) => c.location,
+            CheckedExprNode::MemberCall(c) => c.location,
+            CheckedExprNode::IndexAccess(i) => i.location,
+            CheckedExprNode::MemberAccess(m) => m.location,
+            CheckedExprNode::TupleAccess(t) => t.location,
+            CheckedExprNode::Intrinsic(i) => match i {
+                CheckedIntrinsicExprNode::GetUserId { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::GetContractId { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::GetCheckpointId { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::GetLastNonce { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::GetUserPublicKeyHash { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::GetStateHashAt { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::GetOtherContractStateHashAt { location, .. } => {
+                    location.clone()
+                }
+                CheckedIntrinsicExprNode::GetOtherUserContractStateHashAt { location, .. } => {
+                    location.clone()
+                }
+                CheckedIntrinsicExprNode::CSetStateHashAt { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::Read { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::Write { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::Hash { location, .. } => location.clone(),
+            },
+            CheckedExprNode::LambdaFunction(c) => c.location,
+            CheckedExprNode::IfExpr(i) => i.location,
+            CheckedExprNode::BlockExpr(b) => b.location,
+            CheckedExprNode::Match(m) => m.location,
         }
     }
 }

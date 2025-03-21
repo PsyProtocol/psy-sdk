@@ -22,22 +22,26 @@ impl<'a> StorageProcessor<'a> {
     >(
         &self,
         struct_node: &StructNode,
+        attr: &AttrNode,
         ctx: &mut V,
     ) -> ImplTraitNode {
         let mut methods = Vec::new();
 
-        methods.push(self.generate_storage_size_method(struct_node, ctx));
+        methods.push(self.generate_storage_size_method(struct_node, attr, ctx));
 
-        methods.push(self.generate_storage_read_method(struct_node, ctx));
+        methods.push(self.generate_storage_read_method(struct_node, attr, ctx));
 
-        methods.push(self.generate_storage_write_method(struct_node, ctx));
+        methods.push(self.generate_storage_write_method(struct_node, attr, ctx));
 
         ImplTraitNode {
             generic_parameters: vec![],
-            trait_ty: UncheckedType::Basic(ctx.intern("Storage")),
-            ty: UncheckedType::Basic(struct_node.name),
+            trait_ty: UncheckedType::Basic(
+                Identifier::new(ctx.intern("Storage"), attr.location),
+                attr.location,
+            ),
+            ty: UncheckedType::Basic(struct_node.name, attr.location),
             body: methods,
-            span: Default::default(),
+            location: attr.location,
         }
     }
 
@@ -48,33 +52,32 @@ impl<'a> StorageProcessor<'a> {
     >(
         &self,
         struct_node: &StructNode,
+        attr: &AttrNode,
         ctx: &mut V,
     ) -> ImplNode {
         let mut methods = Vec::new();
-        let mut offset = ctx.alloc_expression(ExprNode::Value(ValueNode::Felt(
-            F::from(0),
-            Default::default(),
-        )));
+        let mut offset =
+            ctx.alloc_expression(ExprNode::Value(ValueNode::Felt(F::from(0), attr.location)));
 
-        for (field_name, (field_type, _)) in &struct_node.fields {
-            methods.push(self.generate_getter(field_name, field_type, offset, ctx));
+        for (field_name, field) in &struct_node.fields {
+            methods.push(self.generate_getter(attr, &field_name.id, &field.ty, offset, ctx));
 
-            methods.push(self.generate_setter(field_name, field_type, offset, ctx));
+            methods.push(self.generate_setter(attr, &field_name.id, &field.ty, offset, ctx));
 
             let node = ExprNode::Binary(BinaryNode {
                 lhs: offset,
                 operator: BinaryOperator::Add,
-                rhs: self.generate_field_size(field_type, ctx),
-                span: Default::default(),
+                rhs: self.generate_field_size(attr, &field.ty, ctx),
+                location: attr.location,
             });
             offset = ctx.alloc_expression(node);
         }
 
         ImplNode {
             generic_parameters: vec![],
-            ty: UncheckedType::Basic(struct_node.name),
+            ty: UncheckedType::Basic(struct_node.name, attr.location),
             body: methods,
-            span: Default::default(),
+            location: attr.location,
         }
     }
 
@@ -85,38 +88,43 @@ impl<'a> StorageProcessor<'a> {
     >(
         &self,
         struct_node: &StructNode,
+        attr: &AttrNode,
         ctx: &mut V,
     ) -> DefId {
         let mut sum =
-            self.generate_field_size(&struct_node.fields.iter().next().unwrap().1 .0, ctx);
-        for (_, (field_type, _)) in struct_node.fields.iter().skip(1) {
+            self.generate_field_size(attr, &struct_node.fields.iter().next().unwrap().1.ty, ctx);
+        for (_, field) in struct_node.fields.iter().skip(1) {
             let node = BinaryNode {
                 lhs: sum,
                 operator: BinaryOperator::Add,
-                rhs: self.generate_field_size(field_type, ctx),
-                span: Default::default(),
+                rhs: self.generate_field_size(attr, &field.ty, ctx),
+                location: attr.location,
             };
             sum = ctx.alloc_expression(ExprNode::Binary(node));
         }
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: Vec::new(),
             expr: Some(sum),
-            span: Default::default(),
+            location: attr.location,
         }));
 
         let f = FunctionNode {
-            name: ctx.intern("size"),
+            name: Identifier::new(ctx.intern("size"), attr.location),
             parameters: vec![],
             generic_parameters: vec![],
             body: Some(block),
-            return_type: Some(UncheckedType::Basic(IdentId::TYPE_FELT)),
+            return_type: Some(UncheckedType::Basic(
+                Identifier::new(IdentId::TYPE_FELT, attr.location),
+                attr.location,
+            )),
             qualifier: Qualifier {
                 is_extern: false,
                 is_const: false,
+                location: attr.location,
             },
             visibility: Visibility::Public,
             attrs: vec![],
-            span: Default::default(),
+            location: attr.location,
         };
 
         ctx.alloc_definition(DefinitionNode::Function(f))
@@ -129,25 +137,27 @@ impl<'a> StorageProcessor<'a> {
     >(
         &self,
         struct_node: &StructNode,
+        attr: &AttrNode,
         ctx: &mut V,
     ) -> DefId {
-        let offset_ident = ctx.intern("offset");
+        let offset_ident = Identifier::new(ctx.intern("offset"), attr.location);
         let mut offset = ctx.alloc_expression(ExprNode::Path(PathNode {
             root: None,
             segments: vec![],
             target: offset_ident,
-            span: Default::default(),
+            location: attr.location,
         }));
         let mut field_reads = IndexMap::new();
 
-        for (field_name, (field_type, _)) in &struct_node.fields {
-            let (_key, value) = self.generate_field_read(field_name, field_type, offset, ctx);
+        for (field_name, field) in &struct_node.fields {
+            let (_key, value) =
+                self.generate_field_read(attr, &field_name.id, &field.ty, offset, ctx);
             field_reads.insert(field_name.clone(), value);
             let node = BinaryNode {
                 lhs: offset,
                 operator: BinaryOperator::Add,
-                rhs: self.generate_field_size(field_type, ctx),
-                span: Default::default(),
+                rhs: self.generate_field_size(attr, &field.ty, ctx),
+                location: attr.location,
             };
             offset = ctx.alloc_expression(ExprNode::Binary(node));
         }
@@ -156,30 +166,38 @@ impl<'a> StorageProcessor<'a> {
             struct_node.name,
             vec![],
             field_reads,
-            Default::default(),
+            attr.location,
         )));
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: Vec::new(),
             expr: Some(value_node),
-            span: Default::default(),
+            location: attr.location,
         }));
         let f = FunctionNode {
-            name: ctx.intern("read"),
-            parameters: vec![(
+            name: Identifier::new(ctx.intern("read"), attr.location),
+            parameters: vec![FunctionParameter::new(
                 offset_ident,
-                TypeQualifier::new(false),
-                UncheckedType::Basic(IdentId::TYPE_FELT),
+                TypeQualifier::new(false, attr.location),
+                UncheckedType::Basic(
+                    Identifier::new(IdentId::TYPE_FELT, attr.location),
+                    attr.location,
+                ),
+                attr.location,
             )],
             generic_parameters: vec![],
             body: Some(block),
-            return_type: Some(UncheckedType::Basic(IdentId::TYPE_SELF)),
+            return_type: Some(UncheckedType::Basic(
+                Identifier::new(IdentId::TYPE_SELF, attr.location),
+                attr.location,
+            )),
             qualifier: Qualifier {
                 is_extern: false,
                 is_const: false,
+                location: attr.location,
             },
             visibility: Visibility::Public,
             attrs: vec![],
-            span: Default::default(),
+            location: attr.location,
         };
 
         ctx.alloc_definition(DefinitionNode::Function(f))
@@ -192,47 +210,56 @@ impl<'a> StorageProcessor<'a> {
     >(
         &self,
         struct_node: &StructNode,
+        attr: &AttrNode,
         ctx: &mut V,
     ) -> DefId {
-        let offset_ident = ctx.intern("offset");
-        let value_ident = ctx.intern("value");
+        let offset_ident = Identifier::new(ctx.intern("offset"), attr.location);
+        let value_ident = Identifier::new(ctx.intern("value"), attr.location);
         let mut offset = ctx.alloc_expression(ExprNode::Path(PathNode {
             root: None,
             segments: vec![],
             target: offset_ident,
-            span: Default::default(),
+            location: attr.location,
         }));
         let mut field_writes = Vec::new();
 
-        for (field_name, (field_type, _)) in &struct_node.fields {
-            let stmt_id = self.generate_field_write(field_name, field_type, offset, ctx);
+        for (field_name, field) in &struct_node.fields {
+            let stmt_id = self.generate_field_write(attr, &field_name.id, &field.ty, offset, ctx);
             field_writes.push(stmt_id);
             let node = BinaryNode {
                 lhs: offset,
                 operator: BinaryOperator::Add,
-                rhs: self.generate_field_size(field_type, ctx),
-                span: Default::default(),
+                rhs: self.generate_field_size(attr, &field.ty, ctx),
+                location: attr.location,
             };
             offset = ctx.alloc_expression(ExprNode::Binary(node));
         }
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: field_writes,
             expr: None,
-            span: Default::default(),
+            location: attr.location,
         }));
 
         let f = FunctionNode {
-            name: ctx.intern("write"),
+            name: Identifier::new(ctx.intern("write"), attr.location),
             parameters: vec![
-                (
+                FunctionParameter::new(
                     offset_ident,
-                    TypeQualifier::new(false),
-                    UncheckedType::Basic(IdentId::TYPE_FELT),
+                    TypeQualifier::new(false, attr.location),
+                    UncheckedType::Basic(
+                        Identifier::new(IdentId::TYPE_FELT, attr.location),
+                        attr.location,
+                    ),
+                    attr.location,
                 ),
-                (
+                FunctionParameter::new(
                     value_ident,
-                    TypeQualifier::new(false),
-                    UncheckedType::Basic(IdentId::TYPE_SELF),
+                    TypeQualifier::new(false, attr.location),
+                    UncheckedType::Basic(
+                        Identifier::new(IdentId::TYPE_SELF, attr.location),
+                        attr.location,
+                    ),
+                    attr.location,
                 ),
             ],
             generic_parameters: vec![],
@@ -241,10 +268,11 @@ impl<'a> StorageProcessor<'a> {
             qualifier: Qualifier {
                 is_extern: false,
                 is_const: false,
+                location: attr.location,
             },
             visibility: Visibility::Public,
             attrs: vec![],
-            span: Default::default(),
+            location: attr.location,
         };
 
         ctx.alloc_definition(DefinitionNode::Function(f))
@@ -256,34 +284,35 @@ impl<'a> StorageProcessor<'a> {
         V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
     >(
         &self,
+        attr: &AttrNode,
         field_name: &IdentId,
         field_type: &UncheckedType,
         offset: ExprId,
         ctx: &mut V,
     ) -> DefId {
         let getter_name = format!("get_{}", ctx.ident(*field_name));
-        let getter_ident = ctx.intern(getter_name.as_str());
+        let getter_ident = Identifier::new(ctx.intern(getter_name.as_str()), attr.location);
 
-        let read_ident = ctx.intern("read");
+        let read_ident = Identifier::new(ctx.intern("read"), attr.location);
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            root: Some(field_type.as_basic().unwrap().clone()),
+            root: Some(field_type.clone()),
             segments: vec![],
             target: read_ident,
-            span: Default::default(),
+            location: attr.location,
         }));
 
         let read_call = CallNode {
             callee: variable,
             generic_parameters: Vec::new(),
             args: vec![offset],
-            span: Default::default(),
+            location: attr.location,
         };
         let read_expr = ctx.alloc_expression(ExprNode::Call(read_call));
 
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: Vec::new(),
             expr: Some(read_expr),
-            span: Default::default(),
+            location: attr.location,
         }));
 
         let function = FunctionNode {
@@ -295,10 +324,11 @@ impl<'a> StorageProcessor<'a> {
             qualifier: Qualifier {
                 is_extern: false,
                 is_const: false,
+                location: attr.location,
             },
             visibility: Visibility::Public,
             attrs: vec![],
-            span: Default::default(),
+            location: attr.location,
         };
 
         ctx.alloc_definition(DefinitionNode::Function(function))
@@ -310,36 +340,37 @@ impl<'a> StorageProcessor<'a> {
         V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
     >(
         &self,
+        attr: &AttrNode,
         field_name: &IdentId,
         field_type: &UncheckedType,
         offset: ExprId,
         ctx: &mut V,
     ) -> DefId {
         let setter_name = format!("set_{}", ctx.ident(*field_name));
-        let setter_ident = ctx.intern(setter_name.as_str());
+        let setter_ident = Identifier::new(ctx.intern(setter_name.as_str()), attr.location);
 
-        let value_ident = ctx.intern("value");
+        let value_ident = Identifier::new(ctx.intern("value"), attr.location);
 
-        let write_ident = ctx.intern("write");
+        let write_ident = Identifier::new(ctx.intern("write"), attr.location);
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            root: Some(field_type.as_basic().unwrap().clone()),
+            root: Some(field_type.clone()),
             segments: vec![],
             target: write_ident,
-            span: Default::default(),
+            location: attr.location,
         }));
 
         let value = ctx.alloc_expression(ExprNode::Path(PathNode {
             root: None,
             segments: vec![],
             target: value_ident,
-            span: Default::default(),
+            location: attr.location,
         }));
 
         let write_call = CallNode {
             callee: variable,
             generic_parameters: Vec::new(),
             args: vec![offset, value],
-            span: Default::default(),
+            location: attr.location,
         };
         let write_expr = ctx.alloc_expression(ExprNode::Call(write_call));
 
@@ -348,22 +379,28 @@ impl<'a> StorageProcessor<'a> {
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: vec![write_stmt],
             expr: None,
-            span: Default::default(),
+            location: attr.location,
         }));
 
         let function = FunctionNode {
             name: setter_ident,
-            parameters: vec![(value_ident, TypeQualifier::new(false), field_type.clone())],
+            parameters: vec![FunctionParameter::new(
+                value_ident,
+                TypeQualifier::new(false, attr.location),
+                field_type.clone(),
+                attr.location,
+            )],
             generic_parameters: vec![],
             body: Some(block),
             return_type: None,
             qualifier: Qualifier {
                 is_extern: false,
                 is_const: false,
+                location: attr.location,
             },
             visibility: Visibility::Public,
             attrs: vec![],
-            span: Default::default(),
+            location: attr.location,
         };
 
         ctx.alloc_definition(DefinitionNode::Function(function))
@@ -375,21 +412,22 @@ impl<'a> StorageProcessor<'a> {
         V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
     >(
         &self,
+        attr: &AttrNode,
         field_type: &UncheckedType,
         ctx: &mut V,
     ) -> ExprId {
-        let size_ident = ctx.intern("size");
+        let size_ident = Identifier::new(ctx.intern("size"), attr.location);
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            root: Some(field_type.as_basic().unwrap().clone()),
+            root: Some(field_type.clone()),
             segments: vec![],
             target: size_ident,
-            span: Default::default(),
+            location: attr.location,
         }));
         let node = CallNode {
             callee: variable,
             generic_parameters: Vec::new(),
             args: Vec::new(),
-            span: Default::default(),
+            location: attr.location,
         };
         ctx.alloc_expression(ExprNode::Call(node))
     }
@@ -400,23 +438,24 @@ impl<'a> StorageProcessor<'a> {
         V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
     >(
         &self,
+        attr: &AttrNode,
         field_name: &IdentId,
         field_type: &UncheckedType,
         offset: ExprId,
         ctx: &mut V,
     ) -> (IdentId, ExprId) {
-        let read_ident = ctx.intern("read");
+        let read_ident = Identifier::new(ctx.intern("read"), attr.location);
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            root: Some(field_type.as_basic().unwrap().clone()),
+            root: Some(field_type.clone()),
             segments: vec![],
             target: read_ident,
-            span: Default::default(),
+            location: attr.location,
         }));
         let node = CallNode {
             callee: variable,
             generic_parameters: Vec::new(),
             args: vec![offset],
-            span: Default::default(),
+            location: attr.location,
         };
         (
             field_name.clone(),
@@ -430,35 +469,36 @@ impl<'a> StorageProcessor<'a> {
         V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
     >(
         &self,
+        attr: &AttrNode,
         field_name: &IdentId,
         field_type: &UncheckedType,
         offset: ExprId,
         ctx: &mut V,
     ) -> StmtId {
-        let value_ident = ctx.intern("value");
-        let write_ident = ctx.intern("write");
+        let value_ident = Identifier::new(ctx.intern("value"), attr.location);
+        let write_ident = Identifier::new(ctx.intern("write"), attr.location);
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            root: Some(field_type.as_basic().unwrap().clone()),
+            root: Some(field_type.clone()),
             segments: vec![],
             target: write_ident,
-            span: Default::default(),
+            location: attr.location,
         }));
         let value = ctx.alloc_expression(ExprNode::Path(PathNode {
             root: None,
             segments: vec![],
             target: value_ident,
-            span: Default::default(),
+            location: attr.location,
         }));
         let field = ctx.alloc_expression(ExprNode::MemberAccess(MemberAccessNode {
             target: value,
-            field: field_name.clone(),
-            span: Default::default(),
+            field: Identifier::new(*field_name, attr.location),
+            location: attr.location,
         }));
         let node = CallNode {
             callee: variable,
             generic_parameters: Vec::new(),
             args: vec![offset, field],
-            span: Default::default(),
+            location: attr.location,
         };
         let node_id = ctx.alloc_expression(ExprNode::Call(node));
         ctx.alloc_statement(StmtNode::Expression(node_id))
@@ -469,7 +509,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     type Context = DefaultVisitorContext<'a, F, C>;
     type ExprResult = ();
     type StmtResult = ();
-    type Error = ();
+    type Error = qed_common::Error;
     type Expr = ExprNode<F>;
     type Stmt = StmtNode;
     type Definition = DefinitionNode;
@@ -617,8 +657,8 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         let storage_attribute_id = ctx.intern("storage");
 
         for attr in &s.attrs {
-            if attr.is_derive() && attr.properties.iter().any(|p| p == &storage_trait_id) {
-                let impl_node = self.generate_storage_impl(&s, ctx);
+            if attr.is_derive() && attr.properties.iter().any(|p| p.id == storage_trait_id) {
+                let impl_node = self.generate_storage_impl(&s, attr, ctx);
                 let pos = ctx.node_id().as_def().unwrap().clone();
                 ctx.insert_definition(
                     DefinitionNode::ImplTrait(impl_node),
@@ -626,8 +666,8 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
                 );
             }
 
-            if attr.name == storage_attribute_id {
-                let impl_node = self.generate_accessor_impl(&s, ctx);
+            if attr.name.id == storage_attribute_id {
+                let impl_node = self.generate_accessor_impl(&s, attr, ctx);
                 let pos = ctx.node_id().as_def().unwrap().clone();
                 ctx.insert_definition(
                     DefinitionNode::Impl(impl_node),
@@ -740,7 +780,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         _node: ExprId,
         _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn visit_tuple_access(
@@ -748,6 +788,6 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         _node: ExprId,
         _ctx: &mut Self::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
-        todo!()
+        Ok(())
     }
 }

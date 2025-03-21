@@ -3,13 +3,9 @@ use std::ops::{Index, IndexMut};
 use qed_common::{Arena, FileResolver, Graph, Tree, TreeNode};
 
 use crate::{
-    DefId, DefinitionNode, ExprId, ExprNode, FileSpan, Ident, IdentId, Interner, ModuleId,
-    ModuleNode, Span, StmtId, StmtNode, UseNode, Visibility,
+    DefId, DefinitionNode, ExprId, ExprNode, FileLocation, Ident, IdentId, Interner, Location,
+    ModuleId, ModuleNode, StmtId, StmtNode, UseNode, Visibility,
 };
-
-impl DefId {
-    pub const USE_STD_PRELUDE: DefId = DefId(0);
-}
 
 #[derive(Debug)]
 pub struct Program<F: Clone + From<u32>> {
@@ -47,36 +43,28 @@ impl_index!(ModuleId, TreeNode<ModuleId, ModuleNode>, modules);
 
 impl<F: Clone + From<u32>> Program<F> {
     pub fn new() -> Self {
-        let mut defs = Arena::new();
-        defs.alloc_item(DefinitionNode::Use(UseNode {
-            visibility: Visibility::Private,
-            kind: IdentId::STD,
-            segments: vec![IdentId::PRELUDE],
-            target: None,
-            span: Default::default(),
-        }));
         Self {
             modules: Tree::new(),
             dependency_graph: Graph::new(),
             file_resolver: FileResolver::new(),
             exprs: Arena::new(),
             stmts: Arena::new(),
-            defs,
+            defs: Arena::new(),
             interner: Interner::new(),
         }
     }
 
-    pub fn convert_span(&self, span: &Span) -> FileSpan {
+    pub fn convert_location(&self, location: &Location) -> FileLocation {
         let path = self
             .file_resolver
-            .resolve_path(&span.file_id)
+            .resolve_path(&location.file_id)
             .unwrap()
             .display()
             .to_string();
-        FileSpan {
+        FileLocation {
             path: path,
-            start: span.start,
-            end: span.end,
+            start: location.start,
+            end: location.end,
         }
     }
 }

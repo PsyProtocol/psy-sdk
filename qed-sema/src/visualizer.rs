@@ -105,7 +105,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             for (_type_key, type_id) in &scope.types {
                 let ty = &self.context.symbols[*type_id];
                 match &ty {
-                    Type::Unknown | Type::VOID | Type::Bool(_) | Type::U32(_) => {}
+                    Type::Unknown | Type::VOID | Type::Bool | Type::U32 => {}
                     _ => {
                         self.debug_type(*type_id, fmt);
                     }
@@ -129,15 +129,15 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         };
         match &ty {
             Type::Struct(CheckedStructNode { name, .. }) => {
-                let type_name = &self.context.ident(*name).0;
+                let type_name = &self.context.ident(name);
                 write!(fmt, "struct {} ", type_name);
             }
             Type::Enum(CheckedEnumNode { name, .. }) => {
-                let type_name = &self.context.ident(*name).0;
+                let type_name = &self.context.ident(name);
                 write!(fmt, "enum {} ", type_name);
             }
             Type::Trait(CheckedTraitNode { name, .. }) => {
-                let type_name = &self.context.ident(*name).0;
+                let type_name = &self.context.ident(name);
                 write!(fmt, "trait {} ", type_name);
             }
             Type::Function(CheckedFunctionNode {
@@ -149,7 +149,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 if qualifier.is_const {
                     write!(fmt, "const ");
                 }
-                let type_name = &self.context.ident(*name).0;
+                let type_name = &self.context.ident(name);
                 write!(fmt, "fn {} ", type_name);
             }
             Type::Const(node) => {
@@ -158,20 +158,8 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             Type::Array(_) => {
                 write!(fmt, "Array ");
             }
-            Type::GenericInstance(type_id, type_ids, _scope) => {
-                match &self.context.symbols[*type_id] {
-                    Type::Array(_) => {
-                        let t = self.get_type_name(type_ids[0]);
-                        let n = self.get_type_name(type_ids[1]);
-                        write!(fmt, "[{}; {}] ", t, n);
-                    }
-                    Type::Struct(_) => {
-                        self.debug_type(*type_id, fmt);
-                    }
-                    _ => {
-                        unimplemented!()
-                    }
-                }
+            Type::TypeVariable(tvar) => {
+                write!(fmt, "{} ", self.get_type_name(type_id));
             }
             _ => {
                 write!(fmt, "{:?} ", ty.kind());
@@ -184,32 +172,32 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
     pub fn debug_type(&self, type_id: TypeId, fmt: &mut IndentFormatter) {
         self.debug_type_declaration(type_id, fmt);
         match &self.context.symbols[type_id] {
-            Type::Array(_) | Type::GenericInstance(_, _, _) | Type::Const(_) => return,
+            Type::Array(_) | Type::Const(_) => return,
             _ => {}
         }
         fmt.indent();
         match &self.context.symbols[type_id] {
             Type::Unknown | Type::VOID => {}
-            Type::U32(node) => {
-                self.fmt_type_names("Implementations", &node.implementations, fmt);
+            Type::U32 => {
+                self.fmt_type_names("Implementations", &[], fmt);
             }
-            Type::Felt(node) => {
-                self.fmt_type_names("Implementations", &node.implementations, fmt);
+            Type::Felt => {
+                self.fmt_type_names("Implementations", &[], fmt);
             }
-            Type::Bool(node) => {
-                self.fmt_type_names("Implementations", &node.implementations, fmt);
+            Type::Bool => {
+                self.fmt_type_names("Implementations", &[], fmt);
             }
             Type::Struct(node) => {
                 if !node.fields.is_empty() {
                     writeln!(fmt, "Fields:");
                     fmt.indent();
-                    for (ident_id, (type_id, visibility)) in node.fields.iter() {
-                        let ident_name = &self.context.ident(*ident_id).0;
+                    for (ident_id, field) in node.fields.iter() {
+                        let ident_name = &self.context.ident(ident_id);
                         fmt.write_indent();
-                        if visibility == &Visibility::Public {
+                        if field.visibility == Visibility::Public {
                             write!(fmt, "pub ");
                         };
-                        let type_name = self.get_type_name(*type_id);
+                        let type_name = self.get_type_name(field.ty);
                         write!(
                             fmt,
                             "{} {} ({:?}, {:?})",
@@ -222,23 +210,23 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 if !node.generic_parameters.is_empty() {
                     writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
                 }
-                self.fmt_type_names("Implementations", &node.implementations, fmt);
+                self.fmt_type_names("Implementations", &[], fmt);
             }
             Type::Function(node) => {
                 if !node.parameters.is_empty() {
                     writeln!(fmt, "Parameters:");
                     fmt.indent();
-                    for (ident_id, type_qualifier, type_id) in node.parameters.iter() {
+                    for parameter in node.parameters.iter() {
                         fmt.write_indent();
-                        if type_qualifier.is_mutable {
+                        if parameter.qualifier.is_mutable {
                             write!(fmt, "mut ")
                         }
-                        let type_name = self.get_type_name(*type_id);
-                        let ident_name = &self.context.ident(*ident_id).0;
+                        let type_name = self.get_type_name(parameter.ty);
+                        let ident_name = &self.context.ident(parameter.name);
                         write!(
                             fmt,
                             "{} {} ({:?}, {:?})",
-                            type_name, ident_name, ident_id, type_id
+                            type_name, ident_name, parameter.name, type_id
                         );
                         write!(fmt, "\n");
                     }
@@ -270,7 +258,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 if !node.generic_parameters.is_empty() {
                     writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
                 }
-                self.fmt_type_names("Implementor", &node.implementors, fmt);
+                self.fmt_type_names("Implementor", &[], fmt);
             }
             Type::Array(node) => {
                 writeln!(
@@ -279,10 +267,9 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                     self.get_type_name(node.inner_ty),
                     self.get_type_name(node.size_ty),
                 );
-                self.fmt_type_names("Implementations", &node.implementations, fmt);
+                self.fmt_type_names("Implementations", &[], fmt);
             }
             Type::TypeVariable(_) => {}
-            Type::GenericInstance(_type_id, _type_ids, _scope_id) => {}
             x => writeln!(fmt, "Remaining {:?}", x),
         }
         fmt.dedent();
@@ -292,42 +279,29 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         let ty = &self.context.symbols[type_id];
         let ty_indent_id = match &ty {
             Type::Unknown => IdentId::TYPE_UNKNOWN,
-            Type::Struct(CheckedStructNode { name, .. }) => *name,
-            Type::Enum(CheckedEnumNode { name, .. }) => *name,
-            Type::Function(CheckedFunctionNode { name, .. }) => *name,
-            Type::Trait(CheckedTraitNode { name, .. }) => *name,
+            Type::Struct(CheckedStructNode { name, .. }) => name.id,
+            Type::Enum(CheckedEnumNode { name, .. }) => name.id,
+            Type::Function(CheckedFunctionNode { name, .. }) => name.id,
+            Type::Trait(CheckedTraitNode { name, .. }) => name.id,
             Type::Const(node) => match node.name {
-                Some(name) => name,
+                Some(name) => name.id,
                 None => return self.get_type_name(node.ty),
             },
             Type::Array(_) => IdentId::TYPE_ARRAY,
             Type::VOID => IdentId::TYPE_VOID,
-            Type::Felt(_) => IdentId::TYPE_FELT,
-            Type::Bool(_) => IdentId::TYPE_BOOL,
-            Type::U32(_) => IdentId::TYPE_U32,
+            Type::Felt => IdentId::TYPE_FELT,
+            Type::Bool => IdentId::TYPE_BOOL,
+            Type::U32 => IdentId::TYPE_U32,
             Type::Tuple(_) => IdentId::TYPE_TUPLE,
-            Type::TypeVariable(_) => {
-                return "TypeVariable".to_string();
-            }
+            Type::TypeVariable(tvar) => tvar.name,
             Type::LambdaFunction(_) => {
                 return "LambdaFunction".to_string();
             }
             Type::FunctionSignature(_) => {
                 return "FunctionSignature".to_string();
             }
-            Type::GenericInstance(type_id, type_ids, _) => match &self.context.symbols[*type_id] {
-                Type::Array(_) => {
-                    let t = self.get_type_name(type_ids[0]);
-                    let n = self.get_type_name(type_ids[1]);
-                    return format!("[{}; {}]", t, n);
-                }
-                Type::Struct(_) => return self.get_type_name(*type_id),
-                _ => {
-                    unimplemented!()
-                }
-            },
         };
-        let type_name = &self.context.ident(ty_indent_id).0;
+        let type_name = &self.context.ident(ty_indent_id);
         type_name.to_string()
     }
 

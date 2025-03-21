@@ -13,3 +13,4 @@ enum-as-inner = { workspace = true }
 indexmap = { workspace = true }
 once_cell = { workspace = true }
 ariadne = { workspace = true }
+derivative = { workspace = true }

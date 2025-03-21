@@ -20,3 +20,5 @@ qedlang_core = { workspace = true }
 smallvec = { workspace = true }
 ariadne = { workspace = true }
 regex = { workspace = true }
+derivative = { workspace = true }
+itertools = { workspace = true }

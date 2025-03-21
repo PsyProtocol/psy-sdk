@@ -1,13 +1,14 @@
 use qed_ast::{
-    AttrNode, ExprId, IdentId, NodeInfo, NodeType, Qualifier, Span, TypeQualifier, Visibility,
+    AttrNode, ExprId, Identifier, Location, NodeInfo, NodeType, Qualifier, TypeQualifier,
+    Visibility,
 };
 
 use crate::{ScopeId, TypeId, UNKOWN_TYPE};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedFunctionNode {
-    pub name: IdentId,
-    pub parameters: Vec<(IdentId, TypeQualifier, TypeId)>,
+    pub name: Identifier,
+    pub parameters: Vec<CheckedFunctionParameter>,
     pub generic_parameters: Vec<TypeId>,
     pub body: Option<ExprId>,
     pub qualifier: Qualifier,
@@ -15,7 +16,27 @@ pub struct CheckedFunctionNode {
     pub scope_id: ScopeId,
     pub visibility: Visibility,
     pub attrs: Vec<AttrNode>,
-    pub span: Span,
+    pub type_id: TypeId,
+    pub location: Location,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CheckedFunctionParameter {
+    pub name: Identifier,
+    pub qualifier: TypeQualifier,
+    pub ty: TypeId,
+    pub location: Location,
+}
+
+impl CheckedFunctionParameter {
+    pub fn new(name: Identifier, qualifier: TypeQualifier, ty: TypeId, location: Location) -> Self {
+        Self {
+            name,
+            qualifier,
+            ty,
+            location,
+        }
+    }
 }
 
 impl CheckedFunctionNode {
@@ -24,7 +45,7 @@ impl CheckedFunctionNode {
             parameters: self
                 .parameters
                 .iter()
-                .map(|(_, _, ty)| ty.clone())
+                .map(|parameter| parameter.ty.clone())
                 .collect(),
             return_type: self.return_type,
         }
@@ -35,11 +56,11 @@ impl CheckedFunctionNode {
             parameters: self
                 .parameters
                 .iter()
-                .map(|(_, _, ty)| {
-                    if ty == &UNKOWN_TYPE {
+                .map(|parameter| {
+                    if parameter.ty == UNKOWN_TYPE {
                         implementor_type_id.clone()
                     } else {
-                        ty.clone()
+                        parameter.ty.clone()
                     }
                 })
                 .collect(),

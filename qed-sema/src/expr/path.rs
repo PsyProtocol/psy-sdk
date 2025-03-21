@@ -1,13 +1,29 @@
-use qed_ast::{IdentId, NodeInfo, NodeType, Span};
+use qed_ast::{Location, NodeInfo, NodeType};
 
-use crate::{ScopeId, TypeId};
+use crate::{TypeId, VarId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedPathNode {
-    pub name: IdentId,
+    pub variable: Option<VarId>,
+    pub root: Option<TypeId>,
     pub type_id: TypeId,
-    pub scope_id: ScopeId,
-    pub span: Span,
+    pub location: Location,
+}
+
+impl CheckedPathNode {
+    pub fn new(
+        variable: Option<VarId>,
+        root: Option<TypeId>,
+        type_id: TypeId,
+        location: Location,
+    ) -> Self {
+        Self {
+            variable,
+            root,
+            type_id,
+            location,
+        }
+    }
 }
 
 impl NodeInfo for CheckedPathNode {

@@ -1,16 +1,19 @@
-use qed_ast::{ExprId, Span, TypeQualifier};
+use qed_ast::{ExprId, Location};
 
-use crate::{CheckedFunctionSignature, IdentId, NodeInfo, NodeType, ScopeId, TypeId};
+use crate::{
+    CheckedFunctionParameter, CheckedFunctionSignature, Identifier, NodeInfo, NodeType, ScopeId,
+    TypeId,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedLambdaFunctionNode {
-    pub name: IdentId,
-    pub parameters: Vec<(IdentId, TypeQualifier, TypeId)>,
+    pub name: Identifier,
+    pub parameters: Vec<CheckedFunctionParameter>,
     pub body: ExprId,
     pub return_type: TypeId,
     pub scope_id: ScopeId,
     pub type_id: TypeId,
-    pub span: Span,
+    pub location: Location,
 }
 
 impl CheckedLambdaFunctionNode {
@@ -19,7 +22,7 @@ impl CheckedLambdaFunctionNode {
             parameters: self
                 .parameters
                 .iter()
-                .map(|(_, _, ty)| ty.clone())
+                .map(|parameter| parameter.ty.clone())
                 .collect(),
             return_type: self.return_type.clone(),
         }

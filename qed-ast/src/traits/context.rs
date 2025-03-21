@@ -86,22 +86,32 @@ pub enum NodeType {
     Module,
 }
 
+impl NodeType {
+    pub fn is_function(&self) -> bool {
+        match self {
+            NodeType::FunctionDef | NodeType::LambdaFunctionExpr => true,
+            _ => false,
+        }
+    }
+}
+
 pub trait VisitorContext<F: Clone + From<u32>, C> {
     type Expr: NodeInfo;
     type Stmt: NodeInfo;
     type Definition: NodeInfo;
+    type Program;
 
     fn node_id(&self) -> NodeId;
-    fn parent_node_id(&self) -> NodeId;
+    fn ancestor_node_id(&self, offset_from_top: usize) -> NodeId;
     fn node_path(&self) -> &[NodeId];
     fn push_node_id(&mut self, node_id: NodeId);
     fn pop_node_id(&mut self);
     fn node_type(&self) -> NodeType;
-    fn parent_node_type(&self) -> NodeType;
-    fn ident(&self, id: IdentId) -> &Ident;
+    fn ancestor_node_type(&self, offset_from_top: usize) -> NodeType;
+    fn ident(&self, id: impl Into<IdentId>) -> &Ident;
     fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId;
     fn module(&self, module_id: ModuleId) -> &ModuleNode;
-    fn program(&self) -> &Program<F>;
+    fn program(&self) -> &Self::Program;
     fn dependency_graph(&self) -> Graph<ModuleId>;
     fn alloc_expression(&mut self, expr: Self::Expr) -> ExprId;
     fn alloc_statement(&mut self, stmt: Self::Stmt) -> StmtId;
@@ -138,12 +148,14 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
 
     type Definition = DefinitionNode;
 
+    type Program = Program<F>;
+
     fn node_id(&self) -> NodeId {
         self.path_stack.last().unwrap().clone()
     }
 
-    fn parent_node_id(&self) -> NodeId {
-        self.path_stack[self.path_stack.len() - 2].clone()
+    fn ancestor_node_id(&self, offset_from_top: usize) -> NodeId {
+        self.path_stack[self.path_stack.len() - 1 - offset_from_top].clone()
     }
 
     fn node_path(&self) -> &[NodeId] {
@@ -167,8 +179,8 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
         }
     }
 
-    fn parent_node_type(&self) -> NodeType {
-        match self.parent_node_id() {
+    fn ancestor_node_type(&self, offset_from_top: usize) -> NodeType {
+        match self.ancestor_node_id(offset_from_top) {
             NodeId::Expr(expr_id) => self.expression(expr_id).node_type(),
             NodeId::Stmt(stmt_id) => self.statement(stmt_id).node_type(),
             NodeId::Def(def_id) => self.definition(def_id).node_type(),
@@ -176,8 +188,8 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
         }
     }
 
-    fn ident(&self, id: IdentId) -> &Ident {
-        &self.program.interner[id]
+    fn ident(&self, id: impl Into<IdentId>) -> &Ident {
+        &self.program.interner[id.into()]
     }
 
     fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId {
@@ -210,8 +222,8 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
 
     fn insert_definition(&mut self, definition: Self::Definition, pos: InsertPosition) {
         let def_id = self.program.defs.alloc_item(definition);
-        assert!(self.parent_node_type() == NodeType::Module);
-        let module_id = self.parent_node_id().as_module().unwrap().clone();
+        assert!(self.ancestor_node_type(1) == NodeType::Module);
+        let module_id = self.ancestor_node_id(1).as_module().unwrap().clone();
 
         match pos {
             InsertPosition::Front => {

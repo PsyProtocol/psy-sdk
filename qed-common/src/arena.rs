@@ -31,6 +31,10 @@ where
         std::mem::replace(&mut self.items[item_idx.into()], new_item)
     }
 
+    pub fn modify_item(&mut self, item_idx: I, f: &impl Fn(&mut T)) {
+        f(&mut self[item_idx]);
+    }
+
     pub fn alloc_items(&mut self, items: impl IntoIterator<Item = T>) -> Vec<I> {
         let mut result = Vec::new();
         for item in items {

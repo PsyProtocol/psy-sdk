@@ -1,38 +1,69 @@
-use std::fmt::Display;
+use crate::LalrpopError;
+use qed_ast::Location;
+use thiserror::Error as ThisError;
 
-use crate::ParseError;
-
-#[derive(Debug)]
-pub enum Error<'a> {
-    Lexical(ParseError<'a>),
-    CycleDependency,
-    IoError(std::io::Error),
+#[derive(Debug, ThisError)]
+pub enum CustomError<'a> {
+    #[error("{0}")]
+    LexicalError(#[from] qed_lexer::Error),
+    #[error("{0}")]
+    Lexical(Box<LalrpopError<'a>>),
+    #[error("{0}")]
+    CommonError(#[from] qed_common::Error),
+    #[error("{0}")]
+    IoError(#[from] std::io::Error),
+    #[error("File could not be resolved")]
     FileUnresolved,
+    #[error("Invalid module name")]
     InvalidModuleName,
+    #[error("Extern function can only be defined in std")]
+    ExternFnNotInStd,
+    #[error("Missing function body")]
+    FunctionBodyMissing,
+    #[error("Invalid self parameter")]
+    InvalidSelfParameter,
 }
 
-impl<'a> Display for Error<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Lexical(err) => write!(f, "{}", err),
-            Self::CycleDependency => write!(f, "Cycle dependency detected"),
-            Self::IoError(err) => write!(f, "{}", err),
-            Self::FileUnresolved => write!(f, "File could not be resolved"),
-            Self::InvalidModuleName => write!(f, "Invalid module name"),
-        }
+impl<'a> From<LalrpopError<'a>> for CustomError<'a> {
+    fn from(err: LalrpopError<'a>) -> Self {
+        Self::Lexical(Box::new(err))
     }
 }
 
-impl<'a> From<ParseError<'a>> for Error<'a> {
-    fn from(err: ParseError<'a>) -> Self {
-        Self::Lexical(err)
-    }
-}
+pub type Result<T> = std::result::Result<T, Error>;
 
-impl<'a> From<std::io::Error> for Error<'a> {
-    fn from(err: std::io::Error) -> Self {
-        Self::IoError(err)
-    }
-}
+#[derive(Debug, ThisError)]
+pub enum Error {
+    #[error("{0}")]
+    LexicalError(#[from] qed_lexer::Error),
+    #[error("{0}")]
+    CommonError(#[from] qed_common::Error),
+    #[error("{0}")]
+    IoError(#[from] std::io::Error),
+    #[error("File could not be resolved")]
+    FileUnresolved,
+    #[error("Invalid module name")]
+    InvalidModuleName,
+    #[error("Extern function can only be defined in std")]
+    ExternFnNotInStd,
+    #[error("Missing function body")]
+    FunctionBodyMissing,
+    #[error("Invalid self parameter")]
+    InvalidSelfParameter,
 
-pub type Result<'a, T> = std::result::Result<T, Error<'a>>;
+    #[error("invalid token")]
+    InvalidToken { location: Location },
+    #[error("unrecognized eof")]
+    UnrecognizedEof {
+        expected: Vec<String>,
+        location: Location,
+    },
+    #[error("unrecognized token")]
+    UnrecognizedToken {
+        token: String,
+        expected: Vec<String>,
+        location: Location,
+    },
+    #[error("extra token")]
+    ExtraToken { token: String, location: Location },
+}

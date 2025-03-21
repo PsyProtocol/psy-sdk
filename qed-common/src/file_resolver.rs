@@ -12,6 +12,20 @@ pub struct FileResolver {
 
 unsafe impl Sync for FileResolver {}
 
+impl Clone for FileResolver {
+    fn clone(&self) -> Self {
+        let file_contents = unsafe { &*self.file_contents.get() };
+        let file_ids = unsafe { &*self.file_ids.get() };
+        let file_paths = unsafe { &*self.file_paths.get() };
+
+        FileResolver {
+            file_contents: UnsafeCell::new(file_contents.clone()),
+            file_ids: UnsafeCell::new(file_ids.clone()),
+            file_paths: UnsafeCell::new(file_paths.clone()),
+        }
+    }
+}
+
 impl FileResolver {
     pub fn new() -> Self {
         Self {
