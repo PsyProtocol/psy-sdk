@@ -67,6 +67,8 @@ impl ModuleNode {
                 ModuleItemNode::InlineModule(m) => inline_modules.push(m),
                 ModuleItemNode::ModuleDecl(m) => modules.push(m),
                 ModuleItemNode::Definition(d) => definitions.push(d),
+                //todo: for comment
+                ModuleItemNode::Comment(_) => {}
             }
         }
         let module = Self {
@@ -101,4 +103,5 @@ pub enum ModuleItemNode {
     ModuleDecl((IdentId, Visibility, Span)),
     InlineModule(ModuleNode),
     Definition(DefId),
+    Comment(String), // store comments
 }

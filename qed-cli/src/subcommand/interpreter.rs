@@ -37,7 +37,7 @@ pub fn run(mut args: InterpreterArgs) -> anyhow::Result<()> {
             let report = qed_interpreter::error::lowering_error_to_report(error);
             report
                 .eprint(ariadne::FnCache::new(|x: &String| {
-                    Ok(std::fs::read_to_string(std::path::Path::new(x.as_str())).unwrap())
+                    Ok::<String, std::io::Error>(std::fs::read_to_string(std::path::Path::new(x.as_str())).unwrap())
                 }))
                 .unwrap();
             std::process::exit(1);

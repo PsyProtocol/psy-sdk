@@ -23,11 +23,16 @@ use super::Loc;
 use std::convert::TryFrom;
 
 ModuleItem: ModuleItemNode = {
+    Comment => ModuleItemNode::Comment(<>.to_string()),
     InlineModule => ModuleItemNode::InlineModule(<>),
     ModuleDecl => ModuleItemNode::ModuleDecl(<>),
     Definition => ModuleItemNode::Definition(def_nodes.alloc_item(<>)),
 }
 
+Comment: &'input str = {
+    <l:@L> <line:LineComment> <r:@R> => line,
+    <l:@L> <block:BlockComment> <r:@R> => block,
+}
 pub Module: ModuleNode = {
     <l:@L> <module_items: ModuleItem*> <r:@R> => ModuleNode::new(
         module_name,
@@ -978,5 +983,8 @@ extern {
 
         "<<=" => Token::OperatorBitShlAssign,
         ">>=" => Token::OperatorBitShrAssign,
+        LineComment => Token::LineComment(<&'input str>),
+        BlockComment => Token::BlockComment(<&'input str>),
+
     }
 }
