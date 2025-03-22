@@ -19,6 +19,7 @@ members = [
     "qed-codegen",
     "qed-lexer",
     "qed-interpreter",
+    "qed-dargo",
 ]
 resolver = "2"
 
