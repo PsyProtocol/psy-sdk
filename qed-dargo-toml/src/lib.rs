@@ -4,11 +4,11 @@ pub mod fm;
 mod git;
 mod semver;
 
-use crate::FILE_EXTENSION;
-use crate::package::{CrateName, Dependency, Package, PackageType, Workspace};
-use crate::toml::errors::{ManifestError, SemverError};
-use crate::toml::fm::NormalizePath;
-use crate::toml::git::clone_git_repo;
+use qed_dargo::FILE_EXTENSION;
+use qed_dargo::package::{CrateName, Dependency, Package, PackageType, Workspace};
+use crate::errors::{ManifestError, SemverError};
+use crate::fm::NormalizePath;
+use crate::git::clone_git_repo;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -122,6 +122,7 @@ impl PackageConfig {
 }
 
 #[derive(Default, Debug, Deserialize, Clone)]
+#[warn(dead_code)]
 struct PackageMetadata {
     name: Option<String>,
     version: Option<String>,

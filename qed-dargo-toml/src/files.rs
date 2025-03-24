@@ -1,4 +1,4 @@
-use crate::toml::errors::ManifestError;
+use crate::errors::ManifestError;
 use std::path::{Component, Path, PathBuf};
 
 /// Searches for a `Dargo.toml` file in the current directory and all parent directories.
@@ -43,7 +43,7 @@ pub fn find_file_manifest_root(current_path: &Path) -> Result<PathBuf, ManifestE
 /// * `//shared/foo/bar` -> `//shared/foo`
 /// * `/foo` -> `/foo`
 ///   otherwise empty path.
-fn path_root(path: &Path) -> PathBuf {
+pub fn path_root(path: &Path) -> PathBuf {
     let mut components = path.components();
     match (components.next(), components.next()) {
         // Preserve prefix if one exists
@@ -100,8 +100,8 @@ pub fn get_package_manifest(current_path: &Path) -> Result<PathBuf, ManifestErro
 
 #[cfg(test)]
 mod tests {
-    use crate::toml::errors::ManifestError;
-    use crate::toml::files::find_file_manifest_root;
+    use crate::qed_dargo_toml::errors::ManifestError;
+    use crate::qed_dargo_toml::files::find_file_manifest_root;
     use std::path::{Path, PathBuf};
     use std::str::FromStr;
 
