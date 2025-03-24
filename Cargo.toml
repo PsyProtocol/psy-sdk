@@ -20,6 +20,8 @@ members = [
     "qed-lexer",
     "qed-interpreter",
     "qed-dargo",
+    "qed-dargo-toml",
+    "qed-dargo-cli",
 ]
 resolver = "2"
 
@@ -166,3 +168,5 @@ qed-repl = { path = "./qed-repl" }
 qed-lexer = { path = "./qed-lexer" }
 qed-interpreter = { path = "./qed-interpreter" }
 qed-store = { path = "./qed-store" }
+qed-dargo = { path = "./qed-dargo" }
+qed-dargo-toml = { path = "./qed-dargo-toml" }

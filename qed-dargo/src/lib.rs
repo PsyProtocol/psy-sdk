@@ -1,8 +1,4 @@
-mod package;
-mod toml;
-
-use serde::{Deserialize, Serialize};
-use std::fmt::Display;
-use std::str::FromStr;
+// mod cli;
+pub mod package;
 
 pub const FILE_EXTENSION: &str = "qed";

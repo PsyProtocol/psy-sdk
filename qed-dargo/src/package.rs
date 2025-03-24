@@ -1,10 +1,17 @@
-use crate::CrateName;
+use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
-use smol_str::SmolStr;
 use std::str::FromStr;
+
+#[derive(Clone)]
+pub struct Workspace {
+    pub root_dir: PathBuf,
+    /// Optional target directory override.
+    pub target_dir: Option<PathBuf>,
+    pub package: Package,
+}
 
 #[derive(Clone)]
 pub enum Dependency {

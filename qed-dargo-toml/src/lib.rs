@@ -122,7 +122,7 @@ impl PackageConfig {
 }
 
 #[derive(Default, Debug, Deserialize, Clone)]
-#[warn(dead_code)]
+#[allow(dead_code)]
 struct PackageMetadata {
     name: Option<String>,
     version: Option<String>,
@@ -194,13 +194,13 @@ impl DependencyConfig {
 ///
 /// As a side effect it downloads project dependencies as well.
 pub fn resolve_workspace_from_toml(toml_path: &Path) -> Result<Workspace, ManifestError> {
-    let nargo_toml = read_toml(toml_path)?;
+    let dargo_toml = read_toml(toml_path)?;
     let mut resolved = Vec::new();
-    let workspace = match nargo_toml.config {
+    let workspace = match dargo_toml.config {
         Config::Package { package_config } => {
-            let member = package_config.resolve_to_package(&nargo_toml.root_dir, &mut resolved)?;
+            let member = package_config.resolve_to_package(&dargo_toml.root_dir, &mut resolved)?;
             Workspace {
-                root_dir: nargo_toml.root_dir,
+                root_dir: dargo_toml.root_dir,
                 target_dir: None,
                 package: member,
             }
