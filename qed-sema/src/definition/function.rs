@@ -16,6 +16,7 @@ pub struct CheckedFunctionNode {
     pub scope_id: ScopeId,
     pub visibility: Visibility,
     pub attrs: Vec<AttrNode>,
+    pub type_id: TypeId,
     pub location: Location,
 }
 

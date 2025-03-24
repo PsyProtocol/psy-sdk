@@ -1,12 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::anyhow;
-use qed_ast::{DefId, IdentId, Identifier};
+use qed_ast::{DefId, IdentId, Identifier, VisitorContext};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    AstVisualizer, Constraint, Inferer, Result, ScopeKind, TypeChecker, TypeCheckerVisitorContext,
-    TypeId,
+    rewriter::Rewriter, AstVisualizer, Constraint, Inferer, Result, ScopeKind, TypeChecker,
+    TypeCheckerVisitorContext, TypeId,
 };
 
 #[derive(Debug)]
@@ -14,7 +14,7 @@ pub struct ImplementerCtxt {
     // poly
     impl_ids: HashMap<TypeId, HashMap<Constraint, HashSet<DefId>>>,
     // trait poly -> poly
-    trait_impls: HashMap<TypeId, HashMap<Constraint, TypeId>>,
+    trait_impls: HashMap<TypeId, HashMap<Constraint, HashSet<TypeId>>>,
 }
 
 impl ImplementerCtxt {
@@ -37,12 +37,12 @@ pub trait Implementer<F: Clone + From<u32> + ContextFelt, C> {
         impl_id: DefId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()>;
-    fn find_impl(
+    fn find_method(
         &mut self,
         ty: TypeId,
         method: IdentId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<(DefId, TypeId)>;
+    ) -> Result<TypeId>;
     fn implements_trait(
         &mut self,
         ty: TypeId,       // mono
@@ -77,7 +77,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         let res = self
             .implementer
             .impl_ids
-            .entry(impl_node.ty)
+            .entry(self.poly_of(impl_node.ty, ctx).unwrap())
             .or_insert_with(HashMap::new)
             .entry(constraint)
             .or_insert_with(HashSet::new)
@@ -91,20 +91,25 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         impl_id: DefId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()> {
-        let trait_impl_node = self.program[impl_id].as_impl_trait().unwrap();
+        let trait_impl_node = self.program[impl_id].as_trait_impl().unwrap();
         let trait_constraint =
             Constraint::new(ctx.symbols[trait_impl_node.trait_ty].generic_parameters());
         let constraint = Constraint::new(ctx.symbols[trait_impl_node.ty].generic_parameters());
 
+        let trait_poly_ty = self.poly_of(trait_impl_node.trait_ty, ctx).unwrap();
+        let poly_ty = self.poly_of(trait_impl_node.ty, ctx).unwrap();
+
         self.implementer
             .trait_impls
-            .entry(trait_impl_node.trait_ty)
+            .entry(trait_poly_ty)
             .or_insert_with(HashMap::new)
-            .insert(trait_constraint, trait_impl_node.ty);
+            .entry(trait_constraint)
+            .or_insert_with(HashSet::new)
+            .insert(poly_ty);
 
         self.implementer
             .impl_ids
-            .entry(trait_impl_node.ty)
+            .entry(poly_ty)
             .or_insert_with(HashMap::new)
             .entry(constraint)
             .or_insert_with(HashSet::new)
@@ -113,36 +118,43 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         Ok(())
     }
 
-    fn find_impl(
+    fn find_method(
         &mut self,
         ty: TypeId, // mono OR poly
         method: IdentId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<(DefId, TypeId)> {
+    ) -> Result<TypeId> {
         let poly_ty = self.poly_of(ty, ctx).unwrap();
+        let generic_parameters = ctx.symbols[ty].generic_parameters();
 
         let get_impl_id = |poly_ty: TypeId,
                            method: IdentId,
                            ctx: &mut TypeCheckerVisitorContext<F, C>|
          -> Option<_> {
-            if let Some(impl_map) = self.implementer.impl_ids.get(&poly_ty) {
-                for (constraint, impl_set) in impl_map.iter() {
-                    for &impl_id in impl_set {
-                        if let Some(impl_node) = self.program[impl_id].as_impl() {
-                            if impl_node.body.iter().any(|&def_id| {
-                                self.program[def_id].as_function().unwrap().name.id == method
-                            }) {
-                                return Some((constraint.clone(), impl_node.scope_id, impl_id));
-                            }
+            let mut get_result = |impl_set: &HashSet<DefId>| {
+                for &impl_id in impl_set {
+                    if let Some(impl_node) = self.program[impl_id].as_impl() {
+                        if let Some(&function_id) = impl_node.body.iter().find(|&&function_id| {
+                            self.program[function_id].as_function().unwrap().name == method
+                        }) {
+                            return Some((impl_id, function_id));
                         }
+                    }
+                }
+                None
+            };
 
-                        if let Some(impl_node) = self.program[impl_id].as_impl_trait() {
-                            if impl_node.body.iter().any(|&def_id| {
-                                self.program[def_id].as_function().unwrap().name.id == method
-                            }) {
-                                return Some((constraint.clone(), impl_node.scope_id, impl_id));
-                            }
-                        }
+            if let Some(impl_map) = self.implementer.impl_ids.get(&poly_ty) {
+                let constraint = Constraint::new(generic_parameters.clone());
+                if let Some(impl_set) = impl_map.get(&constraint) {
+                    if let Some((impl_id, function_id)) = get_result(impl_set) {
+                        return Some((constraint, impl_id, function_id));
+                    }
+                }
+
+                for (constraint, impl_set) in impl_map.iter() {
+                    if let Some((impl_id, function_id)) = get_result(impl_set) {
+                        return Some((constraint.clone(), impl_id, function_id));
                     }
                 }
             }
@@ -150,14 +162,106 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
             None
         };
 
-        if let Some((constraint, scope_id, impl_id)) = get_impl_id(poly_ty, method, ctx) {
-            if self.satisfies_constraints(ctx.symbols[ty].generic_parameters(), &constraint, ctx) {
-                for &scope_id in &ctx.symbols[scope_id].children {
-                    if ctx.symbols[scope_id].kind == ScopeKind::ImplMethod {
-                        if let Some(&type_id) = ctx.symbols[scope_id].types.get(&method.into()) {
-                            return Ok((impl_id, type_id));
+        let mut get_trait_impl_id = |poly_ty: TypeId,
+                                     method: IdentId,
+                                     ctx: &mut TypeCheckerVisitorContext<F, C>|
+         -> Option<_> {
+            let mut get_result = |impl_set: &HashSet<DefId>| {
+                for &impl_id in impl_set {
+                    if let Some(impl_node) = self.program[impl_id].as_trait_impl() {
+                        if let Some(&function_id) = impl_node.body.iter().find(|&&function_id| {
+                            self.program[function_id].as_function().unwrap().name == method
+                        }) {
+                            if let Some(trait_map) = self
+                                .implementer
+                                .trait_impls
+                                .get(&self.poly_of(impl_node.trait_ty, ctx).unwrap())
+                            {
+                                for (trait_constraint, trait_impl_set) in trait_map.iter() {
+                                    for trait_impl_ty in trait_impl_set {
+                                        if trait_impl_ty == &poly_ty {
+                                            return Some((
+                                                trait_constraint.clone(),
+                                                impl_id,
+                                                function_id,
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
+                }
+                None
+            };
+
+            if let Some(impl_map) = self.implementer.impl_ids.get(&poly_ty) {
+                let constraint = Constraint::new(generic_parameters.clone());
+                if let Some(impl_set) = impl_map.get(&constraint) {
+                    if let Some((trait_constraint, impl_id, function_id)) = get_result(impl_set) {
+                        return Some((trait_constraint, constraint, impl_id, function_id));
+                    }
+                }
+
+                for (constraint, impl_set) in impl_map.iter() {
+                    if let Some((trait_constraint, impl_id, function_id)) = get_result(impl_set) {
+                        return Some((trait_constraint, constraint.clone(), impl_id, function_id));
+                    }
+                }
+            }
+
+            None
+        };
+
+        if let Some((constraint, impl_id, function_id)) = get_impl_id(poly_ty, method, ctx) {
+            if generic_parameters == constraint.constraints {
+                return Ok(self.program[function_id].as_function().unwrap().type_id);
+            }
+
+            if self.satisfies_constraints(generic_parameters.clone(), &constraint, ctx) {
+                let instance = self.instantiate_impl(impl_id, generic_parameters.clone(), ctx)?;
+                if let Some(function_id) = self.program[instance]
+                    .as_impl()
+                    .unwrap()
+                    .body
+                    .iter()
+                    .find(|&&function_id| {
+                        self.program[function_id].as_function().unwrap().name == method
+                    })
+                {
+                    return Ok(self.program[function_id.clone()]
+                        .as_function()
+                        .unwrap()
+                        .type_id);
+                }
+            }
+        } else if let Some((trait_constraint, constraint, impl_id, function_id)) =
+            get_trait_impl_id(poly_ty, method, ctx)
+        {
+            if generic_parameters == constraint.constraints {
+                return Ok(self.program[function_id].as_function().unwrap().type_id);
+            }
+
+            if self.satisfies_constraints(generic_parameters.clone(), &constraint, ctx) {
+                let instance = self.instantiate_trait_impl(
+                    impl_id,
+                    trait_constraint.constraints,
+                    generic_parameters.clone(),
+                    ctx,
+                )?;
+                if let Some(function_id) = self.program[instance]
+                    .as_trait_impl()
+                    .unwrap()
+                    .body
+                    .iter()
+                    .find(|&&function_id| {
+                        self.program[function_id].as_function().unwrap().name == method
+                    })
+                {
+                    return Ok(self.program[function_id.clone()]
+                        .as_function()
+                        .unwrap()
+                        .type_id);
                 }
             }
         }
@@ -189,19 +293,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
             if let Some(impl_map) = self.implementer.impl_ids.get(&poly_ty) {
                 for (constraint, impl_set) in impl_map.iter() {
                     for &impl_id in impl_set {
-                        if let Some(impl_node) = self.program[impl_id].as_impl_trait() {
-                            let impl_trait_ty = impl_node.trait_ty;
-
-                            if impl_trait_ty == trait_poly_ty {
+                        if let Some(impl_node) = self.program[impl_id].as_trait_impl() {
+                            if self.poly_of(impl_node.trait_ty, ctx)? == trait_poly_ty {
                                 if let Some(trait_map) =
                                     self.implementer.trait_impls.get(&trait_poly_ty)
                                 {
-                                    for (trait_constraint, trait_impl_ty) in trait_map.iter() {
-                                        if trait_impl_ty == &poly_ty {
-                                            return Some((
-                                                constraint.clone(),
-                                                trait_constraint.clone(),
-                                            ));
+                                    for (trait_constraint, trait_impl_set) in trait_map.iter() {
+                                        for trait_impl_ty in trait_impl_set {
+                                            if trait_impl_ty == &poly_ty {
+                                                return Some((
+                                                    constraint.clone(),
+                                                    trait_constraint.clone(),
+                                                ));
+                                            }
                                         }
                                     }
                                 }

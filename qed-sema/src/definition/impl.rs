@@ -1,4 +1,4 @@
-use qed_ast::{DefId, NodeInfo, NodeType};
+use qed_ast::{DefId, Location, NodeInfo, NodeType};
 
 use crate::{ScopeId, TypeId};
 
@@ -8,15 +8,17 @@ pub struct CheckedImplNode {
     pub ty: TypeId,
     pub body: Vec<DefId>,
     pub scope_id: ScopeId,
+    pub location: Location,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CheckedImplTraitNode {
+pub struct CheckedTraitImplNode {
     pub generic_parameters: Vec<TypeId>,
     pub trait_ty: TypeId,
     pub ty: TypeId,
     pub body: Vec<DefId>,
     pub scope_id: ScopeId,
+    pub location: Location,
 }
 
 impl NodeInfo for CheckedImplNode {
@@ -25,8 +27,8 @@ impl NodeInfo for CheckedImplNode {
     }
 }
 
-impl NodeInfo for CheckedImplTraitNode {
+impl NodeInfo for CheckedTraitImplNode {
     fn node_type(&self) -> NodeType {
-        NodeType::ImplTraitDef
+        NodeType::TraitImplDef
     }
 }

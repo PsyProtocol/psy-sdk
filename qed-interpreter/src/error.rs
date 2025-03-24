@@ -121,30 +121,10 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::UnresolvedPath {
-                location,
-                resolved_path,
-            } => build_report(
-                location,
-                "UnresolvedPath",
-                format!("Unresolved path {}.", resolved_path),
-                ctx,
-            )
-            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::InvalidPathSegment { location, segment } => build_report(
                 location,
                 "InvalidPathSegment",
                 format!("Invalid path segment {}.", ctx.ident(segment)),
-                ctx,
-            )
-            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::UnresolvedVariable {
-                location,
-                resolved_variable,
-            } => build_report(
-                location,
-                "UnresolvedVariable",
-                format!("Unresolved variable {}.", ctx.ident(resolved_variable)),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
@@ -173,56 +153,10 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::TraitMethodUnimplemented {
-                location,
-                trait_ty,
-                ty,
-                method,
-            } => build_report(
-                location,
-                "TraitMethodUnimplemented",
-                format!(
-                    "Trait {} unimplemented {} for {}.",
-                    ctx.debug_type(trait_ty),
-                    ctx.ident(method),
-                    ctx.debug_type(ty)
-                ),
-                ctx,
-            )
-            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::MethodHasNoBody {
-                location,
-                ty,
-                method,
-            } => build_report(
-                location,
-                "MethodHasNoBody",
-                format!(
-                    "{} of {} has no body.",
-                    ctx.ident(method),
-                    ctx.debug_type(ty)
-                ),
-                ctx,
-            )
-            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::FunctionHasNoBody { location, function } => build_report(
-                location,
-                "FunctionHasNoBody",
-                format!("{} has no body.", ctx.ident(function)),
-                ctx,
-            )
-            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::VariableAlreadyDefined { location, variable } => build_report(
                 location,
                 "VariableAlreadyDefined",
                 format!("Variable {} already defined.", ctx.ident(variable)),
-                ctx,
-            )
-            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::UndefinedVariable { location, variable } => build_report(
-                location,
-                "UndefinedVariable",
-                format!("Variable {} is undefined.", ctx.ident(variable)),
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
@@ -258,22 +192,7 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::FunctionParameterMismatch {
-                location,
-                expected,
-                found,
-            } => build_report(
-                location,
-                "FunctionParameterMismatch",
-                format!(
-                    "Expected {}, but found {}.",
-                    ctx.debug_type(expected),
-                    ctx.debug_type(found)
-                ),
-                ctx,
-            )
-            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::GenericParameterMismatch {
+            SemaError::InvalidGenericArguments {
                 location,
                 expected,
                 found,
@@ -284,7 +203,7 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::InvalidFunctionCall {
+            SemaError::InvalidFunctionArguments {
                 location,
                 method_name: _method_name,
                 expected,
@@ -300,6 +219,10 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 build_report(location, "InvalidReturn", message, ctx)
                     .unwrap_or_else(|e| format!("Failed to build report: {}", e))
             }
+            SemaError::InvalidGenericConstraint { location } => {
+                build_report(location, "InvalidGenericConstraint", "Generic constraint should either be a concrete type or a list of trait requirements", ctx)
+                    .unwrap_or_else(|e| format!("Failed to build report: {}", e))
+            }
             SemaError::UnreachableExpression { location } => build_report(
                 location,
                 "UnreachableExpression",
@@ -307,10 +230,6 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
-            SemaError::InvalidSelfParameter { location, message } => {
-                build_report(location, "InvalidSelfParameter", ctx.ident(message), ctx)
-                    .unwrap_or_else(|e| format!("Failed to build report: {}", e))
-            }
             SemaError::TypeAlreadyDefined {
                 location,
                 type_name,
@@ -380,21 +299,6 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 build_report(location, "IncompleteMatch", message, ctx)
                     .unwrap_or_else(|e| format!("Failed to build report: {}", e))
             }
-            SemaError::DuplicatedMethod {
-                location,
-                ty,
-                method,
-            } => build_report(
-                location,
-                "DuplicatedMethod",
-                format!(
-                    "Method {} already exists on {}.",
-                    ctx.ident(method),
-                    ctx.debug_type(ty)
-                ),
-                ctx,
-            )
-            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
             SemaError::NoParentModule { location } => {
                 build_report(location, "NoParentModule", "No parent module.", ctx)
                     .unwrap_or_else(|e| format!("Failed to build report: {}", e))
@@ -403,6 +307,13 @@ pub fn lowering_error_to_report<F: Clone + From<u32> + ContextFelt, C>(
                 location,
                 "ModuleNotFound",
                 format!("Module {} not found.", ctx.ident(module)),
+                ctx,
+            )
+            .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
+            SemaError::SpecializationNotAllowed { location } => build_report(
+                location,
+                "SpecializationNotAllowed",
+                "Specialization not allowed.",
                 ctx,
             )
             .unwrap_or_else(|e| format!("Failed to build report: {}", e)),

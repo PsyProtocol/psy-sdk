@@ -9,7 +9,7 @@ pub struct ImplNode {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ImplTraitNode {
+pub struct TraitImplNode {
     pub generic_parameters: Vec<GenericParameter>,
     pub trait_ty: UncheckedType,
     pub ty: UncheckedType,
@@ -23,8 +23,8 @@ impl NodeInfo for ImplNode {
     }
 }
 
-impl NodeInfo for ImplTraitNode {
+impl NodeInfo for TraitImplNode {
     fn node_type(&self) -> NodeType {
-        NodeType::ImplTraitDef
+        NodeType::TraitImplDef
     }
 }

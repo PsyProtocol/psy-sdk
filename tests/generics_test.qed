@@ -1,6 +1,6 @@
-impl<T, N> [T; N] {
+impl<T, N: u32> [T; N] {
     pub const fn len() -> u32 {
-        return N;
+        return N + (1 as u32);
     }
 }
 
@@ -27,5 +27,5 @@ impl<T: Hello> Box<T> {
 fn main() -> Felt {
     let mut b: Box<Felt> = <Box<Felt>>::new(42);
     b.data += 1;
-    b.data
+    b.data + (<[Felt; 3]>::len() as Felt)
 }

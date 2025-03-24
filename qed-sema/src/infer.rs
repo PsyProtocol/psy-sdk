@@ -5,8 +5,9 @@ use itertools::Itertools;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    AstVisualizer, CheckedArrayNode, CheckedStructField, CheckedStructNode, Implementer, Result,
-    ScopeId, Type, TypeChecker, TypeCheckerVisitorContext, TypeId,
+    AstVisualizer, CheckedArrayNode, CheckedFunctionSignature, CheckedStructField,
+    CheckedStructNode, Implementer, Result, ScopeId, Type, TypeChecker, TypeCheckerVisitorContext,
+    TypeId,
 };
 
 #[derive(Debug)]
@@ -192,6 +193,29 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
                 });
                 ctx.symbols
                     .get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)
+            }
+
+            Type::Tuple(tuple) => {
+                let mut new_types = Vec::new();
+                for ty in tuple {
+                    new_types.push(self.substitute_all(ty, ctx)?);
+                }
+                let ty = Type::Tuple(new_types);
+                ctx.symbols
+                    .get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)
+            }
+
+            Type::FunctionSignature(sig) => {
+                let mut new_parameters = Vec::new();
+                for parameter in sig.parameters {
+                    new_parameters.push(self.substitute_all(parameter, ctx)?);
+                }
+                let new_return_type = self.substitute_all(sig.return_type, ctx)?;
+                let ty = Type::FunctionSignature(CheckedFunctionSignature {
+                    parameters: new_parameters,
+                    return_type: new_return_type,
+                });
+                ctx.symbols.get_or_add_type(None, ty.key(), ty)
             }
 
             Type::Struct(struct_node) => {

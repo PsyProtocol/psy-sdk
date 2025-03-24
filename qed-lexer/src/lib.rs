@@ -1,11 +1,13 @@
-pub mod error;
-pub mod token;
+mod error;
+mod token;
+mod transformer;
 
 use logos::{Logos, SpannedIter};
 
-pub use crate::{error::Error, token::Token};
+pub use crate::{error::*, token::Token, transformer::*};
 
-pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
+pub type Loc = usize;
+pub type Spanned<Tok> = Result<(Loc, Tok, Loc)>;
 
 pub struct Lexer<'input> {
     token_stream: SpannedIter<'input, Token<'input>>,
@@ -20,7 +22,7 @@ impl<'input> Lexer<'input> {
 }
 
 impl<'input> Iterator for Lexer<'input> {
-    type Item = Spanned<Token<'input>, usize, Error>;
+    type Item = Spanned<Token<'input>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.token_stream

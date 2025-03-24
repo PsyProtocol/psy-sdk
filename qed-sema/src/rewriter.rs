@@ -1,16 +1,24 @@
+use itertools::Itertools;
 use qed_ast::{DefId, ExprId, StmtId};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    CheckedDefinitionNode, CheckedExprNode, CheckedIntrinsicExprNode, CheckedIntrinsicStmtNode,
-    CheckedStmtNode, CheckedValueNode, Inferer, Result, TypeChecker, TypeCheckerVisitorContext,
-    TypeId,
+    AstVisualizer, CheckedDefinitionNode, CheckedExprNode, CheckedIntrinsicExprNode,
+    CheckedIntrinsicStmtNode, CheckedStmtNode, CheckedValueNode, Error, Implementer, Inferer,
+    Result, ScopeKind, Type, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
 };
 
 pub trait Rewriter<F: Clone + From<u32> + ContextFelt, C> {
     fn instantiate_impl(
         &mut self,
         impl_id: DefId,
+        generic_parameters: Vec<TypeId>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<DefId>;
+    fn instantiate_trait_impl(
+        &mut self,
+        impl_id: DefId,
+        trait_generic_parameters: Vec<TypeId>,
         generic_parameters: Vec<TypeId>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId>;
@@ -39,15 +47,91 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId> {
         let mut checked_impl = self.program[impl_id].as_impl().cloned().unwrap();
+        self.infcx.enter_context();
+
+        for (generic_parameter, generic_arg) in ctx.symbols[checked_impl.ty]
+            .generic_parameters()
+            .iter()
+            .zip_eq(generic_parameters.into_iter())
+        {
+            if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
+                return Err(Error::TypeMismatch {
+                    location: checked_impl.location,
+                    expected: vec![generic_parameter.clone()],
+                    found: generic_arg,
+                });
+            }
+        }
+
         checked_impl.ty = self.substitute_all(checked_impl.ty, ctx)?;
+
         for method in &mut checked_impl.body {
             *method = self.instantiate_function(*method, ctx)?;
         }
 
-        Ok(self
+        let impl_id = self
             .program
             .defs
-            .alloc_item(CheckedDefinitionNode::Impl(checked_impl)))
+            .alloc_item(CheckedDefinitionNode::Impl(checked_impl));
+        self.register_impl(impl_id, ctx)?;
+
+        self.infcx.exit_context();
+        Ok(impl_id)
+    }
+
+    fn instantiate_trait_impl(
+        &mut self,
+        impl_id: DefId,
+        trait_generic_parameters: Vec<TypeId>,
+        generic_parameters: Vec<TypeId>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<DefId> {
+        let mut checked_impl = self.program[impl_id].as_trait_impl().cloned().unwrap();
+        self.infcx.enter_context();
+
+        for (generic_parameter, generic_arg) in ctx.symbols[checked_impl.ty]
+            .generic_parameters()
+            .iter()
+            .zip_eq(generic_parameters.into_iter())
+        {
+            if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
+                return Err(Error::TypeMismatch {
+                    location: checked_impl.location,
+                    expected: vec![generic_parameter.clone()],
+                    found: generic_arg,
+                });
+            }
+        }
+
+        for (generic_parameter, generic_arg) in ctx.symbols[checked_impl.trait_ty]
+            .generic_parameters()
+            .iter()
+            .zip_eq(trait_generic_parameters.into_iter())
+        {
+            if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
+                return Err(Error::TypeMismatch {
+                    location: checked_impl.location,
+                    expected: vec![generic_parameter.clone()],
+                    found: generic_arg,
+                });
+            }
+        }
+
+        checked_impl.ty = self.substitute_all(checked_impl.ty, ctx)?;
+        checked_impl.trait_ty = self.substitute_all(checked_impl.trait_ty, ctx)?;
+
+        for method in &mut checked_impl.body {
+            *method = self.instantiate_function(*method, ctx)?;
+        }
+
+        let impl_id = self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::TraitImpl(checked_impl));
+        self.register_trait_impl(impl_id, ctx)?;
+
+        self.infcx.exit_context();
+        Ok(impl_id)
     }
 
     fn instantiate_function(
@@ -64,10 +148,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         }
         checked_function.return_type = self.substitute_all(checked_function.return_type, ctx)?;
 
-        Ok(self
+        let ty = Type::Function(checked_function.clone());
+        let type_id =
+            ctx.symbols
+                .add_type(ctx.symbols[checked_function.scope_id].parent, ty.key(), ty)?;
+        checked_function.type_id = type_id;
+        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
+
+        let function_id = self
             .program
             .defs
-            .alloc_item(CheckedDefinitionNode::Function(checked_function)))
+            .alloc_item(CheckedDefinitionNode::Function(checked_function));
+
+        Ok(function_id)
     }
 
     fn rewrite_stmt(
@@ -145,9 +238,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         match &mut checked_expr {
             CheckedExprNode::Path(checked_path_node) => {
                 checked_path_node.type_id = self.substitute_all(checked_path_node.type_id, ctx)?;
-                if let Some(ref mut root) = checked_path_node.root {
-                    *root = self.substitute_all(*root, ctx)?;
-                }
             }
             CheckedExprNode::Value(checked_value_node) => match checked_value_node {
                 CheckedValueNode::Felt(_, location) => {}
@@ -176,23 +266,23 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     *type_id = self.substitute_all(*type_id, ctx)?;
                 }
             },
-            CheckedExprNode::Binary(ref mut checked_binary_node) => {
+            CheckedExprNode::Binary(checked_binary_node) => {
                 checked_binary_node.type_id =
                     self.substitute_all(checked_binary_node.type_id, ctx)?;
                 checked_binary_node.lhs = self.rewrite_expr(checked_binary_node.lhs, ctx)?;
                 checked_binary_node.rhs = self.rewrite_expr(checked_binary_node.rhs, ctx)?;
             }
-            CheckedExprNode::Unary(ref mut checked_unary_node) => {
+            CheckedExprNode::Unary(checked_unary_node) => {
                 checked_unary_node.type_id =
                     self.substitute_all(checked_unary_node.type_id, ctx)?;
                 checked_unary_node.rhs = self.rewrite_expr(checked_unary_node.rhs, ctx)?;
             }
-            CheckedExprNode::Cast(ref mut checked_cast_node) => {
+            CheckedExprNode::Cast(checked_cast_node) => {
                 checked_cast_node.value = self.rewrite_expr(checked_cast_node.value, ctx)?;
                 checked_cast_node.target_type =
                     self.substitute_all(checked_cast_node.target_type, ctx)?;
             }
-            CheckedExprNode::Call(ref mut checked_call_node) => {
+            CheckedExprNode::Call(checked_call_node) => {
                 checked_call_node.type_id = self.substitute_all(checked_call_node.type_id, ctx)?;
                 checked_call_node.callee = self.rewrite_expr(checked_call_node.callee, ctx)?;
                 for arg in &mut checked_call_node.args {
@@ -202,7 +292,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     *generic_parameter = self.substitute_all(*generic_parameter, ctx)?;
                 }
             }
-            CheckedExprNode::MemberCall(ref mut checked_member_call_node) => {
+            CheckedExprNode::MemberCall(checked_member_call_node) => {
                 checked_member_call_node.type_id =
                     self.substitute_all(checked_member_call_node.type_id, ctx)?;
                 checked_member_call_node.callee =
@@ -216,7 +306,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     *generic_parameter = self.substitute_all(*generic_parameter, ctx)?;
                 }
             }
-            CheckedExprNode::IndexAccess(ref mut checked_index_access_node) => {
+            CheckedExprNode::IndexAccess(checked_index_access_node) => {
                 checked_index_access_node.type_id =
                     self.substitute_all(checked_index_access_node.type_id, ctx)?;
                 checked_index_access_node.index =
@@ -224,19 +314,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                 checked_index_access_node.target =
                     self.rewrite_expr(checked_index_access_node.target, ctx)?;
             }
-            CheckedExprNode::TupleAccess(ref mut checked_tuple_access_node) => {
+            CheckedExprNode::TupleAccess(checked_tuple_access_node) => {
                 checked_tuple_access_node.type_id =
                     self.substitute_all(checked_tuple_access_node.type_id, ctx)?;
                 checked_tuple_access_node.target =
                     self.rewrite_expr(checked_tuple_access_node.target, ctx)?;
             }
-            CheckedExprNode::MemberAccess(ref mut checked_member_access_node) => {
+            CheckedExprNode::MemberAccess(checked_member_access_node) => {
                 checked_member_access_node.type_id =
                     self.substitute_all(checked_member_access_node.type_id, ctx)?;
                 checked_member_access_node.target =
                     self.rewrite_expr(checked_member_access_node.target, ctx)?;
             }
-            CheckedExprNode::Intrinsic(ref mut checked_intrinsic_expr_node) => {
+            CheckedExprNode::Intrinsic(checked_intrinsic_expr_node) => {
                 match checked_intrinsic_expr_node {
                     CheckedIntrinsicExprNode::GetUserId { type_id, location } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
@@ -327,8 +417,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     }
                 }
             }
-            CheckedExprNode::LambdaFunction(ref mut checked_lambda_function_node) => {}
-            CheckedExprNode::BlockExpr(ref mut checked_block_expr_node) => {
+            CheckedExprNode::LambdaFunction(checked_lambda_function_node) => {}
+            CheckedExprNode::BlockExpr(checked_block_expr_node) => {
                 checked_block_expr_node.type_id =
                     self.substitute_all(checked_block_expr_node.type_id, ctx)?;
                 for stmt in &mut checked_block_expr_node.stmts {
@@ -338,7 +428,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     checked_block_expr_node.expr = Some(self.rewrite_expr(expr, ctx)?);
                 }
             }
-            CheckedExprNode::IfExpr(ref mut checked_if_expr_node) => {
+            CheckedExprNode::IfExpr(checked_if_expr_node) => {
                 checked_if_expr_node.type_id =
                     self.substitute_all(checked_if_expr_node.type_id, ctx)?;
 
@@ -359,7 +449,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     checked_if_expr_node.else_branch = Some(self.rewrite_expr(else_branch, ctx)?);
                 }
             }
-            CheckedExprNode::Match(ref mut checked_match_node) => {
+            CheckedExprNode::Match(checked_match_node) => {
                 checked_match_node.type_id =
                     self.substitute_all(checked_match_node.type_id, ctx)?;
                 checked_match_node.value = self.rewrite_expr(checked_match_node.value, ctx)?;
