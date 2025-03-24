@@ -1358,7 +1358,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             // ctx.symbols.end_scope();
             ctx.symbols.end_scope();
         }
-
         Ok(self
             .program
             .defs
