@@ -11,7 +11,9 @@ use qedlang_core::dpn::ops::{
     op_types::DPNOpType,
 };
 
-use crate::{Result, TypeId, BOOL_TYPE, FELT_TYPE, U32_TYPE, VOID_TYPE};
+use crate::{
+    Result, Type, TypeCheckerVisitorContext, TypeId, BOOL_TYPE, FELT_TYPE, U32_TYPE, VOID_TYPE,
+};
 
 #[derive(Clone, Debug, PartialEq, EnumAsInner)]
 pub enum CheckedValueNode<F> {
@@ -132,6 +134,88 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValueRef<F> {
     }
 }
 
+pub trait FeltRepr<F: Clone + From<u32> + ContextFelt, C: DPNContext<F>>: Clone {
+    fn encode_felts(&self) -> Vec<F>;
+    fn decode_felts(
+        felts: &[F],
+        ctx: &TypeCheckerVisitorContext<F, C>,
+        target_type: TypeId,
+    ) -> Self;
+}
+
+impl<F: Clone + From<u32> + ContextFelt, C: DPNContext<F>> FeltRepr<F, C> for CheckedValueRef<F> {
+    fn encode_felts(&self) -> Vec<F> {
+        return ToFelts::to_felts(self);
+    }
+
+    fn decode_felts(
+        felts: &[F],
+        ctx: &TypeCheckerVisitorContext<F, C>,
+        target_type: TypeId,
+    ) -> Self {
+        match &ctx.symbols[target_type] {
+            Type::Felt => {
+                assert_eq!(felts.len(), 1);
+                CheckedValueRef::from_felt(felts[0].clone())
+            }
+            Type::Bool => {
+                assert_eq!(felts.len(), 1);
+                CheckedValueRef::from_bool(felts[0].clone())
+            }
+            Type::U32 => {
+                assert_eq!(felts.len(), 1);
+                CheckedValueRef::from_u32(felts[0].clone())
+            }
+            Type::Array(checked_array_node) => {
+                let size = ctx.size_of(checked_array_node.inner_ty);
+                let values = felts
+                    .chunks(felts.len() / size)
+                    .map(|chunk| FeltRepr::decode_felts(chunk, ctx, checked_array_node.inner_ty))
+                    .collect();
+
+                Self::new_rc(CheckedValue::Array(target_type, values))
+            }
+            Type::Struct(checked_struct_node) => {
+                let mut fields = IndexMap::new();
+                let mut field_offset = 0;
+                for (i, (field_name, field)) in checked_struct_node.fields.iter().enumerate() {
+                    let field_size = ctx.size_of(field.ty);
+                    let field_value = FeltRepr::decode_felts(
+                        &felts[field_offset..(field_offset + field_size)],
+                        ctx,
+                        field.ty,
+                    );
+                    fields.insert(field_name.clone(), field_value);
+                    field_offset += field_size;
+                }
+
+                Self::new_rc(CheckedValue::Struct(target_type, fields))
+            }
+            Type::Tuple(vec) => {
+                let mut elements = vec![];
+                let mut element_offset = 0;
+
+                for ty in vec {
+                    let element_size = ctx.size_of(*ty);
+                    let element = FeltRepr::decode_felts(
+                        &felts[element_offset..(element_offset + element_size)],
+                        ctx,
+                        *ty,
+                    );
+                    elements.push((*ty, element));
+                    element_offset += element_size;
+                }
+
+                Self::new_rc(CheckedValue::Tuple {
+                    type_id: target_type,
+                    elements,
+                })
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
 impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
     pub fn new_rc(value: CheckedValue<F>) -> Self {
         Self(Rc::new(RefCell::new(value)))
@@ -166,6 +250,15 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
 
     pub fn from_u32(value: F) -> Self {
         Self::new_rc(CheckedValue::U32(value))
+    }
+
+    pub fn from_value(value: F, ty: TypeId) -> Self {
+        match ty {
+            FELT_TYPE => Self::from_felt(value),
+            BOOL_TYPE => Self::from_bool(value),
+            U32_TYPE => Self::from_u32(value),
+            _ => panic!("Expected felt/u32/bool"),
+        }
     }
 
     pub fn from_vec(type_id: TypeId, data: impl IntoIterator<Item = F>) -> Self {

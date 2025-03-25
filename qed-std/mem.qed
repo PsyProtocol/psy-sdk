@@ -1,0 +1,3 @@
+pub fn transmute<U, T>(x: T) -> U {
+    return __mem_transmute(x, U);
+}

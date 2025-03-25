@@ -797,13 +797,30 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 self.visit_expr(slot_index.clone(), ctx)?,
                 self.visit_expr(new_value.clone(), ctx)?
             )),
+            IntrinsicExprNode::Transmute {
+                data, target_type, ..
+            } => Ok(format!(
+                "__mem_transmute({}, {})",
+                self.visit_expr(data, ctx)?,
+                self.visit_unchecked_type(&target_type, ctx)
+            )),
             IntrinsicExprNode::Read { offset, .. } => {
                 Ok(format!("__storage_read({})", self.visit_expr(offset, ctx)?))
             }
+            IntrinsicExprNode::ReadRange { offset, length, .. } => Ok(format!(
+                "__storage_read_range({},{})",
+                self.visit_expr(offset, ctx)?,
+                self.visit_expr(length, ctx)?
+            )),
             IntrinsicExprNode::Write { offset, value, .. } => Ok(format!(
                 "__storage_write({}, {})",
                 self.visit_expr(offset, ctx)?,
                 self.visit_expr(value, ctx)?
+            )),
+            IntrinsicExprNode::WriteRange { offset, values, .. } => Ok(format!(
+                "__storage_write_range({}, {})",
+                self.visit_expr(offset, ctx)?,
+                self.visit_expr(values, ctx)?
             )),
             IntrinsicExprNode::Hash { data, .. } => {
                 Ok(format!("hash({})", self.visit_expr(data, ctx)?,))

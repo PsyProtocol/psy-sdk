@@ -546,104 +546,7 @@ Expression: ExprNode<F> = {
     #[precedence(level="1")]
     Term,
     #[precedence(level="2")]
-    <l:@L> <variable:STORAGE_READ> "(" <offset: Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::Read {
-                offset: expr_nodes.alloc_item(offset),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:STORAGE_WRITE> "(" <offset: Expression> "," <value: Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::Write {
-                offset: expr_nodes.alloc_item(offset),
-                value: expr_nodes.alloc_item(value),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:Hash> "(" <data:Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::Hash {
-                data: expr_nodes.alloc_item(data),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_USER_ID> "(" ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetUserId {
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_CONTRACT_ID> "(" ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetContractId {
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_CHECKPOINT_ID> "(" ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetCheckpointId {
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_LAST_NONCE> "(" ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetLastNonce {
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_USER_PUBLIC_KEY_HASH> "(" ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetUserPublicKeyHash {
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_STATE_HASH_AT> "(" <slot_index: Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetStateHashAt {
-                slot_index: expr_nodes.alloc_item(slot_index),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_OTHER_CONTRACT_STATE_HASH_AT> "(" <contract_state_tree_height: Expression> "," <contract_id: Expression> "," <slot_index: Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetOtherContractStateHashAt {
-                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
-                contract_id: expr_nodes.alloc_item(contract_id),
-                slot_index: expr_nodes.alloc_item(slot_index),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_OTHER_USER_CONTRACT_STATE_HASH_AT> "(" <contract_state_tree_height: Expression> "," <user_id: Expression> "," <contract_id: Expression> "," <slot_index: Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetOtherUserContractStateHashAt {
-                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
-                user_id: expr_nodes.alloc_item(user_id),
-                contract_id: expr_nodes.alloc_item(contract_id),
-                slot_index: expr_nodes.alloc_item(slot_index),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_SET_STATE_HASH_AT> "(" <slot_index: Expression> "," <new_value: Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::CSetStateHashAt {
-                slot_index: expr_nodes.alloc_item(slot_index),
-                new_value: expr_nodes.alloc_item(new_value),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
+    IntrinsicExpression,
     <l:@L> <callee:Expression> <generic_parameters:Monomorphization> "(" <args:ArgumentList> ")" <r:@R> => {
        if let ExprNode::<F>::MemberAccess(MemberAccessNode {
           target: receiver, ..
@@ -782,8 +685,135 @@ Term: ExprNode<F> = {
     PathExpression,
     IfExpression,
     MatchExpression,
-    BlockExpression,
+    BlockExpression
+}
 
+IntrinsicExpression: ExprNode<F> = {
+    <l:@L> <variable:MEM_TRANSMUTE> "(" <data: Expression> "," <target_type: Ty> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::Transmute {
+                data: expr_nodes.alloc_item(data),
+                target_type,
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:STORAGE_READ_RANGE> "(" <offset: Expression> "," <length: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::ReadRange {
+                offset: expr_nodes.alloc_item(offset),
+                length: expr_nodes.alloc_item(length),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:STORAGE_WRITE_RANGE> "(" <offset: Expression> "," <values: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::WriteRange {
+                offset: expr_nodes.alloc_item(offset),
+                values: expr_nodes.alloc_item(values),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:STORAGE_READ> "(" <offset: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::Read {
+                offset: expr_nodes.alloc_item(offset),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:STORAGE_WRITE> "(" <offset: Expression> "," <value: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::Write {
+                offset: expr_nodes.alloc_item(offset),
+                value: expr_nodes.alloc_item(value),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:Hash> "(" <data:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::Hash {
+                data: expr_nodes.alloc_item(data),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_USER_ID> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetUserId {
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_CONTRACT_ID> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetContractId {
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_CHECKPOINT_ID> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetCheckpointId {
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_LAST_NONCE> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetLastNonce {
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_USER_PUBLIC_KEY_HASH> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetUserPublicKeyHash {
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_STATE_HASH_AT> "(" <slot_index: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetStateHashAt {
+                slot_index: expr_nodes.alloc_item(slot_index),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_OTHER_CONTRACT_STATE_HASH_AT> "(" <contract_state_tree_height: Expression> "," <contract_id: Expression> "," <slot_index: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetOtherContractStateHashAt {
+                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
+                contract_id: expr_nodes.alloc_item(contract_id),
+                slot_index: expr_nodes.alloc_item(slot_index),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_OTHER_USER_CONTRACT_STATE_HASH_AT> "(" <contract_state_tree_height: Expression> "," <user_id: Expression> "," <contract_id: Expression> "," <slot_index: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetOtherUserContractStateHashAt {
+                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
+                user_id: expr_nodes.alloc_item(user_id),
+                contract_id: expr_nodes.alloc_item(contract_id),
+                slot_index: expr_nodes.alloc_item(slot_index),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_SET_STATE_HASH_AT> "(" <slot_index: Expression> "," <new_value: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::CSetStateHashAt {
+                slot_index: expr_nodes.alloc_item(slot_index),
+                new_value: expr_nodes.alloc_item(new_value),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    }
 }
 
 ValueExpression: ExprNode<F> = {
@@ -870,6 +900,14 @@ ArrayExpression: ExprNode<F> = {
     <l:@L> "[" <elements:Comma<Expression>> "]" <r:@R> => ExprNode::<F>::Value(
         ValueNode::Array(elements.len(), expr_nodes.alloc_items(elements), Location::new(file_id, l, r)),
     ),
+    <l:@L> "[" <element:Expression> ";" <n:U64> "]" <r:@R> => ExprNode::<F>::Value({
+        let size = usize::try_from(n).unwrap();
+        let mut elements = Vec::with_capacity(size);
+        for _ in 0..n {
+            elements.push(expr_nodes.alloc_item(element.clone()));
+        }
+        ValueNode::Array(size, elements, Location::new(file_id, l, r))
+    }),
 }
 
 UseNode: (Identifier, Vec<Identifier>, Option<Identifier>) =
@@ -984,8 +1022,11 @@ extern {
         ASSERT => Token::IntrinsicAssert,
         ASSERT_EQ => Token::IntrinsicAssertEq,
         Hash => Token::IntrinsicHash,
+        MEM_TRANSMUTE => Token::IntrinsicMemTransmute, 
         STORAGE_READ => Token::IntrinsicStorageRead,
         STORAGE_WRITE => Token::IntrinsicStorageWrite,
+        STORAGE_READ_RANGE => Token::IntrinsicStorageReadRange,
+        STORAGE_WRITE_RANGE => Token::IntrinsicStorageWriteRange,
         CTX_GET_USER_ID => Token::IntrinsicCtxGetUserId,
         CTX_GET_CONTRACT_ID => Token::IntrinsicCtxGetContractId,
         CTX_GET_CHECKPOINT_ID => Token::IntrinsicCtxGetCheckpointId,

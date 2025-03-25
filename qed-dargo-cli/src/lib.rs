@@ -2,10 +2,10 @@ mod compile_cmd;
 mod errors;
 
 use crate::errors::CliError;
+use clap::Args;
 use qed_dargo::package::Workspace;
 use qed_dargo_toml::files::{find_file_manifest_root, get_package_manifest};
 use qed_dargo_toml::resolve_workspace_from_toml;
-use clap::Args;
 use std::path::PathBuf;
 
 #[derive(Args, Clone, Debug)]

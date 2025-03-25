@@ -96,20 +96,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         }
     }
 
-    pub fn size_of(&self, type_id: TypeId, symbols: &SymbolTable<F>) -> usize {
-        match &symbols[type_id] {
-            Type::Felt => 1usize,
-            Type::Bool => 1usize,
-            Type::U32 => 1usize,
-            Type::Struct(s) => s
-                .fields
-                .iter()
-                .map(|(_, field)| self.size_of(field.ty, symbols))
-                .sum(),
-            _ => todo!(),
-        }
-    }
-
     #[instrument(level = "debug", skip_all)]
     pub fn interpret<I: Into<Ident>>(
         &mut self,
@@ -248,7 +234,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         for parameter in node.parameters.iter() {
             method_args.push((
                 ctx.program[parameter.name.id].to_string(),
-                self.size_of(parameter.ty.clone(), &ctx.symbols),
+                ctx.size_of(parameter.ty.clone()),
             ));
         }
 
@@ -846,6 +832,43 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             type_id.clone(),
                             self.context.hash(&data.to_felts()),
                         ));
+                    }
+                    CheckedIntrinsicExprNode::Transmute {
+                        data,
+                        target_type,
+                        location,
+                    } => {
+                        let data = self.interpret_expr(program, data.clone(), ctx)?;
+                        return Ok(CheckedValueRef::decode_felts(
+                            &data.to_felts(),
+                            ctx,
+                            target_type.clone(),
+                        ));
+                    }
+                    CheckedIntrinsicExprNode::ReadRange {
+                        offset,
+                        length,
+                        type_id,
+                        location,
+                    } => {
+                        let offset = self.interpret_expr(program, offset.clone(), ctx)?;
+                        let length = self.interpret_expr(program, length.clone(), ctx)?;
+                        let values = self
+                            .context
+                            .get_state_range_at(offset.to_felt(), length.to_felt());
+                        return Ok(CheckedValueRef::from_vec(UNKOWN_TYPE, values));
+                    }
+                    CheckedIntrinsicExprNode::WriteRange {
+                        offset,
+                        values,
+                        type_id,
+                        location,
+                    } => {
+                        let offset = self.interpret_expr(program, offset.clone(), ctx)?;
+                        let values = self.interpret_expr(program, values.clone(), ctx)?;
+                        self.context
+                            .cset_state_range_at(offset.to_felt(), &values.to_felts());
+                        return Ok(CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE)));
                     }
                 }
             }),

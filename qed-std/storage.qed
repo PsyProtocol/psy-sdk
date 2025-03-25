@@ -1,4 +1,5 @@
 mod primitive;
+mod mem;
 
 use primitive::*;
 
@@ -49,3 +50,17 @@ impl Storage for u32 {
         __storage_write(offset, value as Felt);
     }
 }
+
+// impl<T: Storage, N: u32> Storage for [T; N] {
+//     pub fn size() -> Felt {
+//         return T::size() * (N as Felt);
+//     }
+//
+//     pub fn read(offset: Felt) -> Self {
+//         mem::transmute#<Self>(__storage_read_range(offset, N as Felt))
+//     }
+//
+//     pub fn write(offset: Felt, values: Self) {
+//         __storage_write_range(offset, values);
+//     }
+// }

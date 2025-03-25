@@ -4,11 +4,11 @@ pub mod fm;
 mod git;
 mod semver;
 
-use qed_dargo::FILE_EXTENSION;
-use qed_dargo::package::{CrateName, Dependency, Package, PackageType, Workspace};
 use crate::errors::{ManifestError, SemverError};
 use crate::fm::NormalizePath;
 use crate::git::clone_git_repo;
+use qed_dargo::FILE_EXTENSION;
+use qed_dargo::package::{CrateName, Dependency, Package, PackageType, Workspace};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

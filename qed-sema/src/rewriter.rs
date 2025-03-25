@@ -415,6 +415,34 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *data = self.rewrite_expr(*data, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
+                    CheckedIntrinsicExprNode::Transmute {
+                        data,
+                        target_type,
+                        location,
+                    } => {
+                        *data = self.rewrite_expr(*data, ctx)?;
+                        *target_type = self.substitute_all(*target_type, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::ReadRange {
+                        offset,
+                        length,
+                        type_id,
+                        location,
+                    } => {
+                        *offset = self.rewrite_expr(*offset, ctx)?;
+                        *length = self.rewrite_expr(*length, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::WriteRange {
+                        offset,
+                        values,
+                        type_id,
+                        location,
+                    } => {
+                        *offset = self.rewrite_expr(*offset, ctx)?;
+                        *values = self.rewrite_expr(*values, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
                 }
             }
             CheckedExprNode::LambdaFunction(checked_lambda_function_node) => {}

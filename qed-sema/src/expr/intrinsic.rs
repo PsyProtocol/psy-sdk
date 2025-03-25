@@ -50,14 +50,31 @@ pub enum CheckedIntrinsicExprNode {
         type_id: TypeId,
         location: Location,
     },
+    Transmute {
+        data: ExprId,
+        target_type: TypeId,
+        location: Location,
+    },
     Read {
         offset: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    ReadRange {
+        offset: ExprId,
+        length: ExprId,
         type_id: TypeId,
         location: Location,
     },
     Write {
         offset: ExprId,
         value: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    WriteRange {
+        offset: ExprId,
+        values: ExprId,
         type_id: TypeId,
         location: Location,
     },

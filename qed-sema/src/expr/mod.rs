@@ -106,6 +106,24 @@ impl<F> CheckedExprNode<F> {
                 CheckedIntrinsicExprNode::Read { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::Write { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::Hash { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::Transmute {
+                    data,
+                    target_type,
+                    location,
+                } => target_type.clone(),
+
+                CheckedIntrinsicExprNode::ReadRange {
+                    offset,
+                    length,
+                    type_id,
+                    location,
+                } => type_id.clone(),
+                CheckedIntrinsicExprNode::WriteRange {
+                    offset,
+                    values,
+                    type_id,
+                    location,
+                } => type_id.clone(),
             },
             CheckedExprNode::LambdaFunction(c) => c.type_id.clone(),
             CheckedExprNode::IfExpr(i) => i.type_id,
@@ -151,6 +169,23 @@ impl<F> CheckedExprNode<F> {
                 CheckedIntrinsicExprNode::Read { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::Write { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::Hash { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::Transmute {
+                    data,
+                    target_type,
+                    location,
+                } => location.clone(),
+                CheckedIntrinsicExprNode::ReadRange {
+                    offset,
+                    length,
+                    type_id,
+                    location,
+                } => location.clone(),
+                CheckedIntrinsicExprNode::WriteRange {
+                    offset,
+                    values,
+                    type_id,
+                    location,
+                } => location.clone(),
             },
             CheckedExprNode::LambdaFunction(c) => c.location,
             CheckedExprNode::IfExpr(i) => i.location,

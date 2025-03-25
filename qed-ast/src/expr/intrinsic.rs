@@ -1,4 +1,4 @@
-use crate::{ExprId, Location, NodeInfo, NodeType};
+use crate::{ExprId, Location, NodeInfo, NodeType, UncheckedType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum IntrinsicExprNode {
@@ -39,13 +39,28 @@ pub enum IntrinsicExprNode {
         new_value: ExprId,
         location: Location,
     },
+    Transmute {
+        data: ExprId,
+        target_type: UncheckedType,
+        location: Location,
+    },
     Read {
         offset: ExprId,
+        location: Location,
+    },
+    ReadRange {
+        offset: ExprId,
+        length: ExprId,
         location: Location,
     },
     Write {
         offset: ExprId,
         value: ExprId,
+        location: Location,
+    },
+    WriteRange {
+        offset: ExprId,
+        values: ExprId,
         location: Location,
     },
     Hash {
