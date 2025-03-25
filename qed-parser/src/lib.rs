@@ -45,18 +45,26 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
     //     std/
     //         prelude
     pub fn parse<'input>(&'input mut self, ctx: &mut C, root_module_path: PathBuf) -> Result<()> {
-        let mut module_stack: Vec<(bool, PathBuf, Option<ModuleId>, Visibility, bool)> = vec![(
-            false,
-            root_module_path.clone(),
-            None,
-            Visibility::Public,
-            false,
-        )];
+        let mut module_stack: Vec<(bool, PathBuf, Option<ModuleId>, Visibility, bool, Location)> =
+            vec![(
+                false,
+                root_module_path.clone(),
+                None,
+                Visibility::Public,
+                false,
+                Location::default(),
+            )];
         let mut visited = HashMap::new();
         let mut inline_modules: HashMap<PathBuf, ModuleNode> = HashMap::new();
 
-        while let Some((is_inline, current_path, parent_module_id, visibility, is_parent_std)) =
-            module_stack.pop()
+        while let Some((
+            is_inline,
+            current_path,
+            parent_module_id,
+            visibility,
+            is_parent_std,
+            location,
+        )) = module_stack.pop()
         {
             if let Some(&module_id) = visited.get(&current_path) {
                 self.program.modules.add_child(parent_module_id, module_id);
@@ -86,7 +94,10 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                 let module = match qed::ModuleParser::new().parse(
                     file_content,
                     file_id,
-                    module_name,
+                    Identifier::new(
+                        module_name,
+                        Location::new(file_id, location.start, location.end),
+                    ),
                     &mut self.program.exprs,
                     &mut self.program.stmts,
                     &mut self.program.defs,
@@ -120,12 +131,13 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                     Some(module_id),
                     visibility.clone(),
                     is_parent_std || module.name == IdentId::STD,
+                    dep_module.location,
                 ));
             }
 
             for inline_module in module.inline_modules.iter().rev() {
                 let dep_path = self
-                    .resolve_module_path(&inline_module.name, &current_path)
+                    .resolve_module_path(&inline_module.name.id, &current_path)
                     .unwrap();
                 module_stack.push((
                     true,
@@ -133,6 +145,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                     Some(module_id),
                     inline_module.visibility.clone(),
                     is_parent_std || module.name == IdentId::STD,
+                    inline_module.name.location,
                 ));
                 inline_modules.insert(dep_path, inline_module.clone());
             }

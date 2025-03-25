@@ -32,7 +32,7 @@ impl NodeInfo for UseNode {
 
 #[derive(Clone, Debug)]
 pub struct ModuleNode {
-    pub name: IdentId,
+    pub name: Identifier,
     pub file_id: FileId,
     pub modules: Vec<(Identifier, Visibility, Location)>,
     pub inline_modules: Vec<ModuleNode>,
@@ -49,7 +49,7 @@ pub struct ModuleNode {
 
 impl ModuleNode {
     pub fn new(
-        name: IdentId,
+        name: Identifier,
         file_id: FileId,
         visibility: Visibility,
         module_items: Vec<ModuleItemNode>,

@@ -1,7 +1,7 @@
 use derivative::Derivative;
 use enum_as_inner::EnumAsInner;
 
-use qed_ast::{ExprId, Identifier};
+use qed_ast::{ExprId, Identifier, Location};
 use qed_ast::{IdentId, Visibility};
 
 use crate::CheckedFunctionParameter;
@@ -16,6 +16,12 @@ use crate::{CheckedConstNode, CheckedGenericParameter};
 use qed_common::define_arena_id;
 
 define_arena_id!(TypeId);
+
+impl TypeId {
+    pub fn is_std_type(&self) -> bool {
+        self.0 <= 9
+    }
+}
 
 pub const UNKOWN_TYPE: TypeId = TypeId(0);
 pub const VOID_TYPE: TypeId = TypeId(1);
@@ -378,6 +384,26 @@ impl Type {
             Type::LambdaFunction(_) => TypeKind::LambdaFunction,
             Type::FunctionSignature(_) => TypeKind::FunctionSignature,
             Type::TypeVariable(_) => TypeKind::TypeVariable,
+        }
+    }
+
+    pub fn location(&self) -> Location {
+        match self {
+            Type::Unknown => Location::default(),
+            Type::VOID => Location::default(),
+            Type::Felt => Location::default(),
+            Type::Bool => Location::default(),
+            Type::U32 => Location::default(),
+            Type::Array(_) => Location::default(),
+            Type::Struct(struct_node) => struct_node.location,
+            Type::Enum(enum_node) => enum_node.location,
+            Type::Tuple(_) => Location::default(),
+            Type::Function(function_node) => function_node.location,
+            Type::Trait(trait_node) => trait_node.location,
+            Type::Const(_const_node) => Location::default(),
+            Type::LambdaFunction(lambda_function_node) => lambda_function_node.location,
+            Type::FunctionSignature(_function_signature) => Location::default(),
+            Type::TypeVariable(generic_parameter) => generic_parameter.location,
         }
     }
 }

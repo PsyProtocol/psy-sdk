@@ -22,3 +22,6 @@ ariadne = { workspace = true }
 regex = { workspace = true }
 derivative = { workspace = true }
 itertools = { workspace = true }
+
+petgraph = "0.7"
+rangemap = "1.4"
