@@ -103,22 +103,26 @@ impl<F> CheckedExprNode<F> {
                     type_id.clone()
                 }
                 CheckedIntrinsicExprNode::CSetStateHashAt { type_id, .. } => type_id.clone(),
-                CheckedIntrinsicExprNode::Read { type_id, .. } => type_id.clone(),
-                CheckedIntrinsicExprNode::Write { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::StorageRead { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::StorageWrite { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::Hash { type_id, .. } => type_id.clone(),
-                CheckedIntrinsicExprNode::Transmute {
+                CheckedIntrinsicExprNode::MemTransmute {
                     data,
                     target_type,
                     location,
                 } => target_type.clone(),
-
-                CheckedIntrinsicExprNode::ReadRange {
+                CheckedIntrinsicExprNode::MemSizeOf {
+                    query_type: ty,
+                    type_id,
+                    location,
+                } => type_id.clone(),
+                CheckedIntrinsicExprNode::StorageReadRange {
                     offset,
                     length,
                     type_id,
                     location,
                 } => type_id.clone(),
-                CheckedIntrinsicExprNode::WriteRange {
+                CheckedIntrinsicExprNode::StorageWriteRange {
                     offset,
                     values,
                     type_id,
@@ -166,21 +170,26 @@ impl<F> CheckedExprNode<F> {
                     location.clone()
                 }
                 CheckedIntrinsicExprNode::CSetStateHashAt { location, .. } => location.clone(),
-                CheckedIntrinsicExprNode::Read { location, .. } => location.clone(),
-                CheckedIntrinsicExprNode::Write { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::StorageRead { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::StorageWrite { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::Hash { location, .. } => location.clone(),
-                CheckedIntrinsicExprNode::Transmute {
+                CheckedIntrinsicExprNode::MemTransmute {
                     data,
                     target_type,
                     location,
                 } => location.clone(),
-                CheckedIntrinsicExprNode::ReadRange {
+                CheckedIntrinsicExprNode::MemSizeOf {
+                    query_type: ty,
+                    type_id,
+                    location,
+                } => location.clone(),
+                CheckedIntrinsicExprNode::StorageReadRange {
                     offset,
                     length,
                     type_id,
                     location,
                 } => location.clone(),
-                CheckedIntrinsicExprNode::WriteRange {
+                CheckedIntrinsicExprNode::StorageWriteRange {
                     offset,
                     values,
                     type_id,

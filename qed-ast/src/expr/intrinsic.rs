@@ -44,6 +44,10 @@ pub enum IntrinsicExprNode {
         target_type: UncheckedType,
         location: Location,
     },
+    MemSizeOf {
+        query_type: UncheckedType,
+        location: Location,
+    },
     StorageRead {
         offset: ExprId,
         location: Location,

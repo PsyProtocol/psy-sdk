@@ -689,11 +689,19 @@ Term: ExprNode<F> = {
 }
 
 IntrinsicExpression: ExprNode<F> = {
-    <l:@L> <variable:MEM_TRANSMUTE> "(" <data: Expression> "," <target_type: Ty> ")" <r:@R> => {
+    <l:@L> <variable:MEM_TRANSMUTE> "#" "<" <target_type:Ty> ">" "(" <data: Expression> ")" <r:@R> => {
         ExprNode::Intrinsic(
             IntrinsicExprNode::MemTransmute {
                 data: expr_nodes.alloc_item(data),
                 target_type,
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:MEM_SIZE_OF> "#" "<" <query_type:Ty> ">" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::MemSizeOf {
+                query_type,
                 location: Location::new(file_id, l, r)
             }
         )
@@ -1022,7 +1030,8 @@ extern {
         ASSERT => Token::IntrinsicAssert,
         ASSERT_EQ => Token::IntrinsicAssertEq,
         Hash => Token::IntrinsicHash,
-        MEM_TRANSMUTE => Token::IntrinsicMemTransmute, 
+        MEM_TRANSMUTE => Token::IntrinsicMemTransmute,
+        MEM_SIZE_OF => Token::IntrinsicMemSizeOf,
         STORAGE_READ => Token::IntrinsicStorageRead,
         STORAGE_WRITE => Token::IntrinsicStorageWrite,
         STORAGE_READ_RANGE => Token::IntrinsicStorageReadRange,

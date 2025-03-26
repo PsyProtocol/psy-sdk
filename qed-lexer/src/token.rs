@@ -53,6 +53,8 @@ pub enum Token<'input> {
     IntrinsicHash,
     #[token("__mem_transmute")]
     IntrinsicMemTransmute,
+    #[token("__mem_size_of")]
+    IntrinsicMemSizeOf,
     #[token("__storage_read")]
     IntrinsicStorageRead,
     #[token("__storage_write")]

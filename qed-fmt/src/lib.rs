@@ -804,6 +804,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 self.visit_expr(data, ctx)?,
                 self.visit_unchecked_type(&target_type, ctx)
             )),
+            IntrinsicExprNode::MemSizeOf { query_type: ty, .. } => Ok(format!(
+                "__mem_size_of#<{}>",
+                self.visit_unchecked_type(&ty, ctx)
+            )),
             IntrinsicExprNode::StorageRead { offset, .. } => {
                 Ok(format!("__storage_read({})", self.visit_expr(offset, ctx)?))
             }

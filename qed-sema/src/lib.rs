@@ -439,9 +439,23 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let target_type = self.typecheck(&target_type, ctx)?;
 
                 return Ok(CheckedExprNode::Intrinsic(
-                    CheckedIntrinsicExprNode::Transmute {
+                    CheckedIntrinsicExprNode::MemTransmute {
                         data: self.program.exprs.alloc_item(data),
                         target_type: self.substitute_all(target_type, ctx)?,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::MemSizeOf {
+                query_type: ty,
+                location,
+            } => {
+                let ty = self.typecheck(&ty, ctx)?;
+
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::MemSizeOf {
+                        query_type: ty,
+                        type_id: FELT_TYPE,
                         location,
                     },
                 ));
@@ -455,11 +469,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         found: offset.ty(),
                     });
                 }
-                return Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::Read {
-                    offset: self.program.exprs.alloc_item(offset),
-                    type_id: FELT_TYPE,
-                    location,
-                }));
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::StorageRead {
+                        offset: self.program.exprs.alloc_item(offset),
+                        type_id: FELT_TYPE,
+                        location,
+                    },
+                ));
             }
             IntrinsicExprNode::StorageReadRange {
                 offset,
@@ -483,7 +499,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     });
                 }
                 return Ok(CheckedExprNode::Intrinsic(
-                    CheckedIntrinsicExprNode::ReadRange {
+                    CheckedIntrinsicExprNode::StorageReadRange {
                         offset: self.program.exprs.alloc_item(offset),
                         length: self.program.exprs.alloc_item(length),
                         type_id: UNKOWN_TYPE,
@@ -513,7 +529,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     });
                 }
                 Ok(CheckedExprNode::Intrinsic(
-                    CheckedIntrinsicExprNode::Write {
+                    CheckedIntrinsicExprNode::StorageWrite {
                         offset: self.program.exprs.alloc_item(offset),
                         value: self.program.exprs.alloc_item(value),
                         type_id: FELT_TYPE,
@@ -536,7 +552,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     });
                 }
                 Ok(CheckedExprNode::Intrinsic(
-                    CheckedIntrinsicExprNode::WriteRange {
+                    CheckedIntrinsicExprNode::StorageWriteRange {
                         offset: self.program.exprs.alloc_item(offset),
                         values: self.program.exprs.alloc_item(values),
                         type_id: VOID_TYPE,

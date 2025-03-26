@@ -805,7 +805,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             self.context.cset_state_hash_at(slot_index, new_value),
                         )
                     }
-                    CheckedIntrinsicExprNode::Read { offset, .. } => {
+                    CheckedIntrinsicExprNode::StorageRead { offset, .. } => {
                         let contract_id = self.context.get_contract_id();
                         let user_id = self.context.get_user_id();
 
@@ -818,7 +818,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         );
                         return Ok(CheckedValueRef::from_felt(value));
                     }
-                    CheckedIntrinsicExprNode::Write { offset, value, .. } => {
+                    CheckedIntrinsicExprNode::StorageWrite { offset, value, .. } => {
                         let offset = self.interpret_expr(program, offset.clone(), ctx)?;
                         let value = self.interpret_expr(program, value.clone(), ctx)?;
                         return Ok(CheckedValueRef::from_felt(
@@ -833,7 +833,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             self.context.hash(&data.to_felts()),
                         ));
                     }
-                    CheckedIntrinsicExprNode::Transmute {
+                    CheckedIntrinsicExprNode::MemTransmute {
                         data,
                         target_type,
                         location,
@@ -845,7 +845,16 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             target_type.clone(),
                         ));
                     }
-                    CheckedIntrinsicExprNode::ReadRange {
+                    CheckedIntrinsicExprNode::MemSizeOf {
+                        query_type: ty,
+                        location,
+                        ..
+                    } => {
+                        return Ok(CheckedValueRef::from_felt(
+                            self.context.op_const(ctx.size_of(ty.clone()) as u64),
+                        ));
+                    }
+                    CheckedIntrinsicExprNode::StorageReadRange {
                         offset,
                         length,
                         type_id,
@@ -858,7 +867,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             .get_state_range_at(offset.to_felt(), length.to_felt());
                         return Ok(CheckedValueRef::from_vec(UNKOWN_TYPE, values));
                     }
-                    CheckedIntrinsicExprNode::WriteRange {
+                    CheckedIntrinsicExprNode::StorageWriteRange {
                         offset,
                         values,
                         type_id,
