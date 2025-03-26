@@ -430,7 +430,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ));
             }
-            IntrinsicExprNode::Transmute {
+            IntrinsicExprNode::MemTransmute {
                 data,
                 target_type,
                 location,
@@ -446,7 +446,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ));
             }
-            IntrinsicExprNode::Read { offset, location } => {
+            IntrinsicExprNode::StorageRead { offset, location } => {
                 let offset = self.visit_expr(offset, ctx)?;
                 if !self.unify(offset.ty(), FELT_TYPE, ctx) {
                     return Err(Error::TypeMismatch {
@@ -461,7 +461,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     location,
                 }));
             }
-            IntrinsicExprNode::ReadRange {
+            IntrinsicExprNode::StorageReadRange {
                 offset,
                 length,
                 location,
@@ -491,7 +491,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ));
             }
-            IntrinsicExprNode::Write {
+            IntrinsicExprNode::StorageWrite {
                 offset,
                 value,
                 location,
@@ -521,7 +521,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ))
             }
-            IntrinsicExprNode::WriteRange {
+            IntrinsicExprNode::StorageWriteRange {
                 offset,
                 values,
                 location,

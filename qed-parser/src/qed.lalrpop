@@ -691,7 +691,7 @@ Term: ExprNode<F> = {
 IntrinsicExpression: ExprNode<F> = {
     <l:@L> <variable:MEM_TRANSMUTE> "(" <data: Expression> "," <target_type: Ty> ")" <r:@R> => {
         ExprNode::Intrinsic(
-            IntrinsicExprNode::Transmute {
+            IntrinsicExprNode::MemTransmute {
                 data: expr_nodes.alloc_item(data),
                 target_type,
                 location: Location::new(file_id, l, r)
@@ -700,7 +700,7 @@ IntrinsicExpression: ExprNode<F> = {
     },
     <l:@L> <variable:STORAGE_READ_RANGE> "(" <offset: Expression> "," <length: Expression> ")" <r:@R> => {
         ExprNode::Intrinsic(
-            IntrinsicExprNode::ReadRange {
+            IntrinsicExprNode::StorageReadRange {
                 offset: expr_nodes.alloc_item(offset),
                 length: expr_nodes.alloc_item(length),
                 location: Location::new(file_id, l, r)
@@ -709,7 +709,7 @@ IntrinsicExpression: ExprNode<F> = {
     },
     <l:@L> <variable:STORAGE_WRITE_RANGE> "(" <offset: Expression> "," <values: Expression> ")" <r:@R> => {
         ExprNode::Intrinsic(
-            IntrinsicExprNode::WriteRange {
+            IntrinsicExprNode::StorageWriteRange {
                 offset: expr_nodes.alloc_item(offset),
                 values: expr_nodes.alloc_item(values),
                 location: Location::new(file_id, l, r)
@@ -718,7 +718,7 @@ IntrinsicExpression: ExprNode<F> = {
     },
     <l:@L> <variable:STORAGE_READ> "(" <offset: Expression> ")" <r:@R> => {
         ExprNode::Intrinsic(
-            IntrinsicExprNode::Read {
+            IntrinsicExprNode::StorageRead {
                 offset: expr_nodes.alloc_item(offset),
                 location: Location::new(file_id, l, r)
             }
@@ -726,7 +726,7 @@ IntrinsicExpression: ExprNode<F> = {
     },
     <l:@L> <variable:STORAGE_WRITE> "(" <offset: Expression> "," <value: Expression> ")" <r:@R> => {
         ExprNode::Intrinsic(
-            IntrinsicExprNode::Write {
+            IntrinsicExprNode::StorageWrite {
                 offset: expr_nodes.alloc_item(offset),
                 value: expr_nodes.alloc_item(value),
                 location: Location::new(file_id, l, r)

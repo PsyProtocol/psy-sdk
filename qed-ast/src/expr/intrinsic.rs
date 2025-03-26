@@ -39,26 +39,26 @@ pub enum IntrinsicExprNode {
         new_value: ExprId,
         location: Location,
     },
-    Transmute {
+    MemTransmute {
         data: ExprId,
         target_type: UncheckedType,
         location: Location,
     },
-    Read {
+    StorageRead {
         offset: ExprId,
         location: Location,
     },
-    ReadRange {
+    StorageReadRange {
         offset: ExprId,
         length: ExprId,
         location: Location,
     },
-    Write {
+    StorageWrite {
         offset: ExprId,
         value: ExprId,
         location: Location,
     },
-    WriteRange {
+    StorageWriteRange {
         offset: ExprId,
         values: ExprId,
         location: Location,
