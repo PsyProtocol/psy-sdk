@@ -430,8 +430,37 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ));
             }
-            IntrinsicExprNode::Read { offset, location } => {
-                // TODO: remove clone
+            IntrinsicExprNode::MemTransmute {
+                data,
+                target_type,
+                location,
+            } => {
+                let data = self.visit_expr(data, ctx)?;
+                let target_type = self.typecheck(&target_type, ctx)?;
+
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::MemTransmute {
+                        data: self.program.exprs.alloc_item(data),
+                        target_type: self.substitute_all(target_type, ctx)?,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::MemSizeOf {
+                query_type: ty,
+                location,
+            } => {
+                let ty = self.typecheck(&ty, ctx)?;
+
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::MemSizeOf {
+                        query_type: ty,
+                        type_id: FELT_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::StorageRead { offset, location } => {
                 let offset = self.visit_expr(offset, ctx)?;
                 if !self.unify(offset.ty(), FELT_TYPE, ctx) {
                     return Err(Error::TypeMismatch {
@@ -440,18 +469,49 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         found: offset.ty(),
                     });
                 }
-                return Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::Read {
-                    offset: self.program.exprs.alloc_item(offset),
-                    type_id: FELT_TYPE,
-                    location,
-                }));
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::StorageRead {
+                        offset: self.program.exprs.alloc_item(offset),
+                        type_id: FELT_TYPE,
+                        location,
+                    },
+                ));
             }
-            IntrinsicExprNode::Write {
+            IntrinsicExprNode::StorageReadRange {
+                offset,
+                length,
+                location,
+            } => {
+                let offset = self.visit_expr(offset, ctx)?;
+                let length = self.visit_expr(length, ctx)?;
+                if !self.unify(offset.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: offset.location(),
+                        expected: vec![FELT_TYPE],
+                        found: offset.ty(),
+                    });
+                }
+                if !self.unify(length.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: length.location(),
+                        expected: vec![FELT_TYPE],
+                        found: length.ty(),
+                    });
+                }
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::StorageReadRange {
+                        offset: self.program.exprs.alloc_item(offset),
+                        length: self.program.exprs.alloc_item(length),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::StorageWrite {
                 offset,
                 value,
                 location,
             } => {
-                // TODO: remove clone
                 let offset = self.visit_expr(offset, ctx)?;
                 let value = self.visit_expr(value, ctx)?;
                 if !self.unify(offset.ty(), FELT_TYPE, ctx) {
@@ -469,10 +529,33 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     });
                 }
                 Ok(CheckedExprNode::Intrinsic(
-                    CheckedIntrinsicExprNode::Write {
+                    CheckedIntrinsicExprNode::StorageWrite {
                         offset: self.program.exprs.alloc_item(offset),
                         value: self.program.exprs.alloc_item(value),
                         type_id: FELT_TYPE,
+                        location,
+                    },
+                ))
+            }
+            IntrinsicExprNode::StorageWriteRange {
+                offset,
+                values,
+                location,
+            } => {
+                let offset = self.visit_expr(offset, ctx)?;
+                let values = self.visit_expr(values, ctx)?;
+                if !self.unify(offset.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: offset.location(),
+                        expected: vec![FELT_TYPE],
+                        found: offset.ty(),
+                    });
+                }
+                Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::StorageWriteRange {
+                        offset: self.program.exprs.alloc_item(offset),
+                        values: self.program.exprs.alloc_item(values),
+                        type_id: VOID_TYPE,
                         location,
                     },
                 ))

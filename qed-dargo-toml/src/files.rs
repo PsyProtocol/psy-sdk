@@ -100,8 +100,8 @@ pub fn get_package_manifest(current_path: &Path) -> Result<PathBuf, ManifestErro
 
 #[cfg(test)]
 mod tests {
-    use crate::qed_dargo_toml::errors::ManifestError;
-    use crate::qed_dargo_toml::files::find_file_manifest_root;
+    use crate::errors::ManifestError;
+    use crate::files::find_file_manifest_root;
     use std::path::{Path, PathBuf};
     use std::str::FromStr;
 

@@ -51,10 +51,18 @@ pub enum Token<'input> {
     IntrinsicAssertEq,
     #[token("hash")]
     IntrinsicHash,
+    #[token("__mem_transmute")]
+    IntrinsicMemTransmute,
+    #[token("__mem_size_of")]
+    IntrinsicMemSizeOf,
     #[token("__storage_read")]
     IntrinsicStorageRead,
     #[token("__storage_write")]
     IntrinsicStorageWrite,
+    #[token("__storage_read_range")]
+    IntrinsicStorageReadRange,
+    #[token("__storage_write_range")]
+    IntrinsicStorageWriteRange,
     #[token("__ctx_get_user_id")]
     IntrinsicCtxGetUserId,
     #[token("__ctx_get_contract_id")]

@@ -1,6 +1,6 @@
 use crate::errors::CliError;
-use qed_dargo::package::Workspace;
 use clap::Args;
+use qed_dargo::package::Workspace;
 
 /// Compile the program and its secret execution trace into ACIR format
 #[derive(Debug, Clone, Args)]
@@ -21,12 +21,9 @@ pub(super) fn compile_workspace_full(
     workspace: &Workspace,
     compile_options: &CompileOptions,
 ) -> Result<(), CliError> {
-
     Ok(())
 }
 
 /// Options for the compile command
 #[derive(Args, Clone, Debug, Default)]
-pub struct CompileOptions {
-
-}
+pub struct CompileOptions {}

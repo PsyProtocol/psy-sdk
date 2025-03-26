@@ -389,7 +389,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *slot_index = self.rewrite_expr(*slot_index, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
-                    CheckedIntrinsicExprNode::Read {
+                    CheckedIntrinsicExprNode::StorageRead {
                         offset,
                         type_id,
                         location,
@@ -397,7 +397,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *offset = self.rewrite_expr(*offset, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
-                    CheckedIntrinsicExprNode::Write {
+                    CheckedIntrinsicExprNode::StorageWrite {
                         offset,
                         value,
                         type_id,
@@ -413,6 +413,42 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         location,
                     } => {
                         *data = self.rewrite_expr(*data, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::MemTransmute {
+                        data,
+                        target_type,
+                        location,
+                    } => {
+                        *data = self.rewrite_expr(*data, ctx)?;
+                        *target_type = self.substitute_all(*target_type, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::MemSizeOf {
+                        query_type: ty,
+                        type_id,
+                        location,
+                    } => {
+                        *ty = self.substitute_all(*ty, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::StorageReadRange {
+                        offset,
+                        length,
+                        type_id,
+                        location,
+                    } => {
+                        *offset = self.rewrite_expr(*offset, ctx)?;
+                        *length = self.rewrite_expr(*length, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::StorageWriteRange {
+                        offset,
+                        values,
+                        type_id,
+                        location,
+                    } => {
+                        *offset = self.rewrite_expr(*offset, ctx)?;
+                        *values = self.rewrite_expr(*values, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
                 }

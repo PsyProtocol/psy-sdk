@@ -213,6 +213,23 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
             None
         };
 
+        let mut get_trait_method = |trait_type_id: TypeId,
+                                    method: IdentId,
+                                    ctx: &mut TypeCheckerVisitorContext<F, C>|
+         -> Option<_> {
+            let trait_scope_id = ctx.symbols[trait_type_id].scope_id();
+            for &scope_id in &ctx.symbols[trait_scope_id].children {
+                if ctx.symbols[scope_id].kind != ScopeKind::TraitMethod {
+                    continue;
+                }
+
+                if let Some(method_type_id) = ctx.symbols[scope_id].types.get(&method.into()) {
+                    return Some(method_type_id.clone());
+                }
+            }
+            None
+        };
+
         if let Some((constraint, impl_id, function_id)) = get_impl_id(poly_ty, method, ctx) {
             if generic_parameters == constraint.constraints {
                 return Ok(self.program[function_id].as_function().unwrap().type_id);
@@ -262,6 +279,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                         .as_function()
                         .unwrap()
                         .type_id);
+                }
+            }
+        } else if ctx.symbols[ty].is_type_variable() {
+            for trait_type_id in ctx.symbols[ty]
+                .as_type_variable()
+                .cloned()
+                .unwrap()
+                .constraints
+                .into_iter()
+            {
+                if let Some(method_type_id) = get_trait_method(trait_type_id, method, ctx) {
+                    return Ok(method_type_id);
                 }
             }
         }
@@ -391,13 +420,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                     .unwrap()
                     .constraints
                     .clone();
-                if constr_traits.len() != gen_traits.len() {
-                    false
-                } else {
-                    constr_traits
+                // TODO: fix
+                constr_traits
+                    .iter()
+                    .all(|c_trait| gen_traits.contains(&c_trait))
+                    || gen_traits
                         .iter()
-                        .all(|c_trait| gen_traits.contains(&c_trait))
-                }
+                        .all(|g_trait| constr_traits.contains(&g_trait))
             }
         };
         self.infcx.exit_scope();
