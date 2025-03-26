@@ -3,7 +3,7 @@ use logos::Logos;
 use std::fmt;
 
 #[derive(Logos, Clone, Debug, PartialEq)]
-#[logos(skip r"[\s\t\r\n\f]+", skip r"//[^\n\r]*", skip r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/", error = Error)]
+#[logos(skip r"[\s\t\r\n\f]+", error = Error)]
 pub enum Token<'input> {
     #[token("const")]
     KeywordConst,
@@ -220,6 +220,12 @@ pub enum Token<'input> {
 
     #[token(">>=")]
     OperatorBitShrAssign,
+
+    #[regex(r"//[^\n\r]*", |lex| lex.slice())]
+    LineComment(&'input str), // single line comment
+
+    #[regex(r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/", |lex| lex.slice())]
+    BlockComment(&'input str), // block comment
 }
 
 impl fmt::Display for Token<'_> {

@@ -12,6 +12,7 @@ pub use error::{Error, Result};
 use qed_ast::*;
 use qed_lexer::{Error as LexicalError, *};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
+use qedlang_core::dpn::ops::exec_context::QExecContext;
 
 use qed_ast::Program;
 
