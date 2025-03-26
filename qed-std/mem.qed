@@ -1,3 +1,0 @@
-pub fn size_of<T>() -> Felt {
-    return __mem_size_of#<T>();
-}

@@ -420,6 +420,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                     .unwrap()
                     .constraints
                     .clone();
+                // TODO: fix
                 constr_traits
                     .iter()
                     .all(|c_trait| gen_traits.contains(&c_trait))

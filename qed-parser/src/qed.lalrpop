@@ -698,7 +698,7 @@ IntrinsicExpression: ExprNode<F> = {
             }
         )
     },
-    <l:@L> <variable:MEM_SIZE_OF> "#" "<" <query_type:Ty> ">" <r:@R> => {
+    <l:@L> <variable:MEM_SIZE_OF> "#" "<" <query_type:Ty> ">" "(" ")" <r:@R> => {
         ExprNode::Intrinsic(
             IntrinsicExprNode::MemSizeOf {
                 query_type,

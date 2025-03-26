@@ -800,9 +800,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             IntrinsicExprNode::MemTransmute {
                 data, target_type, ..
             } => Ok(format!(
-                "__mem_transmute({}, {})",
+                "__mem_transmute#<{}>({})",
+                self.visit_unchecked_type(&target_type, ctx),
                 self.visit_expr(data, ctx)?,
-                self.visit_unchecked_type(&target_type, ctx)
             )),
             IntrinsicExprNode::MemSizeOf { query_type: ty, .. } => Ok(format!(
                 "__mem_size_of#<{}>",

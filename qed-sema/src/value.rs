@@ -169,7 +169,7 @@ impl<F: Clone + From<u32> + ContextFelt, C: DPNContext<F>> FeltRepr<F, C> for Ch
             Type::Array(checked_array_node) => {
                 let size = ctx.size_of(checked_array_node.inner_ty);
                 let values = felts
-                    .chunks(felts.len() / size)
+                    .chunks(size)
                     .map(|chunk| FeltRepr::decode_felts(chunk, ctx, checked_array_node.inner_ty))
                     .collect();
 

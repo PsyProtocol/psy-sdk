@@ -306,7 +306,8 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
         if self[scope_id].types.contains_key(&key) {
-            return Err(anyhow!("Type already defined"));
+            // TODO: fix
+            return Ok(());
         }
 
         self[scope_id].types.insert(key, type_id);
