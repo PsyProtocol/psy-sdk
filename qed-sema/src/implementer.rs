@@ -420,13 +420,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                     .unwrap()
                     .constraints
                     .clone();
-                if constr_traits.len() != gen_traits.len() {
-                    false
-                } else {
-                    constr_traits
+                constr_traits
+                    .iter()
+                    .all(|c_trait| gen_traits.contains(&c_trait))
+                    || gen_traits
                         .iter()
-                        .all(|c_trait| gen_traits.contains(&c_trait))
-                }
+                        .all(|g_trait| constr_traits.contains(&g_trait))
             }
         };
         self.infcx.exit_scope();

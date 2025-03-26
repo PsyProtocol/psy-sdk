@@ -51,16 +51,16 @@ impl Storage for u32 {
     }
 }
 
-// impl<T: Storage, N: u32> Storage for [T; N] {
-//     pub fn size() -> Felt {
-//         return T::size() * (N as Felt);
-//     }
-//
-//     pub fn read(offset: Felt) -> Self {
-//         mem::transmute#<Self>(__storage_read_range(offset, N as Felt))
-//     }
-//
-//     pub fn write(offset: Felt, values: Self) {
-//         __storage_write_range(offset, values);
-//     }
-// }
+impl<T: Storage, N: u32> Storage for [T; N] {
+    pub fn size() -> Felt {
+        return T::size() * (N as Felt);
+    }
+
+    pub fn read(offset: Felt) -> Self {
+        mem::transmute#<Self>(__storage_read_range(offset * 4, T::size() * (N as Felt)))
+    }
+
+    pub fn write(offset: Felt, value: Self) {
+        __storage_write_range(offset * 4, value);
+    }
+}

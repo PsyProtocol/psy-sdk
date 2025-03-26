@@ -121,11 +121,20 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
                         .zip_eq(s2.generic_parameters.clone().into_iter())
                         .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
-            (Type::Array(a1), Type::Array(a2)) => {
-                // TODO: remove clone
-                let a1 = a1.clone();
-                let a2 = a2.clone();
-                self.unify(a1.inner_ty, a2.inner_ty, ctx) && self.unify(a1.size_ty, a2.size_ty, ctx)
+            (
+                &Type::Array(CheckedArrayNode {
+                    inner_ty: lhs_inner_ty,
+                    size_ty: lhs_size_ty,
+                    ..
+                }),
+                &Type::Array(CheckedArrayNode {
+                    inner_ty: rhs_inner_ty,
+                    size_ty: rhs_size_ty,
+                    ..
+                }),
+            ) => {
+                self.unify(lhs_inner_ty, rhs_inner_ty, ctx)
+                    && self.unify(lhs_size_ty, rhs_size_ty, ctx)
             }
             (Type::Tuple(t1), Type::Tuple(t2)) => {
                 for (lhs_ty, rhs_ty) in t1.clone().into_iter().zip_eq(t2.clone().into_iter()) {

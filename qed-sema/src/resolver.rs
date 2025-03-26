@@ -144,7 +144,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
         }
 
         let type_id = self.resolve_module_type(path, src_module, path.target.id, ctx)?;
-        return Ok(CheckedPathNode::new(None, type_id, path.location));
+        return Ok(CheckedPathNode::new(
+            None,
+            self.substitute_all(type_id, ctx)?,
+            path.location,
+        ));
     }
 
     fn resolve_use(

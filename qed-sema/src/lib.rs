@@ -536,9 +536,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     });
                 }
                 Ok(CheckedExprNode::Intrinsic(
-                    CheckedIntrinsicExprNode::Write {
+                    CheckedIntrinsicExprNode::WriteRange {
                         offset: self.program.exprs.alloc_item(offset),
-                        value: self.program.exprs.alloc_item(values),
+                        values: self.program.exprs.alloc_item(values),
                         type_id: VOID_TYPE,
                         location,
                     },
