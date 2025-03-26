@@ -20,6 +20,7 @@ pub fn run(mut args: InterpreterArgs) -> anyhow::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let compile_results = interpreter.interpret(
         args.file.into(),
+        vec![],
         args.contract_name,
         args.method_names,
         |context, (method_name, method_id, outputs)| {
