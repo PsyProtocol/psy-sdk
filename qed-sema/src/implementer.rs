@@ -1,27 +1,29 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::anyhow;
+use indexmap::{IndexMap, IndexSet};
+use itertools::Itertools;
 use qed_ast::{DefId, IdentId, Identifier, VisitorContext};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    rewriter::Rewriter, AstVisualizer, Constraint, Inferer, Result, ScopeKind, TypeChecker,
+    rewriter::Rewriter, AstVisualizer, Constraint, Inferer, Result, ScopeKind, Type, TypeChecker,
     TypeCheckerVisitorContext, TypeId,
 };
 
 #[derive(Debug)]
 pub struct ImplementerCtxt {
     // poly
-    impl_ids: HashMap<TypeId, HashMap<Constraint, HashSet<DefId>>>,
+    impl_ids: IndexMap<TypeId, IndexMap<Constraint, IndexSet<DefId>>>,
     // trait poly -> poly
-    trait_impls: HashMap<TypeId, HashMap<Constraint, HashSet<TypeId>>>,
+    trait_impls: IndexMap<TypeId, IndexMap<Constraint, IndexSet<TypeId>>>,
 }
 
 impl ImplementerCtxt {
     pub fn new() -> Self {
         Self {
-            impl_ids: HashMap::new(),
-            trait_impls: HashMap::new(),
+            impl_ids: IndexMap::new(),
+            trait_impls: IndexMap::new(),
         }
     }
 }
@@ -78,9 +80,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
             .implementer
             .impl_ids
             .entry(self.poly_of(impl_node.ty, ctx).unwrap())
-            .or_insert_with(HashMap::new)
+            .or_insert_with(IndexMap::new)
             .entry(constraint)
-            .or_insert_with(HashSet::new)
+            .or_insert_with(IndexSet::new)
             .insert(impl_id);
 
         Ok(())
@@ -102,17 +104,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         self.implementer
             .trait_impls
             .entry(trait_poly_ty)
-            .or_insert_with(HashMap::new)
+            .or_insert_with(IndexMap::new)
             .entry(trait_constraint)
-            .or_insert_with(HashSet::new)
+            .or_insert_with(IndexSet::new)
             .insert(poly_ty);
 
         self.implementer
             .impl_ids
             .entry(poly_ty)
-            .or_insert_with(HashMap::new)
+            .or_insert_with(IndexMap::new)
             .entry(constraint)
-            .or_insert_with(HashSet::new)
+            .or_insert_with(IndexSet::new)
             .insert(impl_id);
 
         Ok(())
@@ -131,7 +133,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                            method: IdentId,
                            ctx: &mut TypeCheckerVisitorContext<F, C>|
          -> Option<_> {
-            let mut get_result = |impl_set: &HashSet<DefId>| {
+            let mut get_result = |impl_set: &IndexSet<DefId>| {
                 for &impl_id in impl_set {
                     if let Some(impl_node) = self.program[impl_id].as_impl() {
                         if let Some(&function_id) = impl_node.body.iter().find(|&&function_id| {
@@ -166,7 +168,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                                      method: IdentId,
                                      ctx: &mut TypeCheckerVisitorContext<F, C>|
          -> Option<_> {
-            let mut get_result = |impl_set: &HashSet<DefId>| {
+            let mut get_result = |impl_set: &IndexSet<DefId>| {
                 for &impl_id in impl_set {
                     if let Some(impl_node) = self.program[impl_id].as_trait_impl() {
                         if let Some(&function_id) = impl_node.body.iter().find(|&&function_id| {
@@ -223,8 +225,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                     continue;
                 }
 
-                if let Some(method_type_id) = ctx.symbols[scope_id].types.get(&method.into()) {
-                    return Some(method_type_id.clone());
+                if let Some(&method_type_id) = ctx.symbols[scope_id].types.get(&method.into()) {
+                    if let Some(f) = ctx.symbols[method_type_id].as_function() {
+                        if f.body.is_some() {
+                            return Some(method_type_id);
+                        }
+                    }
                 }
             }
             None

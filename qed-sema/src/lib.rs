@@ -597,7 +597,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let mut inner_ty = UNKOWN_TYPE;
                 let mut elements = Vec::with_capacity(arr.len());
                 for e in arr {
-                    // TODO: remove clone
                     let checked_expr = self.visit_expr(e, ctx)?;
                     if !self.unify(checked_expr.ty(), inner_ty, ctx) {
                         return Err(Error::TypeMismatch {
@@ -1803,6 +1802,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
     ) -> StdResult<Self::DefinitionResult, Self::Error> {
         // TODO: remove clone
         let node = ctx.definition(node).as_const().cloned().unwrap();
+        let name = node.name;
         let lhs_ty = self.typecheck(&node.ty, ctx)?;
         let value = self.visit_expr(node.value, ctx)?;
         let rhs_ty = value.ty();
@@ -1819,14 +1819,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let node = CheckedConstNode {
             name: Some(node.name),
             ty: rhs_ty,
-            value: ctx.symbols.add_constant(value),
-            scope_id: ctx.symbols.current_scope_id().unwrap(),
+            value: ctx.symbols.get_or_add_constant(value),
+            scope_id: ScopeId::primitive(),
             visibility: node.visibility,
         };
 
-        let ty = Type::Const(node.clone());
+        let type_id = ctx.symbols.get_or_add_type(
+            Some(ScopeId::primitive()),
+            TypeKey::from(node.value),
+            Type::Const(node.clone()),
+        )?;
 
-        ctx.symbols.add_type(None, ty.key(), ty)?;
+        ctx.symbols.add_type_id(None, name, type_id)?;
 
         Ok(self
             .program
@@ -2264,13 +2268,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let node = CheckedConstNode {
             name: None,
             ty: U32_TYPE,
-            value: ctx.symbols.add_constant(CheckedValueRef::from_u32(value)),
-            scope_id: ctx.symbols.current_scope_id().unwrap(),
+            value: ctx
+                .symbols
+                .get_or_add_constant(CheckedValueRef::from_u32(value)),
+            scope_id: ScopeId::primitive(),
             visibility: Visibility::Public,
         };
 
-        ctx.symbols
-            .get_or_add_type(None, TypeKey::from(node.value), Type::Const(node))
+        ctx.symbols.get_or_add_type(
+            Some(ScopeId::primitive()),
+            TypeKey::from(node.value),
+            Type::Const(node),
+        )
     }
 
     #[instrument(level = "debug", skip_all)]

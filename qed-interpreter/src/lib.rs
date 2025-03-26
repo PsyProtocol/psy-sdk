@@ -1070,7 +1070,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         if let Some(var_id) = path.variable {
             return Ok(ctx.symbols.get_value(var_id).unwrap());
         } else if let Some(CheckedConstNode { value, .. }) = ctx.symbols[path.type_id].as_const() {
-            return Ok(ctx.symbols.get_constant(value.clone()));
+            return Ok(ctx.symbols.get_constant_value(value.clone()));
         } else {
             return Ok(CheckedValueRef::new_rc(CheckedValue::Type(
                 path.type_id.clone(),

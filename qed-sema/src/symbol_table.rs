@@ -306,8 +306,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
         if self[scope_id].types.contains_key(&key) {
-            // TODO: fix
-            return Ok(());
+            return Err(anyhow!("Type already defined"));
         }
 
         self[scope_id].types.insert(key, type_id);
@@ -335,7 +334,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
     ) -> Result<TypeId> {
         let key = name.into();
         let scope_id = scope_id.or(self.current_scope_id());
-        if let Some(type_id) = self.get_type_id(scope_id, ty.key()) {
+        if let Some(type_id) = self.get_type_id(scope_id, key.clone()) {
             Ok(type_id)
         } else {
             let type_id = TypeId(self.types.len());
@@ -365,11 +364,11 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         Ok(type_id)
     }
 
-    pub fn get_constant(&self, const_id: ConstId) -> CheckedValueRef<F> {
+    pub fn get_constant_value(&self, const_id: ConstId) -> CheckedValueRef<F> {
         self[const_id].clone()
     }
 
-    pub fn add_constant(&mut self, value: CheckedValueRef<F>) -> ConstId {
+    pub fn get_or_add_constant(&mut self, value: CheckedValueRef<F>) -> ConstId {
         if let Some(idx) = self.consts.iter().position(|c| c.eq(&value)) {
             ConstId(idx)
         } else {
