@@ -64,6 +64,11 @@ test:
 	@RUST_LOG=${LOG_LEVE} cargo test --release -- --nocapture
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli test --file tests/test.qed
 
+lsp:
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli lsp --file tests/reference_test.qed --method references --pos 17 21
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli lsp --file tests/reference_test.qed --method definition --pos 19 11
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli lsp --file tests/reference_test.qed --method hover --pos 19 11
+
 update-snapshots:
 	@cargo insta review
 

@@ -2034,6 +2034,8 @@ dependencies = [
  "log",
  "lsp-types 0.97.0",
  "qed-ast",
+ "qed-common",
+ "qed-interpreter",
  "qed-parser",
  "qed-sema",
  "qedlang_core",

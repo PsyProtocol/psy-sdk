@@ -1,5 +1,7 @@
+use qed_common::FileId;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position {
-    line: usize,
-    column: usize,
+    pub file_id: FileId,
+    pub line: usize,
+    pub column: usize,
 }

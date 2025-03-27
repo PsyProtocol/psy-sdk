@@ -1,0 +1,21 @@
+
+pub struct Ty1{
+
+}
+
+pub struct Ty2{
+    field: Ty1,
+}
+
+pub fn test(ty: Ty1){}
+
+pub fn main(){
+    let ty1: Ty1 = new Ty1{};
+    let ty2: Ty2 = new Ty2{
+        field: ty1,
+    };
+
+    let ty11 = new Ty1{};
+
+    test(ty1);
+}

@@ -1,7 +1,4 @@
-use std::{
-    cell::{Ref, RefCell, RefMut},
-    rc::Rc,
-};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
@@ -46,23 +43,23 @@ pub enum CheckedValue<F: Clone + From<u32> + ContextFelt> {
 
 /// **NOTE**: please dont implement Deref for CheckedValueRef in case of wrong usage
 #[derive(Debug)]
-pub struct CheckedValueRef<F: Clone + From<u32> + ContextFelt>(Rc<RefCell<CheckedValue<F>>>);
+pub struct CheckedValueRef<F: Clone + From<u32> + ContextFelt>(Arc<Mutex<CheckedValue<F>>>);
 
 impl<F: Clone + From<u32> + ContextFelt> Clone for CheckedValueRef<F> {
     fn clone(&self) -> Self {
-        match &*self.0.borrow() {
+        match &*self.borrow() {
             CheckedValue::Felt(f) => {
-                CheckedValueRef(Rc::new(RefCell::new(CheckedValue::Felt(f.clone()))))
+                CheckedValueRef(Arc::new(Mutex::new(CheckedValue::Felt(f.clone()))))
             }
             CheckedValue::Bool(b) => {
-                CheckedValueRef(Rc::new(RefCell::new(CheckedValue::Bool(b.clone()))))
+                CheckedValueRef(Arc::new(Mutex::new(CheckedValue::Bool(b.clone()))))
             }
             CheckedValue::U32(u) => {
-                CheckedValueRef(Rc::new(RefCell::new(CheckedValue::U32(u.clone()))))
+                CheckedValueRef(Arc::new(Mutex::new(CheckedValue::U32(u.clone()))))
             }
             CheckedValue::Array(_type_id, _values) => CheckedValueRef(self.0.clone()),
             CheckedValue::Tuple { type_id, elements } => {
-                CheckedValueRef(Rc::new(RefCell::new(CheckedValue::Tuple {
+                CheckedValueRef(Arc::new(Mutex::new(CheckedValue::Tuple {
                     type_id: type_id.clone(),
                     elements: elements
                         .iter()
@@ -72,7 +69,7 @@ impl<F: Clone + From<u32> + ContextFelt> Clone for CheckedValueRef<F> {
             }
             CheckedValue::Struct(_type_id, _fields) => CheckedValueRef(self.0.clone()),
             CheckedValue::Type(type_id) => {
-                CheckedValueRef(Rc::new(RefCell::new(CheckedValue::Type(type_id.clone()))))
+                CheckedValueRef(Arc::new(Mutex::new(CheckedValue::Type(type_id.clone()))))
             }
         }
     }
@@ -80,15 +77,15 @@ impl<F: Clone + From<u32> + ContextFelt> Clone for CheckedValueRef<F> {
 
 impl<F: Clone + From<u32> + ContextFelt> PartialEq for CheckedValueRef<F> {
     fn eq(&self, other: &Self) -> bool {
-        match (&*self.0.borrow(), &*other.0.borrow()) {
+        match (&*self.borrow(), &*other.borrow()) {
             (CheckedValue::Felt(f1), CheckedValue::Felt(f2)) => f1 == f2,
             (CheckedValue::Bool(b1), CheckedValue::Bool(b2)) => b1 == b2,
             (CheckedValue::U32(u1), CheckedValue::U32(u2)) => u1 == u2,
             (CheckedValue::Array(_, _a1), CheckedValue::Array(_, _a2)) => {
-                std::ptr::eq(Rc::as_ptr(&self.as_rc()), Rc::as_ptr(&other.as_rc()))
+                std::ptr::eq(Arc::as_ptr(&self.as_rc()), Arc::as_ptr(&other.as_rc()))
             }
             (CheckedValue::Struct(_, _s1), CheckedValue::Struct(_, _s2)) => {
-                std::ptr::eq(Rc::as_ptr(&self.as_rc()), Rc::as_ptr(&other.as_rc()))
+                std::ptr::eq(Arc::as_ptr(&self.as_rc()), Arc::as_ptr(&other.as_rc()))
             }
             (CheckedValue::Type(t1), CheckedValue::Type(t2)) => t1 == t2,
             _ => false,
@@ -98,7 +95,7 @@ impl<F: Clone + From<u32> + ContextFelt> PartialEq for CheckedValueRef<F> {
 
 impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValueRef<F> {
     fn to_felts(&self) -> Vec<F> {
-        match &*self.0.borrow() {
+        match &*self.borrow() {
             CheckedValue::Felt(f) => vec![f.clone()],
             CheckedValue::Bool(b) => vec![b.clone()],
             CheckedValue::U32(u) => vec![u.clone()],
@@ -134,26 +131,26 @@ impl<F: Clone + From<u32> + ContextFelt> ToFelts<F> for CheckedValueRef<F> {
 
 impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
     pub fn new_rc(value: CheckedValue<F>) -> Self {
-        Self(Rc::new(RefCell::new(value)))
+        Self(Arc::new(Mutex::new(value)))
     }
 
-    pub fn as_rc(&self) -> Rc<RefCell<CheckedValue<F>>> {
-        Rc::clone(&self.0)
+    pub fn as_rc(&self) -> Arc<Mutex<CheckedValue<F>>> {
+        Arc::clone(&self.0)
     }
 
     pub fn as_type(&self) -> Option<TypeId> {
-        match &*self.0.borrow() {
+        match &*self.borrow() {
             CheckedValue::Type(type_id) => Some(type_id.clone()),
             _ => None,
         }
     }
 
-    pub fn borrow_mut(&self) -> RefMut<'_, CheckedValue<F>> {
-        self.0.borrow_mut()
-    }
+    // pub fn borrow_mut(&self) -> &CheckedValue<F> {
+    //     &*self.borrow()
+    // }
 
-    pub fn borrow(&self) -> Ref<'_, CheckedValue<F>> {
-        self.0.borrow()
+    pub fn borrow(&self) -> MutexGuard<'_, CheckedValue<F>> {
+        self.0.lock().unwrap()
     }
 
     pub fn from_felt(value: F) -> Self {
@@ -176,28 +173,28 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
     }
 
     pub fn to_felt(&self) -> F {
-        match &*self.0.borrow() {
+        match &*self.borrow() {
             CheckedValue::Felt(f) => f.clone(),
             _ => panic!("Expected felt value"),
         }
     }
 
     pub fn to_bool(&self) -> F {
-        match &*self.0.borrow() {
+        match &*self.borrow() {
             CheckedValue::Bool(f) => f.clone(),
             _ => panic!("Expected bool value"),
         }
     }
 
     pub fn to_u32(&self) -> F {
-        match &*self.0.borrow() {
+        match &*self.borrow() {
             CheckedValue::U32(f) => f.clone(),
             _ => panic!("Expected u32 value"),
         }
     }
 
     pub fn to_value(&self) -> F {
-        match &*self.0.borrow() {
+        match &*self.borrow() {
             CheckedValue::Felt(f) => f.clone(),
             CheckedValue::U32(u) => u.clone(),
             CheckedValue::Bool(b) => b.clone(),
@@ -213,14 +210,14 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
     }
 
     pub fn to_vec(&self) -> Vec<F> {
-        match &*self.0.borrow() {
+        match &*self.borrow() {
             CheckedValue::Array(_, arr) => arr.into_iter().map(|x| x.to_felt()).collect::<Vec<F>>(),
             _ => panic!("Expected array value"),
         }
     }
 
     pub fn type_id(&self) -> TypeId {
-        match &*self.0.borrow() {
+        match &*self.borrow() {
             CheckedValue::Felt(_) => FELT_TYPE,
             CheckedValue::Bool(_) => BOOL_TYPE,
             CheckedValue::U32(_) => U32_TYPE,
@@ -258,7 +255,7 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
             return Ok(());
         }
 
-        match &mut *self.0.borrow_mut() {
+        match &mut *self.borrow() {
             CheckedValue::Array(_, arr) => {
                 let index = path[0].as_felt().unwrap();
                 let rest = &path[1..];
@@ -319,7 +316,7 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
             return Some(self.clone());
         }
 
-        let value = self.0.borrow();
+        let value = self.borrow();
         match &*value {
             CheckedValue::Array(_, arr) => {
                 let index = path[0].clone().into_felt().unwrap();

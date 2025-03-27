@@ -5,6 +5,7 @@ use clap::Subcommand;
 pub mod compiler;
 pub mod interpreter;
 pub mod test;
+pub mod lsp;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -17,4 +18,5 @@ pub enum Commands {
     Interpret(qed_utils::InterpreterArgs),
     Compile(qed_utils::CompilerArgs),
     Test(qed_utils::TestArgs),
+    LSP(qed_utils::LspArgs),
 }

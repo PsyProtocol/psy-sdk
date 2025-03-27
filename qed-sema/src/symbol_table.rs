@@ -288,6 +288,10 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         &self.modules
     }
 
+    pub fn types(&self) -> &Vec<Type> {
+        &self.types
+    }
+
     pub fn current_scope_id(&self) -> Option<ScopeId> {
         self.scope_stack.last().cloned()
     }

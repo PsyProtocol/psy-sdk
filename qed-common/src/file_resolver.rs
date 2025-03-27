@@ -7,7 +7,7 @@ pub struct FileId(pub usize);
 pub struct FileResolver {
     file_contents: UnsafeCell<Vec<String>>,
     file_ids: UnsafeCell<HashMap<PathBuf, FileId>>,
-    file_paths: UnsafeCell<Vec<PathBuf>>,
+    pub file_paths: UnsafeCell<Vec<PathBuf>>,
 }
 
 unsafe impl Sync for FileResolver {}
