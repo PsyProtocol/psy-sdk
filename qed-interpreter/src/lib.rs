@@ -264,6 +264,26 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 .parse(&mut self.context, module_entry)
                 .map_err(|err| Error::ParseError(err))?;
         }
+
+        for module in program.modules.iter() {
+            let module_id = module.id();
+            for def_id in module.data().definitions.iter() {
+                let def_node = &program.defs[*def_id];
+                if let DefinitionNode::Use(node) = def_node {
+                    let use_mod_name = node.kind.id;
+                    for m in program.modules.iter() {
+                        if use_mod_name == m.data().name {
+                            program.dependency_graph.add_edge(module_id, m.id());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        program
+            .dependency_graph
+            .check_cycle::<qed_parser::Error>()?;
+
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
         let mut default_visitor_context: DefaultVisitorContext<'_, F, C> =
