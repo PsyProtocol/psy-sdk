@@ -4,8 +4,8 @@ use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
     AstVisualizer, CheckedDefinitionNode, CheckedExprNode, CheckedIntrinsicExprNode,
-    CheckedIntrinsicStmtNode, CheckedStmtNode, CheckedValueNode, Error, Implementer, Inferer,
-    Result, ScopeKind, Type, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
+    CheckedIntrinsicStmtNode, CheckedStmtNode, CheckedValueNode, Error, Implementer, Result,
+    ScopeKind, Type, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
 };
 
 pub trait Rewriter<F: Clone + From<u32> + ContextFelt, C> {
@@ -147,13 +147,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
             parameter.ty = self.substitute_all(parameter.ty, ctx)?;
         }
         checked_function.return_type = self.substitute_all(checked_function.return_type, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
 
         let ty = Type::Function(checked_function.clone());
         let type_id =
             ctx.symbols
                 .add_type(ctx.symbols[checked_function.scope_id].parent, ty.key(), ty)?;
-        checked_function.type_id = type_id;
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
 
         let function_id = self
             .program

@@ -3,11 +3,9 @@ use qed_ast::Location;
 use thiserror::Error as ThisError;
 
 #[derive(Debug, ThisError)]
-pub enum CustomError<'a> {
+pub enum UserError {
     #[error("{0}")]
     LexicalError(#[from] qed_lexer::Error),
-    #[error("{0}")]
-    Lexical(Box<LalrpopError<'a>>),
     #[error("{0}")]
     CommonError(#[from] qed_common::Error),
     #[error("{0}")]
@@ -22,12 +20,6 @@ pub enum CustomError<'a> {
     FunctionBodyMissing,
     #[error("Invalid self parameter")]
     InvalidSelfParameter,
-}
-
-impl<'a> From<LalrpopError<'a>> for CustomError<'a> {
-    fn from(err: LalrpopError<'a>) -> Self {
-        Self::Lexical(Box::new(err))
-    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

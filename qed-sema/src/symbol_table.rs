@@ -1,12 +1,12 @@
 use anyhow::anyhow;
 use enum_as_inner::EnumAsInner;
+use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use qed_ast::*;
 use qed_common::{define_arena_id, FileId, TreeNode};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use std::{
-    collections::HashMap,
     fmt::{Display, Formatter},
     hash::Hash,
     ops::{Index, IndexMut},
@@ -57,26 +57,26 @@ pub struct Scope<F: Clone> {
     pub kind: ScopeKind,
     pub parent: Option<ScopeId>,
     pub children: Vec<ScopeId>,
-    pub variables: HashMap<IdentId, VarId>,
-    pub consts: HashMap<IdentId, ConstId>,
-    pub types: HashMap<TypeKey, TypeId>,
+    pub variables: IndexMap<IdentId, VarId>,
+    pub consts: IndexMap<IdentId, ConstId>,
+    pub types: IndexMap<TypeKey, TypeId>,
     _marker: std::marker::PhantomData<F>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Frame<T: Clone> {
-    pub variables: Vec<(ScopeId, HashMap<IdentId, T>)>,
+    pub variables: Vec<(ScopeId, IndexMap<IdentId, T>)>,
 }
 
 impl<T: Clone> Frame<T> {
     pub fn new(scope_id: ScopeId) -> Self {
         Self {
-            variables: vec![(scope_id, HashMap::new())],
+            variables: vec![(scope_id, IndexMap::new())],
         }
     }
 
     pub fn push_scope(&mut self, scope_id: ScopeId) {
-        self.variables.push((scope_id, HashMap::new()));
+        self.variables.push((scope_id, IndexMap::new()));
     }
 
     pub fn pop_scope(&mut self) {
@@ -140,9 +140,9 @@ impl<F: Clone> Scope<F> {
             kind,
             parent,
             children: vec![],
-            variables: HashMap::with_capacity(10),
-            consts: HashMap::new(),
-            types: HashMap::new(),
+            variables: IndexMap::with_capacity(10),
+            consts: IndexMap::new(),
+            types: IndexMap::new(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -272,9 +272,9 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
                     .into_iter()
                     .map(|&x| ScopeId(x.into()))
                     .collect(),
-                variables: HashMap::with_capacity(10),
-                consts: HashMap::new(),
-                types: HashMap::new(),
+                variables: IndexMap::with_capacity(10),
+                consts: IndexMap::new(),
+                types: IndexMap::new(),
                 _marker: std::marker::PhantomData,
             })
         }
@@ -294,6 +294,10 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
 
     pub fn current_module_id(&self) -> Option<ModuleId> {
         self.module_stack.last().cloned()
+    }
+
+    pub fn next_type_id(&self) -> TypeId {
+        self.types.len().into()
     }
 
     pub fn add_type_id<K: Into<TypeKey>>(

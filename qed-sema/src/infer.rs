@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use indexmap::IndexMap;
 use itertools::Itertools;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
@@ -12,20 +10,20 @@ use crate::{
 
 #[derive(Debug)]
 pub struct InferCtxt<F: Clone + From<u32> + ContextFelt, C> {
-    contexts: Vec<Vec<HashMap<TypeId, TypeId>>>,
+    contexts: Vec<Vec<IndexMap<TypeId, TypeId>>>,
     _marker: std::marker::PhantomData<(F, C)>,
 }
 
 impl<F: Clone + From<u32> + ContextFelt, C> InferCtxt<F, C> {
     pub fn new() -> Self {
         InferCtxt {
-            contexts: vec![vec![HashMap::new()]],
+            contexts: vec![vec![IndexMap::new()]],
             _marker: std::marker::PhantomData,
         }
     }
 
     pub fn enter_context(&mut self) {
-        self.contexts.push(vec![HashMap::new()]);
+        self.contexts.push(vec![IndexMap::new()]);
     }
 
     pub fn exit_context(&mut self) {
@@ -33,7 +31,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> InferCtxt<F, C> {
     }
 
     pub fn enter_scope(&mut self) {
-        self.contexts.last_mut().unwrap().push(HashMap::new());
+        self.contexts.last_mut().unwrap().push(IndexMap::new());
     }
 
     pub fn exit_scope(&mut self) {
@@ -64,29 +62,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> InferCtxt<F, C> {
     }
 }
 
-pub trait Inferer<F: Clone + From<u32> + ContextFelt, C> {
-    fn unify(
-        &mut self,
-        lhs_ty: TypeId,
-        rhs_ty: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> bool;
-
-    fn substitute_all(
-        &mut self,
-        type_id: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<TypeId>;
-
-    fn substitute_type(
-        &mut self,
-        type_id: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<TypeId>;
-}
-
-impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> {
-    fn unify(
+impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
+    pub fn unify(
         &mut self,
         lhs_ty: TypeId,
         rhs_ty: TypeId,
@@ -158,7 +135,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
         }
     }
 
-    fn substitute_all(
+    pub fn substitute_all(
         &mut self,
         type_id: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
@@ -182,7 +159,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
         Ok(result)
     }
 
-    fn substitute_type(
+    pub fn substitute_type(
         &mut self,
         type_id: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,

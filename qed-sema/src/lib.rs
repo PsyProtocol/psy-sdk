@@ -1454,12 +1454,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
         let ty = Type::Function(checked_function.clone());
         let type_id = ctx
             .symbols
             .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
-        checked_function.type_id = type_id;
 
         self.infcx.exit_context();
         ctx.symbols.end_scope();
@@ -1817,7 +1816,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let value = self.evaluator.evaluate_expr(&self.program, &value, ctx);
 
         let node = CheckedConstNode {
-            name: Some(node.name),
+            name: None,
             ty: rhs_ty,
             value: ctx.symbols.get_or_add_constant(value),
             scope_id: ScopeId::primitive(),
@@ -2051,19 +2050,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             body: self.program.exprs.alloc_item(checked_body),
             return_type: expected_return_type,
             scope_id: current_scope_id,
-            type_id: UNKOWN_TYPE,
+            type_id: ctx.symbols.next_type_id(),
             location: function.location,
         };
 
         let ty = Type::LambdaFunction(checked_function.clone());
-        let type_id = ctx
-            .symbols
+        ctx.symbols
             .add_type(ctx.symbols[current_scope_id].parent, ty.key(), ty)?;
-        ctx.symbols[type_id]
-            .as_lambda_function_mut()
-            .unwrap()
-            .type_id = type_id;
-        checked_function.type_id = type_id;
 
         ctx.symbols.end_scope();
         Ok(CheckedExprNode::LambdaFunction(checked_function))
@@ -2560,10 +2553,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
         let ty = Type::Function(checked_function.clone());
         let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
-        checked_function.type_id = type_id;
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
@@ -2595,10 +2587,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
         let ty = Type::Function(checked_function.clone());
         let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
-        checked_function.type_id = type_id;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
@@ -2629,10 +2620,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
         let ty = Type::Function(checked_function.clone());
         let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
-        checked_function.type_id = type_id;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();

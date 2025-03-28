@@ -4,7 +4,10 @@ mod control;
 pub mod error;
 mod preprocess;
 
-use crate::{control::ControlState, error::lowering_error_to_report};
+use crate::{
+    control::ControlState,
+    error::{lowering_interpreter_error, lowering_parse_error, lowering_sema_error},
+};
 use error::{Error, Result};
 use indexmap::IndexMap;
 pub use preprocess::StorageProcessor;
@@ -21,8 +24,8 @@ use qedlang_core::dpn::{
     },
     vm::def::DPNFunctionCircuitDefinition,
 };
-use std::iter::once;
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
+use std::{collections::HashMap, iter::once};
 use tracing::instrument;
 
 #[derive(Clone, Debug)]
@@ -99,7 +102,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn interpret<I: Into<Ident>>(
         &mut self,
-        entry: PathBuf,
+        typechecker: &mut TypeChecker<F, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
         contract_name: Option<I>,
         method_names: Vec<I>,
         compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
@@ -107,14 +111,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     where
         F: 'static,
     {
-        let (mut typechecker, mut ctx) = self.typecheck(entry)?;
-
         let scope_id = ctx.symbols[ModuleId::root()].scope_id;
         let type_ids = if let Some(contract_name) = contract_name {
             let contract_name = ctx.intern(contract_name.into());
             let type_id = ctx.symbols[scope_id]
                 .types
-                .get(&contract_name.into())
+                .get::<TypeKey>(&contract_name.into())
                 .ok_or(Error::UndefinedFunction)?
                 .clone();
 
@@ -122,7 +124,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 .into_iter()
                 .map(|method_name| {
                     let method_name = ctx.intern(method_name.into());
-                    Ok(typechecker.find_method(type_id, method_name, &mut ctx)?)
+                    Ok(typechecker.find_method(type_id, method_name, ctx)?)
                 })
                 .collect::<Result<Vec<TypeId>>>()?
         } else {
@@ -132,7 +134,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     let method_name = ctx.intern(method_name.into());
                     ctx.symbols[scope_id]
                         .types
-                        .get(&method_name.into())
+                        .get::<TypeKey>(&method_name.into())
                         .ok_or(Error::UndefinedFunction)
                         .cloned()
                 })
@@ -152,7 +154,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     self.to_input(parameter.ty, &ctx.symbols),
                 ));
             }
-            let res = self.__interpret__(&typechecker.program, type_id, parameters, &mut ctx)?;
+            let res = self.__interpret__(&typechecker.program, type_id, parameters, ctx)?;
             outputs.push(compile_fn(&self.context, res));
 
             // restore context
@@ -165,13 +167,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn test(
         &mut self,
-        entry: PathBuf,
+        typechecker: &mut TypeChecker<F, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
         compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
     ) -> anyhow::Result<Vec<DPNFunctionCircuitDefinition>>
     where
         F: 'static,
     {
-        let (typechecker, mut ctx) = self.typecheck(entry)?;
         let mut type_ids = Vec::new();
 
         let mut visited = HashMap::new();
@@ -207,7 +209,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     .unwrap()
                     .parameters
                     .is_empty());
-                let res = self.__interpret__(&typechecker.program, type_id, vec![], &mut ctx)?;
+                let res = self.__interpret__(&typechecker.program, type_id, vec![], ctx)?;
                 outputs.push(compile_fn(&self.context, res));
                 // resotre context
                 self.context = context.clone();
@@ -247,7 +249,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         Ok((method_name, method_id, outputs.to_felts()))
     }
 
-    fn typecheck(
+    pub fn typecheck(
         &mut self,
         entry: PathBuf,
     ) -> anyhow::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>)>
@@ -256,33 +258,28 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     {
         let mut program = Program::new();
         let mut parser = Parser::new(&mut program);
-        parser
-            .parse(&mut self.context, entry)
-            .map_err(|err| Error::ParseError(err))?;
+        parser.parse(&mut self.context, entry).map_err(|err| {
+            let context = lowering_parse_error(&err, &program);
+            anyhow::Error::from(err).context(context)
+        })?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
 
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
         let mut default_visitor_context: DefaultVisitorContext<'_, F, C> =
             DefaultVisitorContext::new(&mut program);
-        storage_preprocessor
-            .visit_program(&mut default_visitor_context)
-            .unwrap();
+        storage_preprocessor.visit_program(&mut default_visitor_context)?;
 
         let mut formatter = Formatter::new();
-        formatter
-            .visit_program(&mut default_visitor_context)
-            .unwrap();
+        formatter.visit_program(&mut default_visitor_context)?;
         println!("formatted:\n{}", formatter.get_output());
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
         typechecker
             .visit_program(&mut typechecker_context)
             .map_err(|err| {
-                anyhow::anyhow!(lowering_error_to_report(
-                    Error::SemaError(err),
-                    &mut typechecker_context
-                ))
+                let context = lowering_sema_error(&err, &mut typechecker_context);
+                anyhow::Error::from(err).context(context)
             })?;
         Ok((typechecker, typechecker_context))
     }
@@ -1407,6 +1404,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
 #[cfg(test)]
 mod tests {
+    use insta::assert_snapshot;
     use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
     use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
     use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
@@ -1432,10 +1430,12 @@ mod tests {
 
         insta::glob!("../../tests", "00*.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+            let (mut typechecker, mut ctx) = interpreter.typecheck(path.into()).unwrap();
 
             let compile_results = interpreter
                 .interpret(
-                    path.into(),
+                    &mut typechecker,
+                    &mut ctx,
                     None,
                     vec!["main"],
                     |context, (method_name, method_id, outputs)| {
@@ -1479,6 +1479,8 @@ mod tests {
             unsafe {
                 STD_PRIMITIVE_SCOPE_ID.take().unwrap()
             };
+
+            assert_snapshot!(ctx.debug_scope(ScopeId::root()))
         });
     }
 }
