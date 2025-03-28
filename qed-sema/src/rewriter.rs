@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use qed_ast::{DefId, ExprId, StmtId};
+use qed_ast::{DefId, ExprId, StmtId, VisitorContext};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
@@ -24,7 +24,8 @@ pub trait Rewriter<F: Clone + From<u32> + ContextFelt, C> {
     ) -> Result<DefId>;
     fn instantiate_function(
         &mut self,
-        function_id: DefId,
+        type_id: TypeId,
+        generic_parameters: Vec<TypeId>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId>;
     fn rewrite_stmt(
@@ -66,7 +67,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         checked_impl.ty = self.substitute_all(checked_impl.ty, ctx)?;
 
         for method in &mut checked_impl.body {
-            *method = self.instantiate_function(*method, ctx)?;
+            *method = self.instantiate_function(
+                self.program[*method].as_function().unwrap().type_id,
+                vec![],
+                ctx,
+            )?;
         }
 
         let impl_id = self
@@ -121,7 +126,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         checked_impl.trait_ty = self.substitute_all(checked_impl.trait_ty, ctx)?;
 
         for method in &mut checked_impl.body {
-            *method = self.instantiate_function(*method, ctx)?;
+            *method = self.instantiate_function(
+                self.program[*method].as_function().unwrap().type_id,
+                vec![],
+                ctx,
+            )?;
         }
 
         let impl_id = self
@@ -136,10 +145,27 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
 
     fn instantiate_function(
         &mut self,
-        function_id: DefId,
+        type_id: TypeId,
+        generic_parameters: Vec<TypeId>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId> {
-        let mut checked_function = self.program[function_id].as_function().cloned().unwrap();
+        let mut checked_function = ctx.symbols[type_id].as_function().cloned().unwrap();
+        self.infcx.enter_scope();
+
+        for (generic_parameter, generic_arg) in ctx.symbols[checked_function.type_id]
+            .generic_parameters()
+            .iter()
+            .zip(generic_parameters.into_iter())
+        {
+            if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
+                return Err(Error::TypeMismatch {
+                    location: checked_function.location,
+                    expected: vec![generic_parameter.clone()],
+                    found: generic_arg,
+                });
+            }
+        }
+
         if let Some(ref mut body) = checked_function.body {
             *body = self.rewrite_expr(*body, ctx)?;
         }
@@ -149,7 +175,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         checked_function.return_type = self.substitute_all(checked_function.return_type, ctx)?;
         checked_function.type_id = ctx.symbols.next_type_id();
 
+        eprintln!(
+            "DEBUGPRINT[542]: rewriter.rs:178: ctx.ident(checked_function.name)={:#?}",
+            ctx.ident(checked_function.name)
+        );
         let ty = Type::Function(checked_function.clone());
+        eprintln!("DEBUGPRINT[540]: rewriter.rs:181: ty.key()={:#?}", ty.key());
+        eprintln!(
+            "DEBUGPRINT[541]: rewriter.rs:183: ctx.debug_type(ty)={:#?}",
+            ty
+        );
         let type_id =
             ctx.symbols
                 .add_type(ctx.symbols[checked_function.scope_id].parent, ty.key(), ty)?;
@@ -158,7 +193,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
             .program
             .defs
             .alloc_item(CheckedDefinitionNode::Function(checked_function));
+        self.register_function(function_id, ctx)?;
 
+        self.infcx.exit_scope();
         Ok(function_id)
     }
 

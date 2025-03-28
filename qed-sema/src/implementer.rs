@@ -5,8 +5,8 @@ use qed_ast::{DefId, IdentId, Identifier, VisitorContext};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    rewriter::Rewriter, AstVisualizer, Constraint, Result, ScopeKind, Type, TypeChecker,
-    TypeCheckerVisitorContext, TypeId, TypeKey, TypeKind,
+    rewriter::Rewriter, AstVisualizer, CheckedFunctionSignature, Constraint, Result, ScopeKind,
+    Type, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey, TypeKind,
 };
 
 #[derive(Debug)]
@@ -16,7 +16,7 @@ pub struct ImplementerCtxt {
     // trait poly -> poly
     trait_impls: IndexMap<TypeId, IndexMap<Constraint, IndexSet<TypeId>>>,
     // function poly -> instance
-    functions: IndexMap<TypeId, IndexMap<Constraint, IndexSet<DefId>>>,
+    pub functions: IndexMap<TypeId, IndexMap<Constraint, DefId>>,
 }
 
 impl ImplementerCtxt {
@@ -38,6 +38,11 @@ pub trait Implementer<F: Clone + From<u32> + ContextFelt, C> {
     fn register_trait_impl(
         &mut self,
         impl_id: DefId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<()>;
+    fn register_function(
+        &mut self,
+        func_id: DefId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()>;
     fn find_method(
@@ -117,6 +122,26 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
             .entry(constraint)
             .or_insert_with(IndexSet::new)
             .insert(impl_id);
+
+        Ok(())
+    }
+
+    fn register_function(
+        &mut self,
+        func_id: DefId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<()> {
+        let type_id = self.program[func_id].as_function().unwrap().type_id;
+        let poly_ty = self.poly_of(type_id, ctx).unwrap();
+
+        let constraint = Constraint::new(ctx.symbols[type_id].generic_parameters());
+
+        self.implementer
+            .functions
+            .entry(poly_ty)
+            .or_insert_with(IndexMap::new)
+            .entry(constraint)
+            .or_insert(func_id);
 
         Ok(())
     }

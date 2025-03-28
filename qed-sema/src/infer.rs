@@ -3,9 +3,9 @@ use itertools::Itertools;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    AstVisualizer, CheckedArrayNode, CheckedFunctionSignature, CheckedStructField,
-    CheckedStructNode, Implementer, Result, ScopeId, Type, TypeChecker, TypeCheckerVisitorContext,
-    TypeId,
+    rewriter::Rewriter, AstVisualizer, CheckedArrayNode, CheckedFunctionSignature,
+    CheckedStructField, CheckedStructNode, Constraint, Implementer, Result, ScopeId, Type,
+    TypeChecker, TypeCheckerVisitorContext, TypeId,
 };
 
 #[derive(Debug)]
@@ -202,6 +202,27 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     return_type: new_return_type,
                 });
                 ctx.symbols.get_or_add_type(None, ty.key(), ty)
+            }
+
+            Type::Function(func) => {
+                let generic_parameters = func
+                    .generic_parameters
+                    .iter()
+                    .map(|x| self.substitute_all(*x, ctx))
+                    .collect::<Result<Vec<_>>>()?;
+
+                let poly_ty = self.poly_of(type_id, ctx).unwrap();
+
+                if let Some(instance_map) = self.implementer.functions.get(&poly_ty) {
+                    if let Some(&instance) =
+                        instance_map.get(&Constraint::new(generic_parameters.clone()))
+                    {
+                        return Ok(self.program[instance].as_function().unwrap().type_id);
+                    }
+                }
+
+                let instance = self.instantiate_function(type_id, generic_parameters, ctx)?;
+                Ok(self.program[instance].as_function().unwrap().type_id)
             }
 
             Type::Struct(struct_node) => {

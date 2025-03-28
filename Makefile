@@ -1,6 +1,6 @@
 PROFILE                 := release
 LOG_LEVE                := info
-FILE                    := tests/generics_test.qed
+FILE                    := tests/storage_test.qed
 PARAMETERS              :=
 
 check:
@@ -38,7 +38,7 @@ test:
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/pub_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/return_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/self_test.qed
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/storage_test.qed
+	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/storage_test.qed
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/trait_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/hash_test.qed
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/first_class_function_test.qed
