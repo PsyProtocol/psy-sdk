@@ -73,6 +73,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let rhs_ty = self.substitute_all(rhs_ty, ctx).unwrap();
 
         match (&ctx.symbols[lhs_ty], &ctx.symbols[rhs_ty]) {
+            (Type::Unknown, Type::Unknown) => false,
+            (Type::Unknown, _) | (_, Type::Unknown) => true,
             (Type::TypeVariable(_), _) => {
                 if self.satisfies_constraint(rhs_ty, lhs_ty, ctx) {
                     self.infcx.equate(lhs_ty, rhs_ty);
@@ -129,8 +131,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             (Type::Const(c), Type::Const(d)) => c.ty == d.ty,
             (Type::Const(c), _) => c.ty == rhs_ty,
             (_, Type::Const(c)) => c.ty == lhs_ty,
-            (Type::Unknown, Type::Unknown) => false,
-            (Type::Unknown, _) | (_, Type::Unknown) => true,
             _ => lhs_ty == rhs_ty,
         }
     }

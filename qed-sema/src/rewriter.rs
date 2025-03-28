@@ -169,25 +169,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         if let Some(ref mut body) = checked_function.body {
             *body = self.rewrite_expr(*body, ctx)?;
         }
+        for generic_parameter in &mut checked_function.generic_parameters {
+            *generic_parameter = self.substitute_all(*generic_parameter, ctx)?;
+        }
         for parameter in &mut checked_function.parameters {
             parameter.ty = self.substitute_all(parameter.ty, ctx)?;
         }
         checked_function.return_type = self.substitute_all(checked_function.return_type, ctx)?;
         checked_function.type_id = ctx.symbols.next_type_id();
 
-        eprintln!(
-            "DEBUGPRINT[542]: rewriter.rs:178: ctx.ident(checked_function.name)={:#?}",
-            ctx.ident(checked_function.name)
-        );
         let ty = Type::Function(checked_function.clone());
-        eprintln!("DEBUGPRINT[540]: rewriter.rs:181: ty.key()={:#?}", ty.key());
-        eprintln!(
-            "DEBUGPRINT[541]: rewriter.rs:183: ctx.debug_type(ty)={:#?}",
-            ty
-        );
-        let type_id =
-            ctx.symbols
-                .add_type(ctx.symbols[checked_function.scope_id].parent, ty.key(), ty)?;
+        ctx.symbols
+            .add_type(ctx.symbols[checked_function.scope_id].parent, ty.key(), ty)?;
 
         let function_id = self
             .program
