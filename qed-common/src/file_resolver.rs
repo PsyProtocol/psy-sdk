@@ -1,4 +1,6 @@
-use std::{cell::UnsafeCell, collections::HashMap, path::PathBuf};
+use std::{cell::UnsafeCell, path::PathBuf};
+
+use indexmap::IndexMap;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FileId(pub usize);
@@ -6,7 +8,7 @@ pub struct FileId(pub usize);
 #[derive(Debug)]
 pub struct FileResolver {
     file_contents: UnsafeCell<Vec<String>>,
-    file_ids: UnsafeCell<HashMap<PathBuf, FileId>>,
+    file_ids: UnsafeCell<IndexMap<PathBuf, FileId>>,
     file_paths: UnsafeCell<Vec<PathBuf>>,
 }
 
@@ -30,7 +32,7 @@ impl FileResolver {
     pub fn new() -> Self {
         Self {
             file_contents: UnsafeCell::new(Vec::with_capacity(20)),
-            file_ids: UnsafeCell::new(HashMap::new()),
+            file_ids: UnsafeCell::new(IndexMap::new()),
             file_paths: UnsafeCell::new(Vec::with_capacity(20)),
         }
     }

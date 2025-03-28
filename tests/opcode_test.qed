@@ -37,7 +37,7 @@ fn main(a: Felt, b: Felt) -> Felt {
     // binop &= b;
     // binop |= b;
     // binop <<=b;
-    // binop >>= b;make in  
+    // binop >>= b;make in
 
     let mut unop: Felt = !a;
     // let mut unop: Felt = -a;

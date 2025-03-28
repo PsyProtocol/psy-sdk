@@ -2,6 +2,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
 use std::ops::Deref;
 
+use indexmap::IndexSet;
+
 use crate::Error;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -14,11 +16,11 @@ pub enum Color {
 
 #[derive(Clone, Debug)]
 pub struct Graph<T> {
-    nodes: HashMap<T, HashSet<T>>,
+    nodes: HashMap<T, IndexSet<T>>,
 }
 
 impl<T> Deref for Graph<T> {
-    type Target = HashMap<T, HashSet<T>>;
+    type Target = HashMap<T, IndexSet<T>>;
     fn deref(&self) -> &Self::Target {
         &self.nodes
     }
@@ -39,7 +41,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         self.nodes.keys().collect()
     }
 
-    pub fn edges(&self, node: &T) -> Option<&HashSet<T>> {
+    pub fn edges(&self, node: &T) -> Option<&IndexSet<T>> {
         self.nodes.get(node)
     }
 

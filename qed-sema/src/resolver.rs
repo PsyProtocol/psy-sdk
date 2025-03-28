@@ -1,8 +1,10 @@
-use qed_ast::{IdentId, Identifier, ModuleId, PathNode, UncheckedType, UseNode};
+use qed_ast::{
+    IdentId, Identifier, Location, ModuleId, PathNode, TraitImplNode, UncheckedType, UseNode,
+};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    AstVisualizer, CheckedPathNode, Error, Implementer, Inferer, Result, TypeChecker,
+    AstVisualizer, CheckedPathNode, Error, Implementer, Result, TypeChecker,
     TypeCheckerVisitorContext, TypeId, TypeKey,
 };
 
@@ -15,44 +17,8 @@ impl ResolverCtxt {
     }
 }
 
-pub trait Resolver<F: Clone + From<u32> + ContextFelt, C> {
-    fn resolve_path(
-        &mut self,
-        path: &PathNode,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<CheckedPathNode>;
-
-    fn resolve_use(
-        &self,
-        use_path: &UseNode,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<Vec<(TypeKey, TypeId)>>;
-
-    fn resolve_module(
-        &self,
-        module: &Identifier,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<ModuleId>;
-
-    fn resolve_member_type(
-        &mut self,
-        path: &PathNode,
-        root: TypeId,
-        target: IdentId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<TypeId>;
-
-    fn resolve_module_type(
-        &mut self,
-        path: &PathNode,
-        module: ModuleId,
-        ty: IdentId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<TypeId>;
-}
-
-impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C> {
-    fn resolve_path(
+impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
+    pub fn resolve_path(
         &mut self,
         path: &PathNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
@@ -147,7 +113,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
         ));
     }
 
-    fn resolve_use(
+    pub fn resolve_use(
         &self,
         use_path: &UseNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
@@ -186,8 +152,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
 
         match use_path.target {
             Some(target)
-                if let Some((key, &type_id)) =
-                    ctx.symbols[scope_id].types.get_key_value(&target.id.into()) =>
+                if let Some((key, &type_id)) = ctx.symbols[scope_id]
+                    .types
+                    .get_key_value::<TypeKey>(&target.id.into()) =>
             {
                 if !key.visibility.is_public() || !ctx.symbols[type_id].visibility().is_public() {
                     return Err(Error::TypeNotPublic {
@@ -212,7 +179,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
         }
     }
 
-    fn resolve_module(
+    pub fn resolve_module(
         &self,
         module: &Identifier,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
@@ -249,7 +216,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
         })
     }
 
-    fn resolve_member_type(
+    pub fn resolve_member_type(
         &mut self,
         path: &PathNode,
         root: TypeId,
@@ -257,7 +224,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId> {
         let scope_id = ctx.symbols[root].scope_id();
-        if let Some(&type_id) = ctx.symbols[scope_id].types.get(&target.into()) {
+        if let Some(&type_id) = ctx.symbols[scope_id].types.get::<TypeKey>(&target.into()) {
             if !ctx.symbols[type_id].visibility().is_public() {
                 return Err(Error::TypeNotPublic {
                     location: path.location,
@@ -278,7 +245,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
         return Ok(method_type_id);
     }
 
-    fn resolve_module_type(
+    pub fn resolve_module_type(
         &mut self,
         path: &PathNode,
         module: ModuleId,
@@ -288,7 +255,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
         let scope_id = ctx.symbols[module].scope_id;
         let type_id = ctx.symbols[scope_id]
             .types
-            .get(&ty.into())
+            .get::<TypeKey>(&ty.into())
             .ok_or_else(|| Error::UnresolvedType {
                 location: path.location,
                 resolved_type: ty,

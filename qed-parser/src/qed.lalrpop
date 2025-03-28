@@ -17,7 +17,7 @@ grammar<'input, F, C>(
     ctx: &mut C
 ) where F: ContextFelt + From<u32>, C: DPNContext<F>;
 
-use super::{Loc, CustomError as SyntacticError, LalrpopError};
+use super::{Loc, UserError, LalrpopError};
 use std::convert::TryFrom;
 
 ModuleItem: ModuleItemNode = {
@@ -102,17 +102,17 @@ Definition: DefinitionNode = {
     EnumDef => DefinitionNode::Enum(<>),
     StructDef => DefinitionNode::Struct(<>),
     TypeAliasDef => <>,
-    <f:FunctionDef> => {
+    <f:FunctionDef> =>? {
         if f.as_function().unwrap().body.is_none() {
-            panic!("{:?}", LalrpopError::User { error: SyntacticError::FunctionBodyMissing });
+            return Err(LalrpopError::User { error: UserError::FunctionBodyMissing });
 
         }
-        f.as_function().unwrap().parameters.iter().for_each(|p|{
-            if p.name == IdentId::SELF || (p.ty.is_basic() && p.ty.as_basic().unwrap() == &IdentId::TYPE_SELF){
-                panic!("{:?}", LalrpopError::User { error: SyntacticError::InvalidSelfParameter });
-            }
-        } );
-        f
+        if f.as_function().unwrap().parameters.iter().any(|p|{
+             p.name == IdentId::SELF || (p.ty.is_basic() && p.ty.as_basic().unwrap() == &IdentId::TYPE_SELF)
+        }) {
+            return Err(LalrpopError::User { error: UserError::InvalidSelfParameter });
+        }
+        Ok(f)
     },
     ConstDef => <>,
     UseDef => DefinitionNode::Use(<>),
@@ -131,82 +131,68 @@ UseDef: UseNode = {
 }
 
 ImplDef: ImplNode = {
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> =>? Ok({
         ImplNode {
             generic_parameters: generic_parameters_lhs,
             ty,
             body: {
-                body.iter().for_each(|f| {
-                    if f.as_function().unwrap().body.is_none() {
-                        panic!(
-                            "{:?}",
-                            LalrpopError::User {
-                                error: SyntacticError::FunctionBodyMissing
-                            }
-                        );
-                    }
-                });
-                body.iter().for_each(|f| {
-                    if f.as_function()
+                if body.iter().any(|f| {
+                     f.as_function().unwrap().body.is_none()
+                }) {
+                    return Err(LalrpopError::User {
+                        error: UserError::FunctionBodyMissing
+                    });
+                }
+                if body.iter().any(|f| {
+                    f.as_function()
                         .unwrap()
                         .parameters
                         .iter()
                         .enumerate()
                         .any(|(i, p)| p.name == IdentId::SELF && i != 0)
-                    {
-                        panic!(
-                            "{:?}",
-                            LalrpopError::User {
-                                error: SyntacticError::InvalidSelfParameter
-                            }
-                        );
-                    }
-                });
+                }) {
+                    return Err(LalrpopError::User {
+                        error: UserError::InvalidSelfParameter
+                    });
+                }
                 def_nodes.alloc_items(body)
             },
             location: Location::new(file_id, l, r),
         }
-   }
+   })
 }
 
 TraitImplDef: TraitImplNode = {
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> =>? Ok({
         TraitImplNode {
             generic_parameters: generic_parameters_lhs,
             trait_ty: trait_ty,
             ty,
             body: {
-                body.iter().for_each(|f| {
-                    if f.as_function().unwrap().body.is_none() {
-                        panic!(
-                            "{:?}",
-                            LalrpopError::User {
-                                error: SyntacticError::FunctionBodyMissing
-                            }
-                        );
-                    }
-                });
-                body.iter().for_each(|f| {
-                    if f.as_function()
+                if body.iter().any(|f| {
+                    f.as_function().unwrap().body.is_none()
+                }) {
+                    return  Err(LalrpopError::User {
+                        error: UserError::FunctionBodyMissing
+                    });
+                }
+                if body.iter().any(|f| {
+                    f.as_function()
                         .unwrap()
                         .parameters
                         .iter()
                         .enumerate()
                         .any(|(i, p)| p.name == IdentId::SELF && i != 0)
-                    {
-                        panic!(
-                            "{:?}",
-                            LalrpopError::User {
-                                error: SyntacticError::InvalidSelfParameter
-                            }
-                        );
-                    }
-                });
+                }) {
+                    return Err(LalrpopError::User {
+                        error: UserError::InvalidSelfParameter
+                    });
+                }
                 def_nodes.alloc_items(body)
             },
             location: Location::new(file_id, l, r),
         }
-   }
+   })
 }
 
 TraitDef: TraitNode = {
@@ -262,7 +248,7 @@ ConstDef: DefinitionNode = {
 }
 
 FunctionDef: DefinitionNode = {
-    <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_expr:BlockExpression> <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_expr:BlockExpression> <r:@R> =>? Ok(DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
@@ -270,15 +256,15 @@ FunctionDef: DefinitionNode = {
         return_type,
         qualifier: {
            if qualifier.is_extern && !is_std {
-             panic!("{:?}", LalrpopError::User { error: SyntacticError::ExternFnNotInStd });
+             return Err(LalrpopError::User { error: UserError::ExternFnNotInStd });
            }
            qualifier
         },
         visibility,
         attrs,
         location: Location::new(file_id, l, r),
-    }),
-    <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => DefinitionNode::Function(FunctionNode {
+    })),
+    <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> =>? Ok(DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
@@ -286,14 +272,14 @@ FunctionDef: DefinitionNode = {
         return_type,
         qualifier: {
            if qualifier.is_extern && !is_std {
-             panic!("{:?}", LalrpopError::User { error: SyntacticError::ExternFnNotInStd });
+             return Err(LalrpopError::User { error: UserError::ExternFnNotInStd });
            }
            qualifier
         },
         visibility,
         attrs,
         location: Location::new(file_id, l, r),
-    })
+    }))
 }
 
 Attribute: AttrNode = {
@@ -1005,7 +991,7 @@ Plus<E>: Vec<E> = Sep<E, "+">;
 
 extern {
     type Location = Loc;
-    type Error = LexicalError;
+    type Error = UserError;
 
     enum Token<'input> {
         CONST => Token::KeywordConst,

@@ -1,10 +1,10 @@
 use std::{
-    collections::HashMap,
     fmt::{Display, Formatter},
     hash::Hash,
     ops::{Index, IndexMut},
 };
 
+use indexmap::IndexMap;
 use qed_common::{define_arena_id, Arena};
 use smol_str::SmolStr;
 
@@ -146,14 +146,14 @@ ident_ids!(
 #[derive(Clone, Debug, Default)]
 pub struct Interner {
     pool: Arena<IdentId, Ident>,
-    index: HashMap<Ident, usize>,
+    index: IndexMap<Ident, usize>,
 }
 
 impl Interner {
     pub fn new() -> Self {
         let mut interner = Self {
             pool: Arena::new(),
-            index: HashMap::default(),
+            index: IndexMap::default(),
         };
 
         interner.intern_idents(IDENT_MAPPING.iter().map(|(_, name)| *name));

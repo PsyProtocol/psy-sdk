@@ -153,7 +153,11 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 write!(fmt, "fn {} ", type_name);
             }
             Type::Const(node) => {
-                write!(fmt, "{:?} ", self.context.symbols.get_constant(node.value));
+                write!(
+                    fmt,
+                    "{:?} ",
+                    self.context.symbols.get_constant_value(node.value)
+                );
             }
             Type::Array(_) => {
                 write!(fmt, "Array ");

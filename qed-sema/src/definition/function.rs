@@ -79,7 +79,7 @@ impl NodeInfo for CheckedFunctionNode {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct CheckedFunctionSignature {
     pub parameters: Vec<TypeId>,
     pub return_type: TypeId,

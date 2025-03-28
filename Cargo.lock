@@ -1740,6 +1740,7 @@ dependencies = [
 name = "qed-common"
 version = "0.1.0"
 dependencies = [
+ "indexmap 2.8.0",
  "thiserror",
 ]
 
@@ -1859,6 +1860,7 @@ name = "qed-parser"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "indexmap 2.8.0",
  "insta",
  "lalrpop",
  "lalrpop-util",

@@ -7,10 +7,10 @@ use qedlang_core::dpn::{
 
 pub fn run(args: CompilerArgs) -> anyhow::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let entry = args.file.into();
+    let (mut typechecker, mut ctx) = interpreter.typecheck(args.file.into(), vec![])?;
     let compile_results = interpreter.interpret(
-        entry,
-        vec![],
+        &mut typechecker,
+        &mut ctx,
         args.contract_name,
         args.method_names,
         |context, (method_name, method_id, outputs)| {
