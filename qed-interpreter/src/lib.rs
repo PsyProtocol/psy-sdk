@@ -1450,6 +1450,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_crates_resolve() {
+        let entry = "../tests/module_test/foo/main.qed".into();
+        let dependencies_entries = vec!["../tests/module_test/bar/lib.qed".into()];
+        let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+        let compile_results = interpreter
+            .interpret(
+                entry,
+                dependencies_entries,
+                Option::<String>::None,
+                vec!["main".into()],
+                |context, (method_name, method_id, outputs)| {
+                    QEDCompileResult::compile_exec(
+                        method_name,
+                        method_id,
+                        &context.store,
+                        &context,
+                        &outputs,
+                    )
+                },
+            )
+            .unwrap();
+        println!("compile_result: {:?}", compile_results);
+    }
+
+    #[test]
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
