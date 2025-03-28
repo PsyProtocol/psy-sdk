@@ -1,4 +1,4 @@
-use qed_interpreter::{error::Error, Interpreter};
+use qed_interpreter::Interpreter;
 use qed_utils::CompilerArgs;
 use qedlang_core::dpn::{
     ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
