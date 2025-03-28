@@ -1449,8 +1449,8 @@ mod tests {
 
     #[test]
     fn test_crates_resolve() {
-        let entry: PathBuf = "../tests/module_test/foo/main.qed".into();
-        let dependencies_entries = vec!["../tests/module_test/bar/lib.qed".into()];
+        let entry: PathBuf = "../tests/module_test/foo/src/main.qed".into();
+        let dependencies_entries = vec!["../tests/module_test/bar/src/lib.qed".into()];
         let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
         let (mut typechecker, mut ctx) = interpreter
             .typecheck(entry.clone(), dependencies_entries)

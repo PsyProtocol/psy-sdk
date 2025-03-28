@@ -204,6 +204,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                 // Get the parent directory name
                 file_path
                     .parent()
+                    .and_then(|parent| parent.parent())
                     .and_then(|p| p.file_stem())
                     .and_then(|s| s.to_str())
                     .unwrap()
