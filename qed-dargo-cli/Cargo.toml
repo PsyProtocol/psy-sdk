@@ -5,6 +5,9 @@ edition = "2024"
 
 [dependencies]
 thiserror.workspace = true
-clap = { workspace = true }
-qed-dargo-toml = { workspace = true }
-qed-dargo = { workspace = true }
+clap.workspace = true
+qed-dargo-toml.workspace = true
+qed-dargo.workspace = true
+qed-interpreter.workspace = true
+qedlang_core.workspace = true
+anyhow.workspace = true
