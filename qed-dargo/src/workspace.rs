@@ -5,6 +5,6 @@ use std::path::PathBuf;
 pub struct Workspace {
     pub root_dir: PathBuf,
     /// Optional target directory override.
-    pub target_dir: Option<PathBuf>,
+    pub target_dir: PathBuf,
     pub package: Package,
 }

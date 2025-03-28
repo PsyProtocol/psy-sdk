@@ -66,7 +66,9 @@ where
     let toml_path = get_package_manifest(&package_dir)?;
     // Resolve the workspace from the toml file. It will download dependencies as well.
     let mut workspace = resolve_workspace_from_toml(&toml_path)?;
-    workspace.target_dir = config.target_dir.clone();
+    if let Some(target_dir) = &config.target_dir {
+        workspace.target_dir = target_dir.clone();
+    }
     run(cmd, workspace)
 }
 

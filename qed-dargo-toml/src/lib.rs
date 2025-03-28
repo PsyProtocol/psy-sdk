@@ -199,9 +199,10 @@ pub fn resolve_workspace_from_toml(toml_path: &Path) -> Result<Workspace, Manife
     let workspace = match dargo_toml.config {
         Config::Package { package_config } => {
             let member = package_config.resolve_to_package(&dargo_toml.root_dir, &mut resolved)?;
+            let target_dir = dargo_toml.root_dir.join("target").normalize();
             Workspace {
                 root_dir: dargo_toml.root_dir,
-                target_dir: None,
+                target_dir,
                 package: member,
             }
         }
