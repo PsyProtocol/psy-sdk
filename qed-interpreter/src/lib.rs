@@ -175,7 +175,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         F: 'static,
     {
         let mut type_ids = Vec::new();
-
         let mut visited = HashMap::new();
         ctx.program.dependency_graph.clone().ts::<SemaError>(
             &ModuleId::root(),
@@ -252,19 +251,43 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     pub fn typecheck(
         &mut self,
         entry: PathBuf,
+        dependencies_entry: Vec<PathBuf>,
     ) -> anyhow::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>)>
     where
         F: 'static,
     {
+        let mut module_entry_paths = vec![entry];
+        module_entry_paths.extend(dependencies_entry);
         let mut program = Program::new();
-        let mut parser = Parser::new(&mut program);
-        parser.parse(&mut self.context, entry).map_err(|err| {
-            let context = lowering_parse_error(&err, &program);
-            anyhow::Error::from(err).context(context)
-        })?;
+        for module_entry in module_entry_paths {
+            Parser::new(&mut program)
+                .parse(&mut self.context, module_entry)
+                .map_err(|err| {
+                    let context = lowering_parse_error(&err, &program);
+                    anyhow::Error::from(err).context(context)
+                })?;
+        }
+
+        for module in program.modules.iter() {
+            let module_id = module.id();
+            for def_id in module.data().definitions.iter() {
+                let def_node = &program.defs[*def_id];
+                if let DefinitionNode::Use(node) = def_node {
+                    let use_mod_name = node.kind.id;
+                    for m in program.modules.iter() {
+                        if use_mod_name == m.data().name {
+                            program.dependency_graph.add_edge(module_id, m.id());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        program
+            .dependency_graph
+            .check_cycle::<qed_parser::Error>()?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
-
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
         let mut default_visitor_context: DefaultVisitorContext<'_, F, C> =
             DefaultVisitorContext::new(&mut program);
@@ -1425,12 +1448,44 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_crates_resolve() {
+        let entry: PathBuf = "../tests/module_test/foo/main.qed".into();
+        let dependencies_entries = vec!["../tests/module_test/bar/lib.qed".into()];
+        let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+        let (mut typechecker, mut ctx) = interpreter
+            .typecheck(entry.clone(), dependencies_entries)
+            .unwrap();
+        let compile_results = interpreter
+            .interpret(
+                &mut typechecker,
+                &mut ctx,
+                Option::<String>::None,
+                vec!["main".into()],
+                |context, (method_name, method_id, outputs)| {
+                    QEDCompileResult::compile_exec(
+                        method_name,
+                        method_id,
+                        &context.store,
+                        &context,
+                        &outputs,
+                    )
+                },
+            )
+            .unwrap();
+        println!("compile_result: {:?}", compile_results);
+        #[allow(static_mut_refs)]
+        unsafe {
+            STD_PRIMITIVE_SCOPE_ID.take().unwrap()
+        };
+    }
+
+    #[test]
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
         insta::glob!("../../tests", "00*.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-            let (mut typechecker, mut ctx) = interpreter.typecheck(path.into()).unwrap();
+            let (mut typechecker, mut ctx) = interpreter.typecheck(path.into(), vec![]).unwrap();
 
             let compile_results = interpreter
                 .interpret(

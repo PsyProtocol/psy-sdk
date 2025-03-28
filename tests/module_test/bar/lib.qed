@@ -1,0 +1,5 @@
+pub fn test_fn(a: Felt, b: Felt) -> Felt{
+    return a + b;
+}
+
+mod baz {}

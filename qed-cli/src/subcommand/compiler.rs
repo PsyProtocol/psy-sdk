@@ -1,4 +1,4 @@
-use qed_interpreter::{error::Error, Interpreter};
+use qed_interpreter::Interpreter;
 use qed_utils::CompilerArgs;
 use qedlang_core::dpn::{
     ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
@@ -7,7 +7,7 @@ use qedlang_core::dpn::{
 
 pub fn run(args: CompilerArgs) -> anyhow::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let (mut typechecker, mut ctx) = interpreter.typecheck(args.file.into())?;
+    let (mut typechecker, mut ctx) = interpreter.typecheck(args.file.into(), vec![])?;
     let compile_results = interpreter.interpret(
         &mut typechecker,
         &mut ctx,
