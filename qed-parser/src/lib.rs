@@ -164,7 +164,19 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
     }
 
     fn resolve_module_name(interner: &mut Interner, file_path: &Path) -> IdentId {
-        interner.intern_ident(file_path.file_stem().and_then(|s| s.to_str()).unwrap())
+        let file_name_without_extension = file_path.file_stem().and_then(|s| s.to_str()).unwrap();
+        let module_name = match file_name_without_extension {
+            "lib" | "main" => {
+                // Get the parent directory name
+                file_path
+                    .parent()
+                    .and_then(|p| p.file_stem())
+                    .and_then(|s| s.to_str())
+                    .unwrap()
+            }
+            s => s,
+        };
+        interner.intern_ident(module_name)
     }
 
     fn resolve_module_path(
