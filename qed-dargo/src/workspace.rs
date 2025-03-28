@@ -1,7 +1,7 @@
 use crate::package::Package;
 use std::path::PathBuf;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Workspace {
     pub root_dir: PathBuf,
     /// Optional target directory override.

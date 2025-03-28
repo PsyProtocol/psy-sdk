@@ -5,7 +5,7 @@ use std::fmt::Display;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Dependency {
     Local { package: Package },
     Remote { package: Package },
@@ -25,7 +25,7 @@ impl Dependency {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Package {
     pub version: Option<String>,
     pub root_dir: PathBuf,
