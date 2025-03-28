@@ -7,6 +7,7 @@ mod expr;
 mod generic;
 mod implementer;
 mod infer;
+mod pre_visit;
 mod program;
 mod resolver;
 mod rewriter;
@@ -1370,18 +1371,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         node: DefId,
         ctx: &mut Self::Context,
     ) -> StdResult<Self::DefinitionResult, Self::Error> {
-        let function = ctx.definition(node).as_function().cloned().unwrap();
-
-        let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-        let is_in_module = ctx.symbols[current_scope_id].kind == ScopeKind::Module;
-        if is_in_module {
-            let function_type_id = ctx.symbols.get_type_id(None, function.name.id).unwrap();
-            let struct_scope_id = ctx.symbols[function_type_id].scope_id();
-            ctx.symbols.enter_scope(struct_scope_id);
-        } else {
-            ctx.symbols.start_scope(ScopeKind::Function);
-        }
+        ctx.symbols.start_scope(ScopeKind::Function);
         self.infcx.enter_context();
+        let function = ctx.definition(node).as_function().cloned().unwrap();
 
         let mut checked_generic_parameters = Vec::with_capacity(function.generic_parameters.len());
         for generic_parameter in &function.generic_parameters {
@@ -1396,20 +1388,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
         let ty = Type::Function(checked_function.clone());
-        if is_in_module {
-            let function_type_id = ctx
-                .symbols
-                .get_type_id(None, checked_function.name.id)
-                .unwrap();
-            ctx.symbols[function_type_id] = ty;
-            self.infcx.exit_context();
-            ctx.symbols.exit_scope();
-        } else {
-            ctx.symbols
-                .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
-            self.infcx.exit_context();
-            ctx.symbols.end_scope();
-        }
+        let type_id = ctx
+            .symbols
+            .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
+        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
+        checked_function.type_id = type_id;
+
+        self.infcx.exit_context();
+        ctx.symbols.end_scope();
 
         Ok(self
             .program
@@ -2710,159 +2696,5 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         };
 
         Ok(checked_function)
-    }
-
-    pub fn visit_module_definition_step1(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> StdResult<(), Error> {
-        let node = ctx.definition(def_id).clone();
-        match node {
-            DefinitionNode::Function(function_node) => {
-                ctx.symbols.start_scope(ScopeKind::Function);
-                self.infcx.enter_context();
-
-                let checked_function = CheckedFunctionNode {
-                    name: function_node.name,
-                    parameters: vec![],
-                    qualifier: function_node.qualifier,
-                    generic_parameters: vec![],
-                    body: None,
-                    return_type: VOID_TYPE,
-                    scope_id: ctx.symbols.current_scope_id().unwrap(),
-                    visibility: function_node.visibility,
-                    attrs: function_node.attrs,
-                    type_id: UNKOWN_TYPE,
-                    location: function_node.location,
-                };
-
-                let ty = Type::Function(checked_function.clone());
-                ctx.symbols
-                    .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)
-                    .unwrap();
-                self.infcx.exit_context();
-                ctx.symbols.end_scope();
-            }
-            DefinitionNode::Struct(struct_node) => {
-                ctx.symbols.start_scope(ScopeKind::Struct);
-                self.infcx.enter_context();
-
-                let checked_struct = CheckedStructNode {
-                    name: struct_node.name.clone(),
-                    generic_parameters: vec![],
-                    fields: IndexMap::new(),
-                    scope_id: ctx.symbols.current_scope_id().unwrap(),
-                    visibility: struct_node.visibility,
-                    location: struct_node.location,
-                };
-
-                let ty = Type::Struct(checked_struct.clone());
-                ctx.symbols
-                    .add_type(ctx.symbols.parent_scope_id(), checked_struct.name.id, ty)
-                    .unwrap();
-
-                self.infcx.exit_context();
-                ctx.symbols.end_scope();
-                self.program
-                    .defs
-                    .alloc_item(CheckedDefinitionNode::Struct(checked_struct));
-            }
-            DefinitionNode::Enum(_enum_node) => {}
-            DefinitionNode::Impl(_impl_node) => {}
-            DefinitionNode::TraitImpl(_impl_trait_node) => {}
-            DefinitionNode::Trait(trait_node) => {
-                ctx.symbols.start_scope(ScopeKind::Trait);
-                self.infcx.enter_context();
-
-                let checked_trait = CheckedTraitNode {
-                    generic_parameters: vec![],
-                    name: trait_node.name,
-                    body: vec![],
-                    unchecked_body: trait_node.body.clone(),
-                    scope_id: ctx.symbols.current_scope_id().unwrap(),
-                    visibility: trait_node.visibility,
-                    location: trait_node.location,
-                };
-
-                let ty = Type::Trait(checked_trait.clone());
-                ctx.symbols
-                    .add_type(ctx.symbols.parent_scope_id(), checked_trait.name.id, ty)
-                    .unwrap();
-
-                self.infcx.exit_context();
-                ctx.symbols.end_scope();
-                self.program
-                    .defs
-                    .alloc_item(CheckedDefinitionNode::Trait(checked_trait));
-            }
-            DefinitionNode::TypeAlias(_type_alias_node) => {}
-            DefinitionNode::Const(_const_node) => {}
-            DefinitionNode::Use(_use_node) => {}
-        }
-
-        Ok(())
-    }
-
-    pub fn visit_module_definition_step2(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> StdResult<(), Error> {
-        ctx.push_node_id(NodeId::from(def_id));
-        match ctx.definition(def_id).node_type() {
-            NodeType::FunctionDef => {}
-            NodeType::StructDef => {
-                self.visit_struct(def_id, ctx)?;
-            }
-            NodeType::EnumDef => {}
-            NodeType::ImplDef => {}
-            NodeType::TraitImplDef => {}
-            NodeType::TraitDef => {
-                self.visit_trait(def_id, ctx)?;
-            }
-            NodeType::TypeAliasDef => {
-                self.visit_type_alias(def_id, ctx)?;
-            }
-            NodeType::ConstDef => {}
-            NodeType::UseDef => {
-                self.visit_use(def_id, ctx)?;
-            }
-            _ => std::unreachable!(),
-        };
-        ctx.pop_node_id();
-        Ok(())
-    }
-
-    fn visit_module_definition_step3(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> StdResult<(), Error> {
-        ctx.push_node_id(NodeId::from(def_id));
-        match ctx.definition(def_id).node_type() {
-            NodeType::FunctionDef => {
-                self.visit_function(def_id, ctx)?;
-            }
-            NodeType::StructDef => {}
-            NodeType::EnumDef => {
-                self.visit_enum(def_id, ctx)?;
-            }
-            NodeType::ImplDef => {
-                self.visit_impl(def_id, ctx)?;
-            }
-            NodeType::TraitImplDef => {
-                self.visit_trait_impl(def_id, ctx)?;
-            }
-            NodeType::TraitDef => {}
-            NodeType::TypeAliasDef => {}
-            NodeType::ConstDef => {
-                self.visit_const(def_id, ctx)?;
-            }
-            NodeType::UseDef => {}
-            _ => std::unreachable!(),
-        };
-        ctx.pop_node_id();
-        Ok(())
     }
 }

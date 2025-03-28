@@ -6,6 +6,7 @@ pub struct Person2 {
 pub mod traits{
 
     pub use super::Person2;
+    pub use super::test_fn;
     pub trait PersonLike {
         pub fn age(self: Self) -> Felt;
     }
@@ -16,6 +17,7 @@ pub mod traits{
 
     impl PersonLike for Person {
         pub fn age(self: Person) -> Felt {
+            test_fn(self);
             return self.year_of_birth;
         }
     }
