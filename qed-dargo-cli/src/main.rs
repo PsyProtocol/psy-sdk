@@ -4,15 +4,22 @@ pub mod errors;
 use std::env;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
+const PANIC_MESSAGE: &str = "Program panic. This is a bug to be fixed.";
 
 fn main() {
     setup_tracing();
+
+    // Register a panic hook to display more readable panic messages to end-users
+    let (panic_hook, _) = color_eyre::config::HookBuilder::default()
+        .display_env_section(false)
+        .panic_section(PANIC_MESSAGE)
+        .into_hooks();
+    panic_hook.install();
 
     if let Err(report) = cli::start_cli() {
         eprintln!("{report:#}");
         std::process::exit(1);
     }
-    println!("Hello, world!");
 }
 
 fn setup_tracing() {
