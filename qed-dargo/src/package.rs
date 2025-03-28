@@ -6,14 +6,6 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 #[derive(Clone)]
-pub struct Workspace {
-    pub root_dir: PathBuf,
-    /// Optional target directory override.
-    pub target_dir: Option<PathBuf>,
-    pub package: Package,
-}
-
-#[derive(Clone)]
 pub enum Dependency {
     Local { package: Package },
     Remote { package: Package },
@@ -50,6 +42,10 @@ impl Package {
 
     pub fn is_library(&self) -> bool {
         self.package_type == PackageType::Library
+    }
+
+    pub fn entry_canonical_path(&self) -> PathBuf {
+        self.root_dir.join(&self.entry_path)
     }
 }
 

@@ -1,0 +1,6 @@
+use bar::test_fn;
+
+fn main(a: Felt, b: Felt) -> Felt{
+    let c: Felt = test_fn(a, b);
+    return c;
+}

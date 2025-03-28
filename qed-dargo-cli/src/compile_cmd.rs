@@ -1,6 +1,6 @@
 use crate::errors::CliError;
 use clap::Args;
-use qed_dargo::package::Workspace;
+use qed_dargo::workspace::Workspace;
 
 /// Compile the program and its secret execution trace into ACIR format
 #[derive(Debug, Clone, Args)]

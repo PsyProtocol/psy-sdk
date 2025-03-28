@@ -453,7 +453,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     }
                 }
             }
-            CheckedExprNode::LambdaFunction(checked_lambda_function_node) => {}
+            CheckedExprNode::LambdaFunction(_) => {}
             CheckedExprNode::BlockExpr(checked_block_expr_node) => {
                 checked_block_expr_node.type_id =
                     self.substitute_all(checked_block_expr_node.type_id, ctx)?;

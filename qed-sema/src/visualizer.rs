@@ -158,7 +158,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             Type::Array(_) => {
                 write!(fmt, "Array ");
             }
-            Type::TypeVariable(tvar) => {
+            Type::TypeVariable(_) => {
                 write!(fmt, "{} ", self.get_type_name(type_id));
             }
             _ => {

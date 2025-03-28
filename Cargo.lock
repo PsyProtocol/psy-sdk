@@ -1747,15 +1747,8 @@ dependencies = [
 name = "qed-dargo"
 version = "0.1.0"
 dependencies = [
- "clap",
- "dirs",
- "semver",
  "serde",
  "smol_str",
- "tempfile",
- "thiserror",
- "toml",
- "url",
 ]
 
 [[package]]

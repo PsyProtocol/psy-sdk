@@ -1,13 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::anyhow;
-use qed_ast::{DefId, IdentId, Identifier, VisitorContext};
+use qed_ast::{DefId, IdentId};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
-use crate::{
-    rewriter::Rewriter, AstVisualizer, Constraint, Inferer, Result, ScopeKind, TypeChecker,
-    TypeCheckerVisitorContext, TypeId,
-};
+use crate::{rewriter::Rewriter, Constraint, Inferer, Result, ScopeKind, TypeChecker, TypeCheckerVisitorContext, TypeId};
 
 #[derive(Debug)]
 pub struct ImplementerCtxt {

@@ -4,7 +4,7 @@ use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashou
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::qblock::cmds::register_user::QBCRegisterUser;
 use qed_exec::vm::exec::QEDEvalSessionResult;
-use qed_interpreter::{error::Error, Interpreter};
+use qed_interpreter::Interpreter;
 use qed_store::config::store_config::QEDHasher;
 use qed_utils::{
     gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract,
@@ -20,6 +20,7 @@ pub fn run(mut args: InterpreterArgs) -> anyhow::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let compile_results = interpreter.interpret(
         args.file.into(),
+        vec![],
         args.contract_name,
         args.method_names,
         |context, (method_name, method_id, outputs)| {

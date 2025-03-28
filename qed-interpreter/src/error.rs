@@ -1,4 +1,4 @@
-use ariadne::{ColorGenerator, Label, Report, ReportKind};
+use ariadne::{Label, Report, ReportKind};
 use core::fmt;
 use qed_ast::{Location, VisitorContext};
 use qed_parser::Error as ParseError;

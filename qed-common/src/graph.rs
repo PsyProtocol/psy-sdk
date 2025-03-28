@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
 use std::ops::Deref;
 
@@ -14,11 +14,11 @@ pub enum Color {
 
 #[derive(Clone, Debug)]
 pub struct Graph<T> {
-    nodes: HashMap<T, Vec<T>>,
+    nodes: HashMap<T, HashSet<T>>,
 }
 
 impl<T> Deref for Graph<T> {
-    type Target = HashMap<T, Vec<T>>;
+    type Target = HashMap<T, HashSet<T>>;
     fn deref(&self) -> &Self::Target {
         &self.nodes
     }
@@ -32,14 +32,14 @@ impl<T: Clone + Eq + Hash> Graph<T> {
     }
 
     pub fn add_edge(&mut self, from: T, to: T) {
-        self.nodes.entry(from).or_default().push(to);
+        self.nodes.entry(from).or_default().insert(to);
     }
 
     pub fn nodes(&self) -> Vec<&T> {
         self.nodes.keys().collect()
     }
 
-    pub fn edges(&self, node: &T) -> Option<&Vec<T>> {
+    pub fn edges(&self, node: &T) -> Option<&HashSet<T>> {
         self.nodes.get(node)
     }
 

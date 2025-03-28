@@ -2565,8 +2565,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     #[instrument(level = "debug", skip_all)]
     fn typecheck_trait_impl_method(
         &mut self,
-        trait_type_id: TypeId,
-        implementor_type_id: TypeId,
+        _trait_type_id: TypeId,
+        _implementor_type_id: TypeId,
         function_id: DefId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedFunctionNode> {
@@ -2600,7 +2600,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     #[instrument(level = "debug", skip_all)]
     fn typecheck_impl_method(
         &mut self,
-        implementor_type_id: TypeId,
+        _implementor_type_id: TypeId,
         function_id: DefId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedFunctionNode> {

@@ -100,6 +100,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     pub fn interpret<I: Into<Ident>>(
         &mut self,
         entry: PathBuf,
+        dependencies_entry: Vec<PathBuf>,
         contract_name: Option<I>,
         method_names: Vec<I>,
         compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
@@ -107,8 +108,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     where
         F: 'static,
     {
-        let (mut typechecker, mut ctx) = self.typecheck(entry)?;
-
+        let mut module_entry_paths = vec![entry];
+        module_entry_paths.extend(dependencies_entry);
+        let (mut typechecker, mut ctx) = self.typecheck(module_entry_paths)?;
         let scope_id = ctx.symbols[ModuleId::root()].scope_id;
         let type_ids = if let Some(contract_name) = contract_name {
             let contract_name = ctx.intern(contract_name.into());
@@ -171,7 +173,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     where
         F: 'static,
     {
-        let (typechecker, mut ctx) = self.typecheck(entry)?;
+        let module_entry_paths = vec![entry];
+        let (typechecker, mut ctx) = self.typecheck(module_entry_paths)?;
         let mut type_ids = Vec::new();
 
         let mut visited = HashMap::new();
@@ -249,19 +252,39 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
     fn typecheck(
         &mut self,
-        entry: PathBuf,
+        module_entry_paths: Vec<PathBuf>,
     ) -> anyhow::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>)>
     where
         F: 'static,
     {
         let mut program = Program::new();
         let mut parser = Parser::new(&mut program);
-        parser
-            .parse(&mut self.context, entry)
-            .map_err(|err| Error::ParseError(err))?;
+        for module_entry in module_entry_paths {
+            parser
+                .parse(&mut self.context, module_entry)
+                .map_err(|err| Error::ParseError(err))?;
+        }
+
+        for module in program.modules.iter() {
+            let module_id = module.id();
+            for def_id in module.data().definitions.iter() {
+                let def_node = &program.defs[*def_id];
+                if let DefinitionNode::Use(node) = def_node {
+                    let use_mod_name = node.kind.id;
+                    for m in program.modules.iter() {
+                        if use_mod_name == m.data().name {
+                            program.dependency_graph.add_edge(module_id, m.id());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        program
+            .dependency_graph
+            .check_cycle::<qed_parser::Error>()?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
-
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
         let mut default_visitor_context: DefaultVisitorContext<'_, F, C> =
             DefaultVisitorContext::new(&mut program);
@@ -1427,6 +1450,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_crates_resolve() {
+        let entry = "../tests/module_test/foo/main.qed".into();
+        let dependencies_entries = vec!["../tests/module_test/bar/lib.qed".into()];
+        let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+        let compile_results = interpreter
+            .interpret(
+                entry,
+                dependencies_entries,
+                Option::<String>::None,
+                vec!["main".into()],
+                |context, (method_name, method_id, outputs)| {
+                    QEDCompileResult::compile_exec(
+                        method_name,
+                        method_id,
+                        &context.store,
+                        &context,
+                        &outputs,
+                    )
+                },
+            )
+            .unwrap();
+        println!("compile_result: {:?}", compile_results);
+    }
+
+    #[test]
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
@@ -1436,6 +1484,7 @@ mod tests {
             let compile_results = interpreter
                 .interpret(
                     path.into(),
+                    vec![],
                     None,
                     vec!["main"],
                     |context, (method_name, method_id, outputs)| {
