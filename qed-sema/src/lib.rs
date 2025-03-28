@@ -1379,7 +1379,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             let struct_scope_id = ctx.symbols[function_type_id].scope_id();
             ctx.symbols.enter_scope(struct_scope_id);
         } else {
-            ctx.symbols.start_scope(ScopeKind::Struct);
+            ctx.symbols.start_scope(ScopeKind::Function);
         }
         self.infcx.enter_context();
 
