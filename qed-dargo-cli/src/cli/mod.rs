@@ -1,15 +1,38 @@
 mod compile_cmd;
-mod errors;
 
-use clap::Args;
+use crate::errors::Result;
+use clap::{Args, Parser, Subcommand};
+use qed_dargo::package::Dependency;
 use qed_dargo::workspace::Workspace;
 use qed_dargo_toml::files::{find_file_manifest_root, get_package_manifest};
 use qed_dargo_toml::resolve_workspace_from_toml;
-use std::path::PathBuf;
 use std::collections::HashSet;
-use qed_dargo::package::Dependency;
+use std::path::PathBuf;
 
-pub(crate) type Result<T> = anyhow::Result<T>;
+pub(crate) fn start_cli() -> Result<()> {
+    let DargoCli { command, config } = DargoCli::parse();
+    match command {
+        DargoCommand::Compile(args) => with_workspace(args, config, compile_cmd::run),
+    }?;
+    Ok(())
+}
+
+#[derive(Parser, Debug)]
+#[command(name="dargo", author, about, long_about = None)]
+struct DargoCli {
+    #[command(subcommand)]
+    command: DargoCommand,
+
+    #[clap(flatten)]
+    config: DargoConfig,
+}
+
+#[non_exhaustive]
+#[derive(Subcommand, Clone, Debug)]
+enum DargoCommand {
+    #[command(alias = "build")]
+    Compile(compile_cmd::CompileCommand),
+}
 
 #[derive(Args, Clone, Debug)]
 pub(crate) struct DargoConfig {
@@ -47,7 +70,7 @@ where
     run(cmd, workspace)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EntryManager {
     entry: PathBuf,
     dependencies_entries: HashSet<PathBuf>,

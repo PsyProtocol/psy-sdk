@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::errors::Result;
 use clap::Args;
 use qed_dargo::workspace::Workspace;
 use qed_interpreter::Interpreter;
@@ -6,7 +6,7 @@ use qedlang_core::dpn::{
     ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::compile::QEDCompileResult,
 };
-/// Compile the program and its secret execution trace into ACIR format
+/// Compile the program and its secret execution trace
 #[derive(Debug, Clone, Args)]
 pub(crate) struct CompileCommand {
     #[clap(flatten)]
@@ -23,8 +23,8 @@ pub(crate) fn run(args: CompileCommand, workspace: Workspace) -> Result<()> {
 pub(super) fn compile_workspace_full(
     workspace: &Workspace,
     compile_options: &CompileOptions,
-) -> anyhow::Result<()> {
-    let entry_manager = crate::resolve_entries(workspace);
+) -> Result<()> {
+    let entry_manager = super::resolve_entries(workspace);
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let compile_results = interpreter.interpret(
         entry_manager.entry,
