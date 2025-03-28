@@ -80,6 +80,19 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                 let is_self_std = module_name == IdentId::STD;
                 let is_std = is_parent_std || is_self_std;
 
+                let module_id = self
+                    .program
+                    .modules
+                    .iter()
+                    .find(|module| module.data().name == module_name)
+                    .map(|module| module.id());
+                if module_id
+                    .map(|module_id| self.program.modules.add_child(parent_module_id, module_id))
+                    .is_some()
+                {
+                    continue;
+                }
+
                 let lexer = Lexer::new(file_content);
                 let transformer = GenericTokenTransformer::new(lexer);
                 let tokens: Vec<_> = transformer.collect::<qed_lexer::Result<Vec<_>>>()?;
