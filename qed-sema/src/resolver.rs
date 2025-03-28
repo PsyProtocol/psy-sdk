@@ -244,7 +244,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> Resolver<F, C> for TypeChecker<F, C>
                 .iter()
                 .position(|x| x.name == name)
                 .map(ModuleId)
-                .filter(|&id| ctx.symbols[current_module_id].children.contains(&id))
+                // Workaround: passing check for USE node
+                // .filter(|&id| ctx.symbols[current_module_id].children.contains(&id))
                 .ok_or(Error::ModuleNotFound {
                     location: module.location,
                     module: name,
