@@ -1,6 +1,6 @@
 use qed_ast::Program;
-use qed_common::FileId;
 use qed_interpreter::Interpreter;
+use std::sync::Mutex;
 use tower_lsp::jsonrpc::Error;
 use tower_lsp::{
     jsonrpc::Result,
@@ -26,36 +26,28 @@ use crate::store::span_to_range;
 
 pub struct QLspSimple {
     client: Client,
-    ctx: TypeCheckerVisitorContext<SymFeltRef, QExecContext>,
+    ctx: Mutex<TypeCheckerVisitorContext<SymFeltRef, QExecContext>>,
 }
 
 impl QLspSimple {
     pub fn new(client: Client) -> Self {
         Self {
             client,
-            ctx: TypeCheckerVisitorContext::new(Program::new()),
+            ctx: Mutex::new(TypeCheckerVisitorContext::new(Program::new())),
         }
     }
 
     async fn did_open(&mut self, params: DidOpenTextDocumentParams) {
         let uri = params.text_document.uri.clone();
-        let path = match uri.to_file_path() {
-            Ok(p) => p,
-            Err(err) => {
-                self.client
-                    .log_message(
-                        MessageType::ERROR,
-                        format!("{:?} to_file_path error", uri.to_string()),
-                    )
-                    .await;
-                return;
-            }
-        };
+        let path = uri.to_file_path().unwrap();
 
         let mut interpreter = Interpreter::new(QExecContext::new());
 
-        let (_typechecker, ctx) = match interpreter.typecheck(path.clone()) {
-            Ok(t) => t,
+        match interpreter.typecheck(path.clone()) {
+            Ok((_, ctx_)) => {
+                let mut ctx = self.ctx.lock().unwrap();
+                *ctx = ctx_;
+            }
             Err(err) => {
                 self.client
                     .log_message(MessageType::ERROR, format!("Reload error: {err:?}"))
@@ -63,13 +55,6 @@ impl QLspSimple {
                 return;
             }
         };
-
-        self.ctx = ctx;
-
-        let paths = unsafe { &*self.ctx.program.file_resolver.file_paths.get() };
-        for p in paths.iter() {
-            dbg!(p.to_string_lossy());
-        }
 
         self.client
             .log_message(
@@ -111,8 +96,11 @@ impl QLspSimple {
 
         let mut interpreter = Interpreter::new(QExecContext::new());
 
-        let (_typechecker, ctx) = match interpreter.typecheck(path.clone()) {
-            Ok(t) => t,
+        match interpreter.typecheck(path.clone()) {
+            Ok((_, ctx_)) => {
+                let mut ctx = self.ctx.lock().unwrap();
+                *ctx = ctx_;
+            }
             Err(err) => {
                 self.client
                     .log_message(MessageType::ERROR, format!("Reload error: {err:?}"))
@@ -120,8 +108,6 @@ impl QLspSimple {
                 return;
             }
         };
-
-        self.ctx = ctx;
 
         self.client
             .log_message(MessageType::INFO, format!("Changed file: {}", uri))
@@ -183,23 +169,33 @@ impl LanguageServer for QLspSimple {
         let uri = &text_document_position_params.text_document.uri;
         let mut path = uri.to_file_path().unwrap();
 
-        let file_id = self.ctx.program.file_resolver.resolve_id(&path).unwrap();
+        let file_id = {
+            let ctx = self.ctx.lock().unwrap();
+            ctx.program.file_resolver.resolve_id(&path).unwrap().clone()
+        };
 
         let position = qed_ast::Position {
-            file_id: *file_id,
+            file_id: file_id,
             line: text_document_position_params.position.line as usize,
             column: text_document_position_params.position.character as usize,
         };
 
-        let location = self.ctx.position_to_location(position).unwrap();
-        match self.ctx.goto_definition(location) {
+        let location = self
+            .ctx
+            .lock()
+            .unwrap()
+            .position_to_location(position)
+            .unwrap();
+        match self.ctx.lock().unwrap().goto_definition(location) {
             Some(location) => {
                 let range = span_to_range(
                     &location,
                     self.ctx
+                        .lock()
+                        .unwrap()
                         .program
                         .file_resolver
-                        .resolve_content(file_id)
+                        .resolve_content(&file_id)
                         .unwrap(),
                 );
                 Ok(Some(GotoDefinitionResponse::Scalar(Location {
@@ -225,48 +221,41 @@ impl LanguageServer for QLspSimple {
         //get user hover file
         let uri = &text_document_position_params.text_document.uri;
 
-        let path = match uri.to_file_path() {
-            Ok(p) => p,
-            Err(err) => {
-                self.client
-                    .log_message(
-                        MessageType::ERROR,
-                        format!("{:?} to_file_path error", uri.to_string()),
-                    )
-                    .await;
-                dbg!("to_file_path error");
-                return Err(Error::internal_error());
-            }
-        };
+        let path = uri.to_file_path().unwrap();
 
-        let mut interpreter = Interpreter::new(QExecContext::new());
-
-        let (_typechecker, ctx) = match interpreter.typecheck(path.clone()) {
-            Ok(t) => t,
-            Err(err) => {
-                dbg!(err);
-                return Err(Error::internal_error());
-            }
-        };
-
-        let paths = unsafe { &*ctx.program.file_resolver.file_paths.get() };
-        for p in paths.iter() {
-            dbg!(p.to_string_lossy());
-        }
-
-        let file_id = ctx
+        if self
+            .ctx
+            .lock()
+            .unwrap()
             .program
             .file_resolver
             .resolve_id(&path)
-            .unwrap_or(&FileId(0));
+            .is_none()
+        {
+            let mut interpreter = Interpreter::new(QExecContext::new());
+
+            let (_typechecker, ctx) = match interpreter.typecheck(path.clone()) {
+                Ok(t) => t,
+                Err(err) => {
+                    self.client
+                        .log_message(MessageType::ERROR, format!("Reload error: {err:?}"));
+                    return Err(Error::internal_error());
+                }
+            };
+
+            let mut self_ctx = self.ctx.lock().unwrap();
+            *self_ctx = ctx;
+        }
+
+        let ctx = self.ctx.lock().unwrap();
 
         let position = qed_ast::Position {
-            file_id: *file_id,
+            file_id: *ctx.program.file_resolver.resolve_id(&path).unwrap(),
             line: text_document_position_params.position.line as usize,
             column: text_document_position_params.position.character as usize,
         };
 
-        let location = match ctx.position_to_location(position){
+        let location = match ctx.position_to_location(position) {
             Some(l) => l,
             None => {
                 dbg!("position_to_location error");
@@ -274,7 +263,7 @@ impl LanguageServer for QLspSimple {
             }
         };
 
-        let hover = self.ctx.hover(location).map(|hover_str| Hover {
+        let hover = ctx.hover(location).map(|hover_str| Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
                 value: format!("**Type**: `{}`\n\n", hover_str),

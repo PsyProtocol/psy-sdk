@@ -176,7 +176,8 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
         if module_name == &IdentId::STD {
             let cargo_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or("./qed-cli".to_string());
             let std_path = PathBuf::from(cargo_dir);
-            return Some(std_path.join("../qed-std/std.qed"));
+            // return Some(std_path.join("../qed-std/std.qed"));
+            return Some(PathBuf::from("/home/longer/workspace/private/qed-lang-new/qed-std/std.qed"));
         }
 
         let mut path = current_path.parent()?.to_path_buf();

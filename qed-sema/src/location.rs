@@ -29,8 +29,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
         let file_content = self
             .program
             .file_resolver
-            .resolve_content(&position.file_id)
-            .unwrap();
+            .resolve_content(&position.file_id)?;
         let offset = offset_from_position(&file_content, &position);
         Some(Location {
             file_id: position.file_id,

@@ -76,7 +76,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
     }
 
     pub fn hover(&self, location: Location) -> Option<String> {
-        let referenced_node = self.find_referenced(location).unwrap();
+        let referenced_node = self.find_referenced(location)?;
         match referenced_node {
             ReferenceId::Reference(_location, _is_self) => {
                 // ?
