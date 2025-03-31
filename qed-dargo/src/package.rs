@@ -23,6 +23,12 @@ impl Dependency {
             Self::Local { package } | Self::Remote { package } => &package.name,
         }
     }
+
+    pub fn package(&self) -> &Package {
+        match self {
+            Self::Local { package } | Self::Remote { package } => package,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
