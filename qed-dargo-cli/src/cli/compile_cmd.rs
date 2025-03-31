@@ -26,9 +26,13 @@ pub(super) fn compile_workspace_full(
 ) -> Result<()> {
     let entry_manager = super::resolve_entries(workspace);
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let compile_results = interpreter.interpret(
+    let (mut typechecker, mut ctx) = interpreter.typecheck(
         entry_manager.entry,
         entry_manager.dependencies_entries.into_iter().collect(),
+    )?;
+    let compile_results = interpreter.interpret(
+        &mut typechecker,
+        &mut ctx,
         compile_options.contract_name.clone(),
         compile_options.method_names.clone(),
         |context, (method_name, method_id, outputs)| {
