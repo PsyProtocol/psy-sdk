@@ -2193,6 +2193,7 @@ dependencies = [
  "petgraph",
  "qed-ast",
  "qed-common",
+ "qed-fmt",
  "qed-parser",
  "qed-utils",
  "qedlang_core",

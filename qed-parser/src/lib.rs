@@ -169,6 +169,10 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
 
             let module_id = self.program.modules.next_idx();
 
+            if !is_inline {
+                self.program.file_resolver.register_module_id(module_id.0);
+            }
+
             for (dep_module, visibility, _location) in module.modules.iter().rev() {
                 let dep_path = self
                     .resolve_module_path(&dep_module.id, &current_path)
