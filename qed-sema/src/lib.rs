@@ -53,6 +53,8 @@ use itertools::Itertools;
 use qed_common::FileId;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
+use crate::rewriter::Rewriter;
+
 pub struct TypeChecker<F: Clone + From<u32> + ContextFelt, C> {
     pub program: CheckedProgram<F>,
     evaluator: Box<dyn Evaluator<F, C>>,
@@ -442,8 +444,37 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ));
             }
-            IntrinsicExprNode::Read { offset, location } => {
-                // TODO: remove clone
+            IntrinsicExprNode::MemTransmute {
+                data,
+                target_type,
+                location,
+            } => {
+                let data = self.visit_expr(data, ctx)?;
+                let target_type = self.typecheck(&target_type, ctx)?;
+
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::MemTransmute {
+                        data: self.program.exprs.alloc_item(data),
+                        target_type: self.substitute_all(target_type, ctx)?,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::MemSizeOf {
+                query_type: ty,
+                location,
+            } => {
+                let ty = self.typecheck(&ty, ctx)?;
+
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::MemSizeOf {
+                        query_type: ty,
+                        type_id: FELT_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::StorageRead { offset, location } => {
                 let offset = self.visit_expr(offset, ctx)?;
                 if !self.unify(offset.ty(), FELT_TYPE, ctx) {
                     return Err(Error::TypeMismatch {
@@ -452,18 +483,49 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         found: offset.ty(),
                     });
                 }
-                return Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::Read {
-                    offset: self.program.exprs.alloc_item(offset),
-                    type_id: FELT_TYPE,
-                    location,
-                }));
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::StorageRead {
+                        offset: self.program.exprs.alloc_item(offset),
+                        type_id: FELT_TYPE,
+                        location,
+                    },
+                ));
             }
-            IntrinsicExprNode::Write {
+            IntrinsicExprNode::StorageReadRange {
+                offset,
+                length,
+                location,
+            } => {
+                let offset = self.visit_expr(offset, ctx)?;
+                let length = self.visit_expr(length, ctx)?;
+                if !self.unify(offset.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: offset.location(),
+                        expected: vec![FELT_TYPE],
+                        found: offset.ty(),
+                    });
+                }
+                if !self.unify(length.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: length.location(),
+                        expected: vec![FELT_TYPE],
+                        found: length.ty(),
+                    });
+                }
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::StorageReadRange {
+                        offset: self.program.exprs.alloc_item(offset),
+                        length: self.program.exprs.alloc_item(length),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::StorageWrite {
                 offset,
                 value,
                 location,
             } => {
-                // TODO: remove clone
                 let offset = self.visit_expr(offset, ctx)?;
                 let value = self.visit_expr(value, ctx)?;
                 if !self.unify(offset.ty(), FELT_TYPE, ctx) {
@@ -481,10 +543,33 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     });
                 }
                 Ok(CheckedExprNode::Intrinsic(
-                    CheckedIntrinsicExprNode::Write {
+                    CheckedIntrinsicExprNode::StorageWrite {
                         offset: self.program.exprs.alloc_item(offset),
                         value: self.program.exprs.alloc_item(value),
                         type_id: FELT_TYPE,
+                        location,
+                    },
+                ))
+            }
+            IntrinsicExprNode::StorageWriteRange {
+                offset,
+                values,
+                location,
+            } => {
+                let offset = self.visit_expr(offset, ctx)?;
+                let values = self.visit_expr(values, ctx)?;
+                if !self.unify(offset.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: offset.location(),
+                        expected: vec![FELT_TYPE],
+                        found: offset.ty(),
+                    });
+                }
+                Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::StorageWriteRange {
+                        offset: self.program.exprs.alloc_item(offset),
+                        values: self.program.exprs.alloc_item(values),
+                        type_id: VOID_TYPE,
                         location,
                     },
                 ))
@@ -526,7 +611,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let mut inner_ty = UNKOWN_TYPE;
                 let mut elements = Vec::with_capacity(arr.len());
                 for e in arr {
-                    // TODO: remove clone
                     let checked_expr = self.visit_expr(e, ctx)?;
                     if !self.unify(checked_expr.ty(), inner_ty, ctx) {
                         return Err(Error::TypeMismatch {
@@ -817,8 +901,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             args.push(type_arg);
         }
 
+        let callee_expr_id = self.program.exprs.alloc_item(callee);
         let checked_expr = CheckedExprNode::Call(CheckedCallNode {
-            callee: self.program.exprs.alloc_item(callee),
+            callee: self.rewrite_expr(callee_expr_id, ctx)?,
             generic_parameters: generic_parameters,
             args: self.program.exprs.alloc_items(args),
             type_id: self.substitute_all(signature.return_type, ctx)?,
@@ -1284,15 +1369,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         }
 
         for &function_id in &impl_node.body {
-            let method = self.typecheck_impl_method(implementor_poly_type_id, function_id, ctx)?;
-            ctx.add_type_reference(method.type_id, method.name.location, false);
-            methods.push(CheckedDefinitionNode::Function(method));
+            methods.push(self.typecheck_impl_method(implementor_poly_type_id, function_id, ctx)?);
         }
 
         let checked_impl = CheckedImplNode {
             generic_parameters: checked_generic_parameters,
             ty: implementor_type_id,
-            body: self.program.defs.alloc_items(methods),
+            body: methods,
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             location: impl_node.location,
         };
@@ -1339,19 +1422,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .add_type_id(None, IdentId::TYPE_SELF, UNKOWN_TYPE)?;
 
         for &function_id in &trait_node.body {
-            let method = self.typecheck_trait_method(function_id, ctx)?;
-            ctx.add_type_reference(method.type_id, method.name.location, false);
-            methods.push(CheckedDefinitionNode::Function(method));
+            methods.push(self.typecheck_trait_method(function_id, ctx)?);
         }
         let checked_trait = CheckedTraitNode {
             generic_parameters,
             name: trait_node.name,
-            body: self.program.defs.alloc_items(methods),
+            body: methods,
             unchecked_body: trait_node.body.clone(),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: trait_node.visibility,
             location: trait_node.location,
         };
+
         // TODO: remove clone
         let ty = Type::Trait(checked_trait.clone());
         let type_id =
@@ -1390,22 +1472,21 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
         let ty = Type::Function(checked_function.clone());
-        let type_id = ctx
-            .symbols
+        ctx.symbols
             .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
-        ctx.add_type_reference(type_id, checked_function.name.location, false);
-
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
-        checked_function.type_id = type_id;
 
         self.infcx.exit_context();
         ctx.symbols.end_scope();
 
-        Ok(self
+        let def_id = self
             .program
             .defs
-            .alloc_item(CheckedDefinitionNode::Function(checked_function)))
+            .alloc_item(CheckedDefinitionNode::Function(checked_function));
+        self.register_function(def_id, ctx)?;
+
+        Ok(def_id)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1748,6 +1829,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
     ) -> StdResult<Self::DefinitionResult, Self::Error> {
         // TODO: remove clone
         let node = ctx.definition(node).as_const().cloned().unwrap();
+        let name = node.name;
         let lhs_ty = self.typecheck(&node.ty, ctx)?;
         let value = self.visit_expr(node.value, ctx)?;
         let rhs_ty = value.ty();
@@ -1762,16 +1844,20 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let value = self.evaluator.evaluate_expr(&self.program, &value, ctx);
 
         let node = CheckedConstNode {
-            name: Some(node.name),
+            name: None,
             ty: rhs_ty,
-            value: ctx.symbols.add_constant(value),
-            scope_id: ctx.symbols.current_scope_id().unwrap(),
+            value: ctx.symbols.get_or_add_constant(value),
+            scope_id: ScopeId::primitive(),
             visibility: node.visibility,
         };
 
-        let ty = Type::Const(node.clone());
+        let type_id = ctx.symbols.get_or_add_type(
+            Some(ScopeId::primitive()),
+            TypeKey::from(node.value),
+            Type::Const(node.clone()),
+        )?;
 
-        ctx.symbols.add_type(None, ty.key(), ty)?;
+        ctx.symbols.add_type_id(None, name, type_id)?;
 
         Ok(self
             .program
@@ -1995,19 +2081,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             body: self.program.exprs.alloc_item(checked_body),
             return_type: expected_return_type,
             scope_id: current_scope_id,
-            type_id: UNKOWN_TYPE,
+            type_id: ctx.symbols.next_type_id(),
             location: function.location,
         };
 
         let ty = Type::LambdaFunction(checked_function.clone());
-        let type_id = ctx
-            .symbols
+        ctx.symbols
             .add_type(ctx.symbols[current_scope_id].parent, ty.key(), ty)?;
-        ctx.symbols[type_id]
-            .as_lambda_function_mut()
-            .unwrap()
-            .type_id = type_id;
-        checked_function.type_id = type_id;
 
         ctx.symbols.end_scope();
         Ok(CheckedExprNode::LambdaFunction(checked_function))
@@ -2094,13 +2174,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let mut checked_methods = Vec::with_capacity(trait_node.body.len());
 
         for &function_id in &impl_node.body {
-            let method = self.typecheck_trait_impl_method(
+            let method_id = self.typecheck_trait_impl_method(
                 trait_type_id,
                 implementor_type_id,
                 function_id,
                 ctx,
             )?;
-            ctx.add_type_reference(method.type_id, method.name.location, false);
+            let method = self.program[method_id].as_function().unwrap();
 
             let i = trait_node
                 .body
@@ -2116,7 +2196,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     method_name: method.name.id,
                 })?;
             unimplemented_methods.remove(&trait_node.unchecked_body[i]);
-            checked_methods.push(CheckedDefinitionNode::Function(method));
+            checked_methods.push(method_id);
         }
 
         for unimplemented_method in unimplemented_methods {
@@ -2126,14 +2206,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 unimplemented_method,
                 ctx,
             )?;
-            checked_methods.push(CheckedDefinitionNode::Function(method));
+            checked_methods.push(method);
         }
 
         let checked_impl = CheckedTraitImplNode {
             generic_parameters: checked_generic_parameters,
             trait_ty: trait_type_id,
             ty: implementor_type_id,
-            body: self.program.defs.alloc_items(checked_methods),
+            body: checked_methods,
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             location: impl_node.location,
         };
@@ -2214,13 +2294,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let node = CheckedConstNode {
             name: None,
             ty: U32_TYPE,
-            value: ctx.symbols.add_constant(CheckedValueRef::from_u32(value)),
-            scope_id: ctx.symbols.current_scope_id().unwrap(),
+            value: ctx
+                .symbols
+                .get_or_add_constant(CheckedValueRef::from_u32(value)),
+            scope_id: ScopeId::primitive(),
             visibility: Visibility::Public,
         };
 
-        ctx.symbols
-            .get_or_add_type(None, TypeKey::from(node.value), Type::Const(node))
+        ctx.symbols.get_or_add_type(
+            Some(ScopeId::primitive()),
+            TypeKey::from(node.value),
+            Type::Const(node),
+        )
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -2487,7 +2572,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         &mut self,
         function_id: DefId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<CheckedFunctionNode> {
+    ) -> Result<DefId> {
         ctx.push_node_id(NodeId::from(function_id));
         ctx.symbols.start_scope(ScopeKind::TraitMethod);
         self.infcx.enter_scope();
@@ -2504,25 +2589,31 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
         let ty = Type::Function(checked_function.clone());
-        let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
-        checked_function.type_id = type_id;
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
+        ctx.symbols.add_type(None, checked_function.name, ty)?;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
         ctx.pop_node_id();
-        Ok(checked_function)
+
+        let def_id = self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Function(checked_function));
+        self.register_function(def_id, ctx)?;
+
+        Ok(def_id)
     }
 
     #[instrument(level = "debug", skip_all)]
     fn typecheck_trait_impl_method(
         &mut self,
-        trait_type_id: TypeId,
-        implementor_type_id: TypeId,
+        _trait_type_id: TypeId,
+        _implementor_type_id: TypeId,
         function_id: DefId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<CheckedFunctionNode> {
+    ) -> Result<DefId> {
         ctx.push_node_id(NodeId::from(function_id));
         ctx.symbols.start_scope(ScopeKind::ImplMethod);
         self.infcx.enter_scope();
@@ -2539,24 +2630,30 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
         let ty = Type::Function(checked_function.clone());
-        let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
-        checked_function.type_id = type_id;
+        ctx.symbols.add_type(None, checked_function.name, ty)?;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
         ctx.pop_node_id();
-        Ok(checked_function)
+
+        let def_id = self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Function(checked_function));
+        self.register_function(def_id, ctx)?;
+
+        Ok(def_id)
     }
 
     #[instrument(level = "debug", skip_all)]
     fn typecheck_impl_method(
         &mut self,
-        implementor_type_id: TypeId,
+        _implementor_type_id: TypeId,
         function_id: DefId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<CheckedFunctionNode> {
+    ) -> Result<DefId> {
         ctx.push_node_id(NodeId::from(function_id));
         ctx.symbols.start_scope(ScopeKind::ImplMethod);
         self.infcx.enter_scope();
@@ -2573,15 +2670,21 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
         let ty = Type::Function(checked_function.clone());
-        let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
-        checked_function.type_id = type_id;
+        ctx.symbols.add_type(None, checked_function.name, ty)?;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
         ctx.pop_node_id();
-        Ok(checked_function)
+
+        let def_id = self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Function(checked_function));
+        self.register_function(def_id, ctx)?;
+
+        Ok(def_id)
     }
 
     #[instrument(level = "debug", skip_all)]

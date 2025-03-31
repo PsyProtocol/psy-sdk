@@ -4,8 +4,8 @@ use clap::Subcommand;
 
 pub mod compiler;
 pub mod interpreter;
-pub mod test;
 pub mod lsp;
+pub mod test;
 
 #[derive(Parser)]
 pub struct Cli {

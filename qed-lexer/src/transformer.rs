@@ -1,4 +1,4 @@
-use crate::{Error, Spanned, Token};
+use crate::{Spanned, Token};
 
 pub struct GenericTokenTransformer<'input, I>
 where

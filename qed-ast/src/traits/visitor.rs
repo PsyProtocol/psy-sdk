@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use indexmap::IndexMap;
+
 use crate::*;
 
 pub trait AstVisitor<F: Clone + From<u32>, C> {

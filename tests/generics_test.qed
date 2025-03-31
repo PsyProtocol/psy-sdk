@@ -4,28 +4,29 @@ impl<T, N: u32> [T; N] {
     }
 }
 
-pub trait Hello {
-    pub fn hello(self);
-}
-
-impl Hello for Felt {
-    pub fn hello(self) {
+pub trait Two {
+    pub fn two() -> Felt {
+        2
     }
 }
 
-struct Box<T: Hello> {
-    pub data: T
+impl Two for Felt {
+}
+
+struct Box<T: Two> {
+    pub data: T,
+    pub extra: Felt,
 }
 
 
-impl<T: Hello> Box<T> {
+impl<T: Two> Box<T> {
     pub fn new(data: T) -> Box<T> {
-        return new Box { data };
+        return new Box { data, extra: T::two() };
     }
 }
 
 fn main() -> Felt {
     let mut b: Box<Felt> = <Box<Felt>>::new(42);
     b.data += 1;
-    b.data + (<[Felt; 3]>::len() as Felt)
+    b.data + (<[Felt; 3]>::len() as Felt) + b.extra
 }

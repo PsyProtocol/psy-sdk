@@ -8,7 +8,7 @@ use qedlang_core::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
 pub fn run(args: LspArgs) -> anyhow::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let entry = PathBuf::from(args.file);
-    let (_typechecker, ctx) = interpreter.typecheck(entry.clone())?;
+    let (_typechecker, ctx) = interpreter.typecheck(entry.clone(), vec![])?;
 
     let file_id = ctx.program.file_resolver.resolve_id(&entry).unwrap();
     let position = Position {

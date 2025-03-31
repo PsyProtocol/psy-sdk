@@ -1,0 +1,21 @@
+pub trait Default {
+    pub fn default() -> Self;
+}
+
+impl Default for Felt {
+    pub fn default() -> Self {
+        return 0;
+    }
+}
+
+impl Default for bool {
+    pub fn default() -> Self {
+        return false;
+    }
+}
+
+impl Default for u32 {
+    pub fn default() -> Self {
+        return 0u32;
+    }
+}

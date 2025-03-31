@@ -2,21 +2,30 @@ use qed_interpreter::Interpreter;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use tower_lsp::{
     jsonrpc::Result,
-    lsp_types::{Hover, HoverContents, MarkupContent, MarkupKind, Position, TextDocumentIdentifier, TextDocumentPositionParams, DidOpenTextDocumentParams, DidCloseTextDocumentParams, DidChangeTextDocumentParams},
-    Client, LanguageServer, LspService, Server
+    lsp_types::{
+        DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, Hover,
+        HoverContents, MarkupContent, MarkupKind, Position, TextDocumentIdentifier,
+        TextDocumentPositionParams,
+    },
+    Client, LanguageServer, LspService, Server,
 };
-use tokio::sync::RwLock;
-use std::sync::Arc;
 
 use dashmap::DashMap;
 use log::__private_api::Value;
-use tower_lsp::lsp_types::{CompletionParams, CompletionResponse, DidChangeConfigurationParams, DidChangeWatchedFilesParams, DidChangeWorkspaceFoldersParams, DidSaveTextDocumentParams, ExecuteCommandParams, GotoDefinitionParams, GotoDefinitionResponse, HoverParams, InitializedParams, Location, MessageType, ReferenceParams, TextDocumentItem, Url};
 use log::debug;
 use lsp_types::{MarkedString, VersionedTextDocumentIdentifier, WorkspaceEdit};
 use qed_lsp_server::builtins::get_builtin_description;
 use qed_lsp_server::helpers::str_range;
+use tower_lsp::lsp_types::{
+    CompletionParams, CompletionResponse, DidChangeConfigurationParams,
+    DidChangeWatchedFilesParams, DidChangeWorkspaceFoldersParams, DidSaveTextDocumentParams,
+    ExecuteCommandParams, GotoDefinitionParams, GotoDefinitionResponse, HoverParams,
+    InitializedParams, Location, MessageType, ReferenceParams, TextDocumentItem, Url,
+};
 // use qed_lsp_server::store::{AnalysisCache, ProgramStore};
 
 use qedlang_core::dpn::{
@@ -28,8 +37,8 @@ use qedlang_core::dpn::{
 // }
 
 use lsp_types::{Diagnostic, DiagnosticSeverity, PublishDiagnosticsParams};
-use qedlang_core::dpn::ops::context_trait::DPNContext;
 use qed_sema::CheckedProgram;
+use qedlang_core::dpn::ops::context_trait::DPNContext;
 
 // pub struct Diagnostics {
 //     pub inner: HashMap<Url, PublishDiagnosticsParams>,
@@ -82,7 +91,7 @@ use qed_sema::CheckedProgram;
 //         let context = QExecContext::new();
 //         self.context_map.insert(uri.clone(), context.clone());
 
-//         // use  analysis.reload 
+//         // use  analysis.reload
 //         if let Err(err) = self.analysis.reload(&mut context.clone(), uri.clone(), &params.text_document.text) {
 //             self.client
 //                 .log_message(MessageType::ERROR, format!("Reload error: {err:?}"))
@@ -174,7 +183,6 @@ use qed_sema::CheckedProgram;
 //     }
 // }
 
-
 // #[tower_lsp::async_trait]
 // impl<F, C> LanguageServer for QedLsp<F, C>
 // where
@@ -194,7 +202,6 @@ use qed_sema::CheckedProgram;
 //         debug!("initialized!");
 //     }
 
-
 //     async fn shutdown(&self) -> Result<()> {
 //         Ok(())
 //     }
@@ -205,7 +212,6 @@ use qed_sema::CheckedProgram;
 //         // Safety: LSP ensures exclusive access to this function
 //         // todo!: remove unsafe
 //         unsafe { &mut *this }.did_open(params).await;
-
 
 //     }
 //     async fn did_change(&self, params: DidChangeTextDocumentParams) {

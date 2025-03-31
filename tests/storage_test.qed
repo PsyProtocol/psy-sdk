@@ -42,7 +42,8 @@ struct Contract {
     a: Felt, // 0
     pub b: Person, // 1
     c: Felt, // 4
-    d: Person // 7
+    d: Person, // 7
+    e: [Felt; 4]
 }
 
 // impl Storage for Contract {
@@ -81,15 +82,17 @@ impl Contract {
                 age: 0,
                 height: 0,
                 year_of_birth: 0
-            }
+            },
+            e: [1, 2, 3, 4]
         };
     }
 
-    pub fn set_abcd(a: Felt, b: Person, c: Felt, d: Person) {
+    pub fn set_abcde(a: Felt, b: Person, c: Felt, d: Person, e: [Felt; 4]) {
         Contract::set_a(a);
         Contract::set_b(b);
         Contract::set_c(c);
         Contract::set_d(d);
+        Contract::set_e(e);
     }
 
     // fn get_a(self: Self) -> Felt {
@@ -130,10 +133,12 @@ fn main() -> Felt {
         height: 170,
         year_of_birth: 1980
     });
+    Contract::set_e([4, 3, 2, 1]);
 
     let a: Felt = Contract::get_a();
     let b: Person = Contract::get_b();
     let c: Felt = Contract::get_c();
     let d: Person = Contract::get_d();
+    let e: [Felt; 4] = Contract::get_e();
     return a;
 }

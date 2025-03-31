@@ -7,7 +7,7 @@ use qed_ast::{
 use qed_common::Graph;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
-use crate::{LocationIndices, ReferenceId, SymbolTable, TypeId};
+use crate::{LocationIndices, ReferenceId, SymbolTable, Type, TypeId};
 
 use petgraph::graph::{DiGraph, NodeIndex as PetGraphIndex};
 
@@ -147,5 +147,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> VisitorContext<F, C>
     }
 }
 
-#[derive(Debug)]
-pub struct TyCtxt {}
+impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
+    pub fn size_of(&self, type_id: TypeId) -> usize {
+        match &self.symbols[type_id] {
+            Type::Felt => 1usize,
+            Type::Bool => 1usize,
+            Type::U32 => 1usize,
+            Type::Struct(s) => s
+                .fields
+                .iter()
+                .map(|(_, field)| self.size_of(field.ty))
+                .sum(),
+            _ => todo!(),
+        }
+    }
+}

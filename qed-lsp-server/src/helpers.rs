@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 
-
 use tower_lsp::lsp_types::{
     Diagnostic, DiagnosticSeverity, Location, Position, PublishDiagnosticsParams, Range,
     TextDocumentItem, Url,
 };
-
 
 use unicode_segmentation::UnicodeSegmentation;
 

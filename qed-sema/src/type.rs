@@ -309,8 +309,9 @@ impl Type {
             Type::Enum(CheckedEnumNode { name, .. }) => name.id,
             Type::Function(CheckedFunctionNode { name, .. }) => name.id,
             Type::Trait(CheckedTraitNode { name, .. }) => name.id,
-            Type::Const(CheckedConstNode { name, .. }) => name.unwrap().id,
+            // Type::Const(CheckedConstNode { name, .. }) => name.unwrap().id,
             Type::Array(_) => IdentId::TYPE_ARRAY,
+            Type::TypeVariable(CheckedGenericParameter { name, .. }) => name.clone(),
             _ => unreachable!(),
         }
     }

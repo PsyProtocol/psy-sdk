@@ -1,11 +1,11 @@
+use dashmap::DashMap;
+use qed_ast::{AstVisitor, Location, Program};
+use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use std::{
     collections::HashMap,
     path::PathBuf,
     sync::{Arc, RwLock},
 };
-use dashmap::DashMap;
-use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
-use qed_ast::{AstVisitor, Program, Location};
 
 // pub struct ProgramStore<F: Clone + From<u32>> {
 //     pub map: DashMap<PathBuf, Arc<Program<F>>>,
@@ -35,11 +35,12 @@ use qed_ast::{AstVisitor, Program, Location};
 //     }
 // }
 
-
-use tower_lsp::lsp_types::{Position, Range, Url};
-use qed_parser::Parser;
-use qed_sema::{CheckedExprNode, CheckedProgram, Evaluator, TypeChecker, TypeCheckerVisitorContext};
 use crate::core::SymbolInfo;
+use qed_parser::Parser;
+use qed_sema::{
+    CheckedExprNode, CheckedProgram, Evaluator, TypeChecker, TypeCheckerVisitorContext,
+};
+use tower_lsp::lsp_types::{Position, Range, Url};
 
 // pub struct AnalysisCache<F: Clone + From<u32> + ContextFelt, C: Clone + DPNContext<F> + Evaluator<F,C> +'static > {
 //     pub checked_programs: DashMap<Url, CheckedProgram<F>>,
@@ -118,7 +119,6 @@ use crate::core::SymbolInfo;
 //         })
 //     }
 // }
-
 
 /// Convert Span to LSP Range (requires original file content)
 pub fn span_to_range(location: &Location, source: &str) -> Range {

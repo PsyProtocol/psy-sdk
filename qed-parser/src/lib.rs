@@ -1,22 +1,21 @@
 pub mod error;
 
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
-use error::CustomError;
+use error::UserError;
+use indexmap::IndexMap;
 use lalrpop_util::lalrpop_mod;
 
 pub use error::{Error, Result};
 use qed_ast::*;
+use qed_common::FileId;
 use qed_lexer::{Error as LexicalError, *};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qedlang_core::dpn::ops::exec_context::QExecContext;
 
 use qed_ast::Program;
 
-pub type LalrpopError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, CustomError<'input>>;
+pub type LalrpopError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, UserError>;
 
 lalrpop_mod!(pub qed);
 
@@ -55,8 +54,8 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                 false,
                 Location::default(),
             )];
-        let mut visited = HashMap::new();
-        let mut inline_modules: HashMap<PathBuf, ModuleNode> = HashMap::new();
+        let mut visited = IndexMap::new();
+        let mut inline_modules: IndexMap<PathBuf, ModuleNode> = IndexMap::new();
 
         while let Some((
             is_inline,
@@ -89,6 +88,19 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                 let is_self_std = module_name == IdentId::STD;
                 let is_std = is_parent_std || is_self_std;
 
+                let module_id = self
+                    .program
+                    .modules
+                    .iter()
+                    .find(|module| module.data().name == module_name)
+                    .map(|module| module.id());
+                if module_id
+                    .map(|module_id| self.program.modules.add_child(parent_module_id, module_id))
+                    .is_some()
+                {
+                    continue;
+                }
+
                 let lexer = Lexer::new(file_content);
                 let transformer = GenericTokenTransformer::new(lexer);
                 let tokens: Vec<_> = transformer.collect::<qed_lexer::Result<Vec<_>>>()?;
@@ -111,8 +123,43 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                 ) {
                     Ok(module) => module,
                     Err(e) => {
-                        print_parse_error(file_content, &e);
-                        panic!("Parsing failed:");
+                        return Err(match e {
+                            lalrpop_util::ParseError::InvalidToken { location } => {
+                                Error::InvalidToken {
+                                    location: Location::new(file_id, location, location + 1),
+                                }
+                            }
+                            lalrpop_util::ParseError::UnrecognizedEof { location, expected } => {
+                                Error::UnrecognizedEof {
+                                    location: Location::new(file_id, location, location + 1),
+                                    expected,
+                                }
+                            }
+                            lalrpop_util::ParseError::UnrecognizedToken {
+                                token: (start, token, end),
+                                expected,
+                            } => Error::UnrecognizedToken {
+                                token: token.to_string(),
+                                expected: expected,
+                                location: Location::new(file_id, start, end),
+                            },
+                            lalrpop_util::ParseError::ExtraToken {
+                                token: (start, token, end),
+                            } => Error::ExtraToken {
+                                token: token.to_string(),
+                                location: Location::new(file_id, start, end),
+                            },
+                            lalrpop_util::ParseError::User { error } => match error {
+                                UserError::LexicalError(error) => Error::LexicalError(error),
+                                UserError::CommonError(error) => Error::CommonError(error),
+                                UserError::IoError(error) => Error::IoError(error),
+                                UserError::FileUnresolved => Error::FileUnresolved,
+                                UserError::InvalidModuleName => Error::InvalidModuleName,
+                                UserError::ExternFnNotInStd => Error::ExternFnNotInStd,
+                                UserError::FunctionBodyMissing => Error::FunctionBodyMissing,
+                                UserError::InvalidSelfParameter => Error::InvalidSelfParameter,
+                            },
+                        })
                     }
                 };
                 module
@@ -165,7 +212,19 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
     }
 
     fn resolve_module_name(interner: &mut Interner, file_path: &Path) -> IdentId {
-        interner.intern_ident(file_path.file_stem().and_then(|s| s.to_str()).unwrap())
+        let file_name_without_extension = file_path.file_stem().and_then(|s| s.to_str()).unwrap();
+        let module_name = match file_name_without_extension {
+            "lib" | "main" => {
+                // Get the parent directory name
+                file_path
+                    .parent()
+                    .and_then(|p| p.file_stem())
+                    .and_then(|s| s.to_str())
+                    .unwrap()
+            }
+            s => s,
+        };
+        interner.intern_ident(module_name)
     }
 
     fn resolve_module_path(
@@ -188,82 +247,6 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
         ));
         Some(path)
     }
-}
-
-fn format_error_message(message: &str) -> String {
-    message.replace("\"", "")
-}
-
-fn print_parse_error<'input>(
-    file_content: &'input str,
-    error: &lalrpop_util::ParseError<Loc, Token<'input>, LexicalError>,
-) {
-    match error {
-        lalrpop_util::ParseError::InvalidToken { location } => {
-            eprintln!(
-                "Error: Invalid token at position {}.\nContext:\n{}",
-                location,
-                extract_context(file_content, *location, 2)
-            );
-        }
-        lalrpop_util::ParseError::UnrecognizedToken { token, expected } => {
-            let formatted_expected = expected
-                .iter()
-                .map(|t| format_error_message(&t))
-                .collect::<Vec<_>>()
-                .join(", ");
-            eprintln!(
-                "Error: Unrecognized token '{:?}' at position {}. Expected one of: {:?}\nContext:\n{}",
-                token.1,
-                token.0,
-                formatted_expected,
-                extract_context(file_content, token.0, 2)
-            );
-        }
-        lalrpop_util::ParseError::ExtraToken { token } => {
-            eprintln!(
-                "Error: Extra token '{:?}' found at position {}.\nContext:\n{}",
-                token.1,
-                token.0,
-                extract_context(file_content, token.0, 2)
-            );
-        }
-        lalrpop_util::ParseError::User { error } => {
-            eprintln!(
-                "Error: Lexical error {:?}.\nContext:\n{}",
-                error,
-                extract_context(file_content, 0, 2)
-            );
-        }
-        _ => {
-            eprintln!(
-                "Error: Parsing failed.\nContext:\n{}",
-                extract_context(file_content, 0, 2)
-            );
-        }
-    }
-}
-
-fn extract_context(file_content: &str, position: usize, context_lines: usize) -> String {
-    let lines: Vec<_> = file_content.lines().collect();
-    let error_line = file_content[..position].lines().count();
-
-    let start_line: usize = error_line.saturating_sub(context_lines);
-    let end_line = (error_line + context_lines).min(lines.len());
-
-    lines[start_line..end_line]
-        .iter()
-        .enumerate()
-        .map(|(i, line)| {
-            let line_number = start_line + i + 1;
-            if line_number == error_line {
-                format!("{:>4}: {} <-- ERROR HERE", line_number, line)
-            } else {
-                format!("{:>4}: {}", line_number, line)
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 #[cfg(test)]

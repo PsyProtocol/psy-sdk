@@ -4,7 +4,7 @@ use qed_common::{Arena, FileResolver, Graph, Tree, TreeNode};
 
 use crate::{
     DefId, DefinitionNode, ExprId, ExprNode, FileLocation, Ident, IdentId, Interner, Location,
-    ModuleId, ModuleNode, StmtId, StmtNode, UseNode, Visibility,
+    ModuleId, ModuleNode, StmtId, StmtNode,
 };
 
 #[derive(Debug)]
