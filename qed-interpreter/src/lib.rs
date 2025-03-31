@@ -283,11 +283,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             .visit_program(&mut default_visitor_context)
             .unwrap();
 
-        let mut formatter = Formatter::new();
-        formatter
-            .visit_program(&mut default_visitor_context)
-            .unwrap();
-        println!("formatted:\n{}", formatter.get_output());
+        // let mut formatter = Formatter::new();
+        // formatter
+        //     .visit_program(&mut default_visitor_context)
+        //     .unwrap();
+        // println!("formatted:\n{}", formatter.get_output());
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
         typechecker
