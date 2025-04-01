@@ -1,4 +1,5 @@
 mod compile_cmd;
+mod execute_cmd;
 
 use crate::errors::{CliError, Result};
 use clap::{Args, Parser, Subcommand};
@@ -13,6 +14,7 @@ pub(crate) fn start_cli() -> Result<()> {
     let DargoCli { command, config } = DargoCli::parse();
     match command {
         DargoCommand::Compile(args) => with_workspace(args, config, compile_cmd::run),
+        DargoCommand::Execute(args) => with_workspace(args, config, execute_cmd::run),
     }?;
     Ok(())
 }
@@ -32,6 +34,7 @@ struct DargoCli {
 enum DargoCommand {
     #[command(alias = "build")]
     Compile(compile_cmd::CompileCommand),
+    Execute(execute_cmd::ExecuteCommand),
 }
 
 #[derive(Args, Clone, Debug)]
