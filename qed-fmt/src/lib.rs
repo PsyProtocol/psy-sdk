@@ -386,6 +386,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &WhileNode {
             predicate,
             body,
+            comments: ref comments,
             location: ref _location,
         } = ctx.statement(stmt_id).as_while().unwrap();
         let s = format!("while {} ", self.visit_expr(predicate, ctx)?);
@@ -403,6 +404,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             target,
             operator,
             value,
+            comments: ref _comments,
             location: ref _location,
         } = ctx.statement(stmt_id).as_assignment().unwrap();
         let s = format!(
@@ -451,6 +453,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     ) -> Result<Self::StmtResult, Self::Error> {
         let ReturnNode {
             expr_id,
+            comments,
             location: ref _location,
         } = ctx.statement(stmt_id).as_return().unwrap();
         let s = format!(
@@ -473,6 +476,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             ty,
             body,
+            comments,
             location: _location,
         } = ctx.definition(def_id).as_impl().unwrap();
         let generic_parameters = generic_parameters
@@ -510,6 +514,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             return_type,
             qualifier,
             visibility,
+            comments,
             attrs,
             location: _location,
         } = ctx.definition(def_id).as_function().unwrap();
@@ -576,6 +581,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             attrs,
             visibility,
+            comments,
             location: _location,
         } = ctx.definition(def_id).as_struct().unwrap();
         for attr in attrs {
@@ -629,6 +635,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             variants,
             visibility,
+            comments,
             location: _location,
         } = ctx.definition(def_id).as_enum().unwrap();
         self.write_line(&format!(
@@ -688,6 +695,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             generic_parameters,
             body,
             visibility,
+            comments,
             location: _location,
         } = ctx.definition(def_id).as_trait().unwrap();
         self.write_line(&format!(
@@ -842,6 +850,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             IntrinsicStmtNode::Assert {
                 left,
                 message,
+                comments,
                 location: _location,
             } => {
                 let expr = self.visit_expr(left, ctx)?;
@@ -851,6 +860,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 left,
                 right,
                 message,
+                comments,
                 location: _location,
             } => {
                 let left = self.visit_expr(left, ctx)?;
@@ -953,6 +963,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             start,
             end,
             body,
+            comments: ref _comments,
             location: ref _location,
         } = ctx.statement(node).as_for().unwrap();
         let s = format!(
@@ -1046,6 +1057,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             trait_ty,
             ty,
             body,
+            comments,
             location: _location,
         } = ctx.definition(def_id).as_trait_impl().unwrap();
         let generic_parameters = generic_parameters
@@ -1079,6 +1091,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let BlockExprNode {
             stmts,
             expr: return_expr,
+            expr_comments: _expr_comments,
             location: _location,
         } = ctx.expression(node).as_block_expr().unwrap().clone();
 

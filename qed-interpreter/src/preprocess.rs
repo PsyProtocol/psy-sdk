@@ -38,6 +38,7 @@ impl<'a> StorageProcessor<'a> {
             trait_ty: UncheckedType::Basic(Identifier::new(ctx.intern("Storage"), attr.location)),
             ty: UncheckedType::Basic(struct_node.name),
             body: methods,
+            comments: vec![],
             location: attr.location,
         }
     }
@@ -74,6 +75,7 @@ impl<'a> StorageProcessor<'a> {
             generic_parameters: vec![],
             ty: UncheckedType::Basic(struct_node.name),
             body: methods,
+            comments: vec![],
             location: attr.location,
         }
     }
@@ -102,6 +104,7 @@ impl<'a> StorageProcessor<'a> {
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: Vec::new(),
             expr: Some(sum),
+            expr_comments: vec![],
             location: attr.location,
         }));
 
@@ -121,6 +124,7 @@ impl<'a> StorageProcessor<'a> {
             },
             visibility: Visibility::Public,
             attrs: vec![],
+            comments: vec![],
             location: attr.location,
         };
 
@@ -168,6 +172,7 @@ impl<'a> StorageProcessor<'a> {
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: Vec::new(),
             expr: Some(value_node),
+            expr_comments: vec![],
             location: attr.location,
         }));
         let f = FunctionNode {
@@ -191,6 +196,7 @@ impl<'a> StorageProcessor<'a> {
             },
             visibility: Visibility::Public,
             attrs: vec![],
+            comments: vec![],
             location: attr.location,
         };
 
@@ -231,6 +237,7 @@ impl<'a> StorageProcessor<'a> {
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: field_writes,
             expr: None,
+            expr_comments: vec![],
             location: attr.location,
         }));
 
@@ -260,6 +267,7 @@ impl<'a> StorageProcessor<'a> {
             },
             visibility: Visibility::Public,
             attrs: vec![],
+            comments: vec![],
             location: attr.location,
         };
 
@@ -300,6 +308,7 @@ impl<'a> StorageProcessor<'a> {
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: Vec::new(),
             expr: Some(read_expr),
+            expr_comments: vec![],
             location: attr.location,
         }));
 
@@ -316,6 +325,7 @@ impl<'a> StorageProcessor<'a> {
             },
             visibility: Visibility::Public,
             attrs: vec![],
+            comments: vec![],
             location: attr.location,
         };
 
@@ -367,6 +377,7 @@ impl<'a> StorageProcessor<'a> {
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
             stmts: vec![write_stmt],
             expr: None,
+            expr_comments: vec![],
             location: attr.location,
         }));
 
@@ -388,6 +399,7 @@ impl<'a> StorageProcessor<'a> {
             },
             visibility: Visibility::Public,
             attrs: vec![],
+            comments: vec![],
             location: attr.location,
         };
 

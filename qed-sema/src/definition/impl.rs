@@ -1,4 +1,4 @@
-use qed_ast::{DefId, Location, NodeInfo, NodeType};
+use qed_ast::{Comment, DefId, Location, NodeInfo, NodeType};
 
 use crate::{ScopeId, TypeId};
 
@@ -8,6 +8,7 @@ pub struct CheckedImplNode {
     pub ty: TypeId,
     pub body: Vec<DefId>,
     pub scope_id: ScopeId,
+    pub comments: Vec<Comment>,
     pub location: Location,
 }
 
@@ -18,6 +19,7 @@ pub struct CheckedTraitImplNode {
     pub ty: TypeId,
     pub body: Vec<DefId>,
     pub scope_id: ScopeId,
+    pub comments: Vec<Comment>,
     pub location: Location,
 }
 

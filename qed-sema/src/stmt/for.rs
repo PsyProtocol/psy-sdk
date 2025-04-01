@@ -1,4 +1,4 @@
-use qed_ast::Location;
+use qed_ast::{Comment, Location};
 
 use crate::{ExprId, Identifier, NodeInfo, NodeType, ScopeId};
 
@@ -9,6 +9,7 @@ pub struct CheckedForNode {
     pub end: ExprId,
     pub body: ExprId,
     pub scope_id: ScopeId,
+    pub comments: Vec<Comment>,
     pub location: Location,
 }
 
