@@ -1875,6 +1875,8 @@ dependencies = [
  "qed-dargo-toml",
  "qed-interpreter",
  "qedlang_core",
+ "serde",
+ "serde_json",
  "thiserror 2.0.12",
  "tracing-appender",
  "tracing-subscriber",

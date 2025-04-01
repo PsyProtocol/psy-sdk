@@ -1,13 +1,13 @@
 mod compile_cmd;
 
-use crate::errors::Result;
+use crate::errors::{CliError, Result};
 use clap::{Args, Parser, Subcommand};
 use qed_dargo::package::Dependency;
 use qed_dargo::workspace::Workspace;
 use qed_dargo_toml::files::{find_file_manifest_root, get_package_manifest};
 use qed_dargo_toml::resolve_workspace_from_toml;
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub(crate) fn start_cli() -> Result<()> {
     let DargoCli { command, config } = DargoCli::parse();
@@ -109,4 +109,19 @@ fn resolve_entries(workspace: &Workspace) -> EntryManager {
         }
     }
     entry_manager
+}
+
+pub(crate) fn save_build_artifact_to_file<T: ?Sized + serde::Serialize>(
+    build_artifact: &T,
+    artifact_name: &str,
+    output_dir: &Path,
+) -> std::result::Result<PathBuf, CliError> {
+    let artifact_path = output_dir.join(artifact_name).with_extension("json");
+    let bytes = serde_json::to_vec(build_artifact)?;
+    // Create the parent directory if needed and write the bytes to a file.
+    if let Some(dir) = artifact_path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    std::fs::write(&artifact_path, bytes)?;
+    Ok(artifact_path)
 }

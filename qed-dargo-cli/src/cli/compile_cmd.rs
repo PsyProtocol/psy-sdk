@@ -1,3 +1,4 @@
+use crate::cli::save_build_artifact_to_file;
 use crate::errors::Result;
 use clap::Args;
 use qed_dargo::workspace::Workspace;
@@ -6,6 +7,7 @@ use qedlang_core::dpn::{
     ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::compile::QEDCompileResult,
 };
+
 /// Compile the program and its secret execution trace
 #[derive(Debug, Clone, Args)]
 pub(crate) struct CompileCommand {
@@ -44,6 +46,11 @@ pub(super) fn compile_workspace_full(
                 &outputs,
             )
         },
+    )?;
+    save_build_artifact_to_file(
+        &compile_results,
+        &workspace.package.name.to_string(),
+        &workspace.target_dir,
     )?;
     println!("compile_result: {:?}", compile_results);
     Ok(())
