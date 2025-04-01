@@ -386,9 +386,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let &WhileNode {
             predicate,
             body,
-            comments: ref comments,
+            ref comments,
             location: ref _location,
         } = ctx.statement(stmt_id).as_while().unwrap();
+        comments
+            .iter()
+            .for_each(|comment| self.write_line(comment.content()));
         let s = format!("while {} ", self.visit_expr(predicate, ctx)?);
         let block = self.visit_block_expr(body, ctx)?;
         self.write_line(&format!("{}{}", s, block));
@@ -404,11 +407,16 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             target,
             operator,
             value,
-            comments: ref _comments,
+            ref comments,
             location: ref _location,
         } = ctx.statement(stmt_id).as_assignment().unwrap();
+        let comments_content = comments
+            .iter()
+            .map(|comment| format!("{}\n", comment.content()))
+            .collect::<String>();
         let s = format!(
-            "{} {} {};",
+            "{}{} {} {};",
+            comments_content,
             self.visit_expr(target, ctx)?,
             operator,
             self.visit_expr(value, ctx)?
@@ -421,8 +429,17 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
+        let comments_content = ctx
+            .statement(stmt_id)
+            .as_variable()
+            .unwrap()
+            .comments
+            .iter()
+            .map(|comment| format!("{}\n", comment.content()))
+            .collect::<String>();
         let s = format!(
-            "let{} {}: {} = {};",
+            "{}let{} {}: {} = {};",
+            comments_content,
             if ctx
                 .statement(stmt_id)
                 .as_variable()
@@ -456,8 +473,14 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: ref _location,
         } = ctx.statement(stmt_id).as_return().unwrap();
+        let comments_content = comments
+            .iter()
+            .map(|comment| format!("{}\n", comment.content()))
+            .collect::<String>();
+
         let s = format!(
-            "return{};",
+            "{}return{};",
+            comments_content,
             if let Some(ret) = expr_id {
                 format!(" {}", self.visit_expr(ret.clone(), ctx)?)
             } else {
@@ -479,6 +502,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: _location,
         } = ctx.definition(def_id).as_impl().unwrap();
+        comments
+            .iter()
+            .for_each(|comment| self.write_line(comment.content()));
         let generic_parameters = generic_parameters
             .iter()
             .map(|generic_parameter| ctx.ident(generic_parameter.name).to_string())
@@ -518,6 +544,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             attrs,
             location: _location,
         } = ctx.definition(def_id).as_function().unwrap();
+        comments
+            .iter()
+            .for_each(|comment| self.write_line(comment.content()));
         for attr in attrs {
             if !attr.properties.is_empty() {
                 self.write_line(&format!(
@@ -584,6 +613,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: _location,
         } = ctx.definition(def_id).as_struct().unwrap();
+        comments
+            .iter()
+            .for_each(|comment| self.write_line(comment.content()));
         for attr in attrs {
             if !attr.properties.is_empty() {
                 self.write_line(&format!(
@@ -638,6 +670,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: _location,
         } = ctx.definition(def_id).as_enum().unwrap();
+        comments
+            .iter()
+            .for_each(|comment| self.write_line(comment.content()));
         self.write_line(&format!(
             "{}enum {}{} {{",
             if visibility.is_public() { "pub " } else { "" },
@@ -698,6 +733,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: _location,
         } = ctx.definition(def_id).as_trait().unwrap();
+        comments
+            .iter()
+            .for_each(|comment| self.write_line(comment.content()));
         self.write_line(&format!(
             "{}trait {}{} {{",
             if visibility.is_public() { "pub " } else { "" },
@@ -854,7 +892,16 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 location: _location,
             } => {
                 let expr = self.visit_expr(left, ctx)?;
-                format!("assert({}, \"{}\")", expr, message.unwrap_or_default())
+                let comments_content = comments
+                    .iter()
+                    .map(|comment| format!("{}\n", comment.content()))
+                    .collect::<String>();
+                format!(
+                    "{}assert({}, \"{}\")",
+                    comments_content,
+                    expr,
+                    message.unwrap_or_default()
+                )
             }
             IntrinsicStmtNode::AssertEq {
                 left,
@@ -865,8 +912,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             } => {
                 let left = self.visit_expr(left, ctx)?;
                 let right = self.visit_expr(right, ctx)?;
+                let comments_content = comments
+                    .iter()
+                    .map(|comment| format!("{}\n", comment.content()))
+                    .collect::<String>();
                 format!(
-                    "assert_eq({}, {}, \"{}\")",
+                    "{}assert_eq({}, {}, \"{}\")",
+                    comments_content,
                     left,
                     right,
                     message.unwrap_or_default()
@@ -883,6 +935,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx.push_node_id(NodeId::from(module_id));
 
         let module = ctx.module(module_id).clone();
+
+        module
+            .comments
+            .iter()
+            .for_each(|comment| self.write_line(comment.content()));
 
         let visibility_string = match module.visibility {
             Visibility::Public => "pub ",
@@ -924,6 +981,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         let node = ctx.definition(node).as_type_alias().cloned().unwrap();
+        node.comments
+            .iter()
+            .for_each(|comment| self.write_line(comment.content()));
         self.write_line(&format!(
             "type {} = {};",
             ctx.ident(node.name),
@@ -939,6 +999,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     ) -> Result<Self::DefinitionResult, Self::Error> {
         let node = ctx.definition(node).as_const().cloned().unwrap();
         let value = self.visit_expr(node.value, ctx)?;
+
+        node.comments
+            .iter()
+            .for_each(|comment| self.write_line(comment.content()));
         self.write_line(&format!(
             "{}const {}:{} = {};",
             if node.visibility.is_public() {
@@ -963,9 +1027,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             start,
             end,
             body,
-            comments: ref _comments,
+            ref comments,
             location: ref _location,
         } = ctx.statement(node).as_for().unwrap();
+        comments
+            .iter()
+            .for_each(|comment| self.write_line(comment.content()));
+
         let s = format!(
             "for {} in {}..{} ",
             ctx.ident(variable).to_string(),
@@ -1066,6 +1134,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .collect::<Vec<_>>();
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
+        comments
+            .iter()
+            .for_each(|comment| self.write_line(comment.content()));
         let s = format!(
             "impl{} {}{} {{",
             generic_parameters,
@@ -1091,7 +1162,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let BlockExprNode {
             stmts,
             expr: return_expr,
-            expr_comments: _expr_comments,
+            expr_comments,
             location: _location,
         } = ctx.expression(node).as_block_expr().unwrap().clone();
 
@@ -1107,6 +1178,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 block_expr_result.push_str(&format!("{}{}\n", current_indent, stmt_result));
             }
         }
+
+        expr_comments.iter().for_each(|comment| {
+            block_expr_result.push_str(&format!("{}{}\n", current_indent, comment.content()))
+        });
         //add return expr
         match return_expr {
             Some(expr) => {
