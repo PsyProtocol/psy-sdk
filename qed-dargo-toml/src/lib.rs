@@ -20,6 +20,10 @@ struct PackageConfig {
     dependencies: BTreeMap<String, DependencyConfig>,
 }
 
+const STD_GIT_PATH: &str = "https://github.com/QEDProtocol/qed-lang";
+const STD_TAG: &str = "v0.0.1-rc";
+const STD_DIR: &str = "qed-std/std.qed";
+
 impl PackageConfig {
     fn resolve_to_package(
         &self,
@@ -37,7 +41,10 @@ impl PackageConfig {
                 toml: root_dir.join("Dargo.toml"),
             });
         };
-
+        let qed_path = clone_git_repo(STD_GIT_PATH, STD_TAG).map_err(ManifestError::GitError)?;
+        unsafe {
+            std::env::set_var("DARGO_STD_PATH", qed_path.join(STD_DIR).as_os_str());
+        }
         let mut dependencies: BTreeMap<CrateName, Dependency> = BTreeMap::new();
         for (name, dep_config) in self.dependencies.iter() {
             let name = name
@@ -199,9 +206,10 @@ pub fn resolve_workspace_from_toml(toml_path: &Path) -> Result<Workspace, Manife
     let workspace = match dargo_toml.config {
         Config::Package { package_config } => {
             let member = package_config.resolve_to_package(&dargo_toml.root_dir, &mut resolved)?;
+            let target_dir = dargo_toml.root_dir.join("target").normalize();
             Workspace {
                 root_dir: dargo_toml.root_dir,
-                target_dir: None,
+                target_dir,
                 package: member,
             }
         }
