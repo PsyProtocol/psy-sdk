@@ -1,4 +1,4 @@
-use crate::errors::CliError;
+use crate::errors::{CliError, Result};
 
 use super::{write_to_file, DargoConfig};
 use clap::Args;
@@ -25,7 +25,7 @@ pub(crate) struct InitCommand {
 const BIN_EXAMPLE: &str = include_str!("./template_files/binary.qed");
 const LIB_EXAMPLE: &str = include_str!("./template_files/library.qed");
 
-pub(crate) fn run(args: InitCommand, config: DargoConfig) -> Result<(), CliError> {
+pub(crate) fn run(args: InitCommand, config: DargoConfig) -> Result<()> {
     let package_name = match args.name {
         Some(name) => name,
         None => {

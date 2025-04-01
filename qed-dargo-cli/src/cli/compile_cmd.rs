@@ -43,7 +43,7 @@ pub(super) fn compile_workspace_full(
                 method_name,
                 method_id,
                 &context.store,
-                &context,
+                context,
                 &outputs,
             )
         },

@@ -1,10 +1,9 @@
-use crate::errors::CliError;
-
+use crate::cli::init_cmd::initialize_project;
 use crate::cli::DargoConfig;
+use crate::errors::{CliError, Result};
 use clap::Args;
 use qed_dargo::package::{CrateName, PackageType};
 use std::path::PathBuf;
-use crate::cli::init_cmd::initialize_project;
 
 #[allow(rustdoc::broken_intra_doc_links)]
 /// Create a project in a new directory.
@@ -30,7 +29,7 @@ pub(crate) struct NewCommand {
     pub(crate) contract: bool,
 }
 
-pub(crate) fn run(args: NewCommand, config: DargoConfig) -> Result<(), CliError> {
+pub(crate) fn run(args: NewCommand, config: DargoConfig) -> Result<()> {
     let package_dir = config.program_dir.join(&args.path);
 
     if package_dir.exists() {
