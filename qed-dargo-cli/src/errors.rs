@@ -1,4 +1,5 @@
 use qed_dargo_toml::errors::ManifestError;
+use std::path::PathBuf;
 use thiserror::Error;
 
 pub(crate) type Result<T> = std::result::Result<T, CliError>;
@@ -23,4 +24,7 @@ pub(crate) enum CliError {
 
     #[error("Invalid package name {0}. Did you mean to use `--name`?")]
     InvalidPackageName(String),
+
+    #[error("Error: destination {} already exists", .0.display())]
+    DestinationAlreadyExists(PathBuf),
 }

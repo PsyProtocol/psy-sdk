@@ -1,8 +1,9 @@
 mod compile_cmd;
 mod execute_cmd;
 mod init_cmd;
+mod new_cmd;
 
-use crate::errors::{CliError, Result};
+use crate::errors::Result;
 use clap::{Args, Parser, Subcommand};
 use qed_dargo::package::Dependency;
 use qed_dargo::workspace::Workspace;
@@ -14,9 +15,10 @@ use std::path::{Path, PathBuf};
 pub(crate) fn start_cli() -> Result<()> {
     let DargoCli { command, config } = DargoCli::parse();
     match command {
+        DargoCommand::New(args) => new_cmd::run(args, config),
+        DargoCommand::Init(args) => init_cmd::run(args, config),
         DargoCommand::Compile(args) => with_workspace(args, config, compile_cmd::run),
         DargoCommand::Execute(args) => with_workspace(args, config, execute_cmd::run),
-        DargoCommand::Init(args) => init_cmd::run(args, config),
     }?;
     Ok(())
 }
@@ -34,10 +36,11 @@ struct DargoCli {
 #[non_exhaustive]
 #[derive(Subcommand, Clone, Debug)]
 enum DargoCommand {
+    New(new_cmd::NewCommand),
+    Init(init_cmd::InitCommand),
     #[command(alias = "build")]
     Compile(compile_cmd::CompileCommand),
     Execute(execute_cmd::ExecuteCommand),
-    Init(init_cmd::InitCommand),
 }
 
 #[derive(Args, Clone, Debug)]
