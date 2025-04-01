@@ -6,7 +6,7 @@ use qed_lexer::{Token, Error as LexicalError};
 grammar<'input, F, C>(
     file_content: &'input str,
     file_id: FileId,
-    module_name: IdentId,
+    module_name: Identifier,
     expr_nodes: &mut Arena<ExprId, ExprNode<F>>,
     stmt_nodes: &mut Arena<StmtId, StmtNode>,
     def_nodes: &mut Arena<DefId, DefinitionNode>,
@@ -47,7 +47,7 @@ pub Module: ModuleNode = {
 
 InlineModule: ModuleNode = {
     <l:@L> <comments: Comment*> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> <back_comments:Comment*> "}" <r:@R> => ModuleNode::new(
-        name.id,
+        name,
         file_id,
         visibility,
         module_items,

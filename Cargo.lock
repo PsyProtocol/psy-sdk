@@ -2012,11 +2012,14 @@ dependencies = [
  "indexmap 2.8.0",
  "itertools 0.14.0",
  "once_cell",
+ "petgraph",
  "qed-ast",
  "qed-common",
+ "qed-fmt",
  "qed-parser",
  "qed-utils",
  "qedlang_core",
+ "rangemap",
  "regex",
  "smallvec",
  "strum",
@@ -2354,6 +2357,12 @@ checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom 0.2.15",
 ]
+
+[[package]]
+name = "rangemap"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f60fcc7d6849342eff22c4350c8b9a989ee8ceabc4b481253e8946b9fe83d684"
 
 [[package]]
 name = "rayon"

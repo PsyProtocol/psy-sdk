@@ -141,6 +141,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         let u = ctx.definition(def_id).as_use().cloned().unwrap();
+        if u.kind.id == IdentId::STD {
+            return Ok(Default::default());
+        }
         let mut path = vec![ctx.ident(u.kind).to_string()];
         let segments = u
             .segments
@@ -936,10 +939,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
         let module = ctx.module(module_id).clone();
 
-        module
-            .comments
-            .iter()
-            .for_each(|comment| self.write_line(comment.content()));
+        if module.is_self_std || module.is_self_primitive || module.is_self_prelude {
+            return Ok(());
+        }
 
         let visibility_string = match module.visibility {
             Visibility::Public => "pub ",

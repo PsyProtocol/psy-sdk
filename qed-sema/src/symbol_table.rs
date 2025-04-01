@@ -104,23 +104,25 @@ impl<T: Clone> Frame<T> {
 
 #[derive(Clone, Debug)]
 pub struct Module {
-    pub name: IdentId,
+    pub name: Identifier,
     pub id: ModuleId,
     pub scope_id: ScopeId,
     pub kind: ModuleKind,
     pub parent: Option<ModuleId>,
     pub children: Vec<ModuleId>,
     pub visibility: Visibility,
+    pub location: Location,
 }
 
 impl Module {
     pub fn new(
-        name: IdentId,
+        name: Identifier,
         id: ModuleId,
         scope_id: ScopeId,
         file_id: FileId,
         parent: Option<ModuleId>,
         visibility: Visibility,
+        location: Location,
     ) -> Self {
         Self {
             name,
@@ -130,6 +132,7 @@ impl Module {
             parent,
             children: vec![],
             visibility,
+            location,
         }
     }
 }
@@ -263,6 +266,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
                 parent: module.parent(),
                 children: module.children().to_vec(),
                 visibility: data.visibility,
+                location: data.location,
             });
             self.scopes.push(Scope {
                 kind: ScopeKind::Module,

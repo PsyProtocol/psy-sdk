@@ -72,7 +72,7 @@ impl<F: Clone + From<u32>> Program<F> {
         for module in self.modules.iter() {
             println!(
                 "module name: {:?}, module id: {:?}",
-                self.interner[module.data().name],
+                self.interner[module.data().name.into()],
                 module.id()
             );
         }
@@ -83,7 +83,7 @@ impl<F: Clone + From<u32>> Program<F> {
         for module in self.modules.iter() {
             println!(
                 "module name: {:?}, module id: {:?}",
-                self.interner[module.data().name],
+                self.interner[module.data().name.into()],
                 module.id()
             );
             for def_id in module.data().definitions.iter() {

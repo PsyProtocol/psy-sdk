@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use qed_ast::{
     DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, InsertPosition, ModuleId, ModuleNode,
     NodeId, NodeInfo, NodeType, Program, StmtId, StmtNode, VisitorContext,
@@ -5,12 +7,19 @@ use qed_ast::{
 use qed_common::Graph;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
-use crate::{SymbolTable, Type, TypeId};
+use crate::{LocationIndices, ReferenceId, SymbolTable, Type, TypeId};
+
+use petgraph::graph::{DiGraph, NodeIndex as PetGraphIndex};
 
 pub struct TypeCheckerVisitorContext<F: Clone + From<u32> + ContextFelt, C> {
     path_stack: Vec<NodeId>,
     pub program: Program<F>,
     pub symbols: SymbolTable<F>,
+
+    pub(crate) reference_graph: DiGraph<ReferenceId, ()>,
+    pub(crate) reference_graph_indices: HashMap<ReferenceId, PetGraphIndex>,
+    pub(crate) location_indices: LocationIndices,
+
     _marker: std::marker::PhantomData<(F, C)>,
 }
 
@@ -20,6 +29,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
             path_stack: vec![],
             program,
             symbols: SymbolTable::new(),
+            reference_graph: DiGraph::new(),
+            reference_graph_indices: HashMap::new(),
+            location_indices: LocationIndices::default(),
             _marker: std::marker::PhantomData,
         }
     }

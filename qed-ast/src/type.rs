@@ -22,4 +22,15 @@ impl UncheckedType {
             _ => unreachable!(),
         }
     }
+
+    pub fn location(&self) -> Location {
+        match self {
+            UncheckedType::Basic(ty) => ty.location,
+            UncheckedType::Generic(_, _, location) => *location,
+            UncheckedType::Array(_, _, location) => *location,
+            UncheckedType::Tuple(_unchecked_types, location) => *location,
+            UncheckedType::FunctionSignature(_function_signature, location) => *location,
+            UncheckedType::Unknown => Location::default(),
+        }
+    }
 }
