@@ -138,13 +138,22 @@ impl Debug for SymFeltRef {
                 write!(f, "Input({})", self.get_input_index())
             }
             DPNOpType::Constant => {
-                write!(f, "Constant({})", self.get_constant_value())
+                write!(f, "{}", self.get_constant_value())
+            }
+            DPNOpType::BoolInputTarget => {
+                write!(f, "BoolInput({})", self.get_input_index())
             }
             DPNOpType::ConstantTrue => {
-                write!(f, "Constant(true)")
+                write!(f, "true")
             }
             DPNOpType::ConstantFalse => {
-                write!(f, "Constant(false)")
+                write!(f, "false")
+            }
+            DPNOpType::U32InputTarget => {
+                write!(f, "{}",  self.get_input_index())
+            }
+            DPNOpType::ConstantU32 => {
+                write!(f, "{}u32", self.get_constant_value())
             }
             _ => {
                 write!(
