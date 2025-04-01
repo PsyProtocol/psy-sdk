@@ -10,12 +10,17 @@ pub(crate) enum CliError {
     /// Error from Manifest
     #[error(transparent)]
     ManifestError(#[from] ManifestError),
+
     /// Wrapper error for any other error type
     #[error(transparent)]
     AnyhowError(#[from] anyhow::Error),
+
     #[error(transparent)]
     IoError(#[from] std::io::Error),
-    /// Error related to deserialization
+
     #[error("Failed to deserialize artifact from JSON")]
     DeserializationError(#[from] serde_json::Error),
+
+    #[error("Invalid package name {0}. Did you mean to use `--name`?")]
+    InvalidPackageName(String),
 }

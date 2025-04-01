@@ -25,7 +25,7 @@ fn main() {
 fn setup_tracing() {
     let subscriber = tracing_subscriber::fmt()
         .with_span_events(FmtSpan::ENTER | FmtSpan::CLOSE)
-        .with_env_filter(EnvFilter::from_env("NOIR_LOG"));
+        .with_env_filter(EnvFilter::from_env("DARGO_LOG"));
 
     if let Ok(log_dir) = env::var("DARGO_LOG_DIR") {
         let debug_file = tracing_appender::rolling::daily(log_dir, "dargo-log");

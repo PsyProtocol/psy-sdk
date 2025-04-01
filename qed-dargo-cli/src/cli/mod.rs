@@ -1,5 +1,6 @@
 mod compile_cmd;
 mod execute_cmd;
+mod init_cmd;
 
 use crate::errors::{CliError, Result};
 use clap::{Args, Parser, Subcommand};
@@ -15,6 +16,7 @@ pub(crate) fn start_cli() -> Result<()> {
     match command {
         DargoCommand::Compile(args) => with_workspace(args, config, compile_cmd::run),
         DargoCommand::Execute(args) => with_workspace(args, config, execute_cmd::run),
+        DargoCommand::Init(args) => init_cmd::run(args, config),
     }?;
     Ok(())
 }
@@ -35,6 +37,7 @@ enum DargoCommand {
     #[command(alias = "build")]
     Compile(compile_cmd::CompileCommand),
     Execute(execute_cmd::ExecuteCommand),
+    Init(init_cmd::InitCommand),
 }
 
 #[derive(Args, Clone, Debug)]
@@ -118,13 +121,18 @@ pub(crate) fn save_build_artifact_to_file<T: ?Sized + serde::Serialize>(
     build_artifact: &T,
     artifact_name: &str,
     output_dir: &Path,
-) -> std::result::Result<PathBuf, CliError> {
+) -> Result<PathBuf> {
     let artifact_path = output_dir.join(artifact_name).with_extension("json");
     let bytes = serde_json::to_vec(build_artifact)?;
-    // Create the parent directory if needed and write the bytes to a file.
-    if let Some(dir) = artifact_path.parent() {
+    write_to_file(&bytes, &artifact_path)?;
+    Ok(artifact_path)
+}
+
+// Create the parent directory if needed and write the bytes to a file.
+pub fn write_to_file(bytes: &[u8], path: &Path) -> Result<()> {
+    if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    std::fs::write(&artifact_path, bytes)?;
-    Ok(artifact_path)
+    std::fs::write(path, bytes)?;
+    Ok(())
 }
