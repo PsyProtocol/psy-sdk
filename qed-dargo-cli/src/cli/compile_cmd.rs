@@ -8,6 +8,7 @@ use qedlang_core::dpn::{
     ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::compile::QEDCompileResult,
 };
+use std::path::PathBuf;
 
 /// Compile the program and its secret execution trace
 #[derive(Debug, Clone, Args)]
@@ -48,19 +49,26 @@ pub(super) fn compile_workspace_full(
             )
         },
     )?;
-    save_build_artifact_to_file(
-        &compile_results,
-        &workspace.package.name.to_string(),
-        &workspace.target_dir,
-    )?;
+    if compile_options.debug {
+        println!("workspace: {:?}", workspace);
+        println!("compile_result: {:?}", compile_results);
+    } else {
+        save_build_artifact_to_file(
+            &compile_results,
+            &workspace.package.name.to_string(),
+            &workspace.target_dir,
+        )?;
+    }
     Ok(compile_results)
 }
 
 /// Options for the compile command
 #[derive(Args, Clone, Debug, Default)]
 pub struct CompileOptions {
-    #[clap(short, env, long, default_value = None)]
+    #[clap(short, long, default_value = None)]
     contract_name: Option<String>,
-    #[clap(short, env, long, num_args = 1.., default_values = &["main"])]
+    #[clap(short, long, num_args = 1.., default_values = &["main"])]
     method_names: Vec<String>,
+    #[clap(long, hide = true, default_value = "false")]
+    debug: bool,
 }

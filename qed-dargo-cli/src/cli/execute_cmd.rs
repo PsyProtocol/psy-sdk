@@ -19,7 +19,7 @@ pub(crate) struct ExecuteCommand {
     #[clap(flatten)]
     compile_options: CompileOptions,
 
-    #[clap(short, env, long, value_parser = parse_vec_u64, num_args = 0..)]
+    #[clap(short, long, value_parser = parse_vec_u64, num_args = 0..)]
     parameters: Vec<Vec<u64>>,
 }
 
