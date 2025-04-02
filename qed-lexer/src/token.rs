@@ -245,6 +245,10 @@ impl fmt::Display for Token<'_> {
 #[test]
 fn test_lex_comment() {
     let mut lex = Token::lexer("// This is a line comment\nlet x = 5;");
+    assert_eq!(
+        lex.next(),
+        Some(Ok(Token::LineComment("// This is a line comment")))
+    );
     assert_eq!(lex.next(), Some(Ok(Token::KeywordLet)));
     assert_eq!(lex.next(), Some(Ok(Token::Ident("x"))));
     assert_eq!(lex.next(), Some(Ok(Token::Assign)));
@@ -253,6 +257,10 @@ fn test_lex_comment() {
     assert_eq!(lex.next(), None);
 
     let mut lex = Token::lexer("/* This is a\nblock comment */\nlet y = 10;");
+    assert_eq!(
+        lex.next(),
+        Some(Ok(Token::BlockComment("/* This is a\nblock comment */")))
+    );
     assert_eq!(lex.next(), Some(Ok(Token::KeywordLet)));
     assert_eq!(lex.next(), Some(Ok(Token::Ident("y"))));
     assert_eq!(lex.next(), Some(Ok(Token::Assign)));

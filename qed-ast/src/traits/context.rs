@@ -82,6 +82,7 @@ pub enum NodeType {
     TypeAliasDef,
     ConstDef,
     UseDef,
+    Comment,
 
     Module,
 }

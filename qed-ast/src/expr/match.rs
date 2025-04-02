@@ -1,6 +1,6 @@
 use enum_as_inner::EnumAsInner;
 
-use crate::{ExprId, Location, NodeInfo, NodeType};
+use crate::{Comment, ExprId, Location, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchNode {

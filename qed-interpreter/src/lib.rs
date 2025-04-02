@@ -445,6 +445,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 CheckedIntrinsicStmtNode::Assert {
                     left,
                     message,
+                    comments,
                     location: _location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
@@ -457,6 +458,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     left,
                     right,
                     message,
+                    comments,
                     location: _location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
@@ -1449,8 +1451,8 @@ mod tests {
 
     #[test]
     fn test_crates_resolve() {
-        let entry: PathBuf = "../tests/module_test/foo/main.qed".into();
-        let dependencies_entries = vec!["../tests/module_test/bar/lib.qed".into()];
+        let entry: PathBuf = "../tests/module_test/foo/src/main.qed".into();
+        let dependencies_entries = vec!["../tests/module_test/bar/src/lib.qed".into()];
         let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
         let (mut typechecker, mut ctx) = interpreter
             .typecheck(entry.clone(), dependencies_entries)

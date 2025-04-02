@@ -95,6 +95,13 @@ impl FileResolver {
             module_ids.get(file_id.0).map(|n| *n)
         }
     }
+
+    pub fn is_inline_module(&self, module_id: usize) -> bool {
+        unsafe {
+            let module_ids = &*self.module_ids.get();
+            !module_ids.contains(&module_id)
+        }
+    }
 }
 
 impl Default for FileResolver {

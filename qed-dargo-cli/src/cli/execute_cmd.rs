@@ -1,43 +1,38 @@
+use crate::cli::compile_cmd::{CompileOptions, compile_workspace_full};
+use clap::Args;
+use qed_dargo::workspace::Workspace;
+
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
-use qed_ast::ModuleId;
 use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::qblock::cmds::register_user::QBCRegisterUser;
 use qed_exec::vm::exec::QEDEvalSessionResult;
-use qed_interpreter::Interpreter;
 use qed_store::config::store_config::QEDHasher;
 use qed_utils::{
-    gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract,
-    InterpreterArgs, C, D,
-};
-use qedlang_core::dpn::{
-    ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
-    vm::compile::QEDCompileResult,
+    C, D, gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract,
 };
 
-pub fn run(mut args: InterpreterArgs) -> anyhow::Result<()> {
-    args.parameters.resize(args.method_names.len(), Vec::new());
-    let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let (mut typechecker, mut ctx) = interpreter.typecheck(args.file.into(), vec![])?;
-    println!("{}", ctx.format_module(ModuleId::root())?);
-    let compile_results = interpreter.interpret(
-        &mut typechecker,
-        &mut ctx,
-        args.contract_name,
-        args.method_names,
-        |context, (method_name, method_id, outputs)| {
-            QEDCompileResult::compile_exec(
-                method_name,
-                method_id,
-                &context.store,
-                &context,
-                &outputs,
-            )
-        },
-    )?;
+/// Executes a circuit to calculate its return value
+#[derive(Debug, Clone, Args)]
+#[clap(visible_alias = "e")]
+pub(crate) struct ExecuteCommand {
+    #[clap(flatten)]
+    compile_options: CompileOptions,
 
-    println!("compile_result: {:?}", compile_results);
+    #[clap(short, env, long, value_parser = parse_vec_u64, num_args = 0..)]
+    parameters: Vec<Vec<u64>>,
+}
+
+fn parse_vec_u64(s: &str) -> Result<Vec<u64>, String> {
+    s.split(',')
+        .map(|num| num.parse::<u64>().map_err(|e| e.to_string()))
+        .collect()
+}
+
+pub(crate) fn run(args: ExecuteCommand, workspace: Workspace) -> crate::errors::Result<()> {
+    // Compile the full workspace in order to generate any build artifacts.
+    let compile_results = compile_workspace_full(&workspace, &args.compile_options)?;
 
     let priv_key = QHashOut::rand();
     let wallet = SimpleQEDZKSignatureManager::<C, D>::new();

@@ -1,4 +1,4 @@
-use qed_ast::{DefId, Identifier, Location, NodeInfo, NodeType, Visibility};
+use qed_ast::{Comment, DefId, Identifier, Location, NodeInfo, NodeType, Visibility};
 
 use crate::{ScopeId, TypeId};
 
@@ -10,6 +10,7 @@ pub struct CheckedTraitNode {
     pub unchecked_body: Vec<DefId>,
     pub scope_id: ScopeId,
     pub visibility: Visibility,
+    pub comments: Vec<Comment>,
     pub location: Location,
 }
 

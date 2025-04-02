@@ -21,18 +21,18 @@ use super::{Loc, UserError, LalrpopError};
 use std::convert::TryFrom;
 
 ModuleItem: ModuleItemNode = {
-    Comment => ModuleItemNode::Comment(<>.to_string()),
     InlineModule => ModuleItemNode::InlineModule(<>),
     ModuleDecl => ModuleItemNode::ModuleDecl(<>),
     Definition => ModuleItemNode::Definition(def_nodes.alloc_item(<>)),
 }
 
-Comment: &'input str = {
-    <l:@L> <line:LineComment> <r:@R> => line,
-    <l:@L> <block:BlockComment> <r:@R> => block,
+Comment: Comment = {
+    <l:@L> <line:LineComment> <r:@R> => Comment::new_line(line.to_string(), Location::new(file_id, l, r)),
+    <l:@L> <block:BlockComment> <r:@R> => Comment::new_block(block.to_string(), Location::new(file_id, l, r)),
 }
+
 pub Module: ModuleNode = {
-    <l:@L> <module_items: ModuleItem*> <r:@R> => ModuleNode::new(
+    <l:@L> <module_items: ModuleItem*>  <r:@R> <back_comments:Comment*> => ModuleNode::new(
         module_name,
         file_id,
         _visibility_,
@@ -40,12 +40,13 @@ pub Module: ModuleNode = {
         is_std,
         is_self_std,
         def_nodes,
+        back_comments,
         Location::new(file_id, l, r),
     )
 }
 
 InlineModule: ModuleNode = {
-    <l:@L> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> "}" <r:@R> => ModuleNode::new(
+    <l:@L> <comments: Comment*> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> <back_comments:Comment*> "}" <r:@R> => ModuleNode::new(
         name,
         file_id,
         visibility,
@@ -53,6 +54,7 @@ InlineModule: ModuleNode = {
         is_std,
         is_self_std,
         def_nodes,
+        comments.into_iter().chain(back_comments.into_iter()).collect(),
         Location::new(file_id, l, r),
     )
 }
@@ -75,25 +77,27 @@ Statement: StmtNode = {
 }
 
 ExpressionStatement: StmtNode = {
-    <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr)),
+    <l:@L> <comments: Comment*> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr)),
 }
 
 IntrinsicStatement: StmtNode = {
-    <l:@L> <variable:ASSERT> "(" <left: Expression> "," <message: STRING?> ","? ")" ";" <r:@R> => {
+    <l:@L> <comments: Comment*> <variable:ASSERT> "(" <left: Expression> "," <message: STRING?> ","? ")" ";" <r:@R> => {
         StmtNode::Intrinsic(
             IntrinsicStmtNode::Assert {
                 left: expr_nodes.alloc_item(left),
                 message: message.map(|m| m.to_string()),
+                comments,
                 location: Location::new(file_id, l, r),
             }
         )
     },
-    <l:@L> <variable:ASSERT_EQ> "(" <left: Expression> "," <right: Expression> "," <message: STRING?> ","? ")" ";" <r:@R> => {
+    <l:@L> <comments: Comment*> <variable:ASSERT_EQ> "(" <left: Expression> "," <right: Expression> "," <message: STRING?> ","? ")" ";" <r:@R> => {
         StmtNode::Intrinsic(
             IntrinsicStmtNode::AssertEq {
                 left: expr_nodes.alloc_item(left),
                 right: expr_nodes.alloc_item(right),
                 message: message.map(|m| m.to_string()),
+                comments,
                 location: Location::new(file_id, l, r),
             }
         )
@@ -124,19 +128,20 @@ Definition: DefinitionNode = {
 }
 
 UseDef: UseNode = {
-    <l:@L> <visibility:Visibility> USE <path:UseNode> ";" <r:@R> => {
+    <l:@L> <comments: Comment*> <visibility:Visibility> USE <path:UseNode> ";" <r:@R> => {
         UseNode {
             visibility,
             kind: path.0,
             target: path.2,
             segments: path.1,
+            comments,
             location: Location::new(file_id, l, r),
         }
     }
 }
 
 ImplDef: ImplNode = {
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> =>? Ok({
+   <l:@L> <comments: Comment*> IMPL <generic_parameters_lhs:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> <back_comments: Comment*> "}" <r:@R> =>? Ok({
         ImplNode {
             generic_parameters: generic_parameters_lhs,
             ty,
@@ -162,13 +167,14 @@ ImplDef: ImplNode = {
                 }
                 def_nodes.alloc_items(body)
             },
+            comments: comments.into_iter().chain(back_comments.into_iter()).collect(),
             location: Location::new(file_id, l, r),
         }
    })
 }
 
 TraitImplDef: TraitImplNode = {
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> =>? Ok({
+   <l:@L> <comments: Comment*> IMPL <generic_parameters_lhs:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> <back_comments: Comment*> "}" <r:@R> =>? Ok({
         TraitImplNode {
             generic_parameters: generic_parameters_lhs,
             trait_ty: trait_ty,
@@ -195,65 +201,71 @@ TraitImplDef: TraitImplNode = {
                 }
                 def_nodes.alloc_items(body)
             },
+            comments: comments.into_iter().chain(back_comments.into_iter()).collect(),
             location: Location::new(file_id, l, r),
         }
    })
 }
 
 TraitDef: TraitNode = {
-   <l:@L> <visibility:Visibility> TRAIT <name:Identifier> <generic_parameters:GenericParameters> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> <comments: Comment*> <visibility:Visibility> TRAIT <name:Identifier> <generic_parameters:GenericParameters> "{" <body:FunctionDef*> <back_comments: Comment*> "}" <r:@R> => {
        TraitNode {
            generic_parameters,
            name,
            body: def_nodes.alloc_items(body),
            visibility,
+           comments: comments.into_iter().chain(back_comments.into_iter()).collect(),
            location: Location::new(file_id, l, r),
        }
    }
 }
 
 EnumDef: EnumNode = {
-    <l:@L> <visibility:Visibility> ENUM <name:Identifier> <generic_parameters:GenericParameters> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => EnumNode {
+    <l:@L> <comments: Comment*> <visibility:Visibility> ENUM <name:Identifier> <generic_parameters:GenericParameters> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => EnumNode {
         name,
         generic_parameters,
         variants,
         visibility,
+        comments,
         location: Location::new(file_id, l, r),
     }
 }
 
 TypeAliasDef: DefinitionNode = {
-    <l:@L> <visibility:Visibility> TYPE <name:Identifier> "=" <ty:Ty> ";" <r:@R> => DefinitionNode::TypeAlias(TypeAliasNode {
+    <l:@L> <comments: Comment*> <visibility:Visibility> TYPE <name:Identifier> "=" <ty:Ty> ";" <r:@R> => DefinitionNode::TypeAlias(TypeAliasNode {
         name,
         ty,
         visibility,
+        comments,
         location: Location::new(file_id, l, r),
     })
 }
 
 StructDef: StructNode = {
-    <l:@L> <attrs:Attribute*> <visibility: Visibility> STRUCT <name:Identifier> <generic_parameters:GenericParameters> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => StructNode {
+    <l:@L> <comments: Comment*> <attrs:Attribute*> <visibility: Visibility> STRUCT <name:Identifier> <generic_parameters:GenericParameters> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => StructNode {
         name,
         generic_parameters,
         fields: fields.into_iter().collect(),
         attrs,
         visibility,
+        comments,
         location: Location::new(file_id, l, r),
     }
 }
 
 ConstDef: DefinitionNode = {
-    <l:@L> <visibility:Visibility> CONST <name:Identifier> ":" <ty:ConstType> "=" <value:Expression> ";" <r:@R> => DefinitionNode::Const(ConstNode {
+    <l:@L> <comments: Comment*> <visibility:Visibility> CONST <name:Identifier> ":" <ty:ConstType> "=" <value:Expression> ";" <r:@R> => DefinitionNode::Const(ConstNode {
         name,
         ty,
         value: expr_nodes.alloc_item(value),
         visibility,
+        comments,
         location: Location::new(file_id, l, r),
     })
 }
 
 FunctionDef: DefinitionNode = {
-    <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_expr:BlockExpression> <r:@R> =>? Ok(DefinitionNode::Function(FunctionNode {
+    <l:@L> <comments: Comment*> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_expr:BlockExpression> <r:@R> =>? Ok(DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
@@ -267,9 +279,10 @@ FunctionDef: DefinitionNode = {
         },
         visibility,
         attrs,
+        comments,
         location: Location::new(file_id, l, r),
     })),
-    <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> =>? Ok(DefinitionNode::Function(FunctionNode {
+    <l:@L> <comments: Comment*> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> =>? Ok(DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
@@ -283,6 +296,7 @@ FunctionDef: DefinitionNode = {
         },
         visibility,
         attrs,
+        comments,
         location: Location::new(file_id, l, r),
     }))
 }
@@ -349,9 +363,9 @@ TypeAnnotation: (Identifier, UncheckedType) = {
 }
 
 FieldTypeAnnotation: (Identifier, StructField)  = {
-    <l:@L> <visibility:Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (
+    <l:@L> <comments: Comment*> <visibility:Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (
         name,
-        StructField { ty, visibility, location: Location::new(file_id, l, r) }
+        StructField { ty, visibility, comments, location: Location::new(file_id, l, r) }
     ),
 }
 
@@ -379,11 +393,12 @@ GenericConstraints: Vec<UncheckedType> = {
 }
 
 BlockExpression: ExprNode<F> = {
-    <l:@L> "{" <stmts:Statement*> <ret:Expression?> "}" <r:@R> => {
+    <l:@L> "{" <stmts:Statement*> <comments: Comment*> <ret:Expression?> "}" <r:@R> => {
         ExprNode::BlockExpr(
             BlockExprNode {
                 stmts: stmt_nodes.alloc_items(stmts),
                 expr: ret.map(|x| expr_nodes.alloc_item(x)),
+                expr_comments: comments,
                 location: Location::new(file_id, l, r),
             }
         )
@@ -391,9 +406,10 @@ BlockExpression: ExprNode<F> = {
 }
 
 WhileStatement: StmtNode = {
-    <l:@L> WHILE <predicate:Expression> <block_expr:BlockExpression> <r:@R>  => StmtNode::While(WhileNode {
+    <l:@L> <comments: Comment*> WHILE <predicate:Expression> <block_expr:BlockExpression> <r:@R>  => StmtNode::While(WhileNode {
         predicate: expr_nodes.alloc_item(predicate),
         body: expr_nodes.alloc_item(block_expr),
+        comments,
         location: Location::new(file_id, l, r),
     }),
 }
@@ -421,12 +437,13 @@ MatchPattern: MatchPattern = {
 }
 
 ForStatement: StmtNode = {
-    <l:@L> FOR <variable:Identifier> IN <start:Expression> ".." <end:Expression> <block_expr:BlockExpression> <r:@R> => StmtNode::For(
+    <l:@L> <comments: Comment*> FOR <variable:Identifier> IN <start:Expression> ".." <end:Expression> <block_expr:BlockExpression> <r:@R> => StmtNode::For(
         ForNode {
             variable,
             start: expr_nodes.alloc_item(start),
             end: expr_nodes.alloc_item(end),
             body: expr_nodes.alloc_item(block_expr),
+            comments,
             location: Location::new(file_id, l, r),
         }
     ),
@@ -464,8 +481,9 @@ ElseBranch: ExprId = {
 }
 
 ReturnStatement: StmtNode = {
-    <l:@L> RETURN <ret:Expression?> ";" <r:@R> => StmtNode::Return(ReturnNode{
+    <l:@L> <comments: Comment*> RETURN <ret:Expression?> ";" <r:@R> => StmtNode::Return(ReturnNode{
         expr_id: ret.map(|x| expr_nodes.alloc_item(x)),
+        comments,
         location: Location::new(file_id, l, r),
     })
 }
@@ -485,50 +503,51 @@ TupleExpression: ExprNode<F> = {
 }
 
 VariableStatement: StmtNode = {
-    <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
+    <l:@L> <comments: Comment*> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R> => StmtNode::Variable(
         VariableNode {
             name: decl.0,
             ty: decl.1,
             qualifier: type_qualifier,
             value: expr_nodes.alloc_item(value),
+            comments,
             location: Location::new(file_id, l, r),
         }
     ),
 }
 
 AssignmentStatement: StmtNode = {
-    <l:@L> <variable:Expression> "=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::Eq, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::Eq, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "+=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::AddAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "+=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::AddAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "-=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::SubAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*>  <variable:Expression> "-=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::SubAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "*=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::MulAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "*=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::MulAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "/=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::DivAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "/=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::DivAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "%=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::ModAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "%=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::ModAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "&=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitAndAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "&=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitAndAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "|=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitOrAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "|=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitOrAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "^=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitXorAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "^=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitXorAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "<<=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitShlAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "<<=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitShlAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> ">>=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitShrAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> ">>=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitShrAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     )
 }
 
@@ -1121,8 +1140,8 @@ extern {
 
         "<<=" => Token::OperatorBitShlAssign,
         ">>=" => Token::OperatorBitShrAssign,
+
         LineComment => Token::LineComment(<&'input str>),
         BlockComment => Token::BlockComment(<&'input str>),
-
     }
 }
