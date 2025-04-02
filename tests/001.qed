@@ -100,11 +100,11 @@ fn main() {
         children: [person, person]
     };
 
-    (person.set_age)(10);
+    person.set_age(10);
     person.set_height(20);
     person.set_year_of_birth(2000);
     let age: Felt = family.children[0].get_age();
     let age_via_trait: Felt = person.age();
-    let height: Felt = ((person.get_height)());
+    let height: Felt = (person.get_height());
     let year_of_birth: Felt = person.get_year_of_birth();
 }

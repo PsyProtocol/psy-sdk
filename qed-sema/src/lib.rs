@@ -1654,6 +1654,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             NodeType::TupleExpr => self.visit_tuple(expr_id, ctx)?,
             NodeType::TupleAccessExpr => self.visit_tuple_access(expr_id, ctx)?,
             NodeType::MatchExpr => self.visit_match(expr_id, ctx)?,
+            NodeType::ParenthesesExpr => self.visit_parentheses(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
         self.infcx.exit_scope();
@@ -2043,6 +2044,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             location: match_node.location,
         }))
+    }
+
+    fn visit_parentheses(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> StdResult<Self::ExprResult, Self::Error> {
+        let expr_id = ctx.expression(node).as_parentheses().unwrap().clone();
+        self.visit_expr(expr_id, ctx)
     }
 
     #[instrument(level = "debug", skip_all)]

@@ -69,18 +69,28 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
     ) -> String {
         match node {
             UncheckedType::Basic(name) => ctx.ident(name).to_string(),
-            UncheckedType::Generic(name, generic_parameters, _) => format!(
-                "{}{}",
-                &ctx.ident(name),
-                self.visit_generic_parameters(
-                    generic_parameters
-                        .into_iter()
-                        .map(|ty| self.visit_unchecked_type(ty, ctx))
-                        .collect::<Vec<_>>()
+            UncheckedType::Generic(name, generic_parameters, _) => {
+                if name == &IdentId::TYPE_ARRAY {
+                    assert!(generic_parameters.len() == 2);
+                    return format!(
+                        "[{}; {}]",
+                        self.visit_unchecked_type(&generic_parameters[0], ctx),
+                        self.visit_unchecked_type(&generic_parameters[1], ctx)
+                    );
+                }
+                format!(
+                    "{}{}",
+                    &ctx.ident(name),
+                    self.visit_generic_parameters(
+                        generic_parameters
+                            .into_iter()
+                            .map(|ty| self.visit_unchecked_type(ty, ctx))
+                            .collect::<Vec<_>>()
+                    )
                 )
-            ),
+            }
             UncheckedType::Array(ty, size, _) => {
-                format!("[{};{}]", self.visit_unchecked_type(ty, ctx), size)
+                format!("[{}; {}]", self.visit_unchecked_type(ty, ctx), size)
             }
             UncheckedType::Tuple(tys, _) => format!(
                 "({})",
@@ -110,11 +120,69 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         }
     }
 
+    fn visit_genic_unchecked_type(
+        &self,
+        node: &UncheckedType,
+        ctx: &impl VisitorContext<F, C>,
+    ) -> String {
+        match node {
+            UncheckedType::Basic(name) => ctx.ident(name).to_string(),
+            UncheckedType::Generic(name, generic_parameters, _) => {
+                if name == &IdentId::TYPE_ARRAY {
+                    assert!(generic_parameters.len() == 2);
+                    return format!(
+                        "<[{}; {}]>",
+                        self.visit_unchecked_type(&generic_parameters[0], ctx),
+                        self.visit_unchecked_type(&generic_parameters[1], ctx)
+                    );
+                }
+                format!(
+                    "<{}{}>",
+                    &ctx.ident(name),
+                    self.visit_generic_parameters(
+                        generic_parameters
+                            .into_iter()
+                            .map(|ty| self.visit_genic_unchecked_type(ty, ctx))
+                            .collect::<Vec<_>>()
+                    )
+                )
+            }
+            UncheckedType::Array(ty, size, _) => {
+                format!("<[{}; {}]>", self.visit_genic_unchecked_type(ty, ctx), size)
+            }
+            UncheckedType::Tuple(tys, _) => format!(
+                "({})",
+                tys.iter()
+                    .map(|ty| self.visit_genic_unchecked_type(ty, ctx))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            UncheckedType::Unknown => "unknown".to_string(),
+            UncheckedType::FunctionSignature(sig, _) => {
+                let parameters = sig
+                    .parameters
+                    .iter()
+                    .map(|p| format!("{}", self.visit_genic_unchecked_type(&p, ctx)))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!(
+                    "fn({}){}",
+                    parameters,
+                    if let Some(ref ret) = sig.return_type {
+                        format!(" -> {}", self.visit_genic_unchecked_type(&ret, ctx))
+                    } else {
+                        "".to_string()
+                    }
+                )
+            }
+        }
+    }
+
     fn visit_generic_parameters(&self, generic_parameters: Vec<String>) -> String {
         if generic_parameters.is_empty() {
             "".to_string()
         } else {
-            format!("#<{}>", generic_parameters.join(", "))
+            format!("<{}>", generic_parameters.join(", "))
         }
     }
 
@@ -210,7 +278,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let mut path = node
             .root
             .as_ref()
-            .map(|r| vec![self.visit_unchecked_type(r, ctx)])
+            .map(|r| vec![self.visit_genic_unchecked_type(r, ctx)])
             .unwrap_or_default();
         path.extend_from_slice(
             &node
@@ -410,7 +478,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         // TODO: remove clone
         let target_type = target_type.clone();
         Ok(format!(
-            "({} as {})",
+            "{} as {}",
             self.visit_expr(value, ctx)?,
             self.visit_unchecked_type(&target_type, ctx)
         ))
@@ -427,13 +495,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             ref comments,
             location: ref _location,
         } = ctx.statement(stmt_id).as_while().unwrap();
-        comments
+        let comments_content = comments
             .iter()
-            .for_each(|comment| self.write_line(comment.content()));
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+            .collect::<String>();
         let s = format!("while {} ", self.visit_expr(predicate, ctx)?);
         let block = self.visit_block_expr(body, ctx)?;
-        self.write_line(&format!("{}{}", s, block));
-        Ok(Default::default())
+        Ok(format!("{}{}{}", comments_content, s, block))
     }
 
     fn visit_assignment(
@@ -559,7 +627,19 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .collect::<String>();
         let generic_parameters = generic_parameters
             .iter()
-            .map(|generic_parameter| ctx.ident(generic_parameter.name).to_string())
+            .map(|p| {
+                if p.constraints.is_empty() {
+                    ctx.ident(p.name.clone()).to_string()
+                } else {
+                    let constraints_content = p
+                        .constraints
+                        .iter()
+                        .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
+                        .collect::<Vec<_>>()
+                        .join(" + ");
+                    format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
+                }
+            })
             .collect::<Vec<_>>();
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
         let struct_name = self.visit_unchecked_type(&ty, ctx);
@@ -636,12 +716,25 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .join(", ");
         let generic_parameters = generic_parameters
             .iter()
-            .map(|x| ctx.ident(x.name.clone()).to_string())
+            .map(|p| {
+                if p.constraints.is_empty() {
+                    ctx.ident(p.name.clone()).to_string()
+                } else {
+                    let constraints_content = p
+                        .constraints
+                        .iter()
+                        .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
+                        .collect::<Vec<_>>()
+                        .join(" + ");
+                    format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
+                }
+            })
             .collect::<Vec<_>>();
         let s = format!(
-            "{}{}fn {}{}({}){} ",
+            "{}{}{}fn {}{}({}){} ",
             if visibility.is_public() { "pub " } else { "" },
             if qualifier.is_extern { "extern " } else { "" },
+            if qualifier.is_const { "const " } else { "" },
             ctx.ident(name),
             self.visit_generic_parameters(generic_parameters),
             parameters,
@@ -723,18 +816,32 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             })
             .collect::<String>();
         self.dedent();
+
+        let generic_parameter_content = self.visit_generic_parameters(
+            generic_parameters
+                .iter()
+                .map(|p| {
+                    if p.constraints.is_empty() {
+                        ctx.ident(p.name.clone()).to_string()
+                    } else {
+                        let constraints_content = p
+                            .constraints
+                            .iter()
+                            .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
+                            .collect::<Vec<_>>()
+                            .join(" + ");
+                        format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
+                    }
+                })
+                .collect::<Vec<_>>(),
+        );
         Ok(format!(
             "{}{}{}struct {}{} {{\n{}{}}}",
             comments_content,
             attrs_content,
             if visibility.is_public() { "pub " } else { "" },
             &ctx.ident(name),
-            self.visit_generic_parameters(
-                generic_parameters
-                    .iter()
-                    .map(|p| ctx.ident(p.name.clone()).to_string())
-                    .collect::<Vec<_>>()
-            ),
+            generic_parameter_content,
             fiels_content,
             self.read_indent(0),
         ))
@@ -763,7 +870,19 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             self.visit_generic_parameters(
                 generic_parameters
                     .iter()
-                    .map(|p| ctx.ident(p.name.clone()).to_string())
+                    .map(|p| {
+                        if p.constraints.is_empty() {
+                            ctx.ident(p.name.clone()).to_string()
+                        } else {
+                            let constraints_content = p
+                                .constraints
+                                .iter()
+                                .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
+                                .collect::<Vec<_>>()
+                                .join(" + ");
+                            format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
+                        }
+                    })
                     .collect::<Vec<_>>()
             )
         ));
@@ -815,22 +934,45 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             visibility,
             comments,
             location: _location,
-        } = ctx.definition(def_id).as_trait().unwrap();
+        } = ctx.definition(def_id).as_trait().cloned().unwrap();
         let comments_content = comments
             .iter()
             .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
             .collect::<String>();
 
+        let trait_name = ctx.ident(name).to_string();
+
+        let generic_parameters = generic_parameters
+            .iter()
+            .map(|p| {
+                if p.constraints.is_empty() {
+                    ctx.ident(p.name.clone()).to_string()
+                } else {
+                    let constraints_content = p
+                        .constraints
+                        .iter()
+                        .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
+                        .collect::<Vec<_>>()
+                        .join(" + ");
+                    format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let generic_parameters = self.visit_generic_parameters(generic_parameters);
+
         self.indent();
+
         let body_content = body
             .iter()
-            .map(|func| {
-                let func = ctx.definition(func.clone()).as_function().unwrap();
+            .map(|func| -> Result<String, Self::Error> {
+                let func = ctx.definition(func.clone()).as_function().cloned().unwrap();
                 let func_comments_content = func
                     .comments
                     .iter()
                     .map(|comment| format!("{}{}\n", self.read_indent(0), comment.content()))
                     .collect::<String>();
+                let func_name = ctx.ident(func.name).to_string();
                 let parameters = func
                     .parameters
                     .iter()
@@ -844,8 +986,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
-                format!(
-                    "{}{}{}{}fn {}({}){};\n",
+                let func_body_content = match func.body {
+                    Some(body) => format!(" {}", self.visit_block_expr(body.clone(), ctx)?),
+                    None => ";".to_string(),
+                };
+                let func_content = format!(
+                    "{}{}{}{}{}fn {}({}){}{}\n",
                     func_comments_content,
                     self.read_indent(0),
                     if func.visibility.is_public() {
@@ -858,29 +1004,31 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     } else {
                         ""
                     },
-                    ctx.ident(func.name),
+                    if func.qualifier.is_const {
+                        "const "
+                    } else {
+                        ""
+                    },
+                    func_name,
                     parameters,
                     if let Some(ref ret) = func.return_type {
                         format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
                     } else {
                         "".to_string()
                     },
-                )
+                    func_body_content,
+                );
+                Ok(func_content)
             })
-            .collect::<String>();
+            .collect::<Result<String, Self::Error>>()?;
         self.dedent();
 
         Ok(format!(
             "{}{}trait {}{} {{\n{}{}}}",
             comments_content,
             if visibility.is_public() { "pub " } else { "" },
-            &ctx.ident(name),
-            self.visit_generic_parameters(
-                generic_parameters
-                    .iter()
-                    .map(|p| ctx.ident(p.name.clone()).to_string())
-                    .collect::<Vec<_>>()
-            ),
+            trait_name,
+            generic_parameters,
             body_content,
             self.read_indent(0),
         ))
@@ -1129,9 +1277,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             ref comments,
             location: ref _location,
         } = ctx.statement(node).as_for().unwrap();
-        comments
+        let comments_content = comments
             .iter()
-            .for_each(|comment| self.write_line(comment.content()));
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+            .collect::<String>();
 
         let s = format!(
             "for {} in {}..{} ",
@@ -1140,8 +1289,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             self.visit_expr(end, ctx)?
         );
         let block = self.visit_block_expr(body, ctx)?;
-        self.write_line(&format!("{}{}", s, block));
-        Ok(Default::default())
+        Ok(format!("{}{}{}", comments_content, s, block))
     }
 
     fn visit_match(
@@ -1177,6 +1325,15 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(m)
     }
 
+    fn visit_parentheses(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::ExprResult, Self::Error> {
+        let inner_expr_id = ctx.expression(node).as_parentheses().unwrap().clone();
+        Ok(format!("({})", self.visit_expr(inner_expr_id, ctx)?))
+    }
+
     fn visit_lambda_function(
         &mut self,
         node: ExprId,
@@ -1185,6 +1342,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let LambdaFunctionNode {
             parameters,
             return_type,
+            body,
             ..
         } = ctx.expression(node).as_lambda_function().cloned().unwrap();
         let parameters = parameters
@@ -1200,6 +1358,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .collect::<Vec<_>>()
             .join(", ");
 
+        let lambda_function_body_content = self.visit_expr(body, ctx)?;
+
         let result = format!(
             "|{}|{} {}",
             parameters,
@@ -1208,7 +1368,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             } else {
                 "".to_string()
             },
-            "{ .. }".to_string()
+            lambda_function_body_content,
         );
 
         Ok(result)
@@ -1234,7 +1394,19 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         }
         let generic_parameters = generic_parameters
             .iter()
-            .map(|generic_parameter| ctx.ident(generic_parameter.name).to_string())
+            .map(|p| {
+                if p.constraints.is_empty() {
+                    ctx.ident(p.name.clone()).to_string()
+                } else {
+                    let constraints_content = p
+                        .constraints
+                        .iter()
+                        .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
+                        .collect::<Vec<_>>()
+                        .join(" + ");
+                    format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
+                }
+            })
             .collect::<Vec<_>>();
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
