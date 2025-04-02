@@ -40,7 +40,7 @@ impl<F: ContextFelt + From<u32> + 'static, C: DPNContext<F>> TypeCheckerVisitorC
             DefaultVisitorContext::new(&mut self.program);
         let mut formatter = Formatter::new();
         formatter
-            .visit_module(module_id, &mut default_visitor_context)
+            .format_module_helper(module_id, true, &mut default_visitor_context)
             .map_err(|err| Error::AnyhowError(anyhow::anyhow!("{}", err)))?;
 
         Ok(formatter.get_output().to_owned())

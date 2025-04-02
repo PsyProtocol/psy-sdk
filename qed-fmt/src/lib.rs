@@ -135,6 +135,36 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     type Definition = DefinitionNode;
     type DefinitionResult = String;
 
+    fn visit_stmt(
+        &mut self,
+        stmt_id: StmtId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        ctx.push_node_id(NodeId::from(stmt_id));
+        let res = match ctx.statement(stmt_id).node_type() {
+            NodeType::WhileStmt => self.visit_while(stmt_id, ctx)?,
+            NodeType::ForStmt => self.visit_for(stmt_id, ctx)?,
+            NodeType::AssignmentStmt => self.visit_assignment(stmt_id, ctx)?,
+            NodeType::VariableStmt => self.visit_variable(stmt_id, ctx)?,
+            NodeType::ReturnStmt => self.visit_return(stmt_id, ctx)?,
+            NodeType::DefinitionStmt => {
+                let def_id = ctx.statement(stmt_id).as_definition().unwrap().clone();
+                Self::StmtResult::from(self.visit_definition(def_id, ctx)?)
+            }
+            NodeType::ExpressionStmt => {
+                let expr_id = ctx.statement(stmt_id).as_expression().unwrap().clone();
+                format!(
+                    "{};",
+                    Self::StmtResult::from(self.visit_expr(expr_id, ctx)?)
+                )
+            }
+            NodeType::IntrinsicStmt => self.visit_intrinsic_stmt(stmt_id, ctx)?,
+            _ => unreachable!(),
+        };
+        ctx.pop_node_id();
+        Ok(res)
+    }
+
     fn visit_use(
         &mut self,
         def_id: DefId,
@@ -144,6 +174,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         if u.kind.id == IdentId::STD {
             return Ok(Default::default());
         }
+        let comments_content = u
+            .comments
+            .iter()
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+            .collect::<String>();
         let mut path = vec![ctx.ident(u.kind).to_string()];
         let segments = u
             .segments
@@ -156,13 +191,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|t| ctx.ident(t).to_string())
             .unwrap_or("*".to_string());
 
-        self.write_line(&format!(
-            "{}use {}::{};",
+        Ok(format!(
+            "{}{}use {}::{};",
+            comments_content,
             if u.visibility.is_public() { "pub " } else { "" },
             path.join("::"),
             target
-        ));
-        Ok(Default::default())
+        ))
     }
 
     fn visit_path(
@@ -415,7 +450,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         } = ctx.statement(stmt_id).as_assignment().unwrap();
         let comments_content = comments
             .iter()
-            .map(|comment| format!("{}\n", comment.content()))
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
             .collect::<String>();
         let s = format!(
             "{}{} {} {};",
@@ -438,10 +473,21 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .unwrap()
             .comments
             .iter()
-            .map(|comment| format!("{}\n", comment.content()))
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
             .collect::<String>();
+        let var_type = self.visit_unchecked_type(
+            &ctx.statement(stmt_id).as_variable().unwrap().ty.clone(),
+            ctx,
+        );
+
+        let type_content = if var_type == "unknown" {
+            "".to_string()
+        } else {
+            format!(": {}", var_type)
+        };
+
         let s = format!(
-            "{}let{} {}: {} = {};",
+            "{}let{} {}{} = {};",
             comments_content,
             if ctx
                 .statement(stmt_id)
@@ -457,10 +503,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             // TODO: remove to_owned
             ctx.ident(ctx.statement(stmt_id).as_variable().unwrap().name.id)
                 .to_owned(),
-            self.visit_unchecked_type(
-                &ctx.statement(stmt_id).as_variable().unwrap().ty.clone(),
-                ctx
-            ),
+            type_content,
             self.visit_expr(ctx.statement(stmt_id).as_variable().unwrap().value, ctx)?
         );
         Ok(s)
@@ -478,7 +521,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         } = ctx.statement(stmt_id).as_return().unwrap();
         let comments_content = comments
             .iter()
-            .map(|comment| format!("{}\n", comment.content()))
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
             .collect::<String>();
 
         let s = format!(
@@ -505,29 +548,33 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: _location,
         } = ctx.definition(def_id).as_impl().unwrap();
-        comments
+        let comments_content = comments
             .iter()
-            .for_each(|comment| self.write_line(comment.content()));
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+            .collect::<String>();
         let generic_parameters = generic_parameters
             .iter()
             .map(|generic_parameter| ctx.ident(generic_parameter.name).to_string())
             .collect::<Vec<_>>();
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
-
-        let s = format!(
-            "impl{} {} {{",
-            generic_parameters,
-            self.visit_unchecked_type(&ty, ctx),
-        );
-        self.write_line(&s);
+        let struct_name = self.visit_unchecked_type(&ty, ctx);
         self.indent();
         // TODO: remove clone
+        let mut funcs_content = String::new();
         for func in body.clone() {
-            self.visit_function(func, ctx)?;
+            let func_content = self.visit_function(func, ctx)?;
+            funcs_content.push_str(&format!("{}{}\n", self.read_indent(0), func_content));
         }
         self.dedent();
-        self.write_line("}");
-        Ok(Default::default())
+
+        Ok(format!(
+            "{}impl{} {} {{\n{}{}}}",
+            comments_content,
+            generic_parameters,
+            struct_name,
+            funcs_content,
+            self.read_indent(0),
+        ))
     }
 
     fn visit_function(
@@ -547,24 +594,29 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             attrs,
             location: _location,
         } = ctx.definition(def_id).as_function().unwrap();
-        comments
+        let comments_content = comments
             .iter()
-            .for_each(|comment| self.write_line(comment.content()));
-        for attr in attrs {
-            if !attr.properties.is_empty() {
-                self.write_line(&format!(
-                    "#[{}({})]",
-                    ctx.ident(attr.name),
-                    attr.properties
-                        .iter()
-                        .map(|p| ctx.ident(p).to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ));
-            } else {
-                self.write_line(&format!("#[{}]", ctx.ident(attr.name),));
-            }
-        }
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+            .collect::<String>();
+        let attrs_content = attrs
+            .iter()
+            .map(|attr| {
+                if !attr.properties.is_empty() {
+                    format!(
+                        "#[{}({})]\n{}",
+                        ctx.ident(attr.name),
+                        attr.properties
+                            .iter()
+                            .map(|p| ctx.ident(p).to_string())
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        self.read_indent(0)
+                    )
+                } else {
+                    format!("#[{}]\n{}", ctx.ident(attr.name), self.read_indent(0))
+                }
+            })
+            .collect::<String>();
         let parameters = parameters
             .iter()
             .map(|p| {
@@ -598,8 +650,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             Some(body) => self.visit_block_expr(body.clone(), ctx)?,
             None => "{ }".to_string(),
         };
-        self.write_line(&format!("{}{}", s, block));
-        Ok(Default::default())
+        Ok(format!(
+            "{}{}{}{}",
+            comments_content, attrs_content, s, block
+        ))
     }
 
     fn visit_struct(
@@ -616,26 +670,54 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: _location,
         } = ctx.definition(def_id).as_struct().unwrap();
-        comments
+        let comments_content = comments
             .iter()
-            .for_each(|comment| self.write_line(comment.content()));
-        for attr in attrs {
-            if !attr.properties.is_empty() {
-                self.write_line(&format!(
-                    "#[{}({})]",
-                    ctx.ident(attr.name),
-                    attr.properties
-                        .iter()
-                        .map(|p| ctx.ident(p).to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ));
-            } else {
-                self.write_line(&format!("#[{}]", ctx.ident(attr.name),));
-            }
-        }
-        self.write_line(&format!(
-            "{}struct {}{} {{",
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+            .collect::<String>();
+
+        let attrs_content = attrs
+            .iter()
+            .map(|attr| {
+                if !attr.properties.is_empty() {
+                    format!(
+                        "#[{}({})]\n{}",
+                        ctx.ident(attr.name),
+                        attr.properties
+                            .iter()
+                            .map(|p| ctx.ident(p).to_string())
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        self.read_indent(0)
+                    )
+                } else {
+                    format!("#[{}]\n{}", ctx.ident(attr.name), self.read_indent(0))
+                }
+            })
+            .collect::<String>();
+        self.indent();
+        let fiels_content = fields
+            .iter()
+            .map(|(field_name, field)| {
+                let field_comments_content = field
+                    .comments
+                    .iter()
+                    .map(|comment| format!("{}{}\n", self.read_indent(0), comment.content()))
+                    .collect::<String>();
+                format!(
+                    "{}{}{}{}: {},\n",
+                    field_comments_content,
+                    self.read_indent(0),
+                    if visibility.is_public() { "pub " } else { "" },
+                    ctx.ident(field_name),
+                    self.visit_unchecked_type(&field.ty, ctx)
+                )
+            })
+            .collect::<String>();
+        self.dedent();
+        Ok(format!(
+            "{}{}{}struct {}{} {{\n{}{}}}",
+            comments_content,
+            attrs_content,
             if visibility.is_public() { "pub " } else { "" },
             &ctx.ident(name),
             self.visit_generic_parameters(
@@ -643,21 +725,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     .iter()
                     .map(|p| ctx.ident(p.name.clone()).to_string())
                     .collect::<Vec<_>>()
-            )
-        ));
-        self.indent();
-        for (field_name, field) in fields {
-            let s = format!(
-                "{}{}: {},",
-                if visibility.is_public() { "pub " } else { "" },
-                ctx.ident(field_name),
-                self.visit_unchecked_type(&field.ty, ctx)
-            );
-            self.write_line(&s);
-        }
-        self.dedent();
-        self.write_line("}");
-        Ok(Default::default())
+            ),
+            fiels_content,
+            self.read_indent(0),
+        ))
     }
 
     fn visit_enum(
@@ -736,11 +807,63 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: _location,
         } = ctx.definition(def_id).as_trait().unwrap();
-        comments
+        let comments_content = comments
             .iter()
-            .for_each(|comment| self.write_line(comment.content()));
-        self.write_line(&format!(
-            "{}trait {}{} {{",
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+            .collect::<String>();
+
+        self.indent();
+        let body_content = body
+            .iter()
+            .map(|func| {
+                let func = ctx.definition(func.clone()).as_function().unwrap();
+                let func_comments_content = func
+                    .comments
+                    .iter()
+                    .map(|comment| format!("{}{}\n", self.read_indent(0), comment.content()))
+                    .collect::<String>();
+                let parameters = func
+                    .parameters
+                    .iter()
+                    .map(|p| {
+                        format!(
+                            "{}{}: {}",
+                            if p.qualifier.is_mutable { "mut " } else { "" },
+                            &ctx.ident(p.name),
+                            self.visit_unchecked_type(&p.ty, ctx)
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!(
+                    "{}{}{}{}fn {}({}){};\n",
+                    func_comments_content,
+                    self.read_indent(0),
+                    if func.visibility.is_public() {
+                        "pub "
+                    } else {
+                        ""
+                    },
+                    if func.qualifier.is_extern {
+                        "extern "
+                    } else {
+                        ""
+                    },
+                    ctx.ident(func.name),
+                    parameters,
+                    if let Some(ref ret) = func.return_type {
+                        format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
+                    } else {
+                        "".to_string()
+                    },
+                )
+            })
+            .collect::<String>();
+        self.dedent();
+
+        Ok(format!(
+            "{}{}trait {}{} {{\n{}{}}}",
+            comments_content,
             if visibility.is_public() { "pub " } else { "" },
             &ctx.ident(name),
             self.visit_generic_parameters(
@@ -748,49 +871,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     .iter()
                     .map(|p| ctx.ident(p.name.clone()).to_string())
                     .collect::<Vec<_>>()
-            )
-        ));
-        self.indent();
-        for func in body {
-            let func = ctx.definition(func.clone()).as_function().unwrap();
-            let parameters = func
-                .parameters
-                .iter()
-                .map(|p| {
-                    format!(
-                        "{}{}: {}",
-                        if p.qualifier.is_mutable { "mut " } else { "" },
-                        &ctx.ident(p.name),
-                        self.visit_unchecked_type(&p.ty, ctx)
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-            let s = format!(
-                "{}{}fn {}({}){};",
-                if func.visibility.is_public() {
-                    "pub "
-                } else {
-                    ""
-                },
-                if func.qualifier.is_extern {
-                    "extern "
-                } else {
-                    ""
-                },
-                ctx.ident(func.name),
-                parameters,
-                if let Some(ref ret) = func.return_type {
-                    format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
-                } else {
-                    "".to_string()
-                }
-            );
-            self.write_line(&s);
-        }
-        self.dedent();
-        self.write_line("}");
-        Ok(Default::default())
+            ),
+            body_content,
+            self.read_indent(0),
+        ))
     }
 
     fn visit_intrinsic_expr(
@@ -897,10 +981,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 let expr = self.visit_expr(left, ctx)?;
                 let comments_content = comments
                     .iter()
-                    .map(|comment| format!("{}\n", comment.content()))
+                    .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
                     .collect::<String>();
                 format!(
-                    "{}assert({}, \"{}\")",
+                    "{}assert({}, \"{}\");",
                     comments_content,
                     expr,
                     message.unwrap_or_default()
@@ -917,10 +1001,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 let right = self.visit_expr(right, ctx)?;
                 let comments_content = comments
                     .iter()
-                    .map(|comment| format!("{}\n", comment.content()))
+                    .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
                     .collect::<String>();
                 format!(
-                    "{}assert_eq({}, {}, \"{}\")",
+                    "{}assert_eq({}, {}, \"{}\");",
                     comments_content,
                     left,
                     right,
@@ -947,7 +1031,6 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             Visibility::Public => "pub ",
             Visibility::Private => "",
         };
-
         self.write_line(&format!(
             "{}mod {} {{",
             visibility_string,
@@ -962,7 +1045,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
         // TODO: remove clone
         for &definition in &module.definitions {
-            self.visit_definition(definition, ctx)?;
+            let definition_content = self.visit_definition(definition, ctx)?;
+            self.write_line(&definition_content);
         }
 
         self.dedent();
@@ -983,15 +1067,17 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         let node = ctx.definition(node).as_type_alias().cloned().unwrap();
-        node.comments
+        let comments_content = node
+            .comments
             .iter()
-            .for_each(|comment| self.write_line(comment.content()));
-        self.write_line(&format!(
-            "type {} = {};",
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+            .collect::<String>();
+        Ok(format!(
+            "{}type {} = {};",
+            comments_content,
             ctx.ident(node.name),
             self.visit_unchecked_type(&node.ty, ctx)
-        ));
-        Ok(Default::default())
+        ))
     }
 
     fn visit_const(
@@ -1002,11 +1088,14 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let node = ctx.definition(node).as_const().cloned().unwrap();
         let value = self.visit_expr(node.value, ctx)?;
 
-        node.comments
+        let comments_content = node
+            .comments
             .iter()
-            .for_each(|comment| self.write_line(comment.content()));
-        self.write_line(&format!(
-            "{}const {}:{} = {};",
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+            .collect::<String>();
+        Ok(format!(
+            "{}{}const {}:{} = {};",
+            comments_content,
             if node.visibility.is_public() {
                 "pub "
             } else {
@@ -1015,8 +1104,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             ctx.ident(node.name),
             self.visit_unchecked_type(&node.ty, ctx),
             value
-        ));
-        Ok(Default::default())
+        ))
     }
 
     fn visit_for(
@@ -1136,24 +1224,30 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .collect::<Vec<_>>();
         let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
-        comments
+        let comments_content = comments
             .iter()
-            .for_each(|comment| self.write_line(comment.content()));
-        let s = format!(
-            "impl{} {}{} {{",
-            generic_parameters,
-            format!("{} for ", self.visit_unchecked_type(&trait_ty, ctx)),
-            self.visit_unchecked_type(&ty, ctx),
-        );
-        self.write_line(&s);
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+            .collect::<String>();
+        let trait_name = self.visit_unchecked_type(&trait_ty, ctx);
+        let struct_name = self.visit_unchecked_type(&ty, ctx);
+
         self.indent();
-        // TODO: remove clone
+        let mut funcs_content = String::new();
         for func in body.clone() {
-            self.visit_function(func, ctx)?;
+            let func_content = self.visit_function(func, ctx)?;
+            funcs_content.push_str(&format!("{}{}\n", self.read_indent(0), func_content));
         }
         self.dedent();
-        self.write_line("}");
-        Ok(Default::default())
+
+        Ok(format!(
+            "{}impl{} {} for {} {{\n{}{}}}",
+            comments_content,
+            generic_parameters,
+            trait_name,
+            struct_name,
+            funcs_content,
+            self.read_indent(0),
+        ))
     }
 
     fn visit_block_expr(
@@ -1265,5 +1359,59 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let tuple_expr = self.visit_expr(target_expr_id, ctx)?;
 
         Ok(format!("{}.{}", tuple_expr, index))
+    }
+}
+
+impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> Formatter<'a, F, C> {
+    pub fn format_module_helper(
+        &mut self,
+        module_id: ModuleId,
+        is_first: bool,
+        ctx: &mut DefaultVisitorContext<'a, F, C>,
+    ) -> Result<(), qed_common::Error> {
+        let module = ctx.module(module_id).clone();
+
+        if module.is_self_std || module.is_self_primitive || module.is_self_prelude {
+            return Ok(());
+        }
+
+        let visibility_string = match module.visibility {
+            Visibility::Public => "pub ",
+            Visibility::Private => "",
+        };
+
+        if !is_first && !ctx.program().file_resolver.is_inline_module(module_id.0) {
+            self.write_line(&format!(
+                "{}mod {};",
+                visibility_string,
+                &ctx.ident(module.name)
+            ));
+            return Ok(());
+        }
+
+        if ctx.program().file_resolver.is_inline_module(module_id.0) {
+            self.write_line(&format!(
+                "{}mod {} {{",
+                visibility_string,
+                &ctx.ident(module.name)
+            ));
+            self.indent();
+        }
+
+        for &child_module in ctx.program().modules.nodes().clone()[module_id].children() {
+            self.format_module_helper(child_module, false, ctx)?;
+        }
+
+        for &definition in &module.definitions {
+            let definition_content = self.visit_definition(definition, ctx)?;
+            self.write_line(&definition_content);
+        }
+
+        if ctx.program().file_resolver.is_inline_module(module_id.0) {
+            self.dedent();
+            self.write_line(&format!("}}"));
+        }
+
+        Ok(())
     }
 }
