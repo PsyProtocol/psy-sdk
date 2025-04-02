@@ -17,7 +17,7 @@ pub(crate) struct CompileCommand {
     compile_options: CompileOptions,
 }
 
-pub(crate) fn run(args: CompileCommand, workspace: Workspace) -> Result<()> {
+pub(crate) fn run(args: CompileCommand, mut workspace: Workspace) -> Result<()> {
     compile_workspace_full(&workspace, &args.compile_options)?;
     Ok(())
 }
@@ -28,7 +28,7 @@ pub(super) fn compile_workspace_full(
     workspace: &Workspace,
     compile_options: &CompileOptions,
 ) -> Result<Vec<DPNFunctionCircuitDefinition>> {
-    let entry_manager = super::resolve_entries(workspace);
+    let entry_manager = super::resolve_entries(workspace, compile_options.entry_path.clone())?;
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let (mut typechecker, mut ctx) = interpreter.typecheck(
         entry_manager.entry,
@@ -69,6 +69,8 @@ pub struct CompileOptions {
     contract_name: Option<String>,
     #[clap(short, long, num_args = 1.., default_values = &["main"])]
     method_names: Vec<String>,
+    #[clap(long, default_value = None)]
+    entry_path: Option<PathBuf>,
     #[clap(long, hide = true, default_value = "false")]
     debug: bool,
 }
