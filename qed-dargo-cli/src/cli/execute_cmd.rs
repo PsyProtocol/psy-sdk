@@ -15,7 +15,6 @@ use qed_utils::{
 
 /// Executes a circuit to calculate its return value
 #[derive(Debug, Clone, Args)]
-#[clap(visible_alias = "e")]
 pub(crate) struct ExecuteCommand {
     #[clap(flatten)]
     compile_options: CompileOptions,

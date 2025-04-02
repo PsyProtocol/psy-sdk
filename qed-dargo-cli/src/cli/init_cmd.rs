@@ -5,7 +5,6 @@ use clap::Args;
 use qed_dargo::package::{CrateName, PackageType};
 use std::path::PathBuf;
 
-#[allow(rustdoc::broken_intra_doc_links)]
 /// Create a project in the current directory.
 #[derive(Debug, Clone, Args)]
 pub(crate) struct InitCommand {
