@@ -3,6 +3,7 @@ use crate::errors::Result;
 use clap::Args;
 use qed_dargo::workspace::Workspace;
 use qed_interpreter::Interpreter;
+use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use qedlang_core::dpn::{
     ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::compile::QEDCompileResult,
@@ -25,7 +26,7 @@ pub(crate) fn run(args: CompileCommand, workspace: Workspace) -> Result<()> {
 pub(super) fn compile_workspace_full(
     workspace: &Workspace,
     compile_options: &CompileOptions,
-) -> Result<()> {
+) -> Result<Vec<DPNFunctionCircuitDefinition>> {
     let entry_manager = super::resolve_entries(workspace);
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let (mut typechecker, mut ctx) = interpreter.typecheck(
@@ -42,7 +43,7 @@ pub(super) fn compile_workspace_full(
                 method_name,
                 method_id,
                 &context.store,
-                &context,
+                context,
                 &outputs,
             )
         },
@@ -52,8 +53,7 @@ pub(super) fn compile_workspace_full(
         &workspace.package.name.to_string(),
         &workspace.target_dir,
     )?;
-    println!("compile_result: {:?}", compile_results);
-    Ok(())
+    Ok(compile_results)
 }
 
 /// Options for the compile command

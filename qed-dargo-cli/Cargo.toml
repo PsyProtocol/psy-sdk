@@ -1,18 +1,27 @@
 [package]
 name = "qed-dargo-cli"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 thiserror.workspace = true
 clap.workspace = true
-qed-dargo-toml.workspace = true
-qed-dargo.workspace = true
-qed-interpreter.workspace = true
-qedlang_core.workspace = true
 anyhow.workspace = true
 tracing-subscriber = { version = "0.3.19", features = ["json"] }
 tracing-appender = "0.2.3"
 color-eyre = "0.6.3"
 serde.workspace = true
 serde_json.workspace = true
+
+qed-dargo-toml.workspace = true
+qed-dargo.workspace = true
+qed-interpreter.workspace = true
+qedlang_core.workspace = true
+qed-utils = { workspace = true }
+plonky2 = { workspace = true }
+qed_crypto = { workspace = true }
+qed_exec = { workspace = true }
+qed_store = { workspace = true }
+qed_data = { workspace = true }
+qed_core = { workspace = true }
+qed_common_circuit = { workspace = true }
