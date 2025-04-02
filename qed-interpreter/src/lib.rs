@@ -1433,6 +1433,7 @@ mod tests {
         fs::File,
         io::{BufWriter, Write},
     };
+    use serial_test::serial;
 
     use insta::assert_snapshot;
     use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
@@ -1455,6 +1456,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial]
     fn test_crates_resolve() {
         let entry: PathBuf = "../tests/module_test/foo/src/main.qed".into();
         let dependencies_entries = vec!["../tests/module_test/bar/src/lib.qed".into()];
@@ -1487,6 +1489,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
@@ -1547,35 +1550,11 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_format_file() {
         qed_utils::setup_env_logger();
 
         insta::glob!("../../tests", "*_test.qed", |path| {
-            let entry: PathBuf = path.into();
-            let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-            let (_typechecker, mut ctx) = interpreter.typecheck(entry.clone(), vec![]).unwrap();
-
-            #[allow(static_mut_refs)]
-            unsafe {
-                STD_PRIMITIVE_SCOPE_ID.take().unwrap()
-            };
-
-            let formatted_content = ctx.format_file(&entry).unwrap();
-
-            let file = File::create(&entry).unwrap();
-            let mut writer = BufWriter::new(file);
-            writer.write_all(formatted_content.as_bytes()).unwrap();
-            writer.flush().unwrap();
-
-            assert!(interpreter.typecheck(entry.clone(), vec![]).is_ok());
-
-            #[allow(static_mut_refs)]
-            unsafe {
-                STD_PRIMITIVE_SCOPE_ID.take().unwrap()
-            };
-        });
-
-        insta::glob!("../../tests", "00*.qed", |path| {
             let entry: PathBuf = path.into();
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
             let (_typechecker, mut ctx) = interpreter.typecheck(entry.clone(), vec![]).unwrap();
