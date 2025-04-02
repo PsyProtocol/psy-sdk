@@ -293,9 +293,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             DefaultVisitorContext::new(&mut program);
         storage_preprocessor.visit_program(&mut default_visitor_context)?;
 
-        let mut formatter = Formatter::new();
-        formatter.visit_program(&mut default_visitor_context)?;
-        println!("formatted:\n{}", formatter.get_output());
+        // let mut formatter = Formatter::new();
+        // formatter.visit_program(&mut default_visitor_context)?;
+        // println!("formatted:\n{}", formatter.get_output());
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
         typechecker
@@ -445,6 +445,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 CheckedIntrinsicStmtNode::Assert {
                     left,
                     message,
+                    comments,
                     location: _location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
@@ -457,6 +458,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     left,
                     right,
                     message,
+                    comments,
                     location: _location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;

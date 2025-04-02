@@ -1,5 +1,6 @@
 use qed_ast::{
     IdentId, Identifier, Location, ModuleId, PathNode, TraitImplNode, UncheckedType, UseNode,
+    VisitorContext,
 };
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
@@ -84,7 +85,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 if !ctx.symbols[target_module_id].visibility.is_public() {
                     return Err(Error::ModuleNotPublic {
                         location: path.location,
-                        module: ctx.symbols[target_module_id].name,
+                        module: ctx.symbols[target_module_id].name.id,
                     });
                 }
                 src_module = target_module_id;
@@ -119,6 +120,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<Vec<(TypeKey, TypeId)>> {
         let mut current_module_id = self.resolve_module(&use_path.kind, ctx)?;
+        ctx.add_module_reference(current_module_id, use_path.kind.location, false);
 
         let traverse_path_segment = |current: ModuleId, segment: &Identifier| {
             if let Some(module) = ctx.symbols[current]
@@ -128,6 +130,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 .copied()
             {
                 if ctx.symbols[module].visibility.is_public() {
+                    ctx.add_module_reference(module, segment.location, false);
                     Ok(module)
                 } else {
                     Err(Error::ModuleNotPublic {

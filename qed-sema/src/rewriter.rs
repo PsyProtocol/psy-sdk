@@ -238,6 +238,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     CheckedIntrinsicStmtNode::Assert {
                         left,
                         message,
+                        comments,
                         location,
                     } => {
                         *left = self.rewrite_expr(*left, ctx)?;
@@ -246,6 +247,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         left,
                         right,
                         message,
+                        comments,
                         location,
                     } => {
                         *left = self.rewrite_expr(*left, ctx)?;

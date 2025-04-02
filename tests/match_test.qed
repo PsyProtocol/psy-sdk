@@ -11,18 +11,15 @@ fn match_test_case(input: Felt) -> Felt {
         2 => {
             result += 30;
         },
-        // 3 | 4 => {
         3 => {
             result += 40;
         },
         4 => {
             result += 40;
         },
-        // MUST have a "_" case for Felt
         _ => {
             result += 50;
         }
-        // }
     };
 
     let extra: Felt = match input {
@@ -59,7 +56,6 @@ fn match_u32_test(input: u32) -> Felt {
         4u32 => {
             result += 45;
         },
-        // MUST have a "_" case for Felt
         _ => {
             result += 55;
         }

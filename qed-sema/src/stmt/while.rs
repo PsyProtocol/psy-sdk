@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, Location, NodeInfo, NodeType};
+use qed_ast::{Comment, ExprId, Location, NodeInfo, NodeType};
 
 use crate::TypeId;
 
@@ -7,6 +7,7 @@ pub struct CheckedWhileNode {
     pub predicate: ExprId,
     pub type_id: TypeId,
     pub body: ExprId,
+    pub comments: Vec<Comment>,
     pub location: Location,
 }
 

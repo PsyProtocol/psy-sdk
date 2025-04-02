@@ -1,4 +1,5 @@
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
+use qed_ast::ModuleId;
 use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
@@ -19,6 +20,7 @@ pub fn run(mut args: InterpreterArgs) -> anyhow::Result<()> {
     args.parameters.resize(args.method_names.len(), Vec::new());
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let (mut typechecker, mut ctx) = interpreter.typecheck(args.file.into(), vec![])?;
+    println!("{}", ctx.format_module(ModuleId::root())?);
     let compile_results = interpreter.interpret(
         &mut typechecker,
         &mut ctx,

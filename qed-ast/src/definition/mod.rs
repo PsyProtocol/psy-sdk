@@ -19,7 +19,7 @@ pub use r#struct::*;
 pub use r#trait::*;
 pub use type_alias::*;
 
-use crate::{NodeInfo, NodeType, UseNode};
+use crate::{Comment, Location, NodeInfo, NodeType, UseNode};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum DefinitionNode {
@@ -47,5 +47,17 @@ impl NodeInfo for DefinitionNode {
             Self::Const(node) => node.node_type(),
             Self::Use(node) => node.node_type(),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CommentNode {
+    pub comments: Vec<Comment>,
+    pub location: Location,
+}
+
+impl NodeInfo for CommentNode {
+    fn node_type(&self) -> NodeType {
+        NodeType::Comment
     }
 }
