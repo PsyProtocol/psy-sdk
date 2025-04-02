@@ -169,6 +169,7 @@ ImplDef: ImplNode = {
             },
             comments: comments.into_iter().chain(back_comments.into_iter()).collect(),
             location: Location::new(file_id, l, r),
+            is_generated: false,
         }
    })
 }
@@ -203,6 +204,7 @@ TraitImplDef: TraitImplNode = {
             },
             comments: comments.into_iter().chain(back_comments.into_iter()).collect(),
             location: Location::new(file_id, l, r),
+            is_generated: false,
         }
    })
 }

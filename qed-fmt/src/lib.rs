@@ -547,7 +547,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             body,
             comments,
             location: _location,
+            is_generated,
         } = ctx.definition(def_id).as_impl().unwrap();
+        // skip #[derive(Storage)]
+        if *is_generated {
+            return Ok(Default::default());
+        }
         let comments_content = comments
             .iter()
             .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
@@ -707,7 +712,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     "{}{}{}{}: {},\n",
                     field_comments_content,
                     self.read_indent(0),
-                    if visibility.is_public() { "pub " } else { "" },
+                    if field.visibility.is_public() {
+                        "pub "
+                    } else {
+                        ""
+                    },
                     ctx.ident(field_name),
                     self.visit_unchecked_type(&field.ty, ctx)
                 )
@@ -1217,7 +1226,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             body,
             comments,
             location: _location,
+            is_generated,
         } = ctx.definition(def_id).as_trait_impl().unwrap();
+        // skip #[derive(Storage)]
+        if *is_generated {
+            return Ok(Default::default());
+        }
         let generic_parameters = generic_parameters
             .iter()
             .map(|generic_parameter| ctx.ident(generic_parameter.name).to_string())
