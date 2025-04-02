@@ -6,7 +6,7 @@ These gadgets are components used within the circuits that users run locally to 
 
 #### `CorrectUPSHeaderHashesGadget`
 
-*   **File:** `correct_header_hashes_rs.txt`
+*   **File:** `correct_header_hashes.rs`
 *   **Purpose:** To hold potentially *modified* hash roots from a previous UPS step header. This is specifically used when a transaction needs to alter the *starting* state assumptions for debt trees (e.g., paying back a deferred transaction *before* processing the current transaction's main logic).
 *   **Key Inputs/Witness:** Takes a `UserProvingSessionHeaderGadget` representing the *actual* previous step.
 *   **Key Outputs/Computed Values:**
@@ -18,7 +18,7 @@ These gadgets are components used within the circuits that users run locally to 
 
 #### `UPSVerifyCFCProofExistsAndValidGadget`
 
-*   **File:** `ups_cfc_verify_inclusion_rs.txt`
+*   **File:** `ups_cfc_verify_inclusion.rs`
 *   **Purpose:** To verify that a specific Contract Function Call (CFC) proof exists within the user's current UPS proof tree and that the function being called is validly registered within the global contract structure.
 *   **Key Inputs/Witness:**
     *   `AttestTreeAwareProofInTreeInput`: Witness for the CFC proof's existence and validity within the UPS proof tree.
@@ -41,7 +41,7 @@ These gadgets are components used within the circuits that users run locally to 
 
 #### `UPSCFCStandardStateDeltaGadget`
 
-*   **File:** `ups_standard_cfc_state_delta_rs.txt`
+*   **File:** `ups_standard_cfc_state_delta.rs`
 *   **Purpose:** Calculates the state changes to a user's UPS header based on executing a standard CFC transaction. It updates the user's contract state tree root, transaction debt trees, transaction count, and transaction hash stack.
 *   **Key Inputs/Witness:**
     *   `previous_step_header_gadget`: The header state *before* this transaction.
@@ -72,7 +72,7 @@ These gadgets are components used within the circuits that users run locally to 
 
 #### `UPSVerifyCFCStandardStepGadget`
 
-*   **File:** `ups_cfc_standard_rs.txt`
+*   **File:** `ups_cfc_standard.rs`
 *   **Purpose:** Combines the verification of a CFC proof's existence/validity (`UPSVerifyCFCProofExistsAndValidGadget`) with the calculation of its resulting state changes (`UPSCFCStandardStateDeltaGadget`). It acts as the main gadget for processing a standard transaction step within a UPS circuit.
 *   **Key Inputs/Witness:**
     *   `previous_step_header_gadget`: Header state before this step.
@@ -92,7 +92,7 @@ These gadgets are components used within the circuits that users run locally to 
 
 #### `UPSVerifyPopDeferredTxStepGadget`
 
-*   **File:** `ups_cfc_standard_pop_deferred_tx_rs.txt`
+*   **File:** `ups_cfc_standard_pop_deferred_tx.rs`
 *   **Purpose:** Processes a transaction that *pays back* a previously incurred deferred transaction debt. It verifies the removal of the debt item from the deferred debt tree and then processes the CFC transaction itself (using the standard step gadget but with a *corrected* starting deferred debt state).
 *   **Key Inputs/Witness:**
     *   `previous_step_header_gadget`: Header state before this step.
@@ -114,7 +114,7 @@ These gadgets are components used within the circuits that users run locally to 
 
 #### `QEDUserProvingSessionSignatureDataCompactGadget`
 
-*   **File:** `ups_signature_data_rs.txt`
+*   **File:** `ups_signature_data.rs`
 *   **Purpose:** Defines the data structure that gets signed by the user's private key (or equivalent signature scheme) to authorize the end of a User Proving Session.
 *   **Key Inputs/Witness:**
     *   `start_user_leaf_hash`: Hash of the user leaf at the *start* of the session.
@@ -135,7 +135,7 @@ These gadgets are components used within the circuits that users run locally to 
 
 #### `UPSEndCapResultCompactGadget`
 
-*   **File:** `ups_end_cap_result_rs.txt`
+*   **File:** `ups_end_cap_result.rs`
 *   **Purpose:** Defines the compact data structure representing the *result* of a completed UPS, which is submitted to the GUTA layer for aggregation.
 *   **Key Inputs/Witness:**
     *   `start_user_leaf_hash`: Hash of the user leaf at the *start* of the session.
@@ -152,7 +152,7 @@ These gadgets are components used within the circuits that users run locally to 
 
 #### `UPSEndCapCoreGadget`
 
-*   **File:** `ups_end_cap_rs.txt`
+*   **File:** `ups_end_cap.rs`
 *   **Purpose:** Enforces the core constraints for finalizing a User Proving Session (End Cap). It connects the final UPS state to the signature proof and prepares the final output data (result and stats).
 *   **Key Inputs/Witness:**
     *   `last_header_gadget`: The header state at the *end* of the UPS (after the last transaction).
@@ -185,7 +185,7 @@ These gadgets are components used within the circuits that users run locally to 
 
 #### `VerifyPreviousUPSStepProofInProofTreeGadget`
 
-*   **File:** `verify_previous_ups_step_rs.txt`
+*   **File:** `verify_previous_ups_step.rs`
 *   **Purpose:** Verifies a ZK proof corresponding to the *previous* step in the User Proving Session's recursive chain. It ensures the proof is valid, exists in the expected UPS proof tree, used an allowed UPS circuit, and matches the expected previous header state.
 *   **Key Inputs/Witness:**
     *   `ups_session_proof_tree_height`, `ups_circuit_whitelist_tree_height`: Parameters.
@@ -212,7 +212,7 @@ These gadgets are components used within the circuits that users run locally to 
 
 #### `VerifyPreviousUPSStepProofInProofTreePartialFromCurrentGadget`
 
-*   **File:** `verify_previous_ups_step_partial_from_current_rs.txt`
+*   **File:** `verify_previous_ups_step_partial_from_current.rs`
 *   **Purpose:** Similar to the full verification gadget, but optimized for cases where the *current* header's `session_start_context` is already known and fixed within the circuit. It only needs the *previous step's state* (`UserProvingSessionCurrentStateGadget`) as witness, reconstructing the full previous header internally.
 *   **Key Inputs/Witness:**
     *   `current_header`: The *current* step's header gadget (provided as input, not witness).
@@ -231,7 +231,7 @@ These gadgets are components used within the circuits that users run locally to 
 
 #### `UPSEndCapFromProofTreeGadget`
 
-*   **File:** `ups_end_cap_tree_rs.txt`
+*   **File:** `ups_end_cap_tree.rs`
 *   **Purpose:** Orchestrates the entire End Cap process within a ZK circuit. It verifies the *last* UPS step proof, verifies the user's ZK signature proof, and enforces the final End Cap constraints.
 *   **Key Inputs/Witness:**
     *   `ups_session_proof_tree_height`, `ups_circuit_whitelist_tree_height`: Parameters.
@@ -256,7 +256,7 @@ These gadgets are components used within the circuits that users run locally to 
 
 #### `UPSStartStepGadget`
 
-*   **File:** `ups_start_rs.txt`
+*   **File:** `ups_start.rs`
 *   **Purpose:** Initializes a User Proving Session. It takes the user's initial state (from the last finalized block's checkpoint) and sets up the starting header for the UPS circuit chain.
 *   **Key Inputs/Witness:**
     *   `UPSStartStepInput`: Witness containing:
@@ -290,7 +290,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `GUTAStatsGadget`
 
-*   **File:** `guta_stats_rs.txt`
+*   **File:** `guta_stats.rs`
 *   **Purpose:** Represents and processes statistics aggregated during the GUTA process.
 *   **Key Inputs/Witness:** `fees_collected`, `user_ops_processed`, `total_transactions`, `slots_modified`.
 *   **Key Outputs/Computed Values:** Can compute a hash of the stats.
@@ -300,7 +300,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `GlobalUserTreeAggregatorHeaderGadget`
 
-*   **File:** `guta_header_rs.txt`
+*   **File:** `guta_header.rs`
 *   **Purpose:** Represents the public inputs (header) of a GUTA proof. It encapsulates the essential information about the aggregation step.
 *   **Key Inputs/Witness:**
     *   `guta_circuit_whitelist`: Root hash of the allowed GUTA circuits.
@@ -314,7 +314,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `VerifyEndCapProofGadget`
 
-*   **File:** `verify_end_cap_rs.txt`
+*   **File:** `verify_end_cap.rs`
 *   **Purpose:** Verifies a user's End Cap proof within the GUTA aggregation process. It checks the proof's validity, ensures it used the correct End Cap circuit, verifies the user's claimed checkpoint root is historical, and extracts the state transition and stats.
 *   **Key Inputs/Witness:**
     *   `proof_common_data`, `verifier_data_cap_height`: Parameters for proof verification.
@@ -344,7 +344,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `VerifyGUTAProofGadget`
 
-*   **File:** `verify_guta_proof_rs.txt`
+*   **File:** `verify_guta_proof.rs`
 *   **Purpose:** Verifies a GUTA proof generated by a lower level in the aggregation hierarchy. Checks the proof validity, ensures it used an allowed GUTA circuit, and extracts its header.
 *   **Key Inputs/Witness:**
     *   `proof_common_data`, `verifier_data_cap_height`: Parameters.
@@ -367,7 +367,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `TwoNCAStateTransitionGadget`
 
-*   **File:** `two_nca_state_transition_rs.txt`
+*   **File:** `two_nca_state_transition.rs`
 *   **Purpose:** Combines the state transitions from two child GUTA proofs (`a_header`, `b_header`) that modify different parts of the Global User Tree. It uses a Nearest Common Ancestor (NCA) proof to compute the resulting state transition at their common parent node in the tree.
 *   **Key Inputs/Witness:**
     *   `a_header`, `b_header`: The headers of the two child GUTA proofs.
@@ -390,7 +390,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `GUTAHeaderLineProofGadget`
 
-*   **File:** `guta_line_rs.txt`
+*   **File:** `guta_line.rs`
 *   **Purpose:** Aggregates a GUTA proof state transition *upwards* along a direct line towards the root of the Global User Tree realm. Used when a node only has one child contributing to the update in that part of the tree.
 *   **Key Inputs/Witness:**
     *   `global_user_tree_realm_height`, `global_user_tree_height`: Parameters.
@@ -408,7 +408,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `VerifyGUTAProofToLineGadget`
 
-*   **File:** `verify_guta_proof_to_line_rs.txt`
+*   **File:** `verify_guta_proof_to_line.rs`
 *   **Purpose:** Combines verifying a lower-level GUTA proof with aggregating its state transition upwards using a line proof.
 *   **Key Inputs/Witness:**
     *   `proof_common_data`, `verifier_data_cap_height`: Parameters.
@@ -427,7 +427,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `GUTARegisterUserCoreGadget`
 
-*   **File:** `guta_register_user_core_rs.txt`
+*   **File:** `guta_register_user_core.rs`
 *   **Purpose:** Handles the core logic for registering a *single* new user in the Global User Tree (`GUSR`). It verifies the update proof that inserts the new user leaf.
 *   **Key Inputs/Witness:**
     *   `global_user_tree_realm_height`, `global_user_tree_height`: Parameters.
@@ -451,7 +451,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `GUTARegisterUserFullGadget`
 
-*   **File:** `guta_register_user_full_rs.txt`
+*   **File:** `guta_register_user_full.rs`
 *   **Purpose:** Extends the core registration by adding verification against a *user registration tree*. This tree (presumably managed off-chain or via a separate mechanism) maps user IDs to public keys. This gadget ensures the public key used for registration matches the one committed to in the registration tree.
 *   **Key Inputs/Witness:**
     *   (Inherits inputs from Core gadget).
@@ -470,7 +470,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `GUTARegisterUsersGadget`
 
-*   **File:** `guta_register_users_rs.txt`
+*   **File:** `guta_register_users.rs`
 *   **Purpose:** Aggregates multiple user registration operations (using `GUTARegisterUserFullGadget`) sequentially within a single circuit. Handles padding/disabling for a fixed maximum number of users.
 *   **Key Inputs/Witness:**
     *   (Inherits inputs from Full gadget).
@@ -496,7 +496,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `GUTAOnlyRegisterUsersGadget`
 
-*   **File:** `guta_only_register_users_gadget_rs.txt`
+*   **File:** `guta_only_register_users_gadget.rs`
 *   **Purpose:** A specialized GUTA gadget that *only* performs user registration (using `GUTARegisterUsersGadget`) and assumes *no other state changes* (zero stats).
 *   **Key Inputs/Witness:**
     *   `guta_circuit_whitelist`, `checkpoint_tree_root`: Inputs (likely from a previous step or constant).
@@ -514,7 +514,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `GUTARegisterUsersBatchGadget`
 
-*   **File:** `guta_register_users_batch_rs.txt`
+*   **File:** `guta_register_users_batch.rs`
 *   **Purpose:** Combines verification of a previous GUTA proof (brought up to a certain tree level via a line proof) with a subsequent batch registration of new users.
 *   **Key Inputs/Witness:**
     *   (Inherits inputs for `VerifyGUTAProofToLineGadget`).
@@ -536,7 +536,7 @@ These gadgets are components used within the circuits run by the decentralized p
 
 #### `GUTANoChangeGadget`
 
-*   **File:** `guta_no_change_gadget_rs.txt`
+*   **File:** `guta_no_change_gadget.rs`
 *   **Purpose:** Represents a GUTA step where the Global User Tree (`GUSR`) does *not* change. It primarily serves to advance the `checkpoint_tree_root` based on a new checkpoint.
 *   **Key Inputs/Witness:**
     *   `guta_circuit_whitelist`: Input constant/parameter.
@@ -564,7 +564,7 @@ These files define complete ZK circuits, orchestrating various gadgets to perfor
 
 #### `UPSStartSessionCircuit`
 
-*   **File:** `ups_start_rs.txt` (Circuit definition wrapping `UPSStartStepGadget`)
+*   **File:** `ups_start.rs` (Circuit definition wrapping `UPSStartStepGadget`)
 *   **Purpose:** The circuit executed to begin a User Proving Session.
 *   **Core Logic:** Primarily uses the `UPSStartStepGadget` to verify the initial state against a checkpoint and set up the starting header. Computes the final public inputs hash by wrapping the inner header hash (`start_step_gadget.header_gadget.to_hash()`) with tree awareness information (using `compute_tree_aware_proof_public_inputs`), assuming the proof tree starts empty (`empty_ups_proof_tree_root_target`).
 *   **What it Proves:** That a valid starting `UserProvingSessionHeader` has been constructed, correctly anchored to a specific, verified checkpoint and user leaf state from the last finalized block, and that the session starts with empty debt trees and zero transaction count.
@@ -573,7 +573,7 @@ These files define complete ZK circuits, orchestrating various gadgets to perfor
 
 #### `UPSCFCStandardTransactionCircuit`
 
-*   **File:** `ups_cfc_standard_rs.txt` (Circuit definition wrapping `VerifyPreviousUPSStepProofInProofTreeGadget` and `UPSVerifyCFCStandardStepGadget`)
+*   **File:** `ups_cfc_standard.rs` (Circuit definition wrapping `VerifyPreviousUPSStepProofInProofTreeGadget` and `UPSVerifyCFCStandardStepGadget`)
 *   **Purpose:** Processes a single, standard Contract Function Call (CFC) transaction within an ongoing User Proving Session.
 *   **Core Logic:**
     *   Uses `VerifyPreviousUPSStepProofInProofTreeGadget` to verify the proof of the *previous* UPS step.
@@ -589,7 +589,7 @@ These files define complete ZK circuits, orchestrating various gadgets to perfor
 
 #### `UPSCFCDeferredTransactionCircuit`
 
-*   **File:** `ups_cfc_deferred_tx_rs.txt` (Circuit definition wrapping `VerifyPreviousUPSStepProofInProofTreeGadget` and `UPSVerifyPopDeferredTxStepGadget`)
+*   **File:** `ups_cfc_deferred_tx.rs` (Circuit definition wrapping `VerifyPreviousUPSStepProofInProofTreeGadget` and `UPSVerifyPopDeferredTxStepGadget`)
 *   **Purpose:** Processes a transaction that pays back a deferred transaction debt within an ongoing User Proving Session.
 *   **Core Logic:**
     *   Uses `VerifyPreviousUPSStepProofInProofTreeGadget` to verify the previous UPS step proof.
@@ -604,14 +604,14 @@ These files define complete ZK circuits, orchestrating various gadgets to perfor
 
 #### `UPSStandardEndCapCircuit`
 
-*   **File:** `end_cap_rs.txt` (Circuit definition wrapping `UPSEndCapFromProofTreeGadget` and proof verification gadgets)
+*   **File:** `end_cap.rs` (Circuit definition wrapping `UPSEndCapFromProofTreeGadget` and proof verification gadgets)
 *   **Purpose:** The final circuit in a User Proving Session. It verifies the last UPS step, verifies the user's ZK signature proof, enforces final state conditions (e.g., empty debt trees), and generates the final public outputs (End Cap Result hash and GUTA Stats hash).
 *   **Core Logic:**
     *   Uses `UPSEndCapFromProofTreeGadget` which orchestrates:
         *   Verification of the *last* UPS step proof (`VerifyPreviousUPSStepProofInProofTreeGadget`).
         *   Verification of the ZK signature proof (`AttestProofInTreeGadget`).
         *   Enforcement of final conditions via `UPSEndCapCoreGadget`.
-    *   *(Original `end_cap_rs.txt` also includes `VerifyAggProofGadget`)*: Verifies a proof about the UPS proof tree itself (e.g., ensuring the tree was built using allowed aggregation circuits). This connects the user's session to the global proof aggregation infrastructure rules.
+    *   *(Original `end_cap.rs` also includes `VerifyAggProofGadget`)*: Verifies a proof about the UPS proof tree itself (e.g., ensuring the tree was built using allowed aggregation circuits). This connects the user's session to the global proof aggregation infrastructure rules.
     *   Connects the proof tree root from the UPS gadget to the state transition end of the verified aggregation proof.
     *   Connects the UPS circuit whitelist root from the UPS gadget to a known constant or input, ensuring the UPS steps used allowed circuits.
     *   Connects the proof tree aggregation circuit whitelist root to a known constant (ensuring the tree proof used allowed circuits).
