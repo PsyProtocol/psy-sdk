@@ -2,6 +2,7 @@ mod compile_cmd;
 mod execute_cmd;
 mod init_cmd;
 mod new_cmd;
+mod test_cmd;
 
 use crate::errors::Result;
 use clap::{Args, Parser, Subcommand};
@@ -19,6 +20,7 @@ pub(crate) fn start_cli() -> Result<()> {
         DargoCommand::Init(args) => init_cmd::run(args, config),
         DargoCommand::Compile(args) => with_workspace(args, config, compile_cmd::run),
         DargoCommand::Execute(args) => with_workspace(args, config, execute_cmd::run),
+        DargoCommand::Test(args) => with_workspace(args, config, test_cmd::run),
     }?;
     Ok(())
 }
@@ -41,6 +43,7 @@ enum DargoCommand {
     #[command(alias = "build")]
     Compile(compile_cmd::CompileCommand),
     Execute(execute_cmd::ExecuteCommand),
+    Test(test_cmd::TestCommand),
 }
 
 #[derive(Args, Clone, Debug)]
