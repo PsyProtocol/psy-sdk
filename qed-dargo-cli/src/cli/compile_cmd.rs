@@ -69,7 +69,7 @@ pub struct CompileOptions {
     contract_name: Option<String>,
     #[clap(short, long, num_args = 1.., default_values = &["main"])]
     method_names: Vec<String>,
-    #[clap(long, default_value = None)]
+    #[clap(long, hide = true, default_value = None)]
     entry_path: Option<PathBuf>,
     #[clap(long, hide = true, default_value = "false")]
     debug: bool,
