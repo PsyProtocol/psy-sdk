@@ -34,7 +34,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     attrs: function_node.attrs,
                     type_id: UNKOWN_TYPE,
                     location: function_node.location,
-                    comments: todo!(),
+                    comments: function_node.comments,
                 };
 
                 let ty = Type::Function(checked_function);
@@ -56,7 +56,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     scope_id: ctx.symbols.current_scope_id().unwrap(),
                     visibility: struct_node.visibility,
                     location: struct_node.location,
-                    comments: todo!(),
+                    comments: struct_node.comments,
                 };
 
                 let ty = Type::Struct(checked_struct);
@@ -82,7 +82,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     scope_id: ctx.symbols.current_scope_id().unwrap(),
                     visibility: trait_node.visibility,
                     location: trait_node.location,
-                    comments: todo!(),
+                    comments: trait_node.comments,
                 };
 
                 let ty = Type::Trait(checked_trait);
@@ -262,7 +262,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 attrs: function.attrs,
                 type_id: UNKOWN_TYPE,
                 location: function.location,
-                comments: todo!(),
+                comments: function.comments,
             }),
         }
     }
@@ -378,7 +378,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             body: self.program.defs.alloc_items(methods),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             location: impl_node.location,
-            comments: todo!(),
+            comments: impl_node.comments,
         };
 
         self.infcx.exit_context();
