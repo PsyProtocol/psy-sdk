@@ -28,18 +28,6 @@ pub enum ManifestError {
     #[error("Dargo.toml is badly formed, could not parse.\n\n {0}")]
     MalformedFile(#[from] toml::de::Error),
 
-    #[error("Cannot find file {entry} which was specified as the `entry` field in {toml}")]
-    MissingEntryFile { toml: PathBuf, entry: PathBuf },
-
-    #[error(
-        r#"Cannot find file {entry} which is defaulted due to specifying `type = "{package_type}"` in {toml}"#
-    )]
-    MissingDefaultEntryFile {
-        toml: PathBuf,
-        entry: PathBuf,
-        package_type: PackageType,
-    },
-
     #[error("{} found in {toml}", if name.is_empty() { "Empty package name".into() } else { format!("Invalid package name `{name}`") })]
     InvalidPackageName { toml: PathBuf, name: String },
 
