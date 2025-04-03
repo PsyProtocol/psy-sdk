@@ -20,11 +20,12 @@ interpret:
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file ${FILE} --parameters ${PARAMETERS}
 
 compile:
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli compile --file tests/ctx_test.qed
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli compile --file tests/storage_test.qed --contract-name=Contract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli compile --file tests/basic_ups.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli compile --file tests/token.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli compile --file tests/two_user_ups.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
+	@RUST_LOG=${LOG_LEVE} cd tests && \
+	cargo run --release --package qed-dargo-cli compile --debug --entry-path ctx_test.qed && \
+    cargo run --release --package qed-dargo-cli compile --debug --entry-path storage_test.qed --contract-name=Contract --method-names set_a set_b set_c set_d get_a get_b get_c get_d && \
+    cargo run --release --package qed-dargo-cli compile --debug --entry-path basic_ups.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim && \
+    cargo run --release --package qed-dargo-cli compile --debug --entry-path token.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim && \
+    cargo run --release --package qed-dargo-cli compile --debug --entry-path two_user_ups.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
 
 test:
 	@RUST_LOG=${LOG_LEVE} cargo test --release -- --nocapture
