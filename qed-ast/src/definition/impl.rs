@@ -7,6 +7,7 @@ pub struct ImplNode {
     pub body: Vec<DefId>,
     pub comments: Vec<Comment>,
     pub location: Location,
+    pub is_generated: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -17,6 +18,7 @@ pub struct TraitImplNode {
     pub body: Vec<DefId>,
     pub comments: Vec<Comment>,
     pub location: Location,
+    pub is_generated: bool,
 }
 
 impl NodeInfo for ImplNode {

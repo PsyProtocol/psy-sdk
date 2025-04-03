@@ -169,6 +169,7 @@ ImplDef: ImplNode = {
             },
             comments: comments.into_iter().chain(back_comments.into_iter()).collect(),
             location: Location::new(file_id, l, r),
+            is_generated: false,
         }
    })
 }
@@ -203,6 +204,7 @@ TraitImplDef: TraitImplNode = {
             },
             comments: comments.into_iter().chain(back_comments.into_iter()).collect(),
             location: Location::new(file_id, l, r),
+            is_generated: false,
         }
    })
 }
@@ -499,7 +501,7 @@ TupleExpression: ExprNode<F> = {
         ExprNode::<F>::Tuple(TupleExprNode { elements, location: Location::new(file_id, l, r) })
     },
     //if the tuple has only one element, it should be treated as a normal expression
-    "(" <expr:Expression> ")" => expr,
+    "(" <expr:Expression> ")" => ExprNode::<F>::Parentheses(expr_nodes.alloc_item(expr)),
 }
 
 VariableStatement: StmtNode = {

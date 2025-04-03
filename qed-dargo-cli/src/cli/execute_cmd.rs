@@ -1,4 +1,4 @@
-use crate::cli::compile_cmd::{CompileOptions, compile_workspace_full};
+use crate::cli::compile_cmd::{compile_workspace_full, CompileOptions};
 use clap::Args;
 use qed_dargo::workspace::Workspace;
 
@@ -10,7 +10,7 @@ use qed_data::qblock::cmds::register_user::QBCRegisterUser;
 use qed_exec::vm::exec::QEDEvalSessionResult;
 use qed_store::config::store_config::QEDHasher;
 use qed_utils::{
-    C, D, gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract,
+    gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract, C, D,
 };
 
 /// Executes a circuit to calculate its return value

@@ -2,8 +2,8 @@ mod cli;
 pub mod errors;
 
 use std::env;
-use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
+use tracing_subscriber::EnvFilter;
 const PANIC_MESSAGE: &str = "Program panic. This is a bug to be fixed.";
 
 fn main() {

@@ -5,10 +5,10 @@ mod semver;
 
 use crate::errors::{ManifestError, SemverError};
 use crate::git::clone_git_repo;
-use qed_dargo::FILE_EXTENSION;
 use qed_dargo::fm::NormalizePath;
 use qed_dargo::package::{CrateName, Dependency, Package, PackageType};
 use qed_dargo::workspace::Workspace;
+use qed_dargo::FILE_EXTENSION;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

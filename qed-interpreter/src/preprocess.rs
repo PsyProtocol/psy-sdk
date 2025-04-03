@@ -40,6 +40,7 @@ impl<'a> StorageProcessor<'a> {
             body: methods,
             comments: vec![],
             location: attr.location,
+            is_generated: true,
         }
     }
 
@@ -77,6 +78,7 @@ impl<'a> StorageProcessor<'a> {
             body: methods,
             comments: vec![],
             location: attr.location,
+            is_generated: true,
         }
     }
 
@@ -741,6 +743,15 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         _ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
+    }
+
+    fn visit_parentheses(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> Result<Self::StmtResult, Self::Error> {
+        let inner_expr_id = ctx.expression(node).as_parentheses().unwrap().clone();
+        self.visit_expr(inner_expr_id, ctx)
     }
 
     fn visit_lambda_function(
