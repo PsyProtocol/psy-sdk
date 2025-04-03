@@ -76,14 +76,7 @@ impl PackageConfig {
 
         let entry_path = if let Some(entry_path) = &self.package.entry {
             let custom_entry_path = root_dir.join(entry_path);
-            if custom_entry_path.exists() {
-                custom_entry_path
-            } else {
-                return Err(ManifestError::MissingEntryFile {
-                    toml: root_dir.join("Dargo.toml"),
-                    entry: custom_entry_path,
-                });
-            }
+            custom_entry_path
         } else {
             let default_entry_path = match package_type {
                 PackageType::Library => root_dir
@@ -95,16 +88,7 @@ impl PackageConfig {
                     .join("main")
                     .with_extension(FILE_EXTENSION),
             };
-
-            if default_entry_path.exists() {
-                default_entry_path
-            } else {
-                return Err(ManifestError::MissingDefaultEntryFile {
-                    toml: root_dir.join("Dargo.toml"),
-                    entry: default_entry_path,
-                    package_type,
-                });
-            }
+            default_entry_path
         };
 
         // If there is a package version, ensure that it is semver compatible
