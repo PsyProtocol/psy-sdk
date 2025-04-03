@@ -22,7 +22,7 @@ pub(crate) struct TestCommand {
     #[clap(short, env, long)]
     pub file: PathBuf,
 }
-pub(crate) fn run(args: TestCommand, _: Workspace) -> crate::errors::Result<()> {
+pub(crate) fn run(args: TestCommand) -> crate::errors::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let (mut typechecker, mut ctx) = interpreter.typecheck(args.file, vec![])?;
     let compile_results = interpreter.test(

@@ -21,7 +21,7 @@ pub(crate) fn start_cli() -> Result<()> {
         DargoCommand::Init(args) => init_cmd::run(args, config),
         DargoCommand::Compile(args) => with_workspace(args, config, compile_cmd::run),
         DargoCommand::Execute(args) => with_workspace(args, config, execute_cmd::run),
-        DargoCommand::Test(args) => with_workspace(args, config, test_cmd::run),
+        DargoCommand::Test(args) => test_cmd::run(args),
     }?;
     Ok(())
 }
