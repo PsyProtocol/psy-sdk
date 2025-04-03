@@ -1,31 +1,27 @@
 
 struct Person {
-    pub age_height: [[Felt; 2]; 2],
-    pub year_of_birth: Felt
+  pub age_height: [[Felt; 2]; 2],
+  pub year_of_birth: Felt,
 }
-
+// error
+// pub fn func4(self, self) {
+// }
 impl Person {
-    pub fn func1(self: Person) {
-    }
-    pub fn func2(self: Self) {
-    }
-    pub fn func3(self) {
-    }
-    // error
-    // pub fn func4(self, self) {
-    // }
+  pub fn func1(self: Person) {
+  }
+  pub fn func2(self: Self) {
+  }
+  pub fn func3(self: Self) {
+  }
 }
-
 // error
 // fn test_fn(self: Person){
 // }
 // fn test_fn2(s: Self){
 // }
-
-
 fn main() {
-    let person: Person = new Person{
-        year_of_birth: 1990,
-        age_height: [[1, 1], [1, 1]]
-    };
+  let person: Person = new Person {
+    year_of_birth: 1990,
+    age_height: [[1, 1], [1, 1]],
+  };
 }

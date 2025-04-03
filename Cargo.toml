@@ -1,22 +1,14 @@
 [workspace]
 members = [
-    "qed-abi",
     "qed-fmt",
     "qed-cli",
-    "qed-ir",
     "qed-lsp-server",
     "qed-parser",
     "qed-utils",
     "qed-common",
-    "qed-vm",
-    "qed-repl",
     "qed-ast",
-    "qed-opt",
     "qed-derive",
     "qed-sema",
-    "qed-store",
-    "qed-irgen",
-    "qed-codegen",
     "qed-lexer",
     "qed-interpreter",
     "qed-dargo",
@@ -149,24 +141,16 @@ kvq = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qe
 # qed_common_circuit = { path = "../qedlang-rust/qed_common_circuit" }
 # kvq = { path = "../qedlang-rust/kvq" }
 
-qed-abi = { path = "./qed-abi" }
 qed-ast = { path = "./qed-ast" }
 qed-cli = { path = "./qed-cli" }
-qed-codegen = { path = "./qed-codegen" }
 qed-derive = { path = "./qed-derive" }
 qed-fmt = { path = "./qed-fmt" }
-qed-ir = { path = "./qed-ir" }
 qed-lsp-server = { path = "./qed-lsp-server" }
 qed-parser = { path = "./qed-parser" }
 qed-utils = { path = "./qed-utils" }
 qed-common = { path = "./qed-common" }
-qed-vm = { path = "./qed-vm" }
-qed-irgen = { path = "./qed-irgen" }
-qed-opt = { path = "./qed-opt" }
 qed-sema = { path = "./qed-sema" }
-qed-repl = { path = "./qed-repl" }
 qed-lexer = { path = "./qed-lexer" }
 qed-interpreter = { path = "./qed-interpreter" }
-qed-store = { path = "./qed-store" }
 qed-dargo = { path = "./qed-dargo" }
 qed-dargo-toml = { path = "./qed-dargo-toml" }

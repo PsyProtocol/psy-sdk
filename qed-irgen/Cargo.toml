@@ -1,9 +1,0 @@
-[package]
-edition = "2021"
-name    = "qed-irgen"
-version = "0.1.0"
-
-[dependencies]
-qed-ir = { workspace = true }
-qed-ast = { workspace = true }
-thiserror = { workspace = true }

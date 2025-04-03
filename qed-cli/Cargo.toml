@@ -9,7 +9,6 @@ anyhow = { workspace = true }
 qed-utils = { workspace = true }
 dotenv = { workspace = true }
 qed-interpreter = { workspace = true }
-qed-vm = { workspace = true }
 thiserror = { workspace = true }
 qed-sema = { workspace = true }
 plonky2 = { workspace = true }

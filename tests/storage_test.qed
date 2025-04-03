@@ -1,20 +1,19 @@
-mod math{
-    pub fn max(a: Felt, b: Felt) -> Felt {
-        return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
-    }
-
-    pub fn min(a: Felt, b: Felt) -> Felt {
-        return a * ((a < b) as Felt) + b * ((a >=b) as Felt);
-    }
+mod math {
+  
+  pub fn max(a: Felt, b: Felt) -> Felt {
+    return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
+  }
+  pub fn min(a: Felt, b: Felt) -> Felt {
+    return a * ((a < b) as Felt) + b * ((a >= b) as Felt);
+  }
 }
 
 use math::*;
-
 #[derive(Storage)]
 struct Person {
-    pub age: Felt,
-    pub height: Felt,
-    pub year_of_birth: Felt
+  pub age: Felt,
+  pub height: Felt,
+  pub year_of_birth: Felt,
 }
 
 // impl Storage for Person {
@@ -36,14 +35,17 @@ struct Person {
 //         Felt::write(offset + Felt::size() + Felt::size(), value.year_of_birth);
 //     }
 // }
-
 #[storage]
 struct Contract {
-    a: Felt, // 0
-    pub b: Person, // 1
-    c: Felt, // 4
-    d: Person, // 7
-    e: [Felt; 4]
+  a: Felt,
+  // 0
+  pub b: Person,
+  // 1
+  c: Felt,
+  // 4
+  d: Person,
+  // 7
+  e: [Felt; 4],
 }
 
 // impl Storage for Contract {
@@ -67,78 +69,73 @@ struct Contract {
 //         Person::write(offset + Felt::size() + Person::size() + Felt::size(), value.d);
 //     }
 // }
-
+// fn get_a(self: Self) -> Felt {
+//     return Felt::read(0);
+// }
+//
+// fn get_b(self: Self) -> Person {
+//     return Person::read(Felt::size())
+// }
+//
+// fn get_c(self: Self) -> Felt {
+//     return Felt::read(Felt::size() + Person::size());
+// }
+//
+// fn set_a(self: Self, value: Felt) {
+//     Felt::write(0, value);
+// }
+//
+// fn set_b(self: Self, value: Person) {
+//     Person::write(Felt::size(), value);
+// }
+//
+// fn set_c(self: Self, value: Felt) {
+//     Felt::write(Felt::size() + Person::size(), value);
+// }
 impl Contract {
-    pub fn new() -> Self {
-        return new Contract {
-            a: 0,
-            b: new Person {
-                age: 0,
-                height: 0,
-                year_of_birth: 0
-            },
-            c: 0,
-            d: new Person {
-                age: 0,
-                height: 0,
-                year_of_birth: 0
-            },
-            e: [1, 2, 3, 4]
-        };
-    }
-
-    pub fn set_abcde(a: Felt, b: Person, c: Felt, d: Person, e: [Felt; 4]) {
-        Contract::set_a(a);
-        Contract::set_b(b);
-        Contract::set_c(c);
-        Contract::set_d(d);
-        Contract::set_e(e);
-    }
-
-    // fn get_a(self: Self) -> Felt {
-    //     return Felt::read(0);
-    // }
-    //
-    // fn get_b(self: Self) -> Person {
-    //     return Person::read(Felt::size())
-    // }
-    //
-    // fn get_c(self: Self) -> Felt {
-    //     return Felt::read(Felt::size() + Person::size());
-    // }
-    //
-    // fn set_a(self: Self, value: Felt) {
-    //     Felt::write(0, value);
-    // }
-    //
-    // fn set_b(self: Self, value: Person) {
-    //     Person::write(Felt::size(), value);
-    // }
-    //
-    // fn set_c(self: Self, value: Felt) {
-    //     Felt::write(Felt::size() + Person::size(), value);
-    // }
+  pub fn new() -> Self {
+    return new Contract {
+      a: 0,
+      b: new Person {
+      age: 0,
+      height: 0,
+      year_of_birth: 0,
+    },
+      c: 0,
+      d: new Person {
+      age: 0,
+      height: 0,
+      year_of_birth: 0,
+    },
+      e: [1, 2, 3, 4],
+    };
+  }
+  pub fn set_abcde(a: Felt, b: Person, c: Felt, d: Person, e: [Felt; 4]) {
+    Contract::set_a(a);
+    Contract::set_b(b);
+    Contract::set_c(c);
+    Contract::set_d(d);
+    Contract::set_e(e);
+  }
 }
-
 fn main() -> Felt {
-    Contract::set_a(10);
-    Contract::set_b(new Person {
-        age: 20,
-        height: 180,
-        year_of_birth: 2000
-    });
-    Contract::set_c(30);
-    Contract::set_d(new Person {
-        age: 40,
-        height: 170,
-        year_of_birth: 1980
-    });
-    Contract::set_e([4, 3, 2, 1]);
-
-    let a: Felt = Contract::get_a();
-    let b: Person = Contract::get_b();
-    let c: Felt = Contract::get_c();
-    let d: Person = Contract::get_d();
-    let e: [Felt; 4] = Contract::get_e();
-    return a;
+  Contract::set_a(10);
+  Contract::set_b(new Person {
+    age: 20,
+    height: 180,
+    year_of_birth: 2000,
+  });
+  Contract::set_c(30);
+  Contract::set_d(new Person {
+    age: 40,
+    height: 170,
+    year_of_birth: 1980,
+  });
+  Contract::set_e([4, 3, 2, 1]);
+  let a: Felt = Contract::get_a();
+  let b: Person = Contract::get_b();
+  let c: Felt = Contract::get_c();
+  let d: Person = Contract::get_d();
+  let e: [Felt; 4] = Contract::get_e();
+  return a;
 }
