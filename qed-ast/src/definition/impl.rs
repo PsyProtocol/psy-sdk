@@ -1,11 +1,13 @@
-use crate::{DefId, GenericParameter, Identifier, Location, NodeInfo, NodeType, UncheckedType};
+use crate::{Comment, DefId, GenericParameter, Location, NodeInfo, NodeType, UncheckedType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImplNode {
     pub generic_parameters: Vec<GenericParameter>,
     pub ty: UncheckedType,
     pub body: Vec<DefId>,
+    pub comments: Vec<Comment>,
     pub location: Location,
+    pub is_generated: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,7 +16,9 @@ pub struct TraitImplNode {
     pub trait_ty: UncheckedType,
     pub ty: UncheckedType,
     pub body: Vec<DefId>,
+    pub comments: Vec<Comment>,
     pub location: Location,
+    pub is_generated: bool,
 }
 
 impl NodeInfo for ImplNode {

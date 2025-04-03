@@ -3,7 +3,7 @@ use logos::Logos;
 use std::fmt;
 
 #[derive(Logos, Clone, Debug, PartialEq)]
-#[logos(skip r"[\s\t\r\n\f]+", skip r"//[^\n\r]*", skip r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/", error = Error)]
+#[logos(skip r"[\s\t\r\n\f]+", error = Error)]
 pub enum Token<'input> {
     #[token("const")]
     KeywordConst,
@@ -51,10 +51,18 @@ pub enum Token<'input> {
     IntrinsicAssertEq,
     #[token("hash")]
     IntrinsicHash,
+    #[token("__mem_transmute")]
+    IntrinsicMemTransmute,
+    #[token("__mem_size_of")]
+    IntrinsicMemSizeOf,
     #[token("__storage_read")]
     IntrinsicStorageRead,
     #[token("__storage_write")]
     IntrinsicStorageWrite,
+    #[token("__storage_read_range")]
+    IntrinsicStorageReadRange,
+    #[token("__storage_write_range")]
+    IntrinsicStorageWriteRange,
     #[token("__ctx_get_user_id")]
     IntrinsicCtxGetUserId,
     #[token("__ctx_get_contract_id")]
@@ -220,6 +228,12 @@ pub enum Token<'input> {
 
     #[token(">>=")]
     OperatorBitShrAssign,
+
+    #[regex(r"//[^\n\r]*", |lex| lex.slice())]
+    LineComment(&'input str), // single line comment
+
+    #[regex(r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/", |lex| lex.slice())]
+    BlockComment(&'input str), // block comment
 }
 
 impl fmt::Display for Token<'_> {
@@ -231,6 +245,10 @@ impl fmt::Display for Token<'_> {
 #[test]
 fn test_lex_comment() {
     let mut lex = Token::lexer("// This is a line comment\nlet x = 5;");
+    assert_eq!(
+        lex.next(),
+        Some(Ok(Token::LineComment("// This is a line comment")))
+    );
     assert_eq!(lex.next(), Some(Ok(Token::KeywordLet)));
     assert_eq!(lex.next(), Some(Ok(Token::Ident("x"))));
     assert_eq!(lex.next(), Some(Ok(Token::Assign)));
@@ -239,6 +257,10 @@ fn test_lex_comment() {
     assert_eq!(lex.next(), None);
 
     let mut lex = Token::lexer("/* This is a\nblock comment */\nlet y = 10;");
+    assert_eq!(
+        lex.next(),
+        Some(Ok(Token::BlockComment("/* This is a\nblock comment */")))
+    );
     assert_eq!(lex.next(), Some(Ok(Token::KeywordLet)));
     assert_eq!(lex.next(), Some(Ok(Token::Ident("y"))));
     assert_eq!(lex.next(), Some(Ok(Token::Assign)));

@@ -1,0 +1,1165 @@
+---
+source: qed-interpreter/src/lib.rs
+assertion_line: 1548
+expression: "ctx.debug_scope(ScopeId::root())"
+input_file: tests/003.qed
+---
+ScopeId(0) (Module)
+    Types:
+        pub trait Storage (TypeId(18))
+            Body: [DefId(4), DefId(5), DefId(6)]
+            Unchecked Body: [DefId(16), DefId(17), DefId(18)]
+        pub fn get_user_id (TypeId(36))
+            Return Type: Felt (TypeId(3))
+            Body: ExprId(69)
+        pub fn get_contract_id (TypeId(37))
+            Return Type: Felt (TypeId(3))
+            Body: ExprId(71)
+        pub fn get_checkpoint_id (TypeId(38))
+            Return Type: Felt (TypeId(3))
+            Body: ExprId(73)
+        pub fn get_last_nonce (TypeId(39))
+            Return Type: Felt (TypeId(3))
+            Body: ExprId(75)
+        pub fn get_user_public_key_hash (TypeId(40))
+            Return Type: Array (TypeId(9))
+            Body: ExprId(77)
+        pub fn get_state_hash_at (TypeId(41))
+            Parameters:
+                Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 402, end: 412 } }, TypeId(41))
+            Return Type: Array (TypeId(9))
+            Body: ExprId(80)
+        pub fn get_other_contract_state_hash_at (TypeId(42))
+            Parameters:
+                Felt contract_state_tree_height (Identifier { id: IdentId(60), location: Location { file_id: FileId(6), start: 513, end: 539 } }, TypeId(42))
+                Felt contract_id (Identifier { id: IdentId(61), location: Location { file_id: FileId(6), start: 547, end: 558 } }, TypeId(42))
+                Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 566, end: 576 } }, TypeId(42))
+            Return Type: Array (TypeId(9))
+            Body: ExprId(85)
+        pub fn get_other_user_contract_state_hash_at (TypeId(43))
+            Parameters:
+                Felt contract_state_tree_height (Identifier { id: IdentId(60), location: Location { file_id: FileId(6), start: 738, end: 764 } }, TypeId(43))
+                Felt user_id (Identifier { id: IdentId(63), location: Location { file_id: FileId(6), start: 772, end: 779 } }, TypeId(43))
+                Felt contract_id (Identifier { id: IdentId(61), location: Location { file_id: FileId(6), start: 787, end: 798 } }, TypeId(43))
+                Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 806, end: 816 } }, TypeId(43))
+            Return Type: Array (TypeId(9))
+            Body: ExprId(91)
+        pub fn cset_state_hash_at (TypeId(44))
+            Parameters:
+                Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 973, end: 983 } }, TypeId(44))
+                Array new_value (Identifier { id: IdentId(65), location: Location { file_id: FileId(6), start: 991, end: 1000 } }, TypeId(44))
+            Return Type: Array (TypeId(9))
+            Body: ExprId(95)
+        pub Felt (TypeId(3))
+        pub Array (TypeId(7))
+        pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+        pub Array (TypeId(9))
+        pub Array (TypeId(9))
+        pub Array (TypeId(30))
+        pub trait Default (TypeId(46))
+            Body: [DefId(36)]
+            Unchecked Body: [DefId(49)]
+        pub fn transmute (TypeId(12))
+            Parameters:
+                T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(12))
+            Return Type: U (TypeId(10))
+            Body: ExprId(2)
+            Generic Parameters: [TypeId(10), TypeId(11)]
+        pub fn size_of (TypeId(14))
+            Return Type: Felt (TypeId(3))
+            Body: ExprId(4)
+            Generic Parameters: [TypeId(13)]
+        pub fn size_of (TypeId(31))
+            Return Type: Felt (TypeId(3))
+            Body: ExprId(38)
+            Generic Parameters: [TypeId(28)]
+        pub fn transmute (TypeId(33))
+            Parameters:
+                T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(33))
+            Return Type: Array (TypeId(30))
+            Body: ExprId(57)
+            Generic Parameters: [TypeId(30), TypeId(11)]
+        pub struct Person (TypeId(53))
+            Fields:
+                pub Felt age (Identifier { id: IdentId(23), location: Location { file_id: FileId(0), start: 511, end: 514 } }, TypeId(53))
+        fn main (TypeId(55))
+            Return Type: void (TypeId(1))
+            Body: ExprId(152)
+    ScopeId(1) (Module)
+        Types:
+            pub trait Storage (TypeId(18))
+                Body: [DefId(4), DefId(5), DefId(6)]
+                Unchecked Body: [DefId(16), DefId(17), DefId(18)]
+            pub fn get_user_id (TypeId(36))
+                Return Type: Felt (TypeId(3))
+                Body: ExprId(69)
+            pub fn get_contract_id (TypeId(37))
+                Return Type: Felt (TypeId(3))
+                Body: ExprId(71)
+            pub fn get_checkpoint_id (TypeId(38))
+                Return Type: Felt (TypeId(3))
+                Body: ExprId(73)
+            pub fn get_last_nonce (TypeId(39))
+                Return Type: Felt (TypeId(3))
+                Body: ExprId(75)
+            pub fn get_user_public_key_hash (TypeId(40))
+                Return Type: Array (TypeId(9))
+                Body: ExprId(77)
+            pub fn get_state_hash_at (TypeId(41))
+                Parameters:
+                    Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 402, end: 412 } }, TypeId(41))
+                Return Type: Array (TypeId(9))
+                Body: ExprId(80)
+            pub fn get_other_contract_state_hash_at (TypeId(42))
+                Parameters:
+                    Felt contract_state_tree_height (Identifier { id: IdentId(60), location: Location { file_id: FileId(6), start: 513, end: 539 } }, TypeId(42))
+                    Felt contract_id (Identifier { id: IdentId(61), location: Location { file_id: FileId(6), start: 547, end: 558 } }, TypeId(42))
+                    Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 566, end: 576 } }, TypeId(42))
+                Return Type: Array (TypeId(9))
+                Body: ExprId(85)
+            pub fn get_other_user_contract_state_hash_at (TypeId(43))
+                Parameters:
+                    Felt contract_state_tree_height (Identifier { id: IdentId(60), location: Location { file_id: FileId(6), start: 738, end: 764 } }, TypeId(43))
+                    Felt user_id (Identifier { id: IdentId(63), location: Location { file_id: FileId(6), start: 772, end: 779 } }, TypeId(43))
+                    Felt contract_id (Identifier { id: IdentId(61), location: Location { file_id: FileId(6), start: 787, end: 798 } }, TypeId(43))
+                    Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 806, end: 816 } }, TypeId(43))
+                Return Type: Array (TypeId(9))
+                Body: ExprId(91)
+            pub fn cset_state_hash_at (TypeId(44))
+                Parameters:
+                    Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 973, end: 983 } }, TypeId(44))
+                    Array new_value (Identifier { id: IdentId(65), location: Location { file_id: FileId(6), start: 991, end: 1000 } }, TypeId(44))
+                Return Type: Array (TypeId(9))
+                Body: ExprId(95)
+            pub Felt (TypeId(3))
+            pub Array (TypeId(7))
+            pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+            pub Array (TypeId(9))
+            pub Array (TypeId(9))
+            pub Array (TypeId(30))
+            pub trait Default (TypeId(46))
+                Body: [DefId(36)]
+                Unchecked Body: [DefId(49)]
+            pub fn transmute (TypeId(12))
+                Parameters:
+                    T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(12))
+                Return Type: U (TypeId(10))
+                Body: ExprId(2)
+                Generic Parameters: [TypeId(10), TypeId(11)]
+            pub fn size_of (TypeId(14))
+                Return Type: Felt (TypeId(3))
+                Body: ExprId(4)
+                Generic Parameters: [TypeId(13)]
+            pub fn size_of (TypeId(31))
+                Return Type: Felt (TypeId(3))
+                Body: ExprId(38)
+                Generic Parameters: [TypeId(28)]
+            pub fn transmute (TypeId(33))
+                Parameters:
+                    T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(33))
+                Return Type: Array (TypeId(30))
+                Body: ExprId(57)
+                Generic Parameters: [TypeId(30), TypeId(11)]
+            pub struct Person (TypeId(50))
+                Fields:
+                    Felt age (Identifier { id: IdentId(23), location: Location { file_id: FileId(0), start: 49, end: 52 } }, TypeId(50))
+                    Felt height (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 68, end: 74 } }, TypeId(50))
+                    Felt weight (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 90, end: 96 } }, TypeId(50))
+                    Felt isMale (Identifier { id: IdentId(26), location: Location { file_id: FileId(0), start: 112, end: 118 } }, TypeId(50))
+        ScopeId(2) (Module)
+            ScopeId(3) (Module)
+                Types:
+                    pub trait Storage (TypeId(18))
+                        Body: [DefId(4), DefId(5), DefId(6)]
+                        Unchecked Body: [DefId(16), DefId(17), DefId(18)]
+                    pub fn get_user_id (TypeId(36))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(69)
+                    pub fn get_contract_id (TypeId(37))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(71)
+                    pub fn get_checkpoint_id (TypeId(38))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(73)
+                    pub fn get_last_nonce (TypeId(39))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(75)
+                    pub fn get_user_public_key_hash (TypeId(40))
+                        Return Type: Array (TypeId(9))
+                        Body: ExprId(77)
+                    pub fn get_state_hash_at (TypeId(41))
+                        Parameters:
+                            Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 402, end: 412 } }, TypeId(41))
+                        Return Type: Array (TypeId(9))
+                        Body: ExprId(80)
+                    pub fn get_other_contract_state_hash_at (TypeId(42))
+                        Parameters:
+                            Felt contract_state_tree_height (Identifier { id: IdentId(60), location: Location { file_id: FileId(6), start: 513, end: 539 } }, TypeId(42))
+                            Felt contract_id (Identifier { id: IdentId(61), location: Location { file_id: FileId(6), start: 547, end: 558 } }, TypeId(42))
+                            Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 566, end: 576 } }, TypeId(42))
+                        Return Type: Array (TypeId(9))
+                        Body: ExprId(85)
+                    pub fn get_other_user_contract_state_hash_at (TypeId(43))
+                        Parameters:
+                            Felt contract_state_tree_height (Identifier { id: IdentId(60), location: Location { file_id: FileId(6), start: 738, end: 764 } }, TypeId(43))
+                            Felt user_id (Identifier { id: IdentId(63), location: Location { file_id: FileId(6), start: 772, end: 779 } }, TypeId(43))
+                            Felt contract_id (Identifier { id: IdentId(61), location: Location { file_id: FileId(6), start: 787, end: 798 } }, TypeId(43))
+                            Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 806, end: 816 } }, TypeId(43))
+                        Return Type: Array (TypeId(9))
+                        Body: ExprId(91)
+                    pub fn cset_state_hash_at (TypeId(44))
+                        Parameters:
+                            Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 973, end: 983 } }, TypeId(44))
+                            Array new_value (Identifier { id: IdentId(65), location: Location { file_id: FileId(6), start: 991, end: 1000 } }, TypeId(44))
+                        Return Type: Array (TypeId(9))
+                        Body: ExprId(95)
+                    pub Felt (TypeId(3))
+                    pub Array (TypeId(7))
+                    pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+                    pub Array (TypeId(9))
+                    pub Array (TypeId(9))
+                    pub Array (TypeId(30))
+                    pub trait Default (TypeId(46))
+                        Body: [DefId(36)]
+                        Unchecked Body: [DefId(49)]
+                    pub fn transmute (TypeId(12))
+                        Parameters:
+                            T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(12))
+                        Return Type: U (TypeId(10))
+                        Body: ExprId(2)
+                        Generic Parameters: [TypeId(10), TypeId(11)]
+                    pub fn size_of (TypeId(14))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(4)
+                        Generic Parameters: [TypeId(13)]
+                    pub fn size_of (TypeId(31))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(38)
+                        Generic Parameters: [TypeId(28)]
+                    pub fn transmute (TypeId(33))
+                        Parameters:
+                            T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(33))
+                        Return Type: Array (TypeId(30))
+                        Body: ExprId(57)
+                        Generic Parameters: [TypeId(30), TypeId(11)]
+                ScopeId(4) (Module)
+                    Types:
+                        pub Felt (TypeId(3))
+                        pub Array (TypeId(7))
+                        pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+                        pub Array (TypeId(9))
+                        pub Array (TypeId(9))
+                        pub trait Storage (TypeId(18))
+                            Body: [DefId(4), DefId(5), DefId(6)]
+                            Unchecked Body: [DefId(16), DefId(17), DefId(18)]
+                    ScopeId(5) (Module)
+                        Types:
+                            pub Felt (TypeId(3))
+                            pub Array (TypeId(7))
+                            pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+                            pub Array (TypeId(9))
+                            pub Array (TypeId(9))
+                            pub Array (TypeId(30))
+                        ScopeId(9) (Array)
+                            Types:
+                                pub T (TypeId(5))
+                                pub N (TypeId(6))
+                    ScopeId(6) (Module)
+                        Types:
+                            pub fn transmute (TypeId(12))
+                                Parameters:
+                                    T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(12))
+                                Return Type: U (TypeId(10))
+                                Body: ExprId(2)
+                                Generic Parameters: [TypeId(10), TypeId(11)]
+                            pub fn size_of (TypeId(14))
+                                Return Type: Felt (TypeId(3))
+                                Body: ExprId(4)
+                                Generic Parameters: [TypeId(13)]
+                            pub fn size_of (TypeId(31))
+                                Return Type: Felt (TypeId(3))
+                                Body: ExprId(38)
+                                Generic Parameters: [TypeId(28)]
+                            pub fn transmute (TypeId(33))
+                                Parameters:
+                                    T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(33))
+                                Return Type: Array (TypeId(30))
+                                Body: ExprId(57)
+                                Generic Parameters: [TypeId(30), TypeId(11)]
+                        ScopeId(10) (Function)
+                            Variables:
+                                x: T
+                            Types:
+                                pub U (TypeId(10))
+                                pub T (TypeId(11))
+                            ScopeId(11) (Block)
+                        ScopeId(12) (Function)
+                            Types:
+                                pub T (TypeId(13))
+                            ScopeId(13) (Block)
+                    ScopeId(14) (Trait)
+                        Types:
+                        ScopeId(15) (TraitMethod)
+                            Types:
+                                pub fn size (TypeId(15))
+                                    Return Type: Felt (TypeId(3))
+                        ScopeId(16) (TraitMethod)
+                            Variables:
+                                offset: Felt
+                            Types:
+                                pub fn read (TypeId(16))
+                                    Parameters:
+                                        Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 107, end: 113 } }, TypeId(16))
+                                    Return Type: unknown (TypeId(0))
+                        ScopeId(17) (TraitMethod)
+                            Variables:
+                                offset: Felt
+                                value: unknown
+                            Types:
+                                pub fn write (TypeId(17))
+                                    Parameters:
+                                        Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 147, end: 153 } }, TypeId(17))
+                                        unknown value (Identifier { id: IdentId(47), location: Location { file_id: FileId(3), start: 161, end: 166 } }, TypeId(17))
+                                    Return Type: void (TypeId(1))
+                    ScopeId(18) (Impl)
+                        Types:
+                            pub Felt (TypeId(3))
+                        ScopeId(19) (ImplMethod)
+                            Types:
+                                pub fn size (TypeId(19))
+                                    Return Type: Felt (TypeId(3))
+                                    Body: ExprId(6)
+                            ScopeId(20) (Block)
+                        ScopeId(21) (ImplMethod)
+                            Variables:
+                                offset: Felt
+                            Types:
+                                pub fn read (TypeId(20))
+                                    Parameters:
+                                        Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 271, end: 277 } }, TypeId(20))
+                                    Return Type: Felt (TypeId(3))
+                                    Body: ExprId(9)
+                            ScopeId(22) (Block)
+                        ScopeId(23) (ImplMethod)
+                            Variables:
+                                offset: Felt
+                                value: Felt
+                            Types:
+                                pub fn write (TypeId(21))
+                                    Parameters:
+                                        Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 350, end: 356 } }, TypeId(21))
+                                        Felt value (Identifier { id: IdentId(47), location: Location { file_id: FileId(3), start: 364, end: 369 } }, TypeId(21))
+                                    Return Type: void (TypeId(1))
+                                    Body: ExprId(13)
+                            ScopeId(24) (Block)
+                    ScopeId(25) (Impl)
+                        Types:
+                        ScopeId(26) (ImplMethod)
+                            Types:
+                                pub fn size (TypeId(22))
+                                    Return Type: Felt (TypeId(3))
+                                    Body: ExprId(15)
+                            ScopeId(27) (Block)
+                        ScopeId(28) (ImplMethod)
+                            Variables:
+                                offset: Felt
+                            Types:
+                                pub fn read (TypeId(23))
+                                    Parameters:
+                                        Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 521, end: 527 } }, TypeId(23))
+                                    Return Type: bool (TypeId(2))
+                                    Body: ExprId(19)
+                            ScopeId(29) (Block)
+                        ScopeId(30) (ImplMethod)
+                            Variables:
+                                offset: Felt
+                                value: bool
+                            Types:
+                                pub fn write (TypeId(24))
+                                    Parameters:
+                                        Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 608, end: 614 } }, TypeId(24))
+                                        bool value (Identifier { id: IdentId(47), location: Location { file_id: FileId(3), start: 622, end: 627 } }, TypeId(24))
+                                    Return Type: void (TypeId(1))
+                                    Body: ExprId(24)
+                            ScopeId(31) (Block)
+                    ScopeId(32) (Impl)
+                        Types:
+                        ScopeId(33) (ImplMethod)
+                            Types:
+                                pub fn size (TypeId(25))
+                                    Return Type: Felt (TypeId(3))
+                                    Body: ExprId(26)
+                            ScopeId(34) (Block)
+                        ScopeId(35) (ImplMethod)
+                            Variables:
+                                offset: Felt
+                            Types:
+                                pub fn read (TypeId(26))
+                                    Parameters:
+                                        Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 786, end: 792 } }, TypeId(26))
+                                    Return Type: u32 (TypeId(4))
+                                    Body: ExprId(30)
+                            ScopeId(36) (Block)
+                        ScopeId(37) (ImplMethod)
+                            Variables:
+                                offset: Felt
+                                value: u32
+                            Types:
+                                pub fn write (TypeId(27))
+                                    Parameters:
+                                        Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 872, end: 878 } }, TypeId(27))
+                                        u32 value (Identifier { id: IdentId(47), location: Location { file_id: FileId(3), start: 886, end: 891 } }, TypeId(27))
+                                    Return Type: void (TypeId(1))
+                                    Body: ExprId(35)
+                            ScopeId(38) (Block)
+                    ScopeId(39) (Impl)
+                        Types:
+                            pub T (TypeId(28))
+                            pub N (TypeId(29))
+                            pub Array (TypeId(30))
+                        ScopeId(40) (ImplMethod)
+                            Types:
+                                pub fn size (TypeId(32))
+                                    Return Type: Felt (TypeId(3))
+                                    Body: ExprId(44)
+                            ScopeId(41) (Block)
+                        ScopeId(42) (ImplMethod)
+                            Variables:
+                                offset: Felt
+                            Types:
+                                pub fn read (TypeId(34))
+                                    Parameters:
+                                        Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 1104, end: 1110 } }, TypeId(34))
+                                    Return Type: Array (TypeId(30))
+                                    Body: ExprId(61)
+                            ScopeId(43) (Block)
+                        ScopeId(44) (ImplMethod)
+                            Variables:
+                                offset: Felt
+                                value: Array
+                            Types:
+                                pub fn write (TypeId(35))
+                                    Parameters:
+                                        Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 1250, end: 1256 } }, TypeId(35))
+                                        Array value (Identifier { id: IdentId(47), location: Location { file_id: FileId(3), start: 1264, end: 1269 } }, TypeId(35))
+                                    Return Type: void (TypeId(1))
+                                    Body: ExprId(67)
+                            ScopeId(45) (Block)
+                ScopeId(7) (Module)
+                    Types:
+                        pub Felt (TypeId(3))
+                        pub Array (TypeId(7))
+                        pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+                        pub Array (TypeId(9))
+                        pub Array (TypeId(9))
+                        pub Array (TypeId(30))
+                        pub fn get_user_id (TypeId(36))
+                            Return Type: Felt (TypeId(3))
+                            Body: ExprId(69)
+                        pub fn get_contract_id (TypeId(37))
+                            Return Type: Felt (TypeId(3))
+                            Body: ExprId(71)
+                        pub fn get_checkpoint_id (TypeId(38))
+                            Return Type: Felt (TypeId(3))
+                            Body: ExprId(73)
+                        pub fn get_last_nonce (TypeId(39))
+                            Return Type: Felt (TypeId(3))
+                            Body: ExprId(75)
+                        pub fn get_user_public_key_hash (TypeId(40))
+                            Return Type: Array (TypeId(9))
+                            Body: ExprId(77)
+                        pub fn get_state_hash_at (TypeId(41))
+                            Parameters:
+                                Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 402, end: 412 } }, TypeId(41))
+                            Return Type: Array (TypeId(9))
+                            Body: ExprId(80)
+                        pub fn get_other_contract_state_hash_at (TypeId(42))
+                            Parameters:
+                                Felt contract_state_tree_height (Identifier { id: IdentId(60), location: Location { file_id: FileId(6), start: 513, end: 539 } }, TypeId(42))
+                                Felt contract_id (Identifier { id: IdentId(61), location: Location { file_id: FileId(6), start: 547, end: 558 } }, TypeId(42))
+                                Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 566, end: 576 } }, TypeId(42))
+                            Return Type: Array (TypeId(9))
+                            Body: ExprId(85)
+                        pub fn get_other_user_contract_state_hash_at (TypeId(43))
+                            Parameters:
+                                Felt contract_state_tree_height (Identifier { id: IdentId(60), location: Location { file_id: FileId(6), start: 738, end: 764 } }, TypeId(43))
+                                Felt user_id (Identifier { id: IdentId(63), location: Location { file_id: FileId(6), start: 772, end: 779 } }, TypeId(43))
+                                Felt contract_id (Identifier { id: IdentId(61), location: Location { file_id: FileId(6), start: 787, end: 798 } }, TypeId(43))
+                                Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 806, end: 816 } }, TypeId(43))
+                            Return Type: Array (TypeId(9))
+                            Body: ExprId(91)
+                        pub fn cset_state_hash_at (TypeId(44))
+                            Parameters:
+                                Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 973, end: 983 } }, TypeId(44))
+                                Array new_value (Identifier { id: IdentId(65), location: Location { file_id: FileId(6), start: 991, end: 1000 } }, TypeId(44))
+                            Return Type: Array (TypeId(9))
+                            Body: ExprId(95)
+                    ScopeId(5) (Module)
+                        Types:
+                            pub Felt (TypeId(3))
+                            pub Array (TypeId(7))
+                            pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+                            pub Array (TypeId(9))
+                            pub Array (TypeId(9))
+                            pub Array (TypeId(30))
+                        ScopeId(9) (Array)
+                            Types:
+                                pub T (TypeId(5))
+                                pub N (TypeId(6))
+                    ScopeId(46) (Function)
+                        ScopeId(47) (Block)
+                    ScopeId(48) (Function)
+                        ScopeId(49) (Block)
+                    ScopeId(50) (Function)
+                        ScopeId(51) (Block)
+                    ScopeId(52) (Function)
+                        ScopeId(53) (Block)
+                    ScopeId(54) (Function)
+                        ScopeId(55) (Block)
+                    ScopeId(56) (Function)
+                        Variables:
+                            slot_index: Felt
+                        ScopeId(57) (Block)
+                    ScopeId(58) (Function)
+                        Variables:
+                            contract_state_tree_height: Felt
+                            contract_id: Felt
+                            slot_index: Felt
+                        ScopeId(59) (Block)
+                    ScopeId(60) (Function)
+                        Variables:
+                            contract_state_tree_height: Felt
+                            user_id: Felt
+                            contract_id: Felt
+                            slot_index: Felt
+                        ScopeId(61) (Block)
+                    ScopeId(62) (Function)
+                        Variables:
+                            slot_index: Felt
+                            new_value: Array
+                        ScopeId(63) (Block)
+                ScopeId(5) (Module)
+                    Types:
+                        pub Felt (TypeId(3))
+                        pub Array (TypeId(7))
+                        pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+                        pub Array (TypeId(9))
+                        pub Array (TypeId(9))
+                        pub Array (TypeId(30))
+                    ScopeId(9) (Array)
+                        Types:
+                            pub T (TypeId(5))
+                            pub N (TypeId(6))
+                ScopeId(8) (Module)
+                    Types:
+                        pub trait Default (TypeId(46))
+                            Body: [DefId(36)]
+                            Unchecked Body: [DefId(49)]
+                    ScopeId(64) (Trait)
+                        Types:
+                        ScopeId(65) (TraitMethod)
+                            Types:
+                                pub fn default (TypeId(45))
+                                    Return Type: unknown (TypeId(0))
+                    ScopeId(66) (Impl)
+                        Types:
+                            pub Felt (TypeId(3))
+                        ScopeId(67) (ImplMethod)
+                            Types:
+                                pub fn default (TypeId(47))
+                                    Return Type: Felt (TypeId(3))
+                                    Body: ExprId(97)
+                            ScopeId(68) (Block)
+                    ScopeId(69) (Impl)
+                        Types:
+                        ScopeId(70) (ImplMethod)
+                            Types:
+                                pub fn default (TypeId(48))
+                                    Return Type: bool (TypeId(2))
+                                    Body: ExprId(99)
+                            ScopeId(71) (Block)
+                    ScopeId(72) (Impl)
+                        Types:
+                        ScopeId(73) (ImplMethod)
+                            Types:
+                                pub fn default (TypeId(49))
+                                    Return Type: u32 (TypeId(4))
+                                    Body: ExprId(101)
+                            ScopeId(74) (Block)
+                ScopeId(6) (Module)
+                    Types:
+                        pub fn transmute (TypeId(12))
+                            Parameters:
+                                T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(12))
+                            Return Type: U (TypeId(10))
+                            Body: ExprId(2)
+                            Generic Parameters: [TypeId(10), TypeId(11)]
+                        pub fn size_of (TypeId(14))
+                            Return Type: Felt (TypeId(3))
+                            Body: ExprId(4)
+                            Generic Parameters: [TypeId(13)]
+                        pub fn size_of (TypeId(31))
+                            Return Type: Felt (TypeId(3))
+                            Body: ExprId(38)
+                            Generic Parameters: [TypeId(28)]
+                        pub fn transmute (TypeId(33))
+                            Parameters:
+                                T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(33))
+                            Return Type: Array (TypeId(30))
+                            Body: ExprId(57)
+                            Generic Parameters: [TypeId(30), TypeId(11)]
+                    ScopeId(10) (Function)
+                        Variables:
+                            x: T
+                        Types:
+                            pub U (TypeId(10))
+                            pub T (TypeId(11))
+                        ScopeId(11) (Block)
+                    ScopeId(12) (Function)
+                        Types:
+                            pub T (TypeId(13))
+                        ScopeId(13) (Block)
+        ScopeId(75) (Struct)
+        ScopeId(76) (Impl)
+            Types:
+                pub struct Person (TypeId(50))
+                    Fields:
+                        Felt age (Identifier { id: IdentId(23), location: Location { file_id: FileId(0), start: 49, end: 52 } }, TypeId(50))
+                        Felt height (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 68, end: 74 } }, TypeId(50))
+                        Felt weight (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 90, end: 96 } }, TypeId(50))
+                        Felt isMale (Identifier { id: IdentId(26), location: Location { file_id: FileId(0), start: 112, end: 118 } }, TypeId(50))
+            ScopeId(77) (ImplMethod)
+                Variables:
+                    a: Felt
+                    b: Felt
+                Types:
+                    pub fn cal1 (TypeId(51))
+                        Parameters:
+                            Felt a (Identifier { id: IdentId(28), location: Location { file_id: FileId(0), start: 171, end: 172 } }, TypeId(51))
+                            Felt b (Identifier { id: IdentId(29), location: Location { file_id: FileId(0), start: 180, end: 181 } }, TypeId(51))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(106)
+                ScopeId(78) (Block)
+                    Variables:
+                        c: Felt
+            ScopeId(79) (ImplMethod)
+                Variables:
+                    name: Felt
+                    age: Felt
+                    height: Felt
+                    weight: Felt
+                Types:
+                    fn cal2 (TypeId(52))
+                        Parameters:
+                            Felt name (Identifier { id: IdentId(32), location: Location { file_id: FileId(0), start: 280, end: 284 } }, TypeId(52))
+                            Felt age (Identifier { id: IdentId(23), location: Location { file_id: FileId(0), start: 292, end: 295 } }, TypeId(52))
+                            Felt height (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 303, end: 309 } }, TypeId(52))
+                            Felt weight (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 317, end: 323 } }, TypeId(52))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(114)
+                ScopeId(80) (Block)
+                    Variables:
+                        c: Felt
+                        d: Felt
+    ScopeId(2) (Module)
+        ScopeId(3) (Module)
+            Types:
+                pub trait Storage (TypeId(18))
+                    Body: [DefId(4), DefId(5), DefId(6)]
+                    Unchecked Body: [DefId(16), DefId(17), DefId(18)]
+                pub fn get_user_id (TypeId(36))
+                    Return Type: Felt (TypeId(3))
+                    Body: ExprId(69)
+                pub fn get_contract_id (TypeId(37))
+                    Return Type: Felt (TypeId(3))
+                    Body: ExprId(71)
+                pub fn get_checkpoint_id (TypeId(38))
+                    Return Type: Felt (TypeId(3))
+                    Body: ExprId(73)
+                pub fn get_last_nonce (TypeId(39))
+                    Return Type: Felt (TypeId(3))
+                    Body: ExprId(75)
+                pub fn get_user_public_key_hash (TypeId(40))
+                    Return Type: Array (TypeId(9))
+                    Body: ExprId(77)
+                pub fn get_state_hash_at (TypeId(41))
+                    Parameters:
+                        Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 402, end: 412 } }, TypeId(41))
+                    Return Type: Array (TypeId(9))
+                    Body: ExprId(80)
+                pub fn get_other_contract_state_hash_at (TypeId(42))
+                    Parameters:
+                        Felt contract_state_tree_height (Identifier { id: IdentId(60), location: Location { file_id: FileId(6), start: 513, end: 539 } }, TypeId(42))
+                        Felt contract_id (Identifier { id: IdentId(61), location: Location { file_id: FileId(6), start: 547, end: 558 } }, TypeId(42))
+                        Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 566, end: 576 } }, TypeId(42))
+                    Return Type: Array (TypeId(9))
+                    Body: ExprId(85)
+                pub fn get_other_user_contract_state_hash_at (TypeId(43))
+                    Parameters:
+                        Felt contract_state_tree_height (Identifier { id: IdentId(60), location: Location { file_id: FileId(6), start: 738, end: 764 } }, TypeId(43))
+                        Felt user_id (Identifier { id: IdentId(63), location: Location { file_id: FileId(6), start: 772, end: 779 } }, TypeId(43))
+                        Felt contract_id (Identifier { id: IdentId(61), location: Location { file_id: FileId(6), start: 787, end: 798 } }, TypeId(43))
+                        Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 806, end: 816 } }, TypeId(43))
+                    Return Type: Array (TypeId(9))
+                    Body: ExprId(91)
+                pub fn cset_state_hash_at (TypeId(44))
+                    Parameters:
+                        Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 973, end: 983 } }, TypeId(44))
+                        Array new_value (Identifier { id: IdentId(65), location: Location { file_id: FileId(6), start: 991, end: 1000 } }, TypeId(44))
+                    Return Type: Array (TypeId(9))
+                    Body: ExprId(95)
+                pub Felt (TypeId(3))
+                pub Array (TypeId(7))
+                pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+                pub Array (TypeId(9))
+                pub Array (TypeId(9))
+                pub Array (TypeId(30))
+                pub trait Default (TypeId(46))
+                    Body: [DefId(36)]
+                    Unchecked Body: [DefId(49)]
+                pub fn transmute (TypeId(12))
+                    Parameters:
+                        T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(12))
+                    Return Type: U (TypeId(10))
+                    Body: ExprId(2)
+                    Generic Parameters: [TypeId(10), TypeId(11)]
+                pub fn size_of (TypeId(14))
+                    Return Type: Felt (TypeId(3))
+                    Body: ExprId(4)
+                    Generic Parameters: [TypeId(13)]
+                pub fn size_of (TypeId(31))
+                    Return Type: Felt (TypeId(3))
+                    Body: ExprId(38)
+                    Generic Parameters: [TypeId(28)]
+                pub fn transmute (TypeId(33))
+                    Parameters:
+                        T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(33))
+                    Return Type: Array (TypeId(30))
+                    Body: ExprId(57)
+                    Generic Parameters: [TypeId(30), TypeId(11)]
+            ScopeId(4) (Module)
+                Types:
+                    pub Felt (TypeId(3))
+                    pub Array (TypeId(7))
+                    pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+                    pub Array (TypeId(9))
+                    pub Array (TypeId(9))
+                    pub trait Storage (TypeId(18))
+                        Body: [DefId(4), DefId(5), DefId(6)]
+                        Unchecked Body: [DefId(16), DefId(17), DefId(18)]
+                ScopeId(5) (Module)
+                    Types:
+                        pub Felt (TypeId(3))
+                        pub Array (TypeId(7))
+                        pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+                        pub Array (TypeId(9))
+                        pub Array (TypeId(9))
+                        pub Array (TypeId(30))
+                    ScopeId(9) (Array)
+                        Types:
+                            pub T (TypeId(5))
+                            pub N (TypeId(6))
+                ScopeId(6) (Module)
+                    Types:
+                        pub fn transmute (TypeId(12))
+                            Parameters:
+                                T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(12))
+                            Return Type: U (TypeId(10))
+                            Body: ExprId(2)
+                            Generic Parameters: [TypeId(10), TypeId(11)]
+                        pub fn size_of (TypeId(14))
+                            Return Type: Felt (TypeId(3))
+                            Body: ExprId(4)
+                            Generic Parameters: [TypeId(13)]
+                        pub fn size_of (TypeId(31))
+                            Return Type: Felt (TypeId(3))
+                            Body: ExprId(38)
+                            Generic Parameters: [TypeId(28)]
+                        pub fn transmute (TypeId(33))
+                            Parameters:
+                                T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(33))
+                            Return Type: Array (TypeId(30))
+                            Body: ExprId(57)
+                            Generic Parameters: [TypeId(30), TypeId(11)]
+                    ScopeId(10) (Function)
+                        Variables:
+                            x: T
+                        Types:
+                            pub U (TypeId(10))
+                            pub T (TypeId(11))
+                        ScopeId(11) (Block)
+                    ScopeId(12) (Function)
+                        Types:
+                            pub T (TypeId(13))
+                        ScopeId(13) (Block)
+                ScopeId(14) (Trait)
+                    Types:
+                    ScopeId(15) (TraitMethod)
+                        Types:
+                            pub fn size (TypeId(15))
+                                Return Type: Felt (TypeId(3))
+                    ScopeId(16) (TraitMethod)
+                        Variables:
+                            offset: Felt
+                        Types:
+                            pub fn read (TypeId(16))
+                                Parameters:
+                                    Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 107, end: 113 } }, TypeId(16))
+                                Return Type: unknown (TypeId(0))
+                    ScopeId(17) (TraitMethod)
+                        Variables:
+                            offset: Felt
+                            value: unknown
+                        Types:
+                            pub fn write (TypeId(17))
+                                Parameters:
+                                    Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 147, end: 153 } }, TypeId(17))
+                                    unknown value (Identifier { id: IdentId(47), location: Location { file_id: FileId(3), start: 161, end: 166 } }, TypeId(17))
+                                Return Type: void (TypeId(1))
+                ScopeId(18) (Impl)
+                    Types:
+                        pub Felt (TypeId(3))
+                    ScopeId(19) (ImplMethod)
+                        Types:
+                            pub fn size (TypeId(19))
+                                Return Type: Felt (TypeId(3))
+                                Body: ExprId(6)
+                        ScopeId(20) (Block)
+                    ScopeId(21) (ImplMethod)
+                        Variables:
+                            offset: Felt
+                        Types:
+                            pub fn read (TypeId(20))
+                                Parameters:
+                                    Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 271, end: 277 } }, TypeId(20))
+                                Return Type: Felt (TypeId(3))
+                                Body: ExprId(9)
+                        ScopeId(22) (Block)
+                    ScopeId(23) (ImplMethod)
+                        Variables:
+                            offset: Felt
+                            value: Felt
+                        Types:
+                            pub fn write (TypeId(21))
+                                Parameters:
+                                    Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 350, end: 356 } }, TypeId(21))
+                                    Felt value (Identifier { id: IdentId(47), location: Location { file_id: FileId(3), start: 364, end: 369 } }, TypeId(21))
+                                Return Type: void (TypeId(1))
+                                Body: ExprId(13)
+                        ScopeId(24) (Block)
+                ScopeId(25) (Impl)
+                    Types:
+                    ScopeId(26) (ImplMethod)
+                        Types:
+                            pub fn size (TypeId(22))
+                                Return Type: Felt (TypeId(3))
+                                Body: ExprId(15)
+                        ScopeId(27) (Block)
+                    ScopeId(28) (ImplMethod)
+                        Variables:
+                            offset: Felt
+                        Types:
+                            pub fn read (TypeId(23))
+                                Parameters:
+                                    Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 521, end: 527 } }, TypeId(23))
+                                Return Type: bool (TypeId(2))
+                                Body: ExprId(19)
+                        ScopeId(29) (Block)
+                    ScopeId(30) (ImplMethod)
+                        Variables:
+                            offset: Felt
+                            value: bool
+                        Types:
+                            pub fn write (TypeId(24))
+                                Parameters:
+                                    Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 608, end: 614 } }, TypeId(24))
+                                    bool value (Identifier { id: IdentId(47), location: Location { file_id: FileId(3), start: 622, end: 627 } }, TypeId(24))
+                                Return Type: void (TypeId(1))
+                                Body: ExprId(24)
+                        ScopeId(31) (Block)
+                ScopeId(32) (Impl)
+                    Types:
+                    ScopeId(33) (ImplMethod)
+                        Types:
+                            pub fn size (TypeId(25))
+                                Return Type: Felt (TypeId(3))
+                                Body: ExprId(26)
+                        ScopeId(34) (Block)
+                    ScopeId(35) (ImplMethod)
+                        Variables:
+                            offset: Felt
+                        Types:
+                            pub fn read (TypeId(26))
+                                Parameters:
+                                    Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 786, end: 792 } }, TypeId(26))
+                                Return Type: u32 (TypeId(4))
+                                Body: ExprId(30)
+                        ScopeId(36) (Block)
+                    ScopeId(37) (ImplMethod)
+                        Variables:
+                            offset: Felt
+                            value: u32
+                        Types:
+                            pub fn write (TypeId(27))
+                                Parameters:
+                                    Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 872, end: 878 } }, TypeId(27))
+                                    u32 value (Identifier { id: IdentId(47), location: Location { file_id: FileId(3), start: 886, end: 891 } }, TypeId(27))
+                                Return Type: void (TypeId(1))
+                                Body: ExprId(35)
+                        ScopeId(38) (Block)
+                ScopeId(39) (Impl)
+                    Types:
+                        pub T (TypeId(28))
+                        pub N (TypeId(29))
+                        pub Array (TypeId(30))
+                    ScopeId(40) (ImplMethod)
+                        Types:
+                            pub fn size (TypeId(32))
+                                Return Type: Felt (TypeId(3))
+                                Body: ExprId(44)
+                        ScopeId(41) (Block)
+                    ScopeId(42) (ImplMethod)
+                        Variables:
+                            offset: Felt
+                        Types:
+                            pub fn read (TypeId(34))
+                                Parameters:
+                                    Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 1104, end: 1110 } }, TypeId(34))
+                                Return Type: Array (TypeId(30))
+                                Body: ExprId(61)
+                        ScopeId(43) (Block)
+                    ScopeId(44) (ImplMethod)
+                        Variables:
+                            offset: Felt
+                            value: Array
+                        Types:
+                            pub fn write (TypeId(35))
+                                Parameters:
+                                    Felt offset (Identifier { id: IdentId(45), location: Location { file_id: FileId(3), start: 1250, end: 1256 } }, TypeId(35))
+                                    Array value (Identifier { id: IdentId(47), location: Location { file_id: FileId(3), start: 1264, end: 1269 } }, TypeId(35))
+                                Return Type: void (TypeId(1))
+                                Body: ExprId(67)
+                        ScopeId(45) (Block)
+            ScopeId(7) (Module)
+                Types:
+                    pub Felt (TypeId(3))
+                    pub Array (TypeId(7))
+                    pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+                    pub Array (TypeId(9))
+                    pub Array (TypeId(9))
+                    pub Array (TypeId(30))
+                    pub fn get_user_id (TypeId(36))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(69)
+                    pub fn get_contract_id (TypeId(37))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(71)
+                    pub fn get_checkpoint_id (TypeId(38))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(73)
+                    pub fn get_last_nonce (TypeId(39))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(75)
+                    pub fn get_user_public_key_hash (TypeId(40))
+                        Return Type: Array (TypeId(9))
+                        Body: ExprId(77)
+                    pub fn get_state_hash_at (TypeId(41))
+                        Parameters:
+                            Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 402, end: 412 } }, TypeId(41))
+                        Return Type: Array (TypeId(9))
+                        Body: ExprId(80)
+                    pub fn get_other_contract_state_hash_at (TypeId(42))
+                        Parameters:
+                            Felt contract_state_tree_height (Identifier { id: IdentId(60), location: Location { file_id: FileId(6), start: 513, end: 539 } }, TypeId(42))
+                            Felt contract_id (Identifier { id: IdentId(61), location: Location { file_id: FileId(6), start: 547, end: 558 } }, TypeId(42))
+                            Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 566, end: 576 } }, TypeId(42))
+                        Return Type: Array (TypeId(9))
+                        Body: ExprId(85)
+                    pub fn get_other_user_contract_state_hash_at (TypeId(43))
+                        Parameters:
+                            Felt contract_state_tree_height (Identifier { id: IdentId(60), location: Location { file_id: FileId(6), start: 738, end: 764 } }, TypeId(43))
+                            Felt user_id (Identifier { id: IdentId(63), location: Location { file_id: FileId(6), start: 772, end: 779 } }, TypeId(43))
+                            Felt contract_id (Identifier { id: IdentId(61), location: Location { file_id: FileId(6), start: 787, end: 798 } }, TypeId(43))
+                            Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 806, end: 816 } }, TypeId(43))
+                        Return Type: Array (TypeId(9))
+                        Body: ExprId(91)
+                    pub fn cset_state_hash_at (TypeId(44))
+                        Parameters:
+                            Felt slot_index (Identifier { id: IdentId(58), location: Location { file_id: FileId(6), start: 973, end: 983 } }, TypeId(44))
+                            Array new_value (Identifier { id: IdentId(65), location: Location { file_id: FileId(6), start: 991, end: 1000 } }, TypeId(44))
+                        Return Type: Array (TypeId(9))
+                        Body: ExprId(95)
+                ScopeId(5) (Module)
+                    Types:
+                        pub Felt (TypeId(3))
+                        pub Array (TypeId(7))
+                        pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+                        pub Array (TypeId(9))
+                        pub Array (TypeId(9))
+                        pub Array (TypeId(30))
+                    ScopeId(9) (Array)
+                        Types:
+                            pub T (TypeId(5))
+                            pub N (TypeId(6))
+                ScopeId(46) (Function)
+                    ScopeId(47) (Block)
+                ScopeId(48) (Function)
+                    ScopeId(49) (Block)
+                ScopeId(50) (Function)
+                    ScopeId(51) (Block)
+                ScopeId(52) (Function)
+                    ScopeId(53) (Block)
+                ScopeId(54) (Function)
+                    ScopeId(55) (Block)
+                ScopeId(56) (Function)
+                    Variables:
+                        slot_index: Felt
+                    ScopeId(57) (Block)
+                ScopeId(58) (Function)
+                    Variables:
+                        contract_state_tree_height: Felt
+                        contract_id: Felt
+                        slot_index: Felt
+                    ScopeId(59) (Block)
+                ScopeId(60) (Function)
+                    Variables:
+                        contract_state_tree_height: Felt
+                        user_id: Felt
+                        contract_id: Felt
+                        slot_index: Felt
+                    ScopeId(61) (Block)
+                ScopeId(62) (Function)
+                    Variables:
+                        slot_index: Felt
+                        new_value: Array
+                    ScopeId(63) (Block)
+            ScopeId(5) (Module)
+                Types:
+                    pub Felt (TypeId(3))
+                    pub Array (TypeId(7))
+                    pub CheckedValueRef(RefCell { value: U32(4u32) }) (TypeId(8))
+                    pub Array (TypeId(9))
+                    pub Array (TypeId(9))
+                    pub Array (TypeId(30))
+                ScopeId(9) (Array)
+                    Types:
+                        pub T (TypeId(5))
+                        pub N (TypeId(6))
+            ScopeId(8) (Module)
+                Types:
+                    pub trait Default (TypeId(46))
+                        Body: [DefId(36)]
+                        Unchecked Body: [DefId(49)]
+                ScopeId(64) (Trait)
+                    Types:
+                    ScopeId(65) (TraitMethod)
+                        Types:
+                            pub fn default (TypeId(45))
+                                Return Type: unknown (TypeId(0))
+                ScopeId(66) (Impl)
+                    Types:
+                        pub Felt (TypeId(3))
+                    ScopeId(67) (ImplMethod)
+                        Types:
+                            pub fn default (TypeId(47))
+                                Return Type: Felt (TypeId(3))
+                                Body: ExprId(97)
+                        ScopeId(68) (Block)
+                ScopeId(69) (Impl)
+                    Types:
+                    ScopeId(70) (ImplMethod)
+                        Types:
+                            pub fn default (TypeId(48))
+                                Return Type: bool (TypeId(2))
+                                Body: ExprId(99)
+                        ScopeId(71) (Block)
+                ScopeId(72) (Impl)
+                    Types:
+                    ScopeId(73) (ImplMethod)
+                        Types:
+                            pub fn default (TypeId(49))
+                                Return Type: u32 (TypeId(4))
+                                Body: ExprId(101)
+                        ScopeId(74) (Block)
+            ScopeId(6) (Module)
+                Types:
+                    pub fn transmute (TypeId(12))
+                        Parameters:
+                            T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(12))
+                        Return Type: U (TypeId(10))
+                        Body: ExprId(2)
+                        Generic Parameters: [TypeId(10), TypeId(11)]
+                    pub fn size_of (TypeId(14))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(4)
+                        Generic Parameters: [TypeId(13)]
+                    pub fn size_of (TypeId(31))
+                        Return Type: Felt (TypeId(3))
+                        Body: ExprId(38)
+                        Generic Parameters: [TypeId(28)]
+                    pub fn transmute (TypeId(33))
+                        Parameters:
+                            T x (Identifier { id: IdentId(51), location: Location { file_id: FileId(5), start: 23, end: 24 } }, TypeId(33))
+                        Return Type: Array (TypeId(30))
+                        Body: ExprId(57)
+                        Generic Parameters: [TypeId(30), TypeId(11)]
+                ScopeId(10) (Function)
+                    Variables:
+                        x: T
+                    Types:
+                        pub U (TypeId(10))
+                        pub T (TypeId(11))
+                    ScopeId(11) (Block)
+                ScopeId(12) (Function)
+                    Types:
+                        pub T (TypeId(13))
+                    ScopeId(13) (Block)
+    ScopeId(81) (Struct)
+    ScopeId(82) (Impl)
+        Types:
+            pub struct Person (TypeId(53))
+                Fields:
+                    pub Felt age (Identifier { id: IdentId(23), location: Location { file_id: FileId(0), start: 511, end: 514 } }, TypeId(53))
+        ScopeId(83) (ImplMethod)
+            Variables:
+                a: Felt
+                b: Felt
+            Types:
+                pub fn cal1 (TypeId(54))
+                    Parameters:
+                        Felt a (Identifier { id: IdentId(28), location: Location { file_id: FileId(0), start: 554, end: 555 } }, TypeId(54))
+                        Felt b (Identifier { id: IdentId(29), location: Location { file_id: FileId(0), start: 563, end: 564 } }, TypeId(54))
+                    Return Type: Felt (TypeId(3))
+                    Body: ExprId(119)
+            ScopeId(84) (Block)
+                Variables:
+                    c: Felt
+    ScopeId(85) (Function)
+        ScopeId(86) (Block)
+            Variables:
+                mut c: Felt
+                a: Felt
+                v1: Felt
+                v2: Felt
+                v3: Felt
+            ScopeId(87) (Block)
+                Variables:
+                    b: Felt
+                    c: Felt
+            ScopeId(88) (Block)
+                Variables:
+                    b: Felt
+                    c: Felt
+                ScopeId(89) (Block)
+                    Variables:
+                        c: Felt
+            ScopeId(90) (Block)
+                Variables:
+                    b: Felt
+                    c: Felt
+                ScopeId(91) (Block)
+                    Variables:
+                        c: Felt
+                ScopeId(92) (Block)
+                    Variables:
+                        d: Felt

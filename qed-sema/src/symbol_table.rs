@@ -1,12 +1,12 @@
 use anyhow::anyhow;
 use enum_as_inner::EnumAsInner;
+use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use qed_ast::*;
 use qed_common::{define_arena_id, FileId, TreeNode};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use std::{
-    collections::HashMap,
     fmt::{Display, Formatter},
     hash::Hash,
     ops::{Index, IndexMut},
@@ -57,26 +57,26 @@ pub struct Scope<F: Clone> {
     pub kind: ScopeKind,
     pub parent: Option<ScopeId>,
     pub children: Vec<ScopeId>,
-    pub variables: HashMap<IdentId, VarId>,
-    pub consts: HashMap<IdentId, ConstId>,
-    pub types: HashMap<TypeKey, TypeId>,
+    pub variables: IndexMap<IdentId, VarId>,
+    pub consts: IndexMap<IdentId, ConstId>,
+    pub types: IndexMap<TypeKey, TypeId>,
     _marker: std::marker::PhantomData<F>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Frame<T: Clone> {
-    pub variables: Vec<(ScopeId, HashMap<IdentId, T>)>,
+    pub variables: Vec<(ScopeId, IndexMap<IdentId, T>)>,
 }
 
 impl<T: Clone> Frame<T> {
     pub fn new(scope_id: ScopeId) -> Self {
         Self {
-            variables: vec![(scope_id, HashMap::new())],
+            variables: vec![(scope_id, IndexMap::new())],
         }
     }
 
     pub fn push_scope(&mut self, scope_id: ScopeId) {
-        self.variables.push((scope_id, HashMap::new()));
+        self.variables.push((scope_id, IndexMap::new()));
     }
 
     pub fn pop_scope(&mut self) {
@@ -104,23 +104,25 @@ impl<T: Clone> Frame<T> {
 
 #[derive(Clone, Debug)]
 pub struct Module {
-    pub name: IdentId,
+    pub name: Identifier,
     pub id: ModuleId,
     pub scope_id: ScopeId,
     pub kind: ModuleKind,
     pub parent: Option<ModuleId>,
     pub children: Vec<ModuleId>,
     pub visibility: Visibility,
+    pub location: Location,
 }
 
 impl Module {
     pub fn new(
-        name: IdentId,
+        name: Identifier,
         id: ModuleId,
         scope_id: ScopeId,
         file_id: FileId,
         parent: Option<ModuleId>,
         visibility: Visibility,
+        location: Location,
     ) -> Self {
         Self {
             name,
@@ -130,6 +132,7 @@ impl Module {
             parent,
             children: vec![],
             visibility,
+            location,
         }
     }
 }
@@ -140,9 +143,9 @@ impl<F: Clone> Scope<F> {
             kind,
             parent,
             children: vec![],
-            variables: HashMap::with_capacity(10),
-            consts: HashMap::new(),
-            types: HashMap::new(),
+            variables: IndexMap::with_capacity(10),
+            consts: IndexMap::new(),
+            types: IndexMap::new(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -263,6 +266,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
                 parent: module.parent(),
                 children: module.children().to_vec(),
                 visibility: data.visibility,
+                location: data.location,
             });
             self.scopes.push(Scope {
                 kind: ScopeKind::Module,
@@ -272,9 +276,9 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
                     .into_iter()
                     .map(|&x| ScopeId(x.into()))
                     .collect(),
-                variables: HashMap::with_capacity(10),
-                consts: HashMap::new(),
-                types: HashMap::new(),
+                variables: IndexMap::with_capacity(10),
+                consts: IndexMap::new(),
+                types: IndexMap::new(),
                 _marker: std::marker::PhantomData,
             })
         }
@@ -294,6 +298,10 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
 
     pub fn current_module_id(&self) -> Option<ModuleId> {
         self.module_stack.last().cloned()
+    }
+
+    pub fn next_type_id(&self) -> TypeId {
+        self.types.len().into()
     }
 
     pub fn add_type_id<K: Into<TypeKey>>(
@@ -334,7 +342,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
     ) -> Result<TypeId> {
         let key = name.into();
         let scope_id = scope_id.or(self.current_scope_id());
-        if let Some(type_id) = self.get_type_id(scope_id, ty.key()) {
+        if let Some(type_id) = self.get_type_id(scope_id, key.clone()) {
             Ok(type_id)
         } else {
             let type_id = TypeId(self.types.len());
@@ -364,11 +372,11 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         Ok(type_id)
     }
 
-    pub fn get_constant(&self, const_id: ConstId) -> CheckedValueRef<F> {
+    pub fn get_constant_value(&self, const_id: ConstId) -> CheckedValueRef<F> {
         self[const_id].clone()
     }
 
-    pub fn add_constant(&mut self, value: CheckedValueRef<F>) -> ConstId {
+    pub fn get_or_add_constant(&mut self, value: CheckedValueRef<F>) -> ConstId {
         if let Some(idx) = self.consts.iter().position(|c| c.eq(&value)) {
             ConstId(idx)
         } else {

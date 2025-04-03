@@ -6,7 +6,7 @@ use qed_lexer::{Token, Error as LexicalError};
 grammar<'input, F, C>(
     file_content: &'input str,
     file_id: FileId,
-    module_name: IdentId,
+    module_name: Identifier,
     expr_nodes: &mut Arena<ExprId, ExprNode<F>>,
     stmt_nodes: &mut Arena<StmtId, StmtNode>,
     def_nodes: &mut Arena<DefId, DefinitionNode>,
@@ -17,7 +17,7 @@ grammar<'input, F, C>(
     ctx: &mut C
 ) where F: ContextFelt + From<u32>, C: DPNContext<F>;
 
-use super::{Loc, CustomError as SyntacticError, LalrpopError};
+use super::{Loc, UserError, LalrpopError};
 use std::convert::TryFrom;
 
 ModuleItem: ModuleItemNode = {
@@ -26,8 +26,13 @@ ModuleItem: ModuleItemNode = {
     Definition => ModuleItemNode::Definition(def_nodes.alloc_item(<>)),
 }
 
+Comment: Comment = {
+    <l:@L> <line:LineComment> <r:@R> => Comment::new_line(line.to_string(), Location::new(file_id, l, r)),
+    <l:@L> <block:BlockComment> <r:@R> => Comment::new_block(block.to_string(), Location::new(file_id, l, r)),
+}
+
 pub Module: ModuleNode = {
-    <l:@L> <module_items: ModuleItem*> <r:@R> => ModuleNode::new(
+    <l:@L> <module_items: ModuleItem*>  <r:@R> <back_comments:Comment*> => ModuleNode::new(
         module_name,
         file_id,
         _visibility_,
@@ -35,19 +40,21 @@ pub Module: ModuleNode = {
         is_std,
         is_self_std,
         def_nodes,
+        back_comments,
         Location::new(file_id, l, r),
     )
 }
 
 InlineModule: ModuleNode = {
-    <l:@L> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> "}" <r:@R> => ModuleNode::new(
-        name.id,
+    <l:@L> <comments: Comment*> <visibility:Visibility> MOD <name:Identifier> "{" <module_items: ModuleItem*> <back_comments:Comment*> "}" <r:@R> => ModuleNode::new(
+        name,
         file_id,
         visibility,
         module_items,
         is_std,
         is_self_std,
         def_nodes,
+        comments.into_iter().chain(back_comments.into_iter()).collect(),
         Location::new(file_id, l, r),
     )
 }
@@ -70,25 +77,27 @@ Statement: StmtNode = {
 }
 
 ExpressionStatement: StmtNode = {
-    <l:@L> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr)),
+    <l:@L> <comments: Comment*> <expr:Expression> ";" <r:@R> => StmtNode::Expression(expr_nodes.alloc_item(expr)),
 }
 
 IntrinsicStatement: StmtNode = {
-    <l:@L> <variable:ASSERT> "(" <left: Expression> "," <message: STRING?> ","? ")" ";" <r:@R> => {
+    <l:@L> <comments: Comment*> <variable:ASSERT> "(" <left: Expression> "," <message: STRING?> ","? ")" ";" <r:@R> => {
         StmtNode::Intrinsic(
             IntrinsicStmtNode::Assert {
                 left: expr_nodes.alloc_item(left),
                 message: message.map(|m| m.to_string()),
+                comments,
                 location: Location::new(file_id, l, r),
             }
         )
     },
-    <l:@L> <variable:ASSERT_EQ> "(" <left: Expression> "," <right: Expression> "," <message: STRING?> ","? ")" ";" <r:@R> => {
+    <l:@L> <comments: Comment*> <variable:ASSERT_EQ> "(" <left: Expression> "," <right: Expression> "," <message: STRING?> ","? ")" ";" <r:@R> => {
         StmtNode::Intrinsic(
             IntrinsicStmtNode::AssertEq {
                 left: expr_nodes.alloc_item(left),
                 right: expr_nodes.alloc_item(right),
                 message: message.map(|m| m.to_string()),
+                comments,
                 location: Location::new(file_id, l, r),
             }
         )
@@ -102,167 +111,163 @@ Definition: DefinitionNode = {
     EnumDef => DefinitionNode::Enum(<>),
     StructDef => DefinitionNode::Struct(<>),
     TypeAliasDef => <>,
-    <f:FunctionDef> => {
+    <f:FunctionDef> =>? {
         if f.as_function().unwrap().body.is_none() {
-            panic!("{:?}", LalrpopError::User { error: SyntacticError::FunctionBodyMissing });
+            return Err(LalrpopError::User { error: UserError::FunctionBodyMissing });
 
         }
-        f.as_function().unwrap().parameters.iter().for_each(|p|{
-            if p.name == IdentId::SELF || (p.ty.is_basic() && p.ty.as_basic().unwrap() == &IdentId::TYPE_SELF){
-                panic!("{:?}", LalrpopError::User { error: SyntacticError::InvalidSelfParameter });
-            }
-        } );
-        f
+        if f.as_function().unwrap().parameters.iter().any(|p|{
+             p.name == IdentId::SELF || (p.ty.is_basic() && p.ty.as_basic().unwrap() == &IdentId::TYPE_SELF)
+        }) {
+            return Err(LalrpopError::User { error: UserError::InvalidSelfParameter });
+        }
+        Ok(f)
     },
     ConstDef => <>,
     UseDef => DefinitionNode::Use(<>),
 }
 
 UseDef: UseNode = {
-    <l:@L> <visibility:Visibility> USE <path:UseNode> ";" <r:@R> => {
+    <l:@L> <comments: Comment*> <visibility:Visibility> USE <path:UseNode> ";" <r:@R> => {
         UseNode {
             visibility,
             kind: path.0,
             target: path.2,
             segments: path.1,
+            comments,
             location: Location::new(file_id, l, r),
         }
     }
 }
 
 ImplDef: ImplNode = {
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> <comments: Comment*> IMPL <generic_parameters_lhs:GenericParameters> <ty:Ty> "{" <body:FunctionDef*> <back_comments: Comment*> "}" <r:@R> =>? Ok({
         ImplNode {
             generic_parameters: generic_parameters_lhs,
             ty,
             body: {
-                body.iter().for_each(|f| {
-                    if f.as_function().unwrap().body.is_none() {
-                        panic!(
-                            "{:?}",
-                            LalrpopError::User {
-                                error: SyntacticError::FunctionBodyMissing
-                            }
-                        );
-                    }
-                });
-                body.iter().for_each(|f| {
-                    if f.as_function()
+                if body.iter().any(|f| {
+                     f.as_function().unwrap().body.is_none()
+                }) {
+                    return Err(LalrpopError::User {
+                        error: UserError::FunctionBodyMissing
+                    });
+                }
+                if body.iter().any(|f| {
+                    f.as_function()
                         .unwrap()
                         .parameters
                         .iter()
                         .enumerate()
                         .any(|(i, p)| p.name == IdentId::SELF && i != 0)
-                    {
-                        panic!(
-                            "{:?}",
-                            LalrpopError::User {
-                                error: SyntacticError::InvalidSelfParameter
-                            }
-                        );
-                    }
-                });
+                }) {
+                    return Err(LalrpopError::User {
+                        error: UserError::InvalidSelfParameter
+                    });
+                }
                 def_nodes.alloc_items(body)
             },
+            comments: comments.into_iter().chain(back_comments.into_iter()).collect(),
             location: Location::new(file_id, l, r),
+            is_generated: false,
         }
-   }
+   })
 }
 
 TraitImplDef: TraitImplNode = {
-   <l:@L> IMPL <generic_parameters_lhs:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> <comments: Comment*> IMPL <generic_parameters_lhs:GenericParameters> <trait_ty:Ty> FOR <ty:Ty> "{" <body:FunctionDef*> <back_comments: Comment*> "}" <r:@R> =>? Ok({
         TraitImplNode {
             generic_parameters: generic_parameters_lhs,
             trait_ty: trait_ty,
             ty,
             body: {
-                body.iter().for_each(|f| {
-                    if f.as_function().unwrap().body.is_none() {
-                        panic!(
-                            "{:?}",
-                            LalrpopError::User {
-                                error: SyntacticError::FunctionBodyMissing
-                            }
-                        );
-                    }
-                });
-                body.iter().for_each(|f| {
-                    if f.as_function()
+                if body.iter().any(|f| {
+                    f.as_function().unwrap().body.is_none()
+                }) {
+                    return  Err(LalrpopError::User {
+                        error: UserError::FunctionBodyMissing
+                    });
+                }
+                if body.iter().any(|f| {
+                    f.as_function()
                         .unwrap()
                         .parameters
                         .iter()
                         .enumerate()
                         .any(|(i, p)| p.name == IdentId::SELF && i != 0)
-                    {
-                        panic!(
-                            "{:?}",
-                            LalrpopError::User {
-                                error: SyntacticError::InvalidSelfParameter
-                            }
-                        );
-                    }
-                });
+                }) {
+                    return Err(LalrpopError::User {
+                        error: UserError::InvalidSelfParameter
+                    });
+                }
                 def_nodes.alloc_items(body)
             },
+            comments: comments.into_iter().chain(back_comments.into_iter()).collect(),
             location: Location::new(file_id, l, r),
+            is_generated: false,
         }
-   }
+   })
 }
 
 TraitDef: TraitNode = {
-   <l:@L> <visibility:Visibility> TRAIT <name:Identifier> <generic_parameters:GenericParameters> "{" <body:FunctionDef*> "}" <r:@R> => {
+   <l:@L> <comments: Comment*> <visibility:Visibility> TRAIT <name:Identifier> <generic_parameters:GenericParameters> "{" <body:FunctionDef*> <back_comments: Comment*> "}" <r:@R> => {
        TraitNode {
            generic_parameters,
            name,
            body: def_nodes.alloc_items(body),
            visibility,
+           comments: comments.into_iter().chain(back_comments.into_iter()).collect(),
            location: Location::new(file_id, l, r),
        }
    }
 }
 
 EnumDef: EnumNode = {
-    <l:@L> <visibility:Visibility> ENUM <name:Identifier> <generic_parameters:GenericParameters> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => EnumNode {
+    <l:@L> <comments: Comment*> <visibility:Visibility> ENUM <name:Identifier> <generic_parameters:GenericParameters> "{" <variants:Comma<EnumVariant>>  "}" <r:@R> => EnumNode {
         name,
         generic_parameters,
         variants,
         visibility,
+        comments,
         location: Location::new(file_id, l, r),
     }
 }
 
 TypeAliasDef: DefinitionNode = {
-    <l:@L> <visibility:Visibility> TYPE <name:Identifier> "=" <ty:Ty> ";" <r:@R> => DefinitionNode::TypeAlias(TypeAliasNode {
+    <l:@L> <comments: Comment*> <visibility:Visibility> TYPE <name:Identifier> "=" <ty:Ty> ";" <r:@R> => DefinitionNode::TypeAlias(TypeAliasNode {
         name,
         ty,
         visibility,
+        comments,
         location: Location::new(file_id, l, r),
     })
 }
 
 StructDef: StructNode = {
-    <l:@L> <attrs:Attribute*> <visibility: Visibility> STRUCT <name:Identifier> <generic_parameters:GenericParameters> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => StructNode {
+    <l:@L> <comments: Comment*> <attrs:Attribute*> <visibility: Visibility> STRUCT <name:Identifier> <generic_parameters:GenericParameters> "{" <fields:Comma<FieldTypeAnnotation>> "}" <r:@R> => StructNode {
         name,
         generic_parameters,
         fields: fields.into_iter().collect(),
         attrs,
         visibility,
+        comments,
         location: Location::new(file_id, l, r),
     }
 }
 
 ConstDef: DefinitionNode = {
-    <l:@L> <visibility:Visibility> CONST <name:Identifier> ":" <ty:ConstType> "=" <value:Expression> ";" <r:@R> => DefinitionNode::Const(ConstNode {
+    <l:@L> <comments: Comment*> <visibility:Visibility> CONST <name:Identifier> ":" <ty:ConstType> "=" <value:Expression> ";" <r:@R> => DefinitionNode::Const(ConstNode {
         name,
         ty,
         value: expr_nodes.alloc_item(value),
         visibility,
+        comments,
         location: Location::new(file_id, l, r),
     })
 }
 
 FunctionDef: DefinitionNode = {
-    <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_expr:BlockExpression> <r:@R> => DefinitionNode::Function(FunctionNode {
+    <l:@L> <comments: Comment*> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> <block_expr:BlockExpression> <r:@R> =>? Ok(DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
@@ -270,15 +275,16 @@ FunctionDef: DefinitionNode = {
         return_type,
         qualifier: {
            if qualifier.is_extern && !is_std {
-             panic!("{:?}", LalrpopError::User { error: SyntacticError::ExternFnNotInStd });
+             return Err(LalrpopError::User { error: UserError::ExternFnNotInStd });
            }
            qualifier
         },
         visibility,
         attrs,
+        comments,
         location: Location::new(file_id, l, r),
-    }),
-    <l:@L> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> => DefinitionNode::Function(FunctionNode {
+    })),
+    <l:@L> <comments: Comment*> <attrs:Attribute*> <visibility:Visibility> <qualifier:Qualifier> FN <name:IdentifierOrNew> <generic_parameters:GenericParameters> "(" <parameters:Comma<FunctionParameter>> ")" <return_type:FunctionReturn?> ";" <r:@R> =>? Ok(DefinitionNode::Function(FunctionNode {
         name,
         parameters,
         generic_parameters,
@@ -286,14 +292,15 @@ FunctionDef: DefinitionNode = {
         return_type,
         qualifier: {
            if qualifier.is_extern && !is_std {
-             panic!("{:?}", LalrpopError::User { error: SyntacticError::ExternFnNotInStd });
+             return Err(LalrpopError::User { error: UserError::ExternFnNotInStd });
            }
            qualifier
         },
         visibility,
         attrs,
+        comments,
         location: Location::new(file_id, l, r),
-    })
+    }))
 }
 
 Attribute: AttrNode = {
@@ -358,9 +365,9 @@ TypeAnnotation: (Identifier, UncheckedType) = {
 }
 
 FieldTypeAnnotation: (Identifier, StructField)  = {
-    <l:@L> <visibility:Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (
+    <l:@L> <comments: Comment*> <visibility:Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (
         name,
-        StructField { ty, visibility, location: Location::new(file_id, l, r) }
+        StructField { ty, visibility, comments, location: Location::new(file_id, l, r) }
     ),
 }
 
@@ -388,11 +395,12 @@ GenericConstraints: Vec<UncheckedType> = {
 }
 
 BlockExpression: ExprNode<F> = {
-    <l:@L> "{" <stmts:Statement*> <ret:Expression?> "}" <r:@R> => {
+    <l:@L> "{" <stmts:Statement*> <comments: Comment*> <ret:Expression?> "}" <r:@R> => {
         ExprNode::BlockExpr(
             BlockExprNode {
                 stmts: stmt_nodes.alloc_items(stmts),
                 expr: ret.map(|x| expr_nodes.alloc_item(x)),
+                expr_comments: comments,
                 location: Location::new(file_id, l, r),
             }
         )
@@ -400,9 +408,10 @@ BlockExpression: ExprNode<F> = {
 }
 
 WhileStatement: StmtNode = {
-    <l:@L> WHILE <predicate:Expression> <block_expr:BlockExpression> <r:@R>  => StmtNode::While(WhileNode {
+    <l:@L> <comments: Comment*> WHILE <predicate:Expression> <block_expr:BlockExpression> <r:@R>  => StmtNode::While(WhileNode {
         predicate: expr_nodes.alloc_item(predicate),
         body: expr_nodes.alloc_item(block_expr),
+        comments,
         location: Location::new(file_id, l, r),
     }),
 }
@@ -430,12 +439,13 @@ MatchPattern: MatchPattern = {
 }
 
 ForStatement: StmtNode = {
-    <l:@L> FOR <variable:Identifier> IN <start:Expression> ".." <end:Expression> <block_expr:BlockExpression> <r:@R> => StmtNode::For(
+    <l:@L> <comments: Comment*> FOR <variable:Identifier> IN <start:Expression> ".." <end:Expression> <block_expr:BlockExpression> <r:@R> => StmtNode::For(
         ForNode {
             variable,
             start: expr_nodes.alloc_item(start),
             end: expr_nodes.alloc_item(end),
             body: expr_nodes.alloc_item(block_expr),
+            comments,
             location: Location::new(file_id, l, r),
         }
     ),
@@ -473,8 +483,9 @@ ElseBranch: ExprId = {
 }
 
 ReturnStatement: StmtNode = {
-    <l:@L> RETURN <ret:Expression?> ";" <r:@R> => StmtNode::Return(ReturnNode{
+    <l:@L> <comments: Comment*> RETURN <ret:Expression?> ";" <r:@R> => StmtNode::Return(ReturnNode{
         expr_id: ret.map(|x| expr_nodes.alloc_item(x)),
+        comments,
         location: Location::new(file_id, l, r),
     })
 }
@@ -490,54 +501,55 @@ TupleExpression: ExprNode<F> = {
         ExprNode::<F>::Tuple(TupleExprNode { elements, location: Location::new(file_id, l, r) })
     },
     //if the tuple has only one element, it should be treated as a normal expression
-    "(" <expr:Expression> ")" => expr,
+    "(" <expr:Expression> ")" => ExprNode::<F>::Parentheses(expr_nodes.alloc_item(expr)),
 }
 
 VariableStatement: StmtNode = {
-    <l:@L> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R>  => StmtNode::Variable(
+    <l:@L> <comments: Comment*> LET <type_qualifier: TypeQualifier> <decl:TypeAnnotation> "=" <value:Expression> ";" <r:@R> => StmtNode::Variable(
         VariableNode {
             name: decl.0,
             ty: decl.1,
             qualifier: type_qualifier,
             value: expr_nodes.alloc_item(value),
+            comments,
             location: Location::new(file_id, l, r),
         }
     ),
 }
 
 AssignmentStatement: StmtNode = {
-    <l:@L> <variable:Expression> "=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::Eq, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::Eq, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "+=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::AddAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "+=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::AddAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "-=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::SubAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*>  <variable:Expression> "-=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::SubAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "*=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::MulAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "*=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::MulAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "/=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::DivAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "/=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::DivAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "%=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::ModAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "%=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::ModAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "&=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitAndAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "&=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitAndAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "|=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitOrAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "|=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitOrAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "^=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitXorAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "^=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitXorAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> "<<=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitShlAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> "<<=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitShlAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     ),
-    <l:@L> <variable:Expression> ">>=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
-        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitShrAssign, expr_nodes.alloc_item(value), Location::new(file_id, l, r))
+    <l:@L> <comments: Comment*> <variable:Expression> ">>=" <value:Expression> ";" <r:@R> => StmtNode::Assignment(
+        AssignmentNode::new(expr_nodes.alloc_item(variable), AssignmentOperator::BitShrAssign, expr_nodes.alloc_item(value), comments, Location::new(file_id, l, r))
     )
 }
 
@@ -546,104 +558,7 @@ Expression: ExprNode<F> = {
     #[precedence(level="1")]
     Term,
     #[precedence(level="2")]
-    <l:@L> <variable:STORAGE_READ> "(" <offset: Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::Read {
-                offset: expr_nodes.alloc_item(offset),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:STORAGE_WRITE> "(" <offset: Expression> "," <value: Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::Write {
-                offset: expr_nodes.alloc_item(offset),
-                value: expr_nodes.alloc_item(value),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:Hash> "(" <data:Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::Hash {
-                data: expr_nodes.alloc_item(data),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_USER_ID> "(" ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetUserId {
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_CONTRACT_ID> "(" ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetContractId {
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_CHECKPOINT_ID> "(" ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetCheckpointId {
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_LAST_NONCE> "(" ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetLastNonce {
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_USER_PUBLIC_KEY_HASH> "(" ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetUserPublicKeyHash {
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_STATE_HASH_AT> "(" <slot_index: Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetStateHashAt {
-                slot_index: expr_nodes.alloc_item(slot_index),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_OTHER_CONTRACT_STATE_HASH_AT> "(" <contract_state_tree_height: Expression> "," <contract_id: Expression> "," <slot_index: Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetOtherContractStateHashAt {
-                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
-                contract_id: expr_nodes.alloc_item(contract_id),
-                slot_index: expr_nodes.alloc_item(slot_index),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_GET_OTHER_USER_CONTRACT_STATE_HASH_AT> "(" <contract_state_tree_height: Expression> "," <user_id: Expression> "," <contract_id: Expression> "," <slot_index: Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::GetOtherUserContractStateHashAt {
-                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
-                user_id: expr_nodes.alloc_item(user_id),
-                contract_id: expr_nodes.alloc_item(contract_id),
-                slot_index: expr_nodes.alloc_item(slot_index),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
-    <l:@L> <variable:CTX_SET_STATE_HASH_AT> "(" <slot_index: Expression> "," <new_value: Expression> ")" <r:@R> => {
-        ExprNode::Intrinsic(
-            IntrinsicExprNode::CSetStateHashAt {
-                slot_index: expr_nodes.alloc_item(slot_index),
-                new_value: expr_nodes.alloc_item(new_value),
-                location: Location::new(file_id, l, r)
-            }
-        )
-    },
+    IntrinsicExpression,
     <l:@L> <callee:Expression> <generic_parameters:Monomorphization> "(" <args:ArgumentList> ")" <r:@R> => {
        if let ExprNode::<F>::MemberAccess(MemberAccessNode {
           target: receiver, ..
@@ -782,8 +697,143 @@ Term: ExprNode<F> = {
     PathExpression,
     IfExpression,
     MatchExpression,
-    BlockExpression,
+    BlockExpression
+}
 
+IntrinsicExpression: ExprNode<F> = {
+    <l:@L> <variable:MEM_TRANSMUTE> "#" "<" <target_type:Ty> ">" "(" <data: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::MemTransmute {
+                data: expr_nodes.alloc_item(data),
+                target_type,
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:MEM_SIZE_OF> "#" "<" <query_type:Ty> ">" "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::MemSizeOf {
+                query_type,
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:STORAGE_READ_RANGE> "(" <offset: Expression> "," <length: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::StorageReadRange {
+                offset: expr_nodes.alloc_item(offset),
+                length: expr_nodes.alloc_item(length),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:STORAGE_WRITE_RANGE> "(" <offset: Expression> "," <values: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::StorageWriteRange {
+                offset: expr_nodes.alloc_item(offset),
+                values: expr_nodes.alloc_item(values),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:STORAGE_READ> "(" <offset: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::StorageRead {
+                offset: expr_nodes.alloc_item(offset),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:STORAGE_WRITE> "(" <offset: Expression> "," <value: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::StorageWrite {
+                offset: expr_nodes.alloc_item(offset),
+                value: expr_nodes.alloc_item(value),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:Hash> "(" <data:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::Hash {
+                data: expr_nodes.alloc_item(data),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_USER_ID> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetUserId {
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_CONTRACT_ID> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetContractId {
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_CHECKPOINT_ID> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetCheckpointId {
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_LAST_NONCE> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetLastNonce {
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_USER_PUBLIC_KEY_HASH> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetUserPublicKeyHash {
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_STATE_HASH_AT> "(" <slot_index: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetStateHashAt {
+                slot_index: expr_nodes.alloc_item(slot_index),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_OTHER_CONTRACT_STATE_HASH_AT> "(" <contract_state_tree_height: Expression> "," <contract_id: Expression> "," <slot_index: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetOtherContractStateHashAt {
+                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
+                contract_id: expr_nodes.alloc_item(contract_id),
+                slot_index: expr_nodes.alloc_item(slot_index),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_OTHER_USER_CONTRACT_STATE_HASH_AT> "(" <contract_state_tree_height: Expression> "," <user_id: Expression> "," <contract_id: Expression> "," <slot_index: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetOtherUserContractStateHashAt {
+                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
+                user_id: expr_nodes.alloc_item(user_id),
+                contract_id: expr_nodes.alloc_item(contract_id),
+                slot_index: expr_nodes.alloc_item(slot_index),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_SET_STATE_HASH_AT> "(" <slot_index: Expression> "," <new_value: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::CSetStateHashAt {
+                slot_index: expr_nodes.alloc_item(slot_index),
+                new_value: expr_nodes.alloc_item(new_value),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    }
 }
 
 ValueExpression: ExprNode<F> = {
@@ -870,6 +920,14 @@ ArrayExpression: ExprNode<F> = {
     <l:@L> "[" <elements:Comma<Expression>> "]" <r:@R> => ExprNode::<F>::Value(
         ValueNode::Array(elements.len(), expr_nodes.alloc_items(elements), Location::new(file_id, l, r)),
     ),
+    <l:@L> "[" <element:Expression> ";" <n:U64> "]" <r:@R> => ExprNode::<F>::Value({
+        let size = usize::try_from(n).unwrap();
+        let mut elements = Vec::with_capacity(size);
+        for _ in 0..n {
+            elements.push(expr_nodes.alloc_item(element.clone()));
+        }
+        ValueNode::Array(size, elements, Location::new(file_id, l, r))
+    }),
 }
 
 UseNode: (Identifier, Vec<Identifier>, Option<Identifier>) =
@@ -959,7 +1017,7 @@ Plus<E>: Vec<E> = Sep<E, "+">;
 
 extern {
     type Location = Loc;
-    type Error = LexicalError;
+    type Error = UserError;
 
     enum Token<'input> {
         CONST => Token::KeywordConst,
@@ -984,8 +1042,12 @@ extern {
         ASSERT => Token::IntrinsicAssert,
         ASSERT_EQ => Token::IntrinsicAssertEq,
         Hash => Token::IntrinsicHash,
+        MEM_TRANSMUTE => Token::IntrinsicMemTransmute,
+        MEM_SIZE_OF => Token::IntrinsicMemSizeOf,
         STORAGE_READ => Token::IntrinsicStorageRead,
         STORAGE_WRITE => Token::IntrinsicStorageWrite,
+        STORAGE_READ_RANGE => Token::IntrinsicStorageReadRange,
+        STORAGE_WRITE_RANGE => Token::IntrinsicStorageWriteRange,
         CTX_GET_USER_ID => Token::IntrinsicCtxGetUserId,
         CTX_GET_CONTRACT_ID => Token::IntrinsicCtxGetContractId,
         CTX_GET_CHECKPOINT_ID => Token::IntrinsicCtxGetCheckpointId,
@@ -1080,5 +1142,8 @@ extern {
 
         "<<=" => Token::OperatorBitShlAssign,
         ">>=" => Token::OperatorBitShrAssign,
+
+        LineComment => Token::LineComment(<&'input str>),
+        BlockComment => Token::BlockComment(<&'input str>),
     }
 }

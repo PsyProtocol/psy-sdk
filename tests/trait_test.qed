@@ -27,6 +27,16 @@ pub mod traits{
             return self.year_of_birth.year_of_birth;
         }
     }
+  }
+  pub struct Person {
+    pub age_height: [[Felt; 2]; 2],
+    pub year_of_birth: Felt,
+  }
+  // pub fn age(self: Person) -> Felt {
+  //     return self.age_height[0][0];
+  // }
+  impl PersonLike for Person {
+  }
 }
 
 
@@ -34,8 +44,6 @@ pub fn test_fn(p: Person)  -> Felt {
     use traits::PersonLike;
     return p.age();
 }
-
-
 fn main(a: Felt, b: Felt) -> Felt {
 
     let person = new Person{

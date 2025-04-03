@@ -6,8 +6,8 @@ use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
     CheckedDefinitionNode, CheckedFunctionNode, CheckedFunctionParameter, CheckedImplNode,
-    CheckedStructNode, CheckedTraitNode, CheckedVariable, Error, Implementer, Inferer, Result,
-    ScopeKind, Type, TypeChecker, TypeCheckerVisitorContext, UNKOWN_TYPE, VOID_TYPE,
+    CheckedStructNode, CheckedTraitNode, CheckedVariable, Error, Implementer, Result, ScopeKind,
+    Type, TypeChecker, TypeCheckerVisitorContext, UNKOWN_TYPE, VOID_TYPE,
 };
 
 impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
@@ -34,6 +34,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     attrs: function_node.attrs,
                     type_id: UNKOWN_TYPE,
                     location: function_node.location,
+                    comments: todo!(),
                 };
 
                 let ty = Type::Function(checked_function);
@@ -55,6 +56,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     scope_id: ctx.symbols.current_scope_id().unwrap(),
                     visibility: struct_node.visibility,
                     location: struct_node.location,
+                    comments: todo!(),
                 };
 
                 let ty = Type::Struct(checked_struct);
@@ -80,6 +82,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     scope_id: ctx.symbols.current_scope_id().unwrap(),
                     visibility: trait_node.visibility,
                     location: trait_node.location,
+                    comments: todo!(),
                 };
 
                 let ty = Type::Trait(checked_trait);
@@ -259,6 +262,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 attrs: function.attrs,
                 type_id: UNKOWN_TYPE,
                 location: function.location,
+                comments: todo!(),
             }),
         }
     }
@@ -374,6 +378,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             body: self.program.defs.alloc_items(methods),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             location: impl_node.location,
+            comments: todo!(),
         };
 
         self.infcx.exit_context();

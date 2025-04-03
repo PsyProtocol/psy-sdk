@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use qed_ast::{
     DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, InsertPosition, ModuleId, ModuleNode,
     NodeId, NodeInfo, NodeType, Program, StmtId, StmtNode, VisitorContext,
@@ -5,12 +7,19 @@ use qed_ast::{
 use qed_common::Graph;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
-use crate::{SymbolTable, TypeId};
+use crate::{LocationIndices, ReferenceId, SymbolTable, Type, TypeId};
+
+use petgraph::graph::{DiGraph, NodeIndex as PetGraphIndex};
 
 pub struct TypeCheckerVisitorContext<F: Clone + From<u32> + ContextFelt, C> {
     path_stack: Vec<NodeId>,
     pub program: Program<F>,
     pub symbols: SymbolTable<F>,
+
+    pub(crate) reference_graph: DiGraph<ReferenceId, ()>,
+    pub(crate) reference_graph_indices: HashMap<ReferenceId, PetGraphIndex>,
+    pub(crate) location_indices: LocationIndices,
+
     _marker: std::marker::PhantomData<(F, C)>,
 }
 
@@ -20,6 +29,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
             path_stack: vec![],
             program,
             symbols: SymbolTable::new(),
+            reference_graph: DiGraph::new(),
+            reference_graph_indices: HashMap::new(),
+            location_indices: LocationIndices::default(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -135,5 +147,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> VisitorContext<F, C>
     }
 }
 
-#[derive(Debug)]
-pub struct TyCtxt {}
+impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
+    pub fn size_of(&self, type_id: TypeId) -> usize {
+        match &self.symbols[type_id] {
+            Type::Felt => 1usize,
+            Type::Bool => 1usize,
+            Type::U32 => 1usize,
+            Type::Struct(s) => s
+                .fields
+                .iter()
+                .map(|(_, field)| self.size_of(field.ty))
+                .sum(),
+            _ => todo!(),
+        }
+    }
+}

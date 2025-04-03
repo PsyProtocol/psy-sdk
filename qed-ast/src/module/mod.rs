@@ -1,6 +1,8 @@
 use qed_common::{define_arena_id, Arena, FileId};
 
-use crate::{DefId, DefinitionNode, IdentId, Identifier, Location, NodeInfo, NodeType, Visibility};
+use crate::{
+    Comment, DefId, DefinitionNode, IdentId, Identifier, Location, NodeInfo, NodeType, Visibility,
+};
 
 define_arena_id!(ModuleId);
 
@@ -21,6 +23,7 @@ pub struct UseNode {
     pub kind: Identifier,
     pub segments: Vec<Identifier>,
     pub target: Option<Identifier>,
+    pub comments: Vec<Comment>,
     pub location: Location,
 }
 
@@ -32,7 +35,7 @@ impl NodeInfo for UseNode {
 
 #[derive(Clone, Debug)]
 pub struct ModuleNode {
-    pub name: IdentId,
+    pub name: Identifier,
     pub file_id: FileId,
     pub modules: Vec<(Identifier, Visibility, Location)>,
     pub inline_modules: Vec<ModuleNode>,
@@ -44,18 +47,21 @@ pub struct ModuleNode {
     pub is_self_prelude: bool,
     pub is_self_primitive: bool,
 
+    pub comments: Vec<Comment>,
+
     pub location: Location,
 }
 
 impl ModuleNode {
     pub fn new(
-        name: IdentId,
+        name: Identifier,
         file_id: FileId,
         visibility: Visibility,
         module_items: Vec<ModuleItemNode>,
         is_std: bool,
         is_self_std: bool,
         def_nodes: &mut Arena<DefId, DefinitionNode>,
+        comments: Vec<Comment>,
         location: Location,
     ) -> Self {
         let mut inline_modules = vec![];
@@ -66,6 +72,7 @@ impl ModuleNode {
                 ModuleItemNode::InlineModule(m) => inline_modules.push(m),
                 ModuleItemNode::ModuleDecl(m) => modules.push(m),
                 ModuleItemNode::Definition(d) => definitions.push(d),
+                ModuleItemNode::Comment(c) => todo!(),
             }
         }
         let module = Self {
@@ -95,6 +102,7 @@ impl ModuleNode {
                             Location::new(file_id, 0, 0),
                         )],
                         target: None,
+                        comments: vec![],
                         location: Location::new(file_id, 0, 0),
                     }));
 
@@ -107,6 +115,7 @@ impl ModuleNode {
             is_self_std,
             is_self_prelude: name == IdentId::PRELUDE,
             is_self_primitive: name == IdentId::PRIMITIVE,
+            comments,
             location,
         };
         module
@@ -118,4 +127,5 @@ pub enum ModuleItemNode {
     ModuleDecl((Identifier, Visibility, Location)),
     InlineModule(ModuleNode),
     Definition(DefId),
+    Comment(Comment),
 }

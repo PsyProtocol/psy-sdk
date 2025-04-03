@@ -19,7 +19,7 @@ pub use r#struct::*;
 pub use r#trait::*;
 pub use type_alias::*;
 
-use crate::{NodeInfo, NodeType, UseNode};
+use crate::{Comment, Location, NodeInfo, NodeType, UseNode};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum DefinitionNode {
@@ -53,5 +53,17 @@ impl NodeInfo for DefinitionNode {
 impl PartialOrd for DefinitionNode {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.is_use().partial_cmp(&other.is_use())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CommentNode {
+    pub comments: Vec<Comment>,
+    pub location: Location,
+}
+
+impl NodeInfo for CommentNode {
+    fn node_type(&self) -> NodeType {
+        NodeType::Comment
     }
 }

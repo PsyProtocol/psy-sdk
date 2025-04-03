@@ -5,7 +5,7 @@ use crate::{FunctionSignature, IdentId, Identifier, Location};
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum UncheckedType {
     Basic(Identifier),                                 // u8, T
-    Generic(Identifier, Vec<UncheckedType>, Location), // HashMap<K, V>
+    Generic(Identifier, Vec<UncheckedType>, Location), // IndexMap<K, V>
     Array(Box<UncheckedType>, usize, Location),        // [u8; 10]
     Tuple(Vec<UncheckedType>, Location),
     FunctionSignature(Box<FunctionSignature>, Location),
@@ -20,6 +20,17 @@ impl UncheckedType {
             UncheckedType::Array(_, _, _) => IdentId::TYPE_ARRAY,
             UncheckedType::Unknown => IdentId::TYPE_UNKNOWN,
             _ => unreachable!(),
+        }
+    }
+
+    pub fn location(&self) -> Location {
+        match self {
+            UncheckedType::Basic(ty) => ty.location,
+            UncheckedType::Generic(_, _, location) => *location,
+            UncheckedType::Array(_, _, location) => *location,
+            UncheckedType::Tuple(_unchecked_types, location) => *location,
+            UncheckedType::FunctionSignature(_function_signature, location) => *location,
+            UncheckedType::Unknown => Location::default(),
         }
     }
 }

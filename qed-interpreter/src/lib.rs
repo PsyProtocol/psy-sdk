@@ -4,7 +4,10 @@ mod control;
 pub mod error;
 mod preprocess;
 
-use crate::{control::ControlState, error::lowering_error_to_report};
+use crate::{
+    control::ControlState,
+    error::{lowering_interpreter_error, lowering_parse_error, lowering_sema_error},
+};
 use error::{Error, Result};
 use indexmap::IndexMap;
 pub use preprocess::StorageProcessor;
@@ -21,8 +24,8 @@ use qedlang_core::dpn::{
     },
     vm::def::DPNFunctionCircuitDefinition,
 };
-use std::iter::once;
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
+use std::{collections::HashMap, iter::once};
 use tracing::instrument;
 
 #[derive(Clone, Debug)]
@@ -96,24 +99,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         }
     }
 
-    pub fn size_of(&self, type_id: TypeId, symbols: &SymbolTable<F>) -> usize {
-        match &symbols[type_id] {
-            Type::Felt => 1usize,
-            Type::Bool => 1usize,
-            Type::U32 => 1usize,
-            Type::Struct(s) => s
-                .fields
-                .iter()
-                .map(|(_, field)| self.size_of(field.ty, symbols))
-                .sum(),
-            _ => todo!(),
-        }
-    }
-
     #[instrument(level = "debug", skip_all)]
     pub fn interpret<I: Into<Ident>>(
         &mut self,
-        entry: PathBuf,
+        typechecker: &mut TypeChecker<F, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
         contract_name: Option<I>,
         method_names: Vec<I>,
         compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
@@ -121,14 +111,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     where
         F: 'static,
     {
-        let (mut typechecker, mut ctx) = self.typecheck(entry)?;
-
         let scope_id = ctx.symbols[ModuleId::root()].scope_id;
         let type_ids = if let Some(contract_name) = contract_name {
             let contract_name = ctx.intern(contract_name.into());
             let type_id = ctx.symbols[scope_id]
                 .types
-                .get(&contract_name.into())
+                .get::<TypeKey>(&contract_name.into())
                 .ok_or(Error::UndefinedFunction)?
                 .clone();
 
@@ -136,7 +124,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 .into_iter()
                 .map(|method_name| {
                     let method_name = ctx.intern(method_name.into());
-                    Ok(typechecker.find_method(type_id, method_name, &mut ctx)?)
+                    Ok(typechecker.find_method(type_id, method_name, ctx)?)
                 })
                 .collect::<Result<Vec<TypeId>>>()?
         } else {
@@ -146,7 +134,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     let method_name = ctx.intern(method_name.into());
                     ctx.symbols[scope_id]
                         .types
-                        .get(&method_name.into())
+                        .get::<TypeKey>(&method_name.into())
                         .ok_or(Error::UndefinedFunction)
                         .cloned()
                 })
@@ -166,7 +154,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     self.to_input(parameter.ty, &ctx.symbols),
                 ));
             }
-            let res = self.__interpret__(&typechecker.program, type_id, parameters, &mut ctx)?;
+            let res = self.__interpret__(&typechecker.program, type_id, parameters, ctx)?;
             outputs.push(compile_fn(&self.context, res));
 
             // restore context
@@ -179,15 +167,14 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     #[instrument(level = "debug", skip_all)]
     pub fn test(
         &mut self,
-        entry: PathBuf,
+        typechecker: &mut TypeChecker<F, C>,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
         compile_fn: impl Fn(&C, (String, u32, Vec<F>)) -> DPNFunctionCircuitDefinition,
     ) -> anyhow::Result<Vec<DPNFunctionCircuitDefinition>>
     where
         F: 'static,
     {
-        let (typechecker, mut ctx) = self.typecheck(entry)?;
         let mut type_ids = Vec::new();
-
         let mut visited = HashMap::new();
         ctx.program.dependency_graph.clone().ts::<SemaError>(
             &ModuleId::root(),
@@ -221,7 +208,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     .unwrap()
                     .parameters
                     .is_empty());
-                let res = self.__interpret__(&typechecker.program, type_id, vec![], &mut ctx)?;
+                let res = self.__interpret__(&typechecker.program, type_id, vec![], ctx)?;
                 outputs.push(compile_fn(&self.context, res));
                 // resotre context
                 self.context = context.clone();
@@ -248,7 +235,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         for parameter in node.parameters.iter() {
             method_args.push((
                 ctx.program[parameter.name.id].to_string(),
-                self.size_of(parameter.ty.clone(), &ctx.symbols),
+                ctx.size_of(parameter.ty.clone()),
             ));
         }
 
@@ -261,42 +248,61 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         Ok((method_name, method_id, outputs.to_felts()))
     }
 
-    fn typecheck(
+    pub fn typecheck(
         &mut self,
         entry: PathBuf,
+        dependencies_entry: Vec<PathBuf>,
     ) -> anyhow::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>)>
     where
         F: 'static,
     {
+        let mut module_entry_paths = vec![entry];
+        module_entry_paths.extend(dependencies_entry);
         let mut program = Program::new();
-        let mut parser = Parser::new(&mut program);
-        parser
-            .parse(&mut self.context, entry)
-            .map_err(|err| Error::ParseError(err))?;
+        for module_entry in module_entry_paths {
+            Parser::new(&mut program)
+                .parse(&mut self.context, module_entry)
+                .map_err(|err| {
+                    let context = lowering_parse_error(&err, &program);
+                    anyhow::Error::from(err).context(context)
+                })?;
+        }
+
+        for module in program.modules.iter() {
+            let module_id = module.id();
+            for def_id in module.data().definitions.iter() {
+                let def_node = &program.defs[*def_id];
+                if let DefinitionNode::Use(node) = def_node {
+                    let use_mod_name = node.kind.id;
+                    for m in program.modules.iter() {
+                        if use_mod_name == m.data().name {
+                            program.dependency_graph.add_edge(module_id, m.id());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        program
+            .dependency_graph
+            .check_cycle::<qed_parser::Error>()?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
-
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
         let mut default_visitor_context: DefaultVisitorContext<'_, F, C> =
             DefaultVisitorContext::new(&mut program);
-        storage_preprocessor
-            .visit_program(&mut default_visitor_context)
-            .unwrap();
+        storage_preprocessor.visit_program(&mut default_visitor_context)?;
 
-        let mut formatter = Formatter::new();
-        formatter
-            .visit_program(&mut default_visitor_context)
-            .unwrap();
-        println!("formatted:\n{}", formatter.get_output());
+        // let mut formatter = Formatter::new();
+        // formatter.visit_program(&mut default_visitor_context)?;
+        // println!("formatted:\n{}", formatter.get_output());
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
         typechecker
             .visit_program(&mut typechecker_context)
             .map_err(|err| {
-                anyhow::anyhow!(lowering_error_to_report(
-                    Error::SemaError(err),
-                    &mut typechecker_context
-                ))
+                let context = lowering_sema_error(&err, &mut typechecker_context);
+                anyhow::Error::from(err).context(context)
             })?;
         Ok((typechecker, typechecker_context))
     }
@@ -439,6 +445,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 CheckedIntrinsicStmtNode::Assert {
                     left,
                     message,
+                    comments,
                     location: _location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
@@ -451,6 +458,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     left,
                     right,
                     message,
+                    comments,
                     location: _location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
@@ -819,7 +827,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             self.context.cset_state_hash_at(slot_index, new_value),
                         )
                     }
-                    CheckedIntrinsicExprNode::Read { offset, .. } => {
+                    CheckedIntrinsicExprNode::StorageRead { offset, .. } => {
                         let contract_id = self.context.get_contract_id();
                         let user_id = self.context.get_user_id();
 
@@ -832,7 +840,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         );
                         return Ok(CheckedValueRef::from_felt(value));
                     }
-                    CheckedIntrinsicExprNode::Write { offset, value, .. } => {
+                    CheckedIntrinsicExprNode::StorageWrite { offset, value, .. } => {
                         let offset = self.interpret_expr(program, offset.clone(), ctx)?;
                         let value = self.interpret_expr(program, value.clone(), ctx)?;
                         return Ok(CheckedValueRef::from_felt(
@@ -846,6 +854,52 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             type_id.clone(),
                             self.context.hash(&data.to_felts()),
                         ));
+                    }
+                    CheckedIntrinsicExprNode::MemTransmute {
+                        data,
+                        target_type,
+                        location,
+                    } => {
+                        let data = self.interpret_expr(program, data.clone(), ctx)?;
+                        return Ok(CheckedValueRef::decode_felts(
+                            &data.to_felts(),
+                            ctx,
+                            target_type.clone(),
+                        ));
+                    }
+                    CheckedIntrinsicExprNode::MemSizeOf {
+                        query_type: ty,
+                        location,
+                        ..
+                    } => {
+                        return Ok(CheckedValueRef::from_felt(
+                            self.context.op_const(ctx.size_of(ty.clone()) as u64),
+                        ));
+                    }
+                    CheckedIntrinsicExprNode::StorageReadRange {
+                        offset,
+                        length,
+                        type_id,
+                        location,
+                    } => {
+                        let offset = self.interpret_expr(program, offset.clone(), ctx)?;
+                        let length = self.interpret_expr(program, length.clone(), ctx)?;
+                        let values = self
+                            .context
+                            .get_state_range_at(offset.to_felt(), length.to_felt());
+                        return Ok(CheckedValueRef::from_vec(UNKOWN_TYPE, values));
+                    }
+                    CheckedIntrinsicExprNode::StorageWriteRange {
+                        offset,
+                        values,
+                        type_id,
+                        location,
+                    } => {
+                        let offset = self.interpret_expr(program, offset.clone(), ctx)?;
+                        let values = self.interpret_expr(program, values.clone(), ctx)?;
+                        self.context
+                            .cset_state_range_at(offset.to_felt(), &values.to_felts());
+                        return Ok(CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE)));
                     }
                 }
             }),
@@ -1038,7 +1092,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         if let Some(var_id) = path.variable {
             return Ok(ctx.symbols.get_value(var_id).unwrap());
         } else if let Some(CheckedConstNode { value, .. }) = ctx.symbols[path.type_id].as_const() {
-            return Ok(ctx.symbols.get_constant(value.clone()));
+            return Ok(ctx.symbols.get_constant_value(value.clone()));
         } else {
             return Ok(CheckedValueRef::new_rc(CheckedValue::Type(
                 path.type_id.clone(),
@@ -1270,6 +1324,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         Ok(result)
     }
+
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_match(
         &mut self,
@@ -1340,6 +1395,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         Ok(return_value)
     }
+
     fn match_pattern(
         &mut self,
         program: &CheckedProgram<F>,
@@ -1375,6 +1431,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
+
+    use insta::assert_snapshot;
     use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
     use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
     use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
@@ -1395,15 +1458,51 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial]
+    fn test_crates_resolve() {
+        let entry: PathBuf = "../tests/module_test/foo/src/main.qed".into();
+        let dependencies_entries = vec!["../tests/module_test/bar/src/lib.qed".into()];
+        let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+        let (mut typechecker, mut ctx) = interpreter
+            .typecheck(entry.clone(), dependencies_entries)
+            .unwrap();
+        let compile_results = interpreter
+            .interpret(
+                &mut typechecker,
+                &mut ctx,
+                Option::<String>::None,
+                vec!["main".into()],
+                |context, (method_name, method_id, outputs)| {
+                    QEDCompileResult::compile_exec(
+                        method_name,
+                        method_id,
+                        &context.store,
+                        &context,
+                        &outputs,
+                    )
+                },
+            )
+            .unwrap();
+        println!("compile_result: {:?}", compile_results);
+        #[allow(static_mut_refs)]
+        unsafe {
+            STD_PRIMITIVE_SCOPE_ID.take().unwrap()
+        };
+    }
+
+    #[test]
+    #[serial]
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
         insta::glob!("../../tests", "00*.qed", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+            let (mut typechecker, mut ctx) = interpreter.typecheck(path.into(), vec![]).unwrap();
 
             let compile_results = interpreter
                 .interpret(
-                    path.into(),
+                    &mut typechecker,
+                    &mut ctx,
                     None,
                     vec!["main"],
                     |context, (method_name, method_id, outputs)| {
@@ -1443,6 +1542,39 @@ mod tests {
                 .exec_contract_call(&mut lps, contract_id, &compile_results[0], vec![])
                 .unwrap();
             println!("result_vm: {:?}", cfc_input.outputs);
+            #[allow(static_mut_refs)]
+            unsafe {
+                STD_PRIMITIVE_SCOPE_ID.take().unwrap()
+            };
+
+            assert_snapshot!(ctx.debug_scope(ScopeId::root()))
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn test_format_file() {
+        qed_utils::setup_env_logger();
+
+        insta::glob!("../../tests", "*_test.qed", |path| {
+            let entry: PathBuf = path.into();
+            let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+            let (_typechecker, mut ctx) = interpreter.typecheck(entry.clone(), vec![]).unwrap();
+
+            #[allow(static_mut_refs)]
+            unsafe {
+                STD_PRIMITIVE_SCOPE_ID.take().unwrap()
+            };
+
+            let formatted_content = ctx.format_file(&entry).unwrap();
+
+            let file = File::create(&entry).unwrap();
+            let mut writer = BufWriter::new(file);
+            writer.write_all(formatted_content.as_bytes()).unwrap();
+            writer.flush().unwrap();
+
+            assert!(interpreter.typecheck(entry.clone(), vec![]).is_ok());
+
             #[allow(static_mut_refs)]
             unsafe {
                 STD_PRIMITIVE_SCOPE_ID.take().unwrap()

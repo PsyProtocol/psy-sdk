@@ -1,4 +1,4 @@
-use qed_ast::Visibility;
+use qed_ast::{Comment, Visibility};
 
 use crate::{Identifier, NodeInfo, NodeType, TypeId};
 
@@ -6,6 +6,7 @@ use crate::{Identifier, NodeInfo, NodeType, TypeId};
 pub struct CheckedTypeAliasNode {
     pub name: Identifier,
     pub ty: TypeId,
+    pub comments: Vec<Comment>,
     pub visibility: Visibility,
 }
 

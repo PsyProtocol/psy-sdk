@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use qed_ast::{Identifier, Location, NodeInfo, NodeType, Visibility};
+use qed_ast::{Comment, Identifier, Location, NodeInfo, NodeType, Visibility};
 
 use crate::{ScopeId, TypeId};
 
@@ -10,6 +10,7 @@ pub struct CheckedStructNode {
     pub fields: IndexMap<Identifier, CheckedStructField>,
     pub scope_id: ScopeId,
     pub visibility: Visibility,
+    pub comments: Vec<Comment>,
     pub location: Location,
 }
 
@@ -17,6 +18,7 @@ pub struct CheckedStructNode {
 pub struct CheckedStructField {
     pub ty: TypeId,
     pub visibility: Visibility,
+    pub comments: Vec<Comment>,
     pub location: Location,
 }
 

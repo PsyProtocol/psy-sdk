@@ -1,4 +1,5 @@
 mod arena;
+mod comment;
 mod definition;
 mod expr;
 mod ident;
@@ -14,6 +15,7 @@ mod value;
 mod visibility;
 
 pub use arena::*;
+pub use comment::*;
 pub use definition::*;
 pub use expr::*;
 pub use ident::*;

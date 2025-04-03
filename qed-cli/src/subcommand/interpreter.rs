@@ -1,10 +1,11 @@
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
+use qed_ast::ModuleId;
 use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::qblock::cmds::register_user::QBCRegisterUser;
 use qed_exec::vm::exec::QEDEvalSessionResult;
-use qed_interpreter::{error::Error, Interpreter};
+use qed_interpreter::Interpreter;
 use qed_store::config::store_config::QEDHasher;
 use qed_utils::{
     gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract,
@@ -18,8 +19,10 @@ use qedlang_core::dpn::{
 pub fn run(mut args: InterpreterArgs) -> anyhow::Result<()> {
     args.parameters.resize(args.method_names.len(), Vec::new());
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+    let (mut typechecker, mut ctx) = interpreter.typecheck(args.file.into(), vec![])?;
     let compile_results = interpreter.interpret(
-        args.file.into(),
+        &mut typechecker,
+        &mut ctx,
         args.contract_name,
         args.method_names,
         |context, (method_name, method_id, outputs)| {

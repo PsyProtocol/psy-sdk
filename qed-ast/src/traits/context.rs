@@ -64,6 +64,7 @@ pub enum NodeType {
     TupleExpr,
     TupleAccessExpr,
     MatchExpr,
+    ParenthesesExpr,
 
     WhileStmt,
     AssignmentStmt,
@@ -82,6 +83,7 @@ pub enum NodeType {
     TypeAliasDef,
     ConstDef,
     UseDef,
+    Comment,
 
     Module,
 }

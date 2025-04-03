@@ -1,31 +1,29 @@
-use std::collections::HashMap;
-
 use indexmap::IndexMap;
 use itertools::Itertools;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    AstVisualizer, CheckedArrayNode, CheckedFunctionSignature, CheckedStructField,
-    CheckedStructNode, Implementer, Result, ScopeId, Type, TypeChecker, TypeCheckerVisitorContext,
-    TypeId,
+    rewriter::Rewriter, AstVisualizer, CheckedArrayNode, CheckedFunctionSignature,
+    CheckedStructField, CheckedStructNode, Constraint, Implementer, Result, ScopeId, Type,
+    TypeChecker, TypeCheckerVisitorContext, TypeId,
 };
 
 #[derive(Debug)]
 pub struct InferCtxt<F: Clone + From<u32> + ContextFelt, C> {
-    contexts: Vec<Vec<HashMap<TypeId, TypeId>>>,
+    contexts: Vec<Vec<IndexMap<TypeId, TypeId>>>,
     _marker: std::marker::PhantomData<(F, C)>,
 }
 
 impl<F: Clone + From<u32> + ContextFelt, C> InferCtxt<F, C> {
     pub fn new() -> Self {
         InferCtxt {
-            contexts: vec![vec![HashMap::new()]],
+            contexts: vec![vec![IndexMap::new()]],
             _marker: std::marker::PhantomData,
         }
     }
 
     pub fn enter_context(&mut self) {
-        self.contexts.push(vec![HashMap::new()]);
+        self.contexts.push(vec![IndexMap::new()]);
     }
 
     pub fn exit_context(&mut self) {
@@ -33,7 +31,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> InferCtxt<F, C> {
     }
 
     pub fn enter_scope(&mut self) {
-        self.contexts.last_mut().unwrap().push(HashMap::new());
+        self.contexts.last_mut().unwrap().push(IndexMap::new());
     }
 
     pub fn exit_scope(&mut self) {
@@ -64,29 +62,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> InferCtxt<F, C> {
     }
 }
 
-pub trait Inferer<F: Clone + From<u32> + ContextFelt, C> {
-    fn unify(
-        &mut self,
-        lhs_ty: TypeId,
-        rhs_ty: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> bool;
-
-    fn substitute_all(
-        &mut self,
-        type_id: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<TypeId>;
-
-    fn substitute_type(
-        &mut self,
-        type_id: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<TypeId>;
-}
-
-impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> {
-    fn unify(
+impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
+    pub fn unify(
         &mut self,
         lhs_ty: TypeId,
         rhs_ty: TypeId,
@@ -96,6 +73,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
         let rhs_ty = self.substitute_all(rhs_ty, ctx).unwrap();
 
         match (&ctx.symbols[lhs_ty], &ctx.symbols[rhs_ty]) {
+            (Type::Unknown, Type::Unknown) => false,
+            (Type::Unknown, _) | (_, Type::Unknown) => true,
             (Type::TypeVariable(_), _) => {
                 if self.satisfies_constraint(rhs_ty, lhs_ty, ctx) {
                     self.infcx.equate(lhs_ty, rhs_ty);
@@ -121,11 +100,20 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
                         .zip_eq(s2.generic_parameters.clone().into_iter())
                         .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
-            (Type::Array(a1), Type::Array(a2)) => {
-                // TODO: remove clone
-                let a1 = a1.clone();
-                let a2 = a2.clone();
-                self.unify(a1.inner_ty, a2.inner_ty, ctx) && self.unify(a1.size_ty, a2.size_ty, ctx)
+            (
+                &Type::Array(CheckedArrayNode {
+                    inner_ty: lhs_inner_ty,
+                    size_ty: lhs_size_ty,
+                    ..
+                }),
+                &Type::Array(CheckedArrayNode {
+                    inner_ty: rhs_inner_ty,
+                    size_ty: rhs_size_ty,
+                    ..
+                }),
+            ) => {
+                self.unify(lhs_inner_ty, rhs_inner_ty, ctx)
+                    && self.unify(lhs_size_ty, rhs_size_ty, ctx)
             }
             (Type::Tuple(t1), Type::Tuple(t2)) => {
                 for (lhs_ty, rhs_ty) in t1.clone().into_iter().zip_eq(t2.clone().into_iter()) {
@@ -143,13 +131,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
             (Type::Const(c), Type::Const(d)) => c.ty == d.ty,
             (Type::Const(c), _) => c.ty == rhs_ty,
             (_, Type::Const(c)) => c.ty == lhs_ty,
-            (Type::Unknown, Type::Unknown) => false,
-            (Type::Unknown, _) | (_, Type::Unknown) => true,
             _ => lhs_ty == rhs_ty,
         }
     }
 
-    fn substitute_all(
+    pub fn substitute_all(
         &mut self,
         type_id: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
@@ -173,7 +159,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
         Ok(result)
     }
 
-    fn substitute_type(
+    pub fn substitute_type(
         &mut self,
         type_id: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
@@ -218,6 +204,27 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
                 ctx.symbols.get_or_add_type(None, ty.key(), ty)
             }
 
+            Type::Function(func) => {
+                let generic_parameters = func
+                    .generic_parameters
+                    .iter()
+                    .map(|x| self.substitute_all(*x, ctx))
+                    .collect::<Result<Vec<_>>>()?;
+
+                let poly_ty = self.poly_of(type_id, ctx).unwrap();
+
+                if let Some(instance_map) = self.implementer.functions.get(&poly_ty) {
+                    if let Some(&instance) =
+                        instance_map.get(&Constraint::new(generic_parameters.clone()))
+                    {
+                        return Ok(self.program[instance].as_function().unwrap().type_id);
+                    }
+                }
+
+                let instance = self.instantiate_function(type_id, generic_parameters, ctx)?;
+                Ok(self.program[instance].as_function().unwrap().type_id)
+            }
+
             Type::Struct(struct_node) => {
                 let mut new_fields = IndexMap::new();
                 for (
@@ -225,6 +232,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
                     CheckedStructField {
                         ty: field_type,
                         visibility,
+                        comments,
                         location,
                     },
                 ) in struct_node.fields
@@ -235,6 +243,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
                         CheckedStructField {
                             ty: substituted_type,
                             visibility,
+                            comments,
                             location,
                         },
                     );
@@ -251,6 +260,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Inferer<F, C> for TypeChecker<F, C> 
                     fields: new_fields,
                     scope_id: struct_node.scope_id,
                     visibility: struct_node.visibility,
+                    comments: struct_node.comments,
                     location: struct_node.location,
                 });
                 let scope_id = ctx.symbols[struct_node.scope_id].parent;

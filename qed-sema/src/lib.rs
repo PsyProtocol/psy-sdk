@@ -4,11 +4,13 @@ mod constraint;
 mod context;
 mod definition;
 mod expr;
+mod format;
 mod generic;
 mod implementer;
 mod infer;
 mod pre_visit;
 mod program;
+mod reference;
 mod resolver;
 mod rewriter;
 mod stmt;
@@ -26,11 +28,13 @@ pub use context::*;
 pub use definition::*;
 pub use error::*;
 pub use expr::*;
+pub use format::*;
 pub use generic::*;
 pub use implementer::*;
 pub use infer::*;
 pub use program::*;
 pub use r#type::*;
+pub use reference::*;
 pub use resolver::*;
 pub use stmt::*;
 pub use symbol_table::*;
@@ -49,6 +53,8 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use qed_common::FileId;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
+
+use crate::rewriter::Rewriter;
 
 pub struct TypeChecker<F: Clone + From<u32> + ContextFelt, C> {
     pub program: CheckedProgram<F>,
@@ -100,7 +106,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
     ) -> StdResult<Self::ExprResult, Self::Error> {
         // TODO: remove clone
         let path_node = ctx.expression(node).as_path().cloned().unwrap();
-        return Ok(CheckedExprNode::Path(self.resolve_path(&path_node, ctx)?));
+        let checked_path_node = self.resolve_path(&path_node, ctx)?;
+        if let Some(var_id) = checked_path_node.variable {
+            ctx.add_variable_reference(var_id, checked_path_node.location, false);
+        }
+        ctx.add_type_reference(checked_path_node.type_id, checked_path_node.location, false);
+        return Ok(CheckedExprNode::Path(checked_path_node));
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -146,6 +157,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         if ctx.ancestor_node_type(1).is_member_call_expr() {
             let type_id = self.find_method(type_id, member_access_node.field.id, ctx)?;
+            ctx.add_type_reference(type_id, member_access_node.field.location, false);
+
             let visibility = ctx.symbols[type_id].visibility();
             if !(visibility.is_public()
                 || self.typecheck_member_access(member_access_node.target, ctx))
@@ -163,7 +176,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 location: member_access_node.location,
             }));
         } else {
-            let fields = &ctx.symbols[type_id].as_struct().unwrap().fields;
+            let fields = ctx.symbols[type_id].as_struct().unwrap().fields.clone();
             let CheckedStructField {
                 ty: field_type,
                 visibility,
@@ -174,6 +187,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     location: member_access_node.location,
                     member_name: member_access_node.field.id,
                 })?;
+            ctx.add_type_reference(*field_type, member_access_node.field.location, false);
             if !(visibility.is_public()
                 || self.typecheck_member_access(member_access_node.target, ctx))
             {
@@ -431,8 +445,37 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ));
             }
-            IntrinsicExprNode::Read { offset, location } => {
-                // TODO: remove clone
+            IntrinsicExprNode::MemTransmute {
+                data,
+                target_type,
+                location,
+            } => {
+                let data = self.visit_expr(data, ctx)?;
+                let target_type = self.typecheck(&target_type, ctx)?;
+
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::MemTransmute {
+                        data: self.program.exprs.alloc_item(data),
+                        target_type: self.substitute_all(target_type, ctx)?,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::MemSizeOf {
+                query_type: ty,
+                location,
+            } => {
+                let ty = self.typecheck(&ty, ctx)?;
+
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::MemSizeOf {
+                        query_type: ty,
+                        type_id: FELT_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::StorageRead { offset, location } => {
                 let offset = self.visit_expr(offset, ctx)?;
                 if !self.unify(offset.ty(), FELT_TYPE, ctx) {
                     return Err(Error::TypeMismatch {
@@ -441,18 +484,49 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         found: offset.ty(),
                     });
                 }
-                return Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::Read {
-                    offset: self.program.exprs.alloc_item(offset),
-                    type_id: FELT_TYPE,
-                    location,
-                }));
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::StorageRead {
+                        offset: self.program.exprs.alloc_item(offset),
+                        type_id: FELT_TYPE,
+                        location,
+                    },
+                ));
             }
-            IntrinsicExprNode::Write {
+            IntrinsicExprNode::StorageReadRange {
+                offset,
+                length,
+                location,
+            } => {
+                let offset = self.visit_expr(offset, ctx)?;
+                let length = self.visit_expr(length, ctx)?;
+                if !self.unify(offset.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: offset.location(),
+                        expected: vec![FELT_TYPE],
+                        found: offset.ty(),
+                    });
+                }
+                if !self.unify(length.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: length.location(),
+                        expected: vec![FELT_TYPE],
+                        found: length.ty(),
+                    });
+                }
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::StorageReadRange {
+                        offset: self.program.exprs.alloc_item(offset),
+                        length: self.program.exprs.alloc_item(length),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::StorageWrite {
                 offset,
                 value,
                 location,
             } => {
-                // TODO: remove clone
                 let offset = self.visit_expr(offset, ctx)?;
                 let value = self.visit_expr(value, ctx)?;
                 if !self.unify(offset.ty(), FELT_TYPE, ctx) {
@@ -470,10 +544,33 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     });
                 }
                 Ok(CheckedExprNode::Intrinsic(
-                    CheckedIntrinsicExprNode::Write {
+                    CheckedIntrinsicExprNode::StorageWrite {
                         offset: self.program.exprs.alloc_item(offset),
                         value: self.program.exprs.alloc_item(value),
                         type_id: FELT_TYPE,
+                        location,
+                    },
+                ))
+            }
+            IntrinsicExprNode::StorageWriteRange {
+                offset,
+                values,
+                location,
+            } => {
+                let offset = self.visit_expr(offset, ctx)?;
+                let values = self.visit_expr(values, ctx)?;
+                if !self.unify(offset.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: offset.location(),
+                        expected: vec![FELT_TYPE],
+                        found: offset.ty(),
+                    });
+                }
+                Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::StorageWriteRange {
+                        offset: self.program.exprs.alloc_item(offset),
+                        values: self.program.exprs.alloc_item(values),
+                        type_id: VOID_TYPE,
                         location,
                     },
                 ))
@@ -515,7 +612,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let mut inner_ty = UNKOWN_TYPE;
                 let mut elements = Vec::with_capacity(arr.len());
                 for e in arr {
-                    // TODO: remove clone
                     let checked_expr = self.visit_expr(e, ctx)?;
                     if !self.unify(checked_expr.ty(), inner_ty, ctx) {
                         return Err(Error::TypeMismatch {
@@ -616,6 +712,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 }
 
                 let type_id = self.substitute_all(underlying_type_id, ctx)?;
+                ctx.add_type_reference(underlying_type_id, name.location, false);
 
                 CheckedExprNode::Value(CheckedValueNode::Struct(type_id, new_data, location))
             }),
@@ -805,8 +902,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             args.push(type_arg);
         }
 
+        let callee_expr_id = self.program.exprs.alloc_item(callee);
         let checked_expr = CheckedExprNode::Call(CheckedCallNode {
-            callee: self.program.exprs.alloc_item(callee),
+            callee: self.rewrite_expr(callee_expr_id, ctx)?,
             generic_parameters: generic_parameters,
             args: self.program.exprs.alloc_items(args),
             type_id: self.substitute_all(signature.return_type, ctx)?,
@@ -1051,6 +1149,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             predicate: self.program.exprs.alloc_item(predicate),
             type_id: BOOL_TYPE,
             body: self.program.exprs.alloc_item(checked_block),
+            comments: while_node.comments,
             location: while_node.location,
         }))
     }
@@ -1081,6 +1180,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             operator: assignment_node.operator,
             value: self.program.exprs.alloc_item(checked_rhs),
             type_id: self.substitute_all(lhs_ty, ctx)?,
+            comments: assignment_node.comments,
             location: assignment_node.location,
         }))
     }
@@ -1104,7 +1204,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             });
         }
         let current_scope_id = ctx.symbols.current_scope_id().unwrap();
-        ctx.symbols
+        let var_id = ctx
+            .symbols
             .declare_variable(CheckedVariable::new(
                 variable_node.name,
                 rhs_ty,
@@ -1116,12 +1217,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 location: variable_node.location,
                 variable: variable_node.name.id,
             })?;
+        ctx.add_variable_reference(var_id, variable_node.name.location, false);
+
         let checked_variable = CheckedVariableNode {
             name: variable_node.name,
             ty: self.substitute_all(rhs_ty, ctx)?,
             qualifier: variable_node.qualifier,
             value: self.program.exprs.alloc_item(checked_expr),
             scope_id: current_scope_id,
+            comments: variable_node.comments,
             location: variable_node.location,
         };
         Ok(CheckedStmtNode::Variable(checked_variable))
@@ -1151,6 +1255,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         Ok(CheckedStmtNode::Return(CheckedReturnNode {
             ret,
+            comments: return_node.comments,
             location: return_node.location,
         }))
     }
@@ -1166,6 +1271,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             IntrinsicStmtNode::Assert {
                 left,
                 message,
+                comments,
                 location,
             } => {
                 let checked_lhs = self.visit_expr(left, ctx)?;
@@ -1182,6 +1288,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     CheckedIntrinsicStmtNode::Assert {
                         left: self.program.exprs.alloc_item(checked_lhs),
                         message: message,
+                        comments: comments,
                         location: location,
                     },
                 ))
@@ -1190,6 +1297,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 left,
                 right,
                 message,
+                comments,
                 location,
             } => {
                 let checked_lhs = self.visit_expr(left, ctx)?;
@@ -1208,6 +1316,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         left: self.program.exprs.alloc_item(checked_lhs),
                         right: self.program.exprs.alloc_item(checked_rhs),
                         message: message,
+                        comments: comments,
                         location: location,
                     },
                 ))
@@ -1269,16 +1378,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         }
 
         for &function_id in &impl_node.body {
-            methods.push(CheckedDefinitionNode::Function(
-                self.typecheck_impl_method(implementor_poly_type_id, function_id, ctx)?,
-            ));
+            let method_def_id =
+                self.typecheck_impl_method(implementor_poly_type_id, function_id, ctx)?;
+            methods.push(method_def_id);
+            let method = self.program.defs[method_def_id].as_function().unwrap();
+            ctx.add_type_reference(method.type_id, method.name.location, false);
         }
 
         let checked_impl = CheckedImplNode {
             generic_parameters: checked_generic_parameters,
             ty: implementor_type_id,
-            body: self.program.defs.alloc_items(methods),
+            body: methods,
             scope_id: ctx.symbols.current_scope_id().unwrap(),
+            comments: impl_node.comments,
             location: impl_node.location,
         };
 
@@ -1332,19 +1444,22 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .add_type_id(None, IdentId::TYPE_SELF, UNKOWN_TYPE)?;
 
         for &function_id in &trait_node.body {
-            methods.push(CheckedDefinitionNode::Function(
-                self.typecheck_trait_method(function_id, ctx)?,
-            ));
+            let method_def_id = self.typecheck_trait_method(function_id, ctx)?;
+            methods.push(method_def_id);
+            let method = self.program.defs[method_def_id].as_function().unwrap();
+            ctx.add_type_reference(method.type_id, method.name.location, false);
         }
         let checked_trait = CheckedTraitNode {
             generic_parameters,
             name: trait_node.name,
-            body: self.program.defs.alloc_items(methods),
+            body: methods,
             unchecked_body: trait_node.body.clone(),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: trait_node.visibility,
+            comments: trait_node.comments,
             location: trait_node.location,
         };
+
         // TODO: remove clone
         let ty = Type::Trait(checked_trait.clone());
         if is_in_module {
@@ -1353,8 +1468,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             self.infcx.exit_context();
             ctx.symbols.exit_scope();
         } else {
-            ctx.symbols
-                .add_type(ctx.symbols.parent_scope_id(), checked_trait.name.id, ty)?;
+            let type_id =
+                ctx.symbols
+                    .add_type(ctx.symbols.parent_scope_id(), checked_trait.name.id, ty)?;
+            ctx.add_type_reference(type_id, trait_node.name.location, false);
             self.infcx.exit_context();
             // ctx.symbols.end_scope();
             ctx.symbols.end_scope();
@@ -1387,20 +1504,23 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
         let ty = Type::Function(checked_function.clone());
         let type_id = ctx
             .symbols
             .add_type(ctx.symbols.parent_scope_id(), ty.name(), ty)?;
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
-        checked_function.type_id = type_id;
+        ctx.add_type_reference(type_id, checked_function.name.location, false);
 
         self.infcx.exit_context();
         ctx.symbols.end_scope();
 
-        Ok(self
+        let def_id = self
             .program
             .defs
-            .alloc_item(CheckedDefinitionNode::Function(checked_function)))
+            .alloc_item(CheckedDefinitionNode::Function(checked_function));
+        self.register_function(def_id, ctx)?;
+
+        Ok(def_id)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -1439,6 +1559,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             fields: IndexMap::new(),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
             visibility: struct_node.visibility,
+            comments: struct_node.comments,
             location: struct_node.location,
         };
 
@@ -1447,6 +1568,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             StructField {
                 ty: field_type,
                 visibility,
+                comments,
                 location,
             },
         ) in &struct_node.fields
@@ -1457,6 +1579,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 CheckedStructField {
                     ty,
                     visibility: visibility.clone(),
+                    comments: comments.clone(),
                     location: location.clone(),
                 },
             );
@@ -1469,8 +1592,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             self.infcx.exit_context();
             ctx.symbols.exit_scope();
         } else {
-            ctx.symbols
-                .add_type(ctx.symbols.parent_scope_id(), checked_struct.name.id, ty)?;
+            let type_id =
+                ctx.symbols
+                    .add_type(ctx.symbols.parent_scope_id(), checked_struct.name.id, ty)?;
+            ctx.add_type_reference(type_id, checked_struct.name.location, false);
             self.infcx.exit_context();
             ctx.symbols.end_scope();
         }
@@ -1510,11 +1635,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             variants: Vec::new(),
             scope_id: current_scope_id,
             visibility: enum_node.visibility,
+            comments: enum_node.comments,
             location: enum_node.location,
         };
         let ty = Type::Enum(checked_enum.clone());
-        ctx.symbols
+        let type_id = ctx
+            .symbols
             .add_type(ctx.symbols.parent_scope_id(), checked_enum.name, ty)?;
+
+        ctx.add_type_reference(type_id, enum_node.location, false);
 
         self.infcx.exit_context();
         ctx.symbols.end_scope();
@@ -1553,6 +1682,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             NodeType::TupleExpr => self.visit_tuple(expr_id, ctx)?,
             NodeType::TupleAccessExpr => self.visit_tuple_access(expr_id, ctx)?,
             NodeType::MatchExpr => self.visit_match(expr_id, ctx)?,
+            NodeType::ParenthesesExpr => self.visit_parentheses(expr_id, ctx)?,
             _ => std::unreachable!(),
         };
         self.infcx.exit_scope();
@@ -1623,10 +1753,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
     ) -> StdResult<(), Self::Error> {
         // ctx.push_node_id(NodeId::from(module_id));
         // TODO: remove clone
-        // let module = ctx.module(module_id).clone();
-        // if module.is_std && module.is_self_primitive {
-        //     self.typecheck_std_primitive_module(ctx)?;
-        // }
+        let module = ctx.module(module_id).clone();
+        ctx.add_module_reference(module_id, module.name.location, false);
+
+        if module.is_std && module.is_self_primitive {
+            self.typecheck_std_primitive_module(ctx)?;
+        }
 
         // for &def_id in &module.definitions {
         //     self.visit_definition(def_id, ctx)?;
@@ -1704,6 +1836,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let BlockExprNode {
             stmts,
             expr,
+            expr_comments,
             location,
         } = ctx.expression(node).as_block_expr().unwrap().clone();
         ctx.symbols.start_scope(ScopeKind::Block);
@@ -1731,6 +1864,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             None => {
                 if let Some(CheckedReturnNode {
                     ret: Some(ret),
+                    comments: _comments,
                     location: _location,
                 }) = checked_stmts.last().and_then(|x| x.as_return())
                 {
@@ -1774,6 +1908,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .alloc_item(CheckedDefinitionNode::TypeAlias(CheckedTypeAliasNode {
                 name: node.name,
                 ty: type_id,
+                comments: node.comments,
                 visibility: node.visibility,
             })))
     }
@@ -1786,6 +1921,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
     ) -> StdResult<Self::DefinitionResult, Self::Error> {
         // TODO: remove clone
         let node = ctx.definition(node).as_const().cloned().unwrap();
+        let name = node.name;
         let lhs_ty = self.typecheck(&node.ty, ctx)?;
         let value = self.visit_expr(node.value, ctx)?;
         let rhs_ty = value.ty();
@@ -1800,16 +1936,20 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let value = self.evaluator.evaluate_expr(&self.program, &value, ctx);
 
         let node = CheckedConstNode {
-            name: Some(node.name),
+            name: None,
             ty: rhs_ty,
-            value: ctx.symbols.add_constant(value),
-            scope_id: ctx.symbols.current_scope_id().unwrap(),
+            value: ctx.symbols.get_or_add_constant(value),
+            scope_id: ScopeId::primitive(),
             visibility: node.visibility,
         };
 
-        let ty = Type::Const(node.clone());
+        let type_id = ctx.symbols.get_or_add_type(
+            Some(ScopeId::primitive()),
+            TypeKey::from(node.value),
+            Type::Const(node.clone()),
+        )?;
 
-        ctx.symbols.add_type(None, ty.key(), ty)?;
+        ctx.symbols.add_type_id(None, name, type_id)?;
 
         Ok(self
             .program
@@ -1846,12 +1986,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             current_scope_id,
             for_node.location,
         );
-        ctx.symbols
-            .declare_variable(variable)
-            .ok_or(error::Error::VariableAlreadyDefined {
-                location: for_node.location,
-                variable: for_node.variable.id,
-            })?;
+        let var_id =
+            ctx.symbols
+                .declare_variable(variable)
+                .ok_or(error::Error::VariableAlreadyDefined {
+                    location: for_node.location,
+                    variable: for_node.variable.id,
+                })?;
+        ctx.add_variable_reference(var_id, for_node.variable.location, false);
 
         ctx.symbols.start_scope(ScopeKind::Block);
         let checked_block = self.visit_expr(for_node.body, ctx)?;
@@ -1861,6 +2003,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             end: self.program.exprs.alloc_item(end),
             body: self.program.exprs.alloc_item(checked_block),
             scope_id: current_scope_id,
+            comments: for_node.comments,
             location: for_node.location,
         });
         ctx.symbols.end_scope();
@@ -1968,6 +2111,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         }))
     }
 
+    fn visit_parentheses(
+        &mut self,
+        node: ExprId,
+        ctx: &mut Self::Context,
+    ) -> StdResult<Self::ExprResult, Self::Error> {
+        let expr_id = ctx.expression(node).as_parentheses().unwrap().clone();
+        self.visit_expr(expr_id, ctx)
+    }
+
     #[instrument(level = "debug", skip_all)]
     fn visit_lambda_function(
         &mut self,
@@ -1991,12 +2143,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 current_scope_id,
                 parameter.location,
             );
-            ctx.symbols
-                .declare_variable(variable)
-                .ok_or(error::Error::VariableAlreadyDefined {
+            let var_id = ctx.symbols.declare_variable(variable).ok_or(
+                error::Error::VariableAlreadyDefined {
                     location: function.location,
                     variable: parameter.name.id,
-                })?;
+                },
+            )?;
+            ctx.add_variable_reference(var_id, parameter.name.location, false);
             parameters.push(CheckedFunctionParameter::new(
                 parameter.name,
                 parameter.qualifier,
@@ -2030,19 +2183,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             body: self.program.exprs.alloc_item(checked_body),
             return_type: expected_return_type,
             scope_id: current_scope_id,
-            type_id: UNKOWN_TYPE,
+            type_id: ctx.symbols.next_type_id(),
             location: function.location,
         };
 
         let ty = Type::LambdaFunction(checked_function.clone());
-        let type_id = ctx
-            .symbols
+        ctx.symbols
             .add_type(ctx.symbols[current_scope_id].parent, ty.key(), ty)?;
-        ctx.symbols[type_id]
-            .as_lambda_function_mut()
-            .unwrap()
-            .type_id = type_id;
-        checked_function.type_id = type_id;
 
         ctx.symbols.end_scope();
         Ok(CheckedExprNode::LambdaFunction(checked_function))
@@ -2129,12 +2276,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let mut checked_methods = Vec::with_capacity(trait_node.body.len());
 
         for &function_id in &impl_node.body {
-            let method = self.typecheck_trait_impl_method(
+            let method_id = self.typecheck_trait_impl_method(
                 trait_type_id,
                 implementor_type_id,
                 function_id,
                 ctx,
             )?;
+            let method = self.program[method_id].as_function().unwrap();
+
+            ctx.add_type_reference(method.type_id, method.name.location, false);
+
             let i = trait_node
                 .body
                 .iter()
@@ -2149,7 +2300,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     method_name: method.name.id,
                 })?;
             unimplemented_methods.remove(&trait_node.unchecked_body[i]);
-            checked_methods.push(CheckedDefinitionNode::Function(method));
+            checked_methods.push(method_id);
         }
 
         for unimplemented_method in unimplemented_methods {
@@ -2159,15 +2310,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 unimplemented_method,
                 ctx,
             )?;
-            checked_methods.push(CheckedDefinitionNode::Function(method));
+            checked_methods.push(method);
         }
 
         let checked_impl = CheckedTraitImplNode {
             generic_parameters: checked_generic_parameters,
             trait_ty: trait_type_id,
             ty: implementor_type_id,
-            body: self.program.defs.alloc_items(checked_methods),
+            body: checked_methods,
             scope_id: ctx.symbols.current_scope_id().unwrap(),
+            comments: impl_node.comments,
             location: impl_node.location,
         };
 
@@ -2258,13 +2410,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let node = CheckedConstNode {
             name: None,
             ty: U32_TYPE,
-            value: ctx.symbols.add_constant(CheckedValueRef::from_u32(value)),
-            scope_id: ctx.symbols.current_scope_id().unwrap(),
+            value: ctx
+                .symbols
+                .get_or_add_constant(CheckedValueRef::from_u32(value)),
+            scope_id: ScopeId::primitive(),
             visibility: Visibility::Public,
         };
 
-        ctx.symbols
-            .get_or_add_type(None, TypeKey::from(node.value), Type::Const(node))
+        ctx.symbols.get_or_add_type(
+            Some(ScopeId::primitive()),
+            TypeKey::from(node.value),
+            Type::Const(node),
+        )
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -2474,6 +2631,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 ctx.symbols.get_or_add_type(None, ty.key(), ty)?
             }
         };
+
+        let is_self_type = ty.is_basic() && ty.as_basic().unwrap().id == IdentId::TYPE_SELF;
+        ctx.add_type_reference(type_id, ty.location(), is_self_type);
         self.infcx.exit_scope();
         Ok(type_id)
     }
@@ -2528,7 +2688,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         &mut self,
         function_id: DefId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<CheckedFunctionNode> {
+    ) -> Result<DefId> {
         ctx.push_node_id(NodeId::from(function_id));
         ctx.symbols.start_scope(ScopeKind::TraitMethod);
         self.infcx.enter_scope();
@@ -2545,25 +2705,31 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
         let ty = Type::Function(checked_function.clone());
-        let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
-        checked_function.type_id = type_id;
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
+        ctx.symbols.add_type(None, checked_function.name, ty)?;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
         ctx.pop_node_id();
-        Ok(checked_function)
+
+        let def_id = self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Function(checked_function));
+        self.register_function(def_id, ctx)?;
+
+        Ok(def_id)
     }
 
     #[instrument(level = "debug", skip_all)]
     fn typecheck_trait_impl_method(
         &mut self,
-        trait_type_id: TypeId,
-        implementor_type_id: TypeId,
+        _trait_type_id: TypeId,
+        _implementor_type_id: TypeId,
         function_id: DefId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<CheckedFunctionNode> {
+    ) -> Result<DefId> {
         ctx.push_node_id(NodeId::from(function_id));
         ctx.symbols.start_scope(ScopeKind::ImplMethod);
         self.infcx.enter_scope();
@@ -2580,24 +2746,30 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
         let ty = Type::Function(checked_function.clone());
-        let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
-        checked_function.type_id = type_id;
+        ctx.symbols.add_type(None, checked_function.name, ty)?;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
         ctx.pop_node_id();
-        Ok(checked_function)
+
+        let def_id = self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Function(checked_function));
+        self.register_function(def_id, ctx)?;
+
+        Ok(def_id)
     }
 
     #[instrument(level = "debug", skip_all)]
     fn typecheck_impl_method(
         &mut self,
-        implementor_type_id: TypeId,
+        _implementor_type_id: TypeId,
         function_id: DefId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<CheckedFunctionNode> {
+    ) -> Result<DefId> {
         ctx.push_node_id(NodeId::from(function_id));
         ctx.symbols.start_scope(ScopeKind::ImplMethod);
         self.infcx.enter_scope();
@@ -2614,15 +2786,21 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
         let mut checked_function =
             self.typecheck_function(function, checked_generic_parameters, ctx)?;
+        checked_function.type_id = ctx.symbols.next_type_id();
         let ty = Type::Function(checked_function.clone());
-        let type_id = ctx.symbols.add_type(None, checked_function.name, ty)?;
-        ctx.symbols[type_id].as_function_mut().unwrap().type_id = type_id;
-        checked_function.type_id = type_id;
+        ctx.symbols.add_type(None, checked_function.name, ty)?;
 
         self.infcx.exit_scope();
         ctx.symbols.end_scope();
         ctx.pop_node_id();
-        Ok(checked_function)
+
+        let def_id = self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Function(checked_function));
+        self.register_function(def_id, ctx)?;
+
+        Ok(def_id)
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -2645,12 +2823,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 current_scope_id,
                 parameter.location,
             );
-            ctx.symbols
-                .declare_variable(variable)
-                .ok_or(error::Error::VariableAlreadyDefined {
+            let var_id = ctx.symbols.declare_variable(variable).ok_or(
+                error::Error::VariableAlreadyDefined {
                     location: function.location,
                     variable: parameter.name.id,
-                })?;
+                },
+            )?;
+            ctx.add_variable_reference(var_id, parameter.name.location, false);
             parameters.push(CheckedFunctionParameter::new(
                 parameter.name,
                 parameter.qualifier,
@@ -2692,6 +2871,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             visibility: function.visibility,
             attrs: function.attrs,
             type_id: UNKOWN_TYPE,
+            comments: function.comments,
             location: function.location,
         };
 

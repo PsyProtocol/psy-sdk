@@ -24,7 +24,7 @@ pub use r#match::*;
 pub use tuple::*;
 pub use unary::*;
 
-use crate::{NodeInfo, NodeType, ValueNode};
+use crate::{ExprId, NodeInfo, NodeType, ValueNode};
 use enum_as_inner::EnumAsInner;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
@@ -45,6 +45,7 @@ pub enum ExprNode<F: Clone + From<u32>> {
     Tuple(TupleExprNode),
     TupleAccess(TupleAccessNode),
     Match(MatchNode),
+    Parentheses(ExprId),
 }
 
 impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
@@ -66,6 +67,7 @@ impl<F: Clone + From<u32>> NodeInfo for ExprNode<F> {
             Self::Tuple(node) => node.node_type(),
             Self::TupleAccess(node) => node.node_type(),
             Self::Match(node) => node.node_type(),
+            Self::Parentheses(_) => NodeType::ParenthesesExpr,
         }
     }
 }

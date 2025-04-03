@@ -1,5 +1,5 @@
 use qed_ast::{
-    AttrNode, ExprId, Identifier, Location, NodeInfo, NodeType, Qualifier, TypeQualifier,
+    AttrNode, Comment, ExprId, Identifier, Location, NodeInfo, NodeType, Qualifier, TypeQualifier,
     Visibility,
 };
 
@@ -17,6 +17,7 @@ pub struct CheckedFunctionNode {
     pub visibility: Visibility,
     pub attrs: Vec<AttrNode>,
     pub type_id: TypeId,
+    pub comments: Vec<Comment>,
     pub location: Location,
 }
 
@@ -79,7 +80,7 @@ impl NodeInfo for CheckedFunctionNode {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct CheckedFunctionSignature {
     pub parameters: Vec<TypeId>,
     pub return_type: TypeId,

@@ -100,7 +100,7 @@ pub enum Error {
     },
     #[error("no parent module")]
     NoParentModule { location: Location },
-    #[error("module not found")]
+    #[error("module not found: module: {module:?}, location: {location:?}")]
     ModuleNotFound { location: Location, module: IdentId },
     #[error("unreachable code")]
     DuplicateWildcard { location: Location },

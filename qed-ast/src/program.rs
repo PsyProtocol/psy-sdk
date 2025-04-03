@@ -4,7 +4,7 @@ use qed_common::{Arena, FileResolver, Graph, Tree, TreeNode};
 
 use crate::{
     DefId, DefinitionNode, ExprId, ExprNode, FileLocation, Ident, IdentId, Interner, Location,
-    ModuleId, ModuleNode, StmtId, StmtNode, UseNode, Visibility,
+    ModuleId, ModuleNode, StmtId, StmtNode,
 };
 
 #[derive(Debug)]
@@ -66,5 +66,49 @@ impl<F: Clone + From<u32>> Program<F> {
             start: location.start,
             end: location.end,
         }
+    }
+
+    pub fn print_module_name(&self) {
+        for module in self.modules.iter() {
+            println!(
+                "module name: {:?}, module id: {:?}",
+                self.interner[module.data().name.into()],
+                module.id()
+            );
+        }
+    }
+
+    pub fn print_module_graph(&self) {
+        println!("After parse: modules in program");
+        for module in self.modules.iter() {
+            println!(
+                "module name: {:?}, module id: {:?}",
+                self.interner[module.data().name.into()],
+                module.id()
+            );
+            for def_id in module.data().definitions.iter() {
+                let def_node = &self.defs[*def_id];
+                if let DefinitionNode::Use(node) = def_node {
+                    let ident_id = node.kind.id;
+                    let mut module_id = 0.into();
+                    for ii in self.modules.iter() {
+                        if ident_id == ii.data().name {
+                            module_id = ii.id();
+                            break;
+                        }
+                    }
+                    println!(
+                        "USE: {:?}, module_id: {:?}",
+                        self.interner[ident_id], module_id,
+                    );
+                }
+            }
+            println!("module dependencies: {:?}", module.children());
+        }
+        println!("module graph");
+        for (i, j) in self.dependency_graph.iter() {
+            println!("{:?} -> {:?}", i, j);
+        }
+        println!("----------------------");
     }
 }
