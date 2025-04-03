@@ -18,6 +18,9 @@ qed-ast = { workspace = true }
 qed-parser = { workspace = true }
 qed-interpreter = { workspace = true }
 qed-common = { workspace = true }
+qed-dargo-cli = { workspace = true }
+qed-dargo-toml = { workspace = true }
+qed-dargo = { workspace = true }
 
 qedlang_core = { workspace = true }
 anyhow = "1.0.97"

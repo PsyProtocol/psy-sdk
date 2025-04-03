@@ -172,3 +172,4 @@ qed-interpreter = { path = "./qed-interpreter" }
 qed-store = { path = "./qed-store" }
 qed-dargo = { path = "./qed-dargo" }
 qed-dargo-toml = { path = "./qed-dargo-toml" }
+qed-dargo-cli = { path = "./qed-dargo-cli" }
