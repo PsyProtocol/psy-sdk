@@ -2,9 +2,11 @@ mod compile_cmd;
 mod execute_cmd;
 mod init_cmd;
 mod new_cmd;
+mod test_cmd;
 
-use crate::errors::Result;
+use crate::errors::{CliError, Result};
 use clap::{Args, Parser, Subcommand};
+use qed_dargo::fm::NormalizePath;
 use qed_dargo::package::Dependency;
 use qed_dargo::workspace::Workspace;
 use qed_dargo_toml::files::{find_file_manifest_root, get_package_manifest};
@@ -19,6 +21,7 @@ pub(crate) fn start_cli() -> Result<()> {
         DargoCommand::Init(args) => init_cmd::run(args, config),
         DargoCommand::Compile(args) => with_workspace(args, config, compile_cmd::run),
         DargoCommand::Execute(args) => with_workspace(args, config, execute_cmd::run),
+        DargoCommand::Test(args) => test_cmd::run(args),
     }?;
     Ok(())
 }
@@ -41,6 +44,7 @@ enum DargoCommand {
     #[command(alias = "build")]
     Compile(compile_cmd::CompileCommand),
     Execute(execute_cmd::ExecuteCommand),
+    Test(test_cmd::TestCommand),
 }
 
 #[derive(Args, Clone, Debug)]
@@ -100,9 +104,19 @@ impl EntryManager {
     }
 }
 
-fn resolve_entries(workspace: &Workspace) -> EntryManager {
+fn resolve_entries(workspace: &Workspace, entry_path: Option<PathBuf>) -> Result<EntryManager> {
     let package = workspace.package.clone();
-    let package_entry_path = package.entry_canonical_path();
+    let package_entry_path = match entry_path {
+        Some(mut entry_path) => entry_path,
+        None => package.entry_canonical_path(),
+    };
+
+    if !package_entry_path.exists() {
+        return Err(CliError::MissingEntryFile {
+            toml: workspace.root_dir.join("Dargo.toml"),
+            entry: package_entry_path,
+        });
+    }
     let mut entry_manager = EntryManager::new(package_entry_path);
     let mut package_stack = vec![package];
     while let Some(package) = package_stack.pop() {
@@ -117,7 +131,7 @@ fn resolve_entries(workspace: &Workspace) -> EntryManager {
             }
         }
     }
-    entry_manager
+    Ok(entry_manager)
 }
 
 pub(crate) fn save_build_artifact_to_file<T: ?Sized + serde::Serialize>(

@@ -25,4 +25,7 @@ pub(crate) enum CliError {
 
     #[error("Error: destination {} already exists", .0.display())]
     DestinationAlreadyExists(PathBuf),
+
+    #[error("Cannot find file {entry} which was specified as the `entry` field in {toml}")]
+    MissingEntryFile { toml: PathBuf, entry: PathBuf },
 }
