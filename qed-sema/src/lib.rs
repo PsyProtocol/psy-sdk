@@ -27,7 +27,6 @@ pub use context::*;
 pub use definition::*;
 pub use error::*;
 pub use expr::*;
-pub use format::*;
 pub use generic::*;
 pub use implementer::*;
 pub use infer::*;
@@ -1771,8 +1770,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let BlockExprNode {
             stmts,
             expr,
-            expr_comments,
             location,
+            ..
         } = ctx.expression(node).as_block_expr().unwrap().clone();
         ctx.symbols.start_scope(ScopeKind::Block);
 
@@ -2112,7 +2111,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             checked_body
         };
 
-        let mut checked_function = CheckedLambdaFunctionNode {
+        let checked_function = CheckedLambdaFunctionNode {
             name: Identifier::new(ctx.intern_lambda(), function.location),
             parameters,
             body: self.program.exprs.alloc_item(checked_body),

@@ -6,14 +6,13 @@ mod preprocess;
 
 use crate::{
     control::ControlState,
-    error::{lowering_interpreter_error, lowering_parse_error, lowering_sema_error},
+    error::{lowering_parse_error, lowering_sema_error},
 };
 use error::{Error, Result};
 use indexmap::IndexMap;
 pub use preprocess::StorageProcessor;
 use qed_ast::*;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
-use qed_fmt::Formatter;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
@@ -445,7 +444,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 CheckedIntrinsicStmtNode::Assert {
                     left,
                     message,
-                    comments,
+                    comments: _,
                     location: _location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
@@ -458,7 +457,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     left,
                     right,
                     message,
-                    comments,
+                    comments: _,
                     location: _location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
@@ -502,17 +501,17 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValue<F>> {
         Ok(match node {
-            CheckedValueNode::Felt(value, _) => CheckedValue::Felt(*value),
-            CheckedValueNode::Bool(value, _) => CheckedValue::Bool(*value),
-            CheckedValueNode::U32(value, _) => CheckedValue::U32(*value),
-            CheckedValueNode::Array(type_id, elements, _) => {
+            CheckedValueNode::Felt(value, _location) => CheckedValue::Felt(*value),
+            CheckedValueNode::Bool(value, _location) => CheckedValue::Bool(*value),
+            CheckedValueNode::U32(value, _location) => CheckedValue::U32(*value),
+            CheckedValueNode::Array(type_id, elements, _location) => {
                 let mut values = Vec::new();
                 for element in elements {
                     values.push(self.interpret_expr(program, *element, ctx)?);
                 }
                 CheckedValue::Array(*type_id, values)
             }
-            CheckedValueNode::Struct(type_id, field_values, _) => {
+            CheckedValueNode::Struct(type_id, field_values, _location) => {
                 let mut values = IndexMap::new();
                 for (field_name, field_value) in field_values {
                     values.insert(
@@ -523,7 +522,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 CheckedValue::Struct(*type_id, values)
             }
             CheckedValueNode::Type(type_id) => CheckedValue::Type(*type_id),
-            CheckedValueNode::Tuple(type_id, elements, _) => {
+            CheckedValueNode::Tuple(type_id, elements, _location) => {
                 let mut values = Vec::new();
                 for (elem_type, expr_id) in elements {
                     let value = self.interpret_expr(program, *expr_id, ctx)?;
@@ -858,7 +857,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     CheckedIntrinsicExprNode::MemTransmute {
                         data,
                         target_type,
-                        location,
+                        ..
                     } => {
                         let data = self.interpret_expr(program, data.clone(), ctx)?;
                         return Ok(CheckedValueRef::decode_felts(
@@ -869,7 +868,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     }
                     CheckedIntrinsicExprNode::MemSizeOf {
                         query_type: ty,
-                        location,
                         ..
                     } => {
                         return Ok(CheckedValueRef::from_felt(
@@ -879,8 +877,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     CheckedIntrinsicExprNode::StorageReadRange {
                         offset,
                         length,
-                        type_id,
-                        location,
+                        ..
                     } => {
                         let offset = self.interpret_expr(program, offset.clone(), ctx)?;
                         let length = self.interpret_expr(program, length.clone(), ctx)?;
@@ -892,8 +889,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     CheckedIntrinsicExprNode::StorageWriteRange {
                         offset,
                         values,
-                        type_id,
-                        location,
+                        ..
                     } => {
                         let offset = self.interpret_expr(program, offset.clone(), ctx)?;
                         let values = self.interpret_expr(program, values.clone(), ctx)?;
@@ -1429,11 +1425,11 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
     use std::{
         fs::File,
         io::{BufWriter, Write},
     };
-    use serial_test::serial;
 
     use insta::assert_snapshot;
     use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};

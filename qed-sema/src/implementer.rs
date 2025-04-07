@@ -1,12 +1,11 @@
 use anyhow::anyhow;
 use indexmap::{IndexMap, IndexSet};
-use itertools::Itertools;
-use qed_ast::{DefId, IdentId, Identifier, VisitorContext};
+use qed_ast::{DefId, IdentId};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    rewriter::Rewriter, AstVisualizer, CheckedFunctionSignature, Constraint, Result, ScopeKind,
-    Type, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey, TypeKind,
+    rewriter::Rewriter, Constraint, Result, ScopeKind
+    , TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
 };
 
 #[derive(Debug)]
@@ -82,7 +81,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         let impl_node = self.program[impl_id].as_impl().unwrap();
         let constraint = Constraint::new(ctx.symbols[impl_node.ty].generic_parameters());
 
-        let res = self
+        let _ = self
             .implementer
             .impl_ids
             .entry(self.poly_of(impl_node.ty, ctx).unwrap())
@@ -157,9 +156,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
 
         let get_impl_id = |poly_ty: TypeId,
                            method: IdentId,
-                           ctx: &mut TypeCheckerVisitorContext<F, C>|
+                           _ctx: &mut TypeCheckerVisitorContext<F, C>|
          -> Option<_> {
-            let mut get_result = |impl_set: &IndexSet<DefId>| {
+            let get_result = |impl_set: &IndexSet<DefId>| {
                 for &impl_id in impl_set {
                     if let Some(impl_node) = self.program[impl_id].as_impl() {
                         if let Some(function_idx) = impl_node.body.iter().position(|&function_id| {
@@ -189,7 +188,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
             None
         };
 
-        let mut get_trait_impl_id = |poly_ty: TypeId,
+        let get_trait_impl_id = |poly_ty: TypeId,
                                      method: IdentId,
                                      ctx: &mut TypeCheckerVisitorContext<F, C>|
          -> Option<_> {
@@ -241,7 +240,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
             return Some(results);
         };
 
-        let mut get_trait_method = |trait_type_id: TypeId,
+        let get_trait_method = |trait_type_id: TypeId,
                                     method: IdentId,
                                     ctx: &mut TypeCheckerVisitorContext<F, C>|
          -> Option<_> {
@@ -331,8 +330,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
 
         let find_constraints = |trait_poly_ty: TypeId,
                                 poly_ty: TypeId,
-                                trait_ty: TypeId,
-                                ty: TypeId,
+                                _trait_ty: TypeId,
+                                _ty: TypeId,
                                 ctx: &mut TypeCheckerVisitorContext<F, C>|
          -> Vec<(Constraint, Constraint)> {
             let mut result = Vec::new();

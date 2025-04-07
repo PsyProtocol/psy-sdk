@@ -1,7 +1,7 @@
 use qed_common::{FileId, Arena};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use qed_ast::*;
-use qed_lexer::{Token, Error as LexicalError};
+use qed_lexer::Token;
 
 grammar<'input, F, C>(
     file_content: &'input str,

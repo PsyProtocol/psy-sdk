@@ -178,7 +178,7 @@ impl<F: Clone + From<u32> + ContextFelt, C: DPNContext<F>> FeltRepr<F, C> for Ch
             Type::Struct(checked_struct_node) => {
                 let mut fields = IndexMap::new();
                 let mut field_offset = 0;
-                for (i, (field_name, field)) in checked_struct_node.fields.iter().enumerate() {
+                for (_i, (field_name, field)) in checked_struct_node.fields.iter().enumerate() {
                     let field_size = ctx.size_of(field.ty);
                     let field_value = FeltRepr::decode_felts(
                         &felts[field_offset..(field_offset + field_size)],

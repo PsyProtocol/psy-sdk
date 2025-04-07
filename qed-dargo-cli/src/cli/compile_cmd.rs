@@ -17,7 +17,7 @@ pub(crate) struct CompileCommand {
     compile_options: CompileOptions,
 }
 
-pub(crate) fn run(args: CompileCommand, mut workspace: Workspace) -> Result<()> {
+pub(crate) fn run(args: CompileCommand, workspace: Workspace) -> Result<()> {
     compile_workspace_full(&workspace, &args.compile_options)?;
     Ok(())
 }

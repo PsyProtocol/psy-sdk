@@ -1,4 +1,3 @@
-use crate::LalrpopError;
 use qed_ast::Location;
 use thiserror::Error as ThisError;
 

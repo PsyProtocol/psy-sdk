@@ -1,12 +1,9 @@
-use qed_ast::{
-    IdentId, Identifier, Location, ModuleId, PathNode, TraitImplNode, UncheckedType, UseNode,
-    VisitorContext,
-};
+use qed_ast::{IdentId, Identifier, ModuleId, PathNode, UncheckedType, UseNode};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    AstVisualizer, CheckedPathNode, Error, Implementer, Result, TypeChecker,
-    TypeCheckerVisitorContext, TypeId, TypeKey,
+    CheckedPathNode, Error, Implementer, Result, TypeChecker, TypeCheckerVisitorContext, TypeId,
+    TypeKey,
 };
 
 #[derive(Debug)]
@@ -24,7 +21,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         path: &PathNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedPathNode> {
-        let current_module_id = ctx.symbols.current_module_id().unwrap();
+        let _current_module_id = ctx.symbols.current_module_id().unwrap();
 
         let mut src_module = match path.root.as_ref() {
             Some(ty) => match ty {
@@ -187,18 +184,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         module: &Identifier,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<ModuleId> {
-        let current_module_id = ctx.symbols.current_module_id().unwrap();
+        let _current_module_id = ctx.symbols.current_module_id().unwrap();
         Ok(match module.id {
-            IdentId::SELF => current_module_id,
+            IdentId::SELF => _current_module_id,
             IdentId::CRATE => {
-                let mut root_id = current_module_id;
+                let mut root_id = _current_module_id;
                 while let Some(parent) = ctx.symbols[root_id].parent {
                     root_id = parent;
                 }
                 root_id
             }
             IdentId::SUPER => {
-                ctx.symbols[current_module_id]
+                ctx.symbols[_current_module_id]
                     .parent
                     .ok_or(Error::NoParentModule {
                         location: module.location,

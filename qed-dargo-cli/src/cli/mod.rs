@@ -6,7 +6,6 @@ mod test_cmd;
 
 use crate::errors::{CliError, Result};
 use clap::{Args, Parser, Subcommand};
-use qed_dargo::fm::NormalizePath;
 use qed_dargo::package::Dependency;
 use qed_dargo::workspace::Workspace;
 use qed_dargo_toml::files::{find_file_manifest_root, get_package_manifest};
@@ -60,12 +59,11 @@ pub(crate) struct DargoConfig {
 
 /// Parses a path and turns it into an absolute one by joining to the current directory.
 fn parse_path(path: &str) -> std::result::Result<PathBuf, String> {
-    use qed_dargo::fm::NormalizePath;
     let mut path: PathBuf = path
         .parse()
         .map_err(|e| format!("failed to parse path: {e}"))?;
     if !path.is_absolute() {
-        path = std::env::current_dir().unwrap().join(path).normalize();
+        path = std::env::current_dir().unwrap().join(path);
     }
     Ok(path)
 }
@@ -107,7 +105,7 @@ impl EntryManager {
 fn resolve_entries(workspace: &Workspace, entry_path: Option<PathBuf>) -> Result<EntryManager> {
     let package = workspace.package.clone();
     let package_entry_path = match entry_path {
-        Some(mut entry_path) => entry_path,
+        Some(entry_path) => entry_path,
         None => package.entry_canonical_path(),
     };
 

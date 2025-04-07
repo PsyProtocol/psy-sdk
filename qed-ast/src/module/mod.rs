@@ -72,7 +72,7 @@ impl ModuleNode {
                 ModuleItemNode::InlineModule(m) => inline_modules.push(m),
                 ModuleItemNode::ModuleDecl(m) => modules.push(m),
                 ModuleItemNode::Definition(d) => definitions.push(d),
-                ModuleItemNode::Comment(c) => todo!(),
+                ModuleItemNode::Comment(_c) => todo!(),
             }
         }
         let module = Self {

@@ -1,11 +1,11 @@
 use itertools::Itertools;
-use qed_ast::{DefId, ExprId, StmtId, VisitorContext};
+use qed_ast::{DefId, ExprId, StmtId};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    AstVisualizer, CheckedDefinitionNode, CheckedExprNode, CheckedIntrinsicExprNode,
-    CheckedIntrinsicStmtNode, CheckedStmtNode, CheckedValueNode, Error, Implementer, Result,
-    ScopeKind, Type, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
+    CheckedDefinitionNode, CheckedExprNode, CheckedIntrinsicExprNode, CheckedIntrinsicStmtNode,
+    CheckedStmtNode, CheckedValueNode, Error, Implementer, Result, Type, TypeChecker,
+    TypeCheckerVisitorContext, TypeId,
 };
 
 pub trait Rewriter<F: Clone + From<u32> + ContextFelt, C> {
@@ -224,7 +224,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                 checked_variable_node.value =
                     self.rewrite_expr(checked_variable_node.value, ctx)?;
             }
-            CheckedStmtNode::Definition(def_id) => {}
+            CheckedStmtNode::Definition(_def_id) => {}
             CheckedStmtNode::Expression(expr_id) => {
                 *expr_id = self.rewrite_expr(*expr_id, ctx)?;
             }
@@ -237,18 +237,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                 match checked_intrinsic_stmt_node {
                     CheckedIntrinsicStmtNode::Assert {
                         left,
-                        message,
-                        comments,
-                        location,
+                        ..
                     } => {
                         *left = self.rewrite_expr(*left, ctx)?;
                     }
                     CheckedIntrinsicStmtNode::AssertEq {
                         left,
                         right,
-                        message,
-                        comments,
-                        location,
+                        ..
                     } => {
                         *left = self.rewrite_expr(*left, ctx)?;
                         *right = self.rewrite_expr(*right, ctx)?;
@@ -271,25 +267,25 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                 checked_path_node.type_id = self.substitute_all(checked_path_node.type_id, ctx)?;
             }
             CheckedExprNode::Value(checked_value_node) => match checked_value_node {
-                CheckedValueNode::Felt(_, location) => {}
-                CheckedValueNode::Bool(_, location) => {}
-                CheckedValueNode::U32(_, location) => {}
-                CheckedValueNode::Array(type_id, vec, location) => {
+                CheckedValueNode::Felt(_, _location) => {}
+                CheckedValueNode::Bool(_, _location) => {}
+                CheckedValueNode::U32(_, _location) => {}
+                CheckedValueNode::Array(type_id, vec, _location) => {
                     *type_id = self.substitute_all(*type_id, ctx)?;
                     for value in vec {
                         *value = self.rewrite_expr(*value, ctx)?;
                     }
                 }
-                CheckedValueNode::Tuple(type_id, vec, location) => {
+                CheckedValueNode::Tuple(type_id, vec, _location) => {
                     *type_id = self.substitute_all(*type_id, ctx)?;
                     for value in vec {
                         value.0 = self.substitute_all(value.0, ctx)?;
                         value.1 = self.rewrite_expr(value.1, ctx)?;
                     }
                 }
-                CheckedValueNode::Struct(type_id, index_map, location) => {
+                CheckedValueNode::Struct(type_id, index_map, _location) => {
                     *type_id = self.substitute_all(*type_id, ctx)?;
-                    for (index, value) in index_map {
+                    for (_index, value) in index_map {
                         *value = self.rewrite_expr(*value, ctx)?;
                     }
                 }
@@ -359,25 +355,25 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
             }
             CheckedExprNode::Intrinsic(checked_intrinsic_expr_node) => {
                 match checked_intrinsic_expr_node {
-                    CheckedIntrinsicExprNode::GetUserId { type_id, location } => {
+                    CheckedIntrinsicExprNode::GetUserId { type_id,   .. } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
-                    CheckedIntrinsicExprNode::GetContractId { type_id, location } => {
+                    CheckedIntrinsicExprNode::GetContractId { type_id,   .. } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
-                    CheckedIntrinsicExprNode::GetCheckpointId { type_id, location } => {
+                    CheckedIntrinsicExprNode::GetCheckpointId { type_id,   .. } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
-                    CheckedIntrinsicExprNode::GetLastNonce { type_id, location } => {
+                    CheckedIntrinsicExprNode::GetLastNonce { type_id,  .. } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
-                    CheckedIntrinsicExprNode::GetUserPublicKeyHash { type_id, location } => {
+                    CheckedIntrinsicExprNode::GetUserPublicKeyHash { type_id,   .. } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
                     CheckedIntrinsicExprNode::GetStateHashAt {
                         slot_index,
                         type_id,
-                        location,
+                        ..
                     } => {
                         *slot_index = self.rewrite_expr(*slot_index, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
@@ -387,7 +383,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         contract_id,
                         slot_index,
                         type_id,
-                        location,
+                        ..
                     } => {
                         *contract_state_tree_height =
                             self.rewrite_expr(*contract_state_tree_height, ctx)?;
@@ -401,7 +397,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         contract_id,
                         slot_index,
                         type_id,
-                        location,
+                        ..
                     } => {
                         *contract_state_tree_height =
                             self.rewrite_expr(*contract_state_tree_height, ctx)?;
@@ -414,7 +410,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         slot_index,
                         new_value,
                         type_id,
-                        location,
+                        ..
                     } => {
                         *new_value = self.rewrite_expr(*new_value, ctx)?;
                         *slot_index = self.rewrite_expr(*slot_index, ctx)?;
@@ -423,7 +419,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     CheckedIntrinsicExprNode::StorageRead {
                         offset,
                         type_id,
-                        location,
+                        ..
                     } => {
                         *offset = self.rewrite_expr(*offset, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
@@ -432,7 +428,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         offset,
                         value,
                         type_id,
-                        location,
+                        ..
                     } => {
                         *offset = self.rewrite_expr(*offset, ctx)?;
                         *value = self.rewrite_expr(*value, ctx)?;
@@ -441,7 +437,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     CheckedIntrinsicExprNode::Hash {
                         data,
                         type_id,
-                        location,
+                        ..
                     } => {
                         *data = self.rewrite_expr(*data, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
@@ -449,7 +445,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     CheckedIntrinsicExprNode::MemTransmute {
                         data,
                         target_type,
-                        location,
+                        ..
                     } => {
                         *data = self.rewrite_expr(*data, ctx)?;
                         *target_type = self.substitute_all(*target_type, ctx)?;
@@ -457,7 +453,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     CheckedIntrinsicExprNode::MemSizeOf {
                         query_type: ty,
                         type_id,
-                        location,
+                        ..
                     } => {
                         *ty = self.substitute_all(*ty, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
@@ -466,7 +462,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         offset,
                         length,
                         type_id,
-                        location,
+                        ..
                     } => {
                         *offset = self.rewrite_expr(*offset, ctx)?;
                         *length = self.rewrite_expr(*length, ctx)?;
@@ -476,7 +472,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         offset,
                         values,
                         type_id,
-                        location,
+                        ..
                     } => {
                         *offset = self.rewrite_expr(*offset, ctx)?;
                         *values = self.rewrite_expr(*values, ctx)?;
