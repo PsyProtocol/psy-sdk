@@ -9,12 +9,12 @@ pub struct PathNode {
 }
 
 impl PathNode {
-    pub fn from_target(target: Identifier, location: Location) -> Self {
+    pub fn from_target(target: Identifier) -> Self {
         Self {
             root: None,
             segments: vec![],
             target,
-            location,
+            location: target.location,
         }
     }
 

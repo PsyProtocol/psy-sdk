@@ -16,6 +16,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
         let referenced = ReferenceId::Type(type_id);
         self.add_reference(referenced, location, is_self_type);
     }
+
     pub fn add_variable_reference(
         &mut self,
         variable_id: VarId,
@@ -25,6 +26,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
         let referenced = ReferenceId::Variable(variable_id);
         self.add_reference(referenced, location, is_self_type);
     }
+
     pub fn add_module_reference(
         &mut self,
         module_id: ModuleId,
@@ -34,6 +36,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
         let referenced = ReferenceId::Module(module_id);
         self.add_reference(referenced, location, is_self_type);
     }
+
     pub fn add_reference(
         &mut self,
         referenced: ReferenceId,

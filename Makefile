@@ -1,7 +1,7 @@
 PROFILE                 := release
 LOG_LEVE                := info
-FILE                    := tests/storage_test.qed
-PARAMETERS              :=
+FILE                    := tests/trait_test.qed
+PARAMETERS              := 2,3
 
 check:
 	@cargo check --all-targets --examples
@@ -49,6 +49,7 @@ test:
 	@RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --package qed-dargo-cli execute --debug --entry-path for_test.qed
 	@RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --package qed-dargo-cli execute --debug --entry-path lambda_test.qed
 	@RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --package qed-dargo-cli execute --debug --entry-path generics_test.qed
+	@RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --package qed-dargo-cli execute --debug --entry-path polymorphism.qed
 	@RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --package qed-dargo-cli execute --debug --entry-path type_hint_test.qed
 	@RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --package qed-dargo-cli execute --debug --entry-path exp_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --package qed-dargo-cli execute --debug --entry-path array_test.qed --parameters 1,1

@@ -3,7 +3,7 @@ use std::ops::{Index, IndexMut};
 use qed_ast::{DefId, ExprId, StmtId};
 use qed_common::Arena;
 
-use crate::{CheckedDefinitionNode, CheckedExprNode, CheckedStmtNode};
+use crate::{CheckedDefinitionNode, CheckedExprNode, CheckedStmtNode, Result};
 
 #[derive(Debug)]
 pub struct CheckedProgram<F: Clone + From<u32>> {
@@ -19,6 +19,14 @@ impl<F: Clone + From<u32>> CheckedProgram<F> {
             stmts: Arena::new(),
             defs: Arena::new(),
         }
+    }
+
+    pub fn modify_definition(
+        &mut self,
+        def_id: DefId,
+        f: impl FnOnce(&mut CheckedDefinitionNode) -> Result<()>,
+    ) -> Result<()> {
+        f(&mut self[def_id])
     }
 }
 

@@ -130,8 +130,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> VisitorContext<F, C>
         unimplemented!()
     }
 
-    fn alloc_definition(&mut self, _definition: Self::Definition) -> DefId {
-        unimplemented!()
+    fn alloc_definition(&mut self, definition: Self::Definition) -> DefId {
+        self.program.defs.alloc_item(definition)
     }
 
     fn replace_definition(&mut self, _def_id: DefId, _definition: Self::Definition) {

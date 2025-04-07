@@ -14,7 +14,7 @@ pub enum InsertPosition {
     End,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumAsInner)]
+#[derive(Copy, Debug, Clone, PartialEq, EnumAsInner, Hash, Eq)]
 pub enum NodeId {
     Expr(ExprId),
     Stmt(StmtId),

@@ -262,6 +262,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     visibility: struct_node.visibility,
                     comments: struct_node.comments,
                     location: struct_node.location,
+                    type_id: struct_node.type_id,
                 });
                 let scope_id = ctx.symbols[struct_node.scope_id].parent;
                 ctx.symbols.get_or_add_type(scope_id, ty.key(), ty)
