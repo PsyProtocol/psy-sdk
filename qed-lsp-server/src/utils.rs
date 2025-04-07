@@ -1,10 +1,5 @@
-use std::collections::HashMap;
-
 use qed_ast::Location;
-use tower_lsp::lsp_types::{
-    Diagnostic, DiagnosticSeverity, Position, PublishDiagnosticsParams, Range, TextDocumentItem,
-    Url,
-};
+use tower_lsp::lsp_types::{Position, Range};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Returns a string from a range of human characters (graphemes). Respects unicode.

@@ -1,13 +1,12 @@
 use qed_ast::Program;
-use qed_dargo::workspace::Workspace;
 use qed_interpreter::Interpreter;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::vec;
 use tower_lsp::jsonrpc::Error;
 use tower_lsp::lsp_types::{
-    Range, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
-    TextDocumentSyncSaveOptions, Url,
+    InitializeParams, InitializeResult, Range, TextDocumentSyncCapability, TextDocumentSyncKind,
+    TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Url,
 };
 use tower_lsp::{
     jsonrpc::Result,
@@ -19,15 +18,15 @@ use tower_lsp::{
 };
 
 use log::debug;
+use qed_sema::TypeCheckerVisitorContext;
+use qedlang_core::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
+use tower_lsp::jsonrpc::Error as LspError;
 use tower_lsp::lsp_types::{
     CompletionParams, CompletionResponse, DidChangeConfigurationParams,
     DidChangeWatchedFilesParams, DidChangeWorkspaceFoldersParams, DidSaveTextDocumentParams,
     DocumentFormattingParams, GotoDefinitionParams, GotoDefinitionResponse, HoverParams,
-    InitializedParams, Location, MessageType, OneOf, ReferenceParams, TextEdit,
+    InitializedParams, Location, OneOf, ReferenceParams, TextEdit,
 };
-
-use qed_sema::TypeCheckerVisitorContext;
-use qedlang_core::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
 
 use crate::utils::span_to_range;
 
@@ -86,27 +85,34 @@ impl QLspSimple {
 
 #[tower_lsp::async_trait]
 impl LanguageServer for QLspSimple {
-    async fn initialize(
-        &self,
-        params: tower_lsp::lsp_types::InitializeParams,
-    ) -> Result<tower_lsp::lsp_types::InitializeResult> {
-        let tower_lsp::lsp_types::InitializeParams { root_uri, .. } = params;
-
-        let uri = root_uri.clone().unwrap();
-        let root_path = match uri.to_file_path() {
+    async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
+        let root_uri = match params.root_uri {
+            Some(uri) => uri,
+            None => {
+                let msg = "Missing root_uri in InitializeParams".to_string();
+                eprintln!("{msg}");
+                return Err(LspError::invalid_params(msg));
+            }
+        };
+        let root_path = match root_uri.to_file_path() {
             Ok(p) => p,
             Err(_) => {
-                dbg!(format!("{:?} to_file_path error", uri.to_string()));
-                return Err(Error::invalid_request());
+                let msg = format!("Failed to convert root_uri {:?} to file path", root_uri);
+                eprintln!("{msg}");
+                return Err(LspError::invalid_params(msg));
             }
         };
 
-        self.init(&root_path).map_err(|err| {
-            dbg!(format!("{:?} init error", err));
-            Error::invalid_request()
-        });
+        if let Err(err) = self.init(&root_path) {
+            let msg = format!(
+                "Initialization failed for root path {:?}: {:?}",
+                root_path, err
+            );
+            eprintln!("{msg}");
+            return Err(LspError::internal_error());
+        }
 
-        Ok(tower_lsp::lsp_types::InitializeResult {
+        Ok(InitializeResult {
             capabilities: tower_lsp::lsp_types::ServerCapabilities {
                 hover_provider: Some(tower_lsp::lsp_types::HoverProviderCapability::Simple(true)),
                 document_formatting_provider: Some(OneOf::Left(true)),
