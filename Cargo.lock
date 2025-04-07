@@ -1942,6 +1942,7 @@ dependencies = [
  "qed-dargo",
  "qed-dargo-toml",
  "qed-interpreter",
+ "qed-sema",
  "qed-utils",
  "qed_common_circuit",
  "qed_core",
