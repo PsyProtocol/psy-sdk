@@ -1,4 +1,6 @@
 mod math{
+    pub const min_2_3_result: Felt = 2;
+    pub const max_2_3_result: Felt = 3;
     pub fn max(a: Felt, b: Felt) -> Felt {
         return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
     }
@@ -6,20 +8,21 @@ mod math{
     pub fn min(a: Felt, b: Felt) -> Felt {
         return a * ((a < b) as Felt) + b * ((a >=b) as Felt);
     }
-}
 
-use math::*;
+    mod math_tests {
+        use super::*;
+        #[test]
+        fn test_min() {
+            assert(min(2, 3) == min_2_3_result, "min(2, 3) == 2");
+        }
+
+        #[test]
+        fn test_max() {
+            assert(max(2, 3) == max_2_3_result, "max(2, 3) == 3");
+        }
+    }
+}
 
 fn main() {
 
-}
-
-#[test]
-fn test_min() {
-    assert(min(2, 3) == 2, "min(2, 3) == 2");
-}
-
-#[test]
-fn test_max() {
-    assert(max(2, 3) == 3, "max(2, 3) == 3");
 }

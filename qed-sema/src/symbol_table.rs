@@ -300,8 +300,8 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         self.module_stack.last().cloned()
     }
 
-    pub fn next_type_id(&self) -> TypeId {
-        self.types.len().into()
+    pub fn next_type_id(&self, offset: usize) -> TypeId {
+        (self.types.len() + offset).into()
     }
 
     pub fn add_type_id<K: Into<TypeKey>>(
@@ -332,6 +332,14 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         self.add_type_id(scope_id, key, type_id)?;
         self.types.push(ty);
         Ok(type_id)
+    }
+
+    pub fn modify_type(
+        &mut self,
+        type_id: TypeId,
+        f: impl FnOnce(&mut Type) -> Result<()>,
+    ) -> Result<()> {
+        f(&mut self[type_id])
     }
 
     pub fn get_or_add_type<K: Into<TypeKey>>(

@@ -123,7 +123,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 .into_iter()
                 .map(|method_name| {
                     let method_name = ctx.intern(method_name.into());
-                    Ok(typechecker.find_method(type_id, method_name, ctx)?)
+                    Ok(typechecker.find_member(type_id, method_name, ctx)?)
                 })
                 .collect::<Result<Vec<TypeId>>>()?
         } else {
@@ -1307,6 +1307,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         Ok(result)
     }
+
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_match(
         &mut self,
@@ -1377,6 +1378,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         Ok(return_value)
     }
+
     fn match_pattern(
         &mut self,
         program: &CheckedProgram<F>,

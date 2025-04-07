@@ -12,6 +12,7 @@ pub struct CheckedStructNode {
     pub visibility: Visibility,
     pub comments: Vec<Comment>,
     pub location: Location,
+    pub type_id: TypeId,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -20,6 +21,22 @@ pub struct CheckedStructField {
     pub visibility: Visibility,
     pub comments: Vec<Comment>,
     pub location: Location,
+}
+
+impl CheckedStructField {
+    pub fn new(
+        ty: TypeId,
+        visibility: Visibility,
+        comments: Vec<Comment>,
+        location: Location,
+    ) -> Self {
+        Self {
+            ty,
+            visibility,
+            comments,
+            location,
+        }
+    }
 }
 
 impl NodeInfo for CheckedStructNode {

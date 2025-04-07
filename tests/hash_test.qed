@@ -1,4 +1,5 @@
+
 fn main() -> Hash {
-    let data: Hash = [1, 2, 3, 4];
-    hash(data)
+  let data: Hash = [1, 2, 3, 4];
+  hash(data)
 }

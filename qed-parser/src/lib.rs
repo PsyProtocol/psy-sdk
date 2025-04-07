@@ -67,7 +67,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                 continue;
             }
 
-            let module: ModuleNode = if !is_inline {
+            let mut module: ModuleNode = if !is_inline {
                 let file_id = self
                     .program
                     .file_resolver
@@ -162,6 +162,12 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
             } else {
                 inline_modules.get(&current_path).unwrap().clone()
             };
+
+            module.definitions.sort_by(|a, b| {
+                let a = &self.program.defs[*a];
+                let b = &self.program.defs[*b];
+                b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Less)
+            });
 
             let module_id = self.program.modules.next_idx();
 

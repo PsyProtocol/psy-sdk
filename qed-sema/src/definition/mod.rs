@@ -10,7 +10,7 @@ mod type_alias;
 pub use array::*;
 use enum_as_inner::EnumAsInner;
 pub use function::*;
-use qed_ast::{NodeInfo, NodeType, UseNode};
+use qed_ast::{IdentId, NodeInfo, NodeType, UseNode};
 pub use r#const::*;
 pub use r#enum::*;
 pub use r#impl::*;
@@ -31,6 +31,20 @@ pub enum CheckedDefinitionNode {
     TypeAlias(CheckedTypeAliasNode),
     Const(CheckedConstNode),
     Use(CheckedUseNode),
+}
+
+impl CheckedDefinitionNode {
+    pub fn name(&self) -> IdentId {
+        match self {
+            Self::Function(node) => node.name.id,
+            Self::Struct(node) => node.name.id,
+            Self::Enum(node) => node.name.id,
+            Self::Trait(node) => node.name.id,
+            Self::TypeAlias(node) => node.name.id,
+            Self::Const(node) => node.name.unwrap().id,
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl NodeInfo for CheckedDefinitionNode {

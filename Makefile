@@ -2,8 +2,8 @@ export DARGO_STD_PATH := $(PWD)/qed-std/std.qed
 
 PROFILE                 := release
 LOG_LEVE                := info
-FILE                    := tests/storage_test.qed
-PARAMETERS              :=
+FILE                    := tests/trait_test.qed
+PARAMETERS              := 2,3
 
 check:
 	@cargo check --all-targets --examples
@@ -52,6 +52,7 @@ test:
 	@$(DARGO_CLI_EXECUTE) for_test.qed
 	@$(DARGO_CLI_EXECUTE) lambda_test.qed
 	@$(DARGO_CLI_EXECUTE) generics_test.qed
+	@$(DARGO_CLI_EXECUTE) polymorphism.qed
 	@$(DARGO_CLI_EXECUTE) type_hint_test.qed
 	@$(DARGO_CLI_EXECUTE) exp_test.qed --parameters 2,3
 	@$(DARGO_CLI_EXECUTE) array_test.qed --parameters 1,1

@@ -1872,14 +1872,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-abi"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "qed-ast"
 version = "0.1.0"
 dependencies = [
@@ -1912,7 +1904,6 @@ dependencies = [
  "qed-parser",
  "qed-sema",
  "qed-utils",
- "qed-vm",
  "qed_common_circuit",
  "qed_core",
  "qed_crypto",
@@ -1921,13 +1912,6 @@ dependencies = [
  "qed_prover",
  "qed_store",
  "qedlang_core",
- "thiserror 2.0.12",
-]
-
-[[package]]
-name = "qed-codegen"
-version = "0.1.0"
-dependencies = [
  "thiserror 2.0.12",
 ]
 
@@ -2035,19 +2019,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-ir"
-version = "0.1.0"
-
-[[package]]
-name = "qed-irgen"
-version = "0.1.0"
-dependencies = [
- "qed-ast",
- "qed-ir",
- "thiserror 2.0.12",
-]
-
-[[package]]
 name = "qed-lexer"
 version = "0.1.0"
 dependencies = [
@@ -2064,10 +2035,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-opt"
-version = "0.1.0"
-
-[[package]]
 name = "qed-parser"
 version = "0.1.0"
 dependencies = [
@@ -2082,13 +2049,6 @@ dependencies = [
  "qed-common",
  "qed-lexer",
  "qedlang_core",
- "thiserror 2.0.12",
-]
-
-[[package]]
-name = "qed-repl"
-version = "0.1.0"
-dependencies = [
  "thiserror 2.0.12",
 ]
 
@@ -2120,16 +2080,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-store"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "qed-ast",
- "qed-parser",
- "thiserror 2.0.12",
-]
-
-[[package]]
 name = "qed-utils"
 version = "0.1.0"
 dependencies = [
@@ -2147,16 +2097,6 @@ dependencies = [
  "qedlang_core",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "qed-vm"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "qed-ast",
- "qed-parser",
- "thiserror 2.0.12",
 ]
 
 [[package]]

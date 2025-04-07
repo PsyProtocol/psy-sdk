@@ -17,7 +17,7 @@
 - Generics
 - Type Hint
 - Trait Constraint
-- Crate (WIP)
+- Crate
 - LSP
 
 ## Getting Started

@@ -28,6 +28,12 @@ pub const VOID_TYPE: TypeId = TypeId(1);
 pub const BOOL_TYPE: TypeId = TypeId(2);
 pub const FELT_TYPE: TypeId = TypeId(3);
 pub const U32_TYPE: TypeId = TypeId(4);
+
+// pub const T_TYPE: TypeId = TypeId(5);
+// pub const N_TYPE: TypeId = TypeId(6);
+// pub const ARRAY_TYPE: TypeId = TypeId(7);
+// pub const HASH_TYPE_LEN: TypeId = TypeId(8);
+
 pub const HASH_TYPE: TypeId = TypeId(9);
 
 use once_cell::sync::Lazy;
