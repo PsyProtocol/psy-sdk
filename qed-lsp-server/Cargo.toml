@@ -5,3 +5,25 @@ version = "0.1.0"
 
 [dependencies]
 thiserror = { workspace = true }
+tower-lsp = {workspace = true}
+tokio = {workspace = true}
+lsp-types = {workspace = true}
+dashmap = {workspace = true}
+env_logger = {workspace = true}
+log = "0.4.14"
+unicode-segmentation = "1.12"
+
+qed-sema = { workspace = true }
+qed-ast = { workspace = true }
+qed-parser = { workspace = true }
+qed-interpreter = { workspace = true }
+qed-common = { workspace = true }
+qed-dargo-cli = { workspace = true }
+qed-dargo-toml = { workspace = true }
+qed-dargo = { workspace = true }
+
+qedlang_core = { workspace = true }
+anyhow = "1.0.97"
+[[bin]]
+name = "qed-lsp-server"
+path = "src/main.rs"

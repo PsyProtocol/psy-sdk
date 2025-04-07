@@ -85,8 +85,8 @@ where
 
 #[derive(Clone, Debug)]
 pub struct EntryManager {
-    entry: PathBuf,
-    dependencies_entries: HashSet<PathBuf>,
+    pub entry: PathBuf,
+    pub dependencies_entries: HashSet<PathBuf>,
 }
 
 impl EntryManager {

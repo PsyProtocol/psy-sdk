@@ -68,6 +68,11 @@ test:
 	@$(DARGO_CLI_EXECUTE) token.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
 	@$(DARGO_CLI_EXECUTE) two_user_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
 
+lsp:
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli lsp --file tests/reference_test.qed --method references --pos 17 21
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli lsp --file tests/reference_test.qed --method definition --pos 19 11
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli lsp --file tests/reference_test.qed --method hover --pos 19 11
+
 update-snapshots:
 	@cargo insta review
 

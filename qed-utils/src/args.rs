@@ -38,3 +38,15 @@ pub struct TestArgs {
     #[clap(short, env, long)]
     pub file: String,
 }
+
+#[derive(Clone, Debug, Args)]
+pub struct LspArgs {
+    #[clap(short, env, long)]
+    pub file: String,
+
+    #[clap(short, env, long, default_value = None)]
+    pub method: String,
+
+    #[clap(short, env, long, num_args = 0..)]
+    pub pos: Vec<usize>,
+}
