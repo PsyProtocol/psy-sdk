@@ -240,12 +240,14 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
         current_path: &PathBuf,
     ) -> Option<PathBuf> {
         if module_name == &IdentId::STD {
-            if let Ok(std_path) = std::env::var("DARGO_STD_PATH") {
-                return Some(PathBuf::from(std_path));
+            if let Ok(cargo_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+                println!("cargo_dir: {}", cargo_dir);
+                let std_path = PathBuf::from(cargo_dir);
+                return Some(std_path.join("../qed-std/std.qed"));
             }
-            let cargo_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or("./qed-cli".to_string());
-            let std_path = PathBuf::from(cargo_dir);
-            return Some(std_path.join("../qed-std/std.qed"));
+
+            let std_path = std::env::var("DARGO_STD_PATH").expect("Cannot find DARGO_STD_PATH");
+            return Some(PathBuf::from(std_path));
         }
 
         let mut path = current_path.parent()?.to_path_buf();
