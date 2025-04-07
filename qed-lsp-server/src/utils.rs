@@ -1,5 +1,19 @@
-use tower_lsp::lsp_types::{Position, Range};
+use std::collections::HashMap;
+
 use qed_ast::Location;
+use tower_lsp::lsp_types::{
+    Diagnostic, DiagnosticSeverity, Position, PublishDiagnosticsParams, Range, TextDocumentItem,
+    Url,
+};
+use unicode_segmentation::UnicodeSegmentation;
+
+/// Returns a string from a range of human characters (graphemes). Respects unicode.
+pub fn str_range(s: &str, range: &std::ops::Range<usize>) -> String {
+    s.graphemes(true)
+        .skip(range.start)
+        .take(range.len())
+        .collect()
+}
 
 pub fn span_to_range(location: &Location, source: &str) -> Range {
     fn offset_to_position(offset: usize, text: &str) -> Position {

@@ -5,7 +5,10 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::vec;
 use tower_lsp::jsonrpc::Error;
-use tower_lsp::lsp_types::Range;
+use tower_lsp::lsp_types::{
+    Range, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
+    TextDocumentSyncSaveOptions, Url,
+};
 use tower_lsp::{
     jsonrpc::Result,
     lsp_types::{
@@ -79,32 +82,6 @@ impl QLspSimple {
         *self_ctx = ctx;
         Ok(())
     }
-
-    /*
-       When the user closes the file, immediately clean up the document and program cache.
-       Maybe the cleanup should be delayed, but we handle it simply here.
-    */
-    async fn custom_did_change(&self, params: DidChangeTextDocumentParams) {
-        let uri = params.text_document.uri.clone();
-        let path = match uri.to_file_path() {
-            Ok(p) => p,
-            Err(_) => {
-                dbg!(format!("{:?} to_file_path error", uri.to_string()));
-                return;
-            }
-        };
-
-        let self_ctx = self.ctx.lock().unwrap();
-        if self_ctx.program.file_resolver.resolve_id(&path).is_none() {
-            return;
-        }
-
-        let root_path = { self.root_path.lock().unwrap().clone() };
-
-        self.init(&root_path).unwrap();
-
-        dbg!(format!("Changed file: {}", uri));
-    }
 }
 
 #[tower_lsp::async_trait]
@@ -135,6 +112,15 @@ impl LanguageServer for QLspSimple {
                 document_formatting_provider: Some(OneOf::Left(true)),
                 definition_provider: Some(OneOf::Left(true)),
                 references_provider: Some(OneOf::Left(true)),
+                text_document_sync: Some(TextDocumentSyncCapability::Options(
+                    TextDocumentSyncOptions {
+                        open_close: Some(true),
+                        change: Some(TextDocumentSyncKind::INCREMENTAL), // Or FULL
+                        will_save: Some(false),
+                        will_save_wait_until: Some(false),
+                        save: Some(TextDocumentSyncSaveOptions::Supported(true).into()),
+                    },
+                )),
                 ..Default::default()
             },
             ..Default::default()
@@ -150,17 +136,40 @@ impl LanguageServer for QLspSimple {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        dbg!(&params);
+        dbg!(format!("did_open: {:?}", params));
     }
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        self.custom_did_change(params).await;
+        dbg!(format!("did_change: {:?}", params));
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
-        dbg!(&params);
+        dbg!(format!("did_save: {:?}", params));
+        let uri = params.text_document.uri.clone();
+
+        let path = match uri.to_file_path() {
+            Ok(p) => p,
+            Err(_) => {
+                dbg!(format!("{:?} to_file_path error", uri.to_string()));
+                return;
+            }
+        };
+
+        let self_ctx = self.ctx.lock().unwrap();
+        if self_ctx.program.file_resolver.resolve_id(&path).is_none() {
+            eprintln!("{:?} not found in file_resolver", uri);
+            return;
+        }
+
+        let root_path = { self.root_path.lock().unwrap().clone() };
+
+        if let Err(e) = self.init(&root_path) {
+            eprintln!("init failed: {:?}", e);
+        }
+
+        dbg!(format!("Saved file: {}", uri));
     }
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
-        self.did_close(params).await;
+        dbg!(format!("did_close: {:?}", params));
     }
 
     async fn goto_definition(
@@ -179,25 +188,64 @@ impl LanguageServer for QLspSimple {
         let file_id = ctx.program.file_resolver.resolve_id(&path).unwrap().clone();
 
         let position = qed_ast::Position {
-            file_id: file_id,
+            file_id,
             line: text_document_position_params.position.line as usize,
             column: text_document_position_params.position.character as usize,
         };
 
-        let location = ctx.position_to_location(position).unwrap();
-
+        let location = match ctx.position_to_location(position) {
+            Some(loc) => loc,
+            None => {
+                eprintln!("goto definition: cannot find location for position");
+                return Ok(None);
+            }
+        };
+        dbg!("goto definition: location: {:?}", location);
         match ctx.goto_definition(location) {
-            Some(location) => {
-                let range = span_to_range(
-                    &location,
-                    ctx.program.file_resolver.resolve_content(&file_id).unwrap(),
-                );
+            Some(target_location) => {
+                dbg!("goto definition: {:?}", location);
+                let source_text = ctx
+                    .program
+                    .file_resolver
+                    .resolve_content(&location.file_id)
+                    .unwrap_or_default();
+
+                let range = span_to_range(&location, source_text);
+                //let path = ctx.program.file_resolver.resolve_path(&location.file_id);
+                let target_path = ctx
+                    .program
+                    .file_resolver
+                    .resolve_path(&target_location.file_id);
+
+                let target_uri = match target_path {
+                    Some(path_buf) => {
+                        if path_buf == &path {
+                            uri.clone()
+                        } else {
+                            match Url::from_file_path(path_buf) {
+                                Ok(url) => url,
+                                Err(_) => {
+                                    return Err(Error::invalid_params("Invalid target file path"));
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        return Err(Error::invalid_params(
+                            "Cannot resolve path for target file_id",
+                        ));
+                    }
+                };
+
                 Ok(Some(GotoDefinitionResponse::Scalar(Location {
-                    uri: uri.clone(),
-                    range: range,
+                    uri: target_uri,
+                    range,
                 })))
             }
-            None => Ok(None),
+            None => {
+                eprintln!("goto definition: cannot find go to position");
+                Ok(None)
+            }
         }
     }
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
