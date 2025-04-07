@@ -66,6 +66,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
 
         checked_impl.ty = self.substitute_all(checked_impl.ty, ctx)?;
 
+        for (name, associated_type) in &mut checked_impl.associated_types {
+            associated_type.ty = self.substitute_all(associated_type.ty, ctx)?;
+        }
+
         for method in &mut checked_impl.body {
             *method = self.instantiate_function(
                 self.program[*method].as_function().unwrap().type_id,
@@ -125,6 +129,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         checked_impl.ty = self.substitute_all(checked_impl.ty, ctx)?;
         checked_impl.trait_ty = self.substitute_all(checked_impl.trait_ty, ctx)?;
 
+        for (name, associated_type) in &mut checked_impl.associated_types {
+            associated_type.ty = self.substitute_all(associated_type.ty, ctx)?;
+        }
+
         for method in &mut checked_impl.body {
             *method = self.instantiate_function(
                 self.program[*method].as_function().unwrap().type_id,
@@ -176,7 +184,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
             parameter.ty = self.substitute_all(parameter.ty, ctx)?;
         }
         checked_function.return_type = self.substitute_all(checked_function.return_type, ctx)?;
-        checked_function.type_id = ctx.symbols.next_type_id();
+        checked_function.type_id = ctx.symbols.next_type_id(0);
 
         let ty = Type::Function(checked_function.clone());
         ctx.symbols
@@ -268,6 +276,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         let mut checked_expr = self.program[expr_id].clone();
         match &mut checked_expr {
             CheckedExprNode::Path(checked_path_node) => {
+                if let Some(ref mut root) = checked_path_node.root {
+                    *root = self.substitute_all(*root, ctx)?;
+                    checked_path_node.type_id =
+                        self.find_member(*root, checked_path_node.target, ctx)?;
+                }
                 checked_path_node.type_id = self.substitute_all(checked_path_node.type_id, ctx)?;
             }
             CheckedExprNode::Value(checked_value_node) => match checked_value_node {

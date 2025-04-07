@@ -28,7 +28,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
         let mut src_module = match path.root.as_ref() {
             Some(ty) => match ty {
-                UncheckedType::Basic(name) if let Ok(module) = self.resolve_module(name, ctx) => {
+                UncheckedType::Basic(path)
+                    if let Ok(module) = self.resolve_module(&path.target, ctx) =>
+                {
                     module
                 }
                 _ => {
@@ -43,6 +45,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         self.resolve_member_type(path, root_type_id, path.target.id, ctx)?;
                     return Ok(CheckedPathNode::new(
                         None,
+                        Some(root_type_id),
+                        path.target.id,
                         self.substitute_all(type_id, ctx)?,
                         path.location,
                     ));
@@ -58,6 +62,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 if let Some(var_id) = ctx.symbols.get_variable(None, &path.target) {
                     return Ok(CheckedPathNode::new(
                         Some(var_id),
+                        None,
+                        path.target.id,
                         self.substitute_all(ctx.symbols[var_id].ty, ctx)?,
                         path.location,
                     ));
@@ -70,6 +76,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 })?;
                 return Ok(CheckedPathNode::new(
                     None,
+                    None,
+                    path.target.id,
                     self.substitute_all(type_id, ctx)?,
                     path.location,
                 ));
@@ -100,6 +108,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 let type_id = self.resolve_member_type(path, root_type_id, path.target.id, ctx)?;
                 return Ok(CheckedPathNode::new(
                     None,
+                    Some(root_type_id),
+                    path.target.id,
                     self.substitute_all(type_id, ctx)?,
                     path.location,
                 ));
@@ -109,6 +119,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let type_id = self.resolve_module_type(path, src_module, path.target.id, ctx)?;
         return Ok(CheckedPathNode::new(
             None,
+            None,
+            path.target.id,
             self.substitute_all(type_id, ctx)?,
             path.location,
         ));
@@ -237,7 +249,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             return Ok(type_id);
         }
 
-        let method_type_id = self.find_method(root, target, ctx)?;
+        let method_type_id = self.find_member(root, target, ctx)?;
         if !ctx.symbols[method_type_id].visibility().is_public() {
             return Err(Error::MemberNotPublic {
                 location: path.location,

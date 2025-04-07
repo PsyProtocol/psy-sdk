@@ -68,7 +68,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         ctx: &impl VisitorContext<F, C>,
     ) -> String {
         match node {
-            UncheckedType::Basic(name) => ctx.ident(name).to_string(),
+            UncheckedType::Basic(name) => self.visit_path_node(name, ctx),
             UncheckedType::Generic(name, generic_parameters, _) => {
                 if name == &IdentId::TYPE_ARRAY {
                     assert!(generic_parameters.len() == 2);
@@ -126,7 +126,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         ctx: &impl VisitorContext<F, C>,
     ) -> String {
         match node {
-            UncheckedType::Basic(name) => ctx.ident(name).to_string(),
+            UncheckedType::Basic(name) => self.visit_path_node(name.as_ref(), ctx),
             UncheckedType::Generic(name, generic_parameters, _) => {
                 if name == &IdentId::TYPE_ARRAY {
                     assert!(generic_parameters.len() == 2);
@@ -183,6 +183,28 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
             "".to_string()
         } else {
             format!("<{}>", generic_parameters.join(", "))
+        }
+    }
+
+    fn visit_path_node(&self, node: &PathNode, ctx: &impl VisitorContext<F, C>) -> String {
+        let mut path = node
+            .root
+            .as_ref()
+            .map(|r| vec![self.visit_genic_unchecked_type(r, ctx)])
+            .unwrap_or_default();
+        path.extend_from_slice(
+            &node
+                .segments
+                .iter()
+                .map(|&s| ctx.ident(s).to_string())
+                .collect::<Vec<String>>(),
+        );
+        path.extend_from_slice(&vec![ctx.ident(node.target).to_string()]);
+
+        if path.len() > 1 {
+            format!("<{}>", path.join("::"))
+        } else {
+            format!("{}", path.join("::"))
         }
     }
 
@@ -610,6 +632,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let ImplNode {
+            associated_types,
             generic_parameters,
             ty,
             body,
@@ -621,6 +644,29 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         if *is_generated {
             return Ok(Default::default());
         }
+        let associated_types = associated_types
+            .iter()
+            .map(|(name, ty)| {
+                let comments_content = ty
+                    .comments
+                    .iter()
+                    .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+                    .collect::<String>();
+
+                format!(
+                    "{}{} type {} = {};",
+                    comments_content,
+                    if ty.visibility.is_public() {
+                        "pub "
+                    } else {
+                        ""
+                    },
+                    ctx.ident(name.clone()),
+                    self.visit_unchecked_type(&ty.ty, ctx)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
         let comments_content = comments
             .iter()
             .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
@@ -653,10 +699,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         self.dedent();
 
         Ok(format!(
-            "{}impl{} {} {{\n{}{}}}",
+            "{}impl{} {} {{\n{}{}{}}}",
             comments_content,
             generic_parameters,
             struct_name,
+            associated_types,
             funcs_content,
             self.read_indent(0),
         ))
@@ -928,6 +975,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         let TraitNode {
+            associated_types,
             name,
             generic_parameters,
             body,
@@ -935,6 +983,50 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: _location,
         } = ctx.definition(def_id).as_trait().cloned().unwrap();
+        let associated_types = associated_types
+            .iter()
+            .map(|(name, ty)| {
+                let comments_content = ty
+                    .comments
+                    .iter()
+                    .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+                    .collect::<String>();
+                if ty.constraints.is_empty() {
+                    format!(
+                        "{}{}{}type {};\n",
+                        self.read_indent(1),
+                        comments_content,
+                        if ty.visibility.is_public() {
+                            "pub "
+                        } else {
+                            ""
+                        },
+                        ctx.ident(name.clone()),
+                    )
+                } else {
+                    let constraints_content = ty
+                        .constraints
+                        .iter()
+                        .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
+                        .collect::<Vec<_>>()
+                        .join(" + ");
+
+                    format!(
+                        "{}{}{}type {}: {};\n",
+                        self.read_indent(1),
+                        comments_content,
+                        if ty.visibility.is_public() {
+                            "pub "
+                        } else {
+                            ""
+                        },
+                        ctx.ident(name.clone()),
+                        constraints_content
+                    )
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("");
         let comments_content = comments
             .iter()
             .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
@@ -1024,11 +1116,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         self.dedent();
 
         Ok(format!(
-            "{}{}trait {}{} {{\n{}{}}}",
+            "{}{}trait {}{} {{\n{}\n{}{}}}",
             comments_content,
             if visibility.is_public() { "pub " } else { "" },
             trait_name,
             generic_parameters,
+            associated_types,
             body_content,
             self.read_indent(0),
         ))
@@ -1380,6 +1473,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let TraitImplNode {
+            associated_types,
             generic_parameters,
             trait_ty,
             ty,
@@ -1392,6 +1486,30 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         if *is_generated {
             return Ok(Default::default());
         }
+        let associated_types = associated_types
+            .iter()
+            .map(|(name, ty)| {
+                let comments_content = ty
+                    .comments
+                    .iter()
+                    .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+                    .collect::<String>();
+
+                format!(
+                    "{}{}{}type {} = {};\n",
+                    self.read_indent(1),
+                    comments_content,
+                    if ty.visibility.is_public() {
+                        "pub "
+                    } else {
+                        ""
+                    },
+                    ctx.ident(name.clone()),
+                    self.visit_unchecked_type(&ty.ty, ctx)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("");
         let generic_parameters = generic_parameters
             .iter()
             .map(|p| {
@@ -1426,11 +1544,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         self.dedent();
 
         Ok(format!(
-            "{}impl{} {} for {} {{\n{}{}}}",
+            "{}impl{} {} for {} {{\n{}{}{}}}",
             comments_content,
             generic_parameters,
             trait_name,
             struct_name,
+            associated_types,
             funcs_content,
             self.read_indent(0),
         ))

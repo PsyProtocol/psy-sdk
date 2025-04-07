@@ -1,7 +1,7 @@
 PROFILE                 := release
 LOG_LEVE                := info
-FILE                    := tests/storage_test.qed
-PARAMETERS              :=
+FILE                    := tests/trait_test.qed
+PARAMETERS              := 2,3
 
 check:
 	@cargo check --all-targets --examples
@@ -38,7 +38,7 @@ test:
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/pub_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/return_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/self_test.qed
-	# @RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/storage_test.qed
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/storage_test.qed
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/trait_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/hash_test.qed
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/first_class_function_test.qed
@@ -48,6 +48,7 @@ test:
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/for_test.qed
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/lambda_test.qed
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/generics_test.qed
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/polymorphism.qed
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/type_hint_test.qed
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/exp_test.qed --parameters 2,3
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file tests/array_test.qed --parameters 1,1

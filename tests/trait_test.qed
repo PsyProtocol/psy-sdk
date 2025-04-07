@@ -1,7 +1,9 @@
 pub mod traits {
   
   pub trait PersonLike {
-    pub fn age(self: Self) -> Felt {
+    pub type Age;
+
+    pub fn get_age(self: Self) -> <Self::Age> {
       return 1;
     }
   }
@@ -13,6 +15,10 @@ pub mod traits {
   //     return self.age_height[0][0];
   // }
   impl PersonLike for Person {
+    pub type Age = Felt;
+    pub fn get_age(self: Self) -> <Self::Age> {
+      return 1;
+    }
   }
 }
 
@@ -21,7 +27,7 @@ use traits::Person;
 use traits::PersonLike;
 pub fn test_fn(p: Person) -> Felt {
   use traits::PersonLike;
-  return p.age();
+  return p.get_age();
 }
 fn main(a: Felt, b: Felt) -> Felt {
   let person: Person = new Person {
@@ -30,5 +36,5 @@ fn main(a: Felt, b: Felt) -> Felt {
   };
   use traits::Person;
   use traits::PersonLike;
-  return person.age() + a;
+  return person.get_age() + a;
 }

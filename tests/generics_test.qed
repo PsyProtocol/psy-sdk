@@ -5,11 +5,15 @@ impl<T, N: u32> [T; N] {
   }
 }
 pub trait Two {
+
   pub fn two() -> Felt {
     2
   }
 }
 impl Two for Felt {
+  pub fn two() -> Felt {
+    2
+  }
 }
 struct Box<T: Two> {
   pub data: T,
