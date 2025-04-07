@@ -434,7 +434,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
 
             if self.satisfies_constraints(generic_parameters.clone(), &constraint, ctx) {
                 let instance = self.instantiate_impl(impl_id, generic_parameters.clone(), ctx)?;
-                return Ok(self.program[impl_id]
+                return Ok(self.program[instance]
                     .as_impl()
                     .unwrap()
                     .associated_types
@@ -462,7 +462,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                             generic_parameters.clone(),
                             ctx,
                         )?;
-                        return Ok(self.program[impl_id]
+                        return Ok(self.program[instance]
                             .as_trait_impl()
                             .unwrap()
                             .associated_types
