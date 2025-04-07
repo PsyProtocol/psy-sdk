@@ -4,8 +4,8 @@ use qed_ast::{DefId, IdentId};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    rewriter::Rewriter, Constraint, Result, ScopeKind
-    , TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
+    rewriter::Rewriter, Constraint, Result, ScopeKind, TypeChecker, TypeCheckerVisitorContext,
+    TypeId, TypeKey,
 };
 
 #[derive(Debug)]
@@ -189,8 +189,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         };
 
         let get_trait_impl_id = |poly_ty: TypeId,
-                                     method: IdentId,
-                                     ctx: &mut TypeCheckerVisitorContext<F, C>|
+                                 method: IdentId,
+                                 ctx: &mut TypeCheckerVisitorContext<F, C>|
          -> Option<_> {
             let mut get_result = |impl_set: &IndexSet<DefId>| {
                 let mut result = Vec::new();
@@ -241,8 +241,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         };
 
         let get_trait_method = |trait_type_id: TypeId,
-                                    method: IdentId,
-                                    ctx: &mut TypeCheckerVisitorContext<F, C>|
+                                method: IdentId,
+                                ctx: &mut TypeCheckerVisitorContext<F, C>|
          -> Option<_> {
             let trait_scope_id = ctx.symbols[trait_type_id].scope_id();
             for &scope_id in &ctx.symbols[trait_scope_id].children {

@@ -173,20 +173,14 @@ impl<F> CheckedExprNode<F> {
                 CheckedIntrinsicExprNode::StorageRead { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::StorageWrite { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::Hash { location, .. } => location.clone(),
-                CheckedIntrinsicExprNode::MemTransmute {location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::MemTransmute { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::MemSizeOf {
                     query_type: _ty,
                     location,
                     ..
                 } => location.clone(),
-                CheckedIntrinsicExprNode::StorageReadRange {
-                    location,
-                    ..
-                } => location.clone(),
-                CheckedIntrinsicExprNode::StorageWriteRange {
-                    location,
-                    ..
-                } => location.clone(),
+                CheckedIntrinsicExprNode::StorageReadRange { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::StorageWriteRange { location, .. } => location.clone(),
             },
             CheckedExprNode::LambdaFunction(c) => c.location,
             CheckedExprNode::IfExpr(i) => i.location,

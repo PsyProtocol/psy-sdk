@@ -855,9 +855,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         ));
                     }
                     CheckedIntrinsicExprNode::MemTransmute {
-                        data,
-                        target_type,
-                        ..
+                        data, target_type, ..
                     } => {
                         let data = self.interpret_expr(program, data.clone(), ctx)?;
                         return Ok(CheckedValueRef::decode_felts(
@@ -866,19 +864,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             target_type.clone(),
                         ));
                     }
-                    CheckedIntrinsicExprNode::MemSizeOf {
-                        query_type: ty,
-                        ..
-                    } => {
+                    CheckedIntrinsicExprNode::MemSizeOf { query_type: ty, .. } => {
                         return Ok(CheckedValueRef::from_felt(
                             self.context.op_const(ctx.size_of(ty.clone()) as u64),
                         ));
                     }
-                    CheckedIntrinsicExprNode::StorageReadRange {
-                        offset,
-                        length,
-                        ..
-                    } => {
+                    CheckedIntrinsicExprNode::StorageReadRange { offset, length, .. } => {
                         let offset = self.interpret_expr(program, offset.clone(), ctx)?;
                         let length = self.interpret_expr(program, length.clone(), ctx)?;
                         let values = self
@@ -886,11 +877,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             .get_state_range_at(offset.to_felt(), length.to_felt());
                         return Ok(CheckedValueRef::from_vec(UNKOWN_TYPE, values));
                     }
-                    CheckedIntrinsicExprNode::StorageWriteRange {
-                        offset,
-                        values,
-                        ..
-                    } => {
+                    CheckedIntrinsicExprNode::StorageWriteRange { offset, values, .. } => {
                         let offset = self.interpret_expr(program, offset.clone(), ctx)?;
                         let values = self.interpret_expr(program, values.clone(), ctx)?;
                         self.context

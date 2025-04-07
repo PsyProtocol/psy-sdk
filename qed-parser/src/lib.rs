@@ -17,7 +17,6 @@ pub type LalrpopError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, Use
 
 lalrpop_mod!(pub qed);
 
-
 #[derive(Debug)]
 pub struct Parser<'a, F: Clone + From<u32>, C> {
     program: &'a mut Program<F>,

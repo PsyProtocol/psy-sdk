@@ -235,17 +235,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
             }
             CheckedStmtNode::Intrinsic(checked_intrinsic_stmt_node) => {
                 match checked_intrinsic_stmt_node {
-                    CheckedIntrinsicStmtNode::Assert {
-                        left,
-                        ..
-                    } => {
+                    CheckedIntrinsicStmtNode::Assert { left, .. } => {
                         *left = self.rewrite_expr(*left, ctx)?;
                     }
-                    CheckedIntrinsicStmtNode::AssertEq {
-                        left,
-                        right,
-                        ..
-                    } => {
+                    CheckedIntrinsicStmtNode::AssertEq { left, right, .. } => {
                         *left = self.rewrite_expr(*left, ctx)?;
                         *right = self.rewrite_expr(*right, ctx)?;
                     }
@@ -355,19 +348,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
             }
             CheckedExprNode::Intrinsic(checked_intrinsic_expr_node) => {
                 match checked_intrinsic_expr_node {
-                    CheckedIntrinsicExprNode::GetUserId { type_id,   .. } => {
+                    CheckedIntrinsicExprNode::GetUserId { type_id, .. } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
-                    CheckedIntrinsicExprNode::GetContractId { type_id,   .. } => {
+                    CheckedIntrinsicExprNode::GetContractId { type_id, .. } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
-                    CheckedIntrinsicExprNode::GetCheckpointId { type_id,   .. } => {
+                    CheckedIntrinsicExprNode::GetCheckpointId { type_id, .. } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
-                    CheckedIntrinsicExprNode::GetLastNonce { type_id,  .. } => {
+                    CheckedIntrinsicExprNode::GetLastNonce { type_id, .. } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
-                    CheckedIntrinsicExprNode::GetUserPublicKeyHash { type_id,   .. } => {
+                    CheckedIntrinsicExprNode::GetUserPublicKeyHash { type_id, .. } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
                     CheckedIntrinsicExprNode::GetStateHashAt {
@@ -417,9 +410,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
                     CheckedIntrinsicExprNode::StorageRead {
-                        offset,
-                        type_id,
-                        ..
+                        offset, type_id, ..
                     } => {
                         *offset = self.rewrite_expr(*offset, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
@@ -434,18 +425,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *value = self.rewrite_expr(*value, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
-                    CheckedIntrinsicExprNode::Hash {
-                        data,
-                        type_id,
-                        ..
-                    } => {
+                    CheckedIntrinsicExprNode::Hash { data, type_id, .. } => {
                         *data = self.rewrite_expr(*data, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
                     CheckedIntrinsicExprNode::MemTransmute {
-                        data,
-                        target_type,
-                        ..
+                        data, target_type, ..
                     } => {
                         *data = self.rewrite_expr(*data, ctx)?;
                         *target_type = self.substitute_all(*target_type, ctx)?;
