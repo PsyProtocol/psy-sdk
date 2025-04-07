@@ -41,10 +41,13 @@ impl PackageConfig {
                 toml: root_dir.join("Dargo.toml"),
             });
         };
-        let qed_path = clone_git_repo(STD_GIT_PATH, STD_TAG).map_err(ManifestError::GitError)?;
-        unsafe {
-            std::env::set_var("DARGO_STD_PATH", qed_path.join(STD_DIR).as_os_str());
+
+        if std::env::var("DARGO_STD_PATH").is_err() {
+            let qed_path =
+                clone_git_repo(STD_GIT_PATH, STD_TAG).map_err(ManifestError::GitError)?;
+            unsafe { std::env::set_var("DARGO_STD_PATH", qed_path.join(STD_DIR)); }
         }
+
         let mut dependencies: BTreeMap<CrateName, Dependency> = BTreeMap::new();
         for (name, dep_config) in self.dependencies.iter() {
             let name = name
