@@ -2,12 +2,7 @@ use crate::cli::save_build_artifact_to_file;
 use crate::errors::Result;
 use clap::Args;
 use qed_dargo::workspace::Workspace;
-use qed_interpreter::Interpreter;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
-use qedlang_core::dpn::{
-    ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
-    vm::compile::QEDCompileResult,
-};
 use std::path::PathBuf;
 
 /// Compile the program and its secret execution trace
@@ -29,25 +24,11 @@ pub(super) fn compile_workspace_full(
     compile_options: &CompileOptions,
 ) -> Result<Vec<DPNFunctionCircuitDefinition>> {
     let entry_manager = super::resolve_entries(workspace, compile_options.entry_path.clone())?;
-    let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let (mut typechecker, mut ctx) = interpreter.typecheck(
-        entry_manager.entry,
-        entry_manager.dependencies_entries.into_iter().collect(),
-    )?;
-    let compile_results = interpreter.interpret(
-        &mut typechecker,
-        &mut ctx,
+    let compile_results = qed_interpreter::interpret(
         compile_options.contract_name.clone(),
         compile_options.method_names.clone(),
-        |context, (method_name, method_id, outputs)| {
-            QEDCompileResult::compile_exec(
-                method_name,
-                method_id,
-                &context.store,
-                context,
-                &outputs,
-            )
-        },
+        entry_manager.entry,
+        entry_manager.dependencies_entries.into_iter().collect(),
     )?;
     if compile_options.debug {
         println!("workspace: {:?}", workspace);

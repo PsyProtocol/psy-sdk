@@ -6,17 +6,19 @@ mod preprocess;
 
 use crate::{
     control::ControlState,
-    error::{lowering_interpreter_error, lowering_parse_error, lowering_sema_error},
+    error::{lowering_parse_error, lowering_sema_error},
 };
 use error::{Error, Result};
 use indexmap::IndexMap;
 pub use preprocess::StorageProcessor;
 use qed_ast::*;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
-use qed_fmt::Formatter;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
+use qedlang_core::dpn::ops::exec_context::QExecContext;
+use qedlang_core::dpn::ops::sym_felt::SymFeltRef;
+use qedlang_core::dpn::vm::compile::QEDCompileResult;
 use qedlang_core::dpn::{
     ops::{
         context_trait::{ContextFelt, DPNContext, ToFelts},
@@ -27,6 +29,33 @@ use qedlang_core::dpn::{
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once};
 use tracing::instrument;
+
+pub fn interpret(
+    contract_name: Option<String>,
+    method_names: Vec<String>,
+    entry: PathBuf,
+    dependencies_entries: Vec<PathBuf>,
+) -> anyhow::Result<Vec<DPNFunctionCircuitDefinition>> {
+    let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+    let (mut typechecker, mut ctx) =
+        interpreter.typecheck(entry, dependencies_entries.into_iter().collect())?;
+    let compile_results = interpreter.interpret(
+        &mut typechecker,
+        &mut ctx,
+        contract_name,
+        method_names,
+        |context, (method_name, method_id, outputs)| {
+            QEDCompileResult::compile_exec(
+                method_name,
+                method_id,
+                &context.store,
+                context,
+                &outputs,
+            )
+        },
+    )?;
+    Ok(compile_results)
+}
 
 #[derive(Clone, Debug)]
 pub struct Interpreter<F: Clone + From<u32>, C> {
@@ -1462,28 +1491,14 @@ mod tests {
     fn test_crates_resolve() {
         let entry: PathBuf = "../tests/module_test/foo/src/main.qed".into();
         let dependencies_entries = vec!["../tests/module_test/bar/src/lib.qed".into()];
-        let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-        let (mut typechecker, mut ctx) = interpreter
-            .typecheck(entry.clone(), dependencies_entries)
-            .unwrap();
-        let compile_results = interpreter
-            .interpret(
-                &mut typechecker,
-                &mut ctx,
-                Option::<String>::None,
-                vec!["main".into()],
-                |context, (method_name, method_id, outputs)| {
-                    QEDCompileResult::compile_exec(
-                        method_name,
-                        method_id,
-                        &context.store,
-                        &context,
-                        &outputs,
-                    )
-                },
-            )
-            .unwrap();
-        println!("compile_result: {:?}", compile_results);
+        let compiled_results = super::interpret(
+            Option::<String>::None,
+            vec!["main".into()],
+            entry.clone(),
+            dependencies_entries,
+        )
+        .unwrap();
+        println!("compile_result: {:?}", compiled_results);
         #[allow(static_mut_refs)]
         unsafe {
             STD_PRIMITIVE_SCOPE_ID.take().unwrap()
