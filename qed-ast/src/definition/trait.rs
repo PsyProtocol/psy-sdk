@@ -1,8 +1,8 @@
 use indexmap::IndexMap;
 
 use crate::{
-    Comment, DefId, GenericParameter, IdentId, Identifier, Location, NodeInfo, NodeType,
-    UncheckedType, Visibility,
+    Comment, DefId, GenericParameter, Identifier, Location, NodeInfo, NodeType, UncheckedType,
+    Visibility,
 };
 
 #[derive(Clone, Debug, PartialEq)]

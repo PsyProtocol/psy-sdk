@@ -1,6 +1,6 @@
 use enum_as_inner::EnumAsInner;
 
-use crate::{FunctionSignature, IdentId, Identifier, Location, PathNode};
+use crate::{FunctionSignature, Identifier, Location, PathNode};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum UncheckedType {

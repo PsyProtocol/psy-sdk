@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use qed_dargo::package::CrateName;
-use qed_dargo::package::PackageType;
 use thiserror::Error;
 
 /// Errors covering situations where a package is either missing, malformed or does not pass semver

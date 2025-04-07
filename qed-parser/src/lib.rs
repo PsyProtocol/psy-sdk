@@ -8,8 +8,7 @@ use lalrpop_util::lalrpop_mod;
 
 pub use error::{Error, Result};
 use qed_ast::*;
-use qed_common::FileId;
-use qed_lexer::{Error as LexicalError, *};
+use qed_lexer::{GenericTokenTransformer, Lexer, Loc, Token};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
 use qed_ast::Program;
@@ -17,8 +16,6 @@ use qed_ast::Program;
 pub type LalrpopError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, UserError>;
 
 lalrpop_mod!(pub qed);
-
-use crate::Token;
 
 #[derive(Debug)]
 pub struct Parser<'a, F: Clone + From<u32>, C> {
@@ -43,7 +40,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
     // modB/
     //     std/
     //         prelude
-    pub fn parse<'input>(&'input mut self, ctx: &mut C, root_module_path: PathBuf) -> Result<()> {
+    pub fn parse(&mut self, ctx: &mut C, root_module_path: PathBuf) -> Result<()> {
         let mut module_stack: Vec<(bool, PathBuf, Option<ModuleId>, Visibility, bool, Location)> =
             vec![(
                 false,

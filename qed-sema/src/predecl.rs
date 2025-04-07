@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use qed_ast::*;
 
 use indexmap::IndexMap;
@@ -6,9 +5,8 @@ use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
     CheckedDefinitionNode, CheckedFunctionNode, CheckedFunctionParameter, CheckedGenericParameter,
-    CheckedImplNode, CheckedStructNode, CheckedTraitNode, CheckedVariable, Error, Implementer,
-    Result, ScopeId, ScopeKind, Type, TypeChecker, TypeCheckerVisitorContext, TypeId, UNKOWN_TYPE,
-    VOID_TYPE,
+    CheckedStructNode, CheckedTraitNode, CheckedVariable, Error, Implementer, Result, ScopeKind,
+    Type, TypeChecker, TypeCheckerVisitorContext, VOID_TYPE,
 };
 
 impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
@@ -16,7 +14,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         &mut self,
         def_id: DefId,
         scope_kind: ScopeKind,
-        generic_scope_kind: ScopeKind,
+        _generic_scope_kind: ScopeKind,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId> {
         if let Some(NodeId::Def(def_id)) = self.unchecked_checked.get(&def_id.into()) {
@@ -292,7 +290,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     pub fn typecheck_function_signature(
         &mut self,
         def_id: DefId,
-        scope_kind: ScopeKind,
+        _scope_kind: ScopeKind,
         generic_scope_kind: ScopeKind,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()> {
@@ -353,14 +351,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
         self.program
             .modify_definition(checked_def_id, |def: &mut CheckedDefinitionNode| {
-                let mut checked_function_mut = def.as_function_mut().unwrap();
+                let checked_function_mut = def.as_function_mut().unwrap();
                 checked_function_mut.parameters = parameters.clone();
                 checked_function_mut.return_type = return_type;
                 checked_function_mut.generic_parameters = checked_generic_parameters.clone();
                 Ok(())
             })?;
         ctx.symbols.modify_type(type_id, |ty: &mut Type| {
-            let mut ty_mut = ty.as_function_mut().unwrap();
+            let ty_mut = ty.as_function_mut().unwrap();
             ty_mut.generic_parameters = checked_generic_parameters;
             ty_mut.parameters = parameters;
             ty_mut.return_type = return_type;
@@ -410,12 +408,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
         self.program
             .modify_definition(checked_def_id, |def: &mut CheckedDefinitionNode| {
-                let mut checked_function_mut = def.as_function_mut().unwrap();
+                let checked_function_mut = def.as_function_mut().unwrap();
                 checked_function_mut.body = checked_body;
                 Ok(())
             })?;
         ctx.symbols.modify_type(type_id, |ty: &mut Type| {
-            let mut ty_mut = ty.as_function_mut().unwrap();
+            let ty_mut = ty.as_function_mut().unwrap();
             ty_mut.body = checked_body;
             Ok(())
         })?;

@@ -3,9 +3,9 @@ use itertools::Itertools;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    rewriter::Rewriter, AstVisualizer, CheckedArrayNode, CheckedFunctionSignature,
-    CheckedStructField, CheckedStructNode, Constraint, Implementer, Result, ScopeId, Type,
-    TypeChecker, TypeCheckerVisitorContext, TypeId,
+    rewriter::Rewriter, CheckedArrayNode, CheckedFunctionSignature, CheckedStructField,
+    CheckedStructNode, Constraint, Implementer, Result, ScopeId, Type, TypeChecker,
+    TypeCheckerVisitorContext, TypeId,
 };
 
 #[derive(Debug)]

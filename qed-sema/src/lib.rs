@@ -28,7 +28,6 @@ pub use context::*;
 pub use definition::*;
 pub use error::*;
 pub use expr::*;
-pub use format::*;
 pub use generic::*;
 pub use implementer::*;
 pub use infer::*;
@@ -51,7 +50,6 @@ use tracing::instrument;
 
 use indexmap::IndexMap;
 use itertools::Itertools;
-use qed_common::FileId;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::rewriter::Rewriter;
@@ -1458,7 +1456,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let trait_node = ctx.definition(node).as_trait().cloned().unwrap();
 
         let checked_def_id = self.typecheck_trait_predecl(node, ctx)?;
-        let checked_trait_node = self.program[checked_def_id].as_trait().cloned().unwrap();
+        let _checked_trait_node = self.program[checked_def_id].as_trait().cloned().unwrap();
         let type_id = self.program[checked_def_id].as_trait().unwrap().type_id;
 
         ctx.symbols.enter_scope(ctx.symbols[type_id].scope_id());
@@ -1501,14 +1499,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         }
 
         ctx.symbols.modify_type(type_id, &mut |ty: &mut Type| {
-            let mut ty_mut = ty.as_trait_mut().unwrap();
+            let ty_mut = ty.as_trait_mut().unwrap();
             ty_mut.generic_parameters = checked_generic_parameters.clone();
             ty_mut.associated_types = associated_types.clone();
             Ok(())
         })?;
         self.program
             .modify_definition(checked_def_id, |def: &mut CheckedDefinitionNode| {
-                let mut def_mut = def.as_trait_mut().unwrap();
+                let def_mut = def.as_trait_mut().unwrap();
                 def_mut.generic_parameters = checked_generic_parameters;
                 def_mut.associated_types = associated_types;
                 Ok(())
@@ -1600,14 +1598,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         }
 
         ctx.symbols.modify_type(type_id, &mut |ty: &mut Type| {
-            let mut ty_mut = ty.as_struct_mut().unwrap();
+            let ty_mut = ty.as_struct_mut().unwrap();
             ty_mut.generic_parameters = checked_generic_parameters.clone();
             ty_mut.fields = fields.clone();
             Ok(())
         })?;
         self.program
             .modify_definition(checked_def_id, |def: &mut CheckedDefinitionNode| {
-                let mut def_mut = def.as_struct_mut().unwrap();
+                let def_mut = def.as_struct_mut().unwrap();
                 def_mut.generic_parameters = checked_generic_parameters;
                 def_mut.fields = fields;
                 Ok(())
@@ -1761,8 +1759,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
     #[instrument(level = "debug", skip_all)]
     fn visit_module(
         &mut self,
-        module_id: ModuleId,
-        ctx: &mut Self::Context,
+        _module_id: ModuleId,
+        _ctx: &mut Self::Context,
     ) -> StdResult<(), Self::Error> {
         unreachable!()
     }
@@ -1837,8 +1835,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let BlockExprNode {
             stmts,
             expr,
-            expr_comments,
             location,
+            ..
         } = ctx.expression(node).as_block_expr().unwrap().clone();
         ctx.symbols.start_scope(ScopeKind::Block);
 
@@ -2178,7 +2176,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             checked_body
         };
 
-        let mut checked_function = CheckedLambdaFunctionNode {
+        let checked_function = CheckedLambdaFunctionNode {
             name: Identifier::new(ctx.intern_lambda(), function.location),
             parameters,
             body: self.program.exprs.alloc_item(checked_body),

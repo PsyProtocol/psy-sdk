@@ -9,8 +9,6 @@ use crate::TypeCheckerVisitorContext;
 use crate::error::{Error, Result};
 use qed_fmt::Formatter;
 
-use qed_ast::AstVisitor;
-
 impl<F: ContextFelt + From<u32> + 'static, C: DPNContext<F>> TypeCheckerVisitorContext<F, C> {
     pub fn format_file(&mut self, file_path: &PathBuf) -> Result<String> {
         let file_path = file_path
@@ -33,6 +31,7 @@ impl<F: ContextFelt + From<u32> + 'static, C: DPNContext<F>> TypeCheckerVisitorC
                 file_path.display().to_string()
             )))?;
         self.format_module(ModuleId(module_id))
+            .map(|ctx| ctx.trim_end().to_owned())
     }
 
     pub fn format_module(&mut self, module_id: ModuleId) -> Result<String> {
