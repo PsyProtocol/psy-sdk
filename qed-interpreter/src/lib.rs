@@ -237,9 +237,42 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     .unwrap()
                     .parameters
                     .is_empty());
-                let res = self.__interpret__(&typechecker.program, type_id, vec![], ctx)?;
-                outputs.push(compile_fn(&self.context, res));
-                // resotre context
+
+                // Check if the function has a should_panic attribute
+                let func = ctx.symbols[type_id].as_function().unwrap();
+                let should_panic = func
+                    .attrs
+                    .iter()
+                    .find(|attr| attr.is_should_panic())
+                    .is_some();
+                let func_name = func.name.clone();
+
+                // Run the test function
+                let result = self.__interpret__(&typechecker.program, type_id, vec![], ctx);
+
+                match (result, should_panic) {
+                    // Successful test when not expecting panic
+                    (Ok(res), false) => {
+                        outputs.push(compile_fn(&self.context, res));
+                    }
+                    // Failed test when not expecting panic - this is an error
+                    (Err(err), false) => {
+                        println!("Test {:?} failed with error: {:?}", func_name, err);
+                    }
+                    // Successful test when expecting panic - this is an error
+                    (Ok(_), true) => {
+                        println!(
+                            "Test {:?} failed: Expected panic but test completed successfully",
+                            func_name
+                        );
+                    }
+                    // Failed test when expecting panic - this is success!
+                    (Err(_), true) => {
+                        println!("Test {:?} passed: Panicked as expected", func_name);
+                    }
+                }
+
+                // restore context
                 self.context = context.clone();
             }
         }
