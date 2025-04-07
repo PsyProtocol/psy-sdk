@@ -42,7 +42,7 @@ test:
 	@$(DARGO_CLI_EXECUTE) pub_test.qed --parameters 2,3
 	@$(DARGO_CLI_EXECUTE) return_test.qed --parameters 2,3
 	@$(DARGO_CLI_EXECUTE) self_test.qed
-	# @$(DARGO_CLI_EXECUTE) storage_test.qed
+	@$(DARGO_CLI_EXECUTE) storage_test.qed
 	@$(DARGO_CLI_EXECUTE) trait_test.qed --parameters 2,3
 	@$(DARGO_CLI_EXECUTE) hash_test.qed
 	@$(DARGO_CLI_EXECUTE) first_class_function_test.qed

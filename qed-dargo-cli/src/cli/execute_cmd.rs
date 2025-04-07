@@ -29,7 +29,10 @@ fn parse_vec_u64(s: &str) -> Result<Vec<u64>, String> {
         .collect()
 }
 
-pub(crate) fn run(args: ExecuteCommand, workspace: Workspace) -> crate::errors::Result<()> {
+pub(crate) fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate::errors::Result<()> {
+    args.parameters
+        .resize(args.compile_options.method_names.len(), Vec::new());
+
     // Compile the full workspace in order to generate any build artifacts.
     let compile_results = compile_workspace_full(&workspace, &args.compile_options)?;
 

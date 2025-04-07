@@ -18,7 +18,9 @@
 - Type Hint
 - Trait Constraint
 - Crate
+- Dargo
 - LSP
+- Error reporting with precise line and column information
 
 ## Getting Started
 
