@@ -102,7 +102,7 @@ impl EntryManager {
     }
 }
 
-fn resolve_entries(workspace: &Workspace, entry_path: Option<PathBuf>) -> Result<EntryManager> {
+pub fn resolve_entries(workspace: &Workspace, entry_path: Option<PathBuf>) -> Result<EntryManager> {
     let package = workspace.package.clone();
     let package_entry_path = match entry_path {
         Some(entry_path) => entry_path,

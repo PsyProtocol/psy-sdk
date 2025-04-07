@@ -26,7 +26,7 @@ use tower_lsp::lsp_types::{
 use qed_sema::TypeCheckerVisitorContext;
 use qedlang_core::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
 
-use crate::store::span_to_range;
+use crate::utils::span_to_range;
 
 pub struct QLspSimple {
     client: Client,
@@ -57,7 +57,13 @@ impl QLspSimple {
         })?;
         *self_root_path = root_path.clone();
 
-        let entry_manager = qed_dargo_cli::resolve_entries(&workspace);
+        let entry_manager = match qed_dargo_cli::resolve_entries(&workspace, None) {
+            Ok(entry_manager) => entry_manager,
+            Err(err) => {
+                eprintln!("Error resolving entries: {}", err);
+                return Err(Box::new(err));
+            }
+        };
         let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
         let (_typechecker, ctx) = interpreter.typecheck(
             entry_manager.entry,
