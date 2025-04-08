@@ -2,3 +2,6 @@ target/
 node_modules/
 .idea
 *.sh
+.cursorrules
+.cursorignore
+.specstory
