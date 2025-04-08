@@ -1,6 +1,6 @@
 target/
-node_modules/
-.idea
+**/node_modules/
+.idea/
 *.sh
 .cursor
 .cursorrules

@@ -88,8 +88,8 @@ where
 
 #[derive(Clone, Debug)]
 pub struct EntryManager {
-    entry: PathBuf,
-    dependencies_entries: HashSet<PathBuf>,
+    pub entry: PathBuf,
+    pub dependencies_entries: HashSet<PathBuf>,
 }
 
 impl EntryManager {
@@ -105,7 +105,7 @@ impl EntryManager {
     }
 }
 
-fn resolve_entries(workspace: &Workspace, entry_path: Option<PathBuf>) -> Result<EntryManager> {
+pub fn resolve_entries(workspace: &Workspace, entry_path: Option<PathBuf>) -> Result<EntryManager> {
     let package = workspace.package.clone();
     let package_entry_path = match entry_path {
         Some(entry_path) => entry_path,

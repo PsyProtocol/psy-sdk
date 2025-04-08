@@ -241,7 +241,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
     ) -> Option<PathBuf> {
         if module_name == &IdentId::STD {
             if let Ok(cargo_dir) = std::env::var("CARGO_MANIFEST_DIR") {
-                println!("cargo_dir: {}", cargo_dir);
+                // println!("cargo_dir: {}", cargo_dir);
                 let std_path = PathBuf::from(cargo_dir);
                 return Some(std_path.join("../qed-std/std.qed"));
             }
