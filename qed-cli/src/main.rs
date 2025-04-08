@@ -6,7 +6,6 @@ use crate::subcommand::test;
 
 use clap::Parser;
 
-use subcommand::lsp;
 use subcommand::Cli;
 use subcommand::Commands;
 
@@ -19,7 +18,6 @@ fn main() -> anyhow::Result<()> {
         Commands::Interpret(args) => interpreter::run(args)?,
         Commands::Compile(args) => compiler::run(args)?,
         Commands::Test(args) => test::run(args)?,
-        Commands::LSP(args) => lsp::run(args)?,
     }
     Ok(())
 }
