@@ -1,51 +1,20 @@
 # Summary
 
-# Basic Dargo Commands
 
-Dargo is qed-lang's package manager and build system that handles project creation, dependency management, and
-development workflows.
-
-## Common Commands
-
-### `dargo new`
-
-Creates a new qed-lang project.
-
-```bash
-dargo new my_project
-```
-
-### `dargo init`
-
-Initializes a qed-lang project in an current directory.
-
-```bash
-dargo init
-```
-
-### `dargo compile`
-
-Compiles your project to zero-knowledge proof (ZKP) circuit.
-
-```bash
-dargo compile --contract-name=<contract_name> \
-  --method-names <method_name_1> <method_name_2> ...
-```
-
-### `dargo execute`
-
-Compiles your project to ZKP circuit and verify it
-
-```bash
-dargo execute --contract-name=<contract_name> \
-  --method-names <method_name_1> <method_name_2> ... \
-  --parameters <param_1> <param_2> ...
-```
-
-### `dargo fmt`
-
-Formats your qed-lang code.
-
-```bash
-dargo fmt <file_name>
-```
+- [Introduction](./introduction.md)
+- [Before We Begin](./before_we_begin.md)
+- [Hello, World!](./hello_world.md)
+- [Basic Syntax](./basic_syntax.md)
+- [Modules and Visibility](./modules_and_visibility.md)
+- [Structs and Implementations](./structs_and_impls.md)
+- [Traits and Generics](./traits_and_generics.md)
+- [Storage and Contracts](./storage_and_contracts.md)
+- [Control Flow](./control_flow.md)
+- [Functions and Closures](./functions_and_closures.md)
+- [Arrays and Tuples](./arrays_and_tuples.md)
+- [Testing](./testing.md)
+- [Appendix A: Glossary](./appendix_a_glossary.md)
+- [Appendix B: Reserved Keywords](./appendix_b_reserved_keywords.md)
+- [Appendix C: Publications](./appendix_c_publications.md)
+- [Appendix D: Contributing](./appendix_d_contributing.md)
+- [Appendix E: Acknowledgements](./appendix_e_acknowledgements.md)
