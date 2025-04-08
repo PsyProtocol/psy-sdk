@@ -27,3 +27,12 @@ impl Comment {
         }
     }
 }
+
+impl std::fmt::Display for Comment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Line { content, .. } => write!(f, "// {}", content),
+            Self::Block { content, .. } => write!(f, "/* {} */", content),
+        }
+    }
+}

@@ -1,10 +1,13 @@
-use qed_ast::{IdentId, Visibility, VisitorContext};
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
-
 use crate::{
     CheckedEnumNode, CheckedFunctionNode, CheckedStructNode, CheckedTraitNode, ScopeId, Type,
     TypeCheckerVisitorContext, TypeId, VarId,
 };
+use itertools::Itertools;
+use qed_ast::{
+    Comment, DefId, DefinitionNode, EnumVariant, ExprId, ExprNode, IdentId, StmtId, StmtNode,
+    Visibility, VisitorContext,
+};
+use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 macro_rules! writeln {
     ($fmt:expr, $($arg:tt)*) => {
@@ -23,6 +26,12 @@ pub trait AstVisualizer<F: Clone + From<u32>, C>: VisitorContext<F, C> {
     fn debug_type(&self, type_id: TypeId) -> Self::DebugResult;
 
     fn debug_variable(&self, ident_id: IdentId, var_id: VarId) -> Self::DebugResult;
+
+    fn debug_expr(&self, expr_id: ExprId) -> Self::DebugResult;
+
+    fn debug_stmt(&self, statement: StmtId) -> Self::DebugResult;
+
+    fn debug_definition(&self, def_id: DefId) -> Self::DebugResult;
 }
 
 struct IndentFormatter {
@@ -279,6 +288,406 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         fmt.dedent();
     }
 
+    pub fn debug_expr(&self, expr_id: ExprId, fmt: &mut IndentFormatter) {
+        let node = self.context.expression(expr_id);
+        match node {
+            ExprNode::Path(node) => {
+                writeln!(fmt, "Path");
+                fmt.indent();
+                writeln!(fmt, "Root: {:?}", node.root);
+                let segments = node
+                    .segments
+                    .iter()
+                    .map(|identifier| self.indent_name(identifier.id))
+                    .join(", ");
+                writeln!(fmt, "Segments: [{}]", segments);
+                writeln!(fmt, "Target: {:?}", self.indent_name(node.target.id));
+                fmt.indent();
+            }
+            ExprNode::Value(node) => writeln!(fmt, "{:?}", node),
+            ExprNode::Binary(node) => {
+                writeln!(
+                    fmt,
+                    "Binary: {:?} {} {:?}",
+                    node.lhs, node.operator, node.rhs
+                )
+            }
+            ExprNode::Unary(node) => {
+                writeln!(fmt, "Unary: {}{:?}", node.operator, node.rhs);
+            }
+            ExprNode::Call(node) => {
+                writeln!(fmt, "Call");
+                fmt.indent();
+                writeln!(fmt, "Callee: {:?}", node.callee);
+                writeln!(fmt, "Args: {:?}", node.args);
+                writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
+                fmt.dedent();
+            }
+            ExprNode::MemberCall(node) => {
+                writeln!(fmt, "Member Call");
+                fmt.indent();
+                writeln!(fmt, "Callee: {:?}", node.callee);
+                writeln!(fmt, "Receiver: {:?}", node.receiver);
+                writeln!(fmt, "Args: {:?}", node.args);
+                writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
+                fmt.dedent();
+            }
+            ExprNode::Cast(node) => {
+                writeln!(fmt, "Cast");
+                fmt.indent();
+                writeln!(fmt, "Value: {:?}", node.value);
+                writeln!(fmt, "Target Type: {:?}", node.target_type);
+                fmt.dedent();
+            }
+            ExprNode::IndexAccess(node) => {
+                writeln!(fmt, "Index Access");
+                fmt.indent();
+                writeln!(fmt, "Target: {:?}", node.target);
+                writeln!(fmt, "Index: {:?}", node.index);
+                fmt.dedent()
+            }
+            ExprNode::MemberAccess(node) => {
+                writeln!(fmt, "Member Access");
+                fmt.indent();
+                writeln!(fmt, "Target: {:?}", node.target);
+                fmt.dedent()
+            }
+            ExprNode::BlockExpr(node) => {
+                writeln!(fmt, "Block Expr");
+                fmt.indent();
+                writeln!(fmt, "Statements: {:?}", node.stmts);
+                if !node.stmts.is_empty() {
+                    writeln!(fmt, "Statements:");
+                    fmt.indent();
+                    for stmt_id in node.stmts.iter() {
+                        let stmt = self.context.statement(*stmt_id);
+                        writeln!(fmt, "{:?}", stmt);
+                    }
+                    fmt.dedent();
+                }
+                writeln!(fmt, "Expr: {:?}", node.expr);
+                if !node.expr_comments.is_empty() {
+                    writeln!(fmt, "Comments:");
+                    fmt.indent();
+                    for comment in node.expr_comments.iter() {
+                        writeln!(fmt, "{:?}", comment);
+                    }
+                    fmt.dedent();
+                }
+                fmt.dedent();
+            }
+            ExprNode::IfExpr(node) => {
+                writeln!(fmt, "If Expr");
+                fmt.indent();
+                writeln!(fmt, "If Branch: {:?}", node.if_branch);
+                writeln!(fmt, "Else Branch: {:?}", node.else_branch);
+                if !node.elseif_branches.is_empty() {
+                    writeln!(fmt, "Else If Branches:");
+                    fmt.indent();
+                    for case in node.elseif_branches.iter() {
+                        writeln!(fmt, "{:?}", case);
+                    }
+                    fmt.dedent();
+                }
+                fmt.dedent();
+            }
+            ExprNode::Intrinsic(node) => writeln!(fmt, "Intrinsic Expr: {:?}", node),
+            ExprNode::LambdaFunction(node) => {
+                writeln!(fmt, "Lambda Function");
+                fmt.indent();
+                if !node.parameters.is_empty() {
+                    writeln!(fmt, "Parameters:");
+                    fmt.indent();
+                    for parameter in node.parameters.iter() {
+                        writeln!(fmt, "{:?}", parameter);
+                    }
+                    fmt.dedent();
+                };
+                writeln!(fmt, "Body: {:?}", node.body);
+                writeln!(fmt, "Return Type: {:?}", node.return_type);
+                fmt.dedent();
+            }
+            ExprNode::Tuple(node) => {
+                let elements = node
+                    .elements
+                    .iter()
+                    .map(|expr_id| match self.context.expression(*expr_id) {
+                        ExprNode::Value(node) => format!("{:?}", node),
+                        _ => format!("{:?}", expr_id),
+                    })
+                    .join(", ");
+                writeln!(fmt, "Tuple: ({})", elements);
+            }
+            ExprNode::TupleAccess(node) => {
+                writeln!(fmt, "Tuple Access");
+                fmt.indent();
+                writeln!(fmt, "Target: {:?}", node.target);
+                writeln!(fmt, "Index: {:?}", node.index);
+                fmt.dedent();
+            }
+            ExprNode::Match(node) => {
+                writeln!(fmt, "Match");
+                fmt.indent();
+                writeln!(fmt, "Scrutinee: {:?}", node.scrutinee);
+                if !node.arms.is_empty() {
+                    writeln!(fmt, "Arms:");
+                    fmt.indent();
+                    for arm in node.arms.iter() {
+                        writeln!(fmt, "{:?}", arm);
+                    }
+                    fmt.dedent();
+                }
+                fmt.dedent();
+            }
+            ExprNode::Parentheses(node) => {
+                writeln!(fmt, "Parentheses: {:?}", node);
+            }
+        }
+    }
+
+    pub fn debug_stmt(&self, statement: StmtId, fmt: &mut IndentFormatter) {
+        let node = self.context.statement(statement);
+        match node {
+            StmtNode::While(node) => {
+                writeln!(fmt, "While");
+                fmt.indent();
+                writeln!(fmt, "Body: {:?}", node.body);
+                writeln!(fmt, "Predicate: {:?}", node.predicate);
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+            StmtNode::For(node) => {
+                writeln!(fmt, "For");
+                fmt.indent();
+                writeln!(fmt, "Body: {:?}", node.body);
+                writeln!(fmt, "Variable: {:?}", node.variable);
+                writeln!(fmt, "Range: {:?} .. {:?}", node.start, node.end);
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+            StmtNode::Assignment(node) => {
+                writeln!(fmt, "Assignment");
+                fmt.indent();
+                writeln!(fmt, "Target: {:?}", node.target);
+                writeln!(fmt, "Operator: {:?}", node.operator);
+                writeln!(fmt, "Value: {:?}", node.value);
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+            StmtNode::Variable(node) => {
+                writeln!(fmt, "Variable");
+                fmt.indent();
+                writeln!(fmt, "Name: {:?}", node.name);
+                writeln!(fmt, "Type: {:?}", node.ty);
+                writeln!(fmt, "Qualifier: {:?}", node.qualifier);
+                writeln!(fmt, "Value: {:?}", node.value);
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+            StmtNode::Definition(def_id) => {}
+            StmtNode::Expression(expr_id) => self.debug_expr(*expr_id, fmt),
+            StmtNode::Return(node) => {
+                writeln!(fmt, "Return");
+                fmt.indent();
+                if let Some(expr_id) = node.expr_id {
+                    self.debug_expr(expr_id, fmt);
+                }
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+            StmtNode::Intrinsic(node) => {
+                writeln!(fmt, "Intrinsic: {:?}", node)
+            }
+        }
+    }
+
+    pub fn debug_definition(&self, def_id: DefId, fmt: &mut IndentFormatter) {
+        let node = self.context.definition(def_id);
+        match node {
+            DefinitionNode::Function(node) => {
+                writeln!(fmt, "Function");
+                fmt.indent();
+                writeln!(fmt, "Name: {:?}", node.name);
+                writeln!(fmt, "Visibility: {:?}", node.visibility);
+                writeln!(fmt, "Parameters: {:?}", node.parameters);
+                writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
+                writeln!(fmt, "Body: {:?}", node.body);
+                writeln!(fmt, "Return Type: {:?}", node.return_type);
+                writeln!(fmt, "Qualifier: {:?}", node.qualifier);
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+            DefinitionNode::Struct(node) => {
+                writeln!(fmt, "Struct");
+                fmt.indent();
+                writeln!(fmt, "Name: {:?}", node.name);
+                writeln!(fmt, "Visibility: {:?}", node.visibility);
+                writeln!(fmt, "Fields");
+                fmt.indent();
+                for (ident_id, field) in node.fields.iter() {
+                    fmt.write_indent();
+                    if field.visibility == Visibility::Public {
+                        write!(fmt, "pub ");
+                    };
+                    let ident_name = &self.context.ident(ident_id);
+                    write!(fmt, "{}", ident_name);
+                    write!(fmt, "\n");
+                }
+                fmt.dedent();
+                writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
+                writeln!(fmt, "Attrs: {:?}", node.attrs);
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+            DefinitionNode::Enum(node) => {
+                writeln!(fmt, "Enum");
+                fmt.indent();
+                writeln!(fmt, "Name: {:?}", node.name);
+                writeln!(fmt, "Visibility: {:?}", node.visibility);
+                writeln!(fmt, "Variants");
+                fmt.indent();
+                for variant in node.variants.iter() {
+                    match variant {
+                        EnumVariant::Basic(ident) => {
+                            writeln!(fmt, "Basic: {:?}", ident);
+                        }
+                        EnumVariant::Tuple(ident, types) => {
+                            writeln!(fmt, "Tuple: {:?} {:?}", ident, types);
+                        }
+                        EnumVariant::Struct(ident, fields) => {
+                            writeln!(fmt, "Struct: {:?}", ident);
+                            fmt.indent();
+                            for (field_name, field_value) in fields.iter() {
+                                writeln!(fmt, "{:?}: {:?}", field_name, field_value);
+                            }
+                            fmt.dedent();
+                        }
+                    }
+                }
+                fmt.dedent();
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+
+            DefinitionNode::Impl(node) => {
+                writeln!(fmt, "Impl");
+                fmt.indent();
+                writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
+                writeln!(fmt, "Associated Types");
+                fmt.indent();
+                for (ident_id, associated_type) in node.associated_types.iter() {
+                    fmt.write_indent();
+                    if associated_type.visibility == Visibility::Public {
+                        write!(fmt, "pub ");
+                    };
+                    let ident_name = &self.context.ident(ident_id);
+                    write!(fmt, "{}", ident_name);
+                    writeln!(fmt, ": {:?}", associated_type.ty);
+                }
+                fmt.dedent();
+                writeln!(fmt, "Type: {:?}", node.ty);
+                writeln!(fmt, "Body: {:?}", node.body);
+                writeln!(fmt, "Comments: {:?}", node.comments);
+                fmt.dedent();
+            }
+            DefinitionNode::TraitImpl(node) => {
+                // pub struct TraitImplNode {
+                //     pub generic_parameters: Vec<GenericParameter>,
+                //     pub associated_types: IndexMap<Identifier, AssociatedTypeValue>,
+                //     pub trait_ty: UncheckedType,
+                //     pub ty: UncheckedType,
+                //     pub body: Vec<DefId>,
+                //     pub comments: Vec<Comment>,
+                //     pub location: Location,
+                //     pub is_generated: bool,
+                // }
+                writeln!(fmt, "Trait Impl");
+                fmt.indent();
+                writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
+                writeln!(fmt, "Associated Types");
+                fmt.indent();
+                for (ident_id, associated_type) in node.associated_types.iter() {
+                    fmt.write_indent();
+                    if associated_type.visibility == Visibility::Public {
+                        write!(fmt, "pub ");
+                    };
+                    let ident_name = &self.context.ident(ident_id);
+                    write!(fmt, "{}", ident_name);
+                    writeln!(fmt, ": {:?}", associated_type.ty);
+                }
+                fmt.dedent();
+                writeln!(fmt, "Type: {:?}", node.ty);
+                writeln!(fmt, "Body: {:?}", node.body);
+                writeln!(fmt, "Comments: {:?}", node.comments);
+                fmt.dedent();
+            }
+            DefinitionNode::Trait(node) => {
+                writeln!(fmt, "Trait");
+                writeln!(fmt, "Name: {:?}", node.name);
+                writeln!(fmt, "Visibility: {:?}", node.visibility);
+                writeln!(fmt, "Associated Types");
+                fmt.indent();
+                for (ident_id, associated_type) in node.associated_types.iter() {
+                    fmt.write_indent();
+                    if associated_type.visibility == Visibility::Public {
+                        write!(fmt, "pub ");
+                    };
+                    let ident_name = &self.context.ident(ident_id);
+                    write!(fmt, "{}", ident_name);
+                    write!(fmt, "\n");
+                }
+                fmt.dedent();
+                writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
+                writeln!(fmt, "Body: {:?}", node.body);
+                fmt.dedent();
+            }
+            DefinitionNode::TypeAlias(node) => {
+                writeln!(fmt, "Type Alias");
+                fmt.indent();
+                writeln!(fmt, "Name: {:?}", node.name);
+                writeln!(fmt, "Visibility: {:?}", node.visibility);
+                writeln!(fmt, "Type: {:?}", node.ty);
+                fmt.dedent();
+            }
+            DefinitionNode::Const(node) => {
+                writeln!(fmt, "Const");
+                fmt.indent();
+                writeln!(fmt, "Name: {:?}", node.name);
+                writeln!(fmt, "Visibility: {:?}", node.visibility);
+                writeln!(fmt, "Type: {:?}", node.ty);
+                writeln!(fmt, "Value: {:?}", node.value);
+                fmt.indent()
+            }
+            DefinitionNode::Use(node) => {
+                writeln!(fmt, "Use");
+                fmt.indent();
+                writeln!(fmt, "Visibility: {:?}", node.visibility);
+                writeln!(fmt, "Kind: {:?}", node.kind);
+                let segments = node
+                    .segments
+                    .iter()
+                    .map(|identifier| self.indent_name(identifier.id))
+                    .join(", ");
+                writeln!(fmt, "Segments: [{}]", segments);
+                if let Some(target) = node.target {
+                    writeln!(fmt, "Target: {:?}", self.indent_name(target.id));
+                }
+                fmt.indent();
+            }
+        }
+    }
+
+    fn write_comments(&self, comments: &[Comment], fmt: &mut IndentFormatter) {
+        if !comments.is_empty() {
+            writeln!(fmt, "Comments:");
+            fmt.indent();
+            for comment in comments.iter() {
+                writeln!(fmt, "{}", comment);
+            }
+            fmt.dedent();
+        }
+    }
+
     pub fn get_type_name(&self, type_id: TypeId) -> String {
         let ty = &self.context.symbols[type_id];
         let ty_indent_id = match &ty {
@@ -336,6 +745,10 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         write!(fmt, "{}: {}", var_name, type_name);
         write!(fmt, "\n")
     }
+
+    pub fn indent_name(&self, ident_id: IdentId) -> String {
+        self.context.ident(ident_id).to_string()
+    }
 }
 
 impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
@@ -360,6 +773,27 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
         let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
         let mut fmt = IndentFormatter::new();
         visualizer.debug_variable_inline(ident_id, var_id, &mut fmt);
+        fmt.finish_without_new_line()
+    }
+
+    fn debug_expr(&self, expr_id: ExprId) -> Self::DebugResult {
+        let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
+        let mut fmt = IndentFormatter::new();
+        visualizer.debug_expr(expr_id, &mut fmt);
+        fmt.finish_without_new_line()
+    }
+
+    fn debug_stmt(&self, statement: StmtId) -> Self::DebugResult {
+        let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
+        let mut fmt = IndentFormatter::new();
+        visualizer.debug_stmt(statement, &mut fmt);
+        fmt.finish_without_new_line()
+    }
+
+    fn debug_definition(&self, def_id: DefId) -> Self::DebugResult {
+        let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
+        let mut fmt = IndentFormatter::new();
+        visualizer.debug_definition(def_id, &mut fmt);
         fmt.finish_without_new_line()
     }
 }
