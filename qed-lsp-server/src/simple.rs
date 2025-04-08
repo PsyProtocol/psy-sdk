@@ -198,7 +198,7 @@ impl LanguageServer for QLspSimple {
             line: text_document_position_params.position.line as usize,
             column: text_document_position_params.position.character as usize,
         };
-
+        dbg!(format!("goto position: {:?}", position));
         let location = match ctx.position_to_location(position) {
             Some(loc) => loc,
             None => {
@@ -206,17 +206,19 @@ impl LanguageServer for QLspSimple {
                 return Ok(None);
             }
         };
-        dbg!("goto definition: location: {:?}", location);
+        dbg!(format!("goto: source loc {:?}", location));
         match ctx.goto_definition(location) {
             Some(target_location) => {
-                dbg!("goto definition: {:?}", location);
+                dbg!(format!("goto: target location {:?}", target_location));
                 let source_text = ctx
                     .program
                     .file_resolver
                     .resolve_content(&location.file_id)
                     .unwrap_or_default();
 
-                let range = span_to_range(&location, source_text);
+                let range = span_to_range(&target_location, source_text);
+                dbg!(format!("goto: target range {:?}", range));
+
                 //let path = ctx.program.file_resolver.resolve_path(&location.file_id);
                 let target_path = ctx
                     .program

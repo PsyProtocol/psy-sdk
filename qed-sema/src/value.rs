@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
