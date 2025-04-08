@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
@@ -45,23 +45,23 @@ pub enum CheckedValue<F: Clone + From<u32> + ContextFelt> {
 
 /// **NOTE**: please dont implement Deref for CheckedValueRef in case of wrong usage
 #[derive(Debug)]
-pub struct CheckedValueRef<F: Clone + From<u32> + ContextFelt>(Arc<Mutex<CheckedValue<F>>>);
+pub struct CheckedValueRef<F: Clone + From<u32> + ContextFelt>(Arc<RwLock<CheckedValue<F>>>);
 
 impl<F: Clone + From<u32> + ContextFelt> Clone for CheckedValueRef<F> {
     fn clone(&self) -> Self {
         match &*self.borrow() {
             CheckedValue::Felt(f) => {
-                CheckedValueRef(Arc::new(Mutex::new(CheckedValue::Felt(f.clone()))))
+                CheckedValueRef(Arc::new(RwLock::new(CheckedValue::Felt(f.clone()))))
             }
             CheckedValue::Bool(b) => {
-                CheckedValueRef(Arc::new(Mutex::new(CheckedValue::Bool(b.clone()))))
+                CheckedValueRef(Arc::new(RwLock::new(CheckedValue::Bool(b.clone()))))
             }
             CheckedValue::U32(u) => {
-                CheckedValueRef(Arc::new(Mutex::new(CheckedValue::U32(u.clone()))))
+                CheckedValueRef(Arc::new(RwLock::new(CheckedValue::U32(u.clone()))))
             }
             CheckedValue::Array(_type_id, _values) => CheckedValueRef(self.0.clone()),
             CheckedValue::Tuple { type_id, elements } => {
-                CheckedValueRef(Arc::new(Mutex::new(CheckedValue::Tuple {
+                CheckedValueRef(Arc::new(RwLock::new(CheckedValue::Tuple {
                     type_id: type_id.clone(),
                     elements: elements
                         .iter()
@@ -71,12 +71,11 @@ impl<F: Clone + From<u32> + ContextFelt> Clone for CheckedValueRef<F> {
             }
             CheckedValue::Struct(_type_id, _fields) => CheckedValueRef(self.0.clone()),
             CheckedValue::Type(type_id) => {
-                CheckedValueRef(Arc::new(Mutex::new(CheckedValue::Type(type_id.clone()))))
+                CheckedValueRef(Arc::new(RwLock::new(CheckedValue::Type(type_id.clone()))))
             }
         }
     }
 }
-
 impl<F: Clone + From<u32> + ContextFelt> PartialEq for CheckedValueRef<F> {
     fn eq(&self, other: &Self) -> bool {
         match (&*self.borrow(), &*other.borrow()) {
@@ -215,10 +214,10 @@ impl<F: Clone + From<u32> + ContextFelt, C: DPNContext<F>> FeltRepr<F, C> for Ch
 
 impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
     pub fn new_rc(value: CheckedValue<F>) -> Self {
-        Self(Arc::new(Mutex::new(value)))
+        Self(Arc::new(RwLock::new(value)))
     }
 
-    pub fn as_rc(&self) -> Arc<Mutex<CheckedValue<F>>> {
+    pub fn as_rc(&self) -> Arc<RwLock<CheckedValue<F>>> {
         Arc::clone(&self.0)
     }
 
@@ -229,12 +228,11 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
         }
     }
 
-    // pub fn borrow_mut(&self) -> &CheckedValue<F> {
-    //     &*self.borrow()
-    // }
-
-    pub fn borrow(&self) -> MutexGuard<'_, CheckedValue<F>> {
-        self.0.lock().unwrap()
+    pub fn borrow(&self) -> RwLockReadGuard<'_, CheckedValue<F>> {
+        self.0.read().unwrap()
+    }
+    pub fn borrow_mut(&self) -> RwLockWriteGuard<'_, CheckedValue<F>> {
+        self.0.write().unwrap()
     }
 
     pub fn from_felt(value: F) -> Self {
@@ -348,7 +346,7 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
             return Ok(());
         }
 
-        match &mut *self.borrow() {
+        match &mut *self.borrow_mut() {
             CheckedValue::Array(_, arr) => {
                 let index = path[0].as_felt().unwrap();
                 let rest = &path[1..];

@@ -2,7 +2,7 @@
 source: qed-interpreter/src/lib.rs
 assertion_line: 1537
 expression: "ctx.debug_scope(ScopeId::root())"
-input_file: tests/006.qed
+input_file: tests/007.qed
 ---
 ScopeId(0) (Module)
     Types:
