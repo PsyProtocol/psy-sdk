@@ -237,9 +237,39 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     .unwrap()
                     .parameters
                     .is_empty());
-                let res = self.__interpret__(&typechecker.program, type_id, vec![], ctx)?;
-                outputs.push(compile_fn(&self.context, res));
-                // resotre context
+
+                // Check if the function has a should_panic attribute
+                let func = ctx.symbols[type_id].as_function().unwrap();
+                let should_panic = func
+                    .attrs
+                    .iter()
+                    .find(|attr| attr.is_should_panic())
+                    .is_some();
+                let func_name = ctx.ident(func.name).to_string();
+
+                // Run the test function
+                let result = self.__interpret__(&typechecker.program, type_id, vec![], ctx);
+
+                match (result, should_panic) {
+                    // Successful test when not expecting panic
+                    (Ok(res), false) => {
+                        outputs.push(compile_fn(&self.context, res));
+                    }
+                    // Failed test when not expecting panic - this is an error
+                    (Err(err), false) => {
+                        panic!("Test {func_name} failed with error: {err:?}",);
+                    }
+                    // Successful test when expecting panic - this is an error
+                    (Ok(_), true) => {
+                        println!("Test {func_name} passed: Expected panic but test completed successfully");
+                    }
+                    // Failed test when expecting panic - this is success!
+                    (Err(_), true) => {
+                        println!("Test {func_name} passed: Panicked as expected")
+                    }
+                }
+
+                // restore context
                 self.context = context.clone();
             }
         }
@@ -475,29 +505,59 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     left,
                     message,
                     comments: _,
-                    location: _location,
+                    location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
+                    let condition = lhs_value.to_bool();
                     self.context.assert_true(
-                        lhs_value.to_bool(),
+                        condition,
                         Box::leak(message.clone().unwrap_or_default().into_boxed_str()),
                     );
+
+                    if self.is_constant(condition)
+                        && self.context.get_constant_value(condition) == 0
+                    {
+                        let msg = message.clone().unwrap_or_default();
+                        return Err(Error::AssertionFailure {
+                            message: format!("{}", msg),
+                            location: Some(*location),
+                        });
+                    }
                 }
                 CheckedIntrinsicStmtNode::AssertEq {
                     left,
                     right,
                     message,
                     comments: _,
-                    location: _location,
+                    location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     let rhs_value = self.interpret_expr(program, right.clone(), ctx)?;
+                    let lhs = lhs_value.to_value();
+                    let rhs = rhs_value.to_value();
 
                     self.context.assert_eq(
-                        lhs_value.to_value(),
-                        rhs_value.to_value(),
+                        lhs,
+                        rhs,
                         Box::leak(message.clone().unwrap_or_default().into_boxed_str()),
                     );
+
+                    if self.is_constant(lhs)
+                        && self.is_constant(rhs)
+                        && self.context.get_constant_value(lhs)
+                            != self.context.get_constant_value(rhs)
+                    {
+                        let msg = message.clone().unwrap_or_default();
+                        return Err(Error::AssertionFailure {
+                            message: format!(
+                                "{} (left: {}, right: {})",
+                                msg,
+                                self.context.get_constant_value(lhs),
+                                self.context.get_constant_value(rhs)
+                            ),
+                            location: Some(*location),
+                        });
+                    }
                 }
             },
         }
@@ -1494,7 +1554,7 @@ mod tests {
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
-        insta::glob!("../../tests", "00*.qed", |path| {
+        insta::glob!("../../tests", "{struct*.qed,fn_test.qed}", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
             let (mut typechecker, mut ctx) = interpreter.typecheck(path.into(), vec![]).unwrap();
 

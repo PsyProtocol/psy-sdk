@@ -15,4 +15,8 @@ impl AttrNode {
     pub fn is_test(&self) -> bool {
         self.name == IdentId::TEST
     }
+
+    pub fn is_should_panic(&self) -> bool {
+        self.name == IdentId::SHOULD_PANIC
+    }
 }
