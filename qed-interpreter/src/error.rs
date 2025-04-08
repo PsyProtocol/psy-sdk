@@ -19,6 +19,11 @@ pub enum Error {
     UndefinedFunction,
     #[error("uncertain loop condition")]
     UncertainLoopCondition { loop_location: Location },
+    #[error("assertion failure: {message}")]
+    AssertionFailure {
+        message: String,
+        location: Option<Location>,
+    },
     // #[error("index out of bounds")]
     // IndexOutOfBounds,
     // #[error("type mismatch")]
@@ -349,6 +354,14 @@ pub fn lowering_interpreter_error<F: Clone + From<u32> + ContextFelt, C>(
             &ctx.program,
         )
         .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
+        Error::AssertionFailure { message, location } => {
+            if let Some(location) = location {
+                build_report(location.clone(), "AssertionFailure", message, &ctx.program)
+                    .unwrap_or_else(|e| format!("Failed to build report: {}", e))
+            } else {
+                format!("Assertion failure: {}", message)
+            }
+        }
     };
 
     anyhow::Error::from(error).context(context)

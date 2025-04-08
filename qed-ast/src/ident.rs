@@ -127,17 +127,18 @@ ident_ids!(
     TYPE_HASH => "Hash",
     TYPE_SELF => "Self",
 
-    SELF => "self", //8
+    SELF => "self", //9
     SUPER => "super",
     CRATE => "crate",
 
-    STD => "std", // 11
+    STD => "std", // 12
     PRELUDE => "prelude",
     PRIMITIVE => "primitive",
 
-    DERIVE => "derive", // 14
+    DERIVE => "derive", // 15
     NEW => "new",
     TEST => "test",
+    SHOULD_PANIC => "should_panic",
 
     T => "T",
     N => "N"
@@ -234,6 +235,7 @@ mod tests {
             (IdentId::DERIVE, "derive"),
             (IdentId::NEW, "new"),
             (IdentId::TEST, "test"),
+            (IdentId::SHOULD_PANIC, "should_panic"),
             (IdentId::T, "T"),
             (IdentId::N, "N"),
         ];

@@ -156,4 +156,4 @@ qed-lexer = { path = "./qed-lexer" }
 qed-interpreter = { path = "./qed-interpreter" }
 qed-dargo = { path = "./qed-dargo" }
 qed-dargo-toml = { path = "./qed-dargo-toml" }
-qed-dargo-cli = { path = "./qed-dargo-cli" }
+dargo = { path = "./qed-dargo-cli" }

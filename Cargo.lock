@@ -587,6 +587,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "dargo"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "color-eyre",
+ "plonky2",
+ "qed-dargo",
+ "qed-dargo-toml",
+ "qed-interpreter",
+ "qed-sema",
+ "qed-utils",
+ "qed_common_circuit",
+ "qed_core",
+ "qed_crypto",
+ "qed_data",
+ "qed_exec",
+ "qed_store",
+ "qedlang_core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "darling"
 version = "0.20.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2092,32 +2119,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-dargo-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "color-eyre",
- "plonky2",
- "qed-dargo",
- "qed-dargo-toml",
- "qed-interpreter",
- "qed-utils",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_exec",
- "qed_store",
- "qedlang_core",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
- "tracing-appender",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "qed-dargo-toml"
 version = "0.1.0"
 dependencies = [
@@ -2191,6 +2192,7 @@ dependencies = [
 name = "qed-lsp-server"
 version = "0.1.0"
 dependencies = [
+ "dargo",
  "dashmap 6.1.0",
  "env_logger 0.11.8",
  "log",
@@ -2198,7 +2200,6 @@ dependencies = [
  "qed-ast",
  "qed-common",
  "qed-dargo",
- "qed-dargo-cli",
  "qed-dargo-toml",
  "qed-interpreter",
  "qed-parser",

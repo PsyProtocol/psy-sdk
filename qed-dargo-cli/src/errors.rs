@@ -28,4 +28,7 @@ pub enum CliError {
 
     #[error("Cannot find file {entry} which was specified as the `entry` field in {toml}")]
     MissingEntryFile { toml: PathBuf, entry: PathBuf },
+
+    #[error("Semantic error: {0}")]
+    SemanticError(#[from] qed_sema::Error),
 }
