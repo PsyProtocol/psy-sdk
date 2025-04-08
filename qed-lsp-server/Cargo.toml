@@ -23,7 +23,7 @@ qed-dargo-toml = { workspace = true }
 qed-dargo = { workspace = true }
 
 qedlang_core = { workspace = true }
-anyhow = "1.0.97"
+
 [[bin]]
 name = "qed-lsp-server"
 path = "src/main.rs"
