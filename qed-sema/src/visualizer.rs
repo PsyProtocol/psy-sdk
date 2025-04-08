@@ -1,5 +1,11 @@
-use qed_ast::{IdentId, Visibility, VisitorContext};
+use itertools::Itertools;
+use qed_ast::{
+    Case, Comment, ExprId, ExprNode, FunctionParameter, Ident, IdentId, Identifier,
+    IntrinsicExprNode, Location, MatchArm, StmtId, UncheckedType, ValueNode, Visibility,
+    VisitorContext,
+};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use std::fmt::format;
 
 use crate::{
     CheckedEnumNode, CheckedFunctionNode, CheckedStructNode, CheckedTraitNode, ScopeId, Type,
@@ -23,6 +29,10 @@ pub trait AstVisualizer<F: Clone + From<u32>, C>: VisitorContext<F, C> {
     fn debug_type(&self, type_id: TypeId) -> Self::DebugResult;
 
     fn debug_variable(&self, ident_id: IdentId, var_id: VarId) -> Self::DebugResult;
+
+    fn debug_expr(&self, expr_id: ExprId) -> Self::DebugResult;
+    // fn debug_stmt(&self, )
+    // fn debug_definition(&self, )
 }
 
 struct IndentFormatter {
@@ -279,6 +289,163 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         fmt.dedent();
     }
 
+    pub fn debug_expr(&self, expr_id: ExprId, fmt: &mut IndentFormatter) {
+        let node = self.context.expression(expr_id);
+        match node {
+            ExprNode::Path(node) => {
+                writeln!(fmt, "Path");
+                fmt.indent();
+                writeln!(fmt, "Root: {:?}", node.root);
+                let segments = node
+                    .segments
+                    .iter()
+                    .map(|identifier| self.indent_name(identifier.id))
+                    .join(", ");
+                writeln!(fmt, "Segments: [{}]", segments);
+                writeln!(fmt, "Target: {:?}", self.indent_name(node.target.id));
+                fmt.indent();
+            }
+            ExprNode::Value(node) => writeln!(fmt, "{:?}", node),
+            ExprNode::Binary(node) => {
+                writeln!(
+                    fmt,
+                    "Binary: {:?} {} {:?}",
+                    node.lhs, node.operator, node.rhs
+                )
+            }
+            ExprNode::Unary(node) => {
+                writeln!(fmt, "Unary: {}{:?}", node.operator, node.rhs);
+            }
+            ExprNode::Call(node) => {
+                writeln!(fmt, "Call");
+                fmt.indent();
+                writeln!(fmt, "Callee: {:?}", node.callee);
+                writeln!(fmt, "Args: {:?}", node.args);
+                writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
+                fmt.dedent();
+            }
+            ExprNode::MemberCall(node) => {
+                writeln!(fmt, "Member Call");
+                fmt.indent();
+                writeln!(fmt, "Callee: {:?}", node.callee);
+                writeln!(fmt, "Receiver: {:?}", node.receiver);
+                writeln!(fmt, "Args: {:?}", node.args);
+                writeln!(fmt, "Generic Parameters: {:?}", node.generic_parameters);
+                fmt.dedent();
+            }
+            ExprNode::Cast(node) => {
+                writeln!(fmt, "Cast");
+                fmt.indent();
+                writeln!(fmt, "Value: {:?}", node.value);
+                writeln!(fmt, "Target Type: {:?}", node.target_type);
+                fmt.dedent();
+            }
+            ExprNode::IndexAccess(node) => {
+                writeln!(fmt, "Index Access");
+                fmt.indent();
+                writeln!(fmt, "Target: {:?}", node.target);
+                writeln!(fmt, "Index: {:?}", node.index);
+                fmt.dedent()
+            }
+            ExprNode::MemberAccess(node) => {
+                writeln!(fmt, "Member Access");
+                fmt.indent();
+                writeln!(fmt, "Target: {:?}", node.target);
+                fmt.dedent()
+            }
+            ExprNode::BlockExpr(node) => {
+                writeln!(fmt, "Block Expr");
+                fmt.indent();
+                writeln!(fmt, "Statements: {:?}", node.stmts);
+                if !node.stmts.is_empty() {
+                    writeln!(fmt, "Statements:");
+                    fmt.indent();
+                    for stmt_id in node.stmts.iter() {
+                        let stmt = self.context.statement(*stmt_id);
+                        writeln!(fmt, "{:?}", stmt);
+                    }
+                    fmt.dedent();
+                }
+                writeln!(fmt, "Expr: {:?}", node.expr);
+                if !node.expr_comments.is_empty() {
+                    writeln!(fmt, "Comments:");
+                    fmt.indent();
+                    for comment in node.expr_comments.iter() {
+                        writeln!(fmt, "{:?}", comment);
+                    }
+                    fmt.dedent();
+                }
+                fmt.dedent();
+            }
+            ExprNode::IfExpr(node) => {
+                writeln!(fmt, "If Expr");
+                fmt.indent();
+                writeln!(fmt, "If Branch: {:?}", node.if_branch);
+                writeln!(fmt, "Else Branch: {:?}", node.else_branch);
+                if !node.elseif_branches.is_empty() {
+                    writeln!(fmt, "Else If Branches:");
+                    fmt.indent();
+                    for case in node.elseif_branches.iter() {
+                        writeln!(fmt, "{:?}", case);
+                    }
+                    fmt.dedent();
+                }
+                fmt.dedent();
+            }
+            ExprNode::Intrinsic(node) => writeln!(fmt, "Intrinsic Expr: {:?}", node),
+            ExprNode::LambdaFunction(node) => {
+                writeln!(fmt, "Lambda Function");
+                fmt.indent();
+                if !node.parameters.is_empty() {
+                    writeln!(fmt, "Parameters:");
+                    fmt.indent();
+                    for parameter in node.parameters.iter() {
+                        writeln!(fmt, "{:?}", parameter);
+                    }
+                    fmt.dedent();
+                };
+                writeln!(fmt, "Body: {:?}", node.body);
+                writeln!(fmt, "Return Type: {:?}", node.return_type);
+                fmt.dedent();
+            }
+            ExprNode::Tuple(node) => {
+                let elements = node
+                    .elements
+                    .iter()
+                    .map(|expr_id| match self.context.expression(*expr_id) {
+                        ExprNode::Value(node) => format!("{:?}", node),
+                        _ => format!("{:?}", expr_id),
+                    })
+                    .join(", ");
+                writeln!(fmt, "Tuple: ({})", elements);
+            }
+            ExprNode::TupleAccess(node) => {
+                writeln!(fmt, "Tuple Access");
+                fmt.indent();
+                writeln!(fmt, "Target: {:?}", node.target);
+                writeln!(fmt, "Index: {:?}", node.index);
+                fmt.dedent();
+            }
+            ExprNode::Match(node) => {
+                writeln!(fmt, "Match");
+                fmt.indent();
+                writeln!(fmt, "Scrutinee: {:?}", node.scrutinee);
+                if !node.arms.is_empty() {
+                    writeln!(fmt, "Arms:");
+                    fmt.indent();
+                    for arm in node.arms.iter() {
+                        writeln!(fmt, "{:?}", arm);
+                    }
+                    fmt.dedent();
+                }
+                fmt.dedent();
+            }
+            ExprNode::Parentheses(node) => {
+                writeln!(fmt, "Parentheses: {:?}", node);
+            }
+        }
+    }
+
     pub fn get_type_name(&self, type_id: TypeId) -> String {
         let ty = &self.context.symbols[type_id];
         let ty_indent_id = match &ty {
@@ -336,6 +503,10 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         write!(fmt, "{}: {}", var_name, type_name);
         write!(fmt, "\n")
     }
+
+    pub fn indent_name(&self, ident_id: IdentId) -> String {
+        self.context.ident(ident_id).to_string()
+    }
 }
 
 impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
@@ -360,6 +531,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
         let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
         let mut fmt = IndentFormatter::new();
         visualizer.debug_variable_inline(ident_id, var_id, &mut fmt);
+        fmt.finish_without_new_line()
+    }
+
+    fn debug_expr(&self, expr_id: ExprId) -> Self::DebugResult {
+        let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
+        let mut fmt = IndentFormatter::new();
+        visualizer.debug_expr(expr_id, &mut fmt);
         fmt.finish_without_new_line()
     }
 }
