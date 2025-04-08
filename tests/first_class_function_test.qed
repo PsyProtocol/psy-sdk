@@ -1,16 +1,17 @@
 mod math {
-  
-  pub fn max(a: Felt, b: Felt) -> Felt {
-    return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
-  }
-  pub fn min(a: Felt, b: Felt) -> Felt {
-    return a * ((a < b) as Felt) + b * ((a >= b) as Felt);
-  }
+    pub fn max(a: Felt, b: Felt) -> Felt {
+        return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
+    }
+    
+    pub fn min(a: Felt, b: Felt) -> Felt {
+        return a * ((a < b) as Felt) + b * ((a >= b) as Felt);
+    }
 }
 
 fn call_function(a: Felt, b: Felt, f: fn(Felt, Felt) -> Felt) -> Felt {
-  f(a, b)
+    f(a, b)
 }
+
 fn main() -> Felt {
-  call_function(1, 2, math::min)
+    call_function(1, 2, math::min)
 }
