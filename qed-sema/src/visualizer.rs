@@ -1,8 +1,8 @@
 use itertools::Itertools;
 use qed_ast::{
-    Case, Comment, ExprId, ExprNode, FunctionParameter, Ident, IdentId, Identifier,
-    IntrinsicExprNode, Location, MatchArm, StmtId, UncheckedType, ValueNode, Visibility,
-    VisitorContext,
+    AssignmentOperator, Case, Comment, DefId, ExprId, ExprNode, FunctionParameter, Ident, IdentId,
+    Identifier, IntrinsicExprNode, Location, MatchArm, StmtId, StmtNode, TypeQualifier,
+    UncheckedType, ValueNode, Visibility, VisitorContext,
 };
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 use std::fmt::format;
@@ -31,8 +31,10 @@ pub trait AstVisualizer<F: Clone + From<u32>, C>: VisitorContext<F, C> {
     fn debug_variable(&self, ident_id: IdentId, var_id: VarId) -> Self::DebugResult;
 
     fn debug_expr(&self, expr_id: ExprId) -> Self::DebugResult;
-    // fn debug_stmt(&self, )
-    // fn debug_definition(&self, )
+
+    fn debug_stmt(&self, statement: StmtId) -> Self::DebugResult;
+
+    fn debug_definition(&self, def_id: DefId) -> Self::DebugResult;
 }
 
 struct IndentFormatter {
@@ -446,6 +448,79 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
         }
     }
 
+    pub fn debug_stmt(&self, statement: StmtId, fmt: &mut IndentFormatter) {
+        let node = self.context.statement(statement);
+        match node {
+            StmtNode::While(node) => {
+                writeln!(fmt, "While");
+                fmt.indent();
+                writeln!(fmt, "Body: {:?}", node.body);
+                writeln!(fmt, "Predicate: {:?}", node.predicate);
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+            StmtNode::For(node) => {
+                writeln!(fmt, "For");
+                fmt.indent();
+                writeln!(fmt, "Body: {:?}", node.body);
+                writeln!(fmt, "Variable: {:?}", node.variable);
+                writeln!(fmt, "Range: {:?} .. {:?}", node.start, node.end);
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+            StmtNode::Assignment(node) => {
+                writeln!(fmt, "Assignment");
+                fmt.indent();
+                writeln!(fmt, "Target: {:?}", node.target);
+                writeln!(fmt, "Operator: {:?}", node.operator);
+                writeln!(fmt, "Value: {:?}", node.value);
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+            StmtNode::Variable(node) => {
+                writeln!(fmt, "Variable");
+                fmt.indent();
+                writeln!(fmt, "Name: {:?}", node.name);
+                writeln!(fmt, "Type: {:?}", node.ty);
+                writeln!(fmt, "Qualifier: {:?}", node.qualifier);
+                writeln!(fmt, "Value: {:?}", node.value);
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+            StmtNode::Definition(def_id) => {}
+            StmtNode::Expression(expr_id) => self.debug_expr(*expr_id, fmt),
+            StmtNode::Return(node) => {
+                writeln!(fmt, "Return");
+                fmt.indent();
+                if let Some(expr_id) = node.expr_id {
+                    self.debug_expr(expr_id, fmt);
+                }
+                self.write_comments(&node.comments, fmt);
+                fmt.dedent();
+            }
+            StmtNode::Intrinsic(node) => {
+                writeln!(fmt, "Intrinsic: {:?}", node)
+            }
+        }
+        todo!()
+    }
+
+    pub fn debug_definition(&self, def_id: DefId, fmt: &mut IndentFormatter) {
+        let node = self.context.definition(def_id);
+        todo!()
+    }
+
+    fn write_comments(&self, comments: &[Comment], fmt: &mut IndentFormatter) {
+        if !comments.is_empty() {
+            writeln!(fmt, "Comments:");
+            fmt.indent();
+            for comment in comments.iter() {
+                writeln!(fmt, "{}", comment);
+            }
+            fmt.dedent();
+        }
+    }
+
     pub fn get_type_name(&self, type_id: TypeId) -> String {
         let ty = &self.context.symbols[type_id];
         let ty_indent_id = match &ty {
@@ -538,6 +613,20 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
         let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
         let mut fmt = IndentFormatter::new();
         visualizer.debug_expr(expr_id, &mut fmt);
+        fmt.finish_without_new_line()
+    }
+
+    fn debug_stmt(&self, statement: StmtId) -> Self::DebugResult {
+        let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
+        let mut fmt = IndentFormatter::new();
+        visualizer.debug_stmt(statement, &mut fmt);
+        fmt.finish_without_new_line()
+    }
+
+    fn debug_definition(&self, def_id: DefId) -> Self::DebugResult {
+        let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };
+        let mut fmt = IndentFormatter::new();
+        visualizer.debug_definition(def_id, &mut fmt);
         fmt.finish_without_new_line()
     }
 }
