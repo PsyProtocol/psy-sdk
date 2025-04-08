@@ -1,9 +1,9 @@
 pub mod const_mod {
-  
   pub const c:Felt = 2;
 }
 
 const a:Felt = 1;
+
 fn main(b: Felt) -> Felt {
   return a + b + const_mod::c;
 }

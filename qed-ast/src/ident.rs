@@ -127,15 +127,15 @@ ident_ids!(
     TYPE_HASH => "Hash",
     TYPE_SELF => "Self",
 
-    SELF => "self", //8
+    SELF => "self", //9
     SUPER => "super",
     CRATE => "crate",
 
-    STD => "std", // 11
+    STD => "std", // 12
     PRELUDE => "prelude",
     PRIMITIVE => "primitive",
 
-    DERIVE => "derive", // 14
+    DERIVE => "derive", // 15
     NEW => "new",
     TEST => "test",
 

@@ -1,4 +1,3 @@
-
 fn main(a: Felt, b: Felt) -> Felt {
   assert(a < b, "a != b");
   assert_eq(b - a, 1, "b - a != 1");

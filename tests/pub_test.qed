@@ -1,9 +1,9 @@
 mod pub_mod {
-  
   pub struct Add {
     x: Felt,
     y: Felt,
   }
+  
   impl Add {
     pub fn get_sum(self: Add) -> Felt {
       return self.x + self.y;
@@ -15,20 +15,24 @@ mod pub_mod {
       };
     }
   }
+  
   pub fn void_fn() {
   }
 }
 
 use pub_mod::*;
+
 struct Test {
   pub x: Felt,
   y: Felt,
 }
+
 impl Test {
   pub fn get_sum(self: Test) -> Felt {
     return self.x + self.y;
   }
 }
+
 fn main(a: Felt, b: Felt) -> Felt {
   let t: Test = new Test {
     x: a,

@@ -1,4 +1,3 @@
-
 fn main(a: Felt, b: Felt) -> Felt {
   let mut res: Felt = 0;
   let mut a: Felt = a;

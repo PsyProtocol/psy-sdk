@@ -1,4 +1,3 @@
-
 fn main(a: Felt, b: Felt) -> Felt {
   let mut bool0: bool = false;
   let mut bool1: bool = true;

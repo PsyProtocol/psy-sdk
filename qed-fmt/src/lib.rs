@@ -65,6 +65,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
     fn visit_unchecked_type(
         &self,
         node: &UncheckedType,
+        is_generic: bool,
         ctx: &impl VisitorContext<F, C>,
     ) -> String {
         match node {
@@ -72,88 +73,50 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
             UncheckedType::Generic(name, generic_parameters, _) => {
                 if name == &IdentId::TYPE_ARRAY {
                     assert!(generic_parameters.len() == 2);
+                    if is_generic {
+                        return format!(
+                            "<[{}; {}]>",
+                            self.visit_unchecked_type(&generic_parameters[0], is_generic, ctx),
+                            self.visit_unchecked_type(&generic_parameters[1], is_generic, ctx)
+                        );
+                    }
                     return format!(
                         "[{}; {}]",
-                        self.visit_unchecked_type(&generic_parameters[0], ctx),
-                        self.visit_unchecked_type(&generic_parameters[1], ctx)
+                        self.visit_unchecked_type(&generic_parameters[0], is_generic, ctx),
+                        self.visit_unchecked_type(&generic_parameters[1], is_generic, ctx)
+                    );
+                }
+                if is_generic {
+                    return format!(
+                        "<{}{}>",
+                        &ctx.ident(name),
+                        self.visit_unchecked_generic_parameters(generic_parameters, ctx)
                     );
                 }
                 format!(
                     "{}{}",
                     &ctx.ident(name),
-                    self.visit_generic_parameters(
-                        generic_parameters
-                            .into_iter()
-                            .map(|ty| self.visit_unchecked_type(ty, ctx))
-                            .collect::<Vec<_>>()
-                    )
+                    self.visit_unchecked_generic_parameters(generic_parameters, ctx)
                 )
             }
             UncheckedType::Array(ty, size, _) => {
-                format!("[{}; {}]", self.visit_unchecked_type(ty, ctx), size)
-            }
-            UncheckedType::Tuple(tys, _) => format!(
-                "({})",
-                tys.iter()
-                    .map(|ty| self.visit_unchecked_type(ty, ctx))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
-            UncheckedType::Unknown => "unknown".to_string(),
-            UncheckedType::FunctionSignature(sig, _) => {
-                let parameters = sig
-                    .parameters
-                    .iter()
-                    .map(|p| format!("{}", self.visit_unchecked_type(&p, ctx)))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!(
-                    "fn({}){}",
-                    parameters,
-                    if let Some(ref ret) = sig.return_type {
-                        format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
-                    } else {
-                        "".to_string()
-                    }
-                )
-            }
-        }
-    }
-
-    fn visit_genic_unchecked_type(
-        &self,
-        node: &UncheckedType,
-        ctx: &impl VisitorContext<F, C>,
-    ) -> String {
-        match node {
-            UncheckedType::Basic(name) => self.visit_path_node(name.as_ref(), ctx),
-            UncheckedType::Generic(name, generic_parameters, _) => {
-                if name == &IdentId::TYPE_ARRAY {
-                    assert!(generic_parameters.len() == 2);
+                if is_generic {
                     return format!(
                         "<[{}; {}]>",
-                        self.visit_unchecked_type(&generic_parameters[0], ctx),
-                        self.visit_unchecked_type(&generic_parameters[1], ctx)
+                        self.visit_unchecked_type(ty, is_generic, ctx),
+                        size
                     );
                 }
                 format!(
-                    "<{}{}>",
-                    &ctx.ident(name),
-                    self.visit_generic_parameters(
-                        generic_parameters
-                            .into_iter()
-                            .map(|ty| self.visit_genic_unchecked_type(ty, ctx))
-                            .collect::<Vec<_>>()
-                    )
+                    "[{}; {}]",
+                    self.visit_unchecked_type(ty, is_generic, ctx),
+                    size
                 )
-            }
-            UncheckedType::Array(ty, size, _) => {
-                format!("<[{}; {}]>", self.visit_genic_unchecked_type(ty, ctx), size)
             }
             UncheckedType::Tuple(tys, _) => format!(
                 "({})",
                 tys.iter()
-                    .map(|ty| self.visit_genic_unchecked_type(ty, ctx))
+                    .map(|ty| self.visit_unchecked_type(ty, is_generic, ctx))
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
@@ -162,23 +125,55 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
                 let parameters = sig
                     .parameters
                     .iter()
-                    .map(|p| format!("{}", self.visit_genic_unchecked_type(&p, ctx)))
+                    .map(|p| format!("{}", self.visit_unchecked_type(&p, is_generic, ctx)))
                     .collect::<Vec<_>>()
                     .join(", ");
                 format!(
                     "fn({}){}",
                     parameters,
-                    if let Some(ref ret) = sig.return_type {
-                        format!(" -> {}", self.visit_genic_unchecked_type(&ret, ctx))
-                    } else {
-                        "".to_string()
-                    }
+                    self.visit_return_type(&sig.return_type, ctx),
                 )
             }
         }
     }
 
-    fn visit_generic_parameters(&self, generic_parameters: Vec<String>) -> String {
+    fn visit_unchecked_generic_parameters(
+        &self,
+        generic_parameters: &[UncheckedType],
+        ctx: &impl VisitorContext<F, C>,
+    ) -> String {
+        let generic_parameters = generic_parameters
+            .iter()
+            .map(|p| self.visit_unchecked_type(p, false, ctx))
+            .collect::<Vec<_>>();
+        if generic_parameters.is_empty() {
+            "".to_string()
+        } else {
+            format!("<{}>", generic_parameters.join(", "))
+        }
+    }
+
+    fn visit_generic_parameters(
+        &self,
+        generic_parameters: &[GenericParameter],
+        ctx: &impl VisitorContext<F, C>,
+    ) -> String {
+        let generic_parameters = generic_parameters
+            .iter()
+            .map(|p| {
+                if p.constraints.is_empty() {
+                    ctx.ident(p.name.clone()).to_string()
+                } else {
+                    let constraints_content = p
+                        .constraints
+                        .iter()
+                        .map(|constraint| self.visit_unchecked_type(&constraint, false, ctx))
+                        .collect::<Vec<_>>()
+                        .join(" + ");
+                    format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
+                }
+            })
+            .collect::<Vec<_>>();
         if generic_parameters.is_empty() {
             "".to_string()
         } else {
@@ -190,7 +185,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         let mut path = node
             .root
             .as_ref()
-            .map(|r| vec![self.visit_genic_unchecked_type(r, ctx)])
+            .map(|r| vec![self.visit_unchecked_type(r, true, ctx)])
             .unwrap_or_default();
         path.extend_from_slice(
             &node
@@ -206,6 +201,66 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         } else {
             format!("{}", path.join("::"))
         }
+    }
+
+    fn visit_comments(&self, comments: &[Comment]) -> String {
+        comments
+            .iter()
+            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
+            .collect::<String>()
+    }
+
+    fn visit_visibility(&self, visibility: &Visibility) -> String {
+        match visibility {
+            Visibility::Public => "pub ".to_string(),
+            Visibility::Private => "".to_string(),
+        }
+    }
+
+    fn visit_qualifier(&self, qualifier: &Qualifier) -> String {
+        format!(
+            "{}{}",
+            if qualifier.is_extern { "extern " } else { "" },
+            if qualifier.is_const { "const " } else { "" }
+        )
+    }
+
+    fn visit_type_qualifier(&self, qualifier: &TypeQualifier) -> String {
+        format!("{}", if qualifier.is_mutable { "mut " } else { "" })
+    }
+
+    fn visit_return_type(
+        &self,
+        return_type: &Option<UncheckedType>,
+        ctx: &impl VisitorContext<F, C>,
+    ) -> String {
+        if let Some(ret) = return_type {
+            format!(" -> {}", self.visit_unchecked_type(&ret, false, ctx))
+        } else {
+            "".to_string()
+        }
+    }
+
+    fn visit_attr(&self, attrs: &[AttrNode], ctx: &impl VisitorContext<F, C>) -> String {
+        attrs
+            .iter()
+            .map(|attr| {
+                if !attr.properties.is_empty() {
+                    format!(
+                        "#[{}({})]\n{}",
+                        ctx.ident(attr.name),
+                        attr.properties
+                            .iter()
+                            .map(|p| ctx.ident(p).to_string())
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        self.read_indent(0)
+                    )
+                } else {
+                    format!("#[{}]\n{}", ctx.ident(attr.name), self.read_indent(0))
+                }
+            })
+            .collect::<String>()
     }
 
     pub fn get_output(&self) -> &str {
@@ -239,7 +294,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             NodeType::ReturnStmt => self.visit_return(stmt_id, ctx)?,
             NodeType::DefinitionStmt => {
                 let def_id = ctx.statement(stmt_id).as_definition().unwrap().clone();
-                Self::StmtResult::from(self.visit_definition(def_id, ctx)?)
+                let definition_result = self.visit_definition(def_id, ctx)?;
+                Self::StmtResult::from(format!("{}\n", definition_result))
             }
             NodeType::ExpressionStmt => {
                 let expr_id = ctx.statement(stmt_id).as_expression().unwrap().clone();
@@ -261,14 +317,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         let u = ctx.definition(def_id).as_use().cloned().unwrap();
-        if u.kind.id == IdentId::STD {
-            return Ok(Default::default());
-        }
-        let comments_content = u
-            .comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
+
         let mut path = vec![ctx.ident(u.kind).to_string()];
         let segments = u
             .segments
@@ -283,8 +332,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
         Ok(format!(
             "{}{}use {}::{};",
-            comments_content,
-            if u.visibility.is_public() { "pub " } else { "" },
+            self.visit_comments(&u.comments),
+            self.visit_visibility(&u.visibility),
             path.join("::"),
             target
         ))
@@ -300,7 +349,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let mut path = node
             .root
             .as_ref()
-            .map(|r| vec![self.visit_genic_unchecked_type(r, ctx)])
+            .map(|r| vec![self.visit_unchecked_type(r, true, ctx)])
             .unwrap_or_default();
         path.extend_from_slice(
             &node
@@ -371,12 +420,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             ),
             ValueNode::Struct(name, generic_parameters, field_values, _location) => {
                 let name = ctx.ident(name);
-                let generic_parameters = self.visit_generic_parameters(
-                    generic_parameters
-                        .iter()
-                        .map(|p| self.visit_unchecked_type(p, ctx))
-                        .collect::<Vec<_>>(),
-                );
+                let generic_parameters =
+                    self.visit_unchecked_generic_parameters(&generic_parameters, ctx);
                 let mut result = format!("new {}{} {{\n", name, generic_parameters);
 
                 for (field, value) in field_values {
@@ -438,10 +483,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             ref generic_parameters,
             location: ref _location,
         } = ctx.expression(expr_id).as_call().unwrap();
-        let generic_parameters = generic_parameters
-            .iter()
-            .map(|generic_parameter| self.visit_unchecked_type(&generic_parameter, ctx))
-            .collect::<Vec<_>>();
+
+        let generic_parameters_content =
+            self.visit_unchecked_generic_parameters(generic_parameters, ctx);
         let args = args
             // TOOD: remove clone
             .clone()
@@ -452,7 +496,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(format!(
             "{}{}({})",
             self.visit_expr(variable, ctx)?,
-            self.visit_generic_parameters(generic_parameters),
+            generic_parameters_content,
             args
         ))
     }
@@ -468,10 +512,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             ref generic_parameters,
             ..
         } = ctx.expression(expr_id).as_member_call().unwrap();
-        let generic_parameters = generic_parameters
-            .iter()
-            .map(|generic_parameter| self.visit_unchecked_type(&generic_parameter, ctx))
-            .collect::<Vec<_>>();
+        let generic_parameters_content =
+            self.visit_unchecked_generic_parameters(generic_parameters, ctx);
         let args = args
             // TOOD: remove clone
             .clone()
@@ -482,7 +524,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(format!(
             "{}{}({})",
             self.visit_expr(variable, ctx)?,
-            self.visit_generic_parameters(generic_parameters),
+            generic_parameters_content,
             args
         ))
     }
@@ -502,7 +544,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(format!(
             "{} as {}",
             self.visit_expr(value, ctx)?,
-            self.visit_unchecked_type(&target_type, ctx)
+            self.visit_unchecked_type(&target_type, false, ctx)
         ))
     }
 
@@ -517,10 +559,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             ref comments,
             location: ref _location,
         } = ctx.statement(stmt_id).as_while().unwrap();
-        let comments_content = comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
+        let comments_content = self.visit_comments(comments);
         let s = format!("while {} ", self.visit_expr(predicate, ctx)?);
         let block = self.visit_block_expr(body, ctx)?;
         Ok(format!("{}{}{}", comments_content, s, block))
@@ -538,13 +577,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             ref comments,
             location: ref _location,
         } = ctx.statement(stmt_id).as_assignment().unwrap();
-        let comments_content = comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
         let s = format!(
             "{}{} {} {};",
-            comments_content,
+            self.visit_comments(comments),
             self.visit_expr(target, ctx)?,
             operator,
             self.visit_expr(value, ctx)?
@@ -557,16 +592,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         stmt_id: StmtId,
         ctx: &mut Self::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
-        let comments_content = ctx
-            .statement(stmt_id)
-            .as_variable()
-            .unwrap()
-            .comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
+        let comments_content =
+            self.visit_comments(&ctx.statement(stmt_id).as_variable().unwrap().comments);
         let var_type = self.visit_unchecked_type(
             &ctx.statement(stmt_id).as_variable().unwrap().ty.clone(),
+            false,
             ctx,
         );
 
@@ -577,19 +607,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         };
 
         let s = format!(
-            "{}let{} {}{} = {};",
+            "{}let {}{}{} = {};",
             comments_content,
-            if ctx
-                .statement(stmt_id)
-                .as_variable()
-                .unwrap()
-                .qualifier
-                .is_mutable
-            {
-                " mut"
-            } else {
-                ""
-            },
+            self.visit_type_qualifier(&ctx.statement(stmt_id).as_variable().unwrap().qualifier),
             // TODO: remove to_owned
             ctx.ident(ctx.statement(stmt_id).as_variable().unwrap().name.id)
                 .to_owned(),
@@ -609,21 +629,16 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: ref _location,
         } = ctx.statement(stmt_id).as_return().unwrap();
-        let comments_content = comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
 
-        let s = format!(
+        Ok(format!(
             "{}return{};",
-            comments_content,
+            self.visit_comments(comments),
             if let Some(ret) = expr_id {
                 format!(" {}", self.visit_expr(ret.clone(), ctx)?)
             } else {
                 "".to_string()
             }
-        );
-        Ok(s)
+        ))
     }
 
     fn visit_impl(
@@ -647,48 +662,20 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let associated_types = associated_types
             .iter()
             .map(|(name, ty)| {
-                let comments_content = ty
-                    .comments
-                    .iter()
-                    .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-                    .collect::<String>();
-
                 format!(
                     "{}{} type {} = {};",
-                    comments_content,
-                    if ty.visibility.is_public() {
-                        "pub "
-                    } else {
-                        ""
-                    },
+                    self.visit_comments(&ty.comments),
+                    self.visit_visibility(&ty.visibility),
                     ctx.ident(name.clone()),
-                    self.visit_unchecked_type(&ty.ty, ctx)
+                    self.visit_unchecked_type(&ty.ty, false, ctx)
                 )
             })
             .collect::<Vec<_>>()
             .join("\n");
-        let comments_content = comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
-        let generic_parameters = generic_parameters
-            .iter()
-            .map(|p| {
-                if p.constraints.is_empty() {
-                    ctx.ident(p.name.clone()).to_string()
-                } else {
-                    let constraints_content = p
-                        .constraints
-                        .iter()
-                        .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
-                        .collect::<Vec<_>>()
-                        .join(" + ");
-                    format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
-                }
-            })
-            .collect::<Vec<_>>();
-        let generic_parameters = self.visit_generic_parameters(generic_parameters);
-        let struct_name = self.visit_unchecked_type(&ty, ctx);
+        let comments_content = self.visit_comments(comments);
+
+        let generic_parameters = self.visit_generic_parameters(generic_parameters, ctx);
+        let struct_name = self.visit_unchecked_type(&ty, false, ctx);
         self.indent();
         // TODO: remove clone
         let mut funcs_content = String::new();
@@ -726,70 +713,28 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             attrs,
             location: _location,
         } = ctx.definition(def_id).as_function().unwrap();
-        let comments_content = comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
-        let attrs_content = attrs
-            .iter()
-            .map(|attr| {
-                if !attr.properties.is_empty() {
-                    format!(
-                        "#[{}({})]\n{}",
-                        ctx.ident(attr.name),
-                        attr.properties
-                            .iter()
-                            .map(|p| ctx.ident(p).to_string())
-                            .collect::<Vec<_>>()
-                            .join(", "),
-                        self.read_indent(0)
-                    )
-                } else {
-                    format!("#[{}]\n{}", ctx.ident(attr.name), self.read_indent(0))
-                }
-            })
-            .collect::<String>();
+        let comments_content = self.visit_comments(comments);
+        let attrs_content = self.visit_attr(attrs, ctx);
         let parameters = parameters
             .iter()
             .map(|p| {
                 format!(
                     "{}{}: {}",
-                    if p.qualifier.is_mutable { "mut " } else { "" },
+                    self.visit_type_qualifier(&p.qualifier),
                     &ctx.ident(p.name),
-                    self.visit_unchecked_type(&p.ty, ctx)
+                    self.visit_unchecked_type(&p.ty, false, ctx)
                 )
             })
             .collect::<Vec<_>>()
             .join(", ");
-        let generic_parameters = generic_parameters
-            .iter()
-            .map(|p| {
-                if p.constraints.is_empty() {
-                    ctx.ident(p.name.clone()).to_string()
-                } else {
-                    let constraints_content = p
-                        .constraints
-                        .iter()
-                        .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
-                        .collect::<Vec<_>>()
-                        .join(" + ");
-                    format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
-                }
-            })
-            .collect::<Vec<_>>();
         let s = format!(
-            "{}{}{}fn {}{}({}){} ",
-            if visibility.is_public() { "pub " } else { "" },
-            if qualifier.is_extern { "extern " } else { "" },
-            if qualifier.is_const { "const " } else { "" },
+            "{}{}fn {}{}({}){} ",
+            self.visit_visibility(&visibility),
+            self.visit_qualifier(&qualifier),
             ctx.ident(name),
-            self.visit_generic_parameters(generic_parameters),
+            self.visit_generic_parameters(generic_parameters, ctx),
             parameters,
-            if let Some(ref ret) = return_type {
-                format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
-            } else {
-                "".to_string()
-            }
+            self.visit_return_type(return_type, ctx),
         );
         let block = match body {
             Some(body) => self.visit_block_expr(body.clone(), ctx)?,
@@ -815,78 +760,31 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: _location,
         } = ctx.definition(def_id).as_struct().unwrap();
-        let comments_content = comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
+        let comments_content = self.visit_comments(comments);
 
-        let attrs_content = attrs
-            .iter()
-            .map(|attr| {
-                if !attr.properties.is_empty() {
-                    format!(
-                        "#[{}({})]\n{}",
-                        ctx.ident(attr.name),
-                        attr.properties
-                            .iter()
-                            .map(|p| ctx.ident(p).to_string())
-                            .collect::<Vec<_>>()
-                            .join(", "),
-                        self.read_indent(0)
-                    )
-                } else {
-                    format!("#[{}]\n{}", ctx.ident(attr.name), self.read_indent(0))
-                }
-            })
-            .collect::<String>();
+        let attrs_content = self.visit_attr(attrs, ctx);
         self.indent();
         let fiels_content = fields
             .iter()
             .map(|(field_name, field)| {
-                let field_comments_content = field
-                    .comments
-                    .iter()
-                    .map(|comment| format!("{}{}\n", self.read_indent(0), comment.content()))
-                    .collect::<String>();
                 format!(
                     "{}{}{}{}: {},\n",
-                    field_comments_content,
                     self.read_indent(0),
-                    if field.visibility.is_public() {
-                        "pub "
-                    } else {
-                        ""
-                    },
+                    self.visit_comments(&field.comments),
+                    self.visit_visibility(&field.visibility),
                     ctx.ident(field_name),
-                    self.visit_unchecked_type(&field.ty, ctx)
+                    self.visit_unchecked_type(&field.ty, false, ctx)
                 )
             })
             .collect::<String>();
         self.dedent();
 
-        let generic_parameter_content = self.visit_generic_parameters(
-            generic_parameters
-                .iter()
-                .map(|p| {
-                    if p.constraints.is_empty() {
-                        ctx.ident(p.name.clone()).to_string()
-                    } else {
-                        let constraints_content = p
-                            .constraints
-                            .iter()
-                            .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
-                            .collect::<Vec<_>>()
-                            .join(" + ");
-                        format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
-                    }
-                })
-                .collect::<Vec<_>>(),
-        );
+        let generic_parameter_content = self.visit_generic_parameters(generic_parameters, ctx);
         Ok(format!(
             "{}{}{}struct {}{} {{\n{}{}}}",
             comments_content,
             attrs_content,
-            if visibility.is_public() { "pub " } else { "" },
+            self.visit_visibility(&visibility),
             &ctx.ident(name),
             generic_parameter_content,
             fiels_content,
@@ -907,66 +805,67 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: _location,
         } = ctx.definition(def_id).as_enum().unwrap();
-        comments
-            .iter()
-            .for_each(|comment| self.write_line(comment.content()));
-        self.write_line(&format!(
-            "{}enum {}{} {{",
-            if visibility.is_public() { "pub " } else { "" },
-            &ctx.ident(name),
-            self.visit_generic_parameters(
-                generic_parameters
-                    .iter()
-                    .map(|p| {
-                        if p.constraints.is_empty() {
-                            ctx.ident(p.name.clone()).to_string()
-                        } else {
-                            let constraints_content = p
-                                .constraints
-                                .iter()
-                                .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
-                                .collect::<Vec<_>>()
-                                .join(" + ");
-                            format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            )
-        ));
+        let comments_content = self.visit_comments(comments);
+
         self.indent();
-        for variant in variants {
-            match variant {
+
+        let variants_content = variants
+            .iter()
+            .map(|variant| match variant {
                 EnumVariant::Basic(ident_id) => {
-                    let s = format!("{},", ctx.ident(ident_id));
-                    self.write_line(&s);
+                    format!("{}{},\n", self.read_indent(0), ctx.ident(ident_id))
                 }
                 EnumVariant::Tuple(ident_id, types) => {
                     let types = types
                         .iter()
-                        .map(|x| self.visit_unchecked_type(x, ctx))
+                        .map(|x| self.visit_unchecked_type(x, false, ctx))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    let s = format!("{}({}),", ctx.ident(ident_id), types);
-                    self.write_line(&s);
+                    format!(
+                        "{}{}({}),\n",
+                        self.read_indent(0),
+                        ctx.ident(ident_id),
+                        types
+                    )
                 }
                 EnumVariant::Struct(ident_id, fields) => {
-                    self.write_line(&format!("{} {{", ctx.ident(ident_id)));
                     self.indent();
-                    for (field_name, field) in fields {
-                        self.write_line(&format!(
-                            "{}: {},",
-                            ctx.ident(field_name),
-                            self.visit_unchecked_type(&field.ty, ctx)
-                        ));
-                    }
+                    let fiels_content = fields
+                        .iter()
+                        .map(|(field_name, field)| {
+                            format!(
+                                "{}{}{}{}: {},\n",
+                                self.read_indent(0),
+                                self.visit_comments(&field.comments),
+                                self.visit_visibility(&field.visibility),
+                                ctx.ident(field_name),
+                                self.visit_unchecked_type(&field.ty, false, ctx)
+                            )
+                        })
+                        .collect::<String>();
                     self.dedent();
-                    self.write_line("},");
+
+                    format!(
+                        "{}{} {{\n{}{}}},\n",
+                        self.read_indent(0),
+                        ctx.ident(ident_id),
+                        fiels_content,
+                        self.read_indent(0),
+                    )
                 }
-            }
-        }
+            })
+            .collect::<String>();
         self.dedent();
-        self.write_line("}");
-        Ok(Default::default())
+
+        Ok(format!(
+            "{}{}enum {}{} {{\n{}{}}}",
+            comments_content,
+            self.visit_visibility(&visibility),
+            &ctx.ident(name),
+            self.visit_generic_parameters(generic_parameters, ctx),
+            variants_content,
+            self.read_indent(0),
+        ))
     }
 
     fn visit_trait(
@@ -986,28 +885,20 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let associated_types = associated_types
             .iter()
             .map(|(name, ty)| {
-                let comments_content = ty
-                    .comments
-                    .iter()
-                    .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-                    .collect::<String>();
+                let comments_content = self.visit_comments(&ty.comments);
                 if ty.constraints.is_empty() {
                     format!(
                         "{}{}{}type {};\n",
                         self.read_indent(1),
                         comments_content,
-                        if ty.visibility.is_public() {
-                            "pub "
-                        } else {
-                            ""
-                        },
+                        self.visit_visibility(&ty.visibility),
                         ctx.ident(name.clone()),
                     )
                 } else {
                     let constraints_content = ty
                         .constraints
                         .iter()
-                        .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
+                        .map(|constraint| self.visit_unchecked_type(&constraint, false, ctx))
                         .collect::<Vec<_>>()
                         .join(" + ");
 
@@ -1015,11 +906,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                         "{}{}{}type {}: {};\n",
                         self.read_indent(1),
                         comments_content,
-                        if ty.visibility.is_public() {
-                            "pub "
-                        } else {
-                            ""
-                        },
+                        self.visit_visibility(&ty.visibility),
                         ctx.ident(name.clone()),
                         constraints_content
                     )
@@ -1027,31 +914,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             })
             .collect::<Vec<_>>()
             .join("");
-        let comments_content = comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
+        let comments_content = self.visit_comments(&comments);
 
         let trait_name = ctx.ident(name).to_string();
 
-        let generic_parameters = generic_parameters
-            .iter()
-            .map(|p| {
-                if p.constraints.is_empty() {
-                    ctx.ident(p.name.clone()).to_string()
-                } else {
-                    let constraints_content = p
-                        .constraints
-                        .iter()
-                        .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
-                        .collect::<Vec<_>>()
-                        .join(" + ");
-                    format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let generic_parameters = self.visit_generic_parameters(generic_parameters);
+        let generic_parameters = self.visit_generic_parameters(&generic_parameters, ctx);
 
         self.indent();
 
@@ -1059,11 +926,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .iter()
             .map(|func| -> Result<String, Self::Error> {
                 let func = ctx.definition(func.clone()).as_function().cloned().unwrap();
-                let func_comments_content = func
-                    .comments
-                    .iter()
-                    .map(|comment| format!("{}{}\n", self.read_indent(0), comment.content()))
-                    .collect::<String>();
+                let func_comments_content = self.visit_comments(&func.comments);
                 let func_name = ctx.ident(func.name).to_string();
                 let parameters = func
                     .parameters
@@ -1071,9 +934,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     .map(|p| {
                         format!(
                             "{}{}: {}",
-                            if p.qualifier.is_mutable { "mut " } else { "" },
+                            self.visit_type_qualifier(&p.qualifier),
                             &ctx.ident(p.name),
-                            self.visit_unchecked_type(&p.ty, ctx)
+                            self.visit_unchecked_type(&p.ty, false, ctx)
                         )
                     })
                     .collect::<Vec<_>>()
@@ -1083,31 +946,14 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     None => ";".to_string(),
                 };
                 let func_content = format!(
-                    "{}{}{}{}{}fn {}({}){}{}\n",
+                    "{}{}{}{}fn {}({}){}{}\n",
                     func_comments_content,
                     self.read_indent(0),
-                    if func.visibility.is_public() {
-                        "pub "
-                    } else {
-                        ""
-                    },
-                    if func.qualifier.is_extern {
-                        "extern "
-                    } else {
-                        ""
-                    },
-                    if func.qualifier.is_const {
-                        "const "
-                    } else {
-                        ""
-                    },
+                    self.visit_visibility(&func.visibility),
+                    self.visit_qualifier(&func.qualifier),
                     func_name,
                     parameters,
-                    if let Some(ref ret) = func.return_type {
-                        format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
-                    } else {
-                        "".to_string()
-                    },
+                    self.visit_return_type(&func.return_type, ctx),
                     func_body_content,
                 );
                 Ok(func_content)
@@ -1118,7 +964,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(format!(
             "{}{}trait {}{} {{\n{}\n{}{}}}",
             comments_content,
-            if visibility.is_public() { "pub " } else { "" },
+            self.visit_visibility(&visibility),
             trait_name,
             generic_parameters,
             associated_types,
@@ -1184,12 +1030,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 data, target_type, ..
             } => Ok(format!(
                 "__mem_transmute#<{}>({})",
-                self.visit_unchecked_type(&target_type, ctx),
+                self.visit_unchecked_type(&target_type, false, ctx),
                 self.visit_expr(data, ctx)?,
             )),
             IntrinsicExprNode::MemSizeOf { query_type: ty, .. } => Ok(format!(
                 "__mem_size_of#<{}>",
-                self.visit_unchecked_type(&ty, ctx)
+                self.visit_unchecked_type(&ty, false, ctx)
             )),
             IntrinsicExprNode::StorageRead { offset, .. } => {
                 Ok(format!("__storage_read({})", self.visit_expr(offset, ctx)?))
@@ -1229,10 +1075,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 location: _location,
             } => {
                 let expr = self.visit_expr(left, ctx)?;
-                let comments_content = comments
-                    .iter()
-                    .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-                    .collect::<String>();
+                let comments_content = self.visit_comments(&comments);
                 format!(
                     "{}assert({}, \"{}\");",
                     comments_content,
@@ -1249,10 +1092,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             } => {
                 let left = self.visit_expr(left, ctx)?;
                 let right = self.visit_expr(right, ctx)?;
-                let comments_content = comments
-                    .iter()
-                    .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-                    .collect::<String>();
+                let comments_content = self.visit_comments(&comments);
                 format!(
                     "{}assert_eq({}, {}, \"{}\");",
                     comments_content,
@@ -1277,13 +1117,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             return Ok(());
         }
 
-        let visibility_string = match module.visibility {
-            Visibility::Public => "pub ",
-            Visibility::Private => "",
-        };
         self.write_line(&format!(
             "{}mod {} {{",
-            visibility_string,
+            self.visit_visibility(&module.visibility),
             &ctx.ident(module.name)
         ));
         self.indent();
@@ -1317,16 +1153,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ctx: &mut Self::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         let node = ctx.definition(node).as_type_alias().cloned().unwrap();
-        let comments_content = node
-            .comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
+        let comments_content = self.visit_comments(&node.comments);
         Ok(format!(
             "{}type {} = {};",
             comments_content,
             ctx.ident(node.name),
-            self.visit_unchecked_type(&node.ty, ctx)
+            self.visit_unchecked_type(&node.ty, false, ctx)
         ))
     }
 
@@ -1338,21 +1170,16 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let node = ctx.definition(node).as_const().cloned().unwrap();
         let value = self.visit_expr(node.value, ctx)?;
 
-        let comments_content = node
-            .comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
         Ok(format!(
             "{}{}const {}:{} = {};",
-            comments_content,
+            self.visit_comments(&node.comments),
             if node.visibility.is_public() {
                 "pub "
             } else {
                 ""
             },
             ctx.ident(node.name),
-            self.visit_unchecked_type(&node.ty, ctx),
+            self.visit_unchecked_type(&node.ty, false, ctx),
             value
         ))
     }
@@ -1370,10 +1197,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             ref comments,
             location: ref _location,
         } = ctx.statement(node).as_for().unwrap();
-        let comments_content = comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
+        let comments_content = self.visit_comments(comments);
 
         let s = format!(
             "for {} in {}..{} ",
@@ -1443,9 +1267,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|p| {
                 format!(
                     "{}{}: {}",
-                    if p.qualifier.is_mutable { "mut " } else { "" },
+                    self.visit_type_qualifier(&p.qualifier),
                     &ctx.ident(p.name),
-                    self.visit_unchecked_type(&p.ty, ctx)
+                    self.visit_unchecked_type(&p.ty, false, ctx)
                 )
             })
             .collect::<Vec<_>>()
@@ -1456,11 +1280,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let result = format!(
             "|{}|{} {}",
             parameters,
-            if let Some(ref ret) = return_type {
-                format!(" -> {}", self.visit_unchecked_type(&ret, ctx))
-            } else {
-                "".to_string()
-            },
+            self.visit_return_type(&return_type, ctx),
             lambda_function_body_content,
         );
 
@@ -1489,11 +1309,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         let associated_types = associated_types
             .iter()
             .map(|(name, ty)| {
-                let comments_content = ty
-                    .comments
-                    .iter()
-                    .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-                    .collect::<String>();
+                let comments_content = self.visit_comments(&ty.comments);
 
                 format!(
                     "{}{}{}type {} = {};\n",
@@ -1505,35 +1321,17 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                         ""
                     },
                     ctx.ident(name.clone()),
-                    self.visit_unchecked_type(&ty.ty, ctx)
+                    self.visit_unchecked_type(&ty.ty, false, ctx)
                 )
             })
             .collect::<Vec<_>>()
             .join("");
-        let generic_parameters = generic_parameters
-            .iter()
-            .map(|p| {
-                if p.constraints.is_empty() {
-                    ctx.ident(p.name.clone()).to_string()
-                } else {
-                    let constraints_content = p
-                        .constraints
-                        .iter()
-                        .map(|constraint| self.visit_unchecked_type(&constraint, ctx))
-                        .collect::<Vec<_>>()
-                        .join(" + ");
-                    format!("{}: {}", ctx.ident(p.name.clone()), constraints_content)
-                }
-            })
-            .collect::<Vec<_>>();
-        let generic_parameters = self.visit_generic_parameters(generic_parameters);
 
-        let comments_content = comments
-            .iter()
-            .map(|comment| format!("{}\n{}", comment.content(), self.read_indent(0)))
-            .collect::<String>();
-        let trait_name = self.visit_unchecked_type(&trait_ty, ctx);
-        let struct_name = self.visit_unchecked_type(&ty, ctx);
+        let generic_parameters = self.visit_generic_parameters(generic_parameters, ctx);
+
+        let comments_content = self.visit_comments(comments);
+        let trait_name = self.visit_unchecked_type(&trait_ty, false, ctx);
+        let struct_name = self.visit_unchecked_type(&ty, false, ctx);
 
         self.indent();
         let mut funcs_content = String::new();
@@ -1676,19 +1474,15 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> Formatt
     ) -> Result<(), qed_common::Error> {
         let module = ctx.module(module_id).clone();
 
-        if module.is_self_std || module.is_self_primitive || module.is_self_prelude {
+        if module.is_std || module.is_self_std || module.is_self_primitive || module.is_self_prelude
+        {
             return Ok(());
         }
-
-        let visibility_string = match module.visibility {
-            Visibility::Public => "pub ",
-            Visibility::Private => "",
-        };
 
         if !is_first && !ctx.program().file_resolver.is_inline_module(module_id.0) {
             self.write_line(&format!(
                 "{}mod {};",
-                visibility_string,
+                self.visit_visibility(&module.visibility),
                 &ctx.ident(module.name)
             ));
             return Ok(());
@@ -1697,19 +1491,51 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> Formatt
         if ctx.program().file_resolver.is_inline_module(module_id.0) {
             self.write_line(&format!(
                 "{}mod {} {{",
-                visibility_string,
+                self.visit_visibility(&module.visibility),
                 &ctx.ident(module.name)
             ));
             self.indent();
         }
 
-        for &child_module in ctx.program().modules.nodes().clone()[module_id].children() {
-            self.format_module_helper(child_module, false, ctx)?;
+        let child_modules = ctx.program().modules.nodes().clone()[module_id]
+            .children()
+            .iter()
+            .filter(|&child_module_id| !ctx.module(*child_module_id).is_std)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let module_definitions = module
+            .definitions
+            .iter()
+            .filter(|&def_id| {
+                !ctx.definition(*def_id).is_use()
+                    || ctx.definition(*def_id).as_use().unwrap().kind.id != IdentId::STD
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+
+        if let Some((last_child_module, rest_child_modules)) = child_modules.split_last() {
+            for child_module in rest_child_modules {
+                self.format_module_helper(*child_module, false, ctx)?;
+                self.write_line("");
+            }
+
+            self.format_module_helper(*last_child_module, false, ctx)?;
+            if module_definitions.len() > 0 {
+                self.write_line("");
+            }
         }
 
-        for &definition in &module.definitions {
-            let definition_content = self.visit_definition(definition, ctx)?;
-            self.write_line(&definition_content);
+        if let Some((last_definition, rest_definitions)) = module_definitions.split_last() {
+            for &definition in rest_definitions {
+                let definition_content = self.visit_definition(definition, ctx)?;
+                if !definition_content.is_empty() {
+                    self.write_line(&definition_content);
+                    self.write_line("");
+                }
+            }
+            let last_definition_content = self.visit_definition(*last_definition, ctx).unwrap();
+            self.write_line(&last_definition_content);
         }
 
         if ctx.program().file_resolver.is_inline_module(module_id.0) {

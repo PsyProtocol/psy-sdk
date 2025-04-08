@@ -1,24 +1,27 @@
-
 impl<T, N: u32> [T; N] {
   pub const fn len() -> u32 {
     return N + (1 as u32);
   }
 }
+
 pub trait Two {
 
   pub fn two() -> Felt {
     2
   }
 }
+
 impl Two for Felt {
   pub fn two() -> Felt {
     2
   }
 }
+
 struct Box<T: Two> {
   pub data: T,
   pub extra: Felt,
 }
+
 impl<T: Two> Box<T> {
   pub fn new(data: T) -> Box<T> {
     return new Box {
@@ -27,6 +30,7 @@ impl<T: Two> Box<T> {
     };
   }
 }
+
 fn main() -> Felt {
   let mut b: Box<Felt> = <Box<Felt>>::new(42);
   b.data += 1;

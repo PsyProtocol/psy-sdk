@@ -1,12 +1,13 @@
-
 struct HW {
   pub height: Felt,
   pub weight: Felt,
 }
+
 struct Person {
   pub age: Felt,
   pub hw: [HW; 2],
 }
+
 fn main(a: Felt, b: Felt) -> Felt {
   let hw1: HW = new HW {
     height: 180,

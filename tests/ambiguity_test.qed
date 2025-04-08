@@ -1,7 +1,7 @@
-
 struct Person {
   pub age: Felt,
 }
+
 impl Person {
   pub fn new(age: Felt) -> Self {
     new Person {
@@ -12,6 +12,7 @@ impl Person {
     self.age
   }
 }
+
 fn main() -> Felt {
   let p = Person::new(10);
   p.age() + p.age

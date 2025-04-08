@@ -1,14 +1,15 @@
 mod math {
-  
   pub fn max(a: Felt, b: Felt) -> Felt {
     return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
   }
+  
   pub fn min(a: Felt, b: Felt) -> Felt {
     return a * ((a < b) as Felt) + b * ((a >= b) as Felt);
   }
 }
 
 use math::*;
+
 #[derive(Storage)]
 struct Person {
   pub age: Felt,
@@ -55,6 +56,7 @@ impl Contract {
     Contract::set_e(e);
   }
 }
+
 fn main() -> Felt {
   Contract::set_a(10);
   Contract::set_b(new Person {

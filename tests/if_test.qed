@@ -1,8 +1,8 @@
-
 fn cal1(a: Felt, b: Felt) -> Felt {
   let c: Felt = a + b;
   return c;
 }
+
 fn min(a: Felt, b: Felt) -> Felt {
   if a < b {
     a
@@ -11,6 +11,7 @@ fn min(a: Felt, b: Felt) -> Felt {
     b
   }
 }
+
 fn middle(a: Felt, b: Felt, c: Felt) -> Felt {
   if a > b {
     if b > c {
@@ -35,9 +36,11 @@ fn middle(a: Felt, b: Felt, c: Felt) -> Felt {
     }
   }
 }
+
 fn cal2(a: Felt, b: Felt) {
   let c: Felt = a - b;
 }
+
 fn main() {
   let a: Felt = 10;
   let b: Felt = 11;

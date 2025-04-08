@@ -1,8 +1,8 @@
-
 struct Person {
   pub age_height: [[Felt; 2]; 2],
   pub year_of_birth: Felt,
 }
+
 // error
 // pub fn func4(self, self) {
 // }
@@ -14,6 +14,7 @@ impl Person {
   pub fn func3(self: Self) {
   }
 }
+
 // error
 // fn test_fn(self: Person){
 // }
