@@ -1,3 +1,3 @@
 fn main(a: Felt, b: Felt) -> Felt {
-  return a + b + get_user_id() + get_contract_id() + get_checkpoint_id();
+    return a + b + get_user_id() + get_contract_id() + get_checkpoint_id();
 }

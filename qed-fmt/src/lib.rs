@@ -32,14 +32,14 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
 
     fn write_indent(&mut self) {
         for _ in 0..self.indent {
-            self.output.push_str("  ");
+            self.output.push_str("    ");
         }
     }
 
     fn read_indent(&self, extra: usize) -> String {
         let mut result = String::new();
         for _ in 0..self.indent + extra {
-            result.push_str("  ");
+            result.push_str("    ");
         }
         result
     }

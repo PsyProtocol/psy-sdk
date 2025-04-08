@@ -1,6 +1,6 @@
 fn main() -> Felt {
-  let max = |a: Felt, b: Felt| -> Felt {
-    return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
-  };
-  max(1, 2)
+    let max = |a: Felt, b: Felt| -> Felt {
+        return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
+    };
+    max(1, 2)
 }

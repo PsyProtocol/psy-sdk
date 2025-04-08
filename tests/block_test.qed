@@ -1,35 +1,35 @@
 mod math {
-  pub fn max(a: Felt, b: Felt) -> Felt {
-    return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
-  }
-  
-  pub fn min(a: Felt, b: Felt) -> Felt {
-    return a * ((a < b) as Felt) + b * ((a >= b) as Felt);
-  }
+    pub fn max(a: Felt, b: Felt) -> Felt {
+        return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
+    }
+    
+    pub fn min(a: Felt, b: Felt) -> Felt {
+        return a * ((a < b) as Felt) + b * ((a >= b) as Felt);
+    }
 }
 
 use math::*;
 
 fn main() -> Felt {
-  let mut a = 1;
-  let mut b = 2;
-  {
-    a += 1;
-  };
-  {
-    b += 1;
-  };
-  {
+    let mut a = 1;
+    let mut b = 2;
     {
-      b += 1;
-      b
+        a += 1;
     };
     {
-      a += 1;
-      a + b
-    }
-  };
-  min({
-    a + b
-  }, 8)
+        b += 1;
+    };
+    {
+        {
+            b += 1;
+            b
+        };
+        {
+            a += 1;
+            a + b
+        }
+    };
+    min({
+        a + b
+    }, 8)
 }

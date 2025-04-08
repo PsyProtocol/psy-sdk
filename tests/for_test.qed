@@ -1,7 +1,7 @@
 fn main() -> Felt {
-  let mut sum: Felt = 0;
-  for n in 0u32..100u32 {
-    sum += (n as Felt);
-  }
-  sum
+    let mut sum: Felt = 0;
+    for n in 0u32..100u32 {
+        sum += (n as Felt);
+    }
+    sum
 }
