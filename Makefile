@@ -33,6 +33,7 @@ DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --packa
 test:
 	@RUST_LOG=${LOG_LEVE} cargo test --release -- --nocapture
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-dargo-cli test --file tests/test.qed
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-dargo-cli test --file tests/should_panic_test.qed
 
 	@$(DARGO_CLI_EXECUTE) assert_test.qed --parameters 2,3
 	@$(DARGO_CLI_EXECUTE) ctx_test.qed --parameters 2,3

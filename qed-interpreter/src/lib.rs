@@ -245,7 +245,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     .iter()
                     .find(|attr| attr.is_should_panic())
                     .is_some();
-                let func_name = func.name.clone();
+                let func_name = ctx.ident(func.name).to_string();
 
                 // Run the test function
                 let result = self.__interpret__(&typechecker.program, type_id, vec![], ctx);
@@ -257,18 +257,15 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     }
                     // Failed test when not expecting panic - this is an error
                     (Err(err), false) => {
-                        println!("Test {:?} failed with error: {:?}", func_name, err);
+                        panic!("Test {func_name} failed with error: {err:?}",);
                     }
                     // Successful test when expecting panic - this is an error
                     (Ok(_), true) => {
-                        println!(
-                            "Test {:?} failed: Expected panic but test completed successfully",
-                            func_name
-                        );
+                        println!("Test {func_name} passed: Expected panic but test completed successfully");
                     }
                     // Failed test when expecting panic - this is success!
                     (Err(_), true) => {
-                        println!("Test {:?} passed: Panicked as expected", func_name);
+                        println!("Test {func_name} passed: Panicked as expected")
                     }
                 }
 
@@ -508,29 +505,59 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     left,
                     message,
                     comments: _,
-                    location: _location,
+                    location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
+                    let condition = lhs_value.to_bool();
                     self.context.assert_true(
-                        lhs_value.to_bool(),
+                        condition,
                         Box::leak(message.clone().unwrap_or_default().into_boxed_str()),
                     );
+
+                    if self.is_constant(condition)
+                        && self.context.get_constant_value(condition) == 0
+                    {
+                        let msg = message.clone().unwrap_or_default();
+                        return Err(Error::AssertionFailure {
+                            message: format!("{}", msg),
+                            location: Some(*location),
+                        });
+                    }
                 }
                 CheckedIntrinsicStmtNode::AssertEq {
                     left,
                     right,
                     message,
                     comments: _,
-                    location: _location,
+                    location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     let rhs_value = self.interpret_expr(program, right.clone(), ctx)?;
+                    let lhs = lhs_value.to_value();
+                    let rhs = rhs_value.to_value();
 
                     self.context.assert_eq(
-                        lhs_value.to_value(),
-                        rhs_value.to_value(),
+                        lhs,
+                        rhs,
                         Box::leak(message.clone().unwrap_or_default().into_boxed_str()),
                     );
+
+                    if self.is_constant(lhs)
+                        && self.is_constant(rhs)
+                        && self.context.get_constant_value(lhs)
+                            != self.context.get_constant_value(rhs)
+                    {
+                        let msg = message.clone().unwrap_or_default();
+                        return Err(Error::AssertionFailure {
+                            message: format!(
+                                "{} (left: {}, right: {})",
+                                msg,
+                                self.context.get_constant_value(lhs),
+                                self.context.get_constant_value(rhs)
+                            ),
+                            location: Some(*location),
+                        });
+                    }
                 }
             },
         }

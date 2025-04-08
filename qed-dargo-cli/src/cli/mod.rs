@@ -1,9 +1,9 @@
 mod compile_cmd;
 mod execute_cmd;
+mod fmt_cmd;
 mod init_cmd;
 mod new_cmd;
 mod test_cmd;
-mod fmt_cmd;
 
 use crate::errors::{CliError, Result};
 use clap::{Args, Parser, Subcommand};

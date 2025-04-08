@@ -19,12 +19,4 @@ impl AttrNode {
     pub fn is_should_panic(&self) -> bool {
         self.name == IdentId::SHOULD_PANIC
     }
-
-    pub fn expected_message(&self) -> Option<&Identifier> {
-        if self.is_should_panic() && !self.properties.is_empty() {
-            Some(&self.properties[0])
-        } else {
-            None
-        }
-    }
 }
