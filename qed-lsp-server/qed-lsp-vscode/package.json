@@ -36,7 +36,6 @@
     "onLanguage:qed"
   ],
   "dependencies": {
-    "vscode": "^1.1.37",
     "vscode-languageclient": "^9.0.1"
   },
   "scripts": {
@@ -48,6 +47,7 @@
   "devDependencies": {
     "@types/node": "^22.13.10",
     "@types/vscode": "^1.98.0",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vscode": "^1.1.37"
   }
 }
