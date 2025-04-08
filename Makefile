@@ -21,7 +21,7 @@ fmt:
 interpret:
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-cli interpret --file ${FILE} --parameters ${PARAMETERS}
 
-DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) cd tests && cargo run --release --package qed-dargo-cli compile --debug --entry-path
+DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) cd tests && cargo run --release --package dargo compile --debug --entry-path
 compile:
 	@$(DARGO_CLI_COMPILE) ctx_test.qed
 	@$(DARGO_CLI_COMPILE) storage_test.qed --contract-name=Contract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
@@ -29,10 +29,10 @@ compile:
 	@$(DARGO_CLI_COMPILE) token.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
 	@$(DARGO_CLI_COMPILE) two_user_ups.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
 
-DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --package qed-dargo-cli execute --debug --entry-path
+DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --package dargo execute --debug --entry-path
 test:
 	@RUST_LOG=${LOG_LEVE} cargo test --release -- --nocapture
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package qed-dargo-cli test --file tests/test.qed
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package dargo test --file tests/test.qed
 
 	@$(DARGO_CLI_EXECUTE) assert_test.qed --parameters 2,3
 	@$(DARGO_CLI_EXECUTE) ctx_test.qed --parameters 2,3

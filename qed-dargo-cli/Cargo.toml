@@ -1,5 +1,5 @@
 [package]
-name = "qed-dargo-cli"
+name = "dargo"
 version = "0.1.0"
 edition = "2021"
 
