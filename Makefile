@@ -32,7 +32,7 @@ compile:
 DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --package dargo execute --debug --entry-path
 test:
 	@RUST_LOG=${LOG_LEVE} cargo test --release -- --nocapture
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package dargo test --file tests/test.qed
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package dargo test --file tests/in_mod_attr_test.qed
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package dargo test --file tests/should_panic_test.qed
 
 	@$(DARGO_CLI_EXECUTE) assert_test.qed --parameters 2,3
