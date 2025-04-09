@@ -16,6 +16,7 @@ use qedlang_core::dpn::{
 };
 use std::path::PathBuf;
 
+/// Test the program file
 #[derive(Debug, Clone, Args)]
 pub(crate) struct TestCommand {
     #[clap(short, env, long)]
