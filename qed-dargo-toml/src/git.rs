@@ -1,30 +1,34 @@
 use std::path::PathBuf;
+use crate::TAG_LATEST;
 
 pub(crate) fn clone_git_repo(url: &str, tag: &str) -> Result<PathBuf, String> {
     use std::process::Command;
 
-    let base = match url::Url::parse(url) {
-        Ok(base) => base,
-        Err(err) => return Err(err.to_string()),
-    };
-
-    let loc = git_dep_location(&base, tag);
+    let loc = git_dep_location_from_url(url, tag);
     if loc.exists() {
         return Ok(loc);
     }
 
-    Command::new("git")
-        .arg("-c")
+    let mut cmd = Command::new("git");
+    cmd.arg("-c")
         .arg("advice.detachedHead=false")
         .arg("clone")
         .arg("--depth")
-        .arg("1")
-        .arg("--branch")
-        .arg(tag)
-        .arg(base.as_str())
+        .arg("1");
+
+    if tag != TAG_LATEST {
+        cmd.arg("--branch").arg(tag);
+    }
+
+    let status = cmd
+        .arg(url)
         .arg(&loc)
         .status()
-        .expect("git clone command failed to start");
+        .map_err(|e| format!("Failed to run git: {}", e))?;
+
+    if !status.success() {
+        return Err(format!("Git clone failed with status: {:?}", status));
+    }
 
     Ok(loc)
 }
@@ -37,6 +41,26 @@ fn git_dep_location(base: &url::Url, tag: &str) -> PathBuf {
     dargo_crates().join(folder_name)
 }
 
+fn git_dep_location_from_url(url: &str, tag: &str) -> PathBuf {
+    match url::Url::parse(url) {
+        Ok(base_url) => {
+            // Directly parse https Git address, construct url::Url
+            git_dep_location(&base_url, tag)
+        }
+        Err(_) => {
+            let ssh_placeholder_url = format!("ssh://{}", url.replace(':', "/")); // -> ssh://git@github.com/user/repo.git
+
+            match url::Url::parse(&ssh_placeholder_url) {
+                Ok(base_url) => git_dep_location(&base_url, tag),
+                Err(err) => {
+                    eprintln!("Failed to parse URL: url = {:?}, err = {:?}", url, err);
+                    let hash = format!("{:x}", md5::compute(url));
+                    dargo_crates().join(format!("ssh-{}-{}", hash, tag))
+                }
+            }
+        }
+    }
+}
 /// Creates a unique folder name for a GitHub repo
 /// by using its URL and tag
 fn resolve_folder_name(base: &url::Url, tag: &str) -> String {
