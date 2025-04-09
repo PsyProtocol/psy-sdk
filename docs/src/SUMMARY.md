@@ -4,6 +4,7 @@
 - [Introduction](./introduction.md)
 - [Before We Begin](./before_we_begin.md)
     - [Set up your IDE](./setup_your_ide.md)
+  - [Set up Shell Completions](./setting_up_shell_completions.md)
 - [Hello, World!](./hello_world.md)
 - [Basic Syntax](./basic_syntax.md)
 - [Modules and Visibility](./modules_and_visibility.md)
