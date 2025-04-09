@@ -1,11 +1,12 @@
 [package]
-name = "qed-dargo-cli"
+name = "dargo"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 thiserror.workspace = true
 clap.workspace = true
+clap_complete = "4.5.47"
 anyhow.workspace = true
 tracing-subscriber = { version = "0.3.19", features = ["json"] }
 tracing-appender = "0.2.3"
@@ -25,3 +26,4 @@ qed_store = { workspace = true }
 qed_data = { workspace = true }
 qed_core = { workspace = true }
 qed_common_circuit = { workspace = true }
+qed-sema = { workspace = true }

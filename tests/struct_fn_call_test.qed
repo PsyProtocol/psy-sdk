@@ -1,12 +1,11 @@
-
-pub mod person{
+pub mod person {
     pub struct Person {
         age: Felt,
         height: Felt,
         weight: Felt,
         isMale: Felt,
     }
-
+    
     impl Person {
         pub fn cal1(a: Felt, b: Felt) -> Felt {
             let c: Felt = a + b;
@@ -19,22 +18,23 @@ pub mod person{
         }
     }
 }
-//use person::Person;
 
+//use person::Person;
 pub struct Person {
     pub age: Felt,
 }
+
 impl Person {
     pub fn cal1(a: Felt, b: Felt) -> Felt {
-        let c:Felt = a + b;
+        let c: Felt = a + b;
         return c;
     }
 }
+
 fn main() {
     let mut c: Felt = 10;
     c = 5;
     let a: Felt = Person::cal1(1, 2);
-
     let v1: Felt = {
         let b: Felt = 1;
         let c: Felt = 2;

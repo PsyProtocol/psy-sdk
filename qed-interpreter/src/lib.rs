@@ -16,6 +16,9 @@ use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
+use qedlang_core::dpn::ops::exec_context::QExecContext;
+use qedlang_core::dpn::ops::sym_felt::SymFeltRef;
+use qedlang_core::dpn::vm::compile::QEDCompileResult;
 use qedlang_core::dpn::{
     ops::{
         context_trait::{ContextFelt, DPNContext, ToFelts},
@@ -26,6 +29,33 @@ use qedlang_core::dpn::{
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once};
 use tracing::instrument;
+
+pub fn interpret(
+    contract_name: Option<String>,
+    method_names: Vec<String>,
+    entry: PathBuf,
+    dependencies_entries: Vec<PathBuf>,
+) -> anyhow::Result<Vec<DPNFunctionCircuitDefinition>> {
+    let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+    let (mut typechecker, mut ctx) =
+        interpreter.typecheck(entry, dependencies_entries.into_iter().collect())?;
+    let compile_results = interpreter.interpret(
+        &mut typechecker,
+        &mut ctx,
+        contract_name,
+        method_names,
+        |context, (method_name, method_id, outputs)| {
+            QEDCompileResult::compile_exec(
+                method_name,
+                method_id,
+                &context.store,
+                context,
+                &outputs,
+            )
+        },
+    )?;
+    Ok(compile_results)
+}
 
 #[derive(Clone, Debug)]
 pub struct Interpreter<F: Clone + From<u32>, C> {
@@ -207,9 +237,39 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     .unwrap()
                     .parameters
                     .is_empty());
-                let res = self.__interpret__(&typechecker.program, type_id, vec![], ctx)?;
-                outputs.push(compile_fn(&self.context, res));
-                // resotre context
+
+                // Check if the function has a should_panic attribute
+                let func = ctx.symbols[type_id].as_function().unwrap();
+                let should_panic = func
+                    .attrs
+                    .iter()
+                    .find(|attr| attr.is_should_panic())
+                    .is_some();
+                let func_name = ctx.ident(func.name).to_string();
+
+                // Run the test function
+                let result = self.__interpret__(&typechecker.program, type_id, vec![], ctx);
+
+                match (result, should_panic) {
+                    // Successful test when not expecting panic
+                    (Ok(res), false) => {
+                        outputs.push(compile_fn(&self.context, res));
+                    }
+                    // Failed test when not expecting panic - this is an error
+                    (Err(err), false) => {
+                        panic!("Test {func_name} failed with error: {err:?}",);
+                    }
+                    // Successful test when expecting panic - this is an error
+                    (Ok(_), true) => {
+                        println!("Test {func_name} passed: Expected panic but test completed successfully");
+                    }
+                    // Failed test when expecting panic - this is success!
+                    (Err(_), true) => {
+                        println!("Test {func_name} passed: Panicked as expected")
+                    }
+                }
+
+                // restore context
                 self.context = context.clone();
             }
         }
@@ -445,29 +505,59 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     left,
                     message,
                     comments: _,
-                    location: _location,
+                    location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
+                    let condition = lhs_value.to_bool();
                     self.context.assert_true(
-                        lhs_value.to_bool(),
+                        condition,
                         Box::leak(message.clone().unwrap_or_default().into_boxed_str()),
                     );
+
+                    if self.is_constant(condition)
+                        && self.context.get_constant_value(condition) == 0
+                    {
+                        let msg = message.clone().unwrap_or_default();
+                        return Err(Error::AssertionFailure {
+                            message: format!("{}", msg),
+                            location: Some(*location),
+                        });
+                    }
                 }
                 CheckedIntrinsicStmtNode::AssertEq {
                     left,
                     right,
                     message,
                     comments: _,
-                    location: _location,
+                    location,
                 } => {
                     let lhs_value = self.interpret_expr(program, left.clone(), ctx)?;
                     let rhs_value = self.interpret_expr(program, right.clone(), ctx)?;
+                    let lhs = lhs_value.to_value();
+                    let rhs = rhs_value.to_value();
 
                     self.context.assert_eq(
-                        lhs_value.to_value(),
-                        rhs_value.to_value(),
+                        lhs,
+                        rhs,
                         Box::leak(message.clone().unwrap_or_default().into_boxed_str()),
                     );
+
+                    if self.is_constant(lhs)
+                        && self.is_constant(rhs)
+                        && self.context.get_constant_value(lhs)
+                            != self.context.get_constant_value(rhs)
+                    {
+                        let msg = message.clone().unwrap_or_default();
+                        return Err(Error::AssertionFailure {
+                            message: format!(
+                                "{} (left: {}, right: {})",
+                                msg,
+                                self.context.get_constant_value(lhs),
+                                self.context.get_constant_value(rhs)
+                            ),
+                            location: Some(*location),
+                        });
+                    }
                 }
             },
         }
@@ -1445,28 +1535,14 @@ mod tests {
     fn test_crates_resolve() {
         let entry: PathBuf = "../tests/module_test/foo/src/main.qed".into();
         let dependencies_entries = vec!["../tests/module_test/bar/src/lib.qed".into()];
-        let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-        let (mut typechecker, mut ctx) = interpreter
-            .typecheck(entry.clone(), dependencies_entries)
-            .unwrap();
-        let compile_results = interpreter
-            .interpret(
-                &mut typechecker,
-                &mut ctx,
-                Option::<String>::None,
-                vec!["main".into()],
-                |context, (method_name, method_id, outputs)| {
-                    QEDCompileResult::compile_exec(
-                        method_name,
-                        method_id,
-                        &context.store,
-                        &context,
-                        &outputs,
-                    )
-                },
-            )
-            .unwrap();
-        println!("compile_result: {:?}", compile_results);
+        let compiled_results = super::interpret(
+            Option::<String>::None,
+            vec!["main".into()],
+            entry.clone(),
+            dependencies_entries,
+        )
+        .unwrap();
+        println!("compile_result: {:?}", compiled_results);
         #[allow(static_mut_refs)]
         unsafe {
             STD_PRIMITIVE_SCOPE_ID.take().unwrap()
@@ -1478,7 +1554,7 @@ mod tests {
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
-        insta::glob!("../../tests", "00*.qed", |path| {
+        insta::glob!("../../tests", "{struct*.qed,fn_test.qed}", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
             let (mut typechecker, mut ctx) = interpreter.typecheck(path.into(), vec![]).unwrap();
 

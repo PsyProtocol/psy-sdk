@@ -1,6 +1,6 @@
-
 type HashOut = Hash;
+
 fn main() -> HashOut {
-  let data: HashOut = [1, 2, 3, 4];
-  hash(data)
+    let data: HashOut = [1, 2, 3, 4];
+    hash(data)
 }

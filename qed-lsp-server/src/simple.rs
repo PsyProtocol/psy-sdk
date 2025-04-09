@@ -59,7 +59,7 @@ impl QLspSimple {
         })?;
         *self_root_path = root_path.clone();
 
-        let entry_manager = match qed_dargo_cli::resolve_entries(&workspace, None) {
+        let entry_manager = match dargo::resolve_entries(&workspace, None) {
             Ok(entry_manager) => entry_manager,
             Err(err) => {
                 eprintln!("Error resolving entries: {}", err);

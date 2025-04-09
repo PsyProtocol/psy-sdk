@@ -395,6 +395,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "4.5.47"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c06f5378ea264ad4f82bbc826628b5aad714a75abf6ece087e923010eb937fb6"
+dependencies = [
+    "clap",
+]
+
+[[package]]
 name = "clap_derive"
 version = "4.5.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -584,6 +593,34 @@ checksum = "1bfb12502f3fc46cca1bb51ac28df9d618d813cdc3d2f25b9fe775a34af26bb3"
 dependencies = [
  "generic-array",
  "typenum",
+]
+
+[[package]]
+name = "dargo"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+    "clap_complete",
+ "color-eyre",
+ "plonky2",
+ "qed-dargo",
+ "qed-dargo-toml",
+ "qed-interpreter",
+ "qed-sema",
+ "qed-utils",
+ "qed_common_circuit",
+ "qed_core",
+ "qed_crypto",
+ "qed_data",
+ "qed_exec",
+ "qed_store",
+ "qedlang_core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tracing-appender",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -2098,32 +2135,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-dargo-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "color-eyre",
- "plonky2",
- "qed-dargo",
- "qed-dargo-toml",
- "qed-interpreter",
- "qed-utils",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_exec",
- "qed_store",
- "qedlang_core",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
- "tracing-appender",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "qed-dargo-toml"
 version = "0.1.0"
 dependencies = [
@@ -2198,6 +2209,7 @@ dependencies = [
 name = "qed-lsp-server"
 version = "0.1.0"
 dependencies = [
+ "dargo",
  "dashmap 6.1.0",
  "env_logger 0.11.8",
  "log",
@@ -2205,7 +2217,6 @@ dependencies = [
  "qed-ast",
  "qed-common",
  "qed-dargo",
- "qed-dargo-cli",
  "qed-dargo-toml",
  "qed-interpreter",
  "qed-parser",

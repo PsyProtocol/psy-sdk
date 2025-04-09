@@ -216,7 +216,6 @@ impl LocationIndices {
     /// It tolerates off-by-one errors caused by cursor positions being placed
     /// immediately after the end of a word (e.g., clicking after an identifier).
     pub(crate) fn resolve_node_at(&self, location: Location) -> Option<PetGraphIndex> {
-
         // Retrieve the range map for the given file.
         let range_table = self.map_file_to_range.get(&location.file_id)?;
 

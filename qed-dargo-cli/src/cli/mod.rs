@@ -1,5 +1,7 @@
 mod compile_cmd;
+mod complete_cmd;
 mod execute_cmd;
+mod fmt_cmd;
 mod init_cmd;
 mod new_cmd;
 mod test_cmd;
@@ -21,6 +23,8 @@ pub(crate) fn start_cli() -> Result<()> {
         DargoCommand::Compile(args) => with_workspace(args, config, compile_cmd::run),
         DargoCommand::Execute(args) => with_workspace(args, config, execute_cmd::run),
         DargoCommand::Test(args) => test_cmd::run(args),
+        DargoCommand::Fmt(args) => fmt_cmd::run(args),
+        DargoCommand::Complete(args) => complete_cmd::run(args),
     }?;
     Ok(())
 }
@@ -44,6 +48,8 @@ enum DargoCommand {
     Compile(compile_cmd::CompileCommand),
     Execute(execute_cmd::ExecuteCommand),
     Test(test_cmd::TestCommand),
+    Fmt(fmt_cmd::FmtCommand),
+    Complete(complete_cmd::CompleteCommand),
 }
 
 #[derive(Args, Clone, Debug)]
