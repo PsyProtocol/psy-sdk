@@ -18,7 +18,32 @@ fn test_that_passes() {
     assert(true, "This should pass");
 }
 
+fn max(a: Felt, b: Felt) -> Felt {
+    if a > b {
+        a
+    }    
+    else {
+        b
+    }
+}
+
+#[test]
+fn test_max() {
+    assert(max(1, 2) == 2, "This should pass");
+}
+
+#[test]
+#[should_panic]
+fn test_max_for_panic() {
+    assert(max(1, 2) == 12, "This should pass");
+}
+
 fn main(a: Felt, b: Felt) -> Felt {
     assert(a < b, "a should be less than b");
     return a + b;
+}
+
+#[test]
+fn test_main() {
+    assert(main(1, 2) == 3, "This should pass");
 }

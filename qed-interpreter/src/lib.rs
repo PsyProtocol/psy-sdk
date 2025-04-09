@@ -261,7 +261,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     }
                     // Successful test when expecting panic - this is an error
                     (Ok(_), true) => {
-                        println!("Test {func_name} passed: Expected panic but test completed successfully");
+                        panic!("Test {func_name} passed: Expected panic but test completed successfully");
                     }
                     // Failed test when expecting panic - this is success!
                     (Err(_), true) => {
