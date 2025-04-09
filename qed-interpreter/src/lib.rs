@@ -1554,7 +1554,7 @@ mod tests {
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
-        insta::glob!("../../tests", "{struct*.qed,fn_test.qed}", |path| {
+        insta::glob!("../../tests", "{struct*.qed,fn_test.qed,fn_chain_call_test.qed}", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
             let (mut typechecker, mut ctx) = interpreter.typecheck(path.into(), vec![]).unwrap();
 

@@ -1,21 +1,23 @@
-
 fn add(a: Felt, b: Felt) -> Felt {
     let mut c: Felt = a + b;
     return c;
-
 }
+
 fn sub(a: Felt, b: Felt) -> Felt {
     let mut c: Felt = a - b;
     return c;
 }
+
 fn mul(a: Felt, b: Felt) -> Felt {
     let mut c: Felt = a * b;
     return c;
 }
-fn add_one(i: Felt) -> Felt{
+
+fn add_one(i: Felt) -> Felt {
     let mut c: Felt = i + 1;
     return c;
 }
+
 //test comment single line
 //test comment single line
 /// test comment single line
@@ -27,23 +29,9 @@ fn main() {
     let mut b: Felt = sub(2, 1);
     let mut c: Felt = mul(2, 2);
     let mut e: Felt = sub(2, 1) + mul(2, 2);
-
     let mut d: Felt = add(1 + 2, 2);
     let mut f: Felt = add(add(1, 2), 2);
-    let mut g: Felt = add(
-        1 + 3,
-        add(
-            3 + 5,
-            8 - mul(
-                    add(
-                        sub(10, 5),
-                        5
-                    ),
-                    2
-                )
-        )
-    );
-
+    let mut g: Felt = add(1 + 3, add(3 + 5, 8 - mul(add(sub(10, 5), 5), 2)));
     let mut h: Felt = add_one(1);
     let mut i: Felt = add_one(add_one(add_one(add_one(add_one(add_one(add_one(add_one(add_one(1 + add_one(1 + add_one(1 + add_one(1 + 2)))) + 2) + 2) + 2))))));
 }
