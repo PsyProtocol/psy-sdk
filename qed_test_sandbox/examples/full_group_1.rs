@@ -1,5 +1,6 @@
 use fred::prelude::*;
-use kvq::memory::{arc_imm::KVQArcImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore};
+use kvq::memory::{arc_imm::KVQArcImmutableStoreWrapper};
+use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use qed_core::{config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync}, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer}
 ;
@@ -22,7 +23,8 @@ use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitMa
 use qed_store::{config::store_config::{QEDFelt, QEDHasher}, controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync}
 ;
 use qed_test_sandbox::test_helpers::contract::gen_test_contract;
-use std::{sync::Arc, time::Duration};
+use reth_libmdbx::{Environment, EnvironmentFlags, Geometry, Mode, PageSize, SyncMode, RW};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 
 use plonky2::{
@@ -58,9 +60,23 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
     let realm_q = ProofStoreFred::new(pool, "rwq1".to_string(), "rnq1".to_string());
 
-    let store_reader: KVQArcImmutableStoreWrapper<KVQSimpleMemoryBackingStore> =
-        KVQArcImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
-            KVQSimpleMemoryBackingStore::new(),
+    let dir = tempfile::tempdir()?;
+    let flags = EnvironmentFlags {
+        no_sub_dir: false,
+        mode: Mode::ReadWrite { sync_mode: SyncMode::Durable },
+        coalesce: true,
+        ..Default::default()
+    };
+
+    let env = Environment::builder()
+        .set_max_dbs(10)
+        .set_flags(flags)
+        .open(PathBuf::new().join("db").as_path())?;
+
+    let txn = env.begin_rw_txn()?;
+    let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>> =
+        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RW>>::new(
+            KVQlibmdbxStore::new(txn.clone(), None)?,
         );
 
     store_reader.initialize_store()?;
@@ -181,8 +197,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &coordinator_worker_circuits,
         &proof_verifier.library,
     ).await?;
-    
-    
+
+
     let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id).await?;
 
@@ -224,7 +240,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
 
 
-    
+
     let latest_l2_block_state = st.get_latest_l2_block_state().await?;
 
     //let stroots = st.get_checkpoint_global_state_roots(latest_l2_block_state.checkpoint_id).await?;
@@ -250,7 +266,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQArcImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>,
     > = QEDLocalProvingSessionStore::new_at(
         store_reader.dup(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
@@ -287,10 +303,10 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("proved ups_start");
 
     contract_helper.prove_func(
-        &main_circuits, 
-        &mut mgr, 
-        0, 
-        "simple_mint_debug", 
+        &main_circuits,
+        &mut mgr,
+        0,
+        "simple_mint_debug",
         vec![
             GoldilocksField::from_noncanonical_u64(1000),
         ]
@@ -299,10 +315,10 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
 
     contract_helper.prove_func(
-        &main_circuits, 
-        &mut mgr, 
-        0, 
-        "simple_transfer", 
+        &main_circuits,
+        &mut mgr,
+        0,
+        "simple_transfer",
         vec![
             GoldilocksField::from_noncanonical_u64(1),
             GoldilocksField::from_noncanonical_u64(100),
@@ -324,7 +340,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
          new_nonce,
          wallet.circuit.get_fingerprint(),
          public_key_param,
-        signature_proof, 
+        signature_proof,
          wallet.circuit.get_verifier_config_ref().to_owned()
     )?;
     timer.lap("Proved End Cap for UPS Session 🎉");
@@ -334,7 +350,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     //main_circuits.ups_end_cap.circuit_data.verify(end_cap_proof)?;
     timer.lap("✅ Verified End Cap Proof");
 
-/* 
+/*
     let user_a_api_input = SubmitUserEndCapProofAPIInput{
         input: mgr.get_api_input()?,
         proof: end_cap_proof,
@@ -359,8 +375,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &coordinator_worker_circuits,
         &proof_verifier.library,
     ).await?;
-    
-    
+
+
     let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
     println!("rr: {:?}",realm_result);
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
@@ -398,6 +414,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("finished jobs");
 
+    txn.commit()?;
     Ok(())
 }
 #[tokio::main]

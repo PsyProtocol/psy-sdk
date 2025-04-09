@@ -1,32 +1,37 @@
 use kvq::traits::{KVQBinaryStoreReader, KVQBinaryStoreWriter, KVQPair};
-use reth_libmdbx::{Cursor, Database, Environment, Transaction, WriteFlags, RO, RW};
+use reth_libmdbx::{
+    Cursor, Database, Environment, Transaction, TransactionKind, WriteFlags, RO, RW,
+};
 use std::ops::RangeInclusive;
 
-pub struct KVQlibmdbxStore {
-    env: Environment,
+pub struct KVQlibmdbxStore<K: TransactionKind> {
+    txn: Transaction<K>,
     db: Database,
 }
 
-impl KVQlibmdbxStore {
-    pub fn new(env: Environment, db: Database) -> Self {
-        Self { env, db }
+impl<K: TransactionKind> KVQlibmdbxStore<K> {
+    pub fn new(txn: Transaction<K>, db: Option<&str>) -> anyhow::Result<Self> {
+        Ok(Self {
+            db: txn.open_db(db)?,
+            txn,
+        })
     }
 }
 
-impl KVQBinaryStoreReader for KVQlibmdbxStore {
+impl<K: TransactionKind> KVQBinaryStoreReader for KVQlibmdbxStore<K> {
     fn get_exact(&self, key: &Vec<u8>) -> anyhow::Result<Vec<u8>> {
-        let txn = self.env.begin_ro_txn()?;
-        let value = txn
+        let value = self
+            .txn
             .get::<Vec<u8>>(self.db.dbi(), key.as_slice())?
             .ok_or(anyhow::anyhow!("Key not found"))?;
         Ok(value)
     }
 
     fn get_many_exact(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<Vec<u8>>> {
-        let txn = self.env.begin_ro_txn()?;
         let mut result = Vec::with_capacity(keys.len());
         for key in keys {
-            let value = txn
+            let value = self
+                .txn
                 .get::<Vec<u8>>(self.db.dbi(), key.as_slice())?
                 .ok_or(anyhow::anyhow!("Key not found"))?;
             result.push(value);
@@ -49,8 +54,7 @@ impl KVQBinaryStoreReader for KVQlibmdbxStore {
             base_key[key_len - i - 1] = 0;
         }
 
-        let txn = self.env.begin_ro_txn()?;
-        let mut cursor = txn.cursor(&self.db)?;
+        let mut cursor = self.txn.cursor(&self.db)?;
         let range = range_to_inclusive(base_key.as_slice(), key_end.as_slice());
 
         let mut last_value = None;
@@ -88,8 +92,7 @@ impl KVQBinaryStoreReader for KVQlibmdbxStore {
             base_key[key_len - i - 1] = 0;
         }
 
-        let txn = self.env.begin_ro_txn()?;
-        let mut cursor = txn.cursor(&self.db)?;
+        let mut cursor = self.txn.cursor(&self.db)?;
         let range = range_to_inclusive(base_key.as_slice(), key_end.as_slice());
 
         let mut last_kv = None;
@@ -135,8 +138,7 @@ impl KVQBinaryStoreReader for KVQlibmdbxStore {
     }
 
     fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>> {
-        let txn = self.env.begin_ro_txn()?;
-        Ok(txn.get::<Vec<u8>>(self.db.dbi(), key.as_slice())?)
+        Ok(self.txn.get::<Vec<u8>>(self.db.dbi(), key.as_slice())?)
     }
 
     fn get_fuzzy_range_leq_kv(
@@ -158,8 +160,7 @@ impl KVQBinaryStoreReader for KVQlibmdbxStore {
             base_key[key_len - i - 1] = 0;
         }
 
-        let txn = self.env.begin_ro_txn()?;
-        let mut cursor = txn.cursor(&self.db)?;
+        let mut cursor = self.txn.cursor(&self.db)?;
         let range = range_to_inclusive(base_key.as_slice(), key_end.as_slice());
 
         let mut result = Vec::new();
@@ -179,24 +180,22 @@ impl KVQBinaryStoreReader for KVQlibmdbxStore {
     }
 }
 
-impl KVQBinaryStoreWriter for KVQlibmdbxStore {
+impl KVQBinaryStoreWriter for KVQlibmdbxStore<RW> {
     fn set(&mut self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()> {
         self.set_ref(&key, &value)
     }
 
     fn set_ref(&mut self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()> {
-        let txn = self.env.begin_rw_txn()?;
-        txn.put(self.db.dbi(), key, value, WriteFlags::empty())?;
-        txn.commit()?;
+        self.txn
+            .put(self.db.dbi(), key, value, WriteFlags::empty())?;
         Ok(())
     }
 
     fn set_many_ref(&mut self, items: &[KVQPair<&Vec<u8>, &Vec<u8>>]) -> anyhow::Result<()> {
-        let txn = self.env.begin_rw_txn()?;
         for item in items {
-            txn.put(self.db.dbi(), item.key, item.value, WriteFlags::empty())?;
+            self.txn
+                .put(self.db.dbi(), item.key, item.value, WriteFlags::empty())?;
         }
-        txn.commit()?;
         Ok(())
     }
 
@@ -213,20 +212,16 @@ impl KVQBinaryStoreWriter for KVQlibmdbxStore {
     }
 
     fn delete(&mut self, key: &Vec<u8>) -> anyhow::Result<bool> {
-        let txn = self.env.begin_rw_txn()?;
-        let removed = txn.del(self.db.dbi(), key, None)?;
-        txn.commit()?;
+        let removed = self.txn.del(self.db.dbi(), key, None)?;
         Ok(removed)
     }
 
     fn delete_many(&mut self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>> {
-        let txn = self.env.begin_rw_txn()?;
         let mut results = Vec::with_capacity(keys.len());
         for key in keys {
-            let removed = txn.del(self.db.dbi(), key, None)?;
+            let removed = self.txn.del(self.db.dbi(), key, None)?;
             results.push(removed);
         }
-        txn.commit()?;
         Ok(results)
     }
 
@@ -236,11 +231,10 @@ impl KVQBinaryStoreWriter for KVQlibmdbxStore {
                 "Keys and values must be of the same length"
             ));
         }
-        let txn = self.env.begin_rw_txn()?;
         for (key, value) in keys.iter().zip(values.iter()) {
-            txn.put(self.db.dbi(), key, value, WriteFlags::empty())?;
+            self.txn
+                .put(self.db.dbi(), key, value, WriteFlags::empty())?;
         }
-        txn.commit()?;
         Ok(())
     }
 }

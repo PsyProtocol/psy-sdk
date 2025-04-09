@@ -113,9 +113,11 @@ redis = { version = "^0.25", default-features = false, features = ["acl", "keep-
 fred = "10.0.4"
 
 reth-mdbx-sys = { path = "./kvq_store_lmdbx/libmdbx-rs/mdbx-sys" }
+reth-libmdbx = { path = "./kvq_store_lmdbx/libmdbx-rs" }
 criterion = "0.5"
 pprof = "0.14"
 tempfile = "3.19"
+kvq_store_lmdbx = { path = "./kvq_store_lmdbx" }
 
 [patch.'https://github.com/0xPolygonZero/plonky2.git']
 plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c" }
