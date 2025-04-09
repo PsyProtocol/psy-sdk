@@ -8,6 +8,7 @@ pub struct CheckedPathNode {
     pub root: Option<TypeId>,
     pub target: IdentId,
     pub type_id: TypeId,
+    pub trait_ty: Option<TypeId>,
     pub location: Location,
 }
 
@@ -17,6 +18,7 @@ impl CheckedPathNode {
         root: Option<TypeId>,
         target: IdentId,
         type_id: TypeId,
+        trait_ty: Option<TypeId>,
         location: Location,
     ) -> Self {
         Self {
@@ -24,6 +26,7 @@ impl CheckedPathNode {
             root,
             target,
             type_id,
+            trait_ty,
             location,
         }
     }

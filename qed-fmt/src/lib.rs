@@ -134,6 +134,13 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
                     self.visit_return_type(&sig.return_type, ctx),
                 )
             }
+            UncheckedType::TraitCast(type_path, trait_path, _) => {
+                format!(
+                    "<{} as {}>",
+                    self.visit_unchecked_type(type_path, false, ctx),
+                    self.visit_unchecked_type(trait_path, false, ctx),
+                )
+            }
         }
     }
 

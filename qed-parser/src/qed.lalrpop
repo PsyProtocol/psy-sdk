@@ -1017,7 +1017,8 @@ PathRoot: UncheckedType = {
     BasicType,
     "<" <root: ArrayType> ">"   => root,
     "<" <root: TupleType> ">"   => root,
-    "<" <root: GenericType> ">" => root
+    "<" <root: GenericType> ">" => root,
+    <l:@L> "<" <ty:Ty> AS <trait_ty:Ty> ">" <r:@R> => UncheckedType::TraitCast(Box::new(ty), Box::new(trait_ty), Location::new(file_id, l, r)),
 }
 
 Identifier: Identifier = {

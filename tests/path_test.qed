@@ -1,0 +1,60 @@
+pub struct FeltNumber {
+    pub a: Felt,
+    pub b: Felt,
+}
+
+pub struct Number<T> {
+    pub a: T,
+    pub b: T,
+}
+
+pub trait Mul {
+    pub fn mul(self: Self) -> Felt;
+}
+
+pub trait Mul2 {
+    pub fn mul(self: Self) -> Felt;
+}
+
+impl<T> Mul for Number<T> {
+    pub fn mul(self: Self) -> Felt {
+        return (self.a * self.b) as Felt;
+    }
+}
+
+impl<T> Mul2 for Number<T> {
+    pub fn mul(self: Self) -> Felt {
+        return (2 * self.a * self.b) as Felt;
+    }
+}
+
+impl Mul for FeltNumber {
+    pub fn mul(self: Self) -> Felt {
+        return (self.a * self.b) as Felt;
+    }
+}
+
+impl Mul2 for FeltNumber {
+    pub fn mul(self: Self) -> Felt {
+        return (2 * self.a * self.b) as Felt;
+    }
+}
+
+fn main() {
+    let num = new Number#<Felt> {
+        a: 1,
+        b: 2,
+    };
+    let res = <Number<Felt> as Mul>::mul(num);
+    assert_eq(res, 2, "res != 2");
+    let res2 = <Number<Felt> as Mul2>::mul(num);
+    assert_eq(res2, 4, "res != 4");
+    let raw_num = new FeltNumber {
+        a: 1,
+        b: 2,
+    };
+    let rres = <FeltNumber as Mul>::mul(raw_num);
+    assert_eq(rres, 2, "res != 2");
+    let rres2 = <FeltNumber as Mul2>::mul(raw_num);
+    assert_eq(rres2, 4, "res != 4");
+}

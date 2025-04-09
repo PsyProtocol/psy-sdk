@@ -25,6 +25,10 @@ impl ImplementerCtxt {
             functions: IndexMap::new(),
         }
     }
+
+    pub fn impl_ids(&self) -> &IndexMap<TypeId, IndexMap<Constraint, IndexSet<DefId>>> {
+        &self.impl_ids
+    }
 }
 
 pub trait Implementer<F: Clone + From<u32> + ContextFelt, C> {
@@ -46,6 +50,13 @@ pub trait Implementer<F: Clone + From<u32> + ContextFelt, C> {
     fn find_member(
         &mut self,
         ty: TypeId,
+        method: IdentId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<TypeId>;
+    fn find_trait_cast_member(
+        &mut self,
+        ty: TypeId,
+        trait_ty: TypeId,
         method: IdentId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId>;
@@ -315,6 +326,74 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         }
 
         return Err(anyhow!("method not found").into());
+    }
+
+    fn find_trait_cast_member(
+        &mut self,
+        ty: TypeId,
+        trait_ty: TypeId,
+        member: IdentId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<TypeId> {
+        let poly_ty = self.poly_of(ty, ctx).unwrap();
+        let generic_parameters = ctx.symbols[ty].generic_parameters();
+
+        let get_trait_impl_member_id = |poly_ty: TypeId,
+                                        trait_ty: TypeId,
+                                        ctx: &mut TypeCheckerVisitorContext<F, C>|
+         -> Option<_> {
+            let impl_map = self.implementer.impl_ids.get(&poly_ty)?;
+            let constraint = Constraint::new(generic_parameters.clone());
+
+            let mut get_result = |impl_set: &IndexSet<DefId>| {
+                for &impl_id in impl_set {
+                    if let Some(impl_node) = self.program[impl_id].as_trait_impl() {
+                        if self.poly_of(impl_node.trait_ty, ctx) != self.poly_of(trait_ty, ctx) {
+                            continue;
+                        }
+
+                        if let Some(function_idx) = impl_node.body.iter().position(|&function_id| {
+                            self.program[function_id].as_function().unwrap().name == member
+                        }) {
+                            if ctx
+                                .symbols
+                                .get_type_id(None, ctx.symbols[trait_ty].name())
+                                .is_none()
+                            {
+                                return None;
+                            } else {
+                                return Some(
+                                    self.program[impl_node.body[function_idx]]
+                                        .as_function()
+                                        .unwrap()
+                                        .type_id,
+                                );
+                            }
+                        }
+                    }
+                }
+                None
+            };
+
+            if let Some(impl_set) = impl_map.get(&constraint) {
+                if let Some(member_type_id) = get_result(impl_set) {
+                    return Some(member_type_id);
+                }
+            }
+
+            for (_constraint, impl_set) in impl_map.iter() {
+                if let Some(member_type_id) = get_result(impl_set) {
+                    return Some(member_type_id);
+                }
+            }
+            None
+        };
+
+        if let Some(member_ty_id) = get_trait_impl_member_id(poly_ty, trait_ty, ctx) {
+            return Ok(member_ty_id);
+        }
+
+        return Err(anyhow!("trait method not found").into());
     }
 
     fn find_associated_type(

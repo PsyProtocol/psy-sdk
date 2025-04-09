@@ -2677,6 +2677,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
                 ctx.symbols.get_or_add_type(None, ty.key(), ty)?
             }
+            UncheckedType::TraitCast(ty, _trait_ty, _) => self.typecheck(ty, ctx)?,
         };
 
         let is_self_type = ty.is_basic() && ty.as_basic().unwrap().target.id == IdentId::TYPE_SELF;

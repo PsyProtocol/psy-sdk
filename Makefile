@@ -63,6 +63,7 @@ test:
 	@$(DARGO_CLI_EXECUTE) match_test.qed --parameters 100
 	@$(DARGO_CLI_EXECUTE) if_test.qed
 	@$(DARGO_CLI_EXECUTE) block_test.qed
+	@$(DARGO_CLI_EXECUTE) path_test.qed
 	@$(DARGO_CLI_EXECUTE) basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 133700 --parameters 2,1000
 	@$(DARGO_CLI_EXECUTE) basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters=2,100
 	@$(DARGO_CLI_EXECUTE) token.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
