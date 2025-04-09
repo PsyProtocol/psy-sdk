@@ -138,6 +138,7 @@ ident_ids!(
     DERIVE => "derive", // 15
     NEW => "new",
     TEST => "test",
+    SHOULD_PANIC => "should_panic",
 
     T => "T",
     N => "N"
@@ -234,6 +235,7 @@ mod tests {
             (IdentId::DERIVE, "derive"),
             (IdentId::NEW, "new"),
             (IdentId::TEST, "test"),
+            (IdentId::SHOULD_PANIC, "should_panic"),
             (IdentId::T, "T"),
             (IdentId::N, "N"),
         ];

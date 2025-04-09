@@ -2,10 +2,13 @@ use qed_dargo_toml::errors::ManifestError;
 use std::path::PathBuf;
 use thiserror::Error;
 
-pub(crate) type Result<T> = std::result::Result<T, CliError>;
+pub type Result<T> = std::result::Result<T, CliError>;
 
 #[derive(Debug, Error)]
-pub(crate) enum CliError {
+pub enum CliError {
+    #[error("{0}")]
+    Generic(String),
+
     /// Error from Manifest
     #[error(transparent)]
     ManifestError(#[from] ManifestError),

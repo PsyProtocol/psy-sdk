@@ -20,9 +20,14 @@ struct PackageConfig {
     dependencies: BTreeMap<String, DependencyConfig>,
 }
 
-const STD_GIT_PATH: &str = "https://github.com/QEDProtocol/qed-lang";
+const STD_GIT_PATH_HTTPS: &str = "https://github.com/QEDProtocol/qed-lang";
+
+const STD_GIT_PATH_SSH: &str = "git@github.com:QEDProtocol/qed-lang.git";
+
+//If you need to specify a version, use this tag instead of TAG_LATEST
 const STD_TAG: &str = "v0.0.1-rc";
-const STD_DIR: &str = "qed-std/std.qed";
+const TAG_LATEST: &str = "latest";
+const STD_FILE: &str = "qed-std/std.qed";
 
 impl PackageConfig {
     fn resolve_to_package(
@@ -41,15 +46,13 @@ impl PackageConfig {
                 toml: root_dir.join("Dargo.toml"),
             });
         };
-
         if std::env::var("DARGO_STD_PATH").is_err() {
-            let qed_path =
-                clone_git_repo(STD_GIT_PATH, STD_TAG).map_err(ManifestError::GitError)?;
+            let qed_path = try_clone_std(TAG_LATEST)?;
+
             unsafe {
-                std::env::set_var("DARGO_STD_PATH", qed_path.join(STD_DIR));
+                std::env::set_var("DARGO_STD_PATH", qed_path.join(STD_FILE));
             }
         }
-
         let mut dependencies: BTreeMap<CrateName, Dependency> = BTreeMap::new();
         for (name, dep_config) in self.dependencies.iter() {
             let name = name
@@ -117,6 +120,26 @@ impl PackageConfig {
     }
 }
 
+
+pub(crate) fn try_clone_std(tag: &str) -> Result<PathBuf, ManifestError> {
+    // Try to clone the repository using HTTPS
+    match clone_git_repo(STD_GIT_PATH_HTTPS, tag) {
+        Ok(path) => return Ok(path),
+        Err(e) => eprintln!("[QED] HTTPS clone failed: {}", e),
+    }
+
+    // fallback to SSH if HTTPS clone fails
+    match clone_git_repo(STD_GIT_PATH_SSH, tag) {
+        Ok(path) => Ok(path),
+        Err(e) => {
+            eprintln!("[QED] SSH clone failed: {}", e);
+            Err(ManifestError::GitError(format!(
+                "Both HTTPS and SSH clone failed for qed-std (tag = {})",
+                tag
+            )))
+        }
+    }
+}
 #[derive(Default, Debug, Deserialize, Clone)]
 #[allow(dead_code)]
 struct PackageMetadata {

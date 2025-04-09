@@ -32,7 +32,8 @@ compile:
 DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --package dargo execute --debug --entry-path
 test:
 	@RUST_LOG=${LOG_LEVE} cargo test --release -- --nocapture
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package dargo test --file tests/test.qed
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package dargo test --file tests/in_mod_attr_test.qed
+	@RUST_LOG=${LOG_LEVE} cargo run --release --package dargo test --file tests/should_panic_test.qed
 
 	@$(DARGO_CLI_EXECUTE) assert_test.qed --parameters 2,3
 	@$(DARGO_CLI_EXECUTE) ctx_test.qed --parameters 2,3
@@ -64,6 +65,7 @@ test:
 	@$(DARGO_CLI_EXECUTE) if_test.qed
 	@$(DARGO_CLI_EXECUTE) block_test.qed
 	@$(DARGO_CLI_EXECUTE) path_test.qed
+	@$(DARGO_CLI_EXECUTE) should_panic_test.qed --parameters 2,3
 	@$(DARGO_CLI_EXECUTE) basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 133700 --parameters 2,1000
 	@$(DARGO_CLI_EXECUTE) basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters=2,100
 	@$(DARGO_CLI_EXECUTE) token.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100

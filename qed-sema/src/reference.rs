@@ -52,7 +52,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
         self.reference_graph
             .add_edge(reference_index, referenced_index, ());
         self.location_indices
-            .add_location(reference_location, reference_index);
+            .insert_span(reference_location, reference_index);
     }
 
     pub fn find_all_references(
@@ -138,7 +138,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
     }
 
     pub fn find_referenced(&self, location: Location) -> Option<ReferenceId> {
-        let node_index = self.location_indices.get_node_from_location(location)?;
+        let node_index = self.location_indices.resolve_node_at(location)?;
         let reference_node = self.reference_graph[node_index];
 
         if let ReferenceId::Reference(_, _) = reference_node {
@@ -199,8 +199,9 @@ pub(crate) struct LocationIndices {
 }
 
 impl LocationIndices {
-    pub(crate) fn add_location(&mut self, location: Location, node_index: PetGraphIndex) {
-        // Some location spans are empty: maybe they are from fictitious nodes?
+    /// Insert a node's source code span into the file-specific range map.
+    pub(crate) fn insert_span(&mut self, location: Location, node_index: PetGraphIndex) {
+        // Skip empty spans, which may come from synthetic or placeholder nodes.
         if location.start == location.end {
             return;
         }
@@ -209,9 +210,29 @@ impl LocationIndices {
         range_map.insert(location.start..location.end, node_index);
     }
 
-    pub(crate) fn get_node_from_location(&self, location: Location) -> Option<PetGraphIndex> {
-        let range_map = self.map_file_to_range.get(&location.file_id)?;
-        Some(*range_map.get(&location.start)?)
+    /// Find the graph node index corresponding to a given source location.
+    ///
+    /// This is typically used during `goto definition` or `find references`.
+    /// It tolerates off-by-one errors caused by cursor positions being placed
+    /// immediately after the end of a word (e.g., clicking after an identifier).
+    pub(crate) fn resolve_node_at(&self, location: Location) -> Option<PetGraphIndex> {
+        // Retrieve the range map for the given file.
+        let range_table = self.map_file_to_range.get(&location.file_id)?;
+
+        // Try exact match on the starting byte offset.
+        if let Some(index) = range_table.get(&location.start) {
+            return Some(*index);
+        }
+
+        // Fault-tolerance: if the cursor is just after a valid token (e.g., end of a word),
+        // try matching the previous byte.
+        if location.start > 0 {
+            if let Some(index) = range_table.get(&(location.start - 1)) {
+                return Some(*index);
+            }
+        }
+
+        None
     }
 }
 

@@ -1,10 +1,10 @@
-mod math{
+mod math {
     pub fn max(a: Felt, b: Felt) -> Felt {
         return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
     }
-
+    
     pub fn min(a: Felt, b: Felt) -> Felt {
-        return a * ((a < b) as Felt) + b * ((a >=b) as Felt);
+        return a * ((a < b) as Felt) + b * ((a >= b) as Felt);
     }
 }
 
@@ -16,7 +16,7 @@ trait PersonLike {
 
 struct Person {
     pub age_height: ([Felt; 2], [Felt; 2]),
-    pub year_of_birth: Felt
+    pub year_of_birth: Felt,
 }
 
 impl PersonLike for Person {
@@ -28,30 +28,25 @@ impl PersonLike for Person {
 struct Family {
     father: Person,
     mother: Person,
-    pub children: [Person; 2]
+    pub children: [Person; 2],
 }
 
 impl Person {
     pub fn set_age(mut self: Person, new_age: Felt) {
         self.age_height.0[0] = new_age;
     }
-
     pub fn get_age(self: Person) -> Felt {
         return self.age_height.0[0];
     }
-
     pub fn set_height(mut self: Person, new_height: Felt) {
         self.age_height.0[1] = new_height;
     }
-
     pub fn get_height(self: Person) -> Felt {
         return self.age_height.0[1];
     }
-
     pub fn get_year_of_birth(self: Person) -> Felt {
         return self.year_of_birth;
     }
-
     pub fn set_year_of_birth(mut self: Person, new_year_of_birth: Felt) {
         self.year_of_birth = new_year_of_birth;
     }
@@ -60,46 +55,39 @@ impl Person {
 struct ContractStorage {
     a: Felt,
     b: [Felt; 2],
-    c: Person
+    c: Person,
 }
 
 fn main() {
     let a: Felt = 1;
     let b: Felt = 2;
-
     let c: Felt = (a + b);
     let mut d: [[Felt; 2]; 2] = [[a, b], [a, b]];
     d[0] = [a + 1, b + 1];
     d[0][0] = c;
     let e: Felt = d[0][1];
-
     let t: bool = a as bool;
     let f: bool = false;
-
     let t_eq_f: bool = f == t;
     let t_neq_f: bool = f != t;
-
     let r: bool = !t && f;
-
     fn max_2(a: Felt, b: Felt) -> Felt {
         return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
     }
+
     let min_a_b: Felt = min(a, b);
     let max2_a_b: Felt = max_2(a, b);
-
-    let person: Person = new Person{
+    let person: Person = new Person {
         year_of_birth: 1990,
-        age_height: ([1, 1], [1, 1])
+        age_height: ([1, 1], [1, 1]),
     };
     let mut persons: [Person; 1] = [person];
     persons[0] = person;
-
-    let family: Family = new Family{
+    let family: Family = new Family {
         father: person,
         mother: person,
-        children: [person, person]
+        children: [person, person],
     };
-
     person.set_age(10);
     person.set_height(20);
     person.set_year_of_birth(2000);

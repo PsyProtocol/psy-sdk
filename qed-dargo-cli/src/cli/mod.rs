@@ -1,4 +1,5 @@
 mod compile_cmd;
+mod complete_cmd;
 mod execute_cmd;
 mod fmt_cmd;
 mod init_cmd;
@@ -23,6 +24,7 @@ pub(crate) fn start_cli() -> Result<()> {
         DargoCommand::Execute(args) => with_workspace(args, config, execute_cmd::run),
         DargoCommand::Test(args) => test_cmd::run(args),
         DargoCommand::Fmt(args) => fmt_cmd::run(args),
+        DargoCommand::Complete(args) => complete_cmd::run(args),
     }?;
     Ok(())
 }
@@ -47,6 +49,7 @@ enum DargoCommand {
     Execute(execute_cmd::ExecuteCommand),
     Test(test_cmd::TestCommand),
     Fmt(fmt_cmd::FmtCommand),
+    Complete(complete_cmd::CompleteCommand),
 }
 
 #[derive(Args, Clone, Debug)]
@@ -88,8 +91,8 @@ where
 
 #[derive(Clone, Debug)]
 pub struct EntryManager {
-    entry: PathBuf,
-    dependencies_entries: HashSet<PathBuf>,
+    pub entry: PathBuf,
+    pub dependencies_entries: HashSet<PathBuf>,
 }
 
 impl EntryManager {
@@ -105,7 +108,7 @@ impl EntryManager {
     }
 }
 
-fn resolve_entries(workspace: &Workspace, entry_path: Option<PathBuf>) -> Result<EntryManager> {
+pub fn resolve_entries(workspace: &Workspace, entry_path: Option<PathBuf>) -> Result<EntryManager> {
     let package = workspace.package.clone();
     let package_entry_path = match entry_path {
         Some(entry_path) => entry_path,

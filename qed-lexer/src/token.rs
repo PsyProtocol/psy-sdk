@@ -288,7 +288,7 @@ mod tests {
     #[test]
     fn test_lex_from_file() -> io::Result<()> {
         // 1. read file content
-        let mut file = File::open(PathBuf::from("../tests/003.qed"))?;
+        let mut file = File::open(PathBuf::from("../tests/struct_fn_call_test.qed"))?;
         let mut content = String::new();
         file.read_to_string(&mut content)?;
 

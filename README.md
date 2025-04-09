@@ -18,7 +18,7 @@
 - Type Hint
 - Trait Constraint
 - Crate
-- Dargo
+- Dargo (init, compile, execute, test, format)
 - LSP
 - Error reporting with precise line and column information
 
