@@ -6,6 +6,9 @@ pub type Result<T> = std::result::Result<T, CliError>;
 
 #[derive(Debug, Error)]
 pub enum CliError {
+    #[error("{0}")]
+    Generic(String),
+
     /// Error from Manifest
     #[error(transparent)]
     ManifestError(#[from] ManifestError),
