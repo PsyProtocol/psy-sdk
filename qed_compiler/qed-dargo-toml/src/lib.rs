@@ -120,7 +120,6 @@ impl PackageConfig {
     }
 }
 
-
 pub(crate) fn try_clone_std(tag: &str) -> Result<PathBuf, ManifestError> {
     // Try to clone the repository using HTTPS
     match clone_git_repo(STD_GIT_PATH_HTTPS, tag) {
