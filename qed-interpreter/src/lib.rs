@@ -1572,7 +1572,11 @@ mod tests {
             writer.write_all(formatted_content.as_bytes()).unwrap();
             writer.flush().unwrap();
 
-            assert!(interpreter.typecheck(entry.clone(), vec![]).is_ok());
+            assert!(
+                interpreter.typecheck(entry.clone(), vec![]).is_ok(),
+                "{}",
+                entry.display()
+            );
 
             #[allow(static_mut_refs)]
             unsafe {

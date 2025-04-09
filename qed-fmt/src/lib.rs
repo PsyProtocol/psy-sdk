@@ -422,7 +422,15 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 let name = ctx.ident(name);
                 let generic_parameters =
                     self.visit_unchecked_generic_parameters(&generic_parameters, ctx);
-                let mut result = format!("new {}{} {{\n", name, generic_parameters);
+                let mut result = format!(
+                    "new {}{} {{\n",
+                    name,
+                    if generic_parameters.is_empty() {
+                        "".to_string()
+                    } else {
+                        format!("#{}", generic_parameters)
+                    }
+                );
 
                 for (field, value) in field_values {
                     result.push_str(&self.read_indent(1));
@@ -962,12 +970,16 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         self.dedent();
 
         Ok(format!(
-            "{}{}trait {}{} {{\n{}\n{}{}}}",
+            "{}{}trait {}{} {{\n{}{}{}}}",
             comments_content,
             self.visit_visibility(&visibility),
             trait_name,
             generic_parameters,
-            associated_types,
+            if associated_types.is_empty() {
+                "".to_string()
+            } else {
+                format!("{}\n", associated_types)
+            },
             body_content,
             self.read_indent(0),
         ))
