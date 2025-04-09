@@ -46,8 +46,23 @@ impl<F: ContextFelt> QRuntimeContext<F> {
 
 
 impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
+    fn get_constant_value(&self, a: F) -> u64 {
+        a.get_u64()
+    }
+    fn get_op_type(&self, a: F) -> DPNOpType {
+        unimplemented!()
+    }
+
     fn op_cast_u32(&mut self, a: F) -> F {
         a&0xFFFFFFFFu64
+    }
+
+    fn op_cast_felt(&mut self, a: F) -> F {
+        a&0xFFFFFFFFu64
+    }
+
+    fn op_cast_bool(&mut self, a: F) -> F {
+        unimplemented!()
     }
 
     fn op_select(&mut self, condition: F, a: F, b: F) -> F {
@@ -60,6 +75,10 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
 
     fn op_const(&mut self, value: u64) -> F {
         F::cns(value%GoldilocksField::ORDER)
+    }
+
+    fn op_const_u32(&mut self, value: u32) -> F {
+        F::cns(value as u64)
     }
 
     fn op_bool_not(&mut self, a: F) -> F {
@@ -101,11 +120,29 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     fn op_div(&mut self, a: F, b: F) -> F {
         self.op_std_binary_op(DPNOpType::Div, a, b)
     }
+    fn op_u32_add(&mut self, a: F, b: F) -> F {
+        self.op_std_binary_op(DPNOpType::Add, a, b)
+    }
+    fn op_u32_sub(&mut self, a: F, b: F) -> F {
+        self.op_std_binary_op(DPNOpType::Sub, a, b)
+    }
+    fn op_u32_mul(&mut self, a: F, b: F) -> F {
+        self.op_std_binary_op(DPNOpType::Mul, a, b)
+    }
+    fn op_u32_div(&mut self, a: F, b: F) -> F {
+        self.op_std_binary_op(DPNOpType::Div, a, b)
+    }
     fn op_mod(&mut self, a: F, b: F) -> F {
         self.op_std_binary_op(DPNOpType::Mod, a, b)
     }
     fn op_exp(&mut self, a: F, b: F) -> F {
         self.op_std_binary_op(DPNOpType::Exp, a, b)
+    }
+    fn op_u32_mod(&mut self, a: F, b: F) -> F {
+        self.op_std_binary_op_u32(DPNOpType::U32Mod, a, b)
+    }
+    fn op_u32_exp(&mut self, a: F, b: F) -> F {
+        self.op_std_binary_op_u32(DPNOpType::U32Exp, a, b)
     }
     fn op_eq(&mut self, a: F, b: F) -> F {
         self.op_std_binary_op(DPNOpType::Eq, a, b)
@@ -159,6 +196,14 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
 
     fn add_input(&mut self) -> F {
         panic!("add_input not implemented in QRuntimeContext")
+    }
+
+    fn add_u32_input(&mut self) -> F {
+        panic!("add_u32_input not implemented in QRuntimeContext")
+    }
+
+    fn add_bool_input(&mut self) -> F {
+        panic!("add_bool_input not implemented in QRuntimeContext")
     }
 
     fn add_inputs(&mut self, _count: u64) -> Vec<F> {

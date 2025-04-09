@@ -223,6 +223,7 @@ impl ContextEval for SymFeltStore {
                 },
                 DPNOpType::CastU32 => {
                     let value = self.resolve_unary_felt_arg(felt_ref, input, cache);
+                    assert!(value < 0xffffffffu64, "invalid u32 value");
                     value & 0xFFFFFFFFu64
                 },
                 DPNOpType::U32And => {
@@ -272,6 +273,60 @@ impl ContextEval for SymFeltStore {
                 DPNOpType::GetStateCommandResultHash => todo!(),
                 DPNOpType::GetStateCommandResultSingle => todo!(),
                 DPNOpType::GetStateCommandResultArray => todo!(),
+                DPNOpType::U32InputTarget => input.get_input(felt_ref.get_input_index()),
+                DPNOpType::ConstantU32 => felt_ref.get_constant_value(),
+                DPNOpType::U32Add => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    assert!(a < 0xffffffffu64, "a is too large");
+                    assert!(b < 0xffffffffu64, "b is too large");
+                    assert!(a + b < 0xffffffffu64, "a + b is too large");
+                    (a + b) & 0xffffffffu64
+                }
+                DPNOpType::U32Sub => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    assert!(a < 0xffffffffu64, "a is too large");
+                    assert!(b < 0xffffffffu64, "b is too large");
+                    assert!(a > b , "a - b < 0");
+                    (a - b) & 0xffffffffu64
+                }
+                DPNOpType::U32Mul => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    assert!(a < 0xffffffffu64, "a is too large");
+                    assert!(b < 0xffffffffu64, "b is too large");
+                    assert!(a * b < 0xffffffffu64, "a * b is too large");
+                    (a * b) & 0xffffffffu64
+                }
+                DPNOpType::U32Div => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    assert!(a < 0xffffffffu64, "a is too large");
+                    assert!(b < 0xffffffffu64, "b is too large");
+                    assert!(a / b < 0xffffffffu64, "a / b is too large");
+                    (a / b) & 0xffffffffu64
+                }
+                DPNOpType::CastFelt => {
+                    let value = self.resolve_unary_felt_arg(felt_ref, input, cache);
+                    value
+                }
+                DPNOpType::CastBool => {
+                    let value = self.resolve_unary_felt_arg(felt_ref, input, cache);
+                    assert!(value <= 1, "bool value must be 0 or 1");
+                    (value != 0) as u64
+                }
+                DPNOpType::BoolInputTarget => input.get_input(felt_ref.get_input_index()),
+                DPNOpType::U32Mod => {
+                    let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
+                    assert!(b != 0, "b must be non-zero");
+                    a % b
+                }
+                DPNOpType::U32Exp => {
+                    let (base, exponent) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
+                    assert!(base.to_canonical_u64() < 0xffffffffu64, "a is too large");
+                    assert!(exponent.to_canonical_u64() < 0xffffffffu64, "b is too large");
+                    
+                    let res = base.exp_u64(exponent.to_canonical_u64()).to_canonical_u64();
+                    assert!(res < 0xffffffffu64, "u32 exp result is too large");
+                    res
+                }
             };
             result
         }

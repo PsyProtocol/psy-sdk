@@ -89,9 +89,17 @@ pub enum DPNOpType {
 
     UnaryInverse = 64,
     UnaryNegative = 65,
-
-
-
+    U32InputTarget = 66,
+    ConstantU32 = 67,
+    U32Add = 68,
+    U32Sub = 69,
+    U32Mul = 70,
+    U32Div = 71,
+    CastFelt = 72,
+    CastBool = 73,
+    BoolInputTarget = 74,
+    U32Mod = 75,
+    U32Exp = 76,
 }
 
 impl From<u16> for DPNOpType {
@@ -154,6 +162,17 @@ impl From<u16> for DPNOpType {
             55 => DPNOpType::GetStateCommandResultArray,
             64 => DPNOpType::UnaryInverse,
             65 => DPNOpType::UnaryNegative,
+            66 => DPNOpType::U32InputTarget,
+            67 => DPNOpType::ConstantU32,
+            68 => DPNOpType::U32Add,
+            69 => DPNOpType::U32Sub,
+            70 => DPNOpType::U32Mul,
+            71 => DPNOpType::U32Div,
+            72 => DPNOpType::CastFelt,
+            73 => DPNOpType::CastBool,
+            74 => DPNOpType::BoolInputTarget,
+            75 => DPNOpType::U32Mod,
+            76 => DPNOpType::U32Exp,
             _ => panic!("Unknown DPNOpType: {}", value),
         }
     }
@@ -186,6 +205,12 @@ impl DPNOpType {
             DPNOpType::U32ShiftRight => (a>>b)&0xffffffffu64,
             DPNOpType::BoolAnd => (a&b)&1,
             DPNOpType::BoolOr => (a|b)&1,
+            DPNOpType::U32Add => a + b,
+            DPNOpType::U32Sub => a - b,
+            DPNOpType::U32Mul => a * b,
+            DPNOpType::U32Div => a / b,
+            DPNOpType::U32Mod => a % b,
+            DPNOpType::U32Exp => (GoldilocksField::from_canonical_u64(a).exp_u64(b)).to_canonical_u64(),
             _ => panic!("DPNOpType::eval_binary_constant not implemented for {:?}", self),
         }
     }
@@ -257,6 +282,17 @@ impl DPNOpType {
             DPNOpType::GetStateCommandResultArray => DPNBuiltInDataType::TargetArray,
             DPNOpType::UnaryInverse => DPNBuiltInDataType::Target,
             DPNOpType::UnaryNegative => DPNBuiltInDataType::Target,
+            DPNOpType::U32InputTarget => DPNBuiltInDataType::U32Target,
+            DPNOpType::ConstantU32 => DPNBuiltInDataType::U32Target,
+            DPNOpType::U32Add => DPNBuiltInDataType::U32Target,
+            DPNOpType::U32Sub => DPNBuiltInDataType::U32Target,
+            DPNOpType::U32Mul => DPNBuiltInDataType::U32Target,
+            DPNOpType::U32Div => DPNBuiltInDataType::U32Target,
+            DPNOpType::CastFelt => DPNBuiltInDataType::Target,
+            DPNOpType::CastBool => DPNBuiltInDataType::Bool,
+            DPNOpType::BoolInputTarget => DPNBuiltInDataType::Bool,
+            DPNOpType::U32Mod => DPNBuiltInDataType::U32Target,
+            DPNOpType::U32Exp => DPNBuiltInDataType::U32Target,
         }
     }
     pub fn is_inputless(&self) -> bool{
@@ -371,6 +407,17 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::GetStateCommandResultArray => "GetStateCommandResultArray",
             DPNOpType::UnaryInverse => "UnaryInverse",
             DPNOpType::UnaryNegative => "UnaryNegative",
+            DPNOpType::U32InputTarget => "U32InputTarget",
+            DPNOpType::ConstantU32 => "ConstantU32",
+            DPNOpType::U32Add => "U32Add",
+            DPNOpType::U32Sub => "U32Sub",
+            DPNOpType::U32Mul => "U32Mul",
+            DPNOpType::U32Div => "U32Div",
+            DPNOpType::CastFelt => "CastFelt",
+            DPNOpType::CastBool => "CastBool",
+            DPNOpType::BoolInputTarget => "BoolInputTarget",
+            DPNOpType::U32Mod => "U32Mod",
+            DPNOpType::U32Exp => "U32Exp",
         };
         write!(f, "DPNOpType::{}", r)
     }

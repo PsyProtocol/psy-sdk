@@ -24,6 +24,7 @@ pub struct QExecContext {
     pub state_cmd_store: DPNStateCommandStore,
     pub store: SymFeltStore,
     pub input_count: u64,
+    pub input_types: Vec<DPNBuiltInDataType>,
     pub assertions: Vec<SymRefAssertion>,
     //pub set_state_commands: Vec<SetSymFeltRef>,
     condition_stack: Vec<IfConditionStack>,
@@ -39,6 +40,7 @@ impl QExecContext {
             state_cmd_store: DPNStateCommandStore::new(),
             store: SymFeltStore::new(),
             input_count: 0,
+            input_types: vec![],
             assertions: vec![],
             //set_state_commands: vec![],
             condition_stack: vec![],
@@ -312,9 +314,9 @@ impl QExecContext {
         {
             return a;
         }
-        if op_type == DPNOpType::Add {
-            return self.simplify_add(a, b);
-        }
+        // if op_type == DPNOpType::Add {
+        //     return self.simplify_add(a, b);
+        // }
         let value = SymFeltRefValue {
             op_type,
             const_param: 0,
@@ -330,23 +332,34 @@ impl QExecContext {
     ) -> SymFeltRef {
         let a_type = a.get_op_type();
         let b_type = b.get_op_type();
-        if (a_type == DPNOpType::Constant
-            || a_type == DPNOpType::ConstantTrue
-            || a_type == DPNOpType::ConstantFalse)
-            && (b_type == DPNOpType::Constant
-                || b_type == DPNOpType::ConstantTrue
-                || b_type == DPNOpType::ConstantFalse)
+        if a_type == DPNOpType::ConstantU32
+            && b_type == DPNOpType::ConstantU32
         {
             let a_val = a.get_constant_value();
             let b_val = b.get_constant_value();
-            return self.op_const(op_type.eval_binary_constant(a_val, b_val));
+
+            assert!(a_val <= 0xffffffffu64);
+            assert!(b_val <= 0xffffffffu64);
+            assert!(op_type.eval_binary_constant(a_val, b_val) <= 0xffffffffu64);
+            let res = op_type.eval_binary_constant(a_val, b_val);
+            let return_bool_ops = [
+                DPNOpType::Eq,
+                DPNOpType::Gt,
+                DPNOpType::Gte,
+                DPNOpType::Lt,
+                DPNOpType::Lte,
+            ];
+            if return_bool_ops.contains(&op_type) {
+                return self.op_const(res);
+            }
+            return self.op_const_u32(res as u32);
         }
-        let a_u32 = self.op_cast_u32(a);
-        let b_u32 = self.op_cast_u32(b);
+        // let a_u32 = self.op_cast_u32(a);
+        // let b_u32 = self.op_cast_u32(b);
         let value = SymFeltRefValue {
             op_type,
             const_param: 0,
-            inputs: vec![a_u32, b_u32],
+            inputs: vec![a, b],
         };
         self.store.insert(value)
     }
@@ -385,19 +398,82 @@ impl QExecContext {
     }
 }
 impl DPNContext<SymFeltRef> for QExecContext {
+    fn get_constant_value(&self, a: SymFeltRef) -> u64 {
+        a.get_constant_value()
+    }
+    fn get_op_type(&self, a: SymFeltRef) -> DPNOpType {
+        a.get_op_type()
+    }
     fn op_cast_u32(&mut self, a: SymFeltRef) -> SymFeltRef {
         let op_type = a.get_op_type();
+
         if op_type.get_data_type() == DPNBuiltInDataType::U32Target {
-            a
-        } else if op_type == DPNOpType::Constant
+            return a;
+        }
+
+        if op_type == DPNOpType::Constant
             || op_type == DPNOpType::ConstantTrue
             || op_type == DPNOpType::ConstantFalse
+            || op_type == DPNOpType::ConstantU32
         {
             let value = a.get_constant_value();
-            self.op_const(value & 0xFFFFFFFFu64)
+            assert!(value <= 0xffffffffu64, "invalid u32 value {}", value);
+            self.op_const_u32((value & 0xffffffffu64) as u32)
         } else {
             let value = SymFeltRefValue {
                 op_type: DPNOpType::CastU32,
+                const_param: 0,
+                inputs: vec![a],
+            };
+            self.store.insert(value)
+        }
+    }
+
+    fn op_cast_felt(&mut self, a: SymFeltRef) -> SymFeltRef {
+        let op_type = a.get_op_type();
+
+        if op_type.get_data_type() == DPNBuiltInDataType::Target {
+            return a;
+        }
+
+        if op_type == DPNOpType::Constant
+            || op_type == DPNOpType::ConstantTrue
+            || op_type == DPNOpType::ConstantFalse
+            || op_type == DPNOpType::ConstantU32
+        {
+            self.op_const(a.get_constant_value())
+        } else {
+            let value = SymFeltRefValue {
+                op_type: DPNOpType::CastFelt,
+                const_param: 0,
+                inputs: vec![a],
+            };
+            self.store.insert(value)
+        }
+    }
+    fn op_cast_bool(&mut self, a: SymFeltRef) -> SymFeltRef {
+        let op_type = a.get_op_type();
+        
+        if op_type.get_data_type() == DPNBuiltInDataType::Bool {
+            return a;
+        }
+        
+        if op_type == DPNOpType::Constant
+            || op_type == DPNOpType::ConstantTrue
+            || op_type == DPNOpType::ConstantFalse
+            || op_type == DPNOpType::ConstantU32
+        {
+            let value = a.get_constant_value();
+            if value == 0 {
+                SymFeltRef::constant_false()
+            } else if value == 1{
+                SymFeltRef::constant_true()
+            } else {
+                panic!("invalid bool value {}", value);
+            }
+        } else {
+            let value = SymFeltRefValue {
+                op_type: DPNOpType::CastBool,
                 const_param: 0,
                 inputs: vec![a],
             };
@@ -431,13 +507,22 @@ impl DPNContext<SymFeltRef> for QExecContext {
     fn op_const(&mut self, value: u64) -> SymFeltRef {
         SymFeltRef::new_constant(value)
     }
+    fn op_const_u32(&mut self, value: u32) -> SymFeltRef {
+        SymFeltRef::new_constant_u32(value)
+    }
     fn op_bool_not(&mut self, a: SymFeltRef) -> SymFeltRef {
         self.op_std_unary_op(DPNOpType::BoolNot, a)
     }
     fn op_bool_and(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32  {
+            return self.op_std_binary_op_u32(DPNOpType::BoolAnd, a, b);
+        }
         self.op_std_binary_op(DPNOpType::BoolAnd, a, b)
     }
     fn op_bool_or(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32  {
+            return self.op_std_binary_op_u32(DPNOpType::BoolOr, a, b);
+        }
         self.op_std_binary_op(DPNOpType::BoolOr, a, b)
     }
     fn op_bool_or_many(&mut self, values: &[SymFeltRef]) -> SymFeltRef {
@@ -455,16 +540,40 @@ impl DPNContext<SymFeltRef> for QExecContext {
         result
     }
     fn op_add(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32  {
+            return self.op_std_binary_op_u32(DPNOpType::U32Add, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Add, a, b)
     }
     fn op_sub(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32  {
+            return self.op_std_binary_op_u32(DPNOpType::U32Sub, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Sub, a, b)
     }
     fn op_mul(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32  {
+            return self.op_std_binary_op_u32(DPNOpType::U32Mul, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Mul, a, b)
     }
     fn op_div(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32  {
+            return self.op_std_binary_op_u32(DPNOpType::U32Div, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Div, a, b)
+    }
+    fn op_u32_add(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        self.op_std_binary_op_u32(DPNOpType::U32Add, a, b)
+    }
+    fn op_u32_sub(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        self.op_std_binary_op_u32(DPNOpType::U32Sub, a, b)
+    }
+    fn op_u32_mul(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        self.op_std_binary_op_u32(DPNOpType::U32Mul, a, b)
+    }
+    fn op_u32_div(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        self.op_std_binary_op_u32(DPNOpType::U32Div, a, b)
     }
     fn op_mod(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::Mod, a, b)
@@ -472,23 +581,48 @@ impl DPNContext<SymFeltRef> for QExecContext {
     fn op_exp(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op(DPNOpType::Exp, a, b)
     }
+    fn op_u32_mod(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        self.op_std_binary_op_u32(DPNOpType::U32Mod, a, b)
+    }
+    fn op_u32_exp(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        self.op_std_binary_op_u32(DPNOpType::U32Exp, a, b)
+    }
     fn op_eq(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::Eq, a, b);
+        } 
         self.op_std_binary_op(DPNOpType::Eq, a, b)
     }
     fn op_neq(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
-        let eq = self.op_std_binary_op(DPNOpType::Eq, a, b);
+        let eq = if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            self.op_std_binary_op_u32(DPNOpType::Eq, a, b)
+        } else {
+            self.op_std_binary_op(DPNOpType::Eq, a, b)
+        };
         self.op_bool_not(eq)
     }
     fn op_lt(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::Lt, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Lt, a, b)
     }
     fn op_lte(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::Lte, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Lte, a, b)
     }
     fn op_gt(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::Gt, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Gt, a, b)
     }
     fn op_gte(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::Gte, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Gte, a, b)
     }
 
@@ -519,8 +653,22 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
 
     fn add_input(&mut self) -> SymFeltRef {
-        let input = SymFeltRef::new_input(self.input_count);
+        let input = SymFeltRef::new_input(self.input_count, DPNBuiltInDataType::Target);
         self.input_count += 1;
+        self.input_types.push(DPNBuiltInDataType::Target);
+        input
+    }
+
+    fn add_u32_input(&mut self) -> SymFeltRef {
+        let input = SymFeltRef::new_input(self.input_count, DPNBuiltInDataType::U32Target);
+        self.input_count += 1;
+        self.input_types.push(DPNBuiltInDataType::U32Target);
+        input
+    }
+    fn add_bool_input(&mut self) -> SymFeltRef {
+        let input = SymFeltRef::new_input(self.input_count, DPNBuiltInDataType::Bool);
+        self.input_count += 1;
+        self.input_types.push(DPNBuiltInDataType::Bool);
         input
     }
     fn add_inputs(&mut self, count: u64) -> Vec<SymFeltRef> {

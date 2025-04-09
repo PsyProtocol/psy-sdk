@@ -355,14 +355,47 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 };
                 self.targets.push(result);
             },
-            DPNOpType::Exp => todo!(),
+            DPNOpType::Exp => {
+                let left = self.resolve_target(op.inputs[0]);
+                let right = self.resolve_target(op.inputs[1]);
+                self.targets.push(left.exp_u64(right.to_canonical_u64()));
+            },
             DPNOpType::ExpConstantPower => todo!(),
             DPNOpType::ExpConstantBase => todo!(),
-            DPNOpType::Mod => todo!(),
+            DPNOpType::Mod => {
+                let left = self.resolve_target(op.inputs[0]).to_canonical_u64();
+                let right = self.resolve_target(op.inputs[1]).to_canonical_u64();
+                assert!(right != 0, "Mod by zero");
+                self.targets.push(F::from_canonical_u64(left % right));
+            }
             DPNOpType::ModConstantDividend => todo!(),
             DPNOpType::ModConstantDivisor => todo!(),
             DPNOpType::DivRem4 => todo!(),
-            DPNOpType::CastU32 => todo!(),
+            DPNOpType::CastU32 => {
+                let (t, index) = decode_indexed_op_id(op.inputs[0]);
+                let value = match t {
+                    DPNBuiltInDataType::U32Target => {
+                        assert!(index < self.u32s.len(), "Invalid u32 index");
+                        self.u32s[index]
+                    },
+                    DPNBuiltInDataType::Bool => {
+                        assert!(index < self.bools.len(), "Invalid bool index");
+                        if self.bools[index] {
+                            1
+                        } else {
+                            0
+                        }
+                    },
+                    DPNBuiltInDataType::Target => {
+                        assert!(index < self.targets.len(), "Invalid target index");
+                        let value = self.targets[index].to_canonical_u64();
+                        assert!(value <= 0xffffffffu64, "Invalid u32 value");
+                        (value & 0xffffffffu64) as u32
+                    },
+                    _ => panic!("Invalid data type for U32Target"),
+                };
+                self.u32s.push(value);
+            }
             DPNOpType::U32And => todo!(),
             DPNOpType::U32AndConstant => todo!(),
             DPNOpType::U32Or => todo!(),
@@ -388,6 +421,111 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             DPNOpType::GetStateCommandResultArray => todo!(),
             DPNOpType::UnaryInverse => todo!(),
             DPNOpType::UnaryNegative => todo!(),
+            DPNOpType::U32InputTarget => {
+                let index = op.inputs[0] as usize;
+                if index >= self.inputs.len() {
+                    panic!("Invalid input index");
+                }else{
+                    assert!(self.inputs[index].to_canonical_u64() <= 0xffffffffu64, "Invalid u32 input[{:?}]", index);
+                    self.u32s.push(self.inputs[index].to_canonical_u64() as u32);
+
+                }
+            },
+            DPNOpType::ConstantU32 => {
+                assert!(op.inputs[0] <= 0xffffffffu64, "constant u32 value too large");
+                self.u32s.push(op.inputs[0] as u32);
+            },
+            DPNOpType::U32Add => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                assert!(left as u64 + right as u64 <= 0xffffffffu64, "u32 add value too large");
+                self.u32s.push(left + right);
+            }
+            DPNOpType::U32Sub => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                assert!(left > right, "u32 sub value too low");
+                self.u32s.push(left - right);
+            }
+            DPNOpType::U32Mul => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                assert!(left as u64 * right as u64 <= 0xffffffffu64, "u32 mul value too large");
+                self.u32s.push(left * right);
+            }
+            DPNOpType::U32Div => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                assert!(right != 0, "u32 div by zero");
+                self.u32s.push(left / right);
+            }
+            DPNOpType::CastFelt => {
+                let (t, index) = decode_indexed_op_id(op.inputs[0]);
+                let value = match t {
+                    DPNBuiltInDataType::U32Target => {
+                        assert!(index < self.u32s.len(), "Invalid u32 index");
+
+                        self.u32s[index] as u64
+                    },
+                    DPNBuiltInDataType::Bool => {
+                        assert!(index < self.bools.len(), "Invalid bool index");
+                        if self.bools[index] {
+                            1
+                        } else {
+                            0
+                        }
+                    },
+                    DPNBuiltInDataType::Target => {
+                        assert!(index < self.targets.len(), "Invalid target index");
+                        self.targets[index].to_canonical_u64()
+                    },
+                    _ => panic!("Invalid data type for Target"),
+                };
+                self.targets.push(F::from_canonical_u64(value));
+            }
+            DPNOpType::CastBool => {
+                let (t, index) = decode_indexed_op_id(op.inputs[0]);
+                let value = match t {
+                    DPNBuiltInDataType::U32Target => {
+                        assert!(index < self.u32s.len(), "Invalid u32 index");
+                        assert!(self.u32s[index]<= 1, "Invalid bool value");
+                        self.u32s[index] != 0
+                    },
+                    DPNBuiltInDataType::Bool => {
+                        assert!(index < self.bools.len(), "Invalid bool index");
+                        self.bools[index] 
+                    },
+                    DPNBuiltInDataType::Target => {
+                        assert!(index < self.targets.len(), "Invalid target index");
+                        assert!(self.targets[index].to_canonical_u64()<= 1, "Invalid bool value");
+                        self.targets[index].to_canonical_u64() != 0
+                    },
+                    _ => panic!("Invalid data type for Target"),
+                };
+                self.bools.push(value);
+            }
+            DPNOpType::BoolInputTarget => {
+                let index = op.inputs[0] as usize;
+                if index >= self.inputs.len() {
+                    panic!("Invalid input index");
+                }else{
+                    assert!(self.inputs[index].to_canonical_u64() <= 1, "Invalid bool input[{:?}]", index);
+                    self.bools.push(self.inputs[index].to_canonical_u64() != 0);
+                }
+            }
+            DPNOpType::U32Mod => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                assert!(right!= 0, "u32 mod by zero");
+                self.u32s.push(left % right);
+            }
+            DPNOpType::U32Exp => {
+                let left = self.resolve_target(op.inputs[0]);
+                let right = self.resolve_target(op.inputs[1]);
+                let res  = left.exp_u64(right.to_canonical_u64()).to_canonical_u64();
+                assert!( res <= 0xffffffffu64, "u32 exp value too large");
+                self.u32s.push(res as u32);
+            }
         }
         
     }

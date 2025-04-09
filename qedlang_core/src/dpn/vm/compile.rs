@@ -155,7 +155,7 @@ impl QEDCompileResult {
 
     pub fn compile(&mut self, sym_store: &SymFeltStore, ctx: &QExecContext, outputs: &[SymFeltRef]) {
         for i in 0..ctx.input_count {
-            let inp = self.injest_sfr(sym_store, SymFeltRef::new_input(i));
+            let inp = self.injest_sfr(sym_store, SymFeltRef::new_input(i, ctx.input_types[i as usize]));
             self.circuit_inputs.push(inp);
         }
         for cmd in ctx.state_cmd_store.commands.iter() {
