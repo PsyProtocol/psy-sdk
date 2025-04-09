@@ -12,3 +12,11 @@ test-db
 perf2
 
 qed_prover/examples/debug_data/
+target/
+**/node_modules/
+.idea/
+*.sh
+.cursor
+.cursorrules
+.cursorignore
+.specstory

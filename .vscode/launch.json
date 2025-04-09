@@ -1,0 +1,37 @@
+{
+  "$schema": "https://raw.githubusercontent.com/mfussenegger/dapconfig-schema/master/dapconfig-schema.json",
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "codelldb",
+      "request": "attach",
+      "name": "Attach to process (Rust)",
+      "pid": "${command:pickProcess}",
+      "args": []
+    },
+    {
+      "type": "codelldb",
+      "request": "launch",
+      "name": "Debug Rust (with args)",
+      "program": "${workspaceFolder}/target/debug/${input:executableName}",
+      "args": [
+        "${input:executableArg}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "stopOnEntry": false,
+      "preLaunchTask": "project-build"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "executableName",
+      "type": "promptString",
+      "description": "Name of executable"
+    },
+    {
+      "id": "executableArg",
+      "type": "promptString",
+      "description": "Arguments to pass to the program"
+    }
+  ]
+}

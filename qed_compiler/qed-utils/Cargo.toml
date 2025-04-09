@@ -1,0 +1,21 @@
+[package]
+edition = "2021"
+name    = "qed-utils"
+version = "0.1.0"
+
+[dependencies]
+clap = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing = { workspace = true }
+
+qedlang_core = { workspace = true }
+qed_crypto = { workspace = true }
+qed_exec = { workspace = true }
+qed_store = { workspace = true }
+kvq = { workspace = true }
+qed_data = { workspace = true }
+qed_core = { workspace = true }
+qed_prover = { workspace = true }
+qed_common_circuit = { workspace = true }
+plonky2 = { workspace = true }
+anyhow = { workspace = true }

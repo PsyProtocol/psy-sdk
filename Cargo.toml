@@ -1,26 +1,40 @@
 [workspace]
 members = [
-  "qedlang_core",
-  "qedlang_ex",
-  "qedlang_macros",
-  "qedlang_macro2",
-  "qedlang_macro3",
-  "kvq",
-  "kvq_store_lmdbx",
-  "qed_core",
-  "qed_crypto",
-  "qed_store",
-  "qed_prover",
-  "qed_exec",
-  "qed_data",
-  "qed_common_circuit",
-  "qed_rollup_circuit",
-  "qcircuit_config_db",
-  "qcircuit_config_db_generator",
-  "qed_node_common",
-  "qed_node",
-  "qed_scylla_store",
-  "qed_test_sandbox",
+    "qedlang_core",
+    "qedlang_ex",
+    "qedlang_macros",
+    "qedlang_macro2",
+    "qedlang_macro3",
+    "kvq",
+    "kvq_store_lmdbx",
+    "qed_core",
+    "qed_crypto",
+    "qed_store",
+    "qed_prover",
+    "qed_exec",
+    "qed_data",
+    "qed_common_circuit",
+    "qed_rollup_circuit",
+    "qcircuit_config_db",
+    "qcircuit_config_db_generator",
+    "qed_node_common",
+    "qed_node",
+    "qed_scylla_store",
+    "qed_test_sandbox",
+    "qed_compiler/qed-fmt",
+    "qed_compiler/qed-cli",
+    "qed_compiler/qed-lsp-server",
+    "qed_compiler/qed-parser",
+    "qed_compiler/qed-utils",
+    "qed_compiler/qed-common",
+    "qed_compiler/qed-ast",
+    "qed_compiler/qed-derive",
+    "qed_compiler/qed-sema",
+    "qed_compiler/qed-lexer",
+    "qed_compiler/qed-interpreter",
+    "qed_compiler/qed-dargo",
+    "qed_compiler/qed-dargo-toml",
+    "qed_compiler/qed-dargo-cli",
 ]
 resolver = "2"
 
@@ -45,8 +59,6 @@ lazy_static = "1.4.0"
 once_cell = "1.19.0"
 twox-hash = "1.6.3"
 hashbrown = "0.14.5"
-plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c" }
-plonky2_maybe_rayon = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c", default-features = false }
 anyhow = "1.0.75"
 async-trait = { version = "0.1.80" }
 base64 = "0.21.0"
@@ -64,7 +76,6 @@ tracing = "0.1.40"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.17", features = ["std", "env-filter"] }
 itertools = "0.10.5"
-
 
 bytes = "1"
 byteorder = "1.5"
@@ -119,5 +130,84 @@ pprof = "0.14"
 tempfile = "3.19"
 kvq_store_lmdbx = { path = "./kvq_store_lmdbx" }
 
-[patch.'https://github.com/0xPolygonZero/plonky2.git']
+miette = { version = "7.2", features = ["fancy"] }
+dotenv = "0.15"
+
+smol_str = "0.3"
+thin-vec = "0.2"
+id-arena = "2.2"
+unescaper = "0.1"
+derivative = "2.2"
+
+petgraph = "0.7"
+chalk = "0.1"
+ena = "0.14"
+
+syn = { version = "2.0", features = ["full"] }
+proc-macro2 = "1.0"
+quote = "1.0"
+
+num-traits = "0.2"
+num-bigint = { version = "0.1" }
+num-integer = { version = "0.1", default-features = false }
+ruint = { version = "1.12", default-features = false, features = [
+    "serde",
+    "num-bigint",
+] }
+
+
+
+
+enum-as-inner = "0.6"
+strum = { version = "0.27", features = ["derive"] }
+
 plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c" }
+plonky2_maybe_rayon = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c", default-features = false }
+
+blake2 = { version = "0.10", default-features = false }
+blake3 = { version = "1.5", default-features = false }
+tiny-keccak = { version = "2.0", features = ["sha3", "keccak"] }
+
+lalrpop-util = { version = "0.22", features = ["lexer", "unicode"] }
+lalrpop = "0.22"
+
+walkdir = "2.5"
+insta = { version = "1.40", features = ["glob"] }
+home = { version = "0.5" }
+
+tower-lsp = "0.20"
+lsp-server = "0.7"
+lsp-types = "0.97"
+
+nom = "8.0"
+logos = "0.15"
+ariadne = { version = "0.5.0", features = ["auto-color"] }
+
+either = "1"
+# llvm-sys = "191.0"
+# melior = { version = "0.21", features = ["ods-dialects"] }
+# mlir-sys = { version = "0.4" }
+regex = "1.11"
+qedlang_core = { path = "./qedlang_core" }
+qed_crypto = { path = "./qed_crypto" }
+qed_exec = { path = "./qed_exec" }
+qed_store = { path = "./qed_store" }
+qed_data = { path = "./qed_data" }
+qed_core = { path = "./qed_core" }
+qed_prover = { path = "./qed_prover" }
+qed_common_circuit = { path = "./qed_common_circuit" }
+kvq = { path = "./kvq" }
+qed-ast = { path = "./qed_compiler/qed-ast" }
+qed-cli = { path = "./qed_compiler/qed-cli" }
+qed-derive = { path = "./qed_compiler/qed-derive" }
+qed-fmt = { path = "./qed_compiler/qed-fmt" }
+qed-lsp-server = { path = "./qed_compiler/qed-lsp-server" }
+qed-parser = { path = "./qed_compiler/qed-parser" }
+qed-utils = { path = "./qed_compiler/qed-utils" }
+qed-common = { path = "./qed_compiler/qed-common" }
+qed-sema = { path = "./qed_compiler/qed-sema" }
+qed-lexer = { path = "./qed_compiler/qed-lexer" }
+qed-interpreter = { path = "./qed_compiler/qed-interpreter" }
+qed-dargo = { path = "./qed_compiler/qed-dargo" }
+qed-dargo-toml = { path = "./qed_compiler/qed-dargo-toml" }
+dargo = { path = "./qed_compiler/qed-dargo-cli" }

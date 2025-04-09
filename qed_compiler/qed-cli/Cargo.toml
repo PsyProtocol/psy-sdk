@@ -1,0 +1,28 @@
+[package]
+edition = "2021"
+name = "qed-cli"
+version = "0.1.0"
+
+[dependencies]
+clap = { workspace = true }
+anyhow = { workspace = true }
+qed-utils = { workspace = true }
+dotenv = { workspace = true }
+qed-interpreter = { workspace = true }
+thiserror = { workspace = true }
+qed-sema = { workspace = true }
+plonky2 = { workspace = true }
+qed-ast = { workspace = true }
+qed-parser = { workspace = true }
+qed-fmt = { workspace = true }
+qedlang_core = { workspace = true }
+qed_crypto = { workspace = true }
+qed_exec = { workspace = true }
+qed_store = { workspace = true }
+kvq = { workspace = true }
+qed_data = { workspace = true }
+qed_core = { workspace = true }
+qed_prover = { workspace = true }
+qed_common_circuit = { workspace = true }
+bincode = { workspace = true }
+ariadne = { workspace = true }

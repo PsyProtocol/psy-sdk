@@ -1,0 +1,39 @@
+mod primitive;
+
+use primitive::*;
+
+pub fn get_user_id() -> Felt {
+    __ctx_get_user_id()
+}
+
+pub fn get_contract_id() -> Felt {
+    __ctx_get_contract_id()
+}
+
+pub fn get_checkpoint_id() -> Felt {
+    __ctx_get_checkpoint_id()
+}
+
+pub fn get_last_nonce() -> Felt {
+    __ctx_get_last_nonce()
+}
+
+pub fn get_user_public_key_hash() -> Hash {
+    __ctx_get_user_public_key_hash()
+}
+
+pub fn get_state_hash_at(slot_index: Felt) -> Hash {
+    __ctx_get_state_hash_at(slot_index)
+}
+
+pub fn get_other_contract_state_hash_at(contract_state_tree_height: Felt, contract_id: Felt, slot_index: Felt) -> Hash {
+    __ctx_get_other_contract_state_hash_at(contract_state_tree_height, contract_id, slot_index)
+}
+
+pub fn get_other_user_contract_state_hash_at(contract_state_tree_height: Felt, user_id: Felt, contract_id: Felt, slot_index: Felt) -> Hash {
+    __ctx_get_other_user_contract_state_hash_at(contract_state_tree_height, user_id, contract_id, slot_index)
+}
+
+pub fn cset_state_hash_at(slot_index: Felt, new_value: Hash) -> Hash {
+    __ctx_set_state_hash_at(slot_index, new_value)
+}

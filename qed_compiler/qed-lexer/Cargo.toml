@@ -1,0 +1,9 @@
+[package]
+edition = "2021"
+name    = "qed-lexer"
+version = "0.1.0"
+
+[dependencies]
+logos = { workspace = true }
+thiserror = { workspace = true }
+home = { workspace = true }

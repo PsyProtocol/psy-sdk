@@ -1,0 +1,99 @@
+#[storage]
+struct Contract {
+}
+
+impl Contract {
+    pub fn simple_mint(amount: Felt) -> Felt {
+        let self_user_leaf: Hash = get_state_hash_at(get_user_id());
+        let current_balance: Felt = self_user_leaf[0];
+
+        let new_balance: Felt = current_balance + amount;
+        cset_state_hash_at(get_user_id(), [
+            new_balance,
+            self_user_leaf[1],
+            self_user_leaf[2],
+            self_user_leaf[3],
+        ]);
+
+        new_balance
+    }
+
+    pub fn simple_transfer(
+        recipient: Felt,
+        amount: Felt,
+    ) -> Felt {
+        let self_user_id: Felt = get_user_id();
+        let self_user_leaf: Hash = get_state_hash_at(self_user_id);
+
+        let current_balance: Felt = self_user_leaf[0];
+
+        assert(amount <= current_balance, "insufficient balance");
+
+        let new_balance: Felt = current_balance - amount;
+        assert(new_balance < current_balance, "user balance overflow");
+
+        cset_state_hash_at(self_user_id, [
+            new_balance,
+            self_user_leaf[1],
+            self_user_leaf[2],
+            self_user_leaf[3],
+        ]);
+
+        let p2p_leaf: Hash = get_state_hash_at(recipient);
+        let previous_total_sent_to_recipient: Felt = p2p_leaf[2];
+
+        let new_total_sent_to_recipient: Felt = previous_total_sent_to_recipient + amount;
+        assert(new_total_sent_to_recipient > previous_total_sent_to_recipient, "sent amount overflow");
+
+        cset_state_hash_at(recipient, [
+            p2p_leaf[0],
+            p2p_leaf[1],
+            new_total_sent_to_recipient,
+            p2p_leaf[3],
+        ]);
+
+        current_balance
+    }
+
+    pub fn simple_claim(
+        sender: Felt,
+    ) -> Felt {
+        let self_user_id: Felt = get_user_id();
+        assert(sender != self_user_id, "you cannot claim from your self");
+
+        let self_leaf: Hash = get_state_hash_at(self_user_id);
+        let current_balance: Felt = self_leaf[0];
+
+        let loc_transfer_info_for_sender: Hash = get_state_hash_at(sender);
+        let loc_previous_total_recieved_from_sender: Felt = loc_transfer_info_for_sender[0];
+
+        let sender_transfer_info_leaf_for_me: Hash = get_other_user_contract_state_hash_at(0, sender, get_contract_id(), self_user_id);
+
+        let sender_total_sent_to_me: Felt = sender_transfer_info_leaf_for_me[2];
+
+        assert(sender_total_sent_to_me > loc_previous_total_recieved_from_sender, "no tokens to claim from this sender");
+
+        let tokens_to_claim: Felt = sender_total_sent_to_me - loc_previous_total_recieved_from_sender;
+
+        let loc_new_total_recieved_from_sender: Felt = sender_total_sent_to_me;
+
+        cset_state_hash_at(sender,[
+            loc_new_total_recieved_from_sender,
+            loc_transfer_info_for_sender[1],
+            loc_transfer_info_for_sender[2],
+            loc_transfer_info_for_sender[3],
+        ]);
+
+        let new_balance: Felt = tokens_to_claim + current_balance;
+        assert(current_balance < new_balance, "balance overflow");
+
+        cset_state_hash_at(self_user_id, [
+            new_balance,
+            self_leaf[1],
+            self_leaf[2],
+            self_leaf[3],
+        ]);
+
+        new_balance
+    }
+}

@@ -1,0 +1,17 @@
+// enum Color {
+//     Red,
+//     Green,
+//     Blue,
+// }
+fn main() -> Felt {
+    let result: Felt = 0;
+    // let color: Color = Color::Red;
+    // if color == Color::Red {
+    //     result += 1;
+    // } else if color == Color::Green {
+    //     result += 2;
+    // } else {
+    //     result += 3;
+    // }
+    result
+}

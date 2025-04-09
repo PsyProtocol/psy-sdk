@@ -1,0 +1,16 @@
+[package]
+edition = "2021"
+name    = "qed-ast"
+version = "0.1.0"
+
+[dependencies]
+strum = { workspace = true }
+smol_str = { workspace =true }
+thiserror = { workspace = true }
+qed-common = { workspace = true }
+tracing = { workspace = true }
+enum-as-inner = { workspace = true }
+indexmap = { workspace = true }
+once_cell = { workspace = true }
+ariadne = { workspace = true }
+derivative = { workspace = true }
