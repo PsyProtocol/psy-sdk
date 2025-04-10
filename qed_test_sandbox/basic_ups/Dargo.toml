@@ -1,0 +1,6 @@
+[package]
+name = "basic_ups"
+type = "bin"
+authors = [""]
+
+[dependencies]

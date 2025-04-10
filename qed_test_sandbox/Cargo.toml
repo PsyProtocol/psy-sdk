@@ -35,6 +35,7 @@ qedlang_macros = { path = "../qedlang_macros" }
 qed_prover = { path = "../qed_prover" }
 qed_node = { path = "../qed_node" }
 qed_node_common = { path = "../qed_node_common" }
+qed-interpreter = { workspace = true }
 
 
 

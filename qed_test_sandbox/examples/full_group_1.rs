@@ -22,7 +22,7 @@ use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::{config::store_config::{QEDFelt, QEDHasher}, controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync}
 ;
-use qed_test_sandbox::test_helpers::contract::gen_test_contract;
+use qed_test_sandbox::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
 use reth_libmdbx::{Environment, EnvironmentFlags, Geometry, Mode, PageSize, SyncMode, RW};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
@@ -132,7 +132,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let pub_key_1 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_1));
     timer.lap("finished building wallet/zksig circuits");
-    let (contract_helper, contract_deploy_cmd) =gen_test_contract::<C,D>(pub_key_1.qfhash::<QEDHasher>())?;
+    let (contract_helper, contract_deploy_cmd) =gen_test_contract_2::<C,D>(pub_key_1.qfhash::<QEDHasher>())?;
     coordinator_edge_node.ctx.handle_deploy_contract(contract_deploy_cmd).await?;
 
     coordinator_edge_node

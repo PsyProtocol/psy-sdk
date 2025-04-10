@@ -1,44 +1,29 @@
-use std::marker::PhantomData;
+use std::{fs, marker::PhantomData};
 
 use plonky2::{
-    field::{
-        goldilocks_field::GoldilocksField,
-        types::Field,
-    },
+    field::{goldilocks_field::GoldilocksField, types::Field},
     hash::{hash_types::HashOut, poseidon::PoseidonHash},
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
-use qed_common_circuit::circuits::
-    traits::qstandard::QStandardCircuit
-;
+use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{
-    config::network_constants::{
-        GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT,
-    },
+    config::network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     ups::circuits::LocalCircuitId,
     utils::debug_timer::DebugTimer,
 };
-use qed_crypto::
-    hash::{
-        traits::hasher::MerkleZeroHasher,
-        utils::gen_dapen_contract_function_method_id,
-    }
-;
+use qed_crypto::hash::{
+    traits::hasher::MerkleZeroHasher, utils::gen_dapen_contract_function_method_id,
+};
 use qed_data::{
-    qblock::cmds::
-        deploy_contract::QBCDeployContract
-    ,
-    qdata::contract::ContractCodeDefinition,
+    qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
 };
 use qed_prover::{
     dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition},
     ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager},
 };
 use qed_store::{
-    controllers::local::
-        session_info::SessionCircuitInfoStore
-    ,
+    controllers::local::session_info::SessionCircuitInfoStore,
     store::imm::cmd_processor::QEDReadCommandProcessorSync,
 };
 use qedlang_core::dpn::{
@@ -297,7 +282,7 @@ pub struct SimpleTestContract<C: GenericConfig<D>, const D: usize> {
 
 impl<C: GenericConfig<D>, const D: usize> SimpleTestContract<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new_empty() -> Self {
         Self { funcs: Vec::new() }
@@ -326,12 +311,10 @@ where
     }
 }
 
-
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
-impl SimpleTestContract<C, D>
-{
+impl SimpleTestContract<C, D> {
     pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
         &self,
         circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
@@ -339,21 +322,21 @@ impl SimpleTestContract<C, D>
         contract_id: u32,
         fn_name: &str,
         inputs: Vec<F>,
-    ) -> anyhow::Result<()>{
+    ) -> anyhow::Result<()> {
         for (i, f) in self.funcs.iter().enumerate() {
             if f.def.name.eq(fn_name) {
                 mgr.prove_contract_call(
                     circuit_mgr,
-                    F::from_canonical_u32(contract_id), 
-                    i as u32,//f.def.method_id, 
+                    F::from_canonical_u32(contract_id),
+                    i as u32, //f.def.method_id,
                     &f.circuit,
                     &f.def,
-                    inputs
+                    inputs,
                 )?;
-                return Ok(())
+                return Ok(());
             }
         }
-        anyhow::bail!("unable to find function {}",fn_name);
+        anyhow::bail!("unable to find function {}", fn_name);
     }
 }
 
@@ -373,6 +356,64 @@ where
     timer.lap("compiled simple_transfer");
     let simple_claim_def = compile_simple_claim()?;
     timer.lap("compiled simple_claim");
+
+    let defs_array = [simple_mint_debug_def, simple_transfer_def, simple_claim_def];
+
+    let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
+
+    let (result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+        deployer,
+        contract_state_tree_height as u8,
+        &defs_array,
+    )?;
+    let mut result_circuits = result_circuits;
+    timer.lap("finished building fn circuits");
+    let [simple_mint_debug_def, simple_transfer_def, simple_claim_def] = defs_array;
+
+    timer.lap("start: setup circuits");
+
+    let simple_claim_circuit = result_circuits.pop().unwrap();
+    let simple_transfer_circuit = result_circuits.pop().unwrap();
+    let simple_mint_debug_circuit = result_circuits.pop().unwrap();
+    timer.lap("end: setup circuits");
+
+    let funcs = vec![
+        SimpleTestContractItem {
+            circuit: simple_mint_debug_circuit,
+            def: simple_mint_debug_def,
+        },
+        SimpleTestContractItem {
+            circuit: simple_transfer_circuit,
+            def: simple_transfer_def,
+        },
+        SimpleTestContractItem {
+            circuit: simple_claim_circuit,
+            def: simple_claim_def,
+        },
+    ];
+    let stc = SimpleTestContract::<C, D>::new_with_items(funcs);
+
+    Ok((stc, deploy_cmd))
+}
+
+pub fn gen_test_contract_2<C: GenericConfig<D>, const D: usize>(
+    deployer: QHashOut<C::F>,
+) -> anyhow::Result<(SimpleTestContract<C, D>, QBCDeployContract<C::F>)>
+where
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
+    let mut timer = DebugTimer::new("demo_user_proving_session");
+
+    timer.lap("start");
+
+    let mut artifact: Vec<DPNFunctionCircuitDefinition> =
+        serde_json::from_str(&fs::read_to_string("./basic_ups/target/basic_ups.json")?)?;
+    let simple_claim_def = artifact.pop().unwrap();
+    timer.lap("compiled simple_claim");
+    let simple_transfer_def = artifact.pop().unwrap();
+    timer.lap("compiled simple_transfer");
+    let simple_mint_debug_def = artifact.pop().unwrap();
+    timer.lap("compiled simple_mint_debug");
 
     let defs_array = [simple_mint_debug_def, simple_transfer_def, simple_claim_def];
 

@@ -3854,6 +3854,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "qed_coordinator_node"
+version = "0.1.0"
+
+[[package]]
 name = "qed_core"
 version = "0.1.0"
 dependencies = [
@@ -4053,6 +4057,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "qed_realm_node"
+version = "0.1.0"
+
+[[package]]
 name = "qed_rollup_circuit"
 version = "0.1.0"
 dependencies = [
@@ -4074,6 +4082,10 @@ dependencies = [
  "tracing",
  "twox-hash",
 ]
+
+[[package]]
+name = "qed_rpc_node"
+version = "0.1.0"
 
 [[package]]
 name = "qed_scylla_store"
@@ -4148,6 +4160,7 @@ dependencies = [
  "kvq_store_lmdbx",
  "lazy_static",
  "plonky2",
+ "qed-interpreter",
  "qed_common_circuit",
  "qed_core",
  "qed_crypto",
