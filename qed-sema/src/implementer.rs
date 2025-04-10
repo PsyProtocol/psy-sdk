@@ -370,6 +370,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                                 );
                             }
                         }
+
+                        for (ty_name, ty_val) in impl_node.associated_types.iter() {
+                            if ty_name.id == member {
+                                return Some(ty_val.ty);
+                            }
+                        }
                     }
                 }
                 None
@@ -393,7 +399,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
             return Ok(member_ty_id);
         }
 
-        return Err(anyhow!("trait method not found").into());
+        return Err(anyhow!("type as trait member not found").into());
     }
 
     fn find_associated_type(

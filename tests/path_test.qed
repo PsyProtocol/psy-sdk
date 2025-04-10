@@ -28,6 +28,12 @@ impl<T> Mul2 for Number<T> {
     }
 }
 
+impl<T> Number<T> {
+    pub fn get_a(self: Self) -> Felt {
+        return self.a as Felt;
+    }
+}
+
 impl Mul for FeltNumber {
     pub fn mul(self: Self) -> Felt {
         return (self.a * self.b) as Felt;
@@ -37,6 +43,31 @@ impl Mul for FeltNumber {
 impl Mul2 for FeltNumber {
     pub fn mul(self: Self) -> Felt {
         return (2 * self.a * self.b) as Felt;
+    }
+}
+
+impl FeltNumber {
+    pub fn get_a(self: Self) -> Felt {
+        return self.a;
+    }
+}
+
+pub trait TraitWithType {
+    pub type Ty;
+
+    pub fn test_fn() {
+    }
+}
+
+impl<T> TraitWithType for Number<T> {
+    pub type Ty = Number<T>;
+    pub fn test_fn() {
+    }
+}
+
+impl TraitWithType for FeltNumber {
+    pub type Ty = FeltNumber;
+    pub fn test_fn() {
     }
 }
 
@@ -57,4 +88,6 @@ fn main() {
     assert_eq(rres, 2, "res != 2");
     let rres2 = <FeltNumber as Mul2>::mul(raw_num);
     assert_eq(rres2, 4, "res != 4");
+    let rrres = <Number<Felt> as TraitWithType>::Ty::get_a(num);
+    assert_eq(rrres, 1, "res!= 1");
 }

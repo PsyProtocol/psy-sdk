@@ -31,13 +31,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     module
                 }
                 _ => {
-                    if !path.segments.is_empty() {
-                        return Err(Error::InvalidPathSegment {
-                            location: path.location,
-                            segment: path.segments[0].id,
-                        });
-                    }
-
                     if ty.is_trait_cast() {
                         let trait_ty = ty.as_trait_cast().unwrap().1;
                         let impl_ty = ty.as_trait_cast().unwrap().0;
@@ -69,20 +62,50 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                             });
                         }
 
-                        let member_ty_id = self.find_trait_cast_member(
-                            impl_ty_id,
-                            trait_type_id,
-                            path.target.id,
-                            ctx,
-                        )?;
-                        return Ok(CheckedPathNode::new(
-                            None,
-                            Some(impl_ty_id),
-                            path.target.id,
-                            self.substitute_all(member_ty_id, ctx)?,
-                            Some(self.substitute_all(trait_type_id, ctx)?),
-                            path.location,
-                        ));
+                        if !path.segments.is_empty() {
+                            let mut root_ty_id = self.find_trait_cast_member(
+                                impl_ty_id,
+                                trait_type_id,
+                                path.segments[0].id,
+                                ctx,
+                            )?;
+                            for segment in path.segments.iter().skip(1) {
+                                root_ty_id = self.find_member(root_ty_id, segment.id, ctx)?;
+                            }
+
+                            let member_ty_id = self.find_member(root_ty_id, path.target.id, ctx)?;
+
+                            return Ok(CheckedPathNode::new(
+                                None,
+                                Some(root_ty_id),
+                                path.target.id,
+                                self.substitute_all(member_ty_id, ctx)?,
+                                None,
+                                path.location,
+                            ));
+                        } else {
+                            let member_ty_id = self.find_trait_cast_member(
+                                impl_ty_id,
+                                trait_type_id,
+                                path.target.id,
+                                ctx,
+                            )?;
+                            return Ok(CheckedPathNode::new(
+                                None,
+                                Some(impl_ty_id),
+                                path.target.id,
+                                self.substitute_all(member_ty_id, ctx)?,
+                                Some(self.substitute_all(trait_type_id, ctx)?),
+                                path.location,
+                            ));
+                        };
+                    }
+
+                    if !path.segments.is_empty() {
+                        return Err(Error::InvalidPathSegment {
+                            location: path.location,
+                            segment: path.segments[0].id,
+                        });
                     }
 
                     let root_type_id = self.typecheck(ty, ctx)?;
