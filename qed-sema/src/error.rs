@@ -86,6 +86,12 @@ pub enum Error {
         trait_ty: TypeId,
         ty: TypeId,
     },
+    #[error("missing associated type")]
+    MissingAssociatedType {
+        location: Location,
+        trait_name: IdentId,
+        type_name: IdentId,
+    },
     #[error("index out of bounds")]
     IndexOutOfBounds {
         location: Location,
