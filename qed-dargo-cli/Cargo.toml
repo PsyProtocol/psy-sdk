@@ -27,3 +27,10 @@ qed_data = { workspace = true }
 qed_core = { workspace = true }
 qed_common_circuit = { workspace = true }
 qed-sema = { workspace = true }
+qed-ast = { workspace = true }
+num-bigint = { workspace = true }
+
+
+[dev-dependencies]
+num-traits = { workspace = true }
+insta = { workspace = true }

@@ -1109,8 +1109,8 @@ ScopeId(0) (Module)
             Types:
                 fn max_2 (TypeId(72))
                     Parameters:
-                        Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 1668, end: 1669 } }, TypeId(72))
-                        Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 1677, end: 1678 } }, TypeId(72))
+                        Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 1689, end: 1690 } }, TypeId(72))
+                        Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 1698, end: 1699 } }, TypeId(72))
                     Return Type: Felt (TypeId(3))
                     Body: ExprId(226)
             ScopeId(102) (Function)

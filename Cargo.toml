@@ -47,8 +47,8 @@ proc-macro2 = "1.0"
 quote = "1.0"
 
 num-traits = "0.2"
-num-bigint = { version = "0.1" }
-num = { version = "0.1", default-features = false }
+num-bigint = { version = "0.4" }
+num = { version = "0.4", default-features = false }
 num-integer = { version = "0.1", default-features = false }
 ruint = { version = "1.12", default-features = false, features = [
     "serde",

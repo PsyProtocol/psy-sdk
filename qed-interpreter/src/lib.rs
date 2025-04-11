@@ -30,12 +30,18 @@ use std::path::PathBuf;
 use std::{collections::HashMap, iter::once};
 use tracing::instrument;
 
+pub struct InterpretResult {
+    pub compile_results: Vec<DPNFunctionCircuitDefinition>,
+    pub typechecker: TypeChecker<SymFeltRef, QExecContext>,
+    pub ctx: TypeCheckerVisitorContext<SymFeltRef, QExecContext>,
+}
+
 pub fn interpret(
     contract_name: Option<String>,
     method_names: Vec<String>,
     entry: PathBuf,
     dependencies_entries: Vec<PathBuf>,
-) -> anyhow::Result<Vec<DPNFunctionCircuitDefinition>> {
+) -> anyhow::Result<InterpretResult> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let (mut typechecker, mut ctx) =
         interpreter.typecheck(entry, dependencies_entries.into_iter().collect())?;
@@ -54,7 +60,12 @@ pub fn interpret(
             )
         },
     )?;
-    Ok(compile_results)
+
+    Ok(InterpretResult {
+        compile_results,
+        typechecker,
+        ctx,
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -1535,14 +1546,14 @@ mod tests {
     fn test_crates_resolve() {
         let entry: PathBuf = "../tests/module_test/foo/src/main.qed".into();
         let dependencies_entries = vec!["../tests/module_test/bar/src/lib.qed".into()];
-        let compiled_results = super::interpret(
+        let result = super::interpret(
             Option::<String>::None,
             vec!["main".into()],
             entry.clone(),
             dependencies_entries,
         )
         .unwrap();
-        println!("compile_result: {:?}", compiled_results);
+        println!("compile_result: {:?}", result.compile_results);
         #[allow(static_mut_refs)]
         unsafe {
             STD_PRIMITIVE_SCOPE_ID.take().unwrap()
@@ -1554,60 +1565,65 @@ mod tests {
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
-        insta::glob!("../../tests", "{struct*.qed,fn_test.qed,fn_chain_call_test.qed}", |path| {
-            let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-            let (mut typechecker, mut ctx) = interpreter.typecheck(path.into(), vec![]).unwrap();
+        insta::glob!(
+            "../../tests",
+            "{struct*.qed,fn_test.qed,fn_chain_call_test.qed}",
+            |path| {
+                let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+                let (mut typechecker, mut ctx) =
+                    interpreter.typecheck(path.into(), vec![]).unwrap();
 
-            let compile_results = interpreter
-                .interpret(
-                    &mut typechecker,
-                    &mut ctx,
-                    None,
-                    vec!["main"],
-                    |context, (method_name, method_id, outputs)| {
-                        QEDCompileResult::compile_exec(
-                            method_name,
-                            method_id,
-                            &context.store,
-                            &context,
-                            &outputs,
-                        )
-                    },
+                let compile_results = interpreter
+                    .interpret(
+                        &mut typechecker,
+                        &mut ctx,
+                        None,
+                        vec!["main"],
+                        |context, (method_name, method_id, outputs)| {
+                            QEDCompileResult::compile_exec(
+                                method_name,
+                                method_id,
+                                &context.store,
+                                &context,
+                                &outputs,
+                            )
+                        },
+                    )
+                    .unwrap();
+
+                let priv_key = QHashOut::rand();
+                let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+                let priv_key_w = SimpleQEDPrivateKey::new(priv_key);
+                let pub_key_param = priv_key_w.get_public_key_param::<QEDHasher>();
+                let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
+
+                let deployer = QHashOut::rand();
+                let (_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+                    deployer,
+                    contract_state_tree_height as u8,
+                    &compile_results,
                 )
                 .unwrap();
 
-            let priv_key = QHashOut::rand();
-            let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-            let priv_key_w = SimpleQEDPrivateKey::new(priv_key);
-            let pub_key_param = priv_key_w.get_public_key_param::<QEDHasher>();
-            let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
-
-            let deployer = QHashOut::rand();
-            let (_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
-                deployer,
-                contract_state_tree_height as u8,
-                &compile_results,
-            )
-            .unwrap();
-
-            let mut lps = prepare_environment_with_real_contract(
-                QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
-                deploy_cmd,
-            )
-            .unwrap();
-            let contract_id = GoldilocksField::from_canonical_u64(2);
-
-            let cfc_input = QEDEvalSessionResult::new()
-                .exec_contract_call(&mut lps, contract_id, &compile_results[0], vec![])
+                let mut lps = prepare_environment_with_real_contract(
+                    QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
+                    deploy_cmd,
+                )
                 .unwrap();
-            println!("result_vm: {:?}", cfc_input.outputs);
-            #[allow(static_mut_refs)]
-            unsafe {
-                STD_PRIMITIVE_SCOPE_ID.take().unwrap()
-            };
+                let contract_id = GoldilocksField::from_canonical_u64(2);
 
-            assert_snapshot!(ctx.debug_scope(ScopeId::root()))
-        });
+                let cfc_input = QEDEvalSessionResult::new()
+                    .exec_contract_call(&mut lps, contract_id, &compile_results[0], vec![])
+                    .unwrap();
+                println!("result_vm: {:?}", cfc_input.outputs);
+                #[allow(static_mut_refs)]
+                unsafe {
+                    STD_PRIMITIVE_SCOPE_ID.take().unwrap()
+                };
+
+                assert_snapshot!(ctx.debug_scope(ScopeId::root()))
+            }
+        );
     }
 
     #[test]
