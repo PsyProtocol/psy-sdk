@@ -1,4 +1,5 @@
 #![feature(if_let_guard)]
+#![feature(let_chains)]
 
 mod constraint;
 mod context;
@@ -2268,8 +2269,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .into_trait()
             .unwrap();
         for (name, associated_ty) in &trait_node.associated_types {
-            let type_id =
-                self.typecheck(&trait_impl_node.associated_types.get(name).unwrap().ty, ctx)?;
+            let impl_type =
+                trait_impl_node
+                    .associated_types
+                    .get(name)
+                    .ok_or(Error::MissingAssociatedType {
+                        location: trait_impl_node.location,
+                        trait_name: trait_node.name.id,
+                        type_name: name.id,
+                    })?;
+
+            let type_id = self.typecheck(&impl_type.ty, ctx)?;
             if !self.unify(associated_ty.type_id, type_id, ctx) {
                 return Err(Error::TypeMismatch {
                     location: trait_impl_node.location,
@@ -2417,9 +2427,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     ) -> Result<()> {
         #[allow(static_mut_refs)]
         unsafe {
-            STD_PRIMITIVE_SCOPE_ID
-                .set(ctx.symbols.current_scope_id().unwrap())
-                .unwrap()
+            let scope_id = ctx.symbols.current_scope_id().unwrap();
+            if let Err(id) = STD_PRIMITIVE_SCOPE_ID.set(scope_id)
+                && id != scope_id
+            {
+                STD_PRIMITIVE_SCOPE_ID.take().unwrap();
+                STD_PRIMITIVE_SCOPE_ID.set(scope_id).unwrap();
+            }
         };
         for ty in &*PRIMITIVE_TYPES {
             ctx.symbols.add_type(None, ty.key(), ty.clone())?;

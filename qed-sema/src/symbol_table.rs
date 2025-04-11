@@ -1,10 +1,10 @@
 use anyhow::anyhow;
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
-use once_cell::sync::OnceCell;
 use qed_ast::*;
 use qed_common::{define_arena_id, FileId, TreeNode};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use std::sync::OnceLock;
 
 use std::{
     fmt::{Display, Formatter},
@@ -22,7 +22,7 @@ define_arena_id!(ScopeId);
 define_arena_id!(VarId);
 define_arena_id!(ConstId);
 
-pub static mut STD_PRIMITIVE_SCOPE_ID: OnceCell<ScopeId> = OnceCell::new();
+pub static mut STD_PRIMITIVE_SCOPE_ID: OnceLock<ScopeId> = OnceLock::new();
 
 impl ScopeId {
     pub const fn root() -> Self {
