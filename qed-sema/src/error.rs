@@ -16,10 +16,7 @@ pub enum Error {
         found: TypeId,
     },
     #[error("invalid path segment")]
-    InvalidPathSegment {
-        location: Location,
-        segment: IdentId,
-    },
+    InvalidPathSegment { location: Location, segment: String },
     #[error("unresolved type")]
     UnresolvedType {
         location: Location,

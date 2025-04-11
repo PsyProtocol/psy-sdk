@@ -658,13 +658,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 )))
             }
             ValueNode::Struct(name, generic_args, data, location) => Ok({
-                let underlying_type_id =
-                    ctx.symbols
-                        .get_type_id(None, name)
-                        .ok_or(Error::UnresolvedType {
-                            location: location,
-                            resolved_type: name.id,
-                        })?;
+                let name_path_node = self.visit_expr(name, ctx)?.clone().into_path().unwrap();
+                let underlying_type_id = name_path_node.type_id;
+                // let underlying_type_id =
+                //     ctx.symbols
+                //         .get_type_id(None, name)
+                //         .ok_or(Error::UnresolvedType {
+                //             location: location,
+                //             resolved_type: name.id,
+                //         })?;
                 let fields = ctx.symbols[underlying_type_id]
                     .as_struct()
                     .unwrap()
@@ -675,7 +677,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     return Err(anyhow!(format!(
                         "Expected {} fields for Struct {} but found {} fields",
                         fields.len(),
-                        ctx.ident(name),
+                        ctx.ident(ctx.symbols[underlying_type_id].name()),
                         data.len()
                     ))
                     .into());
@@ -711,7 +713,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 }
 
                 let type_id = self.substitute_all(underlying_type_id, ctx)?;
-                ctx.add_type_reference(underlying_type_id, name.location, false);
+                ctx.add_type_reference(underlying_type_id, name_path_node.location, false);
 
                 CheckedExprNode::Value(CheckedValueNode::Struct(type_id, new_data, location))
             }),
@@ -2426,10 +2428,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
         self.typecheck_array(ctx)?;
 
-        let felt_type = UncheckedType::Basic(Box::new(PathNode::from_target(Identifier::new(
-            IdentId::TYPE_FELT,
-            Location::default(),
-        ))));
+        let felt_type =
+            UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, Location::default()));
         let hash_ty_node = UncheckedType::Array(Box::new(felt_type), 4, Location::default());
 
         let checked_hash_ty = self.typecheck(&hash_ty_node, ctx)?;
@@ -2533,12 +2533,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     ) -> Result<TypeId> {
         self.infcx.enter_scope();
         let type_id = match ty {
-            UncheckedType::Basic(path) => match path.target.id {
+            UncheckedType::Basic(name) => match name.id {
                 IdentId::TYPE_BOOL => BOOL_TYPE,
                 IdentId::TYPE_FELT => FELT_TYPE,
                 IdentId::TYPE_U32 => U32_TYPE,
-                _ => self.resolve_path(path.as_ref(), ctx)?.type_id,
+                _ => ctx
+                    .symbols
+                    .get_type_id(None, name)
+                    .ok_or(Error::UnresolvedType {
+                        location: name.location,
+                        resolved_type: name.id,
+                    })?,
             },
+            UncheckedType::Path(path) => self.resolve_path(path.as_ref(), ctx)?.type_id,
             UncheckedType::Generic(name, generic_parameters, location) => {
                 let underlying_type_id =
                     ctx.symbols
@@ -2680,7 +2687,183 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             UncheckedType::TraitCast(ty, _trait_ty, _) => self.typecheck(ty, ctx)?,
         };
 
-        let is_self_type = ty.is_basic() && ty.as_basic().unwrap().target.id == IdentId::TYPE_SELF;
+        let is_self_type = ty.is_basic() && ty.as_basic().unwrap().id == IdentId::TYPE_SELF;
+        ctx.add_type_reference(type_id, ty.location(), is_self_type);
+        self.infcx.exit_scope();
+        Ok(type_id)
+    }
+
+    fn typecheck_type_in_module(
+        &mut self,
+        module: ModuleId,
+        ty: &UncheckedType,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<TypeId> {
+        self.infcx.enter_scope();
+        let module_scope = Some(ctx.symbols[module].scope_id);
+        let type_id = match ty {
+            UncheckedType::Basic(name) => match name.id {
+                IdentId::TYPE_BOOL => BOOL_TYPE,
+                IdentId::TYPE_FELT => FELT_TYPE,
+                IdentId::TYPE_U32 => U32_TYPE,
+                _ => ctx
+                    .symbols
+                    .get_type_id(module_scope, name)
+                    .ok_or(Error::UnresolvedType {
+                        location: name.location,
+                        resolved_type: name.id,
+                    })?,
+            },
+            UncheckedType::Path(_path) => unreachable!(),
+            UncheckedType::Generic(name, generic_parameters, location) => {
+                let underlying_type_id = ctx
+                    .symbols
+                    .get_type_id(module_scope, name)
+                    .ok_or(Error::UnresolvedType {
+                        location: location.clone(),
+                        resolved_type: name.id,
+                    })
+                    .unwrap();
+
+                let mut checked_generic_args = Vec::new();
+                for generic_parameter in generic_parameters {
+                    checked_generic_args.push(self.typecheck_type_in_module(
+                        module,
+                        generic_parameter,
+                        ctx,
+                    )?);
+                }
+
+                match ctx.symbols[underlying_type_id].clone() {
+                    Type::Struct(checked_struct) => {
+                        if checked_struct.generic_parameters.len() != checked_generic_args.len() {
+                            return Err(Error::InvalidGenericArguments {
+                                location: checked_struct.location,
+                                expected: format!(
+                                    "{} generic parameters",
+                                    checked_struct.generic_parameters.len()
+                                ),
+                                found: format!("{}", checked_generic_args.len()),
+                            });
+                        }
+
+                        for (generic_param, generic_arg) in checked_struct
+                            .generic_parameters
+                            .iter()
+                            .zip(checked_generic_args.iter())
+                        {
+                            if !self.unify(*generic_param, *generic_arg, ctx) {
+                                return Err(Error::TypeMismatch {
+                                    location: location.clone(),
+                                    expected: vec![*generic_param],
+                                    found: *generic_arg,
+                                });
+                            }
+                        }
+
+                        self.substitute_all(underlying_type_id, ctx)?
+                    }
+
+                    Type::Array(checked_array) => {
+                        if checked_generic_args.len() != 2 {
+                            return Err(Error::InvalidGenericArguments {
+                                location: location.clone(),
+                                expected: format!("2 generic parameters",),
+                                found: format!("{}", checked_generic_args.len()),
+                            });
+                        }
+                        if !self.unify(checked_array.inner_ty, checked_generic_args[0], ctx) {
+                            return Err(Error::TypeMismatch {
+                                location: location.clone(),
+                                expected: vec![checked_array.inner_ty],
+                                found: checked_generic_args[0],
+                            });
+                        }
+                        if !self.unify(checked_array.size_ty, checked_generic_args[1], ctx) {
+                            return Err(Error::TypeMismatch {
+                                location: location.clone(),
+                                expected: vec![checked_array.size_ty],
+                                found: checked_generic_args[1],
+                            });
+                        }
+                        self.substitute_all(underlying_type_id, ctx)?
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            UncheckedType::Array(inner_ty, size, location) => {
+                let underlying_type_id = ctx
+                    .symbols
+                    .get_type_id(Some(ScopeId::primitive()), IdentId::TYPE_ARRAY)
+                    .unwrap();
+
+                let &CheckedArrayNode {
+                    inner_ty: generic_inner_ty,
+                    size_ty: generic_size_ty,
+                    ..
+                } = ctx.symbols[underlying_type_id].as_array().unwrap();
+
+                let inner_ty = self.typecheck_type_in_module(module, inner_ty.as_ref(), ctx)?;
+
+                let size_ty = self.populate_constant_u32(size.clone(), ctx)?;
+
+                if !self.unify(generic_inner_ty, inner_ty, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: location.clone(),
+                        expected: vec![generic_inner_ty],
+                        found: inner_ty,
+                    });
+                }
+                if !self.unify(generic_size_ty, size_ty, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: location.clone(),
+                        expected: vec![generic_size_ty],
+                        found: size_ty,
+                    });
+                }
+
+                self.substitute_all(underlying_type_id, ctx)?
+            }
+            UncheckedType::Tuple(elements, _) => {
+                // check each element and collect results into a Result<Vec<TypeId>>
+                let checked_elements = elements
+                    .iter()
+                    .map(|elem_ty| self.typecheck_type_in_module(module, elem_ty, ctx))
+                    .collect::<Result<_>>()?;
+
+                let checked_tuple = Type::Tuple(checked_elements);
+
+                let scope_id = ScopeId::primitive();
+
+                ctx.symbols
+                    .get_or_add_type(Some(scope_id), checked_tuple.key(), checked_tuple)?
+            }
+            UncheckedType::Unknown => UNKOWN_TYPE,
+            UncheckedType::FunctionSignature(function_signature, _) => {
+                let mut parameters = Vec::with_capacity(function_signature.parameters.len());
+                for parameter_ty in &function_signature.parameters {
+                    let ty = self.typecheck_type_in_module(module, parameter_ty, ctx)?;
+                    parameters.push(ty);
+                }
+                let return_type = if let Some(ref ty) = function_signature.return_type {
+                    Some(self.typecheck_type_in_module(module, ty, ctx)?)
+                } else {
+                    None
+                };
+
+                let ty = Type::FunctionSignature(CheckedFunctionSignature {
+                    parameters,
+                    return_type: return_type.unwrap_or(VOID_TYPE),
+                });
+
+                ctx.symbols.get_or_add_type(None, ty.key(), ty)?
+            }
+            UncheckedType::TraitCast(ty, _trait_ty, _) => {
+                self.typecheck_type_in_module(module, ty, ctx)?
+            }
+        };
+
+        let is_self_type = ty.is_basic() && ty.as_basic().unwrap().id == IdentId::TYPE_SELF;
         ctx.add_type_reference(type_id, ty.location(), is_self_type);
         self.infcx.exit_scope();
         Ok(type_id)

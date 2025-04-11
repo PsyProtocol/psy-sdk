@@ -1,4 +1,4 @@
-use qed_ast::{IdentId, Identifier, ModuleId, PathNode, UncheckedType, UseNode};
+use qed_ast::{IdentId, Identifier, ModuleId, PathNode, UncheckedType, UseNode, VisitorContext};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
@@ -25,9 +25,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
         let mut src_module = match path.root.as_ref() {
             Some(ty) => match ty {
-                UncheckedType::Basic(path)
-                    if let Ok(module) = self.resolve_module(&path.target, ctx) =>
-                {
+                UncheckedType::Basic(path) if let Ok(module) = self.resolve_module(&path, ctx) => {
                     module
                 }
                 _ => {
@@ -63,37 +61,59 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         }
 
                         if !path.segments.is_empty() {
+                            let segment = path.segments[0].basic_target().ok_or(
+                                Error::InvalidPathSegment {
+                                    location: path.segments[0].location(),
+                                    segment: format!("{:?}", path.segments[0]),
+                                },
+                            )?;
                             let mut root_ty_id = self.find_trait_cast_member(
                                 impl_ty_id,
                                 trait_type_id,
-                                path.segments[0].id,
+                                segment.id,
                                 ctx,
                             )?;
                             for segment in path.segments.iter().skip(1) {
+                                let segment =
+                                    segment.basic_target().ok_or(Error::InvalidPathSegment {
+                                        location: path.segments[0].location(),
+                                        segment: format!("{:?}", segment),
+                                    })?;
                                 root_ty_id = self.find_member(root_ty_id, segment.id, ctx)?;
                             }
 
-                            let member_ty_id = self.find_member(root_ty_id, path.target.id, ctx)?;
+                            let path_target =
+                                path.target
+                                    .basic_target()
+                                    .ok_or(Error::InvalidPathSegment {
+                                        location: path.segments[0].location(),
+                                        segment: format!("{:?}", path.segments[0]),
+                                    })?;
+                            let member_ty_id = self.find_member(root_ty_id, path_target.id, ctx)?;
 
                             return Ok(CheckedPathNode::new(
                                 None,
                                 Some(root_ty_id),
-                                path.target.id,
+                                Some(path_target.id),
                                 self.substitute_all(member_ty_id, ctx)?,
                                 None,
                                 path.location,
                             ));
                         } else {
+                            if !path.target.is_basic() {
+                                unreachable!()
+                            }
+                            let path_target = path.target.as_basic().unwrap();
                             let member_ty_id = self.find_trait_cast_member(
                                 impl_ty_id,
                                 trait_type_id,
-                                path.target.id,
+                                path_target.id,
                                 ctx,
                             )?;
                             return Ok(CheckedPathNode::new(
                                 None,
                                 Some(impl_ty_id),
-                                path.target.id,
+                                Some(path_target.id),
                                 self.substitute_all(member_ty_id, ctx)?,
                                 Some(self.substitute_all(trait_type_id, ctx)?),
                                 path.location,
@@ -103,18 +123,23 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
                     if !path.segments.is_empty() {
                         return Err(Error::InvalidPathSegment {
-                            location: path.location,
-                            segment: path.segments[0].id,
+                            location: path.segments[0].location(),
+                            segment: format!("{:?}", path.segments[0]),
                         });
                     }
 
+                    if !path.target.is_basic() {
+                        unreachable!()
+                    }
+                    let path_target = path.target.as_basic().unwrap();
+
                     let root_type_id = self.typecheck(ty, ctx)?;
                     let type_id =
-                        self.resolve_member_type(path, root_type_id, path.target.id, ctx)?;
+                        self.resolve_member_type(path, root_type_id, path_target.id, ctx)?;
                     return Ok(CheckedPathNode::new(
                         None,
                         Some(root_type_id),
-                        path.target.id,
+                        Some(path_target.id),
                         self.substitute_all(type_id, ctx)?,
                         None,
                         path.location,
@@ -124,30 +149,44 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             None => {
                 if !path.segments.is_empty() {
                     return Err(Error::InvalidPathSegment {
-                        location: path.location,
-                        segment: path.segments[0].id,
+                        location: path.segments[0].location(),
+                        segment: format!("{:?}", path.segments[0]),
                     });
                 }
-                if let Some(var_id) = ctx.symbols.get_variable(None, &path.target) {
+
+                if !path.target.is_basic() {
+                    let type_id = self.typecheck(&path.target, ctx)?;
+                    return Ok(CheckedPathNode::new(
+                        None,
+                        None,
+                        None,
+                        self.substitute_all(type_id, ctx)?,
+                        None,
+                        path.location,
+                    ));
+                }
+
+                let path_target = path.target.as_basic().unwrap();
+                if let Some(var_id) = ctx.symbols.get_variable(None, path_target) {
                     return Ok(CheckedPathNode::new(
                         Some(var_id),
                         None,
-                        path.target.id,
+                        Some(path_target.id),
                         self.substitute_all(ctx.symbols[var_id].ty, ctx)?,
                         None,
                         path.location,
                     ));
                 }
-                let type_id = ctx.symbols.get_type_id(None, path.target).ok_or_else(|| {
+                let type_id = ctx.symbols.get_type_id(None, path_target).ok_or_else(|| {
                     Error::UnresolvedType {
                         location: path.location,
-                        resolved_type: path.target.id,
+                        resolved_type: path_target.id,
                     }
                 })?;
                 return Ok(CheckedPathNode::new(
                     None,
                     None,
-                    path.target.id,
+                    Some(path_target.id),
                     self.substitute_all(type_id, ctx)?,
                     None,
                     path.location,
@@ -156,43 +195,64 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         };
 
         for (i, segment) in path.segments.iter().enumerate() {
-            if let Some(&target_module_id) = ctx.symbols[src_module]
-                .children
-                .iter()
-                .find(|&&id| ctx.symbols[id].name == segment.id)
-            {
-                if !ctx.symbols[target_module_id].visibility.is_public() {
-                    return Err(Error::ModuleNotPublic {
-                        location: path.location,
-                        module: ctx.symbols[target_module_id].name.id,
-                    });
+            // only last segment and target can be generic
+            match segment {
+                UncheckedType::Basic(segment_name) => {
+                    if let Some(&target_module_id) = ctx.symbols[src_module]
+                        .children
+                        .iter()
+                        .find(|&&id| ctx.symbols[id].name == segment_name.id)
+                    {
+                        if !ctx.symbols[target_module_id].visibility.is_public() {
+                            return Err(Error::ModuleNotPublic {
+                                location: path.location,
+                                module: ctx.symbols[target_module_id].name.id,
+                            });
+                        }
+                        src_module = target_module_id;
+                    } else {
+                        return Err(Error::InvalidPathSegment {
+                            location: segment_name.location,
+                            segment: format!("{:?}", ctx.ident(segment_name)),
+                        });
+                    }
                 }
-                src_module = target_module_id;
-            } else {
-                if i != path.segments.len() - 1 {
+                UncheckedType::Path(_) => {
                     return Err(Error::InvalidPathSegment {
-                        location: path.location,
-                        segment: segment.id,
+                        location: segment.location(),
+                        segment: format!("{:?}", segment),
                     });
                 }
-                let root_type_id = self.resolve_module_type(path, src_module, segment.id, ctx)?;
-                let type_id = self.resolve_member_type(path, root_type_id, path.target.id, ctx)?;
-                return Ok(CheckedPathNode::new(
-                    None,
-                    Some(root_type_id),
-                    path.target.id,
-                    self.substitute_all(type_id, ctx)?,
-                    None,
-                    path.location,
-                ));
+                _ => {
+                    if i != path.segments.len() - 1 {
+                        panic!("only last segment can be generic")
+                    }
+
+                    let root_type_id = self.typecheck_type_in_module(src_module, segment, ctx)?;
+
+                    if !path.target.is_basic() {
+                        // generic function call's target is function name identifier, basic unchecked type
+                        panic!("last segment is generic, so target must be basic?")
+                    }
+                    let target_id = path.target.as_basic().unwrap().id;
+                    let type_id = self.resolve_member_type(path, root_type_id, target_id, ctx)?;
+                    return Ok(CheckedPathNode::new(
+                        None,
+                        Some(root_type_id),
+                        Some(target_id),
+                        self.substitute_all(type_id, ctx)?,
+                        None,
+                        path.location,
+                    ));
+                }
             }
         }
 
-        let type_id = self.resolve_module_type(path, src_module, path.target.id, ctx)?;
+        let type_id = self.typecheck_type_in_module(src_module, &path.target, ctx)?;
         return Ok(CheckedPathNode::new(
             None,
             None,
-            path.target.id,
+            path.target.as_basic().map(|t| t.id),
             self.substitute_all(type_id, ctx)?,
             None,
             path.location,

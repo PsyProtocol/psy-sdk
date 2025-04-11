@@ -69,7 +69,8 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         ctx: &impl VisitorContext<F, C>,
     ) -> String {
         match node {
-            UncheckedType::Basic(name) => self.visit_path_node(name, ctx),
+            UncheckedType::Basic(name) => format!("{}", ctx.ident(name)),
+            UncheckedType::Path(name) => self.visit_path_node(name, ctx),
             UncheckedType::Generic(name, generic_parameters, _) => {
                 if name == &IdentId::TYPE_ARRAY {
                     assert!(generic_parameters.len() == 2);
@@ -198,10 +199,10 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
             &node
                 .segments
                 .iter()
-                .map(|&s| ctx.ident(s).to_string())
+                .map(|s| self.visit_unchecked_type(&s, true, ctx))
                 .collect::<Vec<String>>(),
         );
-        path.extend_from_slice(&vec![ctx.ident(node.target).to_string()]);
+        path.extend_from_slice(&vec![self.visit_unchecked_type(&node.target, true, ctx)]);
 
         if path.len() > 1 {
             format!("<{}>", path.join("::"))
@@ -362,10 +363,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             &node
                 .segments
                 .iter()
-                .map(|&s| ctx.ident(s).to_string())
+                .map(|s| self.visit_unchecked_type(&s, true, ctx))
                 .collect::<Vec<String>>(),
         );
-        path.extend_from_slice(&vec![ctx.ident(node.target).to_string()]);
+        path.extend_from_slice(&vec![self.visit_unchecked_type(&node.target, true, ctx)]);
 
         Ok(format!("{}", path.join("::")))
     }
@@ -426,7 +427,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     .join(", ")
             ),
             ValueNode::Struct(name, generic_parameters, field_values, _location) => {
-                let name = ctx.ident(name);
+                let name = self.visit_path(name, ctx)?;
                 let generic_parameters =
                     self.visit_unchecked_generic_parameters(&generic_parameters, ctx);
                 let mut result = format!(
@@ -511,7 +512,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(format!(
             "{}{}({})",
             self.visit_expr(variable, ctx)?,
-            generic_parameters_content,
+            if generic_parameters_content.is_empty() {
+                "".to_string()
+            } else {
+                format!("#{}", generic_parameters_content)
+            },
             args
         ))
     }

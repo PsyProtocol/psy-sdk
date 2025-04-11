@@ -133,7 +133,7 @@ pub fn lowering_sema_error<F: Clone + From<u32> + ContextFelt, C>(
         SemaError::InvalidPathSegment { location, segment } => build_report(
             location.clone(),
             "InvalidPathSegment",
-            format!("Invalid path segment {}.", ctx.ident(segment.clone())),
+            format!("Invalid path segment {}.", segment),
             &ctx.program,
         )
         .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
