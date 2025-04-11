@@ -1,3 +1,5 @@
+// input:
+// output:
 fn main() {
     // ✅ basic tuple assignment
     let a: Felt = 10;

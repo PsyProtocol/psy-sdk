@@ -57,6 +57,8 @@ impl Contract {
     }
 }
 
+// input:
+// output:
 fn main() -> Felt {
     Contract::set_a(10);
     Contract::set_b(new Person {

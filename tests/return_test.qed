@@ -18,6 +18,8 @@ impl Test {
     }
 }
 
+// input: 2,3
+// output: 5
 fn main(a: Felt, b: Felt) -> Felt {
     void_fn();
     let res_add: Felt = add(a, b);

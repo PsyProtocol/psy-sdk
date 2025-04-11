@@ -10,6 +10,8 @@ mod math {
 
 use math::*;
 
+// input:
+// output:
 fn main() -> Felt {
     let mut a = 1;
     let mut b = 2;

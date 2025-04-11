@@ -1,3 +1,5 @@
+// input:2,3
+// output: 233
 fn main(a: Felt, b: Felt) -> Felt {
     let mut res: Felt = 0;
     let mut a: Felt = a;

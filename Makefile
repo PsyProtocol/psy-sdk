@@ -32,39 +32,6 @@ compile:
 DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd tests && cargo run --release --package dargo execute --debug --entry-path
 test:
 	@RUST_LOG=${LOG_LEVE} cargo test --release -- --nocapture
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package dargo test --file tests/in_mod_attr_test.qed
-	@RUST_LOG=${LOG_LEVE} cargo run --release --package dargo test --file tests/should_panic_test.qed
-
-	@$(DARGO_CLI_EXECUTE) assert_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) ctx_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) inline_module_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) opcode_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) parameter_passing_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) pub_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) return_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) self_test.qed
-	@$(DARGO_CLI_EXECUTE) storage_test.qed
-	@$(DARGO_CLI_EXECUTE) trait_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) hash_test.qed
-	@$(DARGO_CLI_EXECUTE) first_class_function_test.qed
-	@$(DARGO_CLI_EXECUTE) type_alias_test.qed
-	@$(DARGO_CLI_EXECUTE) const_test.qed --parameters 1
-	@$(DARGO_CLI_EXECUTE) while_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) for_test.qed
-	@$(DARGO_CLI_EXECUTE) lambda_test.qed
-	@$(DARGO_CLI_EXECUTE) generics_test.qed
-	@$(DARGO_CLI_EXECUTE) polymorphism.qed
-	@$(DARGO_CLI_EXECUTE) type_hint_test.qed
-	@$(DARGO_CLI_EXECUTE) exp_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) array_test.qed --parameters 1,1
-	@$(DARGO_CLI_EXECUTE) u32_test.qed --parameters 2,3
-	# @$(DARGO_CLI_EXECUTE) enum_test.qed
-	@$(DARGO_CLI_EXECUTE) tuple_test.qed
-	@$(DARGO_CLI_EXECUTE) ambiguity_test.qed
-	@$(DARGO_CLI_EXECUTE) match_test.qed --parameters 100
-	@$(DARGO_CLI_EXECUTE) if_test.qed
-	@$(DARGO_CLI_EXECUTE) block_test.qed
-	@$(DARGO_CLI_EXECUTE) should_panic_test.qed --parameters 2,3
 	@$(DARGO_CLI_EXECUTE) basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 133700 --parameters 2,1000
 	@$(DARGO_CLI_EXECUTE) basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters=2,100
 	@$(DARGO_CLI_EXECUTE) token.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
