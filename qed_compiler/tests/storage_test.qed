@@ -2,7 +2,7 @@ mod math {
     pub fn max(a: Felt, b: Felt) -> Felt {
         return a * ((a > b) as Felt) + b * ((a <= b) as Felt);
     }
-    
+
     pub fn min(a: Felt, b: Felt) -> Felt {
         return a * ((a < b) as Felt) + b * ((a >= b) as Felt);
     }
@@ -57,6 +57,8 @@ impl Contract {
     }
 }
 
+// input:
+// output:
 fn main() -> Felt {
     assert_eq(Felt::size(), 1, "Error: Felt::size() should be 1");
     assert_eq(bool::size(), 1, "Error: bool::size() should be 1");

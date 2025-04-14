@@ -1,25 +1,28 @@
-use crate::{IdentId, Identifier, Location, NodeInfo, NodeType, UncheckedType};
+use crate::{IdentId, Location, NodeInfo, NodeType, UncheckedType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PathNode {
     pub root: Option<UncheckedType>,
-    pub segments: Vec<Identifier>,
-    pub target: Identifier,
+    pub segments: Vec<UncheckedType>,
+    pub target: UncheckedType,
     pub location: Location,
 }
 
 impl PathNode {
-    pub fn from_target(target: Identifier) -> Self {
+    pub fn from_target(target: UncheckedType) -> Self {
         Self {
             root: None,
             segments: vec![],
-            target,
-            location: target.location,
+            target: target.clone(),
+            location: target.location(),
         }
     }
 
     pub fn is_receiver(&self) -> bool {
-        self.root.is_none() && self.target.id == IdentId::SELF && self.segments.is_empty()
+        self.root.is_none()
+            && self.segments.is_empty()
+            && self.target.is_basic()
+            && self.target.as_basic().unwrap().id == IdentId::SELF
     }
 }
 

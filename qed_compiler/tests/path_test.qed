@@ -1,3 +1,22 @@
+pub mod mod1 {
+    pub struct Test<T> {
+        pub field: T,
+    }
+    
+    impl<T> Test<T> {
+        pub fn get_field() -> Felt {
+            return 666;
+        }
+        pub fn get_test<S>(a: S) -> Felt {
+            return a as Felt;
+        }
+    }
+    
+    pub fn generic_fn<T>(a: T) -> Felt {
+        return a as Felt;
+    }
+}
+
 pub struct FeltNumber {
     pub a: Felt,
     pub b: Felt,
@@ -90,4 +109,12 @@ fn main() {
     assert_eq(rres2, 4, "res != 4");
     let rrres = <Number<Felt> as TraitWithType>::Ty::get_a(num);
     assert_eq(rrres, 1, "res!= 1");
+    let generic_path_res = mod1::<Test<Felt>>::get_test#<u32>(666u32);
+    assert_eq(generic_path_res, 666, "res!= 666");
+    let test_felt = new mod1::<Test<Felt>> {
+        field: 1,
+    };
+    assert_eq(test_felt.field, 1, "res!= 1");
+    let generic_path_fn_res = mod1::generic_fn#<u32>(888u32);
+    assert_eq(generic_path_fn_res, 888, "res!= 888");
 }

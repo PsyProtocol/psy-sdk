@@ -298,10 +298,10 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 let segments = node
                     .segments
                     .iter()
-                    .map(|identifier| self.indent_name(identifier.id))
+                    .map(|segment| format!("{:?}", segment))
                     .join(", ");
                 writeln!(fmt, "Segments: [{}]", segments);
-                writeln!(fmt, "Target: {:?}", self.indent_name(node.target.id));
+                writeln!(fmt, "Target: {:?}", format!("{:?}", node.target));
                 fmt.indent();
             }
             ExprNode::Value(node) => writeln!(fmt, "{:?}", node),
