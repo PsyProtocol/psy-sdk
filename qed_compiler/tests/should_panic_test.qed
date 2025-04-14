@@ -1,0 +1,51 @@
+#[test]
+#[should_panic]
+fn test_simple_panic() {
+    // Directly assert false to trigger a panic
+    assert(false, "This assertion is deliberately false to test should_panic");
+}
+
+#[test]
+#[should_panic]
+fn test_panic_with_expected_message() {
+    // Another direct assert with a specific message
+    assert_eq(1, 2, "expected failure message");
+}
+
+// Test that should pass normally
+#[test]
+fn test_that_passes() {
+    assert(true, "This should pass");
+}
+
+fn max(a: Felt, b: Felt) -> Felt {
+    if a > b {
+        a
+    }    
+    else {
+        b
+    }
+}
+
+#[test]
+fn test_max() {
+    assert(max(1, 2) == 2, "This should pass");
+}
+
+#[test]
+#[should_panic]
+fn test_max_for_panic() {
+    assert(max(1, 2) == 12, "This should pass");
+}
+
+// input: 1,2
+// output: 3
+fn main(a: Felt, b: Felt) -> Felt {
+    assert(a < b, "a should be less than b");
+    return a + b;
+}
+
+#[test]
+fn test_main() {
+    assert(main(1, 2) == 3, "This should pass");
+}

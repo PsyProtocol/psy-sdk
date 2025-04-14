@@ -1,0 +1,38 @@
+pub struct Person {
+    pub age: Felt,
+    male: bool,
+}
+
+struct Family {
+    father: Person,
+    mother: Person,
+    pub children: [Person; 2],
+}
+
+// input:
+// output:
+fn main() {
+    let father: Person = new Person {
+        age: 50,
+        male: true,
+    };
+    let mother: Person = new Person {
+        age: 50,
+        male: false,
+    };
+    let mut boy: Person = new Person {
+        age: 20,
+        male: true,
+    };
+    let girl: Person = new Person {
+        age: 20,
+        male: false,
+    };
+    boy.age += 1;
+    let mut family: Family = new Family {
+        father: father,
+        mother: mother,
+        children: [boy, girl],
+    };
+    family.children[0].age = 21;
+}

@@ -1,0 +1,33 @@
+fn void_fn() {
+}
+
+fn add(a: Felt, b: Felt) -> Felt {
+    return a + b;
+}
+
+struct Test {
+    a: Felt,
+    b: Felt,
+}
+
+impl Test {
+    pub fn test_void(self: Test) {
+    }
+    pub fn test_add(self: Test) -> Felt {
+        return self.a + self.b;
+    }
+}
+
+// input: 2,3
+// output: 5
+fn main(a: Felt, b: Felt) -> Felt {
+    void_fn();
+    let res_add: Felt = add(a, b);
+    let test: Test = new Test {
+        a: a,
+        b: b,
+    };
+    test.test_void();
+    let res_test_add: Felt = test.test_add();
+    res_test_add
+}

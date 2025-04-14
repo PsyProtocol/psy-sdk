@@ -1,0 +1,25 @@
+pub mod mod1 {
+    pub mod mod2 {
+        pub fn test_fn(a: Felt, b: Felt) -> Felt {
+            return a + b;
+        }
+    }
+}
+
+pub mod mod3 {
+    pub mod mod4 {
+        pub fn test_fn(a: Felt, b: Felt) -> Felt {
+            return a + b;
+        }
+    }
+}
+
+use mod1::mod2::test_fn;
+
+// input:1,2
+// output: 6
+fn main(a: Felt, b: Felt) -> Felt {
+    let c: Felt = test_fn(a, b);
+    let d: Felt = mod3::mod4::test_fn(a, b);
+    return c + d;
+}
