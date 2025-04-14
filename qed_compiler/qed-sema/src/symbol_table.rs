@@ -325,6 +325,12 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         Ok(())
     }
 
+    pub fn create_type(&mut self, ty: Type) -> Result<TypeId> {
+        let type_id = TypeId(self.types.len());
+        self.types.push(ty);
+        Ok(type_id)
+    }
+
     pub fn add_type<K: Into<TypeKey>>(
         &mut self,
         scope_id: Option<ScopeId>,

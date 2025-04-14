@@ -2,8 +2,8 @@ export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 
 PROFILE                 := release
 LOG_LEVE                := info
-FILE                    := qed_compiler/tests/trait_test.qed
-PARAMETERS              := 2,3
+FILE                    := qed_compiler/tests/storage_test.qed
+PARAMETERS              :=
 
 check:
 	@cargo check --all-targets --examples

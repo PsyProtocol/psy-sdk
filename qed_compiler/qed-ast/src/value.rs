@@ -2,6 +2,40 @@ use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use std::fmt::{Display, Formatter};
 
+#[derive(Debug, Copy, Clone, PartialEq, EnumAsInner)]
+pub enum ConstValue {
+    Felt(u64),
+    U32(u32),
+    Bool(bool),
+}
+
+impl From<bool> for ConstValue {
+    fn from(value: bool) -> Self {
+        ConstValue::Bool(value)
+    }
+}
+
+impl From<u32> for ConstValue {
+    fn from(value: u32) -> Self {
+        ConstValue::U32(value)
+    }
+}
+
+impl From<u64> for ConstValue {
+    fn from(value: u64) -> Self {
+        ConstValue::Felt(value)
+    }
+}
+
+impl Display for ConstValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConstValue::Felt(value) => write!(f, "{}", value),
+            ConstValue::U32(value) => write!(f, "{}", value),
+            ConstValue::Bool(value) => write!(f, "{}", value),
+        }
+    }
+}
 use crate::{ExprId, Identifier, Location, NodeInfo, NodeType, UncheckedType};
 
 #[derive(Clone, Debug, PartialEq, EnumAsInner)]
@@ -9,7 +43,7 @@ pub enum ValueNode<F: Clone + From<u32>> {
     Felt(F, Location),
     Bool(F, Location),
     U32(F, Location),
-    Array(usize, Vec<ExprId>, Location),
+    Array(u32, Vec<ExprId>, Location),
     Struct(
         Identifier,
         Vec<UncheckedType>,

@@ -18,6 +18,8 @@ pub use r#struct::*;
 pub use r#trait::*;
 pub use type_alias::*;
 
+use crate::TypeId;
+
 pub type CheckedUseNode = UseNode;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
@@ -42,6 +44,15 @@ impl CheckedDefinitionNode {
             Self::Trait(node) => node.name.id,
             Self::TypeAlias(node) => node.name.id,
             Self::Const(node) => node.name.unwrap().id,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn type_id(&self) -> TypeId {
+        match self {
+            Self::Function(node) => node.type_id,
+            Self::Struct(node) => node.type_id,
+            Self::Trait(node) => node.type_id,
             _ => unreachable!(),
         }
     }

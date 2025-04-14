@@ -42,7 +42,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         self.resolve_member_type(path, root_type_id, path.target.id, ctx)?;
                     return Ok(CheckedPathNode::new(
                         None,
-                        Some(root_type_id),
+                        Some(self.substitute_all(root_type_id, ctx)?),
                         path.target.id,
                         self.substitute_all(type_id, ctx)?,
                         path.location,
@@ -105,7 +105,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 let type_id = self.resolve_member_type(path, root_type_id, path.target.id, ctx)?;
                 return Ok(CheckedPathNode::new(
                     None,
-                    Some(root_type_id),
+                    Some(self.substitute_all(root_type_id, ctx)?),
                     path.target.id,
                     self.substitute_all(type_id, ctx)?,
                     path.location,

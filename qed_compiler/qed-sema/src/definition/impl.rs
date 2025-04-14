@@ -28,7 +28,7 @@ pub struct CheckedTraitImplNode {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedAssociatedTypeValue {
-    pub ty: TypeId,
+    pub type_id: TypeId,
     pub visibility: Visibility,
     pub comments: Vec<Comment>,
     pub location: Location,

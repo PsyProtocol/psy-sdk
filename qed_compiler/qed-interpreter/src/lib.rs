@@ -13,6 +13,7 @@ use indexmap::IndexMap;
 pub use preprocess::StorageProcessor;
 use qed_ast::*;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
+use qed_fmt::Formatter;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
@@ -73,12 +74,22 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Evaluator<F, C> for
         self.__interpret_expr__(program, expr, ctx).unwrap()
     }
 
-    fn to_constant_u32(&mut self, value: F) -> u32 {
-        u32::try_from(self.context.get_constant_value(value)).unwrap()
+    fn to_constant(&mut self, value: F) -> u64 {
+        self.context.get_constant_value(value)
     }
 
-    fn from_constant_u32(&mut self, value: u32) -> F {
-        self.context.op_const_u32(value)
+    fn from_constant(&mut self, value: ConstValue) -> F {
+        match value {
+            ConstValue::Felt(value) => self.context.op_const(value),
+            ConstValue::U32(value) => self.context.op_const_u32(value),
+            ConstValue::Bool(value) => {
+                if value {
+                    self.context.op_true()
+                } else {
+                    self.context.op_false()
+                }
+            }
+        }
     }
 }
 
@@ -352,9 +363,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             DefaultVisitorContext::new(&mut program);
         storage_preprocessor.visit_program(&mut default_visitor_context)?;
 
-        // let mut formatter = Formatter::new();
-        // formatter.visit_program(&mut default_visitor_context)?;
-        // println!("formatted:\n{}", formatter.get_output());
+        let mut formatter = Formatter::new();
+        formatter.visit_program(&mut default_visitor_context)?;
+        println!("formatted:\n{}", formatter.get_output());
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
         typechecker

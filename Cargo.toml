@@ -39,8 +39,10 @@ derivative = "2.2"
 itertools = "0.14"
 
 petgraph = "0.7"
+rangemap = "1.4"
 chalk = "0.1"
 ena = "0.14"
+unicode-segmentation = "1.12"
 
 syn = { version = "2.0", features = ["full"] }
 proc-macro2 = "1.0"
@@ -55,6 +57,8 @@ ruint = { version = "1.12", default-features = false, features = [
     "num-bigint",
 ] }
 clap = { version = "4.4", features = ["derive", "env"] }
+clap_complete = "4.5"
+color-eyre = "0.6"
 
 rayon = { version = "1.10" }
 
@@ -82,8 +86,10 @@ plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22c
 plonky2_maybe_rayon = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c", default-features = false }
 
 tracing = "0.1"
+log = "0.4"
 tracing-log = "0.2"
-tracing-subscriber = { version = "0.3", features = ["std", "env-filter"] }
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["std", "env-filter", "json"] }
 
 sha3 = { version = "0.10", default-features = false }
 blake2 = { version = "0.10", default-features = false }
@@ -123,7 +129,15 @@ either = "1"
 llvm-sys = "191.0"
 melior = { version = "0.21", features = ["ods-dialects"] }
 mlir-sys = { version = "0.4" }
+
 regex = "1.11"
+toml = "0.8"
+url = "2.5"
+dirs = "6.0"
+semver = "1.0"
+tempfile = "3.19"
+md5 = "0.7"
+
 qedlang_core = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
 qed_crypto = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
 qed_exec = { git = "ssh://git@github.com/QEDProtocol/qedlang-rust", branch = "feat/qed-lang" }
@@ -157,3 +171,5 @@ qed-interpreter = { path = "./qed_compiler/qed-interpreter" }
 qed-dargo = { path = "./qed_compiler/qed-dargo" }
 qed-dargo-toml = { path = "./qed_compiler/qed-dargo-toml" }
 dargo = { path = "./qed_compiler/qed-dargo-cli" }
+
+serial_test = "3.2"

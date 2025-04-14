@@ -936,12 +936,12 @@ ArgumentList: Vec<ExprNode<F>> = {
 
 ArrayExpression: ExprNode<F> = {
     <l:@L> "[" <elements:Comma<Expression>> "]" <r:@R> => ExprNode::<F>::Value(
-        ValueNode::Array(elements.len(), expr_nodes.alloc_items(elements), Location::new(file_id, l, r)),
+        ValueNode::Array(u32::try_from(elements.len()).unwrap(), expr_nodes.alloc_items(elements), Location::new(file_id, l, r)),
     ),
     <l:@L> "[" <element:Expression> ";" <n:U64> "]" <r:@R> => ExprNode::<F>::Value({
-        let size = usize::try_from(n).unwrap();
-        let mut elements = Vec::with_capacity(size);
-        for _ in 0..n {
+        let size = u32::try_from(n).unwrap();
+        let mut elements = Vec::with_capacity(size as usize);
+        for _ in 0..size {
             elements.push(expr_nodes.alloc_item(element.clone()));
         }
         ValueNode::Array(size, elements, Location::new(file_id, l, r))
@@ -959,6 +959,9 @@ Monomorphization: Vec<UncheckedType> = {
 }
 
 Ty: UncheckedType = {
+    <l:@L> <n:U64> <r:@R> => UncheckedType::Const(ConstValue::Felt(n), Location::new(file_id, l, r)),
+    <l:@L> <n:BOOL> <r:@R> => UncheckedType::Const(ConstValue::Bool(n), Location::new(file_id, l, r)),
+    <l:@L> <n:U32> <r:@R> => UncheckedType::Const(ConstValue::U32(n), Location::new(file_id, l, r)),
     BasicType,
     ArrayType,
     TupleType,
@@ -976,7 +979,7 @@ GenericType: UncheckedType = {
 }
 
 ArrayType: UncheckedType = {
-    <l:@L> "[" <ty:Ty> ";" <n:U64> "]" <r:@R> => UncheckedType::Array(Box::new(ty), usize::try_from(n).unwrap(), Location::new(file_id, l, r))
+    <l:@L> "[" <ty:Ty> ";" <n:U64> "]" <r:@R> => UncheckedType::Array(Box::new(ty), u32::try_from(n).unwrap(), Location::new(file_id, l, r))
 }
 
 ConstType: UncheckedType = {
