@@ -59,6 +59,8 @@ struct ContractStorage {
     c: Person,
 }
 
+// input:
+// output:
 fn main() {
     let a: Felt = 1;
     let b: Felt = 2;

@@ -31,7 +31,7 @@ impl Dependency {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Package {
     pub version: Option<String>,
     pub root_dir: PathBuf,
@@ -55,8 +55,9 @@ impl Package {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub enum PackageType {
+    #[default]
     Library,
     Binary,
 }
@@ -70,7 +71,7 @@ impl Display for PackageType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize, Default)]
 pub struct CrateName(SmolStr);
 
 impl CrateName {

@@ -70,3 +70,22 @@ pub(crate) fn run(args: TestCommand) -> crate::errors::Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn qed_unit_test() {
+        unsafe {
+            std::env::set_var("DARGO_STD_PATH", "../../../qed-std/std.qed");
+        }
+        insta::glob!("../../../tests", "*_test.qed", |path| {
+            let args = TestCommand { file: path.into() };
+            run(args).unwrap();
+            #[allow(static_mut_refs)]
+            unsafe {
+                qed_sema::STD_PRIMITIVE_SCOPE_ID.take()
+            };
+        });
+    }
+}

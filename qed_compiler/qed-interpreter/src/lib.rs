@@ -31,12 +31,18 @@ use std::path::PathBuf;
 use std::{collections::HashMap, iter::once};
 use tracing::instrument;
 
+pub struct InterpretResult {
+    pub compile_results: Vec<DPNFunctionCircuitDefinition>,
+    pub typechecker: TypeChecker<SymFeltRef, QExecContext>,
+    pub ctx: TypeCheckerVisitorContext<SymFeltRef, QExecContext>,
+}
+
 pub fn interpret(
     contract_name: Option<String>,
     method_names: Vec<String>,
     entry: PathBuf,
     dependencies_entries: Vec<PathBuf>,
-) -> anyhow::Result<Vec<DPNFunctionCircuitDefinition>> {
+) -> anyhow::Result<InterpretResult> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let (mut typechecker, mut ctx) =
         interpreter.typecheck(entry, dependencies_entries.into_iter().collect())?;
@@ -55,7 +61,12 @@ pub fn interpret(
             )
         },
     )?;
-    Ok(compile_results)
+
+    Ok(InterpretResult {
+        compile_results,
+        typechecker,
+        ctx,
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -363,9 +374,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             DefaultVisitorContext::new(&mut program);
         storage_preprocessor.visit_program(&mut default_visitor_context)?;
 
-        let mut formatter = Formatter::new();
-        formatter.visit_program(&mut default_visitor_context)?;
-        println!("formatted:\n{}", formatter.get_output());
+        // let mut formatter = Formatter::new();
+        // formatter.visit_program(&mut default_visitor_context)?;
+        // println!("formatted:\n{}", formatter.get_output());
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
         typechecker
@@ -1546,14 +1557,14 @@ mod tests {
     fn test_crates_resolve() {
         let entry: PathBuf = "../tests/module_test/foo/src/main.qed".into();
         let dependencies_entries = vec!["../tests/module_test/bar/src/lib.qed".into()];
-        let compiled_results = super::interpret(
+        let result = super::interpret(
             Option::<String>::None,
             vec!["main".into()],
             entry.clone(),
             dependencies_entries,
         )
         .unwrap();
-        println!("compile_result: {:?}", compiled_results);
+        println!("compile_result: {:?}", result.compile_results);
         #[allow(static_mut_refs)]
         unsafe {
             STD_PRIMITIVE_SCOPE_ID.take().unwrap()

@@ -20,6 +20,8 @@ impl Person {
 // }
 // fn test_fn2(s: Self){
 // }
+// input:
+// output:
 fn main() {
     let person: Person = new Person {
         year_of_birth: 1990,

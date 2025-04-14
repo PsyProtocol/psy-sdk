@@ -12,6 +12,8 @@ fn call_function(a: Felt, b: Felt, f: fn(Felt, Felt) -> Felt) -> Felt {
     f(a, b)
 }
 
+// input:
+// output: 1
 fn main() -> Felt {
     call_function(1, 2, math::min)
 }

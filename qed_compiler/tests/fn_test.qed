@@ -18,6 +18,8 @@ fn add_one(i: Felt) -> Felt {
     return c;
 }
 
+// input:
+// output:
 fn main() {
     let mut a: Felt = add(1, 2);
     let mut b: Felt = sub(2, 1);

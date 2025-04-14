@@ -23,6 +23,8 @@ pub fn get_value<T: Value>(value: T) -> Felt {
 }
 
 
+// input:
+// output:
 fn main() {
     let two = new Two {};
     let three = new Three {};

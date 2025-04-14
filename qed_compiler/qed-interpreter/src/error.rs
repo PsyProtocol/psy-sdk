@@ -335,6 +335,21 @@ pub fn lowering_sema_error<F: Clone + From<u32> + ContextFelt, C>(
             &ctx.program,
         )
         .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
+        SemaError::MissingAssociatedType {
+            location,
+            trait_name,
+            type_name,
+        } => build_report(
+            location.clone(),
+            "MissingAssociatedType",
+            format!(
+                "Missing associated type {} for {}.",
+                ctx.ident(type_name.clone()),
+                ctx.ident(trait_name.clone())
+            ),
+            &ctx.program,
+        )
+        .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
     }
 }
 

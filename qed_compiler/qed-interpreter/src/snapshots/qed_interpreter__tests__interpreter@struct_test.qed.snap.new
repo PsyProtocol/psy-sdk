@@ -1,5 +1,6 @@
 ---
 source: qed_compiler/qed-interpreter/src/lib.rs
+assertion_line: 1635
 expression: "ctx.debug_scope(ScopeId::root())"
 input_file: qed_compiler/tests/struct_test.qed
 ---
@@ -1261,8 +1262,8 @@ ScopeId(0) (Module)
             Types:
                 fn max_2 (TypeId(87))
                     Parameters:
-                        Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 1689, end: 1690 } }, TypeId(72))
-                        Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 1698, end: 1699 } }, TypeId(72))
+                        Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 1689, end: 1690 } }, TypeId(87))
+                        Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 1698, end: 1699 } }, TypeId(87))
                     Return Type: Felt (TypeId(3))
                     Body: ExprId(257)
             ScopeId(110) (Function)

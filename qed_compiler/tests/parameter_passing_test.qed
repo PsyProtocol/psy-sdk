@@ -11,6 +11,8 @@ fn modify_struct(mut p: Person) {
     p.age += 2;
 }
 
+// input: 2,3
+// output: 4
 fn main(a: Felt, b: Felt) -> Felt {
     modify_primitive(a);
     let mut arr: [Felt; 2] = [a, b];

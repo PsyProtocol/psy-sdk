@@ -3,6 +3,8 @@
 //     Green,
 //     Blue,
 // }
+// input:
+// output: 0
 fn main() -> Felt {
     let result: Felt = 0;
     // let color: Color = Color::Red;
