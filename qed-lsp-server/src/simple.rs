@@ -1,12 +1,13 @@
-use qed_ast::{Position, Program};
+use qed_ast::{Position, Program, TextPosition, TextRange};
 use qed_interpreter::Interpreter;
 use std::collections::HashMap;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::vec;
 use tower_lsp::lsp_types::{
-    InitializeParams, InitializeResult, Range, TextDocumentSyncCapability, TextDocumentSyncKind,
-    TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Url,
+    Diagnostic, DiagnosticSeverity, InitializeParams, InitializeResult, Range,
+    TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
+    TextDocumentSyncSaveOptions, Url,
 };
 use tower_lsp::{
     lsp_types::{
@@ -24,7 +25,7 @@ use dargo::{resolve_entries, EntryManager};
 use qed_common::FileId;
 use qed_dargo_toml::files::{find_file_manifest_root, get_package_manifest};
 use qed_dargo_toml::resolve_workspace_from_toml;
-use qed_sema::{offset_from_position, TypeCheckerVisitorContext};
+use qed_sema::{offset_from_position, TypeCheckError, TypeCheckerVisitorContext};
 use qedlang_core::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
 use tower_lsp::lsp_types::{
     CompletionParams, CompletionResponse, DidChangeConfigurationParams,
@@ -38,6 +39,7 @@ pub struct QLspSimple {
     ctx: Arc<RwLock<TypeCheckerVisitorContext<SymFeltRef, QExecContext>>>,
     root_path: Arc<RwLock<PathBuf>>,
     entry_manager_cache: Arc<RwLock<HashMap<PathBuf, EntryManager>>>,
+    last_diagnostic_uri: RwLock<Option<Url>>,
 }
 
 impl QLspSimple {
@@ -47,6 +49,7 @@ impl QLspSimple {
             ctx: Arc::new(RwLock::new(TypeCheckerVisitorContext::new(Program::new()))),
             root_path: Arc::new(RwLock::new(PathBuf::new())),
             entry_manager_cache: Arc::new(RwLock::new(HashMap::new())),
+            last_diagnostic_uri: RwLock::new(None),
         }
     }
 
@@ -68,7 +71,10 @@ impl QLspSimple {
             .expect("root_path read lock poisoned")
             .clone()
     }
-
+    pub fn root_uri(&self) -> Option<Url> {
+        let path = self.get_root_path();
+        Url::from_file_path(path).ok()
+    }
     pub fn client(&self) -> &Client {
         &self.client
     }
@@ -86,6 +92,16 @@ impl QLspSimple {
         let mut ctx = self.get_ctx_write();
         *ctx = new_ctx;
         Ok(())
+    }
+    pub fn set_last_diagnostic_uri(&self, uri: Url) {
+        let mut guard = self.last_diagnostic_uri.write().expect("lock poisoned");
+        *guard = Some(uri);
+    }
+    pub fn get_last_diagnostic_uri(&self) -> Option<Url> {
+        self.last_diagnostic_uri
+            .read()
+            .ok()
+            .and_then(|guard| guard.clone())
     }
 
     pub fn get_cached_entry_manager(&self, path: &PathBuf) -> Option<EntryManager> {
@@ -122,7 +138,46 @@ impl QLspSimple {
             .ok_or_else(|| QLspError::FileIdNotFound(path.clone()))
     }
 
-    pub fn init(&self, root_path: &PathBuf) -> QLspResult<()> {
+    pub async fn init_and_publish_diagnostics(&self, root_path: &PathBuf) -> TResult<()> {
+        match self.collect_diagnostics_sync(root_path) {
+            Ok((Some(uri), diagnostics)) => {
+                eprintln!("[diagnostics] Start publishing diagnostics");
+                eprintln!("[diagnostics] URI: {:?}", uri);
+                eprintln!("[diagnostics] Payload: {:?}", diagnostics);
+
+                self.set_last_diagnostic_uri(uri.clone());
+                self.client
+                    .publish_diagnostics(uri.clone(), diagnostics, None)
+                    .await;
+
+                eprintln!("[diagnostics] Publish finished");
+            }
+            Ok((None, _)) => {
+                eprintln!("[diagnostics] No URI returned, skipping publish");
+                if let Some(uri) = self.get_last_diagnostic_uri() {
+                    self.client.publish_diagnostics(uri, vec![], None).await;
+                }
+                // self.client.publish_diagnostics(uri.clone(), vec![], None).await;
+            }
+            Err(err) => {
+                eprintln!("[diagnostics] Failed to collect diagnostics: {:?}", err);
+                let _ = self
+                    .client
+                    .log_message(
+                        tower_lsp::lsp_types::MessageType::ERROR,
+                        format!("Context error: {}", err),
+                    )
+                    .await;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn collect_diagnostics_sync(
+        &self,
+        root_path: &PathBuf,
+    ) -> QLspResult<(Option<Url>, Vec<Diagnostic>)> {
         self.set_root_path(root_path)?;
 
         //use cached entry manager if available
@@ -151,13 +206,15 @@ impl QLspSimple {
 
         let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
 
-        let result = interpreter.typecheck(
+        let result = interpreter.typecheck_lsp(
             entry_manager.entry,
             entry_manager.dependencies_entries.into_iter().collect(),
         );
 
         match result {
             Ok((_typechecker, ctx)) => {
+                eprintln!("typecheck_lsp success");
+
                 if let Err(e) = self.set_ctx(ctx) {
                     eprintln!("[init warning] Failed to set ctx: {}", e);
                     let _ = self.client.log_message(
@@ -165,16 +222,46 @@ impl QLspSimple {
                         format!("cannot set context: {}", e),
                     );
                 }
+                Ok((None, vec![]))
             }
-            Err(e) => {
-                eprintln!("[init warning] Typecheck failed: {}", e);
-                let _ = self.client.log_message(
-                    tower_lsp::lsp_types::MessageType::ERROR,
-                    format!("type check error: {}", e),
-                );
+            Err(err) => {
+                let (uri_opt, diagnostic) = match err {
+                    TypeCheckError::Parse(desc) | TypeCheckError::TypeCheck(desc) => {
+                        let uri_opt = desc
+                            .file
+                            .as_ref()
+                            .and_then(|path| Url::from_file_path(path).ok());
+
+                        let diagnostic = Diagnostic {
+                            range: desc
+                                .text_range
+                                .map(to_lsp_range)
+                                .unwrap_or_else(dummy_range),
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            message: desc.message,
+                            source: Some("qed-lsp".into()),
+                            ..Default::default()
+                        };
+
+                        let ret = (uri_opt, diagnostic);
+                        eprintln!("typecheck_lsp failed ret = {:?}", ret);
+                        ret
+                    }
+                    TypeCheckError::Cycle(msg) | TypeCheckError::StoragePreprocess(msg) => {
+                        let uri_opt = self.root_uri();
+                        let diagnostic = Diagnostic {
+                            range: dummy_range(),
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            message: msg,
+                            source: Some("qed-lsp".into()),
+                            ..Default::default()
+                        };
+                        (uri_opt, diagnostic)
+                    }
+                };
+                Ok((uri_opt, vec![diagnostic]))
             }
         }
-        Ok(())
     }
 }
 
@@ -193,14 +280,7 @@ impl LanguageServer for QLspSimple {
             TError::invalid_params(msg)
         })?;
 
-        self.init(&root_path).map_err(|err| {
-            let msg = format!(
-                "Initialization failed for root path {:?}: {:?}",
-                root_path, err
-            );
-            eprintln!("{msg}");
-            TError::from(err)
-        })?;
+        let _ = self.init_and_publish_diagnostics(&root_path).await;
 
         Ok(InitializeResult {
             capabilities: tower_lsp::lsp_types::ServerCapabilities {
@@ -232,7 +312,12 @@ impl LanguageServer for QLspSimple {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        dbg!(format!("did_open: {:?}", params));
+        // dbg!(format!("did_open: {:?}", params));
+        // let uri = &params.text_document.uri;
+        //
+        // if let Ok(path) = uri.to_file_path() {
+        //     let _ = self.init_and_publish_diagnostics(&path).await;
+        // }
     }
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         dbg!(format!("did_change: {:?}", params));
@@ -261,10 +346,8 @@ impl LanguageServer for QLspSimple {
 
         let root_path = self.get_root_path();
         dbg!("did_save prepare init: {:?}", &root_path);
-        if let Err(e) = self.init(&root_path) {
-            eprintln!("init failed: {:?}", e);
-            return;
-        }
+        let _ = self.init_and_publish_diagnostics(&root_path).await;
+
         dbg!("did_save init Success");
 
         dbg!(format!("Saved file: {}", uri));
@@ -484,5 +567,34 @@ pub fn try_uri_to_path(uri: &Url) -> Option<PathBuf> {
             dbg!(format!("{:?} to_file_path error", uri));
             None
         }
+    }
+}
+
+/// `TextPosition` → LSP `Position`
+fn to_lsp_position(pos: TextPosition) -> tower_lsp::lsp_types::Position {
+    tower_lsp::lsp_types::Position {
+        line: pos.line,
+        character: pos.character,
+    }
+}
+
+/// `TextRange` → LSP `Range`
+fn to_lsp_range(range: TextRange) -> Range {
+    Range {
+        start: to_lsp_position(range.start),
+        end: to_lsp_position(range.end),
+    }
+}
+/// Dummy range: typically used for unknown or fallback diagnostic positions.
+pub fn dummy_range() -> Range {
+    Range {
+        start: tower_lsp::lsp_types::Position {
+            line: 0,
+            character: 0,
+        },
+        end: tower_lsp::lsp_types::Position {
+            line: 0,
+            character: 1,
+        },
     }
 }
