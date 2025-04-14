@@ -1,8 +1,10 @@
 use ariadne::{Label, Report, ReportKind};
 use core::fmt;
-use qed_ast::{Location, Program, VisitorContext};
+use qed_ast::{Location, Program, TextPosition, TextRange, VisitorContext};
 use qed_parser::Error as ParseError;
-use qed_sema::{AstVisualizer, Error as SemaError, TypeCheckerVisitorContext};
+use qed_sema::{
+    AstVisualizer, Error as SemaError, TypeCheckerErrorDescriptor, TypeCheckerVisitorContext,
+};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 use std::io::Error as IoError;
 use thiserror::Error;
@@ -104,6 +106,110 @@ pub fn lowering_parse_error<F: Clone + From<u32> + ContextFelt>(
     }
 }
 
+fn span_to_range(location: &Location, source: &str) -> TextRange {
+    fn offset_to_text_position(offset: usize, text: &str) -> TextPosition {
+        let mut line = 0;
+        let mut current_offset = 0;
+
+        for l in text.lines() {
+            let line_len = l.len() + 1; // assuming '\n', not covering Windows '\r\n' here
+            if current_offset + line_len > offset {
+                let character = offset - current_offset;
+                return TextPosition {
+                    line,
+                    character: character as u32,
+                };
+            }
+
+            current_offset += line_len;
+            line += 1;
+        }
+
+        // Fallback: offset past end of file
+        TextPosition { line, character: 0 }
+    }
+
+    TextRange {
+        start: offset_to_text_position(location.start, source),
+        end: offset_to_text_position(location.end, source),
+    }
+}
+pub fn parse_error_to_diagnostic<F: Clone + From<u32> + ContextFelt>(
+    error: &ParseError,
+    program: &Program<F>,
+) -> TypeCheckerErrorDescriptor {
+    use ParseError::*;
+
+    let (range, file, message) = match error {
+        InvalidToken { location }
+        | UnrecognizedEof { location, .. }
+        | UnrecognizedToken { location, .. }
+        | ExtraToken { location, .. } => {
+            let message = match error {
+                InvalidToken { .. } => "Invalid token".to_string(),
+                UnrecognizedEof { expected, .. } => {
+                    format!(
+                        "Unexpected EOF. Expected one of: {}",
+                        format_expected_pretty(expected)
+                    )
+                }
+                UnrecognizedToken {
+                    token, expected, ..
+                } => {
+                    format!(
+                        "Unrecognized token '{}', expected one of: {}",
+                        token,
+                        format_expected_pretty(expected),
+                    )
+                }
+                ExtraToken { token, .. } => format!("Extra token '{}'", token),
+                _ => unreachable!(),
+            };
+
+            // Convert location to LSP range
+            let file_content = program
+                .file_resolver
+                .resolve_content(&location.file_id)
+                .unwrap_or_default();
+
+            let range = span_to_range(location, file_content);
+            let file_path = program
+                .file_resolver
+                .resolve_path(&location.file_id)
+                .cloned();
+            (Some(range), file_path, message)
+        }
+
+        // Other errors without location info
+        other => (None, None, format!("{other}")),
+    };
+    TypeCheckerErrorDescriptor {
+        file,
+        text_range: range,
+        message,
+    }
+}
+fn format_expected_pretty(expected: &[String]) -> String {
+    if expected.is_empty() {
+        return "(no expected tokens)".to_string();
+    }
+
+    let items: Vec<String> = expected
+        .iter()
+        .map(|s| s.trim_matches('"').replace("\\\"", "\""))
+        .map(|s| s.to_string())
+        .collect();
+
+    match items.len() {
+        1 => items[0].clone(),
+        2 => format!("{} or {}", items[0], items[1]),
+        _ => {
+            let all_but_last = &items[..items.len() - 1];
+            let last = &items[items.len() - 1];
+            format!("{} or {}", all_but_last.join(", "), last)
+        }
+    }
+}
 pub fn lowering_sema_error<F: Clone + From<u32> + ContextFelt, C>(
     error: &qed_sema::Error,
     ctx: &TypeCheckerVisitorContext<F, C>,
@@ -335,6 +441,154 @@ pub fn lowering_sema_error<F: Clone + From<u32> + ContextFelt, C>(
             &ctx.program,
         )
         .unwrap_or_else(|e| format!("Failed to build report: {}", e)),
+    }
+}
+pub fn typecheck_error_to_diagnostic<F: Clone + From<u32> + ContextFelt, C>(
+    error: &qed_sema::Error,
+    ctx: &TypeCheckerVisitorContext<F, C>,
+) -> TypeCheckerErrorDescriptor {
+    use qed_sema::Error as SemaError;
+
+    let (range, file, message) = match error {
+        SemaError::TypeMismatch {
+            location,
+            expected,
+            found,
+        } => {
+            let msg = format!(
+                "Type mismatch. Expected {}, found {}.",
+                expected
+                    .iter()
+                    .map(|ty| ctx.debug_type(ty.clone()))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                ctx.debug_type(found.clone())
+            );
+            let file = ctx
+                .program
+                .file_resolver
+                .resolve_path(&location.file_id)
+                .cloned();
+            (
+                Some(span_to_range(
+                    location,
+                    ctx.program
+                        .file_resolver
+                        .resolve_content(&location.file_id)
+                        .unwrap_or_default(),
+                )),
+                file,
+                msg,
+            )
+        }
+
+        SemaError::InvalidPathSegment { location, segment } => (
+            Some(span_to_range(
+                location,
+                ctx.program
+                    .file_resolver
+                    .resolve_content(&location.file_id)
+                    .unwrap_or_default(),
+            )),
+            ctx.program
+                .file_resolver
+                .resolve_path(&location.file_id)
+                .cloned(),
+            format!("Invalid path segment: {}", ctx.ident(*segment)),
+        ),
+
+        SemaError::UnresolvedType {
+            location,
+            resolved_type,
+        } => (
+            Some(span_to_range(
+                location,
+                ctx.program
+                    .file_resolver
+                    .resolve_content(&location.file_id)
+                    .unwrap_or_default(),
+            )),
+            ctx.program
+                .file_resolver
+                .resolve_path(&location.file_id)
+                .cloned(),
+            format!("Unresolved type: {}", ctx.ident(*resolved_type)),
+        ),
+
+        SemaError::VariableAlreadyDefined { location, variable } => (
+            Some(span_to_range(
+                location,
+                ctx.program
+                    .file_resolver
+                    .resolve_content(&location.file_id)
+                    .unwrap_or_default(),
+            )),
+            ctx.program
+                .file_resolver
+                .resolve_path(&location.file_id)
+                .cloned(),
+            format!("Variable already defined: {}", ctx.ident(*variable)),
+        ),
+
+        SemaError::ImmutableVariable { location, variable } => (
+            Some(span_to_range(
+                location,
+                ctx.program
+                    .file_resolver
+                    .resolve_content(&location.file_id)
+                    .unwrap_or_default(),
+            )),
+            ctx.program
+                .file_resolver
+                .resolve_path(&location.file_id)
+                .cloned(),
+            format!("Variable {} is immutable", ctx.ident(*variable)),
+        ),
+
+        SemaError::InvalidReturn { location, message } => (
+            Some(span_to_range(
+                location,
+                ctx.program
+                    .file_resolver
+                    .resolve_content(&location.file_id)
+                    .unwrap_or_default(),
+            )),
+            ctx.program
+                .file_resolver
+                .resolve_path(&location.file_id)
+                .cloned(),
+            format!("Invalid return: {}", message),
+        ),
+
+        SemaError::NoParentModule { location }
+        | SemaError::UnreachableExpression { location }
+        | SemaError::InvalidGenericConstraint { location }
+        | SemaError::DuplicateWildcard { location }
+        | SemaError::SpecializationNotAllowed { location } => {
+            let label = format!("{error}");
+            (
+                Some(span_to_range(
+                    location,
+                    ctx.program
+                        .file_resolver
+                        .resolve_content(&location.file_id)
+                        .unwrap_or_default(),
+                )),
+                ctx.program
+                    .file_resolver
+                    .resolve_path(&location.file_id)
+                    .cloned(),
+                label,
+            )
+        }
+
+        _ => (None, None, format!("{error}")),
+    };
+
+    TypeCheckerErrorDescriptor {
+        file,
+        text_range: range,
+        message,
     }
 }
 

@@ -4,6 +4,7 @@ mod control;
 pub mod error;
 mod preprocess;
 
+use crate::error::{parse_error_to_diagnostic, typecheck_error_to_diagnostic};
 use crate::{
     control::ControlState,
     error::{lowering_parse_error, lowering_sema_error},
@@ -366,6 +367,71 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         Ok((typechecker, typechecker_context))
     }
 
+    pub fn typecheck_lsp(
+        &mut self,
+        entry: PathBuf,
+        dependencies_entry: Vec<PathBuf>,
+    ) -> std::result::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>), TypeCheckError>
+    where
+        F: 'static,
+    {
+        let mut module_entry_paths = vec![entry];
+        module_entry_paths.extend(dependencies_entry);
+        let mut program = Program::new();
+        for module_entry in module_entry_paths {
+            Parser::new(&mut program)
+                .parse(&mut self.context, module_entry.clone())
+                .map_err(|err| {
+                    let err_desc = parse_error_to_diagnostic(&err, &program);
+                    TypeCheckError::Parse(err_desc)
+                })?;
+        }
+
+        for module in program.modules.iter() {
+            let module_id = module.id();
+            for def_id in module.data().definitions.iter() {
+                let def_node = &program.defs[*def_id];
+                if let DefinitionNode::Use(node) = def_node {
+                    let use_mod_name = node.kind.id;
+                    for m in program.modules.iter() {
+                        if use_mod_name == m.data().name {
+                            program.dependency_graph.add_edge(module_id, m.id());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        match program.dependency_graph.check_cycle::<qed_parser::Error>() {
+            Ok(_) => {}
+            Err(e) => {
+                let message = format!("Cycle error: {}", e);
+                eprintln!("Error: {}", message);
+                return Err(TypeCheckError::Cycle(message));
+            }
+        }
+
+        let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
+        let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
+        let mut default_visitor_context: DefaultVisitorContext<'_, F, C> =
+            DefaultVisitorContext::new(&mut program);
+        match storage_preprocessor.visit_program(&mut default_visitor_context) {
+            Ok(_) => {}
+            Err(e) => {
+                let message = format!("Storage analysis error: {}", e);
+                return Err(TypeCheckError::StoragePreprocess(message));
+            }
+        }
+
+        let mut typechecker_context = TypeCheckerVisitorContext::new(program);
+        typechecker
+            .visit_program(&mut typechecker_context)
+            .map_err(|err| {
+                let err_desc = typecheck_error_to_diagnostic(&err, &mut typechecker_context);
+                TypeCheckError::TypeCheck(err_desc)
+            })?;
+        Ok((typechecker, typechecker_context))
+    }
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_function(
         &mut self,
@@ -1554,60 +1620,65 @@ mod tests {
     fn test_interpreter() {
         qed_utils::setup_env_logger();
 
-        insta::glob!("../../tests", "{struct*.qed,fn_test.qed,fn_chain_call_test.qed}", |path| {
-            let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-            let (mut typechecker, mut ctx) = interpreter.typecheck(path.into(), vec![]).unwrap();
+        insta::glob!(
+            "../../tests",
+            "{struct*.qed,fn_test.qed,fn_chain_call_test.qed}",
+            |path| {
+                let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
+                let (mut typechecker, mut ctx) =
+                    interpreter.typecheck(path.into(), vec![]).unwrap();
 
-            let compile_results = interpreter
-                .interpret(
-                    &mut typechecker,
-                    &mut ctx,
-                    None,
-                    vec!["main"],
-                    |context, (method_name, method_id, outputs)| {
-                        QEDCompileResult::compile_exec(
-                            method_name,
-                            method_id,
-                            &context.store,
-                            &context,
-                            &outputs,
-                        )
-                    },
+                let compile_results = interpreter
+                    .interpret(
+                        &mut typechecker,
+                        &mut ctx,
+                        None,
+                        vec!["main"],
+                        |context, (method_name, method_id, outputs)| {
+                            QEDCompileResult::compile_exec(
+                                method_name,
+                                method_id,
+                                &context.store,
+                                &context,
+                                &outputs,
+                            )
+                        },
+                    )
+                    .unwrap();
+
+                let priv_key = QHashOut::rand();
+                let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+                let priv_key_w = SimpleQEDPrivateKey::new(priv_key);
+                let pub_key_param = priv_key_w.get_public_key_param::<QEDHasher>();
+                let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
+
+                let deployer = QHashOut::rand();
+                let (_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+                    deployer,
+                    contract_state_tree_height as u8,
+                    &compile_results,
                 )
                 .unwrap();
 
-            let priv_key = QHashOut::rand();
-            let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-            let priv_key_w = SimpleQEDPrivateKey::new(priv_key);
-            let pub_key_param = priv_key_w.get_public_key_param::<QEDHasher>();
-            let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
-
-            let deployer = QHashOut::rand();
-            let (_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
-                deployer,
-                contract_state_tree_height as u8,
-                &compile_results,
-            )
-            .unwrap();
-
-            let mut lps = prepare_environment_with_real_contract(
-                QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
-                deploy_cmd,
-            )
-            .unwrap();
-            let contract_id = GoldilocksField::from_canonical_u64(2);
-
-            let cfc_input = QEDEvalSessionResult::new()
-                .exec_contract_call(&mut lps, contract_id, &compile_results[0], vec![])
+                let mut lps = prepare_environment_with_real_contract(
+                    QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
+                    deploy_cmd,
+                )
                 .unwrap();
-            println!("result_vm: {:?}", cfc_input.outputs);
-            #[allow(static_mut_refs)]
-            unsafe {
-                STD_PRIMITIVE_SCOPE_ID.take().unwrap()
-            };
+                let contract_id = GoldilocksField::from_canonical_u64(2);
 
-            assert_snapshot!(ctx.debug_scope(ScopeId::root()))
-        });
+                let cfc_input = QEDEvalSessionResult::new()
+                    .exec_contract_call(&mut lps, contract_id, &compile_results[0], vec![])
+                    .unwrap();
+                println!("result_vm: {:?}", cfc_input.outputs);
+                #[allow(static_mut_refs)]
+                unsafe {
+                    STD_PRIMITIVE_SCOPE_ID.take().unwrap()
+                };
+
+                assert_snapshot!(ctx.debug_scope(ScopeId::root()))
+            }
+        );
     }
 
     #[test]

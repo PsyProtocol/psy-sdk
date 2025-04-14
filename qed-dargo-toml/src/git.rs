@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use crate::TAG_LATEST;
+use std::path::PathBuf;
 
 pub(crate) fn clone_git_repo(url: &str, tag: &str) -> Result<PathBuf, String> {
     use std::process::Command;

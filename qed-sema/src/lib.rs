@@ -2419,7 +2419,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         unsafe {
             //Warning: Not safe to run in a multithreaded environment
             *STD_PRIMITIVE_SCOPE_ID.get_or_init(|| {
-                ctx.symbols.current_scope_id().expect("cannot get current scope id")
+                ctx.symbols
+                    .current_scope_id()
+                    .expect("cannot get current scope id")
             })
         };
         for ty in &*PRIMITIVE_TYPES {

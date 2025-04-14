@@ -40,5 +40,6 @@ fn main(a: Felt, b: Felt) -> Felt{
     let mul_result: Felt = mul(a, b);
     let div_result: Felt = div(a, b);
 
+asdfasdf
     return c;
 }

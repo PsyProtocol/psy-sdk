@@ -35,7 +35,6 @@ impl ScopeId {
             *STD_PRIMITIVE_SCOPE_ID.get().unwrap()
         }
     }
-
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, EnumAsInner)]
