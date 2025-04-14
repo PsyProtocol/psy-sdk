@@ -6,7 +6,7 @@ use crate::{TypeId, VarId};
 pub struct CheckedPathNode {
     pub variable: Option<VarId>,
     pub root: Option<TypeId>,
-    pub target: IdentId,
+    pub target: Option<IdentId>,
     pub type_id: TypeId,
     pub trait_ty: Option<TypeId>,
     pub location: Location,
@@ -16,7 +16,7 @@ impl CheckedPathNode {
     pub fn new(
         variable: Option<VarId>,
         root: Option<TypeId>,
-        target: IdentId,
+        target: Option<IdentId>,
         type_id: TypeId,
         trait_ty: Option<TypeId>,
         location: Location,

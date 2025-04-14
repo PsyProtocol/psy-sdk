@@ -117,7 +117,7 @@ Definition: DefinitionNode = {
 
         }
         if f.as_function().unwrap().parameters.iter().any(|p|{
-             p.name == IdentId::SELF || (p.ty.is_basic() && p.ty.as_basic().unwrap().target.id == IdentId::TYPE_SELF)
+             p.name == IdentId::SELF || (p.ty.is_basic() && p.ty.as_basic().unwrap().id == IdentId::TYPE_SELF)
         }) {
             return Err(LalrpopError::User { error: UserError::InvalidSelfParameter });
         }
@@ -357,7 +357,7 @@ FunctionParameter: FunctionParameter = {
         FunctionParameter::new(
             Identifier::new(IdentId::SELF, Location::new(file_id, l, r)),
             type_qualifier,
-            UncheckedType::Basic(Box::new(PathNode::from_target(Identifier::new(IdentId::TYPE_SELF, Location::new(file_id, l, r))))),
+            UncheckedType::Basic(Identifier::new(IdentId::TYPE_SELF, Location::new(file_id, l, r))),
             Location::new(file_id, l, r)
         )
     },
@@ -365,7 +365,7 @@ FunctionParameter: FunctionParameter = {
 
 FunctionReturn: UncheckedType = {
     <l:@L> "->" <return_type:Ty> <r:@R> => return_type,
-    <l:@L> "->" "<" <path:PathExpression> ">" <r:@R> => UncheckedType::Basic(Box::new(path.into_path().unwrap())),
+    <l:@L> "->" "<" <path:PathExpression> ">" <r:@R> => UncheckedType::Path(Box::new(path.into_path().unwrap())),
 }
 
 EnumVariant: EnumVariant = {
@@ -878,9 +878,9 @@ U32Expression: ExprNode<F> = {
 }
 
 StructExpression: ExprNode<F> = {
-   <l:@L> <name:Identifier> <generic_parameters:Monomorphization> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(
+   <l:@L> <name:PathExpression> <generic_parameters:Monomorphization> "{" <kv:Comma<KeyValue>> "}" <r:@R> => ExprNode::<F>::Value(
        ValueNode::Struct(
-           name,
+           expr_nodes.alloc_item(name),
            generic_parameters,
            kv.into_iter().collect(),
            Location::new(file_id, l, r),
@@ -890,7 +890,7 @@ StructExpression: ExprNode<F> = {
 
 KeyValue: (Identifier, ExprId) = {
     <l:@L> <name:Identifier> ":" <value:Expression> <r:@R> => (name, expr_nodes.alloc_item(value)),
-    <l:@L> <name:Identifier> <r:@R> => (name, expr_nodes.alloc_item(ExprNode::Path(PathNode::from_target(name))))
+    <l:@L> <name:Identifier> <r:@R> => (name, expr_nodes.alloc_item(ExprNode::Path(PathNode::from_target(UncheckedType::Basic(name)))))
 }
 
 LambdaFunctionExpression: ExprNode<F> = {
@@ -916,10 +916,10 @@ PathExpression: ExprNode<F> = {
     <l:@L> <target: IdentifierOrSelf> <r:@R> => ExprNode::Path(PathNode {
         root: None,
         segments: vec![],
-        target,
+        target: UncheckedType::Basic(target),
         location: Location::new(file_id, l, r),
     }),
-    <l:@L> <root: PathRoot> "::" <segments: (<Identifier> "::")*> <target: IdentifierOrNew> <r:@R> => {
+    <l:@L> <root: PathRoot> "::" <segments: (<PathSegment> "::")*> <target: PathTarget> <r:@R> => {
         let segs = segments.into_iter().map(|seg| seg).collect::<Vec<_>>();
         ExprNode::Path(PathNode {
             root: Some(root),
@@ -973,7 +973,7 @@ GenericType: UncheckedType = {
     <l:@L> <name:Identifier> "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters, Location::new(file_id, l, r)),
     <l:@L>  "[" <ty:Ty> ";" <n:Identifier> "]" <r:@R> => UncheckedType::Generic(
         Identifier::new(IdentId::TYPE_ARRAY, Location::new(file_id, l, r)),
-        vec![ty, UncheckedType::Basic(Box::new(PathNode::from_target(n)))],
+        vec![ty, UncheckedType::Basic(n)],
         Location::new(file_id, l, r)
     )
 }
@@ -983,15 +983,15 @@ ArrayType: UncheckedType = {
 }
 
 ConstType: UncheckedType = {
-    <l:@L> <ty:TYPE_FELT>  <r:@R> => UncheckedType::Basic(Box::new(PathNode::from_target(Identifier::new(IdentId::TYPE_FELT, Location::new(file_id, l, r))))),
-    <l:@L> <ty:TYPE_BOOL>  <r:@R> => UncheckedType::Basic(Box::new(PathNode::from_target(Identifier::new(IdentId::TYPE_BOOL, Location::new(file_id, l, r))))),
-    <l:@L> <ty:TYPE_U32>   <r:@R> => UncheckedType::Basic(Box::new(PathNode::from_target(Identifier::new(IdentId::TYPE_U32, Location::new(file_id, l, r))))),
+    <l:@L> <ty:TYPE_FELT>  <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, Location::new(file_id, l, r))),
+    <l:@L> <ty:TYPE_BOOL>  <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_BOOL, Location::new(file_id, l, r))),
+    <l:@L> <ty:TYPE_U32>   <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_U32, Location::new(file_id, l, r))),
 }
 
 BasicType: UncheckedType = {
     ConstType,
-    <l:@L> <ty:TYPE_SELF>  <r:@R> => UncheckedType::Basic(Box::new(PathNode::from_target(Identifier::new(IdentId::TYPE_SELF, Location::new(file_id, l, r))))),
-    <l:@L> <ty:Identifier> <r:@R> => UncheckedType::Basic(Box::new(PathNode::from_target(ty)))
+    <l:@L> <ty:TYPE_SELF>  <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::TYPE_SELF, Location::new(file_id, l, r))),
+    <l:@L> <ty:Identifier> <r:@R> => UncheckedType::Basic(ty)
 }
 
 ModuleUseKind: Identifier = {
@@ -1022,6 +1022,21 @@ PathRoot: UncheckedType = {
     "<" <root: TupleType> ">"   => root,
     "<" <root: GenericType> ">" => root,
     <l:@L> "<" <ty:Ty> AS <trait_ty:Ty> ">" <r:@R> => UncheckedType::TraitCast(Box::new(ty), Box::new(trait_ty), Location::new(file_id, l, r)),
+}
+
+PathSegment: UncheckedType = {
+    BasicType,
+    "<" <root: ArrayType> ">"   => root,
+    "<" <root: TupleType> ">"   => root,
+    "<" <root: GenericType> ">" => root,
+}
+
+PathTarget: UncheckedType = {
+    BasicType,
+    <l:@L> NEW <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::NEW, Location::new(file_id, l, r))),
+    "<" <root: ArrayType> ">"   => root,
+    "<" <root: TupleType> ">"   => root,
+    "<" <root: GenericType> ">" => root,
 }
 
 Identifier: Identifier = {

@@ -45,7 +45,7 @@ pub enum ValueNode<F: Clone + From<u32>> {
     U32(F, Location),
     Array(u32, Vec<ExprId>, Location),
     Struct(
-        Identifier,
+        ExprId,
         Vec<UncheckedType>,
         IndexMap<Identifier, ExprId>,
         Location,
