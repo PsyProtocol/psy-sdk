@@ -428,8 +428,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
             CheckedExprNode::Path(checked_path_node) => {
                 if let Some(ref mut root) = checked_path_node.root {
                     *root = self.substitute_all(*root, ctx)?;
-                    checked_path_node.type_id =
-                        self.find_member(*root, checked_path_node.target, ctx)?;
+                    if let Some(ref mut trait_ty) = checked_path_node.trait_ty {
+                        *trait_ty = self.substitute_all(*trait_ty, ctx)?;
+                        checked_path_node.type_id = self.find_trait_cast_member(
+                            *root,
+                            *trait_ty,
+                            checked_path_node.target,
+                            ctx,
+                        )?;
+                    } else {
+                        checked_path_node.type_id =
+                            self.find_member(*root, checked_path_node.target, ctx)?;
+                    }
                 } else {
                     checked_path_node.type_id =
                         self.substitute_all(checked_path_node.type_id, ctx)?;
