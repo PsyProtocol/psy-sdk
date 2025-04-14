@@ -1,0 +1,109 @@
+fn match_test_case(input: Felt) -> Felt {
+    let mut result: Felt = 0;
+    match input {  
+        0 => {
+            result += 10;
+        }, 
+        1 => {
+            result += 20;
+        }, 
+        2 => {
+            result += 30;
+        }, 
+        3 => {
+            result += 40;
+        }, 
+        4 => {
+            result += 40;
+        }, 
+        _ => {
+            result += 50;
+        },
+    };
+    let extra: Felt = match input {  
+        0 => 100, 
+        1 => 200, 
+        2 => 300, 
+        _ => 400,
+    };
+    result + extra
+}
+
+fn match_bool_test(input: bool) -> Felt {
+    match input {  
+        true => 100, 
+        false => 200,
+    }
+}
+
+fn match_u32_test(input: u32) -> Felt {
+    let mut result: Felt = 0;
+    match input {  
+        0u32 => {
+            result += 5;
+        }, 
+        1u32 => {
+            result += 15;
+        }, 
+        2u32 => {
+            result += 25;
+        }, 
+        3u32 => {
+            result += 35;
+        }, 
+        4u32 => {
+            result += 45;
+        }, 
+        _ => {
+            result += 55;
+        },
+    };
+    let extra: Felt = match input {  
+        0u32 => 50, 
+        1u32 => 150, 
+        2u32 => 250, 
+        3u32 => 350, 
+        _ => 450,
+    };
+    result + extra
+}
+
+// input:100
+// output:
+fn main(a: Felt) {
+    //basic test
+    assert_eq(match_test_case(0), 110, "test match ");
+    // 10 + 100
+    assert_eq(match_test_case(1), 220, "test match ");
+    // 20 + 200
+    assert_eq(match_test_case(2), 330, "test match ");
+    // 30 + 300
+    assert_eq(match_test_case(3), 440, "test match ");
+    // 40 + 400
+    assert_eq(match_test_case(4), 440, "test match ");
+    // 40 + 400
+    assert_eq(match_test_case(5), 450, "test match ");
+    // 50 + 400
+    assert_eq(match_test_case(99), 450, "test match ");
+    // 50 + 400
+    assert_eq(match_test_case(a), 450, "test match ");
+    // 50 + 400
+    //test bool
+    assert_eq(match_bool_test(true), 100, "match true failed");
+    assert_eq(match_bool_test(false), 200, "match false failed");
+    //test u32
+    assert_eq(match_u32_test(0u32), 55, "test match u32 0 failed");
+    // 5 + 50
+    assert_eq(match_u32_test(1u32), 165, "test match u32 1 failed");
+    // 15 + 150
+    assert_eq(match_u32_test(2u32), 275, "test match u32 2 failed");
+    // 25 + 250
+    assert_eq(match_u32_test(3u32), 385, "test match u32 3 failed");
+    // 35 + 350
+    assert_eq(match_u32_test(4u32), 495, "test match u32 4 failed");
+    // 45 + 450
+    assert_eq(match_u32_test(5u32), 505, "test match u32 5 failed");
+    // 55 + 450
+    assert_eq(match_u32_test(99u32), 505, "test match u32 99 failed");
+    // 55 + 450
+}

@@ -1,0 +1,49 @@
+pub struct Person {
+    pub age: Felt,
+    male: bool,
+}
+
+impl Person {
+    pub fn set_age(mut self: Person, new_age: Felt) {
+        self.age = new_age;
+    }
+    pub fn get_age(self: Person) -> Felt {
+        return self.age;
+    }
+}
+
+struct Family {
+    father: Person,
+    mother: Person,
+    pub children: [Person; 2],
+}
+
+// input:
+// output:
+fn main() -> Felt {
+    let father: Person = new Person {
+        age: 50,
+        male: true,
+    };
+    let mother: Person = new Person {
+        age: 50,
+        male: false,
+    };
+    let mut boy: Person = new Person {
+        age: 20,
+        male: true,
+    };
+    let girl: Person = new Person {
+        age: 20,
+        male: false,
+    };
+    boy.set_age(21);
+    let mut family: Family = new Family {
+        father: father,
+        mother: mother,
+        children: [boy, girl],
+    };
+    family.children[0].age -= 1;
+    let boy_age: Felt = family.children[0].get_age();
+    return boy_age;
+}

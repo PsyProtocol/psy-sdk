@@ -1,0 +1,36 @@
+[package]
+name = "dargo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror.workspace = true
+clap.workspace = true
+clap_complete = { workspace = true }
+anyhow.workspace = true
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+color-eyre = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+
+qed-dargo-toml.workspace = true
+qed-dargo.workspace = true
+qed-interpreter.workspace = true
+qedlang_core.workspace = true
+qed-utils = { workspace = true }
+plonky2 = { workspace = true }
+qed_crypto = { workspace = true }
+qed_exec = { workspace = true }
+qed_store = { workspace = true }
+qed_data = { workspace = true }
+qed_core = { workspace = true }
+qed_common_circuit = { workspace = true }
+qed-sema = { workspace = true }
+qed-ast = { workspace = true }
+num-bigint = { workspace = true }
+
+
+[dev-dependencies]
+num-traits = { workspace = true }
+insta = { workspace = true }

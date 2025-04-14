@@ -1,0 +1,43 @@
+impl<T, N: u32> [T; N] {
+    pub const fn len() -> u32 {
+        return N + (1 as u32);
+    }
+}
+
+pub trait Two {
+    pub fn two() -> Felt {
+        2
+    }
+}
+
+impl Two for Felt {
+    pub fn two() -> Felt {
+        2
+    }
+}
+
+struct Box<T: Two> {
+    pub data: T,
+    pub extra: Felt,
+}
+
+impl<T: Two> Box<T> {
+    pub fn new(data: T) -> Box<T> {
+        return new Box {
+            data: data,
+            extra: T::two(),
+        };
+    }
+}
+
+// input:
+// output: 49
+fn main() -> Felt {
+    let bb = new Box#<Felt> {
+        data: 0,
+        extra: 1,
+    };
+    let mut b: Box<Felt> = <Box<Felt>>::new(42);
+    b.data += 1;
+    b.data + (<[Felt; 3]>::len() as Felt) + b.extra
+}

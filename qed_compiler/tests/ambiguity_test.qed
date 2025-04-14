@@ -1,0 +1,21 @@
+struct Person {
+    pub age: Felt,
+}
+
+impl Person {
+    pub fn new(age: Felt) -> Self {
+        new Person {
+            age: age,
+        }
+    }
+    pub fn age(self: Self) -> Felt {
+        self.age
+    }
+}
+
+// input:
+// output: 20
+fn main() -> Felt {
+    let p = Person::new(10);
+    p.age() + p.age
+}
