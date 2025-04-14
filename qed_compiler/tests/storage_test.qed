@@ -17,24 +17,6 @@ struct Person {
     pub year_of_birth: Felt,
 }
 
-impl Storage for Person {
-    pub fn size() -> Felt {
-        Felt::size() + Felt::size() + Felt::size()
-    }
-    pub fn read(offset: Felt) -> Self {
-        new Person {
-            age: Felt::read(offset),
-            height: Felt::read(offset + Felt::size()),
-            year_of_birth: Felt::read(offset + Felt::size() + Felt::size()),
-        }
-    }
-    pub fn write(offset: Felt, value: Self) {
-        Felt::write(offset, value.age);
-        Felt::write(offset + Felt::size(), value.height);
-        Felt::write(offset + Felt::size() + Felt::size(), value.year_of_birth);
-    }
-}
-
 #[storage]
 #[derive(Storage)]
 struct Contract {
@@ -44,81 +26,6 @@ struct Contract {
     pub e: [Felt; 4],
     pub d: Person,
     pub f: [Felt; 4],
-}
-
-impl Storage for Contract {
-    pub fn size() -> Felt {
-        Felt::size() + Person::size() + Felt::size() + <[Felt; 4]>::size() + Person::size() + <[Felt; 4]>::size()
-    }
-    pub fn read(offset: Felt) -> Self {
-        new Contract {
-            a: Felt::read(offset),
-            b: Person::read(offset + Felt::size()),
-            c: Felt::read(offset + Felt::size() + Person::size()),
-            e: <[Felt; 4]>::read(offset + Felt::size() + Person::size() + Felt::size()),
-            d: Person::read(offset + Felt::size() + Person::size() + Felt::size() + <[Felt; 4]>::size()),
-            f: <[Felt; 4]>::read(offset + Felt::size() + Person::size() + Felt::size() + <[Felt; 4]>::size() + Person::size()),
-        }
-    }
-    pub fn write(offset: Felt, value: Self) {
-        Felt::write(offset, value.a);
-        Person::write(offset + Felt::size(), value.b);
-        Felt::write(offset + Felt::size() + Person::size(), value.c);
-        <[Felt; 4]>::write(offset + Felt::size() + Person::size() + Felt::size(), value.e);
-        Person::write(offset + Felt::size() + Person::size() + Felt::size() + <[Felt; 4]>::size(), value.d);
-        <[Felt; 4]>::write(offset + Felt::size() + Person::size() + Felt::size() + <[Felt; 4]>::size() + Person::size(), value.f);
-    }
-}
-
-impl Contract {
-    pub fn get_a() -> Felt {
-        Felt::read(0)
-    }
-    pub fn set_a(value: Felt) {
-        Felt::write(0, value);
-    }
-    pub fn get_b() -> Person {
-        Person::read(0 + Felt::size())
-    }
-    pub fn set_b(value: Person) {
-        Person::write(0 + Felt::size(), value);
-    }
-    pub fn get_c() -> Felt {
-        Felt::read(0 + Felt::size() + Person::size())
-    }
-    pub fn set_c(value: Felt) {
-        Felt::write(0 + Felt::size() + Person::size(), value);
-    }
-    pub fn get_e() -> [Felt; 4] {
-        <[Felt; 4]>::read(0 + Felt::size() + Person::size() + Felt::size())
-    }
-    pub fn set_e(value: [Felt; 4]) {
-        <[Felt; 4]>::write(0 + Felt::size() + Person::size() + Felt::size(), value);
-    }
-    pub fn get_e_at(index: Felt) -> Felt {
-        <[Felt; 4]>::read_at(0 + Felt::size() + Person::size() + Felt::size(), index)
-    }
-    pub fn set_e_at(index: Felt, value: Felt) {
-        <[Felt; 4]>::write_at(0 + Felt::size() + Person::size() + Felt::size(), index, value);
-    }
-    pub fn get_d() -> Person {
-        Person::read(0 + Felt::size() + Person::size() + Felt::size() + <[Felt; 4]>::size())
-    }
-    pub fn set_d(value: Person) {
-        Person::write(0 + Felt::size() + Person::size() + Felt::size() + <[Felt; 4]>::size(), value);
-    }
-    pub fn get_f() -> [Felt; 4] {
-        <[Felt; 4]>::read(0 + Felt::size() + Person::size() + Felt::size() + <[Felt; 4]>::size() + Person::size())
-    }
-    pub fn set_f(value: [Felt; 4]) {
-        <[Felt; 4]>::write(0 + Felt::size() + Person::size() + Felt::size() + <[Felt; 4]>::size() + Person::size(), value);
-    }
-    pub fn get_f_at(index: Felt) -> Felt {
-        <[Felt; 4]>::read_at(0 + Felt::size() + Person::size() + Felt::size() + <[Felt; 4]>::size() + Person::size(), index)
-    }
-    pub fn set_f_at(index: Felt, value: Felt) {
-        <[Felt; 4]>::write_at(0 + Felt::size() + Person::size() + Felt::size() + <[Felt; 4]>::size() + Person::size(), index, value);
-    }
 }
 
 impl Contract {

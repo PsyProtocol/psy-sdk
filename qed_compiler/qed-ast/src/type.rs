@@ -12,6 +12,7 @@ pub enum UncheckedType {
     Array(Box<UncheckedType>, u32, Location),          // [u8; 10]
     Tuple(Vec<UncheckedType>, Location),
     FunctionSignature(Box<FunctionSignature>, Location),
+    TraitCast(Box<UncheckedType>, Box<UncheckedType>, Location), // Type as Trait
     Unknown,
 }
 
@@ -24,6 +25,7 @@ impl UncheckedType {
             UncheckedType::Array(_, _, location) => *location,
             UncheckedType::Tuple(_unchecked_types, location) => *location,
             UncheckedType::FunctionSignature(_function_signature, location) => *location,
+            UncheckedType::TraitCast(_, _, location) => *location,
             UncheckedType::Unknown => Location::default(),
         }
     }

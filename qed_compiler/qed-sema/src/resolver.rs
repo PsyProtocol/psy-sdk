@@ -31,12 +31,83 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     module
                 }
                 _ => {
+                    if ty.is_trait_cast() {
+                        let trait_ty = ty.as_trait_cast().unwrap().1;
+                        let impl_ty = ty.as_trait_cast().unwrap().0;
+                        let trait_type_id = self.typecheck(trait_ty, ctx)?;
+                        let impl_ty_id = self.typecheck(impl_ty, ctx)?;
+
+                        if !ctx.symbols[trait_type_id].is_trait() {
+                            let mut impl_traits = Vec::new();
+                            let impl_poly_ty_id = self.poly_of(impl_ty_id, ctx).unwrap();
+
+                            if let Some(impl_map) =
+                                self.implementer.impl_ids().get(&impl_poly_ty_id)
+                            {
+                                for (_constraint, impl_set) in impl_map.iter() {
+                                    for impl_id in impl_set {
+                                        if let Some(impl_node) =
+                                            self.program[*impl_id].as_trait_impl()
+                                        {
+                                            impl_traits.push(impl_node.trait_ty);
+                                        };
+                                    }
+                                }
+                            }
+
+                            return Err(Error::TypeMismatch {
+                                location: path.location,
+                                expected: impl_traits,
+                                found: trait_type_id,
+                            });
+                        }
+
+                        if !path.segments.is_empty() {
+                            let mut root_ty_id = self.find_trait_cast_member(
+                                impl_ty_id,
+                                trait_type_id,
+                                path.segments[0].id,
+                                ctx,
+                            )?;
+                            for segment in path.segments.iter().skip(1) {
+                                root_ty_id = self.find_member(root_ty_id, segment.id, ctx)?;
+                            }
+
+                            let member_ty_id = self.find_member(root_ty_id, path.target.id, ctx)?;
+
+                            return Ok(CheckedPathNode::new(
+                                None,
+                                Some(root_ty_id),
+                                path.target.id,
+                                self.substitute_all(member_ty_id, ctx)?,
+                                None,
+                                path.location,
+                            ));
+                        } else {
+                            let member_ty_id = self.find_trait_cast_member(
+                                impl_ty_id,
+                                trait_type_id,
+                                path.target.id,
+                                ctx,
+                            )?;
+                            return Ok(CheckedPathNode::new(
+                                None,
+                                Some(impl_ty_id),
+                                path.target.id,
+                                self.substitute_all(member_ty_id, ctx)?,
+                                Some(self.substitute_all(trait_type_id, ctx)?),
+                                path.location,
+                            ));
+                        };
+                    }
+
                     if !path.segments.is_empty() {
                         return Err(Error::InvalidPathSegment {
                             location: path.location,
                             segment: path.segments[0].id,
                         });
                     }
+
                     let root_type_id = self.typecheck(ty, ctx)?;
                     let type_id =
                         self.resolve_member_type(path, root_type_id, path.target.id, ctx)?;
@@ -45,6 +116,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         Some(self.substitute_all(root_type_id, ctx)?),
                         path.target.id,
                         self.substitute_all(type_id, ctx)?,
+                        None,
                         path.location,
                     ));
                 }
@@ -62,6 +134,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         None,
                         path.target.id,
                         self.substitute_all(ctx.symbols[var_id].ty, ctx)?,
+                        None,
                         path.location,
                     ));
                 }
@@ -76,6 +149,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     None,
                     path.target.id,
                     self.substitute_all(type_id, ctx)?,
+                    None,
                     path.location,
                 ));
             }
@@ -108,6 +182,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     Some(self.substitute_all(root_type_id, ctx)?),
                     path.target.id,
                     self.substitute_all(type_id, ctx)?,
+                    None,
                     path.location,
                 ));
             }
@@ -119,6 +194,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             None,
             path.target.id,
             self.substitute_all(type_id, ctx)?,
+            None,
             path.location,
         ));
     }
