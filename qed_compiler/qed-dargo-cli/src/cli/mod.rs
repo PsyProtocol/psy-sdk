@@ -1,5 +1,6 @@
 mod compile_cmd;
 mod complete_cmd;
+mod doc_cmd;
 mod execute_cmd;
 mod fmt_cmd;
 mod init_cmd;

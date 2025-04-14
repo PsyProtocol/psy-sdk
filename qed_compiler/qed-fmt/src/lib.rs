@@ -69,6 +69,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         ctx: &impl VisitorContext<F, C>,
     ) -> String {
         match node {
+            UncheckedType::Const(value, _) => value.to_string(),
             UncheckedType::Basic(name) => self.visit_path_node(name, ctx),
             UncheckedType::Generic(name, generic_parameters, _) => {
                 if name == &IdentId::TYPE_ARRAY {
@@ -632,7 +633,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
         Ok(format!(
             "{}return{};",
-            self.visit_comments(comments),
+            self.visit_comments(&comments),
             if let Some(ret) = expr_id {
                 format!(" {}", self.visit_expr(ret.clone(), ctx)?)
             } else {
@@ -672,9 +673,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             })
             .collect::<Vec<_>>()
             .join("\n");
-        let comments_content = self.visit_comments(comments);
+        let comments_content = self.visit_comments(&comments);
 
-        let generic_parameters = self.visit_generic_parameters(generic_parameters, ctx);
+        let generic_parameters = self.visit_generic_parameters(&generic_parameters, ctx);
         let struct_name = self.visit_unchecked_type(&ty, false, ctx);
         self.indent();
         // TODO: remove clone
@@ -713,8 +714,8 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             attrs,
             location: _location,
         } = ctx.definition(def_id).as_function().unwrap();
-        let comments_content = self.visit_comments(comments);
-        let attrs_content = self.visit_attr(attrs, ctx);
+        let comments_content = self.visit_comments(&comments);
+        let attrs_content = self.visit_attr(&attrs, ctx);
         let parameters = parameters
             .iter()
             .map(|p| {
@@ -732,9 +733,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             self.visit_visibility(&visibility),
             self.visit_qualifier(&qualifier),
             ctx.ident(name),
-            self.visit_generic_parameters(generic_parameters, ctx),
+            self.visit_generic_parameters(&generic_parameters, ctx),
             parameters,
-            self.visit_return_type(return_type, ctx),
+            self.visit_return_type(&return_type, ctx),
         );
         let block = match body {
             Some(body) => self.visit_block_expr(body.clone(), ctx)?,
@@ -760,9 +761,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: _location,
         } = ctx.definition(def_id).as_struct().unwrap();
-        let comments_content = self.visit_comments(comments);
+        let comments_content = self.visit_comments(&comments);
 
-        let attrs_content = self.visit_attr(attrs, ctx);
+        let attrs_content = self.visit_attr(&attrs, ctx);
         self.indent();
         let fiels_content = fields
             .iter()
@@ -779,7 +780,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .collect::<String>();
         self.dedent();
 
-        let generic_parameter_content = self.visit_generic_parameters(generic_parameters, ctx);
+        let generic_parameter_content = self.visit_generic_parameters(&generic_parameters, ctx);
         Ok(format!(
             "{}{}{}struct {}{} {{\n{}{}}}",
             comments_content,
@@ -805,7 +806,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments,
             location: _location,
         } = ctx.definition(def_id).as_enum().unwrap();
-        let comments_content = self.visit_comments(comments);
+        let comments_content = self.visit_comments(&comments);
 
         self.indent();
 
@@ -862,7 +863,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments_content,
             self.visit_visibility(&visibility),
             &ctx.ident(name),
-            self.visit_generic_parameters(generic_parameters, ctx),
+            self.visit_generic_parameters(&generic_parameters, ctx),
             variants_content,
             self.read_indent(0),
         ))
@@ -1327,9 +1328,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .collect::<Vec<_>>()
             .join("");
 
-        let generic_parameters = self.visit_generic_parameters(generic_parameters, ctx);
+        let generic_parameters = self.visit_generic_parameters(&generic_parameters, ctx);
 
-        let comments_content = self.visit_comments(comments);
+        let comments_content = self.visit_comments(&comments);
         let trait_name = self.visit_unchecked_type(&trait_ty, false, ctx);
         let struct_name = self.visit_unchecked_type(&ty, false, ctx);
 

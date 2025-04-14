@@ -8,6 +8,8 @@ struct Person {
     pub hw: [HW; 2],
 }
 
+// input:0,1
+// output: 340
 fn main(a: Felt, b: Felt) -> Felt {
     let hw1: HW = new HW {
         height: 180,

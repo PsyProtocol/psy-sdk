@@ -213,15 +213,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
                 let poly_ty = self.poly_of(type_id, ctx).unwrap();
 
-                if let Some(instance_map) = self.implementer.functions.get(&poly_ty) {
-                    if let Some(&instance) =
-                        instance_map.get(&Constraint::new(generic_parameters.clone()))
-                    {
-                        return Ok(self.program[instance].as_function().unwrap().type_id);
-                    }
+                if let Some(instance) = self.find_instance(poly_ty, generic_parameters.clone(), ctx)
+                {
+                    return Ok(self.program[instance].as_function().unwrap().type_id);
                 }
 
-                let instance = self.instantiate_function(type_id, generic_parameters, ctx)?;
+                let instance = self.instantiate_function(poly_ty, generic_parameters, ctx)?;
                 Ok(self.program[instance].as_function().unwrap().type_id)
             }
 
@@ -266,6 +263,24 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 });
                 let scope_id = ctx.symbols[struct_node.scope_id].parent;
                 ctx.symbols.get_or_add_type(scope_id, ty.key(), ty)
+            }
+
+            Type::Trait(trait_node) => {
+                let generic_parameters = trait_node
+                    .generic_parameters
+                    .iter()
+                    .map(|x| self.substitute_all(*x, ctx))
+                    .collect::<Result<Vec<_>>>()?;
+
+                let poly_ty = self.poly_of(type_id, ctx).unwrap();
+
+                if let Some(instance) = self.find_instance(poly_ty, generic_parameters.clone(), ctx)
+                {
+                    return Ok(self.program[instance].as_trait().unwrap().type_id);
+                }
+
+                let instance = self.instantiate_trait(poly_ty, generic_parameters, ctx)?;
+                Ok(self.program[instance].as_trait().unwrap().type_id)
             }
 
             _ => Ok(type_id),

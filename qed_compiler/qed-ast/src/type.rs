@@ -1,12 +1,15 @@
+use std::fmt::Display;
+
 use enum_as_inner::EnumAsInner;
 
-use crate::{FunctionSignature, Identifier, Location, PathNode};
+use crate::{ConstValue, FunctionSignature, Identifier, Location, PathNode};
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum UncheckedType {
+    Const(ConstValue, Location),
     Basic(Box<PathNode>),                              // u8, T
     Generic(Identifier, Vec<UncheckedType>, Location), // IndexMap<K, V>
-    Array(Box<UncheckedType>, usize, Location),        // [u8; 10]
+    Array(Box<UncheckedType>, u32, Location),          // [u8; 10]
     Tuple(Vec<UncheckedType>, Location),
     FunctionSignature(Box<FunctionSignature>, Location),
     Unknown,
@@ -15,6 +18,7 @@ pub enum UncheckedType {
 impl UncheckedType {
     pub fn location(&self) -> Location {
         match self {
+            UncheckedType::Const(_, location) => *location,
             UncheckedType::Basic(ty) => ty.location,
             UncheckedType::Generic(_, _, location) => *location,
             UncheckedType::Array(_, _, location) => *location,

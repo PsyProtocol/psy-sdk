@@ -38,6 +38,8 @@ fn test_max_for_panic() {
     assert(max(1, 2) == 12, "This should pass");
 }
 
+// input: 1,2
+// output: 3
 fn main(a: Felt, b: Felt) -> Felt {
     assert(a < b, "a should be less than b");
     return a + b;

@@ -9,6 +9,8 @@ struct Family {
     pub children: [Person; 2],
 }
 
+// input:
+// output:
 fn main() {
     let father: Person = new Person {
         age: 50,

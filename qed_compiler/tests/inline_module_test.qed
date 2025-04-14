@@ -16,6 +16,8 @@ pub mod mod3 {
 
 use mod1::mod2::test_fn;
 
+// input:1,2
+// output: 6
 fn main(a: Felt, b: Felt) -> Felt {
     let c: Felt = test_fn(a, b);
     let d: Felt = mod3::mod4::test_fn(a, b);

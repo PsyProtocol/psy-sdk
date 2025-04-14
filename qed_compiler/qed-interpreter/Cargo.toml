@@ -32,4 +32,4 @@ qed_data = { workspace = true }
 qed_core = { workspace = true }
 qed_prover = { workspace = true }
 qed_common_circuit = { workspace = true }
-serial_test = "3.2.0"
+serial_test = { workspace = true }

@@ -1,5 +1,7 @@
 type HashOut = Hash;
 
+// input:
+// output:
 fn main() -> HashOut {
     let data: HashOut = [1, 2, 3, 4];
     hash(data)

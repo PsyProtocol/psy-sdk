@@ -24,6 +24,8 @@ fn add_one(i: Felt) -> Felt {
 /**
  * test comment multi line
  */
+// input:
+// output:
 fn main() {
     let mut a: Felt = add(1, 2);
     let mut b: Felt = sub(2, 1);

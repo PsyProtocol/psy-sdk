@@ -1,4 +1,5 @@
 #![feature(if_let_guard)]
+#![feature(let_chains)]
 
 mod constraint;
 mod context;
@@ -628,7 +629,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     .get_type_id(Some(ScopeId::primitive()), IdentId::TYPE_ARRAY)
                     .unwrap();
 
-                let size_ty = self.populate_constant_u32(size, ctx)?;
+                let size_ty = self.populate_constant(size.into(), ctx)?;
 
                 let &CheckedArrayNode {
                     inner_ty: generic_inner_ty,
@@ -1400,7 +1401,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             associated_types.insert(
                 name.clone(),
                 CheckedAssociatedTypeValue {
-                    ty: type_id,
+                    type_id,
                     visibility: associated_ty.visibility,
                     comments: associated_ty.comments.clone(),
                     location: associated_ty.location,
@@ -1526,6 +1527,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             self.infcx.exit_scope();
             ctx.pop_node_id();
         }
+
+        self.register_instance(checked_def_id, ctx)?;
 
         self.infcx.exit_context();
         ctx.symbols.end_scope();
@@ -2268,8 +2271,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .into_trait()
             .unwrap();
         for (name, associated_ty) in &trait_node.associated_types {
-            let type_id =
-                self.typecheck(&trait_impl_node.associated_types.get(name).unwrap().ty, ctx)?;
+            let impl_type =
+                trait_impl_node
+                    .associated_types
+                    .get(name)
+                    .ok_or(Error::MissingAssociatedType {
+                        location: trait_impl_node.location,
+                        trait_name: trait_node.name.id,
+                        type_name: name.id,
+                    })?;
+
+            let type_id = self.typecheck(&impl_type.ty, ctx)?;
             if !self.unify(associated_ty.type_id, type_id, ctx) {
                 return Err(Error::TypeMismatch {
                     location: trait_impl_node.location,
@@ -2347,7 +2359,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             associated_types.insert(
                 name.clone(),
                 CheckedAssociatedTypeValue {
-                    ty: type_id,
+                    type_id,
                     visibility: associated_ty.visibility,
                     comments: associated_ty.comments.clone(),
                     location: associated_ty.location,
@@ -2417,9 +2429,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     ) -> Result<()> {
         #[allow(static_mut_refs)]
         unsafe {
-            STD_PRIMITIVE_SCOPE_ID
-                .set(ctx.symbols.current_scope_id().unwrap())
-                .unwrap()
+            let scope_id = ctx.symbols.current_scope_id().unwrap();
+            if let Err(id) = STD_PRIMITIVE_SCOPE_ID.set(scope_id)
+                && id != scope_id
+            {
+                STD_PRIMITIVE_SCOPE_ID.take().unwrap();
+                STD_PRIMITIVE_SCOPE_ID.set(scope_id).unwrap();
+            }
         };
         for ty in &*PRIMITIVE_TYPES {
             ctx.symbols.add_type(None, ty.key(), ty.clone())?;
@@ -2460,20 +2476,24 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     }
 
     #[instrument(level = "debug", skip_all)]
-    fn populate_constant_u32(
+    fn populate_constant(
         &mut self,
-        value: usize,
+        value: ConstValue,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId> {
-        let value = self
-            .evaluator
-            .from_constant_u32(u32::try_from(value).unwrap());
+        let value_f = self.evaluator.from_constant(value);
+        let ty = match value {
+            ConstValue::U32(_) => U32_TYPE,
+            ConstValue::Felt(_) => FELT_TYPE,
+            ConstValue::Bool(_) => BOOL_TYPE,
+            _ => unreachable!(),
+        };
         let node = CheckedConstNode {
             name: None,
-            ty: U32_TYPE,
+            ty,
             value: ctx
                 .symbols
-                .get_or_add_constant(CheckedValueRef::from_u32(value)),
+                .get_or_add_constant(CheckedValueRef::from_value(value_f, ty)),
             scope_id: ScopeId::primitive(),
             visibility: Visibility::Public,
         };
@@ -2533,6 +2553,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     ) -> Result<TypeId> {
         self.infcx.enter_scope();
         let type_id = match ty {
+            UncheckedType::Const(value, _) => self.populate_constant(*value, ctx)?,
             UncheckedType::Basic(path) => match path.target.id {
                 IdentId::TYPE_BOOL => BOOL_TYPE,
                 IdentId::TYPE_FELT => FELT_TYPE,
@@ -2607,6 +2628,25 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         }
                         self.substitute_all(underlying_type_id, ctx)?
                     }
+
+                    Type::Trait(checked_trait) => {
+                        for (generic_param, generic_arg) in checked_trait
+                            .generic_parameters
+                            .iter()
+                            .zip(checked_generic_args.iter())
+                        {
+                            if !self.unify(*generic_param, *generic_arg, ctx) {
+                                return Err(Error::TypeMismatch {
+                                    location: location.clone(),
+                                    expected: vec![*generic_param],
+                                    found: *generic_arg,
+                                });
+                            }
+                        }
+
+                        self.substitute_all(underlying_type_id, ctx)?
+                    }
+
                     _ => unreachable!(),
                 }
             }
@@ -2624,7 +2664,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
                 let inner_ty = self.typecheck(inner_ty.as_ref(), ctx)?;
 
-                let size_ty = self.populate_constant_u32(size.clone(), ctx)?;
+                let size_ty = self.populate_constant(size.clone().into(), ctx)?;
 
                 if !self.unify(generic_inner_ty, inner_ty, ctx) {
                     return Err(Error::TypeMismatch {

@@ -2,6 +2,7 @@ use crate::cli::compile_cmd::{compile_workspace_full, CompileOptions};
 use clap::Args;
 use qed_dargo::workspace::Workspace;
 
+use crate::cli::doc_cmd::run_doc;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
@@ -17,10 +18,13 @@ use qed_utils::{
 #[derive(Debug, Clone, Args)]
 pub(crate) struct ExecuteCommand {
     #[clap(flatten)]
-    compile_options: CompileOptions,
+    pub compile_options: CompileOptions,
 
     #[clap(short, long, value_parser = parse_vec_u64, num_args = 0..)]
-    parameters: Vec<Vec<u64>>,
+    pub parameters: Vec<Vec<u64>>,
+
+    #[clap(long, hide = true, default_value = "false")]
+    pub doc: bool,
 }
 
 fn parse_vec_u64(s: &str) -> Result<Vec<u64>, String> {
@@ -30,6 +34,10 @@ fn parse_vec_u64(s: &str) -> Result<Vec<u64>, String> {
 }
 
 pub(crate) fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate::errors::Result<()> {
+    if args.doc {
+        return run_doc(args, workspace);
+    }
+
     args.parameters
         .resize(args.compile_options.method_names.len(), Vec::new());
 
@@ -46,7 +54,7 @@ pub(crate) fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate::erro
     let (circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
         deployer,
         contract_state_tree_height as u8,
-        &compile_results,
+        &compile_results.circuit_definitions,
     )?;
 
     let mut lps = prepare_environment_with_real_contract(
@@ -56,6 +64,7 @@ pub(crate) fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate::erro
     let contract_id = GoldilocksField::from_canonical_u64(2);
 
     for ((def, parameters), circuit) in compile_results
+        .circuit_definitions
         .into_iter()
         .zip(args.parameters.into_iter())
         .zip(circuits.into_iter())

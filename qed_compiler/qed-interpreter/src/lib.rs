@@ -13,6 +13,7 @@ use indexmap::IndexMap;
 pub use preprocess::StorageProcessor;
 use qed_ast::*;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
+use qed_fmt::Formatter;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
@@ -30,12 +31,18 @@ use std::path::PathBuf;
 use std::{collections::HashMap, iter::once};
 use tracing::instrument;
 
+pub struct InterpretResult {
+    pub compile_results: Vec<DPNFunctionCircuitDefinition>,
+    pub typechecker: TypeChecker<SymFeltRef, QExecContext>,
+    pub ctx: TypeCheckerVisitorContext<SymFeltRef, QExecContext>,
+}
+
 pub fn interpret(
     contract_name: Option<String>,
     method_names: Vec<String>,
     entry: PathBuf,
     dependencies_entries: Vec<PathBuf>,
-) -> anyhow::Result<Vec<DPNFunctionCircuitDefinition>> {
+) -> anyhow::Result<InterpretResult> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let (mut typechecker, mut ctx) =
         interpreter.typecheck(entry, dependencies_entries.into_iter().collect())?;
@@ -54,7 +61,12 @@ pub fn interpret(
             )
         },
     )?;
-    Ok(compile_results)
+
+    Ok(InterpretResult {
+        compile_results,
+        typechecker,
+        ctx,
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -73,12 +85,22 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Evaluator<F, C> for
         self.__interpret_expr__(program, expr, ctx).unwrap()
     }
 
-    fn to_constant_u32(&mut self, value: F) -> u32 {
-        u32::try_from(self.context.get_constant_value(value)).unwrap()
+    fn to_constant(&mut self, value: F) -> u64 {
+        self.context.get_constant_value(value)
     }
 
-    fn from_constant_u32(&mut self, value: u32) -> F {
-        self.context.op_const_u32(value)
+    fn from_constant(&mut self, value: ConstValue) -> F {
+        match value {
+            ConstValue::Felt(value) => self.context.op_const(value),
+            ConstValue::U32(value) => self.context.op_const_u32(value),
+            ConstValue::Bool(value) => {
+                if value {
+                    self.context.op_true()
+                } else {
+                    self.context.op_false()
+                }
+            }
+        }
     }
 }
 
@@ -1535,14 +1557,14 @@ mod tests {
     fn test_crates_resolve() {
         let entry: PathBuf = "../tests/module_test/foo/src/main.qed".into();
         let dependencies_entries = vec!["../tests/module_test/bar/src/lib.qed".into()];
-        let compiled_results = super::interpret(
+        let result = super::interpret(
             Option::<String>::None,
             vec!["main".into()],
             entry.clone(),
             dependencies_entries,
         )
         .unwrap();
-        println!("compile_result: {:?}", compiled_results);
+        println!("compile_result: {:?}", result.compile_results);
         #[allow(static_mut_refs)]
         unsafe {
             STD_PRIMITIVE_SCOPE_ID.take().unwrap()

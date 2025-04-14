@@ -41,6 +41,8 @@ fn cal2(a: Felt, b: Felt) {
     let c: Felt = a - b;
 }
 
+// input:
+// output:
 fn main() {
     let a: Felt = 10;
     let b: Felt = 11;

@@ -13,6 +13,8 @@ impl Person {
     }
 }
 
+// input:
+// output: 20
 fn main() -> Felt {
     let p = Person::new(10);
     p.age() + p.age

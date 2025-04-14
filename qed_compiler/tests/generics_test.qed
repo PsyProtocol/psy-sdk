@@ -31,6 +31,8 @@ impl<T: Two> Box<T> {
     }
 }
 
+// input:
+// output: 49
 fn main() -> Felt {
     let mut b: Box<Felt> = <Box<Felt>>::new(42);
     b.data += 1;

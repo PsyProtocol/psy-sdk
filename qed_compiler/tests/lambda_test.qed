@@ -2,6 +2,8 @@ struct Person {
     pub age: Felt,
 }
 
+// input:
+// output:
 fn main() {
     let a = 1;
     let b = 2;

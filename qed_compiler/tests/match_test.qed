@@ -68,6 +68,8 @@ fn match_u32_test(input: u32) -> Felt {
     result + extra
 }
 
+// input:100
+// output:
 fn main(a: Felt) {
     //basic test
     assert_eq(match_test_case(0), 110, "test match ");
