@@ -15,6 +15,23 @@ fn div(a: Felt, b: Felt) -> Felt{
     let c: Felt = a / b;
     return c;
 }
+
+fn test_fn2(a: Felt, b: Felt) -> Felt{
+    let c: Felt = a + b;
+    return c;
+}
+
+
+
+fn test_fn4(a: Felt, b: Felt) -> Felt{
+    let c: Felt = a + b;
+    return c;
+}
+
+fn test_fn5(a: Felt, b: Felt) -> Felt{
+    let c: Felt = a + b;
+    return c;
+}
 fn main(a: Felt, b: Felt) -> Felt{
     let c: Felt = test_fn(a, b);
 

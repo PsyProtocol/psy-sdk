@@ -35,6 +35,7 @@ impl ScopeId {
             *STD_PRIMITIVE_SCOPE_ID.get().unwrap()
         }
     }
+
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, EnumAsInner)]
@@ -564,5 +565,16 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         self[scope_id].variables.insert(variable.name.id, var_id);
         self.variables.push(variable);
         Some(var_id)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.scopes.is_empty()
+            && self.scope_stack.is_empty()
+            && self.frames.is_empty()
+            && self.types.is_empty()
+            && self.consts.is_empty()
+            && self.variables.is_empty()
+            && self.modules.is_empty()
+            && self.module_stack.is_empty()
     }
 }

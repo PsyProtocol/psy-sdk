@@ -4,7 +4,6 @@ use qed_lsp_server::simple::QLspSimple;
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
     eprintln!("Starting QED LSP server...");
     let (service, socket) = LspService::build(QLspSimple::new).finish();
     let stdin = tokio::io::stdin();
