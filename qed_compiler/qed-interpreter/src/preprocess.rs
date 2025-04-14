@@ -44,7 +44,7 @@ impl<'a> StorageProcessor<'a> {
             body: methods,
             comments: vec![],
             location: attr.location,
-            is_generated: false,
+            is_generated: true,
         }
     }
 
@@ -74,7 +74,7 @@ impl<'a> StorageProcessor<'a> {
                 body: methods,
                 comments: vec![],
                 location: attr.location,
-                is_generated: false,
+                is_generated: true,
             })
         } else {
             None
@@ -121,7 +121,7 @@ impl<'a> StorageProcessor<'a> {
             body: methods,
             comments: vec![],
             location: attr.location,
-            is_generated: false,
+            is_generated: true,
         }
     }
 
