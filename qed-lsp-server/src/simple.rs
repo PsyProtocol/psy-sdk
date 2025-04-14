@@ -34,12 +34,18 @@ use tower_lsp::lsp_types::{
     InitializedParams, Location, OneOf, ReferenceParams, TextEdit,
 };
 
+#[derive(Debug, Clone)]
+pub struct DiagnosticBundle {
+    pub uri: Option<Url>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
 pub struct QLspSimple {
     client: Client,
     ctx: Arc<RwLock<TypeCheckerVisitorContext<SymFeltRef, QExecContext>>>,
     root_path: Arc<RwLock<PathBuf>>,
     entry_manager_cache: Arc<RwLock<HashMap<PathBuf, EntryManager>>>,
-    last_diagnostic_uri: RwLock<Option<Url>>,
+    last_diagnostics: Arc<RwLock<Option<DiagnosticBundle>>>,
 }
 
 impl QLspSimple {
@@ -49,7 +55,7 @@ impl QLspSimple {
             ctx: Arc::new(RwLock::new(TypeCheckerVisitorContext::new(Program::new()))),
             root_path: Arc::new(RwLock::new(PathBuf::new())),
             entry_manager_cache: Arc::new(RwLock::new(HashMap::new())),
-            last_diagnostic_uri: RwLock::new(None),
+            last_diagnostics: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -93,16 +99,6 @@ impl QLspSimple {
         *ctx = new_ctx;
         Ok(())
     }
-    pub fn set_last_diagnostic_uri(&self, uri: Url) {
-        let mut guard = self.last_diagnostic_uri.write().expect("lock poisoned");
-        *guard = Some(uri);
-    }
-    pub fn get_last_diagnostic_uri(&self) -> Option<Url> {
-        self.last_diagnostic_uri
-            .read()
-            .ok()
-            .and_then(|guard| guard.clone())
-    }
 
     pub fn get_cached_entry_manager(&self, path: &PathBuf) -> Option<EntryManager> {
         self.entry_manager_cache
@@ -123,6 +119,51 @@ impl QLspSimple {
         map.remove(path);
     }
 
+    pub fn set_last_diagnostics(&self, bundle: DiagnosticBundle) {
+        let mut guard = self.last_diagnostics.write().expect("lock poisoned");
+        *guard = Some(bundle);
+    }
+
+    pub fn get_last_diagnostics(&self) -> Option<DiagnosticBundle> {
+        self.last_diagnostics
+            .read()
+            .ok()
+            .and_then(|guard| guard.clone())
+    }
+
+    pub fn clear_last_diagnostics(&self) {
+        let mut guard = self.last_diagnostics.write().expect("lock poisoned");
+        *guard = None;
+    }
+    pub async fn maybe_publish_cached_diagnostics(&self, uri: &Url) {
+        if let Some(bundle) = self.get_last_diagnostics() {
+            if let Some(bundle_uri) = &bundle.uri {
+                if bundle_uri == uri {
+                    eprintln!(
+                        "[diagnostics] Re-publishing cached diagnostics for {:?}",
+                        uri
+                    );
+                    self.client
+                        .publish_diagnostics(uri.clone(), bundle.diagnostics, None)
+                        .await;
+                }
+            }
+        }
+    }
+    pub async fn clear_cached_diagnostics(&self) {
+        let uri_opt = self
+            .get_last_diagnostics()
+            .and_then(|bundle| bundle.uri.clone());
+
+        if uri_opt.is_some() {
+            self.clear_last_diagnostics();
+        }
+
+        if let Some(uri) = uri_opt {
+            eprintln!("[diagnostics] Clearing cached diagnostics for {:?}", uri);
+            self.client.publish_diagnostics(uri, vec![], None).await;
+        }
+    }
     pub fn is_ready(&self) -> bool {
         let ctx = self.get_ctx_read();
         !ctx.symbols.is_empty()
@@ -140,27 +181,37 @@ impl QLspSimple {
 
     pub async fn init_and_publish_diagnostics(&self, root_path: &PathBuf) -> TResult<()> {
         match self.collect_diagnostics_sync(root_path) {
-            Ok((Some(uri), diagnostics)) => {
+            Ok(bundle) => {
                 eprintln!("[diagnostics] Start publishing diagnostics");
-                eprintln!("[diagnostics] URI: {:?}", uri);
-                eprintln!("[diagnostics] Payload: {:?}", diagnostics);
+                eprintln!("[diagnostics] URI: {:?}", bundle.uri);
+                eprintln!("[diagnostics] Payload: {:?}", bundle.diagnostics);
 
-                self.set_last_diagnostic_uri(uri.clone());
-                self.client
-                    .publish_diagnostics(uri.clone(), diagnostics, None)
-                    .await;
+                if let Some(uri) = &bundle.uri {
+                    self.client
+                        .publish_diagnostics(uri.clone(), bundle.diagnostics.clone(), None)
+                        .await;
+                    self.set_last_diagnostics(bundle.clone());
 
-                eprintln!("[diagnostics] Publish finished");
-            }
-            Ok((None, _)) => {
-                eprintln!("[diagnostics] No URI returned, skipping publish");
-                if let Some(uri) = self.get_last_diagnostic_uri() {
-                    self.client.publish_diagnostics(uri, vec![], None).await;
+                    eprintln!("[diagnostics] Publish finished");
+                } else {
+                    let _ = self.clear_cached_diagnostics().await;
+                    eprintln!(
+                        "[diagnostics] No URI in bundle, skipping publish and clearing cache"
+                    );
                 }
-                // self.client.publish_diagnostics(uri.clone(), vec![], None).await;
             }
             Err(err) => {
                 eprintln!("[diagnostics] Failed to collect diagnostics: {:?}", err);
+
+                if let Some(uri) = self
+                    .get_last_diagnostics()
+                    .and_then(|bundle| bundle.uri.clone())
+                {
+                    self.client.publish_diagnostics(uri, vec![], None).await;
+                    self.clear_last_diagnostics();
+                    eprintln!("[diagnostics] Cleared previous diagnostics due to failure");
+                }
+
                 let _ = self
                     .client
                     .log_message(
@@ -174,10 +225,7 @@ impl QLspSimple {
         Ok(())
     }
 
-    pub fn collect_diagnostics_sync(
-        &self,
-        root_path: &PathBuf,
-    ) -> QLspResult<(Option<Url>, Vec<Diagnostic>)> {
+    pub fn collect_diagnostics_sync(&self, root_path: &PathBuf) -> QLspResult<DiagnosticBundle> {
         self.set_root_path(root_path)?;
 
         //use cached entry manager if available
@@ -222,12 +270,16 @@ impl QLspSimple {
                         format!("cannot set context: {}", e),
                     );
                 }
-                Ok((None, vec![]))
+
+                Ok(DiagnosticBundle {
+                    uri: None,
+                    diagnostics: vec![],
+                })
             }
             Err(err) => {
-                let (uri_opt, diagnostic) = match err {
+                let bundle = match err {
                     TypeCheckError::Parse(desc) | TypeCheckError::TypeCheck(desc) => {
-                        let uri_opt = desc
+                        let uri = desc
                             .file
                             .as_ref()
                             .and_then(|path| Url::from_file_path(path).ok());
@@ -243,12 +295,17 @@ impl QLspSimple {
                             ..Default::default()
                         };
 
-                        let ret = (uri_opt, diagnostic);
-                        eprintln!("typecheck_lsp failed ret = {:?}", ret);
-                        ret
+                        eprintln!(
+                            "typecheck_lsp failed: uri = {:?}, message = {}",
+                            uri, diagnostic.message
+                        );
+                        DiagnosticBundle {
+                            uri,
+                            diagnostics: vec![diagnostic],
+                        }
                     }
                     TypeCheckError::Cycle(msg) | TypeCheckError::StoragePreprocess(msg) => {
-                        let uri_opt = self.root_uri();
+                        let uri = self.root_uri();
                         let diagnostic = Diagnostic {
                             range: dummy_range(),
                             severity: Some(DiagnosticSeverity::ERROR),
@@ -256,10 +313,13 @@ impl QLspSimple {
                             source: Some("qed-lsp".into()),
                             ..Default::default()
                         };
-                        (uri_opt, diagnostic)
+                        DiagnosticBundle {
+                            uri,
+                            diagnostics: vec![diagnostic],
+                        }
                     }
                 };
-                Ok((uri_opt, vec![diagnostic]))
+                Ok(bundle)
             }
         }
     }
@@ -312,15 +372,13 @@ impl LanguageServer for QLspSimple {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        // dbg!(format!("did_open: {:?}", params));
-        // let uri = &params.text_document.uri;
-        //
-        // if let Ok(path) = uri.to_file_path() {
-        //     let _ = self.init_and_publish_diagnostics(&path).await;
-        // }
+        dbg!(format!("did_open: {:?}", params));
+        let uri = &params.text_document.uri;
+
+        self.maybe_publish_cached_diagnostics(uri).await;
     }
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        dbg!(format!("did_change: {:?}", params));
+        // dbg!(format!("did_change: {:?}", params));
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
@@ -347,7 +405,6 @@ impl LanguageServer for QLspSimple {
         let root_path = self.get_root_path();
         dbg!("did_save prepare init: {:?}", &root_path);
         let _ = self.init_and_publish_diagnostics(&root_path).await;
-
         dbg!("did_save init Success");
 
         dbg!(format!("Saved file: {}", uri));
@@ -380,16 +437,23 @@ impl LanguageServer for QLspSimple {
         dbg!(format!("goto position: {:?}", position));
 
         let ctx = self.get_ctx_read();
-        let location = ctx
-            .position_to_location(position)
-            .ok_or_else(|| QLspError::Internal("Failed to map position to location".into()))?;
 
+        let location = match ctx.position_to_location(position) {
+            Some(loc) => loc,
+            None => {
+                dbg!("goto definition: failed to map position to location");
+                return Ok(None);
+            }
+        };
         dbg!(format!("goto: source loc {:?}", location));
 
-        let target_location = ctx
-            .goto_definition(location)
-            .ok_or_else(|| QLspError::Internal("goto definition: target not found".into()))?;
-
+        let target_location = match ctx.goto_definition(location) {
+            Some(target) => target,
+            None => {
+                dbg!("goto definition: target not found");
+                return Ok(None);
+            }
+        };
         dbg!(format!("goto: target location {:?}", target_location));
 
         let source_text = ctx
@@ -445,8 +509,12 @@ impl LanguageServer for QLspSimple {
             .position_to_location(position)
             .ok_or_else(|| QLspError::Internal("Cannot find location for position".to_string()))?;
 
-        let Some(locations) = ctx.find_all_references(location, true, false) else {
-            return Ok(None);
+        let locations = match ctx.find_all_references(location, true, false) {
+            Some(locs) => locs
+                .into_iter()
+                .filter(|r| *r != location) //filter out self-reference
+                .collect::<Vec<_>>(),
+            None => return Ok(None),
         };
 
         let resolved_locations = locations
