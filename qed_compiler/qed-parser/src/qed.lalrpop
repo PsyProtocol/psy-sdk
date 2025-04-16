@@ -352,6 +352,7 @@ FunctionSignature: UncheckedType = {
 }
 
 FunctionParameter: FunctionParameter = {
+    <l:@L> <type_qualifier: TypeQualifier> <name:IdentifierOrSelf> ":" "<" <path:PathExpression> ">" <r:@R> => FunctionParameter::new(name, type_qualifier, UncheckedType::Path(Box::new(path.into_path().unwrap())), Location::new(file_id, l, r)),
     <l:@L> <type_qualifier: TypeQualifier> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => FunctionParameter::new(name, type_qualifier, ty, Location::new(file_id, l, r)),
     <l:@L> <type_qualifier: TypeQualifier> <name:SELF> <r:@R> => {
         FunctionParameter::new(
@@ -1023,23 +1024,18 @@ IdentifierOrNew: Identifier = {
 PathRoot: UncheckedType = {
     BasicType,
     "<" <root: ArrayType> ">"   => root,
-    "<" <root: TupleType> ">"   => root,
     "<" <root: GenericType> ">" => root,
     <l:@L> "<" <ty:Ty> AS <trait_ty:Ty> ">" <r:@R> => UncheckedType::TraitCast(Box::new(ty), Box::new(trait_ty), Location::new(file_id, l, r)),
 }
 
 PathSegment: UncheckedType = {
     BasicType,
-    "<" <root: ArrayType> ">"   => root,
-    "<" <root: TupleType> ">"   => root,
     "<" <root: GenericType> ">" => root,
 }
 
 PathTarget: UncheckedType = {
     BasicType,
     <l:@L> NEW <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::NEW, Location::new(file_id, l, r))),
-    "<" <root: ArrayType> ">"   => root,
-    "<" <root: TupleType> ">"   => root,
     "<" <root: GenericType> ">" => root,
 }
 
