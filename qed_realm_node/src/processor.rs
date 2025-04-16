@@ -14,12 +14,12 @@ use reth_libmdbx::RW;
 use std::sync::Arc;
 
 pub struct RealmProcessor {
-    realm_config: RealmConfig,
-    realm_qps: ProofStoreFred,
-    store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>,
-    proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-    coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
-    checkpoint_id: u64,
+    pub realm_config: RealmConfig,
+    pub realm_qps: ProofStoreFred,
+    pub store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>,
+    pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+    pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+    pub checkpoint_id: u64,
 }
 
 impl RealmProcessor {
