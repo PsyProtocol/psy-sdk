@@ -43,6 +43,7 @@ type ConcreteRealmProcessorContext = RealmProcessorContext<
     ProofStoreFred,
 >;
 
+#[derive(Debug)]
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
     pub realm_qps: ProofStoreFred,

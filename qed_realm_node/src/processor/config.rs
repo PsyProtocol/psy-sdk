@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct RealmProcessorConfig {
     #[serde(default = "default_rpc_node_id")]
     pub rpc_node_id: u32,

@@ -26,7 +26,7 @@ pub const PS_WORKER_QUEUE_KEY_PREFIX: &'static str = "PSWQV1";
 pub const PS_NOTIFICATIONS_QUEUE_KEY_PREFIX: &'static str = "PSNQV1";
 pub const PS_HISTORY_QUEUE_KEY_PREFIX: &'static str = "PSHQV1";
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ProofStoreFred {
     pool: Pool,
     worker_queue_id: String,

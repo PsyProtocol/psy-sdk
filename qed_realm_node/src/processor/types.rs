@@ -2,8 +2,9 @@ use kvq::traits::KVQSerializable;
 use qed_core::config::network_constants::QED_CHECKPOINT_JOB_ID_CHANNEL;
 use qed_core::job::history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged};
 use qed_core::job::id::QProvingJobDataID;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct ProvingJobDataId {
     pub checkpoint_id: u64,
     pub job_id: QProvingJobDataID,
