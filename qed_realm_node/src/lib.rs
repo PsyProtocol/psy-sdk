@@ -25,7 +25,6 @@ use qed_store::node::coordinator::store_traits::{
 use tokio::sync::Mutex;
 
 pub type C = PoseidonGoldilocksConfig;
-type F = QEDFelt;
 pub const D: usize = 2;
 
 #[rpc(server)]
