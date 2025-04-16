@@ -9,36 +9,23 @@ path = "src/bin/realm_processor.rs"
 
 [dependencies]
 anyhow = "1.0.97"
-http = "1.3.1"
-hyper = "1.6.0"
-jsonrpsee = { version = "0.24.9", features = ["server", "macros"] }
 tokio = { version = "1.44.2", features = ["macros", "rt", "signal", "sync"] }
-tower = "0.4.13"
-tower-http = { version = "0.5.2", features = ["cors"] }
-tracing = { workspace = true }
+tracing.workspace = true
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-
-derive_more.workspace = true
+dotenv.workspace = true
+envy = "0.4.2"
 serde.workspace = true
-fred = { workspace = true }
+fred.workspace = true
 
 kvq = { path = "../kvq" }
-kvq_store_lmdbx = { workspace = true }
-reth-libmdbx = { workspace = true }
-plonky2 = { workspace = true }
+kvq_store_lmdbx.workspace = true
+reth-libmdbx.workspace = true
+plonky2.workspace = true
 
 qed_core = { path = "../qed_core" }
-qed_common_circuit = { path = "../qed_common_circuit" }
 qed_rollup_circuit = { path = "../qed_rollup_circuit" }
-qedlang_core = { path = "../qedlang_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
 qed_store = { path = "../qed_store" }
-qed_exec = { path = "../qed_exec" }
-qedlang_macros = { path = "../qedlang_macros" }
-qed_prover = { path = "../qed_prover" }
 qed_node = { path = "../qed_node" }
 qed_node_common = { path = "../qed_node_common" }
-qed-interpreter = { workspace = true }
-dotenv.workspace = true
-envy = "0.4.2"

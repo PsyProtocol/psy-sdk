@@ -37,7 +37,7 @@ futures = { workspace = true }
 
 
 lapin = "=2.5.0"
-prost-wkt-types = "0.6.0"
+#prost-wkt-types = "0.6.0"
 
 amqprs = "=2.1.0"
 tokio-executor-trait = { workspace = true }
