@@ -42,6 +42,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> InferCtxt<F, C> {
         self.contexts.last().unwrap().iter().any(|x| !x.is_empty())
     }
 
+    pub fn get_equations(&self) -> IndexMap<TypeId, TypeId>  {
+        self.contexts.last().unwrap().iter().cloned().flatten().collect()
+    }
+
     pub fn probe(&self, type_id: TypeId) -> Option<TypeId> {
         self.contexts
             .last()

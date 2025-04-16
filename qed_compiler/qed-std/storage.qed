@@ -71,13 +71,13 @@ impl<T: Storage, N: u32> Storage for [T; N] {
 }
 
 impl<T: Storage, N: u32> StorageAt<T, N> for [T; N] {
-    pub fn read_at(offset: Felt, index: Felt) -> T {
-        let offset = offset * 4 + (index * T::size());
-        mem::transmute#<T>(__storage_read_range(offset, T::size()))
-    }
-
     pub fn write_at(offset: Felt, index: Felt, value: T) {
         let offset = offset * 4 + (index * T::size());
-        __storage_write_range(offset, value);
+        T::write(offset, value)
+    }
+
+    pub fn read_at(offset: Felt, index: Felt) -> T {
+        let offset = offset * 4 + (index * T::size());
+        T::read(offset)
     }
 }

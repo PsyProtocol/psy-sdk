@@ -894,7 +894,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let mut args = Vec::new();
         for (i, arg) in call_node.args.iter().enumerate() {
             let type_arg = self.visit_expr(arg.clone(), ctx)?;
-            if !self.unify(type_arg.ty(), signature.parameters[i], ctx) {
+            if !self.unify(signature.parameters[i], type_arg.ty(), ctx) {
                 return Err(Error::TypeMismatch {
                     location: call_node.location,
                     expected: vec![signature.parameters[i]],
@@ -959,7 +959,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         for (i, arg) in call_node.args.iter().enumerate() {
             let type_arg = self.visit_expr(arg.clone(), ctx)?;
-            if !self.unify(type_arg.ty(), f.parameters[i + 1].ty, ctx) {
+            if !self.unify(f.parameters[i + 1].ty, type_arg.ty(), ctx) {
                 return Err(Error::TypeMismatch {
                     location: call_node.location,
                     expected: vec![f.parameters[i + 1].ty],
