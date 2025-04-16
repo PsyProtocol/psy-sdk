@@ -123,6 +123,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 }
                 true
             }
+            (Type::Trait(t1), Type::Trait(t2)) => {
+                t1.name == t2.name
+                    && t1.scope_id == t2.scope_id
+                    && t1.generic_parameters.len() == t2.generic_parameters.len()
+                    && t1
+                        .generic_parameters
+                        .clone()
+                        .into_iter()
+                        .zip_eq(t2.generic_parameters.clone().into_iter())
+                        .all(|(p1, p2)| self.unify(p1, p2, ctx))
+            }
 
             (Type::Function(f), Type::FunctionSignature(sig))
             | (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,

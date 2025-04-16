@@ -43,7 +43,6 @@ pub trait Rewriter<F: Clone + From<u32> + ContextFelt, C> {
     fn instantiate_function_body(
         &mut self,
         function_id: DefId,
-        generic_parameters: Vec<TypeId>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId>;
     fn rewrite_stmt(
@@ -99,7 +98,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         self.register_impl(impl_id, ctx)?;
 
         for method in &checked_impl.body {
-            self.instantiate_function_body(*method, vec![], ctx)?;
+            self.instantiate_function_body(*method, ctx)?;
         }
 
         self.infcx.exit_context();
@@ -162,7 +161,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         self.register_trait_impl(impl_id, ctx)?;
 
         for method in &checked_impl.body {
-            self.instantiate_function_body(*method, vec![], ctx)?;
+            self.instantiate_function_body(*method, ctx)?;
         }
 
         self.infcx.exit_context();
@@ -202,11 +201,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         }
 
         for method in &mut checked_trait.body {
-            *method = self.instantiate_function(
-                self.program[*method].as_function().unwrap().type_id,
-                vec![],
-                ctx,
-            )?;
+            *method = self.instantiate_function_signature(*method, vec![], ctx)?;
         }
 
         checked_trait.type_id = ctx.symbols.next_type_id(0);
@@ -218,8 +213,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         let trait_id = self
             .program
             .defs
-            .alloc_item(CheckedDefinitionNode::Trait(checked_trait));
+            .alloc_item(CheckedDefinitionNode::Trait(checked_trait.clone()));
         self.register_instance(trait_id, ctx)?;
+
+        for method in &checked_trait.body {
+            self.instantiate_function_body(*method, ctx)?;
+        }
 
         self.infcx.exit_context();
         Ok(trait_id)
@@ -322,25 +321,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
     fn instantiate_function_body(
         &mut self,
         function_id: DefId,
-        generic_parameters: Vec<TypeId>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId> {
         let mut checked_function = self.program[function_id].as_function().cloned().unwrap();
         self.infcx.enter_scope();
-
-        for (generic_parameter, generic_arg) in ctx.symbols[checked_function.type_id]
-            .generic_parameters()
-            .iter()
-            .zip(generic_parameters.into_iter())
-        {
-            if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
-                return Err(Error::TypeMismatch {
-                    location: checked_function.location,
-                    expected: vec![generic_parameter.clone()],
-                    found: generic_arg,
-                });
-            }
-        }
 
         if let Some(ref mut body) = checked_function.body {
             *body = self.rewrite_expr(*body, ctx)?;

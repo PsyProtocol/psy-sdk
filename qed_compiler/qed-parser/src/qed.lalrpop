@@ -954,14 +954,18 @@ UseNode: (Identifier, Vec<Identifier>, Option<Identifier>) =
     };
 
 Monomorphization: Vec<UncheckedType> = {
-    <l:@L> "#" "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => generic_parameters,
+    <l:@L> "#" "<" <generic_parameters:Comma<MonomorphizationTy>> ">" <r:@R> => generic_parameters,
     () => vec![]
 }
 
-Ty: UncheckedType = {
+MonomorphizationTy: UncheckedType = {
     <l:@L> <n:U64> <r:@R> => UncheckedType::Const(ConstValue::Felt(n), Location::new(file_id, l, r)),
     <l:@L> <n:BOOL> <r:@R> => UncheckedType::Const(ConstValue::Bool(n), Location::new(file_id, l, r)),
     <l:@L> <n:U32> <r:@R> => UncheckedType::Const(ConstValue::U32(n), Location::new(file_id, l, r)),
+    Ty
+}
+
+Ty: UncheckedType = {
     BasicType,
     ArrayType,
     TupleType,

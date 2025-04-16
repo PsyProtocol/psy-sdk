@@ -35,27 +35,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         let trait_type_id = self.typecheck(trait_ty, ctx)?;
                         let impl_ty_id = self.typecheck(impl_ty, ctx)?;
 
-                        if !ctx.symbols[trait_type_id].is_trait() {
-                            let mut impl_traits = Vec::new();
-                            let impl_poly_ty_id = self.poly_of(impl_ty_id, ctx).unwrap();
-
-                            if let Some(impl_map) =
-                                self.implementer.impl_ids().get(&impl_poly_ty_id)
-                            {
-                                for (_constraint, impl_set) in impl_map.iter() {
-                                    for impl_id in impl_set {
-                                        if let Some(impl_node) =
-                                            self.program[*impl_id].as_trait_impl()
-                                        {
-                                            impl_traits.push(impl_node.trait_ty);
-                                        };
-                                    }
-                                }
-                            }
-
+                        if !ctx.symbols[trait_type_id].is_trait()
+                            || !self.implements_trait(impl_ty_id, trait_type_id, ctx)
+                        {
                             return Err(Error::TypeMismatch {
                                 location: path.location,
-                                expected: impl_traits,
+                                expected: self
+                                    .implemented_traits(impl_ty_id, ctx)
+                                    .into_iter()
+                                    .map(|(trait_poly_ty, _)| trait_poly_ty)
+                                    .collect(),
                                 found: trait_type_id,
                             });
                         }
@@ -228,7 +217,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         panic!("only last segment can be generic")
                     }
 
-                    let root_type_id = self.typecheck_type_in_module(src_module, segment, ctx)?;
+                    let root_type_id = self.resolve_module_type(path, src_module, segment, ctx)?;
 
                     if !path.target.is_basic() {
                         // generic function call's target is function name identifier, basic unchecked type
@@ -248,7 +237,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             }
         }
 
-        let type_id = self.typecheck_type_in_module(src_module, &path.target, ctx)?;
+        let type_id = self.resolve_module_type(path, src_module, &path.target, ctx)?;
         return Ok(CheckedPathNode::new(
             None,
             None,
@@ -397,24 +386,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         &mut self,
         path: &PathNode,
         module: ModuleId,
-        ty: IdentId,
+        ty: &UncheckedType,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId> {
         let scope_id = ctx.symbols[module].scope_id;
-        let type_id = ctx.symbols[scope_id]
-            .types
-            .get::<TypeKey>(&ty.into())
-            .ok_or_else(|| Error::UnresolvedType {
-                location: path.location,
-                resolved_type: ty,
-            })?
-            .clone();
+        ctx.symbols.enter_scope(scope_id);
+        let type_id = self.typecheck(ty, ctx)?;
         if !ctx.symbols[type_id].visibility().is_public() {
             return Err(Error::TypeNotPublic {
                 location: path.location,
                 ty: type_id,
             });
         }
+        ctx.symbols.exit_scope();
         return Ok(type_id);
     }
 }

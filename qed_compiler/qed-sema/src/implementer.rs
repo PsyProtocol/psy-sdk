@@ -4,8 +4,8 @@ use qed_ast::{DefId, IdentId};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    rewriter::Rewriter, CheckedImplNode, CheckedTraitImplNode, Constraint, Result, TypeChecker,
-    TypeCheckerVisitorContext, TypeId, TypeKey,
+    rewriter::Rewriter, CheckedImplNode, CheckedTraitImplNode, Constraint, Result, ScopeKind,
+    TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
 };
 
 #[derive(Debug)]
@@ -16,6 +16,8 @@ pub struct ImplementerCtxt {
     trait_impls: IndexMap<TypeId, IndexMap<Constraint, IndexSet<TypeId>>>,
     // poly -> instance
     instances: IndexMap<TypeId, IndexMap<Constraint, DefId>>,
+    // instance -> poly
+    polys: IndexMap<TypeId, TypeId>,
 }
 
 impl ImplementerCtxt {
@@ -24,11 +26,8 @@ impl ImplementerCtxt {
             impl_ids: IndexMap::new(),
             trait_impls: IndexMap::new(),
             instances: IndexMap::new(),
+            polys: IndexMap::new(),
         }
-    }
-
-    pub fn impl_ids(&self) -> &IndexMap<TypeId, IndexMap<Constraint, IndexSet<DefId>>> {
-        &self.impl_ids
     }
 }
 
@@ -85,6 +84,11 @@ pub trait Implementer<F: Clone + From<u32> + ContextFelt, C> {
         trait_ty: TypeId, // mono OR poly
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> bool;
+    fn implemented_traits(
+        &mut self,
+        ty: TypeId, // mono
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Vec<(TypeId, Constraint)>;
     fn satisfies_constraint(
         &mut self,
         gen_ty: TypeId,
@@ -420,33 +424,55 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
             Some(ty) => ty,
             None => return false,
         };
-        let trait_poly_ty = match self.poly_of(trait_ty, ctx) {
+        let _trait_poly_ty = match self.poly_of(trait_ty, ctx) {
             Some(ty) => ty,
             None => return false,
         };
 
-        let find_constraints = |trait_poly_ty: TypeId,
-                                poly_ty: TypeId,
-                                _trait_ty: TypeId,
-                                _ty: TypeId,
+        for (trait_poly_ty, trait_constraint) in self.implemented_traits(poly_ty, ctx) {
+            if _trait_poly_ty == trait_poly_ty
+                && self.satisfies_constraints(
+                    ctx.symbols[trait_ty].generic_parameters(),
+                    &trait_constraint,
+                    ctx,
+                )
+            {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn implemented_traits(
+        &mut self,
+        ty: TypeId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Vec<(TypeId, Constraint)> {
+        let poly_ty = match self.poly_of(ty, ctx) {
+            Some(ty) => ty,
+            None => return vec![],
+        };
+
+        let find_constraints = |poly_ty: TypeId,
                                 ctx: &mut TypeCheckerVisitorContext<F, C>|
-         -> Vec<(Constraint, Constraint)> {
+         -> Vec<(Constraint, TypeId, Constraint)> {
             let mut result = Vec::new();
             if let Some(impl_map) = self.implementer.impl_ids.get(&poly_ty) {
                 for (constraint, impl_set) in impl_map.iter() {
                     for &impl_id in impl_set {
                         if let Some(impl_node) = self.program[impl_id].as_trait_impl() {
-                            if self.poly_of(impl_node.trait_ty, ctx).unwrap() == trait_poly_ty {
-                                if let Some(trait_map) =
-                                    self.implementer.trait_impls.get(&trait_poly_ty)
-                                {
-                                    for (trait_constraint, trait_impl_set) in trait_map.iter() {
-                                        if trait_impl_set.contains(&poly_ty) {
-                                            result.push((
-                                                constraint.clone(),
-                                                trait_constraint.clone(),
-                                            ));
-                                        }
+                            let trait_poly_ty = self.poly_of(impl_node.trait_ty, ctx).unwrap();
+                            if let Some(trait_map) =
+                                self.implementer.trait_impls.get(&trait_poly_ty)
+                            {
+                                for (trait_constraint, trait_impl_set) in trait_map.iter() {
+                                    if trait_impl_set.contains(&poly_ty) {
+                                        result.push((
+                                            constraint.clone(),
+                                            trait_poly_ty,
+                                            trait_constraint.clone(),
+                                        ));
                                     }
                                 }
                             }
@@ -457,21 +483,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
             result
         };
 
-        for (constraint, trait_constraint) in
-            find_constraints(trait_poly_ty, poly_ty, trait_ty, ty, ctx)
-        {
+        let mut results = vec![];
+        for (constraint, trait_poly_ty, trait_constraint) in find_constraints(poly_ty, ctx) {
             if self.satisfies_constraints(ctx.symbols[ty].generic_parameters(), &constraint, ctx) {
-                if self.satisfies_constraints(
-                    ctx.symbols[trait_ty].generic_parameters(),
-                    &trait_constraint,
-                    ctx,
-                ) {
-                    return true;
-                }
+                results.push((trait_poly_ty, trait_constraint))
             }
         }
 
-        false
+        results
     }
 
     // rhs_ty will be substituted by lhs_ty if they are both type variables
@@ -533,9 +552,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
                     .unwrap()
                     .constraints
                     .clone();
-                rhs_traits
-                    .iter()
-                    .all(|r_trait| lhs_traits.contains(&r_trait))
+                rhs_traits.iter().all(|r_trait| {
+                    lhs_traits
+                        .iter()
+                        .any(|l_trait| self.unify(*l_trait, *r_trait, ctx))
+                })
             }
         };
         self.infcx.exit_scope();
@@ -562,14 +583,24 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         satisfied
     }
 
+    // TODO: this needs to be replaced by polys map
     fn poly_of(
         &self,
         type_id: TypeId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Option<TypeId> {
-        let name = ctx.symbols[type_id].name();
-        ctx.symbols
-            .get_type_id(Some(ctx.symbols[type_id].scope_id()), name)
+        let name: TypeKey = ctx.symbols[type_id].name().into();
+        ctx.symbols.find(
+            Some(ctx.symbols[type_id].scope_id()),
+            vec![ScopeKind::Module],
+            |scope| {
+                scope
+                    .types
+                    .get(&name)
+                    .cloned()
+                    .filter(|ty| ctx.symbols[*ty].kind() == ctx.symbols[type_id].kind())
+            },
+        )
     }
 
     fn get_impl_id<R: Copy>(
