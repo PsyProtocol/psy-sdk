@@ -20,7 +20,7 @@ async fn main() -> anyhow::Result<()> {
             panic!("Realm processor stopped");
         }
         _ = tokio::signal::ctrl_c() => {
-            println!("Received Ctrl-C, shutting down...");
+            tracing::info!("Received Ctrl-C, shutting down...");
         }
     }
     Ok(())

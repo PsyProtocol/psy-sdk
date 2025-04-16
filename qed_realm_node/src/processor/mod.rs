@@ -46,7 +46,7 @@ type ConcreteRealmProcessorContext = RealmProcessorContext<
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
     pub realm_qps: ProofStoreFred,
-    pub store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>,
+    pub store_reader: KVQArcImmutableStore,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
 }
@@ -83,11 +83,7 @@ impl RealmProcessor {
             .set_flags(flags)
             .open(PathBuf::new().join("db").as_path())?;
         let txn = env.begin_rw_txn()?;
-        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RW>>::new(KVQlibmdbxStore::new(
-                txn.clone(),
-                None,
-            )?);
+        let store_reader = KVQArcImmutableStore::new(KVQlibmdbxStore::new(txn.clone(), None)?);
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
@@ -119,7 +115,6 @@ impl RealmProcessor {
         .await?;
         let handle = tokio::spawn(async move {
             loop {
-                println!("loop");
                 tokio::select! {
                    checkpoint = self.wait_for_next_checkpoint()  => match checkpoint {
                         Ok(checkpoint) => {
