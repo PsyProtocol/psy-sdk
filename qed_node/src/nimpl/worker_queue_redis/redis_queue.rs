@@ -30,6 +30,8 @@ pub const Q_RPC_REGISTER_USER: &'static str = "RPC_REGISTER_USER";
 pub const Q_CMD: &'static str = "CMD";
 pub const Q_JOB: &'static str = "JOB";
 pub const Q_NOTIFICATIONS: &'static str = "NOTIFICATIONS";
+pub const CE_NOTIFICATIONS: &'static str = "CE_NOTIFICATIONS";
+pub const CP_NOTIFICATIONS: &'static str = "CP_NOTIFICATIONS";
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
@@ -42,6 +44,19 @@ pub enum QueueCmd {
 pub enum QueueNotification {
     CoreJobCompleted = 0,
 }
+
+#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum CEQueueNotification {
+    StartProduceBlock = 0,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum CPQueueNotification {
+    StartSync = 0,
+}
+
 impl RedisQueue {
     pub fn new(uri: &str) -> Result<Self> {
         let client = redis::Client::open(uri)?;

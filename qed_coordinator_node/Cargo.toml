@@ -1,7 +1,28 @@
 [package]
 edition = "2021"
-name    = "qed_coordinator_node"
+name = "qed_coordinator_node"
 version = "0.1.0"
 
 [dependencies]
+anyhow = { workspace = true }
+tempfile = { workspace = true }
+kvq_store_lmdbx = { workspace = true }
+reth-libmdbx = { workspace = true }
+jsonrpsee = { workspace = true }
+hyper = { workspace = true }
+http-body-util = { workspace = true }
+bytes = { workspace = true }
+hyper-util = { workspace = true }
+qed_node = { path = "../qed_node" }
+qed_crypto = { workspace = true }
+qed_data = { workspace = true }
+plonky2 = { workspace = true }
+qed_core = { workspace = true }
+kvq = { path = "../kvq" }
+tokio = { workspace = true }
+serde_json = { workspace = true }
+fred = { workspace = true }
 
+qed_node_common = { path = "../qed_node_common" }
+qed_store = { workspace = true }
+qed_rollup_circuit = { path = "../qed_rollup_circuit" }

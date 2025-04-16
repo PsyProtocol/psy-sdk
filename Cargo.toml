@@ -38,6 +38,8 @@ members = [
     "qed_compiler/qed-dargo",
     "qed_compiler/qed-dargo-toml",
     "qed_compiler/qed-dargo-cli",
+    "qed_user_cli",
+    "qed_common",
 ]
 resolver = "2"
 
@@ -230,3 +232,15 @@ qed-dargo-toml = { path = "./qed_compiler/qed-dargo-toml" }
 dargo = { path = "./qed_compiler/qed-dargo-cli" }
 
 serial_test = "3.2"
+
+shadow-rs = "0.27.1"
+bs58 = { version = "0.5.1", features = ["std", "check"] }
+jsonrpsee = { version = "0.24.9", features = ["http-client"] }
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+http-body-util = "0.1"
+reqwest = { version = "0.11.22", default-features = false, features = [
+  "json",
+  "rustls",
+  "blocking",
+] }
