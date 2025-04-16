@@ -47,12 +47,3 @@ impl KVQSerializable for ProvingJobDataId {
         })
     }
 }
-
-impl From<(u64, QProvingJobDataID)> for ProvingJobDataId {
-    fn from((checkpoint_id, job_id): (u64, QProvingJobDataID)) -> Self {
-        Self {
-            checkpoint_id,
-            job_id,
-        }
-    }
-}
