@@ -1,19 +1,14 @@
 mod config;
-mod types;
 
 pub use config::*;
-pub use types::*;
 
 use crate::{C, D, F};
 use fred::prelude::{Builder, Config, ReconnectPolicy};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
-use qed_core::job::history_queue::{
-    CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
-};
-use qed_core::job::id::QProvingJobDataID;
+use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
+use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID};
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
@@ -25,7 +20,6 @@ use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitMa
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RW};
 use std::path::PathBuf;
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
