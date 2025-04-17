@@ -1,4 +1,5 @@
 use clap::Args;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Args)]
 pub struct RandomWalletArgs {}
@@ -175,8 +176,15 @@ pub struct DeployContractArgs {
 pub struct SubmitEndCapArgs {
     #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
     pub rpc_address: String,
-    #[clap(long, short, env)]
-    pub user_ec_input_path: String,
     #[clap(long, short)]
-    pub proof_path: String,
+    pub private_key: String,
+    #[clap(long, short)]
+    pub contract_call_path: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ContractCallArgs {
+    pub contract_id: u64,
+    pub method_name: String,
+    pub inputs: Vec<u64>,
 }

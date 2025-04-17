@@ -5,8 +5,23 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::data::base_types::hash160::Hash160;
 use qed_core::data::base_types::hash256::Hash256;
 use qed_core::data::qhashout::QHashOut;
+use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
+use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
+use qed_data::qdata::checkpoint::QEDL2BlockState;
+use qed_data::qdata::contract::ContractCodeDefinition;
+use qed_data::qdata::contract::QEDContractLeaf;
+use qed_data::qdata::user::QEDUserLeaf;
+use qed_store::store::imm::cmd::QSRCmdGetCheckpointLeafData;
+use qed_store::store::imm::cmd::QSRCmdGetContractCodeDefinition;
+use qed_store::store::imm::cmd::QSRCmdGetContractLeafData;
+use qed_store::store::imm::cmd::QSRCmdGetL2BlockState;
+use qed_store::store::imm::cmd::QSRCmdGetUserLeafData;
+use qed_store::store::imm::cmd::QSRHashCmd;
+use qed_store::store::imm::cmd::QSRMerkleCmd;
+use qed_store::store::imm::cmd_processor::QEDReadCommandBatchInput;
+use qed_store::store::imm::cmd_processor::QEDReadCommandBatchOutput;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -37,19 +52,40 @@ pub enum Id {
 #[serde(bound = "")]
 #[serde(tag = "method", content = "params")]
 pub enum RequestParams<F: RichField> {
+    /// for coordinator edge
     #[serde(rename = "cr_deploy_contract")]
     DeployContract(QDeployContractRPCRequest<F>),
+    #[serde(rename = "cr_register_user")]
+    RegisterUser(QRegisterUserRPCRequest<F>),
+    #[serde(rename = "cr_produce_block")]
+    ProduceBlock,
+
+    /// for realm edge
     TokenTransfer(QTokenTransferRPCRequest),
     #[serde(rename = "cr_claim_deposit")]
     ClaimDeposit(QClaimDepositRPCRequest),
     #[serde(rename = "cr_add_withdrawal")]
     AddWithdrawal(QAddWithdrawalRPCRequest),
-    #[serde(rename = "cr_register_user")]
-    RegisterUser(QRegisterUserRPCRequest<F>),
-    #[serde(rename = "cr_produce_block")]
-    ProduceBlock,
     #[serde(rename = "cr_get_block")]
     SubmitEndCap(QSubmitEndCapRPCRequest<F>),
+    #[serde(rename = "cr_batch")]
+    Batch(QEDReadCommandBatchInput),
+    #[serde(rename = "cr_get_hash")]
+    GetHash(QSRHashCmd),
+    #[serde(rename = "cr_get_merkle_proof")]
+    GetMerkleProof(QSRMerkleCmd),
+    #[serde(rename = "cr_get_user_leaf")]
+    GetUserLeaf(QSRCmdGetUserLeafData),
+    #[serde(rename = "cr_get_contract_leaf")]
+    GetContractLeaf(QSRCmdGetContractLeafData),
+    #[serde(rename = "cr_get_contract_code")]
+    GetContractCode(QSRCmdGetContractCodeDefinition),
+    #[serde(rename = "cr_get_checkpoint_leaf")]
+    GetCheckpointLeaf(QSRCmdGetCheckpointLeafData),
+    #[serde(rename = "cr_get_l2_block_state")]
+    GetL2BlockState(QSRCmdGetL2BlockState),
+    #[serde(rename = "cr_get_latest_l2_block_state")]
+    GetLatestL2BlockState,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -87,6 +123,21 @@ pub enum ResponseResult<T> {
     Success(T),
     #[serde(rename = "error")]
     Error(RpcError),
+}
+
+type F = GoldilocksField;
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub enum LPSResponse {
+    Batch(QEDReadCommandBatchOutput<F>),
+    GetHash(QHashOut<F>),
+    GetMerkleProof(MerkleProofCore<QHashOut<F>>),
+    GetUserLeaf(QEDUserLeaf<F>),
+    GetContractLeaf(QEDContractLeaf<F>),
+    GetContractCode(ContractCodeDefinition),
+    GetCheckpointLeaf(QEDCheckpointLeaf<F>),
+    GetL2BlockState(QEDL2BlockState),
+    GetLatestL2BlockState(QEDL2BlockState),
 }
 
 /// Represents a JSON-RPC error
