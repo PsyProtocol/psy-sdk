@@ -32,7 +32,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
-use tokio::time::sleep;
 
 type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>;
 type ConcreteRealmProcessorContext = RealmProcessorContext<
@@ -116,23 +115,19 @@ impl RealmProcessor {
         .await?;
         let handle = tokio::spawn(async move {
             loop {
-                tokio::select! {
-                   checkpoint = self.wait_for_next_checkpoint()  => match checkpoint {
-                        Ok(checkpoint) => {
-                            tracing::info!("Checkpoint received: {:?}", checkpoint);
-                            if let Err(err) = realm_processor_node.handle_checkpoint_sync(checkpoint).await {
-                                tracing::error!("Error handling checkpoint sync: {:?}", err);
-                            }
-                        },
-                        Err(err) => {
-                            tracing::error!("Error waiting for next checkpoint: {:?}", err);
-                            continue;
+                match self.wait_for_next_checkpoint().await {
+                    Ok(checkpoint) => {
+                        tracing::info!("Checkpoint received: {:?}", checkpoint);
+                        if let Err(err) = realm_processor_node
+                            .handle_checkpoint_sync(checkpoint)
+                            .await
+                        {
+                            tracing::error!("Error handling checkpoint sync: {:?}", err);
                         }
-                    },
-                    end_cap = self.wait_for_next_end_cap() => {
-                        if let Err(err) = end_cap {
-                            tracing::error!("Error handling end cap: {:?}", err);
-                        }
+                    }
+                    Err(err) => {
+                        tracing::error!("Error waiting for next checkpoint: {:?}", err);
+                        continue;
                     }
                 }
                 let proving_data_job_id: ProvingJobDataId =
@@ -200,21 +195,5 @@ impl RealmProcessor {
         self.realm_qps
             .wait_for_next_item_imm(channel_id, checkpoint_id)
             .await
-    }
-
-    pub async fn wait_for_next_end_cap(&self) -> anyhow::Result<()> {
-        let channel_id = QED_CHECKPOINT_JOB_ID_CHANNEL;
-        let checkpoint_id = self.checkpoint_id().await?;
-        loop {
-            let queue_item: Vec<UserEndCapNonProofCoreInputQueueItem<F>> = self
-                .realm_qps
-                .cdq_get_imm(channel_id, checkpoint_id)
-                .await?;
-            if queue_item.is_empty() {
-                sleep(Duration::from_millis(100)).await;
-            } else {
-                return Ok(());
-            }
-        }
     }
 }
