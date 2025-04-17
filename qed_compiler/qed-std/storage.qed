@@ -4,68 +4,78 @@ mod mem;
 use primitive::*;
 
 pub trait Storage {
+    pub type Value;
+
     pub fn size() -> Felt;
-    pub fn read(offset: Felt) -> Self;
-    pub fn write(offset: Felt, value: Self);
+    pub fn read(offset: Felt) -> <Self::Value>;
+    pub fn write(offset: Felt, value: <Self::Value>);
 }
 
 pub trait StorageAt<T: Storage, N: u32> {
-    pub fn read_at(offset: Felt, index: Felt) -> T;
+    pub fn read_at(offset: Felt, index: Felt) -> <T::Value>;
     pub fn write_at(offset: Felt, index: Felt, value: T);
 }
 
 impl Storage for Felt {
+    type Value = Self;
+
     pub fn size() -> Felt {
         return 1;
     }
 
-    pub fn read(offset: Felt) -> Self {
+    pub fn read(offset: Felt) -> <Self::Value> {
         __storage_read(offset)
     }
 
-    pub fn write(offset: Felt, value: Self) {
+    pub fn write(offset: Felt, value: <Self::Value>) {
         __storage_write(offset, value);
     }
 }
 
 impl Storage for bool {
+    type Value = Self;
+
     pub fn size() -> Felt {
         return 1;
     }
 
-    pub fn read(offset: Felt) -> Self {
+    pub fn read(offset: Felt) -> <Self::Value> {
         __storage_read(offset) as bool
     }
 
-    pub fn write(offset: Felt, value: Self) {
+    pub fn write(offset: Felt, value: <Self::Value>) {
         __storage_write(offset, value as Felt);
     }
 }
 
 impl Storage for u32 {
+    type Value = Self;
+
     pub fn size() -> Felt {
         return 1;
     }
 
-    pub fn read(offset: Felt) -> Self {
+    pub fn read(offset: Felt) -> <Self::Value> {
         __storage_read(offset) as u32
     }
 
-    pub fn write(offset: Felt, value: Self) {
+    pub fn write(offset: Felt, value: <Self::Value>) {
         __storage_write(offset, value as Felt);
     }
 }
 
 impl<T: Storage, N: u32> Storage for [T; N] {
+    pub type Value = Self;
+
     pub fn size() -> Felt {
         return T::size() * (N as Felt);
     }
 
-    pub fn read(offset: Felt) -> Self {
+    pub fn read(offset: Felt) -> <Self::Value> {
         mem::transmute#<Self>(__storage_read_range(offset * 4, Self::size()))
     }
 
-    pub fn write(offset: Felt, value: Self) {
+    pub fn write(offset: Felt, value: <Self::Value>) {
         __storage_write_range(offset * 4, value);
     }
 }
@@ -76,8 +86,87 @@ impl<T: Storage, N: u32> StorageAt<T, N> for [T; N] {
         T::write(offset, value)
     }
 
-    pub fn read_at(offset: Felt, index: Felt) -> T {
+    pub fn read_at(offset: Felt, index: Felt) -> <T::Value> {
         let offset = offset * 4 + (index * T::size());
         T::read(offset)
+    }
+}
+
+// case 1:
+//     memory <- storage
+//     storage <- memory
+//     storage <- storage
+//
+// case 2:
+//      storage_ref.a
+//      storage_ref[0]
+//
+// case 3:
+//      storage_ref += 1
+//      storage_ref[1] /= 1
+//      storage_ref.a *= 1
+
+pub struct StorageRef<T: Storage> {
+    pub offset: Felt,
+    pub metadata: ContractMetadata,
+}
+
+impl<T: Storage> StorageRef<T> {
+    pub fn new(offset: Felt, metadata: ContractMetadata) -> Self {
+        return new StorageRef#<T> {
+            offset,
+            metadata
+        };
+    }
+}
+
+impl<T: Storage> Storage for StorageRef<T> {
+    pub type Value = T;
+
+    pub fn size() -> Felt {
+        return T::size();
+    }
+
+    pub fn read(offset: Felt) -> <Self::Value> {
+        T::read(offset)
+    }
+
+    pub fn write(offset: Felt, value: <Self::Value>) {
+        T::write(offset, value);
+    }
+}
+
+pub struct ContractMetadata {
+    pub contract_state_tree_height: u32,
+    pub contract_id: Felt,
+    pub user_id: Felt,
+}
+
+pub struct Contract<T: Storage> {
+    pub storage: StorageRef<T>
+}
+
+impl<T: Storage> Contract<T> {
+    pub fn new(contract_id: Felt, user_id: Felt) -> Self {
+        let metadata = new ContractMetadata {
+            contract_state_tree_height: (T::size() as u32),
+            contract_id,
+            user_id,
+        };
+        return new Contract#<T> {
+            storage: StorageRef::new(0, metadata)
+        };
+    }
+
+    pub fn get_user_id(self) -> Felt {
+        self.storage.metadata.user_id
+    }
+
+    pub fn get_contract_id(self) -> Felt {
+        self.storage.metadata.contract_id
+    }
+
+    pub fn get_contract_state_tree_height(self) -> u32 {
+        self.storage.metadata.contract_state_tree_height
     }
 }

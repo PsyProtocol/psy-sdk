@@ -2268,6 +2268,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             }
         }
 
+        ctx.symbols
+            .add_type_id(None, IdentId::TYPE_SELF, implementor_type_id)?;
+
         let trait_node = ctx.symbols[trait_poly_type_id]
             .clone()
             .into_trait()
@@ -2292,9 +2295,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 });
             }
         }
-
-        ctx.symbols
-            .add_type_id(None, IdentId::TYPE_SELF, implementor_type_id)?;
 
         let mut unimplemented_methods: HashSet<DefId> =
             trait_node.unchecked_body.iter().cloned().collect();

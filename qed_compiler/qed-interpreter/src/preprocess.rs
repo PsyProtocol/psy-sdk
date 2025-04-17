@@ -24,24 +24,39 @@ impl<'a> StorageProcessor<'a> {
         struct_node: &StructNode,
         attr: &AttrNode,
         ctx: &mut V,
+        value_type: Option<UncheckedType>,
     ) -> TraitImplNode {
         let mut methods = Vec::new();
+        let mut associated_types = IndexMap::new();
+
+        // Set Value associated type
+        let value_ty = value_type.unwrap_or(UncheckedType::Basic(Identifier::new(
+            IdentId::TYPE_SELF,
+            attr.location,
+        )));
+        associated_types.insert(
+            Identifier::new(ctx.intern("Value"), attr.location),
+            AssociatedTypeValue {
+                ty: value_ty,
+                visibility: Visibility::Public,
+                comments: vec![],
+                location: attr.location,
+            },
+        );
 
         methods.push(self.generate_storage_size_method(struct_node, attr, ctx));
-
         methods.push(self.generate_storage_read_method(struct_node, attr, ctx));
-
         methods.push(self.generate_storage_write_method(struct_node, attr, ctx));
 
         TraitImplNode {
-            associated_types: IndexMap::new(),
+            associated_types,
             generic_parameters: vec![],
             trait_ty: UncheckedType::Basic(Identifier::new(ctx.intern("Storage"), attr.location)),
             ty: UncheckedType::Basic(struct_node.name),
             body: methods,
             comments: vec![],
             location: attr.location,
-            is_generated: true,
+            is_generated: false,
         }
     }
 
@@ -70,7 +85,7 @@ impl<'a> StorageProcessor<'a> {
                 body: methods,
                 comments: vec![],
                 location: attr.location,
-                is_generated: true,
+                is_generated: false,
             })
         } else {
             None
@@ -93,7 +108,6 @@ impl<'a> StorageProcessor<'a> {
 
         for (field_name, field) in &struct_node.fields {
             methods.push(self.generate_getter(attr, &field_name.id, &field.ty, offset, ctx));
-
             methods.push(self.generate_setter(attr, &field_name.id, &field.ty, offset, ctx));
 
             if let UncheckedType::Array(_, _, _) = &field.ty {
@@ -112,13 +126,48 @@ impl<'a> StorageProcessor<'a> {
 
         ImplNode {
             associated_types: IndexMap::new(),
-            generic_parameters: vec![],
+            generic_parameters: struct_node.generic_parameters.clone(),
             ty: UncheckedType::Basic(struct_node.name),
             body: methods,
             comments: vec![],
             location: attr.location,
-            is_generated: true,
+            is_generated: false,
         }
+    }
+
+    fn generate_field_size<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
+        &self,
+        attr: &AttrNode,
+        field_type: &UncheckedType,
+        ctx: &mut V,
+    ) -> ExprId {
+        let size_ident = Identifier::new(ctx.intern("size"), attr.location);
+        let base_type = match field_type {
+            UncheckedType::Generic(ident, params, _) if ident.id == ctx.intern("StorageRef") => {
+                if params.len() != 1 {
+                    panic!("StorageRef must have exactly one generic parameter");
+                }
+                params[0].clone()
+            }
+            _ => field_type.clone(),
+        };
+        let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
+            root: Some(base_type),
+            segments: vec![],
+            target: UncheckedType::Basic(size_ident),
+            location: attr.location,
+        }));
+        let node = CallNode {
+            callee: variable,
+            generic_parameters: Vec::new(),
+            args: Vec::new(),
+            location: attr.location,
+        };
+        ctx.alloc_expression(ExprNode::Call(node))
     }
 
     fn generate_storage_size_method<
@@ -398,14 +447,6 @@ impl<'a> StorageProcessor<'a> {
             location: attr.location,
         }));
 
-        let generic_i = GenericParameter::new(
-            ctx.intern("I"),
-            vec![UncheckedType::Path(Box::new(PathNode::from_target(
-                UncheckedType::Basic(Identifier::new(ctx.intern("Storage"), attr.location)),
-            )))],
-            attr.location,
-        );
-
         let f = FunctionNode {
             name: Identifier::new(ctx.intern("read_at"), attr.location),
             parameters: vec![
@@ -533,14 +574,6 @@ impl<'a> StorageProcessor<'a> {
             expr_comments: vec![],
             location: attr.location,
         }));
-
-        let generic_i = GenericParameter::new(
-            ctx.intern("I"),
-            vec![UncheckedType::Path(Box::new(PathNode::from_target(
-                UncheckedType::Basic(Identifier::new(ctx.intern("Storage"), attr.location)),
-            )))],
-            attr.location,
-        );
 
         let f = FunctionNode {
             name: Identifier::new(ctx.intern("write_at"), attr.location),
@@ -845,7 +878,7 @@ impl<'a> StorageProcessor<'a> {
 
         let write_call = CallNode {
             callee: variable,
-            generic_parameters: vec![],
+            generic_parameters: Vec::new(),
             args: vec![offset, index_expr, value_expr],
             location: attr.location,
         };
@@ -927,32 +960,6 @@ impl<'a> StorageProcessor<'a> {
             location: attr.location,
         };
         ctx.alloc_statement(StmtNode::Intrinsic(assert_node))
-    }
-
-    fn generate_field_size<
-        F: Clone + From<u32>,
-        C,
-        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
-    >(
-        &self,
-        attr: &AttrNode,
-        field_type: &UncheckedType,
-        ctx: &mut V,
-    ) -> ExprId {
-        let size_ident = Identifier::new(ctx.intern("size"), attr.location);
-        let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
-            root: Some(field_type.clone()),
-            segments: vec![],
-            target: UncheckedType::Basic(size_ident),
-            location: attr.location,
-        }));
-        let node = CallNode {
-            callee: variable,
-            generic_parameters: Vec::new(),
-            args: Vec::new(),
-            location: attr.location,
-        };
-        ctx.alloc_expression(ExprNode::Call(node))
     }
 
     fn generate_field_read<
@@ -1180,32 +1187,21 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         let storage_attribute_id = ctx.intern("storage");
 
         for attr in &s.attrs {
+            // Handle #[derive(Storage)]
             if attr.is_derive() && attr.properties.iter().any(|p| p == &storage_trait_id) {
-                let impl_node = self.generate_storage_impl(&s, attr, ctx);
-                let pos = ctx.node_id().as_def().unwrap().clone();
+                let impl_node = self.generate_storage_impl(&s, attr, ctx, None);
                 ctx.insert_definition(
                     DefinitionNode::TraitImpl(impl_node),
-                    InsertPosition::After(pos.into()),
+                    InsertPosition::End,
                 );
-
-                // for (_field_name, field) in &s.fields {
-                //     if let Some(storage_at_impl) =
-                //         self.generate_storage_at_impl(&field.ty, attr, ctx)
-                //     {
-                //         ctx.insert_definition(
-                //             DefinitionNode::TraitImpl(storage_at_impl),
-                //             InsertPosition::After(pos.into()),
-                //         );
-                //     }
-                // }
             }
 
+            // Handle #[storage]
             if attr.name == storage_attribute_id {
                 let impl_node = self.generate_accessor_impl(&s, attr, ctx);
-                let pos = ctx.node_id().as_def().unwrap().clone();
                 ctx.insert_definition(
                     DefinitionNode::Impl(impl_node),
-                    InsertPosition::After(pos.into()),
+                    InsertPosition::End,
                 );
             }
         }
