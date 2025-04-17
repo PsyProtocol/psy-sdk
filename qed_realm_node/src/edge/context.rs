@@ -27,7 +27,7 @@ use qed_store::{
 };
 use tracing::debug;
 
-use super::{contract_reader::ContractReader, realm_config::RealmConfig};
+use super::{contract_reader::ContractReader, error, realm_config::RealmConfig};
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -107,14 +107,11 @@ impl<
         Ok(())
     }
 
-    pub async fn get_contract_height(&mut self, contract_id: u64) -> anyhow::Result<u8> {
+    pub async fn get_contract_height(&mut self, contract_id: u64) -> error::Result<u8> {
         self.contract_reader.get_contract_height(contract_id).await
     }
 
-    pub async fn get_contract_zero_hash(
-        &mut self,
-        contract_id: u64,
-    ) -> anyhow::Result<QHashOut<F>> {
+    pub async fn get_contract_zero_hash(&mut self, contract_id: u64) -> error::Result<QHashOut<F>> {
         self.contract_reader
             .get_contract_zero_hash(contract_id)
             .await

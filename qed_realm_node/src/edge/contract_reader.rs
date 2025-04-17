@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use super::error::{Result, RpcError};
 use qed_core::data::qhashout::QHashOut;
 use qed_data::guta::api::SimpleContractHeightCache;
 use qed_store::{config::store_config::QEDFelt, node::realm::QEDRealmStoreReaderAsync};
@@ -36,7 +36,7 @@ impl<SR: QEDRealmStoreReaderAsync<QEDFelt>> ContractReader<SR> {
                 self.get_contract_height(contract_id).await?;
 
                 // Now it should be available in the cache
-                self.contract_cache.get_contract_zero_hash(contract_id)
+                Ok(self.contract_cache.get_contract_zero_hash(contract_id)?)
             }
         }
     }

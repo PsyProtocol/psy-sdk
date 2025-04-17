@@ -115,16 +115,16 @@ where
 
         ctx.get_contract_height(contract_id)
             .await
-            .map_err(|e| to_rpc_error::<u8, _>("Failed to get contract height", e).unwrap_err())
+            .map_err(Into::into)
     }
 
     /// Implementation of get contract zero hash RPC interface
     async fn get_contract_zero_hash(&self, contract_id: u64) -> RpcResult<QHashOut<F>> {
         let mut ctx = self.ctx.lock().await;
 
-        ctx.get_contract_zero_hash(contract_id).await.map_err(|e| {
-            to_rpc_error::<QHashOut<F>, _>("Failed to get contract zero hash", e).unwrap_err()
-        })
+        ctx.get_contract_zero_hash(contract_id)
+            .await
+            .map_err(Into::into)
     }
 
     /// Implementation of get checkpoint info RPC interface

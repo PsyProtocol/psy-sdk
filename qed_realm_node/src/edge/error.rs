@@ -1,11 +1,11 @@
 use jsonrpsee::{
-    core::RpcResult,
+    core::RpcResult as JsonRpcResult,
     types::{
         error::{
             INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE, INVALID_REQUEST_CODE, METHOD_NOT_FOUND_CODE,
             UNKNOWN_ERROR_CODE,
         },
-        ErrorObject,
+        ErrorObject, ErrorObjectOwned,
     },
 };
 use tracing::error;
@@ -26,7 +26,7 @@ pub enum RpcError {
     // ... more
 }
 
-impl From<RpcError> for ErrorObject<'static> {
+impl From<RpcError> for ErrorObjectOwned {
     fn from(err: RpcError) -> Self {
         match err {
             RpcError::InvalidInput(msg) => ErrorObject::owned(INVALID_PARAMS_CODE, msg, None::<()>),
@@ -42,7 +42,15 @@ impl From<RpcError> for ErrorObject<'static> {
     }
 }
 
-fn to_rpc_error<T>(err: RpcError) -> RpcResult<T> {
+fn to_rpc_error<T>(err: RpcError) -> JsonRpcResult<T> {
     error!("{}", err);
     Err(err.into())
 }
+
+impl<T> From<RpcError> for JsonRpcResult<T> {
+    fn from(err: RpcError) -> Self {
+        to_rpc_error(err)
+    }
+}
+
+pub type Result<T, E = RpcError> = core::result::Result<T, E>;
