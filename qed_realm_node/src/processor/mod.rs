@@ -9,17 +9,13 @@ use fred::prelude::{Builder, Config, ReconnectPolicy};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::config::network_constants::{
-    QED_CHECKPOINT_JOB_ID_CHANNEL, QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
-};
-use qed_core::job::drain_queue::CheckpointDrainQueueConsumerAsyncImm;
+use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
 use qed_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
 };
 use qed_core::job::id::QProvingJobDataID;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
-use qed_data::guta::api::UserEndCapNonProofCoreInputQueueItem;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
