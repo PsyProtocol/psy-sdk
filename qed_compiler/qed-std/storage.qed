@@ -17,7 +17,7 @@ pub trait StorageAt<T: Storage, N: u32> {
 }
 
 impl Storage for Felt {
-    type Value = Self;
+    pub type Value = Self;
 
     pub fn size() -> Felt {
         return 1;
@@ -33,7 +33,7 @@ impl Storage for Felt {
 }
 
 impl Storage for bool {
-    type Value = Self;
+    pub type Value = Self;
 
     pub fn size() -> Felt {
         return 1;
@@ -49,7 +49,7 @@ impl Storage for bool {
 }
 
 impl Storage for u32 {
-    type Value = Self;
+    pub type Value = Self;
 
     pub fn size() -> Felt {
         return 1;

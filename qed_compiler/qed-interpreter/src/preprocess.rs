@@ -92,6 +92,203 @@ impl<'a> StorageProcessor<'a> {
         }
     }
 
+    fn transform_struct_to_storage_ref<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
+        &self,
+        struct_node: &StructNode,
+        attr: &AttrNode,
+        ctx: &mut V,
+        new_name_suffix: Option<&str>,
+    ) -> StructNode {
+        let mut new_fields = IndexMap::new();
+        for (field_name, field) in &struct_node.fields {
+            let transformed_type =
+                if new_name_suffix.is_some() || attr.name == ctx.intern("contract") {
+                    // For Ref-suffixed structs or #[contract], wrap field type in StorageRef<T>
+                    UncheckedType::Generic(
+                        Identifier::new(ctx.intern("StorageRef"), attr.location),
+                        vec![field.ty.clone()],
+                        attr.location,
+                    )
+                } else {
+                    field.ty.clone()
+                };
+            new_fields.insert(
+                field_name.clone(),
+                StructField {
+                    ty: transformed_type,
+                    visibility: field.visibility,
+                    comments: field.comments.clone(),
+                    location: field.location,
+                },
+            );
+        }
+
+        let new_name = if let Some(suffix) = new_name_suffix {
+            let new_name_str = format!("{}{}", ctx.ident(struct_node.name.id), suffix);
+            Identifier::new(ctx.intern(new_name_str.as_str()), attr.location)
+        } else {
+            struct_node.name
+        };
+
+        StructNode {
+            name: new_name,
+            generic_parameters: struct_node.generic_parameters.clone(),
+            fields: new_fields,
+            attrs: if new_name_suffix.is_some() {
+                struct_node
+                    .attrs
+                    .iter()
+                    .filter(|a| {
+                        !a.is_derive()
+                            || !a
+                                .properties
+                                .iter()
+                                .any(|p| p.id == ctx.intern("StorageRef"))
+                    })
+                    .cloned()
+                    .collect()
+            } else {
+                struct_node
+                    .attrs
+                    .iter()
+                    .filter(|a| {
+                        let attr_id = a.name.id;
+                        attr_id != ctx.intern("StorageRef") && attr_id != ctx.intern("contract")
+                    })
+                    .cloned()
+                    .collect()
+            },
+            visibility: struct_node.visibility,
+            comments: struct_node.comments.clone(),
+            location: attr.location,
+        }
+    }
+
+    fn generate_new_method<
+        F: Clone + From<u32>,
+        C,
+        V: VisitorContext<F, C, Expr = ExprNode<F>, Stmt = StmtNode, Definition = DefinitionNode>,
+    >(
+        &self,
+        struct_node: &StructNode,
+        attr: &AttrNode,
+        ctx: &mut V,
+    ) -> DefId {
+        let metadata_ident = Identifier::new(ctx.intern("metadata"), attr.location);
+        let mut offset =
+            ctx.alloc_expression(ExprNode::Value(ValueNode::Felt(F::from(0), attr.location)));
+        let mut field_inits = IndexMap::new();
+
+        for (field_name, field) in &struct_node.fields {
+            let inner_ty = match &field.ty {
+                UncheckedType::Generic(ident, params, _)
+                    if ident.id == ctx.intern("StorageRef") =>
+                {
+                    if params.len() != 1 {
+                        panic!("StorageRef must have exactly one generic parameter");
+                    }
+                    params[0].clone()
+                }
+                _ => field.ty.clone(),
+            };
+            let storage_ref_path = PathNode {
+                root: None,
+                segments: vec![],
+                target: UncheckedType::Generic(
+                    Identifier::new(ctx.intern("StorageRef"), attr.location),
+                    vec![inner_ty.clone()],
+                    attr.location,
+                ),
+                location: attr.location,
+            };
+            let new_path = PathNode {
+                root: Some(UncheckedType::Path(Box::new(storage_ref_path.clone()))),
+                segments: vec![],
+                target: UncheckedType::Basic(Identifier::new(ctx.intern("new"), attr.location)),
+                location: attr.location,
+            };
+            let metadata_expr = ctx.alloc_expression(ExprNode::Path(PathNode {
+                root: None,
+                segments: vec![],
+                target: UncheckedType::Basic(metadata_ident),
+                location: attr.location,
+            }));
+            let callee = ctx.alloc_expression(ExprNode::Path(new_path));
+            let new_call = ctx.alloc_expression(ExprNode::Call(CallNode {
+                callee,
+                generic_parameters: vec![],
+                args: vec![offset, metadata_expr],
+                location: attr.location,
+            }));
+            field_inits.insert(field_name.clone(), new_call);
+
+            let field_size = self.generate_field_size(attr, &field.ty, ctx);
+            offset = ctx.alloc_expression(ExprNode::Binary(BinaryNode {
+                lhs: offset,
+                operator: BinaryOperator::Add,
+                rhs: field_size,
+                location: attr.location,
+            }));
+        }
+
+        let struct_path = ctx.alloc_expression(ExprNode::Path(PathNode::from_target(
+            UncheckedType::Basic(struct_node.name),
+        )));
+        let struct_init = ctx.alloc_expression(ExprNode::Value(ValueNode::Struct(
+            struct_path,
+            vec![],
+            field_inits,
+            attr.location,
+        )));
+
+        let return_stmt = ctx.alloc_statement(StmtNode::Return(ReturnNode {
+            expr_id: Some(struct_init),
+            comments: vec![],
+            location: attr.location,
+        }));
+
+        let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
+            stmts: vec![return_stmt],
+            expr: None,
+            expr_comments: vec![],
+            location: attr.location,
+        }));
+
+        let function = FunctionNode {
+            name: Identifier::new(ctx.intern("new"), attr.location),
+            parameters: vec![FunctionParameter::new(
+                metadata_ident,
+                TypeQualifier::new(false, attr.location),
+                UncheckedType::Basic(Identifier::new(
+                    ctx.intern("ContractMetadata"),
+                    attr.location,
+                )),
+                attr.location,
+            )],
+            generic_parameters: struct_node.generic_parameters.clone(),
+            body: Some(block),
+            return_type: Some(UncheckedType::Basic(Identifier::new(
+                IdentId::TYPE_SELF,
+                attr.location,
+            ))),
+            qualifier: Qualifier {
+                is_extern: false,
+                is_const: false,
+                location: attr.location,
+            },
+            visibility: Visibility::Public,
+            attrs: vec![],
+            comments: vec![],
+            location: attr.location,
+        };
+
+        ctx.alloc_definition(DefinitionNode::Function(function))
+    }
+
     fn generate_accessor_impl<
         F: Clone + From<u32>,
         C,
@@ -278,10 +475,15 @@ impl<'a> StorageProcessor<'a> {
             )],
             generic_parameters: vec![],
             body: Some(block),
-            return_type: Some(UncheckedType::Basic(Identifier::new(
-                IdentId::TYPE_SELF,
-                attr.location,
-            ))),
+            return_type: Some(UncheckedType::Path(Box::new(PathNode {
+                root: Some(UncheckedType::Basic(Identifier::new(
+                    IdentId::TYPE_SELF,
+                    attr.location,
+                ))),
+                segments: vec![],
+                target: UncheckedType::Basic(Identifier::new(ctx.intern("Value"), attr.location)),
+                location: attr.location,
+            }))),
             qualifier: Qualifier {
                 is_extern: false,
                 is_const: false,
@@ -346,7 +548,18 @@ impl<'a> StorageProcessor<'a> {
                 FunctionParameter::new(
                     value_ident,
                     TypeQualifier::new(false, attr.location),
-                    UncheckedType::Basic(Identifier::new(IdentId::TYPE_SELF, attr.location)),
+                    UncheckedType::Path(Box::new(PathNode {
+                        root: Some(UncheckedType::Basic(Identifier::new(
+                            IdentId::TYPE_SELF,
+                            attr.location,
+                        ))),
+                        segments: vec![],
+                        target: UncheckedType::Basic(Identifier::new(
+                            ctx.intern("Value"),
+                            attr.location,
+                        )),
+                        location: attr.location,
+                    })),
                     attr.location,
                 ),
             ],
@@ -1185,24 +1398,96 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         let s: StructNode = ctx.definition(node).as_struct().unwrap().clone();
         let storage_trait_id = ctx.intern("Storage");
         let storage_attribute_id = ctx.intern("storage");
+        let storage_ref_attribute_id = ctx.intern("StorageRef");
+        let contract_attribute_id = ctx.intern("contract");
 
         for attr in &s.attrs {
             // Handle #[derive(Storage)]
             if attr.is_derive() && attr.properties.iter().any(|p| p == &storage_trait_id) {
                 let impl_node = self.generate_storage_impl(&s, attr, ctx, None);
-                ctx.insert_definition(
-                    DefinitionNode::TraitImpl(impl_node),
-                    InsertPosition::End,
-                );
+                ctx.insert_definition(DefinitionNode::TraitImpl(impl_node), InsertPosition::End);
             }
 
             // Handle #[storage]
             if attr.name == storage_attribute_id {
                 let impl_node = self.generate_accessor_impl(&s, attr, ctx);
+                ctx.insert_definition(DefinitionNode::Impl(impl_node), InsertPosition::End);
+            }
+
+            // Handle #[derive(StorageRef)]
+            if attr.is_derive()
+                && attr
+                    .properties
+                    .iter()
+                    .any(|p| p == &storage_ref_attribute_id)
+            {
+                // Create a new struct with Ref suffix
+                let ref_struct = self.transform_struct_to_storage_ref(&s, attr, ctx, Some("Ref"));
+
+                // Insert the new struct at the end of the module
                 ctx.insert_definition(
-                    DefinitionNode::Impl(impl_node),
+                    DefinitionNode::Struct(ref_struct.clone()),
                     InsertPosition::End,
                 );
+
+                // Generate impl with new method for the new struct
+                let mut methods = Vec::new();
+                methods.push(self.generate_new_method(&ref_struct, attr, ctx));
+                let impl_node = ImplNode {
+                    associated_types: IndexMap::new(),
+                    generic_parameters: ref_struct.generic_parameters.clone(),
+                    ty: UncheckedType::Basic(ref_struct.name),
+                    body: methods,
+                    comments: vec![],
+                    location: attr.location,
+                    is_generated: false,
+                };
+                ctx.insert_definition(DefinitionNode::Impl(impl_node), InsertPosition::End);
+
+                // Generate Storage trait implementation for xxxRef with Value = xxx
+                let storage_impl = self.generate_storage_impl(
+                    &ref_struct,
+                    attr,
+                    ctx,
+                    Some(UncheckedType::Basic(Identifier::new(
+                        s.name.id,
+                        attr.location,
+                    ))),
+                );
+                ctx.insert_definition(DefinitionNode::TraitImpl(storage_impl), InsertPosition::End);
+            }
+
+            // Handle #[contract]
+            if attr.name == contract_attribute_id {
+                // Transform the original struct to use StorageRef<T> for fields
+                let transformed_struct = self.transform_struct_to_storage_ref(&s, attr, ctx, None);
+                ctx.replace_definition(node, DefinitionNode::Struct(transformed_struct));
+
+                // Generate impl with new method
+                let mut methods = Vec::new();
+                methods.push(self.generate_new_method(&s, attr, ctx));
+                let impl_node = ImplNode {
+                    associated_types: IndexMap::new(),
+                    generic_parameters: s.generic_parameters.clone(),
+                    ty: UncheckedType::Basic(s.name),
+                    body: methods,
+                    comments: vec![],
+                    location: attr.location,
+                    is_generated: false,
+                };
+                ctx.insert_definition(DefinitionNode::Impl(impl_node), InsertPosition::End);
+
+                // Generate Storage trait implementation with Value = xxx
+                let storage_impl = self.generate_storage_impl(
+                    &s,
+                    attr,
+                    ctx,
+                    Some(UncheckedType::Basic(Identifier::new(
+                        s.name.id,
+                        attr.location,
+                    ))),
+                );
+                ctx.insert_definition(DefinitionNode::TraitImpl(storage_impl), InsertPosition::End);
             }
         }
 

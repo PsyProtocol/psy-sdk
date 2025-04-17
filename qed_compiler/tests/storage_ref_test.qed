@@ -1,0 +1,23 @@
+#[derive(StorageRef)]
+struct Person {
+    pub age: Felt,
+    pub height: Felt,
+    pub year_of_birth: Felt,
+}
+
+#[contract]
+#[derive(StorageRef)]
+struct SimpleContract {
+    pub a: Felt,
+    pub b: PersonRef,
+    pub c: Felt,
+    pub e: [Felt; 4],
+    pub d: PersonRef,
+    pub f: [Felt; 4],
+}
+
+// input:
+// output:
+fn main() -> Felt {
+    return 1;
+}

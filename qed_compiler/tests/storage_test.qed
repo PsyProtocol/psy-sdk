@@ -1,5 +1,5 @@
 #[derive(Storage)]
-struct Person {
+pub struct Person {
     pub age: Felt,
     pub height: Felt,
     pub year_of_birth: Felt,
@@ -8,7 +8,7 @@ struct Person {
 
 #[storage]
 #[derive(Storage)]
-struct SimpleContract {
+pub struct SimpleContract {
     pub a: Felt,
     pub b: Person,
     pub c: Felt,
