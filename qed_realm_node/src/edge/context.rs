@@ -27,7 +27,7 @@ use qed_store::{
 };
 use tracing::debug;
 
-use super::{contract_provider::ContractHeightProvider, realm_config::RealmConfig};
+use super::{contract_reader::ContractReader, realm_config::RealmConfig};
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -40,11 +40,11 @@ pub struct RealmEdgeContext<
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
 > {
+    pub contract_reader: ContractReader<SR>,
     pub store_reader: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
     pub proof_store: Arc<PS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-    pub contract_height_provider: ContractHeightProvider<SR>,
     pub realm_config: RealmConfig,
 }
 
@@ -67,7 +67,7 @@ impl<
             checkpoint_queue,
             proof_store,
             proof_verifier,
-            contract_height_provider: ContractHeightProvider::new(store_reader),
+            contract_reader: ContractReader::new(store_reader),
         })
     }
 
@@ -108,16 +108,14 @@ impl<
     }
 
     pub async fn get_contract_height(&mut self, contract_id: u64) -> anyhow::Result<u8> {
-        self.contract_height_provider
-            .get_contract_height(contract_id)
-            .await
+        self.contract_reader.get_contract_height(contract_id).await
     }
 
     pub async fn get_contract_zero_hash(
         &mut self,
         contract_id: u64,
     ) -> anyhow::Result<QHashOut<F>> {
-        self.contract_height_provider
+        self.contract_reader
             .get_contract_zero_hash(contract_id)
             .await
     }
@@ -130,7 +128,8 @@ impl<
         // start validation
         if proof.public_inputs.len() != 4 {
             anyhow::bail!("invalid proof");
-        } else if input.contract_state_updates.len() == 0 {
+        }
+        if input.contract_state_updates.len() == 0 {
             anyhow::bail!("invalid contract_state_updates: cannot be empty");
         }
         let proof_public_inputs_hash: QHashOut<GoldilocksField> =
@@ -197,7 +196,6 @@ impl<
         }
 
         let old_user_state_tree_root = user_leaf.user_state_tree_root;
-        debug!("old_user_state_tree_root: {:?}", old_user_state_tree_root);
         debug!(
             "old_user_state_tree_root: {}",
             serde_json::to_string(&old_user_state_tree_root).unwrap()

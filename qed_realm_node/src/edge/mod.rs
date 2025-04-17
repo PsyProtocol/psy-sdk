@@ -1,5 +1,6 @@
 mod context;
-mod contract_provider;
+mod contract_reader;
+mod error;
 mod realm_config;
 mod rpc;
 

@@ -7,13 +7,13 @@ use qed_store::{config::store_config::QEDFelt, node::realm::QEDRealmStoreReaderA
 
 /// Contract height provider struct
 #[derive(Clone, Debug)]
-pub struct ContractHeightProvider<SR: QEDRealmStoreReaderAsync<QEDFelt>> {
+pub struct ContractReader<SR: QEDRealmStoreReaderAsync<QEDFelt>> {
     pub store_reader: Arc<SR>,
     pub contract_cache: SimpleContractHeightCache<QEDFelt>,
 }
 
-impl<SR: QEDRealmStoreReaderAsync<QEDFelt>> ContractHeightProvider<SR> {
-    /// Create a new ContractHeightProvider instance
+impl<SR: QEDRealmStoreReaderAsync<QEDFelt>> ContractReader<SR> {
+    /// Create a new ContractReader instance
     pub fn new(store_reader: Arc<SR>) -> Self {
         Self {
             store_reader,

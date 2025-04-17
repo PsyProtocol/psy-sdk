@@ -10,6 +10,7 @@ qed_store = { workspace = true }
 qed_crypto = { workspace = true }
 qed_node = { workspace = true }
 
+thiserror = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 bincode = { workspace = true }
@@ -28,6 +29,3 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
 config = { workspace = true }
-
-[dev-dependencies]
-env_logger = { workspace = true }
