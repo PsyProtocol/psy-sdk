@@ -1,10 +1,9 @@
-use std::{str::FromStr, time::Duration};
+use std::str::FromStr;
 
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-use serde::{Deserialize, Serialize};
 
 use crate::rpc::{
     provider::{QUserRpcProvider, RpcProvider},
@@ -16,75 +15,24 @@ use super::args::RegisterUserArgs;
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
-fn parse_multi_hash_string(hash_str: &str) -> anyhow::Result<Vec<QHashOut<GoldilocksField>>> {
-    if hash_str.eq("random") {
-        let priv_key = QHashOut::rand();
-        println!("random_private_key: {}", priv_key.to_string());
-        Ok(vec![priv_key])
-    } else {
-        hash_str
-            .split(",")
-            .into_iter()
-            .map(|x| x.trim())
-            .filter(|x| !x.is_empty())
-            .map(|x| QHashOut::from_str(x).map_err(|err| err.into()))
-            .collect::<anyhow::Result<Vec<QHashOut<GoldilocksField>>>>()
-    }
-}
-
-fn l2_private_keys_to_public_keys(
-    private_keys: &[QHashOut<GoldilocksField>],
-) -> anyhow::Result<Vec<QHashOut<GoldilocksField>>> {
-    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-    Ok(private_keys
-        .iter()
-        .map(|private_key| {
-            wallet.add_private_key(SimpleQEDPrivateKey {
-                private_key: *private_key,
-            })
-        })
-        .collect::<Vec<_>>())
-}
-
-async fn register_users_with_public_keys(
-    provider: &RpcProvider,
-    l2_public_keys: &[QHashOut<GoldilocksField>],
-) -> anyhow::Result<()> {
-    for public_key in l2_public_keys.iter() {
-        provider
-            .register_user(QRegisterUserRPCRequest {
-                public_key: *public_key,
-            })
-            .await?;
-        tokio::time::sleep(Duration::from_millis(500)).await;
-    }
-    Ok(())
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(bound = "")]
-struct PublicKeysOutput {
-    pub public_keys: Vec<QHashOut<GoldilocksField>>,
-}
-
 pub async fn run(args: RegisterUserArgs) -> anyhow::Result<()> {
     let provider = RpcProvider::new(&args.rpc_address);
-    if !args.private_key.is_empty() && !args.public_key.is_empty() {
-        anyhow::bail!("you must provide either --private-key or --public-key, not both");
-    } else if args.private_key.is_empty() && args.public_key.is_empty() {
-        anyhow::bail!("you must provide either --private-key or --public-key");
+    if args.private_key.is_empty() {
+        anyhow::bail!("you must provide --private-key");
     }
 
-    let public_keys = if args.private_key.is_empty() {
-        parse_multi_hash_string(&args.public_key)?
-    } else {
-        l2_private_keys_to_public_keys(&parse_multi_hash_string(&args.private_key)?)?
-    };
+    let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)
+        .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
+    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+    let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey { private_key });
 
-    register_users_with_public_keys(&provider, &public_keys).await?;
+    provider
+        .register_user(QRegisterUserRPCRequest {
+            public_key: public_key,
+        })
+        .await?;
 
-    let result = PublicKeysOutput { public_keys };
-    println!("{}", serde_json::to_string_pretty(&result).unwrap());
+    println!("{}", serde_json::to_string_pretty(&public_key).unwrap());
 
     Ok(())
 }

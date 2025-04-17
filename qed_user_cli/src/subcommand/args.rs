@@ -127,9 +127,6 @@ pub struct RegisterUserArgs {
     /// user private key
     #[clap(long, short, default_value = "")]
     pub private_key: String,
-    /// user public key
-    #[clap(long, short, default_value = "")]
-    pub public_key: String,
 }
 
 #[derive(Clone, Args)]

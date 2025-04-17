@@ -6,6 +6,7 @@ use qed_core::data::base_types::hash160::Hash160;
 use qed_core::data::base_types::hash256::Hash256;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
+use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
@@ -53,38 +54,38 @@ pub enum Id {
 #[serde(tag = "method", content = "params")]
 pub enum RequestParams<F: RichField> {
     /// for coordinator edge
-    #[serde(rename = "cr_deploy_contract")]
+    #[serde(rename = "qed_deploy_contract")]
     DeployContract(QDeployContractRPCRequest<F>),
-    #[serde(rename = "cr_register_user")]
+    #[serde(rename = "qed_register_user")]
     RegisterUser(QRegisterUserRPCRequest<F>),
-    #[serde(rename = "cr_produce_block")]
+    #[serde(rename = "qed_produce_block")]
     ProduceBlock,
 
     /// for realm edge
     TokenTransfer(QTokenTransferRPCRequest),
-    #[serde(rename = "cr_claim_deposit")]
+    #[serde(rename = "qed_claim_deposit")]
     ClaimDeposit(QClaimDepositRPCRequest),
-    #[serde(rename = "cr_add_withdrawal")]
+    #[serde(rename = "qed_add_withdrawal")]
     AddWithdrawal(QAddWithdrawalRPCRequest),
-    #[serde(rename = "cr_get_block")]
+    #[serde(rename = "qed_get_block")]
     SubmitEndCap(QSubmitEndCapRPCRequest<F>),
-    #[serde(rename = "cr_batch")]
+    #[serde(rename = "qed_batch")]
     Batch(QEDReadCommandBatchInput),
-    #[serde(rename = "cr_get_hash")]
+    #[serde(rename = "qed_get_hash")]
     GetHash(QSRHashCmd),
-    #[serde(rename = "cr_get_merkle_proof")]
+    #[serde(rename = "qed_get_merkle_proof")]
     GetMerkleProof(QSRMerkleCmd),
-    #[serde(rename = "cr_get_user_leaf")]
+    #[serde(rename = "qed_get_user_leaf")]
     GetUserLeaf(QSRCmdGetUserLeafData),
-    #[serde(rename = "cr_get_contract_leaf")]
+    #[serde(rename = "qed_get_contract_leaf")]
     GetContractLeaf(QSRCmdGetContractLeafData),
-    #[serde(rename = "cr_get_contract_code")]
+    #[serde(rename = "qed_get_contract_code")]
     GetContractCode(QSRCmdGetContractCodeDefinition),
-    #[serde(rename = "cr_get_checkpoint_leaf")]
+    #[serde(rename = "qed_get_checkpoint_leaf")]
     GetCheckpointLeaf(QSRCmdGetCheckpointLeafData),
-    #[serde(rename = "cr_get_l2_block_state")]
+    #[serde(rename = "qed_get_l2_block_state")]
     GetL2BlockState(QSRCmdGetL2BlockState),
-    #[serde(rename = "cr_get_latest_l2_block_state")]
+    #[serde(rename = "qed_get_latest_l2_block_state")]
     GetLatestL2BlockState,
 }
 
@@ -282,11 +283,11 @@ pub struct QAddWithdrawalRPCRequest {
 #[serde(bound = "")]
 #[serde(transparent)]
 pub struct QRegisterUserRPCRequest<F: RichField> {
-    pub public_key: QHashOut<F>,
+    pub public_key: ZKPublicKeyInfo<F>,
 }
 
 impl<F: RichField> QRegisterUserRPCRequest<F> {
-    pub fn new_batch(public_keys: &[QHashOut<F>]) -> Vec<Self> {
+    pub fn new_batch(public_keys: &[ZKPublicKeyInfo<F>]) -> Vec<Self> {
         public_keys
             .iter()
             .map(|pk| QRegisterUserRPCRequest { public_key: *pk })
