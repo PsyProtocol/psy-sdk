@@ -4,6 +4,7 @@ use reth_libmdbx::{
 };
 use std::ops::RangeInclusive;
 
+#[derive(Debug)]
 pub struct KVQlibmdbxStore<K: TransactionKind> {
     txn: Transaction<K>,
     db: Database,

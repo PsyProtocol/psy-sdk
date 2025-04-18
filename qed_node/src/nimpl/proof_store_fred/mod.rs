@@ -26,7 +26,7 @@ pub const PS_WORKER_QUEUE_KEY_PREFIX: &'static str = "PSWQV1";
 pub const PS_NOTIFICATIONS_QUEUE_KEY_PREFIX: &'static str = "PSNQV1";
 pub const PS_HISTORY_QUEUE_KEY_PREFIX: &'static str = "PSHQV1";
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ProofStoreFred {
     pool: Pool,
     worker_queue_id: String,
@@ -157,6 +157,23 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreFred {
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
+    async fn cdq_get_imm<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<Vec<T>> {
+        let key = format!(
+            "{}-{}_{}",
+            PS_DRAIN_QUEUE_KEY_PREFIX, channel_id, checkpoint_id
+        );
+        let members: Vec<Vec<u8>> = self
+            .pool
+            .lrange::<Vec<Vec<u8>>, String>(key.clone(), 0, -1)
+            .await?;
+
+        members.into_iter().map(|x| T::from_bytes(&x)).collect()
+    }
+
     async fn cdq_drain_imm<T: DQSerializable>(
         &self,
         channel_id: u64,
