@@ -38,6 +38,8 @@ use qed_store::{
 use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RW};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
+use crate::subcommand::CoordinatorWorkerArgs;
+
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
@@ -146,10 +148,10 @@ impl
     }
 }
 
-pub async fn run() -> anyhow::Result<()> {
+pub async fn run(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
     let coordinator_worker = CoordinatorWorkerNode::new_with_config(CoordinatorWorkerNodeConfig {
-        pool_size: 8,
-        redis_url: "redis://127.0.0.1:6379".to_string(),
+        pool_size: args.pool_size as usize,
+        redis_url: args.redis_url,
     })
     .await?;
     SimpleAsyncCoordinatorWorker::run_worker::<

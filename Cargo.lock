@@ -4357,6 +4357,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytes",
+ "clap",
  "fred",
  "http-body-util",
  "hyper 1.6.0",

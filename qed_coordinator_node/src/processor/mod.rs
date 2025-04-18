@@ -30,6 +30,8 @@ use qed_store::{
 use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RW};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
+use crate::subcommand::CoordinatorProcessorArgs;
+
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
@@ -95,9 +97,7 @@ impl
         ProofStoreFred,
     >
 {
-    pub async fn new_with_config(
-        cp_config: CoordinatorProcessNodeConfig,
-    ) -> anyhow::Result<Self> {
+    pub async fn new_with_config(cp_config: CoordinatorProcessNodeConfig) -> anyhow::Result<Self> {
         let config = Config::from_url(&cp_config.redis_url)?;
         let pool = Builder::from_config(config)
             .with_connection_config(|config| {
@@ -161,12 +161,11 @@ impl
     }
 }
 
-#[tokio::main]
-pub async fn run() -> anyhow::Result<()> {
+pub async fn run(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
     let mut coordinator_processor =
         CoordinatorProcessNode::new_with_config(CoordinatorProcessNodeConfig {
-            pool_size: 8,
-            redis_url: "redis://127.0.0.1:6379".to_string(),
+            pool_size: args.pool_size as usize,
+            redis_url: args.redis_uri,
         })
         .await?;
     loop {

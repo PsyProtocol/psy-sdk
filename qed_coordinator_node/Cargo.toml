@@ -22,6 +22,7 @@ kvq = { path = "../kvq" }
 tokio = { workspace = true }
 serde_json = { workspace = true }
 fred = { workspace = true }
+clap = { workspace = true }
 
 qed_node_common = { path = "../qed_node_common" }
 qed_store = { workspace = true }
