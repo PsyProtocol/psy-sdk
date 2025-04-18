@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::error::{Result, RpcError};
+use super::error::Result;
 use qed_core::data::qhashout::QHashOut;
 use qed_data::guta::api::SimpleContractHeightCache;
 use qed_store::{config::store_config::QEDFelt, node::realm::QEDRealmStoreReaderAsync};

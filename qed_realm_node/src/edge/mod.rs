@@ -7,8 +7,6 @@ mod rpc;
 
 use anyhow::Result;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use qed_store::node::realm::QEDRealmStoreReaderAsync;
-use qed_store::store::imm::cache::QEDCmdStoreWithCache;
 use std::clone::Clone;
 use std::sync::Arc;
 use tracing::info;
@@ -42,12 +40,8 @@ pub async fn start_realm_edge_node(config: RealmNodeConfig) -> Result<()> {
 
     // Create store reader
     let store_reader = new_store_reader(&config.db.db_path).await?;
-    let last_checkpoint = store_reader
-        .get_latest_l2_block_state()
-        .await?
-        .checkpoint_id;
 
-    let cmd_store = QEDCmdStoreWithCache::new(last_checkpoint, store_reader.dup());
+    let cmd_store = store_reader.dup();
 
     // Create proof verifier
     let proof_verifier = Arc::new(GenericCircuitVerifier::<C, D>::new());
