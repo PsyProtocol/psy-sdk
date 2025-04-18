@@ -22,12 +22,12 @@ impl<SR: QEDRealmStoreReaderAsync<QEDFelt>> ContractReader<SR> {
     }
 
     /// Get the height of a specified contract ID
-    pub async fn get_contract_height(&mut self, _contract_id: u64) -> Result<u8> {
+    pub async fn get_contract_height(&self, _contract_id: u64) -> Result<u8> {
         panic!("Not implemented");
     }
 
     /// Get zero hash for the specified contract
-    pub async fn get_contract_zero_hash(&mut self, contract_id: u64) -> Result<QHashOut<QEDFelt>> {
+    pub async fn get_contract_zero_hash(&self, contract_id: u64) -> Result<QHashOut<QEDFelt>> {
         // First try to get from cache
         match self.contract_cache.get_contract_zero_hash(contract_id) {
             Ok(zero_hash) => Ok(zero_hash),

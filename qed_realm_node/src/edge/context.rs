@@ -107,18 +107,18 @@ impl<
         Ok(())
     }
 
-    pub async fn get_contract_height(&mut self, contract_id: u64) -> error::Result<u8> {
+    pub async fn get_contract_height(&self, contract_id: u64) -> error::Result<u8> {
         self.contract_reader.get_contract_height(contract_id).await
     }
 
-    pub async fn get_contract_zero_hash(&mut self, contract_id: u64) -> error::Result<QHashOut<F>> {
+    pub async fn get_contract_zero_hash(&self, contract_id: u64) -> error::Result<QHashOut<F>> {
         self.contract_reader
             .get_contract_zero_hash(contract_id)
             .await
     }
 
     pub async fn handle_recv_end_cap_from_user(
-        &mut self,
+        &self,
         input: SubmitUserEndCapNonProofInput<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<()> {
