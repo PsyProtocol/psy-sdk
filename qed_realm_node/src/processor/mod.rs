@@ -3,8 +3,9 @@ mod config;
 pub use config::*;
 
 use crate::{C, D, F};
-use fred::prelude::{Builder, Config, ReconnectPolicy};
+use fred::prelude::{Builder, Config, KeysInterface, ReconnectPolicy};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
+use kvq::traits::KVQSerializable;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
@@ -15,7 +16,7 @@ use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID};
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
-use qed_node::nimpl::proof_store_fred::ProofStoreFred;
+use qed_node::nimpl::proof_store_fred::{ProofStoreFred, PS_HISTORY_QUEUE_KEY_PREFIX};
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use qed_node::worker::simple_async_realm::SimpleAsyncRealmWorker;
 use qed_node_common::verifier::get_cached_generic_verifier;
@@ -98,18 +99,43 @@ impl RealmProcessor {
     }
 
     pub async fn start(mut self) -> anyhow::Result<JoinHandle<()>> {
+        info!("Realm Processor starting");
         let st = Arc::new(self.store.dup());
         let realm_qps = Arc::new(self.queue.clone());
-        let mut context = RealmProcessorContext::new(
-            self.realm_config,
-            st.clone(),
-            realm_qps.clone(),
-            realm_qps.clone(),
-            realm_qps.clone(),
-            realm_qps.clone(),
-            self.proof_verifier.clone(),
-        )
-        .await?;
+        let mut context = if st.get_latest_l2_block_state().await.is_ok() {
+            info!("Init state from database");
+            RealmProcessorContext::new(
+                self.realm_config,
+                st.clone(),
+                realm_qps.clone(),
+                realm_qps.clone(),
+                realm_qps.clone(),
+                realm_qps.clone(),
+                self.proof_verifier.clone(),
+            )
+            .await?
+        } else {
+            info!("start to init state from queue");
+            let get_latest_checkpoint_id = get_latest_checkpoint_id(&self.queue)
+                .await?
+                .ok_or(anyhow::anyhow!("No latest checkpoint id found in queue"))?;
+            info!("latest checkpoint id: {:?}", get_latest_checkpoint_id);
+            let checkpoint = get_checkpoint(&self.queue, get_latest_checkpoint_id).await?;
+            let l2_block_state = checkpoint.l2_block_state.clone();
+            info!(?l2_block_state, "Init state from queue");
+            RealmProcessorContext {
+                store: st.clone(),
+                checkpoint_queue: realm_qps.clone(),
+                sync_queue: realm_qps.clone(),
+                prover_queue: realm_qps.clone(),
+                proof_store: realm_qps.clone(),
+                proof_verifier: self.proof_verifier.clone(),
+                latest_block_state: l2_block_state,
+                realm_config: self.realm_config,
+                pending_register_users: vec![],
+            }
+        };
+        info!("Realm Processor started");
         let handle = tokio::spawn(async move {
             loop {
                 match self.sync_checkpoint(&mut context).await {
@@ -143,6 +169,7 @@ impl RealmProcessor {
         let checkpoint = self.wait_for_next_checkpoint().await;
         match checkpoint {
             Ok(checkpoint) => {
+                // checkpoint.l2_block_state
                 let checkpoint_id = checkpoint.l2_block_state.checkpoint_id;
                 info!(?checkpoint_id, "Checkpoint received: {:?}", checkpoint);
                 match context.handle_checkpoint_sync(checkpoint).await {
@@ -197,10 +224,35 @@ impl RealmProcessor {
     pub async fn wait_for_next_checkpoint(
         &self,
     ) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>> {
-        let channel_id = QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
         let next_checkpoint_id = self.synced_checkpoint_id + 1;
         self.queue
-            .wait_for_next_item_imm(channel_id, next_checkpoint_id)
+            .wait_for_next_item_imm(
+                QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+                next_checkpoint_id,
+            )
             .await
     }
+}
+
+async fn get_latest_checkpoint_id(queue: &ProofStoreFred) -> anyhow::Result<Option<u64>> {
+    queue
+        .current_checkpoint_id(QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL)
+        .await
+}
+
+async fn get_checkpoint(
+    queue: &ProofStoreFred,
+    checkpoint_id: u64,
+) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>> {
+    // TODO: fix infinite waiting
+    let result = queue
+        .pool()
+        .get::<Vec<u8>, String>(format!(
+            "{}-{}_{}",
+            PS_HISTORY_QUEUE_KEY_PREFIX,
+            QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            checkpoint_id,
+        ))
+        .await?;
+    Ok(QEDCheckpointSyncInfoCompact::from_bytes(&result)?)
 }
