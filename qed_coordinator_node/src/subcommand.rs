@@ -30,4 +30,6 @@ pub struct CoordinatorProcessorArgs {
     pub redis_uri: String,
     #[clap(long, short, default_value = "8")]
     pub pool_size: u32,
+    #[clap(env, long, default_value = "qed-db", env)]
+    pub storage_db_path: String,
 }

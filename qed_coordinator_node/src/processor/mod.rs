@@ -35,6 +35,8 @@ use qed_store::{
 };
 use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RW};
 use std::{path::PathBuf, sync::Arc, time::Duration};
+use tracing::Level;
+use tracing_subscriber::EnvFilter;
 
 use crate::subcommand::CoordinatorProcessorArgs;
 
@@ -61,6 +63,7 @@ pub struct CoordinatorProcessNode<
 pub struct CoordinatorProcessNodeConfig {
     pool_size: usize,
     redis_url: String,
+    storage_db_path: String,
 }
 
 impl<
@@ -145,7 +148,7 @@ impl
         let env = Environment::builder()
             .set_max_dbs(10)
             .set_flags(flags)
-            .open(PathBuf::new().join("db").as_path())?;
+            .open(PathBuf::new().join(cp_config.storage_db_path).as_path())?;
 
         let txn = env.begin_rw_txn()?;
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>> =
@@ -194,34 +197,60 @@ impl
 }
 
 pub async fn run(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+
     let mut coordinator_processor =
         CoordinatorProcessNode::new_with_config(CoordinatorProcessNodeConfig {
             pool_size: args.pool_size as usize,
             redis_url: args.redis_uri,
+            storage_db_path: args.storage_db_path,
         })
         .await?;
-    loop {
-        // wait for produceblock message from coordinator edge
-        if coordinator_processor.wait_for_produce_block().await? {
-            coordinator_processor.ctx.build_block().await?;
 
-            SimpleAsyncCoordinatorWorker::run_worker_until_done::<
-                _,
-                _,
-                SimpleCircuitLibrary<GoldilocksField>,
-                QEDCoordinatorCircuitManager<C, D>,
-                C,
-                D,
-            >(
-                &coordinator_processor.proof_store,
-                &coordinator_processor.event_receiver,
-                &coordinator_processor.coordinator_worker_circuits,
-                &coordinator_processor.proof_verifier.library,
-            )
-            .await?;
-            // send sync message to coordinator edge
-            coordinator_processor.notify_sync().await?;
-        }
-        tokio::time::sleep(Duration::from_millis(750)).await;
+    tracing::info!("start coordinator processor");
+    let task = tokio::spawn(async move {
+        let mut processor_loop = async move || -> anyhow::Result<()> {
+            loop {
+                // wait for produceblock message from coordinator edge
+                tracing::info!("wait for produce_block message from coordinator edge");
+                if coordinator_processor.wait_for_produce_block().await? {
+                    tracing::info!("start build block");
+                    coordinator_processor.ctx.build_block().await?;
+
+                    tracing::info!("start worker");
+                    SimpleAsyncCoordinatorWorker::run_worker_until_done::<
+                        _,
+                        _,
+                        SimpleCircuitLibrary<GoldilocksField>,
+                        QEDCoordinatorCircuitManager<C, D>,
+                        C,
+                        D,
+                    >(
+                        &coordinator_processor.proof_store,
+                        &coordinator_processor.event_receiver,
+                        &coordinator_processor.coordinator_worker_circuits,
+                        &coordinator_processor.proof_verifier.library,
+                    )
+                    .await?;
+
+                    tracing::info!("send sync message to coordinator edge");
+                    // send sync message to coordinator edge
+                    coordinator_processor.notify_sync().await?;
+                }
+                tokio::time::sleep(Duration::from_millis(750)).await;
+            }
+        };
+
+        processor_loop().await
+    });
+
+    match task.await {
+        std::result::Result::Ok(_) => tracing::info!("Coordinator processor task completed"),
+        Err(e) => panic!("Coordinator processor task failed: {:?}", e),
     }
+
+    Ok(())
 }
