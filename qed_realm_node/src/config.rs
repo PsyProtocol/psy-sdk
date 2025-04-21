@@ -6,11 +6,21 @@ use tracing_subscriber::{
     fmt::writer::MakeWriterExt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
 };
 
-#[derive(Default, Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct LogConfig {
     pub level: String,
     pub directory: PathBuf,
     pub file_name: String,
+}
+
+impl Default for LogConfig {
+    fn default() -> Self {
+        LogConfig {
+            level: "info".to_string(),
+            directory: "./logs".into(),
+            file_name: "app.log".to_string(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -79,6 +89,7 @@ impl Default for RPCConfig {
 
 /// Realm node configuration
 #[derive(Default, Clone, Debug, Deserialize)]
+#[serde(default)]
 pub struct RealmNodeConfig {
     /// Log config
     pub log: LogConfig,
