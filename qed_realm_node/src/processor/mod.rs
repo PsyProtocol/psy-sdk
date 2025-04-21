@@ -74,7 +74,7 @@ impl RealmProcessor {
         let env = Environment::builder()
             .set_max_dbs(10)
             .set_flags(flags)
-            .open(PathBuf::new().join("db").as_path())?;
+            .open(config.db_path.as_path())?;
         let txn = env.begin_rw_txn()?;
         let store_reader = KVQArcImmutableStore::new(KVQlibmdbxStore::new(txn.clone(), None)?);
 
