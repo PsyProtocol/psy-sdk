@@ -214,7 +214,21 @@ TraitImplDef: TraitImplNode = {
 AssociatedTypeValue: (Identifier, AssociatedTypeValue) = {
     <l:@L> <comments: Comment*> <visibility: Visibility> TYPE <name:Identifier> "=" <ty:Ty> ";" <r:@R> =>  (
         name,
-        AssociatedTypeValue {ty, comments, visibility, location: Location::new(file_id, l, r)}
+        AssociatedTypeValue {
+            ty,
+            comments,
+            visibility,
+            location: Location::new(file_id, l, r)
+        }
+    ),
+    <l:@L> <comments: Comment*> <visibility: Visibility> TYPE <name:Identifier> "=" "<" <path:PathExpression> ">" ";" <r:@R> =>  (
+        name,
+        AssociatedTypeValue {
+            ty: UncheckedType::Path(Box::new(path.into_path().unwrap())),
+            comments,
+            visibility,
+            location: Location::new(file_id, l, r)
+        }
     ),
 }
 

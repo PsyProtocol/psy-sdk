@@ -365,7 +365,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             Ok(())
         })?;
 
-        self.register_instance(checked_def_id, ctx)?;
+        self.register_instance(type_id, type_id, ctx)?;
 
         ctx.symbols.exit_scope();
         Ok(())

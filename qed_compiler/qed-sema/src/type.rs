@@ -323,11 +323,11 @@ impl Type {
         }
     }
 
-    pub fn body(&self) -> ExprId {
+    pub fn body(&self) -> Option<ExprId> {
         match self {
-            Type::Function(CheckedFunctionNode { body, .. }) => body.unwrap(),
-            Type::LambdaFunction(CheckedLambdaFunctionNode { body, .. }) => body.clone(),
-            _ => unreachable!(),
+            Type::Function(CheckedFunctionNode { body, .. }) => body.clone(),
+            Type::LambdaFunction(CheckedLambdaFunctionNode { body, .. }) => Some(*body),
+            _ => None,
         }
     }
 

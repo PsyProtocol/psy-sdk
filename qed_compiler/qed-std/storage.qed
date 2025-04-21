@@ -1,5 +1,6 @@
 mod primitive;
 mod mem;
+mod context;
 
 use primitive::*;
 
@@ -118,10 +119,26 @@ impl<T: Storage> StorageRef<T> {
             metadata
         };
     }
+
+    pub fn get(self) -> <T::Value> {
+        return T::read(self.offset);
+    }
+
+    pub fn set(self, value: <T::Value>) {
+        T::write(self.offset, value);
+    }
+
+    pub fn at<O: Storage>(self, index: Felt) -> StorageRef<O> {
+        assert(index * O::size() < T::size(), "Index out of bounds");
+        return new StorageRef#<O> {
+            offset: self.offset + index * O::size(),
+            metadata: self.metadata
+        };
+    }
 }
 
 impl<T: Storage> Storage for StorageRef<T> {
-    pub type Value = T;
+    pub type Value = <T::Value>;
 
     pub fn size() -> Felt {
         return T::size();
@@ -154,7 +171,19 @@ impl<T: Storage> Contract<T> {
             user_id,
         };
         return new Contract#<T> {
-            storage: StorageRef::new(0, metadata)
+            storage: <StorageRef<T>>::new(0, metadata)
+        };
+    }
+
+    pub fn current() -> Self {
+        // TODO: should be able to use directly get_contract_id, get_user_id
+        let metadata = new ContractMetadata {
+            contract_state_tree_height: (T::size() as u32),
+            contract_id: context::get_contract_id(),
+            user_id: context::get_user_id(),
+        };
+        return new Contract#<T> {
+            storage: <StorageRef<T>>::new(0, metadata)
         };
     }
 

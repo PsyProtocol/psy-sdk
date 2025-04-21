@@ -163,10 +163,21 @@ impl<'a> StorageProcessor<'a> {
         struct_node: &StructNode,
         attr: &AttrNode,
         ctx: &mut V,
+        include_offset: bool, // New parameter to control offset inclusion
     ) -> DefId {
         let metadata_ident = Identifier::new(ctx.intern("metadata"), attr.location);
-        let mut offset =
-            ctx.alloc_expression(ExprNode::Value(ValueNode::Felt(F::from(0), attr.location)));
+        let offset_ident = Identifier::new(ctx.intern("offset"), attr.location);
+        let initial_offset = if include_offset {
+            ctx.alloc_expression(ExprNode::Path(PathNode {
+                root: None,
+                segments: vec![],
+                target: UncheckedType::Basic(offset_ident),
+                location: attr.location,
+            }))
+        } else {
+            ctx.alloc_expression(ExprNode::Value(ValueNode::Felt(F::from(0), attr.location)))
+        };
+        let mut offset = initial_offset;
         let mut field_inits = IndexMap::new();
 
         for (field_name, field) in &struct_node.fields {
@@ -203,11 +214,16 @@ impl<'a> StorageProcessor<'a> {
                 target: UncheckedType::Basic(metadata_ident),
                 location: attr.location,
             }));
+            let args = if include_offset {
+                vec![offset, metadata_expr]
+            } else {
+                vec![offset, metadata_expr]
+            };
             let callee = ctx.alloc_expression(ExprNode::Path(new_path));
             let new_call = ctx.alloc_expression(ExprNode::Call(CallNode {
                 callee,
                 generic_parameters: vec![],
-                args: vec![offset, metadata_expr],
+                args,
                 location: attr.location,
             }));
             field_inits.insert(field_name.clone(), new_call);
@@ -244,9 +260,26 @@ impl<'a> StorageProcessor<'a> {
             location: attr.location,
         }));
 
-        let function = FunctionNode {
-            name: Identifier::new(ctx.intern("new"), attr.location),
-            parameters: vec![FunctionParameter::new(
+        let parameters = if include_offset {
+            vec![
+                FunctionParameter::new(
+                    offset_ident,
+                    TypeQualifier::new(false, attr.location),
+                    UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, attr.location)),
+                    attr.location,
+                ),
+                FunctionParameter::new(
+                    metadata_ident,
+                    TypeQualifier::new(false, attr.location),
+                    UncheckedType::Basic(Identifier::new(
+                        ctx.intern("ContractMetadata"),
+                        attr.location,
+                    )),
+                    attr.location,
+                ),
+            ]
+        } else {
+            vec![FunctionParameter::new(
                 metadata_ident,
                 TypeQualifier::new(false, attr.location),
                 UncheckedType::Basic(Identifier::new(
@@ -254,7 +287,12 @@ impl<'a> StorageProcessor<'a> {
                     attr.location,
                 )),
                 attr.location,
-            )],
+            )]
+        };
+
+        let function = FunctionNode {
+            name: Identifier::new(ctx.intern("new"), attr.location),
+            parameters,
             generic_parameters: struct_node.generic_parameters.clone(),
             body: Some(block),
             return_type: Some(UncheckedType::Basic(Identifier::new(
@@ -1451,13 +1489,12 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
                 ctx.insert_definition(DefinitionNode::Impl(impl_node), InsertPosition::End);
             }
 
-            // Handle #[derive(StorageRef)] or #[contract]
+            // Handle #[derive(StorageRef)]
             if attr.is_derive()
                 && attr
                     .properties
                     .iter()
                     .any(|p| p == &storage_ref_attribute_id)
-            // || attr.name == contract_attribute_id
             {
                 // Create a new struct with Ref suffix
                 let ref_struct = self.transform_struct_to_storage_ref(&s, attr, ctx, Some("Ref"));
@@ -1468,9 +1505,12 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
                     InsertPosition::End,
                 );
 
+                // Determine if we need offset parameter (include offset if no contract attribute)
+                let include_offset = !s.attrs.iter().any(|a| a.name == contract_attribute_id);
+
                 // Generate impl with new method for the new struct
                 let mut methods = Vec::new();
-                methods.push(self.generate_new_method(&ref_struct, attr, ctx));
+                methods.push(self.generate_new_method(&ref_struct, attr, ctx, include_offset));
                 let impl_node = ImplNode {
                     associated_types: IndexMap::new(),
                     generic_parameters: ref_struct.generic_parameters.clone(),

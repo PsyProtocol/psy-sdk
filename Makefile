@@ -24,7 +24,7 @@ interpret:
 DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) cd qed_compiler/tests && cargo run --release --package dargo compile --debug --entry-path
 compile:
 	@$(DARGO_CLI_COMPILE) ctx_test.qed
-	@$(DARGO_CLI_COMPILE) storage_test.qed --contract-name=Contract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
+	@$(DARGO_CLI_COMPILE) storage_test.qed --contract-name=SimpleContract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
 	@$(DARGO_CLI_COMPILE) basic_ups.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
 	@$(DARGO_CLI_COMPILE) token.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
 	@$(DARGO_CLI_COMPILE) two_user_ups.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
