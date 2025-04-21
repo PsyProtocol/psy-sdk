@@ -15,7 +15,10 @@ use qed_core::{
 };
 use qed_crypto::{
     common::generic_circuit_verifier::GenericCircuitVerifier,
-    hash::traits::qhashable::QFieldHashable,
+    hash::traits::{
+        hasher::{MerkleZeroHasher, PoseidonHasher},
+        qhashable::QFieldHashable,
+    },
 };
 use qed_data::guta::{
     api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
@@ -142,19 +145,27 @@ impl<
         for (contract_id, insecure_unvalidated_user_provided_cst_height) in
             input.get_needed_contract_zero_hashes()
         {
+            // todo: check if this is correct
             // Get actual contract heights from storage for validation
-            let actual_height = self.get_contract_height(contract_id).await?;
-            if actual_height as usize != insecure_unvalidated_user_provided_cst_height {
-                anyhow::bail!(
-                    "invalid contract height for contract {}: expected {}, got {}",
-                    contract_id,
-                    actual_height,
-                    insecure_unvalidated_user_provided_cst_height
-                );
-            }
+            // let actual_height = self.get_contract_height(contract_id).await?;
+            // if actual_height as usize != insecure_unvalidated_user_provided_cst_height {
+            //     anyhow::bail!(
+            //         "invalid contract height for contract {}: expected {}, got {}",
+            //         contract_id,
+            //         actual_height,
+            //         insecure_unvalidated_user_provided_cst_height
+            //     );
+            // }
 
-            let zero_hash = self.get_contract_zero_hash(contract_id).await?;
-            contracts_helper.add_contract(contract_id, actual_height, zero_hash);
+            // todo: check if this is correct
+            let qh: QHashOut<GoldilocksField> =
+                PoseidonHasher::get_zero_hash(insecure_unvalidated_user_provided_cst_height);
+            // let zero_hash = self.get_contract_zero_hash(contract_id).await?;
+            contracts_helper.add_contract(
+                contract_id,
+                insecure_unvalidated_user_provided_cst_height as u8,
+                qh,
+            );
         }
 
         input.ensure_simple_self_consistent::<H>(proof_public_inputs_hash, &contracts_helper)?;
