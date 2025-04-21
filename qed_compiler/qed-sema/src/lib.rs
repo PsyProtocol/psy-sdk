@@ -2438,6 +2438,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 STD_PRIMITIVE_SCOPE_ID.take().unwrap();
                 STD_PRIMITIVE_SCOPE_ID.set(scope_id).unwrap();
             }
+            // //Warning: Not safe to run in a multithreaded environment
+            // *STD_PRIMITIVE_SCOPE_ID.get_or_init(|| {
+            //     ctx.symbols
+            //         .current_scope_id()
+            //         .expect("cannot get current scope id")
+            // })
         };
         for ty in &*PRIMITIVE_TYPES {
             ctx.symbols.add_type(None, ty.key(), ty.clone())?;

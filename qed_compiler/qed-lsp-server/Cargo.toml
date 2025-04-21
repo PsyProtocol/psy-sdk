@@ -10,8 +10,8 @@ tokio = {workspace = true}
 lsp-types = {workspace = true}
 dashmap = {workspace = true}
 env_logger = {workspace = true}
-log = { workspace = true }
-unicode-segmentation = { workspace = true }
+
+unicode-segmentation = "1.12"
 
 qed-sema = { workspace = true }
 qed-ast = { workspace = true }
