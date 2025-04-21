@@ -5,21 +5,27 @@ use fred::prelude::ReconnectPolicy;
 use fred::types::Builder;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
 use qed_core::job::{
     drain_queue::CheckpointDrainQueueConsumerAsyncImm,
     history_queue::CheckpointHistoryQueueEmitterAsyncImm,
     traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
     worker_queue::{ProvingDispatcher, ProvingWorkerListener, WorkerEventTransmitterAsyncImm},
 };
+use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
+use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use qed_node::coordinator::state::processor::CoordinatorConfig;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::nimpl::worker_queue_redis::redis_queue::{CPQueueNotification, CP_NOTIFICATIONS};
+use qed_node::worker::simple_async_coord::SimpleAsyncCoordinatorWorker;
 use qed_node::{
     coordinator::state::processor::CoordinatorProcessorContext,
     nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS},
 };
 use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::{
     config::store_config::QEDFelt,
     node::coordinator::store_traits::{
@@ -36,16 +42,20 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
 
-#[derive(Clone)]
 pub struct CoordinatorProcessNode<
     SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
     DQ: CheckpointDrainQueueConsumerAsyncImm,
     HQ: CheckpointHistoryQueueEmitterAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
+    ER: WorkerEventReceiverAsyncImm,
 > {
     pub ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
     pub sync_queue: RedisQueue,
+    pub proof_store: PS,
+    pub event_receiver: ER,
+    pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+    pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
 }
 
 pub struct CoordinatorProcessNodeConfig {
@@ -59,13 +69,25 @@ impl<
         HQ: CheckpointHistoryQueueEmitterAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm,
-    > CoordinatorProcessNode<SR, DQ, HQ, WQ, PS>
+        ER: WorkerEventReceiverAsyncImm,
+    > CoordinatorProcessNode<SR, DQ, HQ, WQ, PS, ER>
 {
     pub fn new(
         ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
         sync_queue: RedisQueue,
+        proof_store: PS,
+        event_receiver: ER,
+        proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+        coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
     ) -> Self {
-        Self { ctx, sync_queue }
+        Self {
+            ctx,
+            sync_queue,
+            proof_store,
+            event_receiver,
+            proof_verifier,
+            coordinator_worker_circuits,
+        }
     }
 
     pub async fn wait_for_produce_block(&mut self) -> anyhow::Result<bool> {
@@ -91,6 +113,7 @@ impl<
 impl
     CoordinatorProcessNode<
         KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>,
+        ProofStoreFred,
         ProofStoreFred,
         ProofStoreFred,
         ProofStoreFred,
@@ -154,9 +177,18 @@ impl
 
         let sync_queue = RedisQueue::new(&cp_config.redis_url)?;
 
+        // worker
+        let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
+        let coordinator_worker_circuits =
+            QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
+
         Ok(CoordinatorProcessNode::new(
             coordinator_processor_ctx,
             sync_queue,
+            q.clone(),
+            q,
+            proof_verifier,
+            coordinator_worker_circuits,
         ))
     }
 }
@@ -172,6 +204,21 @@ pub async fn run(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
         // wait for produceblock message from coordinator edge
         if coordinator_processor.wait_for_produce_block().await? {
             coordinator_processor.ctx.build_block().await?;
+
+            SimpleAsyncCoordinatorWorker::run_worker_until_done::<
+                _,
+                _,
+                SimpleCircuitLibrary<GoldilocksField>,
+                QEDCoordinatorCircuitManager<C, D>,
+                C,
+                D,
+            >(
+                &coordinator_processor.proof_store,
+                &coordinator_processor.event_receiver,
+                &coordinator_processor.coordinator_worker_circuits,
+                &coordinator_processor.proof_verifier.library,
+            )
+            .await?;
             // send sync message to coordinator edge
             coordinator_processor.notify_sync().await?;
         }

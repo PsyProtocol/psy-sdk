@@ -72,6 +72,8 @@ impl RedisQueue {
                 Q_CMD,
                 Q_JOB,
                 Q_NOTIFICATIONS,
+                CP_NOTIFICATIONS,
+                CE_NOTIFICATIONS,
             ] {
                 if matches!(
                     queue.get_queue_attributes(*q),
