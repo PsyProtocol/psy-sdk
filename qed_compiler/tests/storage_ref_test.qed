@@ -17,10 +17,10 @@ pub struct SimpleContract {
 // input:
 // output:
 fn main() -> Felt {
-    let c: Contract<Felt> = <Contract<Felt>>::current();
-    c.storage.set(1);
+    let c = <Contract<[Felt; 4]>>::current();
+    c.storage.set([1, 2, 3, 4]);
     // c.storage => receiver
     // get => callee
-    assert_eq(c.storage.get(), 1, "c == 1");
+    assert_eq(c.storage.get()[0], 1, "c[0] == 1");
     return c.get_user_id();
 }

@@ -156,7 +156,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         checked_impl.ty = self.substitute_all(checked_impl.ty, ctx)?;
 
         for (name, associated_type) in &mut checked_impl.associated_types {
-            let new_type_id = if let Some((ref mut root, target)) =
+            let type_id = if let Some((ref mut root, target)) =
                 associated_type.root.zip(associated_type.target)
             {
                 *root = self.substitute_all(*root, ctx)?;
@@ -173,15 +173,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                 .unwrap()
                 .type_id;
 
-            if !self.unify(generic_associated_type, new_type_id, ctx) {
+            if !self.unify(generic_associated_type, type_id, ctx) {
                 return Err(Error::TypeMismatch {
                     location: associated_type.location,
                     expected: vec![associated_type.type_id.clone()],
-                    found: new_type_id,
+                    found: type_id,
                 });
             }
 
-            associated_type.type_id = new_type_id;
+            associated_type.type_id = type_id;
         }
 
         checked_impl.trait_ty = self.substitute_all(checked_impl.trait_ty, ctx)?;

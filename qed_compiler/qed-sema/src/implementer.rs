@@ -206,13 +206,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         generic_parameters: Vec<TypeId>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Option<TypeId> {
-        if let Some(instance_map) = self.implementer.instances.get(&ty) {
-            if let Some(&instance) = instance_map.get(&Constraint::new(generic_parameters.clone()))
-            {
-                return Some(instance);
-            }
-        }
-        None
+        self.implementer
+            .instances
+            .get(&ty)
+            .and_then(|instance_map| instance_map.get(&Constraint::new(generic_parameters.clone())))
+            .cloned()
     }
 
     fn find_member(
