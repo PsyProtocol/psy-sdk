@@ -86,23 +86,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         checked_impl.ty = self.substitute_all(checked_impl.ty, ctx)?;
 
         for (_name, associated_type) in &mut checked_impl.associated_types {
-            if let Some(ref mut root) = associated_type.root {
+            associated_type.type_id = if let Some((ref mut root, target)) =
+                associated_type.root.zip(associated_type.target)
+            {
                 *root = self.substitute_all(*root, ctx)?;
-                if let Some(ref mut target) = associated_type.target {
-                    let new_type_id = self.find_associated_type(*root, None, *target, ctx)?;
-                    if !self.unify(associated_type.type_id, new_type_id, ctx) {
-                        return Err(Error::TypeMismatch {
-                            location: checked_impl.location,
-                            expected: vec![associated_type.type_id.clone()],
-                            found: new_type_id,
-                        });
-                    }
-                } else {
-                    associated_type.type_id = self.substitute_all(associated_type.type_id, ctx)?;
-                }
+                self.find_associated_type(*root, None, target, ctx)?
             } else {
-                associated_type.type_id = self.substitute_all(associated_type.type_id, ctx)?;
-            }
+                self.substitute_all(associated_type.type_id, ctx)?
+            };
         }
 
         for method in &mut checked_impl.body {
@@ -163,27 +154,37 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         }
 
         checked_impl.ty = self.substitute_all(checked_impl.ty, ctx)?;
-        checked_impl.trait_ty = self.substitute_all(checked_impl.trait_ty, ctx)?;
 
-        for (_name, associated_type) in &mut checked_impl.associated_types {
-            if let Some(ref mut root) = associated_type.root {
+        for (name, associated_type) in &mut checked_impl.associated_types {
+            let new_type_id = if let Some((ref mut root, target)) =
+                associated_type.root.zip(associated_type.target)
+            {
                 *root = self.substitute_all(*root, ctx)?;
-                if let Some(ref mut target) = associated_type.target {
-                    let new_type_id = self.find_associated_type(*root, None, *target, ctx)?;
-                    if !self.unify(associated_type.type_id, new_type_id, ctx) {
-                        return Err(Error::TypeMismatch {
-                            location: checked_impl.location,
-                            expected: vec![associated_type.type_id.clone()],
-                            found: new_type_id,
-                        });
-                    }
-                } else {
-                    associated_type.type_id = self.substitute_all(associated_type.type_id, ctx)?;
-                }
+                self.find_associated_type(*root, None, target, ctx)?
             } else {
-                associated_type.type_id = self.substitute_all(associated_type.type_id, ctx)?;
+                self.substitute_all(associated_type.type_id, ctx)?
+            };
+
+            let generic_associated_type = ctx.symbols[checked_impl.trait_ty]
+                .as_trait()
+                .unwrap()
+                .associated_types
+                .get(name)
+                .unwrap()
+                .type_id;
+
+            if !self.unify(generic_associated_type, new_type_id, ctx) {
+                return Err(Error::TypeMismatch {
+                    location: associated_type.location,
+                    expected: vec![associated_type.type_id.clone()],
+                    found: new_type_id,
+                });
             }
+
+            associated_type.type_id = new_type_id;
         }
+
+        checked_impl.trait_ty = self.substitute_all(checked_impl.trait_ty, ctx)?;
 
         for method in &mut checked_impl.body {
             *method = self.instantiate_function_signature(*method, vec![], ctx)?;
@@ -369,16 +370,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
 
         if let Some(ref mut body) = checked_function.body {
             *body = self.rewrite_expr(*body, ctx)?;
+            checked_function.return_type = self.program[*body].ty();
         }
 
         self.program
             .modify_definition(function_id, |def: &mut CheckedDefinitionNode| {
                 def.as_function_mut().unwrap().body = checked_function.body;
+                def.as_function_mut().unwrap().return_type = checked_function.return_type;
                 Ok(())
             })?;
         ctx.symbols
             .modify_type(checked_function.type_id, |ty: &mut Type| {
                 ty.as_function_mut().unwrap().body = checked_function.body;
+                ty.as_function_mut().unwrap().return_type = checked_function.return_type;
                 Ok(())
             })?;
 
@@ -461,26 +465,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         let mut checked_expr = self.program[expr_id].clone();
         match &mut checked_expr {
             CheckedExprNode::Path(checked_path_node) => {
-                if let Some(ref mut root) = checked_path_node.root {
+                if let Some(ref mut trait_ty) = checked_path_node.trait_ty {
+                    *trait_ty = self.substitute_all(*trait_ty, ctx)?;
+                }
+
+                if let Some((ref mut root, target)) =
+                    checked_path_node.root.zip(checked_path_node.target)
+                {
                     *root = self.substitute_all(*root, ctx)?;
-                    if let Some(ref mut trait_ty) = checked_path_node.trait_ty {
-                        *trait_ty = self.substitute_all(*trait_ty, ctx)?;
-                        if let Some(target) = checked_path_node.target {
-                            checked_path_node.type_id =
-                                self.find_member(*root, Some(*trait_ty), target, ctx)?;
-                        } else {
-                            checked_path_node.type_id =
-                                self.substitute_all(checked_path_node.type_id, ctx)?;
-                        }
-                    } else {
-                        if let Some(target) = checked_path_node.target {
-                            checked_path_node.type_id =
-                                self.find_member(*root, None, target, ctx)?;
-                        } else {
-                            checked_path_node.type_id =
-                                self.substitute_all(checked_path_node.type_id, ctx)?;
-                        }
-                    }
+                    checked_path_node.type_id = self.find_member(*root, None, target, ctx)?;
                 } else {
                     checked_path_node.type_id =
                         self.substitute_all(checked_path_node.type_id, ctx)?;

@@ -28,7 +28,7 @@ pub const VOID_TYPE: TypeId = TypeId(1);
 pub const BOOL_TYPE: TypeId = TypeId(2);
 pub const FELT_TYPE: TypeId = TypeId(3);
 pub const U32_TYPE: TypeId = TypeId(4);
-pub const STORAGE_REF_TYPE: TypeId = TypeId(21);
+pub const STORAGE_REF_TYPE: TypeId = TypeId(30);
 
 // pub const T_TYPE: TypeId = TypeId(5);
 // pub const N_TYPE: TypeId = TypeId(6);

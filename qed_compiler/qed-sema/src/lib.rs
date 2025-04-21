@@ -2283,6 +2283,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             .clone()
             .into_trait()
             .unwrap();
+        let mut associated_types = IndexMap::new();
         for (name, associated_ty) in &trait_node.associated_types {
             let impl_type =
                 trait_impl_node
@@ -2294,7 +2295,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         type_name: name.id,
                     })?;
 
-            let type_id = self.typecheck(&impl_type.ty, ctx)?;
+            let (root, target, type_id) = if let UncheckedType::Path(path) = &impl_type.ty {
+                let checked_path = self.resolve_path(path, ctx)?;
+                (checked_path.root, checked_path.target, checked_path.type_id)
+            } else {
+                (None, None, self.typecheck(&impl_type.ty, ctx)?)
+            };
             if !self.unify(associated_ty.type_id, type_id, ctx) {
                 return Err(Error::TypeMismatch {
                     location: trait_impl_node.location,
@@ -2302,6 +2308,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     found: type_id,
                 });
             }
+            associated_types.insert(
+                name.clone(),
+                CheckedAssociatedTypeValue {
+                    root,
+                    target,
+                    type_id,
+                    visibility: associated_ty.visibility,
+                    comments: associated_ty.comments.clone(),
+                    location: associated_ty.location,
+                },
+            );
         }
 
         let mut unimplemented_methods: HashSet<DefId> =
@@ -2361,46 +2378,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             ctx.pop_node_id();
 
             checked_methods.push(method_id);
-        }
-
-        let mut associated_types = IndexMap::new();
-        for (name, associated_ty) in &trait_impl_node.associated_types {
-            let (root, target, type_id) = if let UncheckedType::Path(path) = &associated_ty.ty {
-                let checked_path = self.resolve_path(path, ctx)?;
-                (checked_path.root, checked_path.target, checked_path.type_id)
-            } else {
-                (None, None, self.typecheck(&associated_ty.ty, ctx)?)
-            };
-
-            let &CheckedAssociatedType {
-                type_id: generic_param,
-                location,
-                ..
-            } = ctx.symbols[trait_type_id]
-                .as_trait()
-                .unwrap()
-                .associated_types
-                .get(name)
-                .unwrap();
-            if !self.unify(generic_param, type_id, ctx) {
-                return Err(Error::TypeMismatch {
-                    location: location.clone(),
-                    expected: vec![generic_param],
-                    found: type_id,
-                });
-            }
-
-            associated_types.insert(
-                name.clone(),
-                CheckedAssociatedTypeValue {
-                    root,
-                    target,
-                    type_id,
-                    visibility: associated_ty.visibility,
-                    comments: associated_ty.comments.clone(),
-                    location: associated_ty.location,
-                },
-            );
         }
 
         let checked_impl = CheckedTraitImplNode {
