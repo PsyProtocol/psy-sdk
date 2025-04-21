@@ -1,19 +1,16 @@
 mod context;
 mod contract_reader;
 mod error;
-mod realm_config;
 mod request;
 mod rpc;
 
+use self::{context::RealmEdgeContext, rpc::start_realm_edge_rpc_server};
 use anyhow::Result;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
+use qed_node::realm::state::processor::RealmConfig;
 use std::clone::Clone;
 use std::sync::Arc;
 use tracing::info;
-
-use self::{
-    context::RealmEdgeContext, realm_config::RealmConfig, rpc::start_realm_edge_rpc_server,
-};
 
 use crate::edge::rpc::{C, D};
 use crate::{config::RealmNodeConfig, new_proof_store, new_store_reader, new_with_connection};

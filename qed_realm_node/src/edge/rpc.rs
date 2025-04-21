@@ -189,22 +189,16 @@ where
 
     async fn get_contract_leaf(
         &self,
-        input: QSRCmdGetContractLeafData,
+        _input: QSRCmdGetContractLeafData,
     ) -> RpcResult<QEDContractLeaf<F>> {
-        Ok(self
-            .cmd_store
-            .resolve_get_contract_leaf(&input)
-            .map_err(RpcError::Anyhow)?)
+        RpcError::Anyhow(anyhow::anyhow!("Not implemented")).into()
     }
 
     async fn get_contract_code(
         &self,
-        input: QSRCmdGetContractCodeDefinition,
+        _input: QSRCmdGetContractCodeDefinition,
     ) -> RpcResult<ContractCodeDefinition> {
-        Ok(self
-            .cmd_store
-            .resolve_get_contract_code(&input)
-            .map_err(RpcError::Anyhow)?)
+        RpcError::Anyhow(anyhow::anyhow!("Not implemented")).into()
     }
 
     async fn get_checkpoint_leaf(

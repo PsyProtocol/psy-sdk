@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use super::{contract_reader::ContractReader, error};
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
@@ -24,13 +25,12 @@ use qed_data::guta::{
     api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
     end_cap_input::SubmitUserEndCapNonProofInput,
 };
+use qed_node::realm::state::processor::RealmConfig;
 use qed_store::{
     config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
     node::realm::QEDRealmStoreReaderAsync,
 };
 use tracing::debug;
-
-use super::{contract_reader::ContractReader, error, realm_config::RealmConfig};
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
