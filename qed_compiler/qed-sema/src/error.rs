@@ -1,4 +1,5 @@
-use qed_ast::{IdentId, Location};
+use qed_ast::{IdentId, Location, TextRange};
+use std::path::PathBuf;
 use thiserror::Error;
 
 use crate::TypeId;
@@ -114,3 +115,17 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Debug)]
+pub struct TypeCheckerErrorDescriptor {
+    pub file: Option<PathBuf>,
+    pub text_range: Option<TextRange>,
+    pub message: String,
+}
+#[derive(Debug)]
+pub enum TypeCheckError {
+    Parse(TypeCheckerErrorDescriptor),
+    TypeCheck(TypeCheckerErrorDescriptor),
+    Cycle(String),
+    StoragePreprocess(String),
+}
