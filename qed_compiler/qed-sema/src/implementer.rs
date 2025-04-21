@@ -110,8 +110,7 @@ pub trait Implementer<F: Clone + From<u32> + ContextFelt, C> {
         constraint: &Constraint,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> bool;
-    fn poly_of(&self, type_id: TypeId, ctx: &TypeCheckerVisitorContext<F, C>)
-        -> Option<TypeId>;
+    fn poly_of(&self, type_id: TypeId, ctx: &TypeCheckerVisitorContext<F, C>) -> Option<TypeId>;
 }
 
 impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F, C> {
@@ -574,11 +573,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
         satisfied
     }
 
-    fn poly_of(
-        &self,
-        type_id: TypeId,
-        ctx: &TypeCheckerVisitorContext<F, C>,
-    ) -> Option<TypeId> {
+    fn poly_of(&self, type_id: TypeId, ctx: &TypeCheckerVisitorContext<F, C>) -> Option<TypeId> {
         self.implementer
             .polys
             .get(&type_id)
