@@ -7,7 +7,10 @@ use fred::prelude::{Builder, Config, ReconnectPolicy};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
+use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
+use qed_core::job::history_queue::{
+    CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
+};
 use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID};
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
@@ -37,8 +40,8 @@ type ConcreteRealmProcessorContext = RealmProcessorContext<
 #[derive(Debug)]
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
-    pub realm_qps: ProofStoreFred,
-    pub store_reader: KVQArcImmutableStore,
+    pub queue: ProofStoreFred,
+    pub store: KVQArcImmutableStore,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
     pub synced_checkpoint_id: u64,
@@ -85,8 +88,8 @@ impl RealmProcessor {
 
         let processor = RealmProcessor {
             realm_config,
-            realm_qps,
-            store_reader,
+            queue: realm_qps,
+            store: store_reader,
             proof_verifier,
             coordinator_worker_circuits,
             synced_checkpoint_id: 0,
@@ -95,8 +98,8 @@ impl RealmProcessor {
     }
 
     pub async fn start(mut self) -> anyhow::Result<JoinHandle<()>> {
-        let st = Arc::new(self.store_reader.dup());
-        let realm_qps = Arc::new(self.realm_qps.clone());
+        let st = Arc::new(self.store.dup());
+        let realm_qps = Arc::new(self.queue.clone());
         let mut context = RealmProcessorContext::new(
             self.realm_config,
             st.clone(),
@@ -111,7 +114,7 @@ impl RealmProcessor {
             loop {
                 match self.sync_checkpoint(&mut context).await {
                     Ok(false) | Err(_) => {
-                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        tokio::time::sleep(Duration::from_secs(1)).await;
                         continue;
                     }
                     _ => {}
@@ -125,7 +128,7 @@ impl RealmProcessor {
                         }
                     };
                 // Send the job id to the channel for the next step
-                if let Err(err) = self.realm_qps.chq_push_imm(proving_data_job_id).await {
+                if let Err(err) = self.queue.chq_push_imm(proving_data_job_id).await {
                     error!("Error chq_push_imm: {:?}", err);
                 };
             }
@@ -137,45 +140,25 @@ impl RealmProcessor {
         &mut self,
         context: &mut ConcreteRealmProcessorContext,
     ) -> anyhow::Result<bool> {
-        let newer_checkpoint_id = match self.checkpoint_id().await {
-            Ok(checkpoint_id) if self.synced_checkpoint_id >= checkpoint_id => {
-                info!("Checkpoint id not updated");
-                return Ok(false);
-            }
-            Ok(checkpoint_id) => {
-                info!("Find newer checkpoint id: {:?}", checkpoint_id);
-                checkpoint_id
-            }
-            Err(err) => {
-                error!("Error getting checkpoint id: {:?}", err);
-                return Err(err);
-            }
-        };
-        match self
-            .store_reader
-            .get_checkpoint_sync_info_compact(newer_checkpoint_id)
-            .await
-        {
+        let checkpoint = self.wait_for_next_checkpoint().await;
+        match checkpoint {
             Ok(checkpoint) => {
-                info!(
-                    ?newer_checkpoint_id,
-                    "Checkpoint received: {:?}", checkpoint
-                );
-                self.synced_checkpoint_id = checkpoint.l2_block_state.checkpoint_id;
+                let checkpoint_id = checkpoint.l2_block_state.checkpoint_id;
+                info!(?checkpoint_id, "Checkpoint received: {:?}", checkpoint);
                 match context.handle_checkpoint_sync(checkpoint).await {
                     Ok(_) => {
-                        info!(?newer_checkpoint_id, "Sync to new checkpoint");
-                        self.synced_checkpoint_id = newer_checkpoint_id;
+                        info!(?checkpoint_id, "Sync to new checkpoint");
+                        self.synced_checkpoint_id = checkpoint_id;
                         Ok(true)
                     }
                     Err(err) => {
-                        error!(?newer_checkpoint_id, ?err, "Error sync checkpoint");
+                        error!(?checkpoint_id, ?err, "Error sync checkpoint");
                         Err(err)
                     }
                 }
             }
             Err(err) => {
-                error!("Error getting checkpoint sync info: {:?}", err);
+                error!(?self.synced_checkpoint_id, "Error getting checkpoint sync info: {:?}", err);
                 Err(err)
             }
         }
@@ -194,14 +177,6 @@ impl RealmProcessor {
         ))
     }
 
-    pub async fn checkpoint_id(&self) -> anyhow::Result<u64> {
-        Ok(self
-            .store_reader
-            .get_latest_l2_block_state()
-            .await?
-            .checkpoint_id)
-    }
-
     pub async fn run_worker_until_done(&self) -> anyhow::Result<QProvingJobDataID> {
         SimpleAsyncRealmWorker::run_worker_until_done::<
             _,
@@ -211,18 +186,21 @@ impl RealmProcessor {
             C,
             D,
         >(
-            &self.realm_qps.clone(),
-            &self.realm_qps.clone(),
+            &self.queue.clone(),
+            &self.queue.clone(),
             &self.coordinator_worker_circuits,
             &self.proof_verifier.library,
         )
         .await
     }
 
-    pub async fn get_newest_checkpoint(&self) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>> {
-        let checkpoint_id = self.checkpoint_id().await?;
-        self.store_reader
-            .get_checkpoint_sync_info_compact(checkpoint_id)
+    pub async fn wait_for_next_checkpoint(
+        &self,
+    ) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>> {
+        let channel_id = QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
+        let next_checkpoint_id = self.synced_checkpoint_id + 1;
+        self.queue
+            .wait_for_next_item_imm(channel_id, next_checkpoint_id)
             .await
     }
 }
