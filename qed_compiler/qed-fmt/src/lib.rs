@@ -780,7 +780,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             visibility,
             comments,
             location: _location,
+            is_generated
         } = ctx.definition(def_id).as_struct().unwrap();
+        if *is_generated {
+            return Ok(Default::default());
+        }
         let comments_content = self.visit_comments(&comments);
 
         let attrs_content = self.visit_attr(&attrs, ctx);
@@ -789,9 +793,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .iter()
             .map(|(field_name, field)| {
                 format!(
-                    "{}{}{}{}: {},\n",
+                    "{}{}{}{}{}: {},\n",
                     self.read_indent(0),
                     self.visit_comments(&field.comments),
+                    self.visit_attr(&field.attrs, ctx),
                     self.visit_visibility(&field.visibility),
                     ctx.ident(field_name),
                     self.visit_unchecked_type(&field.ty, false, ctx)

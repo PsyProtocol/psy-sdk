@@ -176,7 +176,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 .into_iter()
                 .map(|method_name| {
                     let method_name = ctx.intern(method_name.into());
-                    Ok(typechecker.find_member(type_id, method_name, ctx)?)
+                    Ok(typechecker.find_member(type_id, None, method_name, ctx)?)
                 })
                 .collect::<Result<Vec<TypeId>>>()?
         } else {
@@ -375,9 +375,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             DefaultVisitorContext::new(&mut program);
         storage_preprocessor.visit_program(&mut default_visitor_context)?;
 
-        // let mut formatter = Formatter::new();
-        // formatter.visit_program(&mut default_visitor_context)?;
-        // println!("formatted:\n{}", formatter.get_output());
+        let mut formatter = Formatter::new();
+        formatter.visit_program(&mut default_visitor_context)?;
+        println!("formatted:\n{}", formatter.get_output());
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
         typechecker
@@ -492,7 +492,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         }
         Ok(ControlState::Return(self.interpret_expr(
             program,
-            ctx.symbols[type_id].body(),
+            ctx.symbols[type_id].body().unwrap(),
             ctx,
         )?))
     }

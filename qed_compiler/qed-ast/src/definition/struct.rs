@@ -14,11 +14,13 @@ pub struct StructNode {
     pub visibility: Visibility,
     pub comments: Vec<Comment>,
     pub location: Location,
+    pub is_generated: bool
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructField {
     pub ty: UncheckedType,
+    pub attrs: Vec<AttrNode>,
     pub visibility: Visibility,
     pub comments: Vec<Comment>,
     pub location: Location,

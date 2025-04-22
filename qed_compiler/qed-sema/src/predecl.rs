@@ -79,6 +79,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             generic_parameters: vec![],
             fields: IndexMap::new(),
             scope_id: ctx.symbols.current_scope_id().unwrap(),
+            attrs: struct_node.attrs,
             visibility: struct_node.visibility,
             location: struct_node.location,
             comments: struct_node.comments,
@@ -365,7 +366,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             Ok(())
         })?;
 
-        self.register_instance(checked_def_id, ctx)?;
+        self.register_instance(type_id, type_id, ctx)?;
 
         ctx.symbols.exit_scope();
         Ok(())

@@ -28,6 +28,7 @@ pub const VOID_TYPE: TypeId = TypeId(1);
 pub const BOOL_TYPE: TypeId = TypeId(2);
 pub const FELT_TYPE: TypeId = TypeId(3);
 pub const U32_TYPE: TypeId = TypeId(4);
+pub const STORAGE_REF_TYPE: TypeId = TypeId(30);
 
 // pub const T_TYPE: TypeId = TypeId(5);
 // pub const N_TYPE: TypeId = TypeId(6);
@@ -322,11 +323,11 @@ impl Type {
         }
     }
 
-    pub fn body(&self) -> ExprId {
+    pub fn body(&self) -> Option<ExprId> {
         match self {
-            Type::Function(CheckedFunctionNode { body, .. }) => body.unwrap(),
-            Type::LambdaFunction(CheckedLambdaFunctionNode { body, .. }) => body.clone(),
-            _ => unreachable!(),
+            Type::Function(CheckedFunctionNode { body, .. }) => body.clone(),
+            Type::LambdaFunction(CheckedLambdaFunctionNode { body, .. }) => Some(*body),
+            _ => None,
         }
     }
 
