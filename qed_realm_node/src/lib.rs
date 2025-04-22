@@ -73,8 +73,6 @@ pub async fn new_store_reader(
             txn.clone(),
             None,
         )?);
-
-    store_reader.initialize_store()?;
-
+    
     Ok(store_reader)
 }

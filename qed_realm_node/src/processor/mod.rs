@@ -1,6 +1,5 @@
 use crate::config::RealmNodeConfig;
-use crate::{C, D, F};
-use fred::prelude::{Builder, Config, ReconnectPolicy};
+use crate::{new_store_reader, new_with_connection, C, D, F};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -15,8 +14,7 @@ use qed_node::worker::simple_async_realm::SimpleAsyncRealmWorker;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RW};
-use std::path::PathBuf;
+use reth_libmdbx::{RW};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
@@ -58,43 +56,19 @@ pub async fn start_realm_processor_node(config: RealmNodeConfig) -> anyhow::Resu
 
 impl RealmProcessor {
     pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
-        let pool_size = 8;
-        let redis_config = Config::from_url(&config.redis.url)?;
-        let pool = Builder::from_config(redis_config)
-            .with_connection_config(|config| {
-                config.connection_timeout = Duration::from_secs(10);
-            })
-            // use exponential backoff, starting at 100 ms and doubling on each failed attempt up to 30 sec
-            .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
-            .build_pool(pool_size)?;
+        let pool = new_with_connection(&config.redis.url,config.redis.pool_size.unwrap_or(8)).await?;
         let realm_qps = ProofStoreFred::new(
             pool,
             config.queue.worker_queue_suffix,
             config.queue.notifications_queue_suffix,
         );
-
-        let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
-
-        let flags = EnvironmentFlags {
-            no_sub_dir: false,
-            mode: Mode::ReadWrite {
-                sync_mode: SyncMode::Durable,
-            },
-            coalesce: true,
-            ..Default::default()
-        };
-        let env = Environment::builder()
-            .set_max_dbs(10)
-            .set_flags(flags)
-            .open(PathBuf::new().join("db").as_path())?;
-        let txn = env.begin_rw_txn()?;
-        let store_reader = KVQArcImmutableStore::new(KVQlibmdbxStore::new(txn.clone(), None)?);
-
+        let store_reader = new_store_reader(&config.db.path).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
         let coordinator_worker_circuits =
             QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
 
+        let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
         let processor = RealmProcessor {
             realm_config,
             realm_qps,
