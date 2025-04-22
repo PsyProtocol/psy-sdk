@@ -5,7 +5,6 @@ use fred::prelude::ReconnectPolicy;
 use fred::types::Builder;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
-use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
 use qed_core::job::{
@@ -15,11 +14,9 @@ use qed_core::job::{
     worker_queue::{ProvingDispatcher, ProvingWorkerListener, WorkerEventTransmitterAsyncImm},
 };
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use qed_node::coordinator::state::processor::CoordinatorConfig;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::nimpl::worker_queue_redis::redis_queue::{CPQueueNotification, CP_NOTIFICATIONS};
-use qed_node::worker::simple_async_coord::SimpleAsyncCoordinatorWorker;
 use qed_node::{
     coordinator::state::processor::CoordinatorProcessorContext,
     nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS},
@@ -236,21 +233,21 @@ pub async fn run(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
                     tracing::info!("start build block");
                     coordinator_processor.ctx.build_block().await?;
 
-                    tracing::info!("start worker");
-                    SimpleAsyncCoordinatorWorker::run_worker_until_done::<
-                        _,
-                        _,
-                        SimpleCircuitLibrary<GoldilocksField>,
-                        QEDCoordinatorCircuitManager<C, D>,
-                        C,
-                        D,
-                    >(
-                        &coordinator_processor.proof_store,
-                        &coordinator_processor.event_receiver,
-                        &coordinator_processor.coordinator_worker_circuits,
-                        &coordinator_processor.proof_verifier.library,
-                    )
-                    .await?;
+                    // tracing::info!("start worker");
+                    // SimpleAsyncCoordinatorWorker::run_worker_until_done::<
+                    //     _,
+                    //     _,
+                    //     SimpleCircuitLibrary<GoldilocksField>,
+                    //     QEDCoordinatorCircuitManager<C, D>,
+                    //     C,
+                    //     D,
+                    // >(
+                    //     &coordinator_processor.proof_store,
+                    //     &coordinator_processor.event_receiver,
+                    //     &coordinator_processor.coordinator_worker_circuits,
+                    //     &coordinator_processor.proof_verifier.library,
+                    // )
+                    // .await?;
 
                     tracing::info!("send sync message to coordinator edge");
                     // send sync message to coordinator edge

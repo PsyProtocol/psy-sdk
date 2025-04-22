@@ -3,46 +3,23 @@ use fred::prelude::ClientLike;
 use fred::prelude::Config;
 use fred::prelude::ReconnectPolicy;
 use fred::types::Builder;
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
-use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use qed_core::job::traits::QProofStoreAsyncImm;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
-use qed_core::job::{
-    drain_queue::CheckpointDrainQueueConsumerAsyncImm,
-    history_queue::CheckpointHistoryQueueEmitterAsyncImm,
-    traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
-    worker_queue::{ProvingDispatcher, ProvingWorkerListener, WorkerEventTransmitterAsyncImm},
-};
 use qed_crypto::common::circuit_library::CircuitInfoLibrary;
 use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use qed_crypto::common::worker::QNextGenWorkerGenericProverAsyncMut;
-use qed_node::coordinator::state::processor::CoordinatorConfig;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
-use qed_node::nimpl::worker_queue_redis::redis_queue::{CPQueueNotification, CP_NOTIFICATIONS};
 use qed_node::worker::simple_async_coord::SimpleAsyncCoordinatorWorker;
-use qed_node::{
-    coordinator::state::processor::CoordinatorProcessorContext,
-    nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS},
-};
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_store::{
-    config::store_config::QEDFelt,
-    node::coordinator::store_traits::{
-        QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
-    },
-    traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
-};
-use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RW};
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use crate::subcommand::CoordinatorWorkerArgs;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
-type F = QEDFelt;
 
 #[derive(Clone)]
 pub struct CoordinatorWorkerNode<
@@ -50,10 +27,7 @@ pub struct CoordinatorWorkerNode<
     ER: WorkerEventReceiverAsyncImm,
     L: CircuitInfoLibrary<C, D> + Send + Sync,
     G: QNextGenWorkerGenericProverAsyncMut<PS, L, C, D>,
-    // C: GenericConfig<D> + 'static,
-    // const D: usize,
 > {
-    pub ctx: SimpleAsyncCoordinatorWorker,
     pub store: PS,
     pub event_receiver: ER,
     pub prover: Arc<G>,
@@ -72,15 +46,8 @@ impl<
         G: QNextGenWorkerGenericProverAsyncMut<PS, L, C, D>,
     > CoordinatorWorkerNode<PS, ER, L, G>
 {
-    pub fn new(
-        ctx: SimpleAsyncCoordinatorWorker,
-        store: PS,
-        event_receiver: ER,
-        prover: Arc<G>,
-        library: L,
-    ) -> Self {
+    pub fn new(store: PS, event_receiver: ER, prover: Arc<G>, library: L) -> Self {
         Self {
-            ctx,
             store,
             event_receiver,
             prover,
@@ -110,28 +77,6 @@ impl
         pool.init().await?;
 
         let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
-        let flags = EnvironmentFlags {
-            no_sub_dir: false,
-            mode: Mode::ReadWrite {
-                sync_mode: SyncMode::Durable,
-            },
-            coalesce: true,
-            ..Default::default()
-        };
-
-        let env = Environment::builder()
-            .set_max_dbs(10)
-            .set_flags(flags)
-            .open(PathBuf::new().join("db").as_path())?;
-
-        let txn = env.begin_rw_txn()?;
-        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RW>>::new(KVQlibmdbxStore::new(
-                txn.clone(),
-                None,
-            )?);
-
-        store_reader.initialize_store()?;
 
         let proof_verifier = get_cached_generic_verifier::<C, D>();
 
@@ -139,7 +84,6 @@ impl
             QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
 
         Ok(CoordinatorWorkerNode::new(
-            SimpleAsyncCoordinatorWorker {},
             q.clone(),
             q,
             coordinator_worker_circuits.into(),
@@ -154,6 +98,8 @@ pub async fn run(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
         redis_url: args.redis_url,
     })
     .await?;
+
+    tracing::info!("Coordinator worker started");
     SimpleAsyncCoordinatorWorker::run_worker::<
         _,
         _,
