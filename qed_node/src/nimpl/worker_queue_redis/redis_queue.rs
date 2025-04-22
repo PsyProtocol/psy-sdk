@@ -30,6 +30,8 @@ pub const Q_RPC_REGISTER_USER: &'static str = "RPC_REGISTER_USER";
 pub const Q_CMD: &'static str = "CMD";
 pub const Q_JOB: &'static str = "JOB";
 pub const Q_NOTIFICATIONS: &'static str = "NOTIFICATIONS";
+pub const CE_NOTIFICATIONS: &'static str = "CE_NOTIFICATIONS";
+pub const CP_NOTIFICATIONS: &'static str = "CP_NOTIFICATIONS";
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
@@ -73,6 +75,18 @@ impl RedisQueue {
     pub fn new_with_pool(pool: r2d2::Pool<RedisConnectionManager>) -> Result<Self> {
         let queue = PooledRsmq::new_with_pool(pool, false, None);
         Ok(Self { queue })
+    }
+
+    pub fn ensure_queue(&mut self, name: &str) -> anyhow::Result<()> {
+        if matches!(
+            self.queue.get_queue_attributes(name),
+            Err(rsmq::RsmqError::QueueNotFound)
+        ) {
+            // use Q_HIDDEN / Q_DELAY / Q_CAP
+            self.queue.create_queue(name, Q_HIDDEN, Q_DELAY, Q_CAP)?;
+            tracing::info!("🔧 RSMQ queue `{name}` created");
+        }
+        Ok(())
     }
 }
 
@@ -145,4 +159,17 @@ impl ProvingWorkerListener for RedisQueue {
             Ok(true)
         )
     }
+}
+
+
+#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum CEQueueNotification {
+    StartProduceBlock = 0,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum CPQueueNotification {
+    StartSync = 0,
 }

@@ -1,8 +1,7 @@
-mod context;
-mod contract_reader;
-mod error;
-mod request;
-mod rpc;
+pub mod context;
+pub mod error;
+pub mod request;
+pub mod rpc;
 
 use self::{context::RealmEdgeContext, rpc::start_realm_edge_rpc_server};
 use anyhow::Result;
@@ -13,10 +12,10 @@ use std::sync::Arc;
 use tracing::info;
 
 use crate::edge::rpc::{C, D};
-use crate::{config::RealmNodeConfig, new_proof_store, new_store_reader, new_with_connection};
+use crate::{config::RealmEdgeConfig, new_proof_store, new_store_reader, new_with_connection};
 
 /// Start Realm Edge node
-pub async fn start_realm_edge_node(config: RealmNodeConfig) -> Result<()> {
+pub async fn start_realm_edge_node(config: RealmEdgeConfig) -> Result<()> {
     info!(
         "Starting Realm Edge node with realm_id: {}",
         config.realm.realm_id
@@ -36,7 +35,7 @@ pub async fn start_realm_edge_node(config: RealmNodeConfig) -> Result<()> {
     let checkpoint_queue = proof_store.clone();
 
     // Create store reader
-    let store_reader = new_store_reader(&config.db.db_path).await?;
+    let store_reader = new_store_reader(&config.db.path).await?;
 
     let cmd_store = store_reader.dup();
 

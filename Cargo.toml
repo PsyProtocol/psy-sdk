@@ -203,6 +203,7 @@ llvm-sys = "191.0"
 melior = { version = "0.21", features = ["ods-dialects"] }
 mlir-sys = { version = "0.4" }
 
+envy = "0.4"
 regex = "1.11"
 toml = "0.8"
 url = "2.5"
@@ -222,6 +223,8 @@ qed_node = { path = "./qed_node" }
 qed_prover = { path = "./qed_prover" }
 qed_common_circuit = { path = "./qed_common_circuit" }
 kvq = { path = "./kvq" }
+qed_node_common = { path = "./qed_node_common" }
+qed_rollup_circuit = { path = "./qed_rollup_circuit" }
 
 qed-ast = { path = "./qed_compiler/qed-ast" }
 qed-cli = { path = "./qed_compiler/qed-cli" }

@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::traits::{KVQBinaryStore, KVQBinaryStoreImmutable, KVQBinaryStoreReader, KVQBinaryStoreWriter, KVQBinaryStoreWriterImmutable, KVQPair};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct KVQArcImmutableStoreWrapper<KVQ: KVQBinaryStore> {
     pub inner: Arc<RwLock<KVQ>>,
 }

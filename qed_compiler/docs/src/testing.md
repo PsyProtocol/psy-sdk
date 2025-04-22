@@ -17,4 +17,4 @@ mod math {
 }
 ```
 
-Run tests with [dargo] test.
+run tests with [dargo] test.

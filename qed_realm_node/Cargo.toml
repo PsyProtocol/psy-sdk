@@ -3,24 +3,33 @@ edition = "2021"
 name = "qed_realm_node"
 version = "0.1.0"
 
+[lib]
+name = "qed_realm_node"
+path = "src/lib.rs"
+
+[[bin]]
+name = "qed_realm_node"
+path = "src/main.rs"
+
 [dependencies]
 qed_core = { workspace = true }
 qed_data = { workspace = true }
 qed_store = { workspace = true }
 qed_crypto = { workspace = true }
 qed_node = { workspace = true }
-
+qed_rollup_circuit = { workspace = true }
+qed_node_common = { workspace = true }
+dotenv.workspace = true
+envy.workspace = true
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-bincode = { workspace = true }
 fred = { workspace = true }
 jsonrpsee = { workspace = true }
 plonky2 = { workspace = true }
-rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with ={ workspace = true }
+serde_with = { workspace = true }
 tokio = { workspace = true }
 kvq = { workspace = true }
 reth-libmdbx = { workspace = true }
@@ -30,3 +39,4 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
 config = { workspace = true }
+clap = {workspace = true}

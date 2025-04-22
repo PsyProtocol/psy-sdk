@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use super::{contract_reader::ContractReader, error};
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
@@ -43,7 +42,6 @@ pub struct RealmEdgeContext<
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
 > {
-    pub contract_reader: ContractReader<SR>,
     pub store_reader: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
     pub proof_store: Arc<PS>,
@@ -70,7 +68,6 @@ impl<
             checkpoint_queue,
             proof_store,
             proof_verifier,
-            contract_reader: ContractReader::new(store_reader),
         })
     }
 
@@ -110,16 +107,6 @@ impl<
         Ok(())
     }
 
-    pub async fn get_contract_height(&self, contract_id: u64) -> error::Result<u8> {
-        self.contract_reader.get_contract_height(contract_id).await
-    }
-
-    pub async fn get_contract_zero_hash(&self, contract_id: u64) -> error::Result<QHashOut<F>> {
-        self.contract_reader
-            .get_contract_zero_hash(contract_id)
-            .await
-    }
-
     pub async fn handle_recv_end_cap_from_user(
         &self,
         input: SubmitUserEndCapNonProofInput<F>,
@@ -145,22 +132,8 @@ impl<
         for (contract_id, insecure_unvalidated_user_provided_cst_height) in
             input.get_needed_contract_zero_hashes()
         {
-            // todo: check if this is correct
-            // Get actual contract heights from storage for validation
-            // let actual_height = self.get_contract_height(contract_id).await?;
-            // if actual_height as usize != insecure_unvalidated_user_provided_cst_height {
-            //     anyhow::bail!(
-            //         "invalid contract height for contract {}: expected {}, got {}",
-            //         contract_id,
-            //         actual_height,
-            //         insecure_unvalidated_user_provided_cst_height
-            //     );
-            // }
-
-            // todo: check if this is correct
             let qh: QHashOut<GoldilocksField> =
                 PoseidonHasher::get_zero_hash(insecure_unvalidated_user_provided_cst_height);
-            // let zero_hash = self.get_contract_zero_hash(contract_id).await?;
             contracts_helper.add_contract(
                 contract_id,
                 insecure_unvalidated_user_provided_cst_height as u8,
