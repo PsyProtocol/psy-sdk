@@ -148,6 +148,7 @@ impl RealmProcessor {
                     }
                     _ => {}
                 }
+                info!("Start building block");
                 let proving_data_job_id: ProvingJobDataId =
                     match self.build_block(&mut context).await {
                         Ok(job_id) => job_id,
@@ -157,9 +158,11 @@ impl RealmProcessor {
                         }
                     };
                 // Send the job id to the channel for the next step
+                info!("Pushing job id to queue: {:?}", proving_data_job_id);
                 if let Err(err) = self.queue.chq_push_imm(proving_data_job_id).await {
                     error!("Error chq_push_imm: {:?}", err);
                 };
+                info!("Pushing job to queueue done");
             }
         });
         Ok(handle)
