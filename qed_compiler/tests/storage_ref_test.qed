@@ -19,20 +19,25 @@ pub struct SimpleContract {
 // output:
 fn main() {
     let c = SimpleContractRef::new(ContractMetadata::current());
-
     c.c.set(2);
     assert_eq(c.c.get(), 2, "c.c == 2");
-
-    c.b.age.set(10);
-    c.b.height.set(20);
-    c.b.year_of_birth.set(2000);
+    c.b.age.set(11);
+    c.b.height.set(21);
+    c.b.year_of_birth.set(2001);
+    c.b.set(new Person {
+        age: 10,
+        height: 20,
+        year_of_birth: 2000,
+    });
     assert_eq(c.b.age.get(), 10, "c.b.age == 10");
     assert_eq(c.b.height.get(), 20, "c.b.height == 20");
     assert_eq(c.b.year_of_birth.get(), 2000, "c.b.year_of_birth == 2000");
-
+    let p = c.b.get();
+    assert_eq(p.age, 10, "c.b.age == 10");
+    assert_eq(p.height, 20, "c.b.height == 20");
+    assert_eq(p.year_of_birth, 2000, "c.b.year_of_birth == 2000");
     c.a.set(1);
     assert_eq(c.a.get(), 1, "c.a == 1");
-
     let cd0 = c.d.index(0);
     cd0.set(23);
     assert_eq(cd0.get(), 23, "c.d[0] == 23");
