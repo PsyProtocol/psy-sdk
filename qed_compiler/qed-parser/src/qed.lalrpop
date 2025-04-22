@@ -283,6 +283,7 @@ StructDef: StructNode = {
         visibility,
         comments,
         location: Location::new(file_id, l, r),
+        is_generated: false
     }
 }
 
@@ -398,9 +399,9 @@ TypeAnnotation: (Identifier, UncheckedType) = {
 }
 
 FieldTypeAnnotation: (Identifier, StructField)  = {
-    <l:@L> <comments: Comment*> <visibility:Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (
+    <l:@L> <comments: Comment*> <attrs:Attribute*> <visibility:Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (
         name,
-        StructField { ty, visibility, comments, location: Location::new(file_id, l, r) }
+        StructField { ty, attrs, visibility, comments, location: Location::new(file_id, l, r) }
     ),
 }
 

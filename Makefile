@@ -31,7 +31,7 @@ compile:
 
 DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd qed_compiler/tests && cargo run --release --package dargo execute --debug --entry-path
 test:
-	# @RUST_LOG=${LOG_LEVE} cargo test --release -- --nocapture
+	@RUST_LOG=${LOG_LEVE} cargo test --release --package qed-ast --package qed-parser --package qed-sema --package qed-interpreter -- --nocapture
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package dargo test --file qed_compiler/tests/in_mod_attr_test.qed
 	@RUST_LOG=${LOG_LEVE} cargo run --release --package dargo test --file qed_compiler/tests/should_panic_test.qed
 

@@ -11,7 +11,7 @@ pub struct SimpleContract {
     pub a: Felt,
     pub b: Person,
     pub c: Felt,
-    pub d: [Felt; 4]
+    pub d: [Felt; 4],
 }
 
 // input:

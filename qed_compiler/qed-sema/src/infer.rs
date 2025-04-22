@@ -259,6 +259,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     field_name,
                     CheckedStructField {
                         ty: field_type,
+                        attrs,
                         visibility,
                         comments,
                         location,
@@ -270,6 +271,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         field_name,
                         CheckedStructField {
                             ty: substituted_type,
+                            attrs,
                             visibility,
                             comments,
                             location,
@@ -287,6 +289,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     generic_parameters: new_generic_parameters,
                     fields: new_fields,
                     scope_id: struct_node.scope_id,
+                    attrs: struct_node.attrs,
                     visibility: struct_node.visibility,
                     comments: struct_node.comments,
                     location: struct_node.location,
