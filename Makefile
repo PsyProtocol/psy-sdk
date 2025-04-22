@@ -2,7 +2,7 @@ export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 
 PROFILE                 := release
 LOG_LEVE                := info
-FILE                    := qed_compiler/tests/storage_ref_test.qed
+FILE                    := qed_compiler/tests/storage_test.qed
 PARAMETERS              :=
 
 check:

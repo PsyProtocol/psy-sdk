@@ -311,7 +311,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Implementer<F, C> for TypeChecker<F,
             return Ok(associated_type);
         }
 
-        return Err(anyhow!("member not found").into());
+        return Err(anyhow!("{} not found", ctx.ident(member)).into());
     }
 
     fn find_associated_type(

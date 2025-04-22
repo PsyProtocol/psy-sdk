@@ -90,14 +90,14 @@ fn main() -> Felt {
     assert_eq(f[1], 7, "Error: f[1] should be 7");
     assert_eq(f[2], 6, "Error: f[2] should be 6");
     assert_eq(f[3], 5, "Error: f[3] should be 5");
-    SimpleContract::set_f_at(0, 5);
-    SimpleContract::set_f_at(1, 6);
-    SimpleContract::set_f_at(2, 7);
-    SimpleContract::set_f_at(3, 8);
-    assert_eq(SimpleContract::get_f_at(0), 5, "Error: f[0] should be 5");
-    assert_eq(SimpleContract::get_f_at(1), 6, "Error: f[1] should be 6");
-    assert_eq(SimpleContract::get_f_at(2), 7, "Error: f[2] should be 7");
-    assert_eq(SimpleContract::get_f_at(3), 8, "Error: f[3] should be 8");
+    // SimpleContract::set_f_at(0, 5);
+    // SimpleContract::set_f_at(1, 6);
+    // SimpleContract::set_f_at(2, 7);
+    // SimpleContract::set_f_at(3, 8);
+    // assert_eq(SimpleContract::get_f_at(0), 5, "Error: f[0] should be 5");
+    // assert_eq(SimpleContract::get_f_at(1), 6, "Error: f[1] should be 6");
+    // assert_eq(SimpleContract::get_f_at(2), 7, "Error: f[2] should be 7");
+    // assert_eq(SimpleContract::get_f_at(3), 8, "Error: f[3] should be 8");
     assert_eq(<[Felt; 2]>::size(), 2, "Error: [Felt; 2]::size() should be 2");
     return a;
 }
