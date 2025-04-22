@@ -975,10 +975,14 @@ Monomorphization: Vec<UncheckedType> = {
 }
 
 MonomorphizationTy: UncheckedType = {
+    ConstValue,
+    Ty
+}
+
+ConstValue: UncheckedType = {
     <l:@L> <n:U64> <r:@R> => UncheckedType::Const(ConstValue::Felt(n), Location::new(file_id, l, r)),
     <l:@L> <n:BOOL> <r:@R> => UncheckedType::Const(ConstValue::Bool(n), Location::new(file_id, l, r)),
     <l:@L> <n:U32> <r:@R> => UncheckedType::Const(ConstValue::U32(n), Location::new(file_id, l, r)),
-    Ty
 }
 
 Ty: UncheckedType = {
@@ -990,7 +994,7 @@ Ty: UncheckedType = {
 }
 
 GenericType: UncheckedType = {
-    <l:@L> <name:Identifier> "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters, Location::new(file_id, l, r)),
+    <l:@L> <name:Identifier> "<" <generic_parameters:Comma<MonomorphizationTy>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters, Location::new(file_id, l, r)),
     <l:@L>  "[" <ty:Ty> ";" <n:Identifier> "]" <r:@R> => UncheckedType::Generic(
         Identifier::new(IdentId::TYPE_ARRAY, Location::new(file_id, l, r)),
         vec![ty, UncheckedType::Basic(n)],

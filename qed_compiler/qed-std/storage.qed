@@ -97,14 +97,14 @@ impl<T: Storage, N: u32> StorageAt<T, N> for [T; N] {
 //      storage_ref[1] /= 1
 //      storage_ref.a *= 1
 
-pub struct StorageRef<T: Storage> {
+pub struct StorageRef<T: Storage, N: u32> {
     pub offset: Felt,
     pub metadata: ContractMetadata,
 }
 
-impl<T: Storage> StorageRef<T> {
+impl<T: Storage, N: u32> StorageRef<T, N> {
     pub fn new(offset: Felt, metadata: ContractMetadata) -> Self {
-        return new StorageRef#<T> {
+        return new StorageRef#<T, N> {
             offset,
             metadata
         };
@@ -118,10 +118,10 @@ impl<T: Storage> StorageRef<T> {
         T::write(self.offset, value);
     }
 
-    pub fn at<O: Storage>(self, index: Felt) -> StorageRef<O> {
-        assert(index * O::size() < T::size(), "Index out of bounds");
-        return new StorageRef#<O> {
-            offset: self.offset + index * O::size(),
+    pub fn index(self, index: Felt) -> StorageRef<T, 1u32> {
+        assert(index < (N as Felt), "Index out of bounds");
+        return new StorageRef#<T, 1u32> {
+            offset: self.offset + index * T::size(),
             metadata: self.metadata
         };
     }

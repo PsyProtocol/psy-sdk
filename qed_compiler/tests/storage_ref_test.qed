@@ -32,4 +32,8 @@ fn main() {
 
     c.a.set(1);
     assert_eq(c.a.get(), 1, "c.a == 1");
+
+    let cd0 = c.d.index(0);
+    cd0.set(23);
+    assert_eq(cd0.get(), 23, "c.d[0] == 23");
 }
