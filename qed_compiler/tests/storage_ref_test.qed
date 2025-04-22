@@ -9,6 +9,7 @@ pub struct Person {
 #[derive(StorageRef, Storage)]
 pub struct SimpleContract {
     pub a: Felt,
+    #[ref]
     pub b: Person,
     pub c: Felt,
     pub d: [Felt; 4],

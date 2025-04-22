@@ -32,7 +32,7 @@ impl<'a> StorageProcessor<'a> {
         methods.push(self.generate_storage_write_method(struct_node, attr, ctx));
 
         TraitImplNode {
-            associated_types: IndexMap::new(), // No associated types in the updated Storage trait
+            associated_types: IndexMap::new(),
             generic_parameters: vec![],
             trait_ty: UncheckedType::Basic(Identifier::new(ctx.intern("Storage"), attr.location)),
             ty: UncheckedType::Basic(struct_node.name),
@@ -88,19 +88,33 @@ impl<'a> StorageProcessor<'a> {
     ) -> StructNode {
         let mut new_fields = IndexMap::new();
         for (field_name, field) in &struct_node.fields {
-            let transformed_type = UncheckedType::Generic(
-                Identifier::new(ctx.intern("StorageRef"), attr.location),
-                vec![field.ty.clone()],
-                attr.location,
-            );
+            let transformed_type = if field.attrs.iter().any(|a| a.name.id == ctx.intern("ref")) {
+                // If field has #[ref], use the Ref version of the base type
+                let base_type = match &field.ty {
+                    UncheckedType::Basic(ident) => ident,
+                    _ => panic!("#[ref] attribute only supported on basic struct types"),
+                };
+                let ref_type_name = format!("{}Ref", ctx.ident(base_type.id));
+                UncheckedType::Basic(Identifier::new(
+                    ctx.intern(ref_type_name.as_str()),
+                    attr.location,
+                ))
+            } else {
+                // Otherwise, wrap in StorageRef
+                UncheckedType::Generic(
+                    Identifier::new(ctx.intern("StorageRef"), attr.location),
+                    vec![field.ty.clone()],
+                    attr.location,
+                )
+            };
             new_fields.insert(
                 field_name.clone(),
                 StructField {
                     ty: transformed_type,
-                    attrs: field.attrs.clone(),
                     visibility: field.visibility,
                     comments: field.comments.clone(),
                     location: field.location,
+                    attrs: field.attrs.clone(),
                 },
             );
         }
@@ -166,29 +180,40 @@ impl<'a> StorageProcessor<'a> {
         let mut field_inits = IndexMap::new();
 
         for (field_name, field) in &struct_node.fields {
-            let inner_ty = match &field.ty {
-                UncheckedType::Generic(ident, params, _)
-                    if ident.id == ctx.intern("StorageRef") =>
-                {
-                    if params.len() != 1 {
-                        panic!("StorageRef must have exactly one generic parameter");
+            let (inner_ty, target_type) = if field.attrs.iter().any(|a| a.name.id == ctx.intern("ref"))
+            {
+                // For #[ref] fields, inner type is the base struct type, target type is the Ref type
+                let base_type = match &field.ty {
+                    UncheckedType::Basic(ident) => {
+                        let type_name = ctx.ident(ident.id).0.to_string();
+                        let base_name = type_name.trim_end_matches("Ref");
+                        UncheckedType::Basic(Identifier::new(ctx.intern(base_name), attr.location))
                     }
-                    params[0].clone()
+                    _ => panic!("#[ref] attribute only supported on basic struct types"),
+                };
+                (base_type.clone(), field.ty.clone())
+            } else {
+                // For non-#[ref] fields, unwrap StorageRef<T> to get T
+                match &field.ty {
+                    UncheckedType::Generic(ident, params, _)
+                        if ident.id == ctx.intern("StorageRef") =>
+                    {
+                        if params.len() != 1 {
+                            panic!("StorageRef must have exactly one generic parameter");
+                        }
+                        (params[0].clone(), field.ty.clone())
+                    }
+                    _ => (field.ty.clone(), field.ty.clone()),
                 }
-                _ => field.ty.clone(),
             };
-            let storage_ref_path = PathNode {
+            let target_path = PathNode {
                 root: None,
                 segments: vec![],
-                target: UncheckedType::Generic(
-                    Identifier::new(ctx.intern("StorageRef"), attr.location),
-                    vec![inner_ty.clone()],
-                    attr.location,
-                ),
+                target: target_type,
                 location: attr.location,
             };
             let new_path = PathNode {
-                root: Some(UncheckedType::Path(Box::new(storage_ref_path.clone()))),
+                root: Some(UncheckedType::Path(Box::new(target_path.clone()))),
                 segments: vec![],
                 target: UncheckedType::Basic(Identifier::new(ctx.intern("new"), attr.location)),
                 location: attr.location,
@@ -321,13 +346,35 @@ impl<'a> StorageProcessor<'a> {
                 methods.push(self.generate_setter_at(attr, &field_name.id, &field.ty, offset, ctx));
             }
 
-            let node = ExprNode::Binary(BinaryNode {
+            let inner_ty = if field.attrs.iter().any(|a| a.name.id == ctx.intern("ref")) {
+                match &field.ty {
+                    UncheckedType::Basic(ident) => {
+                        let type_name = ctx.ident(ident.id).0.to_string();
+                        let base_name = type_name.trim_end_matches("Ref");
+                        UncheckedType::Basic(Identifier::new(ctx.intern(base_name), attr.location))
+                    }
+                    _ => panic!("#[ref] attribute only supported on basic struct types"),
+                }
+            } else {
+                match &field.ty {
+                    UncheckedType::Generic(ident, params, _)
+                        if ident.id == ctx.intern("StorageRef") =>
+                    {
+                        if params.len() != 1 {
+                            panic!("StorageRef must have exactly one generic parameter");
+                        }
+                        params[0].clone()
+                    }
+                    _ => field.ty.clone(),
+                }
+            };
+            let field_size = self.generate_field_size(attr, &inner_ty, ctx);
+            offset = ctx.alloc_expression(ExprNode::Binary(BinaryNode {
                 lhs: offset,
                 operator: BinaryOperator::Add,
-                rhs: self.generate_field_size(attr, &field.ty, ctx),
+                rhs: field_size,
                 location: attr.location,
-            });
-            offset = ctx.alloc_expression(node);
+            }));
         }
 
         ImplNode {
@@ -359,6 +406,15 @@ impl<'a> StorageProcessor<'a> {
                 }
                 params[0].clone()
             }
+            UncheckedType::Basic(ident) => {
+                let type_name = ctx.ident(ident.id).0.to_string();
+                if type_name.ends_with("Ref") {
+                    let base_name = type_name.trim_end_matches("Ref");
+                    UncheckedType::Basic(Identifier::new(ctx.intern(base_name), attr.location))
+                } else {
+                    field_type.clone()
+                }
+            }
             _ => field_type.clone(),
         };
         let variable = ctx.alloc_expression(ExprNode::Path(PathNode {
@@ -389,10 +445,32 @@ impl<'a> StorageProcessor<'a> {
         let mut sum =
             self.generate_field_size(attr, &struct_node.fields.iter().next().unwrap().1.ty, ctx);
         for (_, field) in struct_node.fields.iter().skip(1) {
+            let inner_ty = if field.attrs.iter().any(|a| a.name.id == ctx.intern("ref")) {
+                match &field.ty {
+                    UncheckedType::Basic(ident) => {
+                        let type_name = ctx.ident(ident.id).0.to_string();
+                        let base_name = type_name.trim_end_matches("Ref");
+                        UncheckedType::Basic(Identifier::new(ctx.intern(base_name), attr.location))
+                    }
+                    _ => panic!("#[ref] attribute only supported on basic struct types"),
+                }
+            } else {
+                match &field.ty {
+                    UncheckedType::Generic(ident, params, _)
+                        if ident.id == ctx.intern("StorageRef") =>
+                    {
+                        if params.len() != 1 {
+                            panic!("StorageRef must have exactly one generic parameter");
+                        }
+                        params[0].clone()
+                    }
+                    _ => field.ty.clone(),
+                }
+            };
             let node = BinaryNode {
                 lhs: sum,
                 operator: BinaryOperator::Add,
-                rhs: self.generate_field_size(attr, &field.ty, ctx),
+                rhs: self.generate_field_size(attr, &inner_ty, ctx),
                 location: attr.location,
             };
             sum = ctx.alloc_expression(ExprNode::Binary(node));
@@ -448,16 +526,38 @@ impl<'a> StorageProcessor<'a> {
         let mut field_reads = IndexMap::new();
         let mut offset = offset_expr;
         for (field_name, field) in &struct_node.fields {
+            let inner_ty = if field.attrs.iter().any(|a| a.name.id == ctx.intern("ref")) {
+                match &field.ty {
+                    UncheckedType::Basic(ident) => {
+                        let type_name = ctx.ident(ident.id).0.to_string();
+                        let base_name = type_name.trim_end_matches("Ref");
+                        UncheckedType::Basic(Identifier::new(ctx.intern(base_name), attr.location))
+                    }
+                    _ => panic!("#[ref] attribute only supported on basic struct types"),
+                }
+            } else {
+                match &field.ty {
+                    UncheckedType::Generic(ident, params, _)
+                        if ident.id == ctx.intern("StorageRef") =>
+                    {
+                        if params.len() != 1 {
+                            panic!("StorageRef must have exactly one generic parameter");
+                        }
+                        params[0].clone()
+                    }
+                    _ => field.ty.clone(),
+                }
+            };
             let (_key, value) =
-                self.generate_field_read(attr, &field_name.id, &field.ty, offset, ctx);
+                self.generate_field_read(attr, &field_name.id, &inner_ty, offset, ctx);
             field_reads.insert(field_name.clone(), value);
-            let node = BinaryNode {
+            let field_size = self.generate_field_size(attr, &inner_ty, ctx);
+            offset = ctx.alloc_expression(ExprNode::Binary(BinaryNode {
                 lhs: offset,
                 operator: BinaryOperator::Add,
-                rhs: self.generate_field_size(attr, &field.ty, ctx),
+                rhs: field_size,
                 location: attr.location,
-            };
-            offset = ctx.alloc_expression(ExprNode::Binary(node));
+            }));
         }
         let name_path = ctx.alloc_expression(ExprNode::Path(PathNode::from_target(
             UncheckedType::Basic(struct_node.name),
@@ -532,16 +632,38 @@ impl<'a> StorageProcessor<'a> {
         let mut field_writes = Vec::new();
         let mut offset = offset_expr;
         for (field_name, field) in &struct_node.fields {
+            let inner_ty = if field.attrs.iter().any(|a| a.name.id == ctx.intern("ref")) {
+                match &field.ty {
+                    UncheckedType::Basic(ident) => {
+                        let type_name = ctx.ident(ident.id).0.to_string();
+                        let base_name = type_name.trim_end_matches("Ref");
+                        UncheckedType::Basic(Identifier::new(ctx.intern(base_name), attr.location))
+                    }
+                    _ => panic!("#[ref] attribute only supported on basic struct types"),
+                }
+            } else {
+                match &field.ty {
+                    UncheckedType::Generic(ident, params, _)
+                        if ident.id == ctx.intern("StorageRef") =>
+                    {
+                        if params.len() != 1 {
+                            panic!("StorageRef must have exactly one generic parameter");
+                        }
+                        params[0].clone()
+                    }
+                    _ => field.ty.clone(),
+                }
+            };
             let stmt_id =
-                self.generate_field_write(attr, &field_name.id, &field.ty, offset, ctx);
+                self.generate_field_write(attr, &field_name.id, &inner_ty, offset, ctx);
             field_writes.push(stmt_id);
-            let node = BinaryNode {
+            let field_size = self.generate_field_size(attr, &inner_ty, ctx);
+            offset = ctx.alloc_expression(ExprNode::Binary(BinaryNode {
                 lhs: offset,
                 operator: BinaryOperator::Add,
-                rhs: self.generate_field_size(attr, &field.ty, ctx),
+                rhs: field_size,
                 location: attr.location,
-            };
-            offset = ctx.alloc_expression(ExprNode::Binary(node));
+            }));
         }
 
         let block = ctx.alloc_expression(ExprNode::BlockExpr(BlockExprNode {
@@ -768,7 +890,7 @@ impl<'a> StorageProcessor<'a> {
             segments: vec![],
             target: UncheckedType::Basic(write_ident),
             location: attr.location,
-        })).clone();
+        }));
         let value_expr = ctx.alloc_expression(ExprNode::Path(PathNode {
             root: None,
             segments: vec![],
@@ -1265,7 +1387,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_use(
         &mut self,
         _def_id: DefId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
@@ -1273,7 +1395,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_path(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1281,7 +1403,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_index_access(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1289,7 +1411,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_member_access(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1297,7 +1419,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_value(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1305,7 +1427,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_binary(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1313,7 +1435,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_unary(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1321,7 +1443,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_call(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1329,7 +1451,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_cast(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1337,7 +1459,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_while(
         &mut self,
         _node: StmtId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
@@ -1345,7 +1467,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_assignment(
         &mut self,
         _node: StmtId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
@@ -1353,7 +1475,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_variable(
         &mut self,
         _node: StmtId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
@@ -1361,7 +1483,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_return(
         &mut self,
         _expr: StmtId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
@@ -1369,7 +1491,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_impl(
         &mut self,
         node: DefId,
-        ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         let defs: Vec<DefId> = ctx.definition(node).as_impl().unwrap().body.clone();
         for def_id in defs {
@@ -1381,7 +1503,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_trait(
         &mut self,
         _node: DefId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
@@ -1389,7 +1511,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_function(
         &mut self,
         _node: DefId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
@@ -1397,7 +1519,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_struct(
         &mut self,
         node: DefId,
-        ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         let s: StructNode = ctx.definition(node).as_struct().unwrap().clone();
         let storage_trait_id = ctx.intern("Storage");
@@ -1406,38 +1528,29 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
         let contract_attribute_id = ctx.intern("contract");
 
         for attr in &s.attrs {
-            // Handle #[derive(Storage)]
             if attr.is_derive() && attr.properties.iter().any(|p| p == &storage_trait_id) {
                 let impl_node = self.generate_storage_impl(&s, attr, ctx);
                 ctx.insert_definition(DefinitionNode::TraitImpl(impl_node), InsertPosition::End);
             }
 
-            // Handle #[storage]
             if attr.name == storage_attribute_id {
                 let impl_node = self.generate_accessor_impl(&s, attr, ctx);
                 ctx.insert_definition(DefinitionNode::Impl(impl_node), InsertPosition::End);
             }
 
-            // Handle #[derive(StorageRef)]
             if attr.is_derive()
                 && attr
                     .properties
                     .iter()
                     .any(|p| p == &storage_ref_attribute_id)
             {
-                // Create a new struct with Ref suffix
                 let ref_struct = self.transform_struct_to_storage_ref(&s, attr, ctx, Some("Ref"));
-
-                // Insert the new struct at the end of the module
                 ctx.insert_definition(
                     DefinitionNode::Struct(ref_struct.clone()),
                     InsertPosition::End,
                 );
 
-                // Determine if we need offset parameter (include offset if no contract attribute)
                 let include_offset = !s.attrs.iter().any(|a| a.name == contract_attribute_id);
-
-                // Generate impl with new method for the new struct
                 let mut methods = Vec::new();
                 methods.push(self.generate_new_method(&ref_struct, attr, ctx, include_offset));
                 let impl_node = ImplNode {
@@ -1459,7 +1572,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_enum(
         &mut self,
         _node: DefId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
@@ -1467,7 +1580,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_intrinsic_expr(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1475,7 +1588,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_intrinsic_stmt(
         &mut self,
         _node: StmtId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
@@ -1483,7 +1596,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_member_call(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1491,7 +1604,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_type_alias(
         &mut self,
         _node: DefId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
@@ -1499,7 +1612,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_const(
         &mut self,
         _node: DefId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
@@ -1507,7 +1620,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_for(
         &mut self,
         _node: StmtId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
@@ -1515,7 +1628,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_match(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         Ok(())
     }
@@ -1523,7 +1636,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_parentheses(
         &mut self,
         node: ExprId,
-        ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::StmtResult, Self::Error> {
         let inner_expr_id = ctx.expression(node).as_parentheses().unwrap().clone();
         self.visit_expr(inner_expr_id, ctx)
@@ -1532,7 +1645,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_lambda_function(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1540,7 +1653,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_trait_impl(
         &mut self,
         _node: DefId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::DefinitionResult, Self::Error> {
         Ok(())
     }
@@ -1548,7 +1661,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_if_expr(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1556,7 +1669,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_block_expr(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1564,7 +1677,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_tuple(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
@@ -1572,7 +1685,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
     fn visit_tuple_access(
         &mut self,
         _node: ExprId,
-        _ctx: &mut Self::Context,
+        ctx: &mut <StorageProcessor<'a> as AstVisitor<F, C>>::Context,
     ) -> Result<Self::ExprResult, Self::Error> {
         Ok(())
     }
