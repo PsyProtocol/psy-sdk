@@ -107,8 +107,24 @@ impl<
     }
 
     pub async fn notify_sync(&mut self) -> anyhow::Result<()> {
-        self.sync_queue
-            .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync)?;
+        let checkpoint_id = self
+            .ctx
+            .store
+            .get_latest_l2_block_state()
+            .await?
+            .checkpoint_id;
+        tracing::info!("notify sync for checkpoint id: {}", checkpoint_id);
+        if self
+            .ctx
+            .prover_queue
+            .wait_for_block_proving_jobs_imm(checkpoint_id)
+            .await?
+        {
+            tracing::info!("sync queue dispatch StartSync");
+            self.sync_queue
+                .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync)?;
+        }
+
         Ok(())
     }
 }
