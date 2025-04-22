@@ -27,7 +27,7 @@ use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RW};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>;
 type ConcreteRealmProcessorContext = RealmProcessorContext<
@@ -140,6 +140,7 @@ impl RealmProcessor {
         info!("Realm Processor started");
         let handle = tokio::spawn(async move {
             loop {
+                info!("Waiting for next checkpoint");
                 match self.sync_checkpoint(&mut context).await {
                     Ok(false) | Err(_) => {
                         tokio::time::sleep(Duration::from_secs(1)).await;
