@@ -1,7 +1,4 @@
-mod config;
-
-pub use config::*;
-
+use crate::config::RealmNodeConfig;
 use crate::{C, D, F};
 use fred::prelude::{Builder, Config, ReconnectPolicy};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
@@ -44,10 +41,25 @@ pub struct RealmProcessor {
     pub synced_checkpoint_id: u64,
 }
 
+pub async fn start_realm_processor_node(config: RealmNodeConfig) -> anyhow::Result<()> {
+    let realm_processor = RealmProcessor::new(config).await?;
+    let handle = realm_processor.start().await?;
+
+    tokio::select! {
+        _ = handle => {
+            panic!("Realm processor stopped");
+        }
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!("Received Ctrl-C, shutting down...");
+        }
+    }
+    Ok(())
+}
+
 impl RealmProcessor {
-    pub async fn new(config: RealmProcessorConfig) -> anyhow::Result<Self> {
+    pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         let pool_size = 8;
-        let redis_config = Config::from_url(&config.redis_url)?;
+        let redis_config = Config::from_url(&config.redis.url)?;
         let pool = Builder::from_config(redis_config)
             .with_connection_config(|config| {
                 config.connection_timeout = Duration::from_secs(10);
@@ -57,11 +69,11 @@ impl RealmProcessor {
             .build_pool(pool_size)?;
         let realm_qps = ProofStoreFred::new(
             pool,
-            config.worker_queue_suffix,
-            config.notifications_queue_suffix,
+            config.queue.worker_queue_suffix,
+            config.queue.notifications_queue_suffix,
         );
 
-        let realm_config = RealmConfig::get_standard(config.rpc_node_id, config.realm_id);
+        let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
 
         let flags = EnvironmentFlags {
             no_sub_dir: false,

@@ -19,8 +19,6 @@ qed_crypto = { workspace = true }
 qed_node = { workspace = true }
 qed_rollup_circuit = { workspace = true }
 qed_node_common = { workspace = true }
-dotenv.workspace = true
-envy.workspace = true
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -38,5 +36,4 @@ kvq_store_lmdbx = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
-config = { workspace = true }
 clap = {workspace = true}

@@ -4,6 +4,7 @@ use qed_realm_node::config::{LogConfig, RealmEdgeConfig};
 use qed_realm_node::{
     config::{setup_logging, RealmNodeConfig},
     edge::start_realm_edge_node,
+    start_realm_processor_node,
 };
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +18,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Edge { config } => start_realm_edge_node(config).await?,
-        Commands::Processor { config } => panic!("Processor node not implemented yet"),
+        Commands::Processor { config } => start_realm_processor_node(config).await?,
     }
 
     Ok(())
