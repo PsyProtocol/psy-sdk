@@ -128,48 +128,30 @@ impl<T: Storage> StorageRef<T> {
 }
 
 pub struct ContractMetadata {
-    pub contract_state_tree_height: u32,
     pub contract_id: Felt,
     pub user_id: Felt,
 }
 
-pub struct Contract<T: Storage> {
-    pub storage: StorageRef<T>
-}
-
-impl<T: Storage> Contract<T> {
+impl ContractMetadata {
     pub fn new(contract_id: Felt, user_id: Felt) -> Self {
-        let metadata = new ContractMetadata {
-            contract_state_tree_height: (T::size() as u32),
+        return new ContractMetadata {
             contract_id,
-            user_id,
-        };
-        return new Contract#<T> {
-            storage: <StorageRef<T>>::new(0, metadata)
+            user_id
         };
     }
 
     pub fn current() -> Self {
-        // TODO: should be able to use directly get_contract_id, get_user_id
-        let metadata = new ContractMetadata {
-            contract_state_tree_height: (T::size() as u32),
+        return new ContractMetadata {
             contract_id: context::get_contract_id(),
             user_id: context::get_user_id(),
         };
-        return new Contract#<T> {
-            storage: <StorageRef<T>>::new(0, metadata)
-        };
-    }
-
-    pub fn get_user_id(self) -> Felt {
-        self.storage.metadata.user_id
     }
 
     pub fn get_contract_id(self) -> Felt {
-        self.storage.metadata.contract_id
+        self.contract_id
     }
 
-    pub fn get_contract_state_tree_height(self) -> u32 {
-        self.storage.metadata.contract_state_tree_height
+    pub fn get_user_id(self) -> Felt {
+        self.user_id
     }
 }
