@@ -1,5 +1,5 @@
 use crate::config::RealmNodeConfig;
-use crate::{new_store_reader, new_with_connection};
+use crate::new_store_reader;
 use crate::{C, D, F};
 use fred::prelude::KeysInterface;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
@@ -25,6 +25,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info};
+use qed_node::nimpl::new_fred_pool;
 
 type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>;
 type ConcreteRealmProcessorContext = RealmProcessorContext<
@@ -64,7 +65,7 @@ impl RealmProcessor {
     pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
         let pool =
-            new_with_connection(&config.redis.url, config.redis.pool_size.unwrap_or(8)).await?;
+            new_fred_pool(&config.redis.url, config.redis.pool_size.unwrap_or(8)).await?;
         let realm_qps = ProofStoreFred::new(
             pool,
             config.queue.worker_queue_suffix,
