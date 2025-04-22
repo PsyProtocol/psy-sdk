@@ -5,78 +5,68 @@ mod context;
 use primitive::*;
 
 pub trait Storage {
-    pub type Value;
-
     pub fn size() -> Felt;
-    pub fn read(offset: Felt) -> <Self::Value>;
-    pub fn write(offset: Felt, value: <Self::Value>);
+    pub fn read(offset: Felt) -> Self;
+    pub fn write(offset: Felt, value: Self);
 }
 
 pub trait StorageAt<T: Storage, N: u32> {
-    pub fn read_at(offset: Felt, index: Felt) -> <T::Value>;
+    pub fn read_at(offset: Felt, index: Felt) -> Self;
     pub fn write_at(offset: Felt, index: Felt, value: T);
 }
 
 impl Storage for Felt {
-    pub type Value = Self;
-
     pub fn size() -> Felt {
         return 1;
     }
 
-    pub fn read(offset: Felt) -> <Self::Value> {
+    pub fn read(offset: Felt) -> Self {
         __storage_read(offset)
     }
 
-    pub fn write(offset: Felt, value: <Self::Value>) {
+    pub fn write(offset: Felt, value: Self) {
         __storage_write(offset, value);
     }
 }
 
 impl Storage for bool {
-    pub type Value = Self;
-
     pub fn size() -> Felt {
         return 1;
     }
 
-    pub fn read(offset: Felt) -> <Self::Value> {
+    pub fn read(offset: Felt) -> Self {
         __storage_read(offset) as bool
     }
 
-    pub fn write(offset: Felt, value: <Self::Value>) {
+    pub fn write(offset: Felt, value: Self) {
         __storage_write(offset, value as Felt);
     }
 }
 
 impl Storage for u32 {
-    pub type Value = Self;
-
     pub fn size() -> Felt {
         return 1;
     }
 
-    pub fn read(offset: Felt) -> <Self::Value> {
+    pub fn read(offset: Felt) -> Self {
         __storage_read(offset) as u32
     }
 
-    pub fn write(offset: Felt, value: <Self::Value>) {
+    pub fn write(offset: Felt, value: Self) {
         __storage_write(offset, value as Felt);
     }
 }
 
 impl<T: Storage, N: u32> Storage for [T; N] {
-    pub type Value = Self;
-
     pub fn size() -> Felt {
         return T::size() * (N as Felt);
     }
 
-    pub fn read(offset: Felt) -> <Self::Value> {
+    pub fn read(offset: Felt) -> Self {
         mem::transmute#<Self>(__storage_read_range(offset * 4, Self::size()))
     }
 
-    pub fn write(offset: Felt, value: <Self::Value>) {
+    pub fn write(offset: Felt, value: Self) {
         __storage_write_range(offset * 4, value);
     }
 }
@@ -87,7 +77,7 @@ impl<T: Storage, N: u32> StorageAt<T, N> for [T; N] {
         T::write(offset, value)
     }
 
-    pub fn read_at(offset: Felt, index: Felt) -> <T::Value> {
+    pub fn read_at(offset: Felt, index: Felt) -> T {
         let offset = offset * 4 + (index * T::size());
         T::read(offset)
     }
@@ -120,11 +110,11 @@ impl<T: Storage> StorageRef<T> {
         };
     }
 
-    pub fn get(self) -> <T::Value> {
+    pub fn get(self) -> T {
         return T::read(self.offset);
     }
 
-    pub fn set(self, value: <T::Value>) {
+    pub fn set(self, value: T) {
         T::write(self.offset, value);
     }
 
@@ -134,22 +124,6 @@ impl<T: Storage> StorageRef<T> {
             offset: self.offset + index * O::size(),
             metadata: self.metadata
         };
-    }
-}
-
-impl<T: Storage> Storage for StorageRef<T> {
-    pub type Value = <T::Value>;
-
-    pub fn size() -> Felt {
-        return T::size();
-    }
-
-    pub fn read(offset: Felt) -> <Self::Value> {
-        T::read(offset)
-    }
-
-    pub fn write(offset: Felt, value: <Self::Value>) {
-        T::write(offset, value);
     }
 }
 
