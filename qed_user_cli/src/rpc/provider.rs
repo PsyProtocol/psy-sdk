@@ -179,9 +179,45 @@ impl QEDReadCommandProcessorSync<F> for RpcProvider {
         &self,
         input: &qed_store::store::imm::cmd_processor::QEDReadCommandBatchInput,
     ) -> anyhow::Result<qed_store::store::imm::cmd_processor::QEDReadCommandBatchOutput<F>> {
-        Runtime::new()
-            .map_err(|err| anyhow::format_err!(err))?
-            .block_on(self.resolve_batch_async(input))
+        Ok(
+            qed_store::store::imm::cmd_processor::QEDReadCommandBatchOutput::<F> {
+                get_user_leaf: input
+                    .get_user_leaf
+                    .iter()
+                    .map(|x| self.resolve_get_user_leaf(x))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+                get_contract_leaf: input
+                    .get_contract_leaf
+                    .iter()
+                    .map(|x| self.resolve_get_contract_leaf(x))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+                get_contract_code: input
+                    .get_contract_code
+                    .iter()
+                    .map(|x| self.resolve_get_contract_code(x))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+                get_checkpoint_leaf: input
+                    .get_checkpoint_leaf
+                    .iter()
+                    .map(|x| self.resolve_get_checkpoint_leaf(x))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+                get_l2_block_state: input
+                    .get_l2_block_state
+                    .iter()
+                    .map(|x| self.resolve_get_l2_block_state(x))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+                get_merkle_proof: input
+                    .get_merkle_proof
+                    .iter()
+                    .map(|x| self.resolve_get_merkle_proof(x))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+                get_hash: input
+                    .get_hash
+                    .iter()
+                    .map(|x| self.resolve_get_hash(x))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+            },
+        )
     }
 
     fn resolve_get_hash(
@@ -285,20 +321,12 @@ impl RpcProvider {
         Ok(self.config.realm_configs[realm_id as usize].clone())
     }
 
-    async fn resolve_batch_async(
-        &self,
-        input: &qed_store::store::imm::cmd_processor::QEDReadCommandBatchInput,
-    ) -> anyhow::Result<qed_store::store::imm::cmd_processor::QEDReadCommandBatchOutput<F>> {
-        let rpc_url = &self.config.cooridinator_configs[0];
-        let response = qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::Batch(input.clone()));
-
-        match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::Batch(read_command_batch) => Ok(read_command_batch),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
-            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+    pub fn get_cooridinator_url(&self, user_id: u64) -> anyhow::Result<String> {
+        let cooridinator_id = user_id / self.config.users_per_realm;
+        if cooridinator_id >= self.config.cooridinator_configs.len() as u64 {
+            anyhow::bail!("cooridinator id out of range");
         }
+        Ok(self.config.cooridinator_configs[cooridinator_id as usize].clone())
     }
 
     async fn resolve_get_hash_async(
@@ -306,7 +334,10 @@ impl RpcProvider {
         input: &qed_store::store::imm::cmd::QSRHashCmd,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         let user_id = input.user_id().unwrap_or(self.current_user_id);
-        let rpc_url = &self.get_realm_url(user_id)?;
+        let rpc_url = match input.is_realm_cmd() {
+            true => self.get_realm_url(user_id)?,
+            false => self.get_cooridinator_url(user_id)?,
+        };
         let response =
             qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetHash(input.clone()));
 
@@ -326,7 +357,10 @@ impl RpcProvider {
         qed_crypto::hash::merkle::core::MerkleProofCore<qed_core::data::qhashout::QHashOut<F>>,
     > {
         let user_id = input.user_id().unwrap_or(self.current_user_id);
-        let rpc_url = &self.get_realm_url(user_id)?;
+        let rpc_url = match input.is_realm_cmd() {
+            true => self.get_realm_url(user_id)?,
+            false => self.get_cooridinator_url(user_id)?,
+        };
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
@@ -366,7 +400,9 @@ impl RpcProvider {
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetContractLeafData,
     ) -> anyhow::Result<qed_data::qdata::contract::QEDContractLeaf<F>> {
-        let rpc_url = self.get_realm_url(self.current_user_id)?;
+        let rpc_url = &self
+            .get_cooridinator_url(self.current_user_id)
+            .unwrap_or(self.config.cooridinator_configs[0].clone());
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
@@ -386,7 +422,9 @@ impl RpcProvider {
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetContractCodeDefinition,
     ) -> anyhow::Result<qed_data::qdata::contract::ContractCodeDefinition> {
-        let rpc_url = &self.config.cooridinator_configs[0];
+        let rpc_url = &self
+            .get_cooridinator_url(self.current_user_id)
+            .unwrap_or(self.config.cooridinator_configs[0].clone());
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
@@ -445,7 +483,9 @@ impl RpcProvider {
     async fn resolve_get_latest_l2_block_state_async(
         &self,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
-        let rpc_url = &self.get_realm_url(self.current_user_id)?;
+        let rpc_url = &self
+            .get_cooridinator_url(self.current_user_id)
+            .unwrap_or(self.config.cooridinator_configs[0].clone());
         let response = qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetLatestL2BlockState);
 
         match response.result {

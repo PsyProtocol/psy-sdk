@@ -187,6 +187,29 @@ impl QSRHashCmd{
         _ => None,
     }
   }
+
+  pub fn is_realm_cmd(&self) -> bool {
+      match self {
+          QSRHashCmd::GetUserContractStateTreeRoot(_)
+          | QSRHashCmd::GetUserContractStateTreeLeafHash(_)
+          | QSRHashCmd::GetUserContractTreeRoot(_)
+          | QSRHashCmd::GetUserContractTreeLeafHash(_)
+          | QSRHashCmd::GetUserTreeRoot(_)
+          | QSRHashCmd::GetUserTreeLeafHash(_) => true,
+          QSRHashCmd::GetContractFunctionTreeRoot(_)
+          | QSRHashCmd::GetContractFunctionTreeLeafHash(_)
+          | QSRHashCmd::GetContractTreeRoot(_)
+          | QSRHashCmd::GetContractTreeLeafHash(_)
+          | QSRHashCmd::GetDepositTreeRoot(_)
+          | QSRHashCmd::GetDepositTreeLeafHash(_)
+          | QSRHashCmd::GetWithdrawalTreeRoot(_)
+          | QSRHashCmd::GetWithdrawalTreeLeafHash(_)
+          | QSRHashCmd::GetCheckpointTreeRoot(_)
+          | QSRHashCmd::GetCheckpointTreeLeafHash(_)
+          | QSRHashCmd::GetUserRegistrationTreeRoot(_)
+          | QSRHashCmd::GetUserRegistrationTreeLeafHash(_) => false,
+      }
+  }
 }
 
 // start tree merkle proof cmds
@@ -285,5 +308,18 @@ impl QSRMerkleCmd {
           QSRMerkleCmd::GetCheckpointTreeMerkleProof(c) => None,
           QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(c) => None,
       }
+  }
+  pub fn is_realm_cmd(&self) -> bool {
+    match self {
+      QSRMerkleCmd::GetUserContractStateTreeMerkleProof(_) => true,
+      QSRMerkleCmd::GetUserContractTreeMerkleProof(_) => true,
+      QSRMerkleCmd::GetUserTreeMerkleProof(_) => true,
+      QSRMerkleCmd::GetContractFunctionTreeMerkleProof(_) => false,
+      QSRMerkleCmd::GetContractTreeMerkleProof(_) => false,
+      QSRMerkleCmd::GetDepositTreeMerkleProof(_) => false,
+      QSRMerkleCmd::GetWithdrawalTreeMerkleProof(_) => false,
+      QSRMerkleCmd::GetCheckpointTreeMerkleProof(_) => false,
+      QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(_) => false,
+    }
   }
 }
