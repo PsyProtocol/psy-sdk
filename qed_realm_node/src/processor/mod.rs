@@ -3,6 +3,7 @@ mod config;
 pub use config::*;
 
 use crate::{C, D, F};
+use fred::interfaces::ClientLike;
 use fred::prelude::{Builder, Config, KeysInterface, ReconnectPolicy};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq::traits::KVQSerializable;
@@ -59,6 +60,7 @@ impl RealmProcessor {
             // use exponential backoff, starting at 100 ms and doubling on each failed attempt up to 30 sec
             .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
             .build_pool(pool_size)?;
+        pool.init().await?;
         let realm_qps = ProofStoreFred::new(
             pool,
             config.worker_queue_suffix,
@@ -244,7 +246,6 @@ async fn get_checkpoint(
     queue: &ProofStoreFred,
     checkpoint_id: u64,
 ) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>> {
-    // TODO: fix infinite waiting
     let result = queue
         .pool()
         .get::<Vec<u8>, String>(format!(

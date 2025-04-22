@@ -150,7 +150,7 @@ pub trait CheckpointHistoryQueueConsumerAsyncMut {
         channel_id: u64,
         start_checkpoint_id: u64,
     ) -> anyhow::Result<Vec<T>>;
-    
+
     async fn wait_for_next_item_mut<T: HQSerializable>(
         &mut self,
         channel_id: u64,
