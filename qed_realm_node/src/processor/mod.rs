@@ -51,6 +51,7 @@ pub struct RealmProcessor {
 
 impl RealmProcessor {
     pub async fn new(config: RealmProcessorConfig) -> anyhow::Result<Self> {
+        info!("Realm Processor Config: {:?}", config);
         let pool_size = 8;
         let redis_config = Config::from_url(&config.redis_url)?;
         let pool = Builder::from_config(redis_config)
