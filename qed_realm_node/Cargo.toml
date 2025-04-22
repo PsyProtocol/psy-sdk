@@ -3,29 +3,37 @@ edition = "2021"
 name = "qed_realm_node"
 version = "0.1.0"
 
+[lib]
+name = "qed_realm_node"
+path = "src/lib.rs"
+
 [[bin]]
-name = "realm_processor"
-path = "src/bin/realm_processor.rs"
+name = "qed_realm_node"
+path = "src/main.rs"
 
 [dependencies]
-anyhow = "1.0.97"
-tokio = { version = "1.44.2", features = ["macros", "rt", "signal", "sync"] }
-tracing.workspace = true
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-dotenv.workspace = true
-envy = "0.4.2"
-serde.workspace = true
-fred.workspace = true
+qed_core = { workspace = true }
+qed_data = { workspace = true }
+qed_store = { workspace = true }
+qed_crypto = { workspace = true }
+qed_node = { workspace = true }
+qed_rollup_circuit = { workspace = true }
+qed_node_common = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+fred = { workspace = true }
+jsonrpsee = { workspace = true }
+plonky2 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+tokio = { workspace = true }
+kvq = { workspace = true }
+reth-libmdbx = { workspace = true }
+kvq_store_lmdbx = { workspace = true }
 
-kvq = { path = "../kvq" }
-kvq_store_lmdbx.workspace = true
-reth-libmdbx.workspace = true
-plonky2.workspace = true
-
-qed_core = { path = "../qed_core" }
-qed_rollup_circuit = { path = "../qed_rollup_circuit" }
-qed_data = { path = "../qed_data" }
-qed_crypto = { path = "../qed_crypto" }
-qed_store = { path = "../qed_store" }
-qed_node = { path = "../qed_node" }
-qed_node_common = { path = "../qed_node_common" }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+clap = {workspace = true}

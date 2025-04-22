@@ -1,10 +1,7 @@
-mod config;
-
-pub use config::*;
-
+use crate::config::RealmNodeConfig;
+use crate::{new_store_reader, new_with_connection};
 use crate::{C, D, F};
-use fred::interfaces::ClientLike;
-use fred::prelude::{Builder, Config, KeysInterface, ReconnectPolicy};
+use fred::prelude::KeysInterface;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq::traits::KVQSerializable;
 use kvq_store_lmdbx::KVQlibmdbxStore;
@@ -23,11 +20,11 @@ use qed_node::worker::simple_async_realm::SimpleAsyncRealmWorker;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RW};
+use reth_libmdbx::RW;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>;
 type ConcreteRealmProcessorContext = RealmProcessorContext<
@@ -48,47 +45,38 @@ pub struct RealmProcessor {
     pub synced_checkpoint_id: u64,
 }
 
+pub async fn start_realm_processor_node(config: RealmNodeConfig) -> anyhow::Result<()> {
+    let realm_processor = RealmProcessor::new(config).await?;
+    let handle = realm_processor.start().await?;
+
+    tokio::select! {
+        _ = handle => {
+            panic!("Realm processor stopped");
+        }
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!("Received Ctrl-C, shutting down...");
+        }
+    }
+    Ok(())
+}
+
 impl RealmProcessor {
-    pub async fn new(config: RealmProcessorConfig) -> anyhow::Result<Self> {
+    pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
-        let pool_size = 8;
-        let redis_config = Config::from_url(&config.redis_url)?;
-        let pool = Builder::from_config(redis_config)
-            .with_connection_config(|config| {
-                config.connection_timeout = Duration::from_secs(10);
-            })
-            // use exponential backoff, starting at 100 ms and doubling on each failed attempt up to 30 sec
-            .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
-            .build_pool(pool_size)?;
-        pool.init().await?;
+        let pool =
+            new_with_connection(&config.redis.url, config.redis.pool_size.unwrap_or(8)).await?;
         let realm_qps = ProofStoreFred::new(
             pool,
-            config.worker_queue_suffix,
-            config.notifications_queue_suffix,
+            config.queue.worker_queue_suffix,
+            config.queue.notifications_queue_suffix,
         );
-
-        let realm_config = RealmConfig::get_standard(config.rpc_node_id, config.realm_id);
-
-        let flags = EnvironmentFlags {
-            no_sub_dir: false,
-            mode: Mode::ReadWrite {
-                sync_mode: SyncMode::Durable,
-            },
-            coalesce: true,
-            ..Default::default()
-        };
-        let env = Environment::builder()
-            .set_max_dbs(10)
-            .set_flags(flags)
-            .open(config.db_path.as_path())?;
-        let txn = env.begin_rw_txn()?;
-        let store_reader = KVQArcImmutableStore::new(KVQlibmdbxStore::new(txn.clone(), None)?);
-
+        let store_reader = new_store_reader(&config.db.path).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
         let coordinator_worker_circuits =
             QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
 
+        let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
         let processor = RealmProcessor {
             realm_config,
             queue: realm_qps,
