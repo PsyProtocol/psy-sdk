@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RealmProcessorConfig {
@@ -12,6 +13,8 @@ pub struct RealmProcessorConfig {
     pub worker_queue_suffix: String,
     #[serde(default = "default_notifications_queue_suffix")]
     pub notifications_queue_suffix: String,
+    #[serde(default = "default_db_path")]
+    pub db_path: PathBuf,
 }
 
 fn default_rpc_node_id() -> u32 {
@@ -32,4 +35,8 @@ fn default_worker_queue_suffix() -> String {
 
 fn default_notifications_queue_suffix() -> String {
     "rnq1".to_string()
+}
+
+fn default_db_path() -> PathBuf {
+    PathBuf::new().join("db")
 }
