@@ -8,9 +8,9 @@ use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
-use reth_libmdbx::RW;
+use reth_libmdbx::{RO, RW};
 
-type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>;
+type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>>;
 type DrainQueue = ProofStoreFred;
 type ProofStore = ProofStoreFred;
 
