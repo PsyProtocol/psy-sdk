@@ -5,7 +5,7 @@ pub mod rpc;
 
 use self::{context::RealmEdgeContext, rpc::start_realm_edge_rpc_server};
 use crate::{
-    config::RealmEdgeConfig, new_store_reader, C, D,
+    config::RealmEdgeConfig, C, D,
 };
 use anyhow::Result;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
@@ -15,6 +15,7 @@ use std::sync::Arc;
 use tracing::info;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
+use qed_node_common::store::new_lmdbx_store;
 
 /// Start Realm Edge node
 pub async fn start_realm_edge_node(config: RealmEdgeConfig) -> Result<()> {
@@ -31,7 +32,7 @@ pub async fn start_realm_edge_node(config: RealmEdgeConfig) -> Result<()> {
     let checkpoint_queue = proof_store.clone();
 
     // Create store reader
-    let store_reader = new_store_reader(&config.db.path).await?;
+    let store_reader = new_lmdbx_store(&config.db.path)?;
 
     let cmd_store = store_reader.dup();
 

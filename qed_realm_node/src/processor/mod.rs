@@ -1,5 +1,4 @@
 use crate::config::RealmNodeConfig;
-use crate::new_store_reader;
 use crate::{C, D, F};
 use fred::prelude::KeysInterface;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
@@ -26,6 +25,7 @@ use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info};
 use qed_node::nimpl::new_fred_pool;
+use qed_node_common::store::new_lmdbx_store;
 
 type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>;
 type ConcreteRealmProcessorContext = RealmProcessorContext<
@@ -71,7 +71,7 @@ impl RealmProcessor {
             config.queue.worker_queue_suffix,
             config.queue.notifications_queue_suffix,
         );
-        let store_reader = new_store_reader(&config.db.path).await?;
+        let store_reader = new_lmdbx_store(&config.db.path)?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
         let coordinator_worker_circuits =

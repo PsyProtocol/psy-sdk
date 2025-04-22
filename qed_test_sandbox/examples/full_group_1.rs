@@ -37,6 +37,7 @@ use qed_core::
     data::qhashout::QHashOut
 ;
 use qed_node::nimpl::new_fred_pool;
+use qed_node_common::store::new_lmdbx_store;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -50,25 +51,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
     let realm_q = ProofStoreFred::new(pool, "rwq1".to_string(), "rnq1".to_string());
-
-    let dir = tempfile::tempdir()?;
-    let flags = EnvironmentFlags {
-        no_sub_dir: false,
-        mode: Mode::ReadWrite { sync_mode: SyncMode::Durable },
-        coalesce: true,
-        ..Default::default()
-    };
-
-    let env = Environment::builder()
-        .set_max_dbs(10)
-        .set_flags(flags)
-        .open(PathBuf::new().join("db").as_path())?;
-
-    let txn = env.begin_rw_txn()?;
-    let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>> =
-        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RW>>::new(
-            KVQlibmdbxStore::new(txn.clone(), None)?,
-        );
+    let store_reader = new_lmdbx_store(PathBuf::new().join("db").to_str().unwrap())?;
 
     store_reader.initialize_store()?;
     //let worker_count = 16usize;
