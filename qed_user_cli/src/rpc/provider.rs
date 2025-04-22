@@ -1,7 +1,9 @@
-use std::sync::Arc;
+use std::{fs, sync::Arc};
 
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
+use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_store::store::imm::cmd_processor::QEDReadCommandProcessorSync;
+use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
 
 use crate::rpc::request::{
@@ -20,28 +22,32 @@ use super::request::{
 
 #[derive(Clone, Debug)]
 pub struct RpcProvider {
-    client: Arc<Client>,
-    url: &'static str,
+    pub client: Arc<Client>,
+    pub config: RpcConfig,
+    pub current_user_id: u64,
 }
 
 impl RpcProvider {
-    pub fn new(url: &str) -> Self {
-        Self {
+    pub fn new(config_path: &str) -> anyhow::Result<Self> {
+        let config: RpcConfig = serde_json::from_str(&fs::read_to_string(config_path)?)?;
+        assert!(config.realm_configs.len() > 0);
+        assert!(config.cooridinator_configs.len() > 0);
+        Ok(Self {
             client: Arc::new(Client::new()),
-            url: Box::leak(url.to_string().into_boxed_str()),
-        }
+            config,
+            current_user_id: 0,
+        })
     }
 }
 
-#[macro_export]
 macro_rules! qed_rpc_call {
-    ($instance:ident, $params:expr) => {{
+    ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
         let response = $instance
             .client
-            .post($instance.url)
+            .post($rpc_url)
             .json(&RpcRequest {
                 jsonrpc: Version::V2,
-                request: $params,
+                request: $rpc_params,
                 id: Id::Number(1),
             })
             .send()
@@ -59,13 +65,13 @@ macro_rules! qed_rpc_call {
 
 #[macro_export]
 macro_rules! qed_rpc_call_back {
-    ($instance:ident, $params:expr) => {{
+    ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
         $instance
             .client
-            .post($instance.url)
+            .post($rpc_url)
             .json(&RpcRequest {
                 jsonrpc: Version::V2,
-                request: $params,
+                request: $rpc_params,
                 id: Id::Number(1),
             })
             .send()
@@ -110,44 +116,60 @@ impl QUserRpcProvider for RpcProvider {
         &self,
         req: QRegisterUserRPCRequest<F>,
     ) -> anyhow::Result<()> {
-        qed_rpc_call!(self, RequestParams::<F>::RegisterUser(req))
+        qed_rpc_call!(
+            self,
+            &self.config.cooridinator_configs[0],
+            RequestParams::<F>::RegisterUser(req)
+        )
     }
     async fn produce_block<F: RichField>(&self) -> anyhow::Result<()> {
-        qed_rpc_call!(self, RequestParams::<F>::ProduceBlock)
+        qed_rpc_call!(
+            self,
+            &self.config.cooridinator_configs[0],
+            RequestParams::<F>::ProduceBlock
+        )
     }
     async fn add_withdrawal<F: RichField>(
         &self,
         req: QAddWithdrawalRPCRequest,
     ) -> anyhow::Result<()> {
-        qed_rpc_call!(self, RequestParams::<F>::AddWithdrawal(req))
+        unimplemented!()
     }
 
     async fn claim_deposit<F: RichField>(
         &self,
         req: QClaimDepositRPCRequest,
     ) -> anyhow::Result<()> {
-        qed_rpc_call!(self, RequestParams::<F>::ClaimDeposit(req))
+        unimplemented!()
     }
 
     async fn token_transfer<F: RichField>(
         &self,
         req: QTokenTransferRPCRequest,
     ) -> anyhow::Result<()> {
-        qed_rpc_call!(self, RequestParams::<F>::TokenTransfer(req))
+        unimplemented!()
     }
 
     async fn deploy_contract<F: RichField>(
         &self,
         req: QDeployContractRPCRequest<F>,
     ) -> anyhow::Result<()> {
-        qed_rpc_call!(self, RequestParams::<F>::DeployContract(req))
+        qed_rpc_call!(
+            self,
+            &self.config.cooridinator_configs[0],
+            RequestParams::<F>::DeployContract(req)
+        )
     }
 
     async fn submit_end_cap_proof<F: RichField>(
         &self,
         req: QSubmitEndCapRPCRequest<F>,
     ) -> anyhow::Result<()> {
-        qed_rpc_call!(self, RequestParams::<F>::SubmitEndCap(req))
+        qed_rpc_call!(
+            self,
+            &self.config.cooridinator_configs[0],
+            RequestParams::<F>::SubmitEndCap(req)
+        )
     }
 }
 
@@ -237,11 +259,38 @@ impl QEDReadCommandProcessorSync<F> for RpcProvider {
 }
 
 impl RpcProvider {
+    pub async fn get_user_id<F: RichField>(
+        &self,
+        public_key: ZKPublicKeyInfo<F>,
+    ) -> anyhow::Result<u64> {
+        let response = qed_rpc_call_back!(
+            self,
+            &self.config.cooridinator_configs[0],
+            RequestParams::<F>::GetUserId(public_key)
+        );
+        match response.result {
+            ResponseResult::Success(res) => match res {
+                LPSResponse::GetUserId(user_id) => Ok(user_id),
+                _ => Err(anyhow::format_err!("rpc call return wrong data")),
+            },
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
+    pub fn get_realm_url(&self, user_id: u64) -> anyhow::Result<String> {
+        let realm_id = user_id / self.config.users_per_realm;
+        if realm_id >= self.config.realm_configs.len() as u64 {
+            anyhow::bail!("realm id out of range");
+        }
+        Ok(self.config.realm_configs[realm_id as usize].clone())
+    }
+
     async fn resolve_batch_async(
         &self,
         input: &qed_store::store::imm::cmd_processor::QEDReadCommandBatchInput,
     ) -> anyhow::Result<qed_store::store::imm::cmd_processor::QEDReadCommandBatchOutput<F>> {
-        let response = qed_rpc_call_back!(self, RequestParams::<F>::Batch(input.clone()));
+        let rpc_url = &self.config.cooridinator_configs[0];
+        let response = qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::Batch(input.clone()));
 
         match response.result {
             ResponseResult::Success(res) => match res {
@@ -256,7 +305,10 @@ impl RpcProvider {
         &self,
         input: &qed_store::store::imm::cmd::QSRHashCmd,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        let response = qed_rpc_call_back!(self, RequestParams::<F>::GetHash(input.clone()));
+        let user_id = input.user_id().unwrap_or(self.current_user_id);
+        let rpc_url = &self.get_realm_url(user_id)?;
+        let response =
+            qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetHash(input.clone()));
 
         match response.result {
             ResponseResult::Success(res) => match res {
@@ -273,7 +325,13 @@ impl RpcProvider {
     ) -> anyhow::Result<
         qed_crypto::hash::merkle::core::MerkleProofCore<qed_core::data::qhashout::QHashOut<F>>,
     > {
-        let response = qed_rpc_call_back!(self, RequestParams::<F>::GetMerkleProof(input.clone()));
+        let user_id = input.user_id().unwrap_or(self.current_user_id);
+        let rpc_url = &self.get_realm_url(user_id)?;
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetMerkleProof(input.clone())
+        );
 
         match response.result {
             ResponseResult::Success(res) => match res {
@@ -288,7 +346,12 @@ impl RpcProvider {
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetUserLeafData,
     ) -> anyhow::Result<qed_data::qdata::user::QEDUserLeaf<F>> {
-        let response = qed_rpc_call_back!(self, RequestParams::<F>::GetUserLeaf(input.clone()));
+        let rpc_url = &self.get_realm_url(input.user_id)?;
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetUserLeaf(input.clone())
+        );
 
         match response.result {
             ResponseResult::Success(res) => match res {
@@ -303,7 +366,12 @@ impl RpcProvider {
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetContractLeafData,
     ) -> anyhow::Result<qed_data::qdata::contract::QEDContractLeaf<F>> {
-        let response = qed_rpc_call_back!(self, RequestParams::<F>::GetContractLeaf(input.clone()));
+        let rpc_url = self.get_realm_url(self.current_user_id)?;
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetContractLeaf(input.clone())
+        );
 
         match response.result {
             ResponseResult::Success(res) => match res {
@@ -318,7 +386,12 @@ impl RpcProvider {
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetContractCodeDefinition,
     ) -> anyhow::Result<qed_data::qdata::contract::ContractCodeDefinition> {
-        let response = qed_rpc_call_back!(self, RequestParams::<F>::GetContractCode(input.clone()));
+        let rpc_url = &self.config.cooridinator_configs[0];
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetContractCode(input.clone())
+        );
 
         match response.result {
             ResponseResult::Success(res) => match res {
@@ -333,8 +406,12 @@ impl RpcProvider {
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetCheckpointLeafData,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDCheckpointLeaf<F>> {
-        let response =
-            qed_rpc_call_back!(self, RequestParams::<F>::GetCheckpointLeaf(input.clone()));
+        let rpc_url = &self.get_realm_url(self.current_user_id)?;
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetCheckpointLeaf(input.clone())
+        );
 
         match response.result {
             ResponseResult::Success(res) => match res {
@@ -349,7 +426,12 @@ impl RpcProvider {
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetL2BlockState,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
-        let response = qed_rpc_call_back!(self, RequestParams::<F>::GetL2BlockState(input.clone()));
+        let rpc_url = &self.get_realm_url(self.current_user_id)?;
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetL2BlockState(input.clone())
+        );
 
         match response.result {
             ResponseResult::Success(res) => match res {
@@ -363,7 +445,8 @@ impl RpcProvider {
     async fn resolve_get_latest_l2_block_state_async(
         &self,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
-        let response = qed_rpc_call_back!(self, RequestParams::<F>::GetLatestL2BlockState);
+        let rpc_url = &self.get_realm_url(self.current_user_id)?;
+        let response = qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetLatestL2BlockState);
 
         match response.result {
             ResponseResult::Success(res) => match res {
@@ -373,4 +456,10 @@ impl RpcProvider {
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RpcConfig {
+    pub users_per_realm: u64,
+    realm_configs: Vec<String>,
+    cooridinator_configs: Vec<String>,
 }

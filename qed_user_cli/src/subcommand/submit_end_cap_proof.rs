@@ -77,7 +77,7 @@ pub async fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     let contract_call_args: Vec<ContractCallArgs> =
         serde_json::from_str(&std::fs::read_to_string(&args.contract_call_path)?)?;
 
-    let st_provider = RpcProvider::new(&args.rpc_address);
+    let mut st_provider = RpcProvider::new(&args.rpc_config_path)?;
 
     let latest_l2_block_state = st_provider.resolve_get_latest_l2_block_state()?;
 
@@ -86,12 +86,19 @@ pub async fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
 
     let priv_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
-    let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+
+    let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey {
+        private_key: priv_key,
+    });
+
+    let user_id = st_provider.get_user_id(public_key).await?;
+    st_provider.current_user_id = user_id;
 
     let lps = QEDLocalProvingSessionStore::new_at(
         st_provider.clone(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
-        GoldilocksField::from_noncanonical_u64(0),
+        F::from_canonical_u64(user_id),
         GoldilocksField::ONE,
         UPS_SESSION_PROOF_TREE_HEIGHT as usize,
     );
@@ -106,7 +113,7 @@ pub async fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
 
     main_circuits.register_info(&mut circuit_info);
 
-    let mut mgr = UserProvingSessionManager::<GoldilocksField, QEDHasher, _, C, D>::new(
+    let mut mgr = UserProvingSessionManager::<F, QEDHasher, _, C, D>::new(
         lps,
         circuit_info,
         main_circuits.ups_circuit_whitelist_root,

@@ -6,7 +6,7 @@ use super::args::ProduceBlockArgs;
 use anyhow::Result;
 
 pub async fn run(args: ProduceBlockArgs) -> Result<()> {
-    let provider = RpcProvider::new(&args.rpc_address);
+    let provider = RpcProvider::new(&args.rpc_config_path)?;
     provider.produce_block::<GoldilocksField>().await?;
 
     Ok(())

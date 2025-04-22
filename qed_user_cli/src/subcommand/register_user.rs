@@ -16,7 +16,7 @@ const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
 pub async fn run(args: RegisterUserArgs) -> anyhow::Result<()> {
-    let provider = RpcProvider::new(&args.rpc_address);
+    let provider = RpcProvider::new(&args.rpc_config_path)?;
     if args.private_key.is_empty() {
         anyhow::bail!("you must provide --private-key");
     }

@@ -60,6 +60,8 @@ pub enum RequestParams<F: RichField> {
     RegisterUser(QRegisterUserRPCRequest<F>),
     #[serde(rename = "qed_produce_block")]
     ProduceBlock,
+    #[serde(rename = "qed_get_user_id")]
+    GetUserId(ZKPublicKeyInfo<F>),
 
     /// for realm edge
     TokenTransfer(QTokenTransferRPCRequest),
@@ -139,6 +141,7 @@ pub enum LPSResponse {
     GetCheckpointLeaf(QEDCheckpointLeaf<F>),
     GetL2BlockState(QEDL2BlockState),
     GetLatestL2BlockState(QEDL2BlockState),
+    GetUserId(u64),
 }
 
 /// Represents a JSON-RPC error

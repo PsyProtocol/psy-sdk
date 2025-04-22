@@ -23,7 +23,7 @@ pub async fn run(args: AddWithdrawalArgs) -> Result<()> {
     // } else {
     //     BTCAddress160::try_from_string(&args.destination)?.address
     // };
-    // let provider = RpcProvider::new(&args.rpc_address);
+    // let provider = RpcProvider::new(&args.rpc_config_path)?;
     // let network_magic = get_network_magic_for_str(args.network)?;
 
     // let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)

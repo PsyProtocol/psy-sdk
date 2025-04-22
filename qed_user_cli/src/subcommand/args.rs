@@ -17,7 +17,7 @@ pub struct RPCReplArgs {
     pub electrs_api: String,
 
     #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
-    pub rpc_address: String,
+    pub rpc_config_path: String,
 }
 
 #[derive(Clone, Args)]
@@ -53,7 +53,7 @@ pub struct SignHashArgs {
 #[derive(Clone, Args)]
 pub struct L1DepositArgs {
     #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
-    pub rpc_address: String,
+    pub rpc_config_path: String,
 
     #[clap(long, short)]
     pub private_key: String,
@@ -78,7 +78,7 @@ pub struct L1DepositArgs {
 #[derive(Clone, Args)]
 pub struct AddWithdrawalArgs {
     #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
-    pub rpc_address: String,
+    pub rpc_config_path: String,
 
     #[clap(long, default_value = "dogeregtest", env)]
     pub network: String,
@@ -104,7 +104,7 @@ pub struct AddWithdrawalArgs {
 #[derive(Clone, Args)]
 pub struct ClaimDepositArgs {
     #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
-    pub rpc_address: String,
+    pub rpc_config_path: String,
 
     #[clap(long, short)]
     pub private_key: String,
@@ -123,7 +123,7 @@ pub struct ClaimDepositArgs {
 #[derive(Clone, Args)]
 pub struct RegisterUserArgs {
     #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
-    pub rpc_address: String,
+    pub rpc_config_path: String,
     /// user private key
     #[clap(long, short, default_value = "")]
     pub private_key: String,
@@ -132,7 +132,7 @@ pub struct RegisterUserArgs {
 #[derive(Clone, Args)]
 pub struct TokenTransferArgs {
     #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
-    pub rpc_address: String,
+    pub rpc_config_path: String,
 
     #[clap(long, default_value = "dogeregtest", env)]
     pub network: String,
@@ -156,13 +156,13 @@ pub struct TokenTransferArgs {
 #[derive(Clone, Args)]
 pub struct ProduceBlockArgs {
     #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
-    pub rpc_address: String,
+    pub rpc_config_path: String,
 }
 
 #[derive(Clone, Args)]
 pub struct DeployContractArgs {
     #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
-    pub rpc_address: String,
+    pub rpc_config_path: String,
     #[clap(long, short, env)]
     pub private_key: String,
     #[clap(long, short)]
@@ -172,7 +172,7 @@ pub struct DeployContractArgs {
 #[derive(Clone, Args)]
 pub struct SubmitEndCapArgs {
     #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
-    pub rpc_address: String,
+    pub rpc_config_path: String,
     #[clap(long, short)]
     pub private_key: String,
     #[clap(long, short)]

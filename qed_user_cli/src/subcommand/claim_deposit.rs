@@ -16,12 +16,12 @@ type C = PoseidonGoldilocksConfig;
 type F = GoldilocksField;
 
 pub async fn run(args: ClaimDepositArgs) -> Result<()> {
-    let provider = RpcProvider::new(&args.rpc_address);
+    let provider = RpcProvider::new(&args.rpc_config_path)?;
 
     let network_magic = get_network_magic_for_str(args.network)?;
 
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-    let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)?;
+    let private_key = QHashOut::<F>::from_str(&args.private_key)?;
 
     wallet.add_private_key(SimpleQEDPrivateKey { private_key });
 

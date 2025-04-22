@@ -176,6 +176,18 @@ pub enum QSRHashCmd {
     GetUserRegistrationTreeLeafHash(QSRHashCmdGetUserRegistrationTreeLeafHash),
 }
 // end tree hash cmds
+impl QSRHashCmd{
+  pub fn user_id(&self) -> Option<u64>{
+    match self {
+        QSRHashCmd::GetUserContractStateTreeRoot(c) => Some(c.user_id),
+        QSRHashCmd::GetUserContractStateTreeLeafHash(c) => Some(c.user_id),
+        QSRHashCmd::GetUserContractTreeRoot(c) => Some(c.user_id),
+        QSRHashCmd::GetUserContractTreeLeafHash(c) => Some(c.user_id),
+        QSRHashCmd::GetUserTreeLeafHash(c) => Some(c.user_id),
+        _ => None,
+    }
+  }
+}
 
 // start tree merkle proof cmds
 
@@ -260,3 +272,18 @@ pub enum QSRMerkleCmd {
 }
 // end tree merkle proof cmds
 
+impl QSRMerkleCmd {
+  pub fn user_id(&self) -> Option<u64> {
+      match self {
+          QSRMerkleCmd::GetUserContractStateTreeMerkleProof(c) => Some(c.user_id),
+          QSRMerkleCmd::GetUserContractTreeMerkleProof(c) => Some(c.user_id),
+          QSRMerkleCmd::GetUserTreeMerkleProof(c) => Some(c.user_id),
+          QSRMerkleCmd::GetContractFunctionTreeMerkleProof(c) => None,
+          QSRMerkleCmd::GetContractTreeMerkleProof(c) => None,
+          QSRMerkleCmd::GetDepositTreeMerkleProof(c) => None,
+          QSRMerkleCmd::GetWithdrawalTreeMerkleProof(c) => None,
+          QSRMerkleCmd::GetCheckpointTreeMerkleProof(c) => None,
+          QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(c) => None,
+      }
+  }
+}

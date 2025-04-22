@@ -11,7 +11,7 @@ use super::args::L1DepositArgs;
 const MAX_CHECKPOINT_ID: u64 = 0xffffffff;
 
 pub async fn run(args: L1DepositArgs) -> Result<()> {
-    // let provider = RpcProvider::new(&args.rpc_address);
+    // let provider = RpcProvider::new(&args.rpc_config_path)?;
     // let mut wallet = MemorySecp256K1Wallet::new();
     // let api = BTCLinkAPI::new_str(&args.bitcoin_rpc, &args.electrs_api);
     // let from = BTCAddress160::from_p2pkh_key(

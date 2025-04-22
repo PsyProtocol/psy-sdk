@@ -16,7 +16,7 @@ type C = PoseidonGoldilocksConfig;
 type F = GoldilocksField;
 
 pub async fn run(args: TokenTransferArgs) -> Result<()> {
-    let provider = RpcProvider::new(&args.rpc_address);
+    let provider = RpcProvider::new(&args.rpc_config_path)?;
 
     let network_magic = get_network_magic_for_str(args.network)?;
 
