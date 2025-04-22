@@ -370,19 +370,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
 
         if let Some(ref mut body) = checked_function.body {
             *body = self.rewrite_expr(*body, ctx)?;
-            checked_function.return_type = self.program[*body].ty();
         }
 
         self.program
             .modify_definition(function_id, |def: &mut CheckedDefinitionNode| {
                 def.as_function_mut().unwrap().body = checked_function.body;
-                def.as_function_mut().unwrap().return_type = checked_function.return_type;
                 Ok(())
             })?;
         ctx.symbols
             .modify_type(checked_function.type_id, |ty: &mut Type| {
                 ty.as_function_mut().unwrap().body = checked_function.body;
-                ty.as_function_mut().unwrap().return_type = checked_function.return_type;
                 Ok(())
             })?;
 
