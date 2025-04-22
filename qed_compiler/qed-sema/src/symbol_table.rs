@@ -157,7 +157,7 @@ pub struct SymbolTable<F: Clone + From<u32> + ContextFelt> {
     scope_stack: Vec<ScopeId>,
     frames: Vec<Frame<CheckedValueRef<F>>>,
 
-    types: Vec<Type>,
+    pub types: Vec<Type>,
     consts: Vec<CheckedValueRef<F>>,
     variables: Vec<CheckedVariable<F>>,
     modules: Vec<Module>,

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{C, D, F, H};
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
-    plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
+    plonk::proof::ProofWithPublicInputs,
 };
 use qed_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT,
@@ -27,8 +27,7 @@ use qed_data::guta::{
 };
 use qed_node::realm::state::processor::RealmConfig;
 use qed_store::{
-    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
-    node::realm::QEDRealmStoreReaderAsync,
+    config::store_config::QCheckpointSyncInfoCompact, node::realm::QEDRealmStoreReaderAsync,
 };
 use tracing::debug;
 

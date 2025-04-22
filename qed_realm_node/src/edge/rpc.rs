@@ -10,7 +10,6 @@ use jsonrpsee::{
     server::ServerBuilder,
     types::error::{ErrorObject, INTERNAL_ERROR_CODE},
 };
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::{
     drain_queue::CheckpointDrainQueueEmitterAsyncImm,
@@ -20,6 +19,7 @@ use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
 use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qdata::{checkpoint::QEDL2BlockState, user::QEDUserLeaf};
+use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::store::imm::cmd::{
     QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData,
     QSRCmdGetL2BlockState, QSRCmdGetUserLeafData, QSRHashCmd, QSRMerkleCmd,
@@ -27,7 +27,6 @@ use qed_store::store::imm::cmd::{
 use qed_store::store::imm::cmd_processor::{
     QEDReadCommandBatchInput, QEDReadCommandBatchOutput, QEDReadCommandProcessorSync,
 };
-use qed_store::{config::store_config::QEDFelt, node::realm::QEDRealmStoreReaderAsync};
 use tracing::{error, info};
 
 /// RPC interface definition for Realm Edge node

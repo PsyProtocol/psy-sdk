@@ -29,33 +29,20 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     module
                 }
                 _ => {
-                    if ty.is_trait_cast() {
-                        let trait_ty = ty.as_trait_cast().unwrap().1;
-                        let impl_ty = ty.as_trait_cast().unwrap().0;
+                    if let Some((impl_ty, trait_ty, _)) = ty.as_trait_cast() {
                         let trait_type_id = self.typecheck(trait_ty, ctx)?;
                         let impl_ty_id = self.typecheck(impl_ty, ctx)?;
 
-                        if !ctx.symbols[trait_type_id].is_trait() {
-                            let mut impl_traits = Vec::new();
-                            let impl_poly_ty_id = self.poly_of(impl_ty_id, ctx).unwrap();
-
-                            if let Some(impl_map) =
-                                self.implementer.impl_ids().get(&impl_poly_ty_id)
-                            {
-                                for (_constraint, impl_set) in impl_map.iter() {
-                                    for impl_id in impl_set {
-                                        if let Some(impl_node) =
-                                            self.program[*impl_id].as_trait_impl()
-                                        {
-                                            impl_traits.push(impl_node.trait_ty);
-                                        };
-                                    }
-                                }
-                            }
-
+                        if !ctx.symbols[trait_type_id].is_trait()
+                            || !self.implements_trait(impl_ty_id, trait_type_id, ctx)
+                        {
                             return Err(Error::TypeMismatch {
                                 location: path.location,
-                                expected: impl_traits,
+                                expected: self
+                                    .implemented_traits(impl_ty_id, ctx)
+                                    .into_iter()
+                                    .map(|(trait_poly_ty, _)| trait_poly_ty)
+                                    .collect(),
                                 found: trait_type_id,
                             });
                         }
@@ -67,19 +54,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                                     segment: format!("{:?}", path.segments[0]),
                                 },
                             )?;
-                            let mut root_ty_id = self.find_trait_cast_member(
-                                impl_ty_id,
-                                trait_type_id,
-                                segment.id,
-                                ctx,
-                            )?;
+                            let mut root_ty_id =
+                                self.find_member(impl_ty_id, Some(trait_type_id), segment, ctx)?;
                             for segment in path.segments.iter().skip(1) {
                                 let segment =
                                     segment.basic_target().ok_or(Error::InvalidPathSegment {
-                                        location: path.segments[0].location(),
+                                        location: segment.location(),
                                         segment: format!("{:?}", segment),
                                     })?;
-                                root_ty_id = self.find_member(root_ty_id, segment.id, ctx)?;
+                                root_ty_id = self.find_member(root_ty_id, None, segment, ctx)?;
                             }
 
                             let path_target =
@@ -89,7 +72,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                                         location: path.segments[0].location(),
                                         segment: format!("{:?}", path.segments[0]),
                                     })?;
-                            let member_ty_id = self.find_member(root_ty_id, path_target.id, ctx)?;
+                            let member_ty_id =
+                                self.find_member(root_ty_id, None, path_target, ctx)?;
 
                             return Ok(CheckedPathNode::new(
                                 None,
@@ -100,14 +84,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                                 path.location,
                             ));
                         } else {
-                            if !path.target.is_basic() {
-                                unreachable!()
-                            }
                             let path_target = path.target.as_basic().unwrap();
-                            let member_ty_id = self.find_trait_cast_member(
+                            let member_ty_id = self.find_member(
                                 impl_ty_id,
-                                trait_type_id,
-                                path_target.id,
+                                Some(trait_type_id),
+                                path_target,
                                 ctx,
                             )?;
                             return Ok(CheckedPathNode::new(
@@ -128,9 +109,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         });
                     }
 
-                    if !path.target.is_basic() {
-                        unreachable!()
-                    }
                     let path_target = path.target.as_basic().unwrap();
 
                     let root_type_id = self.typecheck(ty, ctx)?;
@@ -228,7 +206,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         panic!("only last segment can be generic")
                     }
 
-                    let root_type_id = self.typecheck_type_in_module(src_module, segment, ctx)?;
+                    let root_type_id = self.resolve_module_type(path, src_module, segment, ctx)?;
 
                     if !path.target.is_basic() {
                         // generic function call's target is function name identifier, basic unchecked type
@@ -248,7 +226,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             }
         }
 
-        let type_id = self.typecheck_type_in_module(src_module, &path.target, ctx)?;
+        let type_id = self.resolve_module_type(path, src_module, &path.target, ctx)?;
         return Ok(CheckedPathNode::new(
             None,
             None,
@@ -371,18 +349,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         target: IdentId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId> {
-        let scope_id = ctx.symbols[root].scope_id();
-        if let Some(&type_id) = ctx.symbols[scope_id].types.get::<TypeKey>(&target.into()) {
-            if !ctx.symbols[type_id].visibility().is_public() {
-                return Err(Error::TypeNotPublic {
-                    location: path.location,
-                    ty: type_id,
-                });
-            }
-            return Ok(type_id);
-        }
+        // let scope_id = ctx.symbols[root].scope_id();
+        // if let Some(&type_id) = ctx.symbols[scope_id].types.get::<TypeKey>(&target.into()) {
+        //     if !ctx.symbols[type_id].visibility().is_public() {
+        //         return Err(Error::TypeNotPublic {
+        //             location: path.location,
+        //             ty: type_id,
+        //         });
+        //     }
+        //     return Ok(type_id);
+        // }
 
-        let method_type_id = self.find_member(root, target, ctx)?;
+        let method_type_id = self.find_member(root, None, target, ctx)?;
         if !ctx.symbols[method_type_id].visibility().is_public() {
             return Err(Error::MemberNotPublic {
                 location: path.location,
@@ -397,24 +375,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         &mut self,
         path: &PathNode,
         module: ModuleId,
-        ty: IdentId,
+        ty: &UncheckedType,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<TypeId> {
         let scope_id = ctx.symbols[module].scope_id;
-        let type_id = ctx.symbols[scope_id]
-            .types
-            .get::<TypeKey>(&ty.into())
-            .ok_or_else(|| Error::UnresolvedType {
-                location: path.location,
-                resolved_type: ty,
-            })?
-            .clone();
+        ctx.symbols.enter_scope(scope_id);
+        let type_id = self.typecheck(ty, ctx)?;
         if !ctx.symbols[type_id].visibility().is_public() {
             return Err(Error::TypeNotPublic {
                 location: path.location,
                 ty: type_id,
             });
         }
+        ctx.symbols.exit_scope();
         return Ok(type_id);
     }
 }
