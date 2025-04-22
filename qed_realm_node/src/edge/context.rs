@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::{C, D, F, H};
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
@@ -30,11 +31,6 @@ use qed_store::{
     node::realm::QEDRealmStoreReaderAsync,
 };
 use tracing::debug;
-
-type F = QEDFelt;
-type C = PoseidonGoldilocksConfig;
-const D: usize = 2;
-type H = QEDHasher;
 
 #[derive(Clone)]
 pub struct RealmEdgeContext<

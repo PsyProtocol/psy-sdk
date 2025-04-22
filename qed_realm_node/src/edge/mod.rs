@@ -4,15 +4,15 @@ pub mod request;
 pub mod rpc;
 
 use self::{context::RealmEdgeContext, rpc::start_realm_edge_rpc_server};
+use crate::{
+    config::RealmEdgeConfig, new_proof_store, new_store_reader, new_with_connection, C, D,
+};
 use anyhow::Result;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::realm::state::processor::RealmConfig;
 use std::clone::Clone;
 use std::sync::Arc;
 use tracing::info;
-
-use crate::edge::rpc::{C, D};
-use crate::{config::RealmEdgeConfig, new_proof_store, new_store_reader, new_with_connection};
 
 /// Start Realm Edge node
 pub async fn start_realm_edge_node(config: RealmEdgeConfig) -> Result<()> {

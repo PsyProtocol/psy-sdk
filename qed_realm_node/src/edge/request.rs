@@ -1,4 +1,4 @@
-use crate::edge::rpc::{C, D};
+use crate::{C, D};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::proof::ProofWithPublicInputs;

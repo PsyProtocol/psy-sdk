@@ -6,6 +6,8 @@ pub type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 pub const D: usize = 2;
 pub type F = qed_store::config::store_config::QEDFelt;
 
+pub type H = QEDHasher;
+
 pub mod config;
 pub mod edge;
 
@@ -13,6 +15,7 @@ use fred::prelude::*;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
+use qed_store::config::store_config::QEDHasher;
 use qed_store::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RW};
 use std::path::PathBuf;

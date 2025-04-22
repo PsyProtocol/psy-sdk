@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use super::{context::RealmEdgeContext, error::RpcError};
 use crate::edge::request::QSubmitEndCapRPCRequest;
+use crate::F;
 use anyhow::Result;
 use jsonrpsee::{
     core::{async_trait, RpcResult},
@@ -28,10 +29,6 @@ use qed_store::store::imm::cmd_processor::{
 };
 use qed_store::{config::store_config::QEDFelt, node::realm::QEDRealmStoreReaderAsync};
 use tracing::{error, info};
-
-pub type F = QEDFelt;
-pub type C = PoseidonGoldilocksConfig;
-pub const D: usize = 2;
 
 /// RPC interface definition for Realm Edge node
 #[rpc(server, client, namespace = "qed")]
