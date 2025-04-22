@@ -4,4 +4,42 @@ name    = "qed_rpc_node"
 version = "0.1.0"
 
 [dependencies]
+dotenv = "0.15"
+tokio = { version = "1", features = ["full"] }
+jsonrpsee = { version = "0.24", features = ["server"] }
+anyhow = "1.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+async-trait = "0.1.88"
+envy = "0.4"
 
+fred = { workspace = true }
+plonky2 = { workspace = true }
+tempfile = {workspace = true}
+
+qed_node = {path = "../qed_node"}
+qed_crypto = {path = "../qed_crypto"}
+qed_store = {path = "../qed_store"}
+qed_core = {path = "../qed_core"}
+qed_data = { path = "../qed_data" }
+qed_node_common = { path = "../qed_node_common" }
+kvq_store_lmdbx = { path = "../kvq_store_lmdbx" }
+kvq = { path = "../kvq" }
+reth-libmdbx  = { path = "../kvq_store_lmdbx/libmdbx-rs" }
+tracing = "0.1.41"
+lazy_static = "1.5"
+rand = "0.8.5"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "chrono"] }
+once_cell = "1.21.3"
+bincode = { version = "2.0.0-rc", features = ["serde"] }
+base64 = "0.22.1"
+dotenvy = { version = "0.15"}
+
+[[bin]]
+name = "coordinator-edge"
+path = "src/coordinator_edge/main.rs"
+
+#[[bin]]
+#name = "realm-edge"
+#path = "src/realm_edge/main.rs"
