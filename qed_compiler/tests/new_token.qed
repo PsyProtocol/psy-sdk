@@ -30,6 +30,25 @@ impl UserStateRef {
 
         self.balance.set(current_balance - amount);
     }
+
+    pub fn claim(self, sender: Felt) {
+        let self_user_id = get_user_id();
+        assert(sender != self_user_id, "you cannot claim from your self");
+
+        let sender_user_contract = UserStateRef::new(ContractMetadata::new(get_contract_id(), sender));
+        let sender_total_sent = sender_user_contract.other_user_info.index(self_user_id).get().amount_sent;
+
+        let mut sender_info = self.other_user_info.index(sender).get();
+        assert(sender_info.amount_claimed < sender_total_sent, "no tokens to claim from this sender");
+        let claimed = sender_total_sent - sender_info.amount_claimed;
+
+        self.other_user_info.index(sender).set(new OtherUserInfo {
+            amount_sent: sender_info.amount_sent,
+            amount_claimed: sender_total_sent
+        });
+
+        self.balance.set(self.balance.get() + claimed);
+    }
 }
 
 fn main() {
