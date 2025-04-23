@@ -12,52 +12,56 @@ struct UserState {
 }
 
 impl UserStateRef {
-    pub fn mint(self, amount: Felt) {
-        self.balance.set(self.balance.get() + amount);
+    pub fn mint(amount: Felt) {
+        let c = UserStateRef::new(ContractMetadata::current());
+        c.balance.set(c.balance.get() + amount);
     }
 
-    pub fn transfer(self, recipient: Felt, amount: Felt) {
-        let current_balance = self.balance.get();
+    pub fn transfer(recipient: Felt, amount: Felt) {
+        let c = UserStateRef::new(ContractMetadata::current());
+        let current_balance = c.balance.get();
         assert(current_balance >= amount, "insufficient balance");
 
-        let mut recipient_info = self.other_user_info.index(recipient).get();
+        let mut recipient_info = c.other_user_info.index(recipient).get();
         assert(recipient_info.amount_sent + amount > recipient_info.amount_sent, "amount sent overflow");
 
-        self.other_user_info.index(recipient).set(new OtherUserInfo {
+        c.other_user_info.index(recipient).set(new OtherUserInfo {
             amount_sent: recipient_info.amount_sent + amount,
             amount_claimed: recipient_info.amount_claimed
         });
 
-        self.balance.set(current_balance - amount);
+        c.balance.set(current_balance - amount);
     }
 
-    pub fn claim(self, sender: Felt) {
+    pub fn claim(sender: Felt) {
         let self_user_id = get_user_id();
         assert(sender != self_user_id, "you cannot claim from your self");
+
+        let c = UserStateRef::new(ContractMetadata::current());
 
         let sender_user_contract = UserStateRef::new(ContractMetadata::new(get_contract_id(), sender));
         let sender_total_sent = sender_user_contract.other_user_info.index(self_user_id).get().amount_sent;
 
-        let mut sender_info = self.other_user_info.index(sender).get();
+        let mut sender_info = c.other_user_info.index(sender).get();
         assert(sender_info.amount_claimed < sender_total_sent, "no tokens to claim from this sender");
         let claimed = sender_total_sent - sender_info.amount_claimed;
 
-        self.other_user_info.index(sender).set(new OtherUserInfo {
+        c.other_user_info.index(sender).set(new OtherUserInfo {
             amount_sent: sender_info.amount_sent,
             amount_claimed: sender_total_sent
         });
 
-        self.balance.set(self.balance.get() + claimed);
+        c.balance.set(c.balance.get() + claimed);
     }
 }
 
 fn main() {
     let c = UserStateRef::new(ContractMetadata::current());
-    c.mint(100);
+    UserStateRef::mint(100);
 
     assert_eq(c.balance.get(), 100, "c.balance == 100");
 
-    c.transfer(10, 50);
+    UserStateRef::transfer(10, 50);
     assert_eq(c.balance.get(), 50, "c.balance == 50");
     assert_eq(c.other_user_info.index(10).get().amount_sent, 50, "c.other_user_info[10].amount_sent == 50");
 }

@@ -39,7 +39,7 @@ impl<'a> StorageProcessor<'a> {
             body: methods,
             comments: vec![],
             location: attr.location,
-            is_generated: false,
+            is_generated: true,
         }
     }
 
@@ -75,7 +75,7 @@ impl<'a> StorageProcessor<'a> {
                 body: methods,
                 comments: vec![],
                 location: attr.location,
-                is_generated: false,
+                is_generated: true,
             })
         } else {
             None
@@ -161,7 +161,7 @@ impl<'a> StorageProcessor<'a> {
             visibility: struct_node.visibility,
             comments: struct_node.comments.clone(),
             location: attr.location,
-            is_generated: false,
+            is_generated: true,
         }
     }
 
@@ -424,7 +424,7 @@ impl<'a> StorageProcessor<'a> {
             body: methods,
             comments: vec![],
             location: attr.location,
-            is_generated: false,
+            is_generated: true,
         }
     }
 
@@ -2019,7 +2019,7 @@ impl<'a, F: Clone + From<u32> + 'static, C> AstVisitor<F, C> for StorageProcesso
                     body: methods,
                     comments: vec![],
                     location: attr.location,
-                    is_generated: false,
+                    is_generated: true,
                 };
                 ctx.insert_definition(DefinitionNode::Impl(impl_node), InsertPosition::End);
 
