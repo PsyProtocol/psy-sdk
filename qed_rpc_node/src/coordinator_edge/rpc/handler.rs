@@ -129,6 +129,8 @@ impl CoordinatorEdgeHandler {
                                     next_checkpoint += 1;
                                     LATEST_CHECKPOINT_ID
                                         .store(job_id.checkpoint_id, Ordering::Relaxed);
+                                    info!("✅ process_realm_job success");
+                                    info!("ℹ️ latest checkpoint now = {}", job_id.checkpoint_id);
                                 }
                             }
                             Err(e) => {

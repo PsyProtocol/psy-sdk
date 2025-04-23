@@ -59,6 +59,22 @@ impl<
            last_chkpnt_id: latest.checkpoint_id,
         })
     }
+    pub async fn init(
+        coordinator_config: CoordinatorConfig,
+        store_reader: Arc<SR>,
+        checkpoint_queue: Arc<DQ>,
+        proof_store: Arc<PS>,
+        proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+    ) -> anyhow::Result<Self> {
+        Ok(Self {
+            coordinator_config,
+            store_reader,
+            checkpoint_queue,
+            proof_store,
+            proof_verifier,
+            last_chkpnt_id: 0,
+        })
+    }
 
     pub fn verify_proof_of_type(
         &self,

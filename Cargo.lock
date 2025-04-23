@@ -547,26 +547,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bincode"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36eaf5d7b090263e8150820482d5d93cd964a81e4019913c972f4edcc6edb740"
-dependencies = [
- "bincode_derive",
- "serde",
- "unty",
-]
-
-[[package]]
-name = "bincode_derive"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf95709a440f45e986983918d0e8a1f30a9b1df04918fc828670606804ac3c09"
-dependencies = [
- "virtue",
-]
-
-[[package]]
 name = "bindgen"
 version = "0.69.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3929,7 +3909,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ariadne",
- "bincode 1.3.3",
+ "bincode",
  "clap",
  "dotenv",
  "kvq",
@@ -4146,7 +4126,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "bincode 1.3.3",
+ "bincode",
  "bitcoin",
  "bitflags 2.9.0",
  "criterion",
@@ -4212,7 +4192,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "bincode 1.3.3",
+ "bincode",
  "hex",
  "hex-literal",
  "kvq",
@@ -4234,7 +4214,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "bincode 1.3.3",
+ "bincode",
  "bitflags 2.9.0",
  "bs58",
  "hashbrown 0.14.5",
@@ -4265,7 +4245,7 @@ name = "qed_data"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bincode 1.3.3",
+ "bincode",
  "chrono",
  "hex",
  "hex-literal",
@@ -4286,7 +4266,7 @@ name = "qed_exec"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bincode 1.3.3",
+ "bincode",
  "hex",
  "hex-literal",
  "kvq",
@@ -4312,7 +4292,7 @@ dependencies = [
  "amqprs",
  "anyhow",
  "async-trait",
- "bincode 1.3.3",
+ "bincode",
  "broccoli_queue",
  "chrono",
  "fred",
@@ -4354,7 +4334,7 @@ name = "qed_node_common"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bincode 1.3.3",
+ "bincode",
  "chrono",
  "hex",
  "hex-literal",
@@ -4368,7 +4348,7 @@ dependencies = [
  "qed_crypto",
  "qed_data",
  "qed_store",
- "rand 0.9.1",
+ "rand 0.9.0",
  "reth-libmdbx",
  "serde",
  "serde_json",
@@ -4383,7 +4363,7 @@ name = "qed_prover"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bincode 1.3.3",
+ "bincode",
  "hex",
  "hex-literal",
  "kvq",
@@ -4442,7 +4422,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "bincode 1.3.3",
+ "bincode",
  "hex",
  "hex-literal",
  "lazy_static",
@@ -4466,29 +4446,34 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64",
- "bincode 2.0.1",
+ "bincode",
  "dotenv",
  "dotenvy",
+ "env_logger",
  "envy",
  "fred",
+ "hex",
  "jsonrpsee",
  "kvq",
  "kvq_store_lmdbx",
  "lazy_static",
+ "log",
  "once_cell",
  "plonky2",
+ "qed_common_circuit",
  "qed_core",
  "qed_crypto",
  "qed_data",
  "qed_node",
  "qed_node_common",
  "qed_store",
- "rand 0.8.5",
+ "qed_test_sandbox",
+ "rand 0.9.0",
  "reth-libmdbx",
  "serde",
  "serde_json",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -4500,7 +4485,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "bincode 1.3.3",
+ "bincode",
  "fred",
  "futures",
  "hex",
@@ -4559,7 +4544,7 @@ name = "qed_test_sandbox"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bincode 1.3.3",
+ "bincode",
  "fred",
  "hex",
  "hex-literal",
@@ -4596,7 +4581,7 @@ name = "qedlang_core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bincode 1.3.3",
+ "bincode",
  "hashbrown 0.14.5",
  "hex",
  "hex-literal",
@@ -6486,12 +6471,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
-name = "unty"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
-
-[[package]]
 name = "url"
 version = "2.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6548,12 +6527,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "virtue"
-version = "0.0.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "051eb1abcf10076295e815102942cc58f9d5e3b4560e46e53c21e8ff6f3af7b1"
 
 [[package]]
 name = "waker-fn"
