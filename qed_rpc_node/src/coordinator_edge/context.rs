@@ -3,11 +3,15 @@ use std::sync::{Arc, atomic::AtomicU64};
 use tokio::sync::RwLock;
 use once_cell::sync::Lazy;
 use anyhow::anyhow;
+use dashmap::DashMap;
 use lazy_static::lazy_static;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
+use qed_core::data::qhashout::QHashOut;
+use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
+use qed_store::config::store_config::QEDFelt;
 use reth_libmdbx::{RO, RW};
 
 type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>>;
@@ -20,6 +24,8 @@ lazy_static! {
         Arc::new(RwLock::new(None));
 }
 pub static LATEST_CHECKPOINT_ID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
+pub static REGISTER_USER_COUNTER: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
+pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, u64>> = Lazy::new(DashMap::new);
 
 pub async fn with_ctx_read_async<F, Fut, R>(f: F) -> anyhow::Result<R>
 where
