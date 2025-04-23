@@ -5,6 +5,9 @@ LOG_LEVE                := info
 FILE                    := qed_compiler/tests/new_token.qed
 PARAMETERS              :=
 
+COORDINATOR_DB_PATH     := $(PWD)/db/coordinator
+REALM_DB_PATH           := $(PWD)/db/realm
+
 check:
 	@cargo check --all-targets --examples
 
@@ -73,5 +76,12 @@ test:
 
 update-snapshots:
 	@cargo insta review
+
+run-coordinator-processor:
+	@RUST_LOG=${LOG_LEVE} cargo run --package qed_coordinator_node --bin qed_coordinator_node --release processor --storage-db-path ${COORDINATOR_DB_PATH}
+
+run-coordinator-edge:
+	@RUST_LOG=${LOG_LEVE} cargo run --package qed_rpc_node --release processor --storage-db-path ${COORDINATOR_DB_PATH}
+
 
 .PHONE: check fix build format run test update-snapshots

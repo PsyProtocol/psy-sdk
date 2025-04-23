@@ -70,7 +70,7 @@ bitcoin = { version = "0.31.1", features = ["serde", "rand"] }
 chrono = "0.4.39"
 
 
-rand = "0.9"
+rand = "0.8.5"
 rand_core = "0.9"
 rand_pcg = "0.9"
 rayon = { version = "1.10.0" }

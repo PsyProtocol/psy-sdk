@@ -5,7 +5,6 @@ use qed_core::{
 };
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use std::time::Duration;
-use fred::clients::dynamic_pool;
 use qed_node::nimpl::new_fred_pool;
 
 fn gen_jobs_ids(checkpoint_id: u64, height: usize) -> Vec<Vec<QProvingJobDataID>> {
@@ -37,9 +36,9 @@ fn gen_jobs_ids(checkpoint_id: u64, height: usize) -> Vec<Vec<QProvingJobDataID>
 async fn run_fred_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
-    
+
     let pool = new_fred_pool("redis://127.0.0.1:6379",8).await?;
-    
+
     timer.lap("connected to redis");
 
     let q = ProofStoreFred::new(pool, "wq1".to_string(),"nq1".to_string());

@@ -46,7 +46,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("start");
 
     let pool = new_fred_pool("redis://127.0.0.1:6379",8).await?;
-    
+
     timer.lap("connected to redis");
 
     let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
@@ -387,8 +387,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     ).await?;
 
     timer.lap("finished jobs");
-
-    txn.commit()?;
     Ok(())
 }
 #[tokio::main]
