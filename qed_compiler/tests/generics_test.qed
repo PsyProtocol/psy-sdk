@@ -4,25 +4,37 @@ impl<T, N: u32> [T; N] {
     }
 }
 
-pub trait Two {
+pub trait One {
+    pub fn One() -> Felt {
+        1
+    }
+}
+
+impl One for u32 {
+    pub fn One() -> Felt {
+        1
+    }
+}
+
+pub trait Two<T: One> {
     pub fn two() -> Felt {
         2
     }
 }
 
-impl Two for Felt {
+impl<T: One> Two<T> for Felt {
     pub fn two() -> Felt {
         2
     }
 }
 
-struct Box<T: Two> {
+struct Box<K: One, T: Two<K>> {
     pub data: T,
     pub extra: Felt,
 }
 
-impl<T: Two> Box<T> {
-    pub fn new(data: T) -> Box<T> {
+impl<K: One, T: Two<K>> Box<K, T> {
+    pub fn new(data: T) -> Box<K, T> {
         return new Box {
             data: data,
             extra: T::two(),
@@ -33,11 +45,11 @@ impl<T: Two> Box<T> {
 // input:
 // output: 49
 fn main() -> Felt {
-    let bb = new Box#<Felt> {
-        data: 0,
+    let bb = new Box#<u32, Felt> {
+        data: 1,
         extra: 1,
     };
-    let mut b: Box<Felt> = <Box<Felt>>::new(42);
+    let mut b: Box<u32, Felt> = <Box<u32, Felt>>::new(42);
     b.data += 1;
-    b.data + (<[Felt; 3]>::len() as Felt) + b.extra
+    b.data + (<[Felt; 3]>::len() as Felt) + b.extra + <Felt as Two<u32>>::two()
 }

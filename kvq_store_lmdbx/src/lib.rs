@@ -4,6 +4,7 @@ use reth_libmdbx::{
 };
 use std::ops::RangeInclusive;
 
+#[derive(Debug)]
 pub struct KVQlibmdbxStore<K: TransactionKind> {
     txn: Transaction<K>,
     db: Database,
@@ -239,6 +240,36 @@ impl KVQBinaryStoreWriter for KVQlibmdbxStore<RW> {
     }
 }
 
+//warning: This is a read-only transaction, so all write operations will fail.
+impl KVQBinaryStoreWriter for KVQlibmdbxStore<RO> {
+    fn set(&mut self, _key: Vec<u8>, _value: Vec<u8>) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!("Attempted to write using a read-only LMDB transaction"))
+    }
+
+    fn set_ref(&mut self, _key: &Vec<u8>, _value: &Vec<u8>) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!("Attempted to write using a read-only LMDB transaction"))
+    }
+
+    fn set_many_ref(&mut self, _items: &[KVQPair<&Vec<u8>, &Vec<u8>>]) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!("Attempted to write using a read-only LMDB transaction"))
+    }
+
+    fn set_many_vec(&mut self, _items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!("Attempted to write using a read-only LMDB transaction"))
+    }
+
+    fn delete(&mut self, _key: &Vec<u8>) -> anyhow::Result<bool> {
+        Err(anyhow::anyhow!("Attempted to delete using a read-only LMDB transaction"))
+    }
+
+    fn delete_many(&mut self, _keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>> {
+        Err(anyhow::anyhow!("Attempted to delete using a read-only LMDB transaction"))
+    }
+
+    fn set_many_split_ref(&mut self, _keys: &[Vec<u8>], _values: &[Vec<u8>]) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!("Attempted to write using a read-only LMDB transaction"))
+    }
+}
 fn range_to_inclusive(start: &[u8], end: &[u8]) -> RangeInclusive<Vec<u8>> {
     let start_vec = start.to_vec();
     let end_vec = end.to_vec();

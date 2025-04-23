@@ -26,7 +26,7 @@ fn test_main() {
 
 ## Compiling
 
-Run the program using the compiler:
+run the program using the compiler:
 ```
 dargo compile
 ```

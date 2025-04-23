@@ -4,6 +4,7 @@ mod control;
 pub mod error;
 mod preprocess;
 
+use crate::error::{parse_error_to_diagnostic, typecheck_error_to_diagnostic};
 use crate::{
     control::ControlState,
     error::{lowering_parse_error, lowering_sema_error},
@@ -175,7 +176,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 .into_iter()
                 .map(|method_name| {
                     let method_name = ctx.intern(method_name.into());
-                    Ok(typechecker.find_member(type_id, method_name, ctx)?)
+                    Ok(typechecker.find_member(type_id, None, method_name, ctx)?)
                 })
                 .collect::<Result<Vec<TypeId>>>()?
         } else {
@@ -374,9 +375,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             DefaultVisitorContext::new(&mut program);
         storage_preprocessor.visit_program(&mut default_visitor_context)?;
 
-        // let mut formatter = Formatter::new();
-        // formatter.visit_program(&mut default_visitor_context)?;
-        // println!("formatted:\n{}", formatter.get_output());
+        let mut formatter = Formatter::new();
+        formatter.visit_program(&mut default_visitor_context)?;
+        println!("formatted:\n{}", formatter.get_output());
 
         let mut typechecker_context = TypeCheckerVisitorContext::new(program);
         typechecker
@@ -388,6 +389,71 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         Ok((typechecker, typechecker_context))
     }
 
+    pub fn typecheck_lsp(
+        &mut self,
+        entry: PathBuf,
+        dependencies_entry: Vec<PathBuf>,
+    ) -> std::result::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>), TypeCheckError>
+    where
+        F: 'static,
+    {
+        let mut module_entry_paths = vec![entry];
+        module_entry_paths.extend(dependencies_entry);
+        let mut program = Program::new();
+        for module_entry in module_entry_paths {
+            Parser::new(&mut program)
+                .parse(&mut self.context, module_entry.clone())
+                .map_err(|err| {
+                    let err_desc = parse_error_to_diagnostic(&err, &program);
+                    TypeCheckError::Parse(err_desc)
+                })?;
+        }
+
+        for module in program.modules.iter() {
+            let module_id = module.id();
+            for def_id in module.data().definitions.iter() {
+                let def_node = &program.defs[*def_id];
+                if let DefinitionNode::Use(node) = def_node {
+                    let use_mod_name = node.kind.id;
+                    for m in program.modules.iter() {
+                        if use_mod_name == m.data().name {
+                            program.dependency_graph.add_edge(module_id, m.id());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        match program.dependency_graph.check_cycle::<qed_parser::Error>() {
+            Ok(_) => {}
+            Err(e) => {
+                let message = format!("Cycle error: {}", e);
+                eprintln!("Error: {}", message);
+                return Err(TypeCheckError::Cycle(message));
+            }
+        }
+
+        let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
+        let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
+        let mut default_visitor_context: DefaultVisitorContext<'_, F, C> =
+            DefaultVisitorContext::new(&mut program);
+        match storage_preprocessor.visit_program(&mut default_visitor_context) {
+            Ok(_) => {}
+            Err(e) => {
+                let message = format!("Storage analysis error: {}", e);
+                return Err(TypeCheckError::StoragePreprocess(message));
+            }
+        }
+
+        let mut typechecker_context = TypeCheckerVisitorContext::new(program);
+        typechecker
+            .visit_program(&mut typechecker_context)
+            .map_err(|err| {
+                let err_desc = typecheck_error_to_diagnostic(&err, &mut typechecker_context);
+                TypeCheckError::TypeCheck(err_desc)
+            })?;
+        Ok((typechecker, typechecker_context))
+    }
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_function(
         &mut self,
@@ -426,7 +492,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         }
         Ok(ControlState::Return(self.interpret_expr(
             program,
-            ctx.symbols[type_id].body(),
+            ctx.symbols[type_id].body().unwrap(),
             ctx,
         )?))
     }

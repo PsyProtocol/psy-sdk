@@ -214,7 +214,21 @@ TraitImplDef: TraitImplNode = {
 AssociatedTypeValue: (Identifier, AssociatedTypeValue) = {
     <l:@L> <comments: Comment*> <visibility: Visibility> TYPE <name:Identifier> "=" <ty:Ty> ";" <r:@R> =>  (
         name,
-        AssociatedTypeValue {ty, comments, visibility, location: Location::new(file_id, l, r)}
+        AssociatedTypeValue {
+            ty,
+            comments,
+            visibility,
+            location: Location::new(file_id, l, r)
+        }
+    ),
+    <l:@L> <comments: Comment*> <visibility: Visibility> TYPE <name:Identifier> "=" "<" <path:PathExpression> ">" ";" <r:@R> =>  (
+        name,
+        AssociatedTypeValue {
+            ty: UncheckedType::Path(Box::new(path.into_path().unwrap())),
+            comments,
+            visibility,
+            location: Location::new(file_id, l, r)
+        }
     ),
 }
 
@@ -269,6 +283,7 @@ StructDef: StructNode = {
         visibility,
         comments,
         location: Location::new(file_id, l, r),
+        is_generated: false
     }
 }
 
@@ -352,6 +367,7 @@ FunctionSignature: UncheckedType = {
 }
 
 FunctionParameter: FunctionParameter = {
+    <l:@L> <type_qualifier: TypeQualifier> <name:IdentifierOrSelf> ":" "<" <path:PathExpression> ">" <r:@R> => FunctionParameter::new(name, type_qualifier, UncheckedType::Path(Box::new(path.into_path().unwrap())), Location::new(file_id, l, r)),
     <l:@L> <type_qualifier: TypeQualifier> <name:IdentifierOrSelf> ":" <ty:Ty> <r:@R> => FunctionParameter::new(name, type_qualifier, ty, Location::new(file_id, l, r)),
     <l:@L> <type_qualifier: TypeQualifier> <name:SELF> <r:@R> => {
         FunctionParameter::new(
@@ -383,9 +399,9 @@ TypeAnnotation: (Identifier, UncheckedType) = {
 }
 
 FieldTypeAnnotation: (Identifier, StructField)  = {
-    <l:@L> <comments: Comment*> <visibility:Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (
+    <l:@L> <comments: Comment*> <attrs:Attribute*> <visibility:Visibility> <name:Identifier> ":" <ty:Ty> <r:@R> => (
         name,
-        StructField { ty, visibility, comments, location: Location::new(file_id, l, r) }
+        StructField { ty, attrs, visibility, comments, location: Location::new(file_id, l, r) }
     ),
 }
 
@@ -954,14 +970,22 @@ UseNode: (Identifier, Vec<Identifier>, Option<Identifier>) =
     };
 
 Monomorphization: Vec<UncheckedType> = {
-    <l:@L> "#" "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => generic_parameters,
+    <l:@L> "#" "<" <generic_parameters:Comma<MonomorphizationTy>> ">" <r:@R> => generic_parameters,
     () => vec![]
 }
 
-Ty: UncheckedType = {
+MonomorphizationTy: UncheckedType = {
+    ConstValue,
+    Ty
+}
+
+ConstValue: UncheckedType = {
     <l:@L> <n:U64> <r:@R> => UncheckedType::Const(ConstValue::Felt(n), Location::new(file_id, l, r)),
     <l:@L> <n:BOOL> <r:@R> => UncheckedType::Const(ConstValue::Bool(n), Location::new(file_id, l, r)),
     <l:@L> <n:U32> <r:@R> => UncheckedType::Const(ConstValue::U32(n), Location::new(file_id, l, r)),
+}
+
+Ty: UncheckedType = {
     BasicType,
     ArrayType,
     TupleType,
@@ -970,7 +994,7 @@ Ty: UncheckedType = {
 }
 
 GenericType: UncheckedType = {
-    <l:@L> <name:Identifier> "<" <generic_parameters:Comma<Ty>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters, Location::new(file_id, l, r)),
+    <l:@L> <name:Identifier> "<" <generic_parameters:Comma<MonomorphizationTy>> ">" <r:@R> => UncheckedType::Generic(name, generic_parameters, Location::new(file_id, l, r)),
     <l:@L>  "[" <ty:Ty> ";" <n:Identifier> "]" <r:@R> => UncheckedType::Generic(
         Identifier::new(IdentId::TYPE_ARRAY, Location::new(file_id, l, r)),
         vec![ty, UncheckedType::Basic(n)],
@@ -1019,23 +1043,18 @@ IdentifierOrNew: Identifier = {
 PathRoot: UncheckedType = {
     BasicType,
     "<" <root: ArrayType> ">"   => root,
-    "<" <root: TupleType> ">"   => root,
     "<" <root: GenericType> ">" => root,
     <l:@L> "<" <ty:Ty> AS <trait_ty:Ty> ">" <r:@R> => UncheckedType::TraitCast(Box::new(ty), Box::new(trait_ty), Location::new(file_id, l, r)),
 }
 
 PathSegment: UncheckedType = {
     BasicType,
-    "<" <root: ArrayType> ">"   => root,
-    "<" <root: TupleType> ">"   => root,
     "<" <root: GenericType> ">" => root,
 }
 
 PathTarget: UncheckedType = {
     BasicType,
     <l:@L> NEW <r:@R> => UncheckedType::Basic(Identifier::new(IdentId::NEW, Location::new(file_id, l, r))),
-    "<" <root: ArrayType> ">"   => root,
-    "<" <root: TupleType> ">"   => root,
     "<" <root: GenericType> ">" => root,
 }
 

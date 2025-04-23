@@ -1,0 +1,260 @@
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
+use std::time::Duration;
+use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use plonky2::plonk::proof::ProofWithPublicInputs;
+use rand::RngCore;
+use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
+use tracing::{error, info, warn};
+use qed_core::config::network_constants::QED_CHECKPOINT_JOB_ID_CHANNEL;
+use qed_core::job::drain_queue::{CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata};
+use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
+use qed_core::job::id::ProvingJobDataId;
+use qed_core::job::traits::QProofStoreWriterAsyncImm;
+use qed_core::job::worker_queue::{ProvingDispatcher, ProvingWorkerListener};
+use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
+use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
+use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
+use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, CPQueueNotification, RedisQueue, CE_NOTIFICATIONS, CP_NOTIFICATIONS};
+use qed_store::config::store_config::{QEDFelt, QEDHasher};
+use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
+use crate::coordinator_edge::context::{next_checkpoint_id, with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID};
+use crate::coordinator_edge::processor::{handle_cp_sync, process_realm_job};
+
+#[derive(Clone)]
+pub struct CoordinatorEdgeHandler {
+    notify_queue: RedisQueue,
+    cp_listener: Arc<Mutex<Option<JoinHandle<()>>>>,
+    realm_job_listener: Arc<Mutex<Option<JoinHandle<()>>>>,
+}
+
+impl CoordinatorEdgeHandler {
+    pub fn new(redis_url: &str) -> anyhow::Result<Self> {
+        Ok(Self {
+            notify_queue: RedisQueue::new(redis_url)?,
+            cp_listener: Arc::new(Mutex::new(None)),
+            realm_job_listener: Arc::new(Mutex::new(None)),
+        })
+    }
+    ///receive StartSync notification from CP
+    pub async fn spawn_cp_sync_listener(&self) -> anyhow::Result<()> {
+        info!("cp sync listener spawned");
+        // note: run this only once
+        if self.cp_listener.lock().await.is_some() {
+            return Ok(());
+        }
+
+        let mut notify_q = self.notify_queue.clone();
+        let ctx_lock = GLOBAL_COORD_EDGE_CTX.clone();
+
+        let handle = tokio::spawn(async move {
+            loop {
+                match notify_q.pop_one(CP_NOTIFICATIONS) {
+                    Ok(Some(bytes)) => {
+                        if let Ok(CPQueueNotification::StartSync) =
+                            serde_json::from_slice::<CPQueueNotification>(&bytes)
+                        {
+                            info!("🔔 CP listener received StartSync notification");
+                            let checkpoint_id =
+                                LATEST_CHECKPOINT_ID.fetch_add(1, Ordering::Relaxed) + 1;
+
+                            info!("ℹ️ latest checkpoint now = {checkpoint_id}");
+
+
+                            if let Ok(guard) = ctx_lock.try_read() {
+                                if let Some(ctx) = guard.as_ref() {
+                                    if let Err(e) = handle_cp_sync(ctx).await {
+                                        error!("❌ handle_cp_sync: {e}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Queue is empty, return Ok(None)
+                    Ok(None) => { /* nothing */ }
+
+                    // If the queue doesn't exist, create it
+                    Err(e) if e.to_string().contains("Queue not found") => {
+                        info!("ℹ️ CP_NOTIFICATIONS not found, creating …");
+                        if let Err(init_err) = notify_q.ensure_queue(CP_NOTIFICATIONS) {
+                            warn!("failed to create CP_NOTIFICATIONS: {init_err:?}");
+                        }
+
+                    }
+                    // Other errors
+                    Err(e) => warn!("CP listener pop error: {e:?}"),
+                }
+                //todo! maybe longer or shorter
+                tokio::time::sleep(Duration::from_millis(600)).await;
+            }
+        });
+
+        *self.cp_listener.lock().await = Some(handle);
+        Ok(())
+    }
+
+    /// Listen to RP output proving_data_job_id (GUTA result)
+    pub async fn spawn_realm_job_listener(&self) -> anyhow::Result<()> {
+        info!("realm job listener spawned");
+        //run this only once
+        if self.realm_job_listener.lock().await.is_some() {
+            return Ok(());
+        }
+
+        let channel_id = QED_CHECKPOINT_JOB_ID_CHANNEL;
+        let mut next_checkpoint = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed) + 1;
+
+        let ctx_lock = GLOBAL_COORD_EDGE_CTX.clone();
+
+
+        let handle = tokio::spawn(async move {
+            loop {
+                // get ctx
+                if let Ok(guard) = ctx_lock.try_read() {
+                    if let Some(ctx) = guard.as_ref() {
+
+                        match ctx
+                            .proof_store
+                            .wait_for_next_item_imm::<ProvingJobDataId>(channel_id, next_checkpoint)
+                            .await
+                        {
+                            Ok(job_id) => {
+                                info!("🎯 Got ProvingJobDataId: {:?}", job_id);
+                                if let Err(e) = process_realm_job(ctx, job_id).await {
+                                    error!("❌ process_realm_job error: {:?}", e);
+                                } else {
+
+                                    next_checkpoint += 1;
+                                    LATEST_CHECKPOINT_ID
+                                        .store(job_id.checkpoint_id, Ordering::Relaxed);
+                                }
+                            }
+                            Err(e) => {
+
+                                warn!("⚠️ wait_for_next_item_imm error: {:?}", e);
+                                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                            }
+                        }
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
+        });
+
+        // let mut lock = self.realm_job_listener.lock().await;
+        // *lock = Some(handle);
+        *self.realm_job_listener.lock().await = Some(handle);
+        Ok(())
+    }
+
+    pub async fn register_user(&self, pub_key: ZKPublicKeyInfo<QEDFelt>) -> anyhow::Result<()> {
+
+        with_ctx_read_async(|ctx| {
+            let queue = ctx.checkpoint_queue.clone();
+            let pub_key = pub_key.clone(); // avoid the lifetime issue
+
+            async move {
+                info!(
+                    "🚀 pushing to drain queue, pub_key = {}",
+                    &pub_key.public_key_param
+                );
+                queue.cdq_push_imm(pub_key).await?;
+                info!("✅ pushed to drain queue.");
+                Ok(())
+            }
+        })
+            .await
+    }
+    pub async fn deploy_contract(
+        &self,
+        contract: QBCDeployContract<QEDFelt>,
+    ) -> anyhow::Result<()> {
+        let checkpoint_id = next_checkpoint_id().await?;
+        with_ctx_read_async(|ctx| {
+            let queue = ctx.checkpoint_queue.clone();
+            let config = ctx.coordinator_config.clone();
+
+            async move {
+                let with_root = contract.into_with_whitelist_root::<QEDHasher>()?;
+
+                let cd_for_queue = WithDrainQueueMetadata::new_params(
+                    config.deploy_contract_channel_id,
+                    checkpoint_id,
+                    rand::thread_rng().next_u64(),
+                    with_root,
+                );
+
+                queue.cdq_push_imm(cd_for_queue).await?;
+                Ok(())
+            }
+        })
+            .await
+    }
+    pub async fn submit_guta(
+        &self,
+        input: SubmitGUTARealmResultAPINoProofInput<QEDFelt>,
+        proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
+    ) -> anyhow::Result<()> {
+
+        let (store_reader, checkpoint_queue, proof_store, config, verifier) =
+            with_ctx_read_async(|ctx| {
+
+                let store_reader = ctx.store_reader.clone();
+                let checkpoint_queue = ctx.checkpoint_queue.clone();
+                let proof_store = ctx.proof_store.clone();
+                let config = ctx.coordinator_config.clone();
+                let verifier = ctx.proof_verifier.clone();
+
+                std::future::ready(Ok((
+                    store_reader,
+                    checkpoint_queue,
+                    proof_store,
+                    config,
+                    verifier,
+                )))
+            })
+                .await?;
+        // verify top line proof
+        if !input.top_line_proof.verify::<QEDHasher>() {
+            anyhow::bail!("invalid top line proof from realm");
+        }
+
+        if input.top_line_proof.new_root != input.top_line_proof.new_value {
+            anyhow::bail!("top line not currently supported for guta proofs");
+        }
+
+        // verify proof
+        verifier.verify_proof_of_type(input.circuit_type, &proof)?;
+
+        // verify state consistency
+        let old_root = store_reader
+            .get_user_latest_top_tree_cap_root(config.realm_root_level, input.realm_id)
+            .await?;
+
+        if old_root != input.top_line_proof.old_root && old_root != input.top_line_proof.new_root {
+            anyhow::bail!("invalid top line proof old value from realm");
+        }
+
+        // build queue item
+        let queue_item =
+            input.to_queue_item(config.guta_channel_id, config.realm_root_level as u32);
+        let proof_id = queue_item.proof_id;
+
+        // write to proof store
+        proof_store.set_proof_by_id(proof_id, &proof).await?;
+        checkpoint_queue.cdq_push_imm(queue_item).await?;
+
+        Ok(())
+    }
+
+    pub async fn build_block(&self) -> anyhow::Result<()> {
+        info!("🚀 build_block called");
+        self.notify_queue
+            .clone()
+            .dispatch(CE_NOTIFICATIONS, CEQueueNotification::StartProduceBlock)?;
+        info!("✅ build_block dispatched to queue");
+        Ok(())
+    }
+}

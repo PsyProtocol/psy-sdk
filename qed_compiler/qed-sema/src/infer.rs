@@ -1,5 +1,6 @@
 use indexmap::IndexMap;
 use itertools::Itertools;
+use qed_ast::IdentId;
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
@@ -42,6 +43,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> InferCtxt<F, C> {
         self.contexts.last().unwrap().iter().any(|x| !x.is_empty())
     }
 
+    pub fn get_equations(&self) -> IndexMap<TypeId, TypeId> {
+        self.contexts
+            .last()
+            .unwrap()
+            .iter()
+            .cloned()
+            .flatten()
+            .collect()
+    }
+
     pub fn probe(&self, type_id: TypeId) -> Option<TypeId> {
         self.contexts
             .last()
@@ -72,6 +83,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let lhs_ty = self.substitute_all(lhs_ty, ctx).unwrap();
         let rhs_ty = self.substitute_all(rhs_ty, ctx).unwrap();
 
+        if lhs_ty == rhs_ty {
+            return true;
+        }
+
         match (&ctx.symbols[lhs_ty], &ctx.symbols[rhs_ty]) {
             (Type::Unknown, Type::Unknown) => false,
             (Type::Unknown, _) | (_, Type::Unknown) => true,
@@ -90,8 +105,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 false
             }
             (Type::Struct(s1), Type::Struct(s2)) => {
-                s1.name == s2.name
-                    && s1.scope_id == s2.scope_id
+                self.poly_of(lhs_ty, ctx) == self.poly_of(rhs_ty, ctx)
                     && s1.generic_parameters.len() == s2.generic_parameters.len()
                     && s1
                         .generic_parameters
@@ -122,6 +136,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     }
                 }
                 true
+            }
+            (Type::Trait(t1), Type::Trait(t2)) => {
+                self.poly_of(lhs_ty, ctx) == self.poly_of(rhs_ty, ctx)
+                    && t1.generic_parameters.len() == t2.generic_parameters.len()
+                    && t1
+                        .generic_parameters
+                        .clone()
+                        .into_iter()
+                        .zip_eq(t2.generic_parameters.clone().into_iter())
+                        .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
 
             (Type::Function(f), Type::FunctionSignature(sig))
@@ -177,8 +201,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     size_ty: self.substitute_all(array.size_ty, ctx)?,
                     scope_id: array.scope_id,
                 });
-                ctx.symbols
-                    .get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)
+                let type_id =
+                    ctx.symbols
+                        .get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)?;
+                let poly_ty = ctx
+                    .symbols
+                    .get_type_id(Some(ScopeId::primitive()), IdentId::TYPE_ARRAY)
+                    .unwrap();
+                self.register_instance(type_id, poly_ty, ctx)?;
+                Ok(type_id)
             }
 
             Type::Tuple(tuple) => {
@@ -215,7 +246,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
                 if let Some(instance) = self.find_instance(poly_ty, generic_parameters.clone(), ctx)
                 {
-                    return Ok(self.program[instance].as_function().unwrap().type_id);
+                    return Ok(instance);
                 }
 
                 let instance = self.instantiate_function(poly_ty, generic_parameters, ctx)?;
@@ -228,6 +259,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     field_name,
                     CheckedStructField {
                         ty: field_type,
+                        attrs,
                         visibility,
                         comments,
                         location,
@@ -239,6 +271,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         field_name,
                         CheckedStructField {
                             ty: substituted_type,
+                            attrs,
                             visibility,
                             comments,
                             location,
@@ -256,13 +289,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     generic_parameters: new_generic_parameters,
                     fields: new_fields,
                     scope_id: struct_node.scope_id,
+                    attrs: struct_node.attrs,
                     visibility: struct_node.visibility,
                     comments: struct_node.comments,
                     location: struct_node.location,
                     type_id: struct_node.type_id,
                 });
                 let scope_id = ctx.symbols[struct_node.scope_id].parent;
-                ctx.symbols.get_or_add_type(scope_id, ty.key(), ty)
+                let type_id = ctx.symbols.get_or_add_type(scope_id, ty.key(), ty)?;
+                let poly_ty = ctx.symbols.get_type_id(scope_id, struct_node.name).unwrap();
+                self.register_instance(type_id, poly_ty, ctx)?;
+                Ok(type_id)
             }
 
             Type::Trait(trait_node) => {
@@ -276,7 +313,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
                 if let Some(instance) = self.find_instance(poly_ty, generic_parameters.clone(), ctx)
                 {
-                    return Ok(self.program[instance].as_trait().unwrap().type_id);
+                    return Ok(instance);
                 }
 
                 let instance = self.instantiate_trait(poly_ty, generic_parameters, ctx)?;

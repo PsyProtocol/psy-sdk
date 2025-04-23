@@ -91,6 +91,18 @@ impl RedisQueue {
         let queue = PooledRsmq::new_with_pool(pool, false, None);
         Ok(Self { queue })
     }
+
+    pub fn ensure_queue(&mut self, name: &str) -> anyhow::Result<()> {
+        if matches!(
+            self.queue.get_queue_attributes(name),
+            Err(rsmq::RsmqError::QueueNotFound)
+        ) {
+            // use Q_HIDDEN / Q_DELAY / Q_CAP
+            self.queue.create_queue(name, Q_HIDDEN, Q_DELAY, Q_CAP)?;
+            tracing::info!("🔧 RSMQ queue `{name}` created");
+        }
+        Ok(())
+    }
 }
 
 impl ProvingDispatcher for RedisQueue {
