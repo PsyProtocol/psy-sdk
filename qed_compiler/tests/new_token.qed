@@ -1,0 +1,44 @@
+#[derive(Storage, StorageRef)]
+struct OtherUserInfo {
+    pub amount_sent: Felt,
+    pub amount_claimed: Felt,
+}
+
+#[contract]
+#[derive(Storage, StorageRef)]
+struct UserState {
+    pub balance: Felt,
+    pub other_user_info: [OtherUserInfo; 16777216],
+}
+
+impl UserStateRef {
+    pub fn mint(self, amount: Felt) {
+        self.balance.set(self.balance.get() + amount);
+    }
+
+    pub fn transfer(self, recipient: Felt, amount: Felt) {
+        let current_balance = self.balance.get();
+        assert(current_balance >= amount, "insufficient balance");
+
+        let mut recipient_info = self.other_user_info.index(recipient).get();
+        assert(recipient_info.amount_sent + amount > recipient_info.amount_sent, "amount sent overflow");
+
+        self.other_user_info.index(recipient).set(new OtherUserInfo {
+            amount_sent: recipient_info.amount_sent + amount,
+            amount_claimed: recipient_info.amount_claimed
+        });
+
+        self.balance.set(current_balance - amount);
+    }
+}
+
+fn main() {
+    let c = UserStateRef::new(ContractMetadata::current());
+    c.mint(100);
+
+    assert_eq(c.balance.get(), 100, "c.balance == 100");
+
+    c.transfer(10, 50);
+    assert_eq(c.balance.get(), 50, "c.balance == 50");
+    assert_eq(c.other_user_info.index(10).get().amount_sent, 50, "c.other_user_info[10].amount_sent == 50");
+}
