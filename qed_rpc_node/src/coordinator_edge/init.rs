@@ -4,13 +4,12 @@ use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_core::utils::debug_timer::DebugTimer;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
+use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node_common::verifier::get_cached_generic_verifier;
-use qed_store::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RO, RW};
 use crate::coordinator_edge::config::AppConfig;
 use crate::coordinator_edge::context::init_global_ctx_once;
-use crate::coordinator_edge::redis::init_redis_pool;
 
 pub fn init_tracing() {
     use tracing_subscriber::{fmt, EnvFilter};
@@ -30,7 +29,7 @@ pub async fn init_coordinator_edge(config: &AppConfig) -> anyhow::Result<()> {
     use tracing::info;
     let mut timer = DebugTimer::new("coordinator_edge_node");
     info!("🚀 Initializing coordinator edge node...");
-    let redis_pool = init_redis_pool(&config.redis_url, 8).await?;
+    let redis_pool = new_fred_pool(&config.redis_url, 8).await?;
 
     let proof_store = Arc::new(ProofStoreFred::new(
         redis_pool.clone(),

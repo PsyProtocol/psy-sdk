@@ -34,7 +34,7 @@ use plonky2::{
 use qed_core::
     data::qhashout::QHashOut
 ;
-
+use qed_node::nimpl::new_fred_pool;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -42,17 +42,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool_size = 8;
-    let config = Config::from_url("redis://127.0.0.1:6379")?;
-    let pool = Builder::from_config(config)
-        .with_connection_config(|config| {
-            config.connection_timeout = Duration::from_secs(10);
-        })
-        // use exponential backoff, starting at 100 ms and doubling on each failed attempt up to 30 sec
-        .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
-        .build_pool(pool_size)?;
-
-    pool.init().await?;
+    let pool = new_fred_pool("redis://127.0.0.1:6379",8).await?;
+    
     timer.lap("connected to redis");
 
     let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
