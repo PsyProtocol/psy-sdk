@@ -10,6 +10,7 @@ pub async fn init_redis_pool(redis_url: &str, pool_size: usize) -> anyhow::Resul
         .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
         .build_pool(pool_size)?;
 
+
     pool.init().await?;
     Ok(pool)
 }

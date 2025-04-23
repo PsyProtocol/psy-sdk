@@ -60,9 +60,11 @@ pub async fn init_coordinator_edge(config: &AppConfig) -> anyhow::Result<()> {
     // init verifier
     let verifier = Arc::new(get_cached_generic_verifier::<_, 2>());
     info!("✅ Initialized verifier");
+    let config =         qed_node::coordinator::state::processor::CoordinatorConfig::get_standard(0);
+    println!("get coordinator config");
     // init context
-    let ctx = CoordinatorEdgeContext::new(
-        qed_node::coordinator::state::processor::CoordinatorConfig::get_standard(0),
+    let ctx = CoordinatorEdgeContext::init(
+        config,
         Arc::clone(&store_reader),
         Arc::clone(&proof_store),
         Arc::clone(&proof_store),
