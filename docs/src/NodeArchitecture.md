@@ -103,7 +103,7 @@ QED employs a multi-layered, recursive ZK proof system to cryptographically guar
 
 *   **Role:** Encapsulate the verifiable logic of smart contracts. They define the allowed state transitions within a user's `CSTATE` for that contract.
 *   **Technology:** Developed using high-level languages (TypeScript/JavaScript) and compiled into ZK circuits (`DapenContractFunctionCircuit`) via the **Dapen (DPN)** toolchain.
-*   **Execution:** Run **locally** during a User Proving Session (UPS). A ZK proof is generated for each CFC execution, attesting that the logic was followed correctly given the inputs and starting state provided in its context.
+*   **Execution:** run **locally** during a User Proving Session (UPS). A ZK proof is generated for each CFC execution, attesting that the logic was followed correctly given the inputs and starting state provided in its context.
 
 ### 3.2 User Proving Session (UPS)
 

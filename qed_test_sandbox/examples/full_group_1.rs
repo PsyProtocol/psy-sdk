@@ -36,7 +36,8 @@ use plonky2::{
 use qed_core::
     data::qhashout::QHashOut
 ;
-
+use qed_node::nimpl::new_fred_pool;
+use qed_node_common::store::new_lmdbx_store;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -44,40 +45,13 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool_size = 8;
-    let config = Config::from_url("redis://127.0.0.1:6379")?;
-    let pool = Builder::from_config(config)
-        .with_connection_config(|config| {
-            config.connection_timeout = Duration::from_secs(10);
-        })
-        // use exponential backoff, starting at 100 ms and doubling on each failed attempt up to 30 sec
-        .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
-        .build_pool(pool_size)?;
-
-    pool.init().await?;
+    let pool = new_fred_pool("redis://127.0.0.1:6379",8).await?;
+    
     timer.lap("connected to redis");
 
     let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
     let realm_q = ProofStoreFred::new(pool, "rwq1".to_string(), "rnq1".to_string());
-
-    let dir = tempfile::tempdir()?;
-    let flags = EnvironmentFlags {
-        no_sub_dir: false,
-        mode: Mode::ReadWrite { sync_mode: SyncMode::Durable },
-        coalesce: true,
-        ..Default::default()
-    };
-
-    let env = Environment::builder()
-        .set_max_dbs(10)
-        .set_flags(flags)
-        .open(PathBuf::new().join("db").as_path())?;
-
-    let txn = env.begin_rw_txn()?;
-    let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>> =
-        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RW>>::new(
-            KVQlibmdbxStore::new(txn.clone(), None)?,
-        );
+    let store_reader = new_lmdbx_store(PathBuf::new().join("db").to_str().unwrap())?;
 
     store_reader.initialize_store()?;
     //let worker_count = 16usize;

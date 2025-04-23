@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use qed_ast::{DefId, ExprId, StmtId};
 use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use tracing::instrument;
 
 use crate::{
     CheckedDefinitionNode, CheckedExprNode, CheckedIntrinsicExprNode, CheckedIntrinsicStmtNode,
@@ -43,7 +44,6 @@ pub trait Rewriter<F: Clone + From<u32> + ContextFelt, C> {
     fn instantiate_function_body(
         &mut self,
         function_id: DefId,
-        generic_parameters: Vec<TypeId>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId>;
     fn rewrite_stmt(
@@ -59,6 +59,7 @@ pub trait Rewriter<F: Clone + From<u32> + ContextFelt, C> {
 }
 
 impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C> {
+    #[instrument(level = "debug", skip_all)]
     fn instantiate_impl(
         &mut self,
         impl_id: DefId,
@@ -85,7 +86,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         checked_impl.ty = self.substitute_all(checked_impl.ty, ctx)?;
 
         for (_name, associated_type) in &mut checked_impl.associated_types {
-            associated_type.type_id = self.substitute_all(associated_type.type_id, ctx)?;
+            associated_type.type_id = if let Some((ref mut root, target)) =
+                associated_type.root.zip(associated_type.target)
+            {
+                *root = self.substitute_all(*root, ctx)?;
+                self.find_associated_type(*root, None, target, ctx)?
+            } else {
+                self.substitute_all(associated_type.type_id, ctx)?
+            };
         }
 
         for method in &mut checked_impl.body {
@@ -99,13 +107,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         self.register_impl(impl_id, ctx)?;
 
         for method in &checked_impl.body {
-            self.instantiate_function_body(*method, vec![], ctx)?;
+            self.instantiate_function_body(*method, ctx)?;
         }
 
         self.infcx.exit_context();
         Ok(impl_id)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn instantiate_trait_impl(
         &mut self,
         impl_id: DefId,
@@ -145,11 +154,37 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         }
 
         checked_impl.ty = self.substitute_all(checked_impl.ty, ctx)?;
-        checked_impl.trait_ty = self.substitute_all(checked_impl.trait_ty, ctx)?;
 
-        for (_name, associated_type) in &mut checked_impl.associated_types {
-            associated_type.type_id = self.substitute_all(associated_type.type_id, ctx)?;
+        for (name, associated_type) in &mut checked_impl.associated_types {
+            let type_id = if let Some((ref mut root, target)) =
+                associated_type.root.zip(associated_type.target)
+            {
+                *root = self.substitute_all(*root, ctx)?;
+                self.find_associated_type(*root, None, target, ctx)?
+            } else {
+                self.substitute_all(associated_type.type_id, ctx)?
+            };
+
+            let generic_associated_type = ctx.symbols[checked_impl.trait_ty]
+                .as_trait()
+                .unwrap()
+                .associated_types
+                .get(name)
+                .unwrap()
+                .type_id;
+
+            if !self.unify(generic_associated_type, type_id, ctx) {
+                return Err(Error::TypeMismatch {
+                    location: associated_type.location,
+                    expected: vec![associated_type.type_id.clone()],
+                    found: type_id,
+                });
+            }
+
+            associated_type.type_id = type_id;
         }
+
+        checked_impl.trait_ty = self.substitute_all(checked_impl.trait_ty, ctx)?;
 
         for method in &mut checked_impl.body {
             *method = self.instantiate_function_signature(*method, vec![], ctx)?;
@@ -162,21 +197,22 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         self.register_trait_impl(impl_id, ctx)?;
 
         for method in &checked_impl.body {
-            self.instantiate_function_body(*method, vec![], ctx)?;
+            self.instantiate_function_body(*method, ctx)?;
         }
 
         self.infcx.exit_context();
         Ok(impl_id)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn instantiate_trait(
         &mut self,
-        type_id: TypeId,
+        poly_ty: TypeId,
         generic_parameters: Vec<TypeId>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId> {
         // assuming type_id is the poly type
-        let mut checked_trait = ctx.symbols[type_id].as_trait().cloned().unwrap();
+        let mut checked_trait = ctx.symbols[poly_ty].as_trait().cloned().unwrap();
         self.infcx.enter_context();
 
         for (generic_parameter, generic_arg) in ctx.symbols[checked_trait.type_id]
@@ -202,37 +238,39 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         }
 
         for method in &mut checked_trait.body {
-            *method = self.instantiate_function(
-                self.program[*method].as_function().unwrap().type_id,
-                vec![],
-                ctx,
-            )?;
+            *method = self.instantiate_function_signature(*method, vec![], ctx)?;
         }
 
         checked_trait.type_id = ctx.symbols.next_type_id(0);
 
         let ty = Type::Trait(checked_trait.clone());
-        ctx.symbols
-            .add_type(ctx.symbols[checked_trait.scope_id].parent, ty.key(), ty)?;
+        let type_id =
+            ctx.symbols
+                .add_type(ctx.symbols[checked_trait.scope_id].parent, ty.key(), ty)?;
 
         let trait_id = self
             .program
             .defs
-            .alloc_item(CheckedDefinitionNode::Trait(checked_trait));
-        self.register_instance(trait_id, ctx)?;
+            .alloc_item(CheckedDefinitionNode::Trait(checked_trait.clone()));
+        self.register_instance(type_id, poly_ty, ctx)?;
+
+        for method in &checked_trait.body {
+            self.instantiate_function_body(*method, ctx)?;
+        }
 
         self.infcx.exit_context();
         Ok(trait_id)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn instantiate_function(
         &mut self,
-        type_id: TypeId,
+        poly_ty: TypeId,
         generic_parameters: Vec<TypeId>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId> {
         // assuming type_id is the poly type
-        let mut checked_function = ctx.symbols[type_id].as_function().cloned().unwrap();
+        let mut checked_function = ctx.symbols[poly_ty].as_function().cloned().unwrap();
         self.infcx.enter_scope();
 
         for (generic_parameter, generic_arg) in ctx.symbols[checked_function.type_id]
@@ -262,18 +300,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         checked_function.type_id = ctx.symbols.next_type_id(0);
 
         let ty = Type::Function(checked_function.clone());
-        ctx.symbols.create_type(ty)?;
+        let type_id = ctx.symbols.create_type(ty)?;
 
         let function_id = self
             .program
             .defs
             .alloc_item(CheckedDefinitionNode::Function(checked_function));
-        self.register_instance(function_id, ctx)?;
+        self.register_instance(type_id, poly_ty, ctx)?;
 
         self.infcx.exit_scope();
         Ok(function_id)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn instantiate_function_signature(
         &mut self,
         function_id: DefId,
@@ -281,6 +320,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId> {
         let mut checked_function = self.program[function_id].as_function().cloned().unwrap();
+        let poly_ty = self.poly_of(checked_function.type_id, ctx).unwrap();
         self.infcx.enter_scope();
 
         for (generic_parameter, generic_arg) in ctx.symbols[checked_function.type_id]
@@ -307,40 +347,26 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         checked_function.type_id = ctx.symbols.next_type_id(0);
 
         let ty = Type::Function(checked_function.clone());
-        ctx.symbols.create_type(ty)?;
+        let type_id = ctx.symbols.create_type(ty)?;
 
         let function_id = self
             .program
             .defs
             .alloc_item(CheckedDefinitionNode::Function(checked_function));
-        self.register_instance(function_id, ctx)?;
+        self.register_instance(type_id, poly_ty, ctx)?;
 
         self.infcx.exit_scope();
         Ok(function_id)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn instantiate_function_body(
         &mut self,
         function_id: DefId,
-        generic_parameters: Vec<TypeId>,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<DefId> {
         let mut checked_function = self.program[function_id].as_function().cloned().unwrap();
         self.infcx.enter_scope();
-
-        for (generic_parameter, generic_arg) in ctx.symbols[checked_function.type_id]
-            .generic_parameters()
-            .iter()
-            .zip(generic_parameters.into_iter())
-        {
-            if !self.unify(generic_parameter.clone(), generic_arg, ctx) {
-                return Err(Error::TypeMismatch {
-                    location: checked_function.location,
-                    expected: vec![generic_parameter.clone()],
-                    found: generic_arg,
-                });
-            }
-        }
 
         if let Some(ref mut body) = checked_function.body {
             *body = self.rewrite_expr(*body, ctx)?;
@@ -361,11 +387,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         Ok(function_id)
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn rewrite_stmt(
         &mut self,
         stmt_id: StmtId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<StmtId> {
+        if !self.infcx.has_equations() {
+            return Ok(stmt_id);
+        }
+
         let mut checked_stmt = self.program[stmt_id].clone();
         match &mut checked_stmt {
             CheckedStmtNode::While(checked_while_node) => {
@@ -418,27 +449,28 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
         Ok(self.program.stmts.alloc_item(checked_stmt))
     }
 
+    #[instrument(level = "debug", skip_all)]
     fn rewrite_expr(
         &mut self,
         expr_id: ExprId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<ExprId> {
+        if !self.infcx.has_equations() {
+            return Ok(expr_id);
+        }
+
         let mut checked_expr = self.program[expr_id].clone();
         match &mut checked_expr {
             CheckedExprNode::Path(checked_path_node) => {
-                if let Some(ref mut root) = checked_path_node.root {
+                if let Some(ref mut trait_ty) = checked_path_node.trait_ty {
+                    *trait_ty = self.substitute_all(*trait_ty, ctx)?;
+                }
+
+                if let Some((ref mut root, target)) =
+                    checked_path_node.root.zip(checked_path_node.target)
+                {
                     *root = self.substitute_all(*root, ctx)?;
-                    if let Some(ref mut trait_ty) = checked_path_node.trait_ty {
-                        *trait_ty = self.substitute_all(*trait_ty, ctx)?;
-                        if let Some(target) = checked_path_node.target {
-                            checked_path_node.type_id =
-                                self.find_trait_cast_member(*root, *trait_ty, target, ctx)?;
-                        }
-                    } else {
-                        if let Some(target) = checked_path_node.target {
-                            checked_path_node.type_id = self.find_member(*root, target, ctx)?;
-                        }
-                    }
+                    checked_path_node.type_id = self.find_member(*root, None, target, ctx)?;
                 } else {
                     checked_path_node.type_id =
                         self.substitute_all(checked_path_node.type_id, ctx)?;

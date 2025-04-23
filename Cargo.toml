@@ -38,6 +38,7 @@ members = [
     "qed_compiler/qed-dargo",
     "qed_compiler/qed-dargo-toml",
     "qed_compiler/qed-dargo-cli",
+    "qed_common",
 ]
 resolver = "2"
 
@@ -64,21 +65,26 @@ twox-hash = "1.6.3"
 hashbrown = "0.14.5"
 anyhow = "1.0.75"
 async-trait = { version = "0.1.80" }
-base64 = "0.21.0"
+base64 = "0.22"
 bitcoin = { version = "0.31.1", features = ["serde", "rand"] }
 chrono = "0.4.39"
 
 
-rand = "0.8"
-rand_core = "0.6.0"
-rand_pcg = "0.9.0"
+rand = "0.9"
+rand_core = "0.9"
+rand_pcg = "0.9"
 rayon = { version = "1.10.0" }
-bincode = { version = "=1.3.3" }
+bincode = "=1.3.3"
 
 tracing = "0.1.40"
 tracing-log = "0.2.0"
-tracing-subscriber = { version = "0.3.17", features = ["std", "env-filter", "json", "chrono"] }
-itertools = "0.10.5"
+tracing-subscriber = { version = "0.3.17", features = [
+    "std",
+    "env-filter",
+    "json",
+    "chrono",
+] }
+itertools = "0.14"
 
 bytes = "1"
 byteorder = "1.5"
@@ -115,16 +121,19 @@ bitflags = "2.5.0"
 
 ripemd = "0.1.3"
 log = { version = "0.4.14", default-features = false }
-env_logger = { version = "0.9.0", default-features = false }
+env_logger = { version = "0.11", default-features = false }
 dotenvy = "0.15.0"
-envy = "0.4.0"
-jsonrpsee = { version = "0.24", features = ["server", "client"]}
+
 tokio = { version = "1.43.0", features = ["full"] }
 tokio-executor-trait = "2.1.3"
-tokio-reactor-trait = "1.1.0"
+tokio-reactor-trait = "2"
 
 futures = "0.3.0"
-redis = { version = "^0.25", default-features = false, features = ["acl", "keep-alive", "script"] }
+redis = { version = "^0.25", default-features = false, features = [
+  "acl",
+  "keep-alive",
+  "script",
+] }
 fred = "10.0.4"
 
 reth-mdbx-sys = { path = "./kvq_store_lmdbx/libmdbx-rs/mdbx-sys" }
@@ -157,13 +166,11 @@ num-traits = "0.2"
 num-bigint = { version = "0.4" }
 num-integer = { version = "0.1", default-features = false }
 ruint = { version = "1.12", default-features = false, features = [
-    "serde",
-    "num-bigint",
+  "serde",
+  "num-bigint",
 ] }
 clap_complete = "4.5"
 color-eyre = "0.6"
-
-
 
 
 enum-as-inner = "0.6"
@@ -198,12 +205,15 @@ llvm-sys = "191.0"
 melior = { version = "0.21", features = ["ods-dialects"] }
 mlir-sys = { version = "0.4" }
 
+envy = "0.4"
 regex = "1.11"
 toml = "0.8"
 url = "2.5"
 dirs = "6.0"
 semver = "1.0"
 md5 = "0.7"
+jsonrpsee = { version = "0.24", features = ["server", "client", "macros"] }
+config = "0.15"
 
 qedlang_core = { path = "./qedlang_core" }
 qed_crypto = { path = "./qed_crypto" }
@@ -211,9 +221,12 @@ qed_exec = { path = "./qed_exec" }
 qed_store = { path = "./qed_store" }
 qed_data = { path = "./qed_data" }
 qed_core = { path = "./qed_core" }
+qed_node = { path = "./qed_node" }
 qed_prover = { path = "./qed_prover" }
 qed_common_circuit = { path = "./qed_common_circuit" }
 kvq = { path = "./kvq" }
+qed_node_common = { path = "./qed_node_common" }
+qed_rollup_circuit = { path = "./qed_rollup_circuit" }
 
 qed-ast = { path = "./qed_compiler/qed-ast" }
 qed-cli = { path = "./qed_compiler/qed-cli" }
@@ -231,3 +244,14 @@ qed-dargo-toml = { path = "./qed_compiler/qed-dargo-toml" }
 dargo = { path = "./qed_compiler/qed-dargo-cli" }
 
 serial_test = "3.2"
+
+shadow-rs = "0.27.1"
+bs58 = { version = "0.5.1", features = ["std", "check"] }
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+http-body-util = "0.1"
+reqwest = { version = "0.11.22", default-features = false, features = [
+  "json",
+  "rustls",
+  "blocking",
+] }

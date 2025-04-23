@@ -11,6 +11,7 @@ use qed_crypto::common::{
     circuit_library::CircuitInfoLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
 };
 
+#[derive(Clone)]
 pub struct SimpleAsyncCoordinatorWorker {}
 impl SimpleAsyncCoordinatorWorker {
     pub async fn run_worker<

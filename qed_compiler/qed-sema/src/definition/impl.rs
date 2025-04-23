@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use qed_ast::{Comment, DefId, Identifier, Location, NodeInfo, NodeType, Visibility};
+use qed_ast::{Comment, DefId, IdentId, Identifier, Location, NodeInfo, NodeType, Visibility};
 
 use crate::{ScopeId, TypeId};
 
@@ -28,6 +28,8 @@ pub struct CheckedTraitImplNode {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedAssociatedTypeValue {
+    pub root: Option<TypeId>,
+    pub target: Option<IdentId>,
     pub type_id: TypeId,
     pub visibility: Visibility,
     pub comments: Vec<Comment>,
