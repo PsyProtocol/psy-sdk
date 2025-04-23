@@ -499,7 +499,7 @@ impl<T> DPNStateCmd<T> {
     pub fn get_other_user_contract_state_slot_range(user_id: T, contract_id: T, contract_state_tree_height: u8, sub_slot_index: T, length: u32) -> Self {
         DPNStateCmd::GetOtherUserContractStateSlotRange(DPNStateCmdGetOtherUserContractStateSlotRange::<T>::new(user_id, contract_id, contract_state_tree_height, sub_slot_index, length))
     }
-    
+
 }
 impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
     fn get_inputs(&self) -> Vec<T> {
@@ -636,6 +636,6 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmd<T> {
                 DPNStateCmd::GetOtherUserContractStateSlotRange(DPNStateCmdGetOtherUserContractStateSlotRange::<u64>::new(inputs_as_u64[0], inputs_as_u64[1], c.contract_state_tree_height, inputs_as_u64[2], c.length))
             },
         }
-    } 
+    }
 
 }

@@ -1004,15 +1004,26 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             self.context.cset_state_hash_at(slot_index, new_value),
                         )
                     }
-                    CheckedIntrinsicExprNode::StorageRead { offset, .. } => {
-                        let contract_id = self.context.get_contract_id();
-                        let user_id = self.context.get_user_id();
-
+                    CheckedIntrinsicExprNode::StorageRead {
+                        contract_state_tree_height,
+                        user_id,
+                        contract_id,
+                        offset,
+                        ..
+                    } => {
+                        let contract_state_tree_height =
+                            self.interpret_expr(program, contract_state_tree_height.clone(), ctx)?;
+                        let user_id = self.interpret_expr(program, user_id.clone(), ctx)?;
+                        let contract_id = self.interpret_expr(program, contract_id.clone(), ctx)?;
                         let offset = self.interpret_expr(program, offset.clone(), ctx)?;
                         let value = self.context.op_get_state_felt(
-                            0,
-                            contract_id,
-                            user_id,
+                            u16::try_from(
+                                self.context
+                                    .get_constant_value(contract_state_tree_height.to_felt()),
+                            )
+                            .unwrap(),
+                            contract_id.to_felt(),
+                            user_id.to_felt(),
                             offset.to_felt(),
                         );
                         return Ok(CheckedValueRef::from_felt(value));
@@ -1047,12 +1058,27 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             self.context.op_const(ctx.size_of(ty.clone()) as u64),
                         ));
                     }
-                    CheckedIntrinsicExprNode::StorageReadRange { offset, length, .. } => {
+                    CheckedIntrinsicExprNode::StorageReadRange {
+                        contract_state_tree_height,
+                        user_id,
+                        contract_id,
+                        offset,
+                        length,
+                        ..
+                    } => {
+                        let contract_state_tree_height =
+                            self.interpret_expr(program, contract_state_tree_height.clone(), ctx)?;
+                        let user_id = self.interpret_expr(program, user_id.clone(), ctx)?;
+                        let contract_id = self.interpret_expr(program, contract_id.clone(), ctx)?;
                         let offset = self.interpret_expr(program, offset.clone(), ctx)?;
                         let length = self.interpret_expr(program, length.clone(), ctx)?;
-                        let values = self
-                            .context
-                            .get_state_range_at(offset.to_felt(), length.to_felt());
+                        let values = self.context.get_other_user_contract_state_range_at(
+                            contract_state_tree_height.to_felt(),
+                            user_id.to_felt(),
+                            contract_id.to_felt(),
+                            offset.to_felt(),
+                            length.to_felt(),
+                        );
                         return Ok(CheckedValueRef::from_vec(UNKOWN_TYPE, values));
                     }
                     CheckedIntrinsicExprNode::StorageWriteRange { offset, values, .. } => {

@@ -4368,7 +4368,7 @@ dependencies = [
  "qed_crypto",
  "qed_data",
  "qed_store",
- "rand 0.9.1",
+ "rand 0.9.0",
  "reth-libmdbx",
  "serde",
  "serde_json",

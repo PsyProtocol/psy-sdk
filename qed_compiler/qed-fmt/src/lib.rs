@@ -1067,11 +1067,18 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 "__mem_size_of#<{}>",
                 self.visit_unchecked_type(&ty, false, ctx)
             )),
-            IntrinsicExprNode::StorageRead { offset, .. } => {
-                Ok(format!("__storage_read({})", self.visit_expr(offset, ctx)?))
+            IntrinsicExprNode::StorageRead { contract_state_tree_height, user_id, contract_id, offset, .. } => {
+                Ok(format!("__storage_read({}, {}, {}, {})",
+                    self.visit_expr(contract_state_tree_height, ctx)?,
+                    self.visit_expr(user_id, ctx)?,
+                    self.visit_expr(contract_id, ctx)?,
+                    self.visit_expr(offset, ctx)?))
             }
-            IntrinsicExprNode::StorageReadRange { offset, length, .. } => Ok(format!(
-                "__storage_read_range({},{})",
+            IntrinsicExprNode::StorageReadRange { contract_state_tree_height, user_id, contract_id, offset, length, .. } => Ok(format!(
+                "__storage_read_range({}, {}, {}, {},{})",
+                self.visit_expr(contract_state_tree_height, ctx)?,
+                self.visit_expr(user_id, ctx)?,
+                self.visit_expr(contract_id, ctx)?,
                 self.visit_expr(offset, ctx)?,
                 self.visit_expr(length, ctx)?
             )),
