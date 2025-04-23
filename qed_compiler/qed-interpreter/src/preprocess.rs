@@ -94,20 +94,6 @@ impl<'a> StorageProcessor<'a> {
         new_name_suffix: Option<&str>,
     ) -> StructNode {
         let mut new_fields = IndexMap::new();
-        // Add metadata field
-        new_fields.insert(
-            Identifier::new(ctx.intern("metadata"), attr.location),
-            StructField {
-                ty: UncheckedType::Basic(Identifier::new(
-                    ctx.intern("ContractMetadata"),
-                    attr.location,
-                )),
-                visibility: Visibility::Private,
-                comments: vec![],
-                location: attr.location,
-                attrs: vec![],
-            },
-        );
         for (field_name, field) in &struct_node.fields {
             let transformed_type = if field.attrs.iter().any(|a| a.name.id == ctx.intern("ref")) {
                 let base_type = match &field.ty {
@@ -205,21 +191,7 @@ impl<'a> StorageProcessor<'a> {
         let mut offset = initial_offset;
         let mut field_inits = IndexMap::new();
 
-        // Initialize metadata field
-        field_inits.insert(
-            metadata_ident,
-            ctx.alloc_expression(ExprNode::Path(PathNode {
-                root: None,
-                segments: vec![],
-                target: UncheckedType::Basic(metadata_ident),
-                location: attr.location,
-            })),
-        );
-
         for (field_name, field) in &struct_node.fields {
-            if field_name.id == ctx.intern("metadata") {
-                continue; // Skip metadata field as it's already initialized
-            }
             let (inner_ty, size, target_type) = if field
                 .attrs
                 .iter()
@@ -677,12 +649,6 @@ impl<'a> StorageProcessor<'a> {
             name: Identifier::new(ctx.intern("read"), attr.location),
             parameters: vec![
                 FunctionParameter::new(
-                    offset_ident,
-                    TypeQualifier::new(false, attr.location),
-                    UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, attr.location)),
-                    attr.location,
-                ),
-                FunctionParameter::new(
                     csth_ident,
                     TypeQualifier::new(false, attr.location),
                     UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, attr.location)),
@@ -696,6 +662,12 @@ impl<'a> StorageProcessor<'a> {
                 ),
                 FunctionParameter::new(
                     contract_id_ident,
+                    TypeQualifier::new(false, attr.location),
+                    UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, attr.location)),
+                    attr.location,
+                ),
+                FunctionParameter::new(
+                    offset_ident,
                     TypeQualifier::new(false, attr.location),
                     UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, attr.location)),
                     attr.location,
@@ -896,9 +868,15 @@ impl<'a> StorageProcessor<'a> {
                     Identifier::new(ctx.intern("contract_state_tree_height"), attr.location);
                 let user_id_ident = Identifier::new(ctx.intern("user_id"), attr.location);
                 let contract_id_ident = Identifier::new(ctx.intern("contract_id"), attr.location);
-                let metadata_expr =
+                let metadata_target_expr = 
                     ctx.alloc_expression(ExprNode::MemberAccess(MemberAccessNode {
                         target: self_expr.clone(),
+                        field: field_name.clone(),
+                        location: attr.location,
+                    }));
+                let metadata_expr =
+                    ctx.alloc_expression(ExprNode::MemberAccess(MemberAccessNode {
+                        target: metadata_target_expr.clone(),
                         field: metadata_ident,
                         location: attr.location,
                     }));
@@ -1230,7 +1208,7 @@ impl<'a> StorageProcessor<'a> {
         let read_call = ctx.alloc_expression(ExprNode::Call(CallNode {
             callee: read_expr,
             generic_parameters: vec![],
-            args: vec![offset, csth_expr, user_id_expr, contract_id_expr],
+            args: vec![csth_expr, user_id_expr, contract_id_expr, offset],
             location: attr.location,
         }));
 
@@ -1432,7 +1410,7 @@ impl<'a> StorageProcessor<'a> {
         let read_call = ctx.alloc_expression(ExprNode::Call(CallNode {
             callee: read_expr,
             generic_parameters: vec![],
-            args: vec![final_offset, csth_expr, user_id_expr, contract_id_expr],
+            args: vec![csth_expr, user_id_expr, contract_id_expr, final_offset],
             location: attr.location,
         }));
 
@@ -1687,7 +1665,7 @@ impl<'a> StorageProcessor<'a> {
         let read_call = CallNode {
             callee: variable,
             generic_parameters: Vec::new(),
-            args: vec![final_offset, csth_expr, user_id_expr, contract_id_expr],
+            args: vec![csth_expr, user_id_expr, contract_id_expr, final_offset],
             location: attr.location,
         };
         let read_expr = ctx.alloc_expression(ExprNode::Call(read_call));
@@ -1702,12 +1680,6 @@ impl<'a> StorageProcessor<'a> {
         let f = FunctionNode {
             name: Identifier::new(ctx.intern("read_at"), attr.location),
             parameters: vec![
-                FunctionParameter::new(
-                    offset_ident,
-                    TypeQualifier::new(false, attr.location),
-                    UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, attr.location)),
-                    attr.location,
-                ),
                 FunctionParameter::new(
                     csth_ident,
                     TypeQualifier::new(false, attr.location),
@@ -1728,6 +1700,12 @@ impl<'a> StorageProcessor<'a> {
                 ),
                 FunctionParameter::new(
                     index_ident,
+                    TypeQualifier::new(false, attr.location),
+                    UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, attr.location)),
+                    attr.location,
+                ),
+                FunctionParameter::new(
+                    offset_ident,
                     TypeQualifier::new(false, attr.location),
                     UncheckedType::Basic(Identifier::new(IdentId::TYPE_FELT, attr.location)),
                     attr.location,
@@ -1936,7 +1914,7 @@ impl<'a> StorageProcessor<'a> {
         let node = CallNode {
             callee: variable,
             generic_parameters: Vec::new(),
-            args: vec![offset, csth_expr, user_id_expr, contract_id_expr],
+            args: vec![csth_expr, user_id_expr, contract_id_expr, offset],
             location: attr.location,
         };
         (

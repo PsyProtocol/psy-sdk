@@ -998,16 +998,27 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
 
     fn get_other_user_contract_state_range_at(&mut self, contract_state_tree_height: SymFeltRef, user_id: SymFeltRef, contract_id: SymFeltRef, sub_slot_index: SymFeltRef, length: SymFeltRef) -> Vec<SymFeltRef> {
-        let contract_state_tree_height_value = if contract_id.get_op_type() == DPNOpType::GetContractId {
-            // ignore the contract_state_tree_height inputted by the user for same contract  id
-            self.contract_state_tree_height as u8
-        }else{
-            assert_eq!(contract_state_tree_height.get_op_type(), DPNOpType::Constant, "contract_state_tree_height must be a constant");
-            contract_state_tree_height.get_constant_value() as u8
-        };
-        assert!(length.is_constant_type(), "range length must be constant");
-        let b = self.create_other_user_contract_state_range_ref(contract_state_tree_height.get_constant_value() as u16, contract_id, user_id, sub_slot_index, length.get_constant_value() as u32);
-        self.op_target_at_vec(b, length.get_constant_value() as u64)
+        if contract_id.get_op_type() == DPNOpType::GetContractId
+            && user_id.get_op_type() == DPNOpType::GetUserId {
+            self.get_state_range_at(sub_slot_index, length)
+        } else {
+            let contract_state_tree_height_value = if contract_id.get_op_type() == DPNOpType::GetContractId {
+                // ignore the contract_state_tree_height inputted by the user for same contract  id
+                self.contract_state_tree_height as u8
+            }else{
+                assert_eq!(contract_state_tree_height.get_op_type(), DPNOpType::Constant, "contract_state_tree_height must be a constant");
+                contract_state_tree_height.get_constant_value() as u8
+            };
+            assert!(length.is_constant_type(), "range length must be constant");
+            let b = self.create_other_user_contract_state_range_ref(
+                contract_state_tree_height.get_constant_value() as u16,
+                contract_id,
+                user_id,
+                sub_slot_index,
+                length.get_constant_value() as u32
+            );
+            self.op_target_at_vec(b, length.get_constant_value() as u64)
+        }
     }
     
     fn cset_state_range_at(&mut self, sub_slot_index: SymFeltRef, values: &[SymFeltRef]) {

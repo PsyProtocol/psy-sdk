@@ -6,12 +6,23 @@ use primitive::*;
 
 pub trait Storage {
     pub fn size() -> Felt;
-    pub fn read(contract_state_tree_height: Felt, user_id: Felt, contract_id: Felt, offset: Felt) -> Self;
+    pub fn read(
+        contract_state_tree_height: Felt,
+        user_id: Felt,
+        contract_id: Felt,
+        offset: Felt
+    ) -> Self;
     pub fn write(offset: Felt, value: Self);
 }
 
 pub trait StorageAt<T: Storage, N: u32> {
-    pub fn read_at(contract_state_tree_height: Felt, user_id: Felt, contract_id: Felt, offset: Felt, index: Felt) -> Self;
+    pub fn read_at(
+        contract_state_tree_height: Felt,
+        user_id: Felt,
+        contract_id: Felt,
+        offset: Felt,
+        index: Felt
+    ) -> Self;
     pub fn write_at(offset: Felt, index: Felt, value: T);
 }
 
@@ -20,12 +31,22 @@ impl Storage for Felt {
         return 1;
     }
 
-    pub fn read(contract_state_tree_height: Felt, user_id: Felt, contract_id: Felt, offset: Felt) -> Self {
-        mem::transmute#<Self>(__storage_read_range(contract_state_tree_height, user_id, contract_id, offset * 4, Self::size()))
+    pub fn read(
+        contract_state_tree_height: Felt,
+        user_id: Felt,
+        contract_id: Felt,
+        offset: Felt
+    ) -> Self {
+        __storage_read(
+            contract_state_tree_height,
+            user_id,
+            contract_id,
+            offset
+        )
     }
 
     pub fn write(offset: Felt, value: Self) {
-        __storage_write_range(offset * 4, value);
+        __storage_write(offset, value);
     }
 }
 
@@ -34,12 +55,22 @@ impl Storage for bool {
         return 1;
     }
 
-    pub fn read(contract_state_tree_height: Felt, user_id: Felt, contract_id: Felt, offset: Felt) -> Self {
-        mem::transmute#<Self>(__storage_read_range(contract_state_tree_height, user_id, contract_id, offset * 4, Self::size()))
+    pub fn read(
+        contract_state_tree_height: Felt,
+        user_id: Felt,
+        contract_id: Felt,
+        offset: Felt
+    ) -> Self {
+        __storage_read(
+            contract_state_tree_height,
+            user_id,
+            contract_id,
+            offset
+        ) as bool
     }
 
     pub fn write(offset: Felt, value: Self) {
-        __storage_write_range(offset * 4, value);
+        __storage_write(offset, value as Felt);
     }
 }
 
@@ -48,12 +79,22 @@ impl Storage for u32 {
         return 1;
     }
 
-    pub fn read(contract_state_tree_height: Felt, user_id: Felt, contract_id: Felt, offset: Felt) -> Self {
-        mem::transmute#<Self>(__storage_read_range(contract_state_tree_height, user_id, contract_id, offset * 4, Self::size()))
+    pub fn read(
+        contract_state_tree_height: Felt,
+        user_id: Felt,
+        contract_id: Felt,
+        offset: Felt
+    ) -> Self {
+        __storage_read(
+            contract_state_tree_height,
+            user_id,
+            contract_id,
+            offset
+        ) as u32
     }
 
     pub fn write(offset: Felt, value: Self) {
-        __storage_write_range(offset * 4, value);
+        __storage_write(offset, value as Felt);
     }
 }
 
@@ -62,8 +103,19 @@ impl<T: Storage, N: u32> Storage for [T; N] {
         return T::size() * (N as Felt);
     }
 
-    pub fn read(contract_state_tree_height: Felt, user_id: Felt, contract_id: Felt, offset: Felt) -> Self {
-        mem::transmute#<Self>(__storage_read_range(contract_state_tree_height, user_id, contract_id, offset * 4, Self::size()))
+    pub fn read(
+        contract_state_tree_height: Felt,
+        user_id: Felt,
+        contract_id: Felt,
+        offset: Felt
+    ) -> Self {
+        mem::transmute#<Self>(__storage_read_range(
+            contract_state_tree_height,
+            user_id,
+            contract_id,
+            offset * 4,
+            Self::size()
+        ))
     }
 
     pub fn write(offset: Felt, value: Self) {
@@ -77,7 +129,13 @@ impl<T: Storage, N: u32> StorageAt<T, N> for [T; N] {
         T::write(offset, value)
     }
 
-    pub fn read_at(contract_state_tree_height: Felt, user_id: Felt, contract_id: Felt, offset: Felt, index: Felt) -> T {
+    pub fn read_at(
+        contract_state_tree_height: Felt,
+        user_id: Felt,
+        contract_id: Felt,
+        offset: Felt,
+        index: Felt
+    ) -> T {
         let offset = offset * 4 + (index * T::size());
         T::read(contract_state_tree_height, user_id, contract_id, offset)
     }
@@ -111,7 +169,12 @@ impl<T: Storage, N: u32> StorageRef<T, N> {
     }
 
     pub fn get(self) -> T {
-        return T::read(self.metadata.contract_state_tree_height, self.metadata.user_id, self.metadata.contract_id, self.offset);
+        return T::read(
+            self.metadata.contract_state_tree_height,
+            self.metadata.user_id,
+            self.metadata.contract_id,
+            self.offset
+        );
     }
 
     pub fn set(self, value: T) {

@@ -1011,20 +1011,24 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         offset,
                         ..
                     } => {
-                        let contract_state_tree_height =
-                            self.interpret_expr(program, contract_state_tree_height.clone(), ctx)?;
-                        let user_id = self.interpret_expr(program, user_id.clone(), ctx)?;
-                        let contract_id = self.interpret_expr(program, contract_id.clone(), ctx)?;
-                        let offset = self.interpret_expr(program, offset.clone(), ctx)?;
+                        let contract_state_tree_height = self
+                            .interpret_expr(program, contract_state_tree_height.clone(), ctx)?
+                            .to_felt();
+                        let user_id = self
+                            .interpret_expr(program, user_id.clone(), ctx)?
+                            .to_felt();
+                        let contract_id = self
+                            .interpret_expr(program, contract_id.clone(), ctx)?
+                            .to_felt();
+                        let offset = self.interpret_expr(program, offset.clone(), ctx)?.to_felt();
                         let value = self.context.op_get_state_felt(
                             u16::try_from(
-                                self.context
-                                    .get_constant_value(contract_state_tree_height.to_felt()),
+                                self.context.get_constant_value(contract_state_tree_height),
                             )
                             .unwrap(),
-                            contract_id.to_felt(),
-                            user_id.to_felt(),
-                            offset.to_felt(),
+                            contract_id,
+                            user_id,
+                            offset,
                         );
                         return Ok(CheckedValueRef::from_felt(value));
                     }
@@ -1066,18 +1070,23 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         length,
                         ..
                     } => {
-                        let contract_state_tree_height =
-                            self.interpret_expr(program, contract_state_tree_height.clone(), ctx)?;
-                        let user_id = self.interpret_expr(program, user_id.clone(), ctx)?;
-                        let contract_id = self.interpret_expr(program, contract_id.clone(), ctx)?;
-                        let offset = self.interpret_expr(program, offset.clone(), ctx)?;
-                        let length = self.interpret_expr(program, length.clone(), ctx)?;
+                        let contract_state_tree_height = self
+                            .interpret_expr(program, contract_state_tree_height.clone(), ctx)?
+                            .to_felt();
+                        let user_id = self
+                            .interpret_expr(program, user_id.clone(), ctx)?
+                            .to_felt();
+                        let contract_id = self
+                            .interpret_expr(program, contract_id.clone(), ctx)?
+                            .to_felt();
+                        let offset = self.interpret_expr(program, offset.clone(), ctx)?.to_felt();
+                        let length = self.interpret_expr(program, length.clone(), ctx)?.to_felt();
                         let values = self.context.get_other_user_contract_state_range_at(
-                            contract_state_tree_height.to_felt(),
-                            user_id.to_felt(),
-                            contract_id.to_felt(),
-                            offset.to_felt(),
-                            length.to_felt(),
+                            contract_state_tree_height,
+                            user_id,
+                            contract_id,
+                            offset,
+                            length
                         );
                         return Ok(CheckedValueRef::from_vec(UNKOWN_TYPE, values));
                     }
