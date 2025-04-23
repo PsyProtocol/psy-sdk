@@ -21,7 +21,8 @@ members = [
     "qed_node",
     "qed_realm_node",
     "qed_coordinator_node",
-    "qed_rpc_node",
+    "qed_coordinator_edge",
+    "qed_user_cli",
     "qed_scylla_store",
     "qed_test_sandbox",
     "qed_compiler/qed-fmt",
@@ -112,6 +113,7 @@ k256 = { version = "0.13.2", features = [
 sha2 = "0.10.8"
 sha3 = "0.10.8"
 
+repl-rs = "0.2.8"
 
 num = { version = "0.4.0", default-features = false }
 unroll = "0.1.5"
@@ -223,6 +225,7 @@ qed_data = { path = "./qed_data" }
 qed_core = { path = "./qed_core" }
 qed_node = { path = "./qed_node" }
 qed_prover = { path = "./qed_prover" }
+qed_common = { path = "./qed_common" }
 qed_common_circuit = { path = "./qed_common_circuit" }
 kvq = { path = "./kvq" }
 qed_node_common = { path = "./qed_node_common" }

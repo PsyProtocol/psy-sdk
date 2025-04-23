@@ -10,16 +10,16 @@ use tracing_subscriber::{
 
 #[derive(Clone, Debug, Deserialize, Serialize, Parser)]
 pub struct LogConfig {
-    #[arg(long, env = "QED_REALM_LOG_LEVEL", default_value = "info")]
+    #[arg(long, env = "REALM_LOG_LEVEL", default_value = "info")]
     pub level: String,
 
-    #[arg(long, env = "QED_REALM_LOG_DIR", default_value = "./logs")]
+    #[arg(long, env = "REALM_LOG_DIR", default_value = "./logs")]
     pub directory: PathBuf,
 
-    #[arg(long, env = "QED_REALM_LOG_FILE_NAME", default_value = "app.log")]
+    #[arg(long, env = "REALM_LOG_FILE_NAME", default_value = "app.log")]
     pub file_name: String,
 
-    #[arg(long, env = "QED_REALM_LOG_ENABLE_FILE")]
+    #[arg(long, env = "REALM_LOG_ENABLE_FILE")]
     pub enable_file: bool,
 }
 
@@ -40,13 +40,13 @@ pub struct RedisConfig {
     /// Redis URL
     #[arg(
         long,
-        env = "QED_REALM_REDIS_URL",
+        env = "REALM_REDIS_URL",
         default_value = "redis://localhost:6379"
     )]
     pub url: String,
 
     /// Redis connection pool size
-    #[arg(long, env = "QED_REALM_REDIS_POOL_SIZE")]
+    #[arg(long, env = "REALM_REDIS_POOL_SIZE")]
     pub pool_size: Option<usize>,
 }
 
@@ -63,10 +63,10 @@ impl Default for RedisConfig {
 #[serde(default)]
 pub struct RealmConfig {
     /// Node ID
-    #[arg(long, env = "QED_REALM_NODE_ID", default_value_t = 1)]
+    #[arg(long, env = "REALM_NODE_ID", default_value_t = 1)]
     pub node_id: u32,
     /// Realm ID
-    #[arg(long, env = "QED_REALM_REALM_ID", default_value_t = 0)]
+    #[arg(long, env = "REALM_REALM_ID", default_value_t = 0)]
     pub realm_id: u32,
 }
 
@@ -85,7 +85,7 @@ pub struct QueueConfig {
     /// Worker queue suffix
     #[arg(
         long,
-        env = "QED_REALM_QUEUE_WORKER_QUEUE_SUFFIX",
+        env = "REALM_QUEUE_WORKER_QUEUE_SUFFIX",
         default_value = "rwq1"
     )]
     pub worker_queue_suffix: String,
@@ -93,7 +93,7 @@ pub struct QueueConfig {
     /// Notifications queue suffix
     #[arg(
         long,
-        env = "QED_REALM_QUEUE_NOTIFICATIONS_QUEUE_SUFFIX",
+        env = "REALM_QUEUE_NOTIFICATIONS_QUEUE_SUFFIX",
         default_value = "rnq1"
     )]
     pub notifications_queue_suffix: String,
@@ -112,14 +112,14 @@ impl Default for QueueConfig {
 #[serde(default)]
 pub struct DBConfig {
     /// Database path
-    #[arg(long, env = "QED_REALM_DB_PATH", default_value = "./realm_db")]
+    #[arg(long, env = "REALM_DB_PATH", default_value = "./db/realm")]
     pub path: String,
 }
 
 impl Default for DBConfig {
     fn default() -> Self {
         Self {
-            path: "./realm_db".to_string(),
+            path: "./db/realm".to_string(),
         }
     }
 }
@@ -130,8 +130,8 @@ pub struct RPCConfig {
     /// RPC listen address
     #[arg(
         long,
-        env = "QED_REALM_RPC_LISTEN_ADDR",
-        default_value = "127.0.0.1:8545"
+        env = "REALM_RPC_LISTEN_ADDR",
+        default_value = "127.0.0.1:8546"
     )]
     pub listen_addr: String,
 }
@@ -139,7 +139,7 @@ pub struct RPCConfig {
 impl Default for RPCConfig {
     fn default() -> Self {
         Self {
-            listen_addr: "127.0.0.1:8545".to_string(),
+            listen_addr: "127.0.0.1:8546".to_string(),
         }
     }
 }

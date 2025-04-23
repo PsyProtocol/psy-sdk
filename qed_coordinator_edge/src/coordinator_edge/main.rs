@@ -2,12 +2,12 @@ use jsonrpsee::{server::Server};
 use qed_core::{
     utils::debug_timer::DebugTimer,
 };
-use qed_rpc_node::coordinator_edge::config::AppConfig;
+use qed_coordinator_edge::coordinator_edge::config::AppConfig;
 
 use std::net::SocketAddr;
 use tracing::info;
-use qed_rpc_node::coordinator_edge::init::{init_coordinator_edge, init_tracing};
-use qed_rpc_node::coordinator_edge::rpc::router::build_rpc_module;
+use qed_coordinator_edge::coordinator_edge::init::{init_coordinator_edge, init_tracing};
+use qed_coordinator_edge::coordinator_edge::rpc::router::build_rpc_module;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

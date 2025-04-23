@@ -219,7 +219,7 @@ pub async fn run(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
         CoordinatorProcessNode::new_with_config(CoordinatorProcessNodeConfig {
             pool_size: args.pool_size as usize,
             redis_url: args.redis_uri,
-            storage_db_path: args.storage_db_path,
+            storage_db_path: args.coordinator_db_path,
         })
         .await?;
 

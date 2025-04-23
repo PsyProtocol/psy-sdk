@@ -39,7 +39,7 @@ pub async fn init_coordinator_edge(config: &AppConfig) -> anyhow::Result<()> {
     timer.lap("redis initialized");
     info!("✅ Initialized Redis pool");
     // initialize lmdb
-    std::fs::create_dir_all(&config.qed_db_path)?;
+    std::fs::create_dir_all(&config.coordinator_db_path)?;
     let env = Environment::builder()
         .set_max_dbs(10)
         .set_flags(EnvironmentFlags {
@@ -48,7 +48,7 @@ pub async fn init_coordinator_edge(config: &AppConfig) -> anyhow::Result<()> {
             coalesce: true,
             ..Default::default()
         })
-        .open(Path::new(&config.qed_db_path))?;
+        .open(Path::new(&config.coordinator_db_path))?;
 
     let txn = env.begin_ro_txn()?;
     let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>> = KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RO>>::new(KVQlibmdbxStore::new(txn.clone(), None)?);

@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenv::dotenv().ok();
     // Load configuration from environment variables
     let cli = Cli::parse();
 

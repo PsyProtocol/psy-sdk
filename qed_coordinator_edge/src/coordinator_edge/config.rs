@@ -8,7 +8,7 @@ use tracing::{debug, error, info};
 pub struct AppConfig {
     pub redis_url: String,
     pub coordinator_edge_port: u16,
-    pub qed_db_path: String,
+    pub coordinator_db_path: String,
 }
 
 impl AppConfig {
