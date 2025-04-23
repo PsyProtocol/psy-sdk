@@ -176,6 +176,41 @@ pub enum QSRHashCmd {
     GetUserRegistrationTreeLeafHash(QSRHashCmdGetUserRegistrationTreeLeafHash),
 }
 // end tree hash cmds
+impl QSRHashCmd{
+  pub fn user_id(&self) -> Option<u64>{
+    match self {
+        QSRHashCmd::GetUserContractStateTreeRoot(c) => Some(c.user_id),
+        QSRHashCmd::GetUserContractStateTreeLeafHash(c) => Some(c.user_id),
+        QSRHashCmd::GetUserContractTreeRoot(c) => Some(c.user_id),
+        QSRHashCmd::GetUserContractTreeLeafHash(c) => Some(c.user_id),
+        QSRHashCmd::GetUserTreeLeafHash(c) => Some(c.user_id),
+        _ => None,
+    }
+  }
+
+  pub fn is_realm_cmd(&self) -> bool {
+      match self {
+          QSRHashCmd::GetUserContractStateTreeRoot(_)
+          | QSRHashCmd::GetUserContractStateTreeLeafHash(_)
+          | QSRHashCmd::GetUserContractTreeRoot(_)
+          | QSRHashCmd::GetUserContractTreeLeafHash(_)
+          | QSRHashCmd::GetUserTreeRoot(_)
+          | QSRHashCmd::GetUserTreeLeafHash(_) => true,
+          QSRHashCmd::GetContractFunctionTreeRoot(_)
+          | QSRHashCmd::GetContractFunctionTreeLeafHash(_)
+          | QSRHashCmd::GetContractTreeRoot(_)
+          | QSRHashCmd::GetContractTreeLeafHash(_)
+          | QSRHashCmd::GetDepositTreeRoot(_)
+          | QSRHashCmd::GetDepositTreeLeafHash(_)
+          | QSRHashCmd::GetWithdrawalTreeRoot(_)
+          | QSRHashCmd::GetWithdrawalTreeLeafHash(_)
+          | QSRHashCmd::GetCheckpointTreeRoot(_)
+          | QSRHashCmd::GetCheckpointTreeLeafHash(_)
+          | QSRHashCmd::GetUserRegistrationTreeRoot(_)
+          | QSRHashCmd::GetUserRegistrationTreeLeafHash(_) => false,
+      }
+  }
+}
 
 // start tree merkle proof cmds
 
@@ -260,3 +295,31 @@ pub enum QSRMerkleCmd {
 }
 // end tree merkle proof cmds
 
+impl QSRMerkleCmd {
+  pub fn user_id(&self) -> Option<u64> {
+      match self {
+          QSRMerkleCmd::GetUserContractStateTreeMerkleProof(c) => Some(c.user_id),
+          QSRMerkleCmd::GetUserContractTreeMerkleProof(c) => Some(c.user_id),
+          QSRMerkleCmd::GetUserTreeMerkleProof(c) => Some(c.user_id),
+          QSRMerkleCmd::GetContractFunctionTreeMerkleProof(c) => None,
+          QSRMerkleCmd::GetContractTreeMerkleProof(c) => None,
+          QSRMerkleCmd::GetDepositTreeMerkleProof(c) => None,
+          QSRMerkleCmd::GetWithdrawalTreeMerkleProof(c) => None,
+          QSRMerkleCmd::GetCheckpointTreeMerkleProof(c) => None,
+          QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(c) => None,
+      }
+  }
+  pub fn is_realm_cmd(&self) -> bool {
+    match self {
+      QSRMerkleCmd::GetUserContractStateTreeMerkleProof(_) => true,
+      QSRMerkleCmd::GetUserContractTreeMerkleProof(_) => true,
+      QSRMerkleCmd::GetUserTreeMerkleProof(_) => true,
+      QSRMerkleCmd::GetContractFunctionTreeMerkleProof(_) => false,
+      QSRMerkleCmd::GetContractTreeMerkleProof(_) => false,
+      QSRMerkleCmd::GetDepositTreeMerkleProof(_) => false,
+      QSRMerkleCmd::GetWithdrawalTreeMerkleProof(_) => false,
+      QSRMerkleCmd::GetCheckpointTreeMerkleProof(_) => false,
+      QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(_) => false,
+    }
+  }
+}

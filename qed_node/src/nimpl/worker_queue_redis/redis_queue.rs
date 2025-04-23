@@ -44,6 +44,19 @@ pub enum QueueCmd {
 pub enum QueueNotification {
     CoreJobCompleted = 0,
 }
+
+#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum CEQueueNotification {
+    StartProduceBlock = 0,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum CPQueueNotification {
+    StartSync = 0,
+}
+
 impl RedisQueue {
     pub fn new(uri: &str) -> Result<Self> {
         let client = redis::Client::open(uri)?;
@@ -59,6 +72,8 @@ impl RedisQueue {
                 Q_CMD,
                 Q_JOB,
                 Q_NOTIFICATIONS,
+                CP_NOTIFICATIONS,
+                CE_NOTIFICATIONS,
             ] {
                 if matches!(
                     queue.get_queue_attributes(*q),
@@ -159,17 +174,4 @@ impl ProvingWorkerListener for RedisQueue {
             Ok(true)
         )
     }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
-#[repr(u8)]
-pub enum CEQueueNotification {
-    StartProduceBlock = 0,
-}
-
-#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
-#[repr(u8)]
-pub enum CPQueueNotification {
-    StartSync = 0,
 }
