@@ -110,4 +110,15 @@ run-realm-edge:
 run-worker:
 	@RUST_LOG=${LOG_LEVE} cargo run --package qed_coordinator_node --bin qed_coordinator_node  --release worker
 
+register-user:
+	@curl -X POST http://127.0.0.1:8545 \
+      -H "Content-Type: application/json" \
+      -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "61c1dcffe86c4a54023bbae5ce0bc4974d5a73b962b845113129d3842ab4e87e" }, "id": 1 }'
+
+submit-end-cap-proof:
+	@cargo run --release --bin qed_user_cli submit-end-caproof -r http://127.0.0.1:8546 -p "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0" --contract-call-path
+
+build-block:
+	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .
+
 .PHONE: check fix build format run test update-snapshots
