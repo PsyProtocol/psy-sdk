@@ -56,7 +56,7 @@ impl<
     }
 }
 
-const COORDINATOR_WORKER_SUFFIX: &str = "CW";
+pub const COORDINATOR_WORKER_SUFFIX: &str = "CW";
 impl
     CoordinatorWorkerNode<
         ProofStoreFred,

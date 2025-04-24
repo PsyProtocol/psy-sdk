@@ -29,6 +29,7 @@ kvq = { path = "../kvq" }
 reth-libmdbx  = { path = "../kvq_store_lmdbx/libmdbx-rs" }
 qed_common_circuit = { path = "../qed_common_circuit" }
 qed_test_sandbox = { path = "../qed_test_sandbox" }
+qed_coordinator_node = { path = "../qed_coordinator_node" }
 
 tracing = {workspace = true}
 lazy_static = {workspace = true}

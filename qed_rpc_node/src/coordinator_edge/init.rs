@@ -2,6 +2,7 @@ use std::path::Path;
 use std::sync::Arc;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
+use qed_coordinator_node::worker::COORDINATOR_WORKER_SUFFIX;
 use qed_core::utils::debug_timer::DebugTimer;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::nimpl::new_fred_pool;
@@ -31,10 +32,12 @@ pub async fn init_coordinator_edge(config: &AppConfig) -> anyhow::Result<()> {
     info!("🚀 Initializing coordinator edge node...");
     let redis_pool = new_fred_pool(&config.redis_url, 8).await?;
 
-    let proof_store = Arc::new(ProofStoreFred::new(
+    let proof_store = Arc::new(ProofStoreFred::new2(
         redis_pool.clone(),
         "wq1".into(),
         "nq1".into(),
+        Some(COORDINATOR_WORKER_SUFFIX),
+        Some(COORDINATOR_WORKER_SUFFIX),
     ));
     timer.lap("redis initialized");
     info!("✅ Initialized Redis pool");

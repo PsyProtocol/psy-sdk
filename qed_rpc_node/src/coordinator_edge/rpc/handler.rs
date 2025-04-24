@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use anyhow::bail;
 use plonky2::field::types::Field;
-use plonky2::hash::hash_types::HashOut;
+use plonky2::hash::hash_types::{HashOut, RichField};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use rand::RngCore;
@@ -20,10 +20,14 @@ use qed_core::job::worker_queue::{ProvingDispatcher, ProvingWorkerListener};
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
+use qed_data::qdata::checkpoint::{QEDCheckpointLeaf, QEDL2BlockState};
+use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
+use qed_data::qdata::user::QEDUserLeaf;
 use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, CPQueueNotification, RedisQueue, CE_NOTIFICATIONS, CP_NOTIFICATIONS};
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
+use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use crate::coordinator_edge::context::{next_checkpoint_id, with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
 use crate::coordinator_edge::processor::{handle_cp_sync, process_realm_job};
 use crate::coordinator_edge::rpc::types::GetUserIdRequest;
@@ -143,31 +147,6 @@ impl CoordinatorEdgeHandler {
                                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                             }
                         }
-
-                        // match ctx
-                        //     .proof_store
-                        //     .wait_for_next_item_imm::<ProvingJobDataId>(channel_id, next_checkpoint)
-                        //     .await
-                        // {
-                        //     Ok(job_id) => {
-                        //         info!("🎯 Got ProvingJobDataId: {:?}", job_id);
-                        //         if let Err(e) = process_realm_job(ctx, job_id).await {
-                        //             error!("❌ process_realm_job error: {:?}", e);
-                        //         } else {
-                        //
-                        //             next_checkpoint += 1;
-                        //             LATEST_CHECKPOINT_ID
-                        //                 .store(job_id.checkpoint_id, Ordering::Relaxed);
-                        //             info!("✅ process_realm_job success");
-                        //             info!("ℹ️ latest checkpoint now = {}", job_id.checkpoint_id);
-                        //         }
-                        //     }
-                        //     Err(e) => {
-                        //
-                        //         warn!("⚠️ wait_for_next_item_imm error: {:?}", e);
-                        //         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                        //     }
-                        // }
                     }
                 }
                 tokio::time::sleep(Duration::from_millis(500)).await;
@@ -323,6 +302,60 @@ impl CoordinatorEdgeHandler {
         info!("✅ build_block dispatched to queue");
         Ok(())
     }
+
+    pub async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
+        with_ctx_read_async(|ctx| {
+            let store = ctx.store_reader.clone();
+            async move {
+                QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*store).await
+
+            }
+        }).await
+    }
+    pub async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QEDUserLeaf<QEDFelt>> {
+        with_ctx_read_async(|ctx| {
+            let store = ctx.store_reader.clone();
+            async move {
+                store.get_user_leaf_data(checkpoint_id, user_id)
+            }
+        }).await
+    }
+
+    pub async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<QEDFelt>> {
+        with_ctx_read_async(|ctx| {
+            let store = ctx.store_reader.clone();
+            async move {
+                QEDCoordinatorStoreReaderAsync::get_contract_leaf_data(&*store, contract_id).await
+
+            }
+        }).await
+    }
+        pub async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState> {
+            with_ctx_read_async(|ctx| {
+                let store = ctx.store_reader.clone();
+                async move {
+                    QEDCoordinatorStoreReaderAsync::get_l2_block_state(&*store, checkpoint_id).await                    // store.get_l2_block_state(checkpoint_id)
+                }
+            }).await
+        }
+        pub async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<QEDFelt>> {
+            with_ctx_read_async(|ctx| {
+                let store = ctx.store_reader.clone();
+                async move {
+                    QEDCoordinatorStoreReaderAsync::get_checkpoint_leaf_data(&*store, checkpoint_id).await
+                    // store.get_checkpoint_leaf_data(checkpoint_id)
+                }
+            }).await
+        }
+    pub async fn get_contract_code_definition(&self, contract_id: u64) -> anyhow::Result<ContractCodeDefinition> {
+        with_ctx_read_async(|ctx| {
+            let store = ctx.store_reader.clone(); // 确保 store_reader 是 Arc 或可 Clone
+            async move {
+                QEDCoordinatorStoreReaderAsync::get_contract_code_definition(&*store, contract_id).await
+            }
+        }).await
+    }
+
 }
 
 fn qhash_from_u64_array(arr: [u64; 4]) -> QHashOut<QEDFelt> {

@@ -13,3 +13,16 @@ pub struct SubmitGUTAParams {
 pub struct GetUserIdRequest {
     pub public_key_param: String, // hex string
 }
+
+
+
+#[derive(Debug, Deserialize)]
+pub struct GetByIdRequest {
+    pub id: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GetUserLeafRequest {
+    pub checkpoint_id: u64,
+    pub user_id: u64,
+}

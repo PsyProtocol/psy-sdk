@@ -4717,6 +4717,7 @@ dependencies = [
  "once_cell",
  "plonky2",
  "qed_common_circuit",
+ "qed_coordinator_node",
  "qed_core",
  "qed_crypto",
  "qed_data",

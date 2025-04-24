@@ -36,6 +36,7 @@ use tracing::Level;
 use tracing_subscriber::EnvFilter;
 
 use crate::subcommand::CoordinatorProcessorArgs;
+use crate::worker::COORDINATOR_WORKER_SUFFIX;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -148,7 +149,7 @@ impl
 
         pool.init().await?;
 
-        let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
+        let q = ProofStoreFred::new2(pool.clone(), "wq1".to_string(), "nq1".to_string(), Some(COORDINATOR_WORKER_SUFFIX), Some(COORDINATOR_WORKER_SUFFIX));
         let flags = EnvironmentFlags {
             no_sub_dir: false,
             mode: Mode::ReadWrite {
