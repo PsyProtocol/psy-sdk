@@ -87,8 +87,22 @@ init:
 	@cd $(PWD)/db && cargo run --release --package dargo new ${PROJECT_DIR}
 	@cp qed_compiler/tests/new_token.qed ${FILE}
 
-cleanup:
-	@redis-cli 'FLUSHALL'
+.PHONY: launch
+launch:
+	@docker-compose \
+		-f docker-compose.yml \
+		up \
+		--build \
+		-d \
+		--remove-orphans
+
+.PHONY: shutdown
+shutdown:
+	@docker-compose \
+		-f docker-compose.yml \
+		down \
+		--remove-orphans > /dev/null 2>&1 || true
+	# @redis-cli 'FLUSHALL'
 	@rm -fr $(PWD)/db
 	@rm -fr ${PROJECT_DIR}
 

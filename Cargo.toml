@@ -231,7 +231,7 @@ qed_common_circuit = { path = "./qed_common_circuit" }
 kvq = { path = "./kvq" }
 qed_node_common = { path = "./qed_node_common" }
 qed_rollup_circuit = { path = "./qed_rollup_circuit" }
-qed_rollup_tils= { path = "./qed_rollup_tils" }
+qed_rollup_utils= { path = "./qed_rollup_utils" }
 qed_coordinator_node = { path = "./qed_coordinator_node" }
 qed_realm_node = { path = "./qed_realm_node" }
 

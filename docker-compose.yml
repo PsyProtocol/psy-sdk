@@ -1,0 +1,111 @@
+version: '3.7'
+services:
+  redis:
+    image: redis
+    volumes:
+      - "./redis-data:/data"
+    ports:
+      - 6379:6379
+    networks:
+      testing_net:
+        ipv4_address: 172.16.238.13
+    restart: always
+
+  coordinator-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command:
+      - "coordinator-processor"
+    volumes:
+      - "./db:/qed-rollup/db"
+    networks:
+      testing_net:
+        ipv4_address: 172.16.238.14
+    restart: always
+    depends_on:
+      - redis
+
+  coordinator-egde:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command:
+      - "coordinator-edge"
+    volumes:
+      - "./db:/qed-rollup/db"
+    ports:
+      - 8545:8545
+    networks:
+      testing_net:
+        ipv4_address: 172.16.238.15
+    restart: always
+    depends_on:
+      - redis
+      - coordinator-processor
+
+  coordinator-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command:
+      - "coordinator-worker"
+    volumes:
+      - "./db:/qed-rollup/db"
+    networks:
+      testing_net:
+        ipv4_address: 172.16.238.16
+    restart: always
+    depends_on:
+      - redis
+
+  realm-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command:
+      - "realm-processor"
+    volumes:
+      - "./db:/qed-rollup/db"
+    networks:
+      testing_net:
+        ipv4_address: 172.16.238.17
+    restart: always
+    depends_on:
+      - redis
+
+  realm-edge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command:
+      - "realm-edge"
+    volumes:
+      - "./db:/qed-rollup/db"
+    ports:
+      - 8546:8546
+    networks:
+      testing_net:
+        ipv4_address: 172.16.238.18
+    restart: always
+    depends_on:
+      - redis
+      - realm-processor
+
+
+networks:
+  testing_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.238.0/24
