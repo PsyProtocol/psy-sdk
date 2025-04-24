@@ -30,9 +30,9 @@ pub struct CoordinatorEdgeHandler {
 }
 
 impl CoordinatorEdgeHandler {
-    pub fn new(redis_url: &str) -> anyhow::Result<Self> {
+    pub fn new(redis_uri: &str) -> anyhow::Result<Self> {
         Ok(Self {
-            notify_queue: RedisQueue::new(redis_url)?,
+            notify_queue: RedisQueue::new(redis_uri)?,
             cp_listener: Arc::new(Mutex::new(None)),
             realm_job_listener: Arc::new(Mutex::new(None)),
         })

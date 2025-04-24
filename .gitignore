@@ -8,6 +8,7 @@ result
 **/.DS_Store
 test-db
 **/db
+redis-data/
 examples/
 
 perf2

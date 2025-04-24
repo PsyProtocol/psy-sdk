@@ -25,7 +25,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     );
 
     // Create storage and queues
-    let pool = new_fred_pool(&config.redis.url, config.redis.pool_size.unwrap_or(10)).await?;
+    let pool = new_fred_pool(&config.redis.redis_uri, config.redis.pool_size.unwrap_or(10)).await?;
     let proof_store = ProofStoreFred::new(pool, config.queue.worker_queue_suffix, config.queue.notifications_queue_suffix);
     // Create proof storage
     let proof_store = Arc::new(proof_store);

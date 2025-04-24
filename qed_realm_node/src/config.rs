@@ -40,10 +40,10 @@ pub struct RedisConfig {
     /// Redis URL
     #[arg(
         long,
-        env = "REALM_REDIS_URL",
+        env = "REALM_REDIS_URI",
         default_value = "redis://localhost:6379"
     )]
-    pub url: String,
+    pub redis_uri: String,
 
     /// Redis connection pool size
     #[arg(long, env = "REALM_REDIS_POOL_SIZE")]
@@ -53,7 +53,7 @@ pub struct RedisConfig {
 impl Default for RedisConfig {
     fn default() -> Self {
         Self {
-            url: "redis://localhost:6379".to_string(),
+            redis_uri: "redis://localhost:6379".to_string(),
             pool_size: Some(10),
         }
     }
@@ -130,7 +130,7 @@ pub struct RPCConfig {
     /// RPC listen address
     #[arg(
         long,
-        env = "REALM_RPC_LISTEN_ADDR",
+        env = "REALM_EDGE_LISTEN_ADDR",
         default_value = "127.0.0.1:8546"
     )]
     pub listen_addr: String,
