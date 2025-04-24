@@ -22,6 +22,7 @@ members = [
     "qed_realm_node",
     "qed_coordinator_node",
     "qed_rpc_node",
+    "qed_worker",
     "qed_scylla_store",
     "qed_test_sandbox",
     "qed_compiler/qed-fmt",
@@ -64,7 +65,7 @@ once_cell = "1.19.0"
 twox-hash = "1.6.3"
 hashbrown = "0.14.5"
 anyhow = "1.0.75"
-async-trait = { version = "0.1.80" }
+async-trait = { version = "0.1.88" }
 base64 = "0.22"
 bitcoin = { version = "0.31.1", features = ["serde", "rand"] }
 chrono = "0.4.39"

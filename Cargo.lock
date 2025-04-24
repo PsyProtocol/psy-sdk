@@ -4368,7 +4368,7 @@ dependencies = [
  "qed_crypto",
  "qed_data",
  "qed_store",
- "rand 0.9.1",
+ "rand 0.9.0",
  "reth-libmdbx",
  "serde",
  "serde_json",
@@ -4589,6 +4589,36 @@ dependencies = [
  "tokio",
  "tracing",
  "twox-hash",
+]
+
+[[package]]
+name = "qed_worker"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap",
+ "fred",
+ "jsonrpsee",
+ "kvq",
+ "kvq_store_lmdbx",
+ "plonky2",
+ "qed_core",
+ "qed_crypto",
+ "qed_data",
+ "qed_node",
+ "qed_node_common",
+ "qed_rollup_circuit",
+ "qed_store",
+ "reth-libmdbx",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "thiserror 2.0.12",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
 ]
 
 [[package]]
