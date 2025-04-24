@@ -103,7 +103,7 @@ shutdown:
 		down \
 		--remove-orphans > /dev/null 2>&1 || true
 	# @redis-cli 'FLUSHALL'
-	@rm -fr $(PWD)/db
+	@sudo rm -fr $(PWD)/db
 	@rm -fr ${PROJECT_DIR}
 
 interpret:
