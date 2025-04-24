@@ -1,0 +1,9 @@
+[package]
+edition = "2021"
+name = "qed_rollup_utils"
+version = "0.1.0"
+
+[dependencies]
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }

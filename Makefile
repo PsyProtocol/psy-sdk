@@ -69,6 +69,8 @@ ci:
 update-snapshots:
 	@cargo insta review
 
+.PHONE: check fix build format run test update-snapshots
+
 ################################################################################
 #                                   TMP                                        #
 ################################################################################
@@ -131,4 +133,8 @@ submit-end-cap-proof:
 build-block:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .
 
-.PHONE: check fix build format run test update-snapshots
+image:
+	docker build \
+		-c 512 \
+		-t qedprotocol/qed-rollup:latest \
+		-f Dockerfile .

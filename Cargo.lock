@@ -4715,6 +4715,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "qed_rollup_utils"
+version = "0.1.0"
+dependencies = [
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "qed_scylla_store"
 version = "0.1.0"
 dependencies = [
