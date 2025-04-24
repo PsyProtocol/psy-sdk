@@ -147,6 +147,12 @@ submit-end-cap-proof:
 build-block:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .
 
+get-l2-block-state:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_l2_block_state", "params": [{"checkpoint_id": 0}], "id": 1 }' | jq .
+
+get-latest-l2-block-state:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_l2_block_state", "params": [], "id": 1 }' | jq .
+
 image:
 	docker build \
 		-c 512 \
