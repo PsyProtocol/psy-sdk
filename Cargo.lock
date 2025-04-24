@@ -4711,6 +4711,7 @@ dependencies = [
  "dotenv",
  "qed_coordinator_node",
  "qed_realm_node",
+ "qed_rollup_utils",
  "tokio",
 ]
 
@@ -4718,6 +4719,7 @@ dependencies = [
 name = "qed_rollup_utils"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",

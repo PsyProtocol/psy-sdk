@@ -15,12 +15,12 @@ use crate::subcommand::Commands;
 async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
-
     let cli = Cli::parse();
+    qed_rollup_utils::setup_logging(cli.log_level)?;
     match cli.command {
         Commands::CoordinatorEdge(args) => {
             coordinator_edge::run(args).await?;
-        },
+        }
         Commands::CoordinatorWorker(args) => {
             coordinator_worker::run(args).await?;
         }
@@ -35,7 +35,4 @@ async fn main() -> anyhow::Result<()> {
         }
     };
     Ok::<_, anyhow::Error>(())
-
-
-
 }
