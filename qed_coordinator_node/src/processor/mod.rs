@@ -208,11 +208,11 @@ impl
 }
 
 pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
-
+    // tracing_subscriber::fmt()
+    //     .with_max_level(Level::DEBUG)
+    //     .with_env_filter(EnvFilter::from_default_env())
+    //     .init();
+    //
     let mut coordinator_processor =
         CoordinatorProcessNode::new_with_config(CoordinatorProcessNodeConfig {
             pool_size: args.coordinator_pool_size as usize,

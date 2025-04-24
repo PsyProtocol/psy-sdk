@@ -16,7 +16,7 @@ use tracing::info;
 
 pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Starting coordinator edge node...");
-    init_tracing();
+    // init_tracing();
 
     let mut timer = DebugTimer::new("coordinator_edge_node");
     timer.lap("start");
