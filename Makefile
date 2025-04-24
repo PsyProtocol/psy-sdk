@@ -88,7 +88,7 @@ init:
 	@cp qed_compiler/tests/new_token.qed ${FILE}
 
 .PHONY: launch
-launch:
+launch: shutdown
 	@docker-compose \
 		-f docker-compose.yml \
 		up \
