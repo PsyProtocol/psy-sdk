@@ -21,7 +21,7 @@ use qed_node_common::store::new_lmdbx_env;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use reth_libmdbx::{Mode, RO, RW};
+use reth_libmdbx::{Mode, SyncMode, RO, RW};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
@@ -71,7 +71,12 @@ impl RealmProcessor {
             config.queue.worker_queue_suffix,
             config.queue.notifications_queue_suffix,
         );
-        let store_reader_env = new_lmdbx_env(Mode::ReadOnly, &config.db.path)?;
+        let store_reader_env = new_lmdbx_env(
+            Mode::ReadWrite {
+                sync_mode: SyncMode::Durable,
+            },
+            &config.db.path,
+        )?;
         let txn = store_reader_env.begin_rw_txn()?;
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RW>>::new(KVQlibmdbxStore::new(
