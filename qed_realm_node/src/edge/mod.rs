@@ -4,18 +4,19 @@ pub mod request;
 pub mod rpc;
 
 use self::{context::RealmEdgeContext, rpc::start_realm_edge_rpc_server};
-use crate::{
-    config::RealmEdgeConfig, C, D,
-};
+use crate::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
+use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
+use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use qed_node::realm::state::processor::RealmConfig;
-use std::clone::Clone;
-use std::sync::Arc;
-use tracing::info;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
-use qed_node_common::store::new_lmdbx_store;
+use qed_node::realm::state::processor::RealmConfig;
+use reth_libmdbx::{Environment, EnvironmentFlags, Mode, RO};
+use std::clone::Clone;
+use std::path::Path;
+use std::sync::Arc;
+use tracing::info;
 
 /// Start Realm Edge node
 pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
@@ -31,9 +32,22 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let proof_store = Arc::new(proof_store);
     let checkpoint_queue = proof_store.clone();
 
-    // Create store reader
-    let store_reader = new_lmdbx_store(&config.db.path)?;
+    let env = Environment::builder()
+        .set_max_dbs(10)
+        .set_flags(EnvironmentFlags {
+            no_sub_dir: false,
+            mode: Mode::ReadOnly,
+            coalesce: true,
+            ..Default::default()
+        })
+        .open(Path::new(config.db.path.as_str()))?;
 
+    let txn = env.begin_ro_txn()?;
+    let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>> =
+        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RO>>::new(KVQlibmdbxStore::new(
+            txn.clone(),
+            None,
+        )?);
     let cmd_store = store_reader.dup();
 
     // Create proof verifier
