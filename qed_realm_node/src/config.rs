@@ -1,38 +1,5 @@
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use std::io;
-use std::path::PathBuf;
-use tracing::Level;
-use tracing_appender::rolling;
-use tracing_subscriber::{
-    fmt::writer::MakeWriterExt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
-};
-
-#[derive(Clone, Debug, Deserialize, Serialize, Parser)]
-pub struct LogConfig {
-    #[arg(long, env = "REALM_LOG_LEVEL", default_value = "info")]
-    pub level: String,
-
-    #[arg(long, env = "REALM_LOG_DIR", default_value = "./logs")]
-    pub directory: PathBuf,
-
-    #[arg(long, env = "REALM_LOG_FILE_NAME", default_value = "app.log")]
-    pub file_name: String,
-
-    #[arg(long, env = "REALM_LOG_ENABLE_FILE")]
-    pub enable_file: bool,
-}
-
-impl Default for LogConfig {
-    fn default() -> Self {
-        LogConfig {
-            level: "info".to_string(),
-            directory: "./logs".into(),
-            file_name: "app.log".to_string(),
-            enable_file: false,
-        }
-    }
-}
 
 #[derive(Clone, Debug, Deserialize, Serialize, Parser)]
 #[serde(default)]
@@ -41,7 +8,7 @@ pub struct RedisConfig {
     #[arg(
         long,
         env = "REALM_REDIS_URI",
-        default_value = "redis://localhost:6379"
+        default_value = "redis://127.0.0.1:6379"
     )]
     pub redis_uri: String,
 
@@ -53,7 +20,7 @@ pub struct RedisConfig {
 impl Default for RedisConfig {
     fn default() -> Self {
         Self {
-            redis_uri: "redis://localhost:6379".to_string(),
+            redis_uri: "redis://127.0.0.1:6379".to_string(),
             pool_size: Some(10),
         }
     }
@@ -83,11 +50,7 @@ impl Default for RealmConfig {
 #[serde(default)]
 pub struct QueueConfig {
     /// Worker queue suffix
-    #[arg(
-        long,
-        env = "REALM_QUEUE_WORKER_QUEUE_SUFFIX",
-        default_value = "rwq1"
-    )]
+    #[arg(long, env = "REALM_QUEUE_WORKER_QUEUE_SUFFIX", default_value = "rwq1")]
     pub worker_queue_suffix: String,
 
     /// Notifications queue suffix
@@ -144,7 +107,6 @@ impl Default for RPCConfig {
     }
 }
 
-/// Realm node configuration
 #[derive(Default, Clone, Debug, Deserialize, Serialize, Parser)]
 #[serde(default)]
 pub struct RealmNodeConfig {
@@ -187,39 +149,4 @@ pub struct RealmEdgeConfig {
     /// Queue configuration
     #[command(flatten)]
     pub queue: QueueConfig,
-}
-
-pub fn setup_logging(config: &LogConfig) -> anyhow::Result<()> {
-    let log_level = config.level.parse::<Level>().unwrap_or(Level::INFO);
-
-    // Setup subscriber with filtering
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(format!("{}", log_level)));
-
-    let fmt_layer = tracing_subscriber::fmt::layer()
-        .with_thread_ids(true)
-        .with_thread_names(true)
-        .with_file(true)
-        .with_line_number(true)
-        .with_target(true);
-
-    if config.enable_file {
-        std::fs::create_dir_all(&config.directory)?;
-        let file_appender = rolling::daily(&config.directory, &config.file_name);
-        tracing_subscriber::registry()
-            .with(env_filter)
-            .with(
-                fmt_layer
-                    .with_writer(file_appender.and(io::stdout))
-                    .with_ansi(false),
-            )
-            .init();
-    } else {
-        tracing_subscriber::registry()
-            .with(env_filter)
-            .with(fmt_layer.with_ansi(true))
-            .init();
-    }
-
-    Ok(())
 }
