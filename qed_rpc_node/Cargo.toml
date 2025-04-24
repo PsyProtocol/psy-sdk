@@ -41,7 +41,7 @@ dotenvy = {workspace = true}
 log = {workspace = true}
 env_logger = {workspace = true}
 hex = {workspace = true}
-
+dashmap = {workspace = true}
 [[bin]]
 name = "coordinator-edge"
 path = "src/coordinator_edge/main.rs"
