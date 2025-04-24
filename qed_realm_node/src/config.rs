@@ -8,7 +8,7 @@ pub struct RedisConfig {
     #[arg(
         long,
         env = "REALM_REDIS_URI",
-        default_value = "redis://localhost:6379"
+        default_value = "redis://127.0.0.1:6379"
     )]
     pub redis_uri: String,
 
@@ -20,7 +20,7 @@ pub struct RedisConfig {
 impl Default for RedisConfig {
     fn default() -> Self {
         Self {
-            redis_uri: "redis://localhost:6379".to_string(),
+            redis_uri: "redis://127.0.0.1:6379".to_string(),
             pool_size: Some(10),
         }
     }

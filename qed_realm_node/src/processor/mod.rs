@@ -13,9 +13,11 @@ use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID};
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
+use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::{ProofStoreFred, PS_HISTORY_QUEUE_KEY_PREFIX};
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use qed_node::worker::simple_async_realm::SimpleAsyncRealmWorker;
+use qed_node_common::store::new_lmdbx_store;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
@@ -24,8 +26,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info};
-use qed_node::nimpl::new_fred_pool;
-use qed_node_common::store::new_lmdbx_store;
 
 type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>;
 type ConcreteRealmProcessorContext = RealmProcessorContext<
