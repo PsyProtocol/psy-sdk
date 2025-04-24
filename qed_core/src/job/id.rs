@@ -322,7 +322,6 @@ pub struct QWorkerJobBenchmark {
   pub duration: u64,
 }
 
-
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct QProvingJobDataID {
     pub topic: QJobTopic,

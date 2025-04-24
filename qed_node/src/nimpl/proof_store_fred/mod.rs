@@ -18,8 +18,8 @@ use qed_core::job::{
 };
 use tokio::time::sleep;
 
-pub const PROOF_STORE_KEY_PREFIX: &'static str = "PSV1";
-pub const PROOF_STORE_COUNTERS_PREFIX: &'static str = "proof_counters";
+pub const PROOF_STORE_KEY_PREFIX_1: &'static str = "PSV1";
+pub const PROOF_STORE_COUNTERS_PREFIX_1: &'static str = "proof_counters";
 
 pub const PS_DRAIN_QUEUE_KEY_PREFIX: &'static str = "PSDQV1_";
 pub const PS_WORKER_QUEUE_KEY_PREFIX: &'static str = "PSWQV1";
@@ -31,6 +31,8 @@ pub struct ProofStoreFred {
     pool: Pool,
     worker_queue_id: String,
     notifications_queue_id: String,
+    proof_store_key: String,
+    proof_store_counters: String,
 }
 
 impl ProofStoreFred {
@@ -46,9 +48,35 @@ impl ProofStoreFred {
                 "{}-{}",
                 PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, notifications_queue_suffix
             ),
-        }
+            proof_store_key: format!("{}", PROOF_STORE_KEY_PREFIX_1),
+            proof_store_counters: format!("{}", PROOF_STORE_COUNTERS_PREFIX_1),
+            }
     }
 
+    pub fn new2(
+        pool: Pool,
+        worker_queue_suffix: String,
+        notifications_queue_suffix: String,
+        proof_store_key_suffix: Option<&str>,
+        proof_store_counters_suffix: Option<&str>,
+    ) -> Self {
+        Self {
+            pool,
+            worker_queue_id: format!("{}-{}", PS_WORKER_QUEUE_KEY_PREFIX, worker_queue_suffix),
+            notifications_queue_id: format!(
+                "{}-{}",
+                PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, notifications_queue_suffix
+            ),
+            proof_store_key: match proof_store_key_suffix {
+                Some(suffix) => format!("{}-{}", PROOF_STORE_KEY_PREFIX_1, suffix),
+                None => format!("{}", PROOF_STORE_KEY_PREFIX_1),
+            },
+            proof_store_counters: match proof_store_counters_suffix {
+                Some(suffix) => format!("{}-{}", PROOF_STORE_COUNTERS_PREFIX_1, suffix),
+                None => format!("{}", PROOF_STORE_COUNTERS_PREFIX_1),
+            }
+        }
+    }
     pub fn pool(&self) -> &Pool {
         &self.pool
     }
@@ -59,7 +87,7 @@ impl QProofStoreReaderAsync for ProofStoreFred {
     async fn contains_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool> {
         let data = self
             .pool
-            .hget::<Vec<u8>, _, &[u8]>(PROOF_STORE_KEY_PREFIX, &id.to_fixed_bytes())
+            .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key, &id.to_fixed_bytes())
             .await?;
         Ok(data.len() != 0)
     }
@@ -69,7 +97,7 @@ impl QProofStoreReaderAsync for ProofStoreFred {
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let data = self
             .pool
-            .hget::<Vec<u8>, _, &[u8]>(PROOF_STORE_KEY_PREFIX, &id.to_fixed_bytes())
+            .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key, &id.to_fixed_bytes())
             .await?;
 
         Ok(bincode::deserialize(&data)?)
@@ -78,7 +106,7 @@ impl QProofStoreReaderAsync for ProofStoreFred {
     async fn get_bytes_by_id(&self, id: QProvingJobDataID) -> anyhow::Result<Vec<u8>> {
         let data = self
             .pool
-            .hget::<Vec<u8>, _, &[u8]>(PROOF_STORE_KEY_PREFIX, &id.to_fixed_bytes())
+            .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key, &id.to_fixed_bytes())
             .await?;
 
         Ok(data)
@@ -94,7 +122,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
     ) -> anyhow::Result<()> {
         self.pool
             .hsetnx::<(), _, &[u8], Vec<u8>>(
-                PROOF_STORE_KEY_PREFIX,
+                &self.proof_store_key,
                 &id.to_fixed_bytes(),
                 bincode::serialize(&proof)?,
             )
@@ -110,7 +138,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
     }
     async fn set_bytes_by_id(&self, id: QProvingJobDataID, data: &[u8]) -> anyhow::Result<()> {
         self.pool
-            .hsetnx::<(), _, &[u8], &[u8]>(PROOF_STORE_KEY_PREFIX, &id.to_fixed_bytes(), data)
+            .hsetnx::<(), _, &[u8], &[u8]>(&self.proof_store_key, &id.to_fixed_bytes(), data)
             .await?;
         Ok(())
     }
@@ -118,7 +146,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
     async fn inc_counter_by_id(&self, id: QProvingJobDataID) -> anyhow::Result<u32> {
         let new_counter_value = self
             .pool
-            .hincrby::<u32, _, &[u8]>(PROOF_STORE_COUNTERS_PREFIX, &id.to_fixed_bytes(), 1)
+            .hincrby::<u32, _, &[u8]>(&self.proof_store_counters, &id.to_fixed_bytes(), 1)
             .await?;
         Ok(new_counter_value)
     }

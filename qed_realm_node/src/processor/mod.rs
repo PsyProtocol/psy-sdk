@@ -61,16 +61,18 @@ pub async fn start_realm_processor_node(config: RealmNodeConfig) -> anyhow::Resu
     }
     Ok(())
 }
-
+const REALM_PROCESSOR_SUFFIX: &str = "RP";
 impl RealmProcessor {
     pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
         let pool =
             new_fred_pool(&config.redis.url, config.redis.pool_size.unwrap_or(8)).await?;
-        let realm_qps = ProofStoreFred::new(
+        let realm_qps = ProofStoreFred::new2(
             pool,
             config.queue.worker_queue_suffix,
             config.queue.notifications_queue_suffix,
+            Some(REALM_PROCESSOR_SUFFIX),
+            Some(REALM_PROCESSOR_SUFFIX)
         );
         let store_reader = new_lmdbx_store(&config.db.path)?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());

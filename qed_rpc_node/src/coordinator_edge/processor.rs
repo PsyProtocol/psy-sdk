@@ -57,13 +57,11 @@ where
     let realm_result: GUTARealmCheckpointResult<QEDFelt>  =
         bincode::deserialize(&bytes).map_err(|e| anyhow::anyhow!("failed to deserialize realm_result: {:?}", e))?;
 
-
     // 2) get the proof by id
     let realm_proof = ctx
         .proof_store
         .get_proof_by_id(realm_result.proof_id)
         .await?;
-
 
 
     // 3) call the context to handle the proof
