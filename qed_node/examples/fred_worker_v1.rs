@@ -140,13 +140,16 @@ impl SimpleActorWorker {
             event_receiver.notify_core_goal_completed_imm(job_id).await?;
             return Ok(());
         }
-
+        tracing::info!("processing job {}, to get goal by id", job_id.topic);
         let goal_counter = store.get_goal_by_job_id(job_id).await?;
-        //tracing::info!("goal_counter: {}", goal_counter);
+        tracing::info!("goal_counter: {}", goal_counter);
         if goal_counter != 0 {
             let result = store.inc_counter_by_id(job_id.get_sub_group_counter_id()).await?;
+            tracing::info!("result: {}", result);
             if result == goal_counter {
+                tracing::info!("job {} is done, enqueueing jobs", job_id.topic);
                 let jobs = store.get_next_jobs_by_job_id(job_id).await?;
+                tracing::info!("jobs: {:?}", jobs);
                 //tracing::info!("[{:?}] enqueuing_jobs: {:?}", job_id, jobs);
                 event_receiver.enqueue_jobs_imm(&jobs).await?;
             }

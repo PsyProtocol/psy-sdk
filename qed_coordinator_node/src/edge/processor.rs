@@ -52,33 +52,35 @@ where
     PS: QProofStoreAsyncImm,
 {
     // 1) got the bytes from job_info.job_id
-    // let bytes = ctx.proof_store.get_bytes_by_id(job_info.job_id).await?;
-    // let (realm_result, _len): (GUTARealmCheckpointResult<QEDFelt>, usize) =
-    //     decode_from_slice(&bytes, standard())?;
-    //
-    // // 2) get the proof by id
-    // let realm_proof = ctx
-    //     .proof_store
-    //     .get_proof_by_id(realm_result.proof_id)
-    //     .await?;
-    //
-    // // 3) call the context to handle the proof
-    // ctx.handle_recv_guta_from_realm(
-    //     SubmitGUTARealmResultAPINoProofInput {
-    //         realm_id: 0,
-    //         checkpoint_id: realm_result.checkpoint_id,
-    //         guta_stats: realm_result.guta_stats,
-    //         top_line_proof: realm_result.top_line_proof,
-    //         checkpoint_tree_root: realm_result.checkpoint_tree_root,
-    //         circuit_type: realm_result.proof_id.circuit_type,
-    //     },
-    //     &realm_proof,
-    // )
-    //     .await?;
+    let bytes = ctx.proof_store.get_bytes_by_id(job_info.job_id).await?;
 
-    // info!(
-    //     "✅ processed GUTA from realm, checkpoint {}",
-    //     realm_result.checkpoint_id
-    // );
+    let realm_result: GUTARealmCheckpointResult<QEDFelt>  =
+        bincode::deserialize(&bytes).map_err(|e| anyhow::anyhow!("failed to deserialize realm_result: {:?}", e))?;
+
+
+    // 2) get the proof by id
+    let realm_proof = ctx
+        .proof_store
+        .get_proof_by_id(realm_result.proof_id)
+        .await?;
+
+
+
+    // 3) call the context to handle the proof
+    let input = SubmitGUTARealmResultAPINoProofInput {
+        realm_id: 0, // TODO: replace with the real realm id
+        checkpoint_id: realm_result.checkpoint_id,
+        guta_stats: realm_result.guta_stats,
+        top_line_proof: realm_result.top_line_proof,
+        checkpoint_tree_root: realm_result.checkpoint_tree_root,
+        circuit_type: realm_result.proof_id.circuit_type,
+    };
+
+    ctx.handle_recv_guta_from_realm(input, &realm_proof).await?;
+
+    info!(
+        "✅ processed GUTA from realm, checkpoint {}",
+        realm_result.checkpoint_id
+    );
     Ok(())
 }

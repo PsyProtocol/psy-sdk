@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::serde_as;
 use crate::config::network_constants::QED_CHECKPOINT_JOB_ID_CHANNEL;
+use crate::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
 use crate::job::history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged};
 use super::mode::QWorkerMode;
 #[derive(
@@ -839,9 +840,18 @@ impl ProvingJobDataId {
     }
 }
 
-impl HistoryQueueMetadataTagged for ProvingJobDataId {
-    fn get_hq_metadata(&self) -> HistoryQueueMetadata {
-        HistoryQueueMetadata {
+// impl HistoryQueueMetadataTagged for ProvingJobDataId {
+//     fn get_hq_metadata(&self) -> HistoryQueueMetadata {
+//         HistoryQueueMetadata {
+//             channel_id: QED_CHECKPOINT_JOB_ID_CHANNEL,
+//             checkpoint_id: self.checkpoint_id,
+//             item_id: self.checkpoint_id,
+//         }
+//     }
+// }
+impl DrainQueueMetadataTagged for ProvingJobDataId {
+    fn get_dq_metadata(&self) -> DrainQueueMetadata {
+        DrainQueueMetadata {
             channel_id: QED_CHECKPOINT_JOB_ID_CHANNEL,
             checkpoint_id: self.checkpoint_id,
             item_id: self.checkpoint_id,

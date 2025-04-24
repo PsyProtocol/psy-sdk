@@ -5,7 +5,7 @@ use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_store::config::store_config::QEDFelt;
 use crate::edge::context::LATEST_CHECKPOINT_ID;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
-use crate::edge::rpc::types::SubmitGUTAParams;
+use crate::edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
 
 /// register the RPC methods for the CoordinatorEdgeHandler
 pub fn build_rpc_module(
@@ -47,6 +47,39 @@ pub fn build_rpc_module(
         }
     })?;
 
+    module.register_async_method("qed_get_user_id", |params, handler, _ext| async move {
+        tracing::info!(
+        "➡️ Received method = qed_get_user_id, raw params = {:?}",
+        params
+    );
+
+        let parsed: GetUserIdRequest = match params.parse() {
+            Ok(p) => p,
+            Err(e) => {
+                tracing::warn!("❌ Failed to parse params: {}", e);
+                return Err(ErrorObjectOwned::owned(
+                    -32602,
+                    format!("Invalid params: {}", e),
+                    None::<()>,
+                ));
+            }
+        };
+
+        match handler.get_user_id_by_pub_key(parsed).await {
+            Ok(Some(user_id)) => {
+                tracing::info!("✅ user found, user_id = {}", user_id);
+                Ok(serde_json::json!({ "user_id": user_id }))
+            }
+            Ok(None) => {
+                tracing::info!("🛑 user not found");
+                Ok(serde_json::json!({ "user_id": null }))
+            }
+            Err(e) => {
+                tracing::error!("❌ error in get_user_id_by_pubkey: {:?}", e);
+                Err(ErrorObjectOwned::owned(1, e.to_string(), None::<()>))
+            }
+        }
+    })?;
     //qed_deploy_contract
     module.register_async_method("qed_deploy_contract", |params, handler, _ext| async move {
         let contract = params.parse().map_err(|e| {

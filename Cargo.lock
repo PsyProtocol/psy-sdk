@@ -4416,12 +4416,15 @@ name = "qed_coordinator_node"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "bytes",
  "clap",
+ "dashmap 6.1.0",
  "dotenv",
  "dotenvy",
  "envy",
  "fred",
+ "hex",
  "http-body-util",
  "hyper 1.6.0",
  "hyper-util",

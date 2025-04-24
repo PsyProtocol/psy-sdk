@@ -1,6 +1,9 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use anyhow::bail;
+use plonky2::field::types::Field;
+use plonky2::hash::hash_types::HashOut;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use rand::RngCore;
@@ -8,7 +11,8 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 use qed_core::config::network_constants::QED_CHECKPOINT_JOB_ID_CHANNEL;
-use qed_core::job::drain_queue::{CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata};
+use qed_core::data::qhashout::QHashOut;
+use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata};
 use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::job::traits::QProofStoreWriterAsyncImm;
@@ -19,8 +23,10 @@ use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, CPQueueNotification, RedisQueue, CE_NOTIFICATIONS, CP_NOTIFICATIONS};
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use crate::edge::context::{next_checkpoint_id, with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID};
+use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
+use crate::edge::context::{next_checkpoint_id, with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
 use crate::edge::processor::{handle_cp_sync, process_realm_job};
+use crate::edge::rpc::types::GetUserIdRequest;
 
 #[derive(Clone)]
 pub struct CoordinatorEdgeHandler {
@@ -117,28 +123,51 @@ impl CoordinatorEdgeHandler {
 
                         match ctx
                             .proof_store
-                            .wait_for_next_item_imm::<ProvingJobDataId>(channel_id, next_checkpoint)
+                            .cdq_drain_imm::<ProvingJobDataId>(channel_id, next_checkpoint)
                             .await
                         {
-                            Ok(job_id) => {
-                                info!("🎯 Got ProvingJobDataId: {:?}", job_id);
-                                if let Err(e) = process_realm_job(ctx, job_id).await {
-                                    error!("❌ process_realm_job error: {:?}", e);
-                                } else {
-
-                                    next_checkpoint += 1;
-                                    LATEST_CHECKPOINT_ID
-                                        .store(job_id.checkpoint_id, Ordering::Relaxed);
-                                    info!("✅ process_realm_job success");
-                                    info!("ℹ️ latest checkpoint now = {}", job_id.checkpoint_id);
+                            Ok(jobs) => {
+                                for job_id in jobs {
+                                    info!("🎯 Got ProvingJobDataId: {:?}", job_id);
+                                    if let Err(e) = process_realm_job(ctx, job_id).await {
+                                        error!("❌ process_realm_job error: {:?}", e);
+                                    } else {
+                                        // LATEST_CHECKPOINT_ID.store(job_id.checkpoint_id, Ordering::Relaxed);
+                                        info!("✅ process_realm_job success, latest checkpoint = {}", job_id.checkpoint_id);
+                                        next_checkpoint += 1;
+                                    }
                                 }
                             }
                             Err(e) => {
-
-                                warn!("⚠️ wait_for_next_item_imm error: {:?}", e);
+                                warn!("⚠️ cdq_drain_imm error: {:?}", e);
                                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                             }
                         }
+
+                        // match ctx
+                        //     .proof_store
+                        //     .wait_for_next_item_imm::<ProvingJobDataId>(channel_id, next_checkpoint)
+                        //     .await
+                        // {
+                        //     Ok(job_id) => {
+                        //         info!("🎯 Got ProvingJobDataId: {:?}", job_id);
+                        //         if let Err(e) = process_realm_job(ctx, job_id).await {
+                        //             error!("❌ process_realm_job error: {:?}", e);
+                        //         } else {
+                        //
+                        //             next_checkpoint += 1;
+                        //             LATEST_CHECKPOINT_ID
+                        //                 .store(job_id.checkpoint_id, Ordering::Relaxed);
+                        //             info!("✅ process_realm_job success");
+                        //             info!("ℹ️ latest checkpoint now = {}", job_id.checkpoint_id);
+                        //         }
+                        //     }
+                        //     Err(e) => {
+                        //
+                        //         warn!("⚠️ wait_for_next_item_imm error: {:?}", e);
+                        //         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                        //     }
+                        // }
                     }
                 }
                 tokio::time::sleep(Duration::from_millis(500)).await;
@@ -151,23 +180,58 @@ impl CoordinatorEdgeHandler {
         Ok(())
     }
 
-    pub async fn register_user(&self, pub_key: ZKPublicKeyInfo<QEDFelt>) -> anyhow::Result<()> {
+    pub async fn register_user(&self, zk_user_info: ZKPublicKeyInfo<QEDFelt>) -> anyhow::Result<()> {
+
+        let public_key = zk_user_info.public_key_param;
+
+        if let Some(user_id) = REGISTERED_USERS.get(&public_key) {
+            info!("🛑 user already registered, user_id = {}", *user_id);
+            return Ok(());
+        }
+
+        let register_id = REGISTER_USER_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let user_id = get_user_id_from_registration_id(register_id);
+        REGISTERED_USERS.insert(public_key, user_id);
 
         with_ctx_read_async(|ctx| {
             let queue = ctx.checkpoint_queue.clone();
-            let pub_key = pub_key.clone(); // avoid the lifetime issue
+            let zk_user = zk_user_info.clone(); // avoid the lifetime issue
 
             async move {
                 info!(
-                    "🚀 pushing to drain queue, pub_key = {}",
-                    &pub_key.public_key_param
+                    "🚀 pushing  new user to drain queue, user_id = {}, pub_key = {},",
+                    user_id, zk_user.public_key_param
                 );
-                queue.cdq_push_imm(pub_key).await?;
+                queue.cdq_push_imm(zk_user).await?;
                 info!("✅ pushed to drain queue.");
                 Ok(())
             }
         })
             .await
+    }
+
+    pub async fn get_user_id_by_pub_key(&self, params: GetUserIdRequest) -> anyhow::Result<Option<u64>> {
+        // 1. Decode hex string to QHashOut<QEDFelt>
+        let bytes = hex::decode(&params.public_key_param)
+            .map_err(|e| anyhow::anyhow!("Invalid hex string: {}", e))?;
+
+        if bytes.len() != 32 {
+            bail!("Invalid public_key_param length (expected 32 bytes)");
+        }
+
+        let mut elements = [0u64; 4];
+        for i in 0..4 {
+            elements[i] = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into()?);
+        }
+
+        let qhash = qhash_from_u64_array(elements);
+
+        // 2. Query dashmap
+        if let Some(user_id) = REGISTERED_USERS.get(&qhash) {
+            Ok(Some(*user_id))
+        } else {
+            Ok(None)
+        }
     }
     pub async fn deploy_contract(
         &self,
@@ -259,4 +323,9 @@ impl CoordinatorEdgeHandler {
         info!("✅ build_block dispatched to queue");
         Ok(())
     }
+}
+
+fn qhash_from_u64_array(arr: [u64; 4]) -> QHashOut<QEDFelt> {
+    let elements = arr.map(QEDFelt::from_canonical_u64);
+    QHashOut(HashOut { elements })
 }
