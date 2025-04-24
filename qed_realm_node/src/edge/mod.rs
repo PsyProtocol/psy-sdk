@@ -18,7 +18,7 @@ use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node_common::store::new_lmdbx_store;
 
 /// Start Realm Edge node
-pub async fn start_realm_edge_node(config: RealmEdgeConfig) -> Result<()> {
+pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     info!(
         "Starting Realm Edge node with realm_id: {}",
         config.realm.realm_id

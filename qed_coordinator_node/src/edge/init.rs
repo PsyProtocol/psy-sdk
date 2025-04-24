@@ -8,8 +8,8 @@ use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RO, RW};
-use crate::coordinator_edge::config::AppConfig;
-use crate::coordinator_edge::context::init_global_ctx_once;
+use crate::args::CoordinatorEdgeArgs;
+use crate::edge::context::init_global_ctx_once;
 
 pub fn init_tracing() {
     use tracing_subscriber::{fmt, EnvFilter};
@@ -25,7 +25,7 @@ pub fn init_tracing() {
 }
 
 
-pub async fn init_coordinator_edge(config: &AppConfig) -> anyhow::Result<()> {
+pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Result<()> {
     use tracing::info;
     let mut timer = DebugTimer::new("coordinator_edge_node");
     info!("🚀 Initializing coordinator edge node...");

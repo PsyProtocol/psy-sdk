@@ -16,7 +16,7 @@ use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use std::{sync::Arc, time::Duration};
 
-use crate::subcommand::CoordinatorWorkerArgs;
+use crate::args::CoordinatorWorkerArgs;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -92,7 +92,7 @@ impl
     }
 }
 
-pub async fn run(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
+pub async fn run_worker(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
     let coordinator_worker = CoordinatorWorkerNode::new_with_config(CoordinatorWorkerNodeConfig {
         pool_size: args.pool_size as usize,
         redis_url: args.redis_url,

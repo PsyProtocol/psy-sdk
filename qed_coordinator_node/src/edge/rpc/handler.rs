@@ -19,8 +19,8 @@ use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, CPQueueNotification, RedisQueue, CE_NOTIFICATIONS, CP_NOTIFICATIONS};
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use crate::coordinator_edge::context::{next_checkpoint_id, with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID};
-use crate::coordinator_edge::processor::{handle_cp_sync, process_realm_job};
+use crate::edge::context::{next_checkpoint_id, with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID};
+use crate::edge::processor::{handle_cp_sync, process_realm_job};
 
 #[derive(Clone)]
 pub struct CoordinatorEdgeHandler {

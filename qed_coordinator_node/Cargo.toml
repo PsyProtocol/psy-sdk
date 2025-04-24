@@ -26,6 +26,12 @@ clap = { workspace = true }
 tracing.workspace = true
 tracing-subscriber = { workspace = true }
 dotenv = { workspace = true }
+rand = { workspace = true }
+once_cell = { workspace = true }
+serde = { workspace = true }
+lazy_static = { workspace = true }
+dotenvy = { workspace = true }
+envy = { workspace = true }
 
 qed_node_common = { workspace = true }
 qed_store = { workspace = true }

@@ -1,23 +1,26 @@
-use jsonrpsee::{server::Server};
-use qed_core::{
-    utils::debug_timer::DebugTimer,
-};
-use qed_coordinator_edge::coordinator_edge::config::AppConfig;
+pub mod config;
 
+pub mod context;
+pub mod init;
+pub mod processor;
+pub mod rpc;
+
+use crate::args::CoordinatorEdgeArgs;
+use jsonrpsee::server::Server;
+use qed_core::utils::debug_timer::DebugTimer;
+
+use crate::edge::init::{init_coordinator_edge, init_tracing};
+use crate::edge::rpc::router::build_rpc_module;
 use std::net::SocketAddr;
 use tracing::info;
-use qed_coordinator_edge::coordinator_edge::init::{init_coordinator_edge, init_tracing};
-use qed_coordinator_edge::coordinator_edge::rpc::router::build_rpc_module;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Starting coordinator edge node...");
     init_tracing();
 
     let mut timer = DebugTimer::new("coordinator_edge_node");
     timer.lap("start");
 
-    let config = AppConfig::from_env();
     info!("✅ Loaded config: {:#?}", config);
 
     init_coordinator_edge(&config).await?;

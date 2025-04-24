@@ -46,7 +46,7 @@ pub struct RealmProcessor {
     pub synced_checkpoint_id: u64,
 }
 
-pub async fn start_realm_processor_node(config: RealmNodeConfig) -> anyhow::Result<()> {
+pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
     let realm_processor = RealmProcessor::new(config).await?;
     let handle = realm_processor.start().await?;
 

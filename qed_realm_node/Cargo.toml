@@ -7,10 +7,6 @@ version = "0.1.0"
 name = "qed_realm_node"
 path = "src/lib.rs"
 
-[[bin]]
-name = "qed_realm_node"
-path = "src/main.rs"
-
 [dependencies]
 qed_core = { workspace = true }
 qed_data = { workspace = true }

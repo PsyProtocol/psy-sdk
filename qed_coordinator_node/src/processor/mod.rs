@@ -35,7 +35,7 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 use tracing::Level;
 use tracing_subscriber::EnvFilter;
 
-use crate::subcommand::CoordinatorProcessorArgs;
+use crate::args::CoordinatorProcessorArgs;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -209,7 +209,7 @@ impl
     }
 }
 
-pub async fn run(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
+pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
         .with_env_filter(EnvFilter::from_default_env())
