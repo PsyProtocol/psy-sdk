@@ -24,6 +24,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info};
+use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_node::nimpl::new_fred_pool;
 use qed_node_common::store::new_lmdbx_store;
 
@@ -148,7 +149,7 @@ impl RealmProcessor {
                     };
                 // Send the job id to the channel for the next step
                 info!("Pushing job id to queue: {:?}", proving_data_job_id);
-                if let Err(err) = self.queue.chq_push_imm(proving_data_job_id).await {
+                if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
                     error!("Error chq_push_imm: {:?}", err);
                 };
                 info!("Pushing job to queueue done");

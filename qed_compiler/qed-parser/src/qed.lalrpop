@@ -752,9 +752,12 @@ IntrinsicExpression: ExprNode<F> = {
             }
         )
     },
-    <l:@L> <variable:STORAGE_READ_RANGE> "(" <offset: Expression> "," <length: Expression> ")" <r:@R> => {
+    <l:@L> <variable:STORAGE_READ_RANGE> "(" <contract_state_tree_height: Expression> "," <user_id: Expression> "," <contract_id: Expression> "," <offset: Expression> "," <length: Expression> ")" <r:@R> => {
         ExprNode::Intrinsic(
             IntrinsicExprNode::StorageReadRange {
+                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
+                user_id: expr_nodes.alloc_item(user_id),
+                contract_id: expr_nodes.alloc_item(contract_id),
                 offset: expr_nodes.alloc_item(offset),
                 length: expr_nodes.alloc_item(length),
                 location: Location::new(file_id, l, r)
@@ -770,9 +773,12 @@ IntrinsicExpression: ExprNode<F> = {
             }
         )
     },
-    <l:@L> <variable:STORAGE_READ> "(" <offset: Expression> ")" <r:@R> => {
+    <l:@L> <variable:STORAGE_READ> "(" <contract_state_tree_height: Expression> "," <user_id: Expression> "," <contract_id: Expression> "," <offset: Expression> ")" <r:@R> => {
         ExprNode::Intrinsic(
             IntrinsicExprNode::StorageRead {
+                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
+                user_id: expr_nodes.alloc_item(user_id),
+                contract_id: expr_nodes.alloc_item(contract_id),
                 offset: expr_nodes.alloc_item(offset),
                 location: Location::new(file_id, l, r)
             }

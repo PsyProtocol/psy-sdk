@@ -61,11 +61,17 @@ pub enum CheckedIntrinsicExprNode {
         location: Location,
     },
     StorageRead {
+        contract_state_tree_height: ExprId,
+        user_id: ExprId,
+        contract_id: ExprId,
         offset: ExprId,
         type_id: TypeId,
         location: Location,
     },
     StorageReadRange {
+        contract_state_tree_height: ExprId,
+        user_id: ExprId,
+        contract_id: ExprId,
         offset: ExprId,
         length: ExprId,
         type_id: TypeId,

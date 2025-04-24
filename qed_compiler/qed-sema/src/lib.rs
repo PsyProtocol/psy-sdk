@@ -475,8 +475,39 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ));
             }
-            IntrinsicExprNode::StorageRead { offset, location } => {
+            IntrinsicExprNode::StorageRead {
+                contract_state_tree_height,
+                user_id,
+                contract_id,
+                offset,
+                location,
+            } => {
+                let contract_state_tree_height =
+                    self.visit_expr(contract_state_tree_height, ctx)?;
+                let user_id = self.visit_expr(user_id, ctx)?;
+                let contract_id = self.visit_expr(contract_id, ctx)?;
                 let offset = self.visit_expr(offset, ctx)?;
+                if !self.unify(contract_state_tree_height.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: offset.location(),
+                        expected: vec![FELT_TYPE],
+                        found: contract_state_tree_height.ty(),
+                    });
+                }
+                if !self.unify(user_id.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: offset.location(),
+                        expected: vec![FELT_TYPE],
+                        found: user_id.ty(),
+                    });
+                }
+                if !self.unify(contract_id.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: offset.location(),
+                        expected: vec![FELT_TYPE],
+                        found: contract_id.ty(),
+                    });
+                }
                 if !self.unify(offset.ty(), FELT_TYPE, ctx) {
                     return Err(Error::TypeMismatch {
                         location: offset.location(),
@@ -486,6 +517,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 }
                 return Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::StorageRead {
+                        contract_state_tree_height: self
+                            .program
+                            .exprs
+                            .alloc_item(contract_state_tree_height),
+                        user_id: self.program.exprs.alloc_item(user_id),
+                        contract_id: self.program.exprs.alloc_item(contract_id),
                         offset: self.program.exprs.alloc_item(offset),
                         type_id: FELT_TYPE,
                         location,
@@ -493,12 +530,40 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 ));
             }
             IntrinsicExprNode::StorageReadRange {
+                contract_state_tree_height,
+                user_id,
+                contract_id,
                 offset,
                 length,
                 location,
             } => {
+                let contract_state_tree_height =
+                    self.visit_expr(contract_state_tree_height, ctx)?;
+                let user_id = self.visit_expr(user_id, ctx)?;
+                let contract_id = self.visit_expr(contract_id, ctx)?;
                 let offset = self.visit_expr(offset, ctx)?;
                 let length = self.visit_expr(length, ctx)?;
+                if !self.unify(contract_state_tree_height.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: offset.location(),
+                        expected: vec![FELT_TYPE],
+                        found: contract_state_tree_height.ty(),
+                    });
+                }
+                if !self.unify(user_id.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: offset.location(),
+                        expected: vec![FELT_TYPE],
+                        found: user_id.ty(),
+                    });
+                }
+                if !self.unify(contract_id.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: offset.location(),
+                        expected: vec![FELT_TYPE],
+                        found: contract_id.ty(),
+                    });
+                }
                 if !self.unify(offset.ty(), FELT_TYPE, ctx) {
                     return Err(Error::TypeMismatch {
                         location: offset.location(),
@@ -515,6 +580,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 }
                 return Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::StorageReadRange {
+                        contract_state_tree_height: self
+                            .program
+                            .exprs
+                            .alloc_item(contract_state_tree_height),
+                        user_id: self.program.exprs.alloc_item(user_id),
+                        contract_id: self.program.exprs.alloc_item(contract_id),
                         offset: self.program.exprs.alloc_item(offset),
                         length: self.program.exprs.alloc_item(length),
                         type_id: UNKOWN_TYPE,
