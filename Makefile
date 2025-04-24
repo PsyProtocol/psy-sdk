@@ -27,7 +27,7 @@ ci:
 	@$(DARGO_CLI_COMPILE) ctx_test.qed
 	@$(DARGO_CLI_COMPILE) storage_test.qed --contract-name=SimpleContract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
 	@$(DARGO_CLI_COMPILE) basic_ups.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
-	@$(DARGO_CLI_COMPILE) token.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
+	@$(DARGO_CLI_COMPILE) token.qed --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
 	@$(DARGO_CLI_COMPILE) two_user_ups.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
 
 	@$(DARGO_CLI_EXECUTE) assert_test.qed --parameters 2,3
@@ -63,7 +63,7 @@ ci:
 	@$(DARGO_CLI_EXECUTE) should_panic_test.qed --parameters 2,3
 	@$(DARGO_CLI_EXECUTE) basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 133700 --parameters 2,1000
 	@$(DARGO_CLI_EXECUTE) basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters=2,100
-	@$(DARGO_CLI_EXECUTE) token.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
+	@$(DARGO_CLI_EXECUTE) token.qed --contract-name=ContractRef --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
 	@$(DARGO_CLI_EXECUTE) two_user_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
 
 update-snapshots:
@@ -85,10 +85,10 @@ USER1_PRIVATE_KEY       := 2c6a1188f8739daaeff79c40f3690c573381c91a2359a0df2b45e
 init:
 	@mkdir $(PWD)/db
 	@cd $(PWD)/db && cargo run --release --package dargo new ${PROJECT_DIR}
-	@cp qed_compiler/tests/new_token.qed ${FILE}
+	@cp qed_compiler/tests/token.qed ${FILE}
 
 .PHONY: launch
-launch: shutdown
+launch: shutdown init
 	@docker-compose \
 		-f docker-compose.yml \
 		up \
@@ -102,7 +102,7 @@ shutdown:
 		-f docker-compose.yml \
 		down \
 		--remove-orphans > /dev/null 2>&1 || true
-	# @redis-cli 'FLUSHALL'
+	@sudo rm -fr redis-data
 	@sudo rm -fr $(PWD)/db
 	@rm -fr ${PROJECT_DIR}
 
@@ -110,13 +110,13 @@ interpret:
 	@RUST_LOG=${LOG_LEVE} cd ${PROJECT_DIR} && cargo run --release --package dargo execute --debug --entry-path ${FILE} --parameters ${PARAMETERS}
 
 compile:
-	@RUST_LOG=${LOG_LEVE} cd ${PROJECT_DIR} && cargo run --release --package dargo compile --entry-path ${FILE} --contract-name=UserStateRef --method-names mint transfer claim
+	@RUST_LOG=${LOG_LEVE} cd ${PROJECT_DIR} && cargo run --release --package dargo compile --entry-path ${FILE} --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
 
 run-coordinator-processor:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli coordinator-processor --coordinator-db-path ${COORDINATOR_DB_PATH}
 
 run-coordinator-edge:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli cooridinator-edge --coordinator-db-path ${COORDINATOR_DB_PATH}
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli coordinator-edge --coordinator-db-path ${COORDINATOR_DB_PATH}
 
 run-realm-processor:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-processor
