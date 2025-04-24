@@ -805,6 +805,68 @@ impl StateReaderGadget {
         mp_cst.value
     }
 
+    pub fn get_other_user_contract_state_slot_range<
+        H: AlgebraicHasher<F>,
+        F: RichField + Extendable<D>,
+        const D: usize,
+    >(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+        dpn: &SimpleDPNBuilder<F, D>,
+        user_target_id: u64,
+        contract_target_id: u64,
+        sub_slot_target_id: u64,
+        contract_state_tree_height: usize,
+        length: usize,
+    ) -> Vec<Target> {
+        let expected_contract_state_tree_root = {
+            self.get_other_user_contract_state_root::<H, F, D>(
+                builder,
+                dpn,
+                user_target_id,
+                contract_target_id,
+            )
+        };
+
+        let r_ck = StateCommandCacheKey::new_read_other_user_contract_range(
+            user_target_id,
+            contract_target_id,
+            sub_slot_target_id,
+            length as u32,
+            0,
+        );
+
+        if self.result_map.contains_key(&r_ck) {
+            self.result_map.get(&r_ck).unwrap().to_owned()
+        } else {
+            let sub_slot_index = dpn.resolve_target(sub_slot_target_id);
+            let (values, mps) = {
+                let gadget = SubSlotMerkleProofBatchGadget::add_virtual_to::<H, F, D>(
+                    builder,
+                    contract_state_tree_height,
+                    length as usize,
+                    sub_slot_index,
+                    self.force_four_align,
+                );
+                (gadget.values, gadget.merkle_proof_gadgets)
+            };
+            builder.connect_hashes(mps[0].root, expected_contract_state_tree_root);
+            for (i, mp) in mps.into_iter().enumerate() {
+                let ck = StateCommandCacheKey::new_read_current_contract_range(
+                    sub_slot_target_id,
+                    length as u32,
+                    i as u64,
+                    0,
+                );
+                let _ref_key = self.insert_merkle_proof_gadget(ck, mp);
+            }
+            self.result_map.insert(r_ck, values.clone());
+            values
+        }
+    }
+
+
+
 
     pub fn injest_symbolic_state_command<
         H:AlgebraicHasher<F>,
@@ -1137,6 +1199,16 @@ impl StateReaderGadget {
                 todo!("single")
             }
             DPNStateCmd::GetSelfUserExternalContractStateSlotRange(c) => todo!(),
+            DPNStateCmd::GetOtherUserContractStateSlotRange(c) => self
+                .get_other_user_contract_state_slot_range::<H,F,D>(
+                    builder,
+                    dpn,
+                    c.user_id,
+                    c.contract_id,
+                    c.sub_slot_index,
+                    c.contract_state_tree_height as usize,
+                    c.length as usize,
+                ),
             DPNStateCmd::GetOtherUserContractStateSlotHash(c) => {
                 self.get_other_user_contract_state_slot_hash::<H, F, D>(
                     builder,
@@ -1148,7 +1220,6 @@ impl StateReaderGadget {
                 ).elements.to_vec()
             },
             DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => todo!(),
-            DPNStateCmd::GetOtherUserContractStateSlotRange(c) => todo!(),
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
                 let ck = StateCommandCacheKey::InvokeDeferredMethodCall(CKInvokeDeferredMethodCall::new(c.condition, c.contract_id, c.method_id, self.deferred_tx_count, &c.input_args));
                 let condition_target = dpn.resolve_bool(builder, c.condition);

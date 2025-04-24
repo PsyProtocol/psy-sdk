@@ -32,7 +32,7 @@ impl<F: ContextFelt> QRuntimeContext<F> {
         F::cns(op_type.eval_binary_constant(a.get_u64(), b.get_u64()))
     }
     fn op_std_binary_op_u32(&mut self, op_type: DPNOpType, a: F, b: F) -> F {
-        
+
         F::cns(op_type.eval_binary_constant(a.get_u64()&0xFFFFFFFFu64, b.get_u64()&0xFFFFFFFFu64)&0xFFFFFFFFu64)
     }
     /*
@@ -260,27 +260,27 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         let bits_u64 = bits.iter().map(|x| x.get_u64()).collect::<Vec<u64>>();
         F::cns(sum_bits(&bits_u64))
     }
-    
+
     fn get_user_id(&mut self) -> F {
         todo!()
     }
-    
+
     fn get_contract_id(&mut self) -> F {
         todo!()
     }
-    
+
     fn get_checkpoint_id(&mut self) -> F {
         todo!()
     }
-    
+
     fn get_last_nonce(&mut self) -> F {
         todo!()
     }
-    
+
     fn get_user_public_key_hash(&mut self) -> [F; 4] {
         todo!()
     }
-    
+
     fn cset<V: ToFelts<F>>(&mut self, _old_value: V, new_value: V) -> V {
         new_value
     }
@@ -289,35 +289,35 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         println!("cset_str: {}", left);
         self.cset(old_value, new_value)
     }
-    
+
     fn op_get_state_felt(&mut self, _contract_state_tree_height: u16, _contract_id: F, _user_id: F, _index: F) -> F {
         todo!()
     }
-    
+
     fn op_set_state_felt(&mut self, _index: F, _value: F) -> F {
         todo!()
     }
-    
+
     fn op_set_state_obj<T: ToFelts<F>>(&mut self, _index: F, _value: T) -> T {
         todo!()
     }
-    
+
     fn cset_state<V: ToFelts<F>>(&mut self, _old_value: V, _new_value: V) -> V {
         todo!()
     }
-    
+
     fn cset_state_at<V: ToFelts<F>>(&mut self, _sub_index: F, _new_value: V) -> V {
         todo!()
     }
-    
+
     fn cset_state_hash_at(&mut self, _slot_index: F, _new_value: [F; 4]) -> [F; 4] {
         todo!()
     }
-    
+
     fn get_state_hash_at(&mut self, _slot_index: F) -> [F; 4] {
         todo!()
     }
-    
+
     fn cinvoke_external_contract_function_deferred(
         &mut self,
         _contract_id: SymFeltRef,
@@ -326,20 +326,24 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     ) -> [SymFeltRef; 4] {
         todo!()
     }
-    
+
     fn get_other_contract_state_hash_at(&mut self, contract_state_tree_height: F, contract_id: F, slot_index: F) -> [F; 4] {
         todo!()
     }
-    
+
     fn get_other_user_contract_state_hash_at(&mut self, contract_state_tree_height: F, user_id: F, contract_id: F, slot_index: F) -> [F; 4] {
         todo!()
     }
-    
+
     fn get_state_range_at(&mut self, sub_slot_index: F, length: F) -> Vec<F> {
         todo!()
     }
-    
+
     fn cset_state_range_at(&mut self, sub_slot_index: F, values: &[F]) {
+        todo!()
+    }
+
+    fn get_other_user_contract_state_range_at(&mut self, contract_state_tree_height: F, user_id: F, contract_id: F, sub_slot_index: F, length: F) -> Vec<F> {
         todo!()
     }
 }
