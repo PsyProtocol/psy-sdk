@@ -111,12 +111,12 @@ impl<
             .await?
             .checkpoint_id;
         tracing::info!("notify sync for checkpoint id: {}", checkpoint_id);
-        if self
+        let job = self
             .ctx
             .prover_queue
             .wait_for_block_proving_jobs_imm(checkpoint_id)
-            .await?
-        {
+            .await?;
+        if job.goal_id == checkpoint_id {
             tracing::info!("sync queue dispatch StartSync");
             self.sync_queue
                 .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync)?;

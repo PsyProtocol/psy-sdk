@@ -4833,36 +4833,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_user_cli"
+name = "qed_worker"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "clap",
- "dotenv",
- "hex",
- "k256",
+ "fred",
+ "jsonrpsee",
  "kvq",
+ "kvq_store_lmdbx",
  "plonky2",
- "qed_common",
- "qed_common_circuit",
  "qed_core",
  "qed_crypto",
  "qed_data",
- "qed_exec",
- "qed_prover",
+ "qed_node",
+ "qed_node_common",
  "qed_rollup_circuit",
  "qed_store",
- "qedlang_core",
- "rand 0.9.0",
- "repl-rs",
- "reqwest",
+ "reth-libmdbx",
  "serde",
  "serde_json",
  "serde_with",
- "shadow-rs",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
 ]
 
 [[package]]
