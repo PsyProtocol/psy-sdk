@@ -5,9 +5,9 @@ use crate::rpc::provider::{QUserRpcProvider, RpcProvider};
 use super::args::ProduceBlockArgs;
 use anyhow::Result;
 
-pub async fn run(args: ProduceBlockArgs) -> Result<()> {
+pub fn run(args: ProduceBlockArgs) -> Result<()> {
     let provider = RpcProvider::new(&args.rpc_config_path)?;
-    provider.produce_block::<GoldilocksField>().await?;
+    provider.produce_block::<GoldilocksField>()?;
 
     Ok(())
 }

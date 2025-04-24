@@ -58,7 +58,7 @@ pub enum RequestParams<F: RichField> {
     DeployContract(QDeployContractRPCRequest<F>),
     #[serde(rename = "qed_register_user")]
     RegisterUser(QRegisterUserRPCRequest<F>),
-    #[serde(rename = "qed_produce_block")]
+    #[serde(rename = "qed_build_block")]
     ProduceBlock,
     #[serde(rename = "qed_get_user_id")]
     GetUserId(ZKPublicKeyInfo<F>),
@@ -69,7 +69,7 @@ pub enum RequestParams<F: RichField> {
     ClaimDeposit(QClaimDepositRPCRequest),
     #[serde(rename = "qed_add_withdrawal")]
     AddWithdrawal(QAddWithdrawalRPCRequest),
-    #[serde(rename = "qed_get_block")]
+    #[serde(rename = "qed_submit_user_end_cap")]
     SubmitEndCap(QSubmitEndCapRPCRequest<F>),
     #[serde(rename = "qed_batch")]
     Batch(QEDReadCommandBatchInput),

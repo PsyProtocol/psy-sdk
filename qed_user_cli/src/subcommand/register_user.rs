@@ -15,7 +15,7 @@ use super::args::RegisterUserArgs;
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
-pub async fn run(args: RegisterUserArgs) -> anyhow::Result<()> {
+pub fn run(args: RegisterUserArgs) -> anyhow::Result<()> {
     let provider = RpcProvider::new(&args.rpc_config_path)?;
     if args.private_key.is_empty() {
         anyhow::bail!("you must provide --private-key");
@@ -26,11 +26,9 @@ pub async fn run(args: RegisterUserArgs) -> anyhow::Result<()> {
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
     let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey { private_key });
 
-    provider
-        .register_user(QRegisterUserRPCRequest {
-            public_key: public_key,
-        })
-        .await?;
+    provider.register_user(QRegisterUserRPCRequest {
+        public_key: public_key,
+    })?;
 
     println!("{}", serde_json::to_string_pretty(&public_key).unwrap());
 

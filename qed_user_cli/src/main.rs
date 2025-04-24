@@ -24,23 +24,22 @@ use crate::subcommand::token_transfer;
 use crate::subcommand::Cli;
 use crate::subcommand::Commands;
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     dotenv::dotenv().ok();
 
     let cli = Cli::parse();
     match cli.command {
-        Commands::AddWithdrawal(args) => add_withdrawal::run(args).await?,
-        Commands::ClaimDeposit(args) => claim_deposit::run(args).await?,
-        Commands::RegisterUser(args) => register_user::run(args).await?,
-        Commands::TokenTransfer(args) => token_transfer::run(args).await?,
-        Commands::L1Deposit(args) => l1_deposit::run(args).await?,
-        Commands::SignHash(args) => sign_hash::run(args).await?,
-        Commands::GetPublicKey(args) => get_public_key::run(args).await?,
-        Commands::RandomWallet(args) => random_wallet::run(args).await?,
-        Commands::DeployContract(args) => deploy_contract::run(args).await?,
-        Commands::ProduceBlock(args) => produce_block::run(args).await?,
-        Commands::SubmitEndCaproof(args) => submit_end_cap_proof::run(args).await?,
+        Commands::AddWithdrawal(args) => add_withdrawal::run(args)?,
+        Commands::ClaimDeposit(args) => claim_deposit::run(args)?,
+        Commands::RegisterUser(args) => register_user::run(args)?,
+        Commands::TokenTransfer(args) => token_transfer::run(args)?,
+        Commands::L1Deposit(args) => l1_deposit::run(args)?,
+        Commands::SignHash(args) => sign_hash::run(args)?,
+        Commands::GetPublicKey(args) => get_public_key::run(args)?,
+        Commands::RandomWallet(args) => random_wallet::run(args)?,
+        Commands::DeployContract(args) => deploy_contract::run(args)?,
+        Commands::ProduceBlock(args) => produce_block::run(args)?,
+        Commands::SubmitEndCaproof(args) => submit_end_cap_proof::run(args)?,
     }
     Ok(())
 }

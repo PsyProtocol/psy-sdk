@@ -991,6 +991,11 @@ impl<
             .await?;
         self.sync_queue.chq_push_imm(l2_sync).await?;
 
+        tracing::info!(
+            "lastest block state: {:?}",
+            self.store.get_latest_l2_block_state().await?,
+        );
+
         Ok(())
     }
 }

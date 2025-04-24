@@ -15,7 +15,7 @@ struct RandomWalletOutputJSON {
     public_key: QHashOut<GoldilocksField>,
     private_key: QHashOut<GoldilocksField>,
 }
-pub async fn run(_: RandomWalletArgs) -> Result<()> {
+pub fn run(_: RandomWalletArgs) -> Result<()> {
     let private_key = QHashOut::<GoldilocksField>::rand();
     let mut debug_wallet = SimpleQEDZKSignatureManager::<C, D>::new();
     let public_key = debug_wallet.add_private_key(SimpleQEDPrivateKey {

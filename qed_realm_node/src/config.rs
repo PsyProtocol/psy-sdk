@@ -131,7 +131,7 @@ pub struct RPCConfig {
     #[arg(
         long,
         env = "QED_REALM_RPC_LISTEN_ADDR",
-        default_value = "127.0.0.1:8545"
+        default_value = "127.0.0.1:8546"
     )]
     pub listen_addr: String,
 }
@@ -139,7 +139,7 @@ pub struct RPCConfig {
 impl Default for RPCConfig {
     fn default() -> Self {
         Self {
-            listen_addr: "127.0.0.1:8545".to_string(),
+            listen_addr: "127.0.0.1:8546".to_string(),
         }
     }
 }

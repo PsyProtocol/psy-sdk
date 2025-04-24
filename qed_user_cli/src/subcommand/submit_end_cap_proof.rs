@@ -73,7 +73,7 @@ pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
     anyhow::bail!("unable to find function {}", fn_name);
 }
 
-pub async fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
+pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     let contract_call_args: Vec<ContractCallArgs> =
         serde_json::from_str(&std::fs::read_to_string(&args.contract_call_path)?)?;
 
@@ -92,7 +92,7 @@ pub async fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
         private_key: priv_key,
     });
 
-    let user_id = st_provider.get_user_id(public_key).await?;
+    let user_id = st_provider.get_user_id(public_key)?;
     st_provider.current_user_id = user_id;
 
     let lps = QEDLocalProvingSessionStore::new_at(
@@ -157,12 +157,10 @@ pub async fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
 
     let user_ec_input: SubmitUserEndCapNonProofInput<F> = mgr.get_api_input()?;
 
-    st_provider
-        .submit_end_cap_proof::<F>(QSubmitEndCapRPCRequest {
-            user_ec_input,
-            proof: end_cap_proof,
-        })
-        .await?;
+    st_provider.submit_end_cap_proof::<F>(QSubmitEndCapRPCRequest {
+        user_ec_input,
+        proof: end_cap_proof,
+    })?;
 
     Ok(())
 }

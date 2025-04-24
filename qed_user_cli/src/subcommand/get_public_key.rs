@@ -10,7 +10,7 @@ use qed_crypto::signature::zk::wallet::SimpleL2PrivateKey;
 
 use super::args::GetPublicKeyArgs;
 
-pub async fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
+pub fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
     let private_key_base = QHashOut::<GoldilocksField>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
     let l1_public_key = MemorySecp256K1Wallet::new()
