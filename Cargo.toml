@@ -213,7 +213,7 @@ url = "2.5"
 dirs = "6.0"
 semver = "1.0"
 md5 = "0.7"
-jsonrpsee = { version = "0.24", features = ["server", "client", "macros"] }
+jsonrpsee = { version = "0.25", features = ["server", "client", "macros"] }
 config = "0.15"
 
 qedlang_core = { path = "./qedlang_core" }
