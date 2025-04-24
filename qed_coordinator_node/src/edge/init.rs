@@ -1,15 +1,16 @@
-use std::path::Path;
-use std::sync::Arc;
+use crate::args::CoordinatorEdgeArgs;
+use crate::edge::context::init_global_ctx_once;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_core::utils::debug_timer::DebugTimer;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
+use qed_node_common::store::new_lmdbx_env;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RO, RW};
-use crate::args::CoordinatorEdgeArgs;
-use crate::edge::context::init_global_ctx_once;
+use std::path::Path;
+use std::sync::Arc;
 
 pub fn init_tracing() {
     use tracing_subscriber::{fmt, EnvFilter};
@@ -23,7 +24,6 @@ pub fn init_tracing() {
 
     tracing::subscriber::set_global_default(subscriber).expect("Failed to set tracing subscriber");
 }
-
 
 pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Result<()> {
     use tracing::info;
@@ -40,18 +40,11 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     info!("✅ Initialized Redis pool");
     // initialize lmdb
     std::fs::create_dir_all(&config.coordinator_db_path)?;
-    let env = Environment::builder()
-        .set_max_dbs(10)
-        .set_flags(EnvironmentFlags {
-            no_sub_dir: false,
-            mode: Mode::ReadOnly,
-            coalesce: true,
-            ..Default::default()
-        })
-        .open(Path::new(&config.coordinator_db_path))?;
+    let env = new_lmdbx_env(Mode::ReadOnly, &config.coordinator_db_path)?;
 
     let txn = env.begin_ro_txn()?;
-    let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>> = KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RO>>::new(KVQlibmdbxStore::new(txn.clone(), None)?);
+    let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>> =
+        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RO>>::new(KVQlibmdbxStore::new(txn.clone())?);
     // store_reader.initialize_store()?;
     let store_reader = Arc::new(store_reader.dup());
     timer.lap("lmdb initialized");
@@ -59,7 +52,7 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     // init verifier
     let verifier = Arc::new(get_cached_generic_verifier::<_, 2>());
     info!("✅ Initialized verifier");
-    let config =         qed_node::coordinator::state::processor::CoordinatorConfig::get_standard(0);
+    let config = qed_node::coordinator::state::processor::CoordinatorConfig::get_standard(0);
     println!("get coordinator config");
     // init context
     let ctx = CoordinatorEdgeContext::init(
@@ -68,11 +61,13 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
         Arc::clone(&proof_store),
         Arc::clone(&proof_store),
         verifier,
-    ).await?;
+    )
+    .await?;
 
     init_global_ctx_once(ctx).await?;
     info!("✅ Initialized global context");
     timer.lap("context initialized");
+    txn.commit()?;
 
     Ok(())
 }

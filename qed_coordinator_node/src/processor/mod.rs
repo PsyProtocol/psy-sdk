@@ -21,6 +21,7 @@ use qed_node::{
     coordinator::state::processor::CoordinatorProcessorContext,
     nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS},
 };
+use qed_node_common::store::new_lmdbx_env;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::{
@@ -149,25 +150,22 @@ impl
         pool.init().await?;
 
         let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
-        let flags = EnvironmentFlags {
-            no_sub_dir: false,
-            mode: Mode::ReadWrite {
+
+        let env = new_lmdbx_env(
+            Mode::ReadWrite {
                 sync_mode: SyncMode::Durable,
             },
-            coalesce: true,
-            ..Default::default()
-        };
-
-        let env = Environment::builder()
-            .set_max_dbs(10)
-            .set_flags(flags)
-            .open(PathBuf::new().join(cp_config.storage_db_path).as_path())?;
+            PathBuf::new()
+                .join(cp_config.storage_db_path)
+                .as_path()
+                .to_str()
+                .unwrap(),
+        )?;
 
         let txn = env.begin_rw_txn()?;
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RW>>::new(KVQlibmdbxStore::new(
                 txn.clone(),
-                None,
             )?);
 
         store_reader.initialize_store()?;

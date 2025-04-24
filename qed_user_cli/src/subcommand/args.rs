@@ -122,7 +122,7 @@ pub struct ClaimDepositArgs {
 
 #[derive(Clone, Args)]
 pub struct RegisterUserArgs {
-    #[clap(long, short, default_value = "http://127.0.0.1:8545", env)]
+    #[clap(long, short, default_value = "rpc.config", env)]
     pub rpc_config_path: String,
     /// user private key
     #[clap(long, short, default_value = "")]
@@ -155,13 +155,13 @@ pub struct TokenTransferArgs {
 
 #[derive(Clone, Args)]
 pub struct ProduceBlockArgs {
-    #[clap(long, short, default_value = "http://127.0.0.1:8545", env)]
+    #[clap(long, short, default_value = "rpc.config", env)]
     pub rpc_config_path: String,
 }
 
 #[derive(Clone, Args)]
 pub struct DeployContractArgs {
-    #[clap(long, short, default_value = "http://127.0.0.1:8545", env)]
+    #[clap(long, short, default_value = "rpc.config", env)]
     pub rpc_config_path: String,
     #[clap(long, short, env)]
     pub private_key: String,
@@ -171,7 +171,7 @@ pub struct DeployContractArgs {
 
 #[derive(Clone, Args)]
 pub struct SubmitEndCapArgs {
-    #[clap(long, short, default_value = "http://127.0.0.1:8546", env)]
+    #[clap(long, short, default_value = "rpc.config", env)]
     pub rpc_config_path: String,
     #[clap(long, short)]
     pub private_key: String,

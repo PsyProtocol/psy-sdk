@@ -4,18 +4,19 @@ pub mod request;
 pub mod rpc;
 
 use self::{context::RealmEdgeContext, rpc::start_realm_edge_rpc_server};
-use crate::{
-    config::RealmEdgeConfig, C, D,
-};
+use crate::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
+use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
+use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
+use qed_node::nimpl::new_fred_pool;
+use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
+use qed_node_common::store::new_lmdbx_env;
+use reth_libmdbx::{Mode, RO};
 use std::clone::Clone;
 use std::sync::Arc;
 use tracing::info;
-use qed_node::nimpl::new_fred_pool;
-use qed_node::nimpl::proof_store_fred::ProofStoreFred;
-use qed_node_common::store::new_lmdbx_store;
 
 /// Start Realm Edge node
 pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
@@ -25,14 +26,25 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     );
 
     // Create storage and queues
-    let pool = new_fred_pool(&config.redis.redis_uri, config.redis.pool_size.unwrap_or(10)).await?;
-    let proof_store = ProofStoreFred::new(pool, config.queue.worker_queue_suffix, config.queue.notifications_queue_suffix);
+    let pool = new_fred_pool(
+        &config.redis.redis_uri,
+        config.redis.pool_size.unwrap_or(10),
+    )
+    .await?;
+    let proof_store = ProofStoreFred::new(
+        pool,
+        config.queue.worker_queue_suffix,
+        config.queue.notifications_queue_suffix,
+    );
     // Create proof storage
     let proof_store = Arc::new(proof_store);
     let checkpoint_queue = proof_store.clone();
 
     // Create store reader
-    let store_reader = new_lmdbx_store(&config.db.path)?;
+    let store_reader_env = new_lmdbx_env(Mode::ReadOnly, &config.db.path)?;
+    let txn = store_reader_env.begin_ro_txn()?;
+    let store_reader =
+        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RO>>::new(KVQlibmdbxStore::new(txn.clone())?);
 
     let cmd_store = store_reader.dup();
 
@@ -63,6 +75,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
 
     // Keep server running
     server_handle.stopped().await;
-
+    txn.commit()?;
     Ok(())
 }
