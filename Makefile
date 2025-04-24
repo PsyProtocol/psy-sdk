@@ -114,6 +114,9 @@ run-worker:
 get-public-key:
 	@RUST_LOG=${LOG_LEVE} cargo run --release --bin qed_user_cli get-public-key --private-key=2c6a1188f8739daaeff79c40f3690c573381c91a2359a0df2b45e4310b59f30b
 
+random-wallet:
+	@RUST_LOG=${LOG_LEVE} cargo run --release --bin qed_user_cli random-wallet
+
 register-user:
 	@RUST_LOG=${LOG_LEVE} curl -X POST http://127.0.0.1:8545 \
       -H "Content-Type: application/json" \
