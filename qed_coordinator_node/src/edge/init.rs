@@ -29,7 +29,7 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     use tracing::info;
     let mut timer = DebugTimer::new("coordinator_edge_node");
     info!("🚀 Initializing coordinator edge node...");
-    let redis_pool = new_fred_pool(&config.redis_url, 8).await?;
+    let redis_pool = new_fred_pool(&config.coordinator_redis_uri, 8).await?;
 
     let proof_store = Arc::new(ProofStoreFred::new(
         redis_pool.clone(),

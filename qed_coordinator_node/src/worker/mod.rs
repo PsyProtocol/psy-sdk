@@ -36,7 +36,7 @@ pub struct CoordinatorWorkerNode<
 
 pub struct CoordinatorWorkerNodeConfig {
     pool_size: usize,
-    redis_url: String,
+    redis_uri: String,
 }
 
 impl<
@@ -65,7 +65,7 @@ impl
     >
 {
     pub async fn new_with_config(cw_config: CoordinatorWorkerNodeConfig) -> anyhow::Result<Self> {
-        let config = Config::from_url(&cw_config.redis_url)?;
+        let config = Config::from_url(&cw_config.redis_uri)?;
         let pool = Builder::from_config(config)
             .with_connection_config(|config| {
                 config.connection_timeout = Duration::from_secs(10);
@@ -94,8 +94,8 @@ impl
 
 pub async fn run_worker(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
     let coordinator_worker = CoordinatorWorkerNode::new_with_config(CoordinatorWorkerNodeConfig {
-        pool_size: args.pool_size as usize,
-        redis_url: args.redis_url,
+        pool_size: args.coordinator_pool_size as usize,
+        redis_uri: args.coordinator_redis_uri,
     })
     .await?;
 

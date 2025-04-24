@@ -40,7 +40,7 @@ pub struct RedisConfig {
     /// Redis URL
     #[arg(
         long,
-        env = "REALM_REDIS_URL",
+        env = "REALM_REDIS_URI",
         default_value = "redis://localhost:6379"
     )]
     pub url: String,
@@ -130,7 +130,7 @@ pub struct RPCConfig {
     /// RPC listen address
     #[arg(
         long,
-        env = "REALM_RPC_LISTEN_ADDR",
+        env = "REALM_EDGE_LISTEN_ADDR",
         default_value = "127.0.0.1:8546"
     )]
     pub listen_addr: String,

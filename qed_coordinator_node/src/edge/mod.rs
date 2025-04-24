@@ -26,17 +26,17 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     init_coordinator_edge(&config).await?;
     info!("✅ Initialized coordinator edge node");
 
-    let (rpc_module, handler) = build_rpc_module(&config.redis_url)?;
+    let (rpc_module, handler) = build_rpc_module(&config.coordinator_redis_uri)?;
     handler.spawn_cp_sync_listener().await?;
     handler.spawn_realm_job_listener().await?;
     info!("✅ Initialized RPC module");
 
-    let addr: SocketAddr = format!("0.0.0.0:{}", config.coordinator_edge_port).parse()?;
+    let addr: SocketAddr = config.coordinator_edge_listen_addr.parse()?;
     let server = Server::builder().build(addr).await?;
     let handle = server.start(rpc_module);
     info!(
-        "🚀 CoordinatorEdge RPC server running on http://0.0.0.0:{}",
-        config.coordinator_edge_port
+        "🚀 CoordinatorEdge RPC server running on http://{}",
+        config.coordinator_edge_listen_addr
     );
 
     handle.stopped().await;

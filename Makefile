@@ -113,25 +113,25 @@ compile:
 	@RUST_LOG=${LOG_LEVE} cd ${PROJECT_DIR} && cargo run --release --package dargo compile --entry-path ${FILE} --contract-name=UserStateRef --method-names mint transfer claim
 
 run-coordinator-processor:
-	@RUST_LOG=${LOG_LEVE} cargo run --package qed_coordinator_node --bin qed_coordinator_node --release processor --coordinator-db-path ${COORDINATOR_DB_PATH}
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli coordinator-processor --coordinator-db-path ${COORDINATOR_DB_PATH}
 
 run-coordinator-edge:
-	@RUST_LOG=${LOG_LEVE} cargo run --package qed_coordinator_edge --release processor --coordinator-db-path ${COORDINATOR_DB_PATH}
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli cooridinator-edge --coordinator-db-path ${COORDINATOR_DB_PATH}
 
 run-realm-processor:
-	@RUST_LOG=${LOG_LEVE} cargo run -r --package qed_realm_node processor
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-processor
 
 run-realm-edge:
-	@RUST_LOG=${LOG_LEVE} cargo run -r --package qed_realm_node edge
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-edge
 
 run-worker:
-	@RUST_LOG=${LOG_LEVE} cargo run --package qed_coordinator_node --bin qed_coordinator_node  --release worker
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli coordinator-worker
 
 get-public-key:
-	@RUST_LOG=${LOG_LEVE} cargo run --release --bin qed_user_cli get-public-key --private-key=2c6a1188f8739daaeff79c40f3690c573381c91a2359a0df2b45e4310b59f30b
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli get-public-key --private-key=2c6a1188f8739daaeff79c40f3690c573381c91a2359a0df2b45e4310b59f30b
 
 random-wallet:
-	@RUST_LOG=${LOG_LEVE} cargo run --release --bin qed_user_cli random-wallet
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli random-wallet
 
 register-user:
 	@RUST_LOG=${LOG_LEVE} curl -X POST http://127.0.0.1:8545 \

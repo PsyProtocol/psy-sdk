@@ -59,7 +59,7 @@ pub struct CoordinatorProcessNode<
 
 pub struct CoordinatorProcessNodeConfig {
     pool_size: usize,
-    redis_url: String,
+    redis_uri: String,
     storage_db_path: String,
 }
 
@@ -137,7 +137,7 @@ impl
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessNodeConfig) -> anyhow::Result<Self> {
-        let config = Config::from_url(&cp_config.redis_url)?;
+        let config = Config::from_url(&cp_config.redis_uri)?;
         let pool = Builder::from_config(config)
             .with_connection_config(|config| {
                 config.connection_timeout = Duration::from_secs(10);
@@ -191,7 +191,7 @@ impl
         )
         .await?;
 
-        let sync_queue = RedisQueue::new(&cp_config.redis_url)?;
+        let sync_queue = RedisQueue::new(&cp_config.redis_uri)?;
 
         // worker
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -217,8 +217,8 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 
     let mut coordinator_processor =
         CoordinatorProcessNode::new_with_config(CoordinatorProcessNodeConfig {
-            pool_size: args.pool_size as usize,
-            redis_url: args.redis_uri,
+            pool_size: args.coordinator_pool_size as usize,
+            redis_uri: args.coordinator_redis_uri,
             storage_db_path: args.coordinator_db_path,
         })
         .await?;

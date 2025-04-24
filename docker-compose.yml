@@ -21,6 +21,7 @@ services:
       - "coordinator-processor"
     volumes:
       - "./db:/qed-rollup/db"
+      - "--redis-uri=redis://172.16.238.13:6379"
     networks:
       testing_net:
         ipv4_address: 172.16.238.14
@@ -38,6 +39,7 @@ services:
       - "coordinator-edge"
     volumes:
       - "./db:/qed-rollup/db"
+      - "--redis-uri=redis://172.16.238.13:6379"
     ports:
       - 8545:8545
     networks:
@@ -56,6 +58,7 @@ services:
       - .env
     command:
       - "coordinator-worker"
+      - "--redis-uri=redis://172.16.238.13:6379"
     volumes:
       - "./db:/qed-rollup/db"
     networks:

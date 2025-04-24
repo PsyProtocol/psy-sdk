@@ -9,9 +9,9 @@ use crate::edge::rpc::types::SubmitGUTAParams;
 
 /// register the RPC methods for the CoordinatorEdgeHandler
 pub fn build_rpc_module(
-    redis_url: &str,
+    redis_uri: &str,
 ) -> anyhow::Result<(RpcModule<CoordinatorEdgeHandler>, CoordinatorEdgeHandler)> {
-    let handler = CoordinatorEdgeHandler::new(redis_url)?;
+    let handler = CoordinatorEdgeHandler::new(redis_uri)?;
     let handler_clone = handler.clone();
 
     let mut module = RpcModule::new(handler);

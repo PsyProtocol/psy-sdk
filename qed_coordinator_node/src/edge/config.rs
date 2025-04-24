@@ -6,7 +6,7 @@
 //
 // #[derive(Debug, Deserialize)]
 // pub struct CoordinatorEdgeArgs {
-//     pub redis_url: String,
+//     pub redis_uri: String,
 //     pub coordinator_edge_port: u16,
 //     pub coordinator_db_path: String,
 // }
