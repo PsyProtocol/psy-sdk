@@ -402,7 +402,7 @@ where
         library: &L,
         job_id: QProvingJobDataID,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-
+        println!("{}-{} job_id.circuit_type {:?}", file!(), line!(), job_id);
         match job_id.circuit_type {
             ProvingJobCircuitType::GUTASingleEndCap => self.verify_single_end_cap.prove_with_proof_store_async(store, library, job_id).await,
             ProvingJobCircuitType::GUTATwoEndCap => self.verify_two_end_cap.prove_with_proof_store_async(store, library, job_id).await,

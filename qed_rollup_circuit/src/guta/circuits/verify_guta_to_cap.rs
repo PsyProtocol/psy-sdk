@@ -76,7 +76,10 @@ where
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         top_line_siblings: &[QHashOut<C::F>],
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        println!("{}-{}", file!(), line!());
+
         let mut pw = PartialWitness::<C::F>::new();
+        println!("{}-{}", file!(), line!());
 
         self.verify_to_line_gadget.set_witness(
             &mut pw,
@@ -86,8 +89,10 @@ where
             verifier_data,
             top_line_siblings,
         )?;
+        println!("{}-{}", file!(), line!());
 
         self.circuit_data.prove(pw)
+
     }
 }
 
@@ -128,21 +133,30 @@ where
         library: &L,
         job_id: QProvingJobDataID,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        println!("{}-{}", file!(), line!());
         let r: CircuitInputWithDependencies<VerifyGUTAToCapCircuitInputSimple<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
+        println!("{}-{}", file!(), line!());
+
         if r.dependencies.len() != 1 {
             anyhow::bail!("invalid dependency count in two end guta input");
         }
+        println!("{}-{}", file!(), line!());
 
 
         let child_a_proof = store.get_proof_by_id(r.dependencies[0]).await?;
+        println!("{}-{}", file!(), line!());
 
         let dep_a_type = r.dependencies[0].circuit_type;
+        println!("{}-{}", file!(), line!());
 
         let child_a_verifier_data = library.get_verifier_data(dep_a_type)?;
+        println!("{}-{}", file!(), line!());
+
         let guta_inclusion_proof_a =
             library.get_group_inclusion_proof(job_id.circuit_type, dep_a_type)?;
+        println!("{}-{}", file!(), line!());
 
         let result = self.prove_base(
             &guta_inclusion_proof_a,
@@ -151,6 +165,8 @@ where
             &child_a_verifier_data,
             &r.input.top_line_siblings,
         )?;
+        println!("{}-{}", file!(), line!());
+
         Ok(result)
     }
 }
