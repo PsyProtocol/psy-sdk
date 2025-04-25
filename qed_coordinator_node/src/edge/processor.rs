@@ -53,7 +53,7 @@ where
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
 {
-    info!("Processing real job");
+    info!("Processing realm job");
     info!("job_info: {:?}", job_info);
     // 1) got the bytes from job_info.job_id
     let bytes = ctx.proof_store.get_bytes_by_id(job_info.job_id).await?;

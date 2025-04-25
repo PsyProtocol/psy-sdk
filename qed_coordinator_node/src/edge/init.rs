@@ -11,7 +11,7 @@ use qed_node_common::store::new_lmdbx_env;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_realm_node::REALM_PROCESSOR_SUFFIX;
 use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RO, RW};
-use crate::context::init_global_db_path;
+use crate::context::{init_global_db_path, init_global_redis_pool, init_global_redis_pool_from_url};
 
 pub fn init_tracing() {
     use tracing_subscriber::{fmt, EnvFilter};
@@ -33,8 +33,8 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
 
     init_global_db_path(&config.coordinator_db_path)?;
     info!("✅ Initialized global db path");
-
     let redis_pool = new_fred_pool(&config.coordinator_redis_uri, 8).await?;
+    init_global_redis_pool(redis_pool.clone())?;
 
     let proof_store = Arc::new(ProofStoreFred::new2(
         redis_pool.clone(),
