@@ -31,7 +31,7 @@ pub struct CoordinatorEdgeContext<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
 
     pub coordinator_config: CoordinatorConfig,
-    last_chkpnt_id: u64,
+    pub last_chkpnt_id: u64,
     
     //pub end_cap_verifier_data: VerifierOnlyCircuitData<C, D>,
 }
@@ -72,9 +72,26 @@ impl<
             checkpoint_queue,
             proof_store,
             proof_verifier,
+            //todo! replace with the latest checkpoint id
             last_chkpnt_id: 0,
         })
     }
+    pub async fn with_store_reader<T>(
+        &self,
+        new_store_reader: Arc<SR>,
+        f: impl FnOnce(CoordinatorEdgeContext<SR, DQ, PS>) -> T,
+    ) -> T {
+        let new_ctx = CoordinatorEdgeContext {
+            coordinator_config: self.coordinator_config.clone(),
+            store_reader: new_store_reader,
+            checkpoint_queue: Arc::clone(&self.checkpoint_queue),
+            proof_store: Arc::clone(&self.proof_store),
+            proof_verifier: Arc::clone(&self.proof_verifier),
+            last_chkpnt_id: self.last_chkpnt_id,
+        };
+        f(new_ctx)
+    }
+
 
     pub fn verify_proof_of_type(
         &self,

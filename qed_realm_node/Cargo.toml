@@ -7,10 +7,6 @@ version = "0.1.0"
 name = "qed_realm_node"
 path = "src/lib.rs"
 
-[[bin]]
-name = "qed_realm_node"
-path = "src/main.rs"
-
 [dependencies]
 qed_core = { workspace = true }
 qed_data = { workspace = true }
@@ -32,8 +28,9 @@ tokio = { workspace = true }
 kvq = { workspace = true }
 reth-libmdbx = { workspace = true }
 kvq_store_lmdbx = { workspace = true }
+dotenv = { workspace = true }
 
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
-clap = {workspace = true}
+clap = { workspace = true}

@@ -16,7 +16,7 @@ use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use std::{sync::Arc, time::Duration};
 
-use crate::subcommand::CoordinatorWorkerArgs;
+use crate::args::CoordinatorWorkerArgs;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -36,7 +36,7 @@ pub struct CoordinatorWorkerNode<
 
 pub struct CoordinatorWorkerNodeConfig {
     pool_size: usize,
-    redis_url: String,
+    redis_uri: String,
 }
 
 impl<
@@ -56,6 +56,7 @@ impl<
     }
 }
 
+pub const COORDINATOR_WORKER_SUFFIX: &str = "CW";
 impl
     CoordinatorWorkerNode<
         ProofStoreFred,
@@ -65,7 +66,7 @@ impl
     >
 {
     pub async fn new_with_config(cw_config: CoordinatorWorkerNodeConfig) -> anyhow::Result<Self> {
-        let config = Config::from_url(&cw_config.redis_url)?;
+        let config = Config::from_url(&cw_config.redis_uri)?;
         let pool = Builder::from_config(config)
             .with_connection_config(|config| {
                 config.connection_timeout = Duration::from_secs(10);
@@ -76,7 +77,7 @@ impl
 
         pool.init().await?;
 
-        let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
+        let q = ProofStoreFred::new2(pool.clone(), "wq1".to_string(), "nq1".to_string(),Some(COORDINATOR_WORKER_SUFFIX), Some(COORDINATOR_WORKER_SUFFIX));
 
         let proof_verifier = get_cached_generic_verifier::<C, D>();
 
@@ -92,10 +93,10 @@ impl
     }
 }
 
-pub async fn run(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
+pub async fn run_worker(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
     let coordinator_worker = CoordinatorWorkerNode::new_with_config(CoordinatorWorkerNodeConfig {
-        pool_size: args.pool_size as usize,
-        redis_url: args.redis_url,
+        pool_size: args.coordinator_pool_size as usize,
+        redis_uri: args.coordinator_redis_uri,
     })
     .await?;
 

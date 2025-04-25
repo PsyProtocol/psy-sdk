@@ -1,8 +1,8 @@
 #[storage]
-struct Contract {
+struct ContractRef {
 }
 
-impl Contract {
+impl ContractRef {
     pub fn simple_mint(
         amount: Felt,
     ) -> Felt {

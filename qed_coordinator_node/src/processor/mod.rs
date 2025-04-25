@@ -30,12 +30,10 @@ use qed_store::{
     },
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
-use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RW};
-use std::{path::PathBuf, sync::Arc, time::Duration};
-use tracing::Level;
-use tracing_subscriber::EnvFilter;
+use std::{ sync::Arc, time::Duration};
 
-use crate::subcommand::CoordinatorProcessorArgs;
+use crate::args::CoordinatorProcessorArgs;
+use crate::COORDINATOR_WORKER_SUFFIX;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -59,7 +57,7 @@ pub struct CoordinatorProcessNode<
 
 pub struct CoordinatorProcessNodeConfig {
     pool_size: usize,
-    redis_url: String,
+    redis_uri: String,
     storage_db_path: String,
 }
 
@@ -128,7 +126,7 @@ impl<
 
 impl
     CoordinatorProcessNode<
-        KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>,
+        KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
         ProofStoreFred,
         ProofStoreFred,
         ProofStoreFred,
@@ -137,7 +135,7 @@ impl
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessNodeConfig) -> anyhow::Result<Self> {
-        let config = Config::from_url(&cp_config.redis_url)?;
+        let config = Config::from_url(&cp_config.redis_uri)?;
         let pool = Builder::from_config(config)
             .with_connection_config(|config| {
                 config.connection_timeout = Duration::from_secs(10);
@@ -148,26 +146,11 @@ impl
 
         pool.init().await?;
 
-        let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
-        let flags = EnvironmentFlags {
-            no_sub_dir: false,
-            mode: Mode::ReadWrite {
-                sync_mode: SyncMode::Durable,
-            },
-            coalesce: true,
-            ..Default::default()
-        };
+        let q = ProofStoreFred::new2(pool.clone(), "wq1".to_string(), "nq1".to_string(), Some(COORDINATOR_WORKER_SUFFIX), Some(COORDINATOR_WORKER_SUFFIX));
 
-        let env = Environment::builder()
-            .set_max_dbs(10)
-            .set_flags(flags)
-            .open(PathBuf::new().join(cp_config.storage_db_path).as_path())?;
-
-        let txn = env.begin_rw_txn()?;
-        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RW>>::new(KVQlibmdbxStore::new(
-                txn.clone(),
-                None,
+        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
+            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
+                &cp_config.storage_db_path,
             )?);
 
         store_reader.initialize_store()?;
@@ -191,7 +174,7 @@ impl
         )
         .await?;
 
-        let sync_queue = RedisQueue::new(&cp_config.redis_url)?;
+        let sync_queue = RedisQueue::new(&cp_config.redis_uri)?;
 
         coordinator_processor_ctx.build_block().await?;
 
@@ -211,17 +194,17 @@ impl
     }
 }
 
-pub async fn run(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
-
+pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
+    // tracing_subscriber::fmt()
+    //     .with_max_level(Level::DEBUG)
+    //     .with_env_filter(EnvFilter::from_default_env())
+    //     .init();
+    //
     let mut coordinator_processor =
         CoordinatorProcessNode::new_with_config(CoordinatorProcessNodeConfig {
-            pool_size: args.pool_size as usize,
-            redis_url: args.redis_uri,
-            storage_db_path: args.storage_db_path,
+            pool_size: args.coordinator_pool_size as usize,
+            redis_uri: args.coordinator_redis_uri,
+            storage_db_path: args.coordinator_db_path,
         })
         .await?;
 

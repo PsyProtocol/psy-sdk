@@ -3,30 +3,38 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use anyhow::bail;
 use plonky2::field::types::Field;
-use plonky2::hash::hash_types::HashOut;
+use plonky2::hash::hash_types::{HashOut};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use rand::RngCore;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use tracing::{error, info, warn};
+use tracing::{ error, info, warn};
 use qed_core::config::network_constants::QED_CHECKPOINT_JOB_ID_CHANNEL;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata};
-use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::job::traits::QProofStoreWriterAsyncImm;
 use qed_core::job::worker_queue::{ProvingDispatcher, ProvingWorkerListener};
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
+use qed_data::qdata::checkpoint::{QEDCheckpointLeaf, QEDL2BlockState};
+use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
+use qed_data::qdata::user::QEDUserLeaf;
 use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, CPQueueNotification, RedisQueue, CE_NOTIFICATIONS, CP_NOTIFICATIONS};
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
-use crate::coordinator_edge::context::{next_checkpoint_id, with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
-use crate::coordinator_edge::processor::{handle_cp_sync, process_realm_job};
-use crate::coordinator_edge::rpc::types::GetUserIdRequest;
+use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+use crate::context::with_temp_ctx_read_async;
+use crate::edge::context::{with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
+use crate::edge::processor::{handle_cp_sync, process_realm_job};
+use crate::edge::rpc::types::GetUserIdRequest;
+
+
+type C = PoseidonGoldilocksConfig;
+const D: usize = 2;
 
 #[derive(Clone)]
 pub struct CoordinatorEdgeHandler {
@@ -36,9 +44,9 @@ pub struct CoordinatorEdgeHandler {
 }
 
 impl CoordinatorEdgeHandler {
-    pub fn new(redis_url: &str) -> anyhow::Result<Self> {
+    pub fn new(redis_uri: &str) -> anyhow::Result<Self> {
         Ok(Self {
-            notify_queue: RedisQueue::new(redis_url)?,
+            notify_queue: RedisQueue::new(redis_uri)?,
             cp_listener: Arc::new(Mutex::new(None)),
             realm_job_listener: Arc::new(Mutex::new(None)),
         })
@@ -110,16 +118,16 @@ impl CoordinatorEdgeHandler {
         }
 
         let channel_id = QED_CHECKPOINT_JOB_ID_CHANNEL;
-        let mut next_checkpoint = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed) + 1;
 
         let ctx_lock = GLOBAL_COORD_EDGE_CTX.clone();
-
 
         let handle = tokio::spawn(async move {
             loop {
                 // get ctx
                 if let Ok(guard) = ctx_lock.try_read() {
                     if let Some(ctx) = guard.as_ref() {
+                        let next_checkpoint = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed) + 1;
+                        // debug!("waiting for realm job, channel_id = {}, next_checkpoint = {}", channel_id, next_checkpoint);
 
                         match ctx
                             .proof_store
@@ -127,47 +135,25 @@ impl CoordinatorEdgeHandler {
                             .await
                         {
                             Ok(jobs) => {
-                                for job_id in jobs {
-                                    info!("🎯 Got ProvingJobDataId: {:?}", job_id);
-                                    if let Err(e) = process_realm_job(ctx, job_id).await {
-                                        error!("❌ process_realm_job error: {:?}", e);
-                                    } else {
-                                        // LATEST_CHECKPOINT_ID.store(job_id.checkpoint_id, Ordering::Relaxed);
-                                        info!("✅ process_realm_job success, latest checkpoint = {}", job_id.checkpoint_id);
-                                        next_checkpoint += 1;
+                                if jobs.is_empty() {
+                                    // debug!("🟡 No jobs at checkpoint {}, retrying later", next_checkpoint);
+                                } else {
+                                    for job_id in jobs {
+                                        info!("🎯 Got ProvingJobDataId: {:?}", job_id);
+
+                                        if let Err(e) = process_realm_job(ctx, job_id).await {
+                                            error!("❌ process_realm_job error: {:?}", e);
+                                        } else {
+                                            info!("✅ process_realm_job success, checkpoint = {}", job_id.checkpoint_id);
+                                        }
                                     }
                                 }
+
                             }
                             Err(e) => {
                                 warn!("⚠️ cdq_drain_imm error: {:?}", e);
-                                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                             }
                         }
-
-                        // match ctx
-                        //     .proof_store
-                        //     .wait_for_next_item_imm::<ProvingJobDataId>(channel_id, next_checkpoint)
-                        //     .await
-                        // {
-                        //     Ok(job_id) => {
-                        //         info!("🎯 Got ProvingJobDataId: {:?}", job_id);
-                        //         if let Err(e) = process_realm_job(ctx, job_id).await {
-                        //             error!("❌ process_realm_job error: {:?}", e);
-                        //         } else {
-                        //
-                        //             next_checkpoint += 1;
-                        //             LATEST_CHECKPOINT_ID
-                        //                 .store(job_id.checkpoint_id, Ordering::Relaxed);
-                        //             info!("✅ process_realm_job success");
-                        //             info!("ℹ️ latest checkpoint now = {}", job_id.checkpoint_id);
-                        //         }
-                        //     }
-                        //     Err(e) => {
-                        //
-                        //         warn!("⚠️ wait_for_next_item_imm error: {:?}", e);
-                        //         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                        //     }
-                        // }
                     }
                 }
                 tokio::time::sleep(Duration::from_millis(500)).await;
@@ -237,7 +223,7 @@ impl CoordinatorEdgeHandler {
         &self,
         contract: QBCDeployContract<QEDFelt>,
     ) -> anyhow::Result<()> {
-        let checkpoint_id = next_checkpoint_id().await?;
+        let next_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
         with_ctx_read_async(|ctx| {
             let queue = ctx.checkpoint_queue.clone();
             let config = ctx.coordinator_config.clone();
@@ -247,7 +233,7 @@ impl CoordinatorEdgeHandler {
 
                 let cd_for_queue = WithDrainQueueMetadata::new_params(
                     config.deploy_contract_channel_id,
-                    checkpoint_id,
+                    next_checkpoint_id,
                     rand::thread_rng().next_u64(),
                     with_root,
                 );
@@ -322,6 +308,41 @@ impl CoordinatorEdgeHandler {
             .dispatch(CE_NOTIFICATIONS, CEQueueNotification::StartProduceBlock)?;
         info!("✅ build_block dispatched to queue");
         Ok(())
+    }
+
+    pub async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
+
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*ctx.store_reader).await
+        }).await
+    }
+    pub async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QEDUserLeaf<QEDFelt>> {
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            ctx.store_reader.get_user_leaf_data(checkpoint_id, user_id)
+        }).await
+    }
+
+    pub async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<QEDFelt>> {
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            QEDCoordinatorStoreReaderAsync::get_contract_leaf_data(&*ctx.store_reader, contract_id).await
+        }).await
+    }
+    pub async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState> {
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            QEDCoordinatorStoreReaderAsync::get_l2_block_state(&*ctx.store_reader, checkpoint_id).await
+        }).await
+    }
+
+    pub async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<QEDFelt>> {
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            QEDCoordinatorStoreReaderAsync::get_checkpoint_leaf_data(&*ctx.store_reader, checkpoint_id).await
+        }).await
+    }
+
+    pub async fn get_contract_code_definition(&self, contract_id: u64) -> anyhow::Result<ContractCodeDefinition> {
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            QEDCoordinatorStoreReaderAsync::get_contract_code_definition(&*ctx.store_reader, contract_id).await
+        }).await
     }
 }
 

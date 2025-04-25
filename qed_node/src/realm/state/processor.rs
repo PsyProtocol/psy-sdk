@@ -46,6 +46,7 @@ use qed_store::{
     store::node::realm::writer_imm::get_user_id_from_registration_id,
 };
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -725,6 +726,7 @@ impl<
             q
         };
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
+        info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
         let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_realms_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
         println!("guta_jobs: {:?}",guta_jobs);
         let finished_job = QProvingJobDataID::new_notify_realm_complete_witness(new_checkpoint_id, self.realm_config.realm_id);

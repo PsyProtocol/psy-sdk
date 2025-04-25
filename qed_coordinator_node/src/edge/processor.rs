@@ -1,5 +1,5 @@
-
-use tracing::info;
+use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use tracing::{debug, info};
 use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::job::traits::QProofStoreAsyncImm;
@@ -7,19 +7,20 @@ use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoP
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_store::config::store_config::QEDFelt;
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
+use crate::context::with_temp_ctx_read_async;
 
 type F = QEDFelt;
-// type C = PoseidonGoldilocksConfig;
-// const D: usize = 2;
+type C = PoseidonGoldilocksConfig;
+const D: usize = 2;
 
 /// read latest checkpoint & proof, package into queue for Realm / RE
-pub async fn handle_cp_sync<SR, DQ, PS>(ctx: &CoordinatorEdgeContext<SR, DQ, PS>) -> anyhow::Result<()>
+pub async fn handle_cp_sync<SR, DQ, PS>(_ctx: &CoordinatorEdgeContext<SR, DQ, PS>) -> anyhow::Result<()>
 where
     SR: QEDCoordinatorStoreReaderAsync<F> + Send + Sync,
     PS: QProofStoreAsyncImm + Send + Sync,
     DQ: CheckpointDrainQueueEmitterAsyncImm + Send + Sync,
 {
-    //todo! maybe need some oprations on sync_info
+    //todo! maybe need some operations on sync_info
 
     // // 1) get the latest checkpoint id
     // let latest = ctx.store_reader.get_latest_l2_block_state().await?;
@@ -51,20 +52,27 @@ where
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
 {
+    info!("Processing realm job");
+    info!("job_info: {:?}", job_info);
     // 1) got the bytes from job_info.job_id
     let bytes = ctx.proof_store.get_bytes_by_id(job_info.job_id).await?;
+    let preview_len = bytes.len().min(100);
+    let hex_preview = hex::encode(&bytes[..preview_len]);
+    debug!("❗ the bytes from job_info.job_id: len = {}, head[0..{}] = {}",
+        bytes.len(),
+        preview_len,
+        hex_preview
+    );
 
     let realm_result: GUTARealmCheckpointResult<QEDFelt>  =
-        bincode::deserialize(&bytes).map_err(|e| anyhow::anyhow!("failed to deserialize realm_result: {:?}", e))?;
-
+        bincode::deserialize(&bytes)
+            .map_err(|e| anyhow::anyhow!("failed to deserialize realm_result: {:?}", e))?;
 
     // 2) get the proof by id
     let realm_proof = ctx
         .proof_store
-        .get_proof_by_id(realm_result.proof_id)
+        .get_proof_by_id(realm_result.proof_id.get_output_id())
         .await?;
-
-
 
     // 3) call the context to handle the proof
     let input = SubmitGUTARealmResultAPINoProofInput {
@@ -76,7 +84,11 @@ where
         circuit_type: realm_result.proof_id.circuit_type,
     };
 
-    ctx.handle_recv_guta_from_realm(input, &realm_proof).await?;
+    // ctx.handle_recv_guta_from_realm(input, &realm_proof).await?;
+    with_temp_ctx_read_async::<_, _, _, C, D>(|temp_ctx| async move {
+        temp_ctx.handle_recv_guta_from_realm(input, &realm_proof).await
+    }).await?;
+
 
     info!(
         "✅ processed GUTA from realm, checkpoint {}",

@@ -989,6 +989,8 @@ impl<
         self.store
             .set_checkpoint_sync_info_imm(l2_sync.clone())
             .await?;
+
+        //todo! mark, should commit the txn
         self.sync_queue.chq_push_imm(l2_sync).await?;
 
         tracing::info!(

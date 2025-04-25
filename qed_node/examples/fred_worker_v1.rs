@@ -93,7 +93,7 @@ impl SimpleActorWorker {
     >(
         store: &PS,
         event_receiver: &ER,
-        prover: &mut G,        
+        prover: &mut G,
         mode: QWorkerMode,
 
     ) -> anyhow::Result<()> {
@@ -124,7 +124,7 @@ impl SimpleActorWorker {
         //let mut timer = DebugTimer::new("process_job");
         if job_id.topic == QJobTopic::GenerateStandardProof {
             //let start_time = std::time::Instant::now();
-            /* 
+            /*
             let _ = match job_id.circuit_type {
                 _ => {
                     let proof = prover.worker_prove_mut(store, job_id)?;
@@ -140,14 +140,14 @@ impl SimpleActorWorker {
             event_receiver.notify_core_goal_completed_imm(job_id).await?;
             return Ok(());
         }
-        tracing::info!("processing job {}, to get goal by id", job_id.topic);
+        tracing::info!("processing job {:?}, to get goal by id", job_id.topic);
         let goal_counter = store.get_goal_by_job_id(job_id).await?;
         tracing::info!("goal_counter: {}", goal_counter);
         if goal_counter != 0 {
             let result = store.inc_counter_by_id(job_id.get_sub_group_counter_id()).await?;
             tracing::info!("result: {}", result);
             if result == goal_counter {
-                tracing::info!("job {} is done, enqueueing jobs", job_id.topic);
+                tracing::info!("job {:?} is done, enqueueing jobs", job_id.topic);
                 let jobs = store.get_next_jobs_by_job_id(job_id).await?;
                 tracing::info!("jobs: {:?}", jobs);
                 //tracing::info!("[{:?}] enqueuing_jobs: {:?}", job_id, jobs);
@@ -177,22 +177,22 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
-    
-    
+
+
 
     timer.lap("started up");
     let mut fake_prover = QEDFakeProver{x: 1};
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
-    
+
     SimpleActorWorker::run_worker::<_,_,_, C,D>(
         &q,
         &q,
         &mut fake_prover,
     ).await?;
     timer.lap("finished jobs");
-    
+
 
     Ok(())
 }
