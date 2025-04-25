@@ -195,7 +195,7 @@ impl RealmProcessor {
     ) -> anyhow::Result<ProvingJobDataId> {
         context.build_block().await?;
         let realm_worker_output_job_id = self.run_worker_until_done().await?;
-        let checkpoint_id = self.synced_checkpoint_id;
+        let checkpoint_id = self.synced_checkpoint_id + 1;
         Ok(ProvingJobDataId::new(
             checkpoint_id,
             realm_worker_output_job_id,

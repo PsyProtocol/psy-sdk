@@ -17,6 +17,7 @@ use qed_core::job::{
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
 use tokio::time::sleep;
+use tracing::{debug, info};
 
 pub const PROOF_STORE_KEY_PREFIX_1: &'static str = "PSV1";
 pub const PROOF_STORE_COUNTERS_PREFIX_1: &'static str = "proof_counters";
@@ -99,7 +100,16 @@ impl QProofStoreReaderAsync for ProofStoreFred {
             .pool
             .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key, &id.to_fixed_bytes())
             .await?;
-
+        {
+            debug!("🍅 start proof.len = {}", data.len());
+            debug!("key = {}-{}", &self.proof_store_key, hex::encode(&id.to_fixed_bytes()));
+            debug!("🔑 id = {:?}", &id);
+            let preview_len = data.len().min(100);
+            let hex_preview = hex::encode(&data[..preview_len]);
+            debug!("❗ the bytes from set_proof_by_id len = {}, head[0..{}] = {}",
+            data.len(), preview_len, hex_preview);
+            debug!("🍅 end  proof.len = {}", data.len());
+        }
         Ok(bincode::deserialize(&data)?)
     }
 
@@ -120,13 +130,27 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
         id: QProvingJobDataID,
         proof: &ProofWithPublicInputs<C::F, C, D>,
     ) -> anyhow::Result<()> {
+        let data = bincode::serialize(&proof)?;
+        {
+            debug!("🍅 start proof.len = {}", data.len());
+            debug!("key = {}-{}", &self.proof_store_key, hex::encode(&id.to_fixed_bytes()));
+            debug!("🔑 id = {:?}", &id);
+
+            let preview_len = data.len().min(100);
+            let hex_preview = hex::encode(&data[..preview_len]);
+            debug!("❗ the bytes from set_proof_by_id len = {}, head[0..{}] = {}",
+            data.len(), preview_len, hex_preview);
+            let p : ProofWithPublicInputs<C::F, C, D> = bincode::deserialize(&data)?;
+            debug!("🍅 end  proof.len = {}", a.len());
+        }
         self.pool
             .hsetnx::<(), _, &[u8], Vec<u8>>(
                 &self.proof_store_key,
                 &id.to_fixed_bytes(),
-                bincode::serialize(&proof)?,
+                data,
             )
             .await?;
+
         Ok(())
     }
     async fn set_bytes_by_id_batch(

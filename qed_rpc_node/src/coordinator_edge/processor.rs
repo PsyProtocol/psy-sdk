@@ -72,9 +72,8 @@ where
     // 2) get the proof by id
     let realm_proof = ctx
         .proof_store
-        .get_proof_by_id(realm_result.proof_id)
+        .get_proof_by_id(realm_result.proof_id.get_output_id())
         .await?;
-
 
     // 3) call the context to handle the proof
     let input = SubmitGUTARealmResultAPINoProofInput {
