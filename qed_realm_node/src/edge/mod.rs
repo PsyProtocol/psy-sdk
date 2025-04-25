@@ -12,8 +12,6 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
-use qed_node_common::store::new_lmdbx_env;
-use reth_libmdbx::{Mode, RO};
 use std::clone::Clone;
 use std::sync::Arc;
 use tracing::{debug, info};

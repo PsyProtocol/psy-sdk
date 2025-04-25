@@ -482,4 +482,3 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync>
         CheckpointSyncInfoTableStore::<Self>::get_checkpoint_sync_info_compact(self, checkpoint_id)
     }
 }
-

@@ -1,24 +1,18 @@
 use std::future::Future;
-use std::path::Path;
 use std::sync::{Arc, atomic::AtomicU64};
 use tokio::sync::RwLock;
 use once_cell::sync::{Lazy, OnceCell};
 use anyhow::anyhow;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
-use plonky2::hash::hash_types::RichField;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_store::config::store_config::QEDFelt;
-use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use reth_libmdbx::{Environment, EnvironmentFlags, Geometry, Mode, RO, RW};
 use fred::{
-    prelude::{ClientLike, Config, Pool, ReconnectPolicy},
-    types::Builder,
+    prelude::{Pool},
 };
 use qed_node::nimpl::new_fred_pool;
 use crate::COORDINATOR_WORKER_SUFFIX;

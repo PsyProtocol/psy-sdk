@@ -7,11 +7,9 @@ use qed_core::utils::debug_timer::DebugTimer;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
-use qed_node_common::store::new_lmdbx_env;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_realm_node::REALM_PROCESSOR_SUFFIX;
-use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RO, RW};
-use crate::context::{init_global_db_path, init_global_redis_pool, init_global_redis_pool_from_url};
+use crate::context::{init_global_db_path, init_global_redis_pool};
 
 pub fn init_tracing() {
     use tracing_subscriber::{fmt, EnvFilter};

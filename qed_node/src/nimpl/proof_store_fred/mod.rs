@@ -101,16 +101,6 @@ impl QProofStoreReaderAsync for ProofStoreFred {
             .pool
             .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key, &id.to_fixed_bytes())
             .await?;
-        {
-            debug!("🍅 start proof.len = {}", data.len());
-            debug!("key = {}-{}", &self.proof_store_key, hex::encode(&id.to_fixed_bytes()));
-            debug!("🔑 id = {:?}", &id);
-            let preview_len = data.len().min(100);
-            let hex_preview = hex::encode(&data[..preview_len]);
-            debug!("❗ the bytes from set_proof_by_id len = {}, head[0..{}] = {}",
-            data.len(), preview_len, hex_preview);
-            debug!("🍅 end  proof.len = {}", data.len());
-        }
         Ok(bincode::deserialize(&data)?)
     }
 
@@ -199,15 +189,6 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreFred {
             )
             .await?;
 
-        // self.pool
-        //     .lpush::<(), String, &[u8]>(
-        //         format!(
-        //             "{}-{}_{}",
-        //             PS_DRAIN_QUEUE_KEY_PREFIX, metadata.channel_id, metadata.checkpoint_id
-        //         ),
-        //         &bytes,
-        //     )
-        //     .await?;
 
         Ok(())
     }

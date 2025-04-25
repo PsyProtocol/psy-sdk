@@ -1,5 +1,4 @@
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use tracing::field::debug;
 use tracing::{debug, info};
 use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_core::job::id::ProvingJobDataId;
@@ -15,13 +14,13 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
 /// read latest checkpoint & proof, package into queue for Realm / RE
-pub async fn handle_cp_sync<SR, DQ, PS>(ctx: &CoordinatorEdgeContext<SR, DQ, PS>) -> anyhow::Result<()>
+pub async fn handle_cp_sync<SR, DQ, PS>(_ctx: &CoordinatorEdgeContext<SR, DQ, PS>) -> anyhow::Result<()>
 where
     SR: QEDCoordinatorStoreReaderAsync<F> + Send + Sync,
     PS: QProofStoreAsyncImm + Send + Sync,
     DQ: CheckpointDrainQueueEmitterAsyncImm + Send + Sync,
 {
-    //todo! maybe need some oprations on sync_info
+    //todo! maybe need some operations on sync_info
 
     // // 1) get the latest checkpoint id
     // let latest = ctx.store_reader.get_latest_l2_block_state().await?;
