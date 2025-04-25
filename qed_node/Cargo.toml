@@ -21,6 +21,7 @@ tracing = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 kvq = { path = "../kvq" }
+kvq_store_lmdbx = { path = "../kvq_store_lmdbx" }
 qed_core = { path = "../qed_core" }
 qed_common_circuit = { path = "../qed_common_circuit" }
 qed_rollup_circuit = { path = "../qed_rollup_circuit" }

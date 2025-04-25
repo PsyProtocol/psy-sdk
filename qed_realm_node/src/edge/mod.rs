@@ -12,8 +12,6 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
-use qed_node_common::store::new_lmdbx_env;
-use reth_libmdbx::{Mode, RO};
 use std::clone::Clone;
 use std::sync::Arc;
 use tracing::{debug, info};
@@ -28,13 +26,15 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     debug!("Realm Edge node config: {:?}", config);
 
     // Create storage and queues
+
     let pool = new_fred_pool(
         &config.redis.redis_uri,
         config.redis.pool_size.unwrap_or(10),
     )
-    .await
-    .map_err(|e| anyhow::anyhow!("Failed to create Redis pool: {}", e))?;
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to create Redis pool: {}", e))?;
     debug!("created redis pool successfully!");
+    //todo! maybe it shoule use new2
     let proof_store = ProofStoreFred::new(
         pool,
         config.queue.worker_queue_suffix,

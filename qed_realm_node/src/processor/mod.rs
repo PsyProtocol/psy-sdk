@@ -16,11 +16,9 @@ use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::{ProofStoreFred, PS_HISTORY_QUEUE_KEY_PREFIX};
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use qed_node::worker::simple_async_realm::SimpleAsyncRealmWorker;
-use qed_node_common::store::new_lmdbx_env;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use reth_libmdbx::{Mode, SyncMode, RO, RW};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
@@ -59,16 +57,18 @@ pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> 
     }
     Ok(())
 }
-
+pub const REALM_PROCESSOR_SUFFIX: &str = "RP";
 impl RealmProcessor {
     pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
         let pool =
             new_fred_pool(&config.redis.redis_uri, config.redis.pool_size.unwrap_or(8)).await?;
-        let realm_qps = ProofStoreFred::new(
+        let realm_qps = ProofStoreFred::new2(
             pool,
             config.queue.worker_queue_suffix,
             config.queue.notifications_queue_suffix,
+            Some(REALM_PROCESSOR_SUFFIX),
+            Some(REALM_PROCESSOR_SUFFIX)
         );
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
@@ -195,7 +195,7 @@ impl RealmProcessor {
     ) -> anyhow::Result<ProvingJobDataId> {
         context.build_block().await?;
         let realm_worker_output_job_id = self.run_worker_until_done().await?;
-        let checkpoint_id = self.synced_checkpoint_id;
+        let checkpoint_id = self.synced_checkpoint_id + 1;
         Ok(ProvingJobDataId::new(
             checkpoint_id,
             realm_worker_output_job_id,

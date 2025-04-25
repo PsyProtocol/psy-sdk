@@ -21,7 +21,6 @@ use qed_node::{
     coordinator::state::processor::CoordinatorProcessorContext,
     nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS},
 };
-use qed_node_common::store::new_lmdbx_env;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::{
@@ -31,12 +30,10 @@ use qed_store::{
     },
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
-use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RW};
-use std::{path::PathBuf, sync::Arc, time::Duration};
-use tracing::Level;
-use tracing_subscriber::EnvFilter;
+use std::{ sync::Arc, time::Duration};
 
 use crate::args::CoordinatorProcessorArgs;
+use crate::COORDINATOR_WORKER_SUFFIX;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -149,7 +146,7 @@ impl
 
         pool.init().await?;
 
-        let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
+        let q = ProofStoreFred::new2(pool.clone(), "wq1".to_string(), "nq1".to_string(), Some(COORDINATOR_WORKER_SUFFIX), Some(COORDINATOR_WORKER_SUFFIX));
 
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
