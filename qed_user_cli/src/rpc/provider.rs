@@ -55,6 +55,7 @@ macro_rules! qed_rpc_call {
             .json::<RpcResponse<()>>()
             .await?;
 
+            eprintln!("DEBUGPRINT[383]: provider.rs:38: current_user_id={:#?}", response);
         if let ResponseResult::Success(s) = response.result {
             Ok(s)
         } else {

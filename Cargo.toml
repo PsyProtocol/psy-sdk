@@ -21,7 +21,9 @@ members = [
     "qed_node",
     "qed_realm_node",
     "qed_coordinator_node",
-    "qed_rpc_node",
+    "qed_user_cli",
+    "qed_rollup_cli",
+    "qed_rollup_utils",
     "qed_worker",
     "qed_scylla_store",
     "qed_test_sandbox",
@@ -72,7 +74,7 @@ bitcoin = { version = "0.31.1", features = ["serde", "rand"] }
 chrono = "0.4.39"
 
 
-rand = "0.9"
+rand = "0.8.5"
 rand_core = "0.9"
 rand_pcg = "0.9"
 rayon = { version = "1.10.0" }
@@ -114,6 +116,7 @@ k256 = { version = "0.13.2", features = [
 sha2 = "0.10.8"
 sha3 = "0.10.8"
 
+repl-rs = "0.2.8"
 
 num = { version = "0.4.0", default-features = false }
 unroll = "0.1.5"
@@ -225,10 +228,14 @@ qed_data = { path = "./qed_data" }
 qed_core = { path = "./qed_core" }
 qed_node = { path = "./qed_node" }
 qed_prover = { path = "./qed_prover" }
+qed_common = { path = "./qed_common" }
 qed_common_circuit = { path = "./qed_common_circuit" }
 kvq = { path = "./kvq" }
 qed_node_common = { path = "./qed_node_common" }
 qed_rollup_circuit = { path = "./qed_rollup_circuit" }
+qed_rollup_utils= { path = "./qed_rollup_utils" }
+qed_coordinator_node = { path = "./qed_coordinator_node" }
+qed_realm_node = { path = "./qed_realm_node" }
 
 qed-ast = { path = "./qed_compiler/qed-ast" }
 qed-cli = { path = "./qed_compiler/qed-cli" }

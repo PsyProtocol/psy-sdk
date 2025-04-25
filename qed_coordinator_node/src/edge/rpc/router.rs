@@ -3,15 +3,15 @@ use jsonrpsee::RpcModule;
 use jsonrpsee::types::ErrorObjectOwned;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_store::config::store_config::QEDFelt;
-use crate::coordinator_edge::context::LATEST_CHECKPOINT_ID;
-use crate::coordinator_edge::rpc::handler::CoordinatorEdgeHandler;
-use crate::coordinator_edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
+use crate::edge::context::LATEST_CHECKPOINT_ID;
+use crate::edge::rpc::handler::CoordinatorEdgeHandler;
+use crate::edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
 
 /// register the RPC methods for the CoordinatorEdgeHandler
 pub fn build_rpc_module(
-    redis_url: &str,
+    redis_uri: &str,
 ) -> anyhow::Result<(RpcModule<CoordinatorEdgeHandler>, CoordinatorEdgeHandler)> {
-    let handler = CoordinatorEdgeHandler::new(redis_url)?;
+    let handler = CoordinatorEdgeHandler::new(redis_uri)?;
     let handler_clone = handler.clone();
 
     let mut module = RpcModule::new(handler);

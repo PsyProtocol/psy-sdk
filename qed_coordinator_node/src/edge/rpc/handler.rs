@@ -24,9 +24,9 @@ use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, CPQu
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
-use crate::coordinator_edge::context::{next_checkpoint_id, with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
-use crate::coordinator_edge::processor::{handle_cp_sync, process_realm_job};
-use crate::coordinator_edge::rpc::types::GetUserIdRequest;
+use crate::edge::context::{next_checkpoint_id, with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
+use crate::edge::processor::{handle_cp_sync, process_realm_job};
+use crate::edge::rpc::types::GetUserIdRequest;
 
 #[derive(Clone)]
 pub struct CoordinatorEdgeHandler {
@@ -36,9 +36,9 @@ pub struct CoordinatorEdgeHandler {
 }
 
 impl CoordinatorEdgeHandler {
-    pub fn new(redis_url: &str) -> anyhow::Result<Self> {
+    pub fn new(redis_uri: &str) -> anyhow::Result<Self> {
         Ok(Self {
-            notify_queue: RedisQueue::new(redis_url)?,
+            notify_queue: RedisQueue::new(redis_uri)?,
             cp_listener: Arc::new(Mutex::new(None)),
             realm_job_listener: Arc::new(Mutex::new(None)),
         })

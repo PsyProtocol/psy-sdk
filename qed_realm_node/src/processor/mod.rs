@@ -6,29 +6,27 @@ use kvq::traits::KVQSerializable;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
-use qed_core::job::history_queue::{
-    CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
-};
+use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
+use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
 use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID};
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
+use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::{ProofStoreFred, PS_HISTORY_QUEUE_KEY_PREFIX};
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use qed_node::worker::simple_async_realm::SimpleAsyncRealmWorker;
+use qed_node_common::store::new_lmdbx_env;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use reth_libmdbx::RW;
+use reth_libmdbx::{Mode, SyncMode, RO, RW};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info};
-use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
-use qed_node::nimpl::new_fred_pool;
-use qed_node_common::store::new_lmdbx_store;
 
-type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>;
+type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     KVQArcImmutableStore,
     ProofStoreFred,
@@ -47,7 +45,7 @@ pub struct RealmProcessor {
     pub synced_checkpoint_id: u64,
 }
 
-pub async fn start_realm_processor_node(config: RealmNodeConfig) -> anyhow::Result<()> {
+pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
     let realm_processor = RealmProcessor::new(config).await?;
     let handle = realm_processor.start().await?;
 
@@ -66,13 +64,17 @@ impl RealmProcessor {
     pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
         let pool =
-            new_fred_pool(&config.redis.url, config.redis.pool_size.unwrap_or(8)).await?;
+            new_fred_pool(&config.redis.redis_uri, config.redis.pool_size.unwrap_or(8)).await?;
         let realm_qps = ProofStoreFred::new(
             pool,
             config.queue.worker_queue_suffix,
             config.queue.notifications_queue_suffix,
         );
-        let store_reader = new_lmdbx_store(&config.db.path)?;
+        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
+            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
+                &config.db.path,
+            )?);
+
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
         let coordinator_worker_circuits =
