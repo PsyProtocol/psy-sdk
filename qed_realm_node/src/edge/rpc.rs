@@ -37,7 +37,7 @@ pub trait RealmEdgeRpc {
     async fn check_user_id_in_realm(&self, user_id: u64) -> RpcResult<bool>;
 
     /// Submit user end cap proof
-    #[method(name = "submit_user_end_cap")]
+    #[method(name = "submit_user_end_cap", param_kind = map)]
     async fn submit_user_end_cap(&self, req: QSubmitEndCapRPCRequest<F>) -> RpcResult<bool>;
 
     /// Submit a token transfer
@@ -45,50 +45,50 @@ pub trait RealmEdgeRpc {
     // async fn token_transfer(&self, input: QTokenTransferRPCRequest) -> RpcResult<()>;
 
     /// get a batch of read commands
-    #[method(name = "batch")]
+    #[method(name = "batch", param_kind = map)]
     async fn get_batch(
         &self,
         input: QEDReadCommandBatchInput,
     ) -> RpcResult<QEDReadCommandBatchOutput<F>>;
 
     /// Get hash of a given input
-    #[method(name = "get_hash")]
+    #[method(name = "get_hash", param_kind = map)]
     async fn get_hash(&self, input: QSRHashCmd) -> RpcResult<QHashOut<F>>;
 
     /// Get merkle proof of a given input
-    #[method(name = "get_merkle_proof")]
+    #[method(name = "get_merkle_proof", param_kind = map)]
     async fn get_merkle_proof(
         &self,
         input: QSRMerkleCmd,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     /// Get user leaf data for a specific user
-    #[method(name = "get_user_leaf")]
+    #[method(name = "get_user_leaf", param_kind = map)]
     async fn get_user_leaf(&self, input: QSRCmdGetUserLeafData) -> RpcResult<QEDUserLeaf<F>>;
 
     /// Get contract leaf data for a specific contract
-    #[method(name = "get_contract_leaf")]
+    #[method(name = "get_contract_leaf", param_kind = map)]
     async fn get_contract_leaf(
         &self,
         input: QSRCmdGetContractLeafData,
     ) -> RpcResult<QEDContractLeaf<F>>;
 
     /// Get contract code for a specific contract
-    #[method(name = "get_contract_code")]
+    #[method(name = "get_contract_code", param_kind = map)]
     async fn get_contract_code(
         &self,
         input: QSRCmdGetContractCodeDefinition,
     ) -> RpcResult<ContractCodeDefinition>;
 
     /// Get checkpoint leaf data for a specific checkpoint
-    #[method(name = "get_checkpoint_leaf")]
+    #[method(name = "get_checkpoint_leaf", param_kind = map)]
     async fn get_checkpoint_leaf(
         &self,
         input: QSRCmdGetCheckpointLeafData,
     ) -> RpcResult<QEDCheckpointLeaf<F>>;
 
     /// Get L2 block state for a specific L2 block
-    #[method(name = "get_l2_block_state")]
+    #[method(name = "get_l2_block_state", param_kind = map)]
     async fn get_l2_block_state(&self, input: QSRCmdGetL2BlockState) -> RpcResult<QEDL2BlockState>;
 
     /// Get latest L2 block state
