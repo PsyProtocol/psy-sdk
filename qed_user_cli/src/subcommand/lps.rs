@@ -64,28 +64,24 @@ pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
     fn_name: &str,
     inputs: Vec<F>,
 ) -> anyhow::Result<()> {
-    println!("prove_func contract_id: {:?}", contract_id);
     let contract_code =
         st.resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id })?;
 
-    for func in contract_code.functions.iter() {
+    for (i, func) in contract_code.functions.iter().enumerate() {
         let dapen_fc = cfc_code_definition_to_dapen_fc(&func)?;
-        println!("dapen_fc: {:?}", dapen_fc);
+
         let dapen_fc_circuit = DapenContractFunctionCircuit::<C, D>::new(
             &dapen_fc,
             contract_code.state_tree_height as usize,
             UPS_SESSION_PROOF_TREE_HEIGHT as usize,
             false,
         );
-        println!("dapen_fc_circuit: {:?}", dapen_fc_circuit);
-        println!("dapen_fc: {:?} {:?}", dapen_fc.name, fn_name);
-        println!("proving contract call {:?}", dapen_fc);
+
         if dapen_fc.name == fn_name {
-            println!("prove func start");
             return mgr.prove_contract_call(
                 circuit_mgr,
                 F::from_canonical_u64(contract_id),
-                dapen_fc.method_id as u32,
+                i as u32,
                 &dapen_fc_circuit,
                 &dapen_fc,
                 inputs,
@@ -99,7 +95,6 @@ pub fn run_local(
     st_provider: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>,
     contract_call_path: &str,
     private_key: &str,
-    wallet: &SimpleQEDZKSignatureManager<C, D>,
 ) -> anyhow::Result<(
     SubmitUserEndCapNonProofInput<F>,
     ProofWithPublicInputs<GoldilocksField, C, D>,
@@ -112,15 +107,14 @@ pub fn run_local(
     let main_circuits =
         QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
 
-    println!("private_key{:?}", private_key.to_string());
     let priv_key = QHashOut::<GoldilocksField>::from_str(&private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
-    println!("priv_key: {:?}", priv_key.to_string());
-    // let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
 
-    // let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey {
-    //     private_key: priv_key,
-    // });
+    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+
+    let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey {
+        private_key: priv_key,
+    });
 
     let user_id = 0;
 
@@ -142,29 +136,6 @@ pub fn run_local(
 
     main_circuits.register_info(&mut circuit_info);
 
-    // contract_helper.register_funcs(0, &mut circuit_info);
-    for contract_call_arg in contract_call_args.iter() {
-        let contract_code =
-            st_provider.resolve_get_contract_code(&QSRCmdGetContractCodeDefinition {
-                contract_id: contract_call_arg.contract_id,
-            })?;
-
-        for func in contract_code.functions.iter() {
-            let dapen_fc = cfc_code_definition_to_dapen_fc(&func)?;
-            let dapen_fc_circuit = DapenContractFunctionCircuit::<C, D>::new(
-                &dapen_fc,
-                contract_code.state_tree_height as usize,
-                UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-                false,
-            );
-            circuit_info.register_circuit(
-                LocalCircuitId::new_cfc(contract_call_arg.contract_id as u32, dapen_fc.method_id),
-                dapen_fc_circuit.get_fingerprint(),
-                dapen_fc_circuit.get_verifier_config_ref().into(),
-            );
-        }
-    }
-
     let mut mgr = UserProvingSessionManager::<F, QEDHasher, _, C, D>::new(
         lps,
         circuit_info,
@@ -172,8 +143,6 @@ pub fn run_local(
     )?;
 
     mgr.prove_ups_start(&main_circuits)?;
-
-    println!("prove func start");
 
     for contract_call_arg in contract_call_args {
         prove_func(
@@ -191,24 +160,16 @@ pub fn run_local(
         .unwrap();
     }
 
-    println!("prove func end");
-
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
 
-    println!("get sighash start");
     let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
-    println!("get sighash end {:?}", sighash);
-
-    println!("get signature_proof start");
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key, sighash)?;
 
-    println!("finalize_tree");
     mgr.proof_tree_state
         .finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
 
     let public_key_param = SimpleQEDPrivateKey::new(priv_key).get_public_key_param::<QEDHasher>();
 
-    println!("prove_end_cap");
     let end_cap_proof = mgr.prove_end_cap(
         &main_circuits,
         QED_NETWORK_MAGIC_REGTEST,
@@ -218,8 +179,6 @@ pub fn run_local(
         signature_proof,
         wallet.circuit.get_verifier_config_ref().to_owned(),
     )?;
-
-    println!("prove_end_cap end");
 
     let user_ec_input: SubmitUserEndCapNonProofInput<F> = mgr.get_api_input()?;
     Ok((user_ec_input, end_cap_proof))

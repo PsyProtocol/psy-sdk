@@ -51,7 +51,7 @@ pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
     let contract_code =
         st.resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id })?;
 
-    for func in contract_code.functions.iter() {
+    for (i, func) in contract_code.functions.iter().enumerate() {
         let dapen_fc = cfc_code_definition_to_dapen_fc(&func)?;
         let dapen_fc_circuit = DapenContractFunctionCircuit::<C, D>::new(
             &dapen_fc,
@@ -63,7 +63,7 @@ pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
             return mgr.prove_contract_call(
                 circuit_mgr,
                 F::from_canonical_u64(contract_id),
-                dapen_fc.method_id as u32,
+                i as u32,
                 &dapen_fc_circuit,
                 &dapen_fc,
                 inputs,
