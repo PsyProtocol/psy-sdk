@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -17,9 +18,10 @@ use qed_core::job::{
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
 use tokio::time::sleep;
+use tracing::{debug, info};
 
-pub const PROOF_STORE_KEY_PREFIX: &'static str = "PSV1";
-pub const PROOF_STORE_COUNTERS_PREFIX: &'static str = "proof_counters";
+pub const PROOF_STORE_KEY_PREFIX_1: &'static str = "PSV1";
+pub const PROOF_STORE_COUNTERS_PREFIX_1: &'static str = "proof_counters";
 
 pub const PS_DRAIN_QUEUE_KEY_PREFIX: &'static str = "PSDQV1_";
 pub const PS_WORKER_QUEUE_KEY_PREFIX: &'static str = "PSWQV1";
@@ -31,6 +33,8 @@ pub struct ProofStoreFred {
     pool: Pool,
     worker_queue_id: String,
     notifications_queue_id: String,
+    proof_store_key: String,
+    proof_store_counters: String,
 }
 
 impl ProofStoreFred {
@@ -46,9 +50,35 @@ impl ProofStoreFred {
                 "{}-{}",
                 PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, notifications_queue_suffix
             ),
-        }
+            proof_store_key: format!("{}", PROOF_STORE_KEY_PREFIX_1),
+            proof_store_counters: format!("{}", PROOF_STORE_COUNTERS_PREFIX_1),
+            }
     }
 
+    pub fn new2(
+        pool: Pool,
+        worker_queue_suffix: String,
+        notifications_queue_suffix: String,
+        proof_store_key_suffix: Option<&str>,
+        proof_store_counters_suffix: Option<&str>,
+    ) -> Self {
+        Self {
+            pool,
+            worker_queue_id: format!("{}-{}", PS_WORKER_QUEUE_KEY_PREFIX, worker_queue_suffix),
+            notifications_queue_id: format!(
+                "{}-{}",
+                PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, notifications_queue_suffix
+            ),
+            proof_store_key: match proof_store_key_suffix {
+                Some(suffix) => format!("{}-{}", PROOF_STORE_KEY_PREFIX_1, suffix),
+                None => format!("{}", PROOF_STORE_KEY_PREFIX_1),
+            },
+            proof_store_counters: match proof_store_counters_suffix {
+                Some(suffix) => format!("{}-{}", PROOF_STORE_COUNTERS_PREFIX_1, suffix),
+                None => format!("{}", PROOF_STORE_COUNTERS_PREFIX_1),
+            }
+        }
+    }
     pub fn pool(&self) -> &Pool {
         &self.pool
     }
@@ -59,7 +89,7 @@ impl QProofStoreReaderAsync for ProofStoreFred {
     async fn contains_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool> {
         let data = self
             .pool
-            .hget::<Vec<u8>, _, &[u8]>(PROOF_STORE_KEY_PREFIX, &id.to_fixed_bytes())
+            .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key, &id.to_fixed_bytes())
             .await?;
         Ok(data.len() != 0)
     }
@@ -69,16 +99,15 @@ impl QProofStoreReaderAsync for ProofStoreFred {
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let data = self
             .pool
-            .hget::<Vec<u8>, _, &[u8]>(PROOF_STORE_KEY_PREFIX, &id.to_fixed_bytes())
+            .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key, &id.to_fixed_bytes())
             .await?;
-
         Ok(bincode::deserialize(&data)?)
     }
 
     async fn get_bytes_by_id(&self, id: QProvingJobDataID) -> anyhow::Result<Vec<u8>> {
         let data = self
             .pool
-            .hget::<Vec<u8>, _, &[u8]>(PROOF_STORE_KEY_PREFIX, &id.to_fixed_bytes())
+            .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key, &id.to_fixed_bytes())
             .await?;
 
         Ok(data)
@@ -92,13 +121,16 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
         id: QProvingJobDataID,
         proof: &ProofWithPublicInputs<C::F, C, D>,
     ) -> anyhow::Result<()> {
+        let data = bincode::serialize(&proof)?;
+
         self.pool
             .hsetnx::<(), _, &[u8], Vec<u8>>(
-                PROOF_STORE_KEY_PREFIX,
+                &self.proof_store_key,
                 &id.to_fixed_bytes(),
-                bincode::serialize(&proof)?,
+                data,
             )
             .await?;
+
         Ok(())
     }
     async fn set_bytes_by_id_batch(
@@ -110,7 +142,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
     }
     async fn set_bytes_by_id(&self, id: QProvingJobDataID, data: &[u8]) -> anyhow::Result<()> {
         self.pool
-            .hsetnx::<(), _, &[u8], &[u8]>(PROOF_STORE_KEY_PREFIX, &id.to_fixed_bytes(), data)
+            .hsetnx::<(), _, &[u8], &[u8]>(&self.proof_store_key, &id.to_fixed_bytes(), data)
             .await?;
         Ok(())
     }
@@ -118,7 +150,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
     async fn inc_counter_by_id(&self, id: QProvingJobDataID) -> anyhow::Result<u32> {
         let new_counter_value = self
             .pool
-            .hincrby::<u32, _, &[u8]>(PROOF_STORE_COUNTERS_PREFIX, &id.to_fixed_bytes(), 1)
+            .hincrby::<u32, _, &[u8]>(&self.proof_store_counters, &id.to_fixed_bytes(), 1)
             .await?;
         Ok(new_counter_value)
     }
@@ -145,15 +177,18 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreFred {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
         let metadata: qed_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
+        let key = format!(
+            "{}-{}_{}",
+            PS_DRAIN_QUEUE_KEY_PREFIX, metadata.channel_id, metadata.checkpoint_id
+        );
+        tracing::info!("Pushing job id to queue: {:?}", key);
         self.pool
             .lpush::<(), String, &[u8]>(
-                format!(
-                    "{}-{}_{}",
-                    PS_DRAIN_QUEUE_KEY_PREFIX, metadata.channel_id, metadata.checkpoint_id
-                ),
+                key,
                 &bytes,
             )
             .await?;
+
 
         Ok(())
     }
@@ -209,7 +244,9 @@ impl WorkerEventReceiverAsyncImm for ProofStoreFred {
                 Ok(g) => {
                     return Ok(QProvingJobDataID::try_from_byte_vec(&g)?);
                 }
-                Err(e) => println!("error: {:?}", e),
+                Err(e) => {}
+                    // println!("error: {:?}", e)
+                ,
             };
             sleep(Duration::from_millis(100)).await;
         }

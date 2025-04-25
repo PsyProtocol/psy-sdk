@@ -56,6 +56,7 @@ impl<
     }
 }
 
+pub const COORDINATOR_WORKER_SUFFIX: &str = "CW";
 impl
     CoordinatorWorkerNode<
         ProofStoreFred,
@@ -76,7 +77,7 @@ impl
 
         pool.init().await?;
 
-        let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
+        let q = ProofStoreFred::new2(pool.clone(), "wq1".to_string(), "nq1".to_string(),Some(COORDINATOR_WORKER_SUFFIX), Some(COORDINATOR_WORKER_SUFFIX));
 
         let proof_verifier = get_cached_generic_verifier::<C, D>();
 

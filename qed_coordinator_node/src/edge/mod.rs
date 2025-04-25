@@ -9,7 +9,7 @@ use crate::args::CoordinatorEdgeArgs;
 use jsonrpsee::server::Server;
 use qed_core::utils::debug_timer::DebugTimer;
 
-use crate::edge::init::{init_coordinator_edge, init_tracing};
+use crate::edge::init::{init_coordinator_edge};
 use crate::edge::rpc::router::build_rpc_module;
 use std::net::SocketAddr;
 use tracing::info;
