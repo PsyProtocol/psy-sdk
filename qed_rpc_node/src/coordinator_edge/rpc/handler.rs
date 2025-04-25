@@ -28,9 +28,13 @@ use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
 use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use crate::coordinator_edge::context::{next_checkpoint_id, with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
+use crate::coordinator_edge::context::{next_checkpoint_id, with_ctx_read_async, with_temp_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
 use crate::coordinator_edge::processor::{handle_cp_sync, process_realm_job};
 use crate::coordinator_edge::rpc::types::GetUserIdRequest;
+
+type F = QEDFelt;
+type C = PoseidonGoldilocksConfig;
+const D: usize = 2;
 
 #[derive(Clone)]
 pub struct CoordinatorEdgeHandler {
@@ -304,58 +308,39 @@ impl CoordinatorEdgeHandler {
     }
 
     pub async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
-        with_ctx_read_async(|ctx| {
-            let store = ctx.store_reader.clone();
-            async move {
-                QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*store).await
 
-            }
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*ctx.store_reader).await
         }).await
     }
     pub async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QEDUserLeaf<QEDFelt>> {
-        with_ctx_read_async(|ctx| {
-            let store = ctx.store_reader.clone();
-            async move {
-                store.get_user_leaf_data(checkpoint_id, user_id)
-            }
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            ctx.store_reader.get_user_leaf_data(checkpoint_id, user_id)
         }).await
     }
 
     pub async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<QEDFelt>> {
-        with_ctx_read_async(|ctx| {
-            let store = ctx.store_reader.clone();
-            async move {
-                QEDCoordinatorStoreReaderAsync::get_contract_leaf_data(&*store, contract_id).await
-
-            }
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            QEDCoordinatorStoreReaderAsync::get_contract_leaf_data(&*ctx.store_reader, contract_id).await
         }).await
     }
-        pub async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState> {
-            with_ctx_read_async(|ctx| {
-                let store = ctx.store_reader.clone();
-                async move {
-                    QEDCoordinatorStoreReaderAsync::get_l2_block_state(&*store, checkpoint_id).await                    // store.get_l2_block_state(checkpoint_id)
-                }
-            }).await
-        }
-        pub async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<QEDFelt>> {
-            with_ctx_read_async(|ctx| {
-                let store = ctx.store_reader.clone();
-                async move {
-                    QEDCoordinatorStoreReaderAsync::get_checkpoint_leaf_data(&*store, checkpoint_id).await
-                    // store.get_checkpoint_leaf_data(checkpoint_id)
-                }
-            }).await
-        }
+    pub async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState> {
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            QEDCoordinatorStoreReaderAsync::get_l2_block_state(&*ctx.store_reader, checkpoint_id).await
+        }).await
+    }
+
+    pub async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<QEDFelt>> {
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            QEDCoordinatorStoreReaderAsync::get_checkpoint_leaf_data(&*ctx.store_reader, checkpoint_id).await
+        }).await
+    }
+
     pub async fn get_contract_code_definition(&self, contract_id: u64) -> anyhow::Result<ContractCodeDefinition> {
-        with_ctx_read_async(|ctx| {
-            let store = ctx.store_reader.clone(); // 确保 store_reader 是 Arc 或可 Clone
-            async move {
-                QEDCoordinatorStoreReaderAsync::get_contract_code_definition(&*store, contract_id).await
-            }
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            QEDCoordinatorStoreReaderAsync::get_contract_code_definition(&*ctx.store_reader, contract_id).await
         }).await
     }
-
 }
 
 fn qhash_from_u64_array(arr: [u64; 4]) -> QHashOut<QEDFelt> {

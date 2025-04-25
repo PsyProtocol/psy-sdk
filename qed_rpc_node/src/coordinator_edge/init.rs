@@ -8,9 +8,10 @@ use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_realm_node::REALM_PROCESSOR_SUFFIX;
 use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RO, RW};
 use crate::coordinator_edge::config::AppConfig;
-use crate::coordinator_edge::context::init_global_ctx_once;
+use crate::coordinator_edge::context::{init_global_ctx_once, init_global_env, GLOBAL_ENV};
 
 pub fn init_tracing() {
     use tracing_subscriber::{fmt, EnvFilter};
@@ -30,14 +31,17 @@ pub async fn init_coordinator_edge(config: &AppConfig) -> anyhow::Result<()> {
     use tracing::info;
     let mut timer = DebugTimer::new("coordinator_edge_node");
     info!("🚀 Initializing coordinator edge node...");
+    init_global_env(&config.qed_db_path)?;
+    info!("✅ Initialized global db env");
+
     let redis_pool = new_fred_pool(&config.redis_url, 8).await?;
 
     let proof_store = Arc::new(ProofStoreFred::new2(
         redis_pool.clone(),
         "wq1".into(),
         "nq1".into(),
-        Some(COORDINATOR_WORKER_SUFFIX),
-        Some(COORDINATOR_WORKER_SUFFIX),
+        Some(REALM_PROCESSOR_SUFFIX),
+        Some(REALM_PROCESSOR_SUFFIX),
     ));
     timer.lap("redis initialized");
     info!("✅ Initialized Redis pool");
@@ -78,4 +82,19 @@ pub async fn init_coordinator_edge(config: &AppConfig) -> anyhow::Result<()> {
     timer.lap("context initialized");
 
     Ok(())
+}
+
+pub fn init_env(path: &str) -> anyhow::Result<Arc<Environment>> {
+    let env = Arc::new(
+        Environment::builder()
+            .set_max_dbs(10)
+            .set_flags(EnvironmentFlags {
+                no_sub_dir: false,
+                mode: Mode::ReadOnly,
+                coalesce: true,
+                ..Default::default()
+            })
+            .open(Path::new(path))?,
+    );
+    Ok(env)
 }

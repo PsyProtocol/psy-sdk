@@ -170,7 +170,6 @@ impl
                 txn.clone(),
                 None,
             )?);
-
         store_reader.initialize_store()?;
 
         let coord_config = CoordinatorConfig::get_standard(0);

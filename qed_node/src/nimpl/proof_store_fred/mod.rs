@@ -173,15 +173,27 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreFred {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
         let metadata: qed_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
+        let key = format!(
+            "{}-{}_{}",
+            PS_DRAIN_QUEUE_KEY_PREFIX, metadata.channel_id, metadata.checkpoint_id
+        );
+        tracing::info!("Pushing job id to queue: {:?}", key);
         self.pool
             .lpush::<(), String, &[u8]>(
-                format!(
-                    "{}-{}_{}",
-                    PS_DRAIN_QUEUE_KEY_PREFIX, metadata.channel_id, metadata.checkpoint_id
-                ),
+                key,
                 &bytes,
             )
             .await?;
+
+        // self.pool
+        //     .lpush::<(), String, &[u8]>(
+        //         format!(
+        //             "{}-{}_{}",
+        //             PS_DRAIN_QUEUE_KEY_PREFIX, metadata.channel_id, metadata.checkpoint_id
+        //         ),
+        //         &bytes,
+        //     )
+        //     .await?;
 
         Ok(())
     }
@@ -237,7 +249,9 @@ impl WorkerEventReceiverAsyncImm for ProofStoreFred {
                 Ok(g) => {
                     return Ok(QProvingJobDataID::try_from_byte_vec(&g)?);
                 }
-                Err(e) => println!("error: {:?}", e),
+                Err(e) => {}
+                    // println!("error: {:?}", e)
+                ,
             };
             sleep(Duration::from_millis(100)).await;
         }
