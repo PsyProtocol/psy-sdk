@@ -14,9 +14,9 @@ serde_json = { workspace = true }
 serde = { workspace = true }
 serde_with = { workspace = true }
 rand = { workspace = true }
-qed_crypto = { path = "../qed_crypto" }
-qed_common_circuit = { path = "../qed_common_circuit" }
-qed_rollup_circuit = { path = "../qed_rollup_circuit" }
+qed_crypto = { workspace = true }
+qed_common_circuit = { workspace = true }
+qed_rollup_circuit = { workspace = true }
 # qed_common           = { path = "../qed_common" }
 # qed_rollup_user_prover_api           = { path = "../qed_rollup_user_prover_api" }
 # qed_rollup_common    = { path = "../qed_rollup_common" }
@@ -32,15 +32,15 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 reqwest = { workspace = true }
-kvq = { path = "../kvq" }
-qed_store = { path = "../qed_store" }
-qed_core = { path = "../qed_core" }
-qed_common = { path = "../qed_common" }
-qedlang_core = { path = "../qedlang_core" }
-qed_exec = { path = "../qed_exec" }
-qed_prover = { path = "../qed_prover" }
-qed_data = { path = "../qed_data" }
+kvq = { workspace = true }
+qed_store = { workspace = true }
+qed_core = { workspace = true }
+qed_common = { workspace = true }
+qedlang_core = { workspace = true }
+qed_exec = { workspace = true }
+qed_prover = { workspace = true }
+qed_data = { workspace = true }
 
-repl-rs = "0.2.8"
+repl-rs = { workspace = true }
 [build-dependencies]
 shadow-rs = { workspace = true }

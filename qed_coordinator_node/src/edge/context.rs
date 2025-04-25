@@ -6,7 +6,6 @@ use once_cell::sync::{Lazy, OnceCell};
 use anyhow::anyhow;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
-use log::info;
 use plonky2::hash::hash_types::RichField;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
@@ -18,7 +17,7 @@ use qed_store::config::store_config::QEDFelt;
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use reth_libmdbx::{Environment, EnvironmentFlags, Geometry, Mode, RO, RW};
 
-type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>>;
+type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 type DrainQueue = ProofStoreFred;
 type ProofStore = ProofStoreFred;
 
@@ -31,7 +30,7 @@ lazy_static! {
 pub static LATEST_CHECKPOINT_ID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
 pub static REGISTER_USER_COUNTER: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
 pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, u64>> = Lazy::new(DashMap::new);
-pub static GLOBAL_ENV: OnceCell<Arc<Environment>> = OnceCell::new();
+pub static GLOBAL_DB_PATH: OnceCell<String> = OnceCell::new();
 
 
 
@@ -75,31 +74,23 @@ where
 }
 
 
-
-pub fn init_global_env(db_path: &str) -> anyhow::Result<()> {
-    let env = Environment::builder()
-        .set_max_dbs(10)
-        .set_flags(EnvironmentFlags {
-            no_sub_dir: false,
-            mode: Mode::ReadOnly,
-            coalesce: true,
-            ..Default::default()
-        })
-        .open(Path::new(db_path))?;
-    GLOBAL_ENV.set(Arc::new(env)).map_err(|_| anyhow!("GLOBAL_ENV already set"))
+/// Initialize global DB path (can only be called once)
+pub fn init_global_db_path<P: Into<String>>(path: P) -> anyhow::Result<()> {
+    GLOBAL_DB_PATH.set(path.into()).map_err(|_| anyhow!("GLOBAL_DB_PATH already set"))
 }
-
-pub fn get_global_env() -> anyhow::Result<Arc<Environment>> {
-    GLOBAL_ENV.get().cloned().ok_or_else(|| anyhow!("GLOBAL_ENV is not initialized"))
+pub fn get_global_db_path() -> anyhow::Result<&'static str> {
+    GLOBAL_DB_PATH
+        .get()
+        .map(|s| s.as_str())
+        .ok_or_else(|| anyhow!("GLOBAL_DB_PATH not initialized"))
 }
-
 
 
 pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(
     f: F,
 ) -> anyhow::Result<R>
 where
-    F: FnOnce(CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>) -> Fut,
+    F: FnOnce(CoordinatorEdgeContext<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>, ProofStoreFred, ProofStoreFred>) -> Fut,
     Fut: std::future::Future<Output = anyhow::Result<R>>,
 {
     let read_guard = GLOBAL_COORD_EDGE_CTX.read().await;
@@ -107,13 +98,13 @@ where
         .as_ref()
         .ok_or_else(|| anyhow!("GLOBAL_COORD_EDGE_CTX is not initialized"))?;
 
-    let env = get_global_env()?;
-    let txn = env.begin_ro_txn()?;
-    let new_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>> = KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RO>>::new(KVQlibmdbxStore::new(txn.clone(), None)?);
+    let db_path = get_global_db_path()?;
+    let inner_store = KVQlibmdbxStore::new_read(db_path)?;
+    let store = KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(inner_store);
 
     let temp_ctx = CoordinatorEdgeContext {
         coordinator_config: ctx.coordinator_config.clone(),
-        store_reader: Arc::new(new_store),
+        store_reader: Arc::new(store),
         checkpoint_queue: Arc::clone(&ctx.checkpoint_queue),
         proof_store: Arc::clone(&ctx.proof_store),
         proof_verifier: Arc::clone(&ctx.proof_verifier),
@@ -123,31 +114,4 @@ where
     f(temp_ctx).await
 }
 
-
-/// (Deprecated)
-/// read the global CoordinatorEdgeContext and return the next checkpoint_id.
-pub async fn next_checkpoint_id() -> anyhow::Result<u64> {
-    let guard = GLOBAL_COORD_EDGE_CTX.read().await;
-    let ctx = guard
-        .as_ref()
-        .ok_or_else(|| anyhow!("GLOBAL_COORD_EDGE_CTX not initialized"))?;
-
-    ctx.get_next_checkpoint_id_async().await
-}
-
-
-// pub async fn with_store_reader_async<F, R>(
-//     env: Arc<Environment>,
-//     db: Option<&str>,
-//     f: impl for<'a> FnOnce(Arc<dyn QEDCoordinatorStoreReaderAsync<F> + Send + Sync>) -> R,
-// ) -> R::Output
-// where
-//     F: RichField,
-//     R: std::future::Future,
-// {
-//     let txn = env.begin_ro_txn().expect("failed to create txn");
-//     let store = KVQlibmdbxStore::new(txn, db).expect("failed to create store");
-//     let arc: Arc<dyn QEDCoordinatorStoreReaderAsync<F> + Send + Sync> = Arc::new(store);
-//     f(arc).await
-// }
 

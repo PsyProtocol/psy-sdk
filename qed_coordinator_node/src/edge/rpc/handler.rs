@@ -28,11 +28,12 @@ use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
 use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use crate::coordinator_edge::context::{next_checkpoint_id, with_ctx_read_async, with_temp_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
-use crate::coordinator_edge::processor::{handle_cp_sync, process_realm_job};
-use crate::coordinator_edge::rpc::types::GetUserIdRequest;
+use crate::context::with_temp_ctx_read_async;
+use crate::edge::context::{with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
+use crate::edge::processor::{handle_cp_sync, process_realm_job};
+use crate::edge::rpc::types::GetUserIdRequest;
 
-type F = QEDFelt;
+
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
@@ -44,9 +45,9 @@ pub struct CoordinatorEdgeHandler {
 }
 
 impl CoordinatorEdgeHandler {
-    pub fn new(redis_url: &str) -> anyhow::Result<Self> {
+    pub fn new(redis_uri: &str) -> anyhow::Result<Self> {
         Ok(Self {
-            notify_queue: RedisQueue::new(redis_url)?,
+            notify_queue: RedisQueue::new(redis_uri)?,
             cp_listener: Arc::new(Mutex::new(None)),
             realm_job_listener: Arc::new(Mutex::new(None)),
         })
@@ -223,7 +224,7 @@ impl CoordinatorEdgeHandler {
         &self,
         contract: QBCDeployContract<QEDFelt>,
     ) -> anyhow::Result<()> {
-        let checkpoint_id = next_checkpoint_id().await?;
+        let next_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
         with_ctx_read_async(|ctx| {
             let queue = ctx.checkpoint_queue.clone();
             let config = ctx.coordinator_config.clone();
@@ -233,7 +234,7 @@ impl CoordinatorEdgeHandler {
 
                 let cd_for_queue = WithDrainQueueMetadata::new_params(
                     config.deploy_contract_channel_id,
-                    checkpoint_id,
+                    next_checkpoint_id,
                     rand::thread_rng().next_u64(),
                     with_root,
                 );

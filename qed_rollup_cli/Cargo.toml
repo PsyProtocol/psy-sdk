@@ -1,0 +1,13 @@
+[package]
+edition = "2021"
+name = "qed_rollup_cli"
+version = "0.1.0"
+
+[dependencies]
+clap = { workspace = true }
+dotenv = { workspace = true }
+qed_coordinator_node = { workspace = true }
+qed_realm_node = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+qed_rollup_utils = { workspace = true }

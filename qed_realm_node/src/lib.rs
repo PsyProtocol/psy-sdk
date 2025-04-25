@@ -1,6 +1,3 @@
-mod processor;
-
-pub use processor::*;
 use qed_store::config::store_config::QEDHasher;
 
 pub type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
@@ -9,5 +6,10 @@ pub type F = qed_store::config::store_config::QEDFelt;
 
 pub type H = QEDHasher;
 
-pub mod config;
-pub mod edge;
+mod config;
+mod edge;
+mod processor;
+
+pub use config::*;
+pub use edge::*;
+pub use processor::*;

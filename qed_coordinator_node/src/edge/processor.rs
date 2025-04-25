@@ -8,7 +8,7 @@ use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoP
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_store::config::store_config::QEDFelt;
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use crate::coordinator_edge::context::with_temp_ctx_read_async;
+use crate::context::with_temp_ctx_read_async;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;

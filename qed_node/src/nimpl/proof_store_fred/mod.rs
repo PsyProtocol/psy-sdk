@@ -131,18 +131,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
         proof: &ProofWithPublicInputs<C::F, C, D>,
     ) -> anyhow::Result<()> {
         let data = bincode::serialize(&proof)?;
-        {
-            debug!("🍅 start proof.len = {}", data.len());
-            debug!("key = {}-{}", &self.proof_store_key, hex::encode(&id.to_fixed_bytes()));
-            debug!("🔑 id = {:?}", &id);
 
-            let preview_len = data.len().min(100);
-            let hex_preview = hex::encode(&data[..preview_len]);
-            debug!("❗ the bytes from set_proof_by_id len = {}, head[0..{}] = {}",
-            data.len(), preview_len, hex_preview);
-            let p : ProofWithPublicInputs<C::F, C, D> = bincode::deserialize(&data)?;
-            debug!("🍅 end  proof.len = {}", a.len());
-        }
         self.pool
             .hsetnx::<(), _, &[u8], Vec<u8>>(
                 &self.proof_store_key,
@@ -345,7 +334,10 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
 
         Ok(())
     }
-    async fn wait_for_block_proving_jobs_imm(&self, _checkpoint_id: u64) -> anyhow::Result<bool> {
+    async fn wait_for_block_proving_jobs_imm(
+        &self,
+        _checkpoint_id: u64,
+    ) -> anyhow::Result<QProvingJobDataID> {
         loop {
             let job_res = self
                 .pool
@@ -353,21 +345,18 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
                 .await;
             match job_res {
                 Ok(g) => {
-                    println!("got it1!");
                     if g.len() == 24 {
                         match QProvingJobDataID::try_from_byte_vec(&g) {
                             Ok(job) => {
-                                println!("got it!");
-                                if job.is_notify_orchestrator_complete() {
-                                    println!("doneee!");
-                                    return Ok(true)
+                                if job.is_notify_complete() {
+                                    return Ok(job)
                                 }
                             },
-                            Err(e1) => println!("error deserializing job id in wait_for_block_proving_jobs_imm: {:?}", e1),
+                            Err(e1) => eprintln!("error deserializing job id in wait_for_block_proving_jobs_imm: {:?}", e1),
                         }
                     }
                 }
-                Err(e2) => println!(
+                Err(e2) => eprintln!(
                     "error deserializing job id in wait_for_block_proving_jobs_imm: {:?}",
                     e2
                 ),

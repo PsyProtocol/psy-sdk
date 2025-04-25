@@ -21,6 +21,7 @@ use qed_node::{
     coordinator::state::processor::CoordinatorProcessorContext,
     nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS},
 };
+use qed_node_common::store::new_lmdbx_env;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::{
@@ -35,8 +36,8 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 use tracing::Level;
 use tracing_subscriber::EnvFilter;
 
-use crate::subcommand::CoordinatorProcessorArgs;
-use crate::worker::COORDINATOR_WORKER_SUFFIX;
+use crate::args::CoordinatorProcessorArgs;
+use crate::COORDINATOR_WORKER_SUFFIX;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -60,7 +61,7 @@ pub struct CoordinatorProcessNode<
 
 pub struct CoordinatorProcessNodeConfig {
     pool_size: usize,
-    redis_url: String,
+    redis_uri: String,
     storage_db_path: String,
 }
 
@@ -112,12 +113,12 @@ impl<
             .await?
             .checkpoint_id;
         tracing::info!("notify sync for checkpoint id: {}", checkpoint_id);
-        if self
+        let job = self
             .ctx
             .prover_queue
             .wait_for_block_proving_jobs_imm(checkpoint_id)
-            .await?
-        {
+            .await?;
+        if job.goal_id == checkpoint_id {
             tracing::info!("sync queue dispatch StartSync");
             self.sync_queue
                 .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync)?;
@@ -129,7 +130,7 @@ impl<
 
 impl
     CoordinatorProcessNode<
-        KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>,
+        KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
         ProofStoreFred,
         ProofStoreFred,
         ProofStoreFred,
@@ -138,7 +139,7 @@ impl
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessNodeConfig) -> anyhow::Result<Self> {
-        let config = Config::from_url(&cp_config.redis_url)?;
+        let config = Config::from_url(&cp_config.redis_uri)?;
         let pool = Builder::from_config(config)
             .with_connection_config(|config| {
                 config.connection_timeout = Duration::from_secs(10);
@@ -150,26 +151,12 @@ impl
         pool.init().await?;
 
         let q = ProofStoreFred::new2(pool.clone(), "wq1".to_string(), "nq1".to_string(), Some(COORDINATOR_WORKER_SUFFIX), Some(COORDINATOR_WORKER_SUFFIX));
-        let flags = EnvironmentFlags {
-            no_sub_dir: false,
-            mode: Mode::ReadWrite {
-                sync_mode: SyncMode::Durable,
-            },
-            coalesce: true,
-            ..Default::default()
-        };
 
-        let env = Environment::builder()
-            .set_max_dbs(10)
-            .set_flags(flags)
-            .open(PathBuf::new().join(cp_config.storage_db_path).as_path())?;
-
-        let txn = env.begin_rw_txn()?;
-        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RW>>::new(KVQlibmdbxStore::new(
-                txn.clone(),
-                None,
+        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
+            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
+                &cp_config.storage_db_path,
             )?);
+
         store_reader.initialize_store()?;
 
         let coord_config = CoordinatorConfig::get_standard(0);
@@ -191,7 +178,7 @@ impl
         )
         .await?;
 
-        let sync_queue = RedisQueue::new(&cp_config.redis_url)?;
+        let sync_queue = RedisQueue::new(&cp_config.redis_uri)?;
 
         // worker
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -209,17 +196,17 @@ impl
     }
 }
 
-pub async fn run(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
-
+pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
+    // tracing_subscriber::fmt()
+    //     .with_max_level(Level::DEBUG)
+    //     .with_env_filter(EnvFilter::from_default_env())
+    //     .init();
+    //
     let mut coordinator_processor =
         CoordinatorProcessNode::new_with_config(CoordinatorProcessNodeConfig {
-            pool_size: args.pool_size as usize,
-            redis_url: args.redis_uri,
-            storage_db_path: args.storage_db_path,
+            pool_size: args.coordinator_pool_size as usize,
+            redis_uri: args.coordinator_redis_uri,
+            storage_db_path: args.coordinator_db_path,
         })
         .await?;
 
