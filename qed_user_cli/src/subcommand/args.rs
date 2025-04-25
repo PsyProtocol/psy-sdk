@@ -179,6 +179,18 @@ pub struct SubmitEndCapArgs {
     pub contract_call_path: String,
 }
 
+#[derive(Clone, Args)]
+pub struct LPSArgs {
+    #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
+    pub rpc_config_path: String,
+    #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
+    pub store_config_path: String,
+    #[clap(long, short)]
+    pub private_key: String,
+    #[clap(long, short)]
+    pub contract_call_path: String,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ContractCallArgs {
     pub contract_id: u64,

@@ -388,7 +388,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("finished jobs");
 
-    txn.commit()?;
+    // txn.commit()?;
     Ok(())
 }
 #[tokio::main]

@@ -16,6 +16,7 @@ use crate::subcommand::add_withdrawal;
 use crate::subcommand::claim_deposit;
 use crate::subcommand::get_public_key;
 use crate::subcommand::l1_deposit;
+use crate::subcommand::lps;
 use crate::subcommand::random_wallet;
 use crate::subcommand::register_user;
 use crate::subcommand::sign_hash;
@@ -40,6 +41,7 @@ fn main() -> Result<()> {
         Commands::DeployContract(args) => deploy_contract::run(args)?,
         Commands::ProduceBlock(args) => produce_block::run(args)?,
         Commands::SubmitEndCaproof(args) => submit_end_cap_proof::run(args)?,
+        Commands::Lps(args) => lps::run(args)?,
     }
     Ok(())
 }

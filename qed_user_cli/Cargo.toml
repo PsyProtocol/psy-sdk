@@ -41,6 +41,11 @@ qed_exec = { path = "../qed_exec" }
 qed_prover = { path = "../qed_prover" }
 qed_data = { path = "../qed_data" }
 
+qed_node = { path = "../qed_node" }
+reth-libmdbx = { workspace = true }
+qed_node_common = { path = "../qed_node_common" }
+kvq_store_lmdbx = { workspace = true }
+
 repl-rs = "0.2.8"
 [build-dependencies]
 shadow-rs = { workspace = true }

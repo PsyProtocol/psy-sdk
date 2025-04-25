@@ -14,6 +14,7 @@ pub mod register_user;
 pub mod sign_hash;
 pub mod submit_end_cap_proof;
 pub mod token_transfer;
+pub mod lps;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -36,6 +37,8 @@ pub enum Commands {
     DeployContract(crate::subcommand::args::DeployContractArgs),
     ProduceBlock(crate::subcommand::args::ProduceBlockArgs),
     SubmitEndCaproof(crate::subcommand::args::SubmitEndCapArgs),
+
+    Lps(crate::subcommand::args::LPSArgs),
     // Repl(crate::subcommand::args::RPCReplArgs),
     // ProverRPC(crate::subcommand::args::ProverRPCArgs),
 }
