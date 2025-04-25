@@ -40,11 +40,9 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     info!("✅ Initialized Redis pool");
     // initialize lmdb
     std::fs::create_dir_all(&config.coordinator_db_path)?;
-    let env = new_lmdbx_env(Mode::ReadOnly, &config.coordinator_db_path)?;
 
-    let txn = env.begin_ro_txn()?;
-    let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>> =
-        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RO>>::new(KVQlibmdbxStore::new(txn.clone())?);
+    let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
+        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(&config.coordinator_db_path)?);
     // store_reader.initialize_store()?;
     let store_reader = Arc::new(store_reader.dup());
     timer.lap("lmdb initialized");
@@ -67,7 +65,6 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     init_global_ctx_once(ctx).await?;
     info!("✅ Initialized global context");
     timer.lap("context initialized");
-    txn.commit()?;
 
     Ok(())
 }

@@ -46,10 +46,9 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let checkpoint_queue = proof_store.clone();
 
     // Create store reader
-    let store_reader_env = new_lmdbx_env(Mode::ReadOnly, &config.db.path)?;
-    let txn = store_reader_env.begin_ro_txn()?;
-    let store_reader =
-        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RO>>::new(KVQlibmdbxStore::new(txn.clone())?);
+    let store_reader = KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(
+        KVQlibmdbxStore::new_read(&config.db.path)?,
+    );
 
     let cmd_store = store_reader.dup();
     debug!("created store reader successfully!");
@@ -81,6 +80,5 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
 
     // Keep server running
     server_handle.stopped().await;
-    txn.commit()?;
     Ok(())
 }

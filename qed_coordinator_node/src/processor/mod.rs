@@ -129,7 +129,7 @@ impl<
 
 impl
     CoordinatorProcessNode<
-        KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>,
+        KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
         ProofStoreFred,
         ProofStoreFred,
         ProofStoreFred,
@@ -151,21 +151,9 @@ impl
 
         let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
 
-        let env = new_lmdbx_env(
-            Mode::ReadWrite {
-                sync_mode: SyncMode::Durable,
-            },
-            PathBuf::new()
-                .join(cp_config.storage_db_path)
-                .as_path()
-                .to_str()
-                .unwrap(),
-        )?;
-
-        let txn = env.begin_rw_txn()?;
-        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RW>>::new(KVQlibmdbxStore::new(
-                txn.clone(),
+        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
+            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
+                &cp_config.storage_db_path,
             )?);
 
         store_reader.initialize_store()?;

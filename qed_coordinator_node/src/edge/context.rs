@@ -14,7 +14,7 @@ use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_store::config::store_config::QEDFelt;
 use reth_libmdbx::{RO, RW};
 
-type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>>;
+type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 type DrainQueue = ProofStoreFred;
 type ProofStore = ProofStoreFred;
 

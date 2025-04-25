@@ -73,15 +73,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
     let realm_q = ProofStoreFred::new(pool, "rwq1".to_string(), "rnq1".to_string());
-    let store_reader_env = new_lmdbx_env(
-        Mode::ReadWrite {
-            sync_mode: SyncMode::Durable,
-        },
-        PathBuf::new().join("db").to_str().unwrap(),
-    )?;
-    let txn = store_reader_env.begin_rw_txn()?;
     let store_reader =
-        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RW>>::new(KVQlibmdbxStore::new(txn.clone())?);
+        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write("db")?);
 
     store_reader.initialize_store()?;
     //let worker_count = 16usize;
@@ -287,7 +280,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>,
+        KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
     > = QEDLocalProvingSessionStore::new_at(
         store_reader.dup(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
@@ -446,7 +439,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         .await?;
 
     timer.lap("finished jobs");
-    txn.commit()?;
     Ok(())
 }
 #[tokio::main]

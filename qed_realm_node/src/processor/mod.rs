@@ -6,6 +6,7 @@ use kvq::traits::KVQSerializable;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
+use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
 use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID};
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
@@ -24,9 +25,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info};
-use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 
-type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>;
+type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     KVQArcImmutableStore,
     ProofStoreFred,
@@ -70,16 +70,9 @@ impl RealmProcessor {
             config.queue.worker_queue_suffix,
             config.queue.notifications_queue_suffix,
         );
-        let store_reader_env = new_lmdbx_env(
-            Mode::ReadWrite {
-                sync_mode: SyncMode::Durable,
-            },
-            &config.db.path,
-        )?;
-        let txn = store_reader_env.begin_rw_txn()?;
-        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RW>>::new(KVQlibmdbxStore::new(
-                txn.clone(),
+        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
+            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
+                &config.db.path,
             )?);
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
