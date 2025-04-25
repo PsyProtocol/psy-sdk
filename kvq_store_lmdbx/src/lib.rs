@@ -58,6 +58,22 @@ impl KVQlibmdbxStore {
         Ok(Self { env })
     }
 
+    pub fn begin_read(&self) -> anyhow::Result<Transaction<RO>> {
+        let txn = self.env.begin_ro_txn()?;
+        Ok(Transaction {
+            db: txn.open_db(None)?,
+            txn,
+        })
+    }
+
+    pub fn begin_write(&self) -> anyhow::Result<Transaction<RW>> {
+        let txn = self.env.begin_rw_txn()?;
+        Ok(Transaction {
+            db: txn.open_db(None)?,
+            txn,
+        })
+    }
+
     pub fn with_read_txn<R>(
         &self,
         f: impl FnOnce(&Transaction<RO>) -> anyhow::Result<R>,
