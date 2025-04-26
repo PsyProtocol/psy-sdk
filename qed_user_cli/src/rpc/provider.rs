@@ -39,45 +39,22 @@ pub struct RpcProvider {
 
 #[derive(Debug)]
 pub struct StorageProvider {
-    pub coordinator_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>>,
-    pub realm_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>>,
+    pub coordinator_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
+    pub realm_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
 }
 
 impl StorageProvider {
     pub fn new(config_path: &str) -> anyhow::Result<Self> {
         let config: StoreConfig = serde_json::from_str(&fs::read_to_string(config_path)?)?;
-        let env = Environment::builder()
-            .set_max_dbs(10)
-            .set_flags(EnvironmentFlags {
-                no_sub_dir: false,
-                mode: Mode::ReadOnly,
-                coalesce: true,
-                ..Default::default()
-            })
-            .open(PathBuf::new().join(config.coordinator_store_path).as_path())?;
 
-        let txn = env.begin_ro_txn()?;
-        let coordinator_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RO>>::new(KVQlibmdbxStore::new(
-                txn.clone(),
-                None,
+        let coordinator_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
+            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(
+                &config.coordinator_store_path,
             )?);
 
-        let env = Environment::builder()
-            .set_max_dbs(10)
-            .set_flags(EnvironmentFlags {
-                no_sub_dir: false,
-                mode: Mode::ReadOnly,
-                coalesce: true,
-                ..Default::default()
-            })
-            .open(PathBuf::new().join(config.realm_store_path).as_path())?;
-
-        let txn = env.begin_ro_txn()?;
-        let realm_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RO>> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore<RO>>::new(KVQlibmdbxStore::new(
-                txn.clone(),
-                None,
+        let realm_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
+            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(
+                &config.realm_store_path,
             )?);
 
         Ok(Self {
@@ -224,9 +201,12 @@ macro_rules! qed_rpc_call {
             .send()?
             .json::<RpcResponse<String>>()?;
 
-            eprintln!("DEBUGPRINT[383]: provider.rs:38: current_user_id={:#?}", response);
+        eprintln!(
+            "DEBUGPRINT[383]: provider.rs:38: current_user_id={:#?}",
+            response
+        );
         if let ResponseResult::Success(s) = response.result {
-            println!("{}",s);
+            println!("{}", s);
             Ok(())
         } else {
             Err(anyhow::format_err!("rpc call failed"))

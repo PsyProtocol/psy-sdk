@@ -92,7 +92,7 @@ pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
 }
 
 pub fn run_local(
-    st_provider: KVQArcImmutableStoreWrapper<KVQlibmdbxStore<RW>>,
+    st_provider: KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
     contract_call_path: &str,
     private_key: &str,
 ) -> anyhow::Result<(
