@@ -102,14 +102,12 @@ impl SimpleAsyncCoordinatorWorker {
             hex::encode(job_id.to_fixed_bytes()),
             job_id
         ));
-        println!("{}-{}", file!(), line!());
         if job_id.topic == QJobTopic::NotifyOrchestratorComplete {
             event_receiver
                 .notify_core_goal_completed_imm(job_id)
                 .await?;
             return Ok(job_id);
         }
-        println!("{}-{}", file!(), line!());
 
         
 
@@ -120,26 +118,21 @@ impl SimpleAsyncCoordinatorWorker {
                     todo!("impl bls12381");
                 }
                 _ => {
-                    println!("{}-{}", file!(), line!());
-
+            
                     let proof = prover
                         .worker_prove_mut_async(&store, library, job_id)
                         .await?;
-                    println!("{}-{}", file!(), line!());
-
+            
                     let output_id = job_id.get_output_id();
-                    println!("{}-{}", file!(), line!());
-
+            
                     store.set_proof_by_id(output_id, &proof).await?;
-                    println!("{}-{}", file!(), line!());
-
+            
                     output_id
                 }
             };
             //let duration = start_time.elapsed().as_millis() as u64;
             //event_receiver.record_job_bench(job_id, duration)?;
         }
-        println!("{}-{}", file!(), line!());
 
         let goal_counter = store.get_goal_by_job_id(job_id).await?;
         println!("goal_counter: {}", goal_counter);
