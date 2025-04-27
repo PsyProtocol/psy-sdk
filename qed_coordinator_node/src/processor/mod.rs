@@ -176,6 +176,8 @@ impl
 
         let sync_queue = RedisQueue::new(&cp_config.redis_uri)?;
 
+        coordinator_processor_ctx.build_block().await?;
+
         // worker
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let coordinator_worker_circuits =

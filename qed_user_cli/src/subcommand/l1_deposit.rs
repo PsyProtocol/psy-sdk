@@ -10,7 +10,7 @@ use crate::rpc::provider::RpcProvider;
 use super::args::L1DepositArgs;
 const MAX_CHECKPOINT_ID: u64 = 0xffffffff;
 
-pub async fn run(args: L1DepositArgs) -> Result<()> {
+pub fn run(args: L1DepositArgs) -> Result<()> {
     // let provider = RpcProvider::new(&args.rpc_config_path)?;
     // let mut wallet = MemorySecp256K1Wallet::new();
     // let api = BTCLinkAPI::new_str(&args.bitcoin_rpc, &args.electrs_api);

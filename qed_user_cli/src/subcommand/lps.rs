@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use anyhow::Ok;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     hash::poseidon::PoseidonHash,
@@ -30,11 +31,26 @@ use qed_store::{
 };
 
 use crate::rpc::{
-    provider::{QUserRpcProvider, RpcProvider},
+    self,
+    provider::{QUserRpcProvider, RpcProvider, StorageProvider},
     request::QSubmitEndCapRPCRequest,
 };
 
-use super::args::{ContractCallArgs, SubmitEndCapArgs};
+use qed_core::ups::circuits::LocalCircuitId;
+
+use super::args::{ContractCallArgs, LPSArgs, SubmitEndCapArgs};
+
+use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
+use kvq_store_lmdbx::KVQlibmdbxStore;
+use qed_core::utils::debug_timer::DebugTimer;
+use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
+use qed_node::nimpl::new_fred_pool;
+use qed_node::nimpl::proof_store_fred::ProofStoreFred;
+use qed_node_common::verifier::get_cached_generic_verifier;
+use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RO, RW};
+use std::path::PathBuf;
+
+use plonky2::plonk::proof::ProofWithPublicInputs;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -53,12 +69,14 @@ pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
 
     for (i, func) in contract_code.functions.iter().enumerate() {
         let dapen_fc = cfc_code_definition_to_dapen_fc(&func)?;
+
         let dapen_fc_circuit = DapenContractFunctionCircuit::<C, D>::new(
             &dapen_fc,
             contract_code.state_tree_height as usize,
             UPS_SESSION_PROOF_TREE_HEIGHT as usize,
             false,
         );
+
         if dapen_fc.name == fn_name {
             return mgr.prove_contract_call(
                 circuit_mgr,
@@ -73,29 +91,31 @@ pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
     anyhow::bail!("unable to find function {}", fn_name);
 }
 
-pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
-    let contract_call_args: Vec<ContractCallArgs> = args.contract_call_args;
-
-    let mut st_provider = RpcProvider::new_with_config(args.rpc_config)?;
+pub fn run_local(
+    st_provider: KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
+    contract_call_path: &str,
+    private_key: &str,
+) -> anyhow::Result<(
+    SubmitUserEndCapNonProofInput<F>,
+    ProofWithPublicInputs<GoldilocksField, C, D>,
+)> {
+    let contract_call_args: Vec<ContractCallArgs> =
+        serde_json::from_str(&std::fs::read_to_string(contract_call_path)?)?;
 
     let latest_l2_block_state = st_provider.resolve_get_latest_l2_block_state()?;
 
     let main_circuits =
         QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
 
-    let priv_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)
+    let priv_key = QHashOut::<GoldilocksField>::from_str(&private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
-    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
 
-    let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey {
-        private_key: priv_key,
-    });
+    let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
 
-    let user_id = st_provider.get_user_id(public_key.public_key_param)?;
-    st_provider.current_user_id = user_id;
+    let user_id = 0;
 
     let lps = QEDLocalProvingSessionStore::new_at(
-        st_provider.clone(),
+        st_provider.dup(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
         F::from_canonical_u64(user_id),
         GoldilocksField::ONE,
@@ -122,7 +142,7 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
 
     for contract_call_arg in contract_call_args {
         prove_func(
-            &st_provider,
+            &st_provider.dup(),
             &main_circuits,
             &mut mgr,
             contract_call_arg.contract_id,
@@ -132,18 +152,20 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
                 .iter()
                 .map(|x| GoldilocksField::from_noncanonical_u64(*x))
                 .collect(),
-        )?;
+        )
+        .unwrap();
     }
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
-    let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
 
+    let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key, sighash)?;
 
     mgr.proof_tree_state
         .finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
 
     let public_key_param = SimpleQEDPrivateKey::new(priv_key).get_public_key_param::<QEDHasher>();
+
     let end_cap_proof = mgr.prove_end_cap(
         &main_circuits,
         QED_NETWORK_MAGIC_REGTEST,
@@ -155,11 +177,5 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     )?;
 
     let user_ec_input: SubmitUserEndCapNonProofInput<F> = mgr.get_api_input()?;
-
-    st_provider.submit_end_cap_proof::<F>(QSubmitEndCapRPCRequest {
-        user_ec_input,
-        proof: end_cap_proof,
-    })?;
-
-    Ok(())
+    Ok((user_ec_input, end_cap_proof))
 }

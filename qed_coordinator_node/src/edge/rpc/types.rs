@@ -11,6 +11,7 @@ pub struct SubmitGUTAParams {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(bound = "")]
 pub struct GetUserIdRequest {
     pub public_key_param: String, // hex string
 }

@@ -10,14 +10,14 @@ pub fn dapen_fc_to_cfc_code_definition(
         num_inputs: dpn_fc_def.circuit_inputs.len() as u32,
         num_outputs: dpn_fc_def.circuit_outputs.len() as u32,
         vm_type: VM_TYPE_STANRDARD_DAPEN_V1,
-        code: bincode::serialize(dpn_fc_def).unwrap(),
+        code: serde_cbor::to_vec(dpn_fc_def).unwrap(),
     }
 }
 
 pub fn cfc_code_definition_to_dapen_fc(
     dpn_fc_def: &ContractFunctionCodeDefinition,
 ) -> anyhow::Result<DPNFunctionCircuitDefinition> {
-    let res = bincode::deserialize::<DPNFunctionCircuitDefinition>(&dpn_fc_def.code);
+    let res = serde_cbor::from_slice::<DPNFunctionCircuitDefinition>(&dpn_fc_def.code);
 
     match res {
         Ok(r) => Ok(r),

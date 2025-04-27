@@ -80,7 +80,7 @@ fn gen_contract_deploy_and_circuits_for_functions(
     Ok((circuits, deploy))
 }
 
-pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
+pub fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)?;
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
 
@@ -98,12 +98,10 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
         &defs_array,
     )?;
 
-    let provider = RpcProvider::new(&args.rpc_config_path)?;
-    provider
-        .deploy_contract(QDeployContractRPCRequest {
-            deploy_contract: deploy_cmd,
-        })
-        .await?;
+    let provider = RpcProvider::new_with_config(args.rpc_config)?;
+    provider.deploy_contract(QDeployContractRPCRequest {
+        deploy_contract: deploy_cmd,
+    })?;
 
     Ok(())
 }
