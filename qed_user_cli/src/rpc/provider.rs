@@ -1,10 +1,10 @@
 use std::{fs, sync::Arc};
 
+use clap::{arg, Parser};
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_store::store::imm::cmd_processor::QEDReadCommandProcessorSync;
 use serde::{Deserialize, Serialize};
-use tokio::runtime::Runtime;
 
 use crate::rpc::request::{
     Id, LPSResponse, QRegisterUserRPCRequest, RequestParams, ResponseResult, RpcRequest,
@@ -22,13 +22,15 @@ use super::request::{
 
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
-use qed_core::utils::debug_timer::DebugTimer;
+use qed_core::{config::network_constants::REALM_USER_TREE_HEIGHT, utils::debug_timer::DebugTimer};
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RO, RW};
 use std::path::PathBuf;
+
+const USERS_PER_REALM_VALUE: u64 = 1u64 << (REALM_USER_TREE_HEIGHT as u64);
 
 #[derive(Debug, Clone)]
 pub struct RpcProvider {
@@ -176,10 +178,12 @@ impl QEDReadCommandProcessorSync<F> for StorageProvider {
 }
 
 impl RpcProvider {
-    pub fn new(config_path: &str) -> anyhow::Result<Self> {
-        let config: RpcConfig = serde_json::from_str(&fs::read_to_string(config_path)?)?;
+    pub fn new() -> anyhow::Result<Self> {
+        Self::new_with_config(Default::default())
+    }
+
+    pub fn new_with_config(config: RpcConfig) -> anyhow::Result<Self> {
         assert!(config.realm_configs.len() > 0);
-        assert!(config.cooridinator_configs.len() > 0);
         Ok(Self {
             client: Arc::new(Client::new()),
             config,
@@ -201,10 +205,6 @@ macro_rules! qed_rpc_call {
             .send()?
             .json::<RpcResponse<String>>()?;
 
-        eprintln!(
-            "DEBUGPRINT[383]: provider.rs:38: current_user_id={:#?}",
-            response
-        );
         if let ResponseResult::Success(s) = response.result {
             println!("{}", s);
             Ok(())
@@ -254,14 +254,14 @@ impl QUserRpcProvider for RpcProvider {
     fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()> {
         qed_rpc_call!(
             self,
-            &self.config.cooridinator_configs[0],
+            &self.config.cooridinator_configs,
             RequestParams::<F>::RegisterUser(req)
         )
     }
     fn produce_block<F: RichField>(&self) -> anyhow::Result<()> {
         qed_rpc_call!(
             self,
-            &self.config.cooridinator_configs[0],
+            &self.config.cooridinator_configs,
             RequestParams::<F>::ProduceBlock
         )
     }
@@ -283,7 +283,7 @@ impl QUserRpcProvider for RpcProvider {
     ) -> anyhow::Result<()> {
         qed_rpc_call!(
             self,
-            &self.config.cooridinator_configs[0],
+            &self.config.cooridinator_configs,
             RequestParams::<F>::DeployContract(req)
         )
     }
@@ -294,7 +294,7 @@ impl QUserRpcProvider for RpcProvider {
     ) -> anyhow::Result<()> {
         qed_rpc_call!(
             self,
-            &self.config.cooridinator_configs[0],
+            &self.config.cooridinator_configs,
             RequestParams::<F>::SubmitEndCap(req)
         )
     }
@@ -353,7 +353,7 @@ impl QEDReadCommandProcessorSync<F> for RpcProvider {
         let user_id = input.user_id().unwrap_or(self.current_user_id);
         let rpc_url = match input.is_realm_cmd() {
             true => self.get_realm_url(user_id)?,
-            false => self.get_cooridinator_url(user_id)?,
+            false => self.config.cooridinator_configs.clone(),
         };
         let response =
             qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetHash(input.clone()));
@@ -376,7 +376,7 @@ impl QEDReadCommandProcessorSync<F> for RpcProvider {
         let user_id = input.user_id().unwrap_or(self.current_user_id);
         let rpc_url = match input.is_realm_cmd() {
             true => self.get_realm_url(user_id)?,
-            false => self.get_cooridinator_url(user_id)?,
+            false => self.config.cooridinator_configs.clone(),
         };
         let response = qed_rpc_call_back!(
             self,
@@ -417,9 +417,7 @@ impl QEDReadCommandProcessorSync<F> for RpcProvider {
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetContractLeafData,
     ) -> anyhow::Result<qed_data::qdata::contract::QEDContractLeaf<F>> {
-        let rpc_url = &self
-            .get_cooridinator_url(self.current_user_id)
-            .unwrap_or(self.config.cooridinator_configs[0].clone());
+        let rpc_url = &self.config.cooridinator_configs;
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
@@ -439,9 +437,7 @@ impl QEDReadCommandProcessorSync<F> for RpcProvider {
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetContractCodeDefinition,
     ) -> anyhow::Result<qed_data::qdata::contract::ContractCodeDefinition> {
-        let rpc_url = &self
-            .get_cooridinator_url(self.current_user_id)
-            .unwrap_or(self.config.cooridinator_configs[0].clone());
+        let rpc_url = &self.config.cooridinator_configs;
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
@@ -500,9 +496,7 @@ impl QEDReadCommandProcessorSync<F> for RpcProvider {
     fn resolve_get_latest_l2_block_state(
         &self,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
-        let rpc_url = &self
-            .get_cooridinator_url(self.current_user_id)
-            .unwrap_or(self.config.cooridinator_configs[0].clone());
+        let rpc_url = &self.config.cooridinator_configs;
         let response = qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetLatestL2BlockState);
 
         match response.result {
@@ -519,7 +513,7 @@ impl RpcProvider {
     pub fn get_user_id<F: RichField>(&self, public_key: ZKPublicKeyInfo<F>) -> anyhow::Result<u64> {
         let response = qed_rpc_call_back!(
             self,
-            &self.config.cooridinator_configs[0],
+            &self.config.cooridinator_configs,
             RequestParams::<F>::GetUserId(public_key)
         );
         match response.result {
@@ -538,20 +532,26 @@ impl RpcProvider {
         }
         Ok(self.config.realm_configs[realm_id as usize].clone())
     }
-
-    pub fn get_cooridinator_url(&self, user_id: u64) -> anyhow::Result<String> {
-        let cooridinator_id = user_id / self.config.users_per_realm;
-        if cooridinator_id >= self.config.cooridinator_configs.len() as u64 {
-            anyhow::bail!("cooridinator id out of range");
-        }
-        Ok(self.config.cooridinator_configs[cooridinator_id as usize].clone())
-    }
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+
+#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct RpcConfig {
+    #[arg(long, default_value_t = USERS_PER_REALM_VALUE, env)]
     pub users_per_realm: u64,
+    #[arg(long, default_value = "http://127.0.0.1:8546", env)]
     realm_configs: Vec<String>,
-    cooridinator_configs: Vec<String>,
+    #[arg(long, default_value = "http://127.0.0.1:8545", env)]
+    cooridinator_configs: String,
+}
+
+impl Default for RpcConfig {
+    fn default() -> Self {
+        Self {
+            users_per_realm: 1u64 << (REALM_USER_TREE_HEIGHT as u64),
+            realm_configs: vec!["http://127.0.0.1:8546".into()],
+            cooridinator_configs: "http://127.0.0.1:8545".into(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

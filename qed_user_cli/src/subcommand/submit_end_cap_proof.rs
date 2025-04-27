@@ -74,10 +74,9 @@ pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
 }
 
 pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
-    let contract_call_args: Vec<ContractCallArgs> =
-        serde_json::from_str(&std::fs::read_to_string(&args.contract_call_path)?)?;
+    let contract_call_args: Vec<ContractCallArgs> = args.contract_call_args;
 
-    let mut st_provider = RpcProvider::new(&args.rpc_config_path)?;
+    let mut st_provider = RpcProvider::new_with_config(args.rpc_config)?;
 
     let latest_l2_block_state = st_provider.resolve_get_latest_l2_block_state()?;
 

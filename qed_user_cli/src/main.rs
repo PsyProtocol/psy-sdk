@@ -41,7 +41,6 @@ fn main() -> Result<()> {
         Commands::DeployContract(args) => deploy_contract::run(args)?,
         Commands::ProduceBlock(args) => produce_block::run(args)?,
         Commands::SubmitEndCaproof(args) => submit_end_cap_proof::run(args)?,
-        Commands::Lps(args) => lps::run(args)?,
     }
     Ok(())
 }

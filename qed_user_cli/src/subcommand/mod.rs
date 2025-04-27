@@ -38,7 +38,7 @@ pub enum Commands {
     ProduceBlock(crate::subcommand::args::ProduceBlockArgs),
     SubmitEndCaproof(crate::subcommand::args::SubmitEndCapArgs),
 
-    Lps(crate::subcommand::args::LPSArgs),
+    // Lps(crate::subcommand::args::LPSArgs),
     // Repl(crate::subcommand::args::RPCReplArgs),
     // ProverRPC(crate::subcommand::args::ProverRPCArgs),
 }

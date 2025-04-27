@@ -39,7 +39,7 @@ pub fn build_rpc_module(
         match handler.register_user(pub_key).await {
             Ok(_) => {
                 tracing::info!("✅ register_user success");
-                Ok(())
+                Ok::<_, ErrorObjectOwned>("ok")
             }
             Err(e) => {
                 tracing::error!("❌ register_user failed: {:?}", e);
