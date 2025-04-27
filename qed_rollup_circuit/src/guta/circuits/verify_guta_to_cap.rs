@@ -76,6 +76,7 @@ where
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         top_line_siblings: &[QHashOut<C::F>],
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+
         let mut pw = PartialWitness::<C::F>::new();
 
         self.verify_to_line_gadget.set_witness(
@@ -88,6 +89,7 @@ where
         )?;
 
         self.circuit_data.prove(pw)
+
     }
 }
 
@@ -131,6 +133,7 @@ where
         let r: CircuitInputWithDependencies<VerifyGUTAToCapCircuitInputSimple<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
+
         if r.dependencies.len() != 1 {
             anyhow::bail!("invalid dependency count in two end guta input");
         }
@@ -141,6 +144,7 @@ where
         let dep_a_type = r.dependencies[0].circuit_type;
 
         let child_a_verifier_data = library.get_verifier_data(dep_a_type)?;
+
         let guta_inclusion_proof_a =
             library.get_group_inclusion_proof(job_id.circuit_type, dep_a_type)?;
 
@@ -151,6 +155,7 @@ where
             &child_a_verifier_data,
             &r.input.top_line_siblings,
         )?;
+
         Ok(result)
     }
 }

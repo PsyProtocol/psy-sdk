@@ -11,3 +11,4 @@ qed_realm_node = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 qed_rollup_utils = { workspace = true }
+tracing = { workspace = true }

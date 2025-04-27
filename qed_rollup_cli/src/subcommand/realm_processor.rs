@@ -1,5 +1,17 @@
 use qed_realm_node::RealmNodeConfig;
 
 pub async fn run(args: RealmNodeConfig) -> anyhow::Result<()> {
-    qed_realm_node::run_realm_processor(args).await
+    let ctrl_c = tokio::signal::ctrl_c();
+    tokio::select! {
+        result = qed_realm_node::run_realm_processor(args)=> {
+            match result {
+                Ok(()) => tracing::warn!("Realm processor exit."),
+                Err(e) => tracing::warn!("Realm processor exit error: {:?}", e),
+            }
+        }
+        _ = ctrl_c => {
+            tracing::warn!("Ctrl-C signal received, cleaning up...");
+        }
+    }
+    Ok(())
 }

@@ -1,35 +1,11 @@
-use std::sync::Arc;
-
-use super::{context::RealmEdgeContext, error::RpcError};
 use crate::edge::request::QSubmitEndCapRPCRequest;
 use crate::F;
-use anyhow::Result;
-use jsonrpsee::{
-    core::{async_trait, RpcResult},
-    proc_macros::rpc,
-    server::ServerBuilder,
-    types::error::{ErrorObject, INTERNAL_ERROR_CODE},
-};
+use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use qed_core::data::qhashout::QHashOut;
-use qed_core::job::{
-    drain_queue::CheckpointDrainQueueEmitterAsyncImm,
-    traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
-};
 use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
-use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
+use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
 use qed_data::qdata::{checkpoint::QEDL2BlockState, user::QEDUserLeaf};
-use qed_store::node::realm::QEDRealmStoreReaderAsync;
-use qed_store::store::imm::cmd::{
-    QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData,
-    QSRCmdGetL2BlockState, QSRCmdGetUserLeafData, QSRHashCmd, QSRMerkleCmd,
-};
-use qed_store::store::imm::cmd_processor::{
-    QEDReadCommandBatchInput, QEDReadCommandBatchOutput, QEDReadCommandProcessorSync,
-};
-use tracing::{error, info};
 
-/// RPC interface definition for Realm Edge node
 #[rpc(server, client, namespace = "qed")]
 pub trait RealmEdgeRpc {
     /// Check if a user id belongs to this realm
@@ -40,209 +16,233 @@ pub trait RealmEdgeRpc {
     #[method(name = "submit_user_end_cap", param_kind = map)]
     async fn submit_user_end_cap(&self, req: QSubmitEndCapRPCRequest<F>) -> RpcResult<bool>;
 
-    /// Submit a token transfer
-    // #[method(name = "token_transfer")]
-    // async fn token_transfer(&self, input: QTokenTransferRPCRequest) -> RpcResult<()>;
+    #[method(name = "get_checkpoint_leaf_data")]
+    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64)
+        -> RpcResult<QEDCheckpointLeaf<F>>;
 
-    /// get a batch of read commands
-    #[method(name = "batch", param_kind = map)]
-    async fn get_batch(
-        &self,
-        input: QEDReadCommandBatchInput,
-    ) -> RpcResult<QEDReadCommandBatchOutput<F>>;
+    #[method(name = "get_checkpoint_leaf_data_f")]
+    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F)
+        -> RpcResult<QEDCheckpointLeaf<F>>;
 
-    /// Get hash of a given input
-    #[method(name = "get_hash", param_kind = map)]
-    async fn get_hash(&self, input: QSRHashCmd) -> RpcResult<QHashOut<F>>;
-
-    /// Get merkle proof of a given input
-    #[method(name = "get_merkle_proof", param_kind = map)]
-    async fn get_merkle_proof(
-        &self,
-        input: QSRMerkleCmd,
-    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
-
-    /// Get user leaf data for a specific user
-    #[method(name = "get_user_leaf", param_kind = map)]
-    async fn get_user_leaf(&self, input: QSRCmdGetUserLeafData) -> RpcResult<QEDUserLeaf<F>>;
-
-    /// Get contract leaf data for a specific contract
-    #[method(name = "get_contract_leaf", param_kind = map)]
-    async fn get_contract_leaf(
-        &self,
-        input: QSRCmdGetContractLeafData,
-    ) -> RpcResult<QEDContractLeaf<F>>;
-
-    /// Get contract code for a specific contract
-    #[method(name = "get_contract_code", param_kind = map)]
-    async fn get_contract_code(
-        &self,
-        input: QSRCmdGetContractCodeDefinition,
-    ) -> RpcResult<ContractCodeDefinition>;
-
-    /// Get checkpoint leaf data for a specific checkpoint
-    #[method(name = "get_checkpoint_leaf", param_kind = map)]
-    async fn get_checkpoint_leaf(
-        &self,
-        input: QSRCmdGetCheckpointLeafData,
-    ) -> RpcResult<QEDCheckpointLeaf<F>>;
-
-    /// Get L2 block state for a specific L2 block
-    #[method(name = "get_l2_block_state", param_kind = map)]
-    async fn get_l2_block_state(&self, input: QSRCmdGetL2BlockState) -> RpcResult<QEDL2BlockState>;
-
-    /// Get latest L2 block state
     #[method(name = "get_latest_l2_block_state")]
     async fn get_latest_l2_block_state(&self) -> RpcResult<QEDL2BlockState>;
-}
 
-/// Helper function to convert any error to a JSON-RPC error
-fn to_rpc_error<T, E: std::fmt::Display>(context: &str, err: E) -> RpcResult<T> {
-    error!("{}: {}", context, err);
-    Err(ErrorObject::owned(
-        INTERNAL_ERROR_CODE,
-        format!("{}: {}", context, err),
-        None::<()>,
-    ))
-}
+    #[method(name = "get_l2_block_state")]
+    async fn get_l2_block_state(&self, checkpoint_id: u64) -> RpcResult<QEDL2BlockState>;
 
-/// RPC implementation for Realm Edge node
-pub struct RealmEdgeRpcImpl<
-    SR: QEDRealmStoreReaderAsync<F> + Send + Sync + 'static,
-    DQ: CheckpointDrainQueueEmitterAsyncImm + Send + Sync + 'static,
-    PS: QProofStoreAsyncImm
-        + QProofStoreReaderAsync
-        + QProofStoreWriterAsyncImm
-        + Send
-        + Sync
-        + 'static,
-    CMD: QEDReadCommandProcessorSync<F> + Send + Sync + 'static,
-> {
-    pub cmd_store: CMD,
-    pub ctx: Arc<RealmEdgeContext<SR, DQ, PS>>,
-}
+    #[method(name = "get_l2_block_state_f")]
+    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> RpcResult<QEDL2BlockState>;
 
-#[async_trait]
-impl<SR, DQ, PS, CMD> RealmEdgeRpcServer for RealmEdgeRpcImpl<SR, DQ, PS, CMD>
-where
-    SR: QEDRealmStoreReaderAsync<F> + Send + Sync + 'static,
-    DQ: CheckpointDrainQueueEmitterAsyncImm + Send + Sync + 'static,
-    PS: QProofStoreAsyncImm
-        + QProofStoreReaderAsync
-        + QProofStoreWriterAsyncImm
-        + Send
-        + Sync
-        + 'static,
-    CMD: QEDReadCommandProcessorSync<F> + Send + Sync + 'static,
-{
-    /// Implementation of check user ID in realm RPC interface
-    async fn check_user_id_in_realm(&self, user_id: u64) -> RpcResult<bool> {
-        Ok(self.ctx.includes_user_id(user_id))
-    }
+    #[method(name = "get_user_registration_tree_root")]
+    async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>>;
 
-    /// Implementation of submit user End Cap proof RPC interface
-    async fn submit_user_end_cap(&self, req: QSubmitEndCapRPCRequest<F>) -> RpcResult<bool> {
-        self.ctx
-            .handle_recv_end_cap_from_user(req.user_ec_input, &req.proof)
-            .await
-            .map(|_| true)
-            .map_err(|e| to_rpc_error::<bool, _>("Failed to process end cap", e).unwrap_err())
-    }
+    #[method(name = "get_latest_checkpoint_tree_root")]
+    async fn get_latest_checkpoint_tree_root(&self) -> RpcResult<QHashOut<F>>;
 
-    async fn get_batch(
+    #[method(name = "get_checkpoint_tree_root")]
+    async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_checkpoint_tree_root_f")]
+    async fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_checkpoint_tree_leaf_hash")]
+    async fn get_checkpoint_tree_leaf_hash(
         &self,
-        input: QEDReadCommandBatchInput,
-    ) -> RpcResult<QEDReadCommandBatchOutput<F>> {
-        Ok(self
-            .cmd_store
-            .resolve_batch(&input)
-            .map_err(RpcError::Anyhow)?)
-    }
+        checkpoint_id: u64,
+        leaf_checkpoint_id: u64,
+    ) -> RpcResult<QHashOut<F>>;
 
-    async fn get_hash(&self, input: QSRHashCmd) -> RpcResult<QHashOut<F>> {
-        Ok(self
-            .cmd_store
-            .resolve_get_hash(&input)
-            .map_err(RpcError::Anyhow)?)
-    }
-
-    async fn get_merkle_proof(
+    #[method(name = "get_checkpoint_tree_leaf_hash_f")]
+    async fn get_checkpoint_tree_leaf_hash_f(
         &self,
-        input: QSRMerkleCmd,
-    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
-        Ok(self
-            .cmd_store
-            .resolve_get_merkle_proof(&input)
-            .map_err(RpcError::Anyhow)?)
-    }
+        checkpoint_id: F,
+        leaf_checkpoint_id: F,
+    ) -> RpcResult<QHashOut<F>>;
 
-    async fn get_user_leaf(&self, input: QSRCmdGetUserLeafData) -> RpcResult<QEDUserLeaf<F>> {
-        Ok(self
-            .cmd_store
-            .resolve_get_user_leaf(&input)
-            .map_err(RpcError::Anyhow)?)
-    }
-
-    async fn get_contract_leaf(
+    #[method(name = "get_checkpoint_tree_merkle_proof")]
+    async fn get_checkpoint_tree_merkle_proof(
         &self,
-        _input: QSRCmdGetContractLeafData,
-    ) -> RpcResult<QEDContractLeaf<F>> {
-        RpcError::Anyhow(anyhow::anyhow!("Not implemented")).into()
-    }
+        checkpoint_id: u64,
+        leaf_checkpoint_id: u64,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
-    async fn get_contract_code(
+    #[method(name = "get_checkpoint_tree_merkle_proof_f")]
+    async fn get_checkpoint_tree_merkle_proof_f(
         &self,
-        _input: QSRCmdGetContractCodeDefinition,
-    ) -> RpcResult<ContractCodeDefinition> {
-        RpcError::Anyhow(anyhow::anyhow!("Not implemented")).into()
-    }
+        checkpoint_id: F,
+        leaf_checkpoint_id: F,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
-    async fn get_checkpoint_leaf(
+    #[method(name = "get_checkpoint_global_state_roots")]
+    async fn get_checkpoint_global_state_roots(
         &self,
-        input: QSRCmdGetCheckpointLeafData,
-    ) -> RpcResult<QEDCheckpointLeaf<F>> {
-        Ok(self
-            .cmd_store
-            .resolve_get_checkpoint_leaf(&input)
-            .map_err(RpcError::Anyhow)?)
-    }
+        checkpoint_id: u64,
+    ) -> RpcResult<QEDCheckpointGlobalStateRoots<F>>;
 
-    async fn get_l2_block_state(&self, input: QSRCmdGetL2BlockState) -> RpcResult<QEDL2BlockState> {
-        Ok(self
-            .cmd_store
-            .resolve_get_l2_block_state(&input)
-            .map_err(RpcError::Anyhow)?)
-    }
+    #[method(name = "get_user_leaf_data")]
+    async fn get_user_leaf_data(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+    ) -> RpcResult<QEDUserLeaf<F>>;
 
-    async fn get_latest_l2_block_state(&self) -> RpcResult<QEDL2BlockState> {
-        Ok(self
-            .cmd_store
-            .resolve_get_latest_l2_block_state()
-            .map_err(RpcError::Anyhow)?)
-    }
-}
+    #[method(name = "get_user_leaf_data_f")]
+    async fn get_user_leaf_data_f(&self, checkpoint_id: F, user_id: F)
+        -> RpcResult<QEDUserLeaf<F>>;
 
-/// Start Realm Edge node RPC server
-pub async fn start_realm_edge_rpc_server<
-    CMD: QEDReadCommandProcessorSync<F> + Send + Sync + 'static,
-    SR: QEDRealmStoreReaderAsync<F> + Send + Sync + 'static,
-    DQ: CheckpointDrainQueueEmitterAsyncImm + Send + Sync + 'static,
-    PS: QProofStoreAsyncImm
-        + QProofStoreReaderAsync
-        + QProofStoreWriterAsyncImm
-        + Send
-        + Sync
-        + 'static,
->(
-    cmd_store: CMD,
-    ctx: Arc<RealmEdgeContext<SR, DQ, PS>>,
-    listen_addr: &str,
-) -> Result<jsonrpsee::server::ServerHandle> {
-    let server = ServerBuilder::default().build(listen_addr).await?;
+    #[method(name = "get_user_contract_state_tree_root")]
+    async fn get_user_contract_state_tree_root(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u32,
+    ) -> RpcResult<QHashOut<F>>;
 
-    let rpc = RealmEdgeRpcImpl { cmd_store, ctx };
+    #[method(name = "get_user_contract_state_tree_root_f")]
+    async fn get_user_contract_state_tree_root_f(
+        &self,
+        checkpoint_id: F,
+        user_id: F,
+        contract_id: F,
+    ) -> RpcResult<QHashOut<F>>;
 
-    let handle = server.start(rpc.into_rpc());
-    info!("Realm Edge RPC server started on {}", listen_addr);
-    Ok(handle)
+    #[method(name = "get_user_contract_state_tree_leaf_hash")]
+    async fn get_user_contract_state_tree_leaf_hash(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u32,
+        height: u8,
+        leaf_id: u64,
+    ) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_user_contract_state_tree_leaf_hash_f")]
+    async fn get_user_contract_state_tree_leaf_hash_f(
+        &self,
+        checkpoint_id: F,
+        user_id: F,
+        contract_id: F,
+        height: u8,
+        leaf_id: F,
+    ) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_user_contract_state_tree_merkle_proof")]
+    async fn get_user_contract_state_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u32,
+        height: u8,
+        leaf_id: u64,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "get_user_contract_state_tree_merkle_proof_f")]
+    async fn get_user_contract_state_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        user_id: F,
+        contract_id: F,
+        height: u8,
+        leaf_id: F,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "get_user_contract_tree_root")]
+    async fn get_user_contract_tree_root(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+    ) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_user_contract_tree_root_f")]
+    async fn get_user_contract_tree_root_f(
+        &self,
+        checkpoint_id: F,
+        user_id: F,
+    ) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_user_contract_tree_leaf_hash")]
+    async fn get_user_contract_tree_leaf_hash(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u32,
+    ) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_user_contract_tree_leaf_hash_f")]
+    async fn get_user_contract_tree_leaf_hash_f(
+        &self,
+        checkpoint_id: F,
+        user_id: F,
+        contract_id: F,
+    ) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_user_contract_tree_merkle_proof")]
+    async fn get_user_contract_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        contract_id: u32,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "get_user_contract_tree_merkle_proof_f")]
+    async fn get_user_contract_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        user_id: F,
+        contract_id: F,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "get_user_tree_root")]
+    async fn get_user_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_user_tree_root_f")]
+    async fn get_user_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_user_tree_leaf_hash")]
+    async fn get_user_tree_leaf_hash(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+    ) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_user_tree_leaf_hash_f")]
+    async fn get_user_tree_leaf_hash_f(
+        &self,
+        checkpoint_id: F,
+        user_id: F,
+    ) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_user_bottom_tree_merkle_proof")]
+    async fn get_user_bottom_tree_merkle_proof(
+        &self,
+        root_level: u8,
+        checkpoint_id: u64,
+        user_id: u64,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "get_user_bottom_tree_merkle_proof_f")]
+    async fn get_user_bottom_tree_merkle_proof_f(
+        &self,
+        root_level: u8,
+        checkpoint_id: F,
+        user_id: F,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "get_user_sub_tree_merkle_proof")]
+    async fn get_user_sub_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        root_level: u8,
+        leaf_level: u8,
+        leaf_index: u64,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "get_user_sub_tree_merkle_proof_f")]
+    async fn get_user_sub_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        root_level: u8,
+        leaf_level: u8,
+        leaf_index: F,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 }

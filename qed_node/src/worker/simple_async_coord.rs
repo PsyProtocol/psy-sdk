@@ -108,6 +108,7 @@ impl SimpleAsyncCoordinatorWorker {
                 .await?;
             return Ok(job_id);
         }
+
         
 
         if job_id.topic == QJobTopic::GenerateStandardProof {
@@ -117,17 +118,22 @@ impl SimpleAsyncCoordinatorWorker {
                     todo!("impl bls12381");
                 }
                 _ => {
+            
                     let proof = prover
                         .worker_prove_mut_async(&store, library, job_id)
                         .await?;
+            
                     let output_id = job_id.get_output_id();
+            
                     store.set_proof_by_id(output_id, &proof).await?;
+            
                     output_id
                 }
             };
             //let duration = start_time.elapsed().as_millis() as u64;
             //event_receiver.record_job_bench(job_id, duration)?;
         }
+
         let goal_counter = store.get_goal_by_job_id(job_id).await?;
         println!("goal_counter: {}", goal_counter);
         if goal_counter != 0 {
