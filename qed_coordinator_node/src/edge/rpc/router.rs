@@ -5,7 +5,6 @@ use jsonrpsee::types::{ErrorObjectOwned, Params};
 use plonky2::hash::hash_types::RichField;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState};
