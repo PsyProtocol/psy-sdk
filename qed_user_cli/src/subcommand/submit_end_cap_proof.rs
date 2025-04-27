@@ -91,7 +91,7 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
         private_key: priv_key,
     });
 
-    let user_id = st_provider.get_user_id(public_key)?;
+    let user_id = st_provider.get_user_id(public_key.public_key_param)?;
     st_provider.current_user_id = user_id;
 
     let lps = QEDLocalProvingSessionStore::new_at(

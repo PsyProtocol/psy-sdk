@@ -22,7 +22,7 @@ use super::request::{
 
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
-use qed_core::config::network_constants::REALM_USER_TREE_HEIGHT;
+use qed_core::{config::network_constants::REALM_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 
 const USERS_PER_REALM_VALUE: u64 = 1u64 << (REALM_USER_TREE_HEIGHT as u64);
 
@@ -210,7 +210,7 @@ macro_rules! qed_rpc_call {
 
 #[macro_export]
 macro_rules! qed_rpc_call_back {
-    ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
+    ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
         $instance
             .client
             .post($rpc_url)
@@ -220,7 +220,7 @@ macro_rules! qed_rpc_call_back {
                 id: Id::Number(1),
             })
             .send()?
-            .json::<RpcResponse<LPSResponse>>()?
+            .json::<RpcResponse<$ret_ty>>()?
     }};
 }
 
@@ -292,17 +292,15 @@ impl QUserRpcProvider for RpcProvider {
 }
 
 impl RpcProvider {
-    pub fn get_user_id<F: RichField>(&self, public_key: ZKPublicKeyInfo<F>) -> anyhow::Result<u64> {
+    pub fn get_user_id<F: RichField>(&self, public_key_param: QHashOut<F>) -> anyhow::Result<u64> {
         let response = qed_rpc_call_back!(
             self,
             &self.config.cooridinator_configs,
-            RequestParams::<F>::GetUserId(public_key)
+            RequestParams::<F>::GetUserId(public_key_param),
+            u64
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetUserId(user_id) => Ok(user_id),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(user_id) => Ok(user_id),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -320,7 +318,7 @@ impl RpcProvider {
 pub struct RpcConfig {
     #[arg(long, default_value_t = USERS_PER_REALM_VALUE, env)]
     pub users_per_realm: u64,
-    #[arg(long, default_value = "http://127.0.0.1:8546", env)]
+    #[arg(long, default_value = "http://127.0.0.1:8545", env)]
     pub realm_configs: Vec<String>,
     #[arg(long, default_value = "http://127.0.0.1:8545", env)]
     pub cooridinator_configs: String,

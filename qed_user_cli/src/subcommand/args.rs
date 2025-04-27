@@ -1,5 +1,7 @@
 use crate::rpc::provider::RpcConfig;
 use clap::{Args, Parser};
+use plonky2::field::goldilocks_field::GoldilocksField;
+use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Args)]
@@ -188,8 +190,8 @@ pub struct SubmitEndCapArgs {
 pub struct LPSArgs {
     #[command(flatten)]
     pub rpc_config: RpcConfig,
-    #[clap(long, short, default_value = "http://127.0.0.1:3000", env)]
-    pub store_config_path: String,
+    #[clap(long, short, default_values = &["./db/coordinator", "./db/realm"], env)]
+    pub store_config_path: Vec<String>,
     #[clap(long, short)]
     pub private_key: String,
     #[clap(long, short)]
@@ -208,4 +210,30 @@ pub struct ContractCallArgs {
 
 pub fn parse_contract_call_args(s: &str) -> anyhow::Result<Vec<ContractCallArgs>> {
     serde_json::from_str(s).map_err(|e| anyhow::anyhow!("Failed to parse JSON: {}", e))
+}
+
+#[derive(Clone, Args)]
+pub struct BlockStateArgs {
+    #[command(flatten)]
+    pub rpc_config: RpcConfig,
+    #[arg(long, default_value = "0", env)]
+    pub checkpoint_id: u64,
+}
+
+#[derive(Clone, Args)]
+pub struct LatestBlockStateArgs {
+    #[command(flatten)]
+    pub rpc_config: RpcConfig,
+}
+
+#[derive(Clone, Args)]
+pub struct UserIdArgs {
+    #[command(flatten)]
+    pub rpc_config: RpcConfig,
+    #[arg(
+        long,
+        default_value = "0d47fda4480f045506b085ba6921fc86d8cc6feb1b533292db4b1a3af8f89eab",
+        env
+    )]
+    pub pub_key: QHashOut<GoldilocksField>,
 }

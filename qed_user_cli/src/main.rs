@@ -13,10 +13,10 @@ use subcommand::deploy_contract;
 use subcommand::produce_block;
 
 use crate::subcommand::add_withdrawal;
+use crate::subcommand::block_state;
 use crate::subcommand::claim_deposit;
 use crate::subcommand::get_public_key;
 use crate::subcommand::l1_deposit;
-use crate::subcommand::lps;
 use crate::subcommand::random_wallet;
 use crate::subcommand::register_user;
 use crate::subcommand::sign_hash;
@@ -41,6 +41,15 @@ fn main() -> Result<()> {
         Commands::DeployContract(args) => deploy_contract::run(args)?,
         Commands::ProduceBlock(args) => produce_block::run(args)?,
         Commands::SubmitEndCaproof(args) => submit_end_cap_proof::run(args)?,
+
+        // get block data
+        Commands::GetBlockState(block_state_args) => {
+            block_state::get_l2_block_state(block_state_args)?
+        }
+        Commands::GetLatestBlockState(latest_block_state_args) => {
+            block_state::get_lastest_block_state(latest_block_state_args)?
+        }
+        Commands::GetUserId(user_id_args) => block_state::get_user_id(user_id_args)?,
     }
     Ok(())
 }

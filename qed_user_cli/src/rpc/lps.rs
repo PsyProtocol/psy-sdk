@@ -1,5 +1,11 @@
 use plonky2::field::{goldilocks_field::GoldilocksField, types::PrimeField64};
-use qed_data::qdata::user;
+use qed_core::data::qhashout::QHashOut;
+use qed_crypto::hash::merkle::core::MerkleProofCore;
+use qed_data::qdata::{
+    checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
+    contract::{ContractCodeDefinition, QEDContractLeaf},
+    user::{self, QEDUserLeaf},
+};
 use qed_store::traits::qdatastore::{
     qmetadata::QMetaDataStoreReaderSync,
     qtreedata::{QEDComboDataStoreReaderSync, QTreeDataStoreReaderSync},
@@ -30,13 +36,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserContractStateTreeRoot(input)
+            RequestParams::<F>::GetUserContractStateTreeRoot(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(get_hash) => Ok(get_hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -56,13 +60,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserContractStateTreeRootF(input)
+            RequestParams::<F>::GetUserContractStateTreeRootF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(get_hash) => Ok(get_hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -86,13 +88,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserContractStateTreeLeafHash(input)
+            RequestParams::<F>::GetUserContractStateTreeLeafHash(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(get_hash) => Ok(get_hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -116,13 +116,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserContractStateTreeLeafHashF(input)
+            RequestParams::<F>::GetUserContractStateTreeLeafHashF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(get_hash) => Ok(get_hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -148,13 +146,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserContractStateTreeMerkleProof(input)
+            RequestParams::<F>::GetUserContractStateTreeMerkleProof(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -180,13 +176,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserContractStateTreeMerkleProofF(input)
+            RequestParams::<F>::GetUserContractStateTreeMerkleProofF(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -204,13 +198,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserContractTreeRoot(input)
+            RequestParams::<F>::GetUserContractTreeRoot(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(get_hash) => Ok(get_hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -228,13 +220,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserContractTreeRootF(input)
+            RequestParams::<F>::GetUserContractTreeRootF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(get_hash) => Ok(get_hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -254,13 +244,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserContractTreeLeafHash(input)
+            RequestParams::<F>::GetUserContractTreeLeafHash(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(get_hash) => Ok(get_hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -280,13 +268,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserContractTreeLeafHashF(input)
+            RequestParams::<F>::GetUserContractTreeLeafHashF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(get_hash) => Ok(get_hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -308,13 +294,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserContractTreeMerkleProof(input)
+            RequestParams::<F>::GetUserContractTreeMerkleProof(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -336,13 +320,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserContractTreeMerkleProofF(input)
+            RequestParams::<F>::GetUserContractTreeMerkleProofF(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -357,13 +339,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserRegistrationTreeRoot(input)
+            RequestParams::<F>::GetUserRegistrationTreeRoot(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -377,13 +357,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserRegistrationTreeRootF(input)
+            RequestParams::<F>::GetUserRegistrationTreeRootF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -402,13 +380,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserRegistrationTreeLeafHash(input)
+            RequestParams::<F>::GetUserRegistrationTreeLeafHash(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -426,13 +402,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserRegistrationTreeLeafHashF(input)
+            RequestParams::<F>::GetUserRegistrationTreeLeafHashF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -452,13 +426,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserRegistrationTreeMerkleProof(input)
+            RequestParams::<F>::GetUserRegistrationTreeMerkleProof(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -478,13 +450,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserRegistrationTreeMerkleProofF(input)
+            RequestParams::<F>::GetUserRegistrationTreeMerkleProofF(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -495,13 +465,14 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QUserTreeRootRPCRequest { checkpoint_id };
-        let response =
-            qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserTreeRoot(input));
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetUserTreeRoot(input),
+            QHashOut<F>
+        );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -512,13 +483,14 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QUserTreeRootFRPCRequest { checkpoint_id };
-        let response =
-            qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserTreeRootF(input));
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetUserTreeRootF(input),
+            QHashOut<F>
+        );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -536,13 +508,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserTreeLeafHash(input)
+            RequestParams::<F>::GetUserTreeLeafHash(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -560,13 +530,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserTreeLeafHashF(input)
+            RequestParams::<F>::GetUserTreeLeafHashF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -586,13 +554,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserTreeMerkleProof(input)
+            RequestParams::<F>::GetUserTreeMerkleProof(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -612,13 +578,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserTreeMerkleProofF(input)
+            RequestParams::<F>::GetUserTreeMerkleProofF(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -642,13 +606,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetUserSubTreeMerkleProof(input)
+            RequestParams::<F>::GetUserSubTreeMerkleProof(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -666,13 +628,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractFunctionTreeRoot(input)
+            RequestParams::<F>::GetContractFunctionTreeRoot(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -690,13 +650,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractFunctionTreeRootF(input)
+            RequestParams::<F>::GetContractFunctionTreeRootF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -716,13 +674,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractFunctionTreeLeafHash(input)
+            RequestParams::<F>::GetContractFunctionTreeLeafHash(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -742,13 +698,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractFunctionTreeLeafHashF(input)
+            RequestParams::<F>::GetContractFunctionTreeLeafHashF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -770,13 +724,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractFunctionTreeMerkleProof(input)
+            RequestParams::<F>::GetContractFunctionTreeMerkleProof(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -798,13 +750,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractFunctionTreeMerkleProofF(input)
+            RequestParams::<F>::GetContractFunctionTreeMerkleProofF(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -818,13 +768,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractTreeRoot(input)
+            RequestParams::<F>::GetContractTreeRoot(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -838,13 +786,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractTreeRootF(input)
+            RequestParams::<F>::GetContractTreeRootF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -862,13 +808,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractTreeLeafHash(input)
+            RequestParams::<F>::GetContractTreeLeafHash(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -886,13 +830,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractTreeLeafHashF(input)
+            RequestParams::<F>::GetContractTreeLeafHashF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -912,13 +854,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractTreeMerkleProof(input)
+            RequestParams::<F>::GetContractTreeMerkleProof(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -938,13 +878,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractTreeMerkleProofF(input)
+            RequestParams::<F>::GetContractTreeMerkleProofF(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -955,13 +893,14 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         let rpc_url = &self.config.cooridinator_configs;
         let input = QDepositTreeRootRPCRequest { checkpoint_id };
-        let response =
-            qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetDepositTreeRoot(input));
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetDepositTreeRoot(input),
+            QHashOut<F>
+        );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -975,13 +914,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetDepositTreeRootF(input)
+            RequestParams::<F>::GetDepositTreeRootF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -999,13 +936,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetDepositTreeLeafHash(input)
+            RequestParams::<F>::GetDepositTreeLeafHash(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1023,13 +958,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetDepositTreeLeafHashF(input)
+            RequestParams::<F>::GetDepositTreeLeafHashF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1049,13 +982,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetDepositTreeMerkleProof(input)
+            RequestParams::<F>::GetDepositTreeMerkleProof(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1075,13 +1006,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetDepositTreeMerkleProofF(input)
+            RequestParams::<F>::GetDepositTreeMerkleProofF(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1095,13 +1024,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetWithdrawalTreeRoot(input)
+            RequestParams::<F>::GetWithdrawalTreeRoot(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1115,13 +1042,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetWithdrawalTreeRootF(input)
+            RequestParams::<F>::GetWithdrawalTreeRootF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1139,13 +1064,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetWithdrawalTreeLeafHash(input)
+            RequestParams::<F>::GetWithdrawalTreeLeafHash(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1163,13 +1086,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetWithdrawalTreeLeafHashF(input)
+            RequestParams::<F>::GetWithdrawalTreeLeafHashF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1189,13 +1110,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetWithdrawalTreeMerkleProof(input)
+            RequestParams::<F>::GetWithdrawalTreeMerkleProof(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1215,13 +1134,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetWithdrawalTreeMerkleProofF(input)
+            RequestParams::<F>::GetWithdrawalTreeMerkleProofF(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1234,13 +1151,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetLatestCheckpointTreeRoot(input)
+            RequestParams::<F>::GetLatestCheckpointTreeRoot(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1254,13 +1169,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetCheckpointTreeRoot(input)
+            RequestParams::<F>::GetCheckpointTreeRoot(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1274,13 +1187,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetCheckpointTreeRootF(input)
+            RequestParams::<F>::GetCheckpointTreeRootF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1298,13 +1209,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetCheckpointTreeLeafHash(input)
+            RequestParams::<F>::GetCheckpointTreeLeafHash(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1322,13 +1231,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetCheckpointTreeLeafHashF(input)
+            RequestParams::<F>::GetCheckpointTreeLeafHashF(input),
+            QHashOut<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(hash) => Ok(hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(hash) => Ok(hash),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1348,13 +1255,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetCheckpointTreeMerkleProof(input)
+            RequestParams::<F>::GetCheckpointTreeMerkleProof(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1374,13 +1279,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetCheckpointTreeMerkleProofF(input)
+            RequestParams::<F>::GetCheckpointTreeMerkleProofF(input),
+            MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(merkel_proof) => Ok(merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(merkle_proof) => Ok(merkle_proof),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1397,13 +1300,14 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
             checkpoint_id,
             user_id,
         };
-        let response =
-            qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserLeafData(input));
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetUserLeafData(input),
+            QEDUserLeaf<F>
+        );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetUserLeaf(leaf) => Ok(leaf),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(leaf) => Ok(leaf),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1418,13 +1322,14 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
             checkpoint_id,
             user_id,
         };
-        let response =
-            qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserLeafFData(input));
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetUserLeafFData(input),
+            QEDUserLeaf<F>
+        );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetUserLeaf(leaf) => Ok(leaf),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(leaf) => Ok(leaf),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1438,13 +1343,11 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractLeafData(input)
+            RequestParams::<F>::GetContractLeafData(input),
+            QEDContractLeaf<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetContractLeaf(leaf) => Ok(leaf),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(leaf) => Ok(leaf),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1458,13 +1361,11 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractLeafDataF(input)
+            RequestParams::<F>::GetContractLeafDataF(input),
+            QEDContractLeaf<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetContractLeaf(leaf) => Ok(leaf),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(leaf) => Ok(leaf),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1478,13 +1379,11 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetCheckpointLeafData(input)
+            RequestParams::<F>::GetCheckpointLeafData(input),
+            QEDCheckpointLeaf<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetCheckpointLeaf(leaf) => Ok(leaf),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(leaf) => Ok(leaf),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1498,13 +1397,11 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetCheckpointLeafDataF(input)
+            RequestParams::<F>::GetCheckpointLeafDataF(input),
+            QEDCheckpointLeaf<F>
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetCheckpointLeaf(leaf) => Ok(leaf),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(leaf) => Ok(leaf),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1518,13 +1415,11 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractCodeDefinition(input)
+            RequestParams::<F>::GetContractCodeDefinition(input),
+            ContractCodeDefinition
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetContractCode(contract_code) => Ok(contract_code),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(contract_code) => Ok(contract_code),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1538,13 +1433,11 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetContractCodeDefinitionF(input)
+            RequestParams::<F>::GetContractCodeDefinitionF(input),
+            ContractCodeDefinition
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetContractCode(contract_code) => Ok(contract_code),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(contract_code) => Ok(contract_code),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1557,13 +1450,11 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         let response = qed_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<F>::GetLatestL2BlockState(input)
+            RequestParams::<F>::GetLatestL2BlockState(input),
+            QEDL2BlockState
         );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetL2BlockState(block_state) => Ok(block_state),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(block_state) => Ok(block_state),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1574,13 +1465,14 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QL2BlockStateRPCRequest { checkpoint_id };
-        let response =
-            qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetL2BlockState(input));
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetL2BlockState(input),
+            QEDL2BlockState
+        );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetL2BlockState(block_state) => Ok(block_state),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(block_state) => Ok(block_state),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
@@ -1591,13 +1483,14 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QL2BlockStateFRPCRequest { checkpoint_id };
-        let response =
-            qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetL2BlockStateF(input));
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetL2BlockStateF(input),
+            QEDL2BlockState
+        );
         match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetL2BlockState(block_state) => Ok(block_state),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
+            ResponseResult::Success(block_state) => Ok(block_state),
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }

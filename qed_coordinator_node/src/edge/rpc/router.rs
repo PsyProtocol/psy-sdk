@@ -1,8 +1,10 @@
 use std::sync::atomic::Ordering;
 use jsonrpsee::RpcModule;
 use jsonrpsee::types::ErrorObjectOwned;
+use qed_core::data::qhashout::QHashOut;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_store::config::store_config::QEDFelt;
+use crate::context::REGISTERED_USERS;
 use crate::edge::context::LATEST_CHECKPOINT_ID;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
 use crate::edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
@@ -50,11 +52,11 @@ pub fn build_rpc_module(
 
     module.register_async_method("qed_get_user_id", |params, handler, _ext| async move {
         tracing::info!(
-        "➡️ Received method = qed_get_user_id, raw params = {:?}",
-        params
-    );
+            "➡️ Received method = qed_get_user_id, raw params = {:?}",
+            params
+        );
 
-        let parsed: GetUserIdRequest = match params.parse() {
+        let qhash: QHashOut<QEDFelt> = match params.parse() {
             Ok(p) => p,
             Err(e) => {
                 tracing::warn!("❌ Failed to parse params: {}", e);
@@ -66,20 +68,33 @@ pub fn build_rpc_module(
             }
         };
 
-        match handler.get_user_id_by_pub_key(parsed).await {
-            Ok(Some(user_id)) => {
-                tracing::info!("✅ user found, user_id = {}", user_id);
-                Ok(serde_json::json!({ "user_id": user_id }))
-            }
-            Ok(None) => {
-                tracing::info!("🛑 user not found");
-                Ok(serde_json::json!({ "user_id": null }))
-            }
-            Err(e) => {
-                tracing::error!("❌ error in get_user_id_by_pubkey: {:?}", e);
-                Err(ErrorObjectOwned::owned(1, e.to_string(), None::<()>))
-            }
+        if let Some(user_id) = REGISTERED_USERS.get(&qhash) {
+            tracing::info!("✅ user found, user_id = {}", *user_id);
+            Ok(*user_id)
+        } else {
+            tracing::info!("🛑 user not found");
+            Err(ErrorObjectOwned::owned(
+                -32602,
+                format!("user not found"),
+                None::<()>,
+            ))
         }
+
+
+        // match handler.get_user_id_by_pub_key(parsed).await {
+        //     Ok(Some(user_id)) => {
+        //         tracing::info!("✅ user found, user_id = {}", user_id);
+        //         Ok(serde_json::json!({ "user_id": user_id }))
+        //     }
+        //     Ok(None) => {
+        //         tracing::info!("🛑 user not found");
+        //         Ok(serde_json::json!({ "user_id": null }))
+        //     }
+        //     Err(e) => {
+        //         tracing::error!("❌ error in get_user_id_by_pubkey: {:?}", e);
+        //         Err(ErrorObjectOwned::owned(1, e.to_string(), None::<()>))
+        //     }
+        // }
     })?;
     //qed_deploy_contract
     module.register_async_method("qed_deploy_contract", |params, handler, _ext| async move {

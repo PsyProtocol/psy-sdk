@@ -61,7 +61,7 @@ pub enum RequestParams<F: RichField> {
     #[serde(rename = "qed_build_block")]
     ProduceBlock,
     #[serde(rename = "qed_get_user_id")]
-    GetUserId(ZKPublicKeyInfo<F>),
+    GetUserId(QHashOut<F>),
 
     /// for realm edge
     TokenTransfer(QTokenTransferRPCRequest),
