@@ -22,13 +22,7 @@ use super::request::{
 
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
-use qed_core::{config::network_constants::REALM_USER_TREE_HEIGHT, utils::debug_timer::DebugTimer};
-use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
-use qed_node::nimpl::new_fred_pool;
-use qed_node::nimpl::proof_store_fred::ProofStoreFred;
-use qed_node_common::verifier::get_cached_generic_verifier;
-use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RO, RW};
-use std::path::PathBuf;
+use qed_core::config::network_constants::REALM_USER_TREE_HEIGHT;
 
 const USERS_PER_REALM_VALUE: u64 = 1u64 << (REALM_USER_TREE_HEIGHT as u64);
 
@@ -292,220 +286,8 @@ impl QUserRpcProvider for RpcProvider {
         &self,
         req: QSubmitEndCapRPCRequest<F>,
     ) -> anyhow::Result<()> {
-        qed_rpc_call!(
-            self,
-            &self.config.cooridinator_configs,
-            RequestParams::<F>::SubmitEndCap(req)
-        )
-    }
-}
-
-impl QEDReadCommandProcessorSync<F> for RpcProvider {
-    fn resolve_batch(
-        &self,
-        input: &qed_store::store::imm::cmd_processor::QEDReadCommandBatchInput,
-    ) -> anyhow::Result<qed_store::store::imm::cmd_processor::QEDReadCommandBatchOutput<F>> {
-        Ok(
-            qed_store::store::imm::cmd_processor::QEDReadCommandBatchOutput::<F> {
-                get_user_leaf: input
-                    .get_user_leaf
-                    .iter()
-                    .map(|x| self.resolve_get_user_leaf(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-                get_contract_leaf: input
-                    .get_contract_leaf
-                    .iter()
-                    .map(|x| self.resolve_get_contract_leaf(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-                get_contract_code: input
-                    .get_contract_code
-                    .iter()
-                    .map(|x| self.resolve_get_contract_code(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-                get_checkpoint_leaf: input
-                    .get_checkpoint_leaf
-                    .iter()
-                    .map(|x| self.resolve_get_checkpoint_leaf(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-                get_l2_block_state: input
-                    .get_l2_block_state
-                    .iter()
-                    .map(|x| self.resolve_get_l2_block_state(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-                get_merkle_proof: input
-                    .get_merkle_proof
-                    .iter()
-                    .map(|x| self.resolve_get_merkle_proof(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-                get_hash: input
-                    .get_hash
-                    .iter()
-                    .map(|x| self.resolve_get_hash(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-            },
-        )
-    }
-
-    fn resolve_get_hash(
-        &self,
-        input: &qed_store::store::imm::cmd::QSRHashCmd,
-    ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        let user_id = input.user_id().unwrap_or(self.current_user_id);
-        let rpc_url = match input.is_realm_cmd() {
-            true => self.get_realm_url(user_id)?,
-            false => self.config.cooridinator_configs.clone(),
-        };
-        let response =
-            qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetHash(input.clone()));
-
-        match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetHash(get_hash) => Ok(get_hash),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
-            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
-        }
-    }
-
-    fn resolve_get_merkle_proof(
-        &self,
-        input: &qed_store::store::imm::cmd::QSRMerkleCmd,
-    ) -> anyhow::Result<
-        qed_crypto::hash::merkle::core::MerkleProofCore<qed_core::data::qhashout::QHashOut<F>>,
-    > {
-        let user_id = input.user_id().unwrap_or(self.current_user_id);
-        let rpc_url = match input.is_realm_cmd() {
-            true => self.get_realm_url(user_id)?,
-            false => self.config.cooridinator_configs.clone(),
-        };
-        let response = qed_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetMerkleProof(input.clone())
-        );
-
-        match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetMerkleProof(get_merkel_proof) => Ok(get_merkel_proof),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
-            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
-        }
-    }
-
-    fn resolve_get_user_leaf(
-        &self,
-        input: &qed_store::store::imm::cmd::QSRCmdGetUserLeafData,
-    ) -> anyhow::Result<qed_data::qdata::user::QEDUserLeaf<F>> {
-        let rpc_url = &self.get_realm_url(input.user_id)?;
-        let response = qed_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetUserLeaf(input.clone())
-        );
-
-        match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetUserLeaf(get_user_leaf) => Ok(get_user_leaf),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
-            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
-        }
-    }
-
-    fn resolve_get_contract_leaf(
-        &self,
-        input: &qed_store::store::imm::cmd::QSRCmdGetContractLeafData,
-    ) -> anyhow::Result<qed_data::qdata::contract::QEDContractLeaf<F>> {
-        let rpc_url = &self.config.cooridinator_configs;
-        let response = qed_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetContractLeaf(input.clone())
-        );
-
-        match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetContractLeaf(get_contract_leaf) => Ok(get_contract_leaf),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
-            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
-        }
-    }
-
-    fn resolve_get_contract_code(
-        &self,
-        input: &qed_store::store::imm::cmd::QSRCmdGetContractCodeDefinition,
-    ) -> anyhow::Result<qed_data::qdata::contract::ContractCodeDefinition> {
-        let rpc_url = &self.config.cooridinator_configs;
-        let response = qed_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetContractCode(input.clone())
-        );
-
-        match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetContractCode(get_user_leaf) => Ok(get_user_leaf),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
-            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
-        }
-    }
-
-    fn resolve_get_checkpoint_leaf(
-        &self,
-        input: &qed_store::store::imm::cmd::QSRCmdGetCheckpointLeafData,
-    ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDCheckpointLeaf<F>> {
-        let rpc_url = &self.get_realm_url(self.current_user_id)?;
-        let response = qed_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetCheckpointLeaf(input.clone())
-        );
-
-        match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetCheckpointLeaf(get_chk_leaf) => Ok(get_chk_leaf),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
-            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
-        }
-    }
-
-    fn resolve_get_l2_block_state(
-        &self,
-        input: &qed_store::store::imm::cmd::QSRCmdGetL2BlockState,
-    ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
-        let rpc_url = &self.get_realm_url(self.current_user_id)?;
-        let response = qed_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetL2BlockState(input.clone())
-        );
-
-        match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetL2BlockState(get_l2_block_state) => Ok(get_l2_block_state),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
-            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
-        }
-    }
-
-    fn resolve_get_latest_l2_block_state(
-        &self,
-    ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
-        let rpc_url = &self.config.cooridinator_configs;
-        let response = qed_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetLatestL2BlockState);
-
-        match response.result {
-            ResponseResult::Success(res) => match res {
-                LPSResponse::GetLatestL2BlockState(get_l2_block_state) => Ok(get_l2_block_state),
-                _ => Err(anyhow::format_err!("rpc call return wrong data")),
-            },
-            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
-        }
+        let rpc_url = self.get_realm_url(self.current_user_id)?;
+        qed_rpc_call!(self, &rpc_url, RequestParams::<F>::SubmitEndCap(req))
     }
 }
 
@@ -539,9 +321,9 @@ pub struct RpcConfig {
     #[arg(long, default_value_t = USERS_PER_REALM_VALUE, env)]
     pub users_per_realm: u64,
     #[arg(long, default_value = "http://127.0.0.1:8546", env)]
-    realm_configs: Vec<String>,
+    pub realm_configs: Vec<String>,
     #[arg(long, default_value = "http://127.0.0.1:8545", env)]
-    cooridinator_configs: String,
+    pub cooridinator_configs: String,
 }
 
 impl Default for RpcConfig {
