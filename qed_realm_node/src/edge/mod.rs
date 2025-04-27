@@ -3,16 +3,17 @@ pub mod error;
 pub mod request;
 pub mod rpc;
 
-use self::{context::RealmEdgeContext, rpc::start_realm_edge_rpc_server};
+use self::context::RealmEdgeContext;
+use crate::rpc::RealmEdgeRpcServer;
 use crate::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
+use jsonrpsee::server::ServerBuilder;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
-use std::clone::Clone;
 use std::sync::Arc;
 use tracing::{debug, info};
 
@@ -31,8 +32,8 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         &config.redis.redis_uri,
         config.redis.pool_size.unwrap_or(10),
     )
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to create Redis pool: {}", e))?;
+    .await
+    .map_err(|e| anyhow::anyhow!("Failed to create Redis pool: {}", e))?;
     debug!("created redis pool successfully!");
     //todo! maybe it shoule use new2
     let proof_store = ProofStoreFred::new(
@@ -50,7 +51,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         KVQlibmdbxStore::new_read(&config.db.path)?,
     );
 
-    let cmd_store = store_reader.dup();
     debug!("created store reader successfully!");
     // Create proof verifier
     let proof_verifier = Arc::new(GenericCircuitVerifier::<C, D>::new());
@@ -69,16 +69,24 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     )
     .await?;
 
-    // Wrap in thread-safe context
-    let edge_ctx = Arc::new(edge_ctx);
-
     // Start RPC server
-    let server_handle =
-        start_realm_edge_rpc_server(cmd_store, edge_ctx, &config.rpc.listen_addr).await?;
+    let server_handle = ServerBuilder::default()
+        .build(&config.rpc.listen_addr)
+        .await?;
+
+    let handle = server_handle.start(edge_ctx.into_rpc());
 
     info!("Realm Edge node started on {}", config.rpc.listen_addr);
 
     // Keep server running
-    server_handle.stopped().await;
+    tokio::select! {
+        _ = handle.stopped() => {
+            tracing::warn!("Realm edge stopped");
+        }
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!("Received Ctrl-C, shutting down...");
+        }
+    }
+
     Ok(())
 }
