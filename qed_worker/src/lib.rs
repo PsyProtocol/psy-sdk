@@ -54,10 +54,10 @@ impl WorkerState {
     }
 }
 
-pub struct EdgeWorker(WorkerState);
+pub struct RealmWorker(WorkerState);
 pub struct CoordinatorWorker(WorkerState);
 
-impl Deref for EdgeWorker {
+impl Deref for RealmWorker {
     type Target = WorkerState;
 
     fn deref(&self) -> &Self::Target {
@@ -73,9 +73,9 @@ impl Deref for CoordinatorWorker {
     }
 }
 
-impl From<WorkerState> for EdgeWorker {
+impl From<WorkerState> for RealmWorker {
     fn from(worker: WorkerState) -> Self {
-        EdgeWorker(worker)
+        RealmWorker(worker)
     }
 }
 
@@ -91,7 +91,7 @@ pub trait Worker {
 }
 
 #[async_trait]
-impl Worker for EdgeWorker {
+impl Worker for RealmWorker {
     async fn run(&self) -> anyhow::Result<()> {
         SimpleAsyncRealmWorker::run_worker::<
             _,

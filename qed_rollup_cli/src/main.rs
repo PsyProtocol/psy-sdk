@@ -1,6 +1,7 @@
 mod subcommand;
 
 use clap::Parser;
+use subcommand::realm_worker;
 
 use crate::subcommand::coordinator_edge;
 use crate::subcommand::coordinator_processor;
@@ -32,6 +33,12 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::RealmProcessor { config } => {
             realm_processor::run(config).await?;
+        }
+        Commands::RealmWorker {
+            redis_config,
+            queue_config,
+        } => {
+            realm_worker::run(redis_config, queue_config).await?;
         }
     };
     Ok::<_, anyhow::Error>(())

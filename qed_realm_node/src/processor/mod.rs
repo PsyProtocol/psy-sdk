@@ -4,20 +4,17 @@ use fred::prelude::KeysInterface;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq::traits::KVQSerializable;
 use kvq_store_lmdbx::KVQlibmdbxStore;
-use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
 use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
-use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID};
+use qed_core::job::id::ProvingJobDataId;
+use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::{ProofStoreFred, PS_HISTORY_QUEUE_KEY_PREFIX};
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
-use qed_node::worker::simple_async_realm::SimpleAsyncRealmWorker;
 use qed_node_common::verifier::get_cached_generic_verifier;
-use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use std::sync::Arc;
 use std::time::Duration;
@@ -39,7 +36,6 @@ pub struct RealmProcessor {
     pub queue: ProofStoreFred,
     pub store: KVQArcImmutableStore,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-    pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
     pub synced_checkpoint_id: u64,
 }
 
@@ -48,7 +44,9 @@ pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> 
     let _ = realm_processor.start().await?;
     Ok(())
 }
+
 pub const REALM_PROCESSOR_SUFFIX: &str = "RP";
+
 impl RealmProcessor {
     pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
@@ -67,17 +65,12 @@ impl RealmProcessor {
             )?);
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
-
-        let coordinator_worker_circuits =
-            QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
-
         let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
         let processor = RealmProcessor {
             realm_config,
             queue: realm_qps,
             store: store_reader,
             proof_verifier,
-            coordinator_worker_circuits,
             synced_checkpoint_id: 0,
         };
         Ok(processor)
@@ -185,29 +178,15 @@ impl RealmProcessor {
         context: &mut ConcreteRealmProcessorContext,
     ) -> anyhow::Result<ProvingJobDataId> {
         context.build_block().await?;
-        let realm_worker_output_job_id = self.run_worker_until_done().await?;
         let checkpoint_id = self.synced_checkpoint_id + 1;
+        let realm_worker_output_job_id = self
+            .queue
+            .wait_for_block_proving_jobs_imm(checkpoint_id)
+            .await?;
         Ok(ProvingJobDataId::new(
             checkpoint_id,
             realm_worker_output_job_id,
         ))
-    }
-
-    pub async fn run_worker_until_done(&self) -> anyhow::Result<QProvingJobDataID> {
-        SimpleAsyncRealmWorker::run_worker_until_done::<
-            _,
-            _,
-            SimpleCircuitLibrary<GoldilocksField>,
-            QEDCoordinatorCircuitManager<C, D>,
-            C,
-            D,
-        >(
-            &self.queue.clone(),
-            &self.queue.clone(),
-            &self.coordinator_worker_circuits,
-            &self.proof_verifier.library,
-        )
-        .await
     }
 
     pub async fn wait_for_next_checkpoint(
