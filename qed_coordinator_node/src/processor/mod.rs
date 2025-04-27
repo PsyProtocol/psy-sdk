@@ -1,8 +1,8 @@
-use anyhow::Ok;
-use fred::prelude::ClientLike;
-use fred::prelude::Config;
-use fred::prelude::ReconnectPolicy;
-use fred::types::Builder;
+use crate::args::CoordinatorProcessorArgs;
+use crate::{
+    COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX,
+    COORDINATOR_WORKER_SUFFIX,
+};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
@@ -15,6 +15,7 @@ use qed_core::job::{
 };
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::coordinator::state::processor::CoordinatorConfig;
+use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::nimpl::worker_queue_redis::redis_queue::{CPQueueNotification, CP_NOTIFICATIONS};
 use qed_node::{
@@ -30,10 +31,7 @@ use qed_store::{
     },
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
-use std::{ sync::Arc, time::Duration};
-
-use crate::args::CoordinatorProcessorArgs;
-use crate::COORDINATOR_WORKER_SUFFIX;
+use std::{sync::Arc, time::Duration};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -135,18 +133,14 @@ impl
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessNodeConfig) -> anyhow::Result<Self> {
-        let config = Config::from_url(&cp_config.redis_uri)?;
-        let pool = Builder::from_config(config)
-            .with_connection_config(|config| {
-                config.connection_timeout = Duration::from_secs(10);
-            })
-            // use exponential backoff, starting at 100 ms and doubling on each failed attempt up to 30 sec
-            .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
-            .build_pool(cp_config.pool_size)?;
-
-        pool.init().await?;
-
-        let q = ProofStoreFred::new2(pool.clone(), "wq1".to_string(), "nq1".to_string(), Some(COORDINATOR_WORKER_SUFFIX), Some(COORDINATOR_WORKER_SUFFIX));
+        let pool = new_fred_pool(&cp_config.redis_uri, cp_config.pool_size).await?;
+        let q = ProofStoreFred::new2(
+            pool.clone(),
+            COORDINATOR_WORKER_QUEUE_SUFFIX.into(),
+            COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX.into(),
+            Some(COORDINATOR_WORKER_SUFFIX),
+            Some(COORDINATOR_WORKER_SUFFIX),
+        );
 
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(

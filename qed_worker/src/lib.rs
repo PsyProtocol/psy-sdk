@@ -1,4 +1,3 @@
-use crate::config::WorkerConfig;
 use async_trait::async_trait;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
@@ -18,8 +17,6 @@ pub type F = qed_store::config::store_config::QEDFelt;
 
 pub type H = QEDHasher;
 
-pub mod config;
-
 #[derive(Debug)]
 pub struct WorkerState {
     pub queue: ProofStoreFred,
@@ -28,12 +25,21 @@ pub struct WorkerState {
 }
 
 impl WorkerState {
-    pub async fn new(config: WorkerConfig) -> anyhow::Result<Self> {
-        let pool = new_fred_pool(&config.redis.url, config.redis.pool_size.unwrap_or(8)).await?;
-        let realm_qps = ProofStoreFred::new(
+    pub async fn new(
+        redis_url: String,
+        pool_size: usize,
+        worker_queue_suffix: String,
+        notifications_queue_suffix: String,
+        proof_store_key_suffix: Option<&str>,
+        proof_store_counters_suffix: Option<&str>,
+    ) -> anyhow::Result<Self> {
+        let pool = new_fred_pool(&redis_url, pool_size).await?;
+        let realm_qps = ProofStoreFred::new2(
             pool,
-            config.queue.worker_queue_suffix,
-            config.queue.notifications_queue_suffix,
+            worker_queue_suffix,
+            notifications_queue_suffix,
+            proof_store_counters_suffix,
+            proof_store_key_suffix,
         );
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 

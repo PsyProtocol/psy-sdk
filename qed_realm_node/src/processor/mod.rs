@@ -68,7 +68,7 @@ impl RealmProcessor {
             config.queue.worker_queue_suffix,
             config.queue.notifications_queue_suffix,
             Some(REALM_PROCESSOR_SUFFIX),
-            Some(REALM_PROCESSOR_SUFFIX)
+            Some(REALM_PROCESSOR_SUFFIX),
         );
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(

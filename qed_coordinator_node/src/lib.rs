@@ -1,9 +1,10 @@
-mod processor;
-mod edge;
 mod args;
-mod worker;
-
-pub use processor::*;
-pub use edge::*;
-pub use worker::*;
+mod edge;
+mod processor;
 pub use args::*;
+pub use edge::*;
+pub use processor::*;
+
+pub const COORDINATOR_WORKER_QUEUE_SUFFIX: &str = "wq1";
+pub const COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX: &str = "nq1";
+pub const COORDINATOR_WORKER_SUFFIX: &str = "CW";
