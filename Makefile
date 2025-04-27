@@ -169,6 +169,55 @@ get-latest-l2-block-state:
 get-l2-block-state:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_l2_block_state", "params": [1], "id": 1 }' | jq .
 
+realm-check-user-id:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_check_user_id_in_realm", "params": [0], "id": 1 }' | jq .
+
+realm-submit-user-end-cap:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_submit_user_end_cap", "params": [{"user_ec_input": {}, "proof": {}}], "id": 1 }' | jq .
+
+# Block state related calls
+realm-get-latest-l2-block-state:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_l2_block_state", "params": [], "id": 1 }' | jq .
+
+realm-get-l2-block-state:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_l2_block_state", "params": [1], "id": 1 }' | jq .
+
+realm-get-checkpoint-leaf-data:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_leaf_data", "params": [1], "id": 1 }' | jq .
+
+realm-get-latest-checkpoint-tree-root:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_checkpoint_tree_root", "params": [], "id": 1 }' | jq .
+
+realm-get-checkpoint-tree-root:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_root", "params": [1], "id": 1 }' | jq .
+
+realm-get-checkpoint-tree-merkle-proof:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_merkle_proof", "params": [1, 0], "id": 1 }' | jq .
+
+realm-get-user-leaf-data:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [2, 0], "id": 1 }' | jq .
+
+realm-get-user-tree-root:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_root", "params": [1], "id": 1 }' | jq .
+
+realm-get-user-registration-tree-root:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_registration_tree_root", "params": [1], "id": 1 }' | jq .
+
+realm-get-user-bottom-tree-merkle-proof:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_bottom_tree_merkle_proof", "params": [8, 1, 0], "id": 1 }' | jq .
+
+realm-get-user-contract-tree-root:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_tree_root", "params": [1, 0], "id": 1 }' | jq .
+
+realm-get-user-contract-state-tree-root:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_root", "params": [1, 0, 1], "id": 1 }' | jq .
+
+realm-get-user-contract-tree-merkle-proof:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_tree_merkle_proof", "params": [1, 0, 1], "id": 1 }' | jq .
+
+realm-get-checkpoint-global-state-roots:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_global_state_roots", "params": [1], "id": 1 }' | jq .
+
 image:
 	docker build \
 		-c 512 \
