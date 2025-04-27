@@ -103,6 +103,7 @@ shutdown:
 		down \
 		--remove-orphans > /dev/null 2>&1 || true
 	@sudo rm -fr redis-data
+	@redis-cli 'FLUSHALL' 2>&1 || true
 	@sudo rm -fr $(PWD)/db
 	@rm -fr ${PROJECT_DIR}
 
@@ -118,14 +119,14 @@ run-coordinator-processor:
 run-coordinator-edge:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli coordinator-edge --coordinator-db-path ${COORDINATOR_DB_PATH}
 
+run-coordinator-worker:
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli coordinator-worker
+
 run-realm-processor:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-processor
 
 run-realm-edge:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-edge
-
-run-worker:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli coordinator-worker
 
 get-public-key:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli get-public-key --private-key=2c6a1188f8739daaeff79c40f3690c573381c91a2359a0df2b45e4310b59f30b
@@ -136,7 +137,7 @@ random-wallet:
 register-user:
 	@RUST_LOG=${LOG_LEVE} curl -X POST http://127.0.0.1:8545 \
       -H "Content-Type: application/json" \
-      -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "61c1dcffe86c4a54023bbae5ce0bc4974d5a73b962b845113129d3842ab4e87e" }, "id": 1 }'
+      -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "61c1dcffe86c4a54023bbae5ce0bc4974d5a73b962b845113129d3842ab4e87e" }, "id": 1 }' | jq .
 
 deploy-contract:
 	@RUST_LOG=${LOG_LEVE} cargo run --release --bin qed_user_cli deploy-contract --private-key="2c6a1188f8739daaeff79c40f3690c573381c91a2359a0df2b45e4310b59f30b" --contract-path ${PROJECT_DIR}/target/examples.json
@@ -147,11 +148,26 @@ submit-end-cap-proof:
 build-block:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .
 
-get-l2-block-state:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_l2_block_state", "params": [{"checkpoint_id": 0}], "id": 1 }' | jq .
+latest-checkpoint:
+	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_latest_checkpoint", "params": [], "id": 1 }' | jq .
+
+get-user-leaf-data:
+	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [0], "id": 1 }' | jq .
+
+get-contract-leaf-data:
+	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_contract_leaf_data", "params": [0], "id": 1 }' | jq .
+
+qed-get-checkpoint-leaf-data:
+	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_leaf_data", "params": [0], "id": 1 }' | jq .
+
+qed-get-contract-code-definition:
+	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_contract_code_definition", "params": [0], "id": 1 }' | jq .
 
 get-latest-l2-block-state:
-	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_l2_block_state", "params": [], "id": 1 }' | jq .
+	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_latest_l2_block_state", "params": [], "id": 1 }' | jq .
+
+get-l2-block-state:
+	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_l2_block_state", "params": [1], "id": 1 }' | jq .
 
 image:
 	docker build \

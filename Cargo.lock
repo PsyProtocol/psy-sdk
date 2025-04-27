@@ -4719,6 +4719,7 @@ dependencies = [
  "qed_realm_node",
  "qed_rollup_utils",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
