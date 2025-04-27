@@ -24,7 +24,7 @@ pub fn run(args: RegisterUserArgs) -> anyhow::Result<()> {
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-    let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey { private_key });
+    let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(private_key));
 
     provider.register_user(QRegisterUserRPCRequest {
         public_key: public_key,
