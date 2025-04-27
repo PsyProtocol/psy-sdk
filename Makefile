@@ -80,7 +80,8 @@ REALM_DB_PATH           := $(PWD)/db/realm
 PROJECT_DIR             := $(PWD)/examples
 FILE                    := $(PWD)/examples/src/main.qed
 PARAMETERS              :=
-USER1_PRIVATE_KEY       := 2c6a1188f8739daaeff79c40f3690c573381c91a2359a0df2b45e4310b59f30b
+USER0_PRIVATE_KEY       := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
+USER1_PRIVATE_KEY       := f69d09d891a4faa188108b947335cd14d6eecd32e2243e0e35d194e0a06b1d2b
 
 init:
 	@mkdir $(PWD)/db
@@ -129,7 +130,7 @@ run-realm-edge:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-edge
 
 get-public-key:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli get-public-key --private-key=${USER1_PRIVATE_KEY}
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli get-public-key --private-key=${USER0_PRIVATE_KEY}
 
 random-wallet:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli random-wallet
@@ -137,13 +138,13 @@ random-wallet:
 register-user:
 	@RUST_LOG=${LOG_LEVE} curl -X POST http://127.0.0.1:8545 \
       -H "Content-Type: application/json" \
-      -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "61c1dcffe86c4a54023bbae5ce0bc4974d5a73b962b845113129d3842ab4e87e" }, "id": 1 }' | jq .
+      -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "352637524d9b8482d65b9c8bc78d0d4849a063bc53558158f84ee3863081ab4b" }, "id": 1 }' | jq .
 
 deploy-contract:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
 
 submit-end-cap-proof:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id 0 --method-name simple_mint --inputs 1000 --nonce 1
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id 0 --method-name simple_mint --inputs 1000 --nonce 1
 
 build-block:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .
