@@ -228,7 +228,6 @@ where
         library: &L,
         job_id: QProvingJobDataID,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-
         match job_id.circuit_type {
             ProvingJobCircuitType::AppendUserRegistrationTree => self.append_user_registration_tree.prove_with_proof_store_async(store, library, job_id).await,
             ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => self.agg_state_transition.prove_with_proof_store_async(store, library, job_id).await,
