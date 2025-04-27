@@ -74,7 +74,11 @@ pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
 }
 
 pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
-    let contract_call_args: Vec<ContractCallArgs> = args.contract_call_args;
+    let contract_call_args: Vec<ContractCallArgs> = vec![ContractCallArgs {
+        contract_id: args.contract_id,
+        method_name: args.method_name,
+        inputs: args.inputs,
+    }];
 
     let mut st_provider = RpcProvider::new_with_config(args.rpc_config)?;
 
@@ -135,7 +139,7 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
         )?;
     }
 
-    let new_nonce = GoldilocksField::from_noncanonical_u64(1);
+    let new_nonce = GoldilocksField::from_noncanonical_u64(args.nonce);
     let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key, sighash)?;

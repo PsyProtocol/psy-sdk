@@ -11,7 +11,7 @@ fix:
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
 build:
-	@cargo build --profile ${PROFILE}
+	@cargo build --profile ${PROFILE} --package qed_user_cli --package qed_rollup_cli
 
 fmt:
 	@cargo fmt
@@ -129,7 +129,7 @@ run-realm-edge:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-edge
 
 get-public-key:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli get-public-key --private-key=2c6a1188f8739daaeff79c40f3690c573381c91a2359a0df2b45e4310b59f30b
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli get-public-key --private-key=${USER1_PRIVATE_KEY}
 
 random-wallet:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli random-wallet
@@ -140,10 +140,10 @@ register-user:
       -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "61c1dcffe86c4a54023bbae5ce0bc4974d5a73b962b845113129d3842ab4e87e" }, "id": 1 }' | jq .
 
 deploy-contract:
-	@RUST_LOG=${LOG_LEVE} cargo run --release --bin qed_user_cli deploy-contract --private-key="2c6a1188f8739daaeff79c40f3690c573381c91a2359a0df2b45e4310b59f30b" --contract-path ${PROJECT_DIR}/target/examples.json
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
 
 submit-end-cap-proof:
-	@RUST_LOG=${LOG_LEVE} cargo run --release --bin qed_user_cli submit-end-caproof -r http://127.0.0.1:8546 -p "2c6a1188f8739daaeff79c40f3690c573381c91a2359a0df2b45e4310b59f30b" --contract-call-path ${PROJECT_DIR}/target/examples.json
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id 0 --method-name simple_mint --inputs 1000 --nonce 1
 
 build-block:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .

@@ -182,8 +182,14 @@ pub struct SubmitEndCapArgs {
     pub rpc_config: RpcConfig,
     #[clap(long, short)]
     pub private_key: String,
-    #[clap(long, value_parser = parse_contract_call_args)]
-    pub contract_call_args: Vec<ContractCallArgs>,
+    #[arg(long, default_value = "0", env)]
+    pub contract_id: u64,
+    #[arg(long, default_value = "main", env)]
+    pub method_name: String,
+    #[arg(long, default_value = "[]", env)]
+    pub inputs: Vec<u64>,
+    #[arg(long, default_value = "1", env)]
+    pub nonce: u64,
 }
 
 #[derive(Clone, Args)]

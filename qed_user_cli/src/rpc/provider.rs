@@ -318,7 +318,7 @@ impl RpcProvider {
 pub struct RpcConfig {
     #[arg(long, default_value_t = USERS_PER_REALM_VALUE, env)]
     pub users_per_realm: u64,
-    #[arg(long, default_value = "http://127.0.0.1:8545", env)]
+    #[arg(long, default_value = "http://127.0.0.1:8546", env)]
     pub realm_configs: Vec<String>,
     #[arg(long, default_value = "http://127.0.0.1:8545", env)]
     pub cooridinator_configs: String,
