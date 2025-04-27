@@ -45,16 +45,7 @@ pub struct RealmProcessor {
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
     let realm_processor = RealmProcessor::new(config).await?;
-    let handle = realm_processor.start().await?;
-
-    tokio::select! {
-        _ = handle => {
-            panic!("Realm processor stopped");
-        }
-        _ = tokio::signal::ctrl_c() => {
-            tracing::info!("Received Ctrl-C, shutting down...");
-        }
-    }
+    let _ = realm_processor.start().await?;
     Ok(())
 }
 pub const REALM_PROCESSOR_SUFFIX: &str = "RP";
