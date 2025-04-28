@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Result;
+use fred::clients::Client;
 use qed_core::job::worker_queue::ProvingDispatcher;
 use qed_core::job::worker_queue::ProvingWorkerListener;
 use rsmq::PooledRsmq;
@@ -8,7 +9,7 @@ use rsmq::RedisConnectionManager;
 use rsmq::RsmqConnection;
 use rsmq::RsmqError;
 use rsmq::RsmqMessage;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_repr::Deserialize_repr;
 use serde_repr::Serialize_repr;
 
@@ -51,10 +52,9 @@ pub enum CEQueueNotification {
     StartProduceBlock = 0,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
-#[repr(u8)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum CPQueueNotification {
-    StartSync = 0,
+    StartSync { checkpoint: u64 },
 }
 
 impl RedisQueue {

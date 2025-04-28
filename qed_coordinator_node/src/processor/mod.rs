@@ -1,8 +1,8 @@
-use crate::args::CoordinatorProcessorArgs;
-use crate::{
-    COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX,
-    COORDINATOR_WORKER_SUFFIX,
-};
+use anyhow::Ok;
+use fred::prelude::{ClientLike, Client};
+use fred::prelude::Config;
+use fred::prelude::ReconnectPolicy;
+use fred::types::Builder;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
@@ -15,7 +15,6 @@ use qed_core::job::{
 };
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::coordinator::state::processor::CoordinatorConfig;
-use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::nimpl::worker_queue_redis::redis_queue::{CPQueueNotification, CP_NOTIFICATIONS};
 use qed_node::{
@@ -32,6 +31,10 @@ use qed_store::{
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
 use std::{ sync::Arc, time::Duration};
+use qed_node::nimpl::new_fred_pool;
+use qed_realm_node::RedisConfig;
+use crate::args::CoordinatorProcessorArgs;
+use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -114,7 +117,8 @@ impl<
             .await?;
         tracing::info!("sync queue dispatch StartSync");
         self.sync_queue
-            .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync)?;
+            .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync{ checkpoint: checkpoint_id })?;
+        let payload = serde_json::to_vec(&CPQueueNotification::StartSync { checkpoint: checkpoint_id })?;
 
         Ok(())
     }
@@ -244,3 +248,5 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 
     Ok(())
 }
+
+

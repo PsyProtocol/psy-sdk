@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 use jsonrpsee::RpcModule;
 use qed_core::data::qhashout::QHashOut;
-use jsonrpsee::types::{ErrorObjectOwned, Params};
+use jsonrpsee::types::{ErrorObject, ErrorObjectOwned, Params};
 use plonky2::hash::hash_types::RichField;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -10,13 +10,14 @@ use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState};
 use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
-use qed_realm_node::F;
+use qed_realm_node::{C, F};
 use qed_store::config::store_config::QEDFelt;
-use crate::context::REGISTERED_USERS;
+use crate::context::{get_global_jwt_secret, GLOBAL_REALM_REGISTRY, REGISTERED_USERS};
 use crate::edge::context::LATEST_CHECKPOINT_ID;
+use crate::edge::processor::fetch_and_push_checkpoint_to_realm;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
 use crate::edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
-use crate::rpc::types::{GetByFRequest, GetByIdRequest, GetUserLeafRequest, GetUserRegistrationFLeafRequest, GetUserRegistrationLeafRequest};
+use crate::rpc::types::{GetByFRequest, GetByIdRequest, GetUserLeafRequest, GetUserRegistrationFLeafRequest, GetUserRegistrationLeafRequest, RealmInfo, RegisterRealmRpcRequest};
 
 /// register the RPC methods for the CoordinatorEdgeHandler
 pub fn build_rpc_module(
@@ -76,6 +77,7 @@ pub fn build_rpc_module(
             }
         };
 
+        //todo!: user_id should read from the database
         if let Some(user_id) = REGISTERED_USERS.get(&qhash) {
             tracing::info!("✅ user found, user_id = {}", *user_id);
             Ok(*user_id)
@@ -123,17 +125,56 @@ pub fn build_rpc_module(
     })?;
 
     // qed_submit_guta
-    module.register_async_method("qed_submit_guta", |params, handler, _ext| async move {
+    module.register_async_method("qed_submit_guta", |params, handler, ext| async move {
+
+        let jwt_metadata = ext.get::<JwtAuthMetadata>()
+            .ok_or_else(|| ErrorObjectOwned::owned(401, "Missing JwtAuthMetadata", None::<()>))?;
+
+        validate_jwt_from_ext(&jwt_metadata)?;
+
         let SubmitGUTAParams { input, proof } = params.parse().map_err(|e| {
             ErrorObjectOwned::owned(-32602, format!("Invalid GUTA input: {}", e), None::<()>)
         })?;
-
         handler
             .submit_guta(input, proof)
             .await
             .map_err(|e| ErrorObjectOwned::owned(3, e.to_string(), None::<()>))?;
 
         Ok::<_, ErrorObjectOwned>("ok")
+    })?;
+    //register_realm_rpc
+    module.register_async_method("register_realm_rpc", |params, _handler, _ctx| async move {
+        let parsed: RegisterRealmRpcRequest = match params.parse() {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(ErrorObjectOwned::owned(
+                    -32602,
+                    format!("Invalid params for register_realm_rpc: {}", e),
+                    None::<()>,
+                ));
+            }
+        };
+
+        let mut registry = GLOBAL_REALM_REGISTRY.write().await;
+        if !registry.realms.contains_key(&parsed.rpc_url) {
+            tracing::info!("✅ Realm registered via RPC: name = {}, url = {}", parsed.name, parsed.rpc_url);
+
+            let latest_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+            fetch_and_push_checkpoint_to_realm::<F,C,2>(latest_checkpoint_id, &parsed.rpc_url)
+                .await
+                .map_err(|e| {
+                    tracing::warn!("❌ fetch_and_push_checkpoint_to_realm failed: {:?}", e);
+                    ErrorObject::owned(-32000, format!("Failed to push checkpoint: {}", e), None::<()>)
+                })?;
+            registry.realms.insert(parsed.rpc_url.clone(), RealmInfo {
+                name: parsed.name,
+                rpc_url: parsed.rpc_url,
+            });
+        } else {
+            tracing::info!("ℹ️ Realm already exists: {}", parsed.rpc_url);
+        }
+
+        Ok(serde_json::Value::Bool(true))
     })?;
 
     // qed_build_block
@@ -818,6 +859,28 @@ where
         Err(e) => {
             tracing::error!("❌ {} error: {:?}", context, e);
             Err(ErrorObjectOwned::owned(error_code, e.to_string(), None::<()>))
+        }
+    }
+}
+
+
+use jsonrpsee::types::Request;
+use qed_rollup_utils::decrypt_jwt_token;
+use crate::JwtAuthMetadata;
+pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwned> {
+    let token = ext.token.as_ref().ok_or_else(|| {
+        ErrorObjectOwned::owned(401, "Missing Bearer token", None::<()>)
+    })?;
+
+    let secret = get_global_jwt_secret();
+    match decrypt_jwt_token(&secret, token) {
+        Ok(claims) => {
+            tracing::info!("✅ Valid JWT, realm_id = {}", claims.realm_id);
+            Ok(())
+        }
+        Err(e) => {
+            tracing::warn!("❌ Invalid JWT token: {:?}", e);
+            Err(ErrorObjectOwned::owned(401, format!("Invalid token: {}", e), None::<()>))
         }
     }
 }

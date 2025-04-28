@@ -1,26 +1,28 @@
-use crate::{
-    COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX,
-    COORDINATOR_WORKER_SUFFIX,
-};
+use std::future::Future;
+use std::sync::{Arc, atomic::AtomicU64};
+use tokio::sync::RwLock;
+use once_cell::sync::{Lazy, OnceCell};
 use anyhow::anyhow;
 use dashmap::DashMap;
-use fred::prelude::Pool;
+use dotenvy::var;
+use lazy_static::lazy_static;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
-use lazy_static::lazy_static;
-use once_cell::sync::{Lazy, OnceCell};
 use qed_core::data::qhashout::QHashOut;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
-use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_store::config::store_config::QEDFelt;
-use std::future::Future;
-use std::sync::{atomic::AtomicU64, Arc};
-use tokio::sync::RwLock;
+use fred::{
+    prelude::{Pool},
+};
+use qed_node::nimpl::new_fred_pool;
+use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
+use crate::rpc::types::{RealmInfo, RealmRpcRegistry};
 
 type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 type DrainQueue = ProofStoreFred;
 type ProofStore = ProofStoreFred;
+
 
 lazy_static! {
     //todo! if no write, use once_cell instead
@@ -33,6 +35,13 @@ pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, u64>> = Lazy::new(D
 pub static GLOBAL_DB_PATH: OnceCell<String> = OnceCell::new();
 
 pub static GLOBAL_REDIS_POOL: OnceCell<Arc<Pool>> = OnceCell::new();
+
+pub static GLOBAL_REALM_REGISTRY: Lazy<Arc<RwLock<RealmRpcRegistry>>> = Lazy::new(|| {
+    Arc::new(RwLock::new(RealmRpcRegistry::default()))
+});
+
+pub static GLOBAL_JWT_SECRET: OnceCell<Arc<String>> = OnceCell::new();
+
 
 pub async fn init_global_ctx_once(
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
@@ -73,11 +82,10 @@ where
     f(ctx).await
 }
 
+
 /// Initialize global DB path (can only be called once)
 pub fn init_global_db_path<P: Into<String>>(path: P) -> anyhow::Result<()> {
-    GLOBAL_DB_PATH
-        .set(path.into())
-        .map_err(|_| anyhow!("GLOBAL_DB_PATH already set"))
+    GLOBAL_DB_PATH.set(path.into()).map_err(|_| anyhow!("GLOBAL_DB_PATH already set"))
 }
 pub fn get_global_db_path() -> anyhow::Result<&'static str> {
     GLOBAL_DB_PATH
@@ -86,10 +94,7 @@ pub fn get_global_db_path() -> anyhow::Result<&'static str> {
         .ok_or_else(|| anyhow!("GLOBAL_DB_PATH not initialized"))
 }
 
-pub async fn init_global_redis_pool_from_url(
-    redis_url: &str,
-    pool_size: usize,
-) -> anyhow::Result<()> {
+pub async fn init_global_redis_pool_from_url(redis_url: &str, pool_size: usize) -> anyhow::Result<()> {
     let pool = new_fred_pool(redis_url, pool_size).await?;
     GLOBAL_REDIS_POOL
         .set(Arc::new(pool))
@@ -108,15 +113,39 @@ pub fn get_global_redis_pool() -> anyhow::Result<Arc<Pool>> {
         .ok_or_else(|| anyhow!("GLOBAL_REDIS_POOL not initialized"))
 }
 
-pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(f: F) -> anyhow::Result<R>
+pub async fn register_realm(name: String, rpc_url: String) -> anyhow::Result<()> {
+    let mut registry = GLOBAL_REALM_REGISTRY.write().await;
+    if !registry.realms.contains_key(&rpc_url) {
+        tracing::info!("✅ Registered new realm: {}", name);
+        registry.realms.insert(rpc_url.clone(), RealmInfo { name, rpc_url });
+    } else {
+        tracing::info!("ℹ️ Realm already exists: {}", rpc_url);
+    }
+    Ok(())
+}
+pub async fn init_realms_from_env() -> anyhow::Result<()> {
+    let endpoints = var("REALM_RPC_ENDPOINTS")?;
+    let urls: Vec<&str> = endpoints.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+
+    let mut registry = GLOBAL_REALM_REGISTRY.write().await;
+
+    for (i, url) in urls.iter().enumerate() {
+        if !registry.realms.contains_key(*url) {
+            let name = format!("realm_{}", i + 1);
+            tracing::info!("✅ Loaded realm from .env: {}", name);
+            registry.realms.insert((*url).to_string(), RealmInfo { name, rpc_url: (*url).to_string() });
+        } else {
+            tracing::info!("ℹ️ Realm already exists: {}", url);
+        }
+    }
+
+    Ok(())
+}
+pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(
+    f: F,
+) -> anyhow::Result<R>
 where
-    F: FnOnce(
-        CoordinatorEdgeContext<
-            KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
-            ProofStoreFred,
-            ProofStoreFred,
-        >,
-    ) -> Fut,
+    F: FnOnce(CoordinatorEdgeContext<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>, ProofStoreFred, ProofStoreFred>) -> Fut,
     Fut: std::future::Future<Output = anyhow::Result<R>>,
 {
     let read_guard = GLOBAL_COORD_EDGE_CTX.read().await;
@@ -148,4 +177,18 @@ where
     };
 
     f(temp_ctx).await
+}
+
+
+
+pub fn init_global_jwt_secret() -> anyhow::Result<()> {
+    let secret = var("JWT_SECRET_KEY")?;
+    GLOBAL_JWT_SECRET.set(Arc::new(secret))
+        .map_err(|_| anyhow::anyhow!("JWT secret already initialized"))?;
+    Ok(())
+}
+pub fn get_global_jwt_secret() -> Arc<String> {
+    GLOBAL_JWT_SECRET.get()
+        .expect("JWT secret not initialized")
+        .clone()
 }
