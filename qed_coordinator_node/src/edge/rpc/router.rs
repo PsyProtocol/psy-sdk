@@ -265,13 +265,13 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState>;
-    module.register_async_method("qed_latest_l2_block_state", |_params, handler, _ctx| async move {
+    module.register_async_method("qed_get_latest_l2_block_state", |_params, handler, _ctx| async move {
         match handler.get_latest_l2_block_state().await {
             Ok(state) => {
                 Ok::<_, ErrorObjectOwned>(serde_json::to_value(&state).unwrap())
             }
             Err(e) => {
-                tracing::error!("❌ qed_latest_l2_block_state error: {:?}", e);
+                tracing::error!("❌ qed_get_latest_l2_block_state error: {:?}", e);
                 Err(ErrorObjectOwned::owned(4, e.to_string(), None::<()>))
             }
         }
@@ -785,6 +785,49 @@ pub fn build_rpc_module(
         }
     })?;
 
+
+    module.register_async_method("qed_get_user_tree_merkle_proof", |params, handler, ctx| async move {
+        let parsed: QUserTreeMerkleProofRPCRequest = match params.parse() {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(ErrorObjectOwned::owned(
+                    -32602,
+                    format!("Invalid params for qed_get_user_tree_merkle_proof: {}", e),
+                    None::<()>,
+                ));
+            }
+        };
+
+        match handler.get_user_tree_merkle_proof(parsed.checkpoint_id, parsed.user_id).await {
+            Ok(leaf) => Ok(serde_json::to_value(&leaf).unwrap()),
+            Err(e) => {
+                tracing::error!("❌ get_user_tree_merkle_proof error: {:?}", e);
+                Err(ErrorObjectOwned::owned(9, e.to_string(), None::<()>))
+            }
+        }
+    })?;
+
+
+    module.register_async_method("qed_get_user_tree_merkle_proof_f", |params, handler, ctx| async move {
+        let parsed: QUserTreeMerkleProofFRPCRequest<F> = match params.parse() {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(ErrorObjectOwned::owned(
+                    -32602,
+                    format!("Invalid params for qed_get_user_tree_merkle_proof_f: {}", e),
+                    None::<()>,
+                ));
+            }
+        };
+
+        match handler.get_user_tree_merkle_proof_f(parsed.checkpoint_id, parsed.user_id).await {
+            Ok(leaf) => Ok(serde_json::to_value(&leaf).unwrap()),
+            Err(e) => {
+                tracing::error!("❌ get_user_tree_merkle_proof_f error: {:?}", e);
+                Err(ErrorObjectOwned::owned(9, e.to_string(), None::<()>))
+            }
+        }
+    })?;
 
 
 

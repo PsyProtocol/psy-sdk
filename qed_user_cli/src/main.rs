@@ -30,6 +30,7 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
     qed_rollup_utils::setup_logging(cli.log_level)?;
+    tracing::info!("qed user cli");
     match cli.command {
         Commands::AddWithdrawal(args) => add_withdrawal::run(args)?,
         Commands::ClaimDeposit(args) => claim_deposit::run(args)?,

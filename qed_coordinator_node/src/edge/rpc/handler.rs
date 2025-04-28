@@ -6,6 +6,7 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::{HashOut};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
+use qed_store::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use rand::RngCore;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -666,6 +667,18 @@ impl CoordinatorEdgeHandler {
     pub async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QEDUserLeaf<QEDFelt>> {
         with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
             ctx.store_reader.get_user_leaf_data(checkpoint_id, user_id)
+        }).await
+    }
+
+    pub async fn get_user_tree_merkle_proof(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<MerkleProofCore<QHashOut<QEDFelt>>> {
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            ctx.store_reader.get_user_tree_merkle_proof(checkpoint_id, user_id)
+        }).await
+    }
+
+    pub async fn get_user_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<QEDFelt>>> {
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+            ctx.store_reader.get_user_tree_merkle_proof_f(checkpoint_id, user_id)
         }).await
     }
 
