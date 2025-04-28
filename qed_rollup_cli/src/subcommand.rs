@@ -5,6 +5,7 @@ use clap::Subcommand;
 pub mod coordinator_edge;
 pub mod coordinator_processor;
 pub mod coordinator_worker;
+pub mod generate_token;
 pub mod realm_edge;
 pub mod realm_processor;
 pub mod realm_worker;
@@ -46,4 +47,11 @@ pub enum Commands {
         #[command(flatten)]
         queue_config: qed_realm_node::QueueConfig,
     },
+    #[command(about = "Generate access token")]
+    GenerateAccessToken {
+        #[arg(long, env = "PRIVATE_JWT_KEY", default_value = "ykGz8xBecyAs")]
+        private_key: String,
+        #[arg(long, default_value = "0")]
+        realm_id: u64,
+    }
 }
