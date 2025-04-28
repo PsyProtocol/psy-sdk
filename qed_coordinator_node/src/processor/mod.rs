@@ -33,9 +33,6 @@ use qed_store::{
 };
 use std::{ sync::Arc, time::Duration};
 
-use crate::args::CoordinatorProcessorArgs;
-use crate::COORDINATOR_WORKER_SUFFIX;
-
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
