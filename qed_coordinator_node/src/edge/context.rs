@@ -4,6 +4,7 @@ use tokio::sync::RwLock;
 use once_cell::sync::{Lazy, OnceCell};
 use anyhow::anyhow;
 use dashmap::DashMap;
+use dotenvy::var;
 use lazy_static::lazy_static;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
@@ -15,7 +16,8 @@ use fred::{
     prelude::{Pool},
 };
 use qed_node::nimpl::new_fred_pool;
-use crate::COORDINATOR_WORKER_SUFFIX;
+use crate::{CoordinatorEdgeArgs, COORDINATOR_WORKER_SUFFIX};
+use crate::rpc::types::{RealmInfo, RealmRpcRegistry};
 
 type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 type DrainQueue = ProofStoreFred;
@@ -34,6 +36,9 @@ pub static GLOBAL_DB_PATH: OnceCell<String> = OnceCell::new();
 
 pub static GLOBAL_REDIS_POOL: OnceCell<Arc<Pool>> = OnceCell::new();
 
+pub static GLOBAL_REALM_REGISTRY: Lazy<Arc<RwLock<RealmRpcRegistry>>> = Lazy::new(|| {
+    Arc::new(RwLock::new(RealmRpcRegistry::default()))
+});
 
 
 pub async fn init_global_ctx_once(
@@ -106,6 +111,34 @@ pub fn get_global_redis_pool() -> anyhow::Result<Arc<Pool>> {
         .ok_or_else(|| anyhow!("GLOBAL_REDIS_POOL not initialized"))
 }
 
+pub async fn register_realm(name: String, rpc_url: String) -> anyhow::Result<()> {
+    let mut registry = GLOBAL_REALM_REGISTRY.write().await;
+    if !registry.realms.contains_key(&rpc_url) {
+        tracing::info!("✅ Registered new realm: {}", name);
+        registry.realms.insert(rpc_url.clone(), RealmInfo { name, rpc_url });
+    } else {
+        tracing::info!("ℹ️ Realm already exists: {}", rpc_url);
+    }
+    Ok(())
+}
+pub async fn init_realms_from_env() -> anyhow::Result<()> {
+    let endpoints = var("REALM_RPC_ENDPOINTS")?;
+    let urls: Vec<&str> = endpoints.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+
+    let mut registry = GLOBAL_REALM_REGISTRY.write().await;
+
+    for (i, url) in urls.iter().enumerate() {
+        if !registry.realms.contains_key(*url) {
+            let name = format!("auto_realm_{}", i + 1);
+            tracing::info!("✅ Loaded realm from .env: {}", name);
+            registry.realms.insert((*url).to_string(), RealmInfo { name, rpc_url: (*url).to_string() });
+        } else {
+            tracing::info!("ℹ️ Realm already exists: {}", url);
+        }
+    }
+
+    Ok(())
+}
 
 
 pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(

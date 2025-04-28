@@ -13,6 +13,7 @@ use crate::edge::init::{init_coordinator_edge};
 use crate::edge::rpc::router::build_rpc_module;
 use std::net::SocketAddr;
 use tracing::info;
+use crate::context::init_realms_from_env;
 
 pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Starting coordinator edge node...");
@@ -25,6 +26,9 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
 
     init_coordinator_edge(&config).await?;
     info!("✅ Initialized coordinator edge node");
+
+    init_realms_from_env().await?;
+    info!("✅ Initialized realms from env");
 
     let (rpc_module, handler) = build_rpc_module(&config.coordinator_redis_uri)?;
     handler.spawn_cp_sync_listener().await?;

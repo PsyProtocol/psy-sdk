@@ -1,48 +1,102 @@
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use tracing::{debug, info};
+use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
 use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
-use qed_core::job::id::ProvingJobDataId;
+use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataId};
 use qed_core::job::traits::QProofStoreAsyncImm;
 use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_store::config::store_config::QEDFelt;
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use crate::context::with_temp_ctx_read_async;
+use crate::context::{with_ctx_read_async, with_temp_ctx_read_async, GLOBAL_REALM_REGISTRY};
+use crate::rpc::types::CheckpointSyncInfo;
 
+use serde_json::json;
+use reqwest::Client;
+use futures_util::future::join_all;
+use anyhow::Result;
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
 /// read latest checkpoint & proof, package into queue for Realm / RE
-pub async fn handle_cp_sync<SR, DQ, PS>(_ctx: &CoordinatorEdgeContext<SR, DQ, PS>) -> anyhow::Result<()>
-where
-    SR: QEDCoordinatorStoreReaderAsync<F> + Send + Sync,
-    PS: QProofStoreAsyncImm + Send + Sync,
-    DQ: CheckpointDrainQueueEmitterAsyncImm + Send + Sync,
+pub async fn handle_cp_sync(latest_checkpoint_id: u64) -> anyhow::Result<()>
 {
-    //todo! maybe need some operations on sync_info
+    info!("Handling checkpoint sync");
+    // 1) get the latest sync info from the queue
+    let checkpoint_sync_info =
+        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+        QEDCoordinatorStoreReaderAsync::get_checkpoint_sync_info_compact(&*ctx.store_reader, latest_checkpoint_id).await
+    }).await?;
+    info!("📥 Fetched checkpoint sync info from db: checkpoint_id={}",latest_checkpoint_id);
 
-    // // 1) get the latest checkpoint id
-    // let latest = ctx.store_reader.get_latest_l2_block_state().await?;
-    // let checkpoint_id = latest.checkpoint_id;
-    //
-    // // 2) get the compact sync info
-    // let _sync_info = ctx
-    //     .store_reader
-    //     .get_checkpoint_sync_info_compact(checkpoint_id)
-    //     .await?;
+    // 2. package all the info into a CheckpointSyncInfo
+    let sync_info = CheckpointSyncInfo {
+        checkpoint_id: latest_checkpoint_id,
+        description: None,
+        source_coordinator_edge_id: None,
+        sync_timestamp: 0,
+        compact: checkpoint_sync_info,
+    };
+    // 3) broadcast the info to all realms
+    broadcast_checkpoint(sync_info).await?;
+    info!("✅ Broadcast checkpoint_id = {} to all realms", latest_checkpoint_id);
 
-    // 3) get the proof that is related to this checkpoint
-    // let proof_opt = if let Some(pid) = sync_info.l2_block_state.proof_id {
-    //     Some(ctx.proof_store.get_proof_by_id(pid).await?)
-    // } else {
-    //     None
-    // };
-
-    // info!("🟢 CE have synced checkpoint #{checkpoint_id} to downstream");
     Ok(())
 }
+pub async fn broadcast_checkpoint(sync_info: CheckpointSyncInfo) -> anyhow::Result<()> {
+    let client = reqwest::Client::new();
+    let checkpoint_json = serde_json::to_value(&sync_info)?;
 
+    let registry = GLOBAL_REALM_REGISTRY.read().await;
+    let endpoints: Vec<_> = registry.realms.values().cloned().collect();
+    drop(registry);// drop the read lock
+
+    let mut tasks = Vec::new();
+
+    for realm in endpoints {
+        let client = client.clone();
+        let rpc_url = realm.rpc_url.clone();
+        let realm_name = realm.name.clone();
+        let params = checkpoint_json.clone();
+
+        let task = tokio::spawn(async move {
+            let payload = serde_json::json!({
+                "jsonrpc": "2.0",
+                "method": "realm_receive_checkpoint_sync",
+                "params": params,
+                "id": 1,
+            });
+
+            let res = client.post(&rpc_url)
+                .json(&payload)
+                .send()
+                .await?;
+
+            if res.status().is_success() {
+                tracing::info!("✅ Sent checkpoint sync to realm {}", realm_name);
+                Ok(())
+            } else {
+                tracing::warn!("⚠️ Failed to send checkpoint sync to {}, status = {}", realm_name, res.status());
+                Err(anyhow::anyhow!("Failed http"))
+            }
+        });
+
+        tasks.push(task);
+    }
+
+    let results = futures_util::future::join_all(tasks).await;
+
+    for result in results {
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => tracing::warn!("❌ RPC call failed: {:?}", e),
+            Err(e) => tracing::warn!("❌ Task spawn failed: {:?}", e),
+        }
+    }
+
+    Ok(())
+}
 pub async fn process_realm_job<SR, DQ, PS>(
     ctx: &CoordinatorEdgeContext<SR, DQ, PS>,
     job_info: ProvingJobDataId,
@@ -68,6 +122,11 @@ where
         bincode::deserialize(&bytes)
             .map_err(|e| anyhow::anyhow!("failed to deserialize realm_result: {:?}", e))?;
 
+    //if circuit type is GUTANoChange, disable the proof
+    if realm_result.proof_id.circuit_type == ProvingJobCircuitType::GUTANoChange {
+        info!("⚠️ GUTANoChange proof, disabling it");
+        return Ok(());
+    }
     // 2) get the proof by id
     let realm_proof = ctx
         .proof_store

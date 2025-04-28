@@ -12,11 +12,11 @@ use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_realm_node::F;
 use qed_store::config::store_config::QEDFelt;
-use crate::context::REGISTERED_USERS;
+use crate::context::{GLOBAL_REALM_REGISTRY, REGISTERED_USERS};
 use crate::edge::context::LATEST_CHECKPOINT_ID;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
 use crate::edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
-use crate::rpc::types::{GetByFRequest, GetByIdRequest, GetUserLeafRequest, GetUserRegistrationFLeafRequest, GetUserRegistrationLeafRequest};
+use crate::rpc::types::{GetByFRequest, GetByIdRequest, GetUserLeafRequest, GetUserRegistrationFLeafRequest, GetUserRegistrationLeafRequest, RealmInfo, RegisterRealmRpcRequest};
 
 /// register the RPC methods for the CoordinatorEdgeHandler
 pub fn build_rpc_module(
@@ -76,6 +76,7 @@ pub fn build_rpc_module(
             }
         };
 
+        //todo!: user_id should read from the database
         if let Some(user_id) = REGISTERED_USERS.get(&qhash) {
             tracing::info!("✅ user found, user_id = {}", *user_id);
             Ok(*user_id)
@@ -134,6 +135,32 @@ pub fn build_rpc_module(
             .map_err(|e| ErrorObjectOwned::owned(3, e.to_string(), None::<()>))?;
 
         Ok::<_, ErrorObjectOwned>("ok")
+    })?;
+    //register_realm_rpc
+    module.register_async_method("register_realm_rpc", |params, _handler, _ctx| async move {
+        let parsed: RegisterRealmRpcRequest = match params.parse() {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(ErrorObjectOwned::owned(
+                    -32602,
+                    format!("Invalid params for register_realm_rpc: {}", e),
+                    None::<()>,
+                ));
+            }
+        };
+
+        let mut registry = GLOBAL_REALM_REGISTRY.write().await;
+        if !registry.realms.contains_key(&parsed.rpc_url) {
+            tracing::info!("✅ Realm registered via RPC: name = {}, url = {}", parsed.name, parsed.rpc_url);
+            registry.realms.insert(parsed.rpc_url.clone(), RealmInfo {
+                name: parsed.name,
+                rpc_url: parsed.rpc_url,
+            });
+        } else {
+            tracing::info!("ℹ️ Realm already exists: {}", parsed.rpc_url);
+        }
+
+        Ok(serde_json::Value::Bool(true))
     })?;
 
     // qed_build_block

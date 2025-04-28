@@ -117,7 +117,7 @@ impl<
         if job.goal_id == checkpoint_id {
             tracing::info!("sync queue dispatch StartSync");
             self.sync_queue
-                .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync)?;
+                .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync { checkpoint: checkpoint_id })?;
         }
 
         Ok(())

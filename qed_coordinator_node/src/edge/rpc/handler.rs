@@ -13,7 +13,7 @@ use tracing::{ error, info, warn};
 use qed_core::config::network_constants::QED_CHECKPOINT_JOB_ID_CHANNEL;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata};
-use qed_core::job::id::ProvingJobDataId;
+use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataId};
 use qed_core::job::traits::QProofStoreWriterAsyncImm;
 use qed_core::job::worker_queue::{ProvingDispatcher, ProvingWorkerListener};
 use qed_crypto::hash::merkle::core::MerkleProofCore;
@@ -62,29 +62,26 @@ impl CoordinatorEdgeHandler {
         }
 
         let mut notify_q = self.notify_queue.clone();
-        let ctx_lock = GLOBAL_COORD_EDGE_CTX.clone();
 
         let handle = tokio::spawn(async move {
             loop {
                 match notify_q.pop_one(CP_NOTIFICATIONS) {
                     Ok(Some(bytes)) => {
-                        if let Ok(CPQueueNotification::StartSync) =
+                        if let Ok(CPQueueNotification::StartSync { checkpoint }) =
                             serde_json::from_slice::<CPQueueNotification>(&bytes)
                         {
                             info!("🔔 CP listener received StartSync notification");
-                            let checkpoint_id =
-                                LATEST_CHECKPOINT_ID.fetch_add(1, Ordering::Relaxed) + 1;
-
-                            info!("ℹ️ latest checkpoint now = {checkpoint_id}");
-
-
-                            if let Ok(guard) = ctx_lock.try_read() {
-                                if let Some(ctx) = guard.as_ref() {
-                                    if let Err(e) = handle_cp_sync(ctx).await {
-                                        error!("❌ handle_cp_sync: {e}");
-                                    }
+                            match handle_cp_sync(checkpoint).await{
+                                Ok(_) => {
+                                    info!("✅ CP listener handled StartSync notification");
                                 }
-                            }
+                                Err(e) => {
+                                    error!("❌ CP listener failed to handle StartSync notification: {e:?}");
+                                }
+                            };
+                            LATEST_CHECKPOINT_ID.store(checkpoint, Ordering::Relaxed);
+                            info!("⭐ latest checkpoint now = {checkpoint}");
+
                         }
                     }
 
@@ -281,6 +278,12 @@ impl CoordinatorEdgeHandler {
 
         // verify proof
         verifier.verify_proof_of_type(input.circuit_type, &proof)?;
+
+        //if circuit type is GUTANoChange, disable the proof
+        if input.circuit_type == ProvingJobCircuitType::GUTANoChange {
+            info!("⚠️ GUTANoChange proof, disabling it");
+            return Ok(());
+        }
 
         // verify state consistency
         let old_root = store_reader
