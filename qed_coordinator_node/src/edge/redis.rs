@@ -93,7 +93,7 @@ pub async fn subscribe_checkpoint_sync(
 pub fn spawn_fixed_checkpoint_sender() {
     tokio::spawn(async move {
         let checkpoint_id = 1;
-        let max_retries = 3;
+        let max_retries = 12;
         let interval = Duration::from_secs(5);
 
         for i in 0..max_retries {
