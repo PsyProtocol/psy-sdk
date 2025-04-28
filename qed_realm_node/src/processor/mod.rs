@@ -1,5 +1,5 @@
 use crate::config::RealmNodeConfig;
-use crate::{C, D, F};
+use crate::{RealmInternalQueue, C, D, F};
 use fred::prelude::{KeysInterface, ListInterface};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq::traits::KVQSerializable;
@@ -21,8 +21,6 @@ use tokio::task::JoinHandle;
 use tracing::{error, info};
 
 type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
-
-pub const REDIS_PROOF_KEY: &str = "REALM_PROOF";
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     KVQArcImmutableStore,
@@ -134,10 +132,7 @@ impl RealmProcessor {
                 }
             };
             info!("Pushing job id to queue: {:?}", proving_data_job_id);
-            self.queue
-                .pool()
-                .rpush::<(), &str, Vec<u8>>(REDIS_PROOF_KEY, proving_data_job_id.to_bytes()?)
-                .await?;
+            self.queue.produce_proof(proving_data_job_id).await?;
             // Send the job id to the channel for the next step
             // if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
             //     error!("Error chq_push_imm: {:?}", err);
@@ -194,6 +189,7 @@ impl RealmProcessor {
         &self,
     ) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>> {
         let next_checkpoint_id = self.synced_checkpoint_id + 1;
+        // todo!();
         self.queue
             .wait_for_next_item_imm(
                 QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,

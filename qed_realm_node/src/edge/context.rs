@@ -1,7 +1,7 @@
 use super::request::QSubmitEndCapRPCRequest;
 use crate::error::RpcError;
 use crate::rpc::RealmEdgeRpcServer;
-use crate::{C, D, F, H, REDIS_PROOF_KEY};
+use crate::{RealmInternalQueue, C, D, F, H};
 use async_trait::async_trait;
 use fred::interfaces::FredResult;
 use fred::prelude::ListInterface;
@@ -736,17 +736,8 @@ pub async fn spawn_realm_job_update_task(
     info!("realm job listener spawned");
     tokio::spawn(async move {
         loop {
-            let result: FredResult<(String, Vec<u8>)> =
-                proof_store.pool().blpop(REDIS_PROOF_KEY, 0.0).await;
-            match result {
-                Ok((_, bytes)) => {
-                    let job_id = match ProvingJobDataId::from_bytes(&bytes) {
-                        Ok(id) => id,
-                        Err(err) => {
-                            error!("Failed to parse ProvingJobDataId: {:?}", err);
-                            continue;
-                        }
-                    };
+            match proof_store.consume_proof().await {
+                Ok(job_id) => {
                     if job_id.job_id.circuit_type != GUTANoChange {
                         send_realm_proof(proof_store.clone(), job_id, realm_id).await;
                     }
