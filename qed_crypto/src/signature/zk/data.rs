@@ -49,3 +49,16 @@ impl<F: RichField> KVQSerializable for ZKPublicKeyInfo<F> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
+impl<F: RichField> ZKPublicKeyInfo<F> {
+    pub fn to_hex_string(&self) -> String {
+        let bytes = self.to_bytes().expect("ZKPublicKeyInfo serialization failed");
+        hex::encode(bytes)
+    }
+    pub fn public_key_hex_string(&self) -> String {
+        let mut bytes = Vec::new();
+        for elem in &self.public_key_param.0.elements {
+            bytes.extend_from_slice(&elem.to_canonical_u64().to_le_bytes());
+        }
+        hex::encode(bytes)
+    }
+}

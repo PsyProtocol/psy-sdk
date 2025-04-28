@@ -77,34 +77,22 @@ pub fn build_rpc_module(
             }
         };
 
-        //todo!: user_id should read from the database
-        if let Some(user_id) = REGISTERED_USERS.get(&qhash) {
-            tracing::info!("✅ user found, user_id = {}", *user_id);
-            Ok(*user_id)
-        } else {
-            tracing::info!("🛑 user not found");
-            Err(ErrorObjectOwned::owned(
-                -32602,
-                format!("user not found"),
-                None::<()>,
-            ))
+
+        match handler.get_user_id_logic(qhash).await {
+            Ok(user_id) => Ok(user_id),
+            Err(e) => {
+                tracing::error!("❌ get_user_id_logic failed: {:?}", e);
+
+                let msg = e.to_string();
+                let code = if msg.contains("User not found") {
+                    -32004
+                } else {
+                    -32005
+                };
+
+                Err(ErrorObjectOwned::owned(code, msg, None::<()>))
+            }
         }
-
-
-        // match handler.get_user_id_by_pub_key(parsed).await {
-        //     Ok(Some(user_id)) => {
-        //         tracing::info!("✅ user found, user_id = {}", user_id);
-        //         Ok(serde_json::json!({ "user_id": user_id }))
-        //     }
-        //     Ok(None) => {
-        //         tracing::info!("🛑 user not found");
-        //         Ok(serde_json::json!({ "user_id": null }))
-        //     }
-        //     Err(e) => {
-        //         tracing::error!("❌ error in get_user_id_by_pubkey: {:?}", e);
-        //         Err(ErrorObjectOwned::owned(1, e.to_string(), None::<()>))
-        //     }
-        // }
     })?;
     //qed_deploy_contract
     module.register_async_method("qed_deploy_contract", |params, handler, _ext| async move {
@@ -865,6 +853,8 @@ where
 
 
 use jsonrpsee::types::Request;
+use kvq::traits::KVQSerializable;
+use qed_node::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by_pubkey};
 use qed_rollup_utils::{decrypt_jwt_token, Claims};
 
 pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwned> {

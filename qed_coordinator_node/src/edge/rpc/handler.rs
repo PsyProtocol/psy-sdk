@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use anyhow::bail;
+use jsonrpsee::types::ErrorObjectOwned;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::{HashOut};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
@@ -10,6 +11,7 @@ use rand::RngCore;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tracing::{ error, info, warn};
+use kvq::traits::KVQSerializable;
 use qed_core::config::network_constants::QED_CHECKPOINT_JOB_ID_CHANNEL;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata};
@@ -24,12 +26,13 @@ use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLe
 use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
+use qed_node::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by_pubkey};
 use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, CPQueueNotification, RedisQueue, CE_NOTIFICATIONS};
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
 use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use crate::context::with_temp_ctx_read_async;
+use crate::context::{with_temp_ctx_read_async};
 use crate::edge::context::{with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
 use crate::edge::processor::{handle_cp_sync, process_realm_job};
 use crate::edge::redis::{create_pubsub_client, subscribe_checkpoint_sync};
@@ -92,15 +95,14 @@ impl CoordinatorEdgeHandler {
     pub async fn register_user(&self, zk_user_info: ZKPublicKeyInfo<QEDFelt>) -> anyhow::Result<()> {
 
         let public_key = zk_user_info.public_key_param;
+        let qhash = public_key;
 
-        if let Some(user_id) = REGISTERED_USERS.get(&public_key) {
-            info!("🛑 user already registered, user_id = {}", *user_id);
+        if let Some(existing_user_id) = check_or_get_existing_user_id(&qhash).await? {
+            info!("🛑 User already registered, user_id = {}", existing_user_id);
             return Ok(());
         }
 
         let register_id = REGISTER_USER_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let user_id = get_user_id_from_registration_id(register_id);
-        REGISTERED_USERS.insert(public_key, user_id);
 
         with_ctx_read_async(|ctx| {
             let queue = ctx.checkpoint_queue.clone();
@@ -108,8 +110,8 @@ impl CoordinatorEdgeHandler {
 
             async move {
                 info!(
-                    "🚀 pushing  new user to drain queue, user_id = {}, pub_key = {},",
-                    user_id, zk_user.public_key_param
+                    "🚀 pushing  new user to drain queue, local_register_id = {}, pub_key = {},",
+                    register_id, zk_user.public_key_param
                 );
                 queue.cdq_push_imm(zk_user).await?;
                 info!("✅ pushed to drain queue.");
@@ -117,6 +119,32 @@ impl CoordinatorEdgeHandler {
             }
         })
             .await
+    }
+
+    pub(crate) async fn get_user_id_logic(&self, qhash: QHashOut<QEDFelt>) -> anyhow::Result<u64> {
+        let pubkey_hex = hex::encode(qhash.to_bytes()?);
+
+        if let Some(user_id) = REGISTERED_USERS.get(&qhash) {
+            tracing::info!("✅ Found user_id in cache: {}", *user_id);
+            return Ok(*user_id);
+        }
+
+        let redis_pool = get_node_redis_pool()?;
+        match get_user_id_by_pubkey(redis_pool.as_ref(), &pubkey_hex).await {
+            Ok(Some(user_id)) => {
+                REGISTERED_USERS.insert(qhash, user_id);
+                tracing::info!("✅ Found user_id in database : {}", user_id);
+                Ok(user_id)
+            }
+            Ok(None) => {
+                tracing::info!("🛑 User not found");
+                anyhow::bail!("User not found"); // return anyhow error
+            }
+            Err(e) => {
+                tracing::error!("❌ Redis query failed: {:?}", e);
+                Err(e)
+            }
+        }
     }
 
     pub async fn get_user_id_by_pub_key(&self, params: GetUserIdRequest) -> anyhow::Result<Option<u64>> {
@@ -607,4 +635,33 @@ impl CoordinatorEdgeHandler {
 fn qhash_from_u64_array(arr: [u64; 4]) -> QHashOut<QEDFelt> {
     let elements = arr.map(QEDFelt::from_canonical_u64);
     QHashOut(HashOut { elements })
+}
+
+pub async fn check_or_get_existing_user_id(
+    qhash: &QHashOut<QEDFelt>,
+) -> anyhow::Result<Option<u64>> {
+    // 1. find DashMap
+    if let Some(user_id) = REGISTERED_USERS.get(qhash) {
+        tracing::info!("✅ Found user_id in Local: {}", *user_id);
+        return Ok(Some(*user_id));
+    }
+
+    // 2. find  Redis
+    let pubkey_hex = hex::encode(qhash.to_bytes()?);
+    let redis_pool = get_node_redis_pool()?;
+    match get_user_id_by_pubkey(redis_pool.as_ref(), &pubkey_hex).await {
+        Ok(Some(user_id)) => {
+            tracing::info!("✅ Found user_id in database: {}", user_id);
+            REGISTERED_USERS.insert(*qhash, user_id);
+            Ok(Some(user_id))
+        }
+        Ok(None) => {
+            tracing::info!("🆕 No existing user_id found, need fresh registration");
+            Ok(None)
+        }
+        Err(e) => {
+            tracing::error!("❌ Error querying Redis: {:?}", e);
+            Err(e)
+        }
+    }
 }

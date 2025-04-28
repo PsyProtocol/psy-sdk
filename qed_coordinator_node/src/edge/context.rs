@@ -17,6 +17,7 @@ use fred::{
 };
 use fred::prelude::*;
 use serde::{Deserialize, Serialize};
+use qed_node::coordinator::state::user_map::get_node_redis_pool;
 use qed_node::nimpl::new_fred_pool;
 use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
 use crate::rpc::types::{RealmInfo, RealmRpcRegistry};
@@ -96,26 +97,6 @@ pub fn get_global_db_path() -> anyhow::Result<&'static str> {
         .ok_or_else(|| anyhow!("GLOBAL_DB_PATH not initialized"))
 }
 
-pub async fn init_global_redis_pool_from_url(redis_url: &str, pool_size: usize) -> anyhow::Result<()> {
-    let pool = new_fred_pool(redis_url, pool_size).await?;
-    GLOBAL_REDIS_POOL
-        .set(Arc::new(pool))
-        .map_err(|_| anyhow!("GLOBAL_REDIS_POOL already initialized"))
-}
-
-pub fn init_global_redis_pool(redis_pool: Pool) -> anyhow::Result<()> {
-    GLOBAL_REDIS_POOL
-        .set(Arc::new(redis_pool))
-        .map_err(|_| anyhow!("GLOBAL_REDIS_POOL already initialized"))
-}
-pub fn get_global_redis_pool() -> anyhow::Result<Arc<Pool>> {
-    GLOBAL_REDIS_POOL
-        .get()
-        .cloned()
-        .ok_or_else(|| anyhow!("GLOBAL_REDIS_POOL not initialized"))
-}
-
-
 pub async fn register_realm(name: String, rpc_url: String) -> anyhow::Result<()> {
     let mut registry = GLOBAL_REALM_REGISTRY.write().await;
     if !registry.realms.contains_key(&rpc_url) {
@@ -160,7 +141,7 @@ where
     let inner_store = KVQlibmdbxStore::new_read(db_path)?;
     let store = KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(inner_store);
 
-    let redis_pool = get_global_redis_pool()?;
+    let redis_pool = get_node_redis_pool()?;
 
     let proof_store = Arc::new(ProofStoreFred::new2(
         (*redis_pool).clone(),

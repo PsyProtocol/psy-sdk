@@ -31,11 +31,11 @@ use qed_store::{
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
 use std::{ sync::Arc, time::Duration};
+use qed_node::coordinator::state::user_map::init_node_redis_pool;
 use qed_node::nimpl::new_fred_pool;
 use qed_realm_node::RedisConfig;
 use crate::args::CoordinatorProcessorArgs;
 use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
-use crate::context::{init_global_redis_pool, init_global_redis_pool_from_url};
 use crate::redis::{broadcast_checkpoint_sync, spawn_fixed_checkpoint_sender};
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -151,7 +151,7 @@ impl
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessNodeConfig) -> anyhow::Result<Self> {
         let pool = new_fred_pool(&cp_config.redis_uri, cp_config.pool_size).await?;
-        init_global_redis_pool_from_url(&cp_config.redis_uri, cp_config.pool_size).await?;
+        init_node_redis_pool(pool.clone())?;
         let q = ProofStoreFred::new2(
             pool.clone(),
             COORDINATOR_WORKER_QUEUE_SUFFIX.into(),

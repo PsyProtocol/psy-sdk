@@ -4,8 +4,8 @@ use bytes::Bytes;
 use fred::clients::Client;
 use fred::prelude::{ClientLike, Config, EventInterface, KeysInterface, PubsubInterface, ReconnectPolicy};
 use fred::types::Message;
+use qed_node::coordinator::state::user_map::get_node_redis_pool;
 use qed_node::nimpl::worker_queue_redis::redis_queue::CPQueueNotification;
-use crate::context::get_global_redis_pool;
 
 const CP2CE_BROADCAST_CHANNEL: &str = "checkpoint_edge_broadcast_channel";
 
@@ -28,7 +28,7 @@ pub async fn create_pubsub_client(redis_url: &str) -> anyhow::Result<Client> {
 }
 
 pub async fn publish_checkpoint_sync(payload: String) -> anyhow::Result<()> {
-    let pool = get_global_redis_pool()?;
+    let pool = get_node_redis_pool()?;
     let conn = pool.next();
 
     conn.publish(CP2CE_BROADCAST_CHANNEL, payload).await?;
@@ -50,7 +50,7 @@ pub async fn publish_checkpoint_sync(payload: String) -> anyhow::Result<()> {
 pub async fn broadcast_checkpoint_sync(notification: CPQueueNotification) -> anyhow::Result<()> {
     let payload = serde_json::to_vec(&notification)?;
     let payload_len = payload.len();
-    let pool = get_global_redis_pool()?;
+    let pool = get_node_redis_pool()?;
     let client = pool.next();
 
     client.publish(CP2CE_BROADCAST_CHANNEL, payload).await?;

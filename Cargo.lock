@@ -4669,6 +4669,7 @@ dependencies = [
  "lapin",
  "lazy_static",
  "log",
+ "once_cell",
  "plonky2",
  "qed_common_circuit",
  "qed_core",
