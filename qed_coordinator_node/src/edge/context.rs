@@ -34,7 +34,7 @@ lazy_static! {
 }
 pub static LATEST_CHECKPOINT_ID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
 pub static REGISTER_USER_COUNTER: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
-pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, u64>> = Lazy::new(DashMap::new);
+pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, UserRegisterState>> = Lazy::new(DashMap::new);
 pub static GLOBAL_DB_PATH: OnceCell<String> = OnceCell::new();
 
 pub static GLOBAL_REDIS_POOL: OnceCell<Arc<Pool>> = OnceCell::new();
@@ -45,6 +45,12 @@ pub static GLOBAL_REALM_REGISTRY: Lazy<Arc<RwLock<RealmRpcRegistry>>> = Lazy::ne
 
 pub static GLOBAL_JWT_SECRET: OnceCell<Arc<String>> = OnceCell::new();
 
+//    when user registers, but not write into block, we mark as Registering
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UserRegisterState {
+    Registering(u64),
+    Registered(u64),
+}
 
 pub async fn init_global_ctx_once(
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
