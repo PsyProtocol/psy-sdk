@@ -185,16 +185,16 @@ impl
         )
         .await?;
 
-        let sync_queue = RedisQueue::new(&cp_config.redis_uri)?;
+        let mut sync_queue = RedisQueue::new(&cp_config.redis_uri)?;
 
         coordinator_processor_ctx.build_block().await?;
         //notify to coordinator edge
         let notification = CPQueueNotification::StartSync {
             checkpoint: 1,
         };
-        sync_queue
-            .dispatch(CE_NOTIFICATIONS, notification)
-            .expect("failed to dispatch notification");
+            sync_queue
+                .dispatch(CE_NOTIFICATIONS, notification)
+                .expect("failed to dispatch notification");
 
         // worker
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
