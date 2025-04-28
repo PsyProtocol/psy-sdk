@@ -40,6 +40,8 @@ pub static GLOBAL_REALM_REGISTRY: Lazy<Arc<RwLock<RealmRpcRegistry>>> = Lazy::ne
     Arc::new(RwLock::new(RealmRpcRegistry::default()))
 });
 
+pub static GLOBAL_JWT_SECRET: OnceCell<Arc<String>> = OnceCell::new();
+
 
 pub async fn init_global_ctx_once(
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
@@ -178,3 +180,15 @@ where
 }
 
 
+
+pub fn init_global_jwt_secret() -> anyhow::Result<()> {
+    let secret = var("JWT_SECRET_KEY")?;
+    GLOBAL_JWT_SECRET.set(Arc::new(secret))
+        .map_err(|_| anyhow::anyhow!("JWT secret already initialized"))?;
+    Ok(())
+}
+pub fn get_global_jwt_secret() -> Arc<String> {
+    GLOBAL_JWT_SECRET.get()
+        .expect("JWT secret not initialized")
+        .clone()
+}

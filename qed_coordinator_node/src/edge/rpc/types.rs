@@ -101,3 +101,4 @@ pub struct RegisterRealmRpcRequest {
     pub rpc_url: String,
 }
 
+

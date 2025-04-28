@@ -12,8 +12,12 @@ use qed_core::utils::debug_timer::DebugTimer;
 use crate::edge::init::{init_coordinator_edge};
 use crate::edge::rpc::router::build_rpc_module;
 use std::net::SocketAddr;
+use serde::{Deserialize, Serialize};
 use tracing::info;
-use crate::context::init_realms_from_env;
+use crate::context::{init_global_jwt_secret, init_realms_from_env};
+
+
+use axum::http::HeaderMap;
 
 pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Starting coordinator edge node...");
@@ -29,6 +33,9 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
 
     init_realms_from_env().await?;
     info!("✅ Initialized realms from env");
+
+    init_global_jwt_secret().await?;
+    info!("✅ Initialized JWT secret");
 
     let (rpc_module, handler) = build_rpc_module(&config.coordinator_redis_uri)?;
     handler.spawn_cp_sync_listener().await?;
