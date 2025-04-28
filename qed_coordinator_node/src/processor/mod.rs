@@ -30,7 +30,7 @@ use qed_store::{
     },
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
-use std::{ sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use crate::args::CoordinatorProcessorArgs;
 use crate::COORDINATOR_WORKER_SUFFIX;
@@ -114,7 +114,7 @@ impl<
             .prover_queue
             .wait_for_block_proving_jobs_imm(checkpoint_id)
             .await?;
-        if job.goal_id == checkpoint_id {
+        if job.goal_id + 1 == checkpoint_id {
             tracing::info!("sync queue dispatch StartSync");
             self.sync_queue
                 .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync)?;
@@ -146,7 +146,13 @@ impl
 
         pool.init().await?;
 
-        let q = ProofStoreFred::new2(pool.clone(), "wq1".to_string(), "nq1".to_string(), Some(COORDINATOR_WORKER_SUFFIX), Some(COORDINATOR_WORKER_SUFFIX));
+        let q = ProofStoreFred::new2(
+            pool.clone(),
+            "wq1".to_string(),
+            "nq1".to_string(),
+            Some(COORDINATOR_WORKER_SUFFIX),
+            Some(COORDINATOR_WORKER_SUFFIX),
+        );
 
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
@@ -175,8 +181,6 @@ impl
         .await?;
 
         let sync_queue = RedisQueue::new(&cp_config.redis_uri)?;
-
-        coordinator_processor_ctx.build_block().await?;
 
         // worker
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -207,6 +211,19 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
             storage_db_path: args.coordinator_db_path,
         })
         .await?;
+
+    tracing::info!("build block 1");
+    coordinator_processor.ctx.build_block().await?;
+    coordinator_processor
+        .ctx
+        .prover_queue
+        .wait_for_block_proving_jobs_imm(0)
+        .await?;
+
+    tracing::info!("sync queue dispatch StartSync");
+    coordinator_processor
+        .sync_queue
+        .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync)?;
 
     tracing::info!("start coordinator processor");
     let task = tokio::spawn(async move {
