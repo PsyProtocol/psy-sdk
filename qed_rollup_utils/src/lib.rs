@@ -19,9 +19,9 @@ pub fn generate_jwt_token(
     secret_key: &str,
     realm_id: u64,
 ) -> Result<String, jsonwebtoken::errors::Error> {
-    let expiration = Utc::now() + Duration::seconds(3600);
+    let expiration = Utc::now() + Duration::seconds(604800);
     let claims = Claims {
-        company: "QED".to_string(),
+        company: "QEDProtocol".to_string(),
         sub: "qedlang-rust".to_string(),
         realm_id: realm_id,
         exp: expiration.timestamp(),
@@ -82,7 +82,7 @@ mod tests {
         let realm_id = 1;
         let token = super::generate_jwt_token(secret_key, realm_id).unwrap();
         let claims = super::decrypt_jwt_token(secret_key, &token).unwrap();
-        assert_eq!(claims.company, "QED");
+        assert_eq!(claims.company, "QEDProtocol");
         assert_eq!(claims.sub, "qedlang-rust");
         assert_eq!(claims.realm_id, realm_id);
     }
