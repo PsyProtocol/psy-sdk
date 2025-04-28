@@ -73,6 +73,7 @@ impl CoordinatorEdgeHandler {
                                 tracing::error!("❌ Failed to handle StartSync checkpoint_id={}, error={:?}", checkpoint, e);
                             }
                             LATEST_CHECKPOINT_ID.store(checkpoint, Ordering::Relaxed);
+                            info!("⭐ latest checkpoint now update to {checkpoint}");
                         });
                     }
                 }
@@ -87,62 +88,6 @@ impl CoordinatorEdgeHandler {
         Ok(())
     }
 
-    /// Listen to RP output proving_data_job_id (GUTA result)
-    pub async fn spawn_realm_job_listener(&self) -> anyhow::Result<()> {
-        info!("realm job listener spawned");
-        //run this only once
-        if self.realm_job_listener.lock().await.is_some() {
-            return Ok(());
-        }
-
-        let channel_id = QED_CHECKPOINT_JOB_ID_CHANNEL;
-
-        let ctx_lock = GLOBAL_COORD_EDGE_CTX.clone();
-
-        let handle = tokio::spawn(async move {
-            loop {
-                // get ctx
-                if let Ok(guard) = ctx_lock.try_read() {
-                    if let Some(ctx) = guard.as_ref() {
-                        let next_checkpoint = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed) + 1;
-                        // debug!("waiting for realm job, channel_id = {}, next_checkpoint = {}", channel_id, next_checkpoint);
-
-                        match ctx
-                            .proof_store
-                            .cdq_drain_imm::<ProvingJobDataId>(channel_id, next_checkpoint)
-                            .await
-                        {
-                            Ok(jobs) => {
-                                if jobs.is_empty() {
-                                    // debug!("🟡 No jobs at checkpoint {}, retrying later", next_checkpoint);
-                                } else {
-                                    for job_id in jobs {
-                                        info!("🎯 Got ProvingJobDataId: {:?}", job_id);
-
-                                        if let Err(e) = process_realm_job(ctx, job_id).await {
-                                            error!("❌ process_realm_job error: {:?}", e);
-                                        } else {
-                                            info!("✅ process_realm_job success, checkpoint = {}", job_id.checkpoint_id);
-                                        }
-                                    }
-                                }
-
-                            }
-                            Err(e) => {
-                                warn!("⚠️ cdq_drain_imm error: {:?}", e);
-                            }
-                        }
-                    }
-                }
-                tokio::time::sleep(Duration::from_millis(500)).await;
-            }
-        });
-
-        // let mut lock = self.realm_job_listener.lock().await;
-        // *lock = Some(handle);
-        *self.realm_job_listener.lock().await = Some(handle);
-        Ok(())
-    }
 
     pub async fn register_user(&self, zk_user_info: ZKPublicKeyInfo<QEDFelt>) -> anyhow::Result<()> {
 

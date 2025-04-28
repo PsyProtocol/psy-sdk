@@ -42,7 +42,7 @@ pub async fn handle_cp_sync(latest_checkpoint_id: u64) -> anyhow::Result<()>
     );
     // 3) broadcast the info to all realms
     broadcast_checkpoint(sync_info).await?;
-    info!("✅ Broadcast checkpoint_id = {} to all realms", latest_checkpoint_id);
+    info!("✅ Broadcast checkpoint {} sync info to all realms", latest_checkpoint_id);
 
     Ok(())
 }
