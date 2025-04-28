@@ -49,7 +49,7 @@ pub async fn publish_checkpoint_sync(payload: String) -> anyhow::Result<()> {
 // }
 pub async fn broadcast_checkpoint_sync(notification: CPQueueNotification) -> anyhow::Result<()> {
     let payload = serde_json::to_vec(&notification)?;
-
+    let payload_len = payload.len();
     let pool = get_global_redis_pool()?;
     let client = pool.next();
 
@@ -57,7 +57,7 @@ pub async fn broadcast_checkpoint_sync(notification: CPQueueNotification) -> any
     tracing::info!(
         "✅ Successfully broadcast checkpoint sync notification to channel '{}'. Payload len: {} bytes",
         CP2CE_BROADCAST_CHANNEL,
-        payload.len()
+        payload_len
     );
     Ok(())
 }
