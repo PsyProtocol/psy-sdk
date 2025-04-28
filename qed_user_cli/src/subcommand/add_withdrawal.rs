@@ -17,7 +17,7 @@ const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 type F = GoldilocksField;
 
-pub async fn run(args: AddWithdrawalArgs) -> Result<()> {
+pub fn run(args: AddWithdrawalArgs) -> Result<()> {
     // let destination = if args.destination.len() == 40 {
     //     Hash160::from_hex_string(&args.destination)?
     // } else {

@@ -32,7 +32,7 @@ pub struct CoordinatorEdgeContext<
 
     pub coordinator_config: CoordinatorConfig,
     pub last_chkpnt_id: u64,
-    
+
     //pub end_cap_verifier_data: VerifierOnlyCircuitData<C, D>,
 }
 
@@ -103,10 +103,10 @@ impl<
     }
     pub async fn get_last_checkpoint_id_async(&self) -> anyhow::Result<u64> {
         Ok(self.last_chkpnt_id)
-    } 
+    }
     pub async fn get_next_checkpoint_id_async(&self) -> anyhow::Result<u64> {
         Ok(self.last_chkpnt_id+1)
-    } 
+    }
 
     pub async fn handle_process_regsiter_user(&self, zk_user_info: ZKPublicKeyInfo<F>) -> anyhow::Result<()> {
         self.checkpoint_queue.cdq_push_imm(zk_user_info).await?;

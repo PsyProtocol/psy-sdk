@@ -8,7 +8,7 @@ use super::args::SignHashArgs;
 
 use anyhow::Result;
 
-pub async fn run(args: SignHashArgs) -> Result<()> {
+pub fn run(args: SignHashArgs) -> Result<()> {
     let private_key_base = QHashOut::<GoldilocksField>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
     let action_hash = QHashOut::<GoldilocksField>::from_str(&args.action_hash)
@@ -22,5 +22,4 @@ pub async fn run(args: SignHashArgs) -> Result<()> {
     fs::write(args.output, proof.to_bytes())
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
     Ok(())
-    
 }

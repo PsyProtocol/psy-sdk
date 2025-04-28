@@ -1,0 +1,9 @@
+[
+    {
+        "contract_id": 0,
+        "method_name": "simple_mint_debug",
+        "inputs": [
+            1000
+        ]
+    }
+]

@@ -50,6 +50,7 @@ use qed_store::{
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
 use qed_test_sandbox::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
+use qed_user_cli::subcommand::lps::run_local;
 use reth_libmdbx::{Environment, EnvironmentFlags, Geometry, Mode, PageSize, SyncMode, RW};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
@@ -368,9 +369,27 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         proof: end_cap_proof,
     };*/
 
-    realm_edge_node
-        .handle_recv_end_cap_from_user(mgr.get_api_input()?, &end_cap_proof)
-        .await?;
+    realm_edge_node.handle_recv_end_cap_from_user(
+        mgr.get_api_input()?,
+        &end_cap_proof
+    ).await?;
+
+
+    // let user_0_pub_key = st.get_user_registration_tree_leaf_hash(latest_l2_block_state.checkpoint_id,0).await?;
+    // let priv_key_user_0 = if pub_key_0.qfhash::<QEDHasher>() == user_0_pub_key {
+    //     priv_key_0
+    // }else if pub_key_1.qfhash::<QEDHasher>() == user_0_pub_key {
+    //     priv_key_1
+    // }else{
+    //     anyhow::bail!("missing private key!");
+    // };
+
+    // let (exec_input , end_cap_proof) = run_local(st.dup(), "/home/longer/workspace/private/qedlang-rust-dev/contract_call.json", &priv_key_user_0.to_string())?;
+
+    // realm_edge_node.handle_recv_end_cap_from_user(
+    //     exec_input,
+    //     &end_cap_proof
+    // ).await?;
 
     realm_processor_node.build_block().await?;
     let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<

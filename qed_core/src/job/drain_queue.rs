@@ -10,7 +10,7 @@ pub trait DQSerializable: KVQSerializable + DrainQueueMetadataTagged + Send+ Syn
 
 impl<T: KVQSerializable + DrainQueueMetadataTagged+ Send+ Sync> DQSerializable for T {}
 
-#[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Copy, PartialEq, PartialOrd, Ord, Eq, Hash, Serialize, Deserialize)]
 pub struct DrainQueueMetadata {
     pub channel_id: u64,
     pub checkpoint_id: u64,
@@ -45,7 +45,7 @@ impl KVQSerializable for DrainQueueMetadata {
         })
     }
 }
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WithDrainQueueMetadata<T: KVQSerializable> {
     pub payload: T,
     pub metadata: DrainQueueMetadata,
