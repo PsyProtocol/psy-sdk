@@ -65,7 +65,7 @@ pub async fn broadcast_checkpoint(sync_info: CheckpointSyncInfo) -> anyhow::Resu
         let task = tokio::spawn(async move {
             let payload = serde_json::json!({
                 "jsonrpc": "2.0",
-                "method": "realm_receive_checkpoint_sync",
+                "method": REALM_SYNC_INFO_METHOD,
                 "params": params,
                 "id": 1,
             });
@@ -123,7 +123,7 @@ pub async fn broadcast_checkpoint(sync_info: CheckpointSyncInfo) -> anyhow::Resu
     Ok(())
 }
 
-
+const REALM_SYNC_INFO_METHOD: &str = "sync_checkpoint";
 pub async fn push_checkpoint_to_realm(realm_rpc_url: &str, sync_info: &CheckpointSyncInfo) -> Result<()> {
     let client = Client::new();
 
@@ -131,7 +131,7 @@ pub async fn push_checkpoint_to_realm(realm_rpc_url: &str, sync_info: &Checkpoin
 
     let payload = json!({
         "jsonrpc": "2.0",
-        "method": "realm_receive_checkpoint_sync",
+        "method": REALM_SYNC_INFO_METHOD,
         "params": checkpoint_json,
         "id": 1,
     });
