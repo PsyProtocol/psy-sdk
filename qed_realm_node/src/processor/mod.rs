@@ -114,34 +114,31 @@ impl RealmProcessor {
             }
         };
         info!("Realm Processor started");
-        let handle = tokio::spawn(async move {
-            loop {
-                info!("Waiting for next checkpoint");
-                match self.sync_checkpoint(&mut context).await {
-                    Ok(false) | Err(_) => {
-                        tokio::time::sleep(Duration::from_secs(1)).await;
+        loop {
+            info!("Waiting for next checkpoint");
+            match self.sync_checkpoint(&mut context).await {
+                Ok(false) | Err(_) => {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    continue;
+                }
+                _ => {}
+            }
+            info!("Start building block");
+            let proving_data_job_id: ProvingJobDataId =
+                match self.build_block(&mut context).await {
+                    Ok(job_id) => job_id,
+                    Err(err) => {
+                        error!("Error building block: {:?}", err);
                         continue;
                     }
-                    _ => {}
-                }
-                info!("Start building block");
-                let proving_data_job_id: ProvingJobDataId =
-                    match self.build_block(&mut context).await {
-                        Ok(job_id) => job_id,
-                        Err(err) => {
-                            error!("Error building block: {:?}", err);
-                            continue;
-                        }
-                    };
-                // Send the job id to the channel for the next step
-                info!("Pushing job id to queue: {:?}", proving_data_job_id);
-                if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
-                    error!("Error chq_push_imm: {:?}", err);
                 };
-                info!("Pushing job to queueue done");
-            }
-        });
-        Ok(handle)
+            // Send the job id to the channel for the next step
+            info!("Pushing job id to queue: {:?}", proving_data_job_id);
+            if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
+                error!("Error chq_push_imm: {:?}", err);
+            };
+            info!("Pushing job to queueue done");
+        }
     }
 
     pub async fn sync_checkpoint(
