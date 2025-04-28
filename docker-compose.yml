@@ -59,8 +59,6 @@ services:
     command:
       - "coordinator-worker"
       - "--coordinator-redis-uri=redis://172.16.238.13:6379"
-    volumes:
-      - "./db:/qed-rollup/db"
     networks:
       testing_net:
         ipv4_address: 172.16.238.16
@@ -106,6 +104,22 @@ services:
     depends_on:
       - redis
       - realm-processor
+
+  realm-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command:
+      - "realm-worker"
+      - "--redis-uri=redis://172.16.238.13:6379"
+    networks:
+      testing_net:
+        ipv4_address: 172.16.238.19
+    restart: always
+    depends_on:
+      - redis
 
 
 networks:

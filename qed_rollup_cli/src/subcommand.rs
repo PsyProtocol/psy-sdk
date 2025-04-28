@@ -8,6 +8,7 @@ pub mod coordinator_worker;
 pub mod generate_token;
 pub mod realm_edge;
 pub mod realm_processor;
+pub mod realm_worker;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -39,11 +40,18 @@ pub enum Commands {
         #[command(flatten)]
         config: qed_realm_node::RealmNodeConfig,
     },
+    #[command(about = "Run the realm worker node")]
+    RealmWorker {
+        #[command(flatten)]
+        redis_config: qed_realm_node::RedisConfig,
+        #[command(flatten)]
+        queue_config: qed_realm_node::QueueConfig,
+    },
     #[command(about = "Generate access token")]
     GenerateAccessToken {
         #[arg(long, env = "PRIVATE_JWT_KEY", default_value = "ykGz8xBecyAs")]
         private_key: String,
         #[arg(long, default_value = "0")]
         realm_id: u64,
-    },
+    }
 }

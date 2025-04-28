@@ -79,14 +79,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     info!("Realm Edge node started on {}", config.rpc.listen_addr);
 
     // Keep server running
-    tokio::select! {
-        _ = handle.stopped() => {
-            tracing::warn!("Realm edge stopped");
-        }
-        _ = tokio::signal::ctrl_c() => {
-            tracing::info!("Received Ctrl-C, shutting down...");
-        }
-    }
-
+    handle.stopped().await;
     Ok(())
 }
