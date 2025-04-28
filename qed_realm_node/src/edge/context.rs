@@ -250,6 +250,10 @@ impl<
         self.checkpoint_queue.cdq_push_imm(input).await?;
         Ok(())
     }
+
+    pub async fn register(&self) -> anyhow::Result<()> {
+        todo!("call coordinator edge API to register realm")
+    }
 }
 
 #[async_trait]

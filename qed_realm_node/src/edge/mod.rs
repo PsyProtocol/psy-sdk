@@ -61,9 +61,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
     debug!("created realm config successfully!");
 
-    // Spawn task to send proof to coordinator
-    spawn_realm_job_update_task(proof_store.clone(), realm_config.realm_id as u64).await?;
-
     // Create Edge node context
     let edge_ctx = RealmEdgeContext::new(
         realm_config,
@@ -71,9 +68,14 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         checkpoint_queue,
         proof_store.clone(),
         proof_verifier,
-        proof_store,
+        proof_store.clone(),
     )
     .await?;
+
+    // Spawn task to send proof to coordinator
+    spawn_realm_job_update_task(proof_store, realm_config.realm_id as u64).await?;
+    // Register Realm
+    edge_ctx.register().await?;
 
     // Start RPC server
     let server_handle = ServerBuilder::default()
