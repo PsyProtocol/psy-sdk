@@ -54,19 +54,22 @@ pub struct RealmEdgeContext<
     SR: QEDRealmStoreReaderAsync<F>,
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
+    IQ: RealmInternalQueue,
 > {
     pub store_reader: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
     pub proof_store: Arc<PS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
+    pub interval_sync_queue: Arc<IQ>,
 }
 
 impl<
         SR: QEDRealmStoreReaderAsync<F>,
         DQ: CheckpointDrainQueueEmitterAsyncImm,
         PS: QProofStoreAsyncImm,
-    > RealmEdgeContext<SR, DQ, PS>
+        IQ: RealmInternalQueue,
+    > RealmEdgeContext<SR, DQ, PS, IQ>
 {
     pub async fn new(
         realm_config: RealmConfig,
@@ -74,6 +77,7 @@ impl<
         checkpoint_queue: Arc<DQ>,
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+        interval_sync_queue: Arc<IQ>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             realm_config,
@@ -81,6 +85,7 @@ impl<
             checkpoint_queue,
             proof_store,
             proof_verifier,
+            interval_sync_queue,
         })
     }
 
@@ -248,11 +253,12 @@ impl<
 }
 
 #[async_trait]
-impl<SR, DQ, PS> RealmEdgeRpcServer for RealmEdgeContext<SR, DQ, PS>
+impl<SR, DQ, PS, IQ> RealmEdgeRpcServer for RealmEdgeContext<SR, DQ, PS, IQ>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
+    IQ: RealmInternalQueue + Sync + Send + 'static,
 {
     async fn check_user_id_in_realm(&self, user_id: u64) -> RpcResult<bool> {
         Ok(self.includes_user_id(user_id))
@@ -726,6 +732,15 @@ where
             )
             .await
             .map_err(RpcError::Anyhow)?)
+    }
+
+    async fn sync_checkpoint(&self, checkpoint: QCheckpointSyncInfoCompact) -> RpcResult<()> {
+        self.interval_sync_queue
+            .produce_checkpoint_async_info(checkpoint)
+            .await
+            .map_err(RpcError::Anyhow)?;
+
+        Ok(())
     }
 }
 

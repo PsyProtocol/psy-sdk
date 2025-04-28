@@ -5,6 +5,7 @@ use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
 use qed_data::qdata::{checkpoint::QEDL2BlockState, user::QEDUserLeaf};
+use qed_store::config::store_config::QCheckpointSyncInfoCompact;
 
 #[rpc(server, client, namespace = "qed")]
 pub trait RealmEdgeRpc {
@@ -245,4 +246,7 @@ pub trait RealmEdgeRpc {
         leaf_level: u8,
         leaf_index: F,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "sync_checkpoint")]
+    async fn sync_checkpoint(&self, checkpoint: QCheckpointSyncInfoCompact) -> RpcResult<()>;
 }

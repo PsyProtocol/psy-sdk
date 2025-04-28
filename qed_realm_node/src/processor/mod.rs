@@ -188,14 +188,14 @@ impl RealmProcessor {
     pub async fn wait_for_next_checkpoint(
         &self,
     ) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>> {
-        let next_checkpoint_id = self.synced_checkpoint_id + 1;
-        // todo!();
-        self.queue
-            .wait_for_next_item_imm(
-                QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
-                next_checkpoint_id,
-            )
-            .await
+        self.queue.consume_checkpoint_async_info().await
+        // let next_checkpoint_id = self.synced_checkpoint_id + 1;
+        // self.queue
+        //     .wait_for_next_item_imm(
+        //         QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+        //         next_checkpoint_id,
+        //     )
+        //     .await
     }
 }
 

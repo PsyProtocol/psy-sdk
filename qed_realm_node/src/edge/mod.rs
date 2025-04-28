@@ -69,8 +69,9 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         realm_config,
         Arc::new(store_reader),
         checkpoint_queue,
-        proof_store,
+        proof_store.clone(),
         proof_verifier,
+        proof_store,
     )
     .await?;
 
