@@ -286,12 +286,13 @@ impl CoordinatorEdgeHandler {
     }
 
     pub async fn build_block(&self) -> anyhow::Result<()> {
-        info!("🚀 build_block called");
+
         let next_checkpoint = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed) + 1;
+        info!("🚀 build_block called, want to build {}", next_checkpoint);
         self.notify_queue
             .clone()
             .dispatch(CE_NOTIFICATIONS, CEQueueNotification::StartProduceBlock {next_checkpoint})?;
-        info!("✅ build_block dispatched to queue");
+        info!("✅ build_block cmd have send to CP");
         Ok(())
     }
 
