@@ -90,12 +90,25 @@ impl<
         }
     }
 
-    pub async fn wait_for_produce_block(&mut self) -> anyhow::Result<bool> {
+    pub async fn wait_for_produce_block(&mut self, latest_checkpoint_id: u64) -> anyhow::Result<bool> {
         match self.sync_queue.pop_one(CE_NOTIFICATIONS)? {
             Some(message) => {
                 let notify_message = serde_json::from_slice::<CEQueueNotification>(&message)?;
+
                 match notify_message {
-                    CEQueueNotification::StartProduceBlock => Ok(true),
+                    CEQueueNotification::StartProduceBlock { next_checkpoint } => {
+                        if next_checkpoint == latest_checkpoint_id + 1 {
+                            tracing::info!("✅ Building new block for checkpoint {}", next_checkpoint);
+                            Ok(true)
+                        } else if next_checkpoint <= latest_checkpoint_id {
+                            tracing::warn!("⚠️ Outdated checkpoint {}, current {}", next_checkpoint, latest_checkpoint_id);
+                            Ok(false)
+                        } else {
+                            tracing::warn!("🚧 Future checkpoint {} too far ahead of {}", next_checkpoint, latest_checkpoint_id);
+                            self.sync_queue.dispatch(CE_NOTIFICATIONS, CEQueueNotification::StartProduceBlock { next_checkpoint })?;
+                            Ok(false)
+                        }
+                    }
                     _ => Ok(false),
                 }
             }
@@ -212,7 +225,14 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
             loop {
                 // wait for produceblock message from coordinator edge
                 tracing::info!("wait for produce_block message from coordinator edge");
-                if coordinator_processor.wait_for_produce_block().await? {
+                let latest_checkpoint_id =
+                    coordinator_processor
+                        .ctx
+                        .store
+                        .get_latest_l2_block_state()
+                        .await?
+                        .checkpoint_id;
+                if coordinator_processor.wait_for_produce_block(latest_checkpoint_id).await? {
                     tracing::info!("start build block");
                     coordinator_processor.ctx.build_block().await?;
 

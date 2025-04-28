@@ -46,10 +46,9 @@ pub enum QueueNotification {
     CoreJobCompleted = 0,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
-#[repr(u8)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum CEQueueNotification {
-    StartProduceBlock = 0,
+    StartProduceBlock  { next_checkpoint: u64 },
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
