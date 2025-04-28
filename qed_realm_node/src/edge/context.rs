@@ -5,7 +5,9 @@ use crate::{RealmInternalQueue, C, D, F, H};
 use async_trait::async_trait;
 use fred::interfaces::FredResult;
 use fred::prelude::ListInterface;
-use jsonrpsee::core::RpcResult;
+use jsonrpsee::core::params::ArrayParams;
+use jsonrpsee::core::{client::ClientT, RpcResult};
+use jsonrpsee::rpc_params;
 use kvq::traits::KVQSerializable;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
@@ -62,6 +64,7 @@ pub struct RealmEdgeContext<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
     pub interval_sync_queue: Arc<IQ>,
+    pub coordinator_addr: String,
 }
 
 impl<
@@ -78,6 +81,7 @@ impl<
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
         interval_sync_queue: Arc<IQ>,
+        coordinator_url: String,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             realm_config,
@@ -86,6 +90,7 @@ impl<
             proof_store,
             proof_verifier,
             interval_sync_queue,
+            coordinator_addr: coordinator_url,
         })
     }
 
@@ -252,7 +257,34 @@ impl<
     }
 
     pub async fn register(&self) -> anyhow::Result<()> {
-        todo!("call coordinator edge API to register realm")
+        let client = jsonrpsee::http_client::HttpClientBuilder::default()
+            .build(&self.coordinator_addr)
+            .map_err(|e| anyhow::anyhow!("Failed to create RPC client: {}", e))?;
+
+        let params = rpc_params![
+            self.realm_config.realm_id,
+            self.realm_config.guta_channel_id
+        ];
+
+        // 发起RPC调用
+        match client
+            .request::<bool, _>("register_realm_rpc", params)
+            .await
+        {
+            Ok(true) => {
+                info!(
+                    "Successfully registered realm {} with coordinator",
+                    self.realm_config.realm_id
+                );
+                Ok(())
+            }
+            Ok(false) => {
+                anyhow::bail!("Coordinator rejected realm registration")
+            }
+            Err(e) => {
+                anyhow::bail!("Failed to register realm with coordinator: {}", e)
+            }
+        }
     }
 }
 
@@ -751,6 +783,7 @@ where
 pub async fn spawn_realm_job_update_task(
     proof_store: Arc<ProofStoreFred>,
     realm_id: u64,
+    coordinator_addr: String,
 ) -> anyhow::Result<()> {
     info!("realm job listener spawned");
     tokio::spawn(async move {
@@ -758,7 +791,8 @@ pub async fn spawn_realm_job_update_task(
             match proof_store.consume_proof().await {
                 Ok(job_id) => {
                     if job_id.job_id.circuit_type != GUTANoChange {
-                        send_realm_proof(proof_store.clone(), job_id, realm_id).await;
+                        send_realm_proof(proof_store.clone(), job_id, realm_id, &coordinator_addr)
+                            .await;
                     }
                 }
                 Err(err) => {
@@ -776,6 +810,7 @@ async fn send_realm_proof<PS: QProofStoreAsyncImm>(
     proof_store: Arc<PS>,
     job_info: ProvingJobDataId,
     realm_id: u64,
+    coordinator_addr: &str,
 ) {
     let bytes = match proof_store.get_bytes_by_id(job_info.job_id).await {
         Ok(bytes) => bytes,
@@ -799,18 +834,38 @@ async fn send_realm_proof<PS: QProofStoreAsyncImm>(
             return;
         }
     };
-    let _input = SubmitGUTARealmResultAPINoProofInput {
+    let input = SubmitGUTARealmResultAPINoProofInput {
         realm_id,
         checkpoint_id: realm_result.checkpoint_id,
-        guta_stats: realm_result.guta_stats,
-        top_line_proof: realm_result.top_line_proof,
-        checkpoint_tree_root: realm_result.checkpoint_tree_root,
-        circuit_type: realm_result.proof_id.circuit_type,
+        guta_stats: realm_result.guta_stats.clone(),
+        top_line_proof: realm_result.top_line_proof.clone(),
+        checkpoint_tree_root: realm_result.checkpoint_tree_root.clone(),
+        circuit_type: realm_result.proof_id.circuit_type.clone(),
     };
     let mut retry_count = 0;
     while retry_count < 5 {
-        info!("retrying... retry_count = {}", retry_count);
+        info!("Sending job to coordinator, retry_count = {}", retry_count);
+        match jsonrpsee::http_client::HttpClientBuilder::default().build(coordinator_addr) {
+            Ok(client) => {
+                let params = rpc_params![realm_result.clone(), input.clone()];
+                match client.request::<bool, _>("qed_submit_guta", params).await {
+                    Ok(result) => {
+                        info!(
+                            "Successfully submitted job to coordinator, result: {}",
+                            result
+                        );
+                        return;
+                    }
+                    Err(err) => {
+                        error!("Failed to call coordinator API: {:?}", err);
+                    }
+                }
+            }
+            Err(err) => {
+                error!("Failed to create RPC client: {:?}", err);
+            }
+        }
         retry_count += 1;
-        todo!("call coordinator API to send job");
+        tokio::time::sleep(Duration::from_secs(1u64.pow(retry_count as u32))).await;
     }
 }

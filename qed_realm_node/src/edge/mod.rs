@@ -61,6 +61,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
     debug!("created realm config successfully!");
 
+    let coordinator_addr = config.rpc.coordinator_addr;
     // Create Edge node context
     let edge_ctx = RealmEdgeContext::new(
         realm_config,
@@ -69,11 +70,13 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         proof_store.clone(),
         proof_verifier,
         proof_store.clone(),
+        coordinator_addr.clone(),
     )
     .await?;
 
     // Spawn task to send proof to coordinator
-    spawn_realm_job_update_task(proof_store, realm_config.realm_id as u64).await?;
+    spawn_realm_job_update_task(proof_store, realm_config.realm_id as u64, coordinator_addr)
+        .await?;
     // Register Realm
     edge_ctx.register().await?;
 
