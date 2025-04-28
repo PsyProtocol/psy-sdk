@@ -16,7 +16,7 @@ use fred::{
     prelude::{Pool},
 };
 use qed_node::nimpl::new_fred_pool;
-use crate::{CoordinatorEdgeArgs, COORDINATOR_WORKER_SUFFIX};
+use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
 use crate::rpc::types::{RealmInfo, RealmRpcRegistry};
 
 type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
@@ -139,8 +139,6 @@ pub async fn init_realms_from_env() -> anyhow::Result<()> {
 
     Ok(())
 }
-
-
 pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(
     f: F,
 ) -> anyhow::Result<R>
@@ -161,8 +159,8 @@ where
 
     let proof_store = Arc::new(ProofStoreFred::new2(
         (*redis_pool).clone(),
-        "wq1".into(),
-        "nq1".into(),
+        COORDINATOR_WORKER_QUEUE_SUFFIX.into(),
+        COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX.into(),
         Some(COORDINATOR_WORKER_SUFFIX),
         Some(COORDINATOR_WORKER_SUFFIX),
     ));

@@ -7,10 +7,6 @@ version = "0.1.0"
 name = "qed_worker"
 path = "src/lib.rs"
 
-[[bin]]
-name = "qed_worker"
-path = "src/main.rs"
-
 [dependencies]
 qed_core = { workspace = true }
 qed_data = { workspace = true }

@@ -16,6 +16,9 @@ build:
 fmt:
 	@cargo fmt
 
+clean:
+	@rm -r target
+
 DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) cd qed_compiler/tests && cargo run --release --package dargo compile --debug --entry-path
 DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd qed_compiler/tests && cargo run --release --package dargo execute --debug --entry-path
 
@@ -132,8 +135,14 @@ run-coordinator-worker:
 run-realm-processor:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-processor
 
+run-realm-worker:
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-worker
+
 run-realm-edge:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-edge
+
+generate-access-token:
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_rollup_cli generate-access-token
 
 get-public-key:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli get-public-key --private-key=${USER0_PRIVATE_KEY}
