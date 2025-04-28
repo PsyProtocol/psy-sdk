@@ -1,5 +1,5 @@
 use anyhow::Ok;
-use fred::prelude::ClientLike;
+use fred::prelude::{ClientLike, Client};
 use fred::prelude::Config;
 use fred::prelude::ReconnectPolicy;
 use fred::types::Builder;
@@ -32,6 +32,7 @@ use qed_store::{
 };
 use std::{ sync::Arc, time::Duration};
 use qed_node::nimpl::new_fred_pool;
+use qed_realm_node::RedisConfig;
 use crate::args::CoordinatorProcessorArgs;
 use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
 
@@ -116,7 +117,8 @@ impl<
             .await?;
         tracing::info!("sync queue dispatch StartSync");
         self.sync_queue
-            .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync)?;
+            .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync{ checkpoint: checkpoint_id })?;
+        let payload = serde_json::to_vec(&CPQueueNotification::StartSync { checkpoint: checkpoint_id })?;
 
         Ok(())
     }
@@ -246,3 +248,5 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 
     Ok(())
 }
+
+

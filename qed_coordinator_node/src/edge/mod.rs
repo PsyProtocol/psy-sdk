@@ -32,6 +32,7 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
 
     let (rpc_module, handler) = build_rpc_module(&config.coordinator_redis_uri)?;
     handler.spawn_cp_sync_listener().await?;
+    //todo: wait the http server to be ready, then remove this
     handler.spawn_realm_job_listener().await?;
     info!("✅ Initialized RPC module");
 

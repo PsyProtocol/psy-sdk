@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 use jsonrpsee::RpcModule;
 use qed_core::data::qhashout::QHashOut;
-use jsonrpsee::types::{ErrorObjectOwned, Params};
+use jsonrpsee::types::{ErrorObject, ErrorObjectOwned, Params};
 use plonky2::hash::hash_types::RichField;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -10,10 +10,11 @@ use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState};
 use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
-use qed_realm_node::F;
+use qed_realm_node::{C, F};
 use qed_store::config::store_config::QEDFelt;
 use crate::context::{GLOBAL_REALM_REGISTRY, REGISTERED_USERS};
 use crate::edge::context::LATEST_CHECKPOINT_ID;
+use crate::edge::processor::fetch_and_push_checkpoint_to_realm;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
 use crate::edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
 use crate::rpc::types::{GetByFRequest, GetByIdRequest, GetUserLeafRequest, GetUserRegistrationFLeafRequest, GetUserRegistrationLeafRequest, RealmInfo, RegisterRealmRpcRequest};
@@ -152,6 +153,14 @@ pub fn build_rpc_module(
         let mut registry = GLOBAL_REALM_REGISTRY.write().await;
         if !registry.realms.contains_key(&parsed.rpc_url) {
             tracing::info!("✅ Realm registered via RPC: name = {}, url = {}", parsed.name, parsed.rpc_url);
+
+            let latest_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+            fetch_and_push_checkpoint_to_realm::<F,C,2>(latest_checkpoint_id, &parsed.rpc_url)
+                .await
+                .map_err(|e| {
+                    tracing::warn!("❌ fetch_and_push_checkpoint_to_realm failed: {:?}", e);
+                    ErrorObject::owned(-32000, format!("Failed to push checkpoint: {}", e), None::<()>)
+                })?;
             registry.realms.insert(parsed.rpc_url.clone(), RealmInfo {
                 name: parsed.name,
                 rpc_url: parsed.rpc_url,

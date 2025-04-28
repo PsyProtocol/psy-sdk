@@ -4450,6 +4450,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "bytes",
+ "chrono",
  "clap",
  "dashmap 6.1.0",
  "dotenv",

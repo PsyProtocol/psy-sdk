@@ -129,7 +129,7 @@ pub async fn init_realms_from_env() -> anyhow::Result<()> {
 
     for (i, url) in urls.iter().enumerate() {
         if !registry.realms.contains_key(*url) {
-            let name = format!("auto_realm_{}", i + 1);
+            let name = format!("realm_{}", i + 1);
             tracing::info!("✅ Loaded realm from .env: {}", name);
             registry.realms.insert((*url).to_string(), RealmInfo { name, rpc_url: (*url).to_string() });
         } else {
