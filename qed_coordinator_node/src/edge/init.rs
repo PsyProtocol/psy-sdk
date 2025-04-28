@@ -1,6 +1,7 @@
-use std::sync::Arc;
 use crate::args::CoordinatorEdgeArgs;
+use crate::context::{init_global_db_path, init_global_redis_pool};
 use crate::edge::context::init_global_ctx_once;
+use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_core::utils::debug_timer::DebugTimer;
@@ -9,7 +10,7 @@ use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_realm_node::REALM_PROCESSOR_SUFFIX;
-use crate::context::{init_global_db_path, init_global_redis_pool};
+use std::sync::Arc;
 
 pub fn init_tracing() {
     use tracing_subscriber::{fmt, EnvFilter};
@@ -36,8 +37,8 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
 
     let proof_store = Arc::new(ProofStoreFred::new2(
         redis_pool.clone(),
-        "wq1".into(),
-        "nq1".into(),
+        COORDINATOR_WORKER_QUEUE_SUFFIX.into(),
+        COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX.into(),
         Some(REALM_PROCESSOR_SUFFIX),
         Some(REALM_PROCESSOR_SUFFIX),
     ));
@@ -49,7 +50,9 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     std::fs::create_dir_all(&config.coordinator_db_path)?;
 
     let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
-        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(&config.coordinator_db_path)?);
+        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(
+            &config.coordinator_db_path,
+        )?);
     // store_reader.initialize_store()?;
     let store_reader = Arc::new(store_reader.dup());
     timer.lap("lmdb initialized");

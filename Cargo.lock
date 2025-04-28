@@ -4449,6 +4449,7 @@ dependencies = [
  "qed_realm_node",
  "qed_rollup_circuit",
  "qed_store",
+ "qed_worker",
  "rand 0.8.5",
  "reth-libmdbx",
  "serde",
@@ -4725,6 +4726,7 @@ dependencies = [
  "qed_coordinator_node",
  "qed_realm_node",
  "qed_rollup_utils",
+ "qed_worker",
  "tokio",
  "tracing",
 ]

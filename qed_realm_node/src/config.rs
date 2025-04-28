@@ -91,11 +91,7 @@ impl Default for DBConfig {
 #[serde(default)]
 pub struct RPCConfig {
     /// RPC listen address
-    #[arg(
-        long,
-        env = "REALM_EDGE_LISTEN_ADDR",
-        default_value = "0.0.0.0:8546"
-    )]
+    #[arg(long, env = "REALM_EDGE_LISTEN_ADDR", default_value = "0.0.0.0:8546")]
     pub listen_addr: String,
 }
 

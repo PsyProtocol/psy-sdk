@@ -1,26 +1,26 @@
-use std::future::Future;
-use std::sync::{Arc, atomic::AtomicU64};
-use tokio::sync::RwLock;
-use once_cell::sync::{Lazy, OnceCell};
+use crate::{
+    COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX,
+    COORDINATOR_WORKER_SUFFIX,
+};
 use anyhow::anyhow;
 use dashmap::DashMap;
-use lazy_static::lazy_static;
+use fred::prelude::Pool;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
+use lazy_static::lazy_static;
+use once_cell::sync::{Lazy, OnceCell};
 use qed_core::data::qhashout::QHashOut;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
+use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_store::config::store_config::QEDFelt;
-use fred::{
-    prelude::{Pool},
-};
-use qed_node::nimpl::new_fred_pool;
-use crate::COORDINATOR_WORKER_SUFFIX;
+use std::future::Future;
+use std::sync::{atomic::AtomicU64, Arc};
+use tokio::sync::RwLock;
 
 type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 type DrainQueue = ProofStoreFred;
 type ProofStore = ProofStoreFred;
-
 
 lazy_static! {
     //todo! if no write, use once_cell instead
@@ -33,8 +33,6 @@ pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, u64>> = Lazy::new(D
 pub static GLOBAL_DB_PATH: OnceCell<String> = OnceCell::new();
 
 pub static GLOBAL_REDIS_POOL: OnceCell<Arc<Pool>> = OnceCell::new();
-
-
 
 pub async fn init_global_ctx_once(
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
@@ -75,10 +73,11 @@ where
     f(ctx).await
 }
 
-
 /// Initialize global DB path (can only be called once)
 pub fn init_global_db_path<P: Into<String>>(path: P) -> anyhow::Result<()> {
-    GLOBAL_DB_PATH.set(path.into()).map_err(|_| anyhow!("GLOBAL_DB_PATH already set"))
+    GLOBAL_DB_PATH
+        .set(path.into())
+        .map_err(|_| anyhow!("GLOBAL_DB_PATH already set"))
 }
 pub fn get_global_db_path() -> anyhow::Result<&'static str> {
     GLOBAL_DB_PATH
@@ -87,7 +86,10 @@ pub fn get_global_db_path() -> anyhow::Result<&'static str> {
         .ok_or_else(|| anyhow!("GLOBAL_DB_PATH not initialized"))
 }
 
-pub async fn init_global_redis_pool_from_url(redis_url: &str, pool_size: usize) -> anyhow::Result<()> {
+pub async fn init_global_redis_pool_from_url(
+    redis_url: &str,
+    pool_size: usize,
+) -> anyhow::Result<()> {
     let pool = new_fred_pool(redis_url, pool_size).await?;
     GLOBAL_REDIS_POOL
         .set(Arc::new(pool))
@@ -106,13 +108,15 @@ pub fn get_global_redis_pool() -> anyhow::Result<Arc<Pool>> {
         .ok_or_else(|| anyhow!("GLOBAL_REDIS_POOL not initialized"))
 }
 
-
-
-pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(
-    f: F,
-) -> anyhow::Result<R>
+pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(f: F) -> anyhow::Result<R>
 where
-    F: FnOnce(CoordinatorEdgeContext<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>, ProofStoreFred, ProofStoreFred>) -> Fut,
+    F: FnOnce(
+        CoordinatorEdgeContext<
+            KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
+            ProofStoreFred,
+            ProofStoreFred,
+        >,
+    ) -> Fut,
     Fut: std::future::Future<Output = anyhow::Result<R>>,
 {
     let read_guard = GLOBAL_COORD_EDGE_CTX.read().await;
@@ -128,8 +132,8 @@ where
 
     let proof_store = Arc::new(ProofStoreFred::new2(
         (*redis_pool).clone(),
-        "wq1".into(),
-        "nq1".into(),
+        COORDINATOR_WORKER_QUEUE_SUFFIX.into(),
+        COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX.into(),
         Some(COORDINATOR_WORKER_SUFFIX),
         Some(COORDINATOR_WORKER_SUFFIX),
     ));
@@ -145,5 +149,3 @@ where
 
     f(temp_ctx).await
 }
-
-
