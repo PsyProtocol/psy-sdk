@@ -1,4 +1,4 @@
-use anyhow::Ok;
+
 use fred::prelude::{ClientLike, Client};
 use fred::prelude::Config;
 use fred::prelude::ReconnectPolicy;
@@ -36,7 +36,6 @@ use qed_realm_node::RedisConfig;
 use crate::args::CoordinatorProcessorArgs;
 use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
 use crate::redis::broadcast_checkpoint_sync;
-
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
@@ -189,12 +188,6 @@ impl
 
         coordinator_processor_ctx.build_block().await?;
         //notify to coordinator edge
-        let notification = CPQueueNotification::StartSync {
-            checkpoint: 1,
-        };
-            sync_queue
-                .dispatch(CE_NOTIFICATIONS, notification)
-                .expect("failed to dispatch notification");
 
         // worker
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -232,13 +225,19 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
             loop {
                 // wait for produceblock message from coordinator edge
                 tracing::info!("wait for produce_block message from coordinator edge");
-                let latest_checkpoint_id =
-                    coordinator_processor
-                        .ctx
-                        .store
-                        .get_latest_l2_block_state()
-                        .await?
-                        .checkpoint_id;
+                let latest_checkpoint_id = match  coordinator_processor
+                    .ctx
+                    .store
+                    .get_latest_l2_block_state()
+                    .await {
+                        Ok(state) => state.checkpoint_id,
+                        Err(e) => {
+                            tracing::error!("❌ Failed to get latest l2 block state: {:?}", e);
+                            tokio::time::sleep(Duration::from_secs(1)).await;
+                            continue;
+                        }
+                    };
+
                 if coordinator_processor.wait_for_produce_block(latest_checkpoint_id).await? {
                     tracing::info!("start build block");
                     coordinator_processor.ctx.build_block().await?;
