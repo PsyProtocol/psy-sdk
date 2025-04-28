@@ -1,12 +1,18 @@
+use super::request::QSubmitEndCapRPCRequest;
 use crate::error::RpcError;
 use crate::rpc::RealmEdgeRpcServer;
-use crate::{C, D, F, H};
+use crate::{C, D, F, H, REDIS_PROOF_KEY};
 use async_trait::async_trait;
+use fred::interfaces::FredResult;
+use fred::prelude::ListInterface;
 use jsonrpsee::core::RpcResult;
+use kvq::traits::KVQSerializable;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     plonk::proof::ProofWithPublicInputs,
 };
+use qed_core::job::id::ProvingJobCircuitType::GUTANoChange;
+use qed_core::job::id::ProvingJobDataId;
 use qed_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT,
     data::qhashout::QHashOut,
@@ -24,6 +30,7 @@ use qed_crypto::{
         qhashable::QFieldHashable,
     },
 };
+use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 use qed_data::guta::{
     api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
     end_cap_input::SubmitUserEndCapNonProofInput,
@@ -32,14 +39,15 @@ use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
 };
 use qed_data::qdata::user::QEDUserLeaf;
+use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
+use qed_store::config::store_config::QEDFelt;
 use qed_store::{
     config::store_config::QCheckpointSyncInfoCompact, node::realm::QEDRealmStoreReaderAsync,
 };
 use std::sync::Arc;
-use tracing::debug;
-
-use super::request::QSubmitEndCapRPCRequest;
+use std::time::Duration;
+use tracing::{debug, error, info};
 
 #[derive(Clone)]
 pub struct RealmEdgeContext<
@@ -718,5 +726,81 @@ where
             )
             .await
             .map_err(RpcError::Anyhow)?)
+    }
+}
+
+pub async fn spawn_realm_job_update_task(
+    proof_store: Arc<ProofStoreFred>,
+    realm_id: u64,
+) -> anyhow::Result<()> {
+    info!("realm job listener spawned");
+    tokio::spawn(async move {
+        loop {
+            let result: FredResult<(String, Vec<u8>)> =
+                proof_store.pool().blpop(REDIS_PROOF_KEY, 0.0).await;
+            match result {
+                Ok((_, bytes)) => {
+                    let job_id = match ProvingJobDataId::from_bytes(&bytes) {
+                        Ok(id) => id,
+                        Err(err) => {
+                            error!("Failed to parse ProvingJobDataId: {:?}", err);
+                            continue;
+                        }
+                    };
+                    if job_id.job_id.circuit_type != GUTANoChange {
+                        send_realm_proof(proof_store.clone(), job_id, realm_id).await;
+                    }
+                }
+                Err(err) => {
+                    error!("Error getting job_id from redis: {:?}", err);
+                }
+            }
+            // Avoid busy waiting
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    });
+    Ok(())
+}
+
+async fn send_realm_proof<PS: QProofStoreAsyncImm>(
+    proof_store: Arc<PS>,
+    job_info: ProvingJobDataId,
+    realm_id: u64,
+) {
+    let bytes = match proof_store.get_bytes_by_id(job_info.job_id).await {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            error!("Failed to get bytes by job_id: {:?}", err);
+            return;
+        }
+    };
+    let preview_len = bytes.len().min(100);
+    let hex_preview = hex::encode(&bytes[..preview_len]);
+    debug!(
+        "The bytes from job_info.job_id: len = {}, head[0..{}] = {}",
+        bytes.len(),
+        preview_len,
+        hex_preview
+    );
+    let realm_result: GUTARealmCheckpointResult<QEDFelt> = match bincode::deserialize(&bytes) {
+        Ok(result) => result,
+        Err(err) => {
+            error!("Failed to deserialize realm_result: {:?}", err);
+            return;
+        }
+    };
+    let _input = SubmitGUTARealmResultAPINoProofInput {
+        realm_id,
+        checkpoint_id: realm_result.checkpoint_id,
+        guta_stats: realm_result.guta_stats,
+        top_line_proof: realm_result.top_line_proof,
+        checkpoint_tree_root: realm_result.checkpoint_tree_root,
+        circuit_type: realm_result.proof_id.circuit_type,
+    };
+    let mut retry_count = 0;
+    while retry_count < 5 {
+        info!("retrying... retry_count = {}", retry_count);
+        retry_count += 1;
+        todo!("call coordinator API to send job");
     }
 }

@@ -1,11 +1,10 @@
 use crate::config::RealmNodeConfig;
 use crate::{C, D, F};
-use fred::prelude::KeysInterface;
+use fred::prelude::{KeysInterface, ListInterface};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq::traits::KVQSerializable;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
-use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
@@ -22,6 +21,9 @@ use tokio::task::JoinHandle;
 use tracing::{error, info};
 
 type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
+
+pub const REDIS_PROOF_KEY: &str = "REALM_PROOF";
+
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     KVQArcImmutableStore,
     ProofStoreFred,
@@ -124,19 +126,22 @@ impl RealmProcessor {
                 _ => {}
             }
             info!("Start building block");
-            let proving_data_job_id: ProvingJobDataId =
-                match self.build_block(&mut context).await {
-                    Ok(job_id) => job_id,
-                    Err(err) => {
-                        error!("Error building block: {:?}", err);
-                        continue;
-                    }
-                };
-            // Send the job id to the channel for the next step
-            info!("Pushing job id to queue: {:?}", proving_data_job_id);
-            if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
-                error!("Error chq_push_imm: {:?}", err);
+            let proving_data_job_id: ProvingJobDataId = match self.build_block(&mut context).await {
+                Ok(job_id) => job_id,
+                Err(err) => {
+                    error!("Error building block: {:?}", err);
+                    continue;
+                }
             };
+            info!("Pushing job id to queue: {:?}", proving_data_job_id);
+            self.queue
+                .pool()
+                .rpush::<(), &str, Vec<u8>>(REDIS_PROOF_KEY, proving_data_job_id.to_bytes()?)
+                .await?;
+            // Send the job id to the channel for the next step
+            // if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
+            //     error!("Error chq_push_imm: {:?}", err);
+            // };
             info!("Pushing job to queueue done");
         }
     }
