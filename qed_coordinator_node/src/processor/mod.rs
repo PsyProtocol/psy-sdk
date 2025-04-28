@@ -31,7 +31,10 @@ use qed_store::{
     },
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
-use std::{sync::Arc, time::Duration};
+use std::{ sync::Arc, time::Duration};
+
+use crate::args::CoordinatorProcessorArgs;
+use crate::COORDINATOR_WORKER_SUFFIX;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -168,6 +171,8 @@ impl
 
         let sync_queue = RedisQueue::new(&cp_config.redis_uri)?;
 
+        coordinator_processor_ctx.build_block().await?;
+
         // worker
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let coordinator_worker_circuits =
@@ -197,19 +202,6 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
             storage_db_path: args.coordinator_db_path,
         })
         .await?;
-
-    tracing::info!("build block 1");
-    coordinator_processor.ctx.build_block().await?;
-    coordinator_processor
-        .ctx
-        .prover_queue
-        .wait_for_block_proving_jobs_imm(0)
-        .await?;
-
-    tracing::info!("sync queue dispatch StartSync");
-    coordinator_processor
-        .sync_queue
-        .dispatch(CP_NOTIFICATIONS, CPQueueNotification::StartSync)?;
 
     tracing::info!("start coordinator processor");
     let task = tokio::spawn(async move {
