@@ -89,7 +89,7 @@ init:
 	@cp qed_compiler/tests/token.qed ${FILE}
 
 .PHONY: launch
-launch: shutdown init
+launch: shutdown init compile
 	@docker-compose \
 		-f docker-compose.yml \
 		up \
@@ -107,6 +107,12 @@ shutdown:
 	@redis-cli 'FLUSHALL' 2>&1 || true
 	@sudo rm -fr $(PWD)/db
 	@rm -fr ${PROJECT_DIR}
+
+logs:
+	@docker-compose \
+        -f docker-compose.yml \
+        logs \
+        --follow
 
 interpret:
 	@RUST_LOG=${LOG_LEVE} cd ${PROJECT_DIR} && cargo run --release --package dargo execute --debug --entry-path ${FILE} --parameters ${PARAMETERS}
@@ -153,7 +159,7 @@ latest-checkpoint:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_latest_checkpoint", "params": [], "id": 1 }' | jq .
 
 get-user-leaf-data:
-	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [0], "id": 1 }' | jq .
+	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [0, 0], "id": 1 }' | jq .
 
 get-contract-leaf-data:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_contract_leaf_data", "params": [0], "id": 1 }' | jq .
