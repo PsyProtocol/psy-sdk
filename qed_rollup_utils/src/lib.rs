@@ -3,6 +3,47 @@ use std::str::FromStr;
 pub use tracing::Level;
 use tracing_subscriber::{prelude::*, EnvFilter};
 
+use chrono::{Duration, Utc};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Claims {
+    pub company: String,
+    pub sub: String,
+    pub realm_id: u64,
+    pub exp: i64,
+}
+
+pub fn generate_jwt_token(
+    secret_key: &str,
+    realm_id: u64,
+) -> Result<String, jsonwebtoken::errors::Error> {
+    let expiration = Utc::now() + Duration::seconds(3600);
+    let claims = Claims {
+        company: "QED".to_string(),
+        sub: "qedlang-rust".to_string(),
+        realm_id: realm_id,
+        exp: expiration.timestamp(),
+    };
+
+    let header = Header::default();
+    let encoding_key = EncodingKey::from_secret(secret_key.as_bytes());
+
+    encode(&header, &claims, &encoding_key)
+}
+
+pub fn decrypt_jwt_token(
+    secret_key: &str,
+    token: &str,
+) -> Result<Claims, jsonwebtoken::errors::Error> {
+    let decoding_key = DecodingKey::from_secret(secret_key.as_bytes());
+    let validation = Validation::default();
+
+    let token_data = decode::<Claims>(token, &decoding_key, &validation)?;
+    Ok(token_data.claims)
+}
+
 pub fn setup_logging(log_level: String) -> anyhow::Result<()> {
     let log_level = Level::from_str(&log_level).unwrap_or(Level::INFO);
     let env_filter = EnvFilter::try_from_default_env()
@@ -32,4 +73,17 @@ pub fn setup_logging(log_level: String) -> anyhow::Result<()> {
         .init();
 
     Ok(())
+}
+
+mod tests {
+    #[test]
+    fn test_jwt_token() {
+        let secret_key = "qed-jwt-sk-test";
+        let realm_id = 1;
+        let token = super::generate_jwt_token(secret_key, realm_id).unwrap();
+        let claims = super::decrypt_jwt_token(secret_key, &token).unwrap();
+        assert_eq!(claims.company, "QED");
+        assert_eq!(claims.sub, "qedlang-rust");
+        assert_eq!(claims.realm_id, realm_id);
+    }
 }

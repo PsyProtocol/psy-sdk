@@ -135,6 +135,9 @@ run-realm-processor:
 run-realm-edge:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-edge
 
+generate-access-token:
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_rollup_cli generate-access-token
+
 get-public-key:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli get-public-key --private-key=${USER0_PRIVATE_KEY}
 
