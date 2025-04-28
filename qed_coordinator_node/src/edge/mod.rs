@@ -4,6 +4,7 @@ pub mod context;
 pub mod init;
 pub mod processor;
 pub mod rpc;
+pub mod redis;
 
 use crate::args::CoordinatorEdgeArgs;
 use jsonrpsee::server::Server;
@@ -34,11 +35,11 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     init_realms_from_env().await?;
     info!("✅ Initialized realms from env");
 
-    init_global_jwt_secret().await?;
+    init_global_jwt_secret()?;
     info!("✅ Initialized JWT secret");
 
     let (rpc_module, handler) = build_rpc_module(&config.coordinator_redis_uri)?;
-    handler.spawn_cp_sync_listener().await?;
+    handler.spawn_cp_sync_listener(&config.coordinator_redis_uri).await?;
     //todo: wait the http server to be ready, then remove this
     handler.spawn_realm_job_listener().await?;
     info!("✅ Initialized RPC module");

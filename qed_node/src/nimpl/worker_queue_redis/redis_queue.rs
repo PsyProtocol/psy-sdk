@@ -32,7 +32,7 @@ pub const Q_CMD: &'static str = "CMD";
 pub const Q_JOB: &'static str = "JOB";
 pub const Q_NOTIFICATIONS: &'static str = "NOTIFICATIONS";
 pub const CE_NOTIFICATIONS: &'static str = "CE_NOTIFICATIONS";
-pub const CP_NOTIFICATIONS: &'static str = "CP_NOTIFICATIONS";
+// pub const CP_NOTIFICATIONS: &'static str = "CP_NOTIFICATIONS";
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
@@ -72,7 +72,6 @@ impl RedisQueue {
                 Q_CMD,
                 Q_JOB,
                 Q_NOTIFICATIONS,
-                CP_NOTIFICATIONS,
                 CE_NOTIFICATIONS,
             ] {
                 if matches!(

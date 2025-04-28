@@ -24,7 +24,7 @@ use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLe
 use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
-use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, CPQueueNotification, RedisQueue, CE_NOTIFICATIONS, CP_NOTIFICATIONS};
+use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, CPQueueNotification, RedisQueue, CE_NOTIFICATIONS};
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
@@ -32,6 +32,7 @@ use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use crate::context::with_temp_ctx_read_async;
 use crate::edge::context::{with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
 use crate::edge::processor::{handle_cp_sync, process_realm_job};
+use crate::edge::redis::{create_pubsub_client, subscribe_checkpoint_sync};
 use crate::edge::rpc::types::GetUserIdRequest;
 
 type F = QEDFelt;
@@ -54,53 +55,31 @@ impl CoordinatorEdgeHandler {
         })
     }
     ///receive StartSync notification from CP
-    pub async fn spawn_cp_sync_listener(&self) -> anyhow::Result<()> {
-        info!("cp sync listener spawned");
+    pub async fn spawn_cp_sync_listener(&self, redis_url: &str) -> anyhow::Result<()> {
+        info!("cp sync listener spawned (pubsub mode)");
         // note: run this only once
         if self.cp_listener.lock().await.is_some() {
             return Ok(());
         }
-
-        let mut notify_q = self.notify_queue.clone();
+        let pubsub_client = create_pubsub_client(&redis_url).await?;
 
         let handle = tokio::spawn(async move {
-            loop {
-                match notify_q.pop_one(CP_NOTIFICATIONS) {
-                    Ok(Some(bytes)) => {
-                        if let Ok(CPQueueNotification::StartSync { checkpoint }) =
-                            serde_json::from_slice::<CPQueueNotification>(&bytes)
-                        {
-                            info!("🔔 CP listener received StartSync notification");
-                            match handle_cp_sync(checkpoint).await{
-                                Ok(_) => {
-                                    info!("✅ CP listener handled StartSync notification");
-                                }
-                                Err(e) => {
-                                    error!("❌ CP listener failed to handle StartSync notification: {e:?}");
-                                }
-                            };
+            let handler = Arc::new(move |notification: CPQueueNotification| {
+                match notification {
+                    CPQueueNotification::StartSync { checkpoint } => {
+                        tracing::info!("🔔 Received StartSync: checkpoint={}", checkpoint);
+                        tokio::spawn(async move {
+                            if let Err(e) = handle_cp_sync(checkpoint).await {
+                                tracing::error!("❌ Failed to handle StartSync checkpoint_id={}, error={:?}", checkpoint, e);
+                            }
                             LATEST_CHECKPOINT_ID.store(checkpoint, Ordering::Relaxed);
-                            info!("⭐ latest checkpoint now = {checkpoint}");
-
-                        }
+                        });
                     }
-
-                    // Queue is empty, return Ok(None)
-                    Ok(None) => { /* nothing */ }
-
-                    // If the queue doesn't exist, create it
-                    Err(e) if e.to_string().contains("Queue not found") => {
-                        info!("ℹ️ CP_NOTIFICATIONS not found, creating …");
-                        if let Err(init_err) = notify_q.ensure_queue(CP_NOTIFICATIONS) {
-                            warn!("failed to create CP_NOTIFICATIONS: {init_err:?}");
-                        }
-
-                    }
-                    // Other errors
-                    Err(e) => warn!("CP listener pop error: {e:?}"),
                 }
-                //todo! maybe longer or shorter
-                tokio::time::sleep(Duration::from_millis(600)).await;
+            });
+
+            if let Err(e) = subscribe_checkpoint_sync(pubsub_client, handler).await {
+                tracing::error!("❌ Failed to subscribe CP sync channel: {:?}", e);
             }
         });
 

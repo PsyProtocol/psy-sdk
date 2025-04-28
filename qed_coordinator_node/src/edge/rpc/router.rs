@@ -865,12 +865,12 @@ where
 
 
 use jsonrpsee::types::Request;
-use qed_rollup_utils::decrypt_jwt_token;
-use crate::JwtAuthMetadata;
+use qed_rollup_utils::{decrypt_jwt_token, Claims};
+
 pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwned> {
-    let token = ext.token.as_ref().ok_or_else(|| {
-        ErrorObjectOwned::owned(401, "Missing Bearer token", None::<()>)
-    })?;
+
+    let jwt_meta = ext;
+    let token = &jwt_meta.token;
 
     let secret = get_global_jwt_secret();
     match decrypt_jwt_token(&secret, token) {
@@ -882,5 +882,17 @@ pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwn
             tracing::warn!("❌ Invalid JWT token: {:?}", e);
             Err(ErrorObjectOwned::owned(401, format!("Invalid token: {}", e), None::<()>))
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct JwtAuthMetadata {
+    pub token: String,
+    pub realm_id: u64,
+}
+pub fn claims_to_auth_metadata(token: String, claims: Claims) -> JwtAuthMetadata {
+    JwtAuthMetadata {
+        token,
+        realm_id: claims.realm_id,
     }
 }

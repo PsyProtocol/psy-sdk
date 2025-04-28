@@ -15,6 +15,8 @@ use qed_store::config::store_config::QEDFelt;
 use fred::{
     prelude::{Pool},
 };
+use fred::prelude::*;
+use serde::{Deserialize, Serialize};
 use qed_node::nimpl::new_fred_pool;
 use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
 use crate::rpc::types::{RealmInfo, RealmRpcRegistry};
@@ -113,6 +115,7 @@ pub fn get_global_redis_pool() -> anyhow::Result<Arc<Pool>> {
         .ok_or_else(|| anyhow!("GLOBAL_REDIS_POOL not initialized"))
 }
 
+
 pub async fn register_realm(name: String, rpc_url: String) -> anyhow::Result<()> {
     let mut registry = GLOBAL_REALM_REGISTRY.write().await;
     if !registry.realms.contains_key(&rpc_url) {
@@ -191,4 +194,24 @@ pub fn get_global_jwt_secret() -> Arc<String> {
     GLOBAL_JWT_SECRET.get()
         .expect("JWT secret not initialized")
         .clone()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MyRedisConfig {
+    pub host: String,
+    pub port: u16,
+    pub password: Option<String>,
+    pub db: Option<u8>,
+    pub tls: bool,
+}
+impl Default for MyRedisConfig {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".to_string(),
+            port: 6379,
+            password: None,
+            db: Some(0),
+            tls: false,
+        }
+    }
 }
