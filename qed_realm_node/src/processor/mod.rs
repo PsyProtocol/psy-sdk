@@ -178,13 +178,12 @@ impl RealmProcessor {
         context: &mut ConcreteRealmProcessorContext,
     ) -> anyhow::Result<ProvingJobDataId> {
         context.build_block().await?;
-        let checkpoint_id = self.synced_checkpoint_id + 1;
         let realm_worker_output_job_id = self
             .queue
-            .wait_for_block_proving_jobs_imm(checkpoint_id)
+            .wait_for_block_proving_jobs_imm(self.synced_checkpoint_id)
             .await?;
         Ok(ProvingJobDataId::new(
-            checkpoint_id,
+            self.synced_checkpoint_id + 1,
             realm_worker_output_job_id,
         ))
     }
