@@ -4859,6 +4859,7 @@ dependencies = [
  "qed_node_common",
  "qed_prover",
  "qed_rollup_circuit",
+ "qed_rollup_utils",
  "qed_store",
  "qedlang_core",
  "rand 0.8.5",

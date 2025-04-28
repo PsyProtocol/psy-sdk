@@ -40,10 +40,11 @@ qedlang_core = { workspace = true }
 qed_exec = { workspace = true }
 qed_prover = { workspace = true }
 qed_data = { workspace = true }
+qed_rollup_utils = { workspace = true }
 
-qed_node = { path = "../qed_node" }
+qed_node = { workspace = true }
 reth-libmdbx = { workspace = true }
-qed_node_common = { path = "../qed_node_common" }
+qed_node_common = { workspace = true }
 kvq_store_lmdbx = { workspace = true }
 
 repl-rs = { workspace = true }

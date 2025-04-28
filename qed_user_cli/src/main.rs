@@ -29,6 +29,7 @@ fn main() -> Result<()> {
     dotenv::dotenv().ok();
 
     let cli = Cli::parse();
+    qed_rollup_utils::setup_logging(cli.log_level)?;
     match cli.command {
         Commands::AddWithdrawal(args) => add_withdrawal::run(args)?,
         Commands::ClaimDeposit(args) => claim_deposit::run(args)?,
