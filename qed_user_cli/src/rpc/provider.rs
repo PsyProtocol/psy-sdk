@@ -293,6 +293,7 @@ impl QUserRpcProvider for RpcProvider {
 
 impl RpcProvider {
     pub fn get_user_id<F: RichField>(&self, public_key_param: QHashOut<F>) -> anyhow::Result<u64> {
+        tracing::info!("user: {:?}", public_key_param);
         let response = qed_rpc_call_back!(
             self,
             &self.config.cooridinator_configs,
@@ -300,7 +301,10 @@ impl RpcProvider {
             u64
         );
         match response.result {
-            ResponseResult::Success(user_id) => Ok(user_id),
+            ResponseResult::Success(user_id) => {
+                tracing::info!("get user id: {:?}", user_id);
+                Ok(user_id)
+            }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }

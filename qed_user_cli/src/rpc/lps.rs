@@ -1295,7 +1295,8 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
         user_id: u64,
     ) -> anyhow::Result<user::QEDUserLeaf<F>> {
-        let rpc_url = self.get_realm_url(user_id)?;
+        // let rpc_url = self.get_realm_url(user_id)?;
+        let rpc_url = &self.config.cooridinator_configs;
         let input = QUserLeafDataRPCRequest {
             checkpoint_id,
             user_id,
@@ -1317,7 +1318,8 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: F,
         user_id: F,
     ) -> anyhow::Result<user::QEDUserLeaf<F>> {
-        let rpc_url = self.get_realm_url(user_id.to_canonical_u64())?;
+        // let rpc_url = self.get_realm_url(user_id)?;
+        let rpc_url = &self.config.cooridinator_configs;
         let input = QUserLeafDataFRPCRequest {
             checkpoint_id,
             user_id,

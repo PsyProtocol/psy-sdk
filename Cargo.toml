@@ -268,3 +268,5 @@ reqwest = { version = "0.11.22", default-features = false, features = [
 ] }
 
 jsonwebtoken = "9.3.1"
+
+qed_user_cli = { path = "./qed_user_cli" }
