@@ -138,7 +138,7 @@ impl<
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
-        let latest_block_state: QEDL2BlockState = store.get_latest_l2_block_state().await?;
+        let latest_block_state: QEDL2BlockState = store.get_latest_l2_block_state().await.unwrap_or_default();
         //let checkpoint_id = latest_block_state.checkpoint_id;
 
         Ok(Self {
