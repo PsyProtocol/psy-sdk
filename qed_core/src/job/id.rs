@@ -862,7 +862,7 @@ impl DrainQueueMetadataTagged for ProvingJobDataId {
         DrainQueueMetadata {
             channel_id: QED_CHECKPOINT_JOB_ID_CHANNEL,
             checkpoint_id: self.checkpoint_id,
-            item_id: self.checkpoint_id,
+            item_id: self.job_id.sub_group_id as u64,
         }
     }
 }

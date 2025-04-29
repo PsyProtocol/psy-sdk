@@ -78,7 +78,7 @@ impl RealmConfig {
             rpc_node_id,
             users_per_realm,
             realm_root_level,
-            guta_channel_id: REALM_API_GUTA_FROM_USER_CHANNEL_ID,
+            guta_channel_id: REALM_API_GUTA_FROM_USER_CHANNEL_ID + realm_id as u64,
             guta_circuit_whitelist: library
                 .get_group_inclusion_proof(
                     ProvingJobCircuitType::GUTATwoGUTA,

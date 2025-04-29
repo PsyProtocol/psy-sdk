@@ -1,7 +1,5 @@
-use qed_coordinator_node::{
-    CoordinatorWorkerArgs, COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX,
-    COORDINATOR_WORKER_SUFFIX,
-};
+use tracing::info;
+use qed_coordinator_node::CoordinatorWorkerArgs;
 
 use qed_worker::{CoordinatorWorker, Worker, WorkerState};
 
@@ -9,16 +7,30 @@ async fn run_worker(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
     let state= WorkerState::new(
         args.coordinator_redis_uri,
         args.coordinator_pool_size as usize,
-        COORDINATOR_WORKER_QUEUE_SUFFIX.to_string(),
-        COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX.to_string(),
-        Some(COORDINATOR_WORKER_SUFFIX),
-        Some(COORDINATOR_WORKER_SUFFIX),
+        args.coordinator_processor_queue_args
+            .coordinator_worker_queue_suffix
+            .clone(),
+        args.coordinator_processor_queue_args
+            .coordinator_notifications_queue_suffix
+            .clone(),
+        Some(
+            args.coordinator_processor_queue_args
+                .coordinator_proof_store_key_suffix
+                .as_str(),
+        ),
+        Some(
+            args.coordinator_processor_queue_args
+                .coordinator_proof_store_key_suffix
+                .as_str(),
+        ),
     ).await?;
     let coordinator_worker = CoordinatorWorker::from(state);
     coordinator_worker.run().await
 }
 
 pub async fn run(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
+    info!("Coordinator worker starting...");
+    info!("Coordinator worker args: {:?}", args);
     let ctrl_c = tokio::signal::ctrl_c();
     tokio::select! {
         result = run_worker(args) => {

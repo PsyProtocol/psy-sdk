@@ -122,6 +122,76 @@ services:
     depends_on:
       - redis
 
+  realm-processor1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command:
+      - "realm-processor"
+      - "--redis-uri=redis://172.16.238.13:6379"
+      - "--node-id=2"
+      - "--realm-id=1"
+      - "--worker-queue-suffix=rwq2"
+      - "--notifications-queue-suffix=rnq2"
+      - "--proof-store-key-suffix=RP1"
+      - "--path=./db/realm1"
+    volumes:
+      - "./db:/qed-rollup/db"
+    networks:
+      testing_net:
+        ipv4_address: 172.16.238.20
+    restart: always
+    depends_on:
+      - redis
+
+  realm-edge1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command:
+      - "realm-edge"
+      - "--redis-uri=redis://172.16.238.13:6379"
+      - "--coordinator-addr=redis://172.16.238.15:8545"
+      - "--node-id=2"
+      - "--realm-id=1"
+      - "--worker-queue-suffix=rwq2"
+      - "--notifications-queue-suffix=rnq2"
+      - "--proof-store-key-suffix=RP1"
+      - "--path=./db/realm1"
+    volumes:
+      - "./db:/qed-rollup/db"
+    ports:
+      - 9546:8546
+    networks:
+      testing_net:
+        ipv4_address: 172.16.238.21
+    restart: always
+    depends_on:
+      - redis
+      - realm-processor
+
+  realm-worker1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command:
+      - "realm-worker"
+      - "--redis-uri=redis://172.16.238.13:6379"
+      - "--worker-queue-suffix=rwq2"
+      - "--notifications-queue-suffix=rnq2"
+      - "--proof-store-key-suffix=RP1"
+    networks:
+      testing_net:
+        ipv4_address: 172.16.238.19
+    restart: always
+    depends_on:
+      - redis
 
 networks:
   testing_net:
