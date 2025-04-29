@@ -1,6 +1,6 @@
 use super::request::QSubmitEndCapRPCRequest;
 use crate::error::RpcError;
-use crate::rpc::RealmEdgeRpcServer;
+use crate::rpc::{CheckpointSyncInfo, RealmEdgeRpcServer};
 use crate::{RealmInternalQueue, C, D, F, H};
 use async_trait::async_trait;
 use fred::interfaces::FredResult;
@@ -739,10 +739,10 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn sync_checkpoint(&self, checkpoint: QCheckpointSyncInfoCompact) -> RpcResult<()> {
-        info!(?checkpoint, "Received sync checkpoint");
+    async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()> {
+        info!(?checkpoint, "Received sync checkpoint: {:?", checkpoint);
         self.interval_sync_queue
-            .produce_checkpoint_async_info(checkpoint)
+            .produce_checkpoint_async_info(checkpoint.compact)
             .await
             .map_err(RpcError::Anyhow)?;
 
