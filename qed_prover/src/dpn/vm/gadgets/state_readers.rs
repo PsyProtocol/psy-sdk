@@ -227,6 +227,14 @@ pub struct CKReadOtherUserContractContractRange {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
+pub struct CKReadOtherUserContractContractSingle {
+    pub user_target_id: u64,
+    pub contract_target_id: u64,
+    pub sub_slot_target_id: u64,
+    pub write_epoch: u32,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub enum StateCommandCacheKey {
     InvokeDeferredMethodCall(CKInvokeDeferredMethodCall),
     ReadCurrentContractSlot(CKReadCurrentContractSlot),
@@ -243,6 +251,7 @@ pub enum StateCommandCacheKey {
     ReadOtherUserContractContractRoot(CKReadOtherUserContractContractRoot),
     ReadOtherUserContractContractSlot(CKReadOtherUserContractContractSlot),
     ReadOtherUserContractContractRange(CKReadOtherUserContractContractRange),
+    ReadOtherUserContractContractSingle(CKReadOtherUserContractContractSingle),
 }
 impl StateCommandCacheKey {
     pub fn new_read_current_contract_slot(slot_target_id: u64, write_epoch: u32) -> Self {
@@ -378,6 +387,19 @@ impl StateCommandCacheKey {
             sub_slot_target_id,
             length,
             slot_offset_index,
+        })
+    }
+    pub fn new_read_other_user_contract_single(
+        user_id: u64,
+        contract_id: u64,
+        sub_slot_target_id: u64,
+        write_epoch: u32,
+    ) -> Self {
+        Self::ReadOtherUserContractContractSingle(CKReadOtherUserContractContractSingle {
+            user_target_id: user_id,
+            contract_target_id: contract_id,
+            sub_slot_target_id,
+            write_epoch,
         })
     }
 }
@@ -1199,6 +1221,39 @@ impl StateReaderGadget {
                 todo!("single")
             }
             DPNStateCmd::GetSelfUserExternalContractStateSlotRange(c) => todo!(),
+            DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => {
+                let ck = StateCommandCacheKey::new_read_other_user_contract_single(
+                    c.user_id,
+                    c.contract_id,
+                    c.sub_slot_index,
+                    self.write_epoch,
+                );
+
+                let expected_contract_state_tree_root = self.get_other_user_contract_state_root::<H, F, D>(
+                    builder,
+                    dpn,
+                    c.user_id,
+                    c.contract_id,
+                );
+
+                let (is_new, mp_cst) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(
+                    builder,
+                    ck,
+                    c.contract_state_tree_height as usize,
+                );
+
+                if is_new {
+                    let sub_slot_index = dpn.resolve_target(c.sub_slot_index);
+                    let (slot_index, inner_index) = builder.div_rem4(sub_slot_index);
+                    let single_value = builder.select_in_hash(mp_cst.value, inner_index);
+                    builder.connect_hashes(mp_cst.root, expected_contract_state_tree_root);
+                    builder.connect(slot_index, mp_cst.index);
+                    self.result_map.insert(ck, vec![single_value]);
+                    vec![single_value]
+                } else {
+                    self.result_map[&ck].to_vec()
+                }
+            }
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => self
                 .get_other_user_contract_state_slot_range::<H,F,D>(
                     builder,
@@ -1219,7 +1274,6 @@ impl StateReaderGadget {
                     c.contract_state_tree_height as usize
                 ).elements.to_vec()
             },
-            DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => todo!(),
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
                 let ck = StateCommandCacheKey::InvokeDeferredMethodCall(CKInvokeDeferredMethodCall::new(c.condition, c.contract_id, c.method_id, self.deferred_tx_count, &c.input_args));
                 let condition_target = dpn.resolve_bool(builder, c.condition);
