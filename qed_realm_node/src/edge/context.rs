@@ -49,7 +49,7 @@ use qed_store::{
 };
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 #[derive(Clone)]
 pub struct RealmEdgeContext<
@@ -760,10 +760,11 @@ pub async fn spawn_realm_job_update_task(
         loop {
             match proof_store.consume_proof().await {
                 Ok(job_id) => {
-                    if job_id.job_id.circuit_type != GUTANoChange {
-                        send_realm_proof(proof_store.clone(), job_id, realm_id, &coordinator_addr)
-                            .await;
-                    }
+                    info!(?job_id, "Received proof from realm processor");
+                    // if job_id.job_id.circuit_type != GUTANoChange {
+                    send_realm_proof(proof_store.clone(), job_id, realm_id, &coordinator_addr)
+                        .await;
+                    // }
                 }
                 Err(err) => {
                     error!("Error getting job_id from redis: {:?}", err);
@@ -782,12 +783,25 @@ async fn send_realm_proof<PS: QProofStoreAsyncImm>(
     realm_id: u64,
     coordinator_addr: &str,
 ) {
-    let bytes = match proof_store.get_bytes_by_id(job_info.job_id).await {
-        Ok(bytes) => bytes,
-        Err(err) => {
-            error!("Failed to get bytes by job_id: {:?}", err);
+    let mut retries_count = 0;
+
+    info!(?job_info.job_id, "send_realm_proof start");
+    let bytes = loop {
+        match proof_store.get_bytes_by_id(job_info.job_id).await {
+            Ok(bytes) if !bytes.is_empty() => break bytes,
+            Ok(bytes) => {
+                warn!("bytes is empty");
+            }
+            Err(err) => {
+                error!("Failed to get bytes by job_id: {:?}", err);
+            }
+        };
+        retries_count += 1;
+        if (retries_count == 5) {
+            error!("Failed to get bytes by job_jd");
             return;
         }
+        tokio::time::sleep(Duration::from_millis(3000)).await;
     };
     let preview_len = bytes.len().min(100);
     let hex_preview = hex::encode(&bytes[..preview_len]);

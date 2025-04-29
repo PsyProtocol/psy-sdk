@@ -6,7 +6,7 @@ pub mod rpc;
 use self::context::RealmEdgeContext;
 use crate::context::spawn_realm_job_update_task;
 use crate::rpc::RealmEdgeRpcServer;
-use crate::{config::RealmEdgeConfig, C, D};
+use crate::{config::RealmEdgeConfig, C, D, REALM_PROCESSOR_SUFFIX};
 use anyhow::Result;
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::rpc_params;
@@ -38,11 +38,12 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     .await
     .map_err(|e| anyhow::anyhow!("Failed to create Redis pool: {}", e))?;
     debug!("created redis pool successfully!");
-    //todo! maybe it shoule use new2
-    let proof_store = ProofStoreFred::new(
+    let proof_store = ProofStoreFred::new2(
         pool,
         config.queue.worker_queue_suffix,
         config.queue.notifications_queue_suffix,
+        Some(REALM_PROCESSOR_SUFFIX),
+        Some(REALM_PROCESSOR_SUFFIX),
     );
     debug!("created proof store successfully!");
     // Create proof storage
