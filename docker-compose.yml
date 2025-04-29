@@ -93,7 +93,7 @@ services:
     command:
       - "realm-edge"
       - "--redis-uri=redis://172.16.238.13:6379"
-      - "--coordinator-addr=redis://172.16.238.15:8545"
+      - "--coordinator-addr=http://172.16.238.15:8545"
     volumes:
       - "./db:/qed-rollup/db"
     ports:
@@ -154,8 +154,9 @@ services:
       - .env
     command:
       - "realm-edge"
+      - "--listen-addr=0.0.0.0:8547"
       - "--redis-uri=redis://172.16.238.13:6379"
-      - "--coordinator-addr=redis://172.16.238.15:8545"
+      - "--coordinator-addr=http://172.16.238.15:8545"
       - "--node-id=2"
       - "--realm-id=1"
       - "--worker-queue-suffix=rwq2"
@@ -165,7 +166,7 @@ services:
     volumes:
       - "./db:/qed-rollup/db"
     ports:
-      - 9546:8546
+      - 8547:8547
     networks:
       testing_net:
         ipv4_address: 172.16.238.21
@@ -188,7 +189,7 @@ services:
       - "--proof-store-key-suffix=RP1"
     networks:
       testing_net:
-        ipv4_address: 172.16.238.19
+        ipv4_address: 172.16.238.22
     restart: always
     depends_on:
       - redis
