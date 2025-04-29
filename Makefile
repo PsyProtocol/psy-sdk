@@ -232,6 +232,9 @@ realm-get-user-contract-tree-root:
 realm-get-user-contract-state-tree-root:
 	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_root", "params": [1, 0, 0], "id": 1 }' | jq .
 
+realm-get-user-contract-state-tree-merkle-proof:
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_root", "params": [2, 0, 0, 0, 2], "id": 1 }' | jq .
+
 realm-get-user-contract-tree-merkle-proof:
 	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_tree_merkle_proof", "params": [1, 0, 1], "id": 1 }' | jq .
 
