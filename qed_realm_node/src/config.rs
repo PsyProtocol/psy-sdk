@@ -98,7 +98,7 @@ pub struct RPCConfig {
     #[arg(
         long,
         env = "COORDINATOR_EDGE_ADDR",
-        default_value = "0.0.0.0:8545"
+        default_value = "http://0.0.0.0:8545"
     )]
     pub coordinator_addr: String,
 }

@@ -8,6 +8,8 @@ use crate::context::spawn_realm_job_update_task;
 use crate::rpc::RealmEdgeRpcServer;
 use crate::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
+use jsonrpsee::core::client::ClientT;
+use jsonrpsee::rpc_params;
 use jsonrpsee::server::ServerBuilder;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
@@ -62,6 +64,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     debug!("created realm config successfully!");
 
     let coordinator_addr = config.rpc.coordinator_addr;
+    let realm_id = config.realm.realm_id;
     // Create Edge node context
     let edge_ctx = RealmEdgeContext::new(
         realm_config,
@@ -74,12 +77,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     )
     .await?;
 
-    // Spawn task to send proof to coordinator
-    spawn_realm_job_update_task(proof_store, realm_config.realm_id as u64, coordinator_addr)
-        .await?;
-    // Register Realm
-    edge_ctx.register().await?;
-
     // Start RPC server
     let server_handle = ServerBuilder::default()
         .build(&config.rpc.listen_addr)
@@ -87,9 +84,48 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
 
     let handle = server_handle.start(edge_ctx.into_rpc());
 
+    // Spawn task to send proof to coordinator
+    spawn_realm_job_update_task(
+        proof_store,
+        realm_config.realm_id as u64,
+        coordinator_addr.clone(),
+    )
+    .await?;
+
+    // Register Realm
+    register_realm_edge(coordinator_addr, realm_id).await?;
+
     info!("Realm Edge node started on {}", config.rpc.listen_addr);
 
     // Keep server running
     handle.stopped().await;
     Ok(())
+}
+
+pub async fn register_realm_edge(coordinator_addr: String, realm_id: u32) -> anyhow::Result<()> {
+    let client = jsonrpsee::http_client::HttpClientBuilder::default()
+        .build(coordinator_addr)
+        .map_err(|e| anyhow::anyhow!("Failed to create RPC client: {}", e))?;
+
+    let params = rpc_params![realm_id.to_string(), "http://127.0.0.1:8546".to_string()];
+
+    // 发起RPC调用
+    match client
+        .request::<bool, _>("register_realm_rpc", params)
+        .await
+    {
+        Ok(true) => {
+            info!(
+                "Successfully registered realm {} with coordinator",
+                realm_id
+            );
+            Ok(())
+        }
+        Ok(false) => {
+            anyhow::bail!("Coordinator rejected realm registration")
+        }
+        Err(e) => {
+            anyhow::bail!("Failed to register realm with coordinator: {}", e)
+        }
+    }
 }

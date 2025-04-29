@@ -255,37 +255,6 @@ impl<
         self.checkpoint_queue.cdq_push_imm(input).await?;
         Ok(())
     }
-
-    pub async fn register(&self) -> anyhow::Result<()> {
-        let client = jsonrpsee::http_client::HttpClientBuilder::default()
-            .build(&self.coordinator_addr)
-            .map_err(|e| anyhow::anyhow!("Failed to create RPC client: {}", e))?;
-
-        let params = rpc_params![
-            self.realm_config.realm_id,
-            self.realm_config.guta_channel_id
-        ];
-
-        // 发起RPC调用
-        match client
-            .request::<bool, _>("register_realm_rpc", params)
-            .await
-        {
-            Ok(true) => {
-                info!(
-                    "Successfully registered realm {} with coordinator",
-                    self.realm_config.realm_id
-                );
-                Ok(())
-            }
-            Ok(false) => {
-                anyhow::bail!("Coordinator rejected realm registration")
-            }
-            Err(e) => {
-                anyhow::bail!("Failed to register realm with coordinator: {}", e)
-            }
-        }
-    }
 }
 
 #[async_trait]
@@ -771,6 +740,7 @@ where
     }
 
     async fn sync_checkpoint(&self, checkpoint: QCheckpointSyncInfoCompact) -> RpcResult<()> {
+        info!(?checkpoint, "Received sync checkpoint");
         self.interval_sync_queue
             .produce_checkpoint_async_info(checkpoint)
             .await
