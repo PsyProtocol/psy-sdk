@@ -212,9 +212,9 @@ impl<
             anyhow::bail!("already submitted proof for this block");
         }
 
-        debug!("input proof_id: {:?}", proof_id);
+        tracing::info!("input proof_id: {:?}", proof_id);
 
-        let next_checkpoint_id = checkpoint_id + 1;
+        let next_checkpoint_id = checkpoint_id + 2;
         //self.proof_store.set_bytes_by_id(proof_id.get_input_witness_id(), data)
         self.proof_store.set_proof_by_id(proof_id, proof).await?;
         let queue_item = UserEndCapNonProofCoreInputQueueItem {
@@ -224,6 +224,8 @@ impl<
             checkpoint_id: next_checkpoint_id,
             channel_id: self.realm_config.guta_channel_id,
         };
+
+        tracing::info!("queue item: {:?}", queue_item);
 
         self.checkpoint_queue.cdq_push_imm(cst_user_update).await?;
         self.checkpoint_queue.cdq_push_imm(queue_item).await?;
