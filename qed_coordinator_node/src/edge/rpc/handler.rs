@@ -71,10 +71,17 @@ impl CoordinatorEdgeHandler {
             let handler = Arc::new(move |notification: CPQueueNotification| {
                 match notification {
                     CPQueueNotification::StartSync { checkpoint } => {
-                        tracing::info!("🔔 Received StartSync: checkpoint={}", checkpoint);
+                        let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+                        if checkpoint <= latest {
+                            warn!("⚠️ Received outdated checkpoint: {}, current latest: {}, skipping...",
+                            checkpoint, latest
+                        );
+                            return;
+                        }
+                        info!("🔔 Received StartSync: checkpoint={}", checkpoint);
                         tokio::spawn(async move {
                             if let Err(e) = handle_cp_sync(checkpoint).await {
-                                tracing::error!("❌ Failed to handle StartSync checkpoint_id={}, error={:?}", checkpoint, e);
+                                error!("❌ Failed to handle StartSync checkpoint_id={}, error={:?}", checkpoint, e);
                             }
                             LATEST_CHECKPOINT_ID.store(checkpoint, Ordering::Relaxed);
                             info!("⭐ latest checkpoint now update to {checkpoint}");
