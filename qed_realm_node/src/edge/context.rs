@@ -1,12 +1,20 @@
+use super::request::QSubmitEndCapRPCRequest;
 use crate::error::RpcError;
-use crate::rpc::RealmEdgeRpcServer;
-use crate::{C, D, F, H};
+use crate::rpc::{CheckpointSyncInfo, RealmEdgeRpcServer};
+use crate::{RealmInternalQueue, C, D, F, H};
 use async_trait::async_trait;
-use jsonrpsee::core::RpcResult;
+use fred::interfaces::FredResult;
+use fred::prelude::ListInterface;
+use jsonrpsee::core::params::ArrayParams;
+use jsonrpsee::core::{client::ClientT, RpcResult};
+use jsonrpsee::rpc_params;
+use kvq::traits::KVQSerializable;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     plonk::proof::ProofWithPublicInputs,
 };
+use qed_core::job::id::ProvingJobCircuitType::GUTANoChange;
+use qed_core::job::id::ProvingJobDataId;
 use qed_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT,
     data::qhashout::QHashOut,
@@ -24,6 +32,7 @@ use qed_crypto::{
         qhashable::QFieldHashable,
     },
 };
+use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 use qed_data::guta::{
     api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
     end_cap_input::SubmitUserEndCapNonProofInput,
@@ -32,33 +41,38 @@ use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
 };
 use qed_data::qdata::user::QEDUserLeaf;
+use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
+use qed_store::config::store_config::QEDFelt;
 use qed_store::{
     config::store_config::QCheckpointSyncInfoCompact, node::realm::QEDRealmStoreReaderAsync,
 };
 use std::sync::Arc;
-use tracing::debug;
-
-use super::request::QSubmitEndCapRPCRequest;
+use std::time::Duration;
+use tracing::{debug, error, info};
 
 #[derive(Clone)]
 pub struct RealmEdgeContext<
     SR: QEDRealmStoreReaderAsync<F>,
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
+    IQ: RealmInternalQueue,
 > {
     pub store_reader: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
     pub proof_store: Arc<PS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
+    pub interval_sync_queue: Arc<IQ>,
+    pub coordinator_addr: String,
 }
 
 impl<
         SR: QEDRealmStoreReaderAsync<F>,
         DQ: CheckpointDrainQueueEmitterAsyncImm,
         PS: QProofStoreAsyncImm,
-    > RealmEdgeContext<SR, DQ, PS>
+        IQ: RealmInternalQueue,
+    > RealmEdgeContext<SR, DQ, PS, IQ>
 {
     pub async fn new(
         realm_config: RealmConfig,
@@ -66,6 +80,8 @@ impl<
         checkpoint_queue: Arc<DQ>,
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+        interval_sync_queue: Arc<IQ>,
+        coordinator_url: String,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             realm_config,
@@ -73,6 +89,8 @@ impl<
             checkpoint_queue,
             proof_store,
             proof_verifier,
+            interval_sync_queue,
+            coordinator_addr: coordinator_url,
         })
     }
 
@@ -240,11 +258,12 @@ impl<
 }
 
 #[async_trait]
-impl<SR, DQ, PS> RealmEdgeRpcServer for RealmEdgeContext<SR, DQ, PS>
+impl<SR, DQ, PS, IQ> RealmEdgeRpcServer for RealmEdgeContext<SR, DQ, PS, IQ>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
+    IQ: RealmInternalQueue + Sync + Send + 'static,
 {
     async fn check_user_id_in_realm(&self, user_id: u64) -> RpcResult<bool> {
         Ok(self.includes_user_id(user_id))
@@ -718,5 +737,105 @@ where
             )
             .await
             .map_err(RpcError::Anyhow)?)
+    }
+
+    async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()> {
+        info!(?checkpoint, "Received sync checkpoint: {:?", checkpoint);
+        self.interval_sync_queue
+            .produce_checkpoint_async_info(checkpoint.compact)
+            .await
+            .map_err(RpcError::Anyhow)?;
+
+        Ok(())
+    }
+}
+
+pub async fn spawn_realm_job_update_task(
+    proof_store: Arc<ProofStoreFred>,
+    realm_id: u64,
+    coordinator_addr: String,
+) -> anyhow::Result<()> {
+    info!("realm job listener spawned");
+    tokio::spawn(async move {
+        loop {
+            match proof_store.consume_proof().await {
+                Ok(job_id) => {
+                    if job_id.job_id.circuit_type != GUTANoChange {
+                        send_realm_proof(proof_store.clone(), job_id, realm_id, &coordinator_addr)
+                            .await;
+                    }
+                }
+                Err(err) => {
+                    error!("Error getting job_id from redis: {:?}", err);
+                }
+            }
+            // Avoid busy waiting
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    });
+    Ok(())
+}
+
+async fn send_realm_proof<PS: QProofStoreAsyncImm>(
+    proof_store: Arc<PS>,
+    job_info: ProvingJobDataId,
+    realm_id: u64,
+    coordinator_addr: &str,
+) {
+    let bytes = match proof_store.get_bytes_by_id(job_info.job_id).await {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            error!("Failed to get bytes by job_id: {:?}", err);
+            return;
+        }
+    };
+    let preview_len = bytes.len().min(100);
+    let hex_preview = hex::encode(&bytes[..preview_len]);
+    debug!(
+        "The bytes from job_info.job_id: len = {}, head[0..{}] = {}",
+        bytes.len(),
+        preview_len,
+        hex_preview
+    );
+    let realm_result: GUTARealmCheckpointResult<QEDFelt> = match bincode::deserialize(&bytes) {
+        Ok(result) => result,
+        Err(err) => {
+            error!("Failed to deserialize realm_result: {:?}", err);
+            return;
+        }
+    };
+    let input = SubmitGUTARealmResultAPINoProofInput {
+        realm_id,
+        checkpoint_id: realm_result.checkpoint_id,
+        guta_stats: realm_result.guta_stats.clone(),
+        top_line_proof: realm_result.top_line_proof.clone(),
+        checkpoint_tree_root: realm_result.checkpoint_tree_root.clone(),
+        circuit_type: realm_result.proof_id.circuit_type.clone(),
+    };
+    let mut retry_count = 0;
+    while retry_count < 5 {
+        info!("Sending job to coordinator, retry_count = {}", retry_count);
+        match jsonrpsee::http_client::HttpClientBuilder::default().build(coordinator_addr) {
+            Ok(client) => {
+                let params = rpc_params![realm_result.clone(), input.clone()];
+                match client.request::<bool, _>("qed_submit_guta", params).await {
+                    Ok(result) => {
+                        info!(
+                            "Successfully submitted job to coordinator, result: {}",
+                            result
+                        );
+                        return;
+                    }
+                    Err(err) => {
+                        error!("Failed to call coordinator API: {:?}", err);
+                    }
+                }
+            }
+            Err(err) => {
+                error!("Failed to create RPC client: {:?}", err);
+            }
+        }
+        retry_count += 1;
+        tokio::time::sleep(Duration::from_secs(1u64.pow(retry_count as u32))).await;
     }
 }

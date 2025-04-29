@@ -93,6 +93,7 @@ services:
     command:
       - "realm-edge"
       - "--redis-uri=redis://172.16.238.13:6379"
+      - "--coordinator-addr=redis://172.16.238.15:8545"
     volumes:
       - "./db:/qed-rollup/db"
     ports:
