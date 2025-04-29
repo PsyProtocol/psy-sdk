@@ -1,8 +1,9 @@
-use crate::edge::request::QSubmitEndCapRPCRequest;
-use crate::F;
+use crate::{C, D, F};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
+use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
 use qed_data::qdata::{checkpoint::QEDL2BlockState, user::QEDUserLeaf};
 
@@ -13,8 +14,12 @@ pub trait RealmEdgeRpc {
     async fn check_user_id_in_realm(&self, user_id: u64) -> RpcResult<bool>;
 
     /// Submit user end cap proof
-    #[method(name = "submit_user_end_cap", param_kind = map)]
-    async fn submit_user_end_cap(&self, req: QSubmitEndCapRPCRequest<F>) -> RpcResult<bool>;
+    #[method(name = "submit_user_end_cap")]
+    async fn submit_user_end_cap(
+        &self,
+        user_ec_input: SubmitUserEndCapNonProofInput<F>,
+        proof: ProofWithPublicInputs<F, C, D>,
+    ) -> RpcResult<bool>;
 
     #[method(name = "get_checkpoint_leaf_data")]
     async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64)

@@ -250,9 +250,13 @@ where
         Ok(self.includes_user_id(user_id))
     }
 
-    async fn submit_user_end_cap(&self, req: QSubmitEndCapRPCRequest<F>) -> RpcResult<bool> {
+    async fn submit_user_end_cap(
+        &self,
+        user_ec_input: SubmitUserEndCapNonProofInput<F>,
+        proof: ProofWithPublicInputs<F, C, D>,
+    ) -> RpcResult<bool> {
         Ok(self
-            .handle_recv_end_cap_from_user(req.user_ec_input, &req.proof)
+            .handle_recv_end_cap_from_user(user_ec_input, &proof)
             .await
             .map(|_| true)
             .map_err(RpcError::Anyhow)?)
