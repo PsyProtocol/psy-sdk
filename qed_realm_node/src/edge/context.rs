@@ -740,7 +740,7 @@ where
     }
 
     async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()> {
-        info!(?checkpoint, "Received sync checkpoint: {:?", checkpoint);
+        info!(?checkpoint, "Received sync checkpoint: {:?}", checkpoint);
         self.interval_sync_queue
             .produce_checkpoint_async_info(checkpoint.compact)
             .await
