@@ -441,10 +441,18 @@ pub struct QDeployContractRPCRequest<F: RichField> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "")]
-pub struct QSubmitEndCapRPCRequest<F: RichField> {
+pub struct QSubmitRPCRequest<F: RichField> {
     pub user_ec_input: SubmitUserEndCapNonProofInput<F>,
     pub proof: ProofWithPublicInputs<GoldilocksField, C, D>,
 }
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+pub struct QSubmitEndCapRPCRequest<F: RichField> {
+    pub req: QSubmitRPCRequest<F>,
+}
+
 
 // lps
 // QTreeDataStoreReaderSync

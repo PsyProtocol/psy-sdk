@@ -255,6 +255,9 @@ impl MerkleProofGadget {
             .contains(MerkleProofGadgetOptionFlags::siblings)
         {
             for (i, sibling) in self.siblings.iter().enumerate() {
+              if i >= siblings.len() {
+                panic!("siblings len is not equal to height");
+              }
                 witness.set_hash_target(*sibling, siblings[i].0)?;
             }
         }

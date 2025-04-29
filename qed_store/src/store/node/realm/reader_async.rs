@@ -401,4 +401,28 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreReaderAsync<F> fo
             leaf_index,
         )
     }
+
+    async fn get_user_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_merkle_proof(
+            self,
+            checkpoint_id,
+            user_id,
+        )
+    }
+
+    async fn get_user_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        user_id: F,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_merkle_proof_f(
+            self,
+            checkpoint_id,
+            user_id,
+        )
+    }
 }

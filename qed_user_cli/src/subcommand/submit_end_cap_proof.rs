@@ -31,7 +31,7 @@ use qed_store::{
 
 use crate::rpc::{
     provider::{QUserRpcProvider, RpcProvider},
-    request::QSubmitEndCapRPCRequest,
+    request::{QSubmitEndCapRPCRequest, QSubmitRPCRequest},
 };
 
 use super::args::{ContractCallArgs, SubmitEndCapArgs};
@@ -83,6 +83,7 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     let mut st_provider = RpcProvider::new_with_config(args.rpc_config)?;
 
     let latest_l2_block_state = st_provider.resolve_get_latest_l2_block_state()?;
+    tracing::info!("latest l2 block state: {:?}", latest_l2_block_state);
 
     let main_circuits =
         QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
@@ -96,6 +97,7 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     });
 
     let user_id = st_provider.get_user_id(public_key.public_key_param)?;
+    tracing::info!("user id: {:?}", user_id);
     st_provider.current_user_id = user_id;
 
     let lps = QEDLocalProvingSessionStore::new_at(
@@ -160,10 +162,12 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
 
     let user_ec_input: SubmitUserEndCapNonProofInput<F> = mgr.get_api_input()?;
 
-    st_provider.submit_end_cap_proof::<F>(QSubmitEndCapRPCRequest {
+    let req = QSubmitRPCRequest {
         user_ec_input,
         proof: end_cap_proof,
-    })?;
+    };
+
+    st_provider.submit_end_cap_proof::<F>(QSubmitEndCapRPCRequest { req })?;
 
     Ok(())
 }

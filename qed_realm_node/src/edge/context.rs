@@ -7,6 +7,7 @@ use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     plonk::proof::ProofWithPublicInputs,
 };
+use qed_core::config::network_constants::REALM_USER_TREE_HEIGHT;
 use qed_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT,
     data::qhashout::QHashOut,
@@ -33,6 +34,8 @@ use qed_data::qdata::checkpoint::{
 };
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_node::realm::state::processor::RealmConfig;
+use qed_store::config::store_config::UserTreeStore;
+use qed_store::models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore;
 use qed_store::{
     config::store_config::QCheckpointSyncInfoCompact, node::realm::QEDRealmStoreReaderAsync,
 };
@@ -250,11 +253,12 @@ where
         Ok(self.includes_user_id(user_id))
     }
 
-    async fn submit_user_end_cap(&self, req: QSubmitEndCapRPCRequest<F>) -> RpcResult<bool> {
+    async fn submit_user_end_cap(&self, req: QSubmitEndCapRPCRequest<F>) -> RpcResult<String> {
+        tracing::info!("submit_user_end_cap: {:?}", req);
         Ok(self
             .handle_recv_end_cap_from_user(req.user_ec_input, &req.proof)
             .await
-            .map(|_| true)
+            .map(|_| "ok".to_string())
             .map_err(RpcError::Anyhow)?)
     }
 
@@ -718,5 +722,22 @@ where
             )
             .await
             .map_err(RpcError::Anyhow)?)
+    }
+
+    async fn get_user_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        tracing::info!(
+            "get_user_tree_merkle_proof: checkpoint_id={}, user_id={}",
+            checkpoint_id,
+            user_id
+        );
+        let res: MerkleProofCore<QHashOut<GoldilocksField>> = self.store_reader
+            .get_user_tree_merkle_proof(checkpoint_id, user_id)
+            .await.unwrap();
+        Ok(res)
+            // .map_err(RpcError::Anyhow)
     }
 }
