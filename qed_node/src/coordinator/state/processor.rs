@@ -345,21 +345,6 @@ impl<
             }
         }
 
-        // let save_tasks = user_registrations
-        //     .iter()
-        //     .enumerate()
-        //     .map(|(i, pubkey_info)| {
-        //         let redis_pool = redis_pool.clone();
-        //         let pubkey_info = pubkey_info.clone();
-        //         async move {
-        //             let user_id = start_user_id + i as u64;
-        //             save_user_mapping_to_redis(&redis_pool, user_id, &pubkey_info).await
-        //         }
-        //     });
-        //
-        // join_all(save_tasks).await.into_iter().collect::<anyhow::Result<Vec<_>>>()?;
-        //
-
         let new_public_keys = user_registrations
             .iter()
             .map(|x| x.to_hash::<QEDHasher>())
