@@ -330,20 +330,35 @@ impl<
 
         let redis_pool = get_node_redis_pool()?;
 
-        let save_tasks = user_registrations
-            .iter()
-            .enumerate()
-            .map(|(i, pubkey_info)| {
-                let redis_pool = redis_pool.clone();
-                let pubkey_info = pubkey_info.clone();
-                async move {
-                    let user_id = start_user_id + i as u64;
-                    save_user_mapping_to_redis(&redis_pool, user_id, &pubkey_info).await
+        for (i, pubkey_info) in user_registrations.iter().enumerate() {
+            let user_id = start_user_id + i as u64;
+            let redis_pool = redis_pool.clone();
+
+            match save_user_mapping_to_redis(&redis_pool, user_id, pubkey_info).await {
+                Ok(_) => {
+                    tracing::info!("✅ Saved user_id={} mapping to Redis", user_id);
                 }
-            });
+                Err(e) => {
+                    tracing::error!("❌ Failed to save user_id={} to Redis: {:?}", user_id, e);
+                    return Err(e);
+                }
+            }
+        }
 
-        join_all(save_tasks).await.into_iter().collect::<anyhow::Result<Vec<_>>>()?;
-
+        // let save_tasks = user_registrations
+        //     .iter()
+        //     .enumerate()
+        //     .map(|(i, pubkey_info)| {
+        //         let redis_pool = redis_pool.clone();
+        //         let pubkey_info = pubkey_info.clone();
+        //         async move {
+        //             let user_id = start_user_id + i as u64;
+        //             save_user_mapping_to_redis(&redis_pool, user_id, &pubkey_info).await
+        //         }
+        //     });
+        //
+        // join_all(save_tasks).await.into_iter().collect::<anyhow::Result<Vec<_>>>()?;
+        //
 
         let new_public_keys = user_registrations
             .iter()

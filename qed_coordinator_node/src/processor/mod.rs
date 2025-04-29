@@ -31,6 +31,9 @@ use qed_store::{
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
 use std::{ sync::Arc, time::Duration};
+use anyhow::bail;
+use tokio::time::sleep;
+use tracing::{error, info, warn};
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
 use qed_node::nimpl::new_fred_pool;
 use qed_realm_node::RedisConfig;
@@ -132,8 +135,7 @@ impl<
         tracing::info!("sync queue dispatch StartSync");
 
         //use broadcast mode
-        let notification = CPQueueNotification::StartSync { checkpoint: checkpoint_id };
-        broadcast_checkpoint_sync(notification).await?;
+        spawn_broadcast_checkpoint_with_retry(checkpoint_id);
 
         Ok(())
     }
@@ -152,6 +154,7 @@ impl
     pub async fn new_with_config(cp_config: CoordinatorProcessNodeConfig) -> anyhow::Result<Self> {
         let pool = new_fred_pool(&cp_config.redis_uri, cp_config.pool_size).await?;
         init_node_redis_pool(pool.clone())?;
+        info!("🐶 redis pool initialized");
         let q = ProofStoreFred::new2(
             pool.clone(),
             COORDINATOR_WORKER_QUEUE_SUFFIX.into(),
@@ -225,29 +228,27 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         })
         .await?;
 
+    let mut latest_checkpoint_id = match  coordinator_processor
+        .ctx
+        .store
+        .get_latest_l2_block_state()
+        .await {
+        Ok(state) => state.checkpoint_id,
+        Err(e) => {
+            bail!("❌ Failed to get latest l2 block state: {:?}", e);
+        }
+    };
     tracing::info!("start coordinator processor");
     let task = tokio::spawn(async move {
         let mut processor_loop = async move || -> anyhow::Result<()> {
             loop {
                 // wait for produceblock message from coordinator edge
-                tracing::info!("wait for produce_block message from coordinator edge");
-                let latest_checkpoint_id = match  coordinator_processor
-                    .ctx
-                    .store
-                    .get_latest_l2_block_state()
-                    .await {
-                        Ok(state) => state.checkpoint_id,
-                        Err(e) => {
-                            tracing::error!("❌ Failed to get latest l2 block state: {:?}", e);
-                            tokio::time::sleep(Duration::from_secs(1)).await;
-                            continue;
-                        }
-                    };
+                tracing::info!("wait for produce_block {} message from coordinator edge", latest_checkpoint_id + 1);
 
                 if coordinator_processor.wait_for_produce_block(latest_checkpoint_id).await? {
                     tracing::info!("start build block");
                     coordinator_processor.ctx.build_block().await?;
-
+                    latest_checkpoint_id += 1;
                     // tracing::info!("start worker");
                     // SimpleAsyncCoordinatorWorker::run_worker_until_done::<
                     //     _,
@@ -284,3 +285,37 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 }
 
 
+pub fn spawn_broadcast_checkpoint_with_retry(checkpoint_id: u64) {
+    let notification = CPQueueNotification::StartSync { checkpoint: checkpoint_id };
+
+    tokio::spawn(async move {
+        match broadcast_checkpoint_sync(notification.clone()).await {
+            Ok(_) => {
+                info!("✅ Successfully broadcast checkpoint sync notification");
+            }
+            Err(e) => {
+                error!("❌ Failed to broadcast checkpoint sync notification: {:?}", e);
+
+                let mut retries = 3;
+                while retries > 0 {
+                    sleep(Duration::from_secs(3)).await;
+
+                    match broadcast_checkpoint_sync(notification.clone()).await {
+                        Ok(_) => {
+                            info!("✅ Retry succeeded for checkpoint sync");
+                            break;
+                        }
+                        Err(e) => {
+                            retries -= 1;
+                            warn!("⚠️ Retry failed (remaining {} attempts): {:?}", retries, e);
+                        }
+                    }
+                }
+
+                if retries == 0 {
+                    error!("❌ All retries failed for checkpoint sync notification");
+                }
+            }
+        }
+    });
+}

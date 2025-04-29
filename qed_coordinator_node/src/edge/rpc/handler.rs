@@ -118,6 +118,7 @@ impl CoordinatorEdgeHandler {
                 if err_msg.contains("User not registered") {
                     info!("🆕 User not registered yet, start new registration");
                     let register_id = REGISTER_USER_COUNTER.fetch_add(1, Ordering::Relaxed);
+                    REGISTERED_USERS.insert(qhash, UserRegisterState::Registering(register_id));
 
                     with_ctx_read_async(|ctx| {
                         let queue = ctx.checkpoint_queue.clone();
