@@ -60,6 +60,9 @@ pub struct QueueConfig {
         default_value = "rnq1"
     )]
     pub notifications_queue_suffix: String,
+
+    #[arg(long, env = "REALM_PROOF_STORE_KEY_SUFFIX", default_value = "RP")]
+    pub proof_store_key_suffix: String,
 }
 
 impl Default for QueueConfig {
@@ -67,6 +70,7 @@ impl Default for QueueConfig {
         Self {
             worker_queue_suffix: "rwq1".to_string(),
             notifications_queue_suffix: "rnq1".to_string(),
+            proof_store_key_suffix: "RP".to_string(),
         }
     }
 }
