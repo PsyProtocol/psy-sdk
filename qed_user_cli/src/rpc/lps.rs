@@ -672,11 +672,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     "get_user_tree_merkle_proof merkle_proof root: {:?}",
                     self.get_user_tree_root(checkpoint_id)?.to_string()
                 );
-                tracing::info!("verify {:?}", merkle_proof.verify::<QEDHasher>());
+                tracing::info!("before verify {:?}", merkle_proof.verify::<QEDHasher>());
 
                 merkle_proof.root = self.get_user_tree_root(checkpoint_id)?;
 
-                tracing::info!("修改 Root 后 verify {:?}", merkle_proof.verify::<QEDHasher>());
+                tracing::info!("after verify {:?}", merkle_proof.verify::<QEDHasher>());
 
                 Ok(merkle_proof)
             }

@@ -6,6 +6,7 @@ pub mod processor;
 pub mod rpc;
 
 use crate::args::CoordinatorEdgeArgs;
+use crate::context::init_global_lmdb_store;
 use jsonrpsee::server::Server;
 use qed_core::utils::debug_timer::DebugTimer;
 
@@ -25,6 +26,9 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
 
     init_coordinator_edge(&config).await?;
     info!("✅ Initialized coordinator edge node");
+
+    init_global_lmdb_store()?;
+    info!("✅ Initialized global LMDB store");
 
     let (rpc_module, handler) = build_rpc_module(&config.coordinator_redis_uri)?;
     handler.spawn_cp_sync_listener().await?;
