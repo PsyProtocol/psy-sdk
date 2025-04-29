@@ -93,22 +93,31 @@ pub async fn broadcast_checkpoint(sync_info: CheckpointSyncInfo) -> anyhow::Resu
         match result {
             Ok((realm_name, rpc_url, Ok(res))) => {
                 if res.status().is_success() {
-                    tracing::info!("✅ Sent checkpoint sync to realm {}", realm_name);
-                    success_count += 1;
+                    match res.json::<serde_json::Value>().await {
+                        Ok(json) => {
+                            if json.get("error").is_none() {
+                                tracing::info!("✅ Successfully sent and confirmed checkpoint sync to realm {}", realm_name);
+                                success_count += 1;
+                            } else {
+                                tracing::warn!("⚠️ Realm {} RPC returned error: {:?}", realm_name, json.get("error"));
+                                failed_realms.push((realm_name, rpc_url, "RPC error field present".to_string()));
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("⚠️ Failed to parse RPC response from realm {}: {:?}", realm_name, e);
+                            failed_realms.push((realm_name, rpc_url, format!("Invalid RPC response: {:?}", e)));
+                        }
+                    }
                 } else {
-                    //tracing::warn!("⚠️ HTTP error realm={} status={}", realm_name, res.status());
                     failed_realms.push((realm_name, rpc_url, format!("HTTP status {}", res.status())));
                 }
             }
             Ok((realm_name, rpc_url, Err(e))) => {
-                //tracing::warn!("❌ Request error to realm {}: {:?}", realm_name, e);
                 failed_realms.push((realm_name, rpc_url, e.to_string()));
             }
             Err(e) => {
-                //tracing::warn!("❌ Task spawn error: {:?}", e);
                 failed_realms.push(("unknown".to_string(), "unknown".to_string(), format!("Join error: {:?}", e)));
             }
-
         }
     }
     tracing::info!("📈 Broadcast result: {}/{} realms succeeded", success_count, total_count);
