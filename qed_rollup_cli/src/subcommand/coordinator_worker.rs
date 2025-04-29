@@ -1,3 +1,4 @@
+use tracing::info;
 use qed_coordinator_node::CoordinatorWorkerArgs;
 
 use qed_worker::{CoordinatorWorker, Worker, WorkerState};
@@ -28,6 +29,8 @@ async fn run_worker(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
 }
 
 pub async fn run(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
+    info!("Coordinator worker starting...");
+    info!("Coordinator worker args: {:?}", args);
     let ctrl_c = tokio::signal::ctrl_c();
     tokio::select! {
         result = run_worker(args) => {

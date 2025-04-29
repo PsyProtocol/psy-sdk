@@ -1,6 +1,7 @@
 use qed_realm_node::{QueueConfig, RedisConfig};
 
 use qed_worker::{RealmWorker, Worker, WorkerState};
+use tracing::info;
 
 async fn run_worker(redis_config: RedisConfig, queue_config: QueueConfig) -> anyhow::Result<()> {
     let state = WorkerState::new(
@@ -17,6 +18,8 @@ async fn run_worker(redis_config: RedisConfig, queue_config: QueueConfig) -> any
 }
 
 pub async fn run(redis_config: RedisConfig, queue_config: QueueConfig) -> anyhow::Result<()> {
+    info!("Realm worker starting...");
+    info!("Realm worker args: {:?}, {:?}", redis_config, queue_config);
     let ctrl_c = tokio::signal::ctrl_c();
     tokio::select! {
         result = run_worker(redis_config, queue_config) => {
