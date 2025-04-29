@@ -200,15 +200,15 @@ pub enum RequestParams<F: RichField> {
     // QMetaDataStoreReaderSync
     #[serde(rename = "qed_get_user_leaf_data")]
     GetUserLeafData(QUserLeafDataRPCRequest),
-    #[serde(rename = "get_user_leaf_data_f")]
+    #[serde(rename = "qed_get_user_leaf_data_f")]
     GetUserLeafFData(QUserLeafDataFRPCRequest<F>),
     #[serde(rename = "qed_get_contract_leaf_data")]
     GetContractLeafData(QContractLeafDataRPCRequest),
-    #[serde(rename = "get_contract_leaf_data_f")]
+    #[serde(rename = "qed_get_contract_leaf_data_f")]
     GetContractLeafDataF(QContractLeafDataFRPCRequest<F>),
     #[serde(rename = "qed_get_checkpoint_leaf_data")]
     GetCheckpointLeafData(QCheckpointLeafDataRPCRequest),
-    #[serde(rename = "get_checkpoint_leaf_data_f")]
+    #[serde(rename = "qed_get_checkpoint_leaf_data_f")]
     GetCheckpointLeafDataF(QCheckpointLeafDataFRPCRequest<F>),
     #[serde(rename = "qed_get_contract_code_definition")]
     GetContractCodeDefinition(QContractCodeDefinitionRPCRequest),
@@ -441,10 +441,18 @@ pub struct QDeployContractRPCRequest<F: RichField> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "")]
-pub struct QSubmitEndCapRPCRequest<F: RichField> {
+pub struct QSubmitRPCRequest<F: RichField> {
     pub user_ec_input: SubmitUserEndCapNonProofInput<F>,
     pub proof: ProofWithPublicInputs<GoldilocksField, C, D>,
 }
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+pub struct QSubmitEndCapRPCRequest<F: RichField> {
+    pub req: QSubmitRPCRequest<F>,
+}
+
 
 // lps
 // QTreeDataStoreReaderSync

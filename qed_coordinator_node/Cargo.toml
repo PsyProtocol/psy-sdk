@@ -40,3 +40,4 @@ hex = {workspace = true}
 bincode = {workspace = true}
 qed_realm_node = {workspace = true}
 qed_worker = {workspace = true}
+qed_user_cli ={ workspace = true }

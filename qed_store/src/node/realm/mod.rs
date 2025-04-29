@@ -61,7 +61,17 @@ pub trait QEDRealmStoreReaderAsync<F: RichField> {
     async fn get_user_bottom_tree_merkle_proof_f(&self, root_level: u8, checkpoint_id: F, user_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     async fn get_user_sub_tree_merkle_proof(&self, checkpoint_id: u64, root_level: u8, leaf_level: u8, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
 
+    async fn get_user_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> ;
 
+    async fn get_user_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        user_id: F,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> ;
 
     
 }

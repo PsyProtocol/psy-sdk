@@ -5,6 +5,7 @@ pub mod rpc;
 
 use self::context::RealmEdgeContext;
 use crate::rpc::RealmEdgeRpcServer;
+use crate::REALM_PROCESSOR_SUFFIX;
 use crate::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
 use jsonrpsee::server::ServerBuilder;
@@ -14,6 +15,7 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
+use qed_node_common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use tracing::{debug, info};
 
@@ -36,10 +38,12 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     .map_err(|e| anyhow::anyhow!("Failed to create Redis pool: {}", e))?;
     debug!("created redis pool successfully!");
     //todo! maybe it shoule use new2
-    let proof_store = ProofStoreFred::new(
+    let proof_store = ProofStoreFred::new2(
         pool,
         config.queue.worker_queue_suffix,
         config.queue.notifications_queue_suffix,
+        Some(REALM_PROCESSOR_SUFFIX),
+        Some(REALM_PROCESSOR_SUFFIX),
     );
     debug!("created proof store successfully!");
     // Create proof storage
@@ -53,7 +57,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
 
     debug!("created store reader successfully!");
     // Create proof verifier
-    let proof_verifier = Arc::new(GenericCircuitVerifier::<C, D>::new());
+    let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     debug!("created proof verifier successfully!");
 
     // Create Realm configuration

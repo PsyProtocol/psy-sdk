@@ -199,11 +199,12 @@ macro_rules! qed_rpc_call {
             .send()?
             .json::<RpcResponse<String>>()?;
 
-        if let ResponseResult::Success(s) = response.result {
-            println!("{}", s);
-            Ok(())
-        } else {
-            Err(anyhow::format_err!("rpc call failed"))
+        match response.result {
+            ResponseResult::Success(s) => {
+            tracing::info!("{:?}", s);
+                Ok(())
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)),
         }
     }};
 }
@@ -246,6 +247,7 @@ pub trait QUserRpcProvider {
 
 impl QUserRpcProvider for RpcProvider {
     fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()> {
+        tracing::info!("register user: {:?}", req);
         qed_rpc_call!(
             self,
             &self.config.cooridinator_configs,
@@ -253,6 +255,7 @@ impl QUserRpcProvider for RpcProvider {
         )
     }
     fn produce_block<F: RichField>(&self) -> anyhow::Result<()> {
+        tracing::info!("produce block");
         qed_rpc_call!(
             self,
             &self.config.cooridinator_configs,
@@ -275,6 +278,7 @@ impl QUserRpcProvider for RpcProvider {
         &self,
         req: QDeployContractRPCRequest<F>,
     ) -> anyhow::Result<()> {
+        tracing::info!("deploy contract: {:?}", req);
         qed_rpc_call!(
             self,
             &self.config.cooridinator_configs,
@@ -286,13 +290,16 @@ impl QUserRpcProvider for RpcProvider {
         &self,
         req: QSubmitEndCapRPCRequest<F>,
     ) -> anyhow::Result<()> {
-        let rpc_url = self.get_realm_url(self.current_user_id)?;
+        // tracing::info!("submit end cap proof: {:?}", req);
+        tracing::info!("submit end cap proof: {:?}", serde_json::to_string(&req));
+        let rpc_url = self.get_realm_url(self.current_user_id).unwrap();
         qed_rpc_call!(self, &rpc_url, RequestParams::<F>::SubmitEndCap(req))
     }
 }
 
 impl RpcProvider {
     pub fn get_user_id<F: RichField>(&self, public_key_param: QHashOut<F>) -> anyhow::Result<u64> {
+        tracing::info!("user: {:?}", public_key_param);
         let response = qed_rpc_call_back!(
             self,
             &self.config.cooridinator_configs,
@@ -300,7 +307,10 @@ impl RpcProvider {
             u64
         );
         match response.result {
-            ResponseResult::Success(user_id) => Ok(user_id),
+            ResponseResult::Success(user_id) => {
+                tracing::info!("get user id: {:?}", user_id);
+                Ok(user_id)
+            }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }

@@ -7,7 +7,7 @@ use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
 use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
-use qed_core::job::id::ProvingJobDataId;
+use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataId};
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
@@ -16,6 +16,7 @@ use qed_node::nimpl::proof_store_fred::{ProofStoreFred, PS_HISTORY_QUEUE_KEY_PRE
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
+use qed_store::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
@@ -79,8 +80,9 @@ impl RealmProcessor {
     pub async fn start(mut self) -> anyhow::Result<JoinHandle<()>> {
         info!("Realm Processor starting");
         let st = Arc::new(self.store.dup());
+        st.initialize_store()?;
         let realm_qps = Arc::new(self.queue.clone());
-        let mut context = if st.get_latest_l2_block_state().await.is_ok() {
+        let mut context = if true {
             info!("Init state from database");
             RealmProcessorContext::new(
                 self.realm_config,
@@ -101,7 +103,7 @@ impl RealmProcessor {
             let checkpoint = get_checkpoint(&self.queue, get_latest_checkpoint_id).await?;
             let l2_block_state = checkpoint.l2_block_state.clone();
             info!(?l2_block_state, "Init state from queue");
-            RealmProcessorContext {
+            let mut ctx = RealmProcessorContext {
                 store: st.clone(),
                 checkpoint_queue: realm_qps.clone(),
                 sync_queue: realm_qps.clone(),
@@ -111,7 +113,9 @@ impl RealmProcessor {
                 latest_block_state: l2_block_state,
                 realm_config: self.realm_config,
                 pending_register_users: vec![],
-            }
+            };
+            ctx.handle_checkpoint_sync(checkpoint).await?;
+            ctx
         };
         info!("Realm Processor started");
         loop {
@@ -134,9 +138,12 @@ impl RealmProcessor {
                 };
             // Send the job id to the channel for the next step
             info!("Pushing job id to queue: {:?}", proving_data_job_id);
-            if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
-                error!("Error chq_push_imm: {:?}", err);
-            };
+            if proving_data_job_id.job_id.circuit_type != ProvingJobCircuitType::GUTANoChange {
+                if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
+                    error!("Error chq_push_imm: {:?}", err);
+                };
+            }
+
             info!("Pushing job to queueue done");
         }
     }

@@ -29,7 +29,7 @@ services:
     depends_on:
       - redis
 
-  coordinator-egde:
+  coordinator-edge:
     build:
       context: .
       dockerfile: Dockerfile

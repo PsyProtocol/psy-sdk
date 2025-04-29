@@ -77,19 +77,21 @@ update-snapshots:
 ################################################################################
 #                                   TMP                                        #
 ################################################################################
-COORDINATOR_DB_PATH     := $(PWD)/db/coordinator
-REALM_DB_PATH           := $(PWD)/db/realm
+COORDINATOR_DB_PATH      := $(PWD)/db/coordinator
+REALM_DB_PATH            := $(PWD)/db/realm
 
-PROJECT_DIR             := $(PWD)/examples
-FILE                    := $(PWD)/examples/src/main.qed
-PARAMETERS              :=
-USER0_PRIVATE_KEY       := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
-USER1_PRIVATE_KEY       := f69d09d891a4faa188108b947335cd14d6eecd32e2243e0e35d194e0a06b1d2b
+PROJECT_DIR              := $(PWD)/examples
+FILE                     := $(PWD)/examples/src/main.qed
+PARAMETERS               :=
+USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
+USER1_PRIVATE_KEY        := f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d
+
+CURRENT_USER_PRIVATE_KEY := ${USER0_PRIVATE_KEY}
 
 init:
 	@mkdir $(PWD)/db
 	@cd $(PWD)/db && cargo run --release --package dargo new ${PROJECT_DIR}
-	@cp qed_compiler/tests/token.qed ${FILE}
+	@cp qed_compiler/tests/new_token.qed ${FILE}
 
 .PHONY: launch
 launch: shutdown init compile
@@ -145,7 +147,7 @@ generate-access-token:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_rollup_cli generate-access-token
 
 get-public-key:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli get-public-key --private-key=${USER0_PRIVATE_KEY}
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli get-public-key --private-key=${CURRENT_USER_PRIVATE_KEY}
 
 random-wallet:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli random-wallet
@@ -154,21 +156,27 @@ register-user:
 	@RUST_LOG=${LOG_LEVE} curl -X POST http://127.0.0.1:8545 \
       -H "Content-Type: application/json" \
       -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "352637524d9b8482d65b9c8bc78d0d4849a063bc53558158f84ee3863081ab4b" }, "id": 1 }' | jq .
+	# @RUST_LOG=${LOG_LEVE} curl -X POST http://127.0.0.1:8545 \
+	#      -H "Content-Type: application/json" \
+	#      -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "cad421940097e1a1257a0d85faf9441d6e52d17f2dcda0da6da5c3a4ea80fe15" }, "id": 1 }' | jq .
 
 deploy-contract:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli deploy-contract --private-key=${CURRENT_USER_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
 
-submit-end-cap-proof:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id 0 --method-name simple_mint --inputs 1000 --nonce 1
+mint:
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id 0 --method-name simple_mint --inputs 1000 --nonce 1
+
+transfer:
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id 0 --method-name simple_transfer --inputs 500 --inputs 1 --nonce 1
+
+claim:
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id 0 --method-name simple_claim --inputs 0 --nonce 1
 
 build-block:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .
 
 latest-checkpoint:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_latest_checkpoint", "params": [], "id": 1 }' | jq .
-
-get-user-leaf-data:
-	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [0, 0], "id": 1 }' | jq .
 
 get-contract-leaf-data:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_contract_leaf_data", "params": [0], "id": 1 }' | jq .
@@ -180,7 +188,7 @@ qed-get-contract-code-definition:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_contract_code_definition", "params": [0], "id": 1 }' | jq .
 
 get-latest-l2-block-state:
-	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_latest_l2_block_state", "params": [], "id": 1 }' | jq .
+	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_l2_block_state", "params": [], "id": 1 }' | jq .
 
 get-l2-block-state:
 	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_l2_block_state", "params": [1], "id": 1 }' | jq .
@@ -188,10 +196,6 @@ get-l2-block-state:
 realm-check-user-id:
 	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_check_user_id_in_realm", "params": [0], "id": 1 }' | jq .
 
-realm-submit-user-end-cap:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_submit_user_end_cap", "params": [{"user_ec_input": {}, "proof": {}}], "id": 1 }' | jq .
-
-# Block state related calls
 realm-get-latest-l2-block-state:
 	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_l2_block_state", "params": [], "id": 1 }' | jq .
 
@@ -226,7 +230,7 @@ realm-get-user-contract-tree-root:
 	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_tree_root", "params": [1, 0], "id": 1 }' | jq .
 
 realm-get-user-contract-state-tree-root:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_root", "params": [1, 0, 1], "id": 1 }' | jq .
+	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_root", "params": [1, 0, 0], "id": 1 }' | jq .
 
 realm-get-user-contract-tree-merkle-proof:
 	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_tree_merkle_proof", "params": [1, 0, 1], "id": 1 }' | jq .

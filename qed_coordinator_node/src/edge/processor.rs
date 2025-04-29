@@ -1,7 +1,8 @@
+use anyhow::Ok;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use tracing::{debug, info};
 use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
-use qed_core::job::id::ProvingJobDataId;
+use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataId};
 use qed_core::job::traits::QProofStoreAsyncImm;
 use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
@@ -67,6 +68,15 @@ where
     let realm_result: GUTARealmCheckpointResult<QEDFelt>  =
         bincode::deserialize(&bytes)
             .map_err(|e| anyhow::anyhow!("failed to deserialize realm_result: {:?}", e))?;
+    
+    tracing::info!("✅ processed realm job, checkpoint {}", realm_result.checkpoint_id);
+    if realm_result.proof_id.circuit_type ==  ProvingJobCircuitType::GUTANoChange {
+        tracing::info!(
+            "✅ processed GUTANoChange from realm, checkpoint {}, no proof",
+            realm_result.checkpoint_id
+        );
+        return Ok(());
+    }
 
     // 2) get the proof by id
     let realm_proof = ctx

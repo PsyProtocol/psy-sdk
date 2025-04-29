@@ -1,6 +1,7 @@
 use crate::edge::request::QSubmitEndCapRPCRequest;
 use crate::F;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use plonky2::field::types::PrimeField64;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
@@ -14,7 +15,7 @@ pub trait RealmEdgeRpc {
 
     /// Submit user end cap proof
     #[method(name = "submit_user_end_cap", param_kind = map)]
-    async fn submit_user_end_cap(&self, req: QSubmitEndCapRPCRequest<F>) -> RpcResult<bool>;
+    async fn submit_user_end_cap(&self, req: QSubmitEndCapRPCRequest<F>) -> RpcResult<String>;
 
     #[method(name = "get_checkpoint_leaf_data")]
     async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64)
@@ -245,4 +246,24 @@ pub trait RealmEdgeRpc {
         leaf_level: u8,
         leaf_index: F,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "get_user_tree_merkle_proof")]
+    async fn get_user_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "get_user_tree_merkle_proof_f")]
+    async fn get_user_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        user_id: F,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_user_tree_merkle_proof(
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+        )
+        .await
+    }
 }
