@@ -80,38 +80,20 @@ impl RealmProcessor {
         info!("Realm Processor starting");
         let st = Arc::new(self.store.dup());
         let realm_qps = Arc::new(self.queue.clone());
-        let mut context = if st.get_latest_l2_block_state().await.is_ok() {
-            info!("Init state from database");
-            RealmProcessorContext::new(
-                self.realm_config,
-                st.clone(),
-                realm_qps.clone(),
-                realm_qps.clone(),
-                realm_qps.clone(),
-                realm_qps.clone(),
-                self.proof_verifier.clone(),
-            )
-            .await?
-        } else {
-            info!("start to init state from queue");
-            let get_latest_checkpoint_id = get_latest_checkpoint_id(&self.queue)
-                .await?
-                .ok_or(anyhow::anyhow!("No latest checkpoint id found in queue"))?;
-            info!("latest checkpoint id: {:?}", get_latest_checkpoint_id);
-            let checkpoint = get_checkpoint(&self.queue, get_latest_checkpoint_id).await?;
-            let l2_block_state = checkpoint.l2_block_state.clone();
-            info!(?l2_block_state, "Init state from queue");
-            RealmProcessorContext {
-                store: st.clone(),
-                checkpoint_queue: realm_qps.clone(),
-                sync_queue: realm_qps.clone(),
-                prover_queue: realm_qps.clone(),
-                proof_store: realm_qps.clone(),
-                proof_verifier: self.proof_verifier.clone(),
-                latest_block_state: l2_block_state,
-                realm_config: self.realm_config,
-                pending_register_users: vec![],
-            }
+        let checkpoint = self.wait_for_next_checkpoint().await?;
+        info!("init with checkpoint: {:?}", checkpoint);
+        let l2_block_state = checkpoint.l2_block_state;
+        info!(?l2_block_state, "Init state from queue");
+        let mut context = RealmProcessorContext {
+            store: st.clone(),
+            checkpoint_queue: realm_qps.clone(),
+            sync_queue: realm_qps.clone(),
+            prover_queue: realm_qps.clone(),
+            proof_store: realm_qps.clone(),
+            proof_verifier: self.proof_verifier.clone(),
+            latest_block_state: l2_block_state,
+            realm_config: self.realm_config,
+            pending_register_users: vec![],
         };
         info!("Realm Processor started");
         loop {
