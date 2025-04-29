@@ -66,7 +66,7 @@ pub async fn broadcast_checkpoint(sync_info: CheckpointSyncInfo) -> anyhow::Resu
             let payload = serde_json::json!({
                 "jsonrpc": "2.0",
                 "method": REALM_SYNC_INFO_METHOD,
-                "params": params,
+                "params": [params],
                 "id": 1,
             });
 
