@@ -742,7 +742,9 @@ where
 
     async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()> {
         info!(
-            checkpoint.checkpoint_id, checkpoint.sync_timestamp, checkpoint.source_coordinator_edge_id
+            checkpoint.checkpoint_id,
+            checkpoint.sync_timestamp,
+            checkpoint.source_coordinator_edge_id,
             "Received sync checkpoint"
         );
         self.interval_sync_queue
