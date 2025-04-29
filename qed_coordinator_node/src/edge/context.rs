@@ -19,7 +19,7 @@ use fred::prelude::*;
 use serde::{Deserialize, Serialize};
 use qed_node::coordinator::state::user_map::get_node_redis_pool;
 use qed_node::nimpl::new_fred_pool;
-use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
+use crate::{CoordinatorEdgeQueueArgs, COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
 use crate::rpc::types::{RealmInfo, RealmRpcRegistry};
 
 type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
@@ -132,6 +132,7 @@ pub async fn init_realms_from_env() -> anyhow::Result<()> {
     Ok(())
 }
 pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(
+    args: CoordinatorEdgeQueueArgs,
     f: F,
 ) -> anyhow::Result<R>
 where
@@ -149,12 +150,18 @@ where
 
     let redis_pool = get_node_redis_pool()?;
 
+    let CoordinatorEdgeQueueArgs {
+        coordinator_worker_queue_suffix,
+        coordinator_notifications_queue_suffix,
+        coordinator_proof_store_key_suffix,
+        ..
+    } = args;
     let proof_store = Arc::new(ProofStoreFred::new2(
         (*redis_pool).clone(),
-        COORDINATOR_WORKER_QUEUE_SUFFIX.into(),
-        COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX.into(),
-        Some(COORDINATOR_WORKER_SUFFIX),
-        Some(COORDINATOR_WORKER_SUFFIX),
+        coordinator_worker_queue_suffix,
+        coordinator_notifications_queue_suffix,
+        Some(&coordinator_proof_store_key_suffix),
+        Some(&coordinator_proof_store_key_suffix),
     ));
 
     let temp_ctx = CoordinatorEdgeContext {

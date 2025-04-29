@@ -38,10 +38,10 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
 
     let proof_store = Arc::new(ProofStoreFred::new2(
         redis_pool.clone(),
-        COORDINATOR_WORKER_QUEUE_SUFFIX.into(),
-        COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX.into(),
-        Some(REALM_PROCESSOR_SUFFIX),
-        Some(REALM_PROCESSOR_SUFFIX),
+        config.coordinator_edge_queue_args.coordinator_worker_queue_suffix.clone(),
+        config.coordinator_edge_queue_args.coordinator_notifications_queue_suffix.clone(),
+        Some(config.coordinator_edge_queue_args.coordinator_proof_store_key_suffix.as_str()),
+        Some(config.coordinator_edge_queue_args.coordinator_proof_store_key_suffix.as_str()),
     ));
     timer.lap("redis initialized");
     info!("✅ Initialized Redis pool");

@@ -10,6 +10,7 @@ use qed_store::config::store_config::QEDFelt;
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use crate::context::{with_ctx_read_async, with_temp_ctx_read_async, GLOBAL_REALM_REGISTRY};
 use crate::rpc::types::CheckpointSyncInfo;
+use crate::CoordinatorEdgeQueueArgs;
 use chrono::Utc;
 
 use serde_json::json;
@@ -25,12 +26,12 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
 /// read latest checkpoint & proof, package into queue for Realm / RE
-pub async fn handle_cp_sync(latest_checkpoint_id: u64) -> anyhow::Result<()>
+pub async fn handle_cp_sync(args: CoordinatorEdgeQueueArgs, latest_checkpoint_id: u64) -> anyhow::Result<()>
 {
     info!("Handling checkpoint sync");
     // 1) get the latest sync info from the queue
     let checkpoint_sync_info =
-        with_temp_ctx_read_async::<_,_,_,C,D>(|ctx| async move {
+        with_temp_ctx_read_async::<_,_,_,C,D>(args,|ctx| async move {
         QEDCoordinatorStoreReaderAsync::get_checkpoint_sync_info_compact(&*ctx.store_reader, latest_checkpoint_id).await
     }).await?;
     info!("📥 Fetched checkpoint sync info from db: checkpoint_id={}",latest_checkpoint_id);
@@ -154,6 +155,7 @@ pub async fn push_checkpoint_to_realm(realm_rpc_url: &str, sync_info: &Checkpoin
 
 
 pub async fn fetch_and_push_checkpoint_to_realm<F, C, const D: usize>(
+    args: CoordinatorEdgeQueueArgs,
     latest_checkpoint_id: u64,
     realm_rpc_url: &str,
 ) -> anyhow::Result<()>
@@ -164,7 +166,7 @@ where
     info!("🔍 Handling checkpoint sync to {}", realm_rpc_url);
 
     // 1) got QEDCheckpointSyncInfoCompact
-    let checkpoint_sync_info = with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
+    let checkpoint_sync_info = with_temp_ctx_read_async::<_, _, _, C, D>(args,|ctx| async move {
         QEDCoordinatorStoreReaderAsync::get_checkpoint_sync_info_compact(&*ctx.store_reader, latest_checkpoint_id).await
     })
         .await?;
@@ -181,6 +183,7 @@ where
 }
 
 pub async fn process_realm_job<SR, DQ, PS>(
+    args: CoordinatorEdgeQueueArgs,
     ctx: &CoordinatorEdgeContext<SR, DQ, PS>,
     job_info: ProvingJobDataId,
 ) -> anyhow::Result<()>
@@ -227,7 +230,7 @@ where
     };
 
     // ctx.handle_recv_guta_from_realm(input, &realm_proof).await?;
-    with_temp_ctx_read_async::<_, _, _, C, D>(|temp_ctx| async move {
+    with_temp_ctx_read_async::<_, _, _, C, D>(args,|temp_ctx| async move {
         temp_ctx.handle_recv_guta_from_realm(input, &realm_proof).await
     }).await?;
 

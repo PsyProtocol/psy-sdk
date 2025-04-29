@@ -57,12 +57,6 @@ pub struct CoordinatorProcessNode<
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
 }
 
-pub struct CoordinatorProcessNodeConfig {
-    pool_size: usize,
-    redis_uri: String,
-    storage_db_path: String,
-}
-
 impl<
         SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
         DQ: CheckpointDrainQueueConsumerAsyncImm,
@@ -149,20 +143,36 @@ impl
         ProofStoreFred,
     >
 {
-    pub async fn new_with_config(cp_config: CoordinatorProcessNodeConfig) -> anyhow::Result<Self> {
-        let pool = new_fred_pool(&cp_config.redis_uri, cp_config.pool_size).await?;
+    pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
+        let pool = new_fred_pool(&cp_config.coordinator_redis_uri, cp_config.coordinator_pool_size as usize).await?;
         init_node_redis_pool(pool.clone())?;
         let q = ProofStoreFred::new2(
             pool.clone(),
-            COORDINATOR_WORKER_QUEUE_SUFFIX.into(),
-            COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX.into(),
-            Some(COORDINATOR_WORKER_SUFFIX),
-            Some(COORDINATOR_WORKER_SUFFIX),
+            cp_config
+                .coordinator_processor_queue_args
+                .coordinator_worker_queue_suffix
+                .clone(),
+            cp_config
+                .coordinator_processor_queue_args
+                .coordinator_notifications_queue_suffix
+                .clone(),
+            Some(
+                cp_config
+                    .coordinator_processor_queue_args
+                    .coordinator_proof_store_key_suffix
+                    .as_str(),
+            ),
+            Some(
+                cp_config
+                    .coordinator_processor_queue_args
+                    .coordinator_proof_store_key_suffix
+                    .as_str(),
+            ),
         );
 
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
-                &cp_config.storage_db_path,
+                &cp_config.coordinator_db_path,
             )?);
 
         store_reader.initialize_store()?;
@@ -186,7 +196,7 @@ impl
         )
         .await?;
 
-        let mut sync_queue = RedisQueue::new(&cp_config.redis_uri)?;
+        let mut sync_queue = RedisQueue::new(&cp_config.coordinator_redis_uri)?;
 
         coordinator_processor_ctx.build_block().await?;
         //notify to coordinator edge
@@ -218,11 +228,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
     //     .init();
     //
     let mut coordinator_processor =
-        CoordinatorProcessNode::new_with_config(CoordinatorProcessNodeConfig {
-            pool_size: args.coordinator_pool_size as usize,
-            redis_uri: args.coordinator_redis_uri,
-            storage_db_path: args.coordinator_db_path,
-        })
+        CoordinatorProcessNode::new_with_config(args)
         .await?;
 
     tracing::info!("start coordinator processor");

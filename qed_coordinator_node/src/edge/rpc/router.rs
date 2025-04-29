@@ -21,9 +21,9 @@ use crate::rpc::types::{GetByFRequest, GetByIdRequest, GetUserLeafRequest, GetUs
 
 /// register the RPC methods for the CoordinatorEdgeHandler
 pub fn build_rpc_module(
-    redis_uri: &str,
+    args: CoordinatorEdgeArgs,
 ) -> anyhow::Result<(RpcModule<CoordinatorEdgeHandler>, CoordinatorEdgeHandler)> {
-    let handler = CoordinatorEdgeHandler::new(redis_uri)?;
+    let handler = CoordinatorEdgeHandler::new(args.clone())?;
     let handler_clone = handler.clone();
 
     let mut module = RpcModule::new(handler);
@@ -131,9 +131,12 @@ pub fn build_rpc_module(
         Ok::<_, ErrorObjectOwned>("ok")
     })?;
     //register_realm_rpc
-    module.register_async_method("register_realm_rpc", |params, _handler, _ctx| async move {
-        let parsed: RegisterRealmRpcRequest = match params.parse() {
-            Ok(p) => p,
+    let args = args.clone();
+    module.register_async_method("register_realm_rpc", move |params, _handler, _ctx| {
+        let args = args.clone();
+        async move {
+            let parsed: RegisterRealmRpcRequest = match params.parse() {
+                Ok(p) => p,
             Err(e) => {
                 return Err(ErrorObjectOwned::owned(
                     -32602,
@@ -148,7 +151,7 @@ pub fn build_rpc_module(
             tracing::info!("✅ Realm registered via RPC: name = {}, url = {}", parsed.name, parsed.rpc_url);
 
             let latest_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
-            fetch_and_push_checkpoint_to_realm::<F,C,2>(latest_checkpoint_id, &parsed.rpc_url)
+            fetch_and_push_checkpoint_to_realm::<F,C,2>(args.clone().coordinator_edge_queue_args, latest_checkpoint_id, &parsed.rpc_url)
                 .await
                 .map_err(|e| {
                     tracing::warn!("❌ fetch_and_push_checkpoint_to_realm failed: {:?}", e);
@@ -160,9 +163,10 @@ pub fn build_rpc_module(
             });
         } else {
             tracing::info!("ℹ️ Realm already exists: {}", parsed.rpc_url);
-        }
+            }
 
-        Ok(serde_json::Value::Bool(true))
+            Ok(serde_json::Value::Bool(true))
+        }
     })?;
 
     // qed_build_block
@@ -856,6 +860,7 @@ use jsonrpsee::types::Request;
 use kvq::traits::KVQSerializable;
 use qed_node::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by_pubkey};
 use qed_rollup_utils::{decrypt_jwt_token, Claims};
+use crate::{CoordinatorEdgeArgs, CoordinatorProcessorQueueArgs};
 
 pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwned> {
 

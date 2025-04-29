@@ -38,7 +38,7 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     init_global_jwt_secret()?;
     info!("✅ Initialized JWT secret");
 
-    let (rpc_module, handler) = build_rpc_module(&config.coordinator_redis_uri)?;
+    let (rpc_module, handler) = build_rpc_module(config.clone())?;
     handler.spawn_cp_sync_listener(&config.coordinator_redis_uri).await?;
     info!("✅ Initialized RPC module");
 
