@@ -121,6 +121,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
         id: QProvingJobDataID,
         proof: &ProofWithPublicInputs<C::F, C, D>,
     ) -> anyhow::Result<()> {
+        tracing::info!(?id,  "Setting proof by id");
         let data = bincode::serialize(&proof)?;
 
         self.pool
@@ -141,6 +142,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
         self.set_bytes_by_id_batch_core(kv_pairs).await
     }
     async fn set_bytes_by_id(&self, id: QProvingJobDataID, data: &[u8]) -> anyhow::Result<()> {
+        tracing::info!(?id, "Setting bytes by id, data.len = {}", data.len());
         self.pool
             .hsetnx::<(), _, &[u8], &[u8]>(&self.proof_store_key, &id.to_fixed_bytes(), data)
             .await?;
