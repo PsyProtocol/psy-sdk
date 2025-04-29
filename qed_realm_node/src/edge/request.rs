@@ -1,6 +1,4 @@
-use crate::{C, D};
-use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::hash::hash_types::RichField;
+use crate::{C, D, F};
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::data::base_types::hash160::Hash160;
 use qed_core::data::base_types::hash256::Hash256;
@@ -52,7 +50,7 @@ pub struct QAddWithdrawalRPCRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "")]
-pub struct QSubmitEndCapRPCRequest<F: RichField> {
+pub struct QSubmitEndCapRPCRequest {
     pub user_ec_input: SubmitUserEndCapNonProofInput<F>,
-    pub proof: ProofWithPublicInputs<GoldilocksField, C, D>,
+    pub proof: ProofWithPublicInputs<F, C, D>,
 }
