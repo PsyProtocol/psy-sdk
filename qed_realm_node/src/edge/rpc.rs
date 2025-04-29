@@ -1,4 +1,6 @@
+use crate::edge::request::QSubmitEndCapRPCRequest;
 use crate::{C, D, F};
+use jsonrpsee::core::Serialize;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::data::qhashout::QHashOut;
@@ -6,6 +8,9 @@ use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
 use qed_data::qdata::{checkpoint::QEDL2BlockState, user::QEDUserLeaf};
+use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
+use qed_store::config::store_config::QEDFelt;
+use serde::Deserialize;
 
 #[rpc(server, client, namespace = "qed")]
 pub trait RealmEdgeRpc {
@@ -250,4 +255,17 @@ pub trait RealmEdgeRpc {
         leaf_level: u8,
         leaf_index: F,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "sync_checkpoint")]
+    async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()>;
+}
+
+/// push the latest checkpoint sync info
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointSyncInfo {
+    pub checkpoint_id: u64, // checkpoint id
+    pub description: Option<String>,
+    pub source_coordinator_edge_id: Option<String>,
+    pub sync_timestamp: u64, //
+    pub compact: QEDCheckpointSyncInfoCompact<QEDFelt>,
 }

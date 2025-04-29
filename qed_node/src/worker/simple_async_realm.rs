@@ -106,7 +106,9 @@ impl SimpleAsyncRealmWorker {
             job_id
         ));
 
+        tracing::info!(?job_id, "job started");
         if job_id.circuit_type == ProvingJobCircuitType::NotifyRealmComplete {
+            tracing::info!("Found NotifyRealmComplete");
             event_receiver
                 .notify_core_goal_completed_imm(job_id)
                 .await?;
@@ -117,6 +119,7 @@ impl SimpleAsyncRealmWorker {
             //let start_time = std::time::Instant::now();
             let _ = match job_id.circuit_type {
                 ProvingJobCircuitType::WrapFinalSigHashProofBLS12381 => {
+                    tracing::info!("WrapFinalSigHashProofBLS12381");
                     todo!("impl bls12381");
                 }
                 _ => {
@@ -124,6 +127,8 @@ impl SimpleAsyncRealmWorker {
                         .worker_prove_mut_async(&store, library, job_id)
                         .await?;
                     let output_id = job_id.get_output_id();
+                    // tracing::info!(?output_id, ?proof, "Push proof to queue");
+                    tracing::info!(?output_id,  "Push proof to queue");
                     store.set_proof_by_id(output_id, &proof).await?;
                     output_id
                 }

@@ -1,6 +1,7 @@
 use qed_realm_node::{QueueConfig, RedisConfig};
 
 use qed_worker::{RealmWorker, Worker, WorkerState};
+use tracing::info;
 
 async fn run_worker(redis_config: RedisConfig, queue_config: QueueConfig) -> anyhow::Result<()> {
     let state = WorkerState::new(
@@ -8,8 +9,8 @@ async fn run_worker(redis_config: RedisConfig, queue_config: QueueConfig) -> any
         redis_config.pool_size.unwrap_or(8),
         queue_config.worker_queue_suffix,
         queue_config.notifications_queue_suffix,
-        Some(qed_realm_node::REALM_PROCESSOR_SUFFIX),
-        Some(qed_realm_node::REALM_PROCESSOR_SUFFIX),
+        Some(queue_config.proof_store_key_suffix.as_str()),
+        Some(queue_config.proof_store_key_suffix.as_str()),
     )
     .await?;
     let worker = RealmWorker::from(state);
@@ -17,6 +18,8 @@ async fn run_worker(redis_config: RedisConfig, queue_config: QueueConfig) -> any
 }
 
 pub async fn run(redis_config: RedisConfig, queue_config: QueueConfig) -> anyhow::Result<()> {
+    info!("Realm worker starting...");
+    info!("Realm worker args: {:?}, {:?}", redis_config, queue_config);
     let ctrl_c = tokio::signal::ctrl_c();
     tokio::select! {
         result = run_worker(redis_config, queue_config) => {

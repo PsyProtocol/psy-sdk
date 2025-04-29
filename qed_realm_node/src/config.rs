@@ -60,6 +60,9 @@ pub struct QueueConfig {
         default_value = "rnq1"
     )]
     pub notifications_queue_suffix: String,
+
+    #[arg(long, env = "REALM_PROOF_STORE_KEY_SUFFIX", default_value = "RP")]
+    pub proof_store_key_suffix: String,
 }
 
 impl Default for QueueConfig {
@@ -67,6 +70,7 @@ impl Default for QueueConfig {
         Self {
             worker_queue_suffix: "rwq1".to_string(),
             notifications_queue_suffix: "rnq1".to_string(),
+            proof_store_key_suffix: "RP".to_string(),
         }
     }
 }
@@ -93,12 +97,25 @@ pub struct RPCConfig {
     /// RPC listen address
     #[arg(long, env = "REALM_EDGE_LISTEN_ADDR", default_value = "0.0.0.0:8546")]
     pub listen_addr: String,
+
+    #[arg(long, env = "REALM_REGISTER_ADDR", default_value = "http://127.0.0.1:8546")]
+    pub register_addr: String,
+
+    /// Coordinator RPC listen address
+    #[arg(
+        long,
+        env = "COORDINATOR_EDGE_ADDR",
+        default_value = "http://0.0.0.0:8545"
+    )]
+    pub coordinator_addr: String,
 }
 
 impl Default for RPCConfig {
     fn default() -> Self {
         Self {
             listen_addr: "0.0.0.0:8546".to_string(),
+            register_addr: "http://127.0.0.1:8546".to_string(),
+            coordinator_addr: "0.0.0.0:8545".to_string(),
         }
     }
 }

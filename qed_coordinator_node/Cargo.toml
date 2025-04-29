@@ -39,4 +39,10 @@ qed_rollup_circuit = { workspace = true }
 hex = {workspace = true}
 bincode = {workspace = true}
 qed_realm_node = {workspace = true}
+futures-util = {workspace = true}
+reqwest = {workspace = true}
 qed_worker = {workspace = true}
+chrono = {workspace = true}
+qed_rollup_utils = {workspace = true}
+axum = {workspace = true}
+url = "2.5.4"

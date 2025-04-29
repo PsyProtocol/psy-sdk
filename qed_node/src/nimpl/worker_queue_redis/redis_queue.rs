@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Result;
+use fred::clients::Client;
 use qed_core::job::worker_queue::ProvingDispatcher;
 use qed_core::job::worker_queue::ProvingWorkerListener;
 use rsmq::PooledRsmq;
@@ -8,7 +9,7 @@ use rsmq::RedisConnectionManager;
 use rsmq::RsmqConnection;
 use rsmq::RsmqError;
 use rsmq::RsmqMessage;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_repr::Deserialize_repr;
 use serde_repr::Serialize_repr;
 
@@ -31,7 +32,7 @@ pub const Q_CMD: &'static str = "CMD";
 pub const Q_JOB: &'static str = "JOB";
 pub const Q_NOTIFICATIONS: &'static str = "NOTIFICATIONS";
 pub const CE_NOTIFICATIONS: &'static str = "CE_NOTIFICATIONS";
-pub const CP_NOTIFICATIONS: &'static str = "CP_NOTIFICATIONS";
+// pub const CP_NOTIFICATIONS: &'static str = "CP_NOTIFICATIONS";
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
@@ -45,16 +46,14 @@ pub enum QueueNotification {
     CoreJobCompleted = 0,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
-#[repr(u8)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum CEQueueNotification {
-    StartProduceBlock = 0,
+    StartProduceBlock  { next_checkpoint: u64 },
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
-#[repr(u8)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum CPQueueNotification {
-    StartSync = 0,
+    StartSync { checkpoint: u64 },
 }
 
 impl RedisQueue {
@@ -72,7 +71,6 @@ impl RedisQueue {
                 Q_CMD,
                 Q_JOB,
                 Q_NOTIFICATIONS,
-                CP_NOTIFICATIONS,
                 CE_NOTIFICATIONS,
             ] {
                 if matches!(

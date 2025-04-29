@@ -1,26 +1,31 @@
-use crate::{
-    COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX,
-    COORDINATOR_WORKER_SUFFIX,
-};
+use std::future::Future;
+use std::sync::{Arc, atomic::AtomicU64};
+use tokio::sync::RwLock;
+use once_cell::sync::{Lazy, OnceCell};
 use anyhow::anyhow;
 use dashmap::DashMap;
-use fred::prelude::Pool;
+use dotenvy::var;
+use lazy_static::lazy_static;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
-use lazy_static::lazy_static;
-use once_cell::sync::{Lazy, OnceCell};
 use qed_core::data::qhashout::QHashOut;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
-use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_store::config::store_config::QEDFelt;
-use std::future::Future;
-use std::sync::{atomic::AtomicU64, Arc};
-use tokio::sync::RwLock;
+use fred::{
+    prelude::{Pool},
+};
+use fred::prelude::*;
+use serde::{Deserialize, Serialize};
+use qed_node::coordinator::state::user_map::get_node_redis_pool;
+use qed_node::nimpl::new_fred_pool;
+use crate::{CoordinatorEdgeQueueArgs, COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
+use crate::rpc::types::{RealmInfo, RealmRpcRegistry};
 
 type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 type DrainQueue = ProofStoreFred;
 type ProofStore = ProofStoreFred;
+
 
 lazy_static! {
     //todo! if no write, use once_cell instead
@@ -29,10 +34,23 @@ lazy_static! {
 }
 pub static LATEST_CHECKPOINT_ID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
 pub static REGISTER_USER_COUNTER: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
-pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, u64>> = Lazy::new(DashMap::new);
+pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, UserRegisterState>> = Lazy::new(DashMap::new);
 pub static GLOBAL_DB_PATH: OnceCell<String> = OnceCell::new();
 
 pub static GLOBAL_REDIS_POOL: OnceCell<Arc<Pool>> = OnceCell::new();
+
+pub static GLOBAL_REALM_REGISTRY: Lazy<Arc<RwLock<RealmRpcRegistry>>> = Lazy::new(|| {
+    Arc::new(RwLock::new(RealmRpcRegistry::default()))
+});
+
+pub static GLOBAL_JWT_SECRET: OnceCell<Arc<String>> = OnceCell::new();
+
+//    when user registers, but not write into block, we mark as Registering
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UserRegisterState {
+    Registering(u64),
+    Registered(u64),
+}
 
 pub async fn init_global_ctx_once(
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
@@ -73,11 +91,10 @@ where
     f(ctx).await
 }
 
+
 /// Initialize global DB path (can only be called once)
 pub fn init_global_db_path<P: Into<String>>(path: P) -> anyhow::Result<()> {
-    GLOBAL_DB_PATH
-        .set(path.into())
-        .map_err(|_| anyhow!("GLOBAL_DB_PATH already set"))
+    GLOBAL_DB_PATH.set(path.into()).map_err(|_| anyhow!("GLOBAL_DB_PATH already set"))
 }
 pub fn get_global_db_path() -> anyhow::Result<&'static str> {
     GLOBAL_DB_PATH
@@ -86,37 +103,40 @@ pub fn get_global_db_path() -> anyhow::Result<&'static str> {
         .ok_or_else(|| anyhow!("GLOBAL_DB_PATH not initialized"))
 }
 
-pub async fn init_global_redis_pool_from_url(
-    redis_url: &str,
-    pool_size: usize,
-) -> anyhow::Result<()> {
-    let pool = new_fred_pool(redis_url, pool_size).await?;
-    GLOBAL_REDIS_POOL
-        .set(Arc::new(pool))
-        .map_err(|_| anyhow!("GLOBAL_REDIS_POOL already initialized"))
+pub async fn register_realm(name: String, rpc_url: String) -> anyhow::Result<()> {
+    let mut registry = GLOBAL_REALM_REGISTRY.write().await;
+    if !registry.realms.contains_key(&rpc_url) {
+        tracing::info!("✅ Registered new realm: {}", name);
+        registry.realms.insert(rpc_url.clone(), RealmInfo { name, rpc_url });
+    } else {
+        tracing::info!("ℹ️ Realm already exists: {}", rpc_url);
+    }
+    Ok(())
 }
+pub async fn init_realms_from_env() -> anyhow::Result<()> {
+    let endpoints = var("REALM_RPC_ENDPOINTS")?;
+    let urls: Vec<&str> = endpoints.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
 
-pub fn init_global_redis_pool(redis_pool: Pool) -> anyhow::Result<()> {
-    GLOBAL_REDIS_POOL
-        .set(Arc::new(redis_pool))
-        .map_err(|_| anyhow!("GLOBAL_REDIS_POOL already initialized"))
-}
-pub fn get_global_redis_pool() -> anyhow::Result<Arc<Pool>> {
-    GLOBAL_REDIS_POOL
-        .get()
-        .cloned()
-        .ok_or_else(|| anyhow!("GLOBAL_REDIS_POOL not initialized"))
-}
+    let mut registry = GLOBAL_REALM_REGISTRY.write().await;
 
-pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(f: F) -> anyhow::Result<R>
+    for (i, url) in urls.iter().enumerate() {
+        if !registry.realms.contains_key(*url) {
+            let name = format!("realm_{}", i + 1);
+            tracing::info!("✅ Loaded realm from .env: {}", name);
+            registry.realms.insert((*url).to_string(), RealmInfo { name, rpc_url: (*url).to_string() });
+        } else {
+            tracing::info!("ℹ️ Realm already exists: {}", url);
+        }
+    }
+
+    Ok(())
+}
+pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(
+    args: CoordinatorEdgeQueueArgs,
+    f: F,
+) -> anyhow::Result<R>
 where
-    F: FnOnce(
-        CoordinatorEdgeContext<
-            KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
-            ProofStoreFred,
-            ProofStoreFred,
-        >,
-    ) -> Fut,
+    F: FnOnce(CoordinatorEdgeContext<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>, ProofStoreFred, ProofStoreFred>) -> Fut,
     Fut: std::future::Future<Output = anyhow::Result<R>>,
 {
     let read_guard = GLOBAL_COORD_EDGE_CTX.read().await;
@@ -128,14 +148,20 @@ where
     let inner_store = KVQlibmdbxStore::new_read(db_path)?;
     let store = KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(inner_store);
 
-    let redis_pool = get_global_redis_pool()?;
+    let redis_pool = get_node_redis_pool()?;
 
+    let CoordinatorEdgeQueueArgs {
+        coordinator_worker_queue_suffix,
+        coordinator_notifications_queue_suffix,
+        coordinator_proof_store_key_suffix,
+        ..
+    } = args;
     let proof_store = Arc::new(ProofStoreFred::new2(
         (*redis_pool).clone(),
-        COORDINATOR_WORKER_QUEUE_SUFFIX.into(),
-        COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX.into(),
-        Some(COORDINATOR_WORKER_SUFFIX),
-        Some(COORDINATOR_WORKER_SUFFIX),
+        coordinator_worker_queue_suffix,
+        coordinator_notifications_queue_suffix,
+        Some(&coordinator_proof_store_key_suffix),
+        Some(&coordinator_proof_store_key_suffix),
     ));
 
     let temp_ctx = CoordinatorEdgeContext {
@@ -148,4 +174,38 @@ where
     };
 
     f(temp_ctx).await
+}
+
+
+
+pub fn init_global_jwt_secret() -> anyhow::Result<()> {
+    let secret = var("JWT_SECRET_KEY")?;
+    GLOBAL_JWT_SECRET.set(Arc::new(secret))
+        .map_err(|_| anyhow::anyhow!("JWT secret already initialized"))?;
+    Ok(())
+}
+pub fn get_global_jwt_secret() -> Arc<String> {
+    GLOBAL_JWT_SECRET.get()
+        .expect("JWT secret not initialized")
+        .clone()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MyRedisConfig {
+    pub host: String,
+    pub port: u16,
+    pub password: Option<String>,
+    pub db: Option<u8>,
+    pub tls: bool,
+}
+impl Default for MyRedisConfig {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".to_string(),
+            port: 6379,
+            password: None,
+            db: Some(0),
+            tls: false,
+        }
+    }
 }
