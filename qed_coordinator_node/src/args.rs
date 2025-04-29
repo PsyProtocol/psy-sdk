@@ -50,8 +50,6 @@ pub struct CoordinatorEdgeQueueArgs {
     pub coordinator_worker_queue_suffix: String,
     #[clap(long, short, default_value = "nq1")]
     pub coordinator_notifications_queue_suffix: String,
-    #[clap(long, short, default_value = "RP")]
-    pub realm_proof_store_key_suffix: String,
     #[clap(long, short, default_value = "CW")]
     pub coordinator_proof_store_key_suffix: String,
 }

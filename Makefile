@@ -87,7 +87,7 @@ USER0_PRIVATE_KEY       := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b2
 USER1_PRIVATE_KEY       := f69d09d891a4faa188108b947335cd14d6eecd32e2243e0e35d194e0a06b1d2b
 
 init:
-	@mkdir $(PWD)/db
+	@mkdir -p $(PWD)/db
 	@cd $(PWD)/db && cargo run --release --package dargo new ${PROJECT_DIR}
 	@cp qed_compiler/tests/token.qed ${FILE}
 
