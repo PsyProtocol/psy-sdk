@@ -241,11 +241,12 @@ impl CoordinatorEdgeHandler {
         &self,
         contract: QBCDeployContract<QEDFelt>,
     ) -> anyhow::Result<()> {
-        let next_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed) + 2;
+        let next_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed) + 1;
         with_ctx_read_async(|ctx| {
             let queue = ctx.checkpoint_queue.clone();
             let config = ctx.coordinator_config.clone();
 
+            assert_eq!(next_checkpoint_id, ctx.last_chkpnt_id + 1);
             async move {
                 let with_root = contract.into_with_whitelist_root::<QEDHasher>()?;
 

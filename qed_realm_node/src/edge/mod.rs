@@ -14,6 +14,7 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
+use qed_node_common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use tracing::{debug, info};
 
@@ -53,7 +54,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
 
     debug!("created store reader successfully!");
     // Create proof verifier
-    let proof_verifier = Arc::new(GenericCircuitVerifier::<C, D>::new());
+    let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     debug!("created proof verifier successfully!");
 
     // Create Realm configuration
