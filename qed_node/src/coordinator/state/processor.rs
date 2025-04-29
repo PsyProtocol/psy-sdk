@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
+use fred::prelude::{KeysInterface, Pool};
+use futures::future::join_all;
 use kvq::traits::KVQPair;
 use plonky2::{
     field::{packed::PackedField, types::Field},
@@ -68,6 +70,7 @@ use qed_store::{
     },
 };
 use serde::{Deserialize, Serialize};
+use crate::coordinator::state::user_map::{get_node_redis_pool, save_user_mapping_to_redis};
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -321,13 +324,32 @@ impl<
             .await?;
         //println!("usr: {:?}", user_registrations);
 
+        let start_user_id = last_l2_blockstate.next_user_id;
+
+
+
+        let redis_pool = get_node_redis_pool()?;
+
+        let save_tasks = user_registrations
+            .iter()
+            .enumerate()
+            .map(|(i, pubkey_info)| {
+                let redis_pool = redis_pool.clone();
+                let pubkey_info = pubkey_info.clone();
+                async move {
+                    let user_id = start_user_id + i as u64;
+                    save_user_mapping_to_redis(&redis_pool, user_id, &pubkey_info).await
+                }
+            });
+
+        join_all(save_tasks).await.into_iter().collect::<anyhow::Result<Vec<_>>>()?;
+
 
         let new_public_keys = user_registrations
             .iter()
             .map(|x| x.to_hash::<QEDHasher>())
             .collect::<Vec<_>>();
 
-        let start_user_id = last_l2_blockstate.next_user_id;
 
         let mut psb = ProofStoreBuilder::new();
         let wits = self
@@ -1001,3 +1023,4 @@ impl<
         Ok(())
     }
 }
+

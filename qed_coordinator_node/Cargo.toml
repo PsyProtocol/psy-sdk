@@ -45,3 +45,4 @@ qed_worker = {workspace = true}
 chrono = {workspace = true}
 qed_rollup_utils = {workspace = true}
 axum = {workspace = true}
+url = "2.5.4"
