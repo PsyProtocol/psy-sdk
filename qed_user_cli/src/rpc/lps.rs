@@ -372,8 +372,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        // TBD
-        let rpc_url = self.get_realm_url(self.current_user_id)?;
+        let rpc_url = &self.config.cooridinator_configs;
         let input = QUserRegistrationTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
             self,
@@ -416,8 +415,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
         leaf_index: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        // let rpc_url = &self.config.cooridinator_configs;
-        let rpc_url = self.get_realm_url(self.current_user_id)?;
+        let rpc_url = &self.config.cooridinator_configs;
         let input = QUserRegistrationTreeLeafHashRPCRequest {
             checkpoint_id,
             leaf_index,
