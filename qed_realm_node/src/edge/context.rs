@@ -9,6 +9,7 @@ use jsonrpsee::core::params::ArrayParams;
 use jsonrpsee::core::{client::ClientT, RpcResult};
 use jsonrpsee::rpc_params;
 use kvq::traits::KVQSerializable;
+use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     plonk::proof::ProofWithPublicInputs,
@@ -818,21 +819,32 @@ async fn send_realm_proof<PS: QProofStoreAsyncImm>(
             return;
         }
     };
+    let proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2> = match proof_store
+        .get_proof_by_id(realm_result.proof_id.get_output_id())
+        .await
+    {
+        Ok(proof) => proof,
+        Err(err) => {
+            error!("Failed to get proof_by_id: {:?}", err);
+            return;
+        }
+    };
+
     let input = SubmitGUTARealmResultAPINoProofInput {
         realm_id,
         checkpoint_id: realm_result.checkpoint_id,
-        guta_stats: realm_result.guta_stats.clone(),
-        top_line_proof: realm_result.top_line_proof.clone(),
-        checkpoint_tree_root: realm_result.checkpoint_tree_root.clone(),
-        circuit_type: realm_result.proof_id.circuit_type.clone(),
+        guta_stats: realm_result.guta_stats,
+        top_line_proof: realm_result.top_line_proof,
+        checkpoint_tree_root: realm_result.checkpoint_tree_root,
+        circuit_type: realm_result.proof_id.circuit_type,
     };
     let mut retry_count = 0;
     while retry_count < 5 {
         info!("Sending job to coordinator, retry_count = {}", retry_count);
         match jsonrpsee::http_client::HttpClientBuilder::default().build(coordinator_addr) {
             Ok(client) => {
-                let params = rpc_params![realm_result.clone(), input.clone()];
-                match client.request::<bool, _>("qed_submit_guta", params).await {
+                let params = rpc_params![input.clone(), proof.clone()];
+                match client.request::<String, _>("qed_submit_guta", params).await {
                     Ok(result) => {
                         info!(
                             "Successfully submitted job to coordinator, result: {}",
