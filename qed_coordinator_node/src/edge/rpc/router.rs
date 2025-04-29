@@ -49,7 +49,7 @@ pub fn build_rpc_module(
 
         match handler.register_user(pub_key).await {
             Ok(_) => {
-                tracing::info!("✅ register_user success");
+                // tracing::info!("✅ register_user success");
                 Ok::<_, ErrorObjectOwned>("ok")
             }
             Err(e) => {

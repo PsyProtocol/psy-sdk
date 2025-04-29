@@ -28,13 +28,31 @@ pub async fn save_user_mapping_to_redis(
     let pubkey_key = format!("{}{}", PUBKEY_KEY_PREFIX, public_key_hex);
 
     // 4.save to redis
+    // user_id -> ZKPublicKeyInfo
     redis_pool
-        .set::<(), _, _>(user_key, pubkey_info_bytes, None, None, false)
+        .set::<(), _, _>(user_key.clone(), pubkey_info_bytes, None, None, false)
         .await?;
 
+    // pubkey_hex -> user_id
     redis_pool
-        .set::<(), _, _>(pubkey_key, user_id.to_string(), None, None, false)
+        .set::<(), _, _>(pubkey_key.clone(), user_id.to_string(), None, None, false)
         .await?;
+    // {
+    //     let conn = redis_pool.next();
+    //
+    //     if let Ok(verify_bytes) = conn.get::<Vec<u8>, _>(user_key.as_str()).await {
+    //         tracing::info!("🔎 Verified {} - {}, ", user_key, encode(&verify_bytes[..]));
+    //     } else {
+    //         tracing::warn!("⚠️ Failed to verify user_key = {}", user_key);
+    //     }
+    //
+    //     //
+    //     if let Ok(verify_str) = conn.get::<String, _>(pubkey_key.as_str()).await {
+    //         tracing::info!("🔎 Verified key = {}, value = {}", pubkey_key, verify_str);
+    //     } else {
+    //         tracing::warn!("⚠️ Failed to verify pubkey_key = {}", pubkey_key);
+    //     }
+    // }
 
     Ok(())
 }
