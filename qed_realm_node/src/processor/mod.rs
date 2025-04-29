@@ -95,6 +95,7 @@ impl RealmProcessor {
             realm_config: self.realm_config,
             pending_register_users: vec![],
         };
+        context.handle_checkpoint_sync(checkpoint).await?;
         info!("Realm Processor started");
         loop {
             info!("Waiting for next checkpoint");
