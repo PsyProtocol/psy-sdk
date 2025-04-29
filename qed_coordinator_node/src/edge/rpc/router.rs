@@ -114,11 +114,12 @@ pub fn build_rpc_module(
 
     // qed_submit_guta
     module.register_async_method("qed_submit_guta", |params, handler, ext| async move {
+        tracing::info!(?params, "qed_submit_guta");
 
-        let jwt_metadata = ext.get::<JwtAuthMetadata>()
-            .ok_or_else(|| ErrorObjectOwned::owned(401, "Missing JwtAuthMetadata", None::<()>))?;
+        // let jwt_metadata = ext.get::<JwtAuthMetadata>()
+        //     .ok_or_else(|| ErrorObjectOwned::owned(401, "Missing JwtAuthMetadata", None::<()>))?;
 
-        validate_jwt_from_ext(&jwt_metadata)?;
+        // validate_jwt_from_ext(&jwt_metadata)?;
 
         let SubmitGUTAParams { input, proof } = params.parse().map_err(|e| {
             ErrorObjectOwned::owned(-32602, format!("Invalid GUTA input: {}", e), None::<()>)
