@@ -65,8 +65,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     debug!("created realm config successfully!");
 
     let coordinator_addr = config.rpc.coordinator_addr;
-    let realm_id = config.realm.realm_id;
-    let realm_register_addr = config.rpc.register_addr;
     // Create Edge node context
     let edge_ctx = RealmEdgeContext::new(
         realm_config,
@@ -94,44 +92,9 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     )
     .await?;
 
-    // Register Realm
-    register_realm_edge(coordinator_addr, realm_id, realm_register_addr).await?;
-
     info!("Realm Edge node started on {}", config.rpc.listen_addr);
 
     // Keep server running
     handle.stopped().await;
     Ok(())
-}
-
-pub async fn register_realm_edge(
-    coordinator_addr: String,
-    realm_id: u32,
-    realm_register_addr: String,
-) -> anyhow::Result<()> {
-    let client = jsonrpsee::http_client::HttpClientBuilder::default()
-        .build(coordinator_addr)
-        .map_err(|e| anyhow::anyhow!("Failed to create RPC client: {}", e))?;
-
-    let params = rpc_params![realm_id.to_string(), realm_register_addr];
-
-    // 发起RPC调用
-    match client
-        .request::<bool, _>("register_realm_rpc", params)
-        .await
-    {
-        Ok(true) => {
-            info!(
-                "Successfully registered realm {} with coordinator",
-                realm_id
-            );
-            Ok(())
-        }
-        Ok(false) => {
-            anyhow::bail!("Coordinator rejected realm registration")
-        }
-        Err(e) => {
-            anyhow::bail!("Failed to register realm with coordinator: {}", e)
-        }
-    }
 }

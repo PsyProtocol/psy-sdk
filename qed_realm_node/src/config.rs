@@ -98,9 +98,6 @@ pub struct RPCConfig {
     #[arg(long, env = "REALM_EDGE_LISTEN_ADDR", default_value = "0.0.0.0:8546")]
     pub listen_addr: String,
 
-    #[arg(long, env = "REALM_REGISTER_ADDR", default_value = "http://127.0.0.1:8546")]
-    pub register_addr: String,
-
     /// Coordinator RPC listen address
     #[arg(
         long,
@@ -114,7 +111,6 @@ impl Default for RPCConfig {
     fn default() -> Self {
         Self {
             listen_addr: "0.0.0.0:8546".to_string(),
-            register_addr: "http://127.0.0.1:8546".to_string(),
             coordinator_addr: "0.0.0.0:8545".to_string(),
         }
     }
