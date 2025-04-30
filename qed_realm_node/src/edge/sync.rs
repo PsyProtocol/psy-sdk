@@ -52,28 +52,30 @@ pub async fn spawn_active_checkpoint_sync_task<
                 match client.request::<Option<CheckpointSyncInfo>, _>("qed_get_checkpoint_sync_info", params).await {
                     Ok(Some(sync_info)) => {
                         // Check if the received checkpoint is the one we expected
-                        if sync_info.checkpoint_id != current_local_checkpoint_id + 1 {
-                            warn!(
-                                expected = current_local_checkpoint_id + 1,
-                                received = sync_info.checkpoint_id,
-                                "Received out-of-order checkpoint sync info from coordinator. Retrying cycle."
-                            );
+                        if sync_info.lastest_checkpoint_id <= current_local_checkpoint_id {
+                            if sync_info.lastest_checkpoint_id < current_local_checkpoint_id {
+                                warn!(
+                                    expected = current_local_checkpoint_id + 1,
+                                    received = sync_info.lastest_checkpoint_id,
+                                    "Received out-of-order checkpoint sync info from coordinator. Retrying cycle."
+                                );
+                            }
                             // Break inner loop and retry the whole cycle in the next interval
                             break;
                         }
 
                         info!(
-                            checkpoint_id = sync_info.checkpoint_id,
+                            checkpoint_id = sync_info.lastest_checkpoint_id,
                             source = ?sync_info.source_coordinator_edge_id,
                             "Received sync info for next checkpoint from coordinator. Pushing to queue."
                         );
 
                         // Push the compact info to the internal queue for processing
-                        match interval_sync_queue.produce_checkpoint_async_info(sync_info.compact).await {
+                        match interval_sync_queue.produce_checkpoint_async_info(sync_info).await {
                             Ok(_) => {
                                 // Successfully processed, update local checkpoint ID for the *next* fetch in this inner loop
-                                current_local_checkpoint_id = sync_info.checkpoint_id;
-                                debug!("Successfully pushed sync info. Continuing fetch loop for checkpoint {}.", current_local_checkpoint_id + 1);
+                                current_local_checkpoint_id = current_local_checkpoint_id + 1;
+                                debug!("Successfully pushed sync info. Continuing fetch loop for checkpoint {}.", current_local_checkpoint_id);
                                 // Continue the inner loop immediately to fetch the next one
                             }
                             Err(e) => {

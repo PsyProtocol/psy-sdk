@@ -1,20 +1,14 @@
-use super::request::QSubmitEndCapRPCRequest;
 use crate::error::RpcError;
 use crate::rpc::{CheckpointSyncInfo, RealmEdgeRpcServer};
 use crate::{RealmInternalQueue, C, D, F, H};
 use async_trait::async_trait;
-use fred::interfaces::FredResult;
-use fred::prelude::ListInterface;
-use jsonrpsee::core::params::ArrayParams;
 use jsonrpsee::core::{client::ClientT, RpcResult};
 use jsonrpsee::rpc_params;
-use kvq::traits::KVQSerializable;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     plonk::proof::ProofWithPublicInputs,
 };
-use qed_core::job::id::ProvingJobCircuitType::GUTANoChange;
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT,
@@ -259,13 +253,13 @@ impl<
 
     pub async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()> {
         debug!(
-            checkpoint.checkpoint_id,
+            checkpoint.lastest_checkpoint_id,
             checkpoint.sync_timestamp,
             checkpoint.source_coordinator_edge_id,
             "Received sync checkpoint"
         );
         self.interval_sync_queue
-            .produce_checkpoint_async_info(checkpoint.compact)
+            .produce_checkpoint_async_info(checkpoint)
             .await
             .map_err(RpcError::Anyhow)?;
 
