@@ -2,6 +2,7 @@ use crate::edge::request::QSubmitEndCapRPCRequest;
 use crate::{C, D, F};
 use jsonrpsee::core::Serialize;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
@@ -11,6 +12,7 @@ use qed_data::qdata::{checkpoint::QEDL2BlockState, user::QEDUserLeaf};
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_store::config::store_config::QEDFelt;
 use serde::Deserialize;
+use kvq::traits::KVQSerializable;
 
 #[rpc(server, client, namespace = "qed")]
 pub trait RealmEdgeRpc {
@@ -255,17 +257,25 @@ pub trait RealmEdgeRpc {
         leaf_level: u8,
         leaf_index: F,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
-
-    #[method(name = "sync_checkpoint")]
-    async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()>;
 }
 
 /// push the latest checkpoint sync info
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct CheckpointSyncInfo {
-    pub checkpoint_id: u64, // checkpoint id
+    pub lastest_checkpoint_id: u64, // latest checkpoint id
     pub description: Option<String>,
     pub source_coordinator_edge_id: Option<String>,
-    pub sync_timestamp: u64, //
+    pub sync_timestamp: u64, // sync timestamp
     pub compact: QEDCheckpointSyncInfoCompact<QEDFelt>,
+}
+
+impl KVQSerializable for CheckpointSyncInfo {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
 }

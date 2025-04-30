@@ -113,7 +113,6 @@ pub struct RealmProcessorContext<
     pub prover_queue: Arc<WQ>,
     pub proof_store: Arc<PS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-    pub latest_block_state: QEDL2BlockState,
     pub realm_config: RealmConfig,
     pub pending_register_users: Vec<MerkleProofCore<QHashOut<F>>>,
     //chkpoint_id: u64,
@@ -138,9 +137,6 @@ impl<
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
-        let latest_block_state: QEDL2BlockState = store.get_latest_l2_block_state().await?;
-        //let checkpoint_id = latest_block_state.checkpoint_id;
-
         Ok(Self {
             realm_config,
             store,
@@ -149,10 +145,7 @@ impl<
             prover_queue,
             proof_store,
             proof_verifier,
-            latest_block_state,
-            //chkpoint_id: checkpoint_id,
             pending_register_users: Vec::new(),
-            //checkpoint_id,
         })
     }
 

@@ -1,20 +1,14 @@
-use super::request::QSubmitEndCapRPCRequest;
 use crate::error::RpcError;
 use crate::rpc::{CheckpointSyncInfo, RealmEdgeRpcServer};
 use crate::{RealmInternalQueue, C, D, F, H};
 use async_trait::async_trait;
-use fred::interfaces::FredResult;
-use fred::prelude::ListInterface;
-use jsonrpsee::core::params::ArrayParams;
 use jsonrpsee::core::{client::ClientT, RpcResult};
 use jsonrpsee::rpc_params;
-use kvq::traits::KVQSerializable;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     plonk::proof::ProofWithPublicInputs,
 };
-use qed_core::job::id::ProvingJobCircuitType::GUTANoChange;
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT,
@@ -65,7 +59,6 @@ pub struct RealmEdgeContext<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
     pub interval_sync_queue: Arc<IQ>,
-    pub coordinator_addr: String,
 }
 
 impl<
@@ -82,7 +75,6 @@ impl<
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
         interval_sync_queue: Arc<IQ>,
-        coordinator_url: String,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             realm_config,
@@ -91,7 +83,6 @@ impl<
             proof_store,
             proof_verifier,
             interval_sync_queue,
-            coordinator_addr: coordinator_url,
         })
     }
 
@@ -254,6 +245,21 @@ impl<
         input: QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
         self.checkpoint_queue.cdq_push_imm(input).await?;
+        Ok(())
+    }
+
+    pub async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()> {
+        debug!(
+            checkpoint.lastest_checkpoint_id,
+            checkpoint.sync_timestamp,
+            checkpoint.source_coordinator_edge_id,
+            "Received sync checkpoint"
+        );
+        self.interval_sync_queue
+            .produce_checkpoint_async_info(checkpoint)
+            .await
+            .map_err(RpcError::Anyhow)?;
+
         Ok(())
     }
 }
@@ -742,21 +748,6 @@ where
             )
             .await
             .map_err(RpcError::Anyhow)?)
-    }
-
-    async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()> {
-        info!(
-            checkpoint.checkpoint_id,
-            checkpoint.sync_timestamp,
-            checkpoint.source_coordinator_edge_id,
-            "Received sync checkpoint"
-        );
-        self.interval_sync_queue
-            .produce_checkpoint_async_info(checkpoint.compact)
-            .await
-            .map_err(RpcError::Anyhow)?;
-
-        Ok(())
     }
 }
 
