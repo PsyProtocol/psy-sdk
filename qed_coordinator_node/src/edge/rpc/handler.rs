@@ -267,6 +267,17 @@ impl CoordinatorEdgeHandler {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<CheckpointSyncInfo> {
+
+        let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+
+        //
+        if checkpoint_id > latest {
+            bail!(
+            "Requested checkpoint_id {} exceeds latest local checkpoint_id {}",
+            checkpoint_id,
+            latest
+            );
+        }
         let compact = with_temp_ctx_read_async::<_, _, _, C, D>(
             self.args.clone(),
             |ctx| async move {
