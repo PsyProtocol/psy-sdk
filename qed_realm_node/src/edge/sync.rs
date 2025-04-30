@@ -75,7 +75,7 @@ pub async fn spawn_active_checkpoint_sync_task<
                         }
 
                         info!(
-                            checkpoint_id = sync_info.lastest_checkpoint_id,
+                            checkpoint_id = next_checkpoint_id,
                             source = ?sync_info.source_coordinator_edge_id,
                             "Received sync info for next checkpoint from coordinator. Pushing to queue."
                         );
