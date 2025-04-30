@@ -34,18 +34,18 @@ pub async fn spawn_active_checkpoint_sync_task<
     tokio::spawn(async move {
         loop {
             debug!("Starting active checkpoint sync cycle...");
-            match store_reader.get_latest_l2_block_state().await {
-                Ok(state) => current_local_checkpoint_id = state.checkpoint_id,
-                Err(e) => {
-                    error!("Failed to get local checkpoint id: {:?}", e);
-                    if counter <= 10 {
-                        counter = counter + 1;
-                        // Wait before retrying the entire cycle
-                        tokio::time::sleep(SYNC_INTERVAL).await;
-                        continue; // Skip to the next iteration of the outer loop
-                    }
-                }
-            };
+            // match store_reader.get_latest_l2_block_state().await {
+            //     Ok(state) => current_local_checkpoint_id = state.checkpoint_id,
+            //     Err(e) => {
+            //         error!("Failed to get local checkpoint id: {:?}", e);
+            //         if counter <= 10 {
+            //             counter = counter + 1;
+            //             // Wait before retrying the entire cycle
+            //             tokio::time::sleep(SYNC_INTERVAL).await;
+            //             continue; // Skip to the next iteration of the outer loop
+            //         }
+            //     }
+            // };
             counter = 0;
             info!("Local checkpoint ID: {}", current_local_checkpoint_id);
 
@@ -55,7 +55,7 @@ pub async fn spawn_active_checkpoint_sync_task<
 
                 // Call the coordinator's new RPC method
                 let params = rpc_params![current_local_checkpoint_id + 1];
-                match client.request::<Option<CheckpointSyncInfo>, _>("qed_get_checkpiont_info", params).await {
+                match client.request::<Option<CheckpointSyncInfo>, _>("qed_get_checkpoint_sync_info", params).await {
                     Ok(Some(sync_info)) => {
                         // Check if the received checkpoint is the one we expected
                         if sync_info.lastest_checkpoint_id <= current_local_checkpoint_id {
