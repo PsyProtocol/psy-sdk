@@ -6,7 +6,7 @@ pub mod rpc;
 use self::context::RealmEdgeContext;
 use crate::context::spawn_realm_job_update_task;
 use crate::rpc::RealmEdgeRpcServer;
-use crate::{config::RealmEdgeConfig, C, D, REALM_PROCESSOR_SUFFIX};
+use crate::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::rpc_params;
@@ -42,8 +42,8 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         pool,
         config.queue.worker_queue_suffix,
         config.queue.notifications_queue_suffix,
-        Some(REALM_PROCESSOR_SUFFIX),
-        Some(REALM_PROCESSOR_SUFFIX),
+        Some(config.queue.proof_store_key_suffix.as_str()),
+        Some(config.queue.proof_store_key_suffix.as_str()),
     );
     debug!("created proof store successfully!");
     // Create proof storage

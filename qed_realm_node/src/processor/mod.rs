@@ -45,8 +45,6 @@ pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> 
     Ok(())
 }
 
-pub const REALM_PROCESSOR_SUFFIX: &str = "RP";
-
 impl RealmProcessor {
     pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);

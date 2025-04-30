@@ -1,7 +1,6 @@
 use crate::args::CoordinatorEdgeArgs;
 use crate::context::{init_global_db_path};
 use crate::edge::context::init_global_ctx_once;
-use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_core::utils::debug_timer::DebugTimer;
@@ -9,7 +8,6 @@ use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node_common::verifier::get_cached_generic_verifier;
-use qed_realm_node::REALM_PROCESSOR_SUFFIX;
 use std::sync::Arc;
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
 
