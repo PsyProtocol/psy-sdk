@@ -21,6 +21,13 @@ pub async fn spawn_active_checkpoint_sync_task<
     coordinator_addr: String,
 ) -> anyhow::Result<()> {
     info!(coordinator = %coordinator_addr, interval = ?SYNC_INTERVAL, "Spawning active checkpoint sync task");
+    // Build the RPC client for each attempt or reuse if possible and safe
+    let client = match HttpClientBuilder::default().build(&coordinator_addr) {
+        Ok(c) => c,
+        Err(e) => {
+            anyhow::bail!("Failed to create RPC client to coordinator {}: {:?}", coordinator_addr, e);
+        }
+    };
 
     tokio::spawn(async move {
         loop {
@@ -39,16 +46,6 @@ pub async fn spawn_active_checkpoint_sync_task<
             // Inner loop to fetch potentially multiple missing checkpoints
             loop {
                 debug!("Attempting to fetch checkpoint {} from coordinator...", current_local_checkpoint_id + 1);
-
-                // Build the RPC client for each attempt or reuse if possible and safe
-                let client = match HttpClientBuilder::default().build(&coordinator_addr) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        error!("Failed to create RPC client to coordinator '{}': {:?}", coordinator_addr, e);
-                        // Break inner loop, wait for the next outer interval cycle
-                        break;
-                    }
-                };
 
                 // Call the coordinator's new RPC method
                 let params = rpc_params![current_local_checkpoint_id];
