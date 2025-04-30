@@ -59,7 +59,6 @@ pub struct RealmEdgeContext<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
     pub interval_sync_queue: Arc<IQ>,
-    pub coordinator_addr: String,
 }
 
 impl<
@@ -76,7 +75,6 @@ impl<
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
         interval_sync_queue: Arc<IQ>,
-        coordinator_url: String,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             realm_config,
@@ -85,7 +83,6 @@ impl<
             proof_store,
             proof_verifier,
             interval_sync_queue,
-            coordinator_addr: coordinator_url,
         })
     }
 

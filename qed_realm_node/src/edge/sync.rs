@@ -35,7 +35,9 @@ pub async fn spawn_active_checkpoint_sync_task<
         loop {
             debug!("Starting active checkpoint sync cycle...");
             match store_reader.get_latest_l2_block_state().await {
-                Ok(state) => current_local_checkpoint_id = state.checkpoint_id,
+                Ok(state) => {
+                    current_local_checkpoint_id = state.checkpoint_id;
+                },
                 Err(e) => {
                     error!("Failed to get local checkpoint id: {:?}", e);
                     if counter <= 10 {
@@ -51,17 +53,18 @@ pub async fn spawn_active_checkpoint_sync_task<
 
             // Inner loop to fetch potentially multiple missing checkpoints
             loop {
-                debug!("Attempting to fetch checkpoint {} from coordinator...", current_local_checkpoint_id + 1);
+                let next_checkpoint_id= current_local_checkpoint_id +1;
+                debug!("Attempting to fetch checkpoint {} from coordinator...", next_checkpoint_id);
 
                 // Call the coordinator's new RPC method
-                let params = rpc_params![current_local_checkpoint_id + 1];
-                match client.request::<Option<CheckpointSyncInfo>, _>("qed_get_checkpiont_info", params).await {
+                let params = rpc_params![next_checkpoint_id];
+                match client.request::<Option<CheckpointSyncInfo>, _>("qed_get_checkpoint_sync_info", params).await {
                     Ok(Some(sync_info)) => {
                         // Check if the received checkpoint is the one we expected
                         if sync_info.lastest_checkpoint_id <= current_local_checkpoint_id {
                             if sync_info.lastest_checkpoint_id < current_local_checkpoint_id {
                                 warn!(
-                                    expected = current_local_checkpoint_id + 1,
+                                    expected = next_checkpoint_id,
                                     received = sync_info.compact.l2_block_state.checkpoint_id,
                                     lastest = sync_info.lastest_checkpoint_id,
                                     "Received out-of-order checkpoint sync info from coordinator. Retrying cycle."
@@ -81,7 +84,7 @@ pub async fn spawn_active_checkpoint_sync_task<
                         match interval_sync_queue.produce_checkpoint_async_info(sync_info).await {
                             Ok(_) => {
                                 // Successfully processed, update local checkpoint ID for the *next* fetch in this inner loop
-                                current_local_checkpoint_id = current_local_checkpoint_id + 1;
+                                current_local_checkpoint_id = next_checkpoint_id;
                                 debug!("Successfully pushed sync info. Continuing fetch loop for checkpoint {}.", current_local_checkpoint_id);
                                 // Continue the inner loop immediately to fetch the next one
                             }
@@ -94,12 +97,12 @@ pub async fn spawn_active_checkpoint_sync_task<
                     }
                     Ok(None) => {
                         // Coordinator indicates no newer checkpoint available
-                        info!("Realm is up-to-date with coordinator at checkpoint {}", current_local_checkpoint_id + 1);
+                        info!("Realm is up-to-date with coordinator at checkpoint {}", next_checkpoint_id);
                         // Break the inner loop, we are caught up for now.
                         break;
                     }
                     Err(e) => {
-                        error!("RPC call to coordinator ('qed_get_checkpiont_info') failed: {:?}", e);
+                        error!("RPC call to coordinator ('qed_get_checkpoint_sync_info') failed: {:?}", e);
                         // Break inner loop, wait for next outer interval cycle
                         break;
                     }

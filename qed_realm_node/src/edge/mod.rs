@@ -75,7 +75,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         proof_store.clone(),
         proof_verifier,
         proof_store.clone(),
-        coordinator_addr.clone(),
     )
     .await?;
 
