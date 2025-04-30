@@ -4922,7 +4922,6 @@ dependencies = [
  "qed_prover",
  "qed_rollup_circuit",
  "qed_store",
- "qed_user_cli",
  "qedlang_core",
  "qedlang_macros",
  "reth-libmdbx",

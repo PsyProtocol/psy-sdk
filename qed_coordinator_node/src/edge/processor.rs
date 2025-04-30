@@ -25,28 +25,28 @@ type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
-/// read latest checkpoint & proof, package into queue for Realm / RE
-pub async fn handle_cp_sync(args: CoordinatorEdgeQueueArgs, latest_checkpoint_id: u64) -> anyhow::Result<()>
-{
-    info!("Handling checkpoint sync");
-    // 1) get the latest sync info from the queue
-    let checkpoint_sync_info =
-        with_temp_ctx_read_async::<_,_,_,C,D>(args,|ctx| async move {
-        QEDCoordinatorStoreReaderAsync::get_checkpoint_sync_info_compact(&*ctx.store_reader, latest_checkpoint_id).await
-    }).await?;
-    info!("📥 Fetched checkpoint sync info from db: checkpoint_id={}",latest_checkpoint_id);
-
-    // 2. package all the info into a CheckpointSyncInfo
-    let sync_info = build_checkpoint_sync_info(
-        latest_checkpoint_id,
-        checkpoint_sync_info,
-    );
-    // 3) broadcast the info to all realms
-    broadcast_checkpoint(sync_info).await?;
-    info!("✅ Broadcast checkpoint {} sync info to all realms", latest_checkpoint_id);
-
-    Ok(())
-}
+// /// read latest checkpoint & proof, package into queue for Realm / RE
+// pub async fn handle_cp_sync(args: CoordinatorEdgeQueueArgs, latest_checkpoint_id: u64) -> anyhow::Result<()>
+// {
+//     info!("Handling checkpoint sync");
+//     // 1) get the latest sync info from the queue
+//     let checkpoint_sync_info =
+//         with_temp_ctx_read_async::<_,_,_,C,D>(args,|ctx| async move {
+//         QEDCoordinatorStoreReaderAsync::get_checkpoint_sync_info_compact(&*ctx.store_reader, latest_checkpoint_id).await
+//     }).await?;
+//     info!("📥 Fetched checkpoint sync info from db: checkpoint_id={}",latest_checkpoint_id);
+//
+//     // 2. package all the info into a CheckpointSyncInfo
+//     let sync_info = build_checkpoint_sync_info(
+//         latest_checkpoint_id,
+//         checkpoint_sync_info,
+//     );
+//     // 3) broadcast the info to all realms
+//     broadcast_checkpoint(sync_info).await?;
+//     info!("✅ Broadcast checkpoint {} sync info to all realms", latest_checkpoint_id);
+//
+//     Ok(())
+// }
 pub async fn broadcast_checkpoint(sync_info: CheckpointSyncInfo) -> anyhow::Result<()> {
     let client = reqwest::Client::new();
     let checkpoint_json = serde_json::to_value(&sync_info)?;

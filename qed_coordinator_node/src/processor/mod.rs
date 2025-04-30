@@ -34,12 +34,15 @@ use std::{ sync::Arc, time::Duration};
 use anyhow::bail;
 use tokio::time::sleep;
 use tracing::{error, info, warn};
+use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
+use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
 use qed_node::nimpl::new_fred_pool;
 use qed_realm_node::RedisConfig;
 use crate::args::CoordinatorProcessorArgs;
 use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
-use crate::redis::{broadcast_checkpoint_sync, spawn_fixed_checkpoint_sender};
+use crate::communicate::push_latest_global_coordinator_status;
+use crate::redis::{broadcast_checkpoint_sync};
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
@@ -51,9 +54,12 @@ pub struct CoordinatorProcessNode<
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     ER: WorkerEventReceiverAsyncImm,
+    SQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
+
 > {
     pub ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
-    pub sync_queue: RedisQueue,
+    pub sync_queue: Arc<SQ>,
+    pub edge_command_queue: RedisQueue,
     pub proof_store: PS,
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
@@ -67,11 +73,14 @@ impl<
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm,
         ER: WorkerEventReceiverAsyncImm,
-    > CoordinatorProcessNode<SR, DQ, HQ, WQ, PS, ER>
+        SQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
+
+> CoordinatorProcessNode<SR, DQ, HQ, WQ, PS, ER, SQ>
 {
     pub fn new(
         ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
-        sync_queue: RedisQueue,
+        edge_command_queue: RedisQueue,
+        sync_queue:  Arc<SQ>,
         proof_store: PS,
         event_receiver: ER,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
@@ -79,6 +88,7 @@ impl<
     ) -> Self {
         Self {
             ctx,
+            edge_command_queue,
             sync_queue,
             proof_store,
             event_receiver,
@@ -87,22 +97,23 @@ impl<
         }
     }
 
-    pub async fn wait_for_produce_block(&mut self, latest_checkpoint_id: u64) -> anyhow::Result<bool> {
-        match self.sync_queue.pop_one(CE_NOTIFICATIONS)? {
+    pub async fn wait_for_produce_block(&mut self, next_checkpoint_processor: u64) -> anyhow::Result<bool> {
+        match self.edge_command_queue.pop_one(CE_NOTIFICATIONS)? {
             Some(message) => {
                 let notify_message = serde_json::from_slice::<CEQueueNotification>(&message)?;
 
                 match notify_message {
                     CEQueueNotification::StartProduceBlock { next_checkpoint } => {
-                        if next_checkpoint == latest_checkpoint_id + 1 {
+                        let next_checkpoint_edge = next_checkpoint;
+                        if next_checkpoint_edge == next_checkpoint_processor  {
                             tracing::info!("✅ Building new block for checkpoint {}", next_checkpoint);
                             Ok(true)
-                        } else if next_checkpoint <= latest_checkpoint_id {
-                            tracing::warn!("⚠️ Outdated checkpoint {}, current {}", next_checkpoint, latest_checkpoint_id);
+                        } else if next_checkpoint_edge < next_checkpoint_processor {
+                            tracing::warn!("⚠️ Outdated checkpoint {}, current {}", next_checkpoint_edge, next_checkpoint_processor);
                             Ok(false)
                         } else {
-                            tracing::warn!("🚧 Future checkpoint {} too far ahead of {}", next_checkpoint, latest_checkpoint_id);
-                            self.sync_queue.dispatch(CE_NOTIFICATIONS, CEQueueNotification::StartProduceBlock { next_checkpoint })?;
+                            tracing::warn!("🚧 Future checkpoint {} too far ahead of {}", next_checkpoint_edge, next_checkpoint_processor);
+                            self.edge_command_queue.dispatch(CE_NOTIFICATIONS, CEQueueNotification::StartProduceBlock { next_checkpoint })?;
                             Ok(false)
                         }
                     }
@@ -111,27 +122,6 @@ impl<
             }
             None => Ok(false),
         }
-    }
-
-    pub async fn notify_sync(&mut self) -> anyhow::Result<()> {
-        let checkpoint_id = self
-            .ctx
-            .store
-            .get_latest_l2_block_state()
-            .await?
-            .checkpoint_id;
-        tracing::info!("notify sync for checkpoint id: {}", checkpoint_id);
-        let _: qed_core::job::id::QProvingJobDataID = self
-            .ctx
-            .prover_queue
-            .wait_for_block_proving_jobs_imm(checkpoint_id)
-            .await?;
-        tracing::info!("sync queue dispatch StartSync");
-
-        //use broadcast mode
-        spawn_broadcast_checkpoint_with_retry(checkpoint_id);
-
-        Ok(())
     }
 }
 
@@ -143,6 +133,7 @@ impl
         ProofStoreFred,
         ProofStoreFred,
         ProofStoreFred,
+        DrainQueueFred,
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
@@ -199,14 +190,12 @@ impl
         )
         .await?;
 
-        let mut sync_queue = RedisQueue::new(&cp_config.coordinator_redis_uri)?;
+        let sync_queue = Arc::new(DrainQueueFred::new(pool.clone()));
+        let edge_command_queue = RedisQueue::new(&cp_config.coordinator_redis_uri)?;
+        push_latest_global_coordinator_status(sync_queue.clone(), 1, 1).await?;
 
+        //build block 1
         coordinator_processor_ctx.build_block().await?;
-        //notify to coordinator edge
-        spawn_fixed_checkpoint_sender();
-        // let notification = CPQueueNotification::StartSync { checkpoint : 1};
-        // broadcast_checkpoint_sync(notification).await?;
-
 
         // worker
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -215,6 +204,7 @@ impl
 
         Ok(CoordinatorProcessNode::new(
             coordinator_processor_ctx,
+            edge_command_queue,
             sync_queue,
             q.clone(),
             q,
@@ -244,36 +234,33 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
             bail!("❌ Failed to get latest l2 block state: {:?}", e);
         }
     };
+    let mut confirmed_checkpoint_id = latest_checkpoint_id;
+    let mut next_checkpoint = latest_checkpoint_id + 1;
     tracing::info!("start coordinator processor");
     let task = tokio::spawn(async move {
         let mut processor_loop = async move || -> anyhow::Result<()> {
             loop {
                 // wait for produceblock message from coordinator edge
-                tracing::info!("wait for produce_block {} message from coordinator edge", latest_checkpoint_id + 1);
+                info!("wait for produce block {} command from coordinator edge", next_checkpoint);
 
-                if coordinator_processor.wait_for_produce_block(latest_checkpoint_id).await? {
-                    tracing::info!("start build block");
+                if coordinator_processor.wait_for_produce_block(next_checkpoint).await? {
+                    tracing::info!("start build block {}", next_checkpoint);
                     coordinator_processor.ctx.build_block().await?;
-                    latest_checkpoint_id += 1;
-                    // tracing::info!("start worker");
-                    // SimpleAsyncCoordinatorWorker::run_worker_until_done::<
-                    //     _,
-                    //     _,
-                    //     SimpleCircuitLibrary<GoldilocksField>,
-                    //     QEDCoordinatorCircuitManager<C, D>,
-                    //     C,
-                    //     D,
-                    // >(
-                    //     &coordinator_processor.proof_store,
-                    //     &coordinator_processor.event_receiver,
-                    //     &coordinator_processor.coordinator_worker_circuits,
-                    //     &coordinator_processor.proof_verifier.library,
-                    // )
-                    // .await?;
+                    next_checkpoint += 1;
 
-                    tracing::info!("send sync message to coordinator edge");
-                    // send sync message to coordinator edge
-                    coordinator_processor.notify_sync().await?;
+                    // save latest coordinator status
+                    push_latest_global_coordinator_status(coordinator_processor.sync_queue.clone(), confirmed_checkpoint_id, next_checkpoint).await?;
+
+                    let _: qed_core::job::id::QProvingJobDataID = coordinator_processor
+                        .ctx
+                        .prover_queue
+                        .wait_for_block_proving_jobs_imm(next_checkpoint)
+                        .await?;
+                    confirmed_checkpoint_id += 1;
+                    // save latest coordinator status
+                    push_latest_global_coordinator_status(coordinator_processor.sync_queue.clone(), confirmed_checkpoint_id, next_checkpoint).await?;
+
+                    tracing::info!("save latest coordinator status {}", next_checkpoint);
                 }
                 tokio::time::sleep(Duration::from_millis(750)).await;
             }
@@ -288,40 +275,4 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
     }
 
     Ok(())
-}
-
-
-pub fn spawn_broadcast_checkpoint_with_retry(checkpoint_id: u64) {
-    let notification = CPQueueNotification::StartSync { checkpoint: checkpoint_id };
-
-    tokio::spawn(async move {
-        match broadcast_checkpoint_sync(notification.clone()).await {
-            Ok(_) => {
-                info!("✅ Successfully broadcast checkpoint sync notification");
-            }
-            Err(e) => {
-                error!("❌ Failed to broadcast checkpoint sync notification: {:?}", e);
-
-                let mut retries = 3;
-                while retries > 0 {
-                    sleep(Duration::from_secs(3)).await;
-
-                    match broadcast_checkpoint_sync(notification.clone()).await {
-                        Ok(_) => {
-                            info!("✅ Retry succeeded for checkpoint sync");
-                            break;
-                        }
-                        Err(e) => {
-                            retries -= 1;
-                            warn!("⚠️ Retry failed (remaining {} attempts): {:?}", retries, e);
-                        }
-                    }
-                }
-
-                if retries == 0 {
-                    error!("❌ All retries failed for checkpoint sync notification");
-                }
-            }
-        }
-    });
 }

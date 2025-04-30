@@ -132,42 +132,46 @@ pub fn build_rpc_module(
         Ok::<_, ErrorObjectOwned>("ok")
     })?;
     //register_realm_rpc
-    let args = args.clone();
-    module.register_async_method("register_realm_rpc", move |params, _handler, _ctx| {
-        let args = args.clone();
-        async move {
-            let parsed: RegisterRealmRpcRequest = match params.parse() {
-                Ok(p) => p,
-            Err(e) => {
-                return Err(ErrorObjectOwned::owned(
-                    -32602,
-                    format!("Invalid params for register_realm_rpc: {}", e),
-                    None::<()>,
-                ));
-            }
-        };
-
-        let mut registry = GLOBAL_REALM_REGISTRY.write().await;
-        if !registry.realms.contains_key(&parsed.rpc_url) {
-            tracing::info!("✅ Realm registered via RPC: name = {}, url = {}", parsed.name, parsed.rpc_url);
-
-            let latest_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
-            fetch_and_push_checkpoint_to_realm::<F,C,2>(args.clone().coordinator_edge_queue_args, latest_checkpoint_id, &parsed.rpc_url)
-                .await
-                .map_err(|e| {
-                    tracing::warn!("❌ fetch_and_push_checkpoint_to_realm failed: {:?}", e);
-                    ErrorObject::owned(-32000, format!("Failed to push checkpoint: {}", e), None::<()>)
-                })?;
-            registry.realms.insert(parsed.rpc_url.clone(), RealmInfo {
-                name: parsed.name,
-                rpc_url: parsed.rpc_url,
-            });
-        } else {
-            tracing::info!("ℹ️ Realm already exists: {}", parsed.rpc_url);
-            }
-
-            Ok(serde_json::Value::Bool(true))
-        }
+    // module.register_async_method("register_realm_rpc", move |params, _handler, _ctx| {
+    //     let args = args.clone();
+    //     async move {
+    //         let parsed: RegisterRealmRpcRequest = match params.parse() {
+    //             Ok(p) => p,
+    //         Err(e) => {
+    //             return Err(ErrorObjectOwned::owned(
+    //                 -32602,
+    //                 format!("Invalid params for register_realm_rpc: {}", e),
+    //                 None::<()>,
+    //             ));
+    //         }
+    //     };
+    //
+    //     let mut registry = GLOBAL_REALM_REGISTRY.write().await;
+    //     if !registry.realms.contains_key(&parsed.rpc_url) {
+    //         tracing::info!("✅ Realm registered via RPC: name = {}, url = {}", parsed.name, parsed.rpc_url);
+    //
+    //         let latest_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+    //         fetch_and_push_checkpoint_to_realm::<F,C,2>(args.clone().coordinator_edge_queue_args, latest_checkpoint_id, &parsed.rpc_url)
+    //             .await
+    //             .map_err(|e| {
+    //                 tracing::warn!("❌ fetch_and_push_checkpoint_to_realm failed: {:?}", e);
+    //                 ErrorObject::owned(-32000, format!("Failed to push checkpoint: {}", e), None::<()>)
+    //             })?;
+    //         registry.realms.insert(parsed.rpc_url.clone(), RealmInfo {
+    //             name: parsed.name,
+    //             rpc_url: parsed.rpc_url,
+    //         });
+    //     } else {
+    //         tracing::info!("ℹ️ Realm already exists: {}", parsed.rpc_url);
+    //         }
+    //
+    //         Ok(serde_json::Value::Bool(true))
+    //     }
+    // })?;
+    //qed_get_latest_checkpoint
+    module.register_async_method("qed_get_latest_checkpoint_id", |_params, _handler, _ext| async move {
+        let checkpoint = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+        Ok::<_, ErrorObjectOwned>(checkpoint)
     })?;
 
     // qed_build_block
@@ -179,6 +183,28 @@ pub fn build_rpc_module(
 
         Ok::<_, ErrorObjectOwned>("ok")
     })?;
+
+    module.register_async_method("qed_get_checkpoint_sync_info", |params, handler, _ctx| async move {
+        let checkpoint_id: u64 = match params.parse::<u64>() {
+            Ok(id) => id,
+            Err(e) => {
+                return Err(ErrorObjectOwned::owned(
+                    -32602,
+                    format!("Invalid checkpoint_id for get_checkpoint_info: {}", e),
+                    None::<()>,
+                ));
+            }
+        };
+
+        match handler.get_checkpoint_sync_info(checkpoint_id).await {
+            Ok(sync_info) => Ok(serde_json::to_value(&sync_info).unwrap()),
+            Err(e) => {
+                tracing::error!("❌ get_checkpoint_sync_info error: {:?}", e);
+                Err(ErrorObjectOwned::owned(7, e.to_string(), None::<()>))
+            }
+        }
+    })?;
+
 
     // async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
     module.register_async_method("qed_get_contract_leaf_data", |params, handler, _ctx| async move {

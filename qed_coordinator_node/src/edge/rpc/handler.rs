@@ -33,13 +33,15 @@ use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
 use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use crate::context::{with_temp_ctx_read_async, UserRegisterState};
-use crate::context::UserRegisterState::{Registered, Registering};
+use crate::context::{with_temp_ctx_read_async, UserRegisterState, GLOBAL_DRAIN_QUEUE};
 use crate::{CoordinatorEdgeArgs, CoordinatorEdgeQueueArgs};
+use crate::communicate::{get_latest_global_coordinator_status, GlobalCoordinatorStatus};
+use crate::context::UserRegisterState::{Registered, Registering};
 use crate::edge::context::{with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
-use crate::edge::processor::{handle_cp_sync, process_realm_job};
+use crate::edge::processor::{build_checkpoint_sync_info, process_realm_job};
 use crate::edge::redis::{create_pubsub_client, subscribe_checkpoint_sync};
 use crate::edge::rpc::types::GetUserIdRequest;
+use crate::rpc::types::CheckpointSyncInfo;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -64,43 +66,38 @@ impl CoordinatorEdgeHandler {
         })
     }
     ///receive StartSync notification from CP
-    pub async fn spawn_cp_sync_listener(&self, redis_url: &str) -> anyhow::Result<()> {
-        info!("cp sync listener spawned (pubsub mode)");
+    pub async fn spawn_cp_sync_listener(&self) -> anyhow::Result<()> {
+        info!("cp sync listener spawned (polling mode)");
         // note: run this only once
         if self.cp_listener.lock().await.is_some() {
             return Ok(());
         }
-        let pubsub_client = create_pubsub_client(&redis_url).await?;
-        let args = self.args.clone();
         let handle = tokio::spawn(async move {
-            let handler = Arc::new(move |notification: CPQueueNotification| {
-                match notification {
-                    CPQueueNotification::StartSync { checkpoint } => {
+            loop {
+                match get_latest_status_from_global_queue().await {
+                    Ok(Some(status)) => {
                         let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
-                        if checkpoint <= latest {
-                            warn!("⚠️ Received outdated checkpoint: {}, current latest: {}, skipping...",
-                            checkpoint, latest
-                        );
-                            return;
+                        if status.confirmed_checkpoint_id > latest {
+                            info!(
+                                "🔔 Detected new confirmed checkpoint: {}, current latest: {} → updating local latest",
+                                status.confirmed_checkpoint_id, latest
+                            );
+                            LATEST_CHECKPOINT_ID.store(status.confirmed_checkpoint_id, Ordering::Relaxed);
+                            info!("⭐ Coordinator Edge now updated to {}", status.confirmed_checkpoint_id);
+                        }else {
+                            info!("ℹ️ No new confirmed checkpoint detected, current latest: {}", latest);
                         }
-                        info!("🔔 Received StartSync: checkpoint={}", checkpoint);
-                        let args = args.clone();
-                        tokio::spawn(async move {
-                            if let Err(e) = handle_cp_sync(args, checkpoint).await {
-                                error!("❌ Failed to handle StartSync checkpoint_id={}, error={:?}", checkpoint, e);
-                            }
-                            LATEST_CHECKPOINT_ID.store(checkpoint, Ordering::Relaxed);
-                            info!("⭐ latest checkpoint now update to {checkpoint}");
-                        });
+                    }
+                    Ok(None) => {
+                        tracing::debug!("ℹ️ Coordinator status not yet available.");
+                    }
+                    Err(e) => {
+                        error!("❌ Failed to get coordinator status: {:?}", e);
                     }
                 }
-            });
-
-            if let Err(e) = subscribe_checkpoint_sync(pubsub_client, handler).await {
-                tracing::error!("❌ Failed to subscribe CP sync channel: {:?}", e);
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
             }
         });
-
         *self.cp_listener.lock().await = Some(handle);
         Ok(())
     }
@@ -124,7 +121,7 @@ impl CoordinatorEdgeHandler {
                 if err_msg.contains("User not registered") {
                     info!("🆕 User not registered yet, start new registration");
                     let register_id = REGISTER_USER_COUNTER.fetch_add(1, Ordering::Relaxed);
-                    REGISTERED_USERS.insert(qhash, UserRegisterState::Registering(register_id));
+                    REGISTERED_USERS.insert(qhash, Registering(register_id));
 
                     with_ctx_read_async(|ctx| {
                         let queue = ctx.checkpoint_queue.clone();
@@ -152,10 +149,10 @@ impl CoordinatorEdgeHandler {
 
     pub async fn get_user_id_logic(&self, qhash: QHashOut<QEDFelt>) -> anyhow::Result<u64> {
         match check_and_update_user_state(&qhash).await {
-            Ok(UserRegisterState::Registered(user_id)) => {
+            Ok(Registered(user_id)) => {
                 Ok(user_id)
             }
-            Ok(UserRegisterState::Registering(_)) => {
+            Ok(Registering(_)) => {
                 anyhow::bail!("User is still registering, user_id not available yet");
             }
             Err(e) => {
@@ -264,6 +261,24 @@ impl CoordinatorEdgeHandler {
         Ok(())
     }
 
+    pub async fn get_checkpoint_sync_info(
+        &self,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<CheckpointSyncInfo> {
+        let compact = with_temp_ctx_read_async::<_, _, _, C, D>(
+            self.args.clone(),
+            |ctx| async move {
+                QEDCoordinatorStoreReaderAsync::get_checkpoint_sync_info_compact(
+                    &*ctx.store_reader,
+                    checkpoint_id,
+                )
+                    .await
+            },
+        )
+            .await?;
+
+        Ok(build_checkpoint_sync_info(checkpoint_id, compact))
+    }
     // async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
     pub async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<QEDFelt>> {
         with_temp_ctx_read_async::<_,_,_,C,D>(self.args.clone(),|ctx| async move {
@@ -637,34 +652,58 @@ pub async fn check_and_update_user_state(qhash: &QHashOut<QEDFelt>) -> anyhow::R
 
     match REGISTERED_USERS.get_mut(qhash) {
         Some(mut user_state) => match *user_state {
-            UserRegisterState::Registering(user_id) => {
-                tracing::info!("🛑 User is registering (id: {}), checking Redis...", user_id);
+            Registering(user_id) => {
+                info!("🛑 User is registering (id: {}), checking status...", user_id);
                 let redis_pool = get_node_redis_pool()?;
 
                 match get_user_id_by_pubkey(redis_pool.as_ref(), &pubkey_hex).await {
                     Ok(Some(confirmed_user_id)) => {
-                        *user_state = UserRegisterState::Registered(confirmed_user_id);
-                        tracing::info!("✅ User registered successfully, updated local state to Registered({})", confirmed_user_id);
-                        Ok(UserRegisterState::Registered(confirmed_user_id))
+                        *user_state = Registered(confirmed_user_id);
+                        info!("✅ User registered successfully, updated local state to Registered({})", confirmed_user_id);
+                        Ok(Registered(confirmed_user_id))
                     }
                     Ok(None) => {
-                        tracing::info!("🕐 User is still registering (no record in Redis)");
-                        Ok(UserRegisterState::Registering(user_id))
+                        info!("🕐 User is still registering, waiting for confirmation...");
+                        Ok(Registering(user_id))
                     }
                     Err(e) => {
-                        tracing::error!("❌ Redis query failed while checking registration: {:?}", e);
+                        error!("❌ Database query failed while checking registration: {:?}", e);
                         Err(e)
                     }
                 }
             }
-            UserRegisterState::Registered(user_id) => {
-                tracing::info!("✅ User is already registered: {}", user_id);
-                Ok(UserRegisterState::Registered(user_id))
+            Registered(user_id) => {
+                info!("✅ User is already registered: {}", user_id);
+                Ok(Registered(user_id))
             }
         },
         None => {
-            tracing::warn!("🛑 User not found in local cache: {}", pubkey_hex);
-            anyhow::bail!("User not registered");
+            tracing::warn!("🛑 User not found in local cache: {}, then search the database...", pubkey_hex);
+            let redis_pool = get_node_redis_pool()?;
+            match get_user_id_by_pubkey(redis_pool.as_ref(), &pubkey_hex).await {
+                Ok(Some(user_id)) => {
+                    REGISTERED_USERS.insert(*qhash, Registered(user_id));
+                    tracing::info!("✅ Found user in database. Inserted Registered({}) into cache", user_id);
+                    Ok(Registered(user_id))
+                }
+                Ok(None) => {
+                    tracing::info!("🆕 User not found in database either.");
+                    anyhow::bail!("User not registered");
+                }
+                Err(e) => {
+                    tracing::error!("❌ database query failed: {:?}", e);
+                    Err(e)
+                }
+            }
         }
     }
+}
+
+
+pub async fn get_latest_status_from_global_queue() -> anyhow::Result<Option<GlobalCoordinatorStatus>> {
+    let drain_queue = GLOBAL_DRAIN_QUEUE
+        .get()
+        .ok_or_else(|| anyhow::anyhow!("GLOBAL_DRAIN_QUEUE is not initialized"))?;
+
+    get_latest_global_coordinator_status(drain_queue).await
 }

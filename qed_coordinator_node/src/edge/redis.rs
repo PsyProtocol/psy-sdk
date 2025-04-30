@@ -89,26 +89,3 @@ pub async fn subscribe_checkpoint_sync(
 
     Ok(())
 }
-
-pub fn spawn_fixed_checkpoint_sender() {
-    tokio::spawn(async move {
-        let checkpoint_id = 1;
-        let max_retries = 12;
-        let interval = Duration::from_secs(5);
-
-        for i in 0..max_retries {
-            tokio::time::sleep(interval).await;
-
-            match broadcast_checkpoint_sync(CPQueueNotification::StartSync { checkpoint: checkpoint_id }).await {
-                Ok(_) => {
-                    tracing::info!("✅ Broadcasted StartSync (attempt {}/{})", i + 1, max_retries);
-                }
-                Err(e) => {
-                    tracing::warn!("⚠️ Failed to broadcast StartSync (attempt {}/{}): {:?}", i + 1, max_retries, e);
-                }
-            }
-        }
-
-        tracing::info!("✅ Fixed checkpoint sender finished after {} attempts", max_retries);
-    });
-}

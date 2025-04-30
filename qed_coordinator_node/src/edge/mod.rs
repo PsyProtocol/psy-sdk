@@ -5,6 +5,7 @@ pub mod init;
 pub mod processor;
 pub mod rpc;
 pub mod redis;
+pub mod communicate;
 
 use crate::args::CoordinatorEdgeArgs;
 use jsonrpsee::server::Server;
@@ -15,7 +16,7 @@ use crate::edge::rpc::router::build_rpc_module;
 use std::net::SocketAddr;
 use serde::{Deserialize, Serialize};
 use tracing::info;
-use crate::context::{init_global_jwt_secret, init_realms_from_env};
+use crate::context::{init_global_jwt_secret, init_global_lmdb_store, init_realms_from_env};
 
 
 use axum::http::HeaderMap;
@@ -29,6 +30,10 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
 
     info!("✅ Loaded config: {:#?}", config);
 
+    let (rpc_module, handler) = build_rpc_module(config.clone())?;
+    handler.spawn_cp_sync_listener().await?;
+    info!("✅ Initialized RPC module");
+
     init_coordinator_edge(&config).await?;
     info!("✅ Initialized coordinator edge node");
 
@@ -38,9 +43,8 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     init_global_jwt_secret()?;
     info!("✅ Initialized JWT secret");
 
-    let (rpc_module, handler) = build_rpc_module(config.clone())?;
-    handler.spawn_cp_sync_listener(&config.coordinator_redis_uri).await?;
-    info!("✅ Initialized RPC module");
+    init_global_lmdb_store()?;
+    info!("✅ Initialized global LMDB store");
 
     let addr: SocketAddr = config.coordinator_edge_listen_addr.parse()?;
     let server = Server::builder().build(addr).await?;

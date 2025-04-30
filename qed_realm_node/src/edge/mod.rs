@@ -115,7 +115,6 @@ pub async fn register_realm_edge(
 
     let params = rpc_params![realm_id.to_string(), realm_register_addr];
 
-    // 发起RPC调用
     match client
         .request::<bool, _>("register_realm_rpc", params)
         .await

@@ -37,7 +37,7 @@ qed_node = { path = "../qed_node" }
 qed_node_common = { path = "../qed_node_common" }
 qed-interpreter = { workspace = true }
 
-qed_user_cli ={ path = "../qed_user_cli" }
+#qed-user-cli = { workspace = true }
 
 
 

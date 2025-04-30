@@ -1,3 +1,4 @@
+use std::fmt;
 use fred::prelude::{KeysInterface, ListInterface, Pool};
 use async_trait::async_trait;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
@@ -13,6 +14,11 @@ pub struct DrainQueueFred {
 impl DrainQueueFred {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
+    }
+}
+impl fmt::Debug for DrainQueueFred {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "DrainQueueFred {{ pool: ... }}")
     }
 }
 /*
