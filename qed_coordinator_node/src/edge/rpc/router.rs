@@ -16,7 +16,7 @@ use crate::context::{get_global_jwt_secret, GLOBAL_REALM_REGISTRY, REGISTERED_US
 use crate::edge::context::LATEST_CHECKPOINT_ID;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
 use crate::edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
-use crate::rpc::types::{GetByFRequest, GetByIdRequest, GetUserLeafRequest, GetUserRegistrationFLeafRequest, GetUserRegistrationLeafRequest, RealmInfo, RegisterRealmRpcRequest};
+use crate::rpc::types::{GetByFRequest, GetByIdRequest, GetUserLeafRequest, GetUserRegistrationFLeafRequest, GetUserRegistrationLeafRequest, LatestCheckpointResponse, RealmInfo, RegisterRealmRpcRequest};
 
 /// register the RPC methods for the CoordinatorEdgeHandler
 pub fn build_rpc_module(
@@ -168,9 +168,12 @@ pub fn build_rpc_module(
     //     }
     // })?;
     //qed_get_latest_checkpoint
-    module.register_async_method("qed_get_latest_checkpoint_id", |_params, _handler, _ext| async move {
+    module.register_async_method("qed_get_latest_checkpoint", |_params, _handler, _ext| async move {
         let checkpoint = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
-        Ok::<_, ErrorObjectOwned>(checkpoint)
+        let response = LatestCheckpointResponse {
+            checkpoint_id: checkpoint,
+        };
+        Ok::<_, ErrorObjectOwned>(response)
     })?;
 
     // qed_build_block

@@ -102,3 +102,7 @@ pub struct RegisterRealmRpcRequest {
 }
 
 
+#[derive(Debug, Clone, Serialize)]
+pub struct LatestCheckpointResponse {
+    pub(crate) checkpoint_id: u64,
+}
