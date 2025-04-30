@@ -4,6 +4,7 @@ use std::time::Duration;
 use jsonrpsee::rpc_params;
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::http_client::HttpClientBuilder;
+use serde::{Serialize,Deserialize};
 use tracing::{info, error, warn, debug};
 use qed_store::node::realm::QEDRealmStoreReaderAsync; 
 use crate::RealmInternalQueue; 
@@ -31,8 +32,11 @@ pub async fn spawn_active_checkpoint_sync_task<
 
     let mut counter = 0;
     let mut current_local_checkpoint_id = 0;
+    let mut latest_checkpoint_id = 0;
     tokio::spawn(async move {
         loop {
+            // Wait for the defined interval before starting the next cycle
+            tokio::time::sleep(SYNC_INTERVAL).await;
             debug!("Starting active checkpoint sync cycle...");
             match store_reader.get_latest_l2_block_state().await {
                 Ok(state) => {
@@ -49,8 +53,29 @@ pub async fn spawn_active_checkpoint_sync_task<
                 }
             };
             counter = 0;
-            info!("Local checkpoint ID: {}", current_local_checkpoint_id);
 
+            // Call the coordinator's new RPC method
+            match client.request::<Option<LatestCheckpointResponse>, _>("qed_get_latest_checkpoint", rpc_params![]).await {
+                Ok(Some(latest_checkpoint)) => {
+                    latest_checkpoint_id = latest_checkpoint.checkpoint_id;
+                    if current_local_checkpoint_id >= latest_checkpoint.checkpoint_id {
+                        info!("Local checkpoint {} is up-to-date with coordinator at checkpoint {}", current_local_checkpoint_id, latest_checkpoint.checkpoint_id);
+                        continue
+                    }
+                }
+                Ok(None) => {
+                    // Coordinator indicates no newer checkpoint available
+                    info!("Local checkpoint {} is up-to-date with coordinator at checkpoint", current_local_checkpoint_id);
+                    // Break the inner loop, we are caught up for now.
+                    continue;
+                }
+                Err(e) => {
+                    error!("RPC call to coordinator ('qed_get_latest_checkpoint') failed: {:?}", e);
+                    continue;
+                }
+            }
+
+            info!("Local checkpoint ID: {}, latest checkpoint ID: {}", current_local_checkpoint_id, latest_checkpoint_id);
             // Inner loop to fetch potentially multiple missing checkpoints
             loop {
                 let next_checkpoint_id= current_local_checkpoint_id +1;
@@ -61,8 +86,9 @@ pub async fn spawn_active_checkpoint_sync_task<
                 match client.request::<Option<CheckpointSyncInfo>, _>("qed_get_checkpoint_sync_info", params).await {
                     Ok(Some(sync_info)) => {
                         // Check if the received checkpoint is the one we expected
-                        if sync_info.lastest_checkpoint_id <= current_local_checkpoint_id {
-                            if sync_info.lastest_checkpoint_id < current_local_checkpoint_id {
+                        let lastest_checkpoint_id = sync_info.lastest_checkpoint_id;
+                        if lastest_checkpoint_id <= current_local_checkpoint_id {
+                            if lastest_checkpoint_id< current_local_checkpoint_id {
                                 warn!(
                                     expected = next_checkpoint_id,
                                     received = sync_info.compact.l2_block_state.checkpoint_id,
@@ -75,7 +101,8 @@ pub async fn spawn_active_checkpoint_sync_task<
                         }
 
                         info!(
-                            checkpoint_id = next_checkpoint_id,
+                            latest_checkpoint_id = latest_checkpoint_id,
+                            next_checkpoint_id = next_checkpoint_id,
                             source = ?sync_info.source_coordinator_edge_id,
                             "Received sync info for next checkpoint from coordinator. Pushing to queue."
                         );
@@ -85,6 +112,9 @@ pub async fn spawn_active_checkpoint_sync_task<
                             Ok(_) => {
                                 // Successfully processed, update local checkpoint ID for the *next* fetch in this inner loop
                                 current_local_checkpoint_id = next_checkpoint_id;
+                                if current_local_checkpoint_id == lastest_checkpoint_id {
+                                    break;
+                                }
                                 debug!("Successfully pushed sync info. Continuing fetch loop for checkpoint {}.", current_local_checkpoint_id);
                                 // Continue the inner loop immediately to fetch the next one
                             }
@@ -108,13 +138,14 @@ pub async fn spawn_active_checkpoint_sync_task<
                     }
                 }
             } // End of inner loop (fetching until caught up or error)
-
             debug!("Finished sync cycle. Waiting for next interval...");
-            // Wait for the defined interval before starting the next cycle
-            tokio::time::sleep(SYNC_INTERVAL).await;
-
         } // End of outer loop
     }); // End of tokio::spawn
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Deserialize,Serialize)]
+pub struct LatestCheckpointResponse {
+    pub checkpoint_id: u64,
 }
