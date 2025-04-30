@@ -1,3 +1,4 @@
+pub mod coordinator_lock;
 
 use fred::prelude::{ClientLike, Client};
 use fred::prelude::Config;
@@ -31,6 +32,7 @@ use qed_store::{
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
 use std::{ sync::Arc, time::Duration};
+use std::fs::File;
 use anyhow::bail;
 use tokio::time::sleep;
 use tracing::{error, info, warn};
@@ -42,6 +44,7 @@ use qed_realm_node::RedisConfig;
 use crate::args::CoordinatorProcessorArgs;
 use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
 use crate::communicate::push_latest_global_coordinator_status;
+use crate::coordinator_lock::prepare_processor_lock_and_init_if_needed;
 use crate::redis::{broadcast_checkpoint_sync};
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -64,6 +67,7 @@ pub struct CoordinatorProcessNode<
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+    pub processor_lock: File,
 }
 
 impl<
@@ -85,6 +89,7 @@ impl<
         event_receiver: ER,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+        lock_file: File,
     ) -> Self {
         Self {
             ctx,
@@ -94,6 +99,7 @@ impl<
             event_receiver,
             proof_verifier,
             coordinator_worker_circuits,
+            processor_lock: lock_file,
         }
     }
 
@@ -168,8 +174,9 @@ impl
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
                 &cp_config.coordinator_db_path,
             )?);
+        let (processor_lock ,need_init) = prepare_processor_lock_and_init_if_needed(
+            &cp_config.coordinator_db_path, &store_reader)?;
 
-        store_reader.initialize_store()?;
 
         let coord_config = CoordinatorConfig::get_standard(0);
 
@@ -192,10 +199,13 @@ impl
 
         let sync_queue = Arc::new(DrainQueueFred::new(pool.clone()));
         let edge_command_queue = RedisQueue::new(&cp_config.coordinator_redis_uri)?;
-        push_latest_global_coordinator_status(sync_queue.clone(), 1, 1).await?;
 
-        //build block 1
-        coordinator_processor_ctx.build_block().await?;
+        //build block 1 only once
+        if need_init {
+            info!("build block 1");
+            coordinator_processor_ctx.build_block().await?;
+            push_latest_global_coordinator_status(sync_queue.clone(), 1, 1).await?;
+        }
 
         // worker
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -210,6 +220,7 @@ impl
             q,
             proof_verifier,
             coordinator_worker_circuits,
+            processor_lock,
         ))
     }
 }
@@ -234,6 +245,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
             bail!("❌ Failed to get latest l2 block state: {:?}", e);
         }
     };
+
     let mut confirmed_checkpoint_id = latest_checkpoint_id;
     let mut next_checkpoint = latest_checkpoint_id + 1;
     tracing::info!("start coordinator processor");

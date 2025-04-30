@@ -47,3 +47,4 @@ chrono = {workspace = true}
 qed_rollup_utils = {workspace = true}
 axum = {workspace = true}
 url = "2.5.4"
+fs2 = { version = "0.4" }

@@ -2,6 +2,7 @@ use std::fmt;
 use fred::prelude::{KeysInterface, ListInterface, Pool};
 use async_trait::async_trait;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
+use tracing::info;
 use qed_core::job::{drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable}, id::QProvingJobDataID, traits::QProofStoreReaderAsync};
 
 

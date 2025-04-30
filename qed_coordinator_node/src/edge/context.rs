@@ -118,24 +118,24 @@ pub async fn register_realm(name: String, rpc_url: String) -> anyhow::Result<()>
     }
     Ok(())
 }
-pub async fn init_realms_from_env() -> anyhow::Result<()> {
-    let endpoints = var("REALM_RPC_ENDPOINTS")?;
-    let urls: Vec<&str> = endpoints.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
-
-    let mut registry = GLOBAL_REALM_REGISTRY.write().await;
-
-    for (i, url) in urls.iter().enumerate() {
-        if !registry.realms.contains_key(*url) {
-            let name = format!("realm_{}", i + 1);
-            tracing::info!("✅ Loaded realm from .env: {}", name);
-            registry.realms.insert((*url).to_string(), RealmInfo { name, rpc_url: (*url).to_string() });
-        } else {
-            tracing::info!("ℹ️ Realm already exists: {}", url);
-        }
-    }
-
-    Ok(())
-}
+// pub async fn init_realms_from_env() -> anyhow::Result<()> {
+//     let endpoints = var("REALM_RPC_ENDPOINTS")?;
+//     let urls: Vec<&str> = endpoints.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+//
+//     let mut registry = GLOBAL_REALM_REGISTRY.write().await;
+//
+//     for (i, url) in urls.iter().enumerate() {
+//         if !registry.realms.contains_key(*url) {
+//             let name = format!("realm_{}", i + 1);
+//             tracing::info!("✅ Loaded realm from .env: {}", name);
+//             registry.realms.insert((*url).to_string(), RealmInfo { name, rpc_url: (*url).to_string() });
+//         } else {
+//             tracing::info!("ℹ️ Realm already exists: {}", url);
+//         }
+//     }
+//
+//     Ok(())
+// }
 
 pub fn init_global_lmdb_store() -> anyhow::Result<()> {
     if GLOBAL_LMDB_STORE.get().is_some() {

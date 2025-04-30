@@ -76,6 +76,7 @@ impl CoordinatorEdgeHandler {
             loop {
                 match get_latest_status_from_global_queue().await {
                     Ok(Some(status)) => {
+                        info!("🔔 Detected new checkpoint sync status: {:?}", status);
                         let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
                         if status.confirmed_checkpoint_id > latest {
                             info!(
@@ -95,6 +96,7 @@ impl CoordinatorEdgeHandler {
                         error!("❌ Failed to get coordinator status: {:?}", e);
                     }
                 }
+                info!("waited cp sync listener spawned");
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
             }
         });

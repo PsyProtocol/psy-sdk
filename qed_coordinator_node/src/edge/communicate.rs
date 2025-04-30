@@ -1,7 +1,9 @@
 use std::sync::Arc;
+use std::time::Duration;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use tokio::time::sleep;
+use tracing::{error, info, warn};
 use kvq::traits::KVQSerializable;
 use qed_core::config::network_constants::COORD_STATUS_CHANNEL_ID;
 use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable, DrainQueueMetadata, DrainQueueMetadataTagged};
@@ -28,7 +30,7 @@ impl DrainQueueMetadataTagged for GlobalCoordinatorStatus {
     fn get_dq_metadata(&self) -> DrainQueueMetadata {
         DrainQueueMetadata {
             channel_id: COORD_STATUS_CHANNEL_ID,
-            checkpoint_id: self.confirmed_checkpoint_id, //use 0 for global status
+            checkpoint_id: 0, //use 0 for global status
             item_id: 0,
         }
     }
@@ -47,11 +49,35 @@ pub async fn get_latest_global_coordinator_status(
 }
 
 
+// pub async fn push_latest_global_coordinator_status(
+//     drain_queue: Arc<DrainQueueFred>,
+//     confirmed_checkpoint_id: u64,
+//     processor_height: u64,
+// ) -> anyhow::Result<()> {
+//     info!("prepare push global coordinator status, checkpoint_id = {}", confirmed_checkpoint_id);
+//     info!("processor_height = {}", processor_height);
+//     let status = GlobalCoordinatorStatus {
+//         confirmed_checkpoint_id,
+//         processor_height,
+//         timestamp: Utc::now().timestamp() as u64,
+//     };
+//
+//     drain_queue.cdq_push_imm(status.clone()).await?;
+//
+//     {
+//         let entries = get_latest_global_coordinator_status(&drain_queue).await?;
+//         tokio::time::sleep(Duration::from_millis(500)).await;
+//
+//     }
+//     Ok(())
+// }
 pub async fn push_latest_global_coordinator_status(
     drain_queue: Arc<DrainQueueFred>,
     confirmed_checkpoint_id: u64,
     processor_height: u64,
 ) -> anyhow::Result<()> {
+    info!("Preparing to update global coordinator status, checkpoint_id = {}", confirmed_checkpoint_id);
+
     let status = GlobalCoordinatorStatus {
         confirmed_checkpoint_id,
         processor_height,
@@ -59,22 +85,29 @@ pub async fn push_latest_global_coordinator_status(
     };
 
     drain_queue.cdq_push_imm(status.clone()).await?;
+    info!("✅ Status pushed to Database, checkpoint_id = {}", confirmed_checkpoint_id);
 
-    {
-        let entries = drain_queue
-            .cdq_get_imm::<GlobalCoordinatorStatus>(COORD_STATUS_CHANNEL_ID, 0)
-            .await?;
+    // sleep(Duration::from_millis(500)).await;
+    //
+    // match get_latest_global_coordinator_status(&drain_queue).await? {
+    //     Some(fetched) => {
+    //         info!("🔍 Redis returned latest GlobalCoordinatorStatus:");
+    //         info!("🟢 confirmed_checkpoint_id = {}", fetched.confirmed_checkpoint_id);
+    //         info!("🟢 processor_height = {}", fetched.processor_height);
+    //         info!("🕒 sync_timestamp = {}", fetched.timestamp);
+    //
+    //         if fetched != status {
+    //             warn!("⚠️  Mismatch between pushed and fetched status!");
+    //             warn!("📤 pushed:   {:?}", status);
+    //             warn!("📥 fetched:  {:?}", fetched);
+    //         } else {
+    //             info!("🎉 Pushed and fetched status match!");
+    //         }
+    //     }
+    //     None => {
+    //         warn!("⚠️ Redis returned no coordinator status after push.");
+    //     }
+    // }
 
-        if let Some(latest) = entries.first() {
-            if latest == &status {
-                info!("✅ push & get match: {:?}", latest);
-            } else {
-                error!("❌ push & get mismatch:\n  pushed: {:?}\n  fetched: {:?}", status, latest);
-            }
-        } else {
-            error!("❌ push succeeded but no value found at checkpoint_id = 0");
-        }
-
-    }
     Ok(())
 }
