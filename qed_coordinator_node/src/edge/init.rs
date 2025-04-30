@@ -1,5 +1,5 @@
 use crate::args::CoordinatorEdgeArgs;
-use crate::context::{init_global_db_path};
+use crate::context::{init_global_db_path, init_global_queue, GLOBAL_DRAIN_QUEUE};
 use crate::edge::context::init_global_ctx_once;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
@@ -10,6 +10,7 @@ use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
+use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
 
 pub fn init_tracing() {
     use tracing_subscriber::{fmt, EnvFilter};
@@ -33,6 +34,8 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     info!("✅ Initialized global db path");
     let redis_pool = new_fred_pool(&config.coordinator_redis_uri, 8).await?;
     init_node_redis_pool(redis_pool.clone())?;
+    init_global_queue(redis_pool.clone());
+
 
     let proof_store = Arc::new(ProofStoreFred::new2(
         redis_pool.clone(),
