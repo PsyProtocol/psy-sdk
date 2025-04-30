@@ -256,6 +256,21 @@ impl<
         self.checkpoint_queue.cdq_push_imm(input).await?;
         Ok(())
     }
+
+    pub async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()> {
+        debug!(
+            checkpoint.checkpoint_id,
+            checkpoint.sync_timestamp,
+            checkpoint.source_coordinator_edge_id,
+            "Received sync checkpoint"
+        );
+        self.interval_sync_queue
+            .produce_checkpoint_async_info(checkpoint.compact)
+            .await
+            .map_err(RpcError::Anyhow)?;
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -742,21 +757,6 @@ where
             )
             .await
             .map_err(RpcError::Anyhow)?)
-    }
-
-    async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()> {
-        info!(
-            checkpoint.checkpoint_id,
-            checkpoint.sync_timestamp,
-            checkpoint.source_coordinator_edge_id,
-            "Received sync checkpoint"
-        );
-        self.interval_sync_queue
-            .produce_checkpoint_async_info(checkpoint.compact)
-            .await
-            .map_err(RpcError::Anyhow)?;
-
-        Ok(())
     }
 }
 

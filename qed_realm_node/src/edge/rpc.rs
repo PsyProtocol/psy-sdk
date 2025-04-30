@@ -255,9 +255,6 @@ pub trait RealmEdgeRpc {
         leaf_level: u8,
         leaf_index: F,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
-
-    #[method(name = "sync_checkpoint")]
-    async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()>;
 }
 
 /// push the latest checkpoint sync info

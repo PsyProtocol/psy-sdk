@@ -2,14 +2,13 @@ pub mod context;
 pub mod error;
 pub mod request;
 pub mod rpc;
+mod sync;
 
 use self::context::RealmEdgeContext;
 use crate::context::spawn_realm_job_update_task;
 use crate::rpc::RealmEdgeRpcServer;
 use crate::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
-use jsonrpsee::core::client::ClientT;
-use jsonrpsee::rpc_params;
 use jsonrpsee::server::ServerBuilder;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
@@ -17,6 +16,7 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
+use sync::spawn_active_checkpoint_sync_task;
 use std::sync::Arc;
 use tracing::{debug, info};
 
@@ -55,6 +55,8 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         KVQlibmdbxStore::new_read(&config.db.path)?,
     );
 
+    let store_reader = Arc::new(store_reader);
+
     debug!("created store reader successfully!");
     // Create proof verifier
     let proof_verifier = Arc::new(GenericCircuitVerifier::<C, D>::new());
@@ -68,7 +70,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     // Create Edge node context
     let edge_ctx = RealmEdgeContext::new(
         realm_config,
-        Arc::new(store_reader),
+        store_reader.clone(),
         checkpoint_queue,
         proof_store.clone(),
         proof_verifier,
@@ -83,18 +85,24 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         .await?;
 
     let handle = server_handle.start(edge_ctx.into_rpc());
+    info!("Realm Edge node started on {}", config.rpc.listen_addr);
 
     // Spawn task to send proof to coordinator
     spawn_realm_job_update_task(
-        proof_store,
+        proof_store.clone(),
         realm_config.realm_id as u64,
         coordinator_addr.clone(),
     )
     .await?;
 
-    info!("Realm Edge node started on {}", config.rpc.listen_addr);
+    spawn_active_checkpoint_sync_task(
+        store_reader,
+        proof_store,
+        coordinator_addr,
+    ).await?;
 
-    // Keep server running
+
+    // Keep server running¶
     handle.stopped().await;
     Ok(())
 }
