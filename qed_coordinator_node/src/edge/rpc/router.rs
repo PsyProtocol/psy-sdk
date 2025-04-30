@@ -14,7 +14,6 @@ use qed_realm_node::{C, F};
 use qed_store::config::store_config::QEDFelt;
 use crate::context::{get_global_jwt_secret, GLOBAL_REALM_REGISTRY, REGISTERED_USERS};
 use crate::edge::context::LATEST_CHECKPOINT_ID;
-use crate::edge::processor::fetch_and_push_checkpoint_to_realm;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
 use crate::edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
 use crate::rpc::types::{GetByFRequest, GetByIdRequest, GetUserLeafRequest, GetUserRegistrationFLeafRequest, GetUserRegistrationLeafRequest, RealmInfo, RegisterRealmRpcRequest};
@@ -185,8 +184,8 @@ pub fn build_rpc_module(
     })?;
 
     module.register_async_method("qed_get_checkpoint_sync_info", |params, handler, _ctx| async move {
-        let checkpoint_id: u64 = match params.parse::<u64>() {
-            Ok(id) => id,
+        let checkpoint_id: u64 = match params.parse::<(u64,)>() {
+            Ok((id,)) => id,
             Err(e) => {
                 return Err(ErrorObjectOwned::owned(
                     -32602,

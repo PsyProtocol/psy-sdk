@@ -75,7 +75,7 @@ pub struct UpdateProofsParams<
 /// push the latest checkpoint sync info
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckpointSyncInfo {
-    pub checkpoint_id: u64,     // checkpoint id
+    pub lastest_checkpoint_id: u64,     // checkpoint id
     pub description: Option<String>,
     pub source_coordinator_edge_id: Option<String>,
     pub sync_timestamp: u64, //
