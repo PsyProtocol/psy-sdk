@@ -47,7 +47,7 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
 
     println!("config: {:#?}", config);
     // initialize lmdb
-    // std::fs::create_dir_all(&config.coordinator_db_path)?;
+    std::fs::create_dir_all(&config.coordinator_db_path)?;
 
     let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
         KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(

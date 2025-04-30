@@ -34139,7 +34139,7 @@ MDBX_INTERNAL_FUNC int osal_lck_seize(MDBX_env *env) {
      *  - we need an exclusive lock for do so;
      *  - we can't lock meta-pages, otherwise other process could get an error
      *    while opening db in valid (non-conflict) mode. */
-    int err = flock_data(env, LCK_EXCLUSIVE, DXB_WHOLE);
+    int err = flock_data(env, LCK_EXCLUSIVE | LCK_DONTWAIT, DXB_WHOLE);
     if (err != MDBX_SUCCESS) {
       ERROR("%s, err %u", "lock-against-without-lck", err);
       jitter4testing(false);
@@ -34981,7 +34981,7 @@ retry:
 
   /* Lock against another process operating in without-lck or exclusive mode. */
   rc =
-      lck_op(env->me_lazy_fd, op_setlkw,
+      lck_op(env->me_lazy_fd, op_setlk,
              (env->me_flags & MDBX_RDONLY) ? F_RDLCK : F_WRLCK, env->me_pid, 1);
   if (rc != MDBX_SUCCESS) {
     ERROR("%s, err %u", "lock-against-without-lck", rc);
