@@ -48,15 +48,16 @@ pub async fn spawn_active_checkpoint_sync_task<
                 debug!("Attempting to fetch checkpoint {} from coordinator...", current_local_checkpoint_id + 1);
 
                 // Call the coordinator's new RPC method
-                let params = rpc_params![current_local_checkpoint_id];
-                match client.request::<Option<CheckpointSyncInfo>, _>("qed_get_checkpoint_sync_info", params).await {
+                let params = rpc_params![current_local_checkpoint_id + 1];
+                match client.request::<Option<CheckpointSyncInfo>, _>("qed_get_checkpiont_info", params).await {
                     Ok(Some(sync_info)) => {
                         // Check if the received checkpoint is the one we expected
                         if sync_info.lastest_checkpoint_id <= current_local_checkpoint_id {
                             if sync_info.lastest_checkpoint_id < current_local_checkpoint_id {
                                 warn!(
                                     expected = current_local_checkpoint_id + 1,
-                                    received = sync_info.lastest_checkpoint_id,
+                                    received = sync_info.compact.l2_block_state.checkpoint_id,
+                                    lastest = sync_info.lastest_checkpoint_id,
                                     "Received out-of-order checkpoint sync info from coordinator. Retrying cycle."
                                 );
                             }
@@ -87,7 +88,7 @@ pub async fn spawn_active_checkpoint_sync_task<
                     }
                     Ok(None) => {
                         // Coordinator indicates no newer checkpoint available
-                        info!("Realm is up-to-date with coordinator at checkpoint {}", current_local_checkpoint_id);
+                        info!("Realm is up-to-date with coordinator at checkpoint {}", current_local_checkpoint_id + 1);
                         // Break the inner loop, we are caught up for now.
                         break;
                     }
