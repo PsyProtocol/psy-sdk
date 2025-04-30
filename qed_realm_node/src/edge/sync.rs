@@ -29,18 +29,24 @@ pub async fn spawn_active_checkpoint_sync_task<
         }
     };
 
+    let mut counter = 0;
+    let mut current_local_checkpoint_id = 0;
     tokio::spawn(async move {
         loop {
             debug!("Starting active checkpoint sync cycle...");
-            let mut current_local_checkpoint_id = match store_reader.get_latest_l2_block_state().await {
-                Ok(state) => state.checkpoint_id,
+            match store_reader.get_latest_l2_block_state().await {
+                Ok(state) => current_local_checkpoint_id = state.checkpoint_id,
                 Err(e) => {
                     error!("Failed to get local checkpoint id: {:?}", e);
-                    // Wait before retrying the entire cycle
-                    tokio::time::sleep(SYNC_INTERVAL).await;
-                    continue; // Skip to the next iteration of the outer loop
+                    if counter <= 10 {
+                        counter = counter + 1;
+                        // Wait before retrying the entire cycle
+                        tokio::time::sleep(SYNC_INTERVAL).await;
+                        continue; // Skip to the next iteration of the outer loop
+                    }
                 }
             };
+            counter = 0;
             info!("Local checkpoint ID: {}", current_local_checkpoint_id);
 
             // Inner loop to fetch potentially multiple missing checkpoints
@@ -93,7 +99,7 @@ pub async fn spawn_active_checkpoint_sync_task<
                         break;
                     }
                     Err(e) => {
-                        error!("RPC call to coordinator ('qed_get_next_checkpoint_sync_info') failed: {:?}", e);
+                        error!("RPC call to coordinator ('qed_get_checkpiont_info') failed: {:?}", e);
                         // Break inner loop, wait for next outer interval cycle
                         break;
                     }
