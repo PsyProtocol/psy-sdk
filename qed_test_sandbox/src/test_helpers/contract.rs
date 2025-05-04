@@ -407,7 +407,7 @@ where
     timer.lap("start");
 
     let mut artifact: Vec<DPNFunctionCircuitDefinition> =
-        serde_json::from_str(&fs::read_to_string("/home/longer/workspace/private/qedlang-rust/qed_test_sandbox/basic_ups/target/basic_ups.json")?)?;
+        serde_json::from_str(&fs::read_to_string(homedir::my_home()?.unwrap().join("Projects/qedlang-rust/qed_test_sandbox/basic_ups/target/basic_ups.json"))?)?;
     let simple_claim_def = artifact.pop().unwrap();
     timer.lap("compiled simple_claim");
     let simple_transfer_def = artifact.pop().unwrap();

@@ -157,7 +157,7 @@ impl RealmProcessor {
             Ok(checkpoint) => {
                 // checkpoint.l2_block_state
                 let checkpoint_id = checkpoint.l2_block_state.checkpoint_id;
-                info!(?checkpoint_id, "Checkpoint received: {:?}", checkpoint);
+                info!(?checkpoint_id, "Checkpoint received: {}", serde_json::to_string_pretty(&checkpoint).unwrap());
                 match context.handle_checkpoint_sync(checkpoint).await {
                     Ok(_) => {
                         info!(?checkpoint_id, "Sync to new checkpoint");

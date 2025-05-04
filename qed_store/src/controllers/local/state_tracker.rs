@@ -3,6 +3,7 @@ use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
 use qed_data::{guta::api::QEDContractStateUpdateHistory, qdata::user::QEDUserLeaf};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 pub struct QEDLocalStateSetKey {
@@ -82,7 +83,9 @@ impl<F: RichField> QEDContractStateTracker<F> {
             end_state_root: QHashOut::ZERO,
         }
     }
+    #[instrument(skip(self, dmp), fields(contract_id = self.contract_id, slot_index = dmp.index, total_slots_modified = self.total_slots_modified))]
     pub fn notify_update_slot_dmp(&mut self, dmp: &DeltaMerkleProofCore<QHashOut<F>>) -> i32 {
+        eprintln!("DEBUGPRINT[587]: state_tracker.rs:88: dmp={}", serde_json::to_string_pretty(&dmp).unwrap());
         if self.total_slots_modified == 0 {
             self.start_state_root = dmp.old_root;
             self.end_state_root = dmp.new_root;

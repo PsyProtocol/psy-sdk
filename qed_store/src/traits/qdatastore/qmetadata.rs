@@ -5,20 +5,34 @@ use qed_data::qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract
 
 pub trait QMetaDataStoreReaderSync<F: RichField> {
     fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QEDUserLeaf<F>>;
-    fn get_user_leaf_data_f(&self, checkpoint_id: F, user_id: F) -> anyhow::Result<QEDUserLeaf<F>>;
+    fn get_user_leaf_data_f(&self, checkpoint_id: F, user_id: F) -> anyhow::Result<QEDUserLeaf<F>> {
+        self.get_user_leaf_data(
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+        )
+    }
 
     fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
-    fn get_contract_leaf_data_f(&self, contract_id: F) -> anyhow::Result<QEDContractLeaf<F>>;
+    fn get_contract_leaf_data_f(&self, contract_id: F) -> anyhow::Result<QEDContractLeaf<F>> {
+        self.get_contract_leaf_data(contract_id.to_canonical_u64())
+    }
 
     fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>>;
-    fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> anyhow::Result<QEDCheckpointLeaf<F>>;
+    fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+        self.get_checkpoint_leaf_data(checkpoint_id.to_canonical_u64())
+    }
 
     fn get_contract_code_definition(&self, contract_id: u64) -> anyhow::Result<ContractCodeDefinition>;
-    fn get_contract_code_definition_f(&self, contract_id: F) -> anyhow::Result<ContractCodeDefinition>;
+    fn get_contract_code_definition_f(&self, contract_id: F) -> anyhow::Result<ContractCodeDefinition> {
+        self.get_contract_code_definition(contract_id.to_canonical_u64())
+    }
+
     fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState>;
 
     fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState>;
-    fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<QEDL2BlockState>;
+    fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<QEDL2BlockState> {
+        self.get_l2_block_state(checkpoint_id.to_canonical_u64())
+    }
 }
 
 pub trait QMetaDataStoreReaderSyncMut<F: RichField> {

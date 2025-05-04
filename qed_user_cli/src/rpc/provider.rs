@@ -201,7 +201,7 @@ macro_rules! qed_rpc_call {
 
         match response.result {
             ResponseResult::Success(s) => {
-            tracing::info!("{:?}", s);
+                tracing::info!("{:?}", s);
                 Ok(())
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)),
@@ -315,8 +315,12 @@ impl RpcProvider {
         }
     }
 
+    pub const fn get_realm_id(&self, user_id: u64) -> u64 {
+        user_id / self.config.users_per_realm
+    }
+
     pub fn get_realm_url(&self, user_id: u64) -> anyhow::Result<String> {
-        let realm_id = user_id / self.config.users_per_realm;
+        let realm_id = self.get_realm_id(user_id);
         if realm_id >= self.config.realm_configs.len() as u64 {
             anyhow::bail!("realm id out of range");
         }

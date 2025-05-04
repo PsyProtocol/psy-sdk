@@ -115,7 +115,7 @@ impl QEDPart1StateDeltaResultGadget {
             slots_modified: part_1_header
                 .global_user_tree_delta
                 .stats
-                .total_transactions,
+                .slots_modified,
             pm_jobs_completed: zero,
             block_time,
             random_seed: builder

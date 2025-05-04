@@ -120,6 +120,7 @@ impl<
         input: SubmitUserEndCapNonProofInput<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<()> {
+        eprintln!("DEBUGPRINT[578]: context.rs:123: input={}", serde_json::to_string_pretty(&input).unwrap());
         // start validation
         if proof.public_inputs.len() != 4 {
             anyhow::bail!("invalid proof");
@@ -153,6 +154,7 @@ impl<
 
         let end_cap_checkpoint_id = input.core.checkpoint_id.to_canonical_u64();
         let checkpoint_id = self.get_checkpoint_id_async().await?;
+        let next_checkpoint_id = checkpoint_id + 2;
         if end_cap_checkpoint_id > checkpoint_id {
             anyhow::bail!("invalid checkpoint id");
         }
@@ -191,7 +193,7 @@ impl<
         );
 
         let cst_user_update =
-            input.verify_and_generate_cst_updates::<H>(checkpoint_id, old_user_state_tree_root)?;
+            input.verify_and_generate_cst_updates::<H>(next_checkpoint_id, old_user_state_tree_root)?;
 
         self.verify_proof_of_type(ProvingJobCircuitType::UserEndCap, proof)?;
 
@@ -214,7 +216,6 @@ impl<
 
         tracing::info!("input proof_id: {:?}", proof_id);
 
-        let next_checkpoint_id = checkpoint_id + 2;
         //self.proof_store.set_bytes_by_id(proof_id.get_input_witness_id(), data)
         self.proof_store.set_proof_by_id(proof_id, proof).await?;
         let queue_item = UserEndCapNonProofCoreInputQueueItem {
@@ -226,7 +227,9 @@ impl<
         };
 
         tracing::info!("queue item: {:?}", queue_item);
+        tracing::info!("queue item pretty: {}", serde_json::to_string_pretty(&queue_item).unwrap());
 
+        eprintln!("DEBUGPRINT[573]: context.rs:231: cst_user_update={}", serde_json::to_string_pretty(&cst_user_update).unwrap());
         self.checkpoint_queue.cdq_push_imm(cst_user_update).await?;
         self.checkpoint_queue.cdq_push_imm(queue_item).await?;
 
@@ -256,7 +259,7 @@ where
     }
 
     async fn submit_user_end_cap(&self, req: QSubmitEndCapRPCRequest<F>) -> RpcResult<String> {
-        tracing::info!("submit_user_end_cap: {:?}", req);
+        tracing::info!("submit_user_end_cap: {}", serde_json::to_string_pretty(&req).unwrap());
         Ok(self
             .handle_recv_end_cap_from_user(req.user_ec_input, &req.proof)
             .await

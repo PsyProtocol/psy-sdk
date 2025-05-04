@@ -93,8 +93,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
         let zero = self.zero();
         self.connect(is_eq.target, zero);
     }
-    
-    
+
+
     fn is_less_than_or_equal_split(&mut self, num_bits: usize, x: Target, y: Target) -> BoolTarget {
         if num_bits <= 32 {
             list_lte_circuit(self, vec![x], vec![y], num_bits)
@@ -134,23 +134,23 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
             is_leq
         }
     }
-    
+
     fn is_zero(&mut self, x: Target) -> BoolTarget {
         let zero = self.zero();
         self.is_equal(x, zero)
-        
+
     }
-    
+
     fn is_not_zero(&mut self, x: Target) -> BoolTarget {
         let is_z = self.is_zero(x);
         self.not(is_z)
     }
-    
+
     fn is_zero_hash(&mut self, x: HashOutTarget) -> BoolTarget {
         let is_elem_0_zero = self.is_zero(x.elements[0]);
-        let is_elem_1_zero = self.is_zero(x.elements[0]);
-        let is_elem_2_zero = self.is_zero(x.elements[0]);
-        let is_elem_3_zero = self.is_zero(x.elements[0]);
+        let is_elem_1_zero = self.is_zero(x.elements[1]);
+        let is_elem_2_zero = self.is_zero(x.elements[2]);
+        let is_elem_3_zero = self.is_zero(x.elements[3]);
 
         let is_elem_01_zero = self.and(is_elem_0_zero, is_elem_1_zero);
         let is_elem_23_zero = self.and(is_elem_2_zero, is_elem_3_zero);
@@ -158,14 +158,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
 
 
         self.and(is_elem_01_zero, is_elem_23_zero)
-        
+
     }
-    
+
     fn ensure_not_equal_bool(&mut self, x: BoolTarget, y: BoolTarget) {
         let not_x = self.not(x);
         self.connect(not_x.target, y.target);
     }
-    
+
     fn is_not_equal_bool(&mut self, x: BoolTarget, y: BoolTarget) -> BoolTarget {
         // x xor y = (x+y-2*x*y)
         let x_plus_y = self.add(x.target, y.target);
@@ -173,7 +173,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
         let x_times_y_2 = self.add(x_times_y, x_times_y);
         BoolTarget::new_unsafe(self.sub(x_plus_y, x_times_y_2))
     }
-    
+
     fn is_equal_to_u64(&mut self, x: Target, value: u64) -> BoolTarget {
         if value == 0 {
             self.is_zero(x)
@@ -182,19 +182,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
             self.is_equal(x, constant_u64)
         }
     }
-    
+
     fn assert_zero_hash(&mut self, hash: HashOutTarget) {
         self.assert_zero(hash.elements[0]);
         self.assert_zero(hash.elements[1]);
         self.assert_zero(hash.elements[2]);
         self.assert_zero(hash.elements[3]);
     }
-    
+
     fn assert_non_zero(&mut self, x: Target) {
         let is_zero = self.is_zero(x);
         self.assert_zero(is_zero.target)
     }
-    
+
     fn assert_non_zero_hash(&mut self, hash: HashOutTarget) {
         self.assert_non_zero(hash.elements[0]);
         self.assert_non_zero(hash.elements[1]);

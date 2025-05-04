@@ -1,5 +1,5 @@
 target
-*.log
+# *.log
 *.sublime*
 *~
 *.pyc
@@ -9,7 +9,7 @@ result
 test-db
 **/db
 redis-data/
-examples/
+/examples
 
 perf2
 
@@ -17,7 +17,6 @@ qed_prover/examples/debug_data/
 target/
 **/node_modules/
 .idea/
-*.sh
 .cursor
 .cursorrules
 .cursorignore
