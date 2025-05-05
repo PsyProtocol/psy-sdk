@@ -190,9 +190,12 @@ impl CoordinatorEdgeHandler {
             return Ok(());
         }
 
-        let register_id = REGISTER_USER_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let register_id = REGISTER_USER_COUNTER.load( Ordering::Relaxed);
         let user_id = get_user_id_from_registration_id(register_id);
+
+        eprintln!("DEBUGPRINT[617]: handler.rs:198: register_id={}, user_id={},public_key={}", register_id, user_id, public_key);
         REGISTERED_USERS.insert(public_key, user_id);
+        REGISTER_USER_COUNTER.store(register_id + 1, Ordering::Relaxed);
 
         with_ctx_read_async(|ctx| {
             let queue = ctx.checkpoint_queue.clone();

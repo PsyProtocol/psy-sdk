@@ -233,6 +233,7 @@ impl<
                             )),
                         })
                         .collect::<Vec<_>>();
+                    eprintln!("DEBUGPRINT[611]: processor.rs:236: pending_register_users={}", serde_json::to_string_pretty(&pending_register_users).unwrap());
                     let dmps = self
                         .store
                         .injest_user_leaves_imm(checkpoint_id, REALM_USER_TREE_HEIGHT, &uleaves)
@@ -267,10 +268,7 @@ impl<
                         stats: guta.stats,
                     };
                     let w = GUTAOnlyRegisterUsersInput {
-                        checkpoint_tree_root: self
-                            .store
-                            .get_checkpoint_tree_root(checkpoint_id)
-                            .await?,
+                        checkpoint_tree_root: guta.checkpoint_tree_root,
                         guta_register_user_inputs: regs,
                     };
                     let w_id = QProvingJobDataID::new(

@@ -199,7 +199,7 @@ pub struct ContractMetadata {
 impl ContractMetadata {
     pub fn new(contract_id: Felt, user_id: Felt) -> Self {
         return new ContractMetadata {
-            contract_state_tree_height: 0,
+            contract_state_tree_height: 24,
             contract_id,
             user_id
         };
@@ -207,7 +207,7 @@ impl ContractMetadata {
 
     pub fn current() -> Self {
         return new ContractMetadata {
-            contract_state_tree_height: 0,
+            contract_state_tree_height: 24,
             contract_id: context::get_contract_id(),
             user_id: context::get_user_id(),
         };

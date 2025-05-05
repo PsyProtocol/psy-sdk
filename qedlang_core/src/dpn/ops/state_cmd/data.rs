@@ -45,6 +45,7 @@ pub struct DPNStateCmdSetContractStateSlotSingle<T> {
 impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdSetContractStateSlotSingle<T> {
     fn get_inputs(&self) -> Vec<T> {
         vec![
+            self.condition,
             self.sub_slot_index,
             self.value
         ]

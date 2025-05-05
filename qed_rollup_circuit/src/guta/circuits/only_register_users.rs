@@ -35,16 +35,16 @@ where
         pub fn new(
             max_users: usize,
             global_user_tree_realm_height: usize,
-            
+
         ) -> Self {
 
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
-       
+
         let guta_circuit_whitelist = builder.add_virtual_hash();
         let checkpoint_tree_root = builder.add_virtual_hash();
-        
+
 
         let default_user_state_tree_root = QHashOut::from_values(
             DEFAULT_USER_STATE_TREE_ROOT_U64[0],
@@ -79,12 +79,12 @@ where
             register_batch_gadget,
             guta_circuit_whitelist,
             checkpoint_tree_root,
-            
+
             circuit_data,
             fingerprint,
         }
     }
-    
+
     pub fn prove_base(
         &self,
         guta_circuit_whitelist_root: QHashOut<C::F>,
@@ -92,6 +92,8 @@ where
         guta_register_user_inputs: &[GUTARegisterUserFullInput<C::F>],
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
+        eprintln!("DEBUGPRINT[610]: only_register_users.rs:95: checkpoint_tree_root={}", serde_json::to_string_pretty(&checkpoint_tree_root).unwrap());
+        eprintln!("DEBUGPRINT[609]: only_register_users.rs:95: guta_register_user_inputs={}", serde_json::to_string_pretty(&guta_register_user_inputs).unwrap());
 
 
         let default_user_state_tree_root = QHashOut::from_values(
@@ -166,7 +168,7 @@ where
 
         let guta_whitelist_root: QHashOut<C::F> =
             library.get_group_inclusion_proof(ProvingJobCircuitType::GUTATwoGUTA, ProvingJobCircuitType::GUTATwoGUTA)?.root;
-        
+
 
         let result = self.prove_base(
             guta_whitelist_root,

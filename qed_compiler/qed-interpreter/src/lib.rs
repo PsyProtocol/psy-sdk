@@ -1037,7 +1037,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         let value = self.interpret_expr(program, value.clone(), ctx)?;
                         return Ok(CheckedValueRef::from_felt(
                             self.context
-                                .op_set_state_obj(offset.to_felt(), value.to_felt()),
+                                .op_set_state_felt(offset.to_felt(), value.to_felt()),
                         ));
                     }
                     CheckedIntrinsicExprNode::Hash { data, type_id, .. } => {

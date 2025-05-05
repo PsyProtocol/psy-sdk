@@ -182,10 +182,10 @@ color-eyre = "0.6"
 enum-as-inner = "0.6"
 strum = { version = "0.27", features = ["derive"] }
 
-plonky2 = { path = "../plonky2-hwa/plonky2" }
-plonky2_maybe_rayon = { path = "../plonky2-hwa/maybe_rayon" }
-# plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c" }
-# plonky2_maybe_rayon = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c", default-features = false }
+# plonky2 = { path = "../plonky2-hwa/plonky2" }
+# plonky2_maybe_rayon = { path = "../plonky2-hwa/maybe_rayon" }
+plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c" }
+plonky2_maybe_rayon = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c", default-features = false }
 
 tracing-appender = "0.2"
 

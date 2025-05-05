@@ -63,7 +63,6 @@ where
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        eprintln!("DEBUGPRINT[567]: checkpoint_state_transition.rs:66: builder.virtual_target_index={:#?}", builder.virtual_target_index);
         let child_proofs_gadget =
             CheckpointStateTransitionChildProofsGadget::<D>::add_virtual_to::<C, C::F>(
                 &mut builder,
@@ -71,19 +70,14 @@ where
                 part_1_verifier_data_cap_height,
                 known_part_1_fingerprint,
             );
-        eprintln!("DEBUGPRINT[568]: checkpoint_state_transition.rs:74: builder.virtual_target_index={:#?}", builder.virtual_target_index);
         let core_checkpoint_gadget = CheckpointStateTransitionCoreGadget::add_virtual_to::<
             C::Hasher,
             C::F,
             D,
         >(&mut builder, CHECKPOINT_TREE_HEIGHT as usize);
-
-        eprintln!("DEBUGPRINT[566]: checkpoint_state_transition.rs:79: builder.virtual_target_index={:#?}", builder.virtual_target_index);
         let expected_old_leaf_hash = child_proofs_gadget.state_delta_gadget.old_checkpoint_leaf.to_hash::<C::Hasher, C::F, D>(&mut builder);
         let expected_new_leaf_hash = child_proofs_gadget.state_delta_gadget.new_checkpoint_leaf.to_hash::<C::Hasher, C::F, D>(&mut builder);
         let expected_old_checkpoint_root = child_proofs_gadget.state_delta_gadget.part_1_header.global_user_tree_delta.checkpoint_tree_root;
-
-        eprintln!("DEBUGPRINT[569]: checkpoint_state_transition.rs:86: builder.virtual_target_index={:#?}", builder.virtual_target_index);
 
 
         builder.connect_hashes(
@@ -103,8 +97,6 @@ where
         let new_checkpoint_root = core_checkpoint_gadget.new_checkpoint_tree_root;
         //let combo_hash = builder.hash_two_to_one::<C::Hasher>(expected_old_checkpoint_root, new_checkpoint_root);
 
-
-        eprintln!("DEBUGPRINT[570]: checkpoint_state_transition.rs:107: builder.virtual_target_index={:#?}", builder.virtual_target_index);
 
         builder.register_public_inputs(&core_checkpoint_gadget.old_checkpoint_tree_root.elements);
         builder.register_public_inputs(&new_checkpoint_root.elements);

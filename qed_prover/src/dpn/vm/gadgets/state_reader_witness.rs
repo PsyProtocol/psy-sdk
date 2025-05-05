@@ -8,7 +8,7 @@ use qedlang_core::dpn::{ops::state_cmd::data::DPNStateCmd, vm::def::DPNFunctionC
 
 use super::state_readers::{CKInvokeDeferredMethodCall, StateCommandCacheKey, StateReaderGadget, StateReaderReferenceKeyType};
 
-/* 
+/*
 fn some_or_error<T>(v: Option<T>) -> anyhow::Result<T> {
     match v {
         Some(x) => Ok(x),
@@ -58,10 +58,10 @@ impl StateReaderGadget {
             match reader_ref_key.gadget_type {
                 StateReaderReferenceKeyType::DeltaMerkleProof => {
                     self.delta_merkle_proofs[reader_ref_key.gadget_index].set_witness::<W, F>(
-                        witness, 
-                        F::from_noncanonical_u64(witness_value.index), 
-                        witness_value.old_value, 
-                        witness_value.new_value, 
+                        witness,
+                        F::from_noncanonical_u64(witness_value.index),
+                        witness_value.old_value,
+                        witness_value.new_value,
                         &witness_value.siblings
                     )?;
                 },
@@ -82,9 +82,9 @@ impl StateReaderGadget {
             match reader_ref_key.gadget_type {
                 StateReaderReferenceKeyType::MerkleProof => {
                     self.merkle_proofs[reader_ref_key.gadget_index].set_witness_generic::<W, F>(
-                        witness, 
-                        F::from_noncanonical_u64(witness_value.index), 
-                        witness_value.value, 
+                        witness,
+                        F::from_noncanonical_u64(witness_value.index),
+                        witness_value.value,
                         &witness_value.siblings,
                     )?;
                 },
@@ -121,6 +121,7 @@ impl StateReaderGadget {
         cmd_witness: &QEDCmdWithInputAndWitness<F>,
         wb_state: &mut StateReaderGadgetWitnessBuilderState,
     ) -> anyhow::Result<()>{
+        eprintln!("DEBUGPRINT[619]: state_reader_witness.rs:124: def_cmd={}", serde_json::to_string_pretty(&def_cmd).unwrap());
         match &def_cmd {
             DPNStateCmd::SetContractStateSlotHash(c) => {
                 let ck = StateCommandCacheKey::new_write_current_contract_slot(
@@ -129,8 +130,8 @@ impl StateReaderGadget {
                     wb_state.write_epoch,
                 );
                 self.set_witness_for_key_dmp(
-                    witness, 
-                    &ck, 
+                    witness,
+                    &ck,
                     cmd_witness.witness.get_delta_merkle_proof_ref()
                 )?;
                 wb_state.inc_write_epoch();
@@ -142,13 +143,13 @@ impl StateReaderGadget {
                     wb_state.write_epoch,
                 );
                 self.set_witness_for_key_dmp(
-                    witness, 
-                    &ck, 
+                    witness,
+                    &ck,
                     cmd_witness.witness.get_delta_merkle_proof_ref()
                 )?;
                 wb_state.inc_write_epoch();
             }
-            DPNStateCmd::SetContractStateSlotRange(c) => {                
+            DPNStateCmd::SetContractStateSlotRange(c) => {
                 let dmps = cmd_witness.witness.get_delta_merkle_proof_array_ref();
                 for (i, p) in dmps.iter().enumerate() {
                     let ck = StateCommandCacheKey::new_write_current_contract_range(
@@ -159,8 +160,8 @@ impl StateReaderGadget {
                         wb_state.write_epoch,
                     );
                     self.set_witness_for_key_dmp(
-                        witness, 
-                        &ck, 
+                        witness,
+                        &ck,
                         p,
                     )?;
                 }
@@ -171,15 +172,15 @@ impl StateReaderGadget {
             DPNStateCmd::InvokeExternalContractFunctionSync(_c) => todo!(),
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
                 let ck = StateCommandCacheKey::InvokeDeferredMethodCall(CKInvokeDeferredMethodCall::new(
-                    c.condition, 
-                    c.contract_id, 
-                    c.method_id, 
+                    c.condition,
+                    c.contract_id,
+                    c.method_id,
                     wb_state.deferred_tx_count,
                     &c.input_args,
                 ));
                 self.set_witness_for_key_dmp(
-                    witness, 
-                    &ck, 
+                    witness,
+                    &ck,
                     cmd_witness.witness.get_delta_merkle_proof_ref()
                 )?;
                 wb_state.inc_deferred_tx_count();
@@ -191,7 +192,7 @@ impl StateReaderGadget {
                     wb_state.write_epoch,
                 );
                 self.set_witness_for_key_mp(
-                    witness, 
+                    witness,
                     &ck,
                     cmd_witness.witness.get_merkle_proof_ref()
                 )?;
@@ -203,7 +204,7 @@ impl StateReaderGadget {
                     wb_state.write_epoch,
                 );
                 self.set_witness_for_key_mp(
-                    witness, 
+                    witness,
                     &ck,
                     cmd_witness.witness.get_merkle_proof_ref(),
                 )?;
@@ -211,7 +212,7 @@ impl StateReaderGadget {
             DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => {
                 let mps = cmd_witness.witness.get_merkle_proof_array_ref();
                 for (i, p) in mps.iter().enumerate() {
-                    
+
                     let ck = StateCommandCacheKey::new_read_current_contract_range(
                         c.sub_slot_index,
                         c.length,
@@ -219,7 +220,7 @@ impl StateReaderGadget {
                         wb_state.write_epoch,
                     );
                     self.set_witness_for_key_mp(
-                        witness, 
+                        witness,
                         &ck,
                         p
                     )?;
@@ -243,10 +244,27 @@ impl StateReaderGadget {
                         c.slot_index,
                         self.contract_call_epoch,
                     );
-                
+
                 self.set_witness_for_key_mp(witness, &contract_state_tree_ck, &proofs[1])?;
             },
-            DPNStateCmd::GetSelfUserExternalContractStateSlotSingle(_c) => todo!(),
+            DPNStateCmd::GetSelfUserExternalContractStateSlotSingle(c) => {
+                let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(
+                    c.contract_id,
+                    wb_state.contract_call_epoch,
+                );
+
+                let contract_state_tree_ck = StateCommandCacheKey::new_read_self_user_external_contract_single(
+                    c.contract_id,
+                    c.sub_slot_index,
+                    wb_state.contract_call_epoch,
+                );
+
+                let proofs = cmd_witness.witness.get_merkle_proof_array_ref();
+
+                self.set_witness_for_key_mp(witness, &read_root_ck, &proofs[0])?;
+
+                self.set_witness_for_key_mp(witness, &contract_state_tree_ck, &proofs[1])?;
+            },
             DPNStateCmd::GetSelfUserExternalContractStateSlotRange(c) => {
 
                 let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(
@@ -269,13 +287,13 @@ impl StateReaderGadget {
                             c.length,
                             i as u64
                         );
-                    
+
                     self.set_witness_for_key_mp(witness, &contract_state_tree_ck, p)?;
                 }
 
             },
             DPNStateCmd::GetOtherUserContractStateSlotHash(c) => {
-/* 
+/*
         let user_tree_ck =
         StateCommandCacheKey::new_read_other_user_leaf_hash(
             user_target_id
@@ -309,27 +327,64 @@ impl StateReaderGadget {
                 let read_witness = cmd_witness.witness.get_read_other_contract_state_ref();
 
                 self.set_witness_for_key_mp(
-                    witness, 
-                    &user_tree_ck, 
+                    witness,
+                    &user_tree_ck,
                     &read_witness.user_leaf_witness.user_tree_proof
                 )?;
                 self.set_witness_for_key_user_leaf(
-                    witness, 
-                    &user_leaf_ck, 
+                    witness,
+                    &user_leaf_ck,
                     &read_witness.user_leaf_witness.user_leaf
                 )?;
                 self.set_witness_for_key_mp(
-                    witness, 
-                    &uct_ck, 
+                    witness,
+                    &uct_ck,
                     &read_witness.contract_state_proof
                 )?;
                 self.set_witness_for_key_mp(
-                    witness, 
-                    &cst_ck, 
+                    witness,
+                    &cst_ck,
                     &read_witness.state_slot_proofs[0]
                 )?;
             },
-            DPNStateCmd::GetOtherUserContractStateSlotSingle(_c) => todo!(),
+            DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => {
+                let user_target_id = c.user_id;
+                let contract_target_id = c.contract_id;
+                let sub_slot_target_id = c.sub_slot_index;
+
+                let user_tree_ck = StateCommandCacheKey::new_read_other_user_leaf_hash(user_target_id);
+                let user_leaf_ck = StateCommandCacheKey::new_read_other_user_leaf(user_target_id);
+                let uct_ck = StateCommandCacheKey::new_read_other_user_contract_root(user_target_id, contract_target_id);
+                let cst_ck = StateCommandCacheKey::new_read_other_user_contract_single(
+                    user_target_id,
+                    contract_target_id,
+                    sub_slot_target_id,
+                    wb_state.write_epoch,
+                );
+
+                let read_witness = cmd_witness.witness.get_read_other_contract_state_ref();
+
+                self.set_witness_for_key_mp(
+                    witness,
+                    &user_tree_ck,
+                    &read_witness.user_leaf_witness.user_tree_proof
+                )?;
+                self.set_witness_for_key_user_leaf(
+                    witness,
+                    &user_leaf_ck,
+                    &read_witness.user_leaf_witness.user_leaf
+                )?;
+                self.set_witness_for_key_mp(
+                    witness,
+                    &uct_ck,
+                    &read_witness.contract_state_proof
+                )?;
+                self.set_witness_for_key_mp(
+                    witness,
+                    &cst_ck,
+                    &read_witness.state_slot_proofs[0]
+                )?;
+            }
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => {
 
                 let user_target_id = c.user_id;
@@ -350,18 +405,18 @@ impl StateReaderGadget {
                 let read_witness = cmd_witness.witness.get_read_other_contract_state_ref();
 
                 self.set_witness_for_key_mp(
-                    witness, 
-                    &user_tree_ck, 
+                    witness,
+                    &user_tree_ck,
                     &read_witness.user_leaf_witness.user_tree_proof
                 )?;
                 self.set_witness_for_key_user_leaf(
-                    witness, 
-                    &user_leaf_ck, 
+                    witness,
+                    &user_leaf_ck,
                     &read_witness.user_leaf_witness.user_leaf
                 )?;
                 self.set_witness_for_key_mp(
-                    witness, 
-                    &uct_ck, 
+                    witness,
+                    &uct_ck,
                     &read_witness.contract_state_proof
                 )?;
 
@@ -378,8 +433,8 @@ impl StateReaderGadget {
 
 
                     self.set_witness_for_key_mp(
-                        witness, 
-                        &cst_ck, 
+                        witness,
+                        &cst_ck,
                         mp
                     )?;
                 }

@@ -9,16 +9,17 @@ use super::guta_register_user_core::GUTARegisterUserCoreGadget;
 
 pub fn map_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    _user_registration_tree_leaf_index: Target,
+    user_registration_tree_leaf_index: Target,
     user_registration_tree_leaf_index_bits: &[BoolTarget],
     _global_user_tree_height: usize,
 ) -> Target {
-    let mut reversed_bits = user_registration_tree_leaf_index_bits.to_vec();
-    reversed_bits.reverse();
-
-    let reversed_bits_index = builder.le_sum(reversed_bits.iter());
-
-    reversed_bits_index
+    user_registration_tree_leaf_index
+    // let mut reversed_bits = user_registration_tree_leaf_index_bits.to_vec();
+    // reversed_bits.reverse();
+    //
+    // let reversed_bits_index = builder.le_sum(reversed_bits.iter());
+    //
+    // reversed_bits_index
 }
 
 
@@ -47,10 +48,10 @@ impl GUTARegisterUserFullGadget {
     ) -> Self {
 
         let (
-            user_registration_tree_merkle_proof, 
+            user_registration_tree_merkle_proof,
             user_registration_tree_index_bits,
         ) = MerkleProofGadget::add_virtual_to_get_index_bits::<H,F,D>(
-            builder, 
+            builder,
             global_user_tree_height,
         );
 
@@ -67,7 +68,7 @@ impl GUTARegisterUserFullGadget {
 
 
         let register_user_core_gadget = GUTARegisterUserCoreGadget::add_virtual_to_with_public_key::<H,F,D>(
-            builder, 
+            builder,
             global_user_tree_realm_height,
             global_user_tree_height,
             default_user_state_tree_root,
@@ -86,7 +87,7 @@ impl GUTARegisterUserFullGadget {
         let new_global_user_tree_root = register_user_core_gadget.global_user_tree_update_proof.new_root;
 
         let global_user_tree_proof_height = register_user_core_gadget.global_user_tree_update_proof.height;
-        
+
         Self {
             user_registration_tree_merkle_proof,
             register_user_core_gadget,
@@ -110,6 +111,7 @@ impl GUTARegisterUserFullGadget {
         user_registration_tree_merkle_proof: &MerkleProofCore<QHashOut<F>>,
         global_user_tree_update_proof: &DeltaMerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
+        eprintln!("DEBUGPRINT[612]: guta_register_user_full.rs:112 (after ) -> anyhow::Result<()> )");
         self.user_registration_tree_merkle_proof.set_witness_core_proof_q_generic(
             witness,
             user_registration_tree_merkle_proof,

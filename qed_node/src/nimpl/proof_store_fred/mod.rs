@@ -228,7 +228,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
             .await?;
         self.pool.del::<(), String>(key).await?;
 
-        members.into_iter().map(|x| T::from_bytes(&x)).collect()
+        members.into_iter().rev().map(|x| T::from_bytes(&x)).collect()
     }
 }
 

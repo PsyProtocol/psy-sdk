@@ -19,8 +19,8 @@ fmt:
 clean:
 	@rm -r target
 
-DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) cd qed_compiler/tests && ./target/${PROFILE}/dargo --debug --entry-path
-DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd qed_compiler/tests && ./target/${PROFILE}/dargo execute --debug --entry-path
+DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) cd qed_compiler/tests && ../../target/${PROFILE}/dargo compile --debug --entry-path
+DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd qed_compiler/tests && ../../target/${PROFILE}/dargo execute --debug --entry-path
 
 ci:
 	@RUST_LOG=${LOG_LEVE} cargo test --release --package qed-ast --package qed-parser --package qed-sema --package qed-interpreter -- --nocapture
@@ -72,7 +72,7 @@ ci:
 update-snapshots:
 	@cargo insta review
 
-WATCHED_DIRS := qed_rollup_circuit qed_common_circuit
+WATCHED_DIRS := qed_rollup_circuit qed_common_circuit qed_prover
 
 common_config_generator:
 	@if git diff --name-only HEAD | grep -q -E "$(subst $() $(),|,$(WATCHED_DIRS)).*\.rs$$"; then \
@@ -82,14 +82,11 @@ common_config_generator:
 		echo "No changes detected in watched directories. Skipping common_config_generator."; \
 	fi
 
-.PHONE: check fix build format run test update-snapshots
+.PHONY: check fix build format run test update-snapshots
 
 ################################################################################
 #                                   TMP                                        #
 ################################################################################
-COORDINATOR_DB_PATH      := $(PWD)/db/coordinator
-REALM_DB_PATH            := $(PWD)/db/realm
-
 PROJECT_DIR              := $(PWD)/examples
 FILE                     := $(PWD)/examples/src/main.qed
 PARAMETERS               :=
@@ -130,9 +127,15 @@ shutdown:
 		down \
 		--remove-orphans > /dev/null 2>&1 || true
 	@sudo rm -fr redis-data
-	@redis-cli 'FLUSHALL' 2>&1 || true
+	@redis-cli 'FLUSHALL' > /dev/null 2>&1 || true
 	@sudo rm -fr $(PWD)/db
 	@rm -fr ${PROJECT_DIR}
+
+run-all:
+	@./scripts/run_all.sh
+
+run-scenario0:
+	@./scripts/run_scenario0.sh
 
 logs:
 	@docker-compose \
@@ -147,10 +150,10 @@ compile:
 	@RUST_LOG=${LOG_LEVE} cd ${PROJECT_DIR} && ../target/${PROFILE}/dargo compile --entry-path ${FILE} --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
 
 run-coordinator-processor:
-	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --coordinator-db-path ${COORDINATOR_DB_PATH}
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli coordinator-processor
 
 run-coordinator-edge:
-	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli coordinator-edge --coordinator-db-path ${COORDINATOR_DB_PATH}
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli coordinator-edge
 
 run-coordinator-worker:
 	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli coordinator-worker
@@ -177,9 +180,10 @@ register-user:
 	@RUST_LOG=${LOG_LEVE} curl -X POST ${COORDINATOR_RPC_URL} \
       -H "Content-Type: application/json" \
       -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "352637524d9b8482d65b9c8bc78d0d4849a063bc53558158f84ee3863081ab4b" }, "id": 1 }' | jq .
-	# @RUST_LOG=${LOG_LEVE} curl -X POST ${COORDINATOR_RPC_URL} \
-	#      -H "Content-Type: application/json" \
-	#      -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "cad421940097e1a1257a0d85faf9441d6e52d17f2dcda0da6da5c3a4ea80fe15" }, "id": 1 }' | jq .
+	@sleep 0.5
+	@RUST_LOG=${LOG_LEVE} curl -X POST ${COORDINATOR_RPC_URL} \
+	     -H "Content-Type: application/json" \
+	     -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "cad421940097e1a1257a0d85faf9441d6e52d17f2dcda0da6da5c3a4ea80fe15" }, "id": 1 }' | jq .
 
 deploy-contract:
 	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${CURRENT_USER_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
@@ -192,6 +196,9 @@ transfer:
 
 claim:
 	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id 0 --method-name simple_claim --inputs 0 --nonce 1
+
+balance_of:
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}, ${CONTRACT_STATE_HEIGHT}, ${SLOT_ID}], "id": 1 }' | jq .
 
 build-block:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .

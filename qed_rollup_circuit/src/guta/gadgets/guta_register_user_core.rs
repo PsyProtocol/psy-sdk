@@ -36,13 +36,13 @@ impl GUTARegisterUserCoreGadget {
     ) -> Self {
 
         let global_user_tree_update_proof = VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full::<H,F,D>(
-            builder, 
+            builder,
             global_user_tree_realm_height,
             input_height_target,
         );
 
         builder.assert_zero_hash(global_user_tree_update_proof.old_value);
-        
+
         let user_id = global_user_tree_update_proof.index;
 
         let user_leaf_gadget = QEDUserLeafGadget::create_new_user_default::<F,D>(
@@ -118,6 +118,7 @@ impl GUTARegisterUserCoreGadget {
         public_key: QHashOut<F>,
         global_user_tree_update_proof: &DeltaMerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
+        eprintln!("DEBUGPRINT[615]: guta_register_user_core.rs:120 (after ) -> anyhow::Result<()> )");
         self.global_user_tree_update_proof.set_witness(
             witness,
             global_user_tree_update_proof,

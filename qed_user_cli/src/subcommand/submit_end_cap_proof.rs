@@ -92,19 +92,21 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
 
-    let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey {
+    let zkey_info = wallet.add_private_key_get_info(SimpleQEDPrivateKey {
         private_key: priv_key,
     });
+    let new_nonce = GoldilocksField::from_noncanonical_u64(args.nonce);
 
-    let user_id = st_provider.get_user_id(public_key.public_key_param)?;
-    tracing::info!("user id: {:?}", user_id);
+    let user_id = st_provider.get_user_id(zkey_info.public_key_param)?;
+    tracing::info!("user id: {}", user_id);
+    tracing::info!("public key: {}", zkey_info.public_key_param);
     st_provider.current_user_id = user_id;
 
     let lps = QEDLocalProvingSessionStore::new_at(
         st_provider.clone(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
         F::from_canonical_u64(user_id),
-        GoldilocksField::ONE,
+        new_nonce,
         UPS_SESSION_PROOF_TREE_HEIGHT as usize,
     );
 
@@ -141,7 +143,6 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
         )?;
     }
 
-    let new_nonce = GoldilocksField::from_noncanonical_u64(args.nonce);
     let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key, sighash)?;

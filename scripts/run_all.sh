@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DIR=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
-cd $DIR
+cd $DIR/..
 
 # Exit on error
 set -e

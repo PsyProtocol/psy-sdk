@@ -459,7 +459,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     serde_json::to_string_pretty(&top_proof).unwrap()
                 );
                 let mut new_siblings = vec![];
-                new_siblings.extend_from_slice(&merkle_proof.siblings[0..12]);
+                new_siblings.extend_from_slice(&merkle_proof.siblings[0..(REALM_USER_TREE_HEIGHT as usize)]);
                 new_siblings.extend_from_slice(&top_proof.siblings);
                 merkle_proof.root = top_proof.root;
                 merkle_proof.siblings = new_siblings;
