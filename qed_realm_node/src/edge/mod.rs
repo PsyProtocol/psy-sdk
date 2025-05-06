@@ -40,10 +40,10 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     debug!("created redis pool successfully!");
     let proof_store = ProofStoreFred::new2(
         pool,
-        config.queue.worker_queue_suffix,
-        config.queue.notifications_queue_suffix,
-        Some(config.queue.proof_store_key_suffix.as_str()),
-        Some(config.queue.proof_store_key_suffix.as_str()),
+        &config.queue.worker_queue_suffix,
+        &config.queue.notifications_queue_suffix,
+        &config.queue.proof_store_key_suffix.as_str(),
+        &config.queue.proof_store_key_suffix.as_str(),
     );
     debug!("created proof store successfully!");
     // Create proof storage

@@ -183,10 +183,10 @@ where
     } = args;
     let proof_store = Arc::new(ProofStoreFred::new2(
         (*redis_pool).clone(),
-        coordinator_worker_queue_suffix,
-        coordinator_notifications_queue_suffix,
-        Some(&coordinator_proof_store_key_suffix),
-        Some(&coordinator_proof_store_key_suffix),
+        &coordinator_worker_queue_suffix,
+        &coordinator_notifications_queue_suffix,
+        &coordinator_proof_store_key_suffix,
+        &coordinator_proof_store_key_suffix,
     ));
 
     let temp_ctx = CoordinatorEdgeContext {

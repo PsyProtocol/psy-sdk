@@ -148,26 +148,18 @@ impl
         info!("🐶 redis pool initialized");
         let q = ProofStoreFred::new2(
             pool.clone(),
-            cp_config
+            &cp_config
                 .coordinator_processor_queue_args
-                .coordinator_worker_queue_suffix
-                .clone(),
-            cp_config
+                .coordinator_worker_queue_suffix,
+            &cp_config
                 .coordinator_processor_queue_args
-                .coordinator_notifications_queue_suffix
-                .clone(),
-            Some(
-                cp_config
+                .coordinator_notifications_queue_suffix,
+            &cp_config
                     .coordinator_processor_queue_args
-                    .coordinator_proof_store_key_suffix
-                    .as_str(),
-            ),
-            Some(
-                cp_config
+                    .coordinator_proof_store_key_suffix,
+            &cp_config
                     .coordinator_processor_queue_args
-                    .coordinator_proof_store_key_suffix
-                    .as_str(),
-            ),
+                    .coordinator_proof_store_key_suffix,
         );
 
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =

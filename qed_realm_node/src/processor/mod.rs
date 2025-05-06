@@ -52,10 +52,10 @@ impl RealmProcessor {
             new_fred_pool(&config.redis.redis_uri, config.redis.pool_size.unwrap_or(8)).await?;
         let realm_qps = ProofStoreFred::new2(
             pool,
-            config.queue.worker_queue_suffix,
-            config.queue.notifications_queue_suffix,
-            Some(config.queue.proof_store_key_suffix.as_str()),
-            Some(config.queue.proof_store_key_suffix.as_str()),
+            &config.queue.worker_queue_suffix,
+            &config.queue.notifications_queue_suffix,
+            &config.queue.proof_store_key_suffix.as_str(),
+            &config.queue.proof_store_key_suffix.as_str(),
         );
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(

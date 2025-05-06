@@ -28,18 +28,18 @@ impl WorkerState {
     pub async fn new(
         redis_url: String,
         pool_size: usize,
-        worker_queue_suffix: String,
-        notifications_queue_suffix: String,
-        proof_store_key_suffix: Option<&str>,
-        proof_store_counters_suffix: Option<&str>,
+        worker_queue_suffix: &str,
+        notifications_queue_suffix: &str,
+        proof_store_key_suffix: &str,
+        proof_store_counters_suffix: &str,
     ) -> anyhow::Result<Self> {
         let pool = new_fred_pool(&redis_url, pool_size).await?;
         let realm_qps = ProofStoreFred::new2(
             pool,
-            worker_queue_suffix,
-            notifications_queue_suffix,
-            proof_store_counters_suffix,
-            proof_store_key_suffix,
+            &worker_queue_suffix,
+            &notifications_queue_suffix,
+            &proof_store_key_suffix,
+            &proof_store_counters_suffix,
         );
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 

@@ -30,19 +30,8 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
 
     info!("✅ Loaded config: {:#?}", config);
 
-
-
     init_coordinator_edge(&config).await?;
     info!("✅ Initialized coordinator edge node");
-
-    // init_realms_from_env().await?;
-    // info!("✅ Initialized realms from env");
-
-    // init_global_jwt_secret()?;
-    // info!("✅ Initialized JWT secret");
-
-    init_global_lmdb_store()?;
-    info!("✅ Initialized global LMDB store");
 
     let (rpc_module, handler) = build_rpc_module(config.clone())?;
     handler.spawn_cp_sync_listener().await?;

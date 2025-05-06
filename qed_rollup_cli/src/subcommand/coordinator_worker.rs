@@ -7,22 +7,14 @@ async fn run_worker(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
     let state= WorkerState::new(
         args.coordinator_redis_uri,
         args.coordinator_pool_size as usize,
-        args.coordinator_processor_queue_args
-            .coordinator_worker_queue_suffix
-            .clone(),
-        args.coordinator_processor_queue_args
-            .coordinator_notifications_queue_suffix
-            .clone(),
-        Some(
-            args.coordinator_processor_queue_args
-                .coordinator_proof_store_key_suffix
-                .as_str(),
-        ),
-        Some(
-            args.coordinator_processor_queue_args
-                .coordinator_proof_store_key_suffix
-                .as_str(),
-        ),
+        &args.coordinator_processor_queue_args
+            .coordinator_worker_queue_suffix,
+        &args.coordinator_processor_queue_args
+            .coordinator_notifications_queue_suffix,
+        &args.coordinator_processor_queue_args
+            .coordinator_proof_store_key_suffix,
+        &args.coordinator_processor_queue_args
+            .coordinator_proof_store_key_suffix,
     ).await?;
     let coordinator_worker = CoordinatorWorker::from(state);
     coordinator_worker.run().await
