@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use fred::prelude::{FredResult, ListInterface};
+use tracing::{debug, info};
 use kvq::traits::KVQSerializable;
 use qed_core::job::id::ProvingJobDataId;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
@@ -51,15 +52,17 @@ impl RealmInternalQueue for ProofStoreFred {
         &self,
         item: CheckpointSyncInfo,
     ) -> anyhow::Result<()> {
+        debug!("Producing checkpoint async info to Redis: checkpoint_id before: {}", item.compact.l2_block_state.checkpoint_id);
         self.pool()
-            .rpush::<(), &str, Vec<u8>>(REAML_CHECKPOINT_KEY, item.to_bytes()?)
+            .lpush::<(), &str, Vec<u8>>(REAML_CHECKPOINT_KEY, item.to_bytes()?)
             .await?;
+        debug!("Checkpoint async info produced to Redis: checkpoint_id after: {}", item.compact.l2_block_state.checkpoint_id);
         Ok(())
     }
 
     async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo> {
         let result: FredResult<(String, Vec<u8>)> =
-            self.pool().blpop(REAML_CHECKPOINT_KEY, 0.0).await;
+            self.pool().brpop(REAML_CHECKPOINT_KEY, 0.0).await;
 
         match result {
             Ok((_, bytes)) => match CheckpointSyncInfo::from_bytes(&bytes) {
