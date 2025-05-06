@@ -7,7 +7,7 @@ use kvq::traits::KVQSerializable;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
 use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
-use qed_core::job::id::ProvingJobDataId;
+use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataId};
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
@@ -15,6 +15,7 @@ use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::{ProofStoreFred, PS_HISTORY_QUEUE_KEY_PREFIX};
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_store::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
@@ -45,6 +46,8 @@ pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> 
     Ok(())
 }
 
+pub const REALM_PROCESSOR_SUFFIX: &str = "RP";
+
 impl RealmProcessor {
     pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
@@ -54,8 +57,8 @@ impl RealmProcessor {
             pool,
             config.queue.worker_queue_suffix,
             config.queue.notifications_queue_suffix,
-            Some(config.queue.proof_store_key_suffix.as_str()),
-            Some(config.queue.proof_store_key_suffix.as_str()),
+            Some(REALM_PROCESSOR_SUFFIX),
+            Some(REALM_PROCESSOR_SUFFIX),
         );
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
@@ -77,6 +80,7 @@ impl RealmProcessor {
     pub async fn start(mut self) -> anyhow::Result<JoinHandle<()>> {
         info!("Realm Processor starting");
         let st = Arc::new(self.store.dup());
+        st.initialize_store()?;
         let realm_qps = Arc::new(self.queue.clone());
         let mut context = RealmProcessorContext::new(
             self.realm_config,

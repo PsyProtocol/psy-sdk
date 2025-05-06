@@ -106,8 +106,8 @@ impl GUTARegisterUsersGadget {
             register_user_gadgets.push(user);
         }
 
-        
-        
+
+
         Self {
             register_user_gadgets,
             register_user_count,
@@ -130,6 +130,7 @@ impl GUTARegisterUsersGadget {
         dummy_public_key: QHashOut<F>,
         dummy_user_leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<()> {
+        eprintln!("DEBUGPRINT[613]: guta_register_users.rs:132 (after ) -> anyhow::Result<()> )");
 
         let inputs_len = guta_register_user_inputs.len();
 
@@ -140,13 +141,13 @@ impl GUTARegisterUsersGadget {
         }else if inputs_len == self.register_user_gadgets.len() {
             for (input, g) in guta_register_user_inputs.iter().zip(self.register_user_gadgets.iter()) {
                 g.set_witness_params(
-                    witness, 
+                    witness,
                     &input.user_registration_tree_merkle_proof,
                     &input.global_user_tree_update_proof
                 )?;
             }
             witness.set_target(
-                self.register_user_count, 
+                self.register_user_count,
                 F::from_canonical_usize(inputs_len),
             )?;
             return Ok(());
@@ -176,7 +177,7 @@ impl GUTARegisterUsersGadget {
             }
         }
         witness.set_target(
-            self.register_user_count, 
+            self.register_user_count,
             F::from_canonical_usize(inputs_len),
         )
     }

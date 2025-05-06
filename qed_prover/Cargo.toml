@@ -19,6 +19,7 @@ plonky2 = { workspace = true }
 twox-hash = { workspace = true }
 tracing = { workspace = true }
 serde_cbor ={ workspace = true}
+homedir = { workspace = true }
 
 kvq = { path = "../kvq" }
 qed_core = { path = "../qed_core" }

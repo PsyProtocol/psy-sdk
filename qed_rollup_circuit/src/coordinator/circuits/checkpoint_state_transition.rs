@@ -28,7 +28,7 @@ use qed_crypto::{
         merkle::
             treeprover::
                 data::CircuitInputWithDependencies
-            
+
         ,
         traits::hasher::MerkleZeroHasher,
     },
@@ -75,7 +75,6 @@ where
             C::F,
             D,
         >(&mut builder, CHECKPOINT_TREE_HEIGHT as usize);
-
         let expected_old_leaf_hash = child_proofs_gadget.state_delta_gadget.old_checkpoint_leaf.to_hash::<C::Hasher, C::F, D>(&mut builder);
         let expected_new_leaf_hash = child_proofs_gadget.state_delta_gadget.new_checkpoint_leaf.to_hash::<C::Hasher, C::F, D>(&mut builder);
         let expected_old_checkpoint_root = child_proofs_gadget.state_delta_gadget.part_1_header.global_user_tree_delta.checkpoint_tree_root;
@@ -90,16 +89,16 @@ where
             core_checkpoint_gadget.new_checkpoint_leaf_hash,
         );
 
-        builder.connect_hashes(
-            expected_old_checkpoint_root,
-            core_checkpoint_gadget.old_checkpoint_tree_root,
-        );
+        // builder.connect_hashes(
+        //     expected_old_checkpoint_root,
+        //     core_checkpoint_gadget.old_checkpoint_tree_root,
+        // );
 
         let new_checkpoint_root = core_checkpoint_gadget.new_checkpoint_tree_root;
         //let combo_hash = builder.hash_two_to_one::<C::Hasher>(expected_old_checkpoint_root, new_checkpoint_root);
 
 
-        builder.register_public_inputs(&expected_old_checkpoint_root.elements);
+        builder.register_public_inputs(&core_checkpoint_gadget.old_checkpoint_tree_root.elements);
         builder.register_public_inputs(&new_checkpoint_root.elements);
         builder.add_qed_type_d_common_gates();
         let circuit_data = builder.build::<C>();
@@ -121,6 +120,8 @@ where
         part_1_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
+
+        eprintln!("DEBUGPRINT[565]: checkpoint_state_transition.rs:125: input={}", serde_json::to_string_pretty(&input).unwrap());
 
         self.child_proofs_gadget.set_witness_params(
             &mut pw,

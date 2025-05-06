@@ -15,6 +15,8 @@ use qed_store::config::store_config::QEDFelt;
 use crate::context::{get_global_jwt_secret, GLOBAL_REALM_REGISTRY, REGISTERED_USERS};
 use crate::edge::context::LATEST_CHECKPOINT_ID;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
+
+use qed_user_cli::rpc::request::*;
 use crate::edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
 use crate::rpc::types::{GetByFRequest, GetByIdRequest, GetUserLeafRequest, GetUserRegistrationFLeafRequest, GetUserRegistrationLeafRequest, LatestCheckpointResponse, RealmInfo, RegisterRealmRpcRequest};
 
@@ -95,6 +97,10 @@ pub fn build_rpc_module(
     })?;
     //qed_deploy_contract
     module.register_async_method("qed_deploy_contract", |params, handler, _ext| async move {
+        tracing::info!(
+            "➡️ Received method = qed_deploy_contract, raw params = {:?}",
+            params
+        );
         let contract = params.parse().map_err(|e| {
             ErrorObjectOwned::owned(
                 -32602,
@@ -210,7 +216,7 @@ pub fn build_rpc_module(
 
     // async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
     module.register_async_method("qed_get_contract_leaf_data", |params, handler, _ctx| async move {
-        let parsed: GetByIdRequest = match params.parse() {
+        let parsed: QContractLeafDataRPCRequest = match params.parse() {
             Ok(p) => p,
             Err(e) => {
                 return Err(ErrorObjectOwned::owned(
@@ -221,7 +227,7 @@ pub fn build_rpc_module(
             }
         };
 
-        match handler.get_contract_leaf_data(parsed.id).await {
+        match handler.get_contract_leaf_data(parsed.contract_id).await {
             Ok(leaf) => Ok(serde_json::to_value(&leaf).unwrap()),
             Err(e) => {
                 tracing::error!("❌ get_contract_leaf_data error: {:?}", e);
@@ -230,8 +236,8 @@ pub fn build_rpc_module(
         }
     })?;
     // async fn get_contract_leaf_data_f(&self, contract_id: F) -> anyhow::Result<QEDContractLeaf<F>>;
-    module.register_async_method("get_contract_leaf_data_f", |params, handler, _ctx| async move {
-        let parsed: GetByFRequest = match params.parse() {
+    module.register_async_method("qed_get_contract_leaf_data_f", |params, handler, _ctx| async move {
+        let parsed: QContractLeafDataFRPCRequest<F> = match params.parse() {
             Ok(p) => p,
             Err(e) => {
                 return Err(ErrorObjectOwned::owned(
@@ -242,7 +248,7 @@ pub fn build_rpc_module(
             }
         };
 
-        match handler.get_contract_leaf_data_f(parsed.id).await {
+        match handler.get_contract_leaf_data_f(parsed.contract_id).await {
             Ok(leaf) => Ok(serde_json::to_value(&leaf).unwrap()),
             Err(e) => {
                 tracing::error!("❌ get_contract_leaf_data error: {:?}", e);
@@ -253,7 +259,8 @@ pub fn build_rpc_module(
     //
     // async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>>;
     module.register_async_method("qed_get_checkpoint_leaf_data", |params, handler, _ctx| async move {
-        let parsed: GetByIdRequest = match params.parse() {
+        tracing::info!("➡️ Received method = qed_get_checkpoint_leaf_data, params = {:?}", params);
+        let parsed: QCheckpointLeafDataRPCRequest = match params.parse() {
             Ok(p) => p,
             Err(e) => {
                 return Err(ErrorObjectOwned::owned(
@@ -264,7 +271,7 @@ pub fn build_rpc_module(
             }
         };
 
-        match handler.get_checkpoint_leaf_data(parsed.id).await {
+        match handler.get_checkpoint_leaf_data(parsed.checkpoint_id).await {
             Ok(leaf) => Ok(serde_json::to_value(&leaf).unwrap()),
             Err(e) => {
                 tracing::error!("❌ get_checkpoint_leaf_data error: {:?}", e);
@@ -274,10 +281,10 @@ pub fn build_rpc_module(
     })?;
 
     // async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> anyhow::Result<QEDCheckpointLeaf<F>>;
-    module.register_async_method("get_checkpoint_leaf_data_f", |params, handler, _ctx| async move {
-        let parsed: GetByFRequest = parse_params(params, "contract leaf")?;
+    module.register_async_method("qed_get_checkpoint_leaf_data_f", |params, handler, _ctx| async move {
+        let parsed: QCheckpointLeafDataFRPCRequest<F> = parse_params(params, "contract leaf")?;
 
-        match handler.get_checkpoint_leaf_data_f(parsed.id).await {
+        match handler.get_checkpoint_leaf_data_f(parsed.checkpoint_id).await {
             Ok(leaf) => Ok(serde_json::to_value(&leaf).unwrap()),
             Err(e) => {
                 tracing::error!("❌ get_contract_leaf_data error: {:?}", e);
@@ -290,7 +297,7 @@ pub fn build_rpc_module(
     module.register_async_method("qed_get_contract_code_definition", |params, handler, _ctx| async move {
         tracing::info!("➡️ Received method = qed_get_contract_code_definition, params = {:?}", params);
 
-        let parsed: GetByIdRequest = match params.parse() {
+        let parsed: QContractCodeDefinitionRPCRequest = match params.parse() {
             Ok(p) => p,
             Err(e) => {
                 tracing::warn!("❌ Failed to parse qed_get_contract_code_definition params: {}", e);
@@ -302,7 +309,7 @@ pub fn build_rpc_module(
             }
         };
 
-        match handler.get_contract_code_definition(parsed.id).await {
+        match handler.get_contract_code_definition(parsed.contract_id).await {
             Ok(code_def) => Ok(serde_json::to_value(&code_def).unwrap()),
             Err(e) => {
                 tracing::error!("❌ get_contract_code_definition error: {:?}", e);
@@ -311,30 +318,30 @@ pub fn build_rpc_module(
         }
     })?;
     // async fn get_contract_code_definition_f(&self, contract_id: F) -> anyhow::Result<ContractCodeDefinition>;
-    module.register_async_method("get_contract_code_definition_f", |params, handler, _ctx| async move {
-        let parsed: GetByFRequest = parse_params(params, "contract definition")?;
+    module.register_async_method("qed_get_contract_code_definition_f", |params, handler, _ctx| async move {
+        let parsed: QContractCodeDefinitionFRPCRequest<F> = parse_params(params, "contract definition")?;
 
         handle_rpc_result(
-            handler.get_contract_code_definition_f(parsed.id),
+            handler.get_contract_code_definition_f(parsed.contract_id),
             6,
             "get_contract_leaf_data",
         ).await
     })?;
     // async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState>;
-    module.register_async_method("qed_latest_l2_block_state", |_params, handler, _ctx| async move {
+    module.register_async_method("qed_get_latest_l2_block_state", |_params, handler, _ctx| async move {
         match handler.get_latest_l2_block_state().await {
             Ok(state) => {
                 Ok::<_, ErrorObjectOwned>(serde_json::to_value(&state).unwrap())
             }
             Err(e) => {
-                tracing::error!("❌ qed_latest_l2_block_state error: {:?}", e);
+                tracing::error!("❌ qed_get_latest_l2_block_state error: {:?}", e);
                 Err(ErrorObjectOwned::owned(4, e.to_string(), None::<()>))
             }
         }
     })?;
     // async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState>;
     module.register_async_method("qed_get_l2_block_state", |params, handler, _ctx| async move {
-        let parsed: GetByIdRequest = match params.parse() {
+        let parsed: QL2BlockStateRPCRequest = match params.parse() {
             Ok(p) => p,
             Err(e) => {
                 return Err(ErrorObjectOwned::owned(
@@ -345,7 +352,7 @@ pub fn build_rpc_module(
             }
         };
 
-        match handler.get_l2_block_state(parsed.id).await {
+        match handler.get_l2_block_state(parsed.checkpoint_id).await {
             Ok(state) => Ok(serde_json::to_value(&state).unwrap()),
             Err(e) => {
                 tracing::error!("❌ get_l2_block_state error: {:?}", e);
@@ -354,39 +361,39 @@ pub fn build_rpc_module(
         }
     })?;
     // async fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<QEDL2BlockState>;
-    module.register_async_method("get_l2_block_state_f", |params, handler, _ctx| async move {
-        let parsed: GetByFRequest = parse_params(params, "l2_block_state")?;
+    module.register_async_method("qed_get_l2_block_state_f", |params, handler, _ctx| async move {
+        let parsed: QL2BlockStateFRPCRequest<F> = parse_params(params, "l2_block_state")?;
 
         handle_rpc_result(
-            handler.get_l2_block_state_f(parsed.id),
+            handler.get_l2_block_state_f(parsed.checkpoint_id),
             6,
             "get_contract_leaf_data",
         ).await
     })?;
     //
     // async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_user_registration_tree_root", |params, handler, _ctx| async move {
-        let parsed: GetByIdRequest = parse_params(params, "get_user_registration_tree_root")?;
+    module.register_async_method("qed_get_user_registration_tree_root", |params, handler, _ctx| async move {
+        let parsed: QUserRegistrationTreeRootRPCRequest = parse_params(params, "get_user_registration_tree_root")?;
 
         handle_rpc_result(
-            handler.get_user_registration_tree_root(parsed.id),
+            handler.get_user_registration_tree_root(parsed.checkpoint_id),
             6,
             "get_contract_leaf_data",
         ).await
     })?;
     // async fn get_user_registration_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_user_registration_tree_root_f", |params, handler, _ctx| async move {
-        let parsed: GetByFRequest = parse_params(params, "get_user_registration_tree_root_f")?;
+    module.register_async_method("qed_get_user_registration_tree_root_f", |params, handler, _ctx| async move {
+        let parsed: QUserRegistrationTreeRootFRPCRequest<F> = parse_params(params, "get_user_registration_tree_root_f")?;
 
         handle_rpc_result(
-            handler.get_user_registration_tree_root_f(parsed.id),
+            handler.get_user_registration_tree_root_f(parsed.checkpoint_id),
             6,
             "get_user_registration_tree_root_f",
         ).await
     })?;
     // async fn get_user_registration_tree_leaf_hash(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_user_registration_tree_leaf_hash", |params, handler, _ctx| async move {
-        let parsed: GetUserRegistrationLeafRequest = parse_params(params, "get_user_registration_tree_leaf_hash")?;
+    module.register_async_method("qed_get_user_registration_tree_leaf_hash", |params, handler, _ctx| async move {
+        let parsed: QUserRegistrationTreeLeafHashRPCRequest = parse_params(params, "get_user_registration_tree_leaf_hash")?;
 
         handle_rpc_result(
             handler.get_user_registration_tree_leaf_hash(parsed.checkpoint_id, parsed.leaf_index),
@@ -395,8 +402,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_user_registration_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_user_registration_tree_leaf_hash_f", |params, handler, _ctx| async move {
-        let parsed: GetUserRegistrationFLeafRequest = parse_params(params, "get_user_registration_tree_leaf_hash_f")?;
+    module.register_async_method("qed_get_user_registration_tree_leaf_hash_f", |params, handler, _ctx| async move {
+        let parsed: QUserRegistrationTreeLeafHashFRPCRequest<F> = parse_params(params, "get_user_registration_tree_leaf_hash_f")?;
 
         handle_rpc_result(
             handler.get_user_registration_tree_leaf_hash_f(parsed.checkpoint_id, parsed.leaf_index),
@@ -405,8 +412,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_user_registration_tree_merkle_proof(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_user_registration_tree_merkle_proof", |params, handler, _ctx| async move {
-        let parsed: GetUserRegistrationLeafRequest = parse_params(params, "get_user_registration_tree_merkle_proof")?;
+    module.register_async_method("qed_get_user_registration_tree_merkle_proof", |params, handler, _ctx| async move {
+        let parsed: QUserRegistrationTreeMerkleProofRPCRequest = parse_params(params, "get_user_registration_tree_merkle_proof")?;
 
         handle_rpc_result(
             handler.get_user_registration_tree_merkle_proof(parsed.checkpoint_id, parsed.leaf_index),
@@ -415,8 +422,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_user_registration_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_user_registration_tree_merkle_proof_f", |params, handler, _ctx| async move {
-        let parsed: GetUserRegistrationFLeafRequest = parse_params(params, "get_user_registration_tree_merkle_proof_f")?;
+    module.register_async_method("qed_get_user_registration_tree_merkle_proof_f", |params, handler, _ctx| async move {
+        let parsed: QUserRegistrationTreeMerkleProofFRPCRequest<F> = parse_params(params, "get_user_registration_tree_merkle_proof_f")?;
 
         handle_rpc_result(
             handler.get_user_registration_tree_merkle_proof_f(parsed.checkpoint_id, parsed.leaf_index),
@@ -427,28 +434,28 @@ pub fn build_rpc_module(
 
     //
     // async fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_user_tree_root", |params, handler, _ctx| async move {
-        let parsed: GetByIdRequest = parse_params(params, "get_user_tree_root")?;
+    module.register_async_method("qed_get_user_tree_root", |params, handler, _ctx| async move {
+        let parsed: QUserTreeRootRPCRequest = parse_params(params, "get_user_tree_root")?;
 
         handle_rpc_result(
-            handler.get_user_tree_root(parsed.id),
+            handler.get_user_tree_root(parsed.checkpoint_id),
             6,
             "get_user_tree_root",
         ).await
     })?;
     // async fn get_user_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_user_tree_root_f", |params, handler, _ctx| async move {
-        let parsed: GetByFRequest = parse_params(params, "get_user_tree_root_f")?;
+    module.register_async_method("qed_get_user_tree_root_f", |params, handler, _ctx| async move {
+        let parsed: QUserTreeRootFRPCRequest<F> = parse_params(params, "get_user_tree_root_f")?;
 
         handle_rpc_result(
-            handler.get_user_tree_root_f(parsed.id),
+            handler.get_user_tree_root_f(parsed.checkpoint_id),
             6,
             "get_user_tree_root_f",
         ).await
     })?;
     // async fn get_user_sub_tree_merkle_proof(&self, checkpoint_id: u64, root_level: u8, leaf_level: u8, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_user_sub_tree_merkle_proof", |params, handler, _ctx| async move {
-        let (checkpoint_id, root_level, leaf_level, leaf_index): (u64, u8, u8, u64) = parse_params(params, "get_user_sub_tree_merkle_proof")?;
+    module.register_async_method("qed_get_user_sub_tree_merkle_proof", |params, handler, _ctx| async move {
+        let QUserSubTreeMerkleProofRPCRequest {checkpoint_id, root_level, leaf_level, leaf_index} = parse_params(params, "get_user_sub_tree_merkle_proof")?;
 
         handle_rpc_result(
             handler.get_user_sub_tree_merkle_proof(
@@ -463,7 +470,7 @@ pub fn build_rpc_module(
     })?;
 
     // async fn get_user_top_tree_merkle_proof(&self, checkpoint_id: u64, leaf_level: u8, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_user_top_tree_merkle_proof", |params, handler, _ctx| async move {
+    module.register_async_method("qed_get_user_top_tree_merkle_proof", |params, handler, _ctx| async move {
         let (checkpoint_id, leaf_level, leaf_index): (u64, u8, u64) = parse_params(params, "get_user_top_tree_merkle_proof")?;
 
         handle_rpc_result(
@@ -474,7 +481,7 @@ pub fn build_rpc_module(
     })?;
 
     // async fn get_user_top_tree_cap_root(&self, checkpoint_id: u64, cap_level: u8, cap_index: u64) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_user_top_tree_cap_root", |params, handler, _ctx| async move {
+    module.register_async_method("qed_get_user_top_tree_cap_root", |params, handler, _ctx| async move {
         let (checkpoint_id, cap_level, cap_index): (u64, u8, u64) = parse_params(params, "get_user_top_tree_cap_root")?;
 
         handle_rpc_result(
@@ -484,7 +491,7 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_user_latest_top_tree_cap_root(&self, cap_level: u8, cap_index: u64) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_user_latest_top_tree_cap_root", |params, handler, _ctx| async move {
+    module.register_async_method("qed_get_user_latest_top_tree_cap_root", |params, handler, _ctx| async move {
         let (cap_level, cap_index): (u8, u64) = parse_params(params, "get_user_latest_top_tree_cap_root")?;
 
         handle_rpc_result(
@@ -496,8 +503,8 @@ pub fn build_rpc_module(
     //
     //
     // async fn get_contract_function_tree_root(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_contract_function_tree_root", |params, handler, _ctx| async move {
-        let (checkpoint_id, contract_id): (u64, u32) = parse_params(params, "get_contract_function_tree_root")?;
+    module.register_async_method("qed_get_contract_function_tree_root", |params, handler, _ctx| async move {
+        let QContractFunctionTreeRootRPCRequest { checkpoint_id, contract_id } = parse_params(params, "get_contract_function_tree_root")?;
 
         handle_rpc_result(
             handler.get_contract_function_tree_root(checkpoint_id, contract_id),
@@ -506,8 +513,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_contract_function_tree_root_f(&self, checkpoint_id: F, contract_id: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_contract_function_tree_root_f", |params, handler, _ctx| async move {
-        let (checkpoint_id, contract_id): (F, F) = parse_params(params, "get_contract_function_tree_root_f")?;
+    module.register_async_method("qed_get_contract_function_tree_root_f", |params, handler, _ctx| async move {
+        let QContractFunctionTreeRootFRPCRequest { checkpoint_id, contract_id } = parse_params(params, "get_contract_function_tree_root_f")?;
 
         handle_rpc_result(
             handler.get_contract_function_tree_root_f(checkpoint_id, contract_id),
@@ -516,8 +523,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_contract_function_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32, function_id: u32) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_contract_function_tree_leaf_hash", |params, handler, _ctx| async move {
-        let (checkpoint_id, contract_id, function_id): (u64, u32, u32) = parse_params(params, "get_contract_function_tree_leaf_hash")?;
+    module.register_async_method("qed_get_contract_function_tree_leaf_hash", |params, handler, _ctx| async move {
+        let QContractFunctionTreeLeafHashRPCRequest { checkpoint_id, contract_id, function_id } = parse_params(params, "get_contract_function_tree_leaf_hash")?;
 
         handle_rpc_result(
             handler.get_contract_function_tree_leaf_hash(checkpoint_id, contract_id, function_id),
@@ -527,8 +534,8 @@ pub fn build_rpc_module(
     })?;
 
     // async fn get_contract_function_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_contract_function_tree_leaf_hash_f", |params, handler, _ctx| async move {
-        let (checkpoint_id, contract_id, function_id): (F, F, F) = parse_params(params, "get_contract_function_tree_leaf_hash_f")?;
+    module.register_async_method("qed_get_contract_function_tree_leaf_hash_f", |params, handler, _ctx| async move {
+        let QContractFunctionTreeLeafHashFRPCRequest { checkpoint_id, contract_id, function_id } = parse_params(params, "get_contract_function_tree_leaf_hash_f")?;
 
         handle_rpc_result(
             handler.get_contract_function_tree_leaf_hash_f(checkpoint_id, contract_id, function_id),
@@ -537,8 +544,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_contract_function_tree_merkle_proof(&self, checkpoint_id: u64, contract_id: u32, function_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_contract_function_tree_merkle_proof", |params, handler, _ctx| async move {
-        let (checkpoint_id, contract_id, function_id): (u64, u32, u32) = parse_params(params, "get_contract_function_tree_merkle_proof")?;
+    module.register_async_method("qed_get_contract_function_tree_merkle_proof", |params, handler, _ctx| async move {
+        let QContractFunctionTreeMerkleProofRPCRequest { checkpoint_id, contract_id, function_id } = parse_params(params, "get_contract_function_tree_merkle_proof")?;
 
         handle_rpc_result(
             handler.get_contract_function_tree_merkle_proof(checkpoint_id, contract_id, function_id),
@@ -547,8 +554,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_contract_function_tree_merkle_proof_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_contract_function_tree_merkle_proof_f", |params, handler, _ctx| async move {
-        let (checkpoint_id, contract_id, function_id): (F, F, F) = parse_params(params, "get_contract_function_tree_merkle_proof_f")?;
+    module.register_async_method("qed_get_contract_function_tree_merkle_proof_f", |params, handler, _ctx| async move {
+        let QContractFunctionTreeMerkleProofFRPCRequest { checkpoint_id, contract_id, function_id } = parse_params(params, "get_contract_function_tree_merkle_proof_f")?;
 
         handle_rpc_result(
             handler.get_contract_function_tree_merkle_proof_f(checkpoint_id, contract_id, function_id),
@@ -558,28 +565,28 @@ pub fn build_rpc_module(
     })?;
 
     // async fn get_contract_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_contract_tree_root", |params, handler, _ctx| async move {
-        let parsed: GetByIdRequest = parse_params(params, "get_contract_tree_root")?;
+    module.register_async_method("qed_get_contract_tree_root", |params, handler, _ctx| async move {
+        let parsed: QContractTreeRootRPCRequest = parse_params(params, "get_contract_tree_root")?;
 
         handle_rpc_result(
-            handler.get_contract_tree_root(parsed.id),
+            handler.get_contract_tree_root(parsed.checkpoint_id),
             6,
             "get_contract_tree_root",
         ).await
     })?;
     // async fn get_contract_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_contract_tree_root_f", |params, handler, _ctx| async move {
-        let parsed: GetByFRequest = parse_params(params, "get_contract_tree_root_f")?;
+    module.register_async_method("qed_get_contract_tree_root_f", |params, handler, _ctx| async move {
+        let parsed: QContractTreeRootFRPCRequest<F> = parse_params(params, "get_contract_tree_root_f")?;
 
         handle_rpc_result(
-            handler.get_contract_tree_root_f(parsed.id),
+            handler.get_contract_tree_root_f(parsed.checkpoint_id),
             6,
             "get_contract_tree_root_f",
         ).await
     })?;
     // async fn get_contract_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_contract_tree_leaf_hash", |params, handler, _ctx| async move {
-        let (checkpoint_id, contract_id): (u64, u32) = parse_params(params, "get_contract_tree_leaf_hash")?;
+    module.register_async_method("qed_get_contract_tree_leaf_hash", |params, handler, _ctx| async move {
+        let QContractTreeLeafHashRPCRequest { checkpoint_id, contract_id } = parse_params(params, "get_contract_tree_leaf_hash")?;
 
         handle_rpc_result(
             handler.get_contract_tree_leaf_hash(checkpoint_id, contract_id),
@@ -588,8 +595,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_contract_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_contract_tree_leaf_hash_f", |params, handler, _ctx| async move {
-        let (checkpoint_id, contract_id): (F, F) = parse_params(params, "get_contract_tree_leaf_hash_f")?;
+    module.register_async_method("qed_get_contract_tree_leaf_hash_f", |params, handler, _ctx| async move {
+        let QContractTreeLeafHashFRPCRequest { checkpoint_id, contract_id } = parse_params(params, "get_contract_tree_leaf_hash_f")?;
 
         handle_rpc_result(
             handler.get_contract_tree_leaf_hash_f(checkpoint_id, contract_id),
@@ -599,8 +606,8 @@ pub fn build_rpc_module(
     })?;
 
     // async fn get_contract_tree_merkle_proof(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_contract_tree_merkle_proof", |params, handler, _ctx| async move {
-        let (checkpoint_id, contract_id): (u64, u32) = parse_params(params, "get_contract_tree_merkle_proof")?;
+    module.register_async_method("qed_get_contract_tree_merkle_proof", |params, handler, _ctx| async move {
+        let QContractTreeMerkleProofRPCRequest { checkpoint_id, contract_id } = parse_params(params, "get_contract_tree_merkle_proof")?;
 
         handle_rpc_result(
             handler.get_contract_tree_merkle_proof(checkpoint_id, contract_id),
@@ -609,8 +616,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_contract_tree_merkle_proof_f(&self, checkpoint_id: F, contract_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_contract_tree_merkle_proof_f", |params, handler, _ctx| async move {
-        let (checkpoint_id, contract_id): (F, F) = parse_params(params, "get_contract_tree_merkle_proof_f")?;
+    module.register_async_method("qed_get_contract_tree_merkle_proof_f", |params, handler, _ctx| async move {
+        let QContractTreeMerkleProofFRPCRequest { checkpoint_id, contract_id } = parse_params(params, "get_contract_tree_merkle_proof_f")?;
 
         handle_rpc_result(
             handler.get_contract_tree_merkle_proof_f(checkpoint_id, contract_id),
@@ -622,8 +629,8 @@ pub fn build_rpc_module(
     //
     //
     // async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_deposit_tree_root", |params, handler, _ctx| async move {
-        let checkpoint_id: u64 = parse_params(params, "get_deposit_tree_root")?;
+    module.register_async_method("qed_get_deposit_tree_root", |params, handler, _ctx| async move {
+        let QDepositTreeRootRPCRequest { checkpoint_id } = parse_params(params, "get_deposit_tree_root")?;
         handle_rpc_result(
             handler.get_deposit_tree_root(checkpoint_id),
             6,
@@ -631,8 +638,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_deposit_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_deposit_tree_root_f", |params, handler, _ctx| async move {
-        let checkpoint_id: F = parse_params(params, "get_deposit_tree_root_f")?;
+    module.register_async_method("qed_get_deposit_tree_root_f", |params, handler, _ctx| async move {
+        let QDepositTreeRootFRPCRequest { checkpoint_id } = parse_params(params, "get_deposit_tree_root_f")?;
         handle_rpc_result(
             handler.get_deposit_tree_root_f(checkpoint_id),
             6,
@@ -640,8 +647,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_deposit_tree_leaf_hash(&self, checkpoint_id: u64, deposit_id: u32) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_deposit_tree_leaf_hash", |params, handler, _ctx| async move {
-        let (checkpoint_id, deposit_id): (u64, u32) = parse_params(params, "get_deposit_tree_leaf_hash")?;
+    module.register_async_method("qed_get_deposit_tree_leaf_hash", |params, handler, _ctx| async move {
+        let QDepositTreeLeafHashRPCRequest { checkpoint_id, deposit_id } = parse_params(params, "get_deposit_tree_leaf_hash")?;
         handle_rpc_result(
             handler.get_deposit_tree_leaf_hash(checkpoint_id, deposit_id),
             6,
@@ -649,8 +656,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_deposit_tree_leaf_hash_f(&self, checkpoint_id: F, deposit_id: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_deposit_tree_leaf_hash_f", |params, handler, _ctx| async move {
-        let (checkpoint_id, deposit_id): (F, F) = parse_params(params, "get_deposit_tree_leaf_hash_f")?;
+    module.register_async_method("qed_get_deposit_tree_leaf_hash_f", |params, handler, _ctx| async move {
+        let QDepositTreeLeafHashFRPCRequest { checkpoint_id, deposit_id } = parse_params(params, "get_deposit_tree_leaf_hash_f")?;
         handle_rpc_result(
             handler.get_deposit_tree_leaf_hash_f(checkpoint_id, deposit_id),
             6,
@@ -658,8 +665,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_deposit_tree_merkle_proof(&self, checkpoint_id: u64, deposit_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_deposit_tree_merkle_proof", |params, handler, _ctx| async move {
-        let (checkpoint_id, deposit_id): (u64, u32) = parse_params(params, "get_deposit_tree_merkle_proof")?;
+    module.register_async_method("qed_get_deposit_tree_merkle_proof", |params, handler, _ctx| async move {
+        let QDepositTreeMerkleProofRPCRequest { checkpoint_id, deposit_id } = parse_params(params, "get_deposit_tree_merkle_proof")?;
         handle_rpc_result(
             handler.get_deposit_tree_merkle_proof(checkpoint_id, deposit_id),
             6,
@@ -667,8 +674,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_deposit_tree_merkle_proof_f(&self, checkpoint_id: F, deposit_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_deposit_tree_merkle_proof_f", |params, handler, _ctx| async move {
-        let (checkpoint_id, deposit_id): (F, F) = parse_params(params, "get_deposit_tree_merkle_proof_f")?;
+    module.register_async_method("qed_get_deposit_tree_merkle_proof_f", |params, handler, _ctx| async move {
+        let QDepositTreeMerkleProofFRPCRequest { checkpoint_id, deposit_id } = parse_params(params, "get_deposit_tree_merkle_proof_f")?;
         handle_rpc_result(
             handler.get_deposit_tree_merkle_proof_f(checkpoint_id, deposit_id),
             6,
@@ -678,8 +685,8 @@ pub fn build_rpc_module(
     //
     //
     // async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_withdrawal_tree_root", |params, handler, _ctx| async move {
-        let checkpoint_id: u64 = parse_params(params, "get_withdrawal_tree_root")?;
+    module.register_async_method("qed_get_withdrawal_tree_root", |params, handler, _ctx| async move {
+        let QWithdrawalTreeRootRPCRequest { checkpoint_id } = parse_params(params, "get_withdrawal_tree_root")?;
         handle_rpc_result(
             handler.get_withdrawal_tree_root(checkpoint_id),
             6,
@@ -687,8 +694,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_withdrawal_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_withdrawal_tree_root_f", |params, handler, _ctx| async move {
-        let checkpoint_id: F = parse_params(params, "get_withdrawal_tree_root_f")?;
+    module.register_async_method("qed_get_withdrawal_tree_root_f", |params, handler, _ctx| async move {
+        let QWithdrawalTreeRootFRPCRequest { checkpoint_id } = parse_params(params, "get_withdrawal_tree_root_f")?;
         handle_rpc_result(
             handler.get_withdrawal_tree_root_f(checkpoint_id),
             6,
@@ -696,8 +703,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_withdrawal_tree_leaf_hash(&self, checkpoint_id: u64, withdrawal_id: u32) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_withdrawal_tree_leaf_hash", |params, handler, _ctx| async move {
-        let (checkpoint_id, withdrawal_id): (u64, u32) = parse_params(params, "get_withdrawal_tree_leaf_hash")?;
+    module.register_async_method("qed_get_withdrawal_tree_leaf_hash", |params, handler, _ctx| async move {
+        let QWithdrawalTreeLeafHashRPCRequest { checkpoint_id, withdrawal_id } = parse_params(params, "get_withdrawal_tree_leaf_hash")?;
         handle_rpc_result(
             handler.get_withdrawal_tree_leaf_hash(checkpoint_id, withdrawal_id),
             6,
@@ -705,8 +712,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_withdrawal_tree_leaf_hash_f(&self, checkpoint_id: F, withdrawal_id: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_withdrawal_tree_leaf_hash_f", |params, handler, _ctx| async move {
-        let (checkpoint_id, withdrawal_id): (F, F) = parse_params(params, "get_withdrawal_tree_leaf_hash_f")?;
+    module.register_async_method("qed_get_withdrawal_tree_leaf_hash_f", |params, handler, _ctx| async move {
+        let QWithdrawalTreeLeafHashFRPCRequest { checkpoint_id, withdrawal_id } = parse_params(params, "get_withdrawal_tree_leaf_hash_f")?;
         handle_rpc_result(
             handler.get_withdrawal_tree_leaf_hash_f(checkpoint_id, withdrawal_id),
             6,
@@ -714,8 +721,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_withdrawal_tree_merkle_proof(&self, checkpoint_id: u64, withdrawal_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_withdrawal_tree_merkle_proof", |params, handler, _ctx| async move {
-        let (checkpoint_id, withdrawal_id): (u64, u32) = parse_params(params, "get_withdrawal_tree_merkle_proof")?;
+    module.register_async_method("qed_get_withdrawal_tree_merkle_proof", |params, handler, _ctx| async move {
+        let QWithdrawalTreeMerkleProofRPCRequest { checkpoint_id, withdrawal_id } = parse_params(params, "get_withdrawal_tree_merkle_proof")?;
         handle_rpc_result(
             handler.get_withdrawal_tree_merkle_proof(checkpoint_id, withdrawal_id),
             6,
@@ -723,8 +730,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_withdrawal_tree_merkle_proof_f(&self, checkpoint_id: F, withdrawal_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_withdrawal_tree_merkle_proof_f", |params, handler, _ctx| async move {
-        let (checkpoint_id, withdrawal_id): (F, F) = parse_params(params, "get_withdrawal_tree_merkle_proof_f")?;
+    module.register_async_method("qed_get_withdrawal_tree_merkle_proof_f", |params, handler, _ctx| async move {
+        let QWithdrawalTreeMerkleProofFRPCRequest { checkpoint_id, withdrawal_id } = parse_params(params, "get_withdrawal_tree_merkle_proof_f")?;
         handle_rpc_result(
             handler.get_withdrawal_tree_merkle_proof_f(checkpoint_id, withdrawal_id),
             6,
@@ -733,7 +740,7 @@ pub fn build_rpc_module(
     })?;
     //
     // async fn get_latest_checkpoint_tree_root(&self) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_latest_checkpoint_tree_root", |_params, handler, _ctx| async move {
+    module.register_async_method("qed_get_latest_checkpoint_tree_root", |_params, handler, _ctx| async move {
         handle_rpc_result(
             handler.get_latest_checkpoint_tree_root(),
             6,
@@ -741,8 +748,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_checkpoint_tree_root", |params, handler, _ctx| async move {
-        let checkpoint_id: u64 = parse_params(params, "get_checkpoint_tree_root")?;
+    module.register_async_method("qed_get_checkpoint_tree_root", |params, handler, _ctx| async move {
+        let QCheckpointTreeRootRPCRequest { checkpoint_id } = parse_params(params, "get_checkpoint_tree_root")?;
         handle_rpc_result(
             handler.get_checkpoint_tree_root(checkpoint_id),
             6,
@@ -750,8 +757,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_checkpoint_tree_root_f", |params, handler, _ctx| async move {
-        let checkpoint_id: F = parse_params(params, "get_checkpoint_tree_root_f")?;
+    module.register_async_method("qed_get_checkpoint_tree_root_f", |params, handler, _ctx| async move {
+        let QCheckpointTreeRootFRPCRequest { checkpoint_id } = parse_params(params, "get_checkpoint_tree_root_f")?;
         handle_rpc_result(
             handler.get_checkpoint_tree_root_f(checkpoint_id),
             6,
@@ -759,8 +766,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_checkpoint_tree_leaf_hash(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_checkpoint_tree_leaf_hash", |params, handler, _ctx| async move {
-        let (checkpoint_id, leaf_checkpoint_id): (u64, u64) = parse_params(params, "get_checkpoint_tree_leaf_hash")?;
+    module.register_async_method("qed_get_checkpoint_tree_leaf_hash", |params, handler, _ctx| async move {
+        let QCheckpointTreeLeafHashRPCRequest { checkpoint_id, leaf_checkpoint_id } = parse_params(params, "get_checkpoint_tree_leaf_hash")?;
         handle_rpc_result(
             handler.get_checkpoint_tree_leaf_hash(checkpoint_id, leaf_checkpoint_id),
             6,
@@ -768,8 +775,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
-    module.register_async_method("get_checkpoint_tree_leaf_hash_f", |params, handler, _ctx| async move {
-        let (checkpoint_id, leaf_checkpoint_id): (F, F) = parse_params(params, "get_checkpoint_tree_leaf_hash_f")?;
+    module.register_async_method("qed_get_checkpoint_tree_leaf_hash_f", |params, handler, _ctx| async move {
+        let QCheckpointTreeLeafHashFRPCRequest { checkpoint_id, leaf_checkpoint_id } = parse_params(params, "get_checkpoint_tree_leaf_hash_f")?;
         handle_rpc_result(
             handler.get_checkpoint_tree_leaf_hash_f(checkpoint_id, leaf_checkpoint_id),
             6,
@@ -777,8 +784,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_checkpoint_tree_merkle_proof(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_checkpoint_tree_merkle_proof", |params, handler, _ctx| async move {
-        let (checkpoint_id, leaf_checkpoint_id): (u64, u64) = parse_params(params, "get_checkpoint_tree_merkle_proof")?;
+    module.register_async_method("qed_get_checkpoint_tree_merkle_proof", |params, handler, _ctx| async move {
+        let QCheckpointTreeMerkleProofRPCRequest {checkpoint_id, leaf_checkpoint_id} = parse_params(params, "get_checkpoint_tree_merkle_proof")?;
         handle_rpc_result(
             handler.get_checkpoint_tree_merkle_proof(checkpoint_id, leaf_checkpoint_id),
             6,
@@ -786,8 +793,8 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    module.register_async_method("get_checkpoint_tree_merkle_proof_f", |params, handler, _ctx| async move {
-        let (checkpoint_id, leaf_checkpoint_id): (F, F) = parse_params(params, "get_checkpoint_tree_merkle_proof_f")?;
+    module.register_async_method("qed_get_checkpoint_tree_merkle_proof_f", |params, handler, _ctx| async move {
+        let QCheckpointTreeMerkleProofFRPCRequest {checkpoint_id, leaf_checkpoint_id} = parse_params(params, "get_checkpoint_tree_merkle_proof_f")?;
         handle_rpc_result(
             handler.get_checkpoint_tree_merkle_proof_f(checkpoint_id, leaf_checkpoint_id),
             6,
@@ -796,8 +803,8 @@ pub fn build_rpc_module(
     })?;
     //
     // async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>>;
-    module.register_async_method("get_checkpoint_global_state_roots", |params, handler, _ctx| async move {
-        let checkpoint_id: u64 = parse_params(params, "get_checkpoint_global_state_roots")?;
+    module.register_async_method("qed_get_checkpoint_global_state_roots", |params, handler, _ctx| async move {
+        let QCheckpointLeafDataRPCRequest {checkpoint_id} = parse_params(params, "get_checkpoint_global_state_roots")?;
         handle_rpc_result(
             handler.get_checkpoint_global_state_roots(checkpoint_id),
             6,
@@ -805,7 +812,7 @@ pub fn build_rpc_module(
         ).await
     })?;
     // async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>>;
-    module.register_async_method("get_checkpoint_sync_info_compact", |params, handler, _ctx| async move {
+    module.register_async_method("qed_get_checkpoint_sync_info_compact", |params, handler, _ctx| async move {
         let checkpoint_id: u64 = parse_params(params, "get_checkpoint_sync_info_compact")?;
 
         handle_rpc_result(
@@ -821,7 +828,7 @@ pub fn build_rpc_module(
         Ok::<_, ErrorObjectOwned>(id)
     })?;
     module.register_async_method("qed_get_user_leaf_data", |params, handler, _ctx| async move {
-        let parsed: GetUserLeafRequest = match params.parse() {
+        let parsed: QUserLeafDataRPCRequest = match params.parse() {
             Ok(p) => p,
             Err(e) => {
                 return Err(ErrorObjectOwned::owned(
@@ -841,6 +848,48 @@ pub fn build_rpc_module(
         }
     })?;
 
+    module.register_async_method("qed_get_user_tree_merkle_proof", |params, handler, ctx| async move {
+        let parsed: QUserTreeMerkleProofRPCRequest = match params.parse() {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(ErrorObjectOwned::owned(
+                    -32602,
+                    format!("Invalid params for qed_get_user_tree_merkle_proof: {}", e),
+                    None::<()>,
+                ));
+            }
+        };
+
+        match handler.get_user_tree_merkle_proof(parsed.checkpoint_id, parsed.user_id).await {
+            Ok(leaf) => Ok(serde_json::to_value(&leaf).unwrap()),
+            Err(e) => {
+                tracing::error!("❌ get_user_tree_merkle_proof error: {:?}", e);
+                Err(ErrorObjectOwned::owned(9, e.to_string(), None::<()>))
+            }
+        }
+    })?;
+
+
+    module.register_async_method("qed_get_user_tree_merkle_proof_f", |params, handler, ctx| async move {
+        let parsed: QUserTreeMerkleProofFRPCRequest<F> = match params.parse() {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(ErrorObjectOwned::owned(
+                    -32602,
+                    format!("Invalid params for qed_get_user_tree_merkle_proof_f: {}", e),
+                    None::<()>,
+                ));
+            }
+        };
+
+        match handler.get_user_tree_merkle_proof_f(parsed.checkpoint_id, parsed.user_id).await {
+            Ok(leaf) => Ok(serde_json::to_value(&leaf).unwrap()),
+            Err(e) => {
+                tracing::error!("❌ get_user_tree_merkle_proof_f error: {:?}", e);
+                Err(ErrorObjectOwned::owned(9, e.to_string(), None::<()>))
+            }
+        }
+    })?;
 
 
 

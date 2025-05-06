@@ -36,7 +36,7 @@ impl<const D: usize> GUTARegisterUsersBatchGadget<D> {
 
         assert!(global_user_tree_realm_height <= global_user_tree_height, "global_user_tree_realm_height cannot be taller than global_user_tree_height");
         let verify_to_line_gadget = VerifyGUTAProofToLineGadget::<D>::add_virtual_to::<C, F>(
-            builder, 
+            builder,
             proof_common_data,
             verifier_data_cap_height,
             global_user_tree_realm_height,
@@ -101,6 +101,7 @@ impl<const D: usize> GUTARegisterUsersBatchGadget<D> {
         default_user_state_tree_root: QHashOut<F>,
     ) -> anyhow::Result<()> where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
+        eprintln!("DEBUGPRINT[614]: guta_register_users_batch.rs:103 (after <C as GenericConfig<D>>::Hasher:Algebrai…)");
         self.verify_to_line_gadget.set_witness(witness, guta_whitelist_merkle_proof, guta_proof_header, proof, verifier_data, top_line_siblings)?;
         let dummy_public_key = QHashOut::from_values(1, 1, 1, 1);
         let dummy_user_leaf_hash = QEDUserLeaf::new_user_default(F::ZERO, dummy_public_key, default_user_state_tree_root).alghash::<C::Hasher>();

@@ -1,34 +1,34 @@
-use std::future::Future;
-use std::sync::{Arc, atomic::AtomicU64, OnceLock};
-use tokio::sync::RwLock;
-use once_cell::sync::{Lazy, OnceCell};
+use crate::communicate::get_latest_global_coordinator_status;
+use crate::rpc::types::{RealmInfo, RealmRpcRegistry};
+use crate::{
+    CoordinatorEdgeQueueArgs, COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX,
+    COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX,
+};
 use anyhow::anyhow;
 use dashmap::DashMap;
 use dotenvy::var;
-use lazy_static::lazy_static;
+use fred::prelude::Pool;
+use fred::prelude::*;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
+use lazy_static::lazy_static;
+use once_cell::sync::{Lazy, OnceCell};
 use qed_core::data::qhashout::QHashOut;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
-use qed_node::nimpl::proof_store_fred::ProofStoreFred;
-use qed_store::config::store_config::QEDFelt;
-use fred::{
-    prelude::{Pool},
-};
-use fred::prelude::*;
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
 use qed_node::coordinator::state::user_map::get_node_redis_pool;
 use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
 use qed_node::nimpl::new_fred_pool;
-use crate::{CoordinatorEdgeQueueArgs, COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
-use crate::communicate::get_latest_global_coordinator_status;
-use crate::rpc::types::{RealmInfo, RealmRpcRegistry};
+use qed_node::nimpl::proof_store_fred::ProofStoreFred;
+use qed_store::config::store_config::QEDFelt;
+use serde::{Deserialize, Serialize};
+use std::future::Future;
+use std::sync::{atomic::AtomicU64, Arc, OnceLock};
+use tokio::sync::RwLock;
+use tracing::{info, warn};
 
 type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 type DrainQueue = ProofStoreFred;
 type ProofStore = ProofStoreFred;
-
 
 lazy_static! {
     //todo! if no write, use once_cell instead
@@ -37,16 +37,17 @@ lazy_static! {
 }
 pub static LATEST_CHECKPOINT_ID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
 pub static REGISTER_USER_COUNTER: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
-pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, UserRegisterState>> = Lazy::new(DashMap::new);
+pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, UserRegisterState>> =
+    Lazy::new(DashMap::new);
 pub static GLOBAL_DB_PATH: OnceCell<String> = OnceCell::new();
 
 pub static GLOBAL_REDIS_POOL: OnceCell<Arc<Pool>> = OnceCell::new();
 pub static GLOBAL_DRAIN_QUEUE: OnceCell<DrainQueueFred> = OnceCell::new();
-pub static GLOBAL_REALM_REGISTRY: Lazy<Arc<RwLock<RealmRpcRegistry>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(RealmRpcRegistry::default()))
-});
+pub static GLOBAL_REALM_REGISTRY: Lazy<Arc<RwLock<RealmRpcRegistry>>> =
+    Lazy::new(|| Arc::new(RwLock::new(RealmRpcRegistry::default())));
 
-pub static GLOBAL_LMDB_STORE: OnceLock<Arc<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>>> = OnceLock::new();
+pub static GLOBAL_LMDB_STORE: OnceLock<Arc<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>>> =
+    OnceLock::new();
 
 pub static GLOBAL_JWT_SECRET: OnceCell<Arc<String>> = OnceCell::new();
 
@@ -96,10 +97,11 @@ where
     f(ctx).await
 }
 
-
 /// Initialize global DB path (can only be called once)
 pub fn init_global_db_path<P: Into<String>>(path: P) -> anyhow::Result<()> {
-    GLOBAL_DB_PATH.set(path.into()).map_err(|_| anyhow!("GLOBAL_DB_PATH already set"))
+    GLOBAL_DB_PATH
+        .set(path.into())
+        .map_err(|_| anyhow!("GLOBAL_DB_PATH already set"))
 }
 pub fn get_global_db_path() -> anyhow::Result<&'static str> {
     GLOBAL_DB_PATH
@@ -112,7 +114,9 @@ pub async fn register_realm(name: String, rpc_url: String) -> anyhow::Result<()>
     let mut registry = GLOBAL_REALM_REGISTRY.write().await;
     if !registry.realms.contains_key(&rpc_url) {
         tracing::info!("✅ Registered new realm: {}", name);
-        registry.realms.insert(rpc_url.clone(), RealmInfo { name, rpc_url });
+        registry
+            .realms
+            .insert(rpc_url.clone(), RealmInfo { name, rpc_url });
     } else {
         tracing::info!("ℹ️ Realm already exists: {}", rpc_url);
     }
@@ -146,10 +150,12 @@ pub fn init_global_lmdb_store() -> anyhow::Result<()> {
     let inner_store = KVQlibmdbxStore::new_read(db_path)?;
     let wrapped_store = KVQArcImmutableStoreWrapper::new(inner_store);
 
-    GLOBAL_LMDB_STORE.set(Arc::new(wrapped_store))
+    GLOBAL_LMDB_STORE
+        .set(Arc::new(wrapped_store))
         .map_err(|_| anyhow!("GLOBAL_LMDB_STORE already initialized"))
 }
-pub fn get_global_lmdb_store() -> anyhow::Result<Arc<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>>> {
+pub fn get_global_lmdb_store() -> anyhow::Result<Arc<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>>>
+{
     GLOBAL_LMDB_STORE
         .get()
         .cloned()
@@ -168,9 +174,6 @@ where
         .as_ref()
         .ok_or_else(|| anyhow!("GLOBAL_COORD_EDGE_CTX is not initialized"))?;
 
-    // let db_path = get_global_db_path()?;
-    // let inner_store = get_global_lmdb_store()?;
-    // let store = KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(inner_store);
     let store = get_global_lmdb_store()?;
 
     let redis_pool = get_node_redis_pool()?;
@@ -201,20 +204,19 @@ where
     f(temp_ctx).await
 }
 
-
-
 pub fn init_global_jwt_secret() -> anyhow::Result<()> {
     let secret = var("JWT_SECRET_KEY")?;
-    GLOBAL_JWT_SECRET.set(Arc::new(secret))
+    GLOBAL_JWT_SECRET
+        .set(Arc::new(secret))
         .map_err(|_| anyhow::anyhow!("JWT secret already initialized"))?;
     Ok(())
 }
 pub fn get_global_jwt_secret() -> Arc<String> {
-    GLOBAL_JWT_SECRET.get()
+    GLOBAL_JWT_SECRET
+        .get()
         .expect("JWT secret not initialized")
         .clone()
 }
-
 
 pub fn init_global_queue(pool: Pool) {
     let drain_queue = DrainQueueFred::new(pool);
@@ -234,9 +236,7 @@ pub async fn check_and_print_latest_coordinator_status() -> anyhow::Result<()> {
         Some(status) => {
             info!(
                 "📦 Latest Coordinator Status: checkpoint={}, processor_height={}, timestamp={}",
-                status.confirmed_checkpoint_id,
-                status.processor_height,
-                status.timestamp
+                status.confirmed_checkpoint_id, status.processor_height, status.timestamp
             );
         }
         None => {

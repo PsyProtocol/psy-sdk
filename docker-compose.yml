@@ -49,6 +49,7 @@ services:
     depends_on:
       - redis
       - coordinator-processor
+    stop_grace_period: 100ms
 
   coordinator-worker:
     build:
@@ -106,6 +107,7 @@ services:
     depends_on:
       - redis
       - realm-processor
+    stop_grace_period: 100ms
 
   realm-worker:
     build:

@@ -19,6 +19,7 @@ bincode = { workspace = true }
 twox-hash = { workspace = true }
 async-trait = { workspace = true }
 tracing = { workspace = true }
+hashbrown = { workspace = true }
 
 qed_core = { path = "../qed_core" }
 qed_common_circuit = { path = "../qed_common_circuit" }

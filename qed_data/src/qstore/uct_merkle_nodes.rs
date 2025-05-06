@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use kvq::traits::{KVQPair, KVQSerializable};
 use qed_core::{config::network_constants::CST_USER_UPDATE_CHANNEL_ID, job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}};
@@ -91,7 +91,7 @@ pub struct CSTUserUpdateStore<Hash: PartialEq + Serialize + Copy> {
     pub node_map: HashMap<CSTDeltaNodeKey, Hash>,
     pub uct_node_map: HashMap<SimpleMerkleNodeKey, Hash>,
 }
-impl<Hash: PartialEq + Serialize + Copy> CSTUserUpdateStore<Hash> {
+impl<Hash: PartialEq + Serialize + Copy + Display> CSTUserUpdateStore<Hash> {
     pub fn new() -> Self {
         Self {
             node_map: HashMap::new(),
@@ -102,11 +102,13 @@ impl<Hash: PartialEq + Serialize + Copy> CSTUserUpdateStore<Hash> {
         &mut self,
         proof: &DeltaMerkleProofCore<Hash>,
     ) -> anyhow::Result<()> {
+        eprintln!("DEBUGPRINT[576]: uct_merkle_nodes.rs:105: proof={}", serde_json::to_string_pretty(&proof).unwrap());
         let mut current = proof.old_value;
         for (i, sibling) in proof.siblings.iter().enumerate() {
             current = Hasher::two_to_one_swap(proof.index & (1 << i) == 1, &current, sibling);
         }
         if current != proof.old_root {
+            eprintln!("DEBUGPRINT[579]: uct_merkle_nodes.rs:110: current={},old_root={}", current, proof.old_root);
             anyhow::bail!("invalid old root");
         }
         current = proof.new_value;
@@ -120,6 +122,7 @@ impl<Hash: PartialEq + Serialize + Copy> CSTUserUpdateStore<Hash> {
             self.uct_node_map.insert(key, current);
         }
         if current != proof.new_root {
+            eprintln!("DEBUGPRINT[580]: uct_merkle_nodes.rs:124: current={},new_root={}", current,proof.new_root);
             anyhow::bail!("invalid new root!");
         }
 
@@ -130,11 +133,13 @@ impl<Hash: PartialEq + Serialize + Copy> CSTUserUpdateStore<Hash> {
         contract_id: u32,
         proof: &DeltaMerkleProofCore<Hash>,
     ) -> anyhow::Result<()> {
+        eprintln!("DEBUGPRINT[582]: uct_merkle_nodes.rs:134: proof={}", serde_json::to_string_pretty(&proof).unwrap());
         let mut current = proof.old_value;
         for (i, sibling) in proof.siblings.iter().enumerate() {
             current = Hasher::two_to_one_swap(proof.index & (1 << i) == 1, &current, sibling);
         }
         if current != proof.old_root {
+            eprintln!("DEBUGPRINT[583]: uct_merkle_nodes.rs:141: current={},old_root={}", current,proof.old_root);
             anyhow::bail!("invalid old root");
         }
         current = proof.new_value;
@@ -148,6 +153,7 @@ impl<Hash: PartialEq + Serialize + Copy> CSTUserUpdateStore<Hash> {
             self.node_map.insert(key, current);
         }
         if current != proof.new_root {
+            eprintln!("DEBUGPRINT[584]: uct_merkle_nodes.rs:155: current={},new_root={}", current,proof.new_root);
             anyhow::bail!("invalid new root!");
         }
 

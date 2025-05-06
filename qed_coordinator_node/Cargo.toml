@@ -42,7 +42,7 @@ qed_realm_node = {workspace = true}
 futures-util = {workspace = true}
 reqwest = {workspace = true}
 qed_worker = {workspace = true}
-#qed-user-cli ={ workspace = true }
+qed_user_cli = { workspace = true }
 chrono = {workspace = true}
 qed_rollup_utils = {workspace = true}
 axum = {workspace = true}

@@ -8,6 +8,7 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::{HashOut};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
+use qed_store::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use rand::RngCore;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -168,7 +169,7 @@ impl CoordinatorEdgeHandler {
         &self,
         contract: QBCDeployContract<QEDFelt>,
     ) -> anyhow::Result<()> {
-        let next_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed) + 2;
+        let next_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed) + 1;
         with_ctx_read_async(|ctx| {
             let queue = ctx.checkpoint_queue.clone();
             let config = ctx.coordinator_config.clone();
@@ -187,7 +188,7 @@ impl CoordinatorEdgeHandler {
                 Ok(())
             }
         })
-            .await
+        .await
     }
     pub async fn submit_guta(
         &self,
@@ -212,7 +213,7 @@ impl CoordinatorEdgeHandler {
                     verifier,
                 )))
             })
-                .await?;
+            .await?;
         // verify top line proof
         if !input.top_line_proof.verify::<QEDHasher>() {
             anyhow::bail!("invalid top line proof from realm");
@@ -649,10 +650,29 @@ impl CoordinatorEdgeHandler {
         }).await
     }
 
+    pub async fn get_user_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<QEDFelt>>> {
+        with_temp_ctx_read_async::<_, _, _, C, D>(self.args.clone(),|ctx| async move {
+            ctx.store_reader
+                .get_user_tree_merkle_proof(checkpoint_id, user_id)
+        })
+        .await
+    }
 
-
-
-
+    pub async fn get_user_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        user_id: F,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<QEDFelt>>> {
+        with_temp_ctx_read_async::<_, _, _, C, D>(self.args.clone(),|ctx| async move {
+            ctx.store_reader
+                .get_user_tree_merkle_proof_f(checkpoint_id, user_id)
+        })
+        .await
+    }
 }
 
 fn qhash_from_u64_array(arr: [u64; 4]) -> QHashOut<QEDFelt> {

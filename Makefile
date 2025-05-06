@@ -1,7 +1,7 @@
 export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 
 PROFILE                 := release
-LOG_LEVE                := info
+LOG_LEVE                := debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug
 
 check:
 	@cargo check --all-targets --examples
@@ -10,8 +10,8 @@ fix:
 	# @cargo machete --fix
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
-build:
-	@cargo build --profile ${PROFILE} --package qed_user_cli --package qed_rollup_cli
+build: common_config_generator
+	@cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin dargo
 
 fmt:
 	@cargo fmt
@@ -19,8 +19,8 @@ fmt:
 clean:
 	@rm -r target
 
-DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) cd qed_compiler/tests && cargo run --release --package dargo compile --debug --entry-path
-DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd qed_compiler/tests && cargo run --release --package dargo execute --debug --entry-path
+DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) cd qed_compiler/tests && ../../target/${PROFILE}/dargo compile --debug --entry-path
+DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd qed_compiler/tests && ../../target/${PROFILE}/dargo execute --debug --entry-path
 
 ci:
 	@RUST_LOG=${LOG_LEVE} cargo test --release --package qed-ast --package qed-parser --package qed-sema --package qed-interpreter -- --nocapture
@@ -72,24 +72,44 @@ ci:
 update-snapshots:
 	@cargo insta review
 
-.PHONE: check fix build format run test update-snapshots
+WATCHED_DIRS := qed_rollup_circuit qed_common_circuit qed_prover
+
+common_config_generator:
+	@if git diff --name-only HEAD | grep -q -E "$(subst $() $(),|,$(WATCHED_DIRS)).*\.rs$$"; then \
+		echo "Changes detected in watched directories. Running common_config_generator..."; \
+		RUST_LOG=${RUST_LOG} cargo run --profile ${PROFILE} --package qed_prover --example common_config_generator; \
+	else \
+		echo "No changes detected in watched directories. Skipping common_config_generator."; \
+	fi
+
+.PHONY: check fix build format run test update-snapshots
 
 ################################################################################
 #                                   TMP                                        #
 ################################################################################
-COORDINATOR_DB_PATH     := $(PWD)/db/coordinator
-REALM_DB_PATH           := $(PWD)/db/realm
+PROJECT_DIR              := $(PWD)/examples
+FILE                     := $(PWD)/examples/src/main.qed
+PARAMETERS               :=
+USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
+USER1_PRIVATE_KEY        := f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d
 
-PROJECT_DIR             := $(PWD)/examples
-FILE                    := $(PWD)/examples/src/main.qed
-PARAMETERS              :=
-USER0_PRIVATE_KEY       := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
-USER1_PRIVATE_KEY       := f69d09d891a4faa188108b947335cd14d6eecd32e2243e0e35d194e0a06b1d2b
+CURRENT_USER_PRIVATE_KEY := ${USER0_PRIVATE_KEY}
+
+CHECKPOINT_ID            := 1
+LEAF_CHECKPOINT_ID       := ${CHECKPOINT_ID}
+USER_ID                  := 0
+CONTRACT_ID              := 0
+SLOT_ID                  := 0
+CONTRACT_STATE_HEIGHT    := 24
+REALM_ID                 := 0
+
+COORDINATOR_RPC_URL      := http://127.0.0.1:8545
+REALM_RPC_URL            := http://127.0.0.1:8546
 
 init:
 	@mkdir -p $(PWD)/db
-	@cd $(PWD)/db && cargo run --release --package dargo new ${PROJECT_DIR}
-	@cp qed_compiler/tests/token.qed ${FILE}
+	@./target/${PROFILE}/dargo new ${PROJECT_DIR}
+	@cp qed_compiler/tests/new_token.qed ${FILE}
 
 .PHONY: launch
 launch: shutdown init compile
@@ -107,9 +127,15 @@ shutdown:
 		down \
 		--remove-orphans > /dev/null 2>&1 || true
 	@sudo rm -fr redis-data
-	@redis-cli 'FLUSHALL' 2>&1 || true
+	@redis-cli 'FLUSHALL' > /dev/null 2>&1 || true
 	@sudo rm -fr $(PWD)/db
 	@rm -fr ${PROJECT_DIR}
+
+run-all:
+	@./scripts/run_all.sh
+
+run-scenario0:
+	@./scripts/run_scenario0.sh
 
 logs:
 	@docker-compose \
@@ -118,28 +144,57 @@ logs:
         --follow
 
 interpret:
-	@RUST_LOG=${LOG_LEVE} cd ${PROJECT_DIR} && cargo run --release --package dargo execute --debug --entry-path ${FILE} --parameters ${PARAMETERS}
+	@RUST_LOG=${LOG_LEVE} cd ${PROJECT_DIR} && ../target/${PROFILE}/dargo execute --debug --entry-path ${FILE} --parameters ${PARAMETERS}
 
 compile:
-	@RUST_LOG=${LOG_LEVE} cd ${PROJECT_DIR} && cargo run --release --package dargo compile --entry-path ${FILE} --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
+	@RUST_LOG=${LOG_LEVE} cd ${PROJECT_DIR} && ../target/${PROFILE}/dargo compile --entry-path ${FILE} --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
 
 run-coordinator-processor:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli coordinator-processor --coordinator-db-path ${COORDINATOR_DB_PATH}
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli coordinator-processor
 
 run-coordinator-edge:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli coordinator-edge --coordinator-db-path ${COORDINATOR_DB_PATH}
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli coordinator-edge
 
 run-coordinator-worker:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli coordinator-worker
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli coordinator-worker
 
 run-realm-processor:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-processor
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli realm-processor
 
 run-realm-worker:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-worker
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli realm-worker
 
 run-realm-edge:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-edge
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli realm-edge
+
+run-realm-processor1:
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --node-id=2 \
+      --realm-id=1 \
+      --worker-queue-suffix=rwq2 \
+      --notifications-queue-suffix=rnq2 \
+      --proof-store-key-suffix=RP1 \
+      --path=./db/realm1
+
+run-realm-worker1:
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-worker \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --worker-queue-suffix=rwq2 \
+      --notifications-queue-suffix=rnq2 \
+      --proof-store-key-suffix=RP1
+
+run-realm-edge1:
+	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-edge \
+      --listen-addr=0.0.0.0:8547 \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --node-id=2 \
+      --realm-id=1 \
+      --worker-queue-suffix=rwq2 \
+      --notifications-queue-suffix=rnq2 \
+      --proof-store-key-suffix=RP1 \
+      --path=./db/realm1
 
 run-realm-processor1:
 	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-processor \
@@ -171,97 +226,139 @@ run-realm-edge1:
       --path=./db/realm1
 
 generate-access-token:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_rollup_cli generate-access-token
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli generate-access-token
 
 get-public-key:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli get-public-key --private-key=${USER0_PRIVATE_KEY}
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli get-public-key --private-key=${CURRENT_USER_PRIVATE_KEY}
 
 random-wallet:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli random-wallet
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli random-wallet
 
 register-user:
-	@RUST_LOG=${LOG_LEVE} curl -X POST http://127.0.0.1:8545 \
+	@RUST_LOG=${LOG_LEVE} curl -X POST ${COORDINATOR_RPC_URL} \
       -H "Content-Type: application/json" \
       -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "352637524d9b8482d65b9c8bc78d0d4849a063bc53558158f84ee3863081ab4b" }, "id": 1 }' | jq .
+	@sleep 0.5
+	@RUST_LOG=${LOG_LEVE} curl -X POST ${COORDINATOR_RPC_URL} \
+	     -H "Content-Type: application/json" \
+	     -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "cad421940097e1a1257a0d85faf9441d6e52d17f2dcda0da6da5c3a4ea80fe15" }, "id": 1 }' | jq .
 
 deploy-contract:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${CURRENT_USER_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
 
-submit-end-cap-proof:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --bin qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id 0 --method-name simple_mint --inputs 1000 --nonce 1
+mint:
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id 0 --method-name simple_mint --inputs 1000 --nonce 1
+
+transfer:
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id 0 --method-name simple_transfer --inputs 1 --inputs 500 --nonce 2
+
+claim:
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id 0 --method-name simple_claim --inputs 0 --nonce 1
+
+balance_of:
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}, ${CONTRACT_STATE_HEIGHT}, ${SLOT_ID}], "id": 1 }' | jq .
 
 build-block:
-	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .
 
 latest-checkpoint:
-	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_latest_checkpoint", "params": [], "id": 1 }' | jq .
-
-get-user-leaf-data:
-	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [0, 0], "id": 1 }' | jq .
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_latest_checkpoint", "params": [], "id": 1 }' | jq .
 
 get-contract-leaf-data:
-	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_contract_leaf_data", "params": [0], "id": 1 }' | jq .
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_contract_leaf_data", "params": [${CONTRACT_ID}], "id": 1 }' | jq .
 
 qed-get-checkpoint-leaf-data:
-	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_leaf_data", "params": [0], "id": 1 }' | jq .
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_leaf_data", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+
+get-checkpoint-global-state-roots:
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_global_state_roots", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+
+qed-get-checkpoint-tree-root:
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+
+qed-get-checkpoint-tree-leaf-hash:
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_leaf_hash", "params": [${CHECKPOINT_ID}, ${LEAF_CHECKPOINT_ID}], "id": 1 }' | jq .
+
+qed-get-checkpoint-tree-merkle-proof:
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${LEAF_CHECKPOINT_ID}], "id": 1 }' | jq .
 
 qed-get-contract-code-definition:
-	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_contract_code_definition", "params": [0], "id": 1 }' | jq .
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_contract_code_definition", "params": [${CONTRACT_ID}], "id": 1 }' | jq .
 
 get-latest-l2-block-state:
-	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_latest_l2_block_state", "params": [], "id": 1 }' | jq .
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_l2_block_state", "params": [], "id": 1 }' | jq .
 
 get-l2-block-state:
-	@curl -s -X POST "http://127.0.0.1:8545" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_l2_block_state", "params": [1], "id": 1 }' | jq .
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_l2_block_state", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+
+get-user-leaf-data:
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
+
+get-realm-user-tree-root:
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_sub_tree_merkle_proof", "params": [${CHECKPOINT_ID}, 0, 12, ${REALM_ID}], "id": 1 }' | jq .
+
+get-user-tree-merkle-proof:
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
 
 realm-check-user-id:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_check_user_id_in_realm", "params": [0], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_check_user_id_in_realm", "params": [${USER_ID}], "id": 1 }' | jq .
 
-realm-submit-user-end-cap:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_submit_user_end_cap", "params": [{"user_ec_input": {}, "proof": {}}], "id": 1 }' | jq .
-
-# Block state related calls
 realm-get-latest-l2-block-state:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_l2_block_state", "params": [], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_l2_block_state", "params": [], "id": 1 }' | jq .
 
 realm-get-l2-block-state:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_l2_block_state", "params": [1], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_l2_block_state", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
 
 realm-get-checkpoint-leaf-data:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_leaf_data", "params": [1], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_leaf_data", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
 
 realm-get-latest-checkpoint-tree-root:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_checkpoint_tree_root", "params": [], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_checkpoint_tree_root", "params": [], "id": 1 }' | jq .
 
 realm-get-checkpoint-tree-root:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_root", "params": [1], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+
+realm-get-checkpoint-tree-leaf-hash:
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_leaf_hash", "params": [${CHECKPOINT_ID}, ${LEAF_CHECKPOINT_ID}], "id": 1 }' | jq .
 
 realm-get-checkpoint-tree-merkle-proof:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_merkle_proof", "params": [1, 0], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${LEAF_CHECKPOINT_ID}], "id": 1 }' | jq .
 
 realm-get-user-leaf-data:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [2, 0], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
+
+realm-get-user-leaf-hash:
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_leaf_hash", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
 
 realm-get-user-tree-root:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_root", "params": [1], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+
+realm-get-realm-user-tree-root:
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_sub_tree_merkle_proof", "params": [${CHECKPOINT_ID}, 12, 24, ${USER_ID}], "id": 1 }' | jq .
+
+realm-get-user-tree-merkle-proof:
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
 
 realm-get-user-registration-tree-root:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_registration_tree_root", "params": [1], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_registration_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
 
 realm-get-user-bottom-tree-merkle-proof:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_bottom_tree_merkle_proof", "params": [8, 1, 0], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_bottom_tree_merkle_proof", "params": [12, ${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
 
 realm-get-user-contract-tree-root:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_tree_root", "params": [1, 0], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_tree_root", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
 
 realm-get-user-contract-state-tree-root:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_root", "params": [1, 0, 1], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_root", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}], "id": 1 }' | jq .
 
 realm-get-user-contract-tree-merkle-proof:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_tree_merkle_proof", "params": [1, 0, 1], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}], "id": 1 }' | jq .
+
+realm-get-user-contract-state-tree-merkle-proof:
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}, ${CONTRACT_STATE_HEIGHT}, ${SLOT_ID}], "id": 1 }' | jq .
 
 realm-get-checkpoint-global-state-roots:
-	@curl -s -X POST "http://127.0.0.1:8546" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_global_state_roots", "params": [1], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_global_state_roots", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
 
 image:
 	docker build \

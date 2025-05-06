@@ -7,7 +7,17 @@
       "request": "attach",
       "name": "Attach to process (Rust)",
       "pid": "${command:pickProcess}",
-      "args": []
+      "args": [],
+      "stopOnEntry": false,
+    "setupCommands": [
+      {
+        "text": "-gdb-set mi-catch-exception on"
+      }
+     ],
+    "exceptionBreakpoints": [
+      { "filter": "panic", "enabled": true },
+      { "filter": "all", "enabled": true }
+    ]
     },
     {
       "type": "codelldb",

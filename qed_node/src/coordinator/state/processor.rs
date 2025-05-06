@@ -64,12 +64,12 @@ use qed_data::{
 };
 use qed_rollup_circuit::guta::gadgets::guta_header;
 use qed_store::{
-    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
-    node::coordinator::store_traits::{
+    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, UserTreeStore}, models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore, node::coordinator::store_traits::{
         QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
-    },
+    }
 };
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use crate::coordinator::state::user_map::{get_node_redis_pool, save_user_mapping_to_redis};
 
 type F = QEDFelt;
@@ -419,6 +419,7 @@ impl<
         Vec<Vec<QProvingJobDataID>>,
         GlobalUserTreeAggregatorHeader<F>,
     )> {
+        eprintln!("DEBUGPRINT[537]: processor.rs:399: checkpoint_id={}", checkpoint_id);
         let mut guta_queue_items = self
             .checkpoint_queue
             .cdq_drain_imm::<SubmitGUTARealmResultAPIQueueItem<F>>(
@@ -426,8 +427,10 @@ impl<
                 checkpoint_id,
             )
             .await?;
+        eprintln!("DEBUGPRINT[530]: processor.rs:406: guta_queue_items={}", serde_json::to_string_pretty(&guta_queue_items).unwrap());
 
         if guta_queue_items.len() == 0 {
+            eprintln!("DEBUGPRINT[531]: processor.rs:408 (after if guta_queue_items.len() == 0 )");
             let last_checkpoint_id = if checkpoint_id == 0 {
                 checkpoint_id
             } else {
@@ -462,6 +465,7 @@ impl<
                     slots_modified: F::ZERO,
                 },
             };
+            eprintln!("DEBUGPRINT[526]: processor.rs:442: guta_header={}", serde_json::to_string_pretty(&guta_header).unwrap());
             let input = GUTANoChangeFullInput {
                 checkpoint_tree_proof,
                 checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots {
@@ -469,6 +473,7 @@ impl<
                     global_state_roots: roots,
                 },
             };
+            eprintln!("DEBUGPRINT[532]: processor.rs:452: input={}", serde_json::to_string_pretty(&input).unwrap());
 
             let id = QProvingJobDataID::core_op_witness(
                 ProvingJobCircuitType::GUTANoChange,
@@ -482,6 +487,7 @@ impl<
 
             return Ok((vec![vec![id]], guta_header));
         } else if guta_queue_items.len() == 1 {
+            eprintln!("DEBUGPRINT[533]: processor.rs:465 (after  else if guta_queue_items.len() == 1 )");
             let old_mp = self
                 .store
                 .get_user_top_tree_merkle_proof(
@@ -494,7 +500,7 @@ impl<
             let rw = VerifyGUTAToCapCircuitInputSimple {
                 guta_proof_header: GlobalUserTreeAggregatorHeader {
                     guta_circuit_whitelist: self.coordinator_config.guta_circuit_whitelist,
-                    checkpoint_tree_root: self.store.get_latest_checkpoint_tree_root().await?,
+                    checkpoint_tree_root: guta_queue_items[0].checkpoint_tree_root,
                     state_transition: SubTreeNodeStateTransition {
                         old_node_value: guta_queue_items[0].top_line_proof.old_root,
                         new_node_value: guta_queue_items[0].top_line_proof.new_root,
@@ -515,10 +521,12 @@ impl<
                 ]
                 .concat(),
             };
+            eprintln!("DEBUGPRINT[534]: processor.rs:500: rw={}", serde_json::to_string_pretty(&rw).unwrap());
             let r_with_deps = CircuitInputWithDependencies {
                 input: rw,
                 dependencies: vec![guta_queue_items[0].proof_id],
             };
+            eprintln!("DEBUGPRINT[556]: processor.rs:507: guta_queue_items[0]={}", serde_json::to_string_pretty(&guta_queue_items[0]).unwrap());
 
             let id = QProvingJobDataID::core_op_witness(
                 ProvingJobCircuitType::GUTAVerifyToCap,
@@ -547,8 +555,10 @@ impl<
             .store
             .injest_user_tree_nodes_imm(checkpoint_id, 0, &new_nodes)
             .await?;
+            eprintln!("DEBUGPRINT[557]: processor.rs:536: res={}", serde_json::to_string_pretty(&res).unwrap());
         //for local testing conv
         let good_old = self.store.get_user_top_tree_cap_root(checkpoint_id-1, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index).await?;
+        eprintln!("DEBUGPRINT[564]: processor.rs:538: good_old={}", good_old);
 
         res.link_proof.old_value = good_old;
 
@@ -600,6 +610,7 @@ impl<
         for (i, p) in res.nca_proofs.iter().enumerate() {
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
             if l_dep_ind == -1 && r_dep_ind == -1 {
+                eprintln!("DEBUGPRINT[560]: processor.rs:589 (after if l_dep_ind == -1 && r_dep_ind == -1 )");
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoGUTAProofGadgetStandardInputSimple {
                         checkpoint_tree_root: guta_queue_items[i * 2].checkpoint_tree_root,
@@ -625,6 +636,7 @@ impl<
 
                 witnesses.push((w_id, x));
             } else if r_dep_ind != -1 && l_dep_ind != -1 {
+                eprintln!("DEBUGPRINT[559]: processor.rs:614 (after  else if r_dep_ind != -1 && l_dep_ind !=…)");
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoGUTAProofGadgetStandardInputSimple {
                         checkpoint_tree_root: witnesses[l_dep_ind as usize]
@@ -653,6 +665,7 @@ impl<
 
                 witnesses.push((w_id, x));
             } else if l_dep_ind != -1 {
+                eprintln!("DEBUGPRINT[558]: processor.rs:642 (after  else if l_dep_ind != -1 )");
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoGUTAProofGadgetStandardInputSimple {
                         checkpoint_tree_root: witnesses[l_dep_ind as usize]
@@ -718,6 +731,7 @@ impl<
             },
             stats: witnesses[res.root_proof_index].1.input.get_combined_stats(),
         };
+        eprintln!("DEBUGPRINT[535]: processor.rs:704: guta={}", serde_json::to_string_pretty(&guta).unwrap());
 
         if guta.state_transition.node_level != F::ZERO {
             let w = CircuitInputWithDependencies::<VerifyGUTAToCapCircuitInputSimple<F>> {
@@ -756,6 +770,7 @@ impl<
                 },
                 stats: guta.stats,
             };
+            eprintln!("DEBUGPRINT[527]: processor.rs:737: guta={}", serde_json::to_string_pretty(&guta).unwrap());
         }
 
         /*self.proof_store.set_bytes_by_id(input_id, &bincode::serialize(&queue_item).map_err(|e| anyhow::anyhow!("{:?}",e))?).await?;
@@ -779,6 +794,7 @@ impl<
         let state_roots = self.store.get_checkpoint_global_state_roots(last_l2_blockstate.checkpoint_id).await?;
         let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_l2_blockstate.checkpoint_id).await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
+        info!("💥 coordinator processor build block checkpoint_id: {}", new_checkpoint_id);
         let (deploy_jobs, deploy_transition, next_contract_id) =
             self.handle_deploy_contracts(new_checkpoint_id).await?;
         let (
@@ -933,7 +949,9 @@ impl<
 
         //let old_checkpoint_leaf = partial_input.get_old_checkpoint_leaf::<QEDHasher>();
         let new_checkpoint_leaf = partial_input.get_new_checkpoint_leaf::<QEDHasher>();
+        eprintln!("DEBUGPRINT[592]: processor.rs:929: new_checkpoint_leaf={}", serde_json::to_string_pretty(&new_checkpoint_leaf).unwrap());
         let new_checkpoint_leaf_hash= new_checkpoint_leaf.qfhash::<QEDHasher>();
+        eprintln!("DEBUGPRINT[593]: processor.rs:931: new_checkpoint_leaf_hash={}", serde_json::to_string_pretty(&new_checkpoint_leaf_hash).unwrap());
         //let old_checkpoint_leaf_hash= old_checkpoint_leaf.qfhash::<QEDHasher>();
 
         /*println!("stateroottss: {}, {:?}",serde_json::to_string_pretty(&state_roots).unwrap(), state_roots.qfhash::<QEDHasher>());
@@ -945,21 +963,24 @@ impl<
         println!("[{}] 1leafn: {:?}",new_checkpoint_id, new_checkpoint_leaf_hash);
         */
         let previous_checkpoint_proof = self.store.get_checkpoint_tree_merkle_proof(last_l2_blockstate.checkpoint_id, last_l2_blockstate.checkpoint_id).await?;
+        eprintln!("DEBUGPRINT[595]: processor.rs:943: previous_checkpoint_proof={}", serde_json::to_string_pretty(&previous_checkpoint_proof).unwrap());
         //println!("last_chpk_leaf_hash: {:?}, {}",last_checkpoint_leaf.qfhash::<QEDHasher>(), serde_json::to_string_pretty(&last_checkpoint_leaf).unwrap());
         //println!("previous_checkpoint_proof[{}]: {:?}", previous_checkpoint_proof.index, previous_checkpoint_proof.value);
 
         let checkpoint_dmp = self.store.set_checkpoint_tree_leaf_hash_imm(new_checkpoint_id, new_checkpoint_leaf_hash).await?;
+        eprintln!("DEBUGPRINT[594]: processor.rs:947: checkpoint_dmp={}", serde_json::to_string_pretty(&checkpoint_dmp).unwrap());
         
         
         let checkpoint_tree_update_siblings = checkpoint_dmp.siblings.clone();
         let witness_checkpoint_state_transition = CircuitInputWithDependencies{
             input: QCQEDCheckpointStateTransitionInput::<F>{
-            partial: partial_input,
+                partial: partial_input,
                 append_checkpoint_tree_proof: checkpoint_dmp,
                 previous_checkpoint_proof,
             },
             dependencies: vec![state_part_1_id.get_output_id()],
         };
+        eprintln!("DEBUGPRINT[589]: processor.rs:957: witness_checkpoint_state_transition={}", serde_json::to_string_pretty(&witness_checkpoint_state_transition).unwrap());
 
 
         self.proof_store
@@ -981,6 +1002,7 @@ impl<
             end_balance: last_l2_blockstate.end_balance,
             next_contract_id: next_contract_id,
         };
+        eprintln!("DEBUGPRINT[590]: processor.rs:979: new_l2_block_state={}", serde_json::to_string_pretty(&new_l2_block_state).unwrap());
         self.prover_queue
             .enqueue_jobs_imm(
                 &([
@@ -1008,6 +1030,7 @@ impl<
             regsitered_users_start_pivot_siblings,
             registered_users: new_accounts,
         };
+        eprintln!("DEBUGPRINT[591]: processor.rs:1007: l2_sync={}", serde_json::to_string_pretty(&l2_sync).unwrap());
         self.store
             .set_checkpoint_sync_info_imm(l2_sync.clone())
             .await?;

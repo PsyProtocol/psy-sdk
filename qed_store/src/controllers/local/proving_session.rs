@@ -530,6 +530,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         slot: GF,
         value: QHashOut<GF>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
+        eprintln!("DEBUGPRINT[586]: proving_session.rs:530: slot={:#?}", slot);
         let result = self.set_contract_state_slot_inner(contract, slot, value)?;
         self.local_state_tracker
             .notify_update_slot_dmp(contract.to_canonical_u64(), &result);
@@ -831,7 +832,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
     pub fn get_all_state_updates(
         &mut self,
     ) -> anyhow::Result<(Vec<QEDContractStateUpdateHistory<GF>>, u32)> {
-        
+
         let total_slots_modified = self.local_state_tracker.total_slots_modified;
         let tracker_results = self.local_state_tracker.get_results();
 
@@ -855,7 +856,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             self.set_user_contract_tree_leaf(GF::from_canonical_u64(c), h)?;
         }
 
-        
+
        // let records = self.transaction_records.iter().map(|x| (x.call_data.call_data.contract_id, x.user_contract_tree_update_proof.old_value)).collect::<Vec<_>>();
 
         //let gt= self.get_self_user_contract_tree_leaf(GF::ZERO)?;

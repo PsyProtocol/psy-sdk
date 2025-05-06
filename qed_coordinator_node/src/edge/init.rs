@@ -10,6 +10,7 @@ use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
+use qed_realm_node::REALM_PROCESSOR_SUFFIX;
 use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
 
 pub fn init_tracing() {
@@ -41,15 +42,15 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
         redis_pool.clone(),
         config.coordinator_edge_queue_args.coordinator_worker_queue_suffix.clone(),
         config.coordinator_edge_queue_args.coordinator_notifications_queue_suffix.clone(),
-        Some(config.coordinator_edge_queue_args.coordinator_proof_store_key_suffix.as_str()),
-        Some(config.coordinator_edge_queue_args.coordinator_proof_store_key_suffix.as_str()),
+        Some(REALM_PROCESSOR_SUFFIX),
+        Some(REALM_PROCESSOR_SUFFIX),
     ));
     timer.lap("redis initialized");
     info!("✅ Initialized Redis pool");
 
     println!("config: {:#?}", config);
     // initialize lmdb
-    std::fs::create_dir_all(&config.coordinator_db_path)?;
+    // std::fs::create_dir_all(&config.coordinator_db_path)?;
 
     let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
         KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(

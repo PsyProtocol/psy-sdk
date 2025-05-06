@@ -138,6 +138,7 @@ where
         let r: GUTANoChangeFullInput<C::F> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
+        eprintln!("DEBUGPRINT[555]: guta_no_change.rs:141: r={}", serde_json::to_string_pretty(&r).unwrap());
 
         let guta_whitelist_root: QHashOut<C::F> = library
             .get_group_inclusion_proof(

@@ -97,12 +97,14 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
         verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<()> where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
+        eprintln!("DEBUGPRINT[508]: verify_guta_proof.rs:100: guta_whitelist_merkle_proof={}", serde_json::to_string_pretty(&guta_whitelist_merkle_proof).unwrap());
         self.guta_whitelist_merkle_proof.set_witness_generic(
             witness,
             F::from_noncanonical_u64(guta_whitelist_merkle_proof.index),
             guta_whitelist_merkle_proof.value,
             &guta_whitelist_merkle_proof.siblings,
         )?;
+        eprintln!("DEBUGPRINT[543]: verify_guta_proof.rs:107: guta_proof_header={}", serde_json::to_string_pretty(&guta_proof_header).unwrap());
         self.guta_proof_header_gadget.set_witness(witness, guta_proof_header)?;
 
         witness.set_proof_with_pis_target(&self.proof_target, &proof)?;

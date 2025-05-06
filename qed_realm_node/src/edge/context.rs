@@ -9,6 +9,7 @@ use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     plonk::proof::ProofWithPublicInputs,
 };
+use qed_core::config::network_constants::REALM_USER_TREE_HEIGHT;
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT,
@@ -38,6 +39,8 @@ use qed_data::qdata::checkpoint::{
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
+use qed_store::config::store_config::UserTreeStore;
+use qed_store::models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore;
 use qed_store::config::store_config::QEDFelt;
 use qed_store::{
     config::store_config::QCheckpointSyncInfoCompact, node::realm::QEDRealmStoreReaderAsync,
@@ -127,6 +130,7 @@ impl<
         input: SubmitUserEndCapNonProofInput<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<()> {
+        eprintln!("DEBUGPRINT[578]: context.rs:123: input={}", serde_json::to_string_pretty(&input).unwrap());
         // start validation
         if proof.public_inputs.len() != 4 {
             anyhow::bail!("invalid proof");
@@ -160,6 +164,7 @@ impl<
 
         let end_cap_checkpoint_id = input.core.checkpoint_id.to_canonical_u64();
         let checkpoint_id = self.get_checkpoint_id_async().await?;
+        let next_checkpoint_id = checkpoint_id + 2;
         if end_cap_checkpoint_id > checkpoint_id {
             anyhow::bail!("invalid checkpoint id");
         }
@@ -198,7 +203,7 @@ impl<
         );
 
         let cst_user_update =
-            input.verify_and_generate_cst_updates::<H>(checkpoint_id, old_user_state_tree_root)?;
+            input.verify_and_generate_cst_updates::<H>(next_checkpoint_id, old_user_state_tree_root)?;
 
         self.verify_proof_of_type(ProvingJobCircuitType::UserEndCap, proof)?;
 
@@ -219,9 +224,8 @@ impl<
             anyhow::bail!("already submitted proof for this block");
         }
 
-        debug!("input proof_id: {:?}", proof_id);
+        tracing::info!("input proof_id: {:?}", proof_id);
 
-        let next_checkpoint_id = checkpoint_id + 1;
         //self.proof_store.set_bytes_by_id(proof_id.get_input_witness_id(), data)
         self.proof_store.set_proof_by_id(proof_id, proof).await?;
         let queue_item = UserEndCapNonProofCoreInputQueueItem {
@@ -232,6 +236,10 @@ impl<
             channel_id: self.realm_config.guta_channel_id,
         };
 
+        tracing::info!("queue item: {:?}", queue_item);
+        tracing::info!("queue item pretty: {}", serde_json::to_string_pretty(&queue_item).unwrap());
+
+        eprintln!("DEBUGPRINT[573]: context.rs:231: cst_user_update={}", serde_json::to_string_pretty(&cst_user_update).unwrap());
         self.checkpoint_queue.cdq_push_imm(cst_user_update).await?;
         self.checkpoint_queue.cdq_push_imm(queue_item).await?;
 
@@ -280,11 +288,11 @@ where
         &self,
         user_ec_input: SubmitUserEndCapNonProofInput<F>,
         proof: ProofWithPublicInputs<F, C, D>,
-    ) -> RpcResult<bool> {
+    ) -> RpcResult<String> {
         Ok(self
             .handle_recv_end_cap_from_user(user_ec_input, &proof)
             .await
-            .map(|_| true)
+            .map(|_| "ok".to_string())
             .map_err(RpcError::Anyhow)?)
     }
 
@@ -748,6 +756,22 @@ where
             )
             .await
             .map_err(RpcError::Anyhow)?)
+    }
+
+    async fn get_user_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        tracing::info!(
+            "get_user_tree_merkle_proof: checkpoint_id={}, user_id={}",
+            checkpoint_id,
+            user_id
+        );
+        Ok(self.store_reader
+            .get_user_tree_merkle_proof(checkpoint_id, user_id)
+            .await.map_err(RpcError::Anyhow)?)
+        
     }
 }
 

@@ -31,7 +31,7 @@ use qed_core::{
     data::qhashout::QHashOut,
 };
 use qed_crypto::hash::{
-    merkle::{core::DeltaMerkleProofCore, 
+    merkle::{core::DeltaMerkleProofCore,
         utils::{common::{QMerkleNode, SimpleMerkleNode, SimpleMerkleNodeKey}, sub_tree_nca::UpdateNCAProofsWithDependencies}}
     ,
     traits::qhashable::QFieldHashable,
@@ -42,8 +42,9 @@ use qed_data::{
     }, qstore::uct_merkle_nodes::CSTUserUpdate, qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact}
 };
 pub fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
-    let dif = 64 - GLOBAL_USER_TREE_HEIGHT as u64; 
-    (registration_id).reverse_bits() >> dif
+    // let dif = 64 - GLOBAL_USER_TREE_HEIGHT as u64;
+    // (registration_id).reverse_bits() >> dif
+    registration_id
 }
 type F = GoldilocksField;
 #[async_trait]
@@ -59,7 +60,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F>
         for l in leaves.iter() {
             self.set_user_leaf_data(checkpoint_id, l)?;
         }
-        
+
         let mut nodes = Vec::new();
         for l in leaves.iter() {
             nodes.push(SimpleMerkleNode {
@@ -198,7 +199,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F>
     }
     async fn injest_checked_cst_nodes_imm(&self, user_updates: &[CSTUserUpdate<QHashOut<F>>]) -> anyhow::Result<()> {
         for upd in user_updates.iter() {
-            
+
             let nodes = upd.updates.iter().map(|x|{
                 KVQPair {
                     key: KVQMerkleNodeKey::<USER_CONTRACT_STATE_TREE_TABLE_TYPE> {
@@ -212,12 +213,14 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F>
                     value: x.value,
                 }
             }).collect::<Vec<_>>();
+            eprintln!("DEBUGPRINT[572]: writer_imm.rs:215: nodes={}", serde_json::to_string_pretty(&nodes).unwrap());
             let uct_nodes = upd.uct_updates.iter().map(|x|{
                 KVQPair {
                     key: UserContractTreeStore::<Self>::new_node_key_sfc(upd.checkpoint_id, upd.user_id, x.key.level, x.key.index),
                     value: x.value,
                 }
             }).collect::<Vec<_>>();
+            eprintln!("DEBUGPRINT[571]: writer_imm.rs:221: uct_nodes={}", serde_json::to_string_pretty(&uct_nodes).unwrap());
             BaseContractStateTreeStore::<Self>::set_nodes(self, &nodes)?;
             UserContractTreeStore::<Self>::set_nodes(self, &uct_nodes)?;
         }

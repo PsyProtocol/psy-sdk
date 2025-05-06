@@ -724,7 +724,7 @@ impl QProvingJobDataID {
     pub fn is_notify_complete(&self) -> bool {
         self.is_notify_orchestrator_complete() || self.is_notify_realm_complete()
     }
-    
+
     pub fn get_tree_parent_proof_input_id(&self) -> Self {
         let parent_type = match self.circuit_type {
             ProvingJobCircuitType::AppendUserRegistrationTree => ProvingJobCircuitType::AppendUserRegistrationTreeAggregate,

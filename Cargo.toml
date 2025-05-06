@@ -72,7 +72,7 @@ async-trait = { version = "0.1.88" }
 base64 = "0.22"
 bitcoin = { version = "0.31.1", features = ["serde", "rand"] }
 chrono = "0.4.39"
-
+homedir = "0.3"
 
 rand = "0.8.5"
 rand_core = "0.9"
@@ -182,6 +182,8 @@ color-eyre = "0.6"
 enum-as-inner = "0.6"
 strum = { version = "0.27", features = ["derive"] }
 
+# plonky2 = { path = "../plonky2-hwa/plonky2" }
+# plonky2_maybe_rayon = { path = "../plonky2-hwa/maybe_rayon" }
 plonky2 = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c" }
 plonky2_maybe_rayon = { git = "https://github.com/QEDProtocol/plonky2-hwa", rev = "5e8d6a22cdc12e6e1e4928da1f877fc659d0304c", default-features = false }
 
@@ -268,5 +270,12 @@ reqwest = { version = "0.11.22", default-features = false, features = [
 ] }
 
 jsonwebtoken = "9.3.1"
+
+qed_user_cli = { path = "./qed_user_cli" }
+
 futures-util = "0.3.28"
 axum = "0.8.3"
+
+[profile.release]
+debug = true
+

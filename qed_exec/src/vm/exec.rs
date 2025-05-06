@@ -84,6 +84,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
         &mut self,
         state_cmd: &DPNStateCmd<u64>,
     ) -> anyhow::Result<QEDCmdWithInputAndWitness<GF>> {
+        eprintln!("DEBUGPRINT[588]: exec.rs:87: state_cmd={}", serde_json::to_string_pretty(&state_cmd).unwrap());
         let current_contract_id = self.get_current_contract_id();
         match state_cmd {
             DPNStateCmd::SetContractStateSlotHash(c) => {

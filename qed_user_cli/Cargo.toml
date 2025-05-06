@@ -50,3 +50,5 @@ kvq_store_lmdbx = { workspace = true }
 repl-rs = { workspace = true }
 [build-dependencies]
 shadow-rs = { workspace = true }
+
+qed_crypto = { workspace = true }

@@ -57,7 +57,7 @@ impl CheckpointDrainQueueConsumerSyncImm for DrainQueueFred {
         let key = format!("CDQ_1_{}_{}",channel_id, checkpoint_id);
         let members: Vec<Vec<u8>> = conn.smembers::<String, Vec<Vec<u8>>>(key.clone())?;
         conn.del::<_, ()>(key)?;
-        
+
         members.into_iter().map(|x| T::from_bytes(&x)).collect()
     }
 }
@@ -95,6 +95,6 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
         let members: Vec<Vec<u8>> = self.pool.lrange::<Vec<Vec<u8>>, String>(key.clone(), 0, -1).await?;
         self.pool.del::<(), String>(key).await?;
 
-        members.into_iter().map(|x| T::from_bytes(&x)).collect()
+        members.into_iter().rev().map(|x| T::from_bytes(&x)).collect()
     }
 }
