@@ -190,6 +190,11 @@ impl<
         }
 
         if input.ups_header.session_start_context.start_session_user_leaf.qfhash::<QEDHasher>() != input.user_tree_proof.value{
+            tracing::error!(
+                "input.ups_header.session_start_context.start_session_user_leaf.qfhash::<QEDHasher>()!= input.user_tree_proof.value\n{:?}!= {:?}",
+                input.ups_header.session_start_context.start_session_user_leaf.qfhash::<QEDHasher>().to_string(),
+                input.user_tree_proof.value.to_string()
+            );
             anyhow::bail!("value doesn't match user leaf");
         }
 

@@ -3,6 +3,7 @@ use jsonrpsee::RpcModule;
 use qed_core::data::qhashout::QHashOut;
 use jsonrpsee::types::{ErrorObject, ErrorObjectOwned, Params};
 use plonky2::hash::hash_types::RichField;
+use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
@@ -11,7 +12,7 @@ use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLe
 use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_realm_node::{C, F};
-use qed_store::config::store_config::QEDFelt;
+use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use crate::context::{get_global_jwt_secret, GLOBAL_REALM_REGISTRY, REGISTERED_USERS};
 use crate::edge::context::LATEST_CHECKPOINT_ID;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
@@ -47,6 +48,9 @@ pub fn build_rpc_module(
                 ));
             }
         };
+
+        tracing::info!("✅ register_user {:?}", pub_key.qfhash::<QEDHasher>());
+        tracing::info!("✅ register_user {:?}", pub_key.qfhash::<QEDHasher>().to_string());
 
         match handler.register_user(pub_key).await {
             Ok(_) => {

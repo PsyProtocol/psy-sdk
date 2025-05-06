@@ -116,6 +116,11 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F>
                 checkpoint_id,
             }
         }).collect::<Vec<_>>();
+        tracing::info!(
+            "injest_checkpoint_sync_data_imm: start_registration_user_id: {}, new_user_records: {:?}",
+            start_registration_user_id,
+            new_user_records
+        );
         UserPublicKeyTableStore::<Self>::set_user_public_key_records(self, &new_user_records)?;
         UserRegistrationTreeStore::<Self>::append_leaves_spider_man(
             self,

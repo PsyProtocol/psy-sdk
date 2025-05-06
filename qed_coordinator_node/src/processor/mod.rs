@@ -269,6 +269,12 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                         .wait_for_block_proving_jobs_imm(next_checkpoint)
                         .await?;
                     confirmed_checkpoint_id += 1;
+                    let sync_info = coordinator_processor
+                       .ctx
+                       .store
+                       .get_checkpoint_sync_info_compact(confirmed_checkpoint_id).await?;
+                    tracing::info!("✅ Get sync info {:?} successfully", sync_info);
+                 
                     // save latest coordinator status
                     push_latest_global_coordinator_status(coordinator_processor.sync_queue.clone(), confirmed_checkpoint_id, next_checkpoint).await?;
 

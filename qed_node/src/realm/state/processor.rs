@@ -226,6 +226,10 @@ impl<
                             )),
                         })
                         .collect::<Vec<_>>();
+                    tracing::info!(
+                        "DEBUGPRINT[517]: processor.rs:236: pending_register_users={}",
+                        serde_json::to_string_pretty(&pending_register_users).unwrap()
+                    );
                     eprintln!("DEBUGPRINT[611]: processor.rs:236: pending_register_users={}", serde_json::to_string_pretty(&pending_register_users).unwrap());
                     let dmps = self
                         .store

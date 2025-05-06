@@ -143,6 +143,7 @@ impl RealmProcessor {
                 match context.handle_checkpoint_sync(block.compact.clone()).await {
                     Ok(_) => {
                         info!(?checkpoint_id, "Sync to new checkpoint");
+                        info!("Checkpoint sync reg users: {:?}", block.compact.registered_users);
                         if  self.local_checkpoint_id + 1 == block.lastest_checkpoint_id && block.lastest_checkpoint_id == checkpoint_id {
                             info!("Local checkpoint is latest");
                             self.local_checkpoint_id = checkpoint_id;
