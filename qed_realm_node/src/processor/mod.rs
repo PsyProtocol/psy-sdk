@@ -18,7 +18,7 @@ use qed_node_common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 
