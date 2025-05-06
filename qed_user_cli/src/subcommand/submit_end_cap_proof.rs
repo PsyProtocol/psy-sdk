@@ -31,7 +31,7 @@ use qed_store::{
 
 use crate::rpc::{
     provider::{QUserRpcProvider, RpcProvider},
-    request::{QSubmitEndCapRPCRequest, QSubmitRPCRequest},
+    request::QSubmitEndCapRPCRequest,
 };
 
 use super::args::{ContractCallArgs, SubmitEndCapArgs};
@@ -163,12 +163,12 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
 
     let user_ec_input: SubmitUserEndCapNonProofInput<F> = mgr.get_api_input()?;
 
-    let req = QSubmitRPCRequest {
+    let req = QSubmitEndCapRPCRequest {
         user_ec_input,
         proof: end_cap_proof,
     };
 
-    st_provider.submit_end_cap_proof::<F>(QSubmitEndCapRPCRequest { req })?;
+    st_provider.submit_end_cap_proof::<F>(req)?;
 
     Ok(())
 }
