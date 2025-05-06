@@ -12,9 +12,8 @@ use super::{
             DPNStateCmdGetSelfUserCurrentContractStateSlotRange,
             DPNStateCmdGetSelfUserCurrentContractStateSlotSingle,
             DPNStateCmdGetSelfUserExternalContractStateSlotHash,
-            DPNStateCmdInvokeExternalContractFunctionDeferred,
-            DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange,
-            DPNStateCmdSetContractStateSlotSingle,
+            DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdSetContractStateSlotHash,
+            DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle,
         },
         store::DPNStateCommandStore,
         types::DPNStateCmdCore,
@@ -66,7 +65,10 @@ impl QExecContext {
             DPNBuiltInDataType::Target => DPNOpType::GetStateCommandResultSingle,
             DPNBuiltInDataType::HashOut => DPNOpType::GetStateCommandResultHash,
             DPNBuiltInDataType::TargetArray => DPNOpType::GetStateCommandResultArray,
-            _ => panic!("unsupported hint result type {}", cmd.get_hint_result_type()),
+            _ => panic!(
+                "unsupported hint result type {}",
+                cmd.get_hint_result_type()
+            ),
         };
         let result = self.state_cmd_store.injest_command(cmd);
         let value = SymFeltRefValue {
@@ -79,75 +81,24 @@ impl QExecContext {
 
     fn create_self_user_current_contract_state_ref(
         &mut self,
+        condition: SymFeltRef,
         sub_slot_index: SymFeltRef,
-        values: &[SymFeltRef],
+        values: Vec<SymFeltRef>,
     ) -> SymFeltRef {
         if values.len() == 1 {
-            self.resolve_state_cmd_base(
-                DPNStateCmd::get_self_user_current_contract_state_slot_single(sub_slot_index),
-            )
-        } else {
-            self.resolve_state_cmd_base(
-                DPNStateCmd::get_self_user_current_contract_state_slot_range(
+            self.resolve_state_cmd_base(DPNStateCmd::SetContractStateSlotSingle(
+                DPNStateCmdSetContractStateSlotSingle {
+                    condition,
                     sub_slot_index,
-                    values.len() as u32,
-                ),
-            )
-        }
-    }
-
-    fn create_self_user_external_contract_state_ref(
-        &mut self,
-        contract_state_tree_height: u16,
-        contract_id: SymFeltRef,
-        sub_slot_index: SymFeltRef,
-        values: &[SymFeltRef],
-    ) -> SymFeltRef {
-        if values.len() == 1 {
-            self.resolve_state_cmd_base(
-                DPNStateCmd::get_self_user_external_contract_state_slot_single(
-                    contract_id,
-                    contract_state_tree_height as u8,
-                    sub_slot_index,
-                ),
-            )
-        } else {
-            self.resolve_state_cmd_base(
-                DPNStateCmd::get_self_user_external_contract_state_slot_range(
-                    contract_id,
-                    contract_state_tree_height as u8,
-                    sub_slot_index,
-                    values.len() as u32,
-                ),
-            )
-        }
-    }
-
-    fn create_other_user_contract_state_ref(
-        &mut self,
-        contract_state_tree_height: u16,
-        contract_id: SymFeltRef,
-        user_id: SymFeltRef,
-        sub_slot_index: SymFeltRef,
-        values: &[SymFeltRef],
-    ) -> SymFeltRef {
-        if values.len() == 1 {
-            self.resolve_state_cmd_base(DPNStateCmd::GetOtherUserContractStateSlotSingle(
-                DPNStateCmdGetOtherUserContractStateSlotSingle {
-                    contract_id,
-                    sub_slot_index,
-                    contract_state_tree_height: contract_state_tree_height as u8,
-                    user_id,
+                    value: values[0],
                 },
             ))
         } else {
-            self.resolve_state_cmd_base(DPNStateCmd::GetOtherUserContractStateSlotRange(
-                DPNStateCmdGetOtherUserContractStateSlotRange {
-                    contract_id,
+            self.resolve_state_cmd_base(DPNStateCmd::SetContractStateSlotRange(
+                DPNStateCmdSetContractStateSlotRange {
                     sub_slot_index,
-                    contract_state_tree_height: contract_state_tree_height as u8,
-                    user_id,
-                    length: values.len() as u32,
+                    value: values,
+                    condition,
                 },
             ))
         }
@@ -158,28 +109,18 @@ impl QExecContext {
         contract_state_tree_height: u16,
         contract_id: SymFeltRef,
         user_id: SymFeltRef,
+        condition: SymFeltRef,
         sub_slot_index: SymFeltRef,
-        values: &[SymFeltRef],
+        values: Vec<SymFeltRef>,
     ) -> SymFeltRef {
         let is_same_contract = contract_id.get_op_type().eq(&DPNOpType::GetContractId);
         let is_same_user = user_id.get_op_type().eq(&DPNOpType::GetUserId);
         if is_same_contract && is_same_user {
-            self.create_self_user_current_contract_state_ref(sub_slot_index, values)
+            self.create_self_user_current_contract_state_ref(condition, sub_slot_index, values)
         } else if is_same_user {
-            self.create_self_user_external_contract_state_ref(
-                contract_state_tree_height,
-                contract_id,
-                sub_slot_index,
-                values,
-            )
+            unimplemented!()
         } else {
-            self.create_other_user_contract_state_ref(
-                contract_state_tree_height,
-                contract_id,
-                user_id,
-                sub_slot_index,
-                values,
-            )
+            panic!("Cannot modify contract state of other user");
         }
     }
 
@@ -249,20 +190,6 @@ impl QExecContext {
         }
     }
 
-    fn create_self_contract_state_ref(
-        &mut self,
-        index: SymFeltRef,
-        values: &[SymFeltRef],
-    ) -> SymFeltRef {
-        self.create_contract_state_ref(
-            self.contract_state_tree_height,
-            SymFeltRef::new_valueless(DPNOpType::GetContractId),
-            SymFeltRef::new_valueless(DPNOpType::GetUserId),
-            index,
-            values,
-        )
-    }
-
     fn get_set_invoke_current_condition(&self) -> SymFeltRef {
         if self.condition_stack.is_empty() {
             SymFeltRef::constant_true()
@@ -327,12 +254,7 @@ impl QExecContext {
         self.store.insert(value)
     }
 
-    fn op_std_binary_op(
-        &mut self,
-        op_type: DPNOpType,
-        a: SymFeltRef,
-        b: SymFeltRef,
-    ) -> SymFeltRef {
+    fn op_std_binary_op(&mut self, op_type: DPNOpType, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         let a_type = a.get_op_type();
         let b_type = b.get_op_type();
         if (a_type == DPNOpType::Constant
@@ -911,13 +833,12 @@ impl DPNContext<SymFeltRef> for QExecContext {
         user_id: SymFeltRef,
         index: SymFeltRef,
     ) -> SymFeltRef {
-        let values = vec![SymFeltRef::new_valueless(DPNOpType::ConstantTrue)];
-        self.create_contract_state_ref(
+        self.create_contract_state_get_ref(
             contract_state_tree_height,
             contract_id,
             user_id,
             index,
-            &values,
+            1,
         )
     }
 
@@ -940,13 +861,14 @@ impl DPNContext<SymFeltRef> for QExecContext {
                 index,
             )
         } else {
-            self.resolve_state_cmd_base(DPNStateCmd::SetContractStateSlotSingle(
-                DPNStateCmdSetContractStateSlotSingle {
-                    condition,
-                    sub_slot_index: index,
-                    value,
-                },
-            ))
+            self.create_contract_state_ref(
+                self.contract_state_tree_height,
+                SymFeltRef::new_valueless(DPNOpType::GetContractId),
+                SymFeltRef::new_valueless(DPNOpType::GetUserId),
+                condition,
+                index,
+                vec![value],
+            )
         }
     }
 
@@ -954,23 +876,14 @@ impl DPNContext<SymFeltRef> for QExecContext {
         let felts = value.to_felts();
         let condition = self.get_set_invoke_current_condition();
 
-        if felts.len() == 1 {
-            self.resolve_state_cmd_base(DPNStateCmd::SetContractStateSlotSingle(
-                DPNStateCmdSetContractStateSlotSingle {
-                    condition,
-                    sub_slot_index: index,
-                    value: felts[0],
-                },
-            ));
-        } else {
-            self.resolve_state_cmd_base(DPNStateCmd::SetContractStateSlotRange(
-                DPNStateCmdSetContractStateSlotRange {
-                    sub_slot_index: index,
-                    value: felts,
-                    condition,
-                },
-            ));
-        }
+        self.create_contract_state_ref(
+            self.contract_state_tree_height,
+            SymFeltRef::new_valueless(DPNOpType::GetContractId),
+            SymFeltRef::new_valueless(DPNOpType::GetUserId),
+            condition,
+            index,
+            felts,
+        );
         value
     }
 
@@ -1033,11 +946,9 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
 
     fn get_state_hash_at(&mut self, slot_index: SymFeltRef) -> [SymFeltRef; 4] {
-        let b = self.resolve_state_cmd_base(
-            DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(
-                DPNStateCmdGetSelfUserCurrentContractStateSlotHash { slot_index },
-            ),
-        );
+        let b = self.resolve_state_cmd_base(DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(
+            DPNStateCmdGetSelfUserCurrentContractStateSlotHash { slot_index },
+        ));
         [
             self.op_target_at(b, 0),
             self.op_target_at(b, 1),
@@ -1058,15 +969,13 @@ impl DPNContext<SymFeltRef> for QExecContext {
             _ => panic!("contract_state_tree_height must be a constant"),
         };
 
-        let b = self.resolve_state_cmd_base(
-            DPNStateCmd::GetSelfUserExternalContractStateSlotHash(
-                DPNStateCmdGetSelfUserExternalContractStateSlotHash {
-                    slot_index,
-                    contract_id,
-                    contract_state_tree_height: contract_state_tree_height_value,
-                },
-            ),
-        );
+        let b = self.resolve_state_cmd_base(DPNStateCmd::GetSelfUserExternalContractStateSlotHash(
+            DPNStateCmdGetSelfUserExternalContractStateSlotHash {
+                slot_index,
+                contract_id,
+                contract_state_tree_height: contract_state_tree_height_value,
+            },
+        ));
         [
             self.op_target_at(b, 0),
             self.op_target_at(b, 1),
@@ -1082,17 +991,17 @@ impl DPNContext<SymFeltRef> for QExecContext {
         contract_id: SymFeltRef,
         slot_index: SymFeltRef,
     ) -> [SymFeltRef; 4] {
-        let contract_state_tree_height_value = if contract_id.get_op_type() == DPNOpType::GetContractId
-        {
-            self.contract_state_tree_height as u8
-        } else {
-            assert_eq!(
-                contract_state_tree_height.get_op_type(),
-                DPNOpType::Constant,
-                "contract_state_tree_height must be a constant"
-            );
-            contract_state_tree_height.get_constant_value() as u8
-        };
+        let contract_state_tree_height_value =
+            if contract_id.get_op_type() == DPNOpType::GetContractId {
+                self.contract_state_tree_height as u8
+            } else {
+                assert_eq!(
+                    contract_state_tree_height.get_op_type(),
+                    DPNOpType::Constant,
+                    "contract_state_tree_height must be a constant"
+                );
+                contract_state_tree_height.get_constant_value() as u8
+            };
         let b = self.resolve_state_cmd_base(DPNStateCmd::GetOtherUserContractStateSlotHash(
             DPNStateCmdGetOtherUserContractStateSlotHash {
                 slot_index,
@@ -1133,17 +1042,17 @@ impl DPNContext<SymFeltRef> for QExecContext {
         sub_slot_index: SymFeltRef,
         length: SymFeltRef,
     ) -> Vec<SymFeltRef> {
-        let contract_state_tree_height_value = if contract_id.get_op_type() == DPNOpType::GetContractId
-        {
-            self.contract_state_tree_height as u8
-        } else {
-            assert_eq!(
-                contract_state_tree_height.get_op_type(),
-                DPNOpType::Constant,
-                "contract_state_tree_height must be a constant"
-            );
-            contract_state_tree_height.get_constant_value() as u8
-        };
+        let contract_state_tree_height_value =
+            if contract_id.get_op_type() == DPNOpType::GetContractId {
+                self.contract_state_tree_height as u8
+            } else {
+                assert_eq!(
+                    contract_state_tree_height.get_op_type(),
+                    DPNOpType::Constant,
+                    "contract_state_tree_height must be a constant"
+                );
+                contract_state_tree_height.get_constant_value() as u8
+            };
         assert!(length.is_constant_type(), "range length must be constant");
         let b = self.create_contract_state_get_ref(
             contract_state_tree_height_value as u16,
@@ -1158,22 +1067,13 @@ impl DPNContext<SymFeltRef> for QExecContext {
     fn cset_state_range_at(&mut self, sub_slot_index: SymFeltRef, values: &[SymFeltRef]) {
         let condition = self.get_set_invoke_current_condition();
 
-        if values.len() == 1 {
-            self.resolve_state_cmd_base(DPNStateCmd::SetContractStateSlotSingle(
-                DPNStateCmdSetContractStateSlotSingle {
-                    condition,
-                    sub_slot_index,
-                    value: values[0],
-                },
-            ));
-        } else {
-            self.resolve_state_cmd_base(DPNStateCmd::SetContractStateSlotRange(
-                DPNStateCmdSetContractStateSlotRange {
-                    condition,
-                    sub_slot_index,
-                    value: values.to_vec(),
-                },
-            ));
-        }
+        self.create_contract_state_ref(
+            self.contract_state_tree_height,
+            SymFeltRef::new_valueless(DPNOpType::GetContractId),
+            SymFeltRef::new_valueless(DPNOpType::GetUserId),
+            condition,
+            sub_slot_index,
+            values.to_vec(),
+        );
     }
 }
