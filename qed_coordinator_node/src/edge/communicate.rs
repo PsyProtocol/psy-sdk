@@ -52,8 +52,8 @@ pub async fn push_latest_global_coordinator_status(
     drain_queue: Arc<DrainQueueFred>,
     confirmed_checkpoint_id: u64,
     processor_height: u64,
-) -> anyhow::Result<()> {
-    info!("Preparing to update global coordinator status, checkpoint_id = {}", confirmed_checkpoint_id);
+) {
+    // info!("Preparing to update global coordinator status, checkpoint_id = {}", confirmed_checkpoint_id);
 
     let status = GlobalCoordinatorStatus {
         confirmed_checkpoint_id,
@@ -61,8 +61,21 @@ pub async fn push_latest_global_coordinator_status(
         timestamp: Utc::now().timestamp() as u64,
     };
 
-    drain_queue.cdq_push_imm(status.clone()).await?;
-    info!("✅ Status pushed to Database, checkpoint_id = {}", confirmed_checkpoint_id);
+    match drain_queue.cdq_push_imm(status.clone()).await {
+        Ok(_) => {
+            info!(
+                "⭐ Updated confirmed checkpoint id = {}, processor height = {}",
+                confirmed_checkpoint_id, processor_height
+            );
+        }
+        Err(e) => {
+            error!(
+                "❌ Failed to update confirmed coordinator status (checkpoint_id = {}, processor_height = {}): {:?}",
+                confirmed_checkpoint_id, processor_height, e
+            );
+        }
+    }
+    // info!("✅ Status pushed to Database, checkpoint_id = {}", confirmed_checkpoint_id);
 
     // sleep(Duration::from_millis(500)).await;
     //
@@ -85,6 +98,4 @@ pub async fn push_latest_global_coordinator_status(
     //         warn!("⚠️ Redis returned no coordinator status after push.");
     //     }
     // }
-
-    Ok(())
 }
