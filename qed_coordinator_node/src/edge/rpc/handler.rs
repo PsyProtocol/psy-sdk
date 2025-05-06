@@ -38,8 +38,7 @@ use crate::{CoordinatorEdgeArgs, CoordinatorEdgeQueueArgs};
 use crate::communicate::{get_latest_global_coordinator_status, GlobalCoordinatorStatus};
 use crate::context::UserRegisterState::{Registered, Registering};
 use crate::edge::context::{with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
-use crate::edge::processor::{build_checkpoint_sync_info, process_realm_job};
-use crate::edge::redis::{create_pubsub_client, subscribe_checkpoint_sync};
+use crate::edge::processor::{build_checkpoint_sync_info};
 use crate::edge::rpc::types::GetUserIdRequest;
 use crate::rpc::types::CheckpointSyncInfo;
 
@@ -265,16 +264,15 @@ impl CoordinatorEdgeHandler {
 
     pub async fn get_checkpoint_sync_info(
         &self,
-        checkpoint_id: u64,
+        request_checkpoint_id: u64,
     ) -> anyhow::Result<CheckpointSyncInfo> {
 
         let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
 
-        //
-        if checkpoint_id > latest {
+        if request_checkpoint_id > latest {
             bail!(
             "Requested checkpoint_id {} exceeds latest local checkpoint_id {}",
-            checkpoint_id,
+            request_checkpoint_id,
             latest
             );
         }
@@ -283,14 +281,14 @@ impl CoordinatorEdgeHandler {
             |ctx| async move {
                 QEDCoordinatorStoreReaderAsync::get_checkpoint_sync_info_compact(
                     &*ctx.store_reader,
-                    checkpoint_id,
+                    request_checkpoint_id,
                 )
                     .await
             },
         )
             .await?;
 
-        Ok(build_checkpoint_sync_info(checkpoint_id, compact))
+        Ok(build_checkpoint_sync_info(latest, compact))
     }
     // async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
     pub async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<QEDFelt>> {

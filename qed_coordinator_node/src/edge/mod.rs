@@ -1,10 +1,7 @@
-pub mod config;
-
 pub mod context;
 pub mod init;
 pub mod processor;
 pub mod rpc;
-pub mod redis;
 pub mod communicate;
 
 use crate::args::CoordinatorEdgeArgs;
@@ -16,14 +13,12 @@ use crate::edge::rpc::router::build_rpc_module;
 use std::net::SocketAddr;
 use serde::{Deserialize, Serialize};
 use tracing::info;
-use crate::context::{init_global_jwt_secret, init_global_lmdb_store};
 
 
 use axum::http::HeaderMap;
 
 pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Starting coordinator edge node...");
-    // init_tracing();
 
     let mut timer = DebugTimer::new("coordinator_edge_node");
     timer.lap("start");

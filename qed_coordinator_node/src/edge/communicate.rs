@@ -48,29 +48,6 @@ pub async fn get_latest_global_coordinator_status(
     Ok(entries.into_iter().next())
 }
 
-
-// pub async fn push_latest_global_coordinator_status(
-//     drain_queue: Arc<DrainQueueFred>,
-//     confirmed_checkpoint_id: u64,
-//     processor_height: u64,
-// ) -> anyhow::Result<()> {
-//     info!("prepare push global coordinator status, checkpoint_id = {}", confirmed_checkpoint_id);
-//     info!("processor_height = {}", processor_height);
-//     let status = GlobalCoordinatorStatus {
-//         confirmed_checkpoint_id,
-//         processor_height,
-//         timestamp: Utc::now().timestamp() as u64,
-//     };
-//
-//     drain_queue.cdq_push_imm(status.clone()).await?;
-//
-//     {
-//         let entries = get_latest_global_coordinator_status(&drain_queue).await?;
-//         tokio::time::sleep(Duration::from_millis(500)).await;
-//
-//     }
-//     Ok(())
-// }
 pub async fn push_latest_global_coordinator_status(
     drain_queue: Arc<DrainQueueFred>,
     confirmed_checkpoint_id: u64,

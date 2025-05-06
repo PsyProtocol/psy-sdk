@@ -45,7 +45,6 @@ use crate::args::CoordinatorProcessorArgs;
 use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
 use crate::communicate::push_latest_global_coordinator_status;
 use crate::coordinator_lock::prepare_processor_lock_and_init_if_needed;
-use crate::redis::{broadcast_checkpoint_sync};
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
@@ -218,11 +217,6 @@ impl
 }
 
 pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
-    // tracing_subscriber::fmt()
-    //     .with_max_level(Level::DEBUG)
-    //     .with_env_filter(EnvFilter::from_default_env())
-    //     .init();
-    //
     let mut coordinator_processor =
         CoordinatorProcessNode::new_with_config(args)
         .await?;

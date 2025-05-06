@@ -12,7 +12,7 @@ use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_realm_node::{C, F};
 use qed_store::config::store_config::QEDFelt;
-use crate::context::{get_global_jwt_secret, GLOBAL_REALM_REGISTRY, REGISTERED_USERS};
+use crate::context::{REGISTERED_USERS};
 use crate::edge::context::LATEST_CHECKPOINT_ID;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
 use crate::edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
@@ -891,23 +891,23 @@ use qed_node::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by
 use qed_rollup_utils::{decrypt_jwt_token, Claims};
 use crate::{CoordinatorEdgeArgs, CoordinatorProcessorQueueArgs};
 
-pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwned> {
-
-    let jwt_meta = ext;
-    let token = &jwt_meta.token;
-
-    let secret = get_global_jwt_secret();
-    match decrypt_jwt_token(&secret, token) {
-        Ok(claims) => {
-            tracing::info!("✅ Valid JWT, realm_id = {}", claims.realm_id);
-            Ok(())
-        }
-        Err(e) => {
-            tracing::warn!("❌ Invalid JWT token: {:?}", e);
-            Err(ErrorObjectOwned::owned(401, format!("Invalid token: {}", e), None::<()>))
-        }
-    }
-}
+// pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwned> {
+//
+//     let jwt_meta = ext;
+//     let token = &jwt_meta.token;
+//
+//     let secret = get_global_jwt_secret();
+//     match decrypt_jwt_token(&secret, token) {
+//         Ok(claims) => {
+//             tracing::info!("✅ Valid JWT, realm_id = {}", claims.realm_id);
+//             Ok(())
+//         }
+//         Err(e) => {
+//             tracing::warn!("❌ Invalid JWT token: {:?}", e);
+//             Err(ErrorObjectOwned::owned(401, format!("Invalid token: {}", e), None::<()>))
+//         }
+//     }
+// }
 
 #[derive(Clone, Debug)]
 pub struct JwtAuthMetadata {

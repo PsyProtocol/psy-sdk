@@ -1,6 +1,4 @@
 use crate::args::CoordinatorEdgeArgs;
-use crate::context::{init_global_db_path, init_global_lmdb_store, init_global_queue, GLOBAL_DRAIN_QUEUE};
-use crate::edge::context::init_global_ctx_once;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_core::utils::debug_timer::DebugTimer;
@@ -9,21 +7,12 @@ use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node_common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
+use anyhow::anyhow;
+use fred::clients::Pool;
+use tracing::warn;
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
 use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
-
-pub fn init_tracing() {
-    use tracing_subscriber::{fmt, EnvFilter};
-
-    let subscriber = fmt::Subscriber::builder()
-        .with_env_filter(EnvFilter::from_default_env())
-        .with_timer(fmt::time::ChronoUtc::default())
-        .with_target(true) // display target
-        .compact()
-        .finish();
-
-    tracing::subscriber::set_global_default(subscriber).expect("Failed to set tracing subscriber");
-}
+use crate::context::{get_global_db_path, DrainQueue, ProofStore, StoreReader, GLOBAL_COORD_EDGE_CTX, GLOBAL_DB_PATH, GLOBAL_DRAIN_QUEUE, GLOBAL_LMDB_STORE};
 
 pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Result<()> {
     use tracing::info;
@@ -36,7 +25,10 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
 
     let redis_pool = new_fred_pool(&config.coordinator_redis_uri, 8).await?;
     init_node_redis_pool(redis_pool.clone())?;
+    info!("✅ Initialized Redis pool");
+
     init_global_queue(redis_pool.clone());
+    info!("✅ Initialized global drain queue");
 
     let proof_store = Arc::new(ProofStoreFred::new2(
         redis_pool.clone(),
@@ -81,4 +73,46 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     timer.lap("context initialized");
 
     Ok(())
+}
+
+
+pub async fn init_global_ctx_once(
+    ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
+) -> anyhow::Result<()> {
+    let mut guard = GLOBAL_COORD_EDGE_CTX.write().await;
+
+    if guard.is_some() {
+        anyhow::bail!("GLOBAL_COORD_EDGE_CTX has already been initialized");
+    }
+
+    *guard = Some(ctx);
+    Ok(())
+}
+
+
+/// Initialize global DB path (can only be called once)
+pub fn init_global_db_path<P: Into<String>>(path: P) -> anyhow::Result<()> {
+    GLOBAL_DB_PATH.set(path.into()).map_err(|_| anyhow!("GLOBAL_DB_PATH already set"))
+}
+
+
+pub fn init_global_lmdb_store() -> anyhow::Result<()> {
+    if GLOBAL_LMDB_STORE.get().is_some() {
+        return Ok(());
+    }
+
+    let db_path = get_global_db_path()?;
+    let inner_store = KVQlibmdbxStore::new_read(db_path)?;
+    let wrapped_store = KVQArcImmutableStoreWrapper::new(inner_store);
+
+    GLOBAL_LMDB_STORE.set(Arc::new(wrapped_store))
+        .map_err(|_| anyhow!("GLOBAL_LMDB_STORE already initialized"))
+}
+
+pub fn init_global_queue(pool: Pool) {
+    let drain_queue = DrainQueueFred::new(pool);
+
+    if GLOBAL_DRAIN_QUEUE.set(drain_queue).is_err() {
+        warn!("⚠️ GLOBAL_DRAIN_QUEUE already initialized, skipping re-initialization.");
+    }
 }
