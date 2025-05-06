@@ -50,22 +50,22 @@ log_message "Starting Scenario 0..."
 run_make_command "make deploy-contract" "Deploy Contract"
 run_make_command "make register-user" "Register User"
 run_make_command "make build-block" "Build Block 1"
-sleep 5
+sleep 6
 run_make_command "make build-block" "Build Block 2"
-sleep 5
+sleep 6
 run_make_command "make mint" "Mint"
 run_make_command "make build-block" "Build Block 3"
-sleep 5
+sleep 6
 run_make_command "make build-block" "Build Block 4"
-sleep 5
+sleep 6
 run_make_command "make transfer" "Transfer"
 run_make_command "make build-block" "Build Block 5"
-sleep 5
+sleep 6
 run_make_command "make build-block" "Build Block 6"
-sleep 5
+sleep 6
 run_make_command "make claim" "Claim"
 run_make_command "make build-block" "Build Block 7"
-sleep 5
+sleep 6
 run_make_command "make build-block" "Build Block 8"
 
 log_message "Scenario 0 completed successfully."

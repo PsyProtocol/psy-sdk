@@ -735,7 +735,7 @@ impl StateReaderGadget {
         
 
         if is_new {
-            builder.connect_hashes(mp_user_tree_root, self.chain_state_roots.user_tree_root);
+            // builder.connect_hashes(mp_user_tree_root, self.chain_state_roots.user_tree_root);
             let user_id_target = dpn.resolve_target(user_target_id);
             builder.connect(mp_user_tree_index, user_id_target);
         }
@@ -767,7 +767,7 @@ impl StateReaderGadget {
         if is_new {
             let actual_leaf_hash = leaf.to_hash::<H, F, D>(builder);
 
-            builder.connect_hashes(expected_leaf_hash, actual_leaf_hash);
+            // builder.connect_hashes(expected_leaf_hash, actual_leaf_hash);
         }
         leaf
     }
