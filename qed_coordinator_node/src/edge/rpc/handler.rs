@@ -11,7 +11,7 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 use rand::RngCore;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use tracing::{ error, info, warn};
+use tracing::{debug, error, info, warn};
 use kvq::traits::KVQSerializable;
 use qed_core::config::network_constants::QED_CHECKPOINT_JOB_ID_CHANNEL;
 use qed_core::data::qhashout::QHashOut;
@@ -72,11 +72,20 @@ impl CoordinatorEdgeHandler {
             return Ok(());
         }
         let handle = tokio::spawn(async move {
+            let mut last_logged_checkpoint = None;
+
             loop {
                 match get_latest_status_from_global_queue().await {
                     Ok(Some(status)) => {
-                        info!("🔔 Detected new checkpoint sync status: {:?}", status);
                         let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+                        if Some(status.confirmed_checkpoint_id) != last_logged_checkpoint {
+                            info!(
+                                "🔔 Detected new checkpoint sync status: {:?}",
+                                status
+                            );
+                            last_logged_checkpoint = Some(status.confirmed_checkpoint_id);
+                        }
+
                         if status.confirmed_checkpoint_id > latest {
                             info!(
                                 "🔔 Detected new confirmed checkpoint: {}, current latest: {} → updating local latest",
@@ -85,17 +94,16 @@ impl CoordinatorEdgeHandler {
                             LATEST_CHECKPOINT_ID.store(status.confirmed_checkpoint_id, Ordering::Relaxed);
                             info!("⭐ Coordinator Edge now updated to {}", status.confirmed_checkpoint_id);
                         }else {
-                            info!("ℹ️ No new confirmed checkpoint detected, current latest: {}", latest);
+                            debug!("ℹ️ No new confirmed checkpoint detected, current latest: {}", latest);
                         }
                     }
                     Ok(None) => {
-                        tracing::debug!("ℹ️ Coordinator status not yet available.");
+                        debug!("ℹ️ Coordinator status not yet available.");
                     }
                     Err(e) => {
                         error!("❌ Failed to get coordinator status: {:?}", e);
                     }
                 }
-                info!("waited cp sync listener spawned");
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
             }
         });

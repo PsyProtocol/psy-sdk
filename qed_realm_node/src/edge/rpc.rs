@@ -263,7 +263,7 @@ pub trait RealmEdgeRpc {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct CheckpointSyncInfo {
-    pub lastest_checkpoint_id: u64, // latest checkpoint id
+    pub latest_checkpoint_id: u64, // latest checkpoint id
     pub description: Option<String>,
     pub source_coordinator_edge_id: Option<String>,
     pub sync_timestamp: u64, // sync timestamp

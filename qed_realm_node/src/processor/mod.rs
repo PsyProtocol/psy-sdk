@@ -130,7 +130,7 @@ impl RealmProcessor {
                     return Ok(false);
                 }
 
-                if self.local_checkpoint_id >= block.lastest_checkpoint_id {
+                if self.local_checkpoint_id >= block.latest_checkpoint_id {
                     info!("Local checkpoint is latest");
                     return Ok(true);
                 }
@@ -139,7 +139,7 @@ impl RealmProcessor {
                 match context.handle_checkpoint_sync(block.compact.clone()).await {
                     Ok(_) => {
                         info!(?checkpoint_id, "Sync to new checkpoint");
-                        if  self.local_checkpoint_id + 1 == block.lastest_checkpoint_id && block.lastest_checkpoint_id == checkpoint_id {
+                        if  self.local_checkpoint_id + 1 == block.latest_checkpoint_id && block.latest_checkpoint_id == checkpoint_id {
                             info!("Local checkpoint is latest");
                             self.local_checkpoint_id = checkpoint_id;
                             return Ok(true);

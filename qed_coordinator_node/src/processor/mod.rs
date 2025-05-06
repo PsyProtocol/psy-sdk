@@ -237,9 +237,14 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
     tracing::info!("start coordinator processor");
     let task = tokio::spawn(async move {
         let mut processor_loop = async move || -> anyhow::Result<()> {
+            let mut last_logged_checkpoint = None;
+
             loop {
-                // wait for produceblock message from coordinator edge
-                info!("wait for produce block {} command from coordinator edge", next_checkpoint);
+                // wait for produce block message from coordinator edge
+                if Some(next_checkpoint) != last_logged_checkpoint {
+                    info!("wait for produce block {} command from coordinator edge", next_checkpoint);
+                    last_logged_checkpoint = Some(next_checkpoint);
+                }
 
                 if coordinator_processor.wait_for_produce_block(next_checkpoint).await? {
                     tracing::info!("start build block {}", next_checkpoint);

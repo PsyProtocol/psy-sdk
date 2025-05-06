@@ -250,7 +250,7 @@ impl<
 
     pub async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()> {
         debug!(
-            checkpoint.lastest_checkpoint_id,
+            checkpoint.latest_checkpoint_id,
             checkpoint.sync_timestamp,
             checkpoint.source_coordinator_edge_id,
             "Received sync checkpoint"

@@ -10,7 +10,7 @@ use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, Checkpoin
 use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct GlobalCoordinatorStatus {
     pub confirmed_checkpoint_id: u64,//worker have confirmed
     pub processor_height: u64, //height of the processor
