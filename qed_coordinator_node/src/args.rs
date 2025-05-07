@@ -4,7 +4,7 @@ use clap::Args;
 pub struct CoordinatorWorkerArgs {
     #[clap(env, long, default_value = "redis://localhost:6379", env)]
     pub coordinator_redis_uri: String,
-    #[clap(long, short, default_value = "8")]
+    #[clap(long, short, default_value = "20")]
     pub coordinator_pool_size: u32,
     #[clap(flatten)]
     pub coordinator_processor_queue_args: CoordinatorProcessorQueueArgs,
@@ -14,7 +14,7 @@ pub struct CoordinatorWorkerArgs {
 pub struct CoordinatorProcessorArgs {
     #[clap(env, long, default_value = "redis://localhost:6379", env)]
     pub coordinator_redis_uri: String,
-    #[clap(long, short, default_value = "8")]
+    #[clap(long, short, default_value = "20")]
     pub coordinator_pool_size: u32,
     #[clap(env, long, default_value = "./db/coordinator", env)]
     pub coordinator_db_path: String,

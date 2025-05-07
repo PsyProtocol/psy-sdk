@@ -52,14 +52,14 @@ impl RealmInternalQueue for ProofStoreFred {
         item: CheckpointSyncInfo,
     ) -> anyhow::Result<()> {
         self.pool()
-            .rpush::<(), &str, Vec<u8>>(REAML_CHECKPOINT_KEY, item.to_bytes()?)
+            .lpush::<(), &str, Vec<u8>>(REAML_CHECKPOINT_KEY, item.to_bytes()?)
             .await?;
         Ok(())
     }
 
     async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo> {
         let result: FredResult<(String, Vec<u8>)> =
-            self.pool().blpop(REAML_CHECKPOINT_KEY, 0.0).await;
+            self.pool().brpop(REAML_CHECKPOINT_KEY, 0.0).await;
 
         match result {
             Ok((_, bytes)) => match CheckpointSyncInfo::from_bytes(&bytes) {

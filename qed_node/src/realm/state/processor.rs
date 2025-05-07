@@ -187,7 +187,7 @@ impl<
                 checkpoint_id,
             )
             .await?;
-        eprintln!("DEBUGPRINT[574]: processor.rs:197: updates={}", serde_json::to_string_pretty(&updates).unwrap());
+        eprintln!("DEBUGPRINT[574]: processor.rs:197: checkpoint {} updates={}", checkpoint_id, serde_json::to_string_pretty(&updates).unwrap());
 
         self.store.injest_checked_cst_nodes_imm(&updates).await?;
 

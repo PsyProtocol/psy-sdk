@@ -35,7 +35,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
 
     let pool = new_fred_pool(
         &config.redis.redis_uri,
-        config.redis.pool_size.unwrap_or(10),
+        config.redis.pool_size.unwrap_or(20),
     )
     .await
     .map_err(|e| anyhow::anyhow!("Failed to create Redis pool: {}", e))?;

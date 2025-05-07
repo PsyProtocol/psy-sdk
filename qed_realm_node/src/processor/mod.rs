@@ -52,7 +52,7 @@ impl RealmProcessor {
     pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
         let pool =
-            new_fred_pool(&config.redis.redis_uri, config.redis.pool_size.unwrap_or(8)).await?;
+            new_fred_pool(&config.redis.redis_uri, config.redis.pool_size.unwrap_or(20)).await?;
         let realm_qps = ProofStoreFred::new2(
             pool,
             config.queue.worker_queue_suffix,
