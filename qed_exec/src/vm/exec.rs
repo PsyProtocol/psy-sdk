@@ -298,7 +298,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
 
                     // we don't need to get the old values for main body proofs
                     for i in 1..(n_proofs-1) {
-                        let current_value_index = main_body_proofs_index_offset + i as usize * 4;
+                        let current_value_index = main_body_proofs_index_offset + (i - 1) as usize * 4;
 
                         let set_value = QHashOut(HashOut {
                             elements: [
@@ -332,7 +332,7 @@ impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
 
                     */
 
-                    let last_proof_value_index = main_body_proofs_index_offset + (n_proofs as usize -1)*4;
+                    let last_proof_value_index = main_body_proofs_index_offset + (n_proofs as usize -2)*4;
                     let last_proof_slot_index = start_slot_index+GF::from_canonical_u64(n_proofs - 1);
                     if slot_mask_type == 6 {
                         // if mask type is 6, we don't need to check the old value
