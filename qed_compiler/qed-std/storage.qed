@@ -113,19 +113,19 @@ impl<T: Storage, N: u32> Storage for [T; N] {
             contract_state_tree_height,
             user_id,
             contract_id,
-            offset * 4,
+            offset,
             Self::size()
         ))
     }
 
     pub fn write(offset: Felt, value: Self) {
-        __storage_write_range(offset * 4, value);
+        __storage_write_range(offset, value);
     }
 }
 
 impl<T: Storage, N: u32> StorageAt<T, N> for [T; N] {
     pub fn write_at(offset: Felt, index: Felt, value: T) {
-        let offset = offset * 4 + (index * T::size());
+        let offset = offset + (index * T::size());
         T::write(offset, value)
     }
 
@@ -136,7 +136,7 @@ impl<T: Storage, N: u32> StorageAt<T, N> for [T; N] {
         offset: Felt,
         index: Felt
     ) -> T {
-        let offset = offset * 4 + (index * T::size());
+        let offset = offset + (index * T::size());
         T::read(contract_state_tree_height, user_id, contract_id, offset)
     }
 }

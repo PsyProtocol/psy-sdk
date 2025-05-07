@@ -248,15 +248,18 @@ deploy-contract:
 	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${CURRENT_USER_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
 
 mint:
-	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id 0 --method-name simple_mint --inputs 1000 --nonce 1
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000 --nonce 1
 
 transfer:
-	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id 0 --method-name simple_transfer --inputs 1 --inputs 500 --nonce 2
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1 --inputs 500 --nonce 2
 
 claim:
-	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id 0 --method-name simple_claim --inputs 0 --nonce 1
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0 --nonce 1
 
-balance_of:
+return-back:
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 500 --nonce 2
+
+balance-of:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}, ${CONTRACT_STATE_HEIGHT}, ${SLOT_ID}], "id": 1 }' | jq .
 
 build-block:
@@ -366,3 +369,6 @@ image:
 		-c 512 \
 		-t qedprotocol/qed-rollup:latest \
 		-f Dockerfile .
+
+help:
+	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

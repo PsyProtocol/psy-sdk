@@ -530,7 +530,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         slot: GF,
         value: QHashOut<GF>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
-        eprintln!("DEBUGPRINT[586]: proving_session.rs:530: slot={:#?}", slot);
+        eprintln!("DEBUGPRINT[586]: proving_session.rs:530: slot={}, value:{}", slot, value);
         let result = self.set_contract_state_slot_inner(contract, slot, value)?;
         self.local_state_tracker
             .notify_update_slot_dmp(contract.to_canonical_u64(), &result);

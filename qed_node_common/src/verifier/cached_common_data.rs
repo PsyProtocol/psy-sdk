@@ -15,7 +15,7 @@ where
 {
     let serialized_library =
         serde_json::from_str::<SerializedGenericCircuitCommonDataLibraryInfo>(
-            r#"{"common_data_hashes":["acd2052c5f2d49c2a931d3c8545876e51ce9c42ca1f7713d46cdac5e2e0f7f19","70724c5b671675652c93e738c2ec3296b6366994fae960f747f03c2156720c11","7ea492b556ffc919706ac50511cadc6c6b3b38afe4810c7b5ef3320652b50f0e"],"common_circuit_list":[[8,13,14,11,10,15,226,9,7,12],[0,1,32,19,48,54,227,18],[228,6]]}"#
+            r#"{"common_data_hashes":["acd2052c5f2d49c2a931d3c8545876e51ce9c42ca1f7713d46cdac5e2e0f7f19","70724c5b671675652c93e738c2ec3296b6366994fae960f747f03c2156720c11","7ea492b556ffc919706ac50511cadc6c6b3b38afe4810c7b5ef3320652b50f0e"],"common_circuit_list":[[226,7,15,12,11,14,9,8,10,13],[48,54,227,18,0,32,19,1],[6,228]]}"#
         ).unwrap();
 
     GenericCircuitCommonDataLibrary::<C, D>::from_serialized(

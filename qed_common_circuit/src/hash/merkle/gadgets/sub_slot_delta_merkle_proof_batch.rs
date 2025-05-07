@@ -261,27 +261,40 @@ fn connect_sub_slot_start_mask_4_delta_merkle_proof<
 
     let is_sub_slot_index_mod_4_eq_0 = builder.not(is_ssim4_eq_1_or_2_or_3);
 
-    // if sub_slot_index_mod_4 == 0, then mask is [0,0,0,0]
-
-    // if sub_slot_index_mod_4 == 1, then mask is [0,1,1,1]
+    // if sub_slot_index_mod_4 == 1, mask is [0,1,1,1]
     builder.connect_if_true(
         is_sub_slot_index_mod_4_eq_1,
+        old_value.elements[0],
+        new_value.elements[0],
+    );
+
+    // if sub_slot_index_mod_4 == 2, mask is [0,0,1,1]
+    builder.connect_if_true(
+        is_sub_slot_index_mod_4_eq_2,
+        old_value.elements[0],
+        new_value.elements[0],
+    );
+    builder.connect_if_true(
+        is_sub_slot_index_mod_4_eq_2,
         old_value.elements[1],
         new_value.elements[1],
     );
 
-    // if sub_slot_index_mod_4 == 2, then mask is [0,0,1,1]
+    // if sub_slot_index_mod_4 == 3, mask is [0,0,0,1]
     builder.connect_if_true(
-        is_ssim4_eq_1_or_2,
+        is_sub_slot_index_mod_4_eq_3,
+        old_value.elements[0],
+        new_value.elements[0],
+    );
+    builder.connect_if_true(
+        is_sub_slot_index_mod_4_eq_3,
+        old_value.elements[1],
+        new_value.elements[1],
+    );
+    builder.connect_if_true(
+        is_sub_slot_index_mod_4_eq_3,
         old_value.elements[2],
         new_value.elements[2],
-    );
-
-    // if sub_slot_index_mod_4 == 3, then mask is [0,0,0,1]
-    builder.connect_if_true(
-        is_ssim4_eq_1_or_2_or_3,
-        old_value.elements[1],
-        new_value.elements[1],
     );
 
     SubSlotStartGadget {
@@ -339,7 +352,7 @@ impl SubSlotDeltaMerkleProofBatchGadget {
             if force_four_align{
                 builder.assert_zero(sub_slot_index_mod_4);
             }
-    
+
             // ensure the delta merkle proofs are back to back
             builder.connect_hashes(dmp_0.new_root, dmp_1.old_root);
 
@@ -388,7 +401,7 @@ impl SubSlotDeltaMerkleProofBatchGadget {
             let n_proofs = (sub_slot_length + 6) / 4;
 
             let first_proof = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(builder, height);
-            
+
             builder.connect(start_slot_index, first_proof.index);
 
             let first_gadget = connect_sub_slot_start_mask_4_delta_merkle_proof::<H, F, D>(
@@ -414,7 +427,7 @@ impl SubSlotDeltaMerkleProofBatchGadget {
                     dmp.index,
                     expected_index,
                 );
-                
+
                 // connect old root to previous slot's new root
                 builder.connect_hashes(
                     dmp.old_root,
@@ -437,7 +450,7 @@ impl SubSlotDeltaMerkleProofBatchGadget {
                 expected_last_proof_index
             );
 
-            
+
             // connect old root to previous slot's new root
             builder.connect_hashes(
                 last_proof.old_root,
@@ -468,7 +481,7 @@ impl SubSlotDeltaMerkleProofBatchGadget {
                 first_gadget.enforce_targets_from_dmps::<H,F,D>(builder, &dmps, &values);
             }
 
-            
+
             Self {
                 old_root,
                 new_root,
