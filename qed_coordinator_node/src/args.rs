@@ -18,6 +18,8 @@ pub struct CoordinatorProcessorArgs {
     pub coordinator_pool_size: u32,
     #[clap(env, long, default_value = "./db/coordinator", env)]
     pub coordinator_db_path: String,
+    #[clap(env, long, default_value = "100", env)]
+    pub coordinator_db_size_gb: usize,
     #[clap(flatten)]
     pub coordinator_processor_queue_args: CoordinatorProcessorQueueArgs,
 }

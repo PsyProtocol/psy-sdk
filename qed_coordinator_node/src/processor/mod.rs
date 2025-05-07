@@ -162,8 +162,9 @@ impl
         );
 
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
+            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write_with_size(
                 &cp_config.coordinator_db_path,
+                cp_config.coordinator_db_size_gb,
             )?);
         let (processor_lock ,need_init) = prepare_processor_lock_and_init_if_needed(
             &cp_config.coordinator_db_path, &store_reader)?;

@@ -81,12 +81,16 @@ pub struct DBConfig {
     /// Database path
     #[arg(long, env = "REALM_DB_PATH", default_value = "./db/realm0")]
     pub path: String,
+
+    #[arg(long, env = "REALM_DB_SIZE_GB", default_value_t = 100)]
+    pub size_gb: usize,
 }
 
 impl Default for DBConfig {
     fn default() -> Self {
         Self {
             path: "./db/realm0".to_string(),
+            size_gb: 100,
         }
     }
 }

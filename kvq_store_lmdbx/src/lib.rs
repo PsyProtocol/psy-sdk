@@ -1,7 +1,6 @@
 use kvq::traits::{KVQBinaryStoreReader, KVQBinaryStoreWriter, KVQPair};
 use reth_libmdbx::{
-    Cursor, Database, Environment, EnvironmentFlags, Mode, SyncMode, TransactionKind, WriteFlags,
-    RO, RW,
+    Cursor, Database, Environment, EnvironmentFlags, Geometry, Mode, SyncMode, TransactionKind, WriteFlags, RO, RW
 };
 use std::{ops::RangeInclusive, path::PathBuf};
 
@@ -53,6 +52,28 @@ impl KVQlibmdbxStore {
         let env = Environment::builder()
             .set_max_dbs(1)
             .set_flags(flags)
+            .open(PathBuf::from(path).as_path())?;
+
+        Ok(Self { env })
+    }
+
+    pub fn new_write_with_size(path: &str, size_gb: usize) -> anyhow::Result<Self> {
+        let flags = EnvironmentFlags {
+            no_sub_dir: false,
+            mode: Mode::ReadWrite {
+                sync_mode: SyncMode::Durable,
+            },
+            coalesce: true,
+            ..Default::default()
+        };
+
+        let env = Environment::builder()
+            .set_max_dbs(1)
+            .set_flags(flags)
+            .set_geometry(Geometry {
+                size: Some((size_gb * 1024 * 1024 * 1024)..),
+                ..Default::default()
+            })
             .open(PathBuf::from(path).as_path())?;
 
         Ok(Self { env })

@@ -61,8 +61,9 @@ impl RealmProcessor {
             &config.queue.proof_store_key_suffix.as_str(),
         );
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
+            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write_with_size(
                 &config.db.path,
+                config.db.size_gb,
             )?);
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
