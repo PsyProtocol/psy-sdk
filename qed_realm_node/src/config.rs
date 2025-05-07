@@ -50,27 +50,27 @@ impl Default for RealmConfig {
 #[serde(default)]
 pub struct QueueConfig {
     /// Worker queue suffix
-    #[arg(long, env = "REALM_QUEUE_WORKER_QUEUE_SUFFIX", default_value = "rwq1")]
+    #[arg(long, env = "REALM_QUEUE_WORKER_QUEUE_SUFFIX", default_value = "rwq0")]
     pub worker_queue_suffix: String,
 
     /// Notifications queue suffix
     #[arg(
         long,
         env = "REALM_QUEUE_NOTIFICATIONS_QUEUE_SUFFIX",
-        default_value = "rnq1"
+        default_value = "rnq0"
     )]
     pub notifications_queue_suffix: String,
 
-    #[arg(long, env = "REALM_PROOF_STORE_KEY_SUFFIX", default_value = "RP")]
+    #[arg(long, env = "REALM_PROOF_STORE_KEY_SUFFIX", default_value = "RP0")]
     pub proof_store_key_suffix: String,
 }
 
 impl Default for QueueConfig {
     fn default() -> Self {
         Self {
-            worker_queue_suffix: "rwq1".to_string(),
-            notifications_queue_suffix: "rnq1".to_string(),
-            proof_store_key_suffix: "RP".to_string(),
+            worker_queue_suffix: "rwq0".to_string(),
+            notifications_queue_suffix: "rnq0".to_string(),
+            proof_store_key_suffix: "RP0".to_string(),
         }
     }
 }
@@ -79,14 +79,14 @@ impl Default for QueueConfig {
 #[serde(default)]
 pub struct DBConfig {
     /// Database path
-    #[arg(long, env = "REALM_DB_PATH", default_value = "./db/realm")]
+    #[arg(long, env = "REALM_DB_PATH", default_value = "./db/realm0")]
     pub path: String,
 }
 
 impl Default for DBConfig {
     fn default() -> Self {
         Self {
-            path: "./db/realm".to_string(),
+            path: "./db/realm0".to_string(),
         }
     }
 }

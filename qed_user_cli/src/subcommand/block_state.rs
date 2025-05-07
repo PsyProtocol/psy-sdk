@@ -4,7 +4,7 @@ use anyhow::{Ok, Result};
 use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 
 pub fn get_lastest_block_state(args: LatestBlockStateArgs) -> Result<()> {
-    let provider = RpcProvider::new_with_config(args.rpc_config)?;
+    let provider = RpcProvider::new_with_config(&args.rpc_config)?;
     let latest_block_state = provider.get_latest_l2_block_state()?;
 
     println!(
@@ -15,7 +15,7 @@ pub fn get_lastest_block_state(args: LatestBlockStateArgs) -> Result<()> {
 }
 
 pub fn get_l2_block_state(args: BlockStateArgs) -> Result<()> {
-    let provider = RpcProvider::new_with_config(args.rpc_config)?;
+    let provider = RpcProvider::new_with_config(&args.rpc_config)?;
     let block_state = provider.get_l2_block_state(args.checkpoint_id)?;
     let latest_checkpoint_id = provider.get_latest_l2_block_state()?.checkpoint_id;
 
@@ -29,7 +29,7 @@ pub fn get_l2_block_state(args: BlockStateArgs) -> Result<()> {
 }
 
 pub fn get_user_id(args: UserIdArgs) -> Result<()> {
-    let provider = RpcProvider::new_with_config(args.rpc_config)?;
+    let provider = RpcProvider::new_with_config(&args.rpc_config)?;
     let user_id = provider.get_user_id(args.pub_key)?;
 
     println!("user_id: {}", user_id);

@@ -80,7 +80,7 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
         inputs: args.inputs,
     }];
 
-    let mut st_provider = RpcProvider::new_with_config(args.rpc_config)?;
+    let mut st_provider = RpcProvider::new_with_config(&args.rpc_config)?;
 
     let latest_l2_block_state = st_provider.resolve_get_latest_l2_block_state()?;
     tracing::info!("latest l2 block state: {:?}", latest_l2_block_state);

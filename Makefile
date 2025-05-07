@@ -169,33 +169,62 @@ run-realm-edge:
 
 
 run-realm-processor1:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6379 \
       --node-id=2 \
       --realm-id=1 \
-      --worker-queue-suffix=rwq2 \
-      --notifications-queue-suffix=rnq2 \
+      --worker-queue-suffix=rwq1 \
+      --notifications-queue-suffix=rnq1 \
       --proof-store-key-suffix=RP1 \
       --path=./db/realm1
 
-run-realm-worker1:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-worker \
+run-realm-processor2048:
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6379 \
-      --worker-queue-suffix=rwq2 \
-      --notifications-queue-suffix=rnq2 \
+      --node-id=2 \
+      --realm-id=2048 \
+      --worker-queue-suffix=rwq2048 \
+      --notifications-queue-suffix=rnq2048 \
+      --proof-store-key-suffix=RP2048 \
+      --path=./db/realm2048
+
+run-realm-worker1:
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli realm-worker \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --worker-queue-suffix=rwq1 \
+      --notifications-queue-suffix=rnq1 \
       --proof-store-key-suffix=RP1
 
+run-realm-worker2048:
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli realm-worker \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --worker-queue-suffix=rwq2048 \
+      --notifications-queue-suffix=rnq2048 \
+      --proof-store-key-suffix=RP2048
+
 run-realm-edge1:
-	@RUST_LOG=${LOG_LEVE} cargo run --profile ${PROFILE} --package qed_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli realm-edge \
       --listen-addr=0.0.0.0:8547 \
       --redis-uri=redis://127.0.0.1:6379 \
       --coordinator-addr=http://127.0.0.1:8545 \
       --node-id=2 \
       --realm-id=1 \
-      --worker-queue-suffix=rwq2 \
-      --notifications-queue-suffix=rnq2 \
+      --worker-queue-suffix=rwq1 \
+      --notifications-queue-suffix=rnq1 \
       --proof-store-key-suffix=RP1 \
       --path=./db/realm1
+
+run-realm-edge2048:
+	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+      --listen-addr=0.0.0.0:8547 \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --node-id=2 \
+      --realm-id=2048 \
+      --worker-queue-suffix=rwq2048 \
+      --notifications-queue-suffix=rnq2048 \
+      --proof-store-key-suffix=RP2048 \
+      --path=./db/realm2048
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVE} ./target/${PROFILE}/qed_rollup_cli generate-access-token

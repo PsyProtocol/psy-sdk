@@ -258,7 +258,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         debug!("Fetching user registration tree root");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QUserRegistrationTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
             self,
@@ -288,7 +288,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         leaf_index: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         debug!("Fetching user registration tree leaf hash");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QUserRegistrationTreeLeafHashRPCRequest {
             checkpoint_id,
             leaf_index,
@@ -323,7 +323,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         qed_crypto::hash::merkle::core::MerkleProofCore<qed_core::data::qhashout::QHashOut<F>>,
     > {
         debug!("Fetching user registration tree merkle proof");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QUserRegistrationTreeMerkleProofRPCRequest {
             checkpoint_id,
             leaf_index,
@@ -491,7 +491,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             "Fetching user sub tree merkle proof checkpoint_id: {}, root_level: {}, leaf_level: {}, leaf_index: {}",
             checkpoint_id, root_level, leaf_level, leaf_index
         );
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QUserSubTreeMerkleProofRPCRequest {
             checkpoint_id,
             root_level,
@@ -526,7 +526,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         contract_id: u32,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         debug!("Fetching contract function tree root");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QContractFunctionTreeRootRPCRequest {
             checkpoint_id,
             contract_id,
@@ -560,7 +560,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         function_id: u32,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         debug!("Fetching contract function tree leaf hash");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QContractFunctionTreeLeafHashRPCRequest {
             checkpoint_id,
             contract_id,
@@ -597,7 +597,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         qed_crypto::hash::merkle::core::MerkleProofCore<qed_core::data::qhashout::QHashOut<F>>,
     > {
         debug!("Fetching contract function tree merkle proof");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QContractFunctionTreeMerkleProofRPCRequest {
             checkpoint_id,
             contract_id,
@@ -630,7 +630,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         debug!("Fetching contract tree root");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QContractTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
             self,
@@ -663,7 +663,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             "Fetching contract tree leaf hash checkpoint_id: {}, contract_id: {}",
             checkpoint_id, contract_id
         );
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QContractTreeLeafHashRPCRequest {
             checkpoint_id,
             contract_id,
@@ -701,7 +701,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             "Fetching contract tree merkle proof checkpoint_id: {}, contract_id: {}",
             checkpoint_id, contract_id
         );
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QContractTreeMerkleProofRPCRequest {
             checkpoint_id,
             contract_id,
@@ -733,7 +733,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         debug!("Fetching deposit tree root");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QDepositTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
             self,
@@ -763,7 +763,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         deposit_id: u32,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         debug!("Fetching deposit tree leaf hash");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QDepositTreeLeafHashRPCRequest {
             checkpoint_id,
             deposit_id,
@@ -798,7 +798,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         qed_crypto::hash::merkle::core::MerkleProofCore<qed_core::data::qhashout::QHashOut<F>>,
     > {
         info!("Fetching deposit tree merkle proof");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QDepositTreeMerkleProofRPCRequest {
             checkpoint_id,
             deposit_id,
@@ -830,7 +830,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         info!("Fetching withdrawal tree root");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QWithdrawalTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
             self,
@@ -860,7 +860,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         withdrawal_id: u32,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         info!("Fetching withdrawal tree leaf hash");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QWithdrawalTreeLeafHashRPCRequest {
             checkpoint_id,
             withdrawal_id,
@@ -895,7 +895,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         qed_crypto::hash::merkle::core::MerkleProofCore<qed_core::data::qhashout::QHashOut<F>>,
     > {
         info!("Fetching withdrawal tree merkle proof");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QWithdrawalTreeMerkleProofRPCRequest {
             checkpoint_id,
             withdrawal_id,
@@ -926,7 +926,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         info!("Fetching latest checkpoint tree root");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QLatestCheckpointTreeRootRPCRequest {};
         let response = qed_rpc_call_back!(
             self,
@@ -955,7 +955,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         info!("Fetching checkpoint tree root");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QCheckpointTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
             self,
@@ -985,7 +985,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         leaf_checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         info!("Fetching checkpoint tree leaf hash");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QCheckpointTreeLeafHashRPCRequest {
             checkpoint_id,
             leaf_checkpoint_id,
@@ -1020,7 +1020,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         qed_crypto::hash::merkle::core::MerkleProofCore<qed_core::data::qhashout::QHashOut<F>>,
     > {
         info!("Fetching checkpoint tree merkle proof");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QCheckpointTreeMerkleProofRPCRequest {
             checkpoint_id,
             leaf_checkpoint_id,
@@ -1097,7 +1097,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         contract_id: u64,
     ) -> anyhow::Result<qed_data::qdata::contract::QEDContractLeaf<F>> {
         info!("Fetching contract leaf data contract_id: {}", contract_id);
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QContractLeafDataRPCRequest { contract_id };
         let response = qed_rpc_call_back!(
             self,
@@ -1129,7 +1129,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
             "Fetching checkpoint leaf data checkpoint_id: {}",
             checkpoint_id
         );
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QCheckpointLeafDataRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
             self,
@@ -1161,7 +1161,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
             "Fetching contract code definition contract_id: {}",
             contract_id
         );
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QContractCodeDefinitionRPCRequest { contract_id };
         let response = qed_rpc_call_back!(
             self,
@@ -1192,7 +1192,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         &self,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
         info!("Fetching latest L2 block state");
-        let rpc_url = &self.config.cooridinator_configs;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QLatestL2BlockStateRPCRequest {};
         let response = qed_rpc_call_back!(
             self,

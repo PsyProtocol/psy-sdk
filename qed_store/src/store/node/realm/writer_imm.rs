@@ -42,9 +42,8 @@ use qed_data::{
     }, qstore::uct_merkle_nodes::CSTUserUpdate, qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact}
 };
 pub fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
-    // let dif = 64 - GLOBAL_USER_TREE_HEIGHT as u64;
-    // (registration_id).reverse_bits() >> dif
-    registration_id
+    let dif = 64 - GLOBAL_USER_TREE_HEIGHT as u64;
+    (registration_id).reverse_bits() >> dif
 }
 type F = GoldilocksField;
 #[async_trait]

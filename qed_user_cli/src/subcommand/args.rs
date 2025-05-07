@@ -19,8 +19,8 @@ pub struct RPCReplArgs {
     #[clap(env, long, default_value = "http://localhost:1337/api", env)]
     pub electrs_api: String,
 
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
 }
 
 #[derive(Clone, Args)]
@@ -55,8 +55,8 @@ pub struct SignHashArgs {
 
 #[derive(Clone, Args)]
 pub struct L1DepositArgs {
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
 
     #[clap(long, short)]
     pub private_key: String,
@@ -80,8 +80,8 @@ pub struct L1DepositArgs {
 
 #[derive(Clone, Args)]
 pub struct AddWithdrawalArgs {
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
 
     #[clap(long, default_value = "dogeregtest", env)]
     pub network: String,
@@ -106,8 +106,8 @@ pub struct AddWithdrawalArgs {
 
 #[derive(Clone, Args)]
 pub struct ClaimDepositArgs {
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
 
     #[clap(long, short)]
     pub private_key: String,
@@ -125,8 +125,8 @@ pub struct ClaimDepositArgs {
 
 #[derive(Clone, Args)]
 pub struct RegisterUserArgs {
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
     /// user private key
     #[clap(
         long,
@@ -138,8 +138,8 @@ pub struct RegisterUserArgs {
 
 #[derive(Clone, Args)]
 pub struct TokenTransferArgs {
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
 
     #[clap(long, default_value = "dogeregtest", env)]
     pub network: String,
@@ -162,14 +162,14 @@ pub struct TokenTransferArgs {
 
 #[derive(Clone, Args)]
 pub struct ProduceBlockArgs {
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
 }
 
 #[derive(Clone, Args)]
 pub struct DeployContractArgs {
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
     #[clap(long, env)]
     pub private_key: String,
     #[clap(long)]
@@ -178,8 +178,8 @@ pub struct DeployContractArgs {
 
 #[derive(Clone, Args)]
 pub struct SubmitEndCapArgs {
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
     #[clap(long, short)]
     pub private_key: String,
     #[arg(long, default_value = "0", env)]
@@ -194,8 +194,8 @@ pub struct SubmitEndCapArgs {
 
 #[derive(Clone, Args)]
 pub struct LPSArgs {
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
     #[clap(long, short, default_values = &["./db/coordinator", "./db/realm"], env)]
     pub store_config_path: Vec<String>,
     #[clap(long, short)]
@@ -220,22 +220,22 @@ pub fn parse_contract_call_args(s: &str) -> anyhow::Result<Vec<ContractCallArgs>
 
 #[derive(Clone, Args)]
 pub struct BlockStateArgs {
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
     #[arg(long, default_value = "0", env)]
     pub checkpoint_id: u64,
 }
 
 #[derive(Clone, Args)]
 pub struct LatestBlockStateArgs {
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
 }
 
 #[derive(Clone, Args)]
 pub struct UserIdArgs {
-    #[command(flatten)]
-    pub rpc_config: RpcConfig,
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
     #[arg(
         long,
         default_value = "0d47fda4480f045506b085ba6921fc86d8cc6feb1b533292db4b1a3af8f89eab",

@@ -18,6 +18,10 @@ REALM_WORKER_LOG="$LOG_DIR/realm-worker.log"
 COORDINATOR_EDGE_LOG="$LOG_DIR/coordinator-edge.log"
 REALM_EDGE_LOG="$LOG_DIR/realm-edge.log"
 
+REALM_PROCESSOR2048_LOG="$LOG_DIR/realm-processor2048.log"
+REALM_WORKER2048_LOG="$LOG_DIR/realm-worker2048.log"
+REALM_EDGE2048_LOG="$LOG_DIR/realm-edge2048.log"
+
 # Clear log files at startup
 echo "Clearing log files..."
 : > "$COORDINATOR_PROCESSOR_LOG"
@@ -75,13 +79,19 @@ run_service "make run-coordinator-worker" "coordinator-worker" "$COORDINATOR_WOR
 PIDS+=($!)
 run_service "make run-realm-processor" "realm-processor" "$REALM_PROCESSOR_LOG" &
 PIDS+=($!)
+run_service "make run-realm-processor2048" "realm-processor2048" "$REALM_PROCESSOR2048_LOG" &
+PIDS+=($!)
 run_service "make run-realm-worker" "realm-worker" "$REALM_WORKER_LOG" &
+PIDS+=($!)
+run_service "make run-realm-worker2048" "realm-worker2048" "$REALM_WORKER2048_LOG" &
 PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors/workers)
 run_service "make run-coordinator-edge" "coordinator-edge" "$COORDINATOR_EDGE_LOG" &
 PIDS+=($!)
 run_service "make run-realm-edge" "realm-edge" "$REALM_EDGE_LOG" &
+PIDS+=($!)
+run_service "make run-realm-edge2048" "realm-edge2048" "$REALM_EDGE2048_LOG" &
 PIDS+=($!)
 
 # Wait for all background processes

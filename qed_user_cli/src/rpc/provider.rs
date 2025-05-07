@@ -1,4 +1,4 @@
-use std::{fs, sync::Arc};
+use std::{collections::HashMap, fs, sync::Arc};
 
 use clap::{arg, Parser};
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
@@ -29,7 +29,9 @@ const USERS_PER_REALM_VALUE: u64 = 1u64 << (REALM_USER_TREE_HEIGHT as u64);
 #[derive(Debug, Clone)]
 pub struct RpcProvider {
     pub client: Arc<Client>,
-    pub config: RpcConfig,
+    pub realm_configs: HashMap<u64, String>,
+    pub coordinator_configs: HashMap<u64, String>,
+    pub users_per_realm: u64,
     pub current_user_id: u64,
 }
 
@@ -176,11 +178,29 @@ impl RpcProvider {
         Self::new_with_config(Default::default())
     }
 
-    pub fn new_with_config(config: RpcConfig) -> anyhow::Result<Self> {
+    pub fn new_with_config(config: &str) -> anyhow::Result<Self> {
+        let config: RpcConfig = serde_json::from_str(&fs::read_to_string(config)?)?;
         assert!(config.realm_configs.len() > 0);
+        assert!(config.coordinator_configs.len() > 0);
+        let mut realm_configs = HashMap::new();
+        let mut coordinator_configs = HashMap::new();
+
+        config.realm_configs.iter().for_each(|realm_config| {
+            realm_configs.insert(realm_config.id, realm_config.rpc_url.clone());
+        });
+        config
+            .coordinator_configs
+            .iter()
+            .for_each(|coordinator_config| {
+                coordinator_configs
+                    .insert(coordinator_config.id, coordinator_config.rpc_url.clone());
+            });
+
         Ok(Self {
             client: Arc::new(Client::new()),
-            config,
+            realm_configs,
+            coordinator_configs,
+            users_per_realm: config.users_per_realm,
             current_user_id: 0,
         })
     }
@@ -250,7 +270,7 @@ impl QUserRpcProvider for RpcProvider {
         tracing::info!("register user: {:?}", req);
         qed_rpc_call!(
             self,
-            &self.config.cooridinator_configs,
+            self.get_coordinator_url()?,
             RequestParams::<F>::RegisterUser(req)
         )
     }
@@ -258,7 +278,7 @@ impl QUserRpcProvider for RpcProvider {
         tracing::info!("produce block");
         qed_rpc_call!(
             self,
-            &self.config.cooridinator_configs,
+            self.get_coordinator_url()?,
             RequestParams::<F>::ProduceBlock
         )
     }
@@ -281,7 +301,7 @@ impl QUserRpcProvider for RpcProvider {
         tracing::info!("deploy contract: {:?}", req);
         qed_rpc_call!(
             self,
-            &self.config.cooridinator_configs,
+            self.get_coordinator_url()?,
             RequestParams::<F>::DeployContract(req)
         )
     }
@@ -292,8 +312,8 @@ impl QUserRpcProvider for RpcProvider {
     ) -> anyhow::Result<()> {
         // tracing::info!("submit end cap proof: {:?}", req);
         tracing::info!("submit end cap proof: {:?}", serde_json::to_string(&req));
-        let rpc_url = self.get_realm_url(self.current_user_id).unwrap();
-        qed_rpc_call!(self, &rpc_url, RequestParams::<F>::SubmitEndCap(req))
+        let rpc_url = self.get_realm_url(self.current_user_id)?;
+        qed_rpc_call!(self, rpc_url, RequestParams::<F>::SubmitEndCap(req))
     }
 }
 
@@ -302,7 +322,7 @@ impl RpcProvider {
         tracing::info!("user: {:?}", public_key_param);
         let response = qed_rpc_call_back!(
             self,
-            &self.config.cooridinator_configs,
+            self.get_coordinator_url()?,
             RequestParams::<F>::GetUserId(public_key_param),
             u64
         );
@@ -316,36 +336,73 @@ impl RpcProvider {
     }
 
     pub const fn get_realm_id(&self, user_id: u64) -> u64 {
-        user_id / self.config.users_per_realm
+        user_id / self.users_per_realm
     }
 
-    pub fn get_realm_url(&self, user_id: u64) -> anyhow::Result<String> {
+    pub fn get_realm_url(&self, user_id: u64) -> anyhow::Result<&String> {
         let realm_id = self.get_realm_id(user_id);
-        if realm_id >= self.config.realm_configs.len() as u64 {
-            anyhow::bail!("realm id out of range");
-        }
-        Ok(self.config.realm_configs[realm_id as usize].clone())
+
+        self.realm_configs.get(&realm_id).ok_or(anyhow::format_err!(
+            "realm id `{}` not found, please check the config",
+            realm_id
+        ))
+    }
+
+    pub fn get_coordinator_url(&self) -> anyhow::Result<&String> {
+        self.coordinator_configs.get(&0).ok_or(anyhow::format_err!(
+            "coordinator id `{}` not found, please check the config",
+            0
+        ))
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Parser)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RpcConfig {
-    #[arg(long, default_value_t = USERS_PER_REALM_VALUE, env)]
     pub users_per_realm: u64,
-    #[arg(long, default_value = "http://127.0.0.1:8546", env)]
-    pub realm_configs: Vec<String>,
-    #[arg(long, default_value = "http://127.0.0.1:8545", env)]
-    pub cooridinator_configs: String,
+    pub realm_configs: Vec<RealmRpcConfig>,
+    pub coordinator_configs: Vec<CoordinatorRpcConfig>,
 }
 
 impl Default for RpcConfig {
     fn default() -> Self {
         Self {
             users_per_realm: 1u64 << (REALM_USER_TREE_HEIGHT as u64),
-            realm_configs: vec!["http://127.0.0.1:8546".into()],
-            cooridinator_configs: "http://127.0.0.1:8545".into(),
+            realm_configs: vec![
+                RealmRpcConfig {
+                    id: 0,
+                    rpc_url: "http://127.0.0.1:8546".into(),
+                },
+                RealmRpcConfig {
+                    id: 2048,
+                    rpc_url: "http://127.0.0.1:8547".into(),
+                },
+            ],
+            coordinator_configs: vec![CoordinatorRpcConfig {
+                id: 0,
+                rpc_url: "http://127.0.0.1:8545".into(),
+            }],
         }
     }
+}
+
+pub fn parse_realm_rpc_args(s: &str) -> anyhow::Result<Vec<RealmRpcConfig>> {
+    serde_json::from_str(s).map_err(|e| anyhow::anyhow!("Failed to parse JSON: {}", e))
+}
+
+pub fn parse_coordinator_rpc_args(s: &str) -> anyhow::Result<Vec<CoordinatorRpcConfig>> {
+    serde_json::from_str(s).map_err(|e| anyhow::anyhow!("Failed to parse JSON: {}", e))
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RealmRpcConfig {
+    pub id: u64,
+    pub rpc_url: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CoordinatorRpcConfig {
+    pub id: u64,
+    pub rpc_url: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
