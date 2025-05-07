@@ -20,7 +20,7 @@ clean:
 	@rm -r target
 
 DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) cd qed_compiler/tests && ../../target/${PROFILE}/dargo compile --debug --entry-path
-DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVE} cd qed_compiler/tests && ../../target/${PROFILE}/dargo execute --debug --entry-path
+DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVEL} cd qed_compiler/tests && ../../target/${PROFILE}/dargo execute --debug --entry-path
 
 ci:
 	@RUST_LOG=${LOG_LEVE} cargo test --release --package qed-ast --package qed-parser --package qed-sema --package qed-interpreter -- --nocapture
