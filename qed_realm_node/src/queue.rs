@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use fred::prelude::{FredResult, ListInterface};
-use tracing::{debug, info};
+use tracing::{debug, error};
 use kvq::traits::KVQSerializable;
 use qed_core::job::id::ProvingJobDataId;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
@@ -53,11 +55,19 @@ impl RealmInternalQueue for ProofStoreFred {
         item: CheckpointSyncInfo,
     ) -> anyhow::Result<()> {
         debug!("Producing checkpoint async info to Redis: checkpoint_id before: {}", item.compact.l2_block_state.checkpoint_id);
-        self.pool()
-            .rpush::<(), &str, Vec<u8>>(REAML_CHECKPOINT_KEY, item.to_bytes()?)
-            .await?;
-        debug!("Checkpoint async info produced to Redis: checkpoint_id after: {}", item.compact.l2_block_state.checkpoint_id);
-        Ok(())
+        tokio::select! {
+            _ = self.pool()
+            .rpush::<(), &str, Vec<u8>>(REAML_CHECKPOINT_KEY, item.to_bytes()?) => {
+                debug!("Checkpoint async info produced to Redis: checkpoint_id after: {}", item.compact.l2_block_state.checkpoint_id);
+                Ok(())
+            }
+            _ = tokio::time::sleep(Duration::from_secs(5)) => {
+                error!("Produce checkpoint async info to Redis timeout");
+                error!("Redis pool stats: {:?}", self.pool());
+                
+                anyhow::bail!("Produce checkpoint async info to Redis timeout");
+            }
+        }
     }
 
     async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo> {
