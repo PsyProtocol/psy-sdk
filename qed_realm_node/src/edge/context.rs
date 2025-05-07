@@ -243,7 +243,7 @@ impl<
         self.checkpoint_queue.cdq_push_imm(cst_user_update).await?;
         self.checkpoint_queue.cdq_push_imm(queue_item).await?;
 
-        debug!("enqueued queue item");
+        debug!("enqueued queue item successfully");
 
         Ok(())
     }
@@ -253,21 +253,6 @@ impl<
         input: QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
         self.checkpoint_queue.cdq_push_imm(input).await?;
-        Ok(())
-    }
-
-    pub async fn sync_checkpoint(&self, checkpoint: CheckpointSyncInfo) -> RpcResult<()> {
-        debug!(
-            checkpoint.latest_checkpoint_id,
-            checkpoint.sync_timestamp,
-            checkpoint.source_coordinator_edge_id,
-            "Received sync checkpoint"
-        );
-        self.interval_sync_queue
-            .produce_checkpoint_async_info(checkpoint)
-            .await
-            .map_err(RpcError::Anyhow)?;
-
         Ok(())
     }
 }
