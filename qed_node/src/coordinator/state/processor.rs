@@ -72,6 +72,8 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 use crate::coordinator::state::user_map::{get_node_redis_pool, save_user_mapping_to_redis};
 
+use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
+
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -331,7 +333,8 @@ impl<
         let redis_pool = get_node_redis_pool()?;
 
         for (i, pubkey_info) in user_registrations.iter().enumerate() {
-            let user_id = start_user_id + i as u64;
+            let register_id = start_user_id + i as u64;
+            let user_id = get_user_id_from_registration_id(register_id);
             let redis_pool = redis_pool.clone();
 
             match save_user_mapping_to_redis(&redis_pool, user_id, pubkey_info).await {
