@@ -54,7 +54,7 @@ impl RealmInternalQueue for ProofStoreFred {
     ) -> anyhow::Result<()> {
         debug!("Producing checkpoint async info to Redis: checkpoint_id before: {}", item.compact.l2_block_state.checkpoint_id);
         self.pool()
-            .lpush::<(), &str, Vec<u8>>(REAML_CHECKPOINT_KEY, item.to_bytes()?)
+            .rpush::<(), &str, Vec<u8>>(REAML_CHECKPOINT_KEY, item.to_bytes()?)
             .await?;
         debug!("Checkpoint async info produced to Redis: checkpoint_id after: {}", item.compact.l2_block_state.checkpoint_id);
         Ok(())
@@ -62,7 +62,7 @@ impl RealmInternalQueue for ProofStoreFred {
 
     async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo> {
         let result: FredResult<(String, Vec<u8>)> =
-            self.pool().brpop(REAML_CHECKPOINT_KEY, 0.0).await;
+            self.pool().blpop(REAML_CHECKPOINT_KEY, 0.0).await;
 
         match result {
             Ok((_, bytes)) => match CheckpointSyncInfo::from_bytes(&bytes) {
