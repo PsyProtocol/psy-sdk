@@ -45,7 +45,6 @@ use crate::args::CoordinatorProcessorArgs;
 use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
 use crate::communicate::push_latest_global_coordinator_status;
 use crate::coordinator_lock::prepare_processor_lock_and_init_if_needed;
-use crate::redis::{broadcast_checkpoint_sync};
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
@@ -148,26 +147,18 @@ impl
         info!("🐶 redis pool initialized");
         let q = ProofStoreFred::new2(
             pool.clone(),
-            cp_config
+            &cp_config
                 .coordinator_processor_queue_args
-                .coordinator_worker_queue_suffix
-                .clone(),
-            cp_config
+                .coordinator_worker_queue_suffix,
+            &cp_config
                 .coordinator_processor_queue_args
-                .coordinator_notifications_queue_suffix
-                .clone(),
-            Some(
-                cp_config
+                .coordinator_notifications_queue_suffix,
+            &cp_config
                     .coordinator_processor_queue_args
-                    .coordinator_proof_store_key_suffix
-                    .as_str(),
-            ),
-            Some(
-                cp_config
+                    .coordinator_proof_store_key_suffix,
+            &cp_config
                     .coordinator_processor_queue_args
-                    .coordinator_proof_store_key_suffix
-                    .as_str(),
-            ),
+                    .coordinator_proof_store_key_suffix,
         );
 
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
@@ -204,7 +195,7 @@ impl
         if need_init {
             info!("build block 1");
             coordinator_processor_ctx.build_block().await?;
-            push_latest_global_coordinator_status(sync_queue.clone(), 1, 1).await?;
+            push_latest_global_coordinator_status(sync_queue.clone(), 1, 1).await;
         }
 
         // worker
@@ -226,11 +217,6 @@ impl
 }
 
 pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
-    // tracing_subscriber::fmt()
-    //     .with_max_level(Level::DEBUG)
-    //     .with_env_filter(EnvFilter::from_default_env())
-    //     .init();
-    //
     let mut coordinator_processor =
         CoordinatorProcessNode::new_with_config(args)
         .await?;
@@ -248,38 +234,75 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 
     let mut confirmed_checkpoint_id = latest_checkpoint_id;
     let mut next_checkpoint = latest_checkpoint_id + 1;
-    tracing::info!("start coordinator processor");
+    tracing::info!("🚀 Start coordinator processor at checkpoint {}", latest_checkpoint_id);
+
     let task = tokio::spawn(async move {
         let mut processor_loop = async move || -> anyhow::Result<()> {
+            let mut last_logged_checkpoint = None;
+
             loop {
-                // wait for produceblock message from coordinator edge
-                info!("wait for produce block {} command from coordinator edge", next_checkpoint);
-
-                if coordinator_processor.wait_for_produce_block(next_checkpoint).await? {
-                    tracing::info!("start build block {}", next_checkpoint);
-                    coordinator_processor.ctx.build_block().await?;
-                    next_checkpoint += 1;
-
-                    // save latest coordinator status
-                    push_latest_global_coordinator_status(coordinator_processor.sync_queue.clone(), confirmed_checkpoint_id, next_checkpoint).await?;
-
-                    let _: qed_core::job::id::QProvingJobDataID = coordinator_processor
-                        .ctx
-                        .prover_queue
-                        .wait_for_block_proving_jobs_imm(next_checkpoint)
-                        .await?;
-                    confirmed_checkpoint_id += 1;
-                    let sync_info = coordinator_processor
-                       .ctx
-                       .store
-                       .get_checkpoint_sync_info_compact(confirmed_checkpoint_id).await?;
-                    tracing::info!("✅ Get sync info {:?} successfully", sync_info);
-                 
-                    // save latest coordinator status
-                    push_latest_global_coordinator_status(coordinator_processor.sync_queue.clone(), confirmed_checkpoint_id, next_checkpoint).await?;
-
-                    tracing::info!("save latest coordinator status {}", next_checkpoint);
+                if Some(next_checkpoint) != last_logged_checkpoint {
+                    info!("wait for produce block {} command from coordinator edge", next_checkpoint);
+                    last_logged_checkpoint = Some(next_checkpoint);
                 }
+
+                // wait for produce block message from coordinator edge
+                let produce_ready = match coordinator_processor
+                    .wait_for_produce_block(next_checkpoint)
+                    .await
+                {
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!(
+                        "❌ Error while waiting for produce block {}: {:?}",
+                        next_checkpoint, e
+                    );
+                        tokio::time::sleep(Duration::from_secs(2)).await;
+                        continue;
+                    }
+                };
+                if !produce_ready {
+                    tokio::time::sleep(Duration::from_millis(750)).await;
+                    continue;
+                }
+                info!("start build block {}", next_checkpoint);
+                if let Err(e) = coordinator_processor.ctx.build_block().await {
+                    error!("❌ Failed to build block {}: {:?}", next_checkpoint, e);
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+                    continue;
+                }
+                info!("✅ Successfully built block {}", next_checkpoint);
+                next_checkpoint += 1;
+                push_latest_global_coordinator_status(
+                    coordinator_processor.sync_queue.clone(),
+                    confirmed_checkpoint_id,
+                    next_checkpoint
+                ).await;
+                let job_id = match coordinator_processor
+                    .ctx
+                    .prover_queue
+                    //indeed, we don't use this "next_checkpoint"
+                    .wait_for_block_proving_jobs_imm(next_checkpoint)
+                    .await
+                {
+                    Ok(job_id) => {
+                        info!("✅ Proving job ready for block {}", &job_id.goal_id);
+                        job_id
+                    }
+                    Err(e) => {
+                        error!(
+                        "❌ Failed to get proving job id for block {}: {:?}", next_checkpoint - 1, e);
+                        tokio::time::sleep(Duration::from_secs(2)).await;
+                        continue;
+                    }
+                };
+                confirmed_checkpoint_id += 1;
+
+                push_latest_global_coordinator_status(
+                    coordinator_processor.sync_queue.clone(),
+                    confirmed_checkpoint_id,
+                    next_checkpoint
+                ).await;
                 tokio::time::sleep(Duration::from_millis(750)).await;
             }
         };

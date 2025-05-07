@@ -57,10 +57,10 @@ impl ProofStoreFred {
 
     pub fn new2(
         pool: Pool,
-        worker_queue_suffix: String,
-        notifications_queue_suffix: String,
-        proof_store_key_suffix: Option<&str>,
-        proof_store_counters_suffix: Option<&str>,
+        worker_queue_suffix: &str,
+        notifications_queue_suffix: &str,
+        proof_store_key_suffix: &str,
+        proof_store_counters_suffix: &str,
     ) -> Self {
         Self {
             pool,
@@ -69,14 +69,13 @@ impl ProofStoreFred {
                 "{}-{}",
                 PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, notifications_queue_suffix
             ),
-            proof_store_key: match proof_store_key_suffix {
-                Some(suffix) => format!("{}-{}", PROOF_STORE_KEY_PREFIX_1, suffix),
-                None => format!("{}", PROOF_STORE_KEY_PREFIX_1),
-            },
-            proof_store_counters: match proof_store_counters_suffix {
-                Some(suffix) => format!("{}-{}", PROOF_STORE_COUNTERS_PREFIX_1, suffix),
-                None => format!("{}", PROOF_STORE_COUNTERS_PREFIX_1),
-            }
+            proof_store_key: format!(
+                "{}-{}",
+                PROOF_STORE_KEY_PREFIX_1, proof_store_key_suffix),
+
+            proof_store_counters:  format!(
+                "{}-{}",
+                PROOF_STORE_COUNTERS_PREFIX_1, proof_store_counters_suffix),
         }
     }
     pub fn pool(&self) -> &Pool {

@@ -55,10 +55,10 @@ impl RealmProcessor {
             new_fred_pool(&config.redis.redis_uri, config.redis.pool_size.unwrap_or(20)).await?;
         let realm_qps = ProofStoreFred::new2(
             pool,
-            config.queue.worker_queue_suffix,
-            config.queue.notifications_queue_suffix,
-            Some(config.queue.proof_store_key_suffix.as_str()),
-            Some(config.queue.proof_store_key_suffix.as_str()),
+            &config.queue.worker_queue_suffix,
+            &config.queue.notifications_queue_suffix,
+            &config.queue.proof_store_key_suffix.as_str(),
+            &config.queue.proof_store_key_suffix.as_str(),
         );
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write(
@@ -134,7 +134,7 @@ impl RealmProcessor {
                     return Ok(false);
                 }
 
-                if self.local_checkpoint_id >= block.lastest_checkpoint_id {
+                if self.local_checkpoint_id >= block.latest_checkpoint_id {
                     info!("Local checkpoint is latest");
                     return Ok(true);
                 }
@@ -144,7 +144,7 @@ impl RealmProcessor {
                     Ok(_) => {
                         info!(?checkpoint_id, "Sync to new checkpoint");
                         info!("Checkpoint sync reg users: {:?}", block.compact.registered_users);
-                        if  self.local_checkpoint_id + 1 == block.lastest_checkpoint_id && block.lastest_checkpoint_id == checkpoint_id {
+                        if  self.local_checkpoint_id + 1 == block.latest_checkpoint_id && block.latest_checkpoint_id == checkpoint_id {
                             info!("Local checkpoint is latest");
                             self.local_checkpoint_id = checkpoint_id;
                             return Ok(true);

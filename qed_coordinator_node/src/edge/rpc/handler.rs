@@ -12,7 +12,7 @@ use qed_store::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use rand::RngCore;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use tracing::{ error, info, warn};
+use tracing::{debug, error, info, warn};
 use kvq::traits::KVQSerializable;
 use qed_core::config::network_constants::QED_CHECKPOINT_JOB_ID_CHANNEL;
 use qed_core::data::qhashout::QHashOut;
@@ -39,8 +39,7 @@ use crate::{CoordinatorEdgeArgs, CoordinatorEdgeQueueArgs};
 use crate::communicate::{get_latest_global_coordinator_status, GlobalCoordinatorStatus};
 use crate::context::UserRegisterState::{Registered, Registering};
 use crate::edge::context::{with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
-use crate::edge::processor::{build_checkpoint_sync_info, process_realm_job};
-use crate::edge::redis::{create_pubsub_client, subscribe_checkpoint_sync};
+use crate::edge::processor::{build_checkpoint_sync_info};
 use crate::edge::rpc::types::GetUserIdRequest;
 use crate::rpc::types::CheckpointSyncInfo;
 
@@ -74,11 +73,20 @@ impl CoordinatorEdgeHandler {
             return Ok(());
         }
         let handle = tokio::spawn(async move {
+            let mut last_logged_checkpoint = None;
+
             loop {
                 match get_latest_status_from_global_queue().await {
                     Ok(Some(status)) => {
-                        info!("🔔 Detected new checkpoint sync status: {:?}", status);
                         let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+                        if Some(status.confirmed_checkpoint_id) != last_logged_checkpoint {
+                            info!(
+                                "🔔 Detected new checkpoint sync status: {:?}",
+                                status
+                            );
+                            last_logged_checkpoint = Some(status.confirmed_checkpoint_id);
+                        }
+
                         if status.confirmed_checkpoint_id > latest {
                             info!(
                                 "🔔 Detected new confirmed checkpoint: {}, current latest: {} → updating local latest",
@@ -87,17 +95,16 @@ impl CoordinatorEdgeHandler {
                             LATEST_CHECKPOINT_ID.store(status.confirmed_checkpoint_id, Ordering::Relaxed);
                             info!("⭐ Coordinator Edge now updated to {}", status.confirmed_checkpoint_id);
                         }else {
-                            info!("ℹ️ No new confirmed checkpoint detected, current latest: {}", latest);
+                            debug!("ℹ️ No new confirmed checkpoint detected, current latest: {}", latest);
                         }
                     }
                     Ok(None) => {
-                        tracing::debug!("ℹ️ Coordinator status not yet available.");
+                        debug!("ℹ️ Coordinator status not yet available.");
                     }
                     Err(e) => {
                         error!("❌ Failed to get coordinator status: {:?}", e);
                     }
                 }
-                info!("waited cp sync listener spawned");
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
             }
         });
@@ -268,16 +275,15 @@ impl CoordinatorEdgeHandler {
 
     pub async fn get_checkpoint_sync_info(
         &self,
-        checkpoint_id: u64,
+        request_checkpoint_id: u64,
     ) -> anyhow::Result<CheckpointSyncInfo> {
 
         let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
 
-        //
-        if checkpoint_id > latest {
+        if request_checkpoint_id > latest {
             bail!(
             "Requested checkpoint_id {} exceeds latest local checkpoint_id {}",
-            checkpoint_id,
+            request_checkpoint_id,
             latest
             );
         }
@@ -286,14 +292,14 @@ impl CoordinatorEdgeHandler {
             |ctx| async move {
                 QEDCoordinatorStoreReaderAsync::get_checkpoint_sync_info_compact(
                     &*ctx.store_reader,
-                    checkpoint_id,
+                    request_checkpoint_id,
                 )
                     .await
             },
         )
             .await?;
 
-        Ok(build_checkpoint_sync_info(checkpoint_id, compact))
+        Ok(build_checkpoint_sync_info(latest, compact))
     }
     // async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
     pub async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<QEDFelt>> {

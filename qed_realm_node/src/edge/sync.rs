@@ -86,13 +86,13 @@ pub async fn spawn_active_checkpoint_sync_task<
                 match client.request::<Option<CheckpointSyncInfo>, _>("qed_get_checkpoint_sync_info", params).await {
                     Ok(Some(sync_info)) => {
                         // Check if the received checkpoint is the one we expected
-                        let lastest_checkpoint_id = sync_info.lastest_checkpoint_id;
+                        let lastest_checkpoint_id = sync_info.latest_checkpoint_id;
                         if lastest_checkpoint_id <= current_local_checkpoint_id {
                             if lastest_checkpoint_id< current_local_checkpoint_id {
                                 warn!(
                                     expected = next_checkpoint_id,
                                     received = sync_info.compact.l2_block_state.checkpoint_id,
-                                    lastest = sync_info.lastest_checkpoint_id,
+                                    lastest = sync_info.latest_checkpoint_id,
                                     "Received out-of-order checkpoint sync info from coordinator. Retrying cycle."
                                 );
                             }
