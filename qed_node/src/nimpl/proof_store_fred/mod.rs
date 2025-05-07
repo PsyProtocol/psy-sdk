@@ -97,10 +97,12 @@ impl QProofStoreReaderAsync for ProofStoreFred {
         &self,
         id: QProvingJobDataID,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        tracing::info!(?id, "Getting proof by id");
         let data = self
             .pool
             .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key, &id.to_fixed_bytes())
             .await?;
+        tracing::info!(?id, "Got proof by id, data.len = {}", data.len());
         Ok(bincode::deserialize(&data)?)
     }
 
@@ -122,7 +124,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
         proof: &ProofWithPublicInputs<C::F, C, D>,
     ) -> anyhow::Result<()> {
         tracing::info!(?id,  "Setting proof by id");
-        let data = bincode::serialize(&proof)?;
+        let data = bincode::serialize(&proof).unwrap();
 
         self.pool
             .hsetnx::<(), _, &[u8], Vec<u8>>(
@@ -130,7 +132,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
                 &id.to_fixed_bytes(),
                 data,
             )
-            .await?;
+            .await.unwrap();
 
         Ok(())
     }

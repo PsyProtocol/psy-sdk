@@ -42,8 +42,8 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
         redis_pool.clone(),
         config.coordinator_edge_queue_args.coordinator_worker_queue_suffix.clone(),
         config.coordinator_edge_queue_args.coordinator_notifications_queue_suffix.clone(),
-        Some(REALM_PROCESSOR_SUFFIX),
-        Some(REALM_PROCESSOR_SUFFIX),
+        Some(config.coordinator_edge_queue_args.coordinator_proof_store_key_suffix.as_str()),
+        Some(config.coordinator_edge_queue_args.coordinator_proof_store_key_suffix.as_str()),
     ));
     timer.lap("redis initialized");
     info!("✅ Initialized Redis pool");
