@@ -27,7 +27,7 @@ run_make_command() {
     local cmd=$1
     local desc=$2
     log_message "Running $desc..."
-    if $cmd >> "$SCENARIO_LOG" 2>&1; then
+    if (set -o pipefail; $cmd 2>&1 | sed 's/\o033\[[0-9;]*m//g' >> "$SCENARIO_LOG"); then
         log_message "$desc completed successfully."
     else
         log_message "Error: $desc failed."
