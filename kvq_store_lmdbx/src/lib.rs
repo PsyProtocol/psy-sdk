@@ -71,7 +71,7 @@ impl KVQlibmdbxStore {
             .set_max_dbs(1)
             .set_flags(flags)
             .set_geometry(Geometry {
-                size: Some((size_gb * 1024 * 1024 * 1024)..),
+                size: Some(..=(size_gb * 1024 * 1024 * 1024)),
                 ..Default::default()
             })
             .open(PathBuf::from(path).as_path())?;
