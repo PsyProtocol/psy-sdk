@@ -50,7 +50,7 @@ use qed_store::{
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
 use qed_test_sandbox::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
-use qed_user_cli::subcommand::lps::run_local;
+// use qed_user_cli::subcommand::lps::run_local;
 use reth_libmdbx::{Environment, EnvironmentFlags, Geometry, Mode, PageSize, SyncMode, RW};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
