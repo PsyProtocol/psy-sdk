@@ -1,7 +1,7 @@
 export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 
-PROFILE                 := release
-LOG_LEVE                := debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug
+PROFILE                  := release
+LOG_LEVEL                := debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug
 
 check:
 	@cargo check --all-targets --examples
