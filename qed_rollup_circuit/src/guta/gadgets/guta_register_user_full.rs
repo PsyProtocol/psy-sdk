@@ -13,13 +13,12 @@ pub fn map_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F>, F
     user_registration_tree_leaf_index_bits: &[BoolTarget],
     _global_user_tree_height: usize,
 ) -> Target {
-    user_registration_tree_leaf_index
-    // let mut reversed_bits = user_registration_tree_leaf_index_bits.to_vec();
-    // reversed_bits.reverse();
-    //
-    // let reversed_bits_index = builder.le_sum(reversed_bits.iter());
-    //
-    // reversed_bits_index
+    let mut reversed_bits = user_registration_tree_leaf_index_bits.to_vec();
+    reversed_bits.reverse();
+
+    let reversed_bits_index = builder.le_sum(reversed_bits.iter());
+
+    reversed_bits_index
 }
 
 
