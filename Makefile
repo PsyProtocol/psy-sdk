@@ -75,7 +75,7 @@ update-snapshots:
 WATCHED_DIRS := qed_rollup_circuit qed_common_circuit qed_prover
 
 common_config_generator:
-	@if git diff --name-only HEAD | grep -q -E "$(subst $() $(),|,$(WATCHED_DIRS)).*\.rs$$"; then \
+	@if git diff --name-only --diff-filter=M | grep -q -E "$(subst $() $(),|,$(WATCHED_DIRS)).*\.rs$$"; then \
 		echo "Changes detected in watched directories. Running common_config_generator..."; \
 		RUST_LOG=${RUST_LOG} cargo run --profile ${PROFILE} --package qed_prover --example common_config_generator; \
 	else \
@@ -298,7 +298,7 @@ get-l2-block-state:
 get-user-leaf-data:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
 
-get-realm-user-tree-root:
+get-realm-user-tree-merkle-proof:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_sub_tree_merkle_proof", "params": [${CHECKPOINT_ID}, 0, 12, ${REALM_ID}], "id": 1 }' | jq .
 
 get-user-tree-merkle-proof:
@@ -337,7 +337,7 @@ realm-get-user-leaf-hash:
 realm-get-user-tree-root:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
 
-realm-get-realm-user-tree-root:
+realm-get-realm-user-tree-merkle-proof:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_sub_tree_merkle_proof", "params": [${CHECKPOINT_ID}, 12, 24, ${USER_ID}], "id": 1 }' | jq .
 
 realm-get-user-tree-merkle-proof:

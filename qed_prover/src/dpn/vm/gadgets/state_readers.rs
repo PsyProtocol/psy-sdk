@@ -727,15 +727,15 @@ impl StateReaderGadget {
                 );
             (
                 is_new,
-                mp_user_tree.value,
                 mp_user_tree.root,
+                mp_user_tree.value,
                 mp_user_tree.index,
             )
         };
         
 
         if is_new {
-            // builder.connect_hashes(mp_user_tree_root, self.chain_state_roots.user_tree_root);
+            builder.connect_hashes(mp_user_tree_root, self.chain_state_roots.user_tree_root);
             let user_id_target = dpn.resolve_target(user_target_id);
             builder.connect(mp_user_tree_index, user_id_target);
         }
@@ -767,7 +767,7 @@ impl StateReaderGadget {
         if is_new {
             let actual_leaf_hash = leaf.to_hash::<H, F, D>(builder);
 
-            // builder.connect_hashes(expected_leaf_hash, actual_leaf_hash);
+            builder.connect_hashes(expected_leaf_hash, actual_leaf_hash);
         }
         leaf
     }
@@ -892,11 +892,12 @@ impl StateReaderGadget {
             };
             builder.connect_hashes(mps[0].root, expected_contract_state_tree_root);
             for (i, mp) in mps.into_iter().enumerate() {
-                let ck = StateCommandCacheKey::new_read_current_contract_range(
+                let ck = StateCommandCacheKey::new_read_other_user_contract_range(
+                    user_target_id,
+                    contract_target_id,
                     sub_slot_target_id,
                     length as u32,
                     i as u64,
-                    0,
                 );
                 let _ref_key = self.insert_merkle_proof_gadget(ck, mp);
             }

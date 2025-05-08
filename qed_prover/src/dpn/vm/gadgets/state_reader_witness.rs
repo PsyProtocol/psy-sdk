@@ -450,6 +450,7 @@ impl StateReaderGadget {
         input: &DapenContractFunctionCircuitInput<F>,
         fn_def: &DPNFunctionCircuitDefinition,
     ) {
+        eprintln!("DEBUGPRINT[632]: state_reader_witness.rs:453: input={}", serde_json::to_string_pretty(&input).unwrap());
         let mut wb = StateReaderGadgetWitnessBuilderState::new();
 
         for (dsc, ciw) in fn_def.state_commands.iter().zip(input.cmd_witnesses.iter()) {

@@ -9,6 +9,7 @@ use qed_core::data::base_types::hash256::Hash256;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::signature::secp256k1::wallet::{CompressedPublicKeyToP2PKH, MemorySecp256K1Wallet};
 use qed_crypto::signature::zk::wallet::{SimpleL2PrivateKey, SimpleQEDPrivateKey};
+use qed_store::config::store_config::QEDHasher;
 
 use super::args::GetPublicKeyArgs;
 
@@ -30,6 +31,11 @@ pub fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
         "l1 p2pkh = {}",
         BTCAddress160::new_p2pkh(l1_public_key.to_p2pkh_address()).to_address_string()
     );
-    println!("l2 public_key = {}", l2_public_key.public_key_param.to_string());
+    println!(
+        "public_key_param: {}, fingerprint: {}",
+        l2_public_key.public_key_param.to_string(),
+        l2_public_key.fingerprint.to_string()
+    );
+    println!("l2 public_key = {}", l2_public_key.to_hash::<QEDHasher>());
     Ok(())
 }
