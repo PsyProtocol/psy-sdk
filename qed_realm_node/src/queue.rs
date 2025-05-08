@@ -61,7 +61,7 @@ impl RealmInternalQueue for ProofStoreFred {
                 debug!("Checkpoint async info produced to Redis: checkpoint_id after: {}", item.compact.l2_block_state.checkpoint_id);
                 Ok(())
             }
-            _ = tokio::time::sleep(Duration::from_secs(5)) => {
+            _ = tokio::time::sleep(Duration::from_secs(1)) => {
                 error!("Produce checkpoint async info to Redis timeout");
                 error!("Redis pool stats: {:?}", self.pool());
                 

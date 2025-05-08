@@ -22,6 +22,26 @@ use qed_node_common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use tracing::{debug, info};
 
+pub async fn creat_fred_store(config: RealmEdgeConfig) -> Result<ProofStoreFred> {
+    // Create storage and queues
+    let pool = new_fred_pool(
+        &config.redis.redis_uri,
+        config.redis.pool_size.unwrap_or(80),
+    )
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to create Redis pool: {}", e))?;
+    debug!("created redis pool successfully!");
+    let proof_store = ProofStoreFred::new2(
+        pool,
+        &config.queue.worker_queue_suffix,
+        &config.queue.notifications_queue_suffix,
+        &config.queue.proof_store_key_suffix.as_str(),
+        &config.queue.proof_store_key_suffix.as_str(),
+    );
+    debug!("created proof store successfully!");
+    Ok(proof_store)
+}
+
 /// Start Realm Edge node
 pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     info!(
@@ -32,22 +52,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     debug!("Realm Edge node config: {:?}", config);
 
     // Create storage and queues
-
-    let pool = new_fred_pool(
-        &config.redis.redis_uri,
-        config.redis.pool_size.unwrap_or(80),
-    )
-    .await
-    .map_err(|e| anyhow::anyhow!("Failed to create Redis pool: {}", e))?;
-    debug!("created redis pool successfully!");
-    let proof_store = ProofStoreFred::new2(
-        pool,
-        &config.queue.worker_queue_suffix,
-        &config.queue.notifications_queue_suffix,
-        &config.queue.proof_store_key_suffix.as_str(),
-        &config.queue.proof_store_key_suffix.as_str(),
-    );
-    debug!("created proof store successfully!");
+    let proof_store = creat_fred_store(config.clone()).await?;
     // Create proof storage
     let proof_store = Arc::new(proof_store);
     let checkpoint_queue = proof_store.clone();
@@ -67,8 +72,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     // Create Realm configuration
     let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
     debug!("created realm config successfully!");
-
-    let coordinator_addr = config.rpc.coordinator_addr;
+    
     // Create Edge node context
     let edge_ctx = RealmEdgeContext::new(
         realm_config,
@@ -90,16 +94,17 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
 
     // Spawn task to send proof to coordinator
     spawn_realm_job_update_task(
-        proof_store.clone(),
+        proof_store,
         realm_config.realm_id as u64,
-        coordinator_addr.clone(),
+        config.rpc.coordinator_addr.clone(),
     )
     .await?;
 
+    let proof_store = creat_fred_store(config.clone()).await?;
     spawn_active_checkpoint_sync_task(
         store_reader,
-        proof_store,
-        coordinator_addr,
+        Arc::new(proof_store),
+        config.rpc.coordinator_addr,
     ).await?;
 
 
