@@ -123,7 +123,7 @@ pub fn build_rpc_module(
 
     // qed_submit_guta
     module.register_async_method("qed_submit_guta", |params, handler, ext| async move {
-        // tracing::info!(?params, "qed_submit_guta");
+        tracing::info!("qed_submit_guta");
 
         // let jwt_metadata = ext.get::<JwtAuthMetadata>()
         //     .ok_or_else(|| ErrorObjectOwned::owned(401, "Missing JwtAuthMetadata", None::<()>))?;

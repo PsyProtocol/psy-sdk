@@ -614,13 +614,16 @@ impl<
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
             if l_dep_ind == -1 && r_dep_ind == -1 {
                 eprintln!("DEBUGPRINT[560]: processor.rs:589 (after if l_dep_ind == -1 && r_dep_ind == -1 )");
+                let input = VerifyTwoGUTAProofGadgetStandardInputSimple {
+                    checkpoint_tree_root: guta_queue_items[i * 2].checkpoint_tree_root,
+                    stats_a: guta_queue_items[i * 2].guta_stats,
+                    stats_b: guta_queue_items[i * 2 + 1].guta_stats,
+                    nca_proof: res.nca_proofs[i].to_partial(),
+                };
+                tracing::info!("❗guta input: {:?}", input);
+
                 let x = CircuitInputWithDependencies {
-                    input: VerifyTwoGUTAProofGadgetStandardInputSimple {
-                        checkpoint_tree_root: guta_queue_items[i * 2].checkpoint_tree_root,
-                        stats_a: guta_queue_items[i * 2].guta_stats,
-                        stats_b: guta_queue_items[i * 2 + 1].guta_stats,
-                        nca_proof: res.nca_proofs[i].to_partial(),
-                    },
+                    input,
                     dependencies: vec![
                         guta_queue_items[i * 2].proof_id,
                         guta_queue_items[i * 2 + 1].proof_id,

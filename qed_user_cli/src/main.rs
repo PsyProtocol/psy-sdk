@@ -52,6 +52,7 @@ fn main() -> Result<()> {
             block_state::get_lastest_block_state(latest_block_state_args)?
         }
         Commands::GetUserId(user_id_args) => block_state::get_user_id(user_id_args)?,
+        Commands::GetUserLeaf(user_leaf_args) => block_state::get_user_leaf(user_leaf_args)?,
     }
     Ok(())
 }

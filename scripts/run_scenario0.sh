@@ -51,22 +51,33 @@ sleep 10
 run_make_command "make deploy-contract" "Deploy Contract"
 run_make_command "make register-user" "Register User"
 run_make_command "make build-block" "Build Block 1"
-sleep 20
+sleep 10
 run_make_command "make build-block" "Build Block 2"
-sleep 20
+sleep 10
 run_make_command "make mint" "Mint"
 run_make_command "make build-block" "Build Block 3"
-sleep 20
+sleep 10
 run_make_command "make build-block" "Build Block 4"
-sleep 20
+sleep 10
+
+make CHECKPOINT_ID=100 USER_ID=0 balance-of
+make CHECKPOINT_ID=100 USER_ID=8388608 REALM_RPC_URL=http://127.0.0.1:8547 balance-of
+
 run_make_command "make transfer" "Transfer"
 run_make_command "make build-block" "Build Block 5"
-sleep 20
+sleep 10
 run_make_command "make build-block" "Build Block 6"
-sleep 20
+sleep 10
+
+make CHECKPOINT_ID=100 USER_ID=0 balance-of
+make CHECKPOINT_ID=100 USER_ID=8388608 REALM_RPC_URL=http://127.0.0.1:8547 balance-of
+
 run_make_command "make claim" "Claim"
 run_make_command "make build-block" "Build Block 7"
-sleep 20
+sleep 10
 run_make_command "make build-block" "Build Block 8"
+
+make CHECKPOINT_ID=100 USER_ID=0 balance-of
+make CHECKPOINT_ID=100 USER_ID=8388608 REALM_RPC_URL=http://127.0.0.1:8547 balance-of
 
 log_message "Scenario 0 completed successfully."

@@ -1,5 +1,5 @@
 target
-# *.log
+*.log
 *.sublime*
 *~
 *.pyc

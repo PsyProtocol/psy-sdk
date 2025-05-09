@@ -239,6 +239,7 @@ impl CoordinatorEdgeHandler {
             info!("⚠️ GUTANoChange proof, disabling it");
             return Ok(());
         }
+        tracing::info!("✅ verified guta result proof public input: {:?} ", proof.public_inputs);
 
         // verify state consistency
         // let old_root = store_reader

@@ -30,6 +30,15 @@ echo "Clearing log files..."
 : > "$REALM_WORKER_LOG"
 : > "$COORDINATOR_EDGE_LOG"
 : > "$REALM_EDGE_LOG"
+: > "$REALM_PROCESSOR2048_LOG"
+: > "$REALM_WORKER2048_LOG"
+: > "$REALM_EDGE2048_LOG"
+
+echo "Clearing db files..."
+rm -rf ./db/*
+tree ./db/
+
+redis-cli FLUSHALL
 
 # Run shutdown, init, compile
 make shutdown

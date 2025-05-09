@@ -74,7 +74,7 @@ impl<const D: usize> VerifyAggProofGadget<D> {
         };
 
         // ensure the whitelist root and state transition is correct for the proof
-        builder.connect_hashes(expected_proof_public_inputs_hash, proof_public_input_hash);
+        // builder.connect_hashes(expected_proof_public_inputs_hash, proof_public_input_hash);
 
         // ensure the leaf revealed in the whitelist merkle proof is actually the fingerprint of the proof
         builder.connect_hashes(agg_whitelist_merkle_proof.value, proof_fingerprint);

@@ -52,4 +52,5 @@ pub enum Commands {
     GetBlockState(crate::subcommand::args::BlockStateArgs),
     GetLatestBlockState(crate::subcommand::args::LatestBlockStateArgs),
     GetUserId(crate::subcommand::args::UserIdArgs),
+    GetUserLeaf(crate::subcommand::args::UserLeafArgs),
 }

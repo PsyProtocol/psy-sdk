@@ -1,7 +1,10 @@
-use super::args::{BlockStateArgs, LatestBlockStateArgs, UserIdArgs};
+use super::args::{BlockStateArgs, LatestBlockStateArgs, UserIdArgs, UserLeafArgs};
 use crate::rpc::provider::RpcProvider;
 use anyhow::{Ok, Result};
-use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+use qed_crypto::hash::traits::qhashable::QFieldHashable;
+use qed_store::{
+    config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync,
+};
 
 pub fn get_lastest_block_state(args: LatestBlockStateArgs) -> Result<()> {
     let provider = RpcProvider::new_with_config(&args.rpc_config)?;
@@ -33,5 +36,23 @@ pub fn get_user_id(args: UserIdArgs) -> Result<()> {
     let user_id = provider.get_user_id(args.pub_key)?;
 
     println!("user_id: {}", user_id);
+    Ok(())
+}
+
+pub fn get_user_leaf(args: UserLeafArgs) -> Result<()> {
+    let provider = RpcProvider::new_with_config(&args.rpc_config)?;
+    let user_id = provider.get_user_id(args.pub_key)?;
+
+    let user_leaf_data = provider.get_user_leaf_data(args.checkpoint_id, user_id)?;
+
+    println!(
+        "user_leaf_data: {}",
+        serde_json::to_string_pretty(&user_leaf_data)?
+    );
+    println!(
+        "user_leaf_hash: {}",
+        user_leaf_data.qfhash::<QEDHasher>().to_string()
+    );
+
     Ok(())
 }
