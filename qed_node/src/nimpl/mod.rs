@@ -33,7 +33,7 @@ pub async fn new_fred_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<
 
     pool.init().await?;
     {
-        //use QED_PROCESS_ROLE env var to set client name for redis-cli tool
+        //use QED_ROLE env var to set client name for redis-cli tool
         let role = std::env::var("QED_ROLE").unwrap_or_else(|_| "unknown-role".to_string());
 
         let clients = pool.clients();

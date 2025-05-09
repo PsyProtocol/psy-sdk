@@ -252,7 +252,7 @@ impl CoordinatorEdgeHandler {
         let queue_item =
             input.to_queue_item(config.guta_channel_id, config.realm_root_level as u32);
         let proof_id = queue_item.proof_id;
-
+        info!("🚀 Pushing GUTA result to drain queue, realm_id = {}", proof_id.task_index);
         // write to proof store
         proof_store.set_proof_by_id(proof_id, &proof).await?;
         tracing::info!("✅ wrote guta result to proof store");
