@@ -133,12 +133,21 @@ impl<
     pub fn get_ups_start_witness(
         &mut self,
     ) -> anyhow::Result<UPSStartStepInput<F>> {
-        
+        tracing::info!(
+            "resolve checkpoint tree proof at checkpoint {}, leaf checkpoint {}",
+            self.lps.get_current_write_checkpoint_id_u64(),
+            self.lps.get_current_start_checkpoint_id_u64()
+        );
         let checkpoint_tree_proof= self.lps.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetCheckpointTreeMerkleProof(QSRMerkleCmdGetCheckpointTreeMerkleProof{
             checkpoint_id: self.lps.get_current_write_checkpoint_id_u64(),
             leaf_checkpoint_id: self.lps.get_current_start_checkpoint_id_u64(),
         }))?;
 
+        tracing::info!(
+            "resolve user tree proof at checkpoint {}, user {}",
+            self.lps.get_current_write_checkpoint_id_u64(),
+            self.lps.get_current_user_id_64(),
+        );
         let user_tree_proof =
             self.lps.cmd_store
                 .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserTreeMerkleProof(
@@ -170,6 +179,7 @@ impl<
     pub fn prove_ups_start(&mut self, circuit_mgr: &QEDUPSStepCircuitManager<C, D>) -> anyhow::Result<()> {
         let mut timer = DebugTimer::new("prove_ups_start");
         timer.lap("start");
+        tracing::info!("get_ups_start_witness");
         let input = self.get_ups_start_witness()?;
         //println!("witness:\n{:?}",input);
         //println!("\n\n\nwitness json:\n{}\n\n\n\n\n\n",serde_json::to_string_pretty(&input).unwrap());
@@ -182,10 +192,18 @@ impl<
 
         timer.lap("gen_witness");
         if !input.checkpoint_tree_proof.verify::<QEDHasher>() {
+            tracing::error!(
+                "input.checkpoint_tree_proof {}",
+                serde_json::to_string_pretty(&input.checkpoint_tree_proof)?
+            );
             anyhow::bail!("invalid checkpoint tree proof");
         }
 
         if !input.user_tree_proof.verify::<QEDHasher>() {
+            tracing::error!(
+                "input.user_tree_proof {}",
+                serde_json::to_string_pretty(&input.user_tree_proof)?
+            );
             anyhow::bail!("invalid user tree proof");
         }
 
@@ -198,9 +216,9 @@ impl<
             anyhow::bail!("value doesn't match user leaf");
         }
 
-        
+        tracing::info!("circuit_mgr.ups_start.prove_base start");
         let proof = circuit_mgr.ups_start.prove_base(&input)?;
-
+        timer.lap("circuit_mgr.ups_start.prove_base");
         
         timer.lap("prove_ups_start");
         let known_proof_tree_root = self.proof_tree_state.get_proof_tree_root();
@@ -445,11 +463,19 @@ impl<
             signature_proof.public_inputs[3],
         ]});
         if !proof_public_inputs_hash.eq(&expected_public_inputs_hash) {
-            anyhow::bail!("invalid signature for ups session, likely incorrect sighash");
+            anyhow::bail!(
+                "invalid signature for ups session, likely incorrect sighash\n{:?}!= {:?}",
+                proof_public_inputs_hash.to_string(),
+                expected_public_inputs_hash.to_string()
+            );
         }
 
 
         // injest signature into the proof tree
+        tracing::info!(
+            "injesting zk signature proof into proof tree, fingerprint: {:?}",
+            zk_sig_fingerprint.to_string()
+        );
         let zk_sig_proof_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
             leaf_circuit_type: ZK_SIG_LEAF_TYPE,
             fingerprint: zk_sig_fingerprint,
@@ -459,6 +485,7 @@ impl<
 
         
         // compress all proofs into a sign tree proof
+        tracing::info!("compress all proofs into a sign tree proof");
         self.proof_tree_state.finalize_tree(&circuit_mgr.proof_tree_agg_circuits)?;
 
         let zk_sig_leaf_proof = self.proof_tree_state.get_leaf_merkle_proof(zk_sig_proof_index);
