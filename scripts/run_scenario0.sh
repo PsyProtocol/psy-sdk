@@ -13,6 +13,9 @@ mkdir -p "$LOG_DIR"
 # Define log file for the scenario
 SCENARIO_LOG="$LOG_DIR/scenario0.log"
 
+GET_USER0_BALANCE="make CHECKPOINT_ID=100 USER_ID=0 balance-of"
+GET_USER1_BALANCE="make CHECKPOINT_ID=100 USER_ID=8388608 REALM_RPC_URL=http://127.0.0.1:8547 balance-of"
+
 # Clear log file at startup
 echo "Clearing log file..."
 : > "$SCENARIO_LOG"
@@ -41,6 +44,12 @@ cleanup() {
     exit 0
 }
 
+# Function to get user token info
+get_user_token_info() {
+    run_make_command "$GET_USER0_BALANCE" "get user 0 token info"
+    run_make_command "$GET_USER1_BALANCE" "get user 8388608 token info"
+}
+
 # Trap SIGINT (Ctrl+C) and SIGTERM to call cleanup
 trap cleanup SIGINT SIGTERM
 
@@ -60,8 +69,7 @@ sleep 10
 run_make_command "make build-block" "Build Block 4"
 sleep 10
 
-make CHECKPOINT_ID=100 USER_ID=0 balance-of
-make CHECKPOINT_ID=100 USER_ID=8388608 REALM_RPC_URL=http://127.0.0.1:8547 balance-of
+get_user_token_info
 
 run_make_command "make transfer" "Transfer"
 run_make_command "make build-block" "Build Block 5"
@@ -69,15 +77,22 @@ sleep 10
 run_make_command "make build-block" "Build Block 6"
 sleep 10
 
-make CHECKPOINT_ID=100 USER_ID=0 balance-of
-make CHECKPOINT_ID=100 USER_ID=8388608 REALM_RPC_URL=http://127.0.0.1:8547 balance-of
+get_user_token_info
 
 run_make_command "make claim" "Claim"
 run_make_command "make build-block" "Build Block 7"
 sleep 10
 run_make_command "make build-block" "Build Block 8"
+sleep 10
 
-make CHECKPOINT_ID=100 USER_ID=0 balance-of
-make CHECKPOINT_ID=100 USER_ID=8388608 REALM_RPC_URL=http://127.0.0.1:8547 balance-of
+get_user_token_info
+
+run_make_command "make return-back" "return-back"
+run_make_command "make build-block" "Build Block 9"
+sleep 10
+run_make_command "make build-block" "Build Block 10"
+sleep 10
+
+get_user_token_info
 
 log_message "Scenario 0 completed successfully."
