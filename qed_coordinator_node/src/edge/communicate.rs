@@ -6,8 +6,9 @@ use tokio::time::sleep;
 use tracing::{error, info, warn};
 use kvq::traits::KVQSerializable;
 use qed_core::config::network_constants::COORD_STATUS_CHANNEL_ID;
-use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable, DrainQueueMetadata, DrainQueueMetadataTagged};
+use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterAsyncImm, CheckpointDrainQueueEmitterSyncImm, DQSerializable, DrainQueueMetadata, DrainQueueMetadataTagged};
 use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
+use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -38,18 +39,17 @@ impl DrainQueueMetadataTagged for GlobalCoordinatorStatus {
 
 
 pub async fn get_latest_global_coordinator_status(
-    drain_queue: &DrainQueueFred,
+    drain_queue: &DrainQueueRedis,
 ) -> anyhow::Result<Option<GlobalCoordinatorStatus>> {
     let checkpoint_id  = 0;
     let entries = drain_queue
-        .cdq_get_imm::<GlobalCoordinatorStatus>(COORD_STATUS_CHANNEL_ID, checkpoint_id)
-        .await?;
+        .cdq_get_imm_sync::<GlobalCoordinatorStatus>(COORD_STATUS_CHANNEL_ID, checkpoint_id)?;
 
     Ok(entries.into_iter().next())
 }
 
 pub async fn push_latest_global_coordinator_status(
-    drain_queue: Arc<DrainQueueFred>,
+    drain_queue: Arc<DrainQueueRedis>,
     confirmed_checkpoint_id: u64,
     processor_height: u64,
 ) {
@@ -61,7 +61,7 @@ pub async fn push_latest_global_coordinator_status(
         timestamp: Utc::now().timestamp() as u64,
     };
 
-    match drain_queue.cdq_push_imm(status.clone()).await {
+    match drain_queue.cdq_push_imm_sync(status.clone()) {
         Ok(_) => {
             info!(
                 "⭐ Updated confirmed checkpoint id = {}, processor height = {}",

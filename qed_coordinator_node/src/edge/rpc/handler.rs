@@ -34,12 +34,11 @@ use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
 use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use crate::context::{with_temp_ctx_read_async, UserRegisterState, GLOBAL_DRAIN_QUEUE};
+use crate::context::{build_checkpoint_sync_info, with_temp_ctx_read_async, UserRegisterState, GLOBAL_DRAIN_QUEUE};
 use crate::{CoordinatorEdgeArgs, CoordinatorEdgeQueueArgs};
 use crate::communicate::{get_latest_global_coordinator_status, GlobalCoordinatorStatus};
 use crate::context::UserRegisterState::{Registered, Registering};
 use crate::edge::context::{with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
-use crate::edge::processor::{build_checkpoint_sync_info};
 use crate::edge::rpc::types::GetUserIdRequest;
 use crate::rpc::types::CheckpointSyncInfo;
 

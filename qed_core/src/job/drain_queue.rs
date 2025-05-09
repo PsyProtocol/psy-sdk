@@ -168,6 +168,11 @@ pub trait CheckpointDrainQueueEmitterSyncImm {
 
 #[async_trait]
 pub trait CheckpointDrainQueueConsumerSyncImm {
+    fn cdq_get_imm_sync<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<Vec<T>>;
     fn cdq_drain_imm_sync<T: DQSerializable>(
         &self,
         channel_id: u64,

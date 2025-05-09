@@ -4,6 +4,7 @@ use fred::{
     prelude::{ClientLike, Config, Pool, ReconnectPolicy},
     types::Builder,
 };
+use fred::types::{ClusterHash, CustomCommand};
 
 pub mod drain_queue_fred;
 pub mod drain_queue_redis;
@@ -31,5 +32,33 @@ pub async fn new_fred_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<
         .build_pool(pool_size)?;
 
     pool.init().await?;
+    {
+        //use QED_PROCESS_ROLE env var to set client name for redis-cli tool
+        let role = std::env::var("QED_ROLE").unwrap_or_else(|_| "unknown-role".to_string());
+
+        let clients = pool.clients();
+        for (index, client) in clients.iter().enumerate() {
+            let name = format!("fred-{}-client-{}", role, index);
+            // tracing::info!("🔧 Setting CLIENT SETNAME = {} for fred pool client", name);
+
+            // use CustomCommand to send CLIENT SETNAME command
+            let command = CustomCommand {
+                cmd: "CLIENT".into(),
+                cluster_hash: ClusterHash::default(),
+                blocking: false,
+            };
+
+            client
+                .custom::<(), _>(
+                    command,
+                    vec!["SETNAME", &name]
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to set client name for client {}: {:?}", index, e))?;
+        }
+
+        tracing::info!("✅ All fred clients in pool set with CLIENT SETNAME");
+
+    }
     Ok(pool)
 }

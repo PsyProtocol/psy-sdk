@@ -18,6 +18,7 @@ use crate::edge::context::LATEST_CHECKPOINT_ID;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
 
 use qed_user_cli::rpc::request::*;
+use crate::CoordinatorEdgeArgs;
 use crate::edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
 use crate::rpc::types::{GetByFRequest, GetByIdRequest, GetUserLeafRequest, GetUserRegistrationFLeafRequest, GetUserRegistrationLeafRequest, LatestCheckpointResponse, RealmInfo, RegisterRealmRpcRequest};
 
@@ -934,42 +935,5 @@ where
             tracing::error!("❌ {} error: {:?}", context, e);
             Err(ErrorObjectOwned::owned(error_code, e.to_string(), None::<()>))
         }
-    }
-}
-
-
-use jsonrpsee::types::Request;
-use kvq::traits::KVQSerializable;
-use qed_node::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by_pubkey};
-use qed_rollup_utils::{decrypt_jwt_token, Claims};
-use crate::{CoordinatorEdgeArgs, CoordinatorProcessorQueueArgs};
-
-// pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwned> {
-//
-//     let jwt_meta = ext;
-//     let token = &jwt_meta.token;
-//
-//     let secret = get_global_jwt_secret();
-//     match decrypt_jwt_token(&secret, token) {
-//         Ok(claims) => {
-//             tracing::info!("✅ Valid JWT, realm_id = {}", claims.realm_id);
-//             Ok(())
-//         }
-//         Err(e) => {
-//             tracing::warn!("❌ Invalid JWT token: {:?}", e);
-//             Err(ErrorObjectOwned::owned(401, format!("Invalid token: {}", e), None::<()>))
-//         }
-//     }
-// }
-
-#[derive(Clone, Debug)]
-pub struct JwtAuthMetadata {
-    pub token: String,
-    pub realm_id: u64,
-}
-pub fn claims_to_auth_metadata(token: String, claims: Claims) -> JwtAuthMetadata {
-    JwtAuthMetadata {
-        token,
-        realm_id: claims.realm_id,
     }
 }
