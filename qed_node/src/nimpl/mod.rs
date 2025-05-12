@@ -57,7 +57,7 @@ pub async fn new_fred_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<
                 .map_err(|e| anyhow::anyhow!("Failed to set client name for client {}: {:?}", index, e))?;
         }
 
-        tracing::info!("✅ All fred clients in pool set with CLIENT SETNAME");
+        // tracing::info!("✅ All fred clients in pool set with CLIENT SETNAME");
 
     }
     Ok(pool)

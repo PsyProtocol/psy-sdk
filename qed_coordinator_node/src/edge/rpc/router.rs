@@ -30,7 +30,7 @@ pub fn build_rpc_module(
 
     //qed_register_user
     module.register_async_method("qed_register_user", |params, handler, _ext| async move {
-        tracing::info!(
+        tracing::debug!(
             "➡️ Received method = register_user, raw params = {:?}",
             params
         );
@@ -47,8 +47,8 @@ pub fn build_rpc_module(
             }
         };
 
-        tracing::info!("✅ register_user {:?}", pub_key.qfhash::<QEDHasher>());
-        tracing::info!(
+        tracing::debug!("✅ register_user {:?}", pub_key.qfhash::<QEDHasher>());
+        tracing::debug!(
             "✅ register_user {:?}",
             pub_key.qfhash::<QEDHasher>().to_string()
         );

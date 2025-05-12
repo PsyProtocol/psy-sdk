@@ -25,13 +25,11 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
 
     // initialize lmdb
     init_global_lmdb_store(&config.coordinator_db_path)?;
-    info!("📦 Initialized global LMDB store");
 
     let redis_pool = new_fred_pool(&config.coordinator_redis_uri, 8).await?;
     init_node_redis_pool(redis_pool.clone())?;
-    info!("🧵 Initialized Redis pool");
 
-    init_global_queue(&config.coordinator_redis_uri);
+    init_global_queue(&config.coordinator_redis_uri)?;
 
     let qe_args = &config.coordinator_edge_queue_args;
     let proof_store = Arc::new(ProofStoreFred::new2(
@@ -41,21 +39,12 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
         &qe_args.coordinator_proof_store_key_suffix,
         &qe_args.coordinator_proof_store_key_suffix,
     ));
-    info!("🧠 Initialized Proof store");
 
     let store = KVQlibmdbxStore::new_read(&config.coordinator_db_path)?;
     let store_reader = Arc::new(KVQArcImmutableStoreWrapper::new(store).dup());
-    info!("🗃️ Initialized LMDB");
-
-    // let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
-    //     KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(
-    //         &config.coordinator_db_path,
-    //     )?);
-    // let store_reader = Arc::new(store_reader.dup());
 
     // init verifier
     let verifier = Arc::new(get_cached_generic_verifier::<_, 2>());
-    info!("✅ Initialized verifier");
 
     let edge_config = qed_node::coordinator::state::processor::CoordinatorConfig::get_standard(0);
     // init context
@@ -69,7 +58,6 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     .await?;
 
     init_global_ctx(ctx).await?;
-    info!("✅ Initialized global context");
     info!("🚀 Coordinator Edge Initialized");
 
     Ok(())
@@ -103,17 +91,14 @@ pub fn init_global_lmdb_store<P: AsRef<str>>(db_path: P) -> anyhow::Result<()> {
         .map_err(|_| anyhow!("GLOBAL_LMDB_STORE already initialized"))
 }
 
-pub fn init_global_queue(redis_url: &str) {
-    match DrainQueueRedis::new(redis_url) {
-        Ok(drain_queue) => {
-            if GLOBAL_DRAIN_QUEUE.set(drain_queue).is_err() {
-                warn!("⚠️ GLOBAL_DRAIN_QUEUE already initialized, skipping re-initialization.");
-            } else {
-                info!("✅ Initialized global drain queue");
-            }
-        }
-        Err(e) => {
-            warn!("❌ Failed to initialize global drain queue: {}", e);
-        }
-    }
+
+pub fn init_global_queue(redis_url: &str) -> anyhow::Result<()> {
+    let drain_queue = DrainQueueRedis::new(redis_url)
+        .map_err(|e| anyhow!("Failed to create DrainQueueRedis: {}", e))?;
+
+    GLOBAL_DRAIN_QUEUE
+        .set(drain_queue)
+        .map_err(|_| anyhow!("GLOBAL_DRAIN_QUEUE already initialized"))?;
+
+    Ok(())
 }

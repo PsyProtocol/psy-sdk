@@ -78,7 +78,6 @@ impl CoordinatorEdgeHandler {
     }
     ///receive StartSync notification from CP
     pub async fn spawn_cp_sync_listener(&self) -> anyhow::Result<()> {
-        info!("cp sync listener spawned (polling mode)");
         // note: run this only once
         if self.cp_listener.lock().await.is_some() {
             return Ok(());
@@ -92,7 +91,7 @@ impl CoordinatorEdgeHandler {
                         let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
 
                         if Some(status.confirmed_checkpoint_id) != last_logged_checkpoint {
-                            info!("🔔 Detected new checkpoint sync status: {:?}", status);
+                            debug!("🔔 Detected new checkpoint sync status: {:?}", status);
                             last_logged_checkpoint = Some(status.confirmed_checkpoint_id);
                         }
 
@@ -161,7 +160,6 @@ impl CoordinatorEdgeHandler {
             let zk_user = zk_user_info.clone();
 
             async move {
-                info!("🚀 Registering user: pub_key = {}", pk_hex);
                 queue.cdq_push_imm(zk_user).await?;
                 info!("✅ User pushed to checkpoint queue.");
                 Ok(())
@@ -213,7 +211,7 @@ impl CoordinatorEdgeHandler {
         input: SubmitGUTARealmResultAPINoProofInput<QEDFelt>,
         proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
     ) -> anyhow::Result<()> {
-        let (_store_reader, checkpoint_queue, proof_store, config, verifier) =
+        let (store_reader, checkpoint_queue, proof_store, config, verifier) =
             with_ctx_read_async(|ctx| {
                 let store_reader = ctx.store_reader.clone();
                 let checkpoint_queue = ctx.checkpoint_queue.clone();
@@ -253,13 +251,13 @@ impl CoordinatorEdgeHandler {
         );
 
         // verify state consistency
-        // let old_root = store_reader
-        //     .get_user_latest_top_tree_cap_root(config.realm_root_level, input.realm_id)
-        //     .await.unwrap();
+        let old_root = store_reader
+            .get_user_latest_top_tree_cap_root(config.realm_root_level, input.realm_id)
+            .await.unwrap();
 
-        // if old_root != input.top_line_proof.old_root && old_root != input.top_line_proof.new_root {
-        //     anyhow::bail!("invalid top line proof old value from realm");
-        // }
+        if old_root != input.top_line_proof.old_root && old_root != input.top_line_proof.new_root {
+            anyhow::bail!("invalid top line proof old value from realm");
+        }
 
         // build queue item
         let queue_item =
@@ -281,12 +279,11 @@ impl CoordinatorEdgeHandler {
 
     pub async fn build_block(&self) -> anyhow::Result<()> {
         let next_checkpoint = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed) + 1;
-        info!("🚀 build_block called, want to build {}", next_checkpoint);
         self.notify_queue.clone().dispatch(
             CE_NOTIFICATIONS,
             CEQueueNotification::StartProduceBlock { next_checkpoint },
         )?;
-        info!("✅ build_block cmd have send to CP");
+        info!("☎️ build_block {} cmd have send to CP", next_checkpoint);
         Ok(())
     }
 
