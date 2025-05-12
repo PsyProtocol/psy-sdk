@@ -91,13 +91,6 @@ impl Queue {
 
 #[async_trait]
 impl SyncCheckpointQueue for Queue {
-
-    async fn is_empty(&self) -> anyhow::Result<bool> {
-        let mut conn = self.pool.get().await?;
-        let length: u64 = conn.llen(REAML_CHECKPOINT_KEY).await?;
-        Ok(length == 0)
-    }
-
     async fn produce_checkpoint_async_info(
         &self,
         item: CheckpointSyncInfo,
@@ -109,6 +102,12 @@ impl SyncCheckpointQueue for Queue {
 
         debug!("Checkpoint async info produced to Redis: checkpoint_id after: {}", item.compact.l2_block_state.checkpoint_id);
         Ok(())
+    }
+
+    async fn is_empty(&self) -> anyhow::Result<bool> {
+        let mut conn = self.pool.get().await?;
+        let length: u64 = conn.llen(self.realm_checkpoint_key()).await?;
+        Ok(length == 0)
     }
 
     async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo> {
