@@ -1,4 +1,4 @@
-use crate::{rpc::CheckpointSyncInfo, F};
+use crate::{rpc::CheckpointSyncInfo, SyncCheckpointQueue, F};
 use std::sync::Arc;
 use std::time::Duration;
 use jsonrpsee::rpc_params;
@@ -6,8 +6,7 @@ use jsonrpsee::core::client::ClientT;
 use jsonrpsee::http_client::HttpClientBuilder;
 use serde::{Serialize,Deserialize};
 use tracing::{info, error, warn, debug};
-use qed_store::node::realm::QEDRealmStoreReaderAsync; 
-use crate::RealmInternalQueue; 
+use qed_store::node::realm::QEDRealmStoreReaderAsync;
 
 
 // Define the sync interval
@@ -15,7 +14,7 @@ const SYNC_INTERVAL: Duration = Duration::from_millis(500); // Example: sync eve
 
 pub async fn spawn_active_checkpoint_sync_task<
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
-    IQ: RealmInternalQueue + Sync + Send + 'static,
+    IQ: SyncCheckpointQueue + Sync + Send + 'static,
 >(
     store_reader: Arc<SR>,
     interval_sync_queue: Arc<IQ>,
@@ -30,29 +29,26 @@ pub async fn spawn_active_checkpoint_sync_task<
         }
     };
 
-    let mut counter = 0;
     let mut current_local_checkpoint_id = 0;
     let mut latest_checkpoint_id = 0;
     tokio::spawn(async move {
         loop {
             // Wait for the defined interval before starting the next cycle
             tokio::time::sleep(SYNC_INTERVAL).await;
-            debug!("Starting active checkpoint sync cycle...");
-            match store_reader.get_latest_l2_block_state().await {
-                Ok(state) => {
-                    current_local_checkpoint_id = state.checkpoint_id;
-                },
-                Err(e) => {
-                    error!("Failed to get local checkpoint id: {:?}", e);
-                    if counter <= 10 {
-                        counter = counter + 1;
-                        // Wait before retrying the entire cycle
-                        tokio::time::sleep(SYNC_INTERVAL).await;
-                        continue; // Skip to the next iteration of the outer loop
+            match interval_sync_queue.is_empty().await {
+                Ok(is_empty) => {
+                    if !is_empty {
+                        debug!("sync queue is not empty. Waiting for next interval...");
+                        continue;
                     }
                 }
-            };
-            counter = 0;
+                Err(e) => {
+                    error!("Failed to check if interval sync queue {:?}", e);
+                }
+            }
+            
+            debug!("Starting active checkpoint sync cycle...");
+            current_local_checkpoint_id = store_reader.get_latest_l2_block_state().await.unwrap_or_default().checkpoint_id;
 
             // Call the coordinator's new RPC method
             match client.request::<Option<LatestCheckpointResponse>, _>("qed_get_latest_checkpoint", rpc_params![]).await {

@@ -1,6 +1,6 @@
 use crate::error::RpcError;
 use crate::rpc::{CheckpointSyncInfo, RealmEdgeRpcServer};
-use crate::{RealmInternalQueue, C, D, F, H};
+use crate::{SyncCheckpointQueue, SyncProofQueue, C, D, F, H};
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
 use jsonrpsee::rpc_params;
@@ -54,22 +54,19 @@ pub struct RealmEdgeContext<
     SR: QEDRealmStoreReaderAsync<F>,
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
-    IQ: RealmInternalQueue,
 > {
     pub store_reader: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
     pub proof_store: Arc<PS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
-    pub interval_sync_queue: Arc<IQ>,
 }
 
 impl<
         SR: QEDRealmStoreReaderAsync<F>,
         DQ: CheckpointDrainQueueEmitterAsyncImm,
         PS: QProofStoreAsyncImm,
-        IQ: RealmInternalQueue,
-    > RealmEdgeContext<SR, DQ, PS, IQ>
+    > RealmEdgeContext<SR, DQ, PS>
 {
     pub async fn new(
         realm_config: RealmConfig,
@@ -77,7 +74,6 @@ impl<
         checkpoint_queue: Arc<DQ>,
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-        interval_sync_queue: Arc<IQ>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             realm_config,
@@ -85,7 +81,6 @@ impl<
             checkpoint_queue,
             proof_store,
             proof_verifier,
-            interval_sync_queue,
         })
     }
 
@@ -306,12 +301,11 @@ impl<
 }
 
 #[async_trait]
-impl<SR, DQ, PS, IQ> RealmEdgeRpcServer for RealmEdgeContext<SR, DQ, PS, IQ>
+impl<SR, DQ, PS> RealmEdgeRpcServer for RealmEdgeContext<SR, DQ, PS>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
-    IQ: RealmInternalQueue + Sync + Send + 'static,
 {
     async fn check_user_id_in_realm(&self, user_id: u64) -> RpcResult<bool> {
         Ok(self.includes_user_id(user_id))
