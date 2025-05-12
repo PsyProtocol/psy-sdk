@@ -41,7 +41,6 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     info!("✅ Initialized Redis pool");
 
     // initialize lmdb
-    std::fs::create_dir_all(&config.coordinator_db_path)?;
     init_global_lmdb_store()?;
     info!("✅ Initialized global LMDB store");
 

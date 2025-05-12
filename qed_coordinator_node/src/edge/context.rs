@@ -33,9 +33,6 @@ lazy_static! {
         Arc::new(RwLock::new(None));
 }
 pub static LATEST_CHECKPOINT_ID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
-pub static REGISTER_USER_COUNTER: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
-pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, UserRegisterState>> =
-    Lazy::new(DashMap::new);
 pub static GLOBAL_DB_PATH: OnceCell<String> = OnceCell::new();
 
 pub static GLOBAL_REDIS_POOL: OnceCell<Arc<Pool>> = OnceCell::new();
@@ -47,7 +44,6 @@ pub static GLOBAL_LMDB_STORE: OnceLock<Arc<KVQArcImmutableStoreWrapper<KVQlibmdb
 // when user registers, but not write into block, we mark as Registering
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UserRegisterState {
-    Registering(u64),
     Registered(u64),
 }
 

@@ -13,7 +13,6 @@ use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_realm_node::{C, F};
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
-use crate::context::{REGISTERED_USERS};
 use crate::edge::context::LATEST_CHECKPOINT_ID;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
 
@@ -55,7 +54,7 @@ pub fn build_rpc_module(
 
         match handler.register_user(pub_key).await {
             Ok(_) => {
-                // tracing::info!("✅ register_user success");
+                tracing::info!("✅ register_user success");
                 Ok::<_, ErrorObjectOwned>("ok")
             }
             Err(e) => {
@@ -84,7 +83,7 @@ pub fn build_rpc_module(
         };
 
 
-        match handler.get_user_id_logic(qhash).await {
+        match handler.get_user_id(qhash).await {
             Ok(user_id) => Ok(user_id),
             Err(e) => {
                 tracing::error!("❌ get_user_id_logic failed: {:?}", e);

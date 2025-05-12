@@ -37,8 +37,8 @@ use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use crate::context::{build_checkpoint_sync_info, with_temp_ctx_read_async, UserRegisterState, GLOBAL_DRAIN_QUEUE};
 use crate::{CoordinatorEdgeArgs, CoordinatorEdgeQueueArgs};
 use crate::communicate::{get_latest_global_coordinator_status, GlobalCoordinatorStatus};
-use crate::context::UserRegisterState::{Registered, Registering};
-use crate::edge::context::{with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
+use crate::context::UserRegisterState::{Registered};
+use crate::edge::context::{with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID};
 use crate::edge::rpc::types::GetUserIdRequest;
 use crate::rpc::types::CheckpointSyncInfo;
 
@@ -113,65 +113,58 @@ impl CoordinatorEdgeHandler {
 
 
     pub async fn register_user(&self, zk_user_info: ZKPublicKeyInfo<QEDFelt>) -> anyhow::Result<()> {
-        let public_key = zk_user_info.public_key_param;
-        let qhash = public_key;
+        let qhash = zk_user_info.public_key_param;
+        let pubkey_hex = hex::encode(qhash.to_bytes()?);
 
-        match check_and_update_user_state(&qhash).await {
-            Ok(Registered(user_id)) => {
-                info!("🛑 User already registered, user_id = {}", user_id);
-                return Ok(());
+        let redis_pool = get_node_redis_pool()?;
+
+        match get_user_id_by_pubkey(redis_pool.as_ref(), &pubkey_hex).await {
+            Ok(Some(user_id)) => {
+                info!("🛑 User already registered in Redis, user_id = {}", user_id);
+                Ok(())
             }
-            Ok(Registering(user_id)) => {
-                info!("🕐 User is already in registering process, register_id = {}", user_id);
-                return Ok(());
+            Ok(None) => {
+                info!("🆕 User not found in Redis. Starting new registration.");
+
+                with_ctx_read_async(|ctx| {
+                    let queue = ctx.checkpoint_queue.clone();
+                    let zk_user = zk_user_info.clone();
+
+                    async move {
+                        info!("🚀 Registering user: pub_key = {}", pubkey_hex);
+                        queue.cdq_push_imm(zk_user).await?;
+                        info!("✅ User pushed to checkpoint queue.");
+                        Ok(())
+                    }
+                })
+                    .await
             }
             Err(e) => {
-                let err_msg = e.to_string();
-                if err_msg.contains("User not registered") {
-                    info!("🆕 User not registered yet, start new registration");
-                    let register_id = REGISTER_USER_COUNTER.fetch_add(1, Ordering::Relaxed);
-                    let user_id = get_user_id_from_registration_id(register_id);
-                    REGISTERED_USERS.insert(qhash, Registering(user_id));
-
-                    with_ctx_read_async(|ctx| {
-                        let queue = ctx.checkpoint_queue.clone();
-                        let zk_user = zk_user_info.clone(); // avoid the lifetime issue
-
-                        async move {
-                            info!(
-                                "🚀 Pushing new user to drain queue, local_register_id = {}, pub_key = {}",
-                                register_id, zk_user.public_key_param
-                            );
-                            queue.cdq_push_imm(zk_user).await?;
-                            info!("✅ Pushed to drain queue.");
-                            Ok(())
-                        }
-                    })
-                        .await
-                } else {
-                    tracing::error!("❌ Unexpected error during user state check: {:?}", e);
-                    return Err(e);
-                }
+                error!("❌ Redis query error while registering user: {:?}", e);
+                Err(e.into())
             }
         }
-
     }
 
-    pub async fn get_user_id_logic(&self, qhash: QHashOut<QEDFelt>) -> anyhow::Result<u64> {
-        match check_and_update_user_state(&qhash).await {
-            Ok(Registered(user_id)) => {
-                Ok(user_id)
-            }
-            Ok(Registering(_)) => {
-                anyhow::bail!("User is still registering, user_id not available yet");
-            }
+
+    pub async fn get_user_id(
+        &self,
+        qhash: QHashOut<QEDFelt>,
+    ) -> anyhow::Result<u64> {
+        let pubkey_hex = hex::encode(qhash.to_bytes()?);
+        let redis_pool = get_node_redis_pool()?;
+
+        match get_user_id_by_pubkey(redis_pool.as_ref(), &pubkey_hex).await {
+            Ok(Some(user_id)) => Ok(user_id),
+            Ok(None) => {
+                tracing::error!("❌ User not found");
+                anyhow::bail!("User not found");            }
             Err(e) => {
-                tracing::error!("❌ Failed to check user state: {:?}", e);
+                tracing::error!("❌ Redis error in get_user_id: {:?}", e);
                 Err(e)
             }
         }
     }
-
     pub async fn deploy_contract(
         &self,
         contract: QBCDeployContract<QEDFelt>,
@@ -689,57 +682,6 @@ fn qhash_from_u64_array(arr: [u64; 4]) -> QHashOut<QEDFelt> {
     QHashOut(HashOut { elements })
 }
 
-pub async fn check_and_update_user_state(qhash: &QHashOut<QEDFelt>) -> anyhow::Result<UserRegisterState> {
-    let pubkey_hex = hex::encode(qhash.to_bytes()?);
-
-    match REGISTERED_USERS.get_mut(qhash) {
-        Some(mut user_state) => match *user_state {
-            Registering(user_id) => {
-                info!("🛑 User is registering (id: {}), checking status...", user_id);
-                let redis_pool = get_node_redis_pool()?;
-
-                match get_user_id_by_pubkey(redis_pool.as_ref(), &pubkey_hex).await {
-                    Ok(Some(confirmed_user_id)) => {
-                        *user_state = Registered(confirmed_user_id);
-                        info!("✅ User registered successfully, updated local state to Registered({})", confirmed_user_id);
-                        Ok(Registered(confirmed_user_id))
-                    }
-                    Ok(None) => {
-                        info!("🕐 User is still registering, waiting for confirmation...");
-                        Ok(Registering(user_id))
-                    }
-                    Err(e) => {
-                        error!("❌ Database query failed while checking registration: {:?}", e);
-                        Err(e)
-                    }
-                }
-            }
-            Registered(user_id) => {
-                info!("✅ User is already registered: {}", user_id);
-                Ok(Registered(user_id))
-            }
-        },
-        None => {
-            tracing::warn!("🛑 User not found in local cache: {}, then search the database...", pubkey_hex);
-            let redis_pool = get_node_redis_pool()?;
-            match get_user_id_by_pubkey(redis_pool.as_ref(), &pubkey_hex).await {
-                Ok(Some(user_id)) => {
-                    REGISTERED_USERS.insert(*qhash, Registered(user_id));
-                    tracing::info!("✅ Found user in database. Inserted Registered({}) into cache", user_id);
-                    Ok(Registered(user_id))
-                }
-                Ok(None) => {
-                    tracing::info!("🆕 User not found in database either.");
-                    anyhow::bail!("User not registered");
-                }
-                Err(e) => {
-                    tracing::error!("❌ database query failed: {:?}", e);
-                    Err(e)
-                }
-            }
-        }
-    }
-}
 
 
 pub async fn get_latest_status_from_global_queue() -> anyhow::Result<Option<GlobalCoordinatorStatus>> {

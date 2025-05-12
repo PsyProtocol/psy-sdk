@@ -37,7 +37,7 @@ use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tracing::{error, info, warn};
-use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterAsyncImm, CheckpointDrainQueueEmitterSyncImm};
+use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterSyncImm};
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
 use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
 use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
