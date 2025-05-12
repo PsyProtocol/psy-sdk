@@ -5,7 +5,6 @@ use plonky2::{
         goldilocks_field::GoldilocksField,
         types::{Field, PrimeField64},
     },
-    hash::poseidon::PoseidonHash,
     plonk::config::PoseidonGoldilocksConfig,
 };
 use qed_common_circuit::circuits::{
@@ -18,18 +17,15 @@ use qed_core::{
 };
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
-use qed_prover::{
-    dpn::{circuits::cfc::DapenContractFunctionCircuit, data::cfc_code_definition_to_dapen_fc},
-    ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager},
+use qed_prover::ups::{
+    circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager,
 };
 use qed_store::{
     config::store_config::QEDHasher,
     controllers::local::{
         proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
     },
-    store::imm::{
-        cmd::QSRCmdGetContractCodeDefinition, cmd_processor::QEDReadCommandProcessorSync,
-    },
+    store::imm::cmd_processor::QEDReadCommandProcessorSync,
 };
 
 use crate::rpc::{
@@ -37,44 +33,14 @@ use crate::rpc::{
     request::QSubmitEndCapRPCRequest,
 };
 
-use super::args::{ContractCallArgs, SubmitEndCapArgs};
+use super::{
+    args::{ContractCallArgs, SubmitEndCapArgs},
+    utils::prove_func,
+};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
-
-pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
-    st: &R,
-    circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
-    mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
-    contract_id: u64,
-    fn_name: &str,
-    inputs: Vec<F>,
-) -> anyhow::Result<()> {
-    let contract_code =
-        st.resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id })?;
-
-    for (i, func) in contract_code.functions.iter().enumerate() {
-        let dapen_fc = cfc_code_definition_to_dapen_fc(&func)?;
-        let dapen_fc_circuit = DapenContractFunctionCircuit::<C, D>::new(
-            &dapen_fc,
-            contract_code.state_tree_height as usize,
-            UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-            false,
-        );
-        if dapen_fc.name == fn_name {
-            return mgr.prove_contract_call(
-                circuit_mgr,
-                F::from_canonical_u64(contract_id),
-                i as u32,
-                &dapen_fc_circuit,
-                &dapen_fc,
-                inputs,
-            );
-        }
-    }
-    anyhow::bail!("unable to find function {}", fn_name);
-}
 
 pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     tracing::info!(
@@ -87,7 +53,7 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
         inputs: args.inputs,
     }];
 
-    let mut st_provider = RpcProvider::new_with_config(&args.rpc_config)?;
+    let mut st_provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
 
     let latest_l2_block_state = st_provider.resolve_get_latest_l2_block_state()?;
     tracing::info!("latest l2 block state: {:?}", latest_l2_block_state);

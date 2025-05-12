@@ -13,9 +13,11 @@ pub mod lps;
 pub mod produce_block;
 pub mod random_wallet;
 pub mod register_user;
+pub mod session;
 pub mod sign_hash;
 pub mod submit_end_cap_proof;
 pub mod token_transfer;
+pub mod utils;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -53,4 +55,7 @@ pub enum Commands {
     GetLatestBlockState(crate::subcommand::args::LatestBlockStateArgs),
     GetUserId(crate::subcommand::args::UserIdArgs),
     GetUserLeaf(crate::subcommand::args::UserLeafArgs),
+
+    // session
+    WalletSession(crate::subcommand::args::WalletSessionArgs),
 }
