@@ -39,8 +39,6 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     timer.lap("redis initialized");
     info!("✅ Initialized Redis pool");
 
-
-
     let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
         KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(
             &config.coordinator_db_path,

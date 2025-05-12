@@ -64,33 +64,40 @@ impl CoordinatorEdgeHandler {
             let mut last_logged_checkpoint = None;
 
             loop {
-                match get_latest_status_from_global_queue().await {
+                let fallback = match get_latest_status_from_global_queue().await {
                     Ok(Some(status)) => {
                         let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+
                         if Some(status.confirmed_checkpoint_id) != last_logged_checkpoint {
-                            info!(
-                                "🔔 Detected new checkpoint sync status: {:?}",
-                                status
-                            );
+                            info!("🔔 Detected new checkpoint sync status: {:?}", status);
                             last_logged_checkpoint = Some(status.confirmed_checkpoint_id);
                         }
 
                         if status.confirmed_checkpoint_id > latest {
-                            info!(
-                                "🔔 Detected new confirmed checkpoint: {}, current latest: {} → updating local latest",
-                                status.confirmed_checkpoint_id, latest
-                            );
+                            info!("🔄 Updating local checkpoint from {} → {}", latest, status.confirmed_checkpoint_id);
                             LATEST_CHECKPOINT_ID.store(status.confirmed_checkpoint_id, Ordering::Relaxed);
                             info!("⭐ Coordinator Edge now updated to {}", status.confirmed_checkpoint_id);
-                        }else {
-                            debug!("ℹ️ No new confirmed checkpoint detected, current latest: {}", latest);
+                        } else {
+                            debug!("ℹ️ No new confirmed checkpoint detected, local = {}, redis = {}", latest, status.confirmed_checkpoint_id);
                         }
+
+                        false
                     }
+
                     Ok(None) => {
-                        debug!("ℹ️ Coordinator status not yet available.");
+                        debug!("⚠️ Redis queue empty or status missing. Fallback to DB.");
+                        true
                     }
+
                     Err(e) => {
-                        error!("❌ Failed to get coordinator status: {:?}", e);
+                        error!("❌ Redis query failed: {:?}", e);
+                        true
+                    }
+                };
+                if fallback {
+                    //it means redis queue is empty or error, fallback to db
+                    if let Err(e) = recover_latest_checkpoint_from_db_if_needed().await {
+                        error!("❌ Failed to recover checkpoint from DB: {:?}", e);
                     }
                 }
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -672,4 +679,35 @@ pub async fn get_latest_status_from_global_queue() -> anyhow::Result<Option<Glob
         .ok_or_else(|| anyhow::anyhow!("GLOBAL_DRAIN_QUEUE is not initialized"))?;
 
     get_latest_global_coordinator_status(drain_queue).await
+}
+
+pub async fn get_latest_checkpoint_from_db() -> anyhow::Result<u64> {
+    with_ctx_read_async(|ctx| {
+        let store_reader = ctx.store_reader.clone(); // or Arc::clone(&ctx.store_reader)
+        async move {
+            let state = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*store_reader).await?;
+            Ok(state.checkpoint_id)
+        }
+    }).await
+}
+
+pub async fn recover_latest_checkpoint_from_db_if_needed() -> anyhow::Result<()> {
+    let latest_checkpoint = match get_latest_checkpoint_from_db().await {
+        Ok(latest_checkpoint) => latest_checkpoint,
+        Err(e) => {
+            error!("❌ Failed to get latest checkpoint from DB: {:?}", e);
+            return Ok(());
+        }
+    };
+
+    let current_cached = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+
+    if latest_checkpoint > current_cached {
+        info!("🔔 Detected newer checkpoint in DB, updating from {} -> {}", current_cached, latest_checkpoint);
+        LATEST_CHECKPOINT_ID.store(latest_checkpoint, Ordering::Relaxed);
+    } else {
+        debug!("ℹ️ No newer checkpoint in DB, current = {}, db = {}", current_cached, latest_checkpoint);
+    }
+
+    Ok(())
 }
