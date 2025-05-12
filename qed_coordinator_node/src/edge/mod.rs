@@ -10,11 +10,7 @@ use qed_core::utils::debug_timer::DebugTimer;
 use crate::edge::init::{init_coordinator_edge};
 use crate::edge::rpc::router::build_rpc_module;
 use std::net::SocketAddr;
-use serde::{Deserialize, Serialize};
 use tracing::info;
-
-
-use axum::http::HeaderMap;
 
 pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Starting coordinator edge node...");

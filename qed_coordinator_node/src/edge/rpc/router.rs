@@ -1,25 +1,20 @@
 use std::sync::atomic::Ordering;
 use jsonrpsee::RpcModule;
 use qed_core::data::qhashout::QHashOut;
-use jsonrpsee::types::{ErrorObject, ErrorObjectOwned, Params};
-use plonky2::hash::hash_types::RichField;
+use jsonrpsee::types::{ErrorObjectOwned, Params};
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
-use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState};
-use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
-use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
-use qed_realm_node::{C, F};
+use qed_realm_node::{F};
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use crate::edge::context::LATEST_CHECKPOINT_ID;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
 
 use qed_user_cli::rpc::request::*;
 use crate::CoordinatorEdgeArgs;
-use crate::edge::rpc::types::{GetUserIdRequest, SubmitGUTAParams};
-use crate::rpc::types::{GetByFRequest, GetByIdRequest, GetUserLeafRequest, GetUserRegistrationFLeafRequest, GetUserRegistrationLeafRequest, LatestCheckpointResponse, RealmInfo, RegisterRealmRpcRequest};
+use crate::edge::rpc::types::{SubmitGUTAParams};
+use crate::rpc::types::{LatestCheckpointResponse};
 
 /// register the RPC methods for the CoordinatorEdgeHandler
 pub fn build_rpc_module(
@@ -122,13 +117,8 @@ pub fn build_rpc_module(
     })?;
 
     // qed_submit_guta
-    module.register_async_method("qed_submit_guta", |params, handler, ext| async move {
+    module.register_async_method("qed_submit_guta", |params, handler, _ext| async move {
         tracing::info!("qed_submit_guta");
-
-        // let jwt_metadata = ext.get::<JwtAuthMetadata>()
-        //     .ok_or_else(|| ErrorObjectOwned::owned(401, "Missing JwtAuthMetadata", None::<()>))?;
-
-        // validate_jwt_from_ext(&jwt_metadata)?;
 
         let SubmitGUTAParams { input, proof } = params.parse().map_err(|e| {
             ErrorObjectOwned::owned(-32602, format!("Invalid GUTA input: {}", e), None::<()>)
@@ -140,43 +130,7 @@ pub fn build_rpc_module(
 
         Ok::<_, ErrorObjectOwned>("ok")
     })?;
-    //register_realm_rpc
-    // module.register_async_method("register_realm_rpc", move |params, _handler, _ctx| {
-    //     let args = args.clone();
-    //     async move {
-    //         let parsed: RegisterRealmRpcRequest = match params.parse() {
-    //             Ok(p) => p,
-    //         Err(e) => {
-    //             return Err(ErrorObjectOwned::owned(
-    //                 -32602,
-    //                 format!("Invalid params for register_realm_rpc: {}", e),
-    //                 None::<()>,
-    //             ));
-    //         }
-    //     };
-    //
-    //     let mut registry = GLOBAL_REALM_REGISTRY.write().await;
-    //     if !registry.realms.contains_key(&parsed.rpc_url) {
-    //         tracing::info!("✅ Realm registered via RPC: name = {}, url = {}", parsed.name, parsed.rpc_url);
-    //
-    //         let latest_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
-    //         fetch_and_push_checkpoint_to_realm::<F,C,2>(args.clone().coordinator_edge_queue_args, latest_checkpoint_id, &parsed.rpc_url)
-    //             .await
-    //             .map_err(|e| {
-    //                 tracing::warn!("❌ fetch_and_push_checkpoint_to_realm failed: {:?}", e);
-    //                 ErrorObject::owned(-32000, format!("Failed to push checkpoint: {}", e), None::<()>)
-    //             })?;
-    //         registry.realms.insert(parsed.rpc_url.clone(), RealmInfo {
-    //             name: parsed.name,
-    //             rpc_url: parsed.rpc_url,
-    //         });
-    //     } else {
-    //         tracing::info!("ℹ️ Realm already exists: {}", parsed.rpc_url);
-    //         }
-    //
-    //         Ok(serde_json::Value::Bool(true))
-    //     }
-    // })?;
+
     //qed_get_latest_checkpoint
     module.register_async_method("qed_get_latest_checkpoint", |_params, _handler, _ext| async move {
         let checkpoint = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
@@ -297,7 +251,6 @@ pub fn build_rpc_module(
         }
     })?;
     // async fn get_contract_code_definition(&self, contract_id: u64) -> anyhow::Result<ContractCodeDefinition>;
-    //get_contract_code_definition
     module.register_async_method("qed_get_contract_code_definition", |params, handler, _ctx| async move {
         tracing::info!("➡️ Received method = qed_get_contract_code_definition, params = {:?}", params);
 
@@ -852,7 +805,7 @@ pub fn build_rpc_module(
         }
     })?;
 
-    module.register_async_method("qed_get_user_tree_merkle_proof", |params, handler, ctx| async move {
+    module.register_async_method("qed_get_user_tree_merkle_proof", |params, handler, _ctx| async move {
         let parsed: QUserTreeMerkleProofRPCRequest = match params.parse() {
             Ok(p) => p,
             Err(e) => {
@@ -874,7 +827,7 @@ pub fn build_rpc_module(
     })?;
 
 
-    module.register_async_method("qed_get_user_tree_merkle_proof_f", |params, handler, ctx| async move {
+    module.register_async_method("qed_get_user_tree_merkle_proof_f", |params, handler, _ctx| async move {
         let parsed: QUserTreeMerkleProofFRPCRequest<F> = match params.parse() {
             Ok(p) => p,
             Err(e) => {
@@ -894,13 +847,6 @@ pub fn build_rpc_module(
             }
         }
     })?;
-
-
-
-
-
-
-
 
     Ok((module, handler_clone))
 }

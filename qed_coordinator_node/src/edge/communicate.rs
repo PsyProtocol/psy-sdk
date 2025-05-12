@@ -1,15 +1,11 @@
 use std::sync::Arc;
-use std::time::Duration;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use tokio::time::sleep;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 use kvq::traits::KVQSerializable;
 use qed_core::config::network_constants::COORD_STATUS_CHANNEL_ID;
-use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterAsyncImm, CheckpointDrainQueueEmitterSyncImm, DQSerializable, DrainQueueMetadata, DrainQueueMetadataTagged};
-use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
+use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterSyncImm, DrainQueueMetadata, DrainQueueMetadataTagged};
 use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
-use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct GlobalCoordinatorStatus {

@@ -3,13 +3,11 @@ use crate::{
     CoordinatorEdgeQueueArgs,
 };
 use anyhow::anyhow;
-use dashmap::DashMap;
 use fred::prelude::Pool;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use lazy_static::lazy_static;
 use once_cell::sync::{Lazy, OnceCell};
-use qed_core::data::qhashout::QHashOut;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::coordinator::state::user_map::get_node_redis_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
@@ -33,8 +31,6 @@ lazy_static! {
         Arc::new(RwLock::new(None));
 }
 pub static LATEST_CHECKPOINT_ID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
-pub static GLOBAL_DB_PATH: OnceCell<String> = OnceCell::new();
-
 pub static GLOBAL_REDIS_POOL: OnceCell<Arc<Pool>> = OnceCell::new();
 pub static GLOBAL_DRAIN_QUEUE: OnceCell<DrainQueueRedis> = OnceCell::new();
 
@@ -73,14 +69,6 @@ where
 
     f(ctx).await
 }
-
-pub fn get_global_db_path() -> anyhow::Result<&'static str> {
-    GLOBAL_DB_PATH
-        .get()
-        .map(|s| s.as_str())
-        .ok_or_else(|| anyhow!("GLOBAL_DB_PATH not initialized"))
-}
-
 pub fn get_global_lmdb_store() -> anyhow::Result<Arc<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>>> {
     GLOBAL_LMDB_STORE
         .get()

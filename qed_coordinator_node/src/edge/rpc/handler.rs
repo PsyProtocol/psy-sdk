@@ -1,25 +1,19 @@
-use std::env::args;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
 use anyhow::bail;
-use jsonrpsee::types::ErrorObjectOwned;
-use plonky2::field::types::Field;
-use plonky2::hash::hash_types::{HashOut};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_store::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use rand::RngCore;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 use kvq::traits::KVQSerializable;
-use qed_core::config::network_constants::QED_CHECKPOINT_JOB_ID_CHANNEL;
 use qed_core::data::qhashout::QHashOut;
-use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata};
-use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataId};
+use qed_core::job::drain_queue::{CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata};
+use qed_core::job::id::{ProvingJobCircuitType};
 use qed_core::job::traits::QProofStoreWriterAsyncImm;
-use qed_core::job::worker_queue::{ProvingDispatcher, ProvingWorkerListener};
+use qed_core::job::worker_queue::{ProvingDispatcher};
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
@@ -29,17 +23,14 @@ use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_node::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by_pubkey};
-use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, CPQueueNotification, RedisQueue, CE_NOTIFICATIONS};
+use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS};
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
 use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use crate::context::{build_checkpoint_sync_info, with_temp_ctx_read_async, UserRegisterState, GLOBAL_DRAIN_QUEUE};
+use crate::context::{build_checkpoint_sync_info, with_temp_ctx_read_async, GLOBAL_DRAIN_QUEUE};
 use crate::{CoordinatorEdgeArgs, CoordinatorEdgeQueueArgs};
 use crate::communicate::{get_latest_global_coordinator_status, GlobalCoordinatorStatus};
-use crate::context::UserRegisterState::{Registered};
-use crate::edge::context::{with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID};
-use crate::edge::rpc::types::GetUserIdRequest;
+use crate::edge::context::{with_ctx_read_async, LATEST_CHECKPOINT_ID};
 use crate::rpc::types::CheckpointSyncInfo;
 
 type F = QEDFelt;
@@ -51,7 +42,6 @@ pub struct CoordinatorEdgeHandler {
     args: CoordinatorEdgeQueueArgs,
     notify_queue: RedisQueue,
     cp_listener: Arc<Mutex<Option<JoinHandle<()>>>>,
-    realm_job_listener: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
 impl CoordinatorEdgeHandler {
@@ -61,7 +51,6 @@ impl CoordinatorEdgeHandler {
             args: args.coordinator_edge_queue_args,
             notify_queue: RedisQueue::new(redis_uri.as_str())?,
             cp_listener: Arc::new(Mutex::new(None)),
-            realm_job_listener: Arc::new(Mutex::new(None)),
         })
     }
     ///receive StartSync notification from CP
@@ -196,7 +185,7 @@ impl CoordinatorEdgeHandler {
         proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
     ) -> anyhow::Result<()> {
 
-        let (store_reader, checkpoint_queue, proof_store, config, verifier) =
+        let (_store_reader, checkpoint_queue, proof_store, config, verifier) =
             with_ctx_read_async(|ctx| {
 
                 let store_reader = ctx.store_reader.clone();
@@ -676,13 +665,6 @@ impl CoordinatorEdgeHandler {
         .await
     }
 }
-
-fn qhash_from_u64_array(arr: [u64; 4]) -> QHashOut<QEDFelt> {
-    let elements = arr.map(QEDFelt::from_canonical_u64);
-    QHashOut(HashOut { elements })
-}
-
-
 
 pub async fn get_latest_status_from_global_queue() -> anyhow::Result<Option<GlobalCoordinatorStatus>> {
     let drain_queue = GLOBAL_DRAIN_QUEUE

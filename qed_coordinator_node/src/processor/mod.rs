@@ -1,8 +1,4 @@
 
-use fred::prelude::{ClientLike, Client};
-use fred::prelude::Config;
-use fred::prelude::ReconnectPolicy;
-use fred::types::Builder;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
@@ -16,7 +12,6 @@ use qed_core::job::{
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::coordinator::state::processor::CoordinatorConfig;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
-use qed_node::nimpl::worker_queue_redis::redis_queue::{CPQueueNotification};
 use qed_node::{
     coordinator::state::processor::CoordinatorProcessorContext,
     nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS},
@@ -31,20 +26,13 @@ use qed_store::{
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
 use std::{ sync::Arc, time::Duration};
-use std::fs::File;
 use anyhow::bail;
-use once_cell::sync::Lazy;
-use tokio::sync::Mutex;
-use tokio::time::sleep;
 use tracing::{error, info, warn};
 use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterSyncImm};
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
-use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
 use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
 use qed_node::nimpl::new_fred_pool;
-use qed_realm_node::RedisConfig;
 use crate::args::CoordinatorProcessorArgs;
-use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
 use crate::communicate::push_latest_global_coordinator_status;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -120,7 +108,6 @@ impl<
                             Ok(false)
                         }
                     }
-                    _ => Ok(false),
                 }
             }
             None => Ok(false),
@@ -226,7 +213,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         CoordinatorProcessNode::new_with_config(args)
         .await?;
 
-    let mut latest_checkpoint_id = match  coordinator_processor
+    let latest_checkpoint_id = match  coordinator_processor
         .ctx
         .store
         .get_latest_l2_block_state()
@@ -283,7 +270,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                     confirmed_checkpoint_id,
                     next_checkpoint
                 ).await;
-                let job_id = match coordinator_processor
+                let _job_id = match coordinator_processor
                     .ctx
                     .prover_queue
                     //indeed, we don't use this "next_checkpoint"
