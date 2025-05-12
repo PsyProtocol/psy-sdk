@@ -62,6 +62,14 @@ impl RedisQueue {
         let manager = RedisConnectionManager::from_client(client)?;
         let queue = {
             let pool = r2d2::Pool::builder().build(manager)?;
+            {
+                let mut conn = pool.get()?;
+                redis::cmd("CLIENT")
+                    .arg("SETNAME")
+                    .arg("r2d2-rsmq-pool")
+                    .query(&mut *conn)?;
+                drop(conn);
+            }
             let mut queue = PooledRsmq::new_with_pool(pool, false, None);
             for q in &[
                 Q_RPC_TOKEN_TRANSFER,

@@ -1,15 +1,10 @@
-use crate::communicate::get_latest_global_coordinator_status;
-use crate::rpc::types::{RealmInfo, RealmRpcRegistry};
 use std::sync::atomic::Ordering;
 use crate::{
-    CoordinatorEdgeQueueArgs, COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX,
-    COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX,
+    CoordinatorEdgeQueueArgs,
 };
 use anyhow::anyhow;
 use dashmap::DashMap;
-use dotenvy::var;
 use fred::prelude::Pool;
-use fred::prelude::*;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use lazy_static::lazy_static;
@@ -17,15 +12,15 @@ use once_cell::sync::{Lazy, OnceCell};
 use qed_core::data::qhashout::QHashOut;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::coordinator::state::user_map::get_node_redis_pool;
-use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
-use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_store::config::store_config::QEDFelt;
-use serde::{Deserialize, Serialize};
 use std::future::Future;
 use std::sync::{atomic::AtomicU64, Arc, OnceLock};
+use chrono::Utc;
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
+use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
+use crate::rpc::types::CheckpointSyncInfo;
 
 pub type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 pub type DrainQueue = ProofStoreFred;
@@ -44,23 +39,17 @@ pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, UserRegisterState>>
 pub static GLOBAL_DB_PATH: OnceCell<String> = OnceCell::new();
 
 pub static GLOBAL_REDIS_POOL: OnceCell<Arc<Pool>> = OnceCell::new();
-pub static GLOBAL_DRAIN_QUEUE: OnceCell<DrainQueueFred> = OnceCell::new();
-// pub static GLOBAL_REALM_REGISTRY: Lazy<Arc<RwLock<RealmRpcRegistry>>> = Lazy::new(|| {
-//     Arc::new(RwLock::new(RealmRpcRegistry::default()))
-// });
+pub static GLOBAL_DRAIN_QUEUE: OnceCell<DrainQueueRedis> = OnceCell::new();
 
 pub static GLOBAL_LMDB_STORE: OnceLock<Arc<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>>> =
     OnceLock::new();
 
-// pub static GLOBAL_JWT_SECRET: OnceCell<Arc<String>> = OnceCell::new();
-
-//    when user registers, but not write into block, we mark as Registering
+// when user registers, but not write into block, we mark as Registering
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UserRegisterState {
     Registering(u64),
     Registered(u64),
 }
-
 
 pub async fn with_ctx_read_async<F, Fut, R>(f: F) -> anyhow::Result<R>
 where
@@ -74,6 +63,7 @@ where
 
     f(ctx).await
 }
+
 pub async fn with_ctx_write_async<F, Fut, R>(f: F) -> anyhow::Result<R>
 where
     F: FnOnce(&mut CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>) -> Fut,
@@ -145,25 +135,15 @@ where
     f(temp_ctx).await
 }
 
-
-pub async fn check_and_print_latest_coordinator_status() -> anyhow::Result<()> {
-    let pool = GLOBAL_REDIS_POOL
-        .get()
-        .expect("❌ GLOBAL_REDIS_POOL is not initialized");
-
-    let drain_queue = DrainQueueFred::new(pool.as_ref().clone());
-
-    match get_latest_global_coordinator_status(&drain_queue).await? {
-        Some(status) => {
-            info!(
-                "📦 Latest Coordinator Status: checkpoint={}, processor_height={}, timestamp={}",
-                status.confirmed_checkpoint_id, status.processor_height, status.timestamp
-            );
-        }
-        None => {
-            warn!("⚠️ Coordinator status not yet available.");
-        }
+pub fn build_checkpoint_sync_info(
+    latest_checkpoint_id: u64,
+    checkpoint_sync_info: QEDCheckpointSyncInfoCompact<QEDFelt>,
+) -> CheckpointSyncInfo {
+    CheckpointSyncInfo {
+        latest_checkpoint_id,
+        description: None,
+        source_coordinator_edge_id: None,
+        sync_timestamp: Utc::now().timestamp() as u64,
+        compact: checkpoint_sync_info,
     }
-
-    Ok(())
 }
