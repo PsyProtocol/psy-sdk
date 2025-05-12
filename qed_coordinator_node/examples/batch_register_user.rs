@@ -1,14 +1,13 @@
-
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-use std::time::Duration;
-use tokio::time::sleep;
-use reqwest::Client;
 use plonky2::field::goldilocks_field::GoldilocksField as QEDFelt;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::HashOut;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use std::time::Duration;
+use tokio::time::sleep;
 
 const DO_QUERY: bool = true;
 const USERS_PER_BATCH: u64 = 10;
@@ -61,7 +60,10 @@ async fn main() -> anyhow::Result<()> {
 
             match res {
                 Ok(resp) => {
-                    let text = resp.text().await.unwrap_or_else(|_| "<no body>".to_string());
+                    let text = resp
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "<no body>".to_string());
                     println!("✅ [{}] Register response: {}", global_counter, text);
                     current_batch.push(public_key_param);
                 }
@@ -138,7 +140,10 @@ async fn main() -> anyhow::Result<()> {
                 let res = client.post(&ce_url).json(&payload).send().await;
                 match res {
                     Ok(resp) => {
-                        let text = resp.text().await.unwrap_or_else(|_| "<no body>".to_string());
+                        let text = resp
+                            .text()
+                            .await
+                            .unwrap_or_else(|_| "<no body>".to_string());
                         println!("🔍 [{}] Query result: {}", global_counter + i as u64, text);
                     }
                     Err(err) => {
@@ -149,6 +154,5 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         println!("🔁 Batch complete. Looping...\n");
-
     }
 }

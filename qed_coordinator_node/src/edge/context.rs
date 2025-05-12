@@ -1,29 +1,31 @@
-use std::sync::atomic::Ordering;
-use crate::{
-    CoordinatorEdgeQueueArgs,
+// std
+use std::future::Future;
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc, OnceLock,
 };
+
 use anyhow::anyhow;
-use fred::prelude::Pool;
+use chrono::Utc;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use lazy_static::lazy_static;
 use once_cell::sync::{Lazy, OnceCell};
+use tokio::sync::RwLock;
+
+use crate::rpc::types::CheckpointSyncInfo;
+use crate::CoordinatorEdgeQueueArgs;
+
+use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::coordinator::state::user_map::get_node_redis_pool;
+use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_store::config::store_config::QEDFelt;
-use std::future::Future;
-use std::sync::{atomic::AtomicU64, Arc, OnceLock};
-use chrono::Utc;
-use tokio::sync::RwLock;
-use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
-use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
-use crate::rpc::types::CheckpointSyncInfo;
 
 pub type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 pub type DrainQueue = ProofStoreFred;
 pub type ProofStore = ProofStoreFred;
-
 
 lazy_static! {
     //todo! if no write, use once_cell instead
@@ -31,7 +33,6 @@ lazy_static! {
         Arc::new(RwLock::new(None));
 }
 pub static LATEST_CHECKPOINT_ID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
-pub static GLOBAL_REDIS_POOL: OnceCell<Arc<Pool>> = OnceCell::new();
 pub static GLOBAL_DRAIN_QUEUE: OnceCell<DrainQueueRedis> = OnceCell::new();
 
 pub static GLOBAL_LMDB_STORE: OnceLock<Arc<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>>> =
@@ -69,7 +70,8 @@ where
 
     f(ctx).await
 }
-pub fn get_global_lmdb_store() -> anyhow::Result<Arc<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>>> {
+pub fn get_global_lmdb_store() -> anyhow::Result<Arc<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>>>
+{
     GLOBAL_LMDB_STORE
         .get()
         .cloned()
@@ -80,7 +82,13 @@ pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(
     f: F,
 ) -> anyhow::Result<R>
 where
-    F: FnOnce(CoordinatorEdgeContext<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>, ProofStoreFred, ProofStoreFred>) -> Fut,
+    F: FnOnce(
+        CoordinatorEdgeContext<
+            KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
+            ProofStoreFred,
+            ProofStoreFred,
+        >,
+    ) -> Fut,
     Fut: std::future::Future<Output = anyhow::Result<R>>,
 {
     let read_guard = GLOBAL_COORD_EDGE_CTX.read().await;

@@ -1,23 +1,17 @@
+pub mod communicate;
 pub mod context;
 pub mod init;
 pub mod rpc;
-pub mod communicate;
 
-use crate::args::CoordinatorEdgeArgs;
 use jsonrpsee::server::Server;
 use qed_core::utils::debug_timer::DebugTimer;
-
-use crate::edge::init::{init_coordinator_edge};
-use crate::edge::rpc::router::build_rpc_module;
 use std::net::SocketAddr;
 use tracing::info;
 
+use crate::args::CoordinatorEdgeArgs;
+use crate::edge::{init::init_coordinator_edge, rpc::router::build_rpc_module};
 pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Starting coordinator edge node...");
-
-    let mut timer = DebugTimer::new("coordinator_edge_node");
-    timer.lap("start");
-
     info!("✅ Loaded config: {:#?}", config);
 
     init_coordinator_edge(&config).await?;

@@ -5,14 +5,8 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = { workspace = true }
-tempfile = { workspace = true }
 kvq_store_lmdbx = { workspace = true }
-reth-libmdbx = { workspace = true }
 jsonrpsee = { workspace = true }
-hyper = { workspace = true }
-http-body-util = { workspace = true }
-bytes = { workspace = true }
-hyper-util = { workspace = true }
 qed_node = { workspace = true }
 qed_crypto = { workspace = true }
 qed_data = { workspace = true }
@@ -21,30 +15,18 @@ qed_core = { workspace = true }
 kvq = { workspace = true }
 tokio = { workspace = true }
 serde_json = { workspace = true }
-fred = { workspace = true }
 clap = { workspace = true }
 tracing.workspace = true
-tracing-subscriber = { workspace = true }
-dotenv = { workspace = true }
 rand = { workspace = true }
 once_cell = { workspace = true }
 serde = { workspace = true }
 lazy_static = { workspace = true }
-dotenvy = { workspace = true }
-envy = { workspace = true }
-dashmap = { workspace = true }
 qed_node_common = { workspace = true }
 qed_store = { workspace = true }
 qed_rollup_circuit = { workspace = true }
 hex = {workspace = true}
 bincode = {workspace = true}
 qed_realm_node = {workspace = true}
-futures-util = {workspace = true}
 reqwest = {workspace = true}
-qed_worker = {workspace = true}
 qed_user_cli = { workspace = true }
 chrono = {workspace = true}
-qed_rollup_utils = {workspace = true}
-axum = {workspace = true}
-url = "2.5.4"
-fs2 = { version = "0.4" }
