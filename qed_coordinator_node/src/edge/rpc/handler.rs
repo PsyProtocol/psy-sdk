@@ -34,12 +34,11 @@ use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, CPQu
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use crate::context::{with_temp_ctx_read_async, UserRegisterState, GLOBAL_DRAIN_QUEUE};
+use crate::context::{build_checkpoint_sync_info, with_temp_ctx_read_async, UserRegisterState, GLOBAL_DRAIN_QUEUE};
 use crate::{CoordinatorEdgeArgs, CoordinatorEdgeQueueArgs};
 use crate::communicate::{get_latest_global_coordinator_status, GlobalCoordinatorStatus};
 use crate::context::UserRegisterState::{Registered, Registering};
 use crate::edge::context::{with_ctx_read_async, GLOBAL_COORD_EDGE_CTX, LATEST_CHECKPOINT_ID, REGISTERED_USERS, REGISTER_USER_COUNTER};
-use crate::edge::processor::{build_checkpoint_sync_info};
 use crate::edge::rpc::types::GetUserIdRequest;
 use crate::rpc::types::CheckpointSyncInfo;
 
@@ -254,7 +253,7 @@ impl CoordinatorEdgeHandler {
         let queue_item =
             input.to_queue_item(config.guta_channel_id, config.realm_root_level as u32);
         let proof_id = queue_item.proof_id;
-
+        info!("🚀 Pushing GUTA result to drain queue, realm_id = {}", proof_id.task_index);
         // write to proof store
         proof_store.set_proof_by_id(proof_id, &proof).await?;
         tracing::info!("✅ wrote guta result to proof store");

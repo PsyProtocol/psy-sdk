@@ -9,10 +9,10 @@ use qed_node_common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use anyhow::anyhow;
 use fred::clients::Pool;
-use tracing::warn;
+use tracing::{info, warn};
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
-use qed_realm_node::REALM_PROCESSOR_SUFFIX;
 use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
+use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
 use crate::context::{get_global_db_path, DrainQueue, ProofStore, StoreReader, GLOBAL_COORD_EDGE_CTX, GLOBAL_DB_PATH, GLOBAL_DRAIN_QUEUE, GLOBAL_LMDB_STORE};
 
 pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Result<()> {
@@ -23,12 +23,11 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     init_global_db_path(&config.coordinator_db_path)?;
     info!("✅ Initialized global db path");
 
-
     let redis_pool = new_fred_pool(&config.coordinator_redis_uri, 8).await?;
     init_node_redis_pool(redis_pool.clone())?;
     info!("✅ Initialized Redis pool");
 
-    init_global_queue(redis_pool.clone());
+    init_global_queue(&config.coordinator_redis_uri);
     info!("✅ Initialized global drain queue");
 
     let proof_store = Arc::new(ProofStoreFred::new2(
@@ -96,7 +95,6 @@ pub fn init_global_db_path<P: Into<String>>(path: P) -> anyhow::Result<()> {
     GLOBAL_DB_PATH.set(path.into()).map_err(|_| anyhow!("GLOBAL_DB_PATH already set"))
 }
 
-
 pub fn init_global_lmdb_store() -> anyhow::Result<()> {
     if GLOBAL_LMDB_STORE.get().is_some() {
         return Ok(());
@@ -110,8 +108,17 @@ pub fn init_global_lmdb_store() -> anyhow::Result<()> {
         .map_err(|_| anyhow!("GLOBAL_LMDB_STORE already initialized"))
 }
 
-pub fn init_global_queue(pool: Pool) {
-    let drain_queue = DrainQueueFred::new(pool);
+pub fn init_global_queue(redis_url : &str) {
+    let drain_queue = match DrainQueueRedis::new(redis_url) {
+        Ok(dq) => {
+            info!("✅ Initialized global drain queue");
+            dq
+        }
+        Err(e) => {
+            warn!("❌ Failed to initialize global drain queue: {}", e);
+            return;
+        }
+    };
 
     if GLOBAL_DRAIN_QUEUE.set(drain_queue).is_err() {
         warn!("⚠️ GLOBAL_DRAIN_QUEUE already initialized, skipping re-initialization.");

@@ -57,8 +57,8 @@ impl RealmProcessor {
             pool,
             &config.queue.worker_queue_suffix,
             &config.queue.notifications_queue_suffix,
-            &config.queue.proof_store_key_suffix.as_str(),
-            &config.queue.proof_store_key_suffix.as_str(),
+            &config.queue.proof_store_key_suffix,
+            &config.queue.proof_store_key_suffix,
         );
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write_with_size(

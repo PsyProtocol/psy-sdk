@@ -34,11 +34,14 @@ use qed_store::{
 use std::{ sync::Arc, time::Duration};
 use std::fs::File;
 use anyhow::bail;
+use once_cell::sync::Lazy;
+use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tracing::{error, info, warn};
-use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
+use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterAsyncImm, CheckpointDrainQueueEmitterSyncImm};
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
 use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
+use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
 use qed_node::nimpl::new_fred_pool;
 use qed_realm_node::RedisConfig;
 use crate::args::CoordinatorProcessorArgs;
@@ -56,7 +59,7 @@ pub struct CoordinatorProcessNode<
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     ER: WorkerEventReceiverAsyncImm,
-    SQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
+    SQ: CheckpointDrainQueueConsumerSyncImm + CheckpointDrainQueueEmitterSyncImm,
 
 > {
     pub ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
@@ -76,7 +79,7 @@ impl<
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm,
         ER: WorkerEventReceiverAsyncImm,
-        SQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
+        SQ: CheckpointDrainQueueConsumerSyncImm + CheckpointDrainQueueEmitterSyncImm,
 
 > CoordinatorProcessNode<SR, DQ, HQ, WQ, PS, ER, SQ>
 {
@@ -111,13 +114,13 @@ impl<
                     CEQueueNotification::StartProduceBlock { next_checkpoint } => {
                         let next_checkpoint_edge = next_checkpoint;
                         if next_checkpoint_edge == next_checkpoint_processor  {
-                            tracing::info!("✅ Building new block for checkpoint {}", next_checkpoint);
+                            info!("✅ Building new block for checkpoint {}", next_checkpoint);
                             Ok(true)
                         } else if next_checkpoint_edge < next_checkpoint_processor {
-                            tracing::warn!("⚠️ Outdated checkpoint {}, current {}", next_checkpoint_edge, next_checkpoint_processor);
+                            warn!("⚠️ Outdated checkpoint {}, current {}", next_checkpoint_edge, next_checkpoint_processor);
                             Ok(false)
                         } else {
-                            tracing::warn!("🚧 Future checkpoint {} too far ahead of {}", next_checkpoint_edge, next_checkpoint_processor);
+                            warn!("🚧 Future checkpoint {} too far ahead of {}", next_checkpoint_edge, next_checkpoint_processor);
                             self.edge_command_queue.dispatch(CE_NOTIFICATIONS, CEQueueNotification::StartProduceBlock { next_checkpoint })?;
                             Ok(false)
                         }
@@ -138,7 +141,7 @@ impl
         ProofStoreFred,
         ProofStoreFred,
         ProofStoreFred,
-        DrainQueueFred,
+        DrainQueueRedis,
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
@@ -189,7 +192,16 @@ impl
         )
         .await?;
 
-        let sync_queue = Arc::new(DrainQueueFred::new(pool.clone()));
+        //use sync_queue for checkpoint sync
+        let sync_queue = Arc::new(match DrainQueueRedis::new(&cp_config.coordinator_redis_uri){
+            Ok(q) => {
+                q
+            }
+            Err(e) => {
+                error!("❌ Failed to create sync queue: {:?}", e);
+                panic!("Failed to create sync queue: {:?}", e);
+            }
+        });
         let edge_command_queue = RedisQueue::new(&cp_config.coordinator_redis_uri)?;
 
         //build block 1 only once
@@ -235,7 +247,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 
     let mut confirmed_checkpoint_id = latest_checkpoint_id;
     let mut next_checkpoint = latest_checkpoint_id + 1;
-    tracing::info!("🚀 Start coordinator processor at checkpoint {}", latest_checkpoint_id);
+    info!("🚀 Start coordinator processor at checkpoint {}", latest_checkpoint_id);
 
     let task = tokio::spawn(async move {
         let mut processor_loop = async move || -> anyhow::Result<()> {
@@ -270,7 +282,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                 if let Err(e) = coordinator_processor.ctx.build_block().await {
                     error!("❌ Failed to build block {}: {:?}", next_checkpoint, e);
                     tokio::time::sleep(Duration::from_secs(2)).await;
-                    continue;
+                    bail!("❌ Failed to build block {}: {:?}", next_checkpoint, e);
                 }
                 info!("✅ Successfully built block {}", next_checkpoint);
                 next_checkpoint += 1;
@@ -312,7 +324,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
     });
 
     match task.await {
-        std::result::Result::Ok(_) => tracing::info!("Coordinator processor task completed"),
+        Ok(_) => info!("Coordinator processor task completed"),
         Err(e) => panic!("Coordinator processor task failed: {:?}", e),
     }
 

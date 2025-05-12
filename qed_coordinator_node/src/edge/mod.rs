@@ -1,6 +1,5 @@
 pub mod context;
 pub mod init;
-pub mod processor;
 pub mod rpc;
 pub mod communicate;
 
