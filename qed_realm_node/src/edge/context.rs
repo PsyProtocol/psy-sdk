@@ -39,9 +39,9 @@ use qed_data::qdata::checkpoint::{
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
+use qed_store::config::store_config::QEDFelt;
 use qed_store::config::store_config::UserTreeStore;
 use qed_store::models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore;
-use qed_store::config::store_config::QEDFelt;
 use qed_store::{
     config::store_config::QCheckpointSyncInfoCompact, node::realm::QEDRealmStoreReaderAsync,
 };
@@ -130,7 +130,10 @@ impl<
         input: SubmitUserEndCapNonProofInput<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<()> {
-        eprintln!("DEBUGPRINT[578]: context.rs:123: input={}", serde_json::to_string_pretty(&input).unwrap());
+        eprintln!(
+            "DEBUGPRINT[578]: context.rs:123: input={}",
+            serde_json::to_string_pretty(&input).unwrap()
+        );
         // start validation
         if proof.public_inputs.len() != 4 {
             anyhow::bail!("invalid proof");
@@ -147,6 +150,7 @@ impl<
         }
 
         // Build contract height cache and validate
+        tracing::info!("build contract height cache and validate");
         let mut contracts_helper = SimpleContractHeightCache::<F>::new();
         for (contract_id, insecure_unvalidated_user_provided_cst_height) in
             input.get_needed_contract_zero_hashes()
@@ -160,6 +164,7 @@ impl<
             );
         }
 
+        tracing::info!("ensure simple self consistent");
         input.ensure_simple_self_consistent::<H>(proof_public_inputs_hash, &contracts_helper)?;
 
         let end_cap_checkpoint_id = input.core.checkpoint_id.to_canonical_u64();
@@ -169,31 +174,56 @@ impl<
             anyhow::bail!("invalid checkpoint id");
         }
 
+        tracing::info!("get_checkpoint_tree_merkle_proof");
         let checkpoint_tree_proof = self
             .store_reader
             .get_checkpoint_tree_merkle_proof(checkpoint_id, end_cap_checkpoint_id)
             .await?;
+
         if checkpoint_tree_proof.root != input.core.state_transition.checkpoint_tree_root_hash {
+            tracing::error!(
+                "ensure checkpoint_tree_proof: {:?} == input.core.state_transition.checkpoint_tree_root_hash {:?}",
+                checkpoint_tree_proof.root,
+                input.core.state_transition.checkpoint_tree_root_hash,
+            );
             anyhow::bail!("invalid checkpoint_root_hash");
         }
 
+        tracing::info!(
+            "get user{} data at checkpoint {}",
+            user_id_u64,
+            checkpoint_id
+        );
         let user_leaf = self
             .store_reader
             .get_user_leaf_data(checkpoint_id, user_id_u64)
             .await?;
         let expected_start_user_leaf_hash = user_leaf.qfhash::<H>();
         if expected_start_user_leaf_hash != input.core.state_transition.start_user_leaf_hash {
+            tracing::error!(
+                "ensure expected_start_user_leaf_hash: {:?} == input.core.state_transition.start_user_leaf_hash {:?}",
+                expected_start_user_leaf_hash,
+                input.core.state_transition.start_user_leaf_hash,
+            );
             anyhow::bail!("invalid start user leaf state, potentially submitted a separate end cap while proving the current one");
         }
 
         if user_leaf.last_checkpoint_id.to_canonical_u64()
             > input.core.checkpoint_id.to_canonical_u64()
         {
-            anyhow::bail!("invalid checkpoint in proving session: cannot go backward");
+            anyhow::bail!(
+                "invalid checkpoint {}, expected {} in proving session: cannot go backward",
+                user_leaf.last_checkpoint_id,
+                input.core.checkpoint_id
+            );
         }
 
         if user_leaf.nonce.to_canonical_u64() > input.core.new_user_leaf.nonce.to_canonical_u64() {
-            anyhow::bail!("invalid checkpoint in proving session: cannot go backward");
+            anyhow::bail!(
+                "invalid nonce {}, expected {} in proving session: cannot go backward",
+                user_leaf.nonce.to_canonical_u64(),
+                input.core.new_user_leaf.nonce.to_canonical()
+            );
         }
 
         let old_user_state_tree_root = user_leaf.user_state_tree_root;
@@ -202,9 +232,17 @@ impl<
             serde_json::to_string(&old_user_state_tree_root).unwrap()
         );
 
-        let cst_user_update =
-            input.verify_and_generate_cst_updates::<H>(next_checkpoint_id, old_user_state_tree_root)?;
-
+        tracing::info!(
+            "verify_and_generate_cst_updates, next_checkpoint_id={}, old_user_state_tree_root={}",
+            next_checkpoint_id,
+            old_user_state_tree_root.to_string()
+        );
+        let cst_user_update = input
+            .verify_and_generate_cst_updates::<H>(next_checkpoint_id, old_user_state_tree_root)?;
+        tracing::info!(
+            "verify UserEndCap proof, proof.public_inputs={:?}",
+            proof.public_inputs
+        );
         self.verify_proof_of_type(ProvingJobCircuitType::UserEndCap, proof)?;
 
         // end validation
@@ -221,12 +259,17 @@ impl<
         );
 
         if self.proof_store.contains_id(proof_id).await? {
-            anyhow::bail!("already submitted proof for this block");
+            anyhow::bail!("already submitted proof {:?} for this block", proof_id);
         }
 
         tracing::info!("input proof_id: {:?}", proof_id);
 
         //self.proof_store.set_bytes_by_id(proof_id.get_input_witness_id(), data)
+        tracing::info!(
+            "set proof by id: {:?}, proof.public_inputs={:?}",
+            proof_id,
+            proof.public_inputs
+        );
         self.proof_store.set_proof_by_id(proof_id, proof).await?;
         let queue_item = UserEndCapNonProofCoreInputQueueItem {
             input: input.core,
@@ -236,10 +279,15 @@ impl<
             channel_id: self.realm_config.guta_channel_id,
         };
 
-        tracing::info!("queue item: {:?}", queue_item);
-        tracing::info!("queue item pretty: {}", serde_json::to_string_pretty(&queue_item).unwrap());
+        tracing::info!(
+            "queue item pretty: {}",
+            serde_json::to_string_pretty(&queue_item).unwrap()
+        );
 
-        eprintln!("DEBUGPRINT[573]: context.rs:231: cst_user_update={}", serde_json::to_string_pretty(&cst_user_update).unwrap());
+        eprintln!(
+            "DEBUGPRINT[573]: context.rs:231: cst_user_update={}",
+            serde_json::to_string_pretty(&cst_user_update).unwrap()
+        );
         self.checkpoint_queue.cdq_push_imm(cst_user_update).await?;
         self.checkpoint_queue.cdq_push_imm(queue_item).await?;
 
@@ -753,10 +801,11 @@ where
             checkpoint_id,
             user_id
         );
-        Ok(self.store_reader
+        Ok(self
+            .store_reader
             .get_user_tree_merkle_proof(checkpoint_id, user_id)
-            .await.map_err(RpcError::Anyhow)?)
-        
+            .await
+            .map_err(RpcError::Anyhow)?)
     }
 }
 

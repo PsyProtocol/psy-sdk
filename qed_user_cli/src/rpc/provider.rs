@@ -180,6 +180,10 @@ impl RpcProvider {
 
     pub fn new_with_config(config: &str) -> anyhow::Result<Self> {
         let config: RpcConfig = serde_json::from_str(&fs::read_to_string(config)?)?;
+        tracing::info!(
+            "start rpc provider with config: {}",
+            serde_json::to_string_pretty(&config)?
+        );
         assert!(config.realm_configs.len() > 0);
         assert!(config.coordinator_configs.len() > 0);
         let mut realm_configs = HashMap::new();

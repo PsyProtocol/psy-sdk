@@ -176,7 +176,7 @@ pub struct DeployContractArgs {
     pub contract_path: String,
 }
 
-#[derive(Clone, Args)]
+#[derive(Clone, Args, Serialize, Deserialize)]
 pub struct SubmitEndCapArgs {
     #[clap(env, long, default_value = "rpc.config", env)]
     pub rpc_config: String,
