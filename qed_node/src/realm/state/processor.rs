@@ -19,14 +19,12 @@ use qed_core::{
     },
 };
 use qed_crypto::{
-    common::{cached_circuit_library::get_cached_circuit_library, circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier},
-    hash::{
-        merkle::{
+    common::{cached_circuit_library::get_cached_circuit_library, circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier, user_id::get_user_id_from_registration_id},
+    hash::{merkle::{
             core::{DeltaMerkleProofCore, MerkleProofCore},
             treeprover::{data::CircuitInputWithDependencies, subtree::SubTreeNodeStateTransition},
             utils::common::{QMerkleNode, SimpleMerkleNodeKey},
         }, traits::qhashable::QFieldHashable}
-    ,
 };
 use qed_data::{
     guta::{
@@ -43,7 +41,6 @@ use qed_data::{
 use qed_store::{
     config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
-    store::node::realm::writer_imm::get_user_id_from_registration_id,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -327,6 +324,21 @@ impl<
                 .get_checkpoint_leaf_data(last_checkpoint_id)
                 .await?;
 
+            let get_local_root = self.store.get_user_bottom_tree_merkle_proof(REALM_USER_TREE_HEIGHT, checkpoint_id, (self.realm_config.realm_id as u64)<<(REALM_USER_TREE_HEIGHT as u64)).await?;
+
+
+                let guta_new = GlobalUserTreeAggregatorHeader {
+                    checkpoint_tree_root: guta.checkpoint_tree_root,
+                    guta_circuit_whitelist: guta.guta_circuit_whitelist,
+                    state_transition: SubTreeNodeStateTransition {
+                        old_node_value: get_local_root.root,
+                        new_node_value: get_local_root.root,
+                        node_index: F::from_canonical_u32(self.realm_config.realm_id),
+                        node_level: F::from_canonical_u8(REALM_USER_TREE_HEIGHT),
+                    },
+                    stats: guta.stats,
+                };
+                /*
             let guta_header = GlobalUserTreeAggregatorHeader {
                 guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
                 checkpoint_tree_root: checkpoint_tree_proof.root,
@@ -342,8 +354,7 @@ impl<
                     total_transactions: F::ZERO,
                     slots_modified: F::ZERO,
                 },
-            };
-            eprintln!("DEBUGPRINT[524]: processor.rs:346: guta_header={}", serde_json::to_string_pretty(&guta_header).unwrap());
+            };*/
             let input = GUTANoChangeFullInput {
                 checkpoint_tree_proof,
                 checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots {
@@ -366,7 +377,7 @@ impl<
             )
             .await?;
 
-            return Ok((vec![vec![w_id]], guta, proof));
+            return Ok((vec![vec![w_id]], guta_new, proof));
         }
 
         if guta.state_transition.node_level == F::from_canonical_u8(REALM_USER_TREE_HEIGHT) {

@@ -50,14 +50,14 @@ impl SimpleAsyncRealmWorker {
     ) -> anyhow::Result<QProvingJobDataID> {
         let mut job = Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All)
         .await?;
-        while 
+        while
             job.circuit_type != ProvingJobCircuitType::NotifyRealmComplete {
                 job = Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All)
         .await?;
 
         }
                 Ok(job)
-        
+
     }
     pub async fn process_next_job<
         PS: QProofStoreAsyncImm + Send + Sync,
@@ -127,8 +127,7 @@ impl SimpleAsyncRealmWorker {
                         .worker_prove_mut_async(&store, library, job_id)
                         .await?;
                     let output_id = job_id.get_output_id();
-                    // tracing::info!(?output_id, ?proof, "Push proof to queue");
-                    tracing::info!(?output_id,  "Push proof to queue");
+                    tracing::info!("set proof id: {:?}",output_id);
                     store.set_proof_by_id(output_id, &proof).await?;
                     output_id
                 }

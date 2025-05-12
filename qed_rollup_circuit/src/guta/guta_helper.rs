@@ -9,7 +9,7 @@ use plonky2::{
 };
 use qed_common_circuit::circuits::{lookalikes::get_end_cap_type_e_common_data, traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}};
 use qed_core::{
-    config::network_constants::{CHECKPOINT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT},
+    config::network_constants::{CHECKPOINT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT, REALM_USER_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::{
         id::{ProvingJobCircuitType, QProvingJobDataID},
@@ -126,7 +126,7 @@ where
             guta_proof_common_data,
             guta_proof_verifier_data_cap_height,
             32,
-            GLOBAL_USER_TREE_HEIGHT as usize,
+            REALM_USER_TREE_HEIGHT as usize,
         );
 
         let verify_guta_to_cap = GUTAVerifyGUTAToCapCircuit::<C, D>::new(
@@ -135,7 +135,7 @@ where
         );
 
         let only_register_users =
-            GUTAOnlyRegisterUsersCircuit::<C, D>::new(64, GLOBAL_USER_TREE_HEIGHT as usize);
+            GUTAOnlyRegisterUsersCircuit::<C, D>::new(64, REALM_USER_TREE_HEIGHT as usize);
 
         let no_change = GUTANoChangeCircuit::<C,D>::new(CHECKPOINT_TREE_HEIGHT as usize);
 

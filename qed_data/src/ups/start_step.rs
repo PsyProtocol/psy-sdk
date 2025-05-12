@@ -23,6 +23,7 @@ pub struct UPSStartStepInput<F: RichField> {
 
 
 
+
 impl<F: RichField> KVQSerializable for UPSStartStepInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))

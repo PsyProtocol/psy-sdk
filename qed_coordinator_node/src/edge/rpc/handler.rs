@@ -8,6 +8,7 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::{HashOut};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
+use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use qed_store::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use rand::RngCore;
 use tokio::sync::Mutex;
@@ -32,7 +33,6 @@ use qed_node::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by
 use qed_node::nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, CPQueueNotification, RedisQueue, CE_NOTIFICATIONS};
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
 use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use crate::context::{with_temp_ctx_read_async, UserRegisterState, GLOBAL_DRAIN_QUEUE};
 use crate::{CoordinatorEdgeArgs, CoordinatorEdgeQueueArgs};
