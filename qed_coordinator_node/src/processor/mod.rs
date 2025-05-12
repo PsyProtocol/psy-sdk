@@ -1,4 +1,3 @@
-pub mod coordinator_lock;
 
 use fred::prelude::{ClientLike, Client};
 use fred::prelude::Config;
@@ -47,7 +46,6 @@ use qed_realm_node::RedisConfig;
 use crate::args::CoordinatorProcessorArgs;
 use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
 use crate::communicate::push_latest_global_coordinator_status;
-use crate::coordinator_lock::prepare_processor_lock_and_init_if_needed;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
@@ -69,7 +67,6 @@ pub struct CoordinatorProcessNode<
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
-    pub processor_lock: File,
 }
 
 impl<
@@ -91,7 +88,6 @@ impl<
         event_receiver: ER,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
-        lock_file: File,
     ) -> Self {
         Self {
             ctx,
@@ -101,7 +97,6 @@ impl<
             event_receiver,
             proof_verifier,
             coordinator_worker_circuits,
-            processor_lock: lock_file,
         }
     }
 
@@ -169,15 +164,25 @@ impl
                 &cp_config.coordinator_db_path,
                 cp_config.coordinator_db_size_gb,
             )?);
-        let (processor_lock ,need_init) = prepare_processor_lock_and_init_if_needed(
-            &cp_config.coordinator_db_path, &store_reader)?;
 
+        //try to get the block 1's state
+        let st = Arc::new(store_reader.dup());
+        let need_init = match st.get_l2_block_state(1).await {
+            Ok(_) => false,
+            Err(_e) => {
+                // error!("⚠️ Failed to get block 1 state: {:?}， need initialize the db", e);
+                st.initialize_store()?;
+                true
+            }
+        };
+
+        //use sync_queue for checkpoint sync
+        let sync_queue = Arc::new(DrainQueueRedis::new(&cp_config.coordinator_redis_uri)?);
+        let edge_command_queue = RedisQueue::new(&cp_config.coordinator_redis_uri)?;
 
         let coord_config = CoordinatorConfig::get_standard(0);
 
         let qps = Arc::new(q.clone());
-
-        let st = Arc::new(store_reader.dup());
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
@@ -191,18 +196,6 @@ impl
             Arc::clone(&proof_verifier),
         )
         .await?;
-
-        //use sync_queue for checkpoint sync
-        let sync_queue = Arc::new(match DrainQueueRedis::new(&cp_config.coordinator_redis_uri){
-            Ok(q) => {
-                q
-            }
-            Err(e) => {
-                error!("❌ Failed to create sync queue: {:?}", e);
-                panic!("Failed to create sync queue: {:?}", e);
-            }
-        });
-        let edge_command_queue = RedisQueue::new(&cp_config.coordinator_redis_uri)?;
 
         //build block 1 only once
         if need_init {
@@ -224,7 +217,6 @@ impl
             q,
             proof_verifier,
             coordinator_worker_circuits,
-            processor_lock,
         ))
     }
 }
