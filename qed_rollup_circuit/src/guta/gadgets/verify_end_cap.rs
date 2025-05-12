@@ -65,7 +65,7 @@ impl<const D: usize> VerifyEndCapProofGadget<D> {
         let guta_stats_pi_hash = guta_stats.to_hash::<C::Hasher, C::F, D>(builder);
 
         let expected_proof_public_inputs_hash = builder.hash_two_to_one::<C::Hasher>(state_transition_pi_hash, guta_stats_pi_hash);
-        
+
 
 
         assert_eq!(
@@ -83,13 +83,13 @@ impl<const D: usize> VerifyEndCapProofGadget<D> {
         };
 
         // ensure the whitelist root and state transition is correct for the proof
-        // builder.connect_hashes(expected_proof_public_inputs_hash, proof_public_input_hash);
+        builder.connect_hashes(expected_proof_public_inputs_hash, proof_public_input_hash);
         // end: check child proof public inputs
 
 
         // ensure the checkpoint root being used by the user is a valid checkpoint root in the tree (in the past)
         builder.connect_hashes(
-            checkpoint_historical_merkle_proof.historical_root, 
+            checkpoint_historical_merkle_proof.historical_root,
             end_cap_result_gadget.checkpoint_tree_root_hash,
         );
 
@@ -141,7 +141,7 @@ impl<const D: usize> ToGUTAHeader<D> for VerifyEndCapProofGadget<D> {
                 node_index: self.end_cap_result_gadget.user_id,
 
                 node_level: builder.constant_u8(GLOBAL_USER_TREE_HEIGHT),
-                
+
             },
             stats: self.guta_stats.to_owned(),
         }

@@ -1,7 +1,7 @@
 export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 
 PROFILE                  := release
-LOG_LEVEL                := debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug
+LOG_LEVEL                := qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
 
 check:
 	@cargo check --all-targets --examples
@@ -128,6 +128,7 @@ shutdown:
 		--remove-orphans > /dev/null 2>&1 || true
 	@sudo rm -fr redis-data
 	@redis-cli 'FLUSHALL' > /dev/null 2>&1 || true
+	@redis-cli -u redis://127.0.0.1:6380 'FLUSHALL' > /dev/null 2>&1 || true
 	@sudo rm -fr $(PWD)/db
 	@rm -fr ${PROJECT_DIR}
 
@@ -167,20 +168,9 @@ run-realm-worker:
 run-realm-edge:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge
 
-
-run-realm-processor1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
-      --redis-uri=redis://127.0.0.1:6379 \
-      --node-id=2 \
-      --realm-id=1 \
-      --worker-queue-suffix=rwq1 \
-      --notifications-queue-suffix=rnq1 \
-      --proof-store-key-suffix=RP1 \
-      --path=./db/realm1
-
 run-realm-processor2048:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
-      --redis-uri=redis://127.0.0.1:6379 \
+      --redis-uri=redis://127.0.0.1:6380 \
       --node-id=2 \
       --realm-id=2048 \
       --worker-queue-suffix=rwq2048 \
@@ -188,36 +178,17 @@ run-realm-processor2048:
       --proof-store-key-suffix=RP2048 \
       --path=./db/realm2048
 
-run-realm-worker1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
-      --redis-uri=redis://127.0.0.1:6379 \
-      --worker-queue-suffix=rwq1 \
-      --notifications-queue-suffix=rnq1 \
-      --proof-store-key-suffix=RP1
-
 run-realm-worker2048:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
-      --redis-uri=redis://127.0.0.1:6379 \
+      --redis-uri=redis://127.0.0.1:6380 \
       --worker-queue-suffix=rwq2048 \
       --notifications-queue-suffix=rnq2048 \
       --proof-store-key-suffix=RP2048
 
-run-realm-edge1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
-      --listen-addr=0.0.0.0:8547 \
-      --redis-uri=redis://127.0.0.1:6379 \
-      --coordinator-addr=http://127.0.0.1:8545 \
-      --node-id=2 \
-      --realm-id=1 \
-      --worker-queue-suffix=rwq1 \
-      --notifications-queue-suffix=rnq1 \
-      --proof-store-key-suffix=RP1 \
-      --path=./db/realm1
-
 run-realm-edge2048:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
       --listen-addr=0.0.0.0:8547 \
-      --redis-uri=redis://127.0.0.1:6379 \
+      --redis-uri=redis://127.0.0.1:6380 \
       --coordinator-addr=http://127.0.0.1:8545 \
       --node-id=2 \
       --realm-id=2048 \

@@ -298,7 +298,6 @@ impl QUserRpcProvider for RpcProvider {
         &self,
         req: QDeployContractRPCRequest<F>,
     ) -> anyhow::Result<()> {
-        tracing::info!("deploy contract: {:?}", req);
         qed_rpc_call!(
             self,
             self.get_coordinator_url()?,
@@ -310,8 +309,7 @@ impl QUserRpcProvider for RpcProvider {
         &self,
         req: QSubmitEndCapRPCRequest<F>,
     ) -> anyhow::Result<()> {
-        // tracing::info!("submit end cap proof: {:?}", req);
-        tracing::info!("submit end cap proof: {:?}", serde_json::to_string(&req));
+        tracing::info!("submit end cap proof: {}", serde_json::to_string_pretty(&req).unwrap());
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         qed_rpc_call!(self, rpc_url, RequestParams::<F>::SubmitEndCap(req))
     }

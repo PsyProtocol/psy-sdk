@@ -20,12 +20,12 @@ use qed_core::{
 };
 use qed_crypto::{
     common::{cached_circuit_library::get_cached_circuit_library, circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier},
-    hash::
+    hash::{
         merkle::{
             core::{DeltaMerkleProofCore, MerkleProofCore},
             treeprover::{data::CircuitInputWithDependencies, subtree::SubTreeNodeStateTransition},
             utils::common::{QMerkleNode, SimpleMerkleNodeKey},
-        }
+        }, traits::qhashable::QFieldHashable}
     ,
 };
 use qed_data::{
@@ -264,6 +264,8 @@ impl<
                         },
                         stats: guta.stats,
                     };
+                    eprintln!("DEBUGPRINT[639]: processor.rs:267: guta_new={}", serde_json::to_string_pretty(&guta_new).unwrap());
+                    eprintln!("DEBUGPRINT[639]: processor.rs:267: guta_new_hash={}", serde_json::to_string_pretty(&guta_new.qfhash::<QEDHasher>()).unwrap());
                     let w = GUTAOnlyRegisterUsersInput {
                         checkpoint_tree_root: guta.checkpoint_tree_root,
                         guta_register_user_inputs: regs,

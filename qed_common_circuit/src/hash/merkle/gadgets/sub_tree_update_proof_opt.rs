@@ -1,14 +1,10 @@
-use crate::builder::
-    hash::core::CircuitBuilderHashCore
-;
+use crate::builder::hash::core::CircuitBuilderHashCore;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOutTarget, RichField},
-    iop::{
-        target::Target,
-        witness::Witness,
-    },
-    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}, util::log2_ceil,
+    iop::{target::Target, witness::Witness},
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
+    util::log2_ceil,
 };
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::{
@@ -49,8 +45,20 @@ impl UpdateNearestCommonAncestorProofOptGadget {
         max_height: usize,
     ) -> Self {
         let height_a = builder.add_virtual_target();
+        eprintln!(
+            "DEBUGPRINT[649]: sub_tree_update_proof_opt.rs:51: height_a={:#?}",
+            height_a
+        );
         let height_b = builder.add_virtual_target();
+        eprintln!(
+            "DEBUGPRINT[650]: sub_tree_update_proof_opt.rs:53: height_b={:#?}",
+            height_b
+        );
         let nearest_common_ancestor_level = builder.add_virtual_target();
+        eprintln!(
+            "DEBUGPRINT[651]: sub_tree_update_proof_opt.rs:55: nearest_common_ancestor_level={:#?}",
+            nearest_common_ancestor_level
+        );
 
         let mut gadget = Self::add_virtual_to_full_with_params::<H, F, D>(
             builder,
@@ -77,28 +85,35 @@ impl UpdateNearestCommonAncestorProofOptGadget {
     ) -> Self {
         let one = builder.one();
         let nearest_common_ancestor_level_plus_1 = builder.add(nearest_common_ancestor_level, one);
+        eprintln!("DEBUGPRINT[656]: sub_tree_update_proof_opt.rs:82: nearest_common_ancestor_level_plus_1={:#?}", nearest_common_ancestor_level_plus_1);
 
         let level_a = builder.add(nearest_common_ancestor_level_plus_1, height_a);
+        eprintln!(
+            "DEBUGPRINT[652]: sub_tree_update_proof_opt.rs:84: level_a={:#?}",
+            level_a
+        );
         let level_b = builder.add(nearest_common_ancestor_level_plus_1, height_b);
+        eprintln!(
+            "DEBUGPRINT[653]: sub_tree_update_proof_opt.rs:86: level_b={:#?}",
+            level_b
+        );
         builder.range_check(level_a, log2_ceil(max_height));
         builder.range_check(level_b, log2_ceil(max_height));
         builder.range_check(nearest_common_ancestor_level, log2_ceil(max_height));
-        
-
 
         let child_a =
             VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index::<
                 H,
                 F,
                 D,
-            >(builder, max_height-1, Some(height_a));
+            >(builder, max_height - 1, Some(height_a));
 
         let child_b =
-        VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index::<
+            VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index::<
                 H,
                 F,
                 D,
-            >(builder, max_height-1, Some(height_b));
+            >(builder, max_height - 1, Some(height_b));
 
         let computed_root_index_a = child_a.bit_info.get_root_parent_index(builder);
         let computed_root_index_b = child_b.bit_info.get_root_parent_index(builder);
@@ -120,10 +135,18 @@ impl UpdateNearestCommonAncestorProofOptGadget {
             child_b.old_root,
             variable_dmp_gadget_a_is_right,
         );
+        eprintln!(
+            "DEBUGPRINT[654]: sub_tree_update_proof_opt.rs:123: computed_old_root={:#?}",
+            computed_old_root
+        );
         let computed_new_root = builder.two_to_one_swapped::<H>(
             child_a.new_root,
             child_b.new_root,
             variable_dmp_gadget_a_is_right,
+        );
+        eprintln!(
+            "DEBUGPRINT[655]: sub_tree_update_proof_opt.rs:129: computed_new_root={:#?}",
+            computed_new_root
         );
 
         Self {
@@ -149,8 +172,7 @@ impl UpdateNearestCommonAncestorProofOptGadget {
         witness: &mut W,
         child_a: &DeltaMerkleProofCore<QHashOut<F>>,
         child_b: &DeltaMerkleProofCore<QHashOut<F>>,
-        nearest_common_ancestor_level: u8
-        
+        nearest_common_ancestor_level: u8,
     ) -> anyhow::Result<()> {
         self.child_a.set_witness(witness, child_a)?;
         self.child_b.set_witness(witness, child_b)?;
@@ -164,17 +186,13 @@ impl UpdateNearestCommonAncestorProofOptGadget {
         if self.has_witness_height_a {
             witness.set_target(
                 self.height_a,
-                F::from_canonical_u8(
-                    child_a.siblings.len() as u8
-                ),
+                F::from_canonical_u8(child_a.siblings.len() as u8),
             )?;
         }
         if self.has_witness_height_b {
             witness.set_target(
                 self.height_b,
-                F::from_canonical_u8(
-                    child_b.siblings.len() as u8
-                ),
+                F::from_canonical_u8(child_b.siblings.len() as u8),
             )?;
         }
         Ok(())
@@ -209,6 +227,7 @@ impl UpdateNearestCommonAncestorProofOptGadget {
 mod tests {
     use std::fmt::Debug;
 
+    use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::types::PrimeField64;
     use plonky2::hash::poseidon::PoseidonHash;
     use plonky2::iop::witness::PartialWitness;
@@ -219,10 +238,12 @@ mod tests {
     use qed_core::data::qhashout::QHashOut;
     use qed_crypto::hash::merkle::utils::common::SimpleMerkleNodeKey;
     use qed_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
-    use qed_crypto::hash::merkle::utils::sub_tree_nca::{PartialUpdateNearestCommonAncestorProof, UpdateNCAWithAdditionalLink};
+    use qed_crypto::hash::merkle::utils::sub_tree_nca::{
+        PartialUpdateNearestCommonAncestorProof, UpdateNCAWithAdditionalLink,
+        UpdateNearestCommonAncestorProof,
+    };
     use qed_crypto::hash::traits::hasher::{MerkleZeroHasher, PoseidonHasher};
     use rand::{thread_rng, Rng, RngCore};
-
 
     use super::UpdateNearestCommonAncestorProofOptGadget;
 
@@ -239,18 +260,22 @@ mod tests {
         pub fn new(max_height: usize) -> Self {
             let config = CircuitConfig::standard_recursion_config();
             let mut builder = CircuitBuilder::<F, D>::new(config);
-            let update_nca_gadget =
-            UpdateNearestCommonAncestorProofOptGadget::add_virtual_to_full::<PoseidonHash, F, D>(
-                    &mut builder,
-                    max_height,
-                );
+            let update_nca_gadget = UpdateNearestCommonAncestorProofOptGadget::add_virtual_to_full::<
+                PoseidonHash,
+                F,
+                D,
+            >(&mut builder, max_height);
 
-                builder.register_public_inputs(&[
-                    update_nca_gadget.nearest_common_ancestor_level,
-                    update_nca_gadget.nearest_common_ancestor_index,
-                ]);
-                builder.register_public_inputs(&update_nca_gadget.old_nearest_common_ancestor_value.elements);
-                builder.register_public_inputs(&update_nca_gadget.new_nearest_common_ancestor_value.elements);
+            builder.register_public_inputs(&[
+                update_nca_gadget.nearest_common_ancestor_level,
+                update_nca_gadget.nearest_common_ancestor_index,
+            ]);
+            builder.register_public_inputs(
+                &update_nca_gadget.old_nearest_common_ancestor_value.elements,
+            );
+            builder.register_public_inputs(
+                &update_nca_gadget.new_nearest_common_ancestor_value.elements,
+            );
             let circuit_data = builder.build::<C>();
             Self {
                 update_nca_gadget,
@@ -262,7 +287,8 @@ mod tests {
             nca_proof: &PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
         ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
             let mut pw = PartialWitness::new();
-            self.update_nca_gadget.set_witness_partial(&mut pw, nca_proof)?;
+            self.update_nca_gadget
+                .set_witness_partial(&mut pw, nca_proof)?;
             self.circuit_data.prove(pw)
         }
     }
@@ -278,7 +304,10 @@ mod tests {
     type QEDHash = QHashOut<F>;
     type H = PoseidonHasher;
 
-    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default+ Debug>(
+    fn _rand_leaf_node_key<
+        Hasher: MerkleZeroHasher<Hash>,
+        Hash: Copy + PartialEq + Default + Debug,
+    >(
         tree: &SimpleMerkleTree<Hasher, Hash>,
     ) -> SimpleMerkleNodeKey {
         let index = thread_rng().gen::<u64>() & tree.get_max_leaf_index();
@@ -388,10 +417,9 @@ mod tests {
         UpdateNCAWithAdditionalLink::from_delta_merkle_proof_pair::<H>(&dmp_a, &dmp_b)
     }
 
-
     pub fn _generate_partial_nca_proof(
         tree: &mut SimpleMerkleTree<H, QEDHash>,
-    ) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>>{
+    ) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>> {
         let (leaf_a, leaf_b) = rand_leaf_pair_no_collisions(tree.get_height());
 
         let dmp_a = tree.set_leaf(leaf_a.index, QHashOut::rand());
@@ -399,32 +427,34 @@ mod tests {
         PartialUpdateNearestCommonAncestorProof::from_delta_merkle_proof_pair::<H>(&dmp_a, &dmp_b)
     }
 
-
-
     pub fn generate_partial_nca_proof_multi_level_b(
         tree: &mut SimpleMerkleTree<H, QEDHash>,
-    ) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>>{
+    ) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>> {
         let (leaf_a, leaf_b) = rand_leaf_pair_no_collisions(tree.get_height());
-        
+
         let dmp_a = tree.set_leaf(leaf_a.index, QHashOut::rand());
         let dmp_b = tree.set_leaf(leaf_b.index, QHashOut::rand());
 
-
-        let mut base = PartialUpdateNearestCommonAncestorProof::from_delta_merkle_proof_pair::<H>(&dmp_a, &dmp_b);
+        let mut base = PartialUpdateNearestCommonAncestorProof::from_delta_merkle_proof_pair::<H>(
+            &dmp_a, &dmp_b,
+        );
 
         let base_height = base.child_a.siblings.len() as u8;
-        if base_height>2 {
-            let new_height_a = (thread_rng().gen::<u8>() % (base_height+1)) as usize;
+        if base_height > 2 {
+            let new_height_a = (thread_rng().gen::<u8>() % (base_height + 1)) as usize;
             let new_height_b = (thread_rng().gen::<u8>() % base_height) as usize + 1;
 
-            base.child_a = base.child_a.with_shortened_height_from_bottom::<H>(new_height_a);
-            base.child_b = base.child_b.with_shortened_height_from_bottom::<H>(new_height_b);
+            base.child_a = base
+                .child_a
+                .with_shortened_height_from_bottom::<H>(new_height_a);
+            base.child_b = base
+                .child_b
+                .with_shortened_height_from_bottom::<H>(new_height_b);
         }
         base
-
     }
 
-/* 
+    /*
     pub fn _generate_partial_nca_proof_multi_level(
         height: usize,
         rand_leaf_count: usize,
@@ -547,7 +577,7 @@ mod tests {
             // technically the last sibling changed
             siblings: old_proof_b.siblings,
         };
-        
+
         PartialUpdateNearestCommonAncestorProof {
             child_a: dmp_a,
             child_b: dmp_b,
@@ -555,23 +585,64 @@ mod tests {
         }
     }*/
     #[test]
-    fn test_variable_merkle_proof_sub_tree_circuit() {
+    fn test_variable_merkle_proof_sub_tree_circuit_n() {
         let circuit = TestUpdateNearestCommonAncestorProofCircuit::new(32);
-        let nca_proofs = (1..32)
-            .map(|level| {
-                let mut tree =SimpleMerkleTree::new(level);
+        let nca_proofs: Vec<UpdateNearestCommonAncestorProof<QHashOut<GoldilocksField>>> =vec![
+            serde_json::from_str(
+        r#"
+            {
+              "old_nearest_common_ancestor_value": "5793fc6d609c47c365b9470bc3e00cd4f19dece13278be693612ac9d812a8f8c",
+              "new_nearest_common_ancestor_value": "b85285e95bf3722d93bf86f6af891daf9e9d8cfa64c637ec83efaac9b2188950",
+              "child_a": {
+                "old_root": "c043477d124292017879345b4f881eb71d31cd8564acce2a617f3c6d0b4b8b44",
+                "old_value": "61618c69e9d26f4c8ee39e4c215804e2fb01846fee718016ed2589168e839d21",
+                "new_root": "7ab45b6b695f1b0d56e03410f88e56b55b771bf8883f81b29b099816a05805ac",
+                "new_value": "590385266a191ebbb9b9a1b7f62d5302105020de466a8090aea65ca5f2492259",
+                "index": 0,
+                "siblings": [
+                  "61618c69e9d26f4c8ee39e4c215804e2fb01846fee718016ed2589168e839d21",
+                  "ec76a20799cf5dc50841b1fa4588f4f8c975d7aec7a1c669296ff821d8378f7f",
+                  "f55d5d12107b371efb4650fb6b8880811f7867621b8c1c1a0168a392cc7b542c",
+                  "6c9890682b94dee9cd45643c378df78c64e3f7a7160f8f0de73c5360c4b3ecd8",
+                  "9e1c5239e937026b57b8f931187d6dc4b555892ea200cfe4ab95f0ae94f7cde6",
+                  "0aa45be01f9e161002f8e22c79467775279949e14530c2505587ad00b6ddf0cb",
+                  "d2e3dd2bdd2907959ef35a5aeb905682388540a0f77810a8d108cd9026164f3b",
+                  "33a8e0b809ce2532ae94d561f2e16def904fa2e7b99bd3f1707d95a1148000a1",
+                  "7c9f51793bca6ffb713d0a918edaa60557184cbbc85f535743926baabe5db81f",
+                  "fa58391e7c0d394d317903270df6e518b34770c62a38e6697621f88cdcdfb5fd",
+                  "60e99b7ea5b1187d4293a24d51cc07ac39f874beb115877f8bd1878dd7f1026d"
+                ]
+              },
+              "child_b": {
+                "old_root": "c043477d124292017879345b4f881eb71d31cd8564acce2a617f3c6d0b4b8b44",
+                "old_value": "61618c69e9d26f4c8ee39e4c215804e2fb01846fee718016ed2589168e839d21",
+                "new_root": "24b03458c8c77471c3b79b0b27f81fd4010d2ed4c6aee1d3f803b4550b0e01f1",
+                "new_value": "f500620f30e140a781163b697abde492b80b80869ac7fe98ed5269f401a80ac0",
+                "index": 2048,
+                "siblings": [
+                  "61618c69e9d26f4c8ee39e4c215804e2fb01846fee718016ed2589168e839d21",
+                  "ec76a20799cf5dc50841b1fa4588f4f8c975d7aec7a1c669296ff821d8378f7f",
+                  "f55d5d12107b371efb4650fb6b8880811f7867621b8c1c1a0168a392cc7b542c",
+                  "6c9890682b94dee9cd45643c378df78c64e3f7a7160f8f0de73c5360c4b3ecd8",
+                  "9e1c5239e937026b57b8f931187d6dc4b555892ea200cfe4ab95f0ae94f7cde6",
+                  "0aa45be01f9e161002f8e22c79467775279949e14530c2505587ad00b6ddf0cb",
+                  "d2e3dd2bdd2907959ef35a5aeb905682388540a0f77810a8d108cd9026164f3b",
+                  "33a8e0b809ce2532ae94d561f2e16def904fa2e7b99bd3f1707d95a1148000a1",
+                  "7c9f51793bca6ffb713d0a918edaa60557184cbbc85f535743926baabe5db81f",
+                  "fa58391e7c0d394d317903270df6e518b34770c62a38e6697621f88cdcdfb5fd",
+                  "60e99b7ea5b1187d4293a24d51cc07ac39f874beb115877f8bd1878dd7f1026d"
+                ]
+              },
+              "nearest_common_ancestor_level": 0,
+              "nearest_common_ancestor_index": 0,
+              "level_a": 12,
+              "level_b": 12
+            }
+          "#).unwrap()
+                ];
 
-                (0..20)
-                    .map(|_| {
-                        generate_partial_nca_proof_multi_level_b(&mut tree)
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .flatten()
-            .collect::<Vec<_>>();
-
-        for nca_proof in nca_proofs.iter()
-        {
+        for nca_proof in nca_proofs.iter() {
+            let nca_proof = nca_proof.to_partial();
             //println!("leaf_key_a: {:?}",leaf_key_a);
             //println!("leaf_key_b: {:?}",leaf_key_b);
 
@@ -587,9 +658,7 @@ mod tests {
                 nca_proof
             );
             //println!("nearest_common_ancestor: {:?}",nearest_common_ancestor);
-            let proof = circuit
-                .prove(&nca_proof)
-                .unwrap();
+            let proof = circuit.prove(&nca_proof).unwrap();
 
             //println!("pubs: {:?}", &proof.public_inputs);
 
@@ -603,15 +672,18 @@ mod tests {
                 "nearest_common_ancestor_level should match expected"
             );
             assert_eq!(
-                proof_nearest_common_ancestor_index, nca_proof.get_nca_index(),
+                proof_nearest_common_ancestor_index,
+                nca_proof.get_nca_index(),
                 "nearest_common_ancestor_level should match expected"
             );
 
+                eprintln!("DEBUGPRINT[668]: sub_tree_update_proof_opt.rs:681: proof.public_inputs[2..6].to_vec()={:#?}", proof.public_inputs[2..6].to_vec());
             assert_eq!(
                 proof.public_inputs[2..6].to_vec(),
                 nca_proof.compute_old_nca_value::<H>().0.elements.to_vec(),
                 "old roots should match proof"
             );
+                eprintln!("DEBUGPRINT[669]: sub_tree_update_proof_opt.rs:687: proof.public_inputs[6..10].to_vec()={:#?}", proof.public_inputs[6..10].to_vec());
             assert_eq!(
                 proof.public_inputs[6..10].to_vec(),
                 nca_proof.compute_new_nca_value::<H>().0.elements.to_vec(),
@@ -621,5 +693,4 @@ mod tests {
             circuit.circuit_data.verify(proof).unwrap();
         }
     }
-
 }

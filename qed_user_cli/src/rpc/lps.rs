@@ -29,7 +29,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         user_id: u64,
         contract_id: u32,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!("Fetching user contract state tree root");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            user_id = user_id,
+            contract_id = contract_id,
+            "Fetching user contract state tree root"
+        );
         let rpc_url = self.get_realm_url(user_id)?;
         let input = QUserContractStateTreeRootRPCRequest {
             checkpoint_id,
@@ -44,7 +49,13 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    contract_id = contract_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -69,7 +80,14 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         height: u8,
         leaf_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!("Fetching user contract state tree leaf hash");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            user_id = user_id,
+            contract_id = contract_id,
+            height = height,
+            leaf_id = leaf_id,
+            "Fetching user contract state tree leaf hash"
+        );
         let rpc_url = self.get_realm_url(user_id)?;
         let input = QUserContractStateTreeLeafHashRPCRequest {
             checkpoint_id,
@@ -86,7 +104,15 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    contract_id = contract_id,
+                    height = height,
+                    leaf_id = leaf_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -113,7 +139,14 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     ) -> anyhow::Result<
         qed_crypto::hash::merkle::core::MerkleProofCore<qed_core::data::qhashout::QHashOut<F>>,
     > {
-        debug!("Fetching user contract state tree merkle proof");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            user_id = user_id,
+            contract_id = contract_id,
+            height = height,
+            leaf_id = leaf_id,
+            "Fetching user contract state tree merkle proof"
+        );
         let rpc_url = self.get_realm_url(user_id)?;
         let input = QUserContractStateTreeMerkleProofRPCRequest {
             checkpoint_id,
@@ -130,7 +163,15 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(merkle_proof) => {
-                debug!("Successfully fetched merkle proof: {:?}", merkle_proof);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    contract_id = contract_id,
+                    height = height,
+                    leaf_id = leaf_id,
+                    merkle_proof = ?merkle_proof,
+                    "Successfully fetched merkle proof"
+                );
                 Ok(merkle_proof)
             }
             ResponseResult::Error(e) => {
@@ -149,7 +190,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
         user_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!("Fetching user contract tree root");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            user_id = user_id,
+            "Fetching user contract tree root"
+        );
         let rpc_url = self.get_realm_url(user_id)?;
         let input = QUserContractTreeRootRPCRequest {
             checkpoint_id,
@@ -163,7 +208,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -183,7 +233,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         user_id: u64,
         contract_id: u32,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!("Fetching user contract tree leaf hash");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            user_id = user_id,
+            contract_id = contract_id,
+            "Fetching user contract tree leaf hash"
+        );
         let rpc_url = self.get_realm_url(user_id)?;
         let input = QUserContractTreeLeafHashRPCRequest {
             checkpoint_id,
@@ -198,7 +253,13 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    contract_id = contract_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -220,7 +281,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     ) -> anyhow::Result<
         qed_crypto::hash::merkle::core::MerkleProofCore<qed_core::data::qhashout::QHashOut<F>>,
     > {
-        debug!("Fetching user contract tree merkle proof");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            user_id = user_id,
+            contract_id = contract_id,
+            "Fetching user contract tree merkle proof"
+        );
         let rpc_url = self.get_realm_url(user_id)?;
         let input = QUserContractTreeMerkleProofRPCRequest {
             checkpoint_id,
@@ -235,7 +301,13 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(merkle_proof) => {
-                debug!("Successfully fetched merkle proof: {:?}", merkle_proof);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    contract_id = contract_id,
+                    merkle_proof = ?merkle_proof,
+                    "Successfully fetched merkle proof"
+                );
                 eprintln!(
                     "DEBUGPRINT[585]: lps.rs:335: merkle_proof.verify::<QEDHasher>()={:#?}",
                     merkle_proof.verify::<QEDHasher>()
@@ -257,7 +329,10 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!("Fetching user registration tree root");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            "Fetching user registration tree root"
+        );
         let rpc_url = self.get_coordinator_url()?;
         let input = QUserRegistrationTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
@@ -268,7 +343,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -287,7 +366,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
         leaf_index: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!("Fetching user registration tree leaf hash");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            leaf_index = leaf_index,
+            "Fetching user registration tree leaf hash"
+        );
         let rpc_url = self.get_coordinator_url()?;
         let input = QUserRegistrationTreeLeafHashRPCRequest {
             checkpoint_id,
@@ -301,7 +384,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    leaf_index = leaf_index,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -322,7 +410,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     ) -> anyhow::Result<
         qed_crypto::hash::merkle::core::MerkleProofCore<qed_core::data::qhashout::QHashOut<F>>,
     > {
-        debug!("Fetching user registration tree merkle proof");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            leaf_index = leaf_index,
+            "Fetching user registration tree merkle proof"
+        );
         let rpc_url = self.get_coordinator_url()?;
         let input = QUserRegistrationTreeMerkleProofRPCRequest {
             checkpoint_id,
@@ -336,7 +428,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(merkle_proof) => {
-                debug!("Successfully fetched merkle proof: {:?}", merkle_proof);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    leaf_index = leaf_index,
+                    merkle_proof = ?merkle_proof,
+                    "Successfully fetched merkle proof"
+                );
                 Ok(merkle_proof)
             }
             ResponseResult::Error(e) => {
@@ -354,7 +451,10 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!("Fetching user tree root");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            "Fetching user tree root"
+        );
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QUserTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
@@ -365,7 +465,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -401,7 +505,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -439,14 +548,24 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(mut merkle_proof) => {
-                debug!("Successfully fetched merkle proof: {:?}", merkle_proof);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    merkle_proof = ?merkle_proof,
+                    "Successfully fetched merkle proof"
+                );
                 eprintln!(
                     "DEBUGPRINT[498]: lps.rs:656: merkle_proof={}",
                     serde_json::to_string_pretty(&merkle_proof).unwrap()
                 );
                 info!("Merkle proof root: {:?}", merkle_proof.root.to_string());
                 info!("Merkle proof value: {:?}", merkle_proof.value.to_string());
-                debug!("Before verify: {:?}", merkle_proof.verify::<QEDHasher>());
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    verify_result = ?merkle_proof.verify::<QEDHasher>(),
+                    "Before verify"
+                );
 
                 let top_proof = self.get_user_sub_tree_merkle_proof(
                     checkpoint_id,
@@ -466,7 +585,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 merkle_proof.root = top_proof.root;
                 merkle_proof.siblings = new_siblings;
 
-                debug!("After verify: {:?}", merkle_proof.verify::<QEDHasher>());
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    verify_result = ?merkle_proof.verify::<QEDHasher>(),
+                    "After verify"
+                );
                 Ok(merkle_proof)
             }
             ResponseResult::Error(e) => {
@@ -508,7 +632,14 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(merkle_proof) => {
-                debug!("Successfully fetched merkle proof: {:?}", merkle_proof);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    root_level = root_level,
+                    leaf_level = leaf_level,
+                    leaf_index = leaf_index,
+                    merkle_proof = ?merkle_proof,
+                    "Successfully fetched merkle proof"
+                );
                 Ok(merkle_proof)
             }
             ResponseResult::Error(e) => {
@@ -527,7 +658,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
         contract_id: u32,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!("Fetching contract function tree root");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            contract_id = contract_id,
+            "Fetching contract function tree root"
+        );
         let rpc_url = self.get_coordinator_url()?;
         let input = QContractFunctionTreeRootRPCRequest {
             checkpoint_id,
@@ -541,7 +676,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    contract_id = contract_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -561,7 +701,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         contract_id: u32,
         function_id: u32,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!("Fetching contract function tree leaf hash");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            contract_id = contract_id,
+            function_id = function_id,
+            "Fetching contract function tree leaf hash"
+        );
         let rpc_url = self.get_coordinator_url()?;
         let input = QContractFunctionTreeLeafHashRPCRequest {
             checkpoint_id,
@@ -576,7 +721,13 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    contract_id = contract_id,
+                    function_id = function_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -598,7 +749,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     ) -> anyhow::Result<
         qed_crypto::hash::merkle::core::MerkleProofCore<qed_core::data::qhashout::QHashOut<F>>,
     > {
-        debug!("Fetching contract function tree merkle proof");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            contract_id = contract_id,
+            function_id = function_id,
+            "Fetching contract function tree merkle proof"
+        );
         let rpc_url = self.get_coordinator_url()?;
         let input = QContractFunctionTreeMerkleProofRPCRequest {
             checkpoint_id,
@@ -613,7 +769,13 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(merkle_proof) => {
-                debug!("Successfully fetched merkle proof: {:?}", merkle_proof);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    contract_id = contract_id,
+                    function_id = function_id,
+                    merkle_proof = ?merkle_proof,
+                    "Successfully fetched merkle proof"
+                );
                 Ok(merkle_proof)
             }
             ResponseResult::Error(e) => {
@@ -631,7 +793,10 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!("Fetching contract tree root");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            "Fetching contract tree root"
+        );
         let rpc_url = self.get_coordinator_url()?;
         let input = QContractTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
@@ -642,7 +807,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -678,7 +847,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    contract_id = contract_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -716,7 +890,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(merkle_proof) => {
-                debug!("Successfully fetched merkle proof: {:?}", merkle_proof);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    contract_id = contract_id,
+                    merkle_proof = ?merkle_proof,
+                    "Successfully fetched merkle proof"
+                );
                 Ok(merkle_proof)
             }
             ResponseResult::Error(e) => {
@@ -734,7 +913,10 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!("Fetching deposit tree root");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            "Fetching deposit tree root"
+        );
         let rpc_url = self.get_coordinator_url()?;
         let input = QDepositTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
@@ -745,7 +927,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -764,7 +950,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
         deposit_id: u32,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!("Fetching deposit tree leaf hash");
+        debug!(
+            checkpoint_id = checkpoint_id,
+            deposit_id = deposit_id,
+            "Fetching deposit tree leaf hash"
+        );
         let rpc_url = self.get_coordinator_url()?;
         let input = QDepositTreeLeafHashRPCRequest {
             checkpoint_id,
@@ -778,7 +968,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    deposit_id = deposit_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -813,7 +1008,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(merkle_proof) => {
-                debug!("Successfully fetched merkle proof: {:?}", merkle_proof);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    deposit_id = deposit_id,
+                    merkle_proof = ?merkle_proof,
+                    "Successfully fetched merkle proof"
+                );
                 Ok(merkle_proof)
             }
             ResponseResult::Error(e) => {
@@ -842,7 +1042,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -875,7 +1079,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    withdrawal_id = withdrawal_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -910,7 +1119,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(merkle_proof) => {
-                debug!("Successfully fetched merkle proof: {:?}", merkle_proof);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    withdrawal_id = withdrawal_id,
+                    merkle_proof = ?merkle_proof,
+                    "Successfully fetched merkle proof"
+                );
                 Ok(merkle_proof)
             }
             ResponseResult::Error(e) => {
@@ -938,7 +1152,10 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -967,7 +1184,11 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -1000,7 +1221,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(hash) => {
-                debug!("Successfully fetched hash: {:?}", hash);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    leaf_checkpoint_id = leaf_checkpoint_id,
+                    hash = ?hash,
+                    "Successfully fetched hash"
+                );
                 Ok(hash)
             }
             ResponseResult::Error(e) => {
@@ -1035,7 +1261,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(merkle_proof) => {
-                debug!("Successfully fetched merkle proof: {:?}", merkle_proof);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    leaf_checkpoint_id = leaf_checkpoint_id,
+                    merkle_proof = ?merkle_proof,
+                    "Successfully fetched merkle proof"
+                );
                 Ok(merkle_proof)
             }
             ResponseResult::Error(e) => {
@@ -1109,7 +1340,11 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(leaf) => {
-                debug!("Successfully fetched contract leaf: {:?}", leaf);
+                debug!(
+                    contract_id = contract_id,
+                    leaf = ?leaf,
+                    "Successfully fetched contract leaf"
+                );
                 Ok(leaf)
             }
             ResponseResult::Error(e) => {
@@ -1141,7 +1376,11 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(leaf) => {
-                debug!("Successfully fetched checkpoint leaf: {:?}", leaf);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    leaf = ?leaf,
+                    "Successfully fetched checkpoint leaf"
+                );
                 Ok(leaf)
             }
             ResponseResult::Error(e) => {
@@ -1174,8 +1413,9 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         match response.result {
             ResponseResult::Success(contract_code) => {
                 debug!(
-                    "Successfully fetched contract code definition: {:?}",
-                    contract_code
+                    contract_id = contract_id,
+                    contract_code = ?contract_code,
+                    "Successfully fetched contract code definition"
                 );
                 Ok(contract_code)
             }
@@ -1204,7 +1444,10 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(block_state) => {
-                debug!("Successfully fetched L2 block state: {:?}", block_state);
+                debug!(
+                    block_state = ?block_state,
+                    "Successfully fetched L2 block state"
+                );
                 Ok(block_state)
             }
             ResponseResult::Error(e) => {
@@ -1233,7 +1476,11 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         );
         match response.result {
             ResponseResult::Success(block_state) => {
-                debug!("Successfully fetched L2 block state: {:?}", block_state);
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    block_state = ?block_state,
+                    "Successfully fetched L2 block state"
+                );
                 Ok(block_state)
             }
             ResponseResult::Error(e) => {

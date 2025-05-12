@@ -71,8 +71,13 @@ impl TwoNCAStateTransitionGadget {
         );
 
         let new_stats = a_header.stats.combine_with(builder, &b_header.stats);
+        eprintln!("DEBUGPRINT[657]: two_nca_state_transition.rs:73: new_stats={:#?}", new_stats);
+        eprintln!("DEBUGPRINT[658]: two_nca_state_transition.rs:75: update_nca_proof_gadget={:#?}", update_nca_proof_gadget);
 
 
+        eprintln!("DEBUGPRINT[648]: two_nca_state_transition.rs:76: a_header.checkpoint_tree_root={:#?}", a_header.checkpoint_tree_root);
+        eprintln!("DEBUGPRINT[646]: two_nca_state_transition.rs:76: update_nca_proof_gadget.old_nearest_common_ancestor_value={:#?}", update_nca_proof_gadget.old_nearest_common_ancestor_value);
+        eprintln!("DEBUGPRINT[647]: two_nca_state_transition.rs:77: update_nca_proof_gadget.new_nearest_common_ancestor_value={:#?}", update_nca_proof_gadget.new_nearest_common_ancestor_value);
 
         let new_guta_header = GlobalUserTreeAggregatorHeaderGadget{
             guta_circuit_whitelist: a_header.guta_circuit_whitelist,
@@ -87,10 +92,10 @@ impl TwoNCAStateTransitionGadget {
         };
 
 
-        
 
 
-        
+
+
 
 
         Self {
@@ -105,7 +110,7 @@ impl TwoNCAStateTransitionGadget {
         child_a: &DeltaMerkleProofCore<QHashOut<F>>,
         child_b: &DeltaMerkleProofCore<QHashOut<F>>,
         nearest_common_ancestor_level: u8
-        
+
     ) -> anyhow::Result<()> {
         self.update_nca_proof_gadget.set_witness_params(witness,
             child_a,
@@ -141,7 +146,7 @@ impl<const D: usize> ToGUTAHeader<D> for TwoNCAStateTransitionGadget {
        self.new_guta_header.to_owned()
     }
 }
-/* 
+/*
 impl CreatableWithHasherTarget for TwoNCAStateTransitionGadget {
     fn create_virtual_with_hasher<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,

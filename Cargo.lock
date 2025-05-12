@@ -4004,7 +4004,6 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 [[package]]
 name = "plonky2"
 version = "1.0.2"
-source = "git+https://github.com/QEDProtocol/plonky2-hwa?rev=5e8d6a22cdc12e6e1e4928da1f877fc659d0304c#5e8d6a22cdc12e6e1e4928da1f877fc659d0304c"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4028,7 +4027,6 @@ dependencies = [
 [[package]]
 name = "plonky2_field"
 version = "1.0.0"
-source = "git+https://github.com/QEDProtocol/plonky2-hwa?rev=5e8d6a22cdc12e6e1e4928da1f877fc659d0304c#5e8d6a22cdc12e6e1e4928da1f877fc659d0304c"
 dependencies = [
  "anyhow",
  "itertools 0.11.0",
@@ -4043,7 +4041,6 @@ dependencies = [
 [[package]]
 name = "plonky2_maybe_rayon"
 version = "1.0.0"
-source = "git+https://github.com/QEDProtocol/plonky2-hwa?rev=5e8d6a22cdc12e6e1e4928da1f877fc659d0304c#5e8d6a22cdc12e6e1e4928da1f877fc659d0304c"
 dependencies = [
  "rayon",
 ]
@@ -4051,7 +4048,6 @@ dependencies = [
 [[package]]
 name = "plonky2_util"
 version = "1.0.0"
-source = "git+https://github.com/QEDProtocol/plonky2-hwa?rev=5e8d6a22cdc12e6e1e4928da1f877fc659d0304c#5e8d6a22cdc12e6e1e4928da1f877fc659d0304c"
 
 [[package]]
 name = "plotters"
@@ -4924,6 +4920,7 @@ dependencies = [
  "hashbrown 0.14.5",
  "hex",
  "hex-literal",
+ "indexmap 2.9.0",
  "kvq",
  "lazy_static",
  "plonky2",

@@ -119,7 +119,9 @@ where
             default_user_state_tree_root,
         )?;
 
-        self.circuit_data.prove(pw)
+        let p = self.circuit_data.prove(pw)?;
+        eprintln!("DEBUGPRINT[681]: only_register_users.rs:123: p.public_inputs={}", serde_json::to_string_pretty(&p.public_inputs).unwrap());
+        Ok(p)
     }
 }
 

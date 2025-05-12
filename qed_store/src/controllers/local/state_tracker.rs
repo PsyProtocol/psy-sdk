@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
@@ -67,7 +68,7 @@ pub struct QEDStateTrackerContractResult<F: RichField> {
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDContractStateTracker<F: RichField> {
     pub contract_id: u64,
-    pub slots: hashbrown::HashMap<u64, QEDLocalStateSet<F>>,
+    pub slots: IndexMap<u64, QEDLocalStateSet<F>>,
     pub total_slots_modified: u32,
     pub start_state_root: QHashOut<F>,
     pub end_state_root: QHashOut<F>,
@@ -77,7 +78,7 @@ impl<F: RichField> QEDContractStateTracker<F> {
     pub fn new(contract_id: u64) -> Self {
         Self {
             contract_id,
-            slots: hashbrown::HashMap::new(),
+            slots: IndexMap::new(),
             total_slots_modified: 0,
             start_state_root: QHashOut::ZERO,
             end_state_root: QHashOut::ZERO,
@@ -143,14 +144,14 @@ impl<F: RichField> QEDContractStateTracker<F> {
 
 #[derive(Clone, Debug)]
 pub struct QEDLocalStateTracker<F: RichField> {
-    pub contracts: hashbrown::HashMap<u64, QEDContractStateTracker<F>>,
+    pub contracts: IndexMap<u64, QEDContractStateTracker<F>>,
     pub total_slots_modified: u32,
 }
 
 impl<F: RichField> QEDLocalStateTracker<F> {
     pub fn new() -> Self {
         Self {
-            contracts: hashbrown::HashMap::new(),
+            contracts: IndexMap::new(),
             total_slots_modified: 0,
         }
     }

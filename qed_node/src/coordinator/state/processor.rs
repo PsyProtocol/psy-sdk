@@ -469,6 +469,7 @@ impl<
                 },
             };
             eprintln!("DEBUGPRINT[526]: processor.rs:442: guta_header={}", serde_json::to_string_pretty(&guta_header).unwrap());
+            eprintln!("DEBUGPRINT[526]: processor.rs:442: guta_header_hash={}", serde_json::to_string_pretty(&guta_header.qfhash::<QEDHasher>()).unwrap());
             let input = GUTANoChangeFullInput {
                 checkpoint_tree_proof,
                 checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots {
@@ -579,6 +580,7 @@ impl<
 
         // TODO: OPT: Maybe use a sorted queue/zset so we don't have to sort after we drain
         guta_queue_items.sort_by(|a, b| a.realm_id.cmp(&b.realm_id));
+        eprintln!("DEBUGPRINT[675]: processor.rs:582: guta_queue_items={}", serde_json::to_string_pretty(&guta_queue_items).unwrap());
 
         let new_nodes = guta_queue_items
             .iter()
@@ -601,6 +603,7 @@ impl<
             .store
             .injest_user_tree_nodes_imm(checkpoint_id, 0, &new_nodes)
             .await?;
+        eprintln!("DEBUGPRINT[640]: processor.rs:604: res={}", serde_json::to_string_pretty(&res).unwrap());
         /*
         res.nca_proofs.iter().enumerate().map(|(i, p)| {
             let (left_dep_ind, right_dep_ind ) = res.dependencies[i];
@@ -611,6 +614,7 @@ impl<
         let mut witnesses = Vec::with_capacity(res.nca_proofs.len());
 
         for (i, p) in res.nca_proofs.iter().enumerate() {
+            eprintln!("DEBUGPRINT[667]: processor.rs:615: res.nca_proofs[i].verify()={:#?}", res.nca_proofs[i].verify::<QEDHasher>());
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
             if l_dep_ind == -1 && r_dep_ind == -1 {
                 eprintln!("DEBUGPRINT[560]: processor.rs:589 (after if l_dep_ind == -1 && r_dep_ind == -1 )");
@@ -738,6 +742,7 @@ impl<
             stats: witnesses[res.root_proof_index].1.input.get_combined_stats(),
         };
         eprintln!("DEBUGPRINT[535]: processor.rs:704: guta={}", serde_json::to_string_pretty(&guta).unwrap());
+        eprintln!("DEBUGPRINT[664]: processor.rs:739: guta.qhash::<QEDHasher>()={}", guta.qfhash::<QEDHasher>());
 
         if guta.state_transition.node_level != F::ZERO {
             let w = CircuitInputWithDependencies::<VerifyGUTAToCapCircuitInputSimple<F>> {

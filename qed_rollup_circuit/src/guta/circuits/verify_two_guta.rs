@@ -90,6 +90,7 @@ where
             D,
         >(&mut builder, a_guta_header, b_guta_header);
 
+        eprintln!("DEBUGPRINT[663]: verify_two_guta.rs:93: nca_state_transition_gadget.new_guta_header={:#?}", nca_state_transition_gadget.new_guta_header);
         let public_inputs_hash = nca_state_transition_gadget
             .new_guta_header
             .to_hash::<C::Hasher, C::F, D>(&mut builder);
@@ -182,6 +183,7 @@ where
         let r: CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
+        eprintln!("DEBUGPRINT[665]: verify_two_guta.rs:186: r={}", serde_json::to_string_pretty(&r).unwrap());
         if r.dependencies.len() != 2 {
             anyhow::bail!("invalid dependency count in two end guta input");
         }
@@ -213,6 +215,7 @@ where
             &child_b_proof,
             &child_b_verifier_data,
         )?;
+        eprintln!("DEBUGPRINT[666]: verify_two_guta.rs:219: result={}", serde_json::to_string_pretty(&result).unwrap());
 
         Ok(result)
     }

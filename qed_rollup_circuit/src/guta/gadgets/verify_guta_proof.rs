@@ -58,6 +58,7 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
 
         // start: check child proof public inputs
         let expected_proof_public_inputs_hash = guta_proof_header_gadget.to_hash::<C::Hasher, C::F, D>(builder);
+        eprintln!("DEBUGPRINT[661]: verify_guta_proof.rs:60: guta_proof_header_gadget={:#?}", guta_proof_header_gadget);
 
 
         assert_eq!(
@@ -74,8 +75,10 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
             ],
         };
 
+        eprintln!("DEBUGPRINT[660]: verify_guta_proof.rs:78: proof_public_input_hash={:#?}", proof_public_input_hash);
+        eprintln!("DEBUGPRINT[659]: verify_guta_proof.rs:78: expected_proof_public_inputs_hash={:#?}", expected_proof_public_inputs_hash);
         // ensure the whitelist root and state transition is correct for the proof
-        // builder.connect_hashes(expected_proof_public_inputs_hash, proof_public_input_hash);
+        builder.connect_hashes(expected_proof_public_inputs_hash, proof_public_input_hash);
         // end: check child proof public inputs
 
         // ensure the leaf revealed in the whitelist merkle proof is actually the fingerprint of the proof
@@ -107,6 +110,8 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
         eprintln!("DEBUGPRINT[543]: verify_guta_proof.rs:107: guta_proof_header={}", serde_json::to_string_pretty(&guta_proof_header).unwrap());
         self.guta_proof_header_gadget.set_witness(witness, guta_proof_header)?;
 
+        eprintln!("DEBUGPRINT[674]: verify_guta_proof.rs:113: proof={:#?}", proof.public_inputs);
+        eprintln!("DEBUGPRINT[674]: verify_guta_proof.rs:113: proof={}", serde_json::to_string_pretty(&proof.public_inputs).unwrap());
         witness.set_proof_with_pis_target(&self.proof_target, &proof)?;
         witness.set_verifier_data_target(&self.verifier_data, &verifier_data)
     }
