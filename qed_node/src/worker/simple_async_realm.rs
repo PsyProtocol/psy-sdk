@@ -123,6 +123,7 @@ impl SimpleAsyncRealmWorker {
                         .worker_prove_mut_async(&store, library, job_id)
                         .await?;
                     let output_id = job_id.get_output_id();
+                    println!("set proof id: {:?}",output_id);
                     store.set_proof_by_id(output_id, &proof).await?;
                     output_id
                 }

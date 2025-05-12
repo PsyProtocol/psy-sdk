@@ -21,6 +21,13 @@ pub struct UPSStartStepInput<F: RichField> {
     pub user_tree_proof: MerkleProofCore<QHashOut<F>>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct QEDCheckpointLeaf<F: RichField> {
+    pub global_chain_root: QHashOut<F>,
+    pub stats: QEDCheckpointLeafStats<F>,
+}
+
 
 
 impl<F: RichField> KVQSerializable for UPSStartStepInput<F> {

@@ -1,4 +1,4 @@
-use kvq::traits::KVQSerializable;
+/*use kvq::traits::KVQSerializable;
 use qed_core::{job::drain_queue::{CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterSyncImm, DrainQueueMetadata, DrainQueueMetadataTagged}, utils::debug_timer::DebugTimer};
 use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
 use rand::{thread_rng, Rng};
@@ -88,5 +88,9 @@ fn run_test_1() -> anyhow::Result<()> {
 }
 fn main() {
     run_test_1().unwrap();
+    
+}*/
+
+fn main() {
     
 }

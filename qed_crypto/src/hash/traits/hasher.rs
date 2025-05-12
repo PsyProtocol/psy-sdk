@@ -6,6 +6,9 @@ use plonky2::hash::poseidon::PoseidonHash;
 use plonky2::plonk::config::AlgebraicHasher;
 use plonky2::plonk::config::Hasher;
 use plonky2::util::log2_ceil;
+use qed_core::data::base_types::hash160::Hash160;
+use qed_core::data::base_types::hash192::Hash192;
+use qed_core::data::base_types::hash256::Hash256;
 use qed_core::data::qhashout::QHashOut;
 
 use crate::field::qfield::QRichField;
@@ -19,6 +22,25 @@ pub trait ZeroableHash: Sized + Copy + Clone {
 impl<F: Field> ZeroableHash for HashOut<F> {
     fn get_zero_value() -> Self {
         HashOut::<F>::ZERO
+    }
+}
+impl ZeroableHash for Hash256 {
+    fn get_zero_value() -> Self {
+       Self([0u8; 32])
+    }
+}
+
+
+impl ZeroableHash for Hash192 {
+    fn get_zero_value() -> Self {
+       Self([0u8; 24])
+    }
+}
+
+
+impl ZeroableHash for Hash160 {
+    fn get_zero_value() -> Self {
+       Self([0u8; 20])
     }
 }
 impl<F: Field> ZeroableHash for QHashOut<F> {

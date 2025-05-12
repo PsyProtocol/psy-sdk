@@ -20,6 +20,7 @@ members = [
   "qed_node",
   "qed_scylla_store",
   "qed_test_sandbox",
+  "qed_benchmark",
 ]
 resolver = "2"
 

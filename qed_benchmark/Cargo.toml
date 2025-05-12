@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name    = "qed_node"
+name    = "qed_benchmark"
 version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -18,28 +18,23 @@ lazy_static = { workspace = true }
 plonky2 = { workspace = true }
 twox-hash = { workspace = true }
 tracing = { workspace = true }
-async-trait = { workspace = true }
-chrono = { workspace = true }
+
 kvq = { path = "../kvq" }
 qed_core = { path = "../qed_core" }
 qed_common_circuit = { path = "../qed_common_circuit" }
 qed_rollup_circuit = { path = "../qed_rollup_circuit" }
+qedlang_core = { path = "../qedlang_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
 qed_store = { path = "../qed_store" }
+qed_exec = { path = "../qed_exec" }
+qedlang_macros = { path = "../qedlang_macros" }
+qed_prover = { path = "../qed_prover" }
+qed_node = { path = "../qed_node" }
 qed_node_common = { path = "../qed_node_common" }
 
-rand = { workspace = true }
-log = { workspace = true }
+
 
 tokio = { workspace = true }
-futures = { workspace = true }
 
-
-lapin = "=2.5.0"
-prost-wkt-types = "0.6.0"
-
-tokio-executor-trait = { workspace = true }
-tokio-reactor-trait = { workspace = true }
 fred = { workspace = true }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }

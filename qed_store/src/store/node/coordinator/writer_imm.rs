@@ -1,10 +1,10 @@
 use crate::{
     config::store_config::{CheckpointSyncInfoTableStore, QEDHasher, UserTreeStore},
     models::{
-        checkpoint::sync_info::QEDCheckpointSyncInfoModelCore,
+        checkpoint::sync_info::{self, QEDCheckpointSyncInfoModelCore},
         kvq_merkle::model::KVQFixedConfigMerkleTreeModelCoreImmutable,
     },
-    node::coordinator::store_traits::QEDCoordinatorStoreWriterAsyncImm,
+    node::coordinator::store_traits::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
     store::imm::core::QEDStorageAdapterImmutable,
     traits::qdatastore::{
         qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync,
@@ -24,14 +24,14 @@ use qed_crypto::hash::{merkle::{
 }, traits::qhashable::QFieldHashable};
 use qed_data::{
     qdata::{
-        checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
+        checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState},
         contract::{ContractCodeDefinition, QEDContractLeaf},
     },
     qsync::coordinator::QEDCheckpointSyncInfoCompact,
 };
 type F = GoldilocksField;
 #[async_trait]
-impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDCoordinatorStoreWriterAsyncImm<F> for T {
+impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreWriterAsyncImm<F> for T {
     async fn batch_append_contract_tree_imm(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>> {
 
         <Self as QTreeDataStoreWriterSync<F>>::batch_append_contract_tree(
@@ -295,5 +295,50 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDCoordinatorStoreWriterAsync
     async fn commit_block(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
         todo!()
         //<Self as QMetaDataStoreWriterSync<F>>::commit_block(self, checkpoint_id)
+    }
+    async fn initialize_store(&self) -> anyhow::Result<u64> {
+
+        let latest_l2_block_state_or_err = self.get_latest_l2_block_state().await;
+        if latest_l2_block_state_or_err.is_ok() {
+            let v = latest_l2_block_state_or_err.unwrap();
+            Ok(v.checkpoint_id)
+        }else{
+            // database not initialized with data for the genesis block
+
+            let genesis_l2_block_state = QEDL2BlockState::get_genesis_value();
+            
+            let genesis_checkpoint_stats = QEDCheckpointLeafStats::get_genesis_value();
+            let stats_hash = genesis_checkpoint_stats.qfhash::<QEDHasher>();
+            let genesis_global_state_roots = self.get_checkpoint_global_state_roots(1).await?;
+            let genesis_checkpoint_leaf = QEDCheckpointLeaf{
+                global_chain_root: genesis_global_state_roots.qfhash::<QEDHasher>(),
+                stats: genesis_checkpoint_stats,
+            };
+
+
+            println!("genesis_stats_hash: {:?} ({})",stats_hash, serde_json::to_string_pretty(&stats_hash).unwrap());
+
+            println!("genesis_global_state_roots: {}",serde_json::to_string_pretty(&genesis_global_state_roots).unwrap());
+            println!("genesis_checkpoint_leaf: {}",serde_json::to_string_pretty(&genesis_checkpoint_leaf).unwrap());
+            
+            self.set_l2_block_state_imm(&genesis_l2_block_state).await?;
+            self.set_checkpoint_leaf_data_imm(0, &genesis_checkpoint_leaf).await?;
+            let r = self.set_checkpoint_tree_leaf_hash_imm(0, genesis_checkpoint_leaf.qfhash::<QEDHasher>()).await?;
+
+            let sync_info = QEDCheckpointSyncInfoCompact { 
+                l2_block_state: genesis_l2_block_state,
+                stats:genesis_checkpoint_stats,
+                state_roots: genesis_global_state_roots,
+                checkpoint_tree_update_siblings: r.siblings.clone(),
+                regsitered_users_start_pivot_siblings: vec![],
+                registered_users: vec![],
+
+            }; 
+            self.set_checkpoint_sync_info_imm(sync_info).await?;
+
+            Ok(0)
+
+        }
+        
     }
 }

@@ -67,7 +67,10 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync>
         <Self as QMetaDataStoreReaderSync<F>>::get_contract_code_definition_f(self, contract_id)
     }
     async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
-        <Self as QMetaDataStoreReaderSync<F>>::get_latest_l2_block_state(self)
+        let latest_l2_block_state = <Self as QMetaDataStoreReaderSync<F>>::get_latest_l2_block_state(self)?;
+
+        println!("got latest_l2_block_state.checkpoint_id: {}",latest_l2_block_state.checkpoint_id);
+        Ok(latest_l2_block_state)
     }
 
     async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState> {

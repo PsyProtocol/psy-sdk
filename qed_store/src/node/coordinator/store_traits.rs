@@ -168,5 +168,6 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
     async fn set_checkpoint_sync_info_imm(&self, sync_info: QEDCheckpointSyncInfoCompact<F>) -> anyhow::Result<()>;
 
     async fn commit_block(&self, checkpoint_id: u64) -> anyhow::Result<()>;
+    async fn initialize_store(&self) -> anyhow::Result<u64>;
 
 }

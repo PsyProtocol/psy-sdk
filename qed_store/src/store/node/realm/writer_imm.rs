@@ -30,21 +30,17 @@ use qed_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT,
     data::qhashout::QHashOut,
 };
-use qed_crypto::hash::{
+use qed_crypto::{common::user_id::get_user_id_from_registration_id, hash::{
     merkle::{core::DeltaMerkleProofCore, 
         utils::{common::{QMerkleNode, SimpleMerkleNode, SimpleMerkleNodeKey}, sub_tree_nca::UpdateNCAProofsWithDependencies}}
     ,
     traits::qhashable::QFieldHashable,
-};
+}};
 use qed_data::{
     qdata::{
         contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf, user_public_key::QEDUserPublicKeyRecord
     }, qstore::uct_merkle_nodes::CSTUserUpdate, qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact}
 };
-pub fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
-    let dif = 64 - GLOBAL_USER_TREE_HEIGHT as u64; 
-    (registration_id).reverse_bits() >> dif
-}
 type F = GoldilocksField;
 #[async_trait]
 impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F> for T {

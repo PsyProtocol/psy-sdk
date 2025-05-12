@@ -105,31 +105,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "amqp_serde"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "787581044ca08ad61cdb3a4e21afba087fb8cdba3bb3e23ce69a7d091808014d"
-dependencies = [
- "bytes",
- "serde",
- "serde_bytes_ng",
-]
-
-[[package]]
-name = "amqprs"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e93684f1ae3c63429509ce3bf8a587bffc414f71a13810ed3e5f2c8757888b0"
-dependencies = [
- "amqp_serde",
- "async-trait",
- "bytes",
- "serde",
- "serde_bytes",
- "tokio",
-]
-
-[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -180,7 +155,7 @@ dependencies = [
  "nom",
  "num-traits",
  "rusticata-macros",
- "thiserror 2.0.11",
+ "thiserror",
  "time",
 ]
 
@@ -417,27 +392,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
-name = "bb8"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "212d8b8e1a22743d9241575c6ba822cf9c8fef34771c86ab7e477a4fbfd254e5"
-dependencies = [
- "futures-util",
- "parking_lot",
- "tokio",
-]
-
-[[package]]
-name = "bb8-redis"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8416aa3639520757fd0ed659c8c12f7cd9f0ed638fa0cdd52a13d3b19946df2a"
-dependencies = [
- "bb8",
- "redis 0.27.6",
-]
-
-[[package]]
 name = "bech32"
 version = "0.10.0-beta"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -551,27 +505,6 @@ dependencies = [
  "futures-io",
  "futures-lite 2.6.0",
  "piper",
-]
-
-[[package]]
-name = "broccoli_queue"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a219012ec70e7a4f18268b5eb8ac66f493d21ee5a828f38cf7eb622a0bc74b2"
-dependencies = [
- "async-trait",
- "bb8-redis",
- "dashmap 6.1.0",
- "futures",
- "log",
- "redis 0.27.6",
- "serde",
- "serde_json",
- "sha256",
- "thiserror 2.0.11",
- "time",
- "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -776,20 +709,6 @@ checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "combine"
-version = "4.6.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
-dependencies = [
- "bytes",
- "futures-core",
- "memchr",
- "pin-project-lite",
- "tokio",
- "tokio-util",
 ]
 
 [[package]]
@@ -2336,7 +2255,7 @@ dependencies = [
  "rc2",
  "sha1",
  "sha2",
- "thiserror 2.0.11",
+ "thiserror",
  "x509-parser",
 ]
 
@@ -2842,6 +2761,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "qed_benchmark"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "fred",
+ "hex",
+ "hex-literal",
+ "kvq",
+ "lazy_static",
+ "plonky2",
+ "qed_common_circuit",
+ "qed_core",
+ "qed_crypto",
+ "qed_data",
+ "qed_exec",
+ "qed_node",
+ "qed_node_common",
+ "qed_prover",
+ "qed_rollup_circuit",
+ "qed_store",
+ "qedlang_core",
+ "qedlang_macros",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "serde_with",
+ "tokio",
+ "tracing",
+ "twox-hash",
+]
+
+[[package]]
 name = "qed_common_circuit"
 version = "0.1.0"
 dependencies = [
@@ -2980,11 +2932,9 @@ dependencies = [
 name = "qed_node"
 version = "0.1.0"
 dependencies = [
- "amqprs",
  "anyhow",
  "async-trait",
  "bincode",
- "broccoli_queue",
  "chrono",
  "fred",
  "futures",
@@ -3003,12 +2953,7 @@ dependencies = [
  "qed_node_common",
  "qed_rollup_circuit",
  "qed_store",
- "r2d2",
- "r2d2_redis",
- "rabbitmq-stream-client",
  "rand 0.8.5",
- "redis 0.25.4",
- "rsmq",
  "serde",
  "serde_json",
  "serde_repr",
@@ -3288,25 +3233,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "r2d2"
-version = "0.8.10"
-source = "git+https://github.com/GopherJ/r2d2?rev=976ca74a74871d78764da2a040edcadad1af9be9#976ca74a74871d78764da2a040edcadad1af9be9"
-dependencies = [
- "log",
- "parking_lot",
- "scheduled-thread-pool",
-]
-
-[[package]]
-name = "r2d2_redis"
-version = "0.15.0"
-source = "git+https://github.com/GopherJ/r2d2-redis?rev=63be37454cf441b832251aa915b1a9cb8bc27bff#63be37454cf441b832251aa915b1a9cb8bc27bff"
-dependencies = [
- "r2d2",
- "redis 0.25.4",
-]
-
-[[package]]
 name = "rabbitmq-stream-client"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3321,7 +3247,7 @@ dependencies = [
  "rabbitmq-stream-protocol",
  "rand 0.8.5",
  "rustls-pemfile",
- "thiserror 2.0.11",
+ "thiserror",
  "tokio",
  "tokio-rustls",
  "tokio-stream",
@@ -3343,12 +3269,6 @@ dependencies = [
  "ordered-float",
  "uuid",
 ]
-
-[[package]]
-name = "radix_fmt"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce082a9940a7ace2ad4a8b7d0b1eac6aa378895f18be598230c5f2284ac05426"
 
 [[package]]
 name = "rand"
@@ -3461,50 +3381,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "redis"
-version = "0.25.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0d7a6955c7511f60f3ba9e86c6d02b3c3f144f8c24b288d1f4e18074ab8bbec"
-dependencies = [
- "combine",
- "itoa",
- "percent-encoding",
- "ryu",
- "sha1_smol",
- "socket2 0.5.8",
- "url",
-]
-
-[[package]]
-name = "redis"
-version = "0.27.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09d8f99a4090c89cc489a94833c901ead69bfbf3877b4867d5482e321ee875bc"
-dependencies = [
- "arc-swap",
- "async-trait",
- "bytes",
- "combine",
- "futures-util",
- "itertools 0.13.0",
- "itoa",
- "num-bigint",
- "percent-encoding",
- "pin-project-lite",
- "rustls",
- "rustls-native-certs",
- "rustls-pemfile",
- "rustls-pki-types",
- "ryu",
- "sha1_smol",
- "socket2 0.5.8",
- "tokio",
- "tokio-rustls",
- "tokio-util",
- "url",
-]
-
-[[package]]
 name = "redis-protocol"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3602,19 +3478,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd124222d17ad93a644ed9d011a40f4fb64aa54275c08cc216524a9ea82fb09f"
 dependencies = [
  "digest",
-]
-
-[[package]]
-name = "rsmq"
-version = "9.0.0"
-source = "git+https://github.com/GopherJ/rsmq-async-rs?rev=2af5a5c06a0341cb60f73ba0f0af066f65fb5e77#2af5a5c06a0341cb60f73ba0f0af066f65fb5e77"
-dependencies = [
- "lazy_static",
- "r2d2",
- "radix_fmt",
- "rand 0.8.5",
- "redis 0.25.4",
- "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -3783,15 +3646,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "scheduled-thread-pool"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cbc66816425a074528352f5789333ecff06ca41b36b0b0efdfbb29edc391a19"
-dependencies = [
- "parking_lot",
-]
-
-[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3833,7 +3687,7 @@ dependencies = [
  "smallvec",
  "snap",
  "socket2 0.5.8",
- "thiserror 2.0.11",
+ "thiserror",
  "tokio",
  "tracing",
  "uuid",
@@ -3852,7 +3706,7 @@ dependencies = [
  "scylla-macros",
  "snap",
  "stable_deref_trait",
- "thiserror 2.0.11",
+ "thiserror",
  "tokio",
  "uuid",
  "yoke",
@@ -3945,24 +3799,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_bytes"
-version = "0.11.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "387cc504cb06bb40a96c8e04e951fe01854cf6bc921053c954e4a606d9675c6a"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "serde_bytes_ng"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdb0ebce8684e2253f964e8b6ce51f0ccc6666bbb448fb4a6788088bda6544b6"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "serde_derive"
 version = "1.0.217"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4048,12 +3884,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sha1_smol"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbfa15b3dddfee50a0fff136974b3e1bde555604ba463834a7eb7deb6417705d"
-
-[[package]]
 name = "sha2"
 version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4062,19 +3892,6 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
-]
-
-[[package]]
-name = "sha256"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18278f6a914fa3070aa316493f7d2ddfb9ac86ebc06fa3b83bffda487e9065b0"
-dependencies = [
- "async-trait",
- "bytes",
- "hex",
- "sha2",
- "tokio",
 ]
 
 [[package]]
@@ -4278,31 +4095,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
-dependencies = [
- "thiserror-impl 1.0.69",
-]
-
-[[package]]
-name = "thiserror"
 version = "2.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d452f284b73e6d76dd36758a0c8684b1d5be31f92b89d07fd5822175732206fc"
 dependencies = [
- "thiserror-impl 2.0.11",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.98",
+ "thiserror-impl",
 ]
 
 [[package]]
@@ -4684,7 +4481,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ced87ca4be083373936a67f8de945faa23b6b42384bd5b64434850802c6dccd0"
 dependencies = [
  "getrandom 0.3.1",
- "serde",
 ]
 
 [[package]]
@@ -5059,7 +4855,7 @@ dependencies = [
  "nom",
  "oid-registry",
  "rusticata-macros",
- "thiserror 2.0.11",
+ "thiserror",
  "time",
 ]
 
