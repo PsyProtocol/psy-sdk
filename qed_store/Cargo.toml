@@ -24,3 +24,4 @@ kvq = { path = "../kvq" }
 qed_core = { path = "../qed_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
+thiserror = { workspace = true }
