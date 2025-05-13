@@ -327,8 +327,6 @@ impl<
 
         let start_user_id = last_l2_blockstate.next_user_id;
 
-
-
         let redis_pool = get_node_redis_pool()?;
 
         for (i, pubkey_info) in user_registrations.iter().enumerate() {

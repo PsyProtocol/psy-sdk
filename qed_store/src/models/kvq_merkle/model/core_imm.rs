@@ -774,7 +774,7 @@ pub trait KVQMerkleTreeModelCoreImmutable<
                 Self::set_nodes(store, &node_updates)?;
 
                 results.push(SpidermanUpdateProof {
-                    top_line_proof: Self::rehash_sub_tree_dmp(store, sub_tree_height as usize, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height))?,
+                    top_line_proof: Self::rehash_sub_tree_dmp(store, tree_height as usize, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height))?,
                     web_proof_old_leaves: old_leaves.clone(),
                     web_proof_new_leaves: new_leaves,
                 });
