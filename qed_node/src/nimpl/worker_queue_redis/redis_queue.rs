@@ -3,11 +3,11 @@ use std::time::Duration;
 use anyhow::Result;
 use qed_core::job::worker_queue::ProvingDispatcher;
 use qed_core::job::worker_queue::ProvingWorkerListener;
-use rsmq::PooledRsmq;
 use rsmq::RedisConnectionManager;
 use rsmq::RsmqConnection;
 use rsmq::RsmqError;
 use rsmq::RsmqMessage;
+use rsmq::{RsmqConnectionSync, RsmqOptions, RsmqSync};
 use serde::{Deserialize, Serialize};
 use serde_repr::Deserialize_repr;
 use serde_repr::Serialize_repr;
@@ -15,7 +15,7 @@ use serde_repr::Serialize_repr;
 #[derive(Clone)]
 pub struct RedisQueue {
     // we use queue here because pubsub is mpmc
-    queue: PooledRsmq,
+    queue: RsmqSync,
 }
 
 pub const Q_HIDDEN: Option<Duration> = Some(Duration::from_secs(600));
@@ -47,7 +47,7 @@ pub enum QueueNotification {
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum CEQueueNotification {
-    StartProduceBlock  { next_checkpoint: u64 },
+    StartProduceBlock { next_checkpoint: u64 },
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -57,19 +57,16 @@ pub enum CPQueueNotification {
 
 impl RedisQueue {
     pub fn new(uri: &str) -> Result<Self> {
-        let client = redis::Client::open(uri)?;
-        let manager = RedisConnectionManager::from_client(client)?;
         let queue = {
-            let pool = r2d2::Pool::builder().build(manager)?;
-            {
-                let mut conn = pool.get()?;
-                redis::cmd("CLIENT")
-                    .arg("SETNAME")
-                    .arg("r2d2-rsmq-pool")
-                    .query(&mut *conn)?;
-                drop(conn);
+            let url = url::Url::parse(uri)?;
+            let mut rsmq_option = RsmqOptions::default();
+            if let Some(host) = url.host() {
+                rsmq_option.host = host.to_string();
             }
-            let mut queue = PooledRsmq::new_with_pool(pool, false, None);
+            if let Some(port) = url.port() {
+                rsmq_option.port = port;
+            }
+            let mut queue = RsmqSync::new(rsmq_option)?;
             for q in &[
                 Q_RPC_TOKEN_TRANSFER,
                 Q_RPC_CLAIM_DEPOSIT,
@@ -89,11 +86,6 @@ impl RedisQueue {
             }
             Ok::<_, anyhow::Error>(queue)
         }?;
-        Ok(Self { queue })
-    }
-
-    pub fn new_with_pool(pool: r2d2::Pool<RedisConnectionManager>) -> Result<Self> {
-        let queue = PooledRsmq::new_with_pool(pool, false, None);
         Ok(Self { queue })
     }
 

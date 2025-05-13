@@ -2,8 +2,7 @@ use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::job::id::QProvingJobDataID;
 use qed_core::job::traits::{QProofStoreReaderSync, QProofStoreWriterSync, QProofStoreWriterSyncImm};
-use r2d2_redis::RedisConnectionManager;
-use redis::Commands;
+use redis::{Client as RedisClient, Commands};
 
 // Table
 pub const USER_STATE: &'static str = "user_state";
@@ -13,21 +12,21 @@ pub const PROOF_COUNTERS: &'static str = "proof_counters";
 
 #[derive(Clone)]
 pub struct RedisStore {
-    pool: r2d2::Pool<RedisConnectionManager>,
+    pool: r2d2::Pool<RedisClient>,
 }
 
 impl RedisStore {
     pub fn new(uri: &str) -> anyhow::Result<Self> {
-        let manager = RedisConnectionManager::new(uri)?;
-        let pool = r2d2::Pool::builder().build(manager)?;
+        let client = RedisClient::open(uri)?;
+        let pool = r2d2::Pool::builder().build(client)?;
         Ok(Self { pool })
     }
 
-    pub fn get_connection(&self) -> anyhow::Result<r2d2::PooledConnection<RedisConnectionManager>> {
+    pub fn get_connection(&self) -> anyhow::Result<r2d2::PooledConnection<RedisClient>> {
         Ok(self.pool.get()?)
     }
 
-    pub fn get_pool(&self) -> r2d2::Pool<RedisConnectionManager> {
+    pub fn get_pool(&self) -> r2d2::Pool<RedisClient> {
         self.pool.clone()
     }/*
 
