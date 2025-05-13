@@ -141,7 +141,7 @@ impl<
 
         let user_id_u64 = input.core.new_user_leaf.user_id.to_canonical_u64();
         if !self.includes_user_id(user_id_u64) {
-            anyhow::bail!("user id {} is not in this realm", user_id_u64);
+            anyhow::bail!("user id {} is not in this realm {}", user_id_u64, self.realm_config.realm_id);
         }
 
         // Build contract height cache and validate

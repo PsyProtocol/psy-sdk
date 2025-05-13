@@ -63,7 +63,7 @@ impl WalletSession {
         private_key: QHashOut<GoldilocksField>,
     ) -> anyhow::Result<Self> {
         tracing::info!("init rpc provider");
-        let st_provider = RpcProvider::new_with_config(rpc_config)?;
+        let mut st_provider = RpcProvider::new_with_config(rpc_config)?;
 
         tracing::info!("init wallet");
         let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
@@ -71,6 +71,7 @@ impl WalletSession {
         let zkey_info = wallet.add_private_key_get_info(SimpleQEDPrivateKey { private_key });
 
         let user_id = st_provider.get_user_id(zkey_info.public_key_param)?;
+        st_provider.current_user_id = user_id;
         tracing::info!("user id: {}", user_id);
 
         let latest_l2_block_state = st_provider.resolve_get_latest_l2_block_state()?;
@@ -228,7 +229,7 @@ impl WalletSession {
             self.nonce,
             self.wallet.circuit.get_fingerprint(),
             public_key_param,
-            signature_proof
+            signature_proof.public_inputs
         );
         let end_cap_proof = self.mgr.prove_end_cap(
             &self.main_circuits,
@@ -246,10 +247,10 @@ impl WalletSession {
             serde_json::to_string_pretty(&user_ec_input)?
         );
 
-        tracing::info!(
-            "submit end cap proof: {}",
-            serde_json::to_string_pretty(&end_cap_proof)?
-        );
+        // tracing::info!(
+        //     "submit end cap proof: {}",
+        //     serde_json::to_string_pretty(&end_cap_proof)?
+        // );
         let req = QSubmitEndCapRPCRequest {
             user_ec_input,
             proof: end_cap_proof,

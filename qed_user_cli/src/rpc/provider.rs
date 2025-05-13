@@ -317,10 +317,10 @@ impl QUserRpcProvider for RpcProvider {
         &self,
         req: QSubmitEndCapRPCRequest<F>,
     ) -> anyhow::Result<()> {
-        tracing::info!(
-            "submit end cap proof: {}",
-            serde_json::to_string_pretty(&req).unwrap()
-        );
+        // tracing::info!(
+        //     "submit end cap proof: {}",
+        //     serde_json::to_string_pretty(&req).unwrap()
+        // );
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         qed_rpc_call!(self, rpc_url, RequestParams::<F>::SubmitEndCap(req))
     }
