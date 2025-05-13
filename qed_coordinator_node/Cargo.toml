@@ -30,3 +30,4 @@ qed_realm_node = {workspace = true}
 reqwest = {workspace = true}
 qed_user_cli = { workspace = true }
 chrono = {workspace = true}
+reth-libmdbx = {workspace = true}

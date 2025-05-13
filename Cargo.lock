@@ -4448,6 +4448,7 @@ dependencies = [
  "qed_user_cli",
  "rand 0.8.5",
  "reqwest",
+ "reth-libmdbx",
  "serde",
  "serde_json",
  "tokio",

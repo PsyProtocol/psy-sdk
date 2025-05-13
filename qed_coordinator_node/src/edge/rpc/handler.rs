@@ -48,7 +48,7 @@ use qed_store::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
 use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_store::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
-
+use reth_libmdbx::error;
 // crate inner
 use crate::communicate::GlobalCoordinatorStatus;
 use crate::context::{build_checkpoint_sync_info, with_temp_ctx_read_async, GLOBAL_DRAIN_QUEUE};
@@ -211,7 +211,7 @@ impl CoordinatorEdgeHandler {
         input: SubmitGUTARealmResultAPINoProofInput<QEDFelt>,
         proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
     ) -> anyhow::Result<()> {
-        let (store_reader, checkpoint_queue, proof_store, config, verifier) =
+        let (_store_reader, checkpoint_queue, proof_store, config, verifier) =
             with_ctx_read_async(|ctx| {
                 let store_reader = ctx.store_reader.clone();
                 let checkpoint_queue = ctx.checkpoint_queue.clone();
@@ -251,10 +251,33 @@ impl CoordinatorEdgeHandler {
         );
 
         // verify state consistency
-        let old_root = store_reader
-            .get_user_latest_top_tree_cap_root(config.realm_root_level, input.realm_id)
-            .await.unwrap();
+        let old_root = with_temp_ctx_read_async::<_, _, _, C, D>(self.args.clone(), |ctx| async move {
+            match ctx
+                .store_reader
+                .get_user_latest_top_tree_cap_root(config.realm_root_level, input.realm_id)
+                .await
+            {
+                Ok(root) => Ok(root),
+                Err(e) => {
+                    error!("❌ Failed to get old root: {:?}", e);
 
+                    if let Some(mdbx_err) = e.downcast_ref::<error::Error>() {
+                        error!("❌ MDBX explain: {}", mdbx_err.explain());
+                    }
+
+                    let mut source = e.source();
+                    while let Some(err) = source {
+                        error!("⛓ Caused by: {}", err);
+                        source = err.source();
+                    }
+
+                    Err(anyhow::anyhow!("Failed to get old root"))
+                }
+            }
+        })
+            .await?;
+        info!("old root from db: {:?}, hex = {:?}", old_root, hex::encode(old_root.to_bytes()?));
+        info!("old root from realm: {:?}", input.top_line_proof.old_root);
         if old_root != input.top_line_proof.old_root && old_root != input.top_line_proof.new_root {
             anyhow::bail!("invalid top line proof old value from realm");
         }
@@ -283,7 +306,7 @@ impl CoordinatorEdgeHandler {
             CE_NOTIFICATIONS,
             CEQueueNotification::StartProduceBlock { next_checkpoint },
         )?;
-        info!("☎️ build_block {} cmd have send to CP", next_checkpoint);
+        info!("☎️ build block {} cmd have send to CP", next_checkpoint);
         Ok(())
     }
 

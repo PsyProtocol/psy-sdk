@@ -4,7 +4,6 @@ pub mod init;
 pub mod rpc;
 
 use jsonrpsee::server::Server;
-use qed_core::utils::debug_timer::DebugTimer;
 use std::net::SocketAddr;
 use tracing::info;
 

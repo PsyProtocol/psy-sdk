@@ -100,6 +100,7 @@ where
 
     let redis_pool = get_node_redis_pool()?;
 
+    //todo: remove the args
     let CoordinatorEdgeQueueArgs {
         coordinator_worker_queue_suffix,
         coordinator_notifications_queue_suffix,
