@@ -77,7 +77,7 @@ WATCHED_DIRS := qed_rollup_circuit qed_common_circuit qed_prover
 common_config_generator:
 	@if git diff --name-only --diff-filter=M | grep -q -E "$(subst $() $(),|,$(WATCHED_DIRS)).*\.rs$$"; then \
 		echo "Changes detected in watched directories. Running common_config_generator..."; \
-		RUST_LOG=${RUST_LOG} cargo run --profile ${PROFILE} --package qed_prover --example common_config_generator; \
+		RUST_LOG=${RUST_LOG} cargo run --profile ${PROFILE} --package qed_prover --example config_gen_v2; \
 	else \
 		echo "No changes detected in watched directories. Skipping common_config_generator."; \
 	fi
