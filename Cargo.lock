@@ -4762,7 +4762,6 @@ dependencies = [
  "bb8-redis",
  "bincode",
  "clap",
- "dotenv",
  "fred",
  "hex",
  "jsonrpsee",
@@ -4774,18 +4773,14 @@ dependencies = [
  "qed_data",
  "qed_node",
  "qed_node_common",
- "qed_rollup_circuit",
  "qed_store",
  "redis",
- "reth-libmdbx",
  "serde",
  "serde_json",
  "serde_with",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
- "tracing-appender",
- "tracing-subscriber",
 ]
 
 [[package]]
