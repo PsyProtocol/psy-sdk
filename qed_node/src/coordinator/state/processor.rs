@@ -781,6 +781,7 @@ impl<
                 stats: guta.stats,
             };
             eprintln!("DEBUGPRINT[527]: processor.rs:737: guta={}", serde_json::to_string_pretty(&guta).unwrap());
+            eprintln!("DEBUGPRINT[527]: processor.rs:737: guta_hash={}", serde_json::to_string_pretty(&guta.qfhash::<QEDHasher>()).unwrap());
         }
 
         /*self.proof_store.set_bytes_by_id(input_id, &bincode::serialize(&queue_item).map_err(|e| anyhow::anyhow!("{:?}",e))?).await?;

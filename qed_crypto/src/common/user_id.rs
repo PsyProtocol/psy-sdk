@@ -2,7 +2,7 @@ use plonky2::{field::extension::Extendable, hash::hash_types::RichField, iop::ta
 use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
 
 fn reverse_bits_in_limit(x: u64, num_bits: u8) -> u64 {
-    let dif = 64 - num_bits as u64; 
+    let dif = 64 - num_bits as u64;
     (x).reverse_bits() >> dif
 }
 
@@ -26,14 +26,14 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy1 {
     )-> Target {
         let mut reversed_bits = user_registration_tree_leaf_index_bits.to_vec();
         reversed_bits.reverse();
-    
+
         let reversed_bits_index = builder.le_sum(reversed_bits.iter());
-    
+
         reversed_bits_index
     }
 
     fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
-        let dif = 64 - GLOBAL_USER_TREE_HEIGHT as u64; 
+        let dif = 64 - GLOBAL_USER_TREE_HEIGHT as u64;
         (registration_id).reverse_bits() >> dif
     }
 }
@@ -49,28 +49,28 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy2 {
     )-> Target {
         let mut new_top_bits = user_registration_tree_leaf_index_bits[0..(COORDINATOR_USER_TREE_HEIGHT as usize)].to_vec();
         new_top_bits.reverse();
-    
+
         let new_bottom_bits = user_registration_tree_leaf_index_bits[(COORDINATOR_USER_TREE_HEIGHT as usize)..].to_vec();
-    
-    
-    
-    
+
+
+
+
         let new_bits = [
             new_bottom_bits,
             new_top_bits,
         ].concat();
         let reversed_bits_index = builder.le_sum(new_bits.iter());
-    
+
         reversed_bits_index
     }
 
     fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
         // rotate realms on each index
         let new_top_bits = reverse_bits_in_limit(registration_id&((1u64<<COORDINATOR_USER_TREE_HEIGHT)-1u64), COORDINATOR_USER_TREE_HEIGHT);
-    
+
         // sequential within realms
         let new_bottom_bits = registration_id>>COORDINATOR_USER_TREE_HEIGHT;
-    
+
         (new_top_bits<<REALM_USER_TREE_HEIGHT)|new_bottom_bits
     }
 }
@@ -88,30 +88,30 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy3 {
 
         let mut new_top_bits = user_registration_tree_leaf_index_bits[10..].to_vec();
         new_top_bits.reverse();
-    
+
         let new_bottom_bits = user_registration_tree_leaf_index_bits[0..10].to_vec();
-    
-    
-    
-    
+
+
+
+
         let new_bits = [
             new_bottom_bits,
             new_top_bits,
         ].concat();
         let reversed_bits_index = builder.le_sum(new_bits.iter());
-    
+
         reversed_bits_index
     }
 
     fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
-        (reverse_bits_in_limit(registration_id>>10u64, GLOBAL_USER_TREE_HEIGHT-10)<<10u64) | 
+        (reverse_bits_in_limit(registration_id>>10u64, GLOBAL_USER_TREE_HEIGHT-10)<<10u64) |
         (registration_id & ((1u64<<10)-1u64))
     }
 }
-/* 
+/*
 // reverse bits gives a very even distribution
 pub fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
-    let dif = 64 - GLOBAL_USER_TREE_HEIGHT as u64; 
+    let dif = 64 - GLOBAL_USER_TREE_HEIGHT as u64;
     (registration_id).reverse_bits() >> dif
 }
 
@@ -131,7 +131,7 @@ pub fn circuit_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F
 }
 */
 
-type UserIdBitsStrategy = UserIdBitsStrategy3;
+type UserIdBitsStrategy = UserIdBitsStrategy2;
 
 pub fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
     UserIdBitsStrategy::get_user_id_from_registration_id(registration_id)
@@ -166,7 +166,7 @@ mod tests {
 
     impl<C: GenericConfig<D>, const D: usize> SimpleBitsTester<C,D> where C::Hasher: AlgebraicHasher<C::F>{
         pub fn new<UIDGen: UserIdGeneratorStrategy>(count: usize, global_user_tree_height: usize) -> Self {
-            
+
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
         let registration_ids = builder.add_virtual_targets(count);
@@ -194,7 +194,7 @@ mod tests {
         &self,
         registration_ids: &[u64],
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        
+
         let mut pw = PartialWitness::<C::F>::new();
         //tracing::info!("agg_fingerprint: {}", agg_fingerprint.to_string());
         //tracing::info!("leaf_fingerprint: {}", leaf_fingerprint.to_string());
@@ -255,20 +255,20 @@ mod tests {
     fn check_strategy_3() {
         SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy3>(1024, 64*1024, 64*1024).unwrap();
     }
-    /* 
+    /*
     #[test]
     fn test_check_a(){
         let mut t = Vec::new();
         for i in 0..100 {
             t.push((
-                i, 
-                UserIdBitsStrategy1::get_user_id_from_registration_id(i), 
-                UserIdBitsStrategy2::get_user_id_from_registration_id(i), 
+                i,
+                UserIdBitsStrategy1::get_user_id_from_registration_id(i),
+                UserIdBitsStrategy2::get_user_id_from_registration_id(i),
                 UserIdBitsStrategy3::get_user_id_from_registration_id(i)
             ));
         }
         println!("{:#?}",t);
     }
-    
+
     */
 }
