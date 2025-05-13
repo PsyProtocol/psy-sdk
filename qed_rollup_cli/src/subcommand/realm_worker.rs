@@ -6,7 +6,7 @@ use tracing::info;
 async fn run_worker(redis_config: RedisConfig, queue_config: QueueConfig) -> anyhow::Result<()> {
     let state = WorkerState::new(
         redis_config.redis_uri,
-        redis_config.pool_size.unwrap_or(8),
+        redis_config.pool_size.unwrap_or(10),
         &queue_config.worker_queue_suffix,
         &queue_config.notifications_queue_suffix,
         &queue_config.proof_store_key_suffix,
