@@ -173,9 +173,9 @@ impl
         let st = Arc::new(store_reader.dup());
         let need_init = match st.get_l2_block_state(1).await {
             Ok(_) => false,
-            Err(_e) => {
-                // error!("⚠️ Failed to get block 1 state: {:?}， need initialize the db", e);
-                st.initialize_store()?;
+            Err(e) => {
+                error!("⚠️ Failed to get block 1 state: {:?}， need initialize the db", e);
+                QEDComboDataStoreReaderWriterSync::initialize_store(&*st)?;
                 true
             }
         };

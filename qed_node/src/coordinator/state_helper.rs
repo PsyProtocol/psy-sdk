@@ -5,14 +5,15 @@ use plonky2::{
 };
 use qed_core::job::{
     id::QProvingJobDataID,
-    traits::{QProofStore, QProofStoreWriterSyncImm},
+    traits::QProofStoreWriterSyncImm,
 };
+use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use qed_data::{
-    api::coordinator::register_user::QEDAPIRegisterUserRequestForUserId, guta::api::SubmitUserEndCapProofAPIInput, qsync::coordinator::QEDCheckpointSyncInfoCompact
+    api::coordinator::register_user::QEDAPIRegisterUserRequestForUserId, guta::api::SubmitUserEndCapProofAPIInput
 };
 use qed_store::{
     config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
-    node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm}, store::node::realm::writer_imm::get_user_id_from_registration_id,
+    node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
 };
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;

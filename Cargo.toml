@@ -43,6 +43,7 @@ members = [
     "qed_compiler/qed-dargo-cli",
     "qed_common",
     "qed_user_cli",
+    "qed_benchmark"
 ]
 resolver = "2"
 

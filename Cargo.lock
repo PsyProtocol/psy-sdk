@@ -473,6 +473,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "backon"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd0b50b1b78dbadd44ab18b3c794e496f3a139abb9fbc27d9c94c4eebbb96496"
+dependencies = [
+ "fastrand 2.3.0",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -530,6 +539,16 @@ checksum = "8416aa3639520757fd0ed659c8c12f7cd9f0ed638fa0cdd52a13d3b19946df2a"
 dependencies = [
  "bb8",
  "redis 0.27.6",
+]
+
+[[package]]
+name = "bb8-redis"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f435a7d764ccf6319163f74533073775a1472b341c64662522980d1939ffd87"
+dependencies = [
+ "bb8",
+ "redis 0.30.0",
 ]
 
 [[package]]
@@ -705,7 +724,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a219012ec70e7a4f18268b5eb8ac66f493d21ee5a828f38cf7eb622a0bc74b2"
 dependencies = [
  "async-trait",
- "bb8-redis",
+ "bb8-redis 0.18.0",
  "dashmap 6.1.0",
  "futures",
  "log",
@@ -4372,6 +4391,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "qed_benchmark"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "fred",
+ "hex",
+ "hex-literal",
+ "kvq",
+ "lazy_static",
+ "plonky2",
+ "qed_common_circuit",
+ "qed_core",
+ "qed_crypto",
+ "qed_data",
+ "qed_exec",
+ "qed_node",
+ "qed_node_common",
+ "qed_prover",
+ "qed_rollup_circuit",
+ "qed_store",
+ "qedlang_core",
+ "qedlang_macros",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "serde_with",
+ "tokio",
+ "tracing",
+ "twox-hash",
+]
+
+[[package]]
 name = "qed_common"
 version = "0.1.0"
 dependencies = [
@@ -4666,6 +4718,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bb8",
+ "bb8-redis 0.22.0",
  "bincode",
  "clap",
  "dotenv",
@@ -4682,6 +4736,7 @@ dependencies = [
  "qed_node_common",
  "qed_rollup_circuit",
  "qed_store",
+ "redis 0.30.0",
  "reth-libmdbx",
  "serde",
  "serde_json",
@@ -4802,6 +4857,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "thiserror 2.0.12",
  "tracing",
  "twox-hash",
 ]
@@ -5260,6 +5316,31 @@ dependencies = [
  "socket2 0.5.9",
  "tokio",
  "tokio-rustls",
+ "tokio-util",
+ "url",
+]
+
+[[package]]
+name = "redis"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "438a4e5f8e9aa246d6f3666d6978441bf1b37d5f417b50c4dd220be09f5fcc17"
+dependencies = [
+ "arc-swap",
+ "backon",
+ "bytes",
+ "cfg-if",
+ "combine",
+ "futures-channel",
+ "futures-util",
+ "itoa",
+ "num-bigint",
+ "percent-encoding",
+ "pin-project-lite",
+ "ryu",
+ "sha1_smol",
+ "socket2 0.5.9",
+ "tokio",
  "tokio-util",
  "url",
 ]

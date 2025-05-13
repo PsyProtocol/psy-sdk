@@ -4,7 +4,6 @@ use crate::{CoordinatorEdgeArgs};
 use anyhow::anyhow;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
-use lazy_static::lazy_static;
 use once_cell::sync::{Lazy};
 use std::future::Future;
 use std::path::Path;

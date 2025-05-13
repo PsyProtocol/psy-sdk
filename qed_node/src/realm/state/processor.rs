@@ -19,14 +19,12 @@ use qed_core::{
     },
 };
 use qed_crypto::{
-    common::{cached_circuit_library::get_cached_circuit_library, circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier},
-    hash::{
-        merkle::{
+    common::{cached_circuit_library::get_cached_circuit_library, circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier, user_id::get_user_id_from_registration_id},
+    hash::{merkle::{
             core::{DeltaMerkleProofCore, MerkleProofCore},
             treeprover::{data::CircuitInputWithDependencies, subtree::SubTreeNodeStateTransition},
             utils::common::{QMerkleNode, SimpleMerkleNodeKey},
         }, traits::qhashable::QFieldHashable}
-    ,
 };
 use qed_data::{
     guta::{
@@ -43,7 +41,6 @@ use qed_data::{
 use qed_store::{
     config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
-    store::node::realm::writer_imm::get_user_id_from_registration_id,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -206,6 +203,7 @@ impl<
         self.handle_guta_state_updates_from_realms(checkpoint_id).await?;
         let (jobs, guta, proof) = self.handle_guta_from_realms(checkpoint_id).await?;
         eprintln!("DEBUGPRINT[513]: processor.rs:212: guta={}", serde_json::to_string_pretty(&guta).unwrap());
+        eprintln!("DEBUGPRINT[513]: processor.rs:212: guta_hash={}", serde_json::to_string_pretty(&guta.qfhash::<QEDHasher>()).unwrap());
         eprintln!("DEBUGPRINT[512]: processor.rs:212: jobs={}", serde_json::to_string_pretty(&jobs).unwrap());
         if pending_register_users.len() != 0 {
             if jobs.len() == 0 {
@@ -326,7 +324,7 @@ impl<
                 .store
                 .get_checkpoint_leaf_data(last_checkpoint_id)
                 .await?;
-
+                /*
             let guta_header = GlobalUserTreeAggregatorHeader {
                 guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
                 checkpoint_tree_root: checkpoint_tree_proof.root,
@@ -342,8 +340,7 @@ impl<
                     total_transactions: F::ZERO,
                     slots_modified: F::ZERO,
                 },
-            };
-            eprintln!("DEBUGPRINT[524]: processor.rs:346: guta_header={}", serde_json::to_string_pretty(&guta_header).unwrap());
+            };*/
             let input = GUTANoChangeFullInput {
                 checkpoint_tree_proof,
                 checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots {
@@ -407,11 +404,16 @@ impl<
             let good_sibs = bp.siblings[(bp.siblings.len() - top_line_siblings_len)..].to_vec();
             eprintln!("DEBUGPRINT[521]: processor.rs:405 (after let good_sibs = bp.siblings[(bp.siblings…)");
 
+            let input = VerifyGUTAToCapCircuitInputSimple {
+                guta_proof_header: guta,
+                top_line_siblings: good_sibs,
+            };
+            eprintln!("DEBUGPRINT[688]: processor.rs:411: input={}", serde_json::to_string_pretty(&input).unwrap());
+            let new_g = input.get_new_guta_header::<QEDHasher>();
+            eprintln!("DEBUGPRINT[689]: processor.rs:412: new_g={}", serde_json::to_string_pretty(&new_g).unwrap());
+            eprintln!("DEBUGPRINT[689]: processor.rs:412: new_g_hash={}", serde_json::to_string_pretty(&new_g.qfhash::<QEDHasher>()).unwrap());
             let w = CircuitInputWithDependencies::<VerifyGUTAToCapCircuitInputSimple<F>> {
-                input: VerifyGUTAToCapCircuitInputSimple {
-                    guta_proof_header: guta,
-                    top_line_siblings: good_sibs,
-                },
+                input,
                 dependencies: vec![jobs.last().as_ref().unwrap().last().unwrap().get_output_id()],
             };
 
@@ -428,6 +430,7 @@ impl<
 
             let n_guta = w.input.get_new_guta_header::<QEDHasher>();
             eprintln!("DEBUGPRINT[525]: processor.rs:428: n_guta={}", serde_json::to_string_pretty(&n_guta).unwrap());
+            eprintln!("DEBUGPRINT[525]: processor.rs:428: n_guta_hash={}", serde_json::to_string_pretty(&n_guta.qfhash::<QEDHasher>()).unwrap());
 
             return Ok((
                 n_jobs,
@@ -467,7 +470,7 @@ impl<
                 .get_user_bottom_tree_merkle_proof(
                     self.realm_config.realm_root_level,
                     checkpoint_id,
-                    0,
+                    (self.realm_config.realm_id as u64)<<(REALM_USER_TREE_HEIGHT as u64)
                 )
                 .await?
                 .root;
@@ -542,6 +545,8 @@ impl<
                     }],
                 )
                 .await?;
+            eprintln!("DEBUGPRINT[684]: processor.rs:541: r={}", serde_json::to_string_pretty(&r).unwrap());
+            eprintln!("DEBUGPRINT[685]: processor.rs:542: single={}", serde_json::to_string_pretty(&single).unwrap());
 
             let id = QProvingJobDataID::core_op_witness(
                 ProvingJobCircuitType::GUTASingleEndCap,

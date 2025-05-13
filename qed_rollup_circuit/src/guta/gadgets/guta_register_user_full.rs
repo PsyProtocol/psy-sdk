@@ -1,25 +1,11 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::{BoolTarget, Target}, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_common_circuit::{builder::comparison::CircuitBuilderComparison, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
+use qed_crypto::{common::user_id::circuit_user_registration_tree_index_bits_to_user_id, hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore}};
 
 
 use super::guta_register_user_core::GUTARegisterUserCoreGadget;
 
-
-pub fn map_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    user_registration_tree_leaf_index: Target,
-    user_registration_tree_leaf_index_bits: &[BoolTarget],
-    _global_user_tree_height: usize,
-) -> Target {
-    let mut reversed_bits = user_registration_tree_leaf_index_bits.to_vec();
-    reversed_bits.reverse();
-
-    let reversed_bits_index = builder.le_sum(reversed_bits.iter());
-
-    reversed_bits_index
-}
 
 
 
@@ -54,7 +40,7 @@ impl GUTARegisterUserFullGadget {
             global_user_tree_height,
         );
 
-        let expected_user_id = map_user_registration_tree_index_bits_to_user_id::<H,F,D>(
+        let expected_user_id = circuit_user_registration_tree_index_bits_to_user_id::<H,F,D>(
             builder,
             user_registration_tree_merkle_proof.index,
             &user_registration_tree_index_bits,

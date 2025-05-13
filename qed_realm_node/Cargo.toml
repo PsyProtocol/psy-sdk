@@ -36,3 +36,14 @@ tracing-appender = { workspace = true }
 clap = { workspace = true }
 hex.workspace = true
 bincode.workspace = true
+
+redis = { version = "0.30", default-features = false, features = [
+  "acl",
+  "keep-alive",
+  "script",
+  "tokio-comp",
+  "connection-manager",
+] }
+
+bb8-redis = "0.22.0"
+bb8 = "0.9"

@@ -86,7 +86,7 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
         ser: &SerializedGenericCircuitCommonDataLibraryInfo,
         common_data_items: Vec<CommonCircuitData<C::F, D>>,
     ) -> anyhow::Result<Self> {
-        if common_data_items.len() != ser.common_data_hashes.len() {
+        if common_data_items.len() > ser.common_data_hashes.len() {
             anyhow::bail!("ser.common_data_hashes.len() != common_data_items.len() (ser.common_data_hashes.len() = {}), got {}",ser.common_data_hashes.len(),common_data_items.len());
         }
         if ser.common_circuit_list.len() != ser.common_data_hashes.len() {
@@ -106,6 +106,7 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
         ser.common_circuit_list
             .iter()
             .enumerate()
+            .take(common_data_items.len())
             .for_each(|(index, l)| {
                 l.iter().for_each(|circuit_type| {
                     common_circuit_map.insert(*circuit_type, index);
@@ -127,10 +128,18 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
             }
         });
 
-        SerializedGenericCircuitCommonDataLibraryInfo {
+        let result = SerializedGenericCircuitCommonDataLibraryInfo {
             common_data_hashes: self.common_data_hashes.clone(),
             common_circuit_list,
+        };
+
+        println!("Serialized: common_data_hashes.len(): {}", result.common_data_hashes.len());
+        println!("Serialized: common_circuit_list.len(): {}", result.common_circuit_list.len());
+        for (i, hash) in result.common_data_hashes.iter().enumerate() {
+            println!("Hash {}: {}", i, hash.to_hex_string());
         }
+
+        result
     }
     pub fn get_common_circuit_data_ref(
         &self,

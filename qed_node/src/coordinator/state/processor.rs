@@ -25,7 +25,7 @@ use qed_core::{
 use qed_crypto::{
     common::{
         cached_circuit_library::get_cached_circuit_library,
-        circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier,
+        circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier, user_id::get_user_id_from_registration_id,
     },
     hash::{
         merkle::{
@@ -72,7 +72,6 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 use crate::coordinator::state::user_map::{get_node_redis_pool, save_user_mapping_to_redis};
 
-use qed_store::store::node::realm::writer_imm::get_user_id_from_registration_id;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -780,6 +779,7 @@ impl<
                 stats: guta.stats,
             };
             eprintln!("DEBUGPRINT[527]: processor.rs:737: guta={}", serde_json::to_string_pretty(&guta).unwrap());
+            eprintln!("DEBUGPRINT[527]: processor.rs:737: guta_hash={}", serde_json::to_string_pretty(&guta.qfhash::<QEDHasher>()).unwrap());
         }
 
         /*self.proof_store.set_bytes_by_id(input_id, &bincode::serialize(&queue_item).map_err(|e| anyhow::anyhow!("{:?}",e))?).await?;
@@ -798,9 +798,9 @@ impl<
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
-        let last_user_tree_root = self.store.get_user_tree_root(last_l2_blockstate.checkpoint_id).await?;
+        //let last_user_tree_root = self.store.get_user_tree_root(last_l2_blockstate.checkpoint_id).await?;
 
-        let state_roots = self.store.get_checkpoint_global_state_roots(last_l2_blockstate.checkpoint_id).await?;
+        //let state_roots = self.store.get_checkpoint_global_state_roots(last_l2_blockstate.checkpoint_id).await?;
         let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_l2_blockstate.checkpoint_id).await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
         info!("💥 coordinator processor build block checkpoint_id: {}", new_checkpoint_id);
@@ -816,6 +816,8 @@ impl<
 
 
         let (guta_jobs, guta_transition) = self.handle_guta_from_realms(new_checkpoint_id).await?;
+
+        println!("new_checkpoint_id: {}",new_checkpoint_id);
 
         let notify_block_complete = QProvingJobDataID::notify_block_complete(new_checkpoint_id);
         let root_state_transition =
