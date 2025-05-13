@@ -203,12 +203,6 @@ impl RealmProcessor {
     }
 }
 
-async fn get_latest_checkpoint_id(queue: &ProofStoreFred) -> anyhow::Result<Option<u64>> {
-    queue
-        .current_checkpoint_id(QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL)
-        .await
-}
-
 async fn get_checkpoint(
     queue: &ProofStoreFred,
     checkpoint_id: u64,
