@@ -131,7 +131,7 @@ pub fn circuit_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F
 }
 */
 
-type UserIdBitsStrategy = UserIdBitsStrategy1;
+type UserIdBitsStrategy = UserIdBitsStrategy2;
 
 pub fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
     UserIdBitsStrategy::get_user_id_from_registration_id(registration_id)

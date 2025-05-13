@@ -139,8 +139,8 @@ impl CoordinatorEdgeHandler {
 
                         async move {
                             info!(
-                                "🚀 Pushing new user to drain queue, local_register_id = {}, pub_key = {}",
-                                register_id, zk_user.public_key_param
+                                "🚀 Pushing new user to drain queue, user_id = {}, local_register_id = {}, pub_key = {}",
+                                user_id, register_id, zk_user.public_key_param
                             );
                             queue.cdq_push_imm(zk_user).await?;
                             info!("✅ Pushed to drain queue.");
