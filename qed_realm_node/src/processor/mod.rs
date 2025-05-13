@@ -155,6 +155,10 @@ impl RealmProcessor {
                     Ok(_) => {
                         info!(?checkpoint_id, "Sync to new checkpoint");
                         info!("Checkpoint sync reg users: {:?}", block.compact.registered_users);
+                        if  local_checkpoint_id + 1 == block.latest_checkpoint_id && block.latest_checkpoint_id == checkpoint_id {
+                            info!("Local checkpoint is latest");
+                            return Ok(true);
+                        }
                         Ok(false)
                     }
                     Err(err) => {
