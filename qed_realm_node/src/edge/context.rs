@@ -1,5 +1,5 @@
 use crate::error::RpcError;
-use crate::rpc::{CheckpointSyncInfo, RealmEdgeRpcServer};
+use crate::rpc::{RealmEdgeRpcServer};
 use crate::{SyncCheckpointQueue, SyncProofQueue, C, D, F, H};
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
