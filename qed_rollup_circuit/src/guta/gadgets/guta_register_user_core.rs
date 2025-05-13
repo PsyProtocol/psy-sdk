@@ -107,7 +107,7 @@ impl GUTARegisterUserCoreGadget {
         SubTreeNodeStateTransitionGadget {
             old_node_value: self.global_user_tree_update_proof.old_root,
             new_node_value: self.global_user_tree_update_proof.new_root,
-            node_index,
+            node_index: builder.add(node_index, node_index),
             node_level,
         }
 

@@ -44,20 +44,25 @@ impl VariableHeightBitInfo {
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Target {
+
+        let mut sub_root_bit = builder.zero();
         let mut sub_root_index = builder.zero();
         let one = builder.one();
-        let mut weight = one;
+        for i in 1..self.index_bits.len() {
+            let is_change = self.is_first_bit_outside_height[i-1];
+            sub_root_bit = builder.select(is_change, one, sub_root_bit);
 
-        for i in (0..self.index_bits.len()) {
-            let indicator = builder.mul_many([self.index_bits[i].target, self.is_bit_not_within_height[i].target, weight]);
-            sub_root_index = builder.add(indicator, sub_root_index);
+            let add_indicator = builder.mul(self.index_bits[i].target, sub_root_bit);
+            sub_root_index = builder.add(add_indicator, sub_root_index);
 
-            let new_weight = builder.add(weight, weight);
-            weight = builder.select(self.is_bit_not_within_height[i], new_weight, weight);
+
+            sub_root_bit = builder.add(sub_root_bit, sub_root_bit);
+
         }
 
         sub_root_index
     }
+
 }
 
 #[derive(Debug, Clone)]
