@@ -79,52 +79,6 @@ async fn main() -> anyhow::Result<()> {
         println!("⏳ Sleeping {}s before query...", SLEEP_AFTER_BATCH_SECS);
         sleep(Duration::from_secs(SLEEP_AFTER_BATCH_SECS)).await;
 
-        // let fingerprint = QHashOut(HashOut {
-        //     elements: [
-        //         QEDFelt::from_canonical_u64(counter + 1),
-        //         QEDFelt::from_canonical_u64(counter + 1 ),
-        //         QEDFelt::from_canonical_u64(counter + 1),
-        //         QEDFelt::from_canonical_u64(counter + 1),
-        //     ],
-        // });
-        //
-        // let public_key_param = QHashOut(HashOut {
-        //     elements: [
-        //         QEDFelt::from_canonical_u64(counter),
-        //         QEDFelt::from_canonical_u64(counter),
-        //         QEDFelt::from_canonical_u64(counter),
-        //         QEDFelt::from_canonical_u64(counter),
-        //     ],
-        // });
-        //
-        // let zk_public_key = ZKPublicKeyInfo {
-        //     fingerprint,
-        //     public_key_param,
-        // };
-        //
-        // let payload = json!({
-        //     "jsonrpc": "2.0",
-        //     "id": 1,
-        //     "method": "qed_register_user",
-        //       "params": zk_public_key,
-        // });
-        //
-        // let res = client
-        //     .post(&ce_url)
-        //     .json(&payload)
-        //     .send()
-        //     .await;
-        //
-        // match res {
-        //     Ok(resp) => {
-        //         let text = resp.text().await.unwrap_or_else(|_| "<no body>".to_string());
-        //         println!("✅ {} Response: {}", counter, text);
-        //     }
-        //     Err(err) => {
-        //         eprintln!("❌ {} Error sending request: {:?}", counter, err);
-        //     }
-        // }
-
         // Wait 5 seconds
         // sleep(Duration::from_secs(10)).await;
         if DO_QUERY {
