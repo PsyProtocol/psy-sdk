@@ -86,7 +86,7 @@ pub fn build_rpc_module(
         match handler.get_user_id(qhash).await {
             Ok(user_id) => Ok(user_id),
             Err(e) => {
-                tracing::error!("❌ get_user_id_logic failed: {:?}", e);
+                tracing::error!("❌ get user id failed: {:?}", e);
 
                 let msg = e.to_string();
                 let code = if msg.contains("User not found") {

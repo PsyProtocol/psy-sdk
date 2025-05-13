@@ -1,16 +1,17 @@
 use std::time::Duration;
 
-use crate::rpc::CheckpointSyncInfo;
 use async_trait::async_trait;
 use fred::prelude::{FredResult, ListInterface};
 use kvq::traits::KVQSerializable;
 use qed_core::job::id::ProvingJobDataId;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use tracing::{debug, error};
+use qed_node_common::coordinator::CheckpointSyncInfo;
 
 const REAML_PROOF_KEY: &str = "REALM_PROOF";
 const REAML_CHECKPOINT_KEY: &str = "REALM_CHECKPOINT";
 
+type F = qed_store::config::store_config::QEDFelt;
 #[async_trait]
 
 pub trait RealmInternalQueue {
@@ -18,9 +19,9 @@ pub trait RealmInternalQueue {
 
     async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId>;
 
-    async fn produce_checkpoint_async_info(&self, item: CheckpointSyncInfo) -> anyhow::Result<()>;
+    async fn produce_checkpoint_async_info(&self, item: CheckpointSyncInfo<F>) -> anyhow::Result<()>;
 
-    async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo>;
+    async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo<F>>;
 }
 
 #[async_trait]
@@ -49,7 +50,7 @@ impl RealmInternalQueue for ProofStoreFred {
         }
     }
 
-    async fn produce_checkpoint_async_info(&self, item: CheckpointSyncInfo) -> anyhow::Result<()> {
+    async fn produce_checkpoint_async_info(&self, item: CheckpointSyncInfo<F>) -> anyhow::Result<()> {
         debug!(
             "Producing checkpoint async info to Redis: checkpoint_id before: {}",
             item.compact.l2_block_state.checkpoint_id
@@ -70,7 +71,7 @@ impl RealmInternalQueue for ProofStoreFred {
         }
     }
 
-    async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo> {
+    async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo<F>> {
         let realm_checkpoint_key = format!("{}-{}", self.worker_queue_id, REAML_CHECKPOINT_KEY);
         let result: FredResult<(String, Vec<u8>)> =
             self.pool().blpop(realm_checkpoint_key, 0.0).await;

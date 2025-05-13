@@ -1,4 +1,4 @@
-use crate::{rpc::CheckpointSyncInfo, F};
+use crate::{F};
 use std::sync::Arc;
 use std::time::Duration;
 use jsonrpsee::rpc_params;
@@ -6,7 +6,8 @@ use jsonrpsee::core::client::ClientT;
 use jsonrpsee::http_client::HttpClientBuilder;
 use serde::{Serialize,Deserialize};
 use tracing::{info, error, warn, debug};
-use qed_store::node::realm::QEDRealmStoreReaderAsync; 
+use qed_node_common::coordinator::CheckpointSyncInfo;
+use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use crate::RealmInternalQueue; 
 
 
@@ -83,7 +84,7 @@ pub async fn spawn_active_checkpoint_sync_task<
 
                 // Call the coordinator's new RPC method
                 let params = rpc_params![next_checkpoint_id];
-                match client.request::<Option<CheckpointSyncInfo>, _>("qed_get_checkpoint_sync_info", params).await {
+                match client.request::<Option<CheckpointSyncInfo<F>>, _>("qed_get_checkpoint_sync_info", params).await {
                     Ok(Some(sync_info)) => {
                         // Check if the received checkpoint is the one we expected
                         let lastest_checkpoint_id = sync_info.latest_checkpoint_id;

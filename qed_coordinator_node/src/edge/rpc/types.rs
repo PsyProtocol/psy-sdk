@@ -14,15 +14,6 @@ pub struct SubmitGUTAParams {
     pub proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
 }
 
-/// push the latest checkpoint sync info
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CheckpointSyncInfo {
-    pub latest_checkpoint_id: u64, // checkpoint id
-    pub description: Option<String>,
-    pub source_coordinator_edge_id: Option<String>,
-    pub sync_timestamp: u64, //
-    pub compact: QEDCheckpointSyncInfoCompact<QEDFelt>,
-}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LatestCheckpointResponse {

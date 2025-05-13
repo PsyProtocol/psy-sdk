@@ -279,24 +279,3 @@ pub trait RealmEdgeRpc {
         .await
     }
 }
-
-/// push the latest checkpoint sync info
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
-#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct CheckpointSyncInfo {
-    pub latest_checkpoint_id: u64, // latest checkpoint id
-    pub description: Option<String>,
-    pub source_coordinator_edge_id: Option<String>,
-    pub sync_timestamp: u64, // sync timestamp
-    pub compact: QEDCheckpointSyncInfoCompact<QEDFelt>,
-}
-
-impl KVQSerializable for CheckpointSyncInfo {
-    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
-    }
-
-    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
-        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
-    }
-}
