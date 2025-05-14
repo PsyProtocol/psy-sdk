@@ -451,10 +451,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!(
-            checkpoint_id = checkpoint_id,
-            "Fetching user tree root"
-        );
+        debug!(checkpoint_id = checkpoint_id, "Fetching user tree root");
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QUserTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
@@ -793,10 +790,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!(
-            checkpoint_id = checkpoint_id,
-            "Fetching contract tree root"
-        );
+        debug!(checkpoint_id = checkpoint_id, "Fetching contract tree root");
         let rpc_url = self.get_coordinator_url()?;
         let input = QContractTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
@@ -913,10 +907,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
-        debug!(
-            checkpoint_id = checkpoint_id,
-            "Fetching deposit tree root"
-        );
+        debug!(checkpoint_id = checkpoint_id, "Fetching deposit tree root");
         let rpc_url = self.get_coordinator_url()?;
         let input = QDepositTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
@@ -1413,9 +1404,9 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         match response.result {
             ResponseResult::Success(contract_code) => {
                 debug!(
-                    contract_id = contract_id,
-                    contract_code = ?contract_code,
-                    "Successfully fetched contract code definition"
+                    "Successfully fetched contract {} code definition: {}",
+                    contract_id,
+                    serde_json::to_string_pretty(&contract_code)?
                 );
                 Ok(contract_code)
             }

@@ -10,7 +10,7 @@ test-db
 **/db
 redis-data/
 /examples
-*.sh
+# *.sh
 perf2
 
 qed_prover/examples/debug_data/

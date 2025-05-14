@@ -9,16 +9,17 @@ shadow!(build);
 
 use clap::Parser;
 use error::Result;
-use subcommand::deploy_contract;
-use subcommand::produce_block;
 
 use crate::subcommand::add_withdrawal;
 use crate::subcommand::block_state;
 use crate::subcommand::claim_deposit;
+use crate::subcommand::deploy_contract;
 use crate::subcommand::get_public_key;
 use crate::subcommand::l1_deposit;
+use crate::subcommand::produce_block;
 use crate::subcommand::random_wallet;
 use crate::subcommand::register_user;
+use crate::subcommand::session;
 use crate::subcommand::sign_hash;
 use crate::subcommand::submit_end_cap_proof;
 use crate::subcommand::token_transfer;
@@ -35,6 +36,7 @@ fn main() -> Result<()> {
         Commands::AddWithdrawal(args) => add_withdrawal::run(args)?,
         Commands::ClaimDeposit(args) => claim_deposit::run(args)?,
         Commands::RegisterUser(args) => register_user::run(args)?,
+        Commands::RandomRegisterUserBatch(args) => register_user::run_random(args)?,
         Commands::TokenTransfer(args) => token_transfer::run(args)?,
         Commands::L1Deposit(args) => l1_deposit::run(args)?,
         Commands::SignHash(args) => sign_hash::run(args)?,
@@ -53,6 +55,9 @@ fn main() -> Result<()> {
         }
         Commands::GetUserId(user_id_args) => block_state::get_user_id(user_id_args)?,
         Commands::GetUserLeaf(user_leaf_args) => block_state::get_user_leaf(user_leaf_args)?,
+
+        // wallet session
+        Commands::WalletSession(wallet_session_args) => session::run(wallet_session_args)?,
     }
     Ok(())
 }
