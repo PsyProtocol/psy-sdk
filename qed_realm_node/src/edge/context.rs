@@ -1,5 +1,5 @@
 use crate::error::RpcError;
-use crate::rpc::{CheckpointSyncInfo, RealmEdgeRpcServer};
+use crate::rpc::{RealmEdgeRpcServer};
 use crate::{SyncCheckpointQueue, SyncProofQueue, C, D, F, H};
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
@@ -875,7 +875,10 @@ async fn send_realm_proof<PS: QProofStoreAsyncImm>(
         .get_proof_by_id(realm_result.proof_id.get_output_id())
         .await
     {
-        Ok(proof) => proof,
+        Ok(proof) => {
+            eprintln!("DEBUGPRINT[686]: context.rs:885: proof={}", serde_json::to_string_pretty(&proof.public_inputs).unwrap());
+            proof
+        },
         Err(err) => {
             error!("Failed to get proof_by_id: {:?}", err);
             return;

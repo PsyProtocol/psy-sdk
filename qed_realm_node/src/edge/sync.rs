@@ -1,4 +1,4 @@
-use crate::{rpc::CheckpointSyncInfo, SyncCheckpointQueue, F};
+use crate::{SyncCheckpointQueue, F};
 use std::sync::Arc;
 use std::time::Duration;
 use jsonrpsee::rpc_params;
@@ -9,6 +9,7 @@ use tracing::{info, error, warn, debug};
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use anyhow::Result;
 use qed_store::models::checkpoint::sync_info::CheckpointError;
+use qed_node_common::coordinator::CheckpointSyncInfo;
 
 const SYNC_INTERVAL: Duration = Duration::from_millis(500);
 
@@ -156,7 +157,7 @@ where
             debug!("Attempting to fetch checkpoint {} from coordinator...", next_checkpoint_id);
 
             let params = rpc_params![next_checkpoint_id];
-            match self.client.request::<Option<CheckpointSyncInfo>, _>(
+            match self.client.request::<Option<CheckpointSyncInfo<F>>, _>(
                 "qed_get_checkpoint_sync_info",
                 params
             ).await {
@@ -179,7 +180,7 @@ where
 
     async fn process_checkpoint_sync_info(
         &mut self,
-        sync_info: CheckpointSyncInfo,
+        sync_info: CheckpointSyncInfo<F>,
         next_checkpoint_id: u64,
     ) -> bool {
         let latest_checkpoint_id = sync_info.latest_checkpoint_id;

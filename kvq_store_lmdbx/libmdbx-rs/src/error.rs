@@ -1,4 +1,5 @@
 use std::{ffi::c_int, result};
+use std::ffi::CStr;
 
 /// An MDBX result.
 pub type Result<T> = result::Result<T, Error>;
@@ -202,6 +203,20 @@ impl Error {
             Self::ReadTransactionTimeout => -96000, // Custom non-MDBX error code
             Self::Permission => ffi::MDBX_EPERM,
             Self::Other(err_code) => *err_code,
+        }
+    }
+
+    pub fn explain(&self) -> String {
+        let code = self.to_err_code();
+
+        unsafe {
+            let c_str = crate::ffi::mdbx_strerror(code); // use bindgen
+            if c_str.is_null() {
+                format!("(unknown MDBX error code: {})", code)
+            } else {
+                let msg = CStr::from_ptr(c_str).to_string_lossy();
+                format!("{} (code {})", msg, code)
+            }
         }
     }
 }

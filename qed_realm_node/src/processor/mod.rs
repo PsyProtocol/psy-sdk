@@ -1,5 +1,4 @@
 use crate::config::RealmNodeConfig;
-use crate::rpc::CheckpointSyncInfo;
 use crate::{Queue, SyncCheckpointQueue, SyncProofQueue, C, D, F};
 use fred::prelude::KeysInterface;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
@@ -20,6 +19,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
+use qed_node_common::coordinator::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 
 type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
@@ -192,7 +192,7 @@ impl RealmProcessor {
 
     pub async fn wait_latest_checkpoint(
         &self,
-    ) -> anyhow::Result<CheckpointSyncInfo> {
+    ) -> anyhow::Result<CheckpointSyncInfo<F>> {
         self.sync_checkpoint.consume_checkpoint_async_info().await
     }
 
