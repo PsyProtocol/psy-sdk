@@ -16,7 +16,7 @@ type C = PoseidonGoldilocksConfig;
 type F = GoldilocksField;
 
 pub fn run(args: ClaimDepositArgs) -> Result<()> {
-    let provider = RpcProvider::new_with_config(&args.rpc_config)?;
+    let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
 
     let network_magic = get_network_magic_for_str(args.network)?;
 
