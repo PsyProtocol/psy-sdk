@@ -4557,6 +4557,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bb8",
+ "bb8-redis",
  "bincode",
  "chrono",
  "fred",
