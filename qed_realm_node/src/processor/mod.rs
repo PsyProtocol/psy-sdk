@@ -202,19 +202,3 @@ impl RealmProcessor {
         state.checkpoint_id
     }
 }
-
-async fn get_checkpoint(
-    queue: &ProofStoreFred,
-    checkpoint_id: u64,
-) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>> {
-    let result = queue
-        .pool()
-        .get::<Vec<u8>, String>(format!(
-            "{}-{}_{}",
-            PS_HISTORY_QUEUE_KEY_PREFIX,
-            QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
-            checkpoint_id,
-        ))
-        .await?;
-    Ok(QEDCheckpointSyncInfoCompact::from_bytes(&result)?)
-}
