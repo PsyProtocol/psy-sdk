@@ -13,7 +13,6 @@ qed_data = { workspace = true }
 qed_store = { workspace = true }
 qed_crypto = { workspace = true }
 qed_node = { workspace = true }
-qed_rollup_circuit = { workspace = true }
 qed_node_common = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
@@ -26,24 +25,13 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 tokio = { workspace = true }
 kvq = { workspace = true }
-reth-libmdbx = { workspace = true }
 kvq_store_lmdbx = { workspace = true }
-dotenv = { workspace = true }
 
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-tracing-appender = { workspace = true }
 clap = { workspace = true }
 hex.workspace = true
 bincode.workspace = true
 
-redis = { version = "0.30", default-features = false, features = [
-  "acl",
-  "keep-alive",
-  "script",
-  "tokio-comp",
-  "connection-manager",
-] }
-
-bb8-redis = "0.22.0"
-bb8 = "0.9"
+redis = { workspace = true }
+bb8-redis = { workspace = true }
+bb8 = { workspace = true }
