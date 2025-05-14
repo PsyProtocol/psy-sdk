@@ -132,6 +132,7 @@ shutdown:
 	@sudo rm -fr redis-data
 	@redis-cli 'FLUSHALL' > /dev/null 2>&1 || true
 	@redis-cli -u redis://127.0.0.1:6380 'FLUSHALL' > /dev/null 2>&1 || true
+	@redis-cli -u redis://127.0.0.1:6381 'FLUSHALL' > /dev/null 2>&1 || true
 	@sudo rm -fr $(PWD)/db
 	@rm -fr ${PROJECT_DIR}
 
@@ -200,6 +201,35 @@ run-realm-edge2048:
       --proof-store-key-suffix=RP2048 \
       --path=./db/realm2048
 
+run-realm-processor1024:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6381 \
+      --node-id=2 \
+      --realm-id=1024 \
+      --worker-queue-suffix=rwq1024 \
+      --notifications-queue-suffix=rnq1024 \
+      --proof-store-key-suffix=RP1024 \
+      --path=./db/realm1024
+
+run-realm-worker1024:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
+      --redis-uri=redis://127.0.0.1:6381 \
+      --worker-queue-suffix=rwq1024 \
+      --notifications-queue-suffix=rnq1024 \
+      --proof-store-key-suffix=RP1024
+
+run-realm-edge1024:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+      --listen-addr=0.0.0.0:8548 \
+      --redis-uri=redis://127.0.0.1:6381 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --node-id=2 \
+      --realm-id=1024 \
+      --worker-queue-suffix=rwq1024 \
+      --notifications-queue-suffix=rnq1024 \
+      --proof-store-key-suffix=RP1024 \
+      --path=./db/realm1024
+
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli generate-access-token
 
@@ -256,6 +286,12 @@ claim2:
 
 return-back2:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1 --inputs 500 --nonce 2
+
+claim3:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 4194304 --nonce 1
+
+return-back3:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 4194304 --inputs 500 --nonce 2
 
 balance-of:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}, ${CONTRACT_STATE_HEIGHT}, ${SLOT_ID}], "id": 1 }' | jq .
