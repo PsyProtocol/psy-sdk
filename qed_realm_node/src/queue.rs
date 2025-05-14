@@ -4,10 +4,11 @@ use qed_node::nimpl::proof_store_fred::{ProofStoreFred};
 use tracing::debug;
 use kvq::traits::KVQSerializable;
 use qed_core::job::id::ProvingJobDataId;
-use crate::rpc::CheckpointSyncInfo;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use redis::{AsyncCommands, RedisResult};
+use qed_node_common::coordinator::CheckpointSyncInfo;
+use crate::F;
 
 const REAML_PROOF_KEY: &str = "REALM_PROOF";
 const REAML_CHECKPOINT_KEY: &str = "REALM_CHECKPOINT";
@@ -51,12 +52,12 @@ impl SyncProofQueue for ProofStoreFred {
 pub trait SyncCheckpointQueue {
     async fn produce_checkpoint_async_info(
         &self,
-        item: CheckpointSyncInfo,
+        item: CheckpointSyncInfo<F>,
     ) -> anyhow::Result<()>;
 
     async fn is_empty(&self) -> anyhow::Result<bool>;
 
-    async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo>;
+    async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo<F>>;
 }
 
 #[derive(Clone, Debug)]
@@ -69,8 +70,8 @@ impl Queue {
     pub async fn new(url: &str, pool_size: usize, worker_queue_suffix:String) -> anyhow::Result<Self> {
         let manager = RedisConnectionManager::new(url)?;
         let pool = Pool::builder().
-        max_size(pool_size as u32).
-        build(manager).await?;
+            max_size(pool_size as u32).
+            build(manager).await?;
 
         Ok(Self { pool ,worker_queue_id:format!("{}-{}", PS_SYNC_QUEUE_KEY_PREFIX, worker_queue_suffix)})
     }
@@ -84,7 +85,7 @@ impl Queue {
     }
 
     pub fn realm_checkpoint_key(&self) -> String {
-          format!("{}-{}", self.worker_queue_id, REAML_CHECKPOINT_KEY)
+        format!("{}-{}", self.worker_queue_id, REAML_CHECKPOINT_KEY)
     }
 }
 
@@ -93,7 +94,7 @@ impl Queue {
 impl SyncCheckpointQueue for Queue {
     async fn produce_checkpoint_async_info(
         &self,
-        item: CheckpointSyncInfo,
+        item: CheckpointSyncInfo<F>,
     ) -> anyhow::Result<()> {
         debug!("Producing checkpoint async info to Redis: checkpoint_id before: {}", item.compact.l2_block_state.checkpoint_id);
         let mut conn = self.pool.get().await?;
@@ -110,7 +111,7 @@ impl SyncCheckpointQueue for Queue {
         Ok(length == 0)
     }
 
-    async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo> {
+    async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo<F>> {
         let mut conn = self.pool.get().await?;
         let result: RedisResult<(String, Vec<u8>)> = conn.blpop(self.realm_checkpoint_key().as_str(), 0.0).await;
 

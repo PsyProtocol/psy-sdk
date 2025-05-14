@@ -1,12 +1,12 @@
-pub mod coordinator_lock;
-
-use fred::prelude::{ClientLike, Client};
-use fred::prelude::Config;
-use fred::prelude::ReconnectPolicy;
-use fred::types::Builder;
+use crate::args::CoordinatorProcessorArgs;
+use crate::communicate::push_latest_global_coordinator_status;
+use anyhow::bail;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use qed_core::job::drain_queue::{
+    CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterSyncImm,
+};
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
 use qed_core::job::{
     drain_queue::CheckpointDrainQueueConsumerAsyncImm,
@@ -16,8 +16,10 @@ use qed_core::job::{
 };
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::coordinator::state::processor::CoordinatorConfig;
+use qed_node::coordinator::state::user_map::init_node_redis_pool;
+use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
+use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
-use qed_node::nimpl::worker_queue_redis::redis_queue::{CPQueueNotification};
 use qed_node::{
     coordinator::state::processor::CoordinatorProcessorContext,
     nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS},
@@ -31,23 +33,8 @@ use qed_store::{
     },
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
-use std::{ sync::Arc, time::Duration};
-use std::fs::File;
-use anyhow::bail;
-use once_cell::sync::Lazy;
-use tokio::sync::Mutex;
-use tokio::time::sleep;
+use std::{sync::Arc, time::Duration};
 use tracing::{error, info, warn};
-use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterAsyncImm, CheckpointDrainQueueEmitterSyncImm};
-use qed_node::coordinator::state::user_map::init_node_redis_pool;
-use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
-use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
-use qed_node::nimpl::new_fred_pool;
-use qed_realm_node::RedisConfig;
-use crate::args::CoordinatorProcessorArgs;
-use crate::{COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX, COORDINATOR_WORKER_QUEUE_SUFFIX, COORDINATOR_WORKER_SUFFIX};
-use crate::communicate::push_latest_global_coordinator_status;
-use crate::coordinator_lock::prepare_processor_lock_and_init_if_needed;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
@@ -60,7 +47,6 @@ pub struct CoordinatorProcessNode<
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     ER: WorkerEventReceiverAsyncImm,
     SQ: CheckpointDrainQueueConsumerSyncImm + CheckpointDrainQueueEmitterSyncImm,
-
 > {
     pub ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
     pub sync_queue: Arc<SQ>,
@@ -69,7 +55,6 @@ pub struct CoordinatorProcessNode<
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
-    pub processor_lock: File,
 }
 
 impl<
@@ -80,18 +65,16 @@ impl<
         PS: QProofStoreAsyncImm,
         ER: WorkerEventReceiverAsyncImm,
         SQ: CheckpointDrainQueueConsumerSyncImm + CheckpointDrainQueueEmitterSyncImm,
-
-> CoordinatorProcessNode<SR, DQ, HQ, WQ, PS, ER, SQ>
+    > CoordinatorProcessNode<SR, DQ, HQ, WQ, PS, ER, SQ>
 {
     pub fn new(
         ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
         edge_command_queue: RedisQueue,
-        sync_queue:  Arc<SQ>,
+        sync_queue: Arc<SQ>,
         proof_store: PS,
         event_receiver: ER,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
-        lock_file: File,
     ) -> Self {
         Self {
             ctx,
@@ -101,11 +84,13 @@ impl<
             event_receiver,
             proof_verifier,
             coordinator_worker_circuits,
-            processor_lock: lock_file,
         }
     }
 
-    pub async fn wait_for_produce_block(&mut self, next_checkpoint_processor: u64) -> anyhow::Result<bool> {
+    pub async fn wait_for_produce_block(
+        &mut self,
+        next_checkpoint_processor: u64,
+    ) -> anyhow::Result<bool> {
         match self.edge_command_queue.pop_one(CE_NOTIFICATIONS)? {
             Some(message) => {
                 let notify_message = serde_json::from_slice::<CEQueueNotification>(&message)?;
@@ -113,19 +98,27 @@ impl<
                 match notify_message {
                     CEQueueNotification::StartProduceBlock { next_checkpoint } => {
                         let next_checkpoint_edge = next_checkpoint;
-                        if next_checkpoint_edge == next_checkpoint_processor  {
+                        if next_checkpoint_edge == next_checkpoint_processor {
                             info!("✅ Building new block for checkpoint {}", next_checkpoint);
                             Ok(true)
                         } else if next_checkpoint_edge < next_checkpoint_processor {
-                            warn!("⚠️ Outdated checkpoint {}, current {}", next_checkpoint_edge, next_checkpoint_processor);
+                            warn!(
+                                "⚠️ Outdated checkpoint {}, current {}",
+                                next_checkpoint_edge, next_checkpoint_processor
+                            );
                             Ok(false)
                         } else {
-                            warn!("🚧 Future checkpoint {} too far ahead of {}", next_checkpoint_edge, next_checkpoint_processor);
-                            self.edge_command_queue.dispatch(CE_NOTIFICATIONS, CEQueueNotification::StartProduceBlock { next_checkpoint })?;
+                            warn!(
+                                "🚧 Future checkpoint {} too far ahead of {}",
+                                next_checkpoint_edge, next_checkpoint_processor
+                            );
+                            self.edge_command_queue.dispatch(
+                                CE_NOTIFICATIONS,
+                                CEQueueNotification::StartProduceBlock { next_checkpoint },
+                            )?;
                             Ok(false)
                         }
                     }
-                    _ => Ok(false),
                 }
             }
             None => Ok(false),
@@ -145,7 +138,11 @@ impl
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
-        let pool = new_fred_pool(&cp_config.coordinator_redis_uri, cp_config.coordinator_pool_size as usize).await?;
+        let pool = new_fred_pool(
+            &cp_config.coordinator_redis_uri,
+            cp_config.coordinator_pool_size as usize,
+        )
+        .await?;
         init_node_redis_pool(pool.clone())?;
         info!("🐶 redis pool initialized");
         let q = ProofStoreFred::new2(
@@ -157,27 +154,39 @@ impl
                 .coordinator_processor_queue_args
                 .coordinator_notifications_queue_suffix,
             &cp_config
-                    .coordinator_processor_queue_args
-                    .coordinator_proof_store_key_suffix,
+                .coordinator_processor_queue_args
+                .coordinator_proof_store_key_suffix,
             &cp_config
-                    .coordinator_processor_queue_args
-                    .coordinator_proof_store_key_suffix,
+                .coordinator_processor_queue_args
+                .coordinator_proof_store_key_suffix,
         );
 
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write_with_size(
-                &cp_config.coordinator_db_path,
-                cp_config.coordinator_db_size_gb,
-            )?);
-        let (processor_lock ,need_init) = prepare_processor_lock_and_init_if_needed(
-            &cp_config.coordinator_db_path, &store_reader)?;
+            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(
+                KVQlibmdbxStore::new_write_with_size(
+                    &cp_config.coordinator_db_path,
+                    cp_config.coordinator_db_size_gb,
+                )?,
+            );
 
+        //try to get the block 1's state
+        let st = Arc::new(store_reader.dup());
+        let need_init = match st.get_l2_block_state(1).await {
+            Ok(_) => false,
+            Err(e) => {
+                error!("⚠️ Failed to get block 1 state: {:?}， need initialize the db", e);
+                QEDComboDataStoreReaderWriterSync::initialize_store(&*st)?;
+                true
+            }
+        };
+
+        //use sync_queue for checkpoint sync
+        let sync_queue = Arc::new(DrainQueueRedis::new(&cp_config.coordinator_redis_uri)?);
+        let edge_command_queue = RedisQueue::new(&cp_config.coordinator_redis_uri)?;
 
         let coord_config = CoordinatorConfig::get_standard(0);
 
         let qps = Arc::new(q.clone());
-
-        let st = Arc::new(store_reader.dup());
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
@@ -191,18 +200,6 @@ impl
             Arc::clone(&proof_verifier),
         )
         .await?;
-
-        //use sync_queue for checkpoint sync
-        let sync_queue = Arc::new(match DrainQueueRedis::new(&cp_config.coordinator_redis_uri){
-            Ok(q) => {
-                q
-            }
-            Err(e) => {
-                error!("❌ Failed to create sync queue: {:?}", e);
-                panic!("Failed to create sync queue: {:?}", e);
-            }
-        });
-        let edge_command_queue = RedisQueue::new(&cp_config.coordinator_redis_uri)?;
 
         //build block 1 only once
         if need_init {
@@ -224,21 +221,19 @@ impl
             q,
             proof_verifier,
             coordinator_worker_circuits,
-            processor_lock,
         ))
     }
 }
 
 pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
-    let mut coordinator_processor =
-        CoordinatorProcessNode::new_with_config(args)
-        .await?;
+    let mut coordinator_processor = CoordinatorProcessNode::new_with_config(args).await?;
 
-    let mut latest_checkpoint_id = match  coordinator_processor
+    let latest_checkpoint_id = match coordinator_processor
         .ctx
         .store
         .get_latest_l2_block_state()
-        .await {
+        .await
+    {
         Ok(state) => state.checkpoint_id,
         Err(e) => {
             bail!("❌ Failed to get latest l2 block state: {:?}", e);
@@ -247,7 +242,10 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 
     let mut confirmed_checkpoint_id = latest_checkpoint_id;
     let mut next_checkpoint = latest_checkpoint_id + 1;
-    info!("🚀 Start coordinator processor at checkpoint {}", latest_checkpoint_id);
+    info!(
+        "🚀 Start coordinator processor at checkpoint {}",
+        latest_checkpoint_id
+    );
 
     let task = tokio::spawn(async move {
         let mut processor_loop = async move || -> anyhow::Result<()> {
@@ -255,7 +253,10 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 
             loop {
                 if Some(next_checkpoint) != last_logged_checkpoint {
-                    info!("wait for produce block {} command from coordinator edge", next_checkpoint);
+                    info!(
+                        "wait for produce block {} command from coordinator edge",
+                        next_checkpoint
+                    );
                     last_logged_checkpoint = Some(next_checkpoint);
                 }
 
@@ -267,9 +268,9 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                     Ok(v) => v,
                     Err(e) => {
                         error!(
-                        "❌ Error while waiting for produce block {}: {:?}",
-                        next_checkpoint, e
-                    );
+                            "❌ Error while waiting for produce block {}: {:?}",
+                            next_checkpoint, e
+                        );
                         tokio::time::sleep(Duration::from_secs(2)).await;
                         continue;
                     }
@@ -289,9 +290,10 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                 push_latest_global_coordinator_status(
                     coordinator_processor.sync_queue.clone(),
                     confirmed_checkpoint_id,
-                    next_checkpoint
-                ).await;
-                let job_id = match coordinator_processor
+                    next_checkpoint,
+                )
+                .await;
+                let _job_id = match coordinator_processor
                     .ctx
                     .prover_queue
                     //indeed, we don't use this "next_checkpoint"
@@ -304,7 +306,10 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                     }
                     Err(e) => {
                         error!(
-                        "❌ Failed to get proving job id for block {}: {:?}", next_checkpoint - 1, e);
+                            "❌ Failed to get proving job id for block {}: {:?}",
+                            next_checkpoint - 1,
+                            e
+                        );
                         tokio::time::sleep(Duration::from_secs(2)).await;
                         continue;
                     }
@@ -314,8 +319,9 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                 push_latest_global_coordinator_status(
                     coordinator_processor.sync_queue.clone(),
                     confirmed_checkpoint_id,
-                    next_checkpoint
-                ).await;
+                    next_checkpoint,
+                )
+                .await;
                 tokio::time::sleep(Duration::from_millis(750)).await;
             }
         };

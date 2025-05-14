@@ -1,149 +1,149 @@
-use std::sync::atomic::Ordering;
-use crate::{
-    CoordinatorEdgeQueueArgs,
-};
+use std::fs;
+// std
+use crate::{CoordinatorEdgeArgs};
 use anyhow::anyhow;
-use dashmap::DashMap;
-use fred::prelude::Pool;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
-use lazy_static::lazy_static;
-use once_cell::sync::{Lazy, OnceCell};
-use qed_core::data::qhashout::QHashOut;
-use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
-use qed_node::coordinator::state::user_map::get_node_redis_pool;
-use qed_node::nimpl::proof_store_fred::ProofStoreFred;
-use qed_store::config::store_config::QEDFelt;
+use once_cell::sync::{Lazy};
 use std::future::Future;
-use std::sync::{atomic::AtomicU64, Arc, OnceLock};
-use chrono::Utc;
-use tokio::sync::RwLock;
-use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
+use std::path::Path;
+use std::sync::{
+    atomic::{AtomicU64},
+    Arc, OnceLock,
+};
+use std::time::Duration;
+use tokio::time::sleep;
+use tracing::info;
+
+use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
+use qed_node::coordinator::state::user_map::{init_node_redis_pool};
 use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
-use crate::rpc::types::CheckpointSyncInfo;
+use qed_node::nimpl::new_fred_pool;
+use qed_node::nimpl::proof_store_fred::ProofStoreFred;
+use qed_node_common::verifier::get_cached_generic_verifier;
 
 pub type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 pub type DrainQueue = ProofStoreFred;
 pub type ProofStore = ProofStoreFred;
 
-
-lazy_static! {
-    //todo! if no write, use once_cell instead
-    pub static ref GLOBAL_COORD_EDGE_CTX: Arc<RwLock<Option<CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>>>> =
-        Arc::new(RwLock::new(None));
-}
 pub static LATEST_CHECKPOINT_ID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
-pub static REGISTER_USER_COUNTER: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
-pub static REGISTERED_USERS: Lazy<DashMap<QHashOut<QEDFelt>, UserRegisterState>> =
-    Lazy::new(DashMap::new);
-pub static GLOBAL_DB_PATH: OnceCell<String> = OnceCell::new();
 
-pub static GLOBAL_REDIS_POOL: OnceCell<Arc<Pool>> = OnceCell::new();
-pub static GLOBAL_DRAIN_QUEUE: OnceCell<DrainQueueRedis> = OnceCell::new();
+pub struct GlobalCoordinatorEdgeState {
+    pub ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
+    pub sync_queue: DrainQueueRedis,
+    pub store: StoreReader,
+}
+pub static GLOBAL_COORD_EDGE_STATE: OnceLock<GlobalCoordinatorEdgeState> = OnceLock::new();
 
-pub static GLOBAL_LMDB_STORE: OnceLock<Arc<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>>> =
-    OnceLock::new();
-
-// when user registers, but not write into block, we mark as Registering
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UserRegisterState {
-    Registering(u64),
     Registered(u64),
 }
 
-pub async fn with_ctx_read_async<F, Fut, R>(f: F) -> anyhow::Result<R>
-where
-    F: FnOnce(&CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>) -> Fut,
-    Fut: std::future::Future<Output = anyhow::Result<R>>,
-{
-    let read_guard = GLOBAL_COORD_EDGE_CTX.read().await;
-    let ctx = read_guard
-        .as_ref()
-        .ok_or_else(|| anyhow!("GLOBAL_COORD_EDGE_CTX is not initialized"))?;
+pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Result<()> {
+    info!("🚀 Initializing coordinator edge node...");
 
-    f(ctx).await
-}
+    // Check if the coordinator_db_path exists, 12 times, 5 seconds interval
+    wait_for_path_exists(&config.coordinator_db_path, 12, 5).await?;
 
-pub async fn with_ctx_write_async<F, Fut, R>(f: F) -> anyhow::Result<R>
-where
-    F: FnOnce(&mut CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>) -> Fut,
-    Fut: Future<Output = anyhow::Result<R>>,
-{
-    let mut guard = GLOBAL_COORD_EDGE_CTX.write().await;
+    // initialize lmdb
+    let store = KVQlibmdbxStore::new_read(&config.coordinator_db_path)?;
+    let store_wrapper = KVQArcImmutableStoreWrapper::new(store);
+    let store_reader = Arc::new(store_wrapper.dup());
 
-    let ctx = guard
-        .as_mut()
-        .ok_or_else(|| anyhow::anyhow!("CoordinatorEdgeContext not initialized"))?;
+    let redis_pool = new_fred_pool(&config.coordinator_redis_uri, 8).await?;
+    init_node_redis_pool(redis_pool.clone())?;
 
-    f(ctx).await
-}
+    let sync_queue = DrainQueueRedis::new(&config.coordinator_redis_uri)?;
 
-pub fn get_global_db_path() -> anyhow::Result<&'static str> {
-    GLOBAL_DB_PATH
-        .get()
-        .map(|s| s.as_str())
-        .ok_or_else(|| anyhow!("GLOBAL_DB_PATH not initialized"))
-}
+    let qe_args = &config.coordinator_edge_queue_args;
 
-pub fn get_global_lmdb_store() -> anyhow::Result<Arc<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>>> {
-    GLOBAL_LMDB_STORE
-        .get()
-        .cloned()
-        .ok_or_else(|| anyhow!("GLOBAL_LMDB_STORE not initialized"))
-}
-pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(
-    args: CoordinatorEdgeQueueArgs,
-    f: F,
-) -> anyhow::Result<R>
-where
-    F: FnOnce(CoordinatorEdgeContext<KVQArcImmutableStoreWrapper<KVQlibmdbxStore>, ProofStoreFred, ProofStoreFred>) -> Fut,
-    Fut: std::future::Future<Output = anyhow::Result<R>>,
-{
-    let read_guard = GLOBAL_COORD_EDGE_CTX.read().await;
-    let ctx = read_guard
-        .as_ref()
-        .ok_or_else(|| anyhow!("GLOBAL_COORD_EDGE_CTX is not initialized"))?;
-
-    let store = get_global_lmdb_store()?;
-
-    let redis_pool = get_node_redis_pool()?;
-
-    let CoordinatorEdgeQueueArgs {
-        coordinator_worker_queue_suffix,
-        coordinator_notifications_queue_suffix,
-        coordinator_proof_store_key_suffix,
-        ..
-    } = args;
     let proof_store = Arc::new(ProofStoreFred::new2(
-        (*redis_pool).clone(),
-        &coordinator_worker_queue_suffix,
-        &coordinator_notifications_queue_suffix,
-        &coordinator_proof_store_key_suffix,
-        &coordinator_proof_store_key_suffix,
+        redis_pool.clone(),
+        &qe_args.coordinator_worker_queue_suffix,
+        &qe_args.coordinator_notifications_queue_suffix,
+        &qe_args.coordinator_proof_store_key_suffix,
+        &qe_args.coordinator_proof_store_key_suffix,
     ));
 
-    let latest_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+    // init verifier
+    let verifier = Arc::new(get_cached_generic_verifier::<_, 2>());
+
+    let edge_config = qed_node::coordinator::state::processor::CoordinatorConfig::get_standard(0);
+
+    // init context
+    let ctx = CoordinatorEdgeContext::new(
+        edge_config,
+        Arc::clone(&store_reader),
+        Arc::clone(&proof_store),
+        Arc::clone(&proof_store),
+        verifier,
+    )
+    .await?;
+
+    let global = GlobalCoordinatorEdgeState {
+        ctx,
+        sync_queue,
+        store: store_wrapper,
+    };
+    GLOBAL_COORD_EDGE_STATE
+        .set(global)
+        .map_err(|_| anyhow::anyhow!("GLOBAL_COORD_EDGE_STATE already initialized"))?;
+
+    info!("🚀 Coordinator Edge Initialized");
+
+    Ok(())
+}
+
+pub async fn wait_for_path_exists<P: AsRef<Path>>(
+    path: P,
+    max_attempts: usize,
+    interval_secs: u64,
+) -> anyhow::Result<()> {
+    let path_ref = path.as_ref();
+
+    for attempt in 0..max_attempts {
+        if fs::metadata(path_ref).is_ok() {
+            tracing::info!("✅ Found db path: {}", path_ref.display());
+            return Ok(());
+        } else {
+            tracing::warn!(
+                "⏳ Path not found: {} (attempt {}/{}) — waiting {}s...",
+                path_ref.display(),
+                attempt,
+                max_attempts,
+                interval_secs
+            );
+            sleep(Duration::from_secs(interval_secs)).await;
+        }
+    }
+
+    Err(anyhow!(
+        "❌ Path not found after {} attempts: {}",
+        max_attempts,
+        path_ref.display()
+    ))
+}
+
+pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(f: F) -> anyhow::Result<R>
+where
+    F: FnOnce(CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>) -> Fut,
+    Fut: Future<Output = anyhow::Result<R>>,
+{
+    let state = GLOBAL_COORD_EDGE_STATE
+        .get()
+        .ok_or_else(|| anyhow!("GLOBAL_COORD_EDGE_STATE is not initialized"))?;
+
+    let latest_checkpoint_id = LATEST_CHECKPOINT_ID.load(std::sync::atomic::Ordering::Relaxed);
+
     let temp_ctx = CoordinatorEdgeContext {
-        coordinator_config: ctx.coordinator_config.clone(),
-        store_reader: Arc::clone(&store),
-        checkpoint_queue: Arc::clone(&proof_store),
-        proof_store: Arc::clone(&proof_store),
-        proof_verifier: Arc::clone(&ctx.proof_verifier),
+        coordinator_config: state.ctx.coordinator_config.clone(),
+        store_reader: Arc::clone(&state.ctx.store_reader),
+        checkpoint_queue: Arc::clone(&state.ctx.checkpoint_queue),
+        proof_store: Arc::clone(&state.ctx.proof_store),
+        proof_verifier: Arc::clone(&state.ctx.proof_verifier),
         last_chkpnt_id: latest_checkpoint_id,
     };
 
     f(temp_ctx).await
-}
-
-pub fn build_checkpoint_sync_info(
-    latest_checkpoint_id: u64,
-    checkpoint_sync_info: QEDCheckpointSyncInfoCompact<QEDFelt>,
-) -> CheckpointSyncInfo {
-    CheckpointSyncInfo {
-        latest_checkpoint_id,
-        description: None,
-        source_coordinator_edge_id: None,
-        sync_timestamp: Utc::now().timestamp() as u64,
-        compact: checkpoint_sync_info,
-    }
 }

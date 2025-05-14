@@ -182,7 +182,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreFred {
             "{}-{}_{}",
             checkpoint_queue_prefix, metadata.channel_id, metadata.checkpoint_id
         );
-        tracing::info!("Pushing job id to queue: {:?}", key);
+        // tracing::debug!("Pushing job id to queue: {:?}", key);
         self.pool.lpush::<(), String, &[u8]>(key, &bytes).await?;
 
         Ok(())
