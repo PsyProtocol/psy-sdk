@@ -28,7 +28,7 @@ use tokio::time::sleep;
 #[derive(Debug, Clone)]
 pub struct ProofStoreRedisAsync {
     pool: Pool<RedisConnectionManager>,
-    pub worker_queue_id: String,
+    worker_queue_id: String,
     notifications_queue_id: String,
     proof_store_key: String,
     proof_store_counters: String,
@@ -36,29 +36,6 @@ pub struct ProofStoreRedisAsync {
 
 impl ProofStoreRedisAsync {
     pub async fn new(
-        url: &str,
-        pool_size: usize,
-        worker_queue_suffix: String,
-        notifications_queue_suffix: String,
-    ) -> anyhow::Result<Self> {
-        let manager = RedisConnectionManager::new(url)?;
-        let pool = Pool::builder()
-            .max_size(pool_size as u32)
-            .build(manager)
-            .await?;
-        Ok(Self {
-            pool,
-            worker_queue_id: format!("{}-{}", PS_WORKER_QUEUE_KEY_PREFIX, worker_queue_suffix),
-            notifications_queue_id: format!(
-                "{}-{}",
-                PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, notifications_queue_suffix
-            ),
-            proof_store_key: format!("{}", PROOF_STORE_KEY_PREFIX_1),
-            proof_store_counters: format!("{}", PROOF_STORE_COUNTERS_PREFIX_1),
-        })
-    }
-
-    pub async fn new2(
         url: &str,
         pool_size: usize,
         worker_queue_suffix: &str,
@@ -85,6 +62,10 @@ impl ProofStoreRedisAsync {
                 PROOF_STORE_COUNTERS_PREFIX_1, proof_store_counters_suffix
             ),
         })
+    }
+
+    fn pool(&self) -> Pool<RedisConnectionManager>{
+        self.pool.clone()
     }
 }
 
@@ -186,7 +167,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreRedisAsync {
             "{}-{}_{}",
             checkpoint_queue_prefix, metadata.channel_id, metadata.checkpoint_id
         );
-        tracing::info!("Pushing job id to queue: {:?}", key);
+       // tracing::debug!("Pushing job id to queue: {:?}", key);
         let mut con = self.pool.get().await?;
         con.lpush(&key, &bytes).await?;
 
