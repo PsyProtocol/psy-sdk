@@ -37,6 +37,8 @@ lapin = "=2.5.0"
 fred = { workspace = true }
 once_cell = { workspace = true }
 redis ={ workspace = true }
+bb8-redis = { workspace = true }
+bb8 = { workspace = true }
 rsmq = { git = "https://github.com/clint-long/rsmq-sync", rev = "f9d20568cd52ee932afecda7e7e2735755cb7eff", default-features = false }
 r2d2 = { git = "https://github.com/GopherJ/r2d2", rev = "976ca74a74871d78764da2a040edcadad1af9be9" }
 r2d2_redis = { git = "https://github.com/GopherJ/r2d2-redis", rev = "29fc8a6bca3dc03442be240f893d359930ea8022" }
