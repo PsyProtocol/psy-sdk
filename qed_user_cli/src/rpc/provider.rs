@@ -175,11 +175,15 @@ impl QEDReadCommandProcessorSync<F> for StorageProvider {
 
 impl RpcProvider {
     pub fn new() -> anyhow::Result<Self> {
-        Self::new_with_config(Default::default())
+        Self::new_with_config(&Default::default())
     }
 
-    pub fn new_with_config(config: &str) -> anyhow::Result<Self> {
+    pub fn new_with_config_path(config: &str) -> anyhow::Result<Self> {
         let config: RpcConfig = serde_json::from_str(&fs::read_to_string(config)?)?;
+        Self::new_with_config(&config)
+    }
+
+    pub fn new_with_config(config: &RpcConfig) -> anyhow::Result<Self> {
         tracing::info!(
             "start rpc provider with config: {}",
             serde_json::to_string_pretty(&config)?
@@ -313,7 +317,10 @@ impl QUserRpcProvider for RpcProvider {
         &self,
         req: QSubmitEndCapRPCRequest<F>,
     ) -> anyhow::Result<()> {
-        tracing::info!("submit end cap proof: {}", serde_json::to_string_pretty(&req).unwrap());
+        // tracing::info!(
+        //     "submit end cap proof: {}",
+        //     serde_json::to_string_pretty(&req).unwrap()
+        // );
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         qed_rpc_call!(self, rpc_url, RequestParams::<F>::SubmitEndCap(req))
     }

@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use fred::clients::Client;
 use qed_core::job::worker_queue::ProvingDispatcher;
 use qed_core::job::worker_queue::ProvingWorkerListener;
 use rsmq::PooledRsmq;

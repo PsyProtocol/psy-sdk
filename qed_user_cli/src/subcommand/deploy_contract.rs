@@ -98,7 +98,7 @@ pub fn run(args: DeployContractArgs) -> anyhow::Result<()> {
         &defs_array,
     )?;
 
-    let provider = RpcProvider::new_with_config(&args.rpc_config)?;
+    let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
     provider.deploy_contract(QDeployContractRPCRequest {
         deploy_contract: deploy_cmd,
     })?;
