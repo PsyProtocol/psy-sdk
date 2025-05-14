@@ -13,9 +13,12 @@ use qed_core::job::history_queue::{
 use qed_core::job::id::QProvingJobDataID;
 use qed_core::job::worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm};
 use rsmq::{PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqError, RsmqOptions};
+use std::fmt::{Debug, Formatter};
+use std::str::FromStr;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
+use tracing::{error, info};
 
 pub enum QueueId {
     WorkerEvent {
@@ -31,6 +34,9 @@ pub enum QueueId {
     },
     CheckpointHistory {
         channel_id: u64,
+    },
+    SyncProof {
+        worker_queue_suffix: String,
     },
 }
 
@@ -63,13 +69,32 @@ impl QueueId {
             QueueId::CheckpointHistory { channel_id } => {
                 format!("{}-{}", PS_HISTORY_QUEUE_KEY_PREFIX, channel_id)
             }
+
+            QueueId::SyncProof {
+                worker_queue_suffix,
+            } => {
+                format!("{}-REALM_PROOF", worker_queue_suffix)
+            }
         }
     }
 }
-pub struct RsmqClient {
+
+pub struct RsmqQueue {
     pub pool: RwLock<PooledRsmq>,
     pub worker_queue_suffix: String,
     pub notifications_queue_suffix: String,
+}
+
+impl Debug for RsmqQueue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RsmqQueue")
+            .field("worker_queue_suffix", &self.worker_queue_suffix)
+            .field(
+                "notifications_queue_suffix",
+                &self.notifications_queue_suffix,
+            )
+            .finish()
+    }
 }
 
 pub async fn new_rsmq_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<PooledRsmq> {
@@ -81,6 +106,13 @@ pub async fn new_rsmq_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<
     if let Some(port) = url.port() {
         rsmq_option.port = port;
     }
+    let path = url.path();
+    if path.starts_with('/') && path.len() > 1 {
+        let db_index_str = &path[1..];
+        let db = u8::from_str(db_index_str)?;
+        rsmq_option.db = db;
+    }
+    info!(?redis_url, host=?rsmq_option.host, port=?rsmq_option.port, db=?rsmq_option.db, "new rsmq pool");
     let pool_option = PoolOptions {
         max_size: Some(pool_size as u32),
         min_idle: None,
@@ -89,18 +121,18 @@ pub async fn new_rsmq_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<
     Ok(pool)
 }
 
-impl RsmqClient {
+impl RsmqQueue {
     pub async fn new(
         redis_url: &str,
         pool_size: usize,
-        worker_queue_suffix: String,
-        notifications_queue_suffix: String,
+        worker_queue_suffix: impl ToString,
+        notifications_queue_suffix: impl ToString,
     ) -> anyhow::Result<Self> {
         let pool = new_rsmq_pool(redis_url, pool_size).await?;
         let client = Self {
             pool: RwLock::new(pool.clone()),
-            worker_queue_suffix,
-            notifications_queue_suffix,
+            worker_queue_suffix: worker_queue_suffix.to_string(),
+            notifications_queue_suffix: notifications_queue_suffix.to_string(),
         };
         Ok(client)
     }
@@ -142,6 +174,7 @@ impl RsmqClient {
         queue: &QueueId,
         hidden: Option<Duration>,
     ) -> anyhow::Result<Option<Vec<u8>>> {
+        self.create_queue_if_not_exists(queue).await?;
         let queue_id = queue.get_queue_id();
         let message = self
             .pool
@@ -153,6 +186,7 @@ impl RsmqClient {
     }
 
     pub async fn delete_message(&self, queue: &QueueId, message_id: &str) -> anyhow::Result<()> {
+        self.create_queue_if_not_exists(queue).await?;
         let queue_id = queue.get_queue_id();
         self.pool
             .write()
@@ -163,6 +197,7 @@ impl RsmqClient {
     }
 
     pub async fn pop_message(&self, queue: &QueueId) -> anyhow::Result<Option<Vec<u8>>> {
+        self.create_queue_if_not_exists(queue).await?;
         let queue_id = queue.get_queue_id();
         let message = self
             .pool
@@ -175,35 +210,35 @@ impl RsmqClient {
 }
 
 #[async_trait]
-impl CheckpointDrainQueueEmitterAsyncImm for RsmqClient {
+impl CheckpointDrainQueueEmitterAsyncImm for RsmqQueue {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
         let metadata: qed_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
-        let queue_identifier = QueueId::CheckpointDrain {
+        let queue_id = QueueId::CheckpointDrain {
             worker_queue_suffix: self.worker_queue_suffix.clone(),
             channel_id: metadata.channel_id,
             checkpoint_id: metadata.checkpoint_id,
         };
-        self.send_message(&queue_identifier, bytes).await?;
+        self.send_message(&queue_id, bytes).await?;
         Ok(())
     }
 }
 
 #[async_trait]
-impl CheckpointDrainQueueConsumerAsyncImm for RsmqClient {
+impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
     async fn cdq_get_imm<T: DQSerializable>(
         &self,
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<Vec<T>> {
-        let queue_identifier = QueueId::CheckpointDrain {
+        let queue_id = QueueId::CheckpointDrain {
             worker_queue_suffix: self.worker_queue_suffix.clone(),
             channel_id,
             checkpoint_id,
         };
         let mut members = Vec::new();
         while let Some(message) = self
-            .receive_message(&queue_identifier, Some(Duration::from_millis(1000)))
+            .receive_message(&queue_id, Some(Duration::from_millis(1000)))
             .await?
         {
             members.push(message);
@@ -216,13 +251,13 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqClient {
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<Vec<T>> {
-        let queue_identifier = QueueId::CheckpointDrain {
+        let queue_id = QueueId::CheckpointDrain {
             worker_queue_suffix: self.worker_queue_suffix.clone(),
             channel_id,
             checkpoint_id,
         };
         let mut members = vec![];
-        while let Some(message) = self.pop_message(&queue_identifier).await? {
+        while let Some(message) = self.pop_message(&queue_id).await? {
             members.push(message);
         }
         members.into_iter().map(|x| T::from_bytes(&x)).collect()
@@ -230,32 +265,32 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqClient {
 }
 
 #[async_trait]
-impl CheckpointHistoryQueueEmitterAsyncImm for RsmqClient {
+impl CheckpointHistoryQueueEmitterAsyncImm for RsmqQueue {
     async fn chq_push_imm<T: HQSerializable>(&self, item: T) -> anyhow::Result<()> {
         let metadata = item.get_hq_metadata();
         let checkpoint_id = metadata.checkpoint_id;
         let mut bytes = vec![];
         bytes.extend(checkpoint_id.to_le_bytes().to_vec());
         bytes.extend(item.to_bytes()?);
-        let queue_identifier = QueueId::CheckpointHistory {
+        let queue_id = QueueId::CheckpointHistory {
             channel_id: metadata.channel_id,
         };
-        self.send_message(&queue_identifier, bytes).await?;
+        self.send_message(&queue_id, bytes).await?;
         Ok(())
     }
 }
 
 #[async_trait]
-impl CheckpointHistoryQueueConsumerAsyncImm for RsmqClient {
+impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
     async fn chq_listen_from_imm<T: HQSerializable>(
         &self,
         channel_id: u64,
         start_checkpoint_id: u64,
     ) -> anyhow::Result<Vec<T>> {
-        let queue_identifier = QueueId::CheckpointHistory { channel_id };
+        let queue_id = QueueId::CheckpointHistory { channel_id };
         let mut results = vec![];
         let mut current_checkpoint_id = None;
-        while let Some(bytes) = self.pop_message(&queue_identifier).await? {
+        while let Some(bytes) = self.pop_message(&queue_id).await? {
             let checkpoint_id = u64::from_le_bytes(bytes[..8].try_into()?);
             if let Some(cur_id) = current_checkpoint_id {
                 if cur_id + 1 != checkpoint_id {
@@ -280,11 +315,11 @@ impl CheckpointHistoryQueueConsumerAsyncImm for RsmqClient {
         channel_id: u64,
         start_checkpoint_id: u64,
     ) -> anyhow::Result<T> {
-        let queue_identifier = QueueId::CheckpointHistory { channel_id };
+        let queue_id = QueueId::CheckpointHistory { channel_id };
         let start_i64 = start_checkpoint_id;
         loop {
             sleep(Duration::from_millis(100)).await;
-            let bytes = self.pop_message(&queue_identifier).await?;
+            let bytes = self.pop_message(&queue_id).await?;
             if let Some(bytes) = bytes {
                 let checkpoint_id = u64::from_le_bytes(bytes[..8].try_into()?);
                 if checkpoint_id >= start_i64 {
@@ -297,13 +332,13 @@ impl CheckpointHistoryQueueConsumerAsyncImm for RsmqClient {
 }
 
 #[async_trait]
-impl WorkerEventReceiverAsyncImm for RsmqClient {
+impl WorkerEventReceiverAsyncImm for RsmqQueue {
     async fn wait_for_next_job_imm(&self) -> anyhow::Result<QProvingJobDataID> {
-        let queue_identifier = QueueId::WorkerEvent {
+        let queue_id = QueueId::WorkerEvent {
             worker_queue_suffix: self.worker_queue_suffix.clone(),
         };
         loop {
-            if let Some(bytes) = self.pop_message(&queue_identifier).await? {
+            if let Some(bytes) = self.pop_message(&queue_id).await? {
                 let job_id = QProvingJobDataID::from_bytes(&bytes)?;
                 return Ok(job_id);
             }
@@ -312,35 +347,35 @@ impl WorkerEventReceiverAsyncImm for RsmqClient {
     }
 
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
-        let queue_identifier = QueueId::WorkerEvent {
+        let queue_id = QueueId::WorkerEvent {
             worker_queue_suffix: self.worker_queue_suffix.clone(),
         };
         for job in jobs {
             let bytes = job.to_fixed_bytes().to_vec();
-            self.send_message(&queue_identifier, bytes).await?;
+            self.send_message(&queue_id, bytes).await?;
         }
         Ok(())
     }
 
     async fn notify_core_goal_completed_imm(&self, job: QProvingJobDataID) -> anyhow::Result<()> {
-        let queue_identifier = QueueId::WorkerNotification {
+        let queue_id = QueueId::WorkerNotification {
             notifications_queue_suffix: self.notifications_queue_suffix.clone(),
         };
         let bytes = job.to_fixed_bytes().to_vec();
-        self.send_message(&queue_identifier, bytes).await?;
+        self.send_message(&queue_id, bytes).await?;
         Ok(())
     }
 }
 
 #[async_trait]
-impl WorkerEventTransmitterAsyncImm for RsmqClient {
+impl WorkerEventTransmitterAsyncImm for RsmqQueue {
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
-        let queue_identifier = QueueId::WorkerEvent {
+        let queue_id = QueueId::WorkerEvent {
             worker_queue_suffix: self.worker_queue_suffix.clone(),
         };
         for job in jobs {
             let bytes = job.to_fixed_bytes().to_vec();
-            self.send_message(&queue_identifier, bytes).await?;
+            self.send_message(&queue_id, bytes).await?;
         }
         Ok(())
     }
@@ -349,11 +384,11 @@ impl WorkerEventTransmitterAsyncImm for RsmqClient {
         &self,
         _checkpoint_id: u64,
     ) -> anyhow::Result<QProvingJobDataID> {
-        let queue_identifier = QueueId::WorkerNotification {
+        let queue_id = QueueId::WorkerNotification {
             notifications_queue_suffix: self.notifications_queue_suffix.clone(),
         };
         loop {
-            if let Some(bytes) = self.pop_message(&queue_identifier).await? {
+            if let Some(bytes) = self.pop_message(&queue_id).await? {
                 if bytes.len() == 24 {
                     match QProvingJobDataID::try_from_byte_vec(&bytes) {
                         Ok(job) => {
@@ -361,7 +396,7 @@ impl WorkerEventTransmitterAsyncImm for RsmqClient {
                                 return Ok(job);
                             }
                         }
-                        Err(err) => eprintln!(
+                        Err(err) => error!(
                             "error deserializing job id in wait_for_block_proving_jobs_imm: {:?}",
                             err
                         ),
