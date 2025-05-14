@@ -36,6 +36,7 @@ pub enum Commands {
     AddWithdrawal(crate::subcommand::args::AddWithdrawalArgs),
     ClaimDeposit(crate::subcommand::args::ClaimDepositArgs),
     RegisterUser(crate::subcommand::args::RegisterUserArgs),
+    RandomRegisterUserBatch(crate::subcommand::args::RandomArgs),
     TokenTransfer(crate::subcommand::args::TokenTransferArgs),
     L1Deposit(crate::subcommand::args::L1DepositArgs),
 

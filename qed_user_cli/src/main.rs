@@ -36,6 +36,7 @@ fn main() -> Result<()> {
         Commands::AddWithdrawal(args) => add_withdrawal::run(args)?,
         Commands::ClaimDeposit(args) => claim_deposit::run(args)?,
         Commands::RegisterUser(args) => register_user::run(args)?,
+        Commands::RandomRegisterUserBatch(args) => register_user::run_random(args)?,
         Commands::TokenTransfer(args) => token_transfer::run(args)?,
         Commands::L1Deposit(args) => l1_deposit::run(args)?,
         Commands::SignHash(args) => sign_hash::run(args)?,

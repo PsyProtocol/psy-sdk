@@ -271,3 +271,15 @@ pub struct WalletSessionArgs {
     #[clap(env, long, default_value = "contract_call.json", env)]
     pub contract_calls: String,
 }
+
+#[derive(Clone, Args)]
+pub struct RandomArgs {
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
+    #[clap(long, default_value = "128", env)]
+    pub user_per_block: u64,
+    #[clap(long, default_value = "4096", env)]
+    pub total_user: u64,
+    #[clap(long, default_value = "3", env)]
+    pub interval: u64,
+}
