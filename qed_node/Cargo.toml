@@ -36,10 +36,10 @@ futures = { workspace = true }
 lapin = "=2.5.0"
 fred = { workspace = true }
 once_cell = { workspace = true }
-redis ={ workspace = true }
+redis = { workspace = true }
 bb8-redis = { workspace = true }
 bb8 = { workspace = true }
-rsmq = { path = "../../rsmq-async-rs", package = "rsmq_async", features = ["break-js-comp", "sync", "tokio"] }
+rsmq = { git = "https://github.com/jimzk/rsmq-async-rs", package = "rsmq_async", features = ["break-js-comp", "sync", "tokio"] }
 r2d2 = "0.8.10"
 rabbitmq-stream-client = "0.8.0"
 url = { workspace = true }
