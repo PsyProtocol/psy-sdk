@@ -18,12 +18,12 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     let (rpc_module, handler) = build_rpc_module(config.clone())?;
     handler.spawn_cp_sync_listener().await?;
 
-    let addr: SocketAddr = config.coordinator_edge_listen_addr.parse()?;
+    let addr: SocketAddr = config.listen_addr.parse()?;
     let server = Server::builder().build(addr).await?;
     let handle = server.start(rpc_module);
     info!(
         "🚀 Coordinator Edge RPC server now running on http://{}",
-        config.coordinator_edge_listen_addr
+        config.listen_addr
     );
 
     handle.stopped().await;

@@ -139,8 +139,8 @@ impl
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
         let pool = new_fred_pool(
-            &cp_config.coordinator_redis_uri,
-            cp_config.coordinator_pool_size as usize,
+            &cp_config.redis_uri,
+            cp_config.pool_size as usize,
         )
         .await?;
         init_node_redis_pool(pool.clone())?;
@@ -148,24 +148,24 @@ impl
         let q = ProofStoreFred::new2(
             pool.clone(),
             &cp_config
-                .coordinator_processor_queue_args
-                .coordinator_worker_queue_suffix,
+                .queue_args
+                .worker_queue_suffix,
             &cp_config
-                .coordinator_processor_queue_args
-                .coordinator_notifications_queue_suffix,
+                .queue_args
+                .notifications_queue_suffix,
             &cp_config
-                .coordinator_processor_queue_args
-                .coordinator_proof_store_key_suffix,
+                .queue_args
+                .proof_store_key_suffix,
             &cp_config
-                .coordinator_processor_queue_args
-                .coordinator_proof_store_key_suffix,
+                .queue_args
+                .proof_store_key_suffix,
         );
 
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(
                 KVQlibmdbxStore::new_write_with_size(
-                    &cp_config.coordinator_db_path,
-                    cp_config.coordinator_db_size_gb,
+                    &cp_config.db_path,
+                    cp_config.db_size_gb,
                 )?,
             );
 
@@ -181,8 +181,8 @@ impl
         };
 
         //use sync_queue for checkpoint sync
-        let sync_queue = Arc::new(DrainQueueRedis::new(&cp_config.coordinator_redis_uri)?);
-        let edge_command_queue = RedisQueue::new(&cp_config.coordinator_redis_uri)?;
+        let sync_queue = Arc::new(DrainQueueRedis::new(&cp_config.redis_uri)?);
+        let edge_command_queue = RedisQueue::new(&cp_config.redis_uri)?;
 
         let coord_config = CoordinatorConfig::get_standard(0);
 
