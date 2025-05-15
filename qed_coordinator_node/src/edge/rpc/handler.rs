@@ -105,10 +105,10 @@ impl CoordinatorEdgeHandler {
                                 status.confirmed_checkpoint_id
                             );
                         } else {
-                            debug!(
-                                "ℹ️ No new confirmed checkpoint detected, local = {}, redis = {}",
-                                latest, status.confirmed_checkpoint_id
-                            );
+                            // debug!(
+                            //     "ℹ️ No new confirmed checkpoint detected, local = {}, redis = {}",
+                            //     latest, status.confirmed_checkpoint_id
+                            // );
                         }
 
                         false

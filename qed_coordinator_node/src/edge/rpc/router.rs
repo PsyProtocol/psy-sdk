@@ -1310,11 +1310,4 @@ pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwn
 #[derive(Clone, Debug)]
 pub struct JwtAuthMetadata {
     pub token: String,
-    pub realm_id: u64,
-}
-pub fn claims_to_auth_metadata(token: String, claims: Claims) -> JwtAuthMetadata {
-    JwtAuthMetadata {
-        token,
-        realm_id: claims.realm_id,
-    }
 }
