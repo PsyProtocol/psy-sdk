@@ -108,6 +108,7 @@ PIDS+=($!)
 # PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors/workers)
+sleep 3
 run_service "make run-coordinator-edge" "coordinator-edge" "$COORDINATOR_EDGE_LOG" &
 PIDS+=($!)
 run_service "make run-coordinator-edge-1" "coordinator-edge-1" "$COORDINATOR_EDGE_1_LOG" &

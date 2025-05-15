@@ -11,7 +11,7 @@ pub struct CoordinatorWorkerArgs {
     #[clap(long, short, default_value = "20")]
     pub pool_size: u32,
     #[clap(flatten)]
-    pub processor_queue_args: CoordinatorQueueArgs,
+    pub queue_args: CoordinatorQueueArgs,
 }
 
 #[derive(Clone, Debug, Args)]
