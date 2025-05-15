@@ -124,7 +124,8 @@ pub fn build_rpc_module(
     // qed_submit_guta
     module.register_async_method("qed_submit_guta", |params, handler, ext| async move {
         tracing::info!("📪 received GUTA proof from realm node");
-        let jwt_metadata = ext.get::<JwtAuthMetadata>()
+        let jwt_metadata = ext
+            .get::<JwtAuthMetadata>()
             .ok_or_else(|| ErrorObjectOwned::owned(401, "Missing JwtAuthMetadata", None::<()>))?;
 
         validate_jwt_from_ext(&jwt_metadata)?;
@@ -1262,15 +1263,13 @@ where
     }
 }
 
-
+use crate::context::get_jwt_secret;
 use jsonrpsee::types::Request;
 use kvq::traits::KVQSerializable;
 use qed_node::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by_pubkey};
 use qed_rollup_utils::{decrypt_jwt_token, Claims, JWT_COMPANY, JWT_SUBJECT};
-use crate::context::get_jwt_secret;
 
 pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwned> {
-
     let jwt_meta = ext;
     let token = &jwt_meta.token;
 
@@ -1283,12 +1282,20 @@ pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwn
         Ok(claims) => {
             if claims.company != JWT_COMPANY {
                 tracing::warn!("❌ Invalid company field in token: {}", claims.company);
-                return Err(ErrorObjectOwned::owned(401, "Invalid token: company mismatch", None::<()>));
+                return Err(ErrorObjectOwned::owned(
+                    401,
+                    "Invalid token: company mismatch",
+                    None::<()>,
+                ));
             }
 
             if claims.sub != JWT_SUBJECT {
                 tracing::warn!("❌ Invalid sub field in token: {}", claims.sub);
-                return Err(ErrorObjectOwned::owned(401, "Invalid token: subject mismatch", None::<()>));
+                return Err(ErrorObjectOwned::owned(
+                    401,
+                    "Invalid token: subject mismatch",
+                    None::<()>,
+                ));
             }
 
             let now_ts = chrono::Utc::now().timestamp();
@@ -1302,7 +1309,11 @@ pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwn
         }
         Err(e) => {
             tracing::warn!("❌ Invalid JWT token (decode failed): {:?}", e);
-            Err(ErrorObjectOwned::owned(401, format!("Invalid token: {}", e), None::<()>))
+            Err(ErrorObjectOwned::owned(
+                401,
+                format!("Invalid token: {}", e),
+                None::<()>,
+            ))
         }
     }
 }

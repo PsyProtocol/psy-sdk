@@ -174,7 +174,10 @@ impl
         let need_init = match st.get_l2_block_state(1).await {
             Ok(_) => false,
             Err(e) => {
-                error!("⚠️ Failed to get block 1 state: {:?}， need initialize the db", e);
+                error!(
+                    "⚠️ Failed to get block 1 state: {:?}， need initialize the db",
+                    e
+                );
                 QEDComboDataStoreReaderWriterSync::initialize_store(&*st)?;
                 true
             }

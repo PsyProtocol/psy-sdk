@@ -1,9 +1,14 @@
 use std::{fmt, str::FromStr, task::Context};
 
+use crate::rpc::router::JwtAuthMetadata;
 use headers::authorization::{Bearer, Credentials};
-use http::{header::{HeaderValue, AUTHORIZATION}, Request, Response, StatusCode};
+use http::{
+    header::{HeaderValue, AUTHORIZATION},
+    Request, Response, StatusCode,
+};
 use jsonrpsee::server::HttpBody;
 use jsonrpsee::types::ErrorObjectOwned;
+use qed_rollup_utils::{decrypt_jwt_token, Claims, JWT_COMPANY, JWT_SUBJECT};
 use rand::prelude::*;
 use serde::{
     de::{self, Visitor},
@@ -11,10 +16,7 @@ use serde::{
 };
 use tower::Service;
 use tracing::info;
-use qed_rollup_utils::{decrypt_jwt_token, Claims, JWT_COMPANY, JWT_SUBJECT};
-use crate::rpc::router::JwtAuthMetadata;
 
-const CLAIM_EXPIRATION: u64 = 30;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -133,7 +135,6 @@ pub struct ServerAuth<S> {
     jwt: JwtSecret,
 }
 
-
 impl<S> Service<Request<HttpBody>> for ServerAuth<S>
 where
     S: Service<Request<HttpBody>, Response = Response<HttpBody>> + Clone + Send + 'static,
@@ -150,69 +151,6 @@ where
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
-
-    /*
-        All non-jwt requests will be intercepted here,
-        and this may be done later when other components support it.
-     */
-    // fn call(&mut self, mut req: Request<HttpBody>) -> Self::Future {
-    //     info!("JWT auth middleware called");
-    //     info!("JWT secret {}", self.jwt.to_hex());
-    //     let unauthorized = || -> Self::Future {
-    //         let response = Response::builder()
-    //             .status(StatusCode::UNAUTHORIZED)
-    //             .body(Default::default())
-    //             .unwrap();
-    //         futures::future::Either::Right(futures::future::ok(response))
-    //     };
-    //
-    //     info!("JWT get header");
-    //     let Some(Ok(auth_str)) = req.headers().get(AUTHORIZATION).map(|auth| auth.to_str()) else {
-    //         info!("Invalid JWT header");
-    //         return unauthorized();
-    //     };
-    //
-    //     info!("JWT auth header: {:?}", auth_str);
-    //     let bearer_len = Bearer::SCHEME.len();
-    //     if auth_str
-    //         .to_lowercase()
-    //         .strip_prefix(&Bearer::SCHEME.to_lowercase())
-    //         .is_none()
-    //     {
-    //         info!("Invalid JWT auth_str");
-    //
-    //         return unauthorized();
-    //     }
-    //     let token = auth_str[bearer_len..].trim();
-    //     info!("JWT token = {:?}", auth_str[bearer_len..].trim());
-    //     let  ret = match decrypt_jwt_token(&self.jwt.to_hex(), token) {
-    //         Ok(claims) => {
-    //             if claims.company != JWT_COMPANY {
-    //                 tracing::warn!("❌ Invalid company field in token: {}", claims.company);
-    //                 return unauthorized();                }
-    //
-    //             if claims.sub != JWT_SUBJECT {
-    //                 tracing::warn!("❌ Invalid sub field in token: {}", claims.sub);
-    //                 return unauthorized();                }
-    //
-    //             let now_ts = chrono::Utc::now().timestamp();
-    //             if claims.exp < now_ts {
-    //                 tracing::warn!("❌ Token expired at {}, now = {}", claims.exp, now_ts);
-    //                 return unauthorized();                }
-    //
-    //             tracing::info!("✅ Valid JWT, realm_id = {}", claims.realm_id);
-    //             Ok(())
-    //         }
-    //         Err(e) => {
-    //             tracing::warn!("❌ Invalid JWT token (decode failed): {:?}", e);
-    //             Err(ErrorObjectOwned::owned(401, format!("Invalid token: {}", e), None::<()>))
-    //         }
-    //     };
-    //
-    //     req.headers_mut().remove(AUTHORIZATION);
-    //
-    //     futures::future::Either::Left(self.inner.call(req))
-    // }
 
     fn call(&mut self, mut req: Request<HttpBody>) -> Self::Future {
         // tracing::info!("🔐 JWT middleware called");
@@ -242,4 +180,3 @@ where
         futures::future::Either::Left(self.inner.call(req))
     }
 }
-
