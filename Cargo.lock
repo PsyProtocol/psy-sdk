@@ -4674,6 +4674,7 @@ dependencies = [
  "qed_data",
  "qed_node",
  "qed_node_common",
+ "qed_rollup_utils",
  "qed_store",
  "redis 0.30.0",
  "serde",
