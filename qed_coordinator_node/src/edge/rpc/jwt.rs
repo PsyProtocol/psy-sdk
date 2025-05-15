@@ -215,10 +215,10 @@ where
     // }
 
     fn call(&mut self, mut req: Request<HttpBody>) -> Self::Future {
-        tracing::info!("🔐 JWT middleware called");
+        // tracing::info!("🔐 JWT middleware called");
 
         if let Some(Ok(auth_str)) = req.headers().get(AUTHORIZATION).map(|v| v.to_str()) {
-            tracing::info!("🔐 Authorization: {auth_str:?}");
+            // tracing::info!("🔐 Authorization: {auth_str:?}");
 
             if let Some(token) = auth_str
                 .strip_prefix("Bearer ")
@@ -235,7 +235,7 @@ where
                 tracing::warn!("⚠️ Authorization header not Bearer format");
             }
         } else {
-            tracing::info!("⚠️ No valid Authorization header");
+            // tracing::info!("⚠️ No valid Authorization header");
         }
 
         req.headers_mut().remove(AUTHORIZATION);

@@ -1,3 +1,4 @@
+use std::env;
 use crate::error::RpcError;
 use crate::rpc::RealmEdgeRpcServer;
 use crate::{SyncCheckpointQueue, SyncProofQueue, C, D, F, H};
@@ -903,8 +904,10 @@ async fn send_realm_proof<PS: QProofStoreAsyncImm>(
         circuit_type: realm_result.proof_id.circuit_type,
     };
     let mut retry_count = 0;
+    let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set in .env");
+
     let jwt_token =
-        generate_jwt_token("my_super_secret_key", realm_id).expect("Failed to generate JWT token");
+        generate_jwt_token(&secret, realm_id).expect("Failed to generate JWT token");
     let bearer_token_value = format!("Bearer {}", jwt_token);
     let header_value =
         HeaderValue::from_str(&bearer_token_value).expect("Failed to create header value");

@@ -123,7 +123,7 @@ pub fn build_rpc_module(
 
     // qed_submit_guta
     module.register_async_method("qed_submit_guta", |params, handler, ext| async move {
-        tracing::info!("qed_submit_guta");
+        tracing::info!("📪 received GUTA proof from realm node");
         let jwt_metadata = ext.get::<JwtAuthMetadata>()
             .ok_or_else(|| ErrorObjectOwned::owned(401, "Missing JwtAuthMetadata", None::<()>))?;
 
@@ -1297,7 +1297,7 @@ pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwn
                 return Err(ErrorObjectOwned::owned(401, "Token expired", None::<()>));
             }
 
-            tracing::info!("✅ Valid JWT, realm_id = {}", claims.realm_id);
+            tracing::info!("🔑 Valid JWT, realm_id = {}", claims.realm_id);
             Ok(())
         }
         Err(e) => {
