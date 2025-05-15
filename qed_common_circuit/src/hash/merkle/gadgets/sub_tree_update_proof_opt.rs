@@ -80,9 +80,7 @@ impl UpdateNearestCommonAncestorProofOptGadget {
         let level_a = builder.add_virtual_target();
         let level_b = builder.add_virtual_target();
         let level_a_diff  = builder.sub(level_a, nearest_common_ancestor_level);
-        eprintln!("DEBUGPRINT[711]: sub_tree_update_proof_opt.rs:82: level_a_diff={:#?}", level_a_diff);
         let level_b_diff  = builder.sub(level_b, nearest_common_ancestor_level);
-        eprintln!("DEBUGPRINT[712]: sub_tree_update_proof_opt.rs:84: level_b_diff={:#?}", level_b_diff);
         builder.range_check(level_a, log2_ceil(max_height));
         builder.range_check(level_b, log2_ceil(max_height));
         builder.range_check(nearest_common_ancestor_level, log2_ceil(max_height));
@@ -104,33 +102,25 @@ impl UpdateNearestCommonAncestorProofOptGadget {
             >(builder, max_height-1, Some(height_b));
 
         let solo_mask = builder.is_not_equal_hash(child_a.new_root, child_b.new_root);
-        eprintln!("DEBUGPRINT[710]: sub_tree_update_proof_opt.rs:104: solo_mask={:#?}", solo_mask);
         let level_a_diff_sub_solo = builder.sub(level_a_diff, solo_mask.target);
-        eprintln!("DEBUGPRINT[707]: sub_tree_update_proof_opt.rs:105: level_a_diff_sub_solo={:#?}", level_a_diff_sub_solo);
         let level_b_diff_sub_solo = builder.sub(level_b_diff, solo_mask.target);
-        eprintln!("DEBUGPRINT[706]: sub_tree_update_proof_opt.rs:106: level_b_diff_sub_solo={:#?}", level_b_diff_sub_solo);
         builder.connect(level_a_diff_sub_solo, height_a);
-        eprintln!("DEBUGPRINT[713]: sub_tree_update_proof_opt.rs:112: height_a={:#?}", height_a);
         builder.connect(level_b_diff_sub_solo, height_b);
-        eprintln!("DEBUGPRINT[714]: sub_tree_update_proof_opt.rs:114: height_b={:#?}", height_b);
 
-        let computed_root_index_a = child_a.bit_info.get_root_parent_index(builder);
-        eprintln!("DEBUGPRINT[708]: sub_tree_update_proof_opt.rs:112: computed_root_index_a={:#?}", computed_root_index_a);
-        let computed_root_index_b = child_b.bit_info.get_root_parent_index(builder);
-        eprintln!("DEBUGPRINT[709]: sub_tree_update_proof_opt.rs:114: computed_root_index_b={:#?}", computed_root_index_b);
+        let computed_child_index_a = child_a.bit_info.get_root_parent_index(builder);
+        let computed_root_index_a = builder.div_rem(computed_child_index_a, 1).0;
+        let computed_child_index_b = child_b.bit_info.get_root_parent_index(builder);
+        let computed_root_index_b = builder.div_rem(computed_child_index_b, 1).0;
 
-        // builder.connect(computed_root_index_a, computed_root_index_b);
+        builder.connect(computed_root_index_a, computed_root_index_b);
 
         let variable_dmp_gadget_a_is_right = child_a.bit_info.is_right_child(builder);
-        eprintln!("DEBUGPRINT[718]: sub_tree_update_proof_opt.rs:124: variable_dmp_gadget_a_is_right={:#?}", variable_dmp_gadget_a_is_right);
         let variable_dmp_gadget_b_is_right = child_b.bit_info.is_right_child(builder);
-        eprintln!("DEBUGPRINT[719]: sub_tree_update_proof_opt.rs:126: variable_dmp_gadget_b_is_right={:#?}", variable_dmp_gadget_b_is_right);
 
         let direction_sanity_check = builder.add(
             variable_dmp_gadget_a_is_right.target,
             variable_dmp_gadget_b_is_right.target,
         );
-        eprintln!("DEBUGPRINT[720]: sub_tree_update_proof_opt.rs:133: direction_sanity_check={:#?}", direction_sanity_check);
 
         builder.connect(direction_sanity_check, one);
 
@@ -139,13 +129,11 @@ impl UpdateNearestCommonAncestorProofOptGadget {
             child_b.old_root,
             variable_dmp_gadget_a_is_right,
         );
-        eprintln!("DEBUGPRINT[721]: sub_tree_update_proof_opt.rs:142: computed_old_root={:#?}", computed_old_root);
         let computed_new_root = builder.two_to_one_swapped::<H>(
             child_a.new_root,
             child_b.new_root,
             variable_dmp_gadget_a_is_right,
         );
-        eprintln!("DEBUGPRINT[722]: sub_tree_update_proof_opt.rs:148: computed_new_root={:#?}", computed_new_root);
 
         Self {
             child_a,
@@ -155,7 +143,7 @@ impl UpdateNearestCommonAncestorProofOptGadget {
             level_b,
             height_a,
             height_b,
-            nearest_common_ancestor_index: builder.div_rem(computed_root_index_a, 1).0,
+            nearest_common_ancestor_index: computed_root_index_a,
             old_nearest_common_ancestor_value: computed_old_root,
             new_nearest_common_ancestor_value: computed_new_root,
             max_height,
