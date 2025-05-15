@@ -19,6 +19,16 @@ pub trait CircuitBuilderComparison<F: RichField + Extendable<D>, const D: usize>
     fn is_not_equal_bool(&mut self, x: BoolTarget, y: BoolTarget) -> BoolTarget;
     fn is_zero(&mut self, x: Target) -> BoolTarget;
     fn is_equal_to_u64(&mut self, x: Target, value: u64) -> BoolTarget;
+    fn is_equal_hash(
+        &mut self,
+        true_value: HashOutTarget,
+        false_value: HashOutTarget,
+    ) -> BoolTarget;
+    fn is_not_equal_hash(
+        &mut self,
+        true_value: HashOutTarget,
+        false_value: HashOutTarget,
+    ) -> BoolTarget;
     fn is_zero_hash(&mut self, x: HashOutTarget) -> BoolTarget;
     fn is_not_zero(&mut self, x: Target) -> BoolTarget;
 
@@ -182,6 +192,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
             self.is_equal(x, constant_u64)
         }
     }
+
+    fn is_equal_hash(&mut self, x: HashOutTarget, y: HashOutTarget) -> BoolTarget {
+        let mut result = self.constant_bool(true);
+        for i in 0..x.elements.len() {
+            let equal = self.is_equal(x.elements[i], y.elements[i]);
+            result = self.and(equal, result);
+        }
+        result
+    }
+
+    fn is_not_equal_hash(&mut self, x: HashOutTarget, y: HashOutTarget) -> BoolTarget {
+        let is_equal = self.is_equal_hash(x, y);
+        self.not(is_equal)
+    }
+
 
     fn assert_zero_hash(&mut self, hash: HashOutTarget) {
         self.assert_zero(hash.elements[0]);

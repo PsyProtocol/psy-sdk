@@ -9,6 +9,7 @@ use plonky2::{
 };
 use plonky2::hash::hashing::PlonkyPermutation;
 
+use crate::builder::comparison::CircuitBuilderComparison;
 use crate::builder::core::CircuitBuilderHelpersCore;
 use crate::builder::select::CircuitBuilderSelectHelpers;
 use crate::hash::base_types::hash256::Hash256Target;
@@ -177,10 +178,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
             U32Target(a_low),
         ]
     }
-    
+
     fn set_target_in_hash(&mut self, hash: HashOutTarget, index: Target, value: Target) -> HashOutTarget {
 
-        /* 
+        /*
         TODO/OPT: is using the bitsplit method more efficient?
 
         let results = self.split_le(index, 2);
@@ -196,7 +197,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
         let index_is_1 = self.is_equal(index, constant_1);
         let index_is_2 = self.is_equal(index, constant_2);
         let index_is_3 = self.is_equal(index, constant_3);
-        
+
 
         let elements_0 = self.select(index_is_0, value, hash.elements[0]);
         let elements_1 = self.select(index_is_1, value, hash.elements[1]);
@@ -212,7 +213,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
             ]
         }
     }
-    
+
     fn set_target_in_hash_bit_indexed(&mut self, hash: HashOutTarget, index_low_bit: BoolTarget, index_high_bit: BoolTarget, value: Target) -> HashOutTarget {
 
 
@@ -239,11 +240,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
         }
 
 
-         
+
     }
-    
+
     fn safe_hash_fixed_length<H:AlgebraicHasher<F>>(&mut self, targets: &[Target]) -> HashOutTarget {
-        
+
         let targets_length = targets.len();
         let targets_length_target = self.constant_u64(targets_length as u64);
 

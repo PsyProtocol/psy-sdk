@@ -1,5 +1,5 @@
-use crate::builder::
-    hash::core::CircuitBuilderHashCore
+use crate::{builder::{
+    comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, math::core::CircuitBuilderCoreMathHelpers, select::CircuitBuilderSelectHelpers}, u32::{arithmetic_u32::U32Target, interleaved_u32::CircuitBuilderB32}}
 ;
 use plonky2::{
     field::extension::Extendable,
@@ -76,14 +76,15 @@ impl UpdateNearestCommonAncestorProofOptGadget {
         nearest_common_ancestor_level: Target,
     ) -> Self {
         let one = builder.one();
-        let nearest_common_ancestor_level_plus_1 = builder.add(nearest_common_ancestor_level, one);
 
-        let level_a = builder.add(nearest_common_ancestor_level_plus_1, height_a);
-        let level_b = builder.add(nearest_common_ancestor_level_plus_1, height_b);
+        let level_a = builder.add_virtual_target();
+        let level_b = builder.add_virtual_target();
+        let level_a_diff  = builder.sub(level_a, nearest_common_ancestor_level);
+        let level_b_diff  = builder.sub(level_b, nearest_common_ancestor_level);
         builder.range_check(level_a, log2_ceil(max_height));
         builder.range_check(level_b, log2_ceil(max_height));
         builder.range_check(nearest_common_ancestor_level, log2_ceil(max_height));
-        
+
 
 
         let child_a =
@@ -100,8 +101,16 @@ impl UpdateNearestCommonAncestorProofOptGadget {
                 D,
             >(builder, max_height-1, Some(height_b));
 
-        let computed_root_index_a = child_a.bit_info.get_root_parent_index(builder);
-        let computed_root_index_b = child_b.bit_info.get_root_parent_index(builder);
+        let solo_mask = builder.is_not_equal_hash(child_a.new_root, child_b.new_root);
+        let level_a_diff_sub_solo = builder.sub(level_a_diff, solo_mask.target);
+        let level_b_diff_sub_solo = builder.sub(level_b_diff, solo_mask.target);
+        builder.connect(level_a_diff_sub_solo, height_a);
+        builder.connect(level_b_diff_sub_solo, height_b);
+
+        let computed_child_index_a = child_a.bit_info.get_root_parent_index(builder);
+        let computed_root_index_a = builder.div_rem(computed_child_index_a, 1).0;
+        let computed_child_index_b = child_b.bit_info.get_root_parent_index(builder);
+        let computed_root_index_b = builder.div_rem(computed_child_index_b, 1).0;
 
         builder.connect(computed_root_index_a, computed_root_index_b);
 
@@ -150,7 +159,7 @@ impl UpdateNearestCommonAncestorProofOptGadget {
         child_a: &DeltaMerkleProofCore<QHashOut<F>>,
         child_b: &DeltaMerkleProofCore<QHashOut<F>>,
         nearest_common_ancestor_level: u8
-        
+
     ) -> anyhow::Result<()> {
         self.child_a.set_witness(witness, child_a)?;
         self.child_b.set_witness(witness, child_b)?;
@@ -405,7 +414,7 @@ mod tests {
         tree: &mut SimpleMerkleTree<H, QEDHash>,
     ) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>>{
         let (leaf_a, leaf_b) = rand_leaf_pair_no_collisions(tree.get_height());
-        
+
         let dmp_a = tree.set_leaf(leaf_a.index, QHashOut::rand());
         let dmp_b = tree.set_leaf(leaf_b.index, QHashOut::rand());
 
@@ -424,7 +433,7 @@ mod tests {
 
     }
 
-/* 
+/*
     pub fn _generate_partial_nca_proof_multi_level(
         height: usize,
         rand_leaf_count: usize,
@@ -547,7 +556,7 @@ mod tests {
             // technically the last sibling changed
             siblings: old_proof_b.siblings,
         };
-        
+
         PartialUpdateNearestCommonAncestorProof {
             child_a: dmp_a,
             child_b: dmp_b,
