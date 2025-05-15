@@ -4440,6 +4440,7 @@ dependencies = [
  "qed_node_common",
  "qed_realm_node",
  "qed_rollup_circuit",
+ "qed_rollup_utils",
  "qed_store",
  "qed_user_cli",
  "rand 0.8.5",

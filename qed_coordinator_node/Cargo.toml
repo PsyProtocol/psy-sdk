@@ -31,3 +31,4 @@ reqwest = {workspace = true}
 qed_user_cli = { workspace = true }
 chrono = {workspace = true}
 reth-libmdbx = {workspace = true}
+qed_rollup_utils = {workspace = true}

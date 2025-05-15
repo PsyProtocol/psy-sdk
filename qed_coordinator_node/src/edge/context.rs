@@ -1,7 +1,7 @@
-use std::fs;
+use std::{env, fs};
 // std
 use crate::{CoordinatorEdgeArgs};
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use once_cell::sync::{Lazy};
@@ -32,6 +32,7 @@ pub struct GlobalCoordinatorEdgeState {
     pub ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     pub sync_queue: DrainQueueRedis,
     pub store: StoreReader,
+    pub jwt_secret: Arc<String>
 }
 pub static GLOBAL_COORD_EDGE_STATE: OnceLock<GlobalCoordinatorEdgeState> = OnceLock::new();
 
@@ -81,10 +82,16 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     )
     .await?;
 
+    let jwt_secret = env::var("JWT_SECRET")
+        .with_context(|| "JWT_SECRET not found in environment")?;
+
+
     let global = GlobalCoordinatorEdgeState {
         ctx,
         sync_queue,
         store: store_wrapper,
+        jwt_secret: Arc::new(jwt_secret),
+
     };
     GLOBAL_COORD_EDGE_STATE
         .set(global)
@@ -146,4 +153,10 @@ where
     };
 
     f(temp_ctx).await
+}
+
+pub fn get_jwt_secret() -> Option<Arc<String>> {
+    GLOBAL_COORD_EDGE_STATE
+        .get()
+        .map(|state| Arc::clone(&state.jwt_secret))
 }

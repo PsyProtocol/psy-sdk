@@ -122,8 +122,12 @@ pub fn build_rpc_module(
     })?;
 
     // qed_submit_guta
-    module.register_async_method("qed_submit_guta", |params, handler, _ext| async move {
+    module.register_async_method("qed_submit_guta", |params, handler, ext| async move {
         tracing::info!("qed_submit_guta");
+        let jwt_metadata = ext.get::<JwtAuthMetadata>()
+            .ok_or_else(|| ErrorObjectOwned::owned(401, "Missing JwtAuthMetadata", None::<()>))?;
+
+        validate_jwt_from_ext(&jwt_metadata)?;
 
         let SubmitGUTAParams { input, proof } = params.parse().map_err(|e| {
             ErrorObjectOwned::owned(-32602, format!("Invalid GUTA input: {}", e), None::<()>)
@@ -1255,5 +1259,62 @@ where
                 None::<()>,
             ))
         }
+    }
+}
+
+
+use jsonrpsee::types::Request;
+use kvq::traits::KVQSerializable;
+use qed_node::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by_pubkey};
+use qed_rollup_utils::{decrypt_jwt_token, Claims, JWT_COMPANY, JWT_SUBJECT};
+use crate::context::get_jwt_secret;
+
+pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwned> {
+
+    let jwt_meta = ext;
+    let token = &jwt_meta.token;
+
+    let secret = get_jwt_secret().ok_or_else(|| {
+        tracing::error!("❌ JWT secret not initialized");
+        ErrorObjectOwned::owned(500, "JWT secret not initialized", None::<()>)
+    })?;
+
+    match decrypt_jwt_token(&secret, token) {
+        Ok(claims) => {
+            if claims.company != JWT_COMPANY {
+                tracing::warn!("❌ Invalid company field in token: {}", claims.company);
+                return Err(ErrorObjectOwned::owned(401, "Invalid token: company mismatch", None::<()>));
+            }
+
+            if claims.sub != JWT_SUBJECT {
+                tracing::warn!("❌ Invalid sub field in token: {}", claims.sub);
+                return Err(ErrorObjectOwned::owned(401, "Invalid token: subject mismatch", None::<()>));
+            }
+
+            let now_ts = chrono::Utc::now().timestamp();
+            if claims.exp < now_ts {
+                tracing::warn!("❌ Token expired at {}, now = {}", claims.exp, now_ts);
+                return Err(ErrorObjectOwned::owned(401, "Token expired", None::<()>));
+            }
+
+            tracing::info!("✅ Valid JWT, realm_id = {}", claims.realm_id);
+            Ok(())
+        }
+        Err(e) => {
+            tracing::warn!("❌ Invalid JWT token (decode failed): {:?}", e);
+            Err(ErrorObjectOwned::owned(401, format!("Invalid token: {}", e), None::<()>))
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct JwtAuthMetadata {
+    pub token: String,
+    pub realm_id: u64,
+}
+pub fn claims_to_auth_metadata(token: String, claims: Claims) -> JwtAuthMetadata {
+    JwtAuthMetadata {
+        token,
+        realm_id: claims.realm_id,
     }
 }
