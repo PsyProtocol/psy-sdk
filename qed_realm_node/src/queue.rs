@@ -156,7 +156,7 @@ impl SyncCheckpointQueue for Queue {
     ) -> anyhow::Result<()> {
         debug!("Producing checkpoint async info to Redis: checkpoint_id before: {}", item.compact.l2_block_state.checkpoint_id);
         let mut conn = self.pool.get().await?;
-        conn.rpush::<&str, Vec<u8>, ()>(self.realm_checkpoint_key().as_str(), item.to_bytes()?)
+        conn.rpush(self.realm_checkpoint_key().as_str(), item.to_bytes()?)
             .await?;
 
         debug!("Checkpoint async info produced to Redis: checkpoint_id after: {}", item.compact.l2_block_state.checkpoint_id);
