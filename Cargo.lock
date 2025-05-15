@@ -5458,6 +5458,7 @@ checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
 [[package]]
 name = "rsmq_async"
 version = "15.0.0"
+source = "git+https://github.com/jimzk/rsmq-async-rs#61a3361dd4e1902285d2a883178d53657ed05bb2"
 dependencies = [
  "bb8",
  "lazy_static",
