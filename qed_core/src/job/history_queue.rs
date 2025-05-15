@@ -114,7 +114,6 @@ pub trait CheckpointHistoryQueueEmitterAsyncImm {
 
 #[async_trait]
 pub trait CheckpointHistoryQueueConsumerAsyncImm {
-    async fn current_checkpoint_id(&self, channel_id: u64) -> anyhow::Result<Option<u64>>;
     async fn chq_listen_from_imm<T: HQSerializable>(
         &self,
         channel_id: u64,

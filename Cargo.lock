@@ -115,31 +115,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "amqp_serde"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46af430da4849b906416235798be5d0b8ff07e478d9809f05a00f81eb9527781"
-dependencies = [
- "bytes",
- "serde",
- "serde_bytes",
-]
-
-[[package]]
-name = "amqprs"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e93684f1ae3c63429509ce3bf8a587bffc414f71a13810ed3e5f2c8757888b0"
-dependencies = [
- "amqp_serde",
- "async-trait",
- "bytes",
- "serde",
- "serde_bytes",
- "tokio",
-]
-
-[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -406,7 +381,7 @@ dependencies = [
  "async-io 1.13.0",
  "async-trait",
  "futures-core",
- "reactor-trait 1.1.0",
+ "reactor-trait",
 ]
 
 [[package]]
@@ -473,57 +448,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "axum"
-version = "0.8.4"
+name = "backon"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "021e862c184ae977658b36c4500f7feac3221ca5da43e3f25bd04ab6c79a29b5"
+checksum = "fd0b50b1b78dbadd44ab18b3c794e496f3a139abb9fbc27d9c94c4eebbb96496"
 dependencies = [
- "axum-core",
- "bytes",
- "form_urlencoded",
- "futures-util",
- "http 1.3.1",
- "http-body 1.0.1",
- "http-body-util",
- "hyper 1.6.0",
- "hyper-util",
- "itoa",
- "matchit",
- "memchr",
- "mime",
- "percent-encoding",
- "pin-project-lite",
- "rustversion",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "serde_urlencoded",
- "sync_wrapper 1.0.2",
- "tokio",
- "tower 0.5.2",
- "tower-layer",
- "tower-service",
- "tracing",
-]
-
-[[package]]
-name = "axum-core"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68464cd0412f486726fb3373129ef5d2993f90c34bc2bc1c1e9943b2f4fc7ca6"
-dependencies = [
- "bytes",
- "futures-core",
- "http 1.3.1",
- "http-body 1.0.1",
- "http-body-util",
- "mime",
- "pin-project-lite",
- "rustversion",
- "sync_wrapper 1.0.2",
- "tower-layer",
- "tower-service",
- "tracing",
+ "fastrand 2.3.0",
 ]
 
 [[package]]
@@ -578,12 +508,12 @@ dependencies = [
 
 [[package]]
 name = "bb8-redis"
-version = "0.18.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8416aa3639520757fd0ed659c8c12f7cd9f0ed638fa0cdd52a13d3b19946df2a"
+checksum = "4f435a7d764ccf6319163f74533073775a1472b341c64662522980d1939ffd87"
 dependencies = [
  "bb8",
- "redis 0.27.6",
+ "redis 0.30.0",
 ]
 
 [[package]]
@@ -750,27 +680,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad8646f98db542e39fc66e68a20b2144f6a732636df7c2354e74645faaa433ce"
 dependencies = [
  "cfg_aliases",
-]
-
-[[package]]
-name = "broccoli_queue"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a219012ec70e7a4f18268b5eb8ac66f493d21ee5a828f38cf7eb622a0bc74b2"
-dependencies = [
- "async-trait",
- "bb8-redis",
- "dashmap 6.1.0",
- "futures",
- "log",
- "redis 0.27.6",
- "serde",
- "serde_json",
- "sha256",
- "thiserror 2.0.12",
- "time",
- "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -1639,12 +1548,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
-name = "dotenvy"
-version = "0.15.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
-
-[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1768,15 +1671,6 @@ checksum = "13c863f0904021b108aa8b2f55046443e6b1ebde8fd4a15c399893aae4fa069f"
 dependencies = [
  "env_filter",
  "log",
-]
-
-[[package]]
-name = "envy"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f47e0157f2cb54f5ae1bd371b30a2ae4311e1c028f575cd4e81de7353215965"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -2018,16 +1912,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.101",
-]
-
-[[package]]
-name = "fs2"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9564fc758e15025b46aa6643b1b77d047d1a56a1aea6e01002ac0c7026876213"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -3245,7 +3129,7 @@ dependencies = [
  "futures-io",
  "parking_lot",
  "pinky-swear",
- "reactor-trait 1.1.0",
+ "reactor-trait",
  "serde",
  "tracing",
  "waker-fn",
@@ -3430,12 +3314,6 @@ checksum = "8263075bb86c5a1b1427b5ae862e8889656f126e9f77c484496e8b47cf5c5558"
 dependencies = [
  "regex-automata 0.1.10",
 ]
-
-[[package]]
-name = "matchit"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "md5"
@@ -4545,22 +4423,10 @@ name = "qed_coordinator_node"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "axum",
  "bincode",
- "bytes",
  "chrono",
  "clap",
- "dashmap 6.1.0",
- "dotenv",
- "dotenvy",
- "envy",
- "fred",
- "fs2",
- "futures-util",
  "hex",
- "http-body-util",
- "hyper 1.6.0",
- "hyper-util",
  "jsonrpsee",
  "kvq",
  "kvq_store_lmdbx",
@@ -4574,20 +4440,15 @@ dependencies = [
  "qed_node_common",
  "qed_realm_node",
  "qed_rollup_circuit",
- "qed_rollup_utils",
  "qed_store",
  "qed_user_cli",
- "qed_worker",
  "rand 0.8.5",
  "reqwest",
  "reth-libmdbx",
  "serde",
  "serde_json",
- "tempfile",
  "tokio",
  "tracing",
- "tracing-subscriber",
- "url",
 ]
 
 [[package]]
@@ -4694,11 +4555,11 @@ dependencies = [
 name = "qed_node"
 version = "0.1.0"
 dependencies = [
- "amqprs",
  "anyhow",
  "async-trait",
+ "bb8",
+ "bb8-redis",
  "bincode",
- "broccoli_queue",
  "chrono",
  "fred",
  "futures",
@@ -4708,7 +4569,6 @@ dependencies = [
  "kvq_store_lmdbx",
  "lapin",
  "lazy_static",
- "log",
  "once_cell",
  "plonky2",
  "qed_common_circuit",
@@ -4719,21 +4579,18 @@ dependencies = [
  "qed_rollup_circuit",
  "qed_store",
  "r2d2",
- "r2d2_redis",
  "rabbitmq-stream-client",
  "rand 0.8.5",
- "redis 0.25.4",
- "rsmq",
+ "redis 0.30.0",
+ "rsmq_async",
  "serde",
  "serde_json",
  "serde_repr",
  "serde_with",
  "tokio",
- "tokio-executor-trait",
- "tokio-reactor-trait 2.0.0",
  "tracing",
- "tracing-subscriber",
  "twox-hash",
+ "url",
 ]
 
 [[package]]
@@ -4801,9 +4658,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bb8",
+ "bb8-redis",
  "bincode",
  "clap",
- "dotenv",
  "fred",
  "hex",
  "jsonrpsee",
@@ -4815,17 +4673,14 @@ dependencies = [
  "qed_data",
  "qed_node",
  "qed_node_common",
- "qed_rollup_circuit",
  "qed_store",
- "reth-libmdbx",
+ "redis 0.30.0",
  "serde",
  "serde_json",
  "serde_with",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
- "tracing-appender",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -4912,7 +4767,7 @@ dependencies = [
  "serde_with",
  "tokio",
  "tokio-executor-trait",
- "tokio-reactor-trait 1.1.0",
+ "tokio-reactor-trait",
  "tracing",
  "tracing-subscriber",
  "twox-hash",
@@ -4937,6 +4792,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "thiserror 2.0.12",
  "tracing",
  "twox-hash",
 ]
@@ -5160,20 +5016,12 @@ checksum = "74765f6d916ee2faa39bc8e68e4f3ed8949b48cccdac59983d287a7cb71ce9c5"
 [[package]]
 name = "r2d2"
 version = "0.8.10"
-source = "git+https://github.com/GopherJ/r2d2?rev=976ca74a74871d78764da2a040edcadad1af9be9#976ca74a74871d78764da2a040edcadad1af9be9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51de85fb3fb6524929c8a2eb85e6b6d363de4e8c48f9e2c2eac4944abc181c93"
 dependencies = [
  "log",
  "parking_lot",
  "scheduled-thread-pool",
-]
-
-[[package]]
-name = "r2d2_redis"
-version = "0.15.0"
-source = "git+https://github.com/GopherJ/r2d2-redis?rev=63be37454cf441b832251aa915b1a9cb8bc27bff#63be37454cf441b832251aa915b1a9cb8bc27bff"
-dependencies = [
- "r2d2",
- "redis 0.25.4",
 ]
 
 [[package]]
@@ -5345,56 +5193,49 @@ dependencies = [
 ]
 
 [[package]]
-name = "reactor-trait"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b2eb4ff39ed91c79034b2856a73b07bc8afd752c981bc4433bcbeff531e275a"
-dependencies = [
- "async-trait",
- "futures-core",
- "futures-io",
-]
-
-[[package]]
 name = "redis"
-version = "0.25.4"
+version = "0.28.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0d7a6955c7511f60f3ba9e86c6d02b3c3f144f8c24b288d1f4e18074ab8bbec"
+checksum = "e37ec3fd44bea2ec947ba6cc7634d7999a6590aca7c35827c250bc0de502bda6"
 dependencies = [
+ "arc-swap",
+ "bytes",
  "combine",
+ "futures-util",
  "itoa",
+ "num-bigint",
  "percent-encoding",
+ "pin-project-lite",
  "ryu",
  "sha1_smol",
  "socket2 0.5.9",
+ "tokio",
+ "tokio-util",
  "url",
 ]
 
 [[package]]
 name = "redis"
-version = "0.27.6"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09d8f99a4090c89cc489a94833c901ead69bfbf3877b4867d5482e321ee875bc"
+checksum = "438a4e5f8e9aa246d6f3666d6978441bf1b37d5f417b50c4dd220be09f5fcc17"
 dependencies = [
  "arc-swap",
- "async-trait",
+ "backon",
  "bytes",
+ "cfg-if",
  "combine",
+ "futures-channel",
  "futures-util",
- "itertools 0.13.0",
  "itoa",
  "num-bigint",
  "percent-encoding",
  "pin-project-lite",
- "rustls 0.23.27",
- "rustls-native-certs 0.7.3",
- "rustls-pemfile",
- "rustls-pki-types",
+ "r2d2",
  "ryu",
  "sha1_smol",
  "socket2 0.5.9",
  "tokio",
- "tokio-rustls",
  "tokio-util",
  "url",
 ]
@@ -5615,16 +5456,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
 
 [[package]]
-name = "rsmq"
-version = "9.0.0"
-source = "git+https://github.com/GopherJ/rsmq-async-rs?rev=2af5a5c06a0341cb60f73ba0f0af066f65fb5e77#2af5a5c06a0341cb60f73ba0f0af066f65fb5e77"
+name = "rsmq_async"
+version = "15.0.0"
+source = "git+https://github.com/jimzk/rsmq-async-rs#61a3361dd4e1902285d2a883178d53657ed05bb2"
 dependencies = [
+ "bb8",
  "lazy_static",
- "r2d2",
  "radix_fmt",
- "rand 0.8.5",
- "redis 0.25.4",
- "thiserror 1.0.69",
+ "rand 0.9.1",
+ "redis 0.28.2",
+ "thiserror 2.0.12",
+ "tokio",
 ]
 
 [[package]]
@@ -6116,15 +5958,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_bytes"
-version = "0.11.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8437fd221bde2d4ca316d61b90e337e9e702b3820b87d63caa9ba6c02bd06d96"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "serde_cbor"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6154,16 +5987,6 @@ dependencies = [
  "itoa",
  "memchr",
  "ryu",
- "serde",
-]
-
-[[package]]
-name = "serde_path_to_error"
-version = "0.1.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59fab13f937fa393d08645bf3a84bdfe86e296747b506ada67bb15f10f218b2a"
-dependencies = [
- "itoa",
  "serde",
 ]
 
@@ -6290,19 +6113,6 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
-]
-
-[[package]]
-name = "sha256"
-version = "1.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f880fc8562bdeb709793f00eb42a2ad0e672c4f883bbe59122b926eca935c8f6"
-dependencies = [
- "async-trait",
- "bytes",
- "hex",
- "sha2",
- "tokio",
 ]
 
 [[package]]
@@ -6854,24 +6664,9 @@ dependencies = [
  "async-trait",
  "futures-core",
  "futures-io",
- "reactor-trait 1.1.0",
+ "reactor-trait",
  "tokio",
  "tokio-stream",
-]
-
-[[package]]
-name = "tokio-reactor-trait"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "890b2de29a909d511eaaabb0405f72d5c4df3ce35a24aeaf94974037699b5a81"
-dependencies = [
- "async-trait",
- "futures-core",
- "futures-io",
- "reactor-trait 2.0.0",
- "tokio",
- "tokio-stream",
- "tokio-util",
 ]
 
 [[package]]
@@ -6975,10 +6770,8 @@ dependencies = [
  "futures-util",
  "pin-project-lite",
  "sync_wrapper 1.0.2",
- "tokio",
  "tower-layer",
  "tower-service",
- "tracing",
 ]
 
 [[package]]
@@ -7033,7 +6826,6 @@ version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "784e0ac535deb450455cbfa28a6f0df145ea1bb7ae51b821cf5e7927fdcfbdd0"
 dependencies = [
- "log",
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
@@ -7266,7 +7058,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "458f7a779bf54acc9f347480ac654f68407d3aab21269a6e3c9f922acd9e2da9"
 dependencies = [
  "getrandom 0.3.3",
- "serde",
 ]
 
 [[package]]

@@ -7,13 +7,12 @@ mod sync;
 use self::context::RealmEdgeContext;
 use crate::context::spawn_realm_job_update_task;
 use crate::rpc::RealmEdgeRpcServer;
-use crate::REALM_PROCESSOR_SUFFIX;
+use crate::{Queue, REALM_PROCESSOR_SUFFIX};
 use crate::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
 use jsonrpsee::server::ServerBuilder;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
-use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
@@ -26,7 +25,7 @@ pub async fn creat_fred_store(config: RealmEdgeConfig) -> Result<ProofStoreFred>
     // Create storage and queues
     let pool = new_fred_pool(
         &config.redis.redis_uri,
-        config.redis.pool_size.unwrap_or(80),
+        config.redis.pool_size.unwrap_or(10),
     )
         .await
         .map_err(|e| anyhow::anyhow!("Failed to create Redis pool: {}", e))?;
@@ -73,6 +72,10 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
     debug!("created realm config successfully!");
     
+    let queue = Queue::new(config.redis.redis_uri.as_str(), config.redis.pool_size.unwrap_or(10), config.queue.worker_queue_suffix).await?;
+
+    let queue = Arc::new(queue);
+
     // Create Edge node context
     let edge_ctx = RealmEdgeContext::new(
         realm_config,
@@ -80,7 +83,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         checkpoint_queue,
         proof_store.clone(),
         proof_verifier,
-        proof_store.clone(),
     )
     .await?;
 
@@ -99,11 +101,9 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         config.rpc.coordinator_addr.clone(),
     )
     .await?;
-
-    let proof_store = creat_fred_store(config.clone()).await?;
     spawn_active_checkpoint_sync_task(
         store_reader,
-        Arc::new(proof_store),
+        queue,
         config.rpc.coordinator_addr,
     ).await?;
 

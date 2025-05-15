@@ -1,6 +1,6 @@
 use crate::error::RpcError;
-use crate::rpc::{CheckpointSyncInfo, RealmEdgeRpcServer};
-use crate::{RealmInternalQueue, C, D, F, H};
+use crate::rpc::{RealmEdgeRpcServer};
+use crate::{SyncCheckpointQueue, SyncProofQueue, C, D, F, H};
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
 use jsonrpsee::rpc_params;
@@ -54,22 +54,19 @@ pub struct RealmEdgeContext<
     SR: QEDRealmStoreReaderAsync<F>,
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
-    IQ: RealmInternalQueue,
 > {
     pub store_reader: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
     pub proof_store: Arc<PS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
-    pub interval_sync_queue: Arc<IQ>,
 }
 
 impl<
         SR: QEDRealmStoreReaderAsync<F>,
         DQ: CheckpointDrainQueueEmitterAsyncImm,
         PS: QProofStoreAsyncImm,
-        IQ: RealmInternalQueue,
-    > RealmEdgeContext<SR, DQ, PS, IQ>
+    > RealmEdgeContext<SR, DQ, PS>
 {
     pub async fn new(
         realm_config: RealmConfig,
@@ -77,7 +74,6 @@ impl<
         checkpoint_queue: Arc<DQ>,
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-        interval_sync_queue: Arc<IQ>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             realm_config,
@@ -85,7 +81,6 @@ impl<
             checkpoint_queue,
             proof_store,
             proof_verifier,
-            interval_sync_queue,
         })
     }
 
@@ -146,7 +141,7 @@ impl<
 
         let user_id_u64 = input.core.new_user_leaf.user_id.to_canonical_u64();
         if !self.includes_user_id(user_id_u64) {
-            anyhow::bail!("user id {} is not in this realm", user_id_u64);
+            anyhow::bail!("user id {} is not in this realm {}", user_id_u64, self.realm_config.realm_id);
         }
 
         // Build contract height cache and validate
@@ -306,12 +301,11 @@ impl<
 }
 
 #[async_trait]
-impl<SR, DQ, PS, IQ> RealmEdgeRpcServer for RealmEdgeContext<SR, DQ, PS, IQ>
+impl<SR, DQ, PS> RealmEdgeRpcServer for RealmEdgeContext<SR, DQ, PS>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
-    IQ: RealmInternalQueue + Sync + Send + 'static,
 {
     async fn check_user_id_in_realm(&self, user_id: u64) -> RpcResult<bool> {
         Ok(self.includes_user_id(user_id))
@@ -881,7 +875,10 @@ async fn send_realm_proof<PS: QProofStoreAsyncImm>(
         .get_proof_by_id(realm_result.proof_id.get_output_id())
         .await
     {
-        Ok(proof) => proof,
+        Ok(proof) => {
+            eprintln!("DEBUGPRINT[686]: context.rs:885: proof={}", serde_json::to_string_pretty(&proof.public_inputs).unwrap());
+            proof
+        },
         Err(err) => {
             error!("Failed to get proof_by_id: {:?}", err);
             return;

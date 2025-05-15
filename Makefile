@@ -77,7 +77,7 @@ WATCHED_DIRS := qed_rollup_circuit qed_common_circuit qed_prover
 common_config_generator:
 	@if git diff --name-only --diff-filter=M | grep -q -E "$(subst $() $(),|,$(WATCHED_DIRS)).*\.rs$$"; then \
 		echo "Changes detected in watched directories. Running common_config_generator..."; \
-		RUST_LOG=${RUST_LOG} cargo run --profile ${PROFILE} --package qed_prover --example common_config_generator; \
+		RUST_LOG=${RUST_LOG} cargo run --profile ${PROFILE} --package qed_prover --example config_gen_v2; \
 	else \
 		echo "No changes detected in watched directories. Skipping common_config_generator."; \
 	fi
@@ -91,7 +91,10 @@ PROJECT_DIR              := $(PWD)/examples
 FILE                     := $(PWD)/examples/src/main.qed
 PARAMETERS               :=
 USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
-USER1_PRIVATE_KEY        := f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d
+USER2048_0_PRIVATE_KEY   := f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d
+
+USER1_PRIVATE_KEY        := 73ae514d6f69510ad778a05128d980951d9d8c097beb022471b2f50f19c41268
+USER2048_1_PRIVATE_KEY   := 88ebebcea0bdfbe88ff0ed470d44242c149343a9ec79244ff829042a62e8ad2d
 
 CURRENT_USER_PRIVATE_KEY := ${USER0_PRIVATE_KEY}
 
@@ -129,6 +132,7 @@ shutdown:
 	@sudo rm -fr redis-data
 	@redis-cli 'FLUSHALL' > /dev/null 2>&1 || true
 	@redis-cli -u redis://127.0.0.1:6380 'FLUSHALL' > /dev/null 2>&1 || true
+	@redis-cli -u redis://127.0.0.1:6381 'FLUSHALL' > /dev/null 2>&1 || true
 	@sudo rm -fr $(PWD)/db
 	@rm -fr ${PROJECT_DIR}
 
@@ -197,6 +201,35 @@ run-realm-edge2048:
       --proof-store-key-suffix=RP2048 \
       --path=./db/realm2048
 
+run-realm-processor1024:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6381 \
+      --node-id=2 \
+      --realm-id=1024 \
+      --worker-queue-suffix=rwq1024 \
+      --notifications-queue-suffix=rnq1024 \
+      --proof-store-key-suffix=RP1024 \
+      --path=./db/realm1024
+
+run-realm-worker1024:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
+      --redis-uri=redis://127.0.0.1:6381 \
+      --worker-queue-suffix=rwq1024 \
+      --notifications-queue-suffix=rnq1024 \
+      --proof-store-key-suffix=RP1024
+
+run-realm-edge1024:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+      --listen-addr=0.0.0.0:8548 \
+      --redis-uri=redis://127.0.0.1:6381 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --node-id=2 \
+      --realm-id=1024 \
+      --worker-queue-suffix=rwq1024 \
+      --notifications-queue-suffix=rnq1024 \
+      --proof-store-key-suffix=RP1024 \
+      --path=./db/realm1024
+
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli generate-access-token
 
@@ -215,6 +248,18 @@ register-user:
 	     -H "Content-Type: application/json" \
 	     -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "cad421940097e1a1257a0d85faf9441d6e52d17f2dcda0da6da5c3a4ea80fe15" }, "id": 1 }' | jq .
 
+register-user2:
+	@RUST_LOG=${LOG_LEVEL} curl -X POST ${COORDINATOR_RPC_URL} \
+      -H "Content-Type: application/json" \
+      -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "948eecedbc5579156b0ba347124538e2f1beb430f86615d656cea54bfc20a4b3" }, "id": 1 }' | jq .
+	@sleep 0.5
+	@RUST_LOG=${LOG_LEVEL} curl -X POST ${COORDINATOR_RPC_URL} \
+	     -H "Content-Type: application/json" \
+	     -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "e002b20332ebaabb07f0c1acd1d209558115796bddc1b407ee2e67f55b71c42e" }, "id": 1 }' | jq .
+
+random-register-user-batch:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli random-register-user-batch --total-user $(TOTAL_USER)
+
 deploy-contract:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${CURRENT_USER_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
 
@@ -225,10 +270,28 @@ transfer:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 500 --nonce 2
 
 claim:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0 --nonce 1
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER2048_0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0 --nonce 1
 
 return-back:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER2048_0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 500 --nonce 2
+
+mint2:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000 --nonce 1
+
+transfer2:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 500 --nonce 2
+
+claim2:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 1 --nonce 1
+
+return-back2:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1 --inputs 500 --nonce 2
+
+claim3:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 4194304 --nonce 1
+
+return-back3:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 4194304 --inputs 500 --nonce 2
 
 balance-of:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}, ${CONTRACT_STATE_HEIGHT}, ${SLOT_ID}], "id": 1 }' | jq .

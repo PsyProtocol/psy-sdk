@@ -136,11 +136,16 @@ tokio-executor-trait = "2.1.3"
 tokio-reactor-trait = "2"
 
 futures = "0.3.0"
-redis = { version = "^0.25", default-features = false, features = [
-  "acl",
-  "keep-alive",
-  "script",
+redis = { version = "0.30.0", default-features = false, features = [
+    "acl",
+    "keep-alive",
+    "script",
+    "tokio-comp",
+    "connection-manager",
+    "r2d2"
 ] }
+bb8-redis = "0.22.0"
+bb8 = "0.9"
 fred = "10.0.4"
 
 reth-mdbx-sys = { path = "./kvq_store_lmdbx/libmdbx-rs/mdbx-sys" }

@@ -8,6 +8,16 @@ use crate::{
     models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE,
 };
 
+
+#[derive(Debug, thiserror::Error)]
+pub enum CheckpointError {
+    #[error("not found")]
+    NotFound,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+
 pub trait QEDCheckpointSyncInfoModelReaderCore<
     const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
     S: KVQBinaryStoreReader,
@@ -43,7 +53,7 @@ pub trait QEDCheckpointSyncInfoModelReaderCore<
         if result.is_some() {
             Ok(result.unwrap())
         } else {
-            anyhow::bail!("error getting latest block sync data")
+            Err(CheckpointError::NotFound.into())
         }
     }
     fn get_checkpoint_sync_info_batch(

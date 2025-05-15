@@ -30,7 +30,7 @@ mod codec;
 mod cursor;
 mod database;
 mod environment;
-mod error;
+pub mod error;
 mod flags;
 mod transaction;
 mod txn_manager;

@@ -6,7 +6,7 @@ pub async fn run(args: RealmNodeConfig) -> anyhow::Result<()> {
         result = qed_realm_node::run_realm_processor(args)=> {
             match result {
                 Ok(()) => tracing::warn!("Realm processor exit."),
-                Err(e) => tracing::warn!("Realm processor exit error: {:?}", e),
+                Err(e) => tracing::error!("Realm processor exit error: {:?}", e),
             }
         }
         _ = ctrl_c => {

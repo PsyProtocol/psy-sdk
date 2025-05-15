@@ -135,7 +135,7 @@ where
         );
 
         let only_register_users =
-            GUTAOnlyRegisterUsersCircuit::<C, D>::new(64, REALM_USER_TREE_HEIGHT as usize);
+            GUTAOnlyRegisterUsersCircuit::<C, D>::new(64, GLOBAL_USER_TREE_HEIGHT as usize);
 
         let no_change = GUTANoChangeCircuit::<C,D>::new(CHECKPOINT_TREE_HEIGHT as usize);
 
@@ -421,7 +421,7 @@ mod tests {
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
     use qed_common_circuit::circuits::lookalikes::custom::get_lookalike_custom;
     use qed_core::{data::qhashout::QHashOut, job::id::QCircuitCommonGatesType};
-    
+
 
 
     use super::QEDGUTACircuitManager;
@@ -444,7 +444,7 @@ mod tests {
                 .height(),
             QHashOut::rand(),
         );
-        
+
 
         assert_eq!(
             mgr.verify_single_end_cap.fingerprint,

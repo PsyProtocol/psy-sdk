@@ -4,8 +4,7 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterSyncImm, DQSerializable};
 use qed_core::job::id::QProvingJobDataID;
 use qed_core::job::traits::{QProofStoreReaderSync, QProofStoreWriterSync, QProofStoreWriterSyncImm};
-use r2d2_redis::RedisConnectionManager;
-use redis::Commands;
+use redis::{Client as RedisClient, Commands};
 
 // Table
 pub const USER_STATE: &'static str = "user_state";
@@ -15,21 +14,21 @@ pub const PROOF_COUNTERS: &'static str = "proof_counters";
 
 #[derive(Clone)]
 pub struct DrainQueueRedis {
-    pool: r2d2::Pool<RedisConnectionManager>,
+    pool: r2d2::Pool<RedisClient>,
 }
 
 impl DrainQueueRedis {
     pub fn new(uri: &str) -> anyhow::Result<Self> {
-        let manager = RedisConnectionManager::new(uri)?;
-        let pool = r2d2::Pool::builder().build(manager)?;
+        let client = RedisClient::open(uri)?;
+        let pool = r2d2::Pool::builder().build(client)?;
         Ok(Self { pool })
     }
 
-    pub fn get_connection(&self) -> anyhow::Result<r2d2::PooledConnection<RedisConnectionManager>> {
+    pub fn get_connection(&self) -> anyhow::Result<r2d2::PooledConnection<RedisClient>> {
         Ok(self.pool.get()?)
     }
 
-    pub fn get_pool(&self) -> r2d2::Pool<RedisConnectionManager> {
+    pub fn get_pool(&self) -> r2d2::Pool<RedisClient> {
         self.pool.clone()
     }/*
 
@@ -67,7 +66,7 @@ impl CheckpointDrainQueueConsumerSyncImm for DrainQueueRedis {
         let key = format!("CDQ_1_{}_{}",channel_id, checkpoint_id);
         let members: Vec<Vec<u8>> = conn.smembers::<String, Vec<Vec<u8>>>(key.clone())?;
         conn.del::<_, ()>(key)?;
-        
+
         members.into_iter().map(|x| T::from_bytes(&x)).collect()
     }
 }
@@ -97,7 +96,7 @@ impl CheckpointDrainQueueConsumerSyncImm for DrainQueueRedis {
         let key = format!("CDQ_1_{}_{}",channel_id, checkpoint_id);
         let members: Vec<Vec<u8>> = conn.lrange::<String, Vec<Vec<u8>>>(key.clone(), 0, -1)?;
         conn.del::<_, ()>(key)?;
-        
+
         members.into_iter().map(|x| T::from_bytes(&x)).collect()
     }
 }
@@ -144,7 +143,7 @@ impl QProofStoreWriterSync for DrainQueueRedis {
         conn.hset_nx::<_,_,_,()>(PROOFS, <[u8; 24]>::from(&id).to_vec(), data)?;
         Ok(())
     }
-    
+
     fn write_next_jobs(
         &mut self,
         jobs: &[QProvingJobDataID],
@@ -152,7 +151,7 @@ impl QProofStoreWriterSync for DrainQueueRedis {
     ) -> anyhow::Result<()> {
         self.write_next_jobs_core(jobs, next_jobs)
     }
-    
+
     fn write_multidimensional_jobs(
         &mut self,
         jobs_levels: &[Vec<QProvingJobDataID>],
@@ -189,7 +188,7 @@ impl QProofStoreWriterSyncImm for DrainQueueRedis {
         conn.hset_nx::<_,_,_,()>(PROOFS, <[u8; 24]>::from(&id).to_vec(), data)?;
         Ok(())
     }
-    
+
     fn write_next_jobs_imm(
         &self,
         jobs: &[QProvingJobDataID],
@@ -197,7 +196,7 @@ impl QProofStoreWriterSyncImm for DrainQueueRedis {
     ) -> anyhow::Result<()> {
         self.write_next_jobs_core_imm(jobs, next_jobs)
     }
-    
+
     fn write_multidimensional_jobs_imm(
         &self,
         jobs_levels: &[Vec<QProvingJobDataID>],

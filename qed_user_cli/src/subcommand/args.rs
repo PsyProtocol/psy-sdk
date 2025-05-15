@@ -257,3 +257,29 @@ pub struct UserLeafArgs {
     #[arg(long, default_value = "100", env)]
     pub checkpoint_id: u64,
 }
+
+#[derive(Clone, Args)]
+pub struct WalletSessionArgs {
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
+    #[arg(
+        long,
+        default_value = "0d47fda4480f045506b085ba6921fc86d8cc6feb1b533292db4b1a3af8f89eab",
+        env
+    )]
+    pub private_key: String,
+    #[clap(env, long, default_value = "contract_call.json", env)]
+    pub contract_calls: String,
+}
+
+#[derive(Clone, Args)]
+pub struct RandomArgs {
+    #[clap(env, long, default_value = "rpc.config", env)]
+    pub rpc_config: String,
+    #[clap(long, default_value = "128", env)]
+    pub user_per_block: u64,
+    #[clap(long, default_value = "4096", env)]
+    pub total_user: u64,
+    #[clap(long, default_value = "3", env)]
+    pub interval: u64,
+}
