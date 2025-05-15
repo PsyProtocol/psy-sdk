@@ -19,6 +19,9 @@ use qed_store::config::store_config::{QEDFelt, QEDHasher};
 
 use qed_user_cli::rpc::request::*;
 
+use crate::context::get_jwt_secret;
+use qed_rollup_utils::{decrypt_jwt_token, JWT_COMPANY, JWT_SUBJECT};
+
 /// register the RPC methods for the CoordinatorEdgeHandler
 pub fn build_rpc_module(
     args: CoordinatorEdgeArgs,
@@ -1262,12 +1265,6 @@ where
         }
     }
 }
-
-use crate::context::get_jwt_secret;
-use jsonrpsee::types::Request;
-use kvq::traits::KVQSerializable;
-use qed_node::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by_pubkey};
-use qed_rollup_utils::{decrypt_jwt_token, Claims, JWT_COMPANY, JWT_SUBJECT};
 
 pub fn validate_jwt_from_ext(ext: &JwtAuthMetadata) -> Result<(), ErrorObjectOwned> {
     let jwt_meta = ext;

@@ -1,22 +1,14 @@
 use std::{fmt, str::FromStr, task::Context};
 
 use crate::rpc::router::JwtAuthMetadata;
-use headers::authorization::{Bearer, Credentials};
-use http::{
-    header::{HeaderValue, AUTHORIZATION},
-    Request, Response, StatusCode,
-};
+use http::{header::AUTHORIZATION, Request, Response};
 use jsonrpsee::server::HttpBody;
-use jsonrpsee::types::ErrorObjectOwned;
-use qed_rollup_utils::{decrypt_jwt_token, Claims, JWT_COMPANY, JWT_SUBJECT};
 use rand::prelude::*;
 use serde::{
     de::{self, Visitor},
     Deserialize, Serialize,
 };
 use tower::Service;
-use tracing::info;
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

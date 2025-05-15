@@ -6,27 +6,10 @@ use crate::args::CoordinatorEdgeArgs;
 use crate::context::{get_jwt_secret, init_coordinator_edge};
 use crate::edge::rpc::router::build_rpc_module;
 use crate::rpc::jwt::{JwtSecret, ServerLayer};
-use axum::http::Method;
-use axum::{extract::State, http::Request, response::IntoResponse, routing::post, Router};
-use headers::HeaderValue;
-use http::header::AUTHORIZATION;
-use hyper::body::Body;
-use hyper::body::Bytes;
-use jsonrpsee::rpc_params;
-use jsonrpsee::server::Server;
-use jsonrpsee::RpcModule;
-use std::iter::once;
-use std::net::SocketAddr;
-use std::sync::Arc;
-use std::time::Duration;
-use tower::Service;
-use tower::{service_fn, ServiceBuilder};
-use tracing::info;
 
-use headers::HeaderName;
-use jsonrpsee::core::client::ClientT;
-use jsonrpsee::http_client::HttpClient;
-use jsonrpsee::ws_client::WsClientBuilder;
+use jsonrpsee::server::Server;
+use std::net::SocketAddr;
+use tracing::info;
 
 pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Starting coordinator edge node...");
