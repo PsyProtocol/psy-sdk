@@ -9,7 +9,6 @@ use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     plonk::proof::ProofWithPublicInputs,
 };
-use qed_core::config::network_constants::REALM_USER_TREE_HEIGHT;
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT,
@@ -37,7 +36,7 @@ use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
 };
 use qed_data::qdata::user::QEDUserLeaf;
-use qed_node::nimpl::proof_store_fred::ProofStoreFred;
+use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 use qed_node::realm::state::processor::RealmConfig;
 use qed_store::config::store_config::QEDFelt;
 use qed_store::config::store_config::UserTreeStore;
@@ -804,7 +803,7 @@ where
 }
 
 pub async fn spawn_realm_job_update_task(
-    proof_store: Arc<ProofStoreFred>,
+    proof_store: Arc<ProofStoreRedisAsync>,
     realm_id: u64,
     coordinator_addr: String,
 ) -> anyhow::Result<()> {
@@ -815,8 +814,7 @@ pub async fn spawn_realm_job_update_task(
                 Ok(job_id) => {
                     info!(?job_id, "Received proof from realm processor");
                     // if job_id.job_id.circuit_type != GUTANoChange {
-                    send_realm_proof(proof_store.clone(), job_id, realm_id, &coordinator_addr)
-                        .await;
+                    send_realm_proof(proof_store.clone(), job_id, realm_id, &coordinator_addr).await;
                     // }
                 }
                 Err(err) => {
