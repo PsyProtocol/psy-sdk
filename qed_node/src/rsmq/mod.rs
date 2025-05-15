@@ -68,7 +68,6 @@ impl QueueId {
             QueueId::CheckpointHistory { channel_id } => {
                 format!("{}-{}", PS_HISTORY_QUEUE_KEY_PREFIX, channel_id)
             }
-
             QueueId::SyncProof {
                 worker_queue_suffix,
             } => {
@@ -135,7 +134,6 @@ impl RsmqQueue {
         };
         Ok(client)
     }
-
     pub async fn create_queue_if_not_exists(&self, queue: &QueueId) -> anyhow::Result<()> {
         let queue_id = queue.get_queue_id();
         match self.pool.get_queue_attributes(&queue_id).await {
@@ -209,26 +207,6 @@ impl CheckpointDrainQueueEmitterAsyncImm for RsmqQueue {
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
-    async fn cdq_get_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
-        let queue_id = QueueId::CheckpointDrain {
-            worker_queue_suffix: self.worker_queue_suffix.clone(),
-            channel_id,
-            checkpoint_id,
-        };
-        let mut members = Vec::new();
-        while let Some(message) = self
-            .receive_message(&queue_id, Some(Duration::from_millis(1000)))
-            .await?
-        {
-            members.push(message);
-        }
-        members.into_iter().map(|x| T::from_bytes(&x)).collect()
-    }
-
     async fn cdq_drain_imm<T: DQSerializable>(
         &self,
         channel_id: u64,
