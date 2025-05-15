@@ -1,8 +1,9 @@
 use crate::error::RpcError;
-use crate::rpc::{RealmEdgeRpcServer};
+use crate::rpc::RealmEdgeRpcServer;
 use crate::{SyncCheckpointQueue, SyncProofQueue, C, D, F, H};
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
+use jsonrpsee::http_client::{HeaderMap, HeaderValue};
 use jsonrpsee::rpc_params;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::{
@@ -39,6 +40,7 @@ use qed_data::qdata::checkpoint::{
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::realm::state::processor::RealmConfig;
+use qed_rollup_utils::generate_jwt_token;
 use qed_store::config::store_config::QEDFelt;
 use qed_store::config::store_config::UserTreeStore;
 use qed_store::models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore;
@@ -141,7 +143,11 @@ impl<
 
         let user_id_u64 = input.core.new_user_leaf.user_id.to_canonical_u64();
         if !self.includes_user_id(user_id_u64) {
-            anyhow::bail!("user id {} is not in this realm {}", user_id_u64, self.realm_config.realm_id);
+            anyhow::bail!(
+                "user id {} is not in this realm {}",
+                user_id_u64,
+                self.realm_config.realm_id
+            );
         }
 
         // Build contract height cache and validate
@@ -876,9 +882,12 @@ async fn send_realm_proof<PS: QProofStoreAsyncImm>(
         .await
     {
         Ok(proof) => {
-            eprintln!("DEBUGPRINT[686]: context.rs:885: proof={}", serde_json::to_string_pretty(&proof.public_inputs).unwrap());
+            eprintln!(
+                "DEBUGPRINT[686]: context.rs:885: proof={}",
+                serde_json::to_string_pretty(&proof.public_inputs).unwrap()
+            );
             proof
-        },
+        }
         Err(err) => {
             error!("Failed to get proof_by_id: {:?}", err);
             return;
@@ -894,9 +903,21 @@ async fn send_realm_proof<PS: QProofStoreAsyncImm>(
         circuit_type: realm_result.proof_id.circuit_type,
     };
     let mut retry_count = 0;
+    let jwt_token =
+        generate_jwt_token("my_super_secret_key", realm_id).expect("Failed to generate JWT token");
+    let bearer_token_value = format!("Bearer {}", jwt_token);
+    let header_value =
+        HeaderValue::from_str(&bearer_token_value).expect("Failed to create header value");
+    let mut headers = HeaderMap::new();
+    headers.insert("Authorization", header_value);
+
     while retry_count < 5 {
         info!("Sending job to coordinator, retry_count = {}", retry_count);
-        match jsonrpsee::http_client::HttpClientBuilder::default().build(coordinator_addr) {
+        let client = jsonrpsee::http_client::HttpClientBuilder::default()
+            .set_headers(headers.clone())
+            .build(coordinator_addr);
+
+        match client {
             Ok(client) => {
                 let params = rpc_params![input.clone(), proof.clone()];
                 match client.request::<String, _>("qed_submit_guta", params).await {
