@@ -7,6 +7,7 @@ use qed_core::job::id::ProvingJobDataId;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use redis::{AsyncCommands, RedisResult};
+use qed_node::rsmq::{QueueId, RsmqQueue};
 use qed_node_common::coordinator::CheckpointSyncInfo;
 use crate::F;
 
@@ -44,6 +45,34 @@ impl SyncProofQueue for ProofStoreFred {
                 )),
             },
             Err(err) => Err(anyhow::anyhow!("Error getting job_id from Redis {:?}", err)),
+        }
+    }
+}
+
+#[async_trait]
+impl SyncProofQueue for RsmqQueue {
+    async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()> {
+        let queue_id = QueueId::SyncProof {
+            worker_queue_suffix: self.worker_queue_suffix.clone(),
+        };
+        self.send_message(&queue_id, item.to_bytes()?).await
+    }
+
+    async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId> {
+        let queue_id = QueueId::SyncProof {
+            worker_queue_suffix: self.worker_queue_suffix.clone(),
+        };
+        match self.pop_message(&queue_id).await? {
+            None => {
+                anyhow::bail!("No message in queue");
+            }
+            Some(bytes) => match ProvingJobDataId::from_bytes(&bytes) {
+                Ok(id) => Ok(id),
+                Err(err) => Err(anyhow::anyhow!(
+                    "Failed to parse ProvingJobDataId: {:?}",
+                    err
+                )),
+            },
         }
     }
 }
@@ -88,7 +117,6 @@ impl Queue {
         format!("{}-{}", self.worker_queue_id, REAML_CHECKPOINT_KEY)
     }
 }
-
 
 #[async_trait]
 impl SyncCheckpointQueue for Queue {

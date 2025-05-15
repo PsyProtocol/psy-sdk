@@ -399,21 +399,12 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreFred {
                 false,
             )
             .await?;
-
         Ok(())
     }
 }
 
 #[async_trait]
 impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
-    async fn current_checkpoint_id(&self, channel_id: u64) -> anyhow::Result<Option<u64>> {
-        let cur_checkpoint_id = self
-            .pool
-            .get::<Option<u64>, String>(format!("{}-{}", PS_HISTORY_QUEUE_KEY_PREFIX, channel_id,))
-            .await?;
-        Ok(cur_checkpoint_id)
-    }
-
     async fn chq_listen_from_imm<T: HQSerializable>(
         &self,
         channel_id: u64,

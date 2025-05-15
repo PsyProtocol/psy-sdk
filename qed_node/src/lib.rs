@@ -4,3 +4,4 @@ pub mod fast_tree;
 pub mod nimpl;
 pub mod realm;
 pub mod worker;
+pub mod rsmq;

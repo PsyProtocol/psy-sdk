@@ -64,7 +64,7 @@ impl ProofStoreRedisAsync {
         })
     }
 
-    fn pool(&self) -> Pool<RedisConnectionManager>{
+    fn pool(&self) -> Pool<RedisConnectionManager> {
         self.pool.clone()
     }
 }
@@ -167,7 +167,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreRedisAsync {
             "{}-{}_{}",
             checkpoint_queue_prefix, metadata.channel_id, metadata.checkpoint_id
         );
-       // tracing::debug!("Pushing job id to queue: {:?}", key);
+        // tracing::debug!("Pushing job id to queue: {:?}", key);
         let mut con = self.pool.get().await?;
         con.lpush(&key, &bytes).await?;
 
@@ -233,7 +233,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreRedisAsync {
             sleep(Duration::from_millis(100)).await;
         }
     }
-    
+
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         let mut con = self.pool.get().await?;
         con.lpush(
@@ -389,14 +389,6 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreRedisAsync {
 
 #[async_trait]
 impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreRedisAsync {
-    async fn current_checkpoint_id(&self, channel_id: u64) -> anyhow::Result<Option<u64>> {
-        let mut con = self.pool.get().await?;
-        let cur_checkpoint_id = con
-            .get(format!("{}-{}", PS_HISTORY_QUEUE_KEY_PREFIX, channel_id,))
-            .await?;
-        Ok(cur_checkpoint_id)
-    }
-
     async fn chq_listen_from_imm<T: HQSerializable>(
         &self,
         channel_id: u64,
