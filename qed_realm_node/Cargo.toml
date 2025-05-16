@@ -14,6 +14,7 @@ qed_store = { workspace = true }
 qed_crypto = { workspace = true }
 qed_node = { workspace = true }
 qed_node_common = { workspace = true }
+qed_rollup_utils = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }

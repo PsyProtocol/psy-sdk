@@ -1,22 +1,19 @@
-use std::fs;
+use std::{env, fs};
 // std
-use crate::{CoordinatorEdgeArgs};
-use anyhow::anyhow;
+use crate::CoordinatorEdgeArgs;
+use anyhow::{anyhow, Context};
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
-use once_cell::sync::{Lazy};
+use once_cell::sync::Lazy;
 use std::future::Future;
 use std::path::Path;
-use std::sync::{
-    atomic::{AtomicU64},
-    Arc, OnceLock,
-};
+use std::sync::{atomic::AtomicU64, Arc, OnceLock};
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::info;
 
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
-use qed_node::coordinator::state::user_map::{init_node_redis_pool};
+use qed_node::coordinator::state::user_map::init_node_redis_pool;
 use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
@@ -32,6 +29,7 @@ pub struct GlobalCoordinatorEdgeState {
     pub ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     pub sync_queue: DrainQueueRedis,
     pub store: StoreReader,
+    pub jwt_secret: Arc<String>,
 }
 pub static GLOBAL_COORD_EDGE_STATE: OnceLock<GlobalCoordinatorEdgeState> = OnceLock::new();
 
@@ -81,10 +79,14 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     )
     .await?;
 
+    let jwt_secret =
+        env::var("JWT_SECRET").with_context(|| "JWT_SECRET not found in environment")?;
+
     let global = GlobalCoordinatorEdgeState {
         ctx,
         sync_queue,
         store: store_wrapper,
+        jwt_secret: Arc::new(jwt_secret),
     };
     GLOBAL_COORD_EDGE_STATE
         .set(global)
@@ -146,4 +148,10 @@ where
     };
 
     f(temp_ctx).await
+}
+
+pub fn get_jwt_secret() -> Option<Arc<String>> {
+    GLOBAL_COORD_EDGE_STATE
+        .get()
+        .map(|state| Arc::clone(&state.jwt_secret))
 }

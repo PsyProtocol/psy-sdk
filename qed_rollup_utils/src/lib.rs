@@ -7,6 +7,9 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
+pub const JWT_COMPANY: &str = "QEDProtocol";
+pub const JWT_SUBJECT: &str = "qedlang-rust";
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub company: String,
@@ -21,8 +24,8 @@ pub fn generate_jwt_token(
 ) -> Result<String, jsonwebtoken::errors::Error> {
     let expiration = Utc::now() + Duration::seconds(604800);
     let claims = Claims {
-        company: "QEDProtocol".to_string(),
-        sub: "qedlang-rust".to_string(),
+        company: JWT_COMPANY.to_string(),
+        sub: JWT_SUBJECT.to_string(),
         realm_id: realm_id,
         exp: expiration.timestamp(),
     };

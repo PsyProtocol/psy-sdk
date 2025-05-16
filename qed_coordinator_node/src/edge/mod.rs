@@ -2,13 +2,15 @@ pub mod communicate;
 pub mod context;
 pub mod rpc;
 
+use crate::args::CoordinatorEdgeArgs;
+use crate::context::{get_jwt_secret, init_coordinator_edge};
+use crate::edge::rpc::router::build_rpc_module;
+use crate::rpc::jwt::{JwtSecret, ServerLayer};
+
 use jsonrpsee::server::Server;
 use std::net::SocketAddr;
 use tracing::info;
 
-use crate::args::CoordinatorEdgeArgs;
-use crate::context::init_coordinator_edge;
-use crate::edge::rpc::router::build_rpc_module;
 pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Starting coordinator edge node...");
     info!("✅ Loaded config: {:#?}", config);
@@ -19,13 +21,26 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     handler.spawn_cp_sync_listener().await?;
 
     let addr: SocketAddr = config.listen_addr.parse()?;
-    let server = Server::builder().build(addr).await?;
-    let handle = server.start(rpc_module);
+
+    let jwt_secret = match get_jwt_secret() {
+        Some(jwt_secret) => JwtSecret::from_hex(&jwt_secret.as_bytes())?,
+        None => {
+            return Err(anyhow::anyhow!("JWT secret not found"));
+        }
+    };
+
+    let service_builder = tower::ServiceBuilder::new().layer(ServerLayer(jwt_secret));
+
+    let server = Server::builder()
+        .set_http_middleware(service_builder)
+        .build(addr)
+        .await?;
+
     info!(
         "🚀 Coordinator Edge RPC server now running on http://{}",
         config.listen_addr
     );
-
+    let handle = server.start(rpc_module);
     handle.stopped().await;
     Ok(())
 }
