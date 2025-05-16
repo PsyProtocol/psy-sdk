@@ -16,7 +16,6 @@ use rsmq::{PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqError, RsmqO
 use std::fmt::{Debug, Formatter};
 use std::str::FromStr;
 use std::time::Duration;
-use tokio::sync::RwLock;
 use tokio::time::sleep;
 use tracing::{error, info};
 
@@ -69,7 +68,6 @@ impl QueueId {
             QueueId::CheckpointHistory { channel_id } => {
                 format!("{}-{}", PS_HISTORY_QUEUE_KEY_PREFIX, channel_id)
             }
-
             QueueId::SyncProof {
                 worker_queue_suffix,
             } => {
@@ -80,7 +78,7 @@ impl QueueId {
 }
 
 pub struct RsmqQueue {
-    pub pool: RwLock<PooledRsmq>,
+    pub pool: PooledRsmq,
     pub worker_queue_suffix: String,
     pub notifications_queue_suffix: String,
 }
@@ -130,20 +128,18 @@ impl RsmqQueue {
     ) -> anyhow::Result<Self> {
         let pool = new_rsmq_pool(redis_url, pool_size).await?;
         let client = Self {
-            pool: RwLock::new(pool.clone()),
+            pool,
             worker_queue_suffix: worker_queue_suffix.to_string(),
             notifications_queue_suffix: notifications_queue_suffix.to_string(),
         };
         Ok(client)
     }
-
     pub async fn create_queue_if_not_exists(&self, queue: &QueueId) -> anyhow::Result<()> {
         let queue_id = queue.get_queue_id();
-        let mut pool = self.pool.write().await;
-        match pool.get_queue_attributes(&queue_id).await {
+        match self.pool.get_queue_attributes(&queue_id).await {
             Ok(_) => Ok(()),
             Err(RsmqError::QueueNotFound) => {
-                let ret = pool.create_queue(&queue_id, None, None, None).await;
+                let ret = self.pool.create_queue(&queue_id, None, None, None).await;
                 match ret {
                     Ok(()) | Err(RsmqError::QueueExists) => Ok(()),
                     Err(err) => Err(err)?,
@@ -161,11 +157,7 @@ impl RsmqQueue {
         self.create_queue_if_not_exists(queue).await?;
         let queue_id = queue.get_queue_id();
         let bytes = message.into();
-        self.pool
-            .write()
-            .await
-            .send_message(&queue_id, bytes, None)
-            .await?;
+        self.pool.send_message(&queue_id, bytes, None).await?;
         Ok(())
     }
 
@@ -178,8 +170,6 @@ impl RsmqQueue {
         let queue_id = queue.get_queue_id();
         let message = self
             .pool
-            .write()
-            .await
             .receive_message::<Vec<u8>>(&queue_id, hidden)
             .await?;
         Ok(message.map(|msg| msg.message))
@@ -188,23 +178,14 @@ impl RsmqQueue {
     pub async fn delete_message(&self, queue: &QueueId, message_id: &str) -> anyhow::Result<()> {
         self.create_queue_if_not_exists(queue).await?;
         let queue_id = queue.get_queue_id();
-        self.pool
-            .write()
-            .await
-            .delete_message(&queue_id, message_id)
-            .await?;
+        self.pool.delete_message(&queue_id, message_id).await?;
         Ok(())
     }
 
     pub async fn pop_message(&self, queue: &QueueId) -> anyhow::Result<Option<Vec<u8>>> {
         self.create_queue_if_not_exists(queue).await?;
         let queue_id = queue.get_queue_id();
-        let message = self
-            .pool
-            .write()
-            .await
-            .pop_message::<Vec<u8>>(&queue_id)
-            .await?;
+        let message = self.pool.pop_message::<Vec<u8>>(&queue_id).await?;
         Ok(message.map(|msg| msg.message))
     }
 }
@@ -226,26 +207,6 @@ impl CheckpointDrainQueueEmitterAsyncImm for RsmqQueue {
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
-    async fn cdq_get_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
-        let queue_id = QueueId::CheckpointDrain {
-            worker_queue_suffix: self.worker_queue_suffix.clone(),
-            channel_id,
-            checkpoint_id,
-        };
-        let mut members = Vec::new();
-        while let Some(message) = self
-            .receive_message(&queue_id, Some(Duration::from_millis(1000)))
-            .await?
-        {
-            members.push(message);
-        }
-        members.into_iter().map(|x| T::from_bytes(&x)).collect()
-    }
-
     async fn cdq_drain_imm<T: DQSerializable>(
         &self,
         channel_id: u64,
