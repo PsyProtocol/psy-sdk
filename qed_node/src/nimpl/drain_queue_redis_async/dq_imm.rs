@@ -37,6 +37,15 @@ impl DrainQueueRedisAsync {
     pub fn get_pool(&self) -> Pool<RedisConnectionManager> {
         self.pool.clone()
     }
+
+    //todo: temporary solution, you should use a suitable queue later
+    pub async fn get_imm <T:DQSerializable>(&self, channel_id:u64, checkpoint_id:u64,) -> anyhow::Result<Vec<T> >  {
+        let mut conn = self.get_connection().await?;
+        let key = format!("CDQ_1_{}_{}",channel_id, checkpoint_id);
+        let members: Vec<Vec<u8>> = conn.lrange(key.clone(), 0, -1).await?;
+
+        members.into_iter().map(|x| T::from_bytes(&x)).collect()
+    }
 }
 
 #[async_trait]

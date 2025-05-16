@@ -37,22 +37,6 @@ pub async fn save_user_mapping_to_redis(
     redis_pool
         .set::<(), _, _>(pubkey_key.clone(), user_id.to_string(), None, None, false)
         .await?;
-    // {
-    //     let conn = redis_pool.next();
-    //
-    //     if let Ok(verify_bytes) = conn.get::<Vec<u8>, _>(user_key.as_str()).await {
-    //         tracing::info!("🔎 Verified {} - {}, ", user_key, encode(&verify_bytes[..]));
-    //     } else {
-    //         tracing::warn!("⚠️ Failed to verify user_key = {}", user_key);
-    //     }
-    //
-    //     //
-    //     if let Ok(verify_str) = conn.get::<String, _>(pubkey_key.as_str()).await {
-    //         tracing::info!("🔎 Verified key = {}, value = {}", pubkey_key, verify_str);
-    //     } else {
-    //         tracing::warn!("⚠️ Failed to verify pubkey_key = {}", pubkey_key);
-    //     }
-    // }
 
     Ok(())
 }

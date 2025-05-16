@@ -7,9 +7,9 @@ use tracing::{error, info};
 
 use qed_core::config::network_constants::COORD_STATUS_CHANNEL_ID;
 use qed_core::job::drain_queue::{
-    CheckpointDrainQueueEmitterSyncImm, DrainQueueMetadata, DrainQueueMetadataTagged,
+    CheckpointDrainQueueEmitterAsyncImm, DrainQueueMetadata, DrainQueueMetadataTagged,
 };
-use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
+use qed_node::nimpl::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct GlobalCoordinatorStatus {
@@ -38,7 +38,7 @@ impl DrainQueueMetadataTagged for GlobalCoordinatorStatus {
 }
 
 pub async fn push_latest_global_coordinator_status(
-    drain_queue: Arc<DrainQueueRedis>,
+    drain_queue: Arc<DrainQueueRedisAsync>,
     confirmed_checkpoint_id: u64,
     processor_height: u64,
 ) {
@@ -48,7 +48,7 @@ pub async fn push_latest_global_coordinator_status(
         timestamp: Utc::now().timestamp() as u64,
     };
 
-    match drain_queue.cdq_push_imm_sync(status.clone()) {
+    match drain_queue.cdq_push_imm(status.clone()).await {
         Ok(_) => {
             info!(
                 "⭐ Updated confirmed checkpoint id = {}, processor height = {}",

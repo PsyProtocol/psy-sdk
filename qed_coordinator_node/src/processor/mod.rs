@@ -4,9 +4,7 @@ use anyhow::bail;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use qed_core::job::drain_queue::{
-    CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterSyncImm,
-};
+use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
 use qed_core::job::{
     drain_queue::CheckpointDrainQueueConsumerAsyncImm,
@@ -17,7 +15,7 @@ use qed_core::job::{
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::coordinator::state::processor::CoordinatorConfig;
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
-use qed_node::nimpl::drain_queue_redis::dq_imm::DrainQueueRedis;
+use qed_node::nimpl::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
 use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::{
@@ -35,6 +33,7 @@ use qed_store::{
 };
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, warn};
+
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
@@ -46,7 +45,7 @@ pub struct CoordinatorProcessNode<
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     ER: WorkerEventReceiverAsyncImm,
-    SQ: CheckpointDrainQueueConsumerSyncImm + CheckpointDrainQueueEmitterSyncImm,
+    SQ: CheckpointDrainQueueEmitterAsyncImm + CheckpointDrainQueueConsumerAsyncImm,
 > {
     pub ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
     pub sync_queue: Arc<SQ>,
@@ -64,7 +63,7 @@ impl<
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm,
         ER: WorkerEventReceiverAsyncImm,
-        SQ: CheckpointDrainQueueConsumerSyncImm + CheckpointDrainQueueEmitterSyncImm,
+        SQ: CheckpointDrainQueueEmitterAsyncImm + CheckpointDrainQueueConsumerAsyncImm,
     > CoordinatorProcessNode<SR, DQ, HQ, WQ, PS, ER, SQ>
 {
     pub fn new(
@@ -134,39 +133,24 @@ impl
         ProofStoreFred,
         ProofStoreFred,
         ProofStoreFred,
-        DrainQueueRedis,
+        DrainQueueRedisAsync,
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
-        let pool = new_fred_pool(
-            &cp_config.redis_uri,
-            cp_config.pool_size as usize,
-        )
-        .await?;
+        let pool = new_fred_pool(&cp_config.redis_uri, cp_config.pool_size as usize).await?;
         init_node_redis_pool(pool.clone())?;
         info!("🐶 redis pool initialized");
         let q = ProofStoreFred::new2(
             pool.clone(),
-            &cp_config
-                .queue_args
-                .worker_queue_suffix,
-            &cp_config
-                .queue_args
-                .notifications_queue_suffix,
-            &cp_config
-                .queue_args
-                .proof_store_key_suffix,
-            &cp_config
-                .queue_args
-                .proof_store_key_suffix,
+            &cp_config.queue_args.worker_queue_suffix,
+            &cp_config.queue_args.notifications_queue_suffix,
+            &cp_config.queue_args.proof_store_key_suffix,
+            &cp_config.queue_args.proof_store_key_suffix,
         );
 
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(
-                KVQlibmdbxStore::new_write_with_size(
-                    &cp_config.db_path,
-                    cp_config.db_size_gb,
-                )?,
+                KVQlibmdbxStore::new_write_with_size(&cp_config.db_path, cp_config.db_size_gb)?,
             );
 
         //try to get the block 1's state
@@ -184,7 +168,7 @@ impl
         };
 
         //use sync_queue for checkpoint sync
-        let sync_queue = Arc::new(DrainQueueRedis::new(&cp_config.redis_uri)?);
+        let sync_queue = Arc::new(DrainQueueRedisAsync::new(&cp_config.redis_uri).await?);
         let edge_command_queue = RedisQueue::new(&cp_config.redis_uri)?;
 
         let coord_config = CoordinatorConfig::get_standard(0);

@@ -17,7 +17,7 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::config::network_constants::COORD_STATUS_CHANNEL_ID;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::drain_queue::{
-    CheckpointDrainQueueConsumerSyncImm, CheckpointDrainQueueEmitterAsyncImm,
+    CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm,
     WithDrainQueueMetadata,
 };
 use qed_core::job::id::ProvingJobCircuitType;
@@ -84,7 +84,7 @@ impl CoordinatorEdgeHandler {
             let mut last_logged_checkpoint = None;
 
             loop {
-                let fallback = match get_latest_status_from_global_queue().await {
+                let fallback = match get_latest_status_from_coord_sync_queue().await {
                     Ok(Some(status)) => {
                         let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
 
@@ -125,6 +125,7 @@ impl CoordinatorEdgeHandler {
                     }
                 };
                 if fallback {
+                    info!("🔄 Fallback to DB for latest checkpoint.");
                     //it means redis queue is empty or error, fallback to db
                     if let Err(e) = recover_latest_checkpoint_from_db_if_needed().await {
                         error!("❌ Failed to recover checkpoint from DB: {:?}", e);
@@ -1152,8 +1153,8 @@ impl CoordinatorEdgeHandler {
     }
 }
 
-pub async fn get_latest_status_from_global_queue() -> anyhow::Result<Option<GlobalCoordinatorStatus>>
-{
+pub async fn get_latest_status_from_coord_sync_queue(
+) -> anyhow::Result<Option<GlobalCoordinatorStatus>> {
     let state = GLOBAL_COORD_EDGE_STATE
         .get()
         .ok_or_else(|| anyhow::anyhow!("GLOBAL_COORD_EDGE_STATE is not initialized"))?;
@@ -1162,8 +1163,8 @@ pub async fn get_latest_status_from_global_queue() -> anyhow::Result<Option<Glob
     let checkpoint_id = 0;
     let entries = state
         .sync_queue
-        .cdq_get_imm_sync::<GlobalCoordinatorStatus>(COORD_STATUS_CHANNEL_ID, checkpoint_id)?;
-
+        .get_imm::<GlobalCoordinatorStatus>(COORD_STATUS_CHANNEL_ID, checkpoint_id)
+        .await?;
     Ok(entries.into_iter().next())
 }
 
