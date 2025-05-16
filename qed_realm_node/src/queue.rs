@@ -1,12 +1,14 @@
+use fred::interfaces::ListInterface;
 use async_trait::async_trait;
-use fred::prelude::{FredResult, ListInterface};
-use qed_node::nimpl::proof_store_fred::{ProofStoreFred};
+use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 use tracing::debug;
 use kvq::traits::KVQSerializable;
 use qed_core::job::id::ProvingJobDataId;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
+use fred::prelude::FredResult;
 use redis::{AsyncCommands, RedisResult};
+use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::rsmq::{QueueId, RsmqQueue};
 use qed_node_common::coordinator::CheckpointSyncInfo;
 use crate::F;
@@ -35,6 +37,34 @@ impl SyncProofQueue for ProofStoreFred {
     async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId> {
         let realm_proof_key = format!("{}-{}", self.worker_queue_id, REAML_PROOF_KEY);
         let result: FredResult<(String, Vec<u8>)> = self.pool().blpop(realm_proof_key, 0.0).await;
+
+        match result {
+            Ok((_, bytes)) => match ProvingJobDataId::from_bytes(&bytes) {
+                Ok(id) => Ok(id),
+                Err(err) => Err(anyhow::anyhow!(
+                    "Failed to parse ProvingJobDataId: {:?}",
+                    err
+                )),
+            },
+            Err(err) => Err(anyhow::anyhow!("Error getting job_id from Redis {:?}", err)),
+        }
+    }
+}
+
+#[async_trait]
+impl SyncProofQueue for ProofStoreRedisAsync {
+    async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()> {
+        let realm_proof_key = format!("{}-{}", self.worker_queue_id, REAML_PROOF_KEY);
+        let mut conn = self.pool().get().await?;
+        conn.rpush(&realm_proof_key, item.to_bytes()?)
+            .await?;
+        Ok(())
+    }
+
+    async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId> {
+        let realm_proof_key = format!("{}-{}", self.worker_queue_id, REAML_PROOF_KEY);
+        let mut conn = self.pool().get().await?;
+        let result: RedisResult<(String, Vec<u8>)> = conn.blpop(realm_proof_key, 0.0).await;
 
         match result {
             Ok((_, bytes)) => match ProvingJobDataId::from_bytes(&bytes) {
@@ -126,7 +156,7 @@ impl SyncCheckpointQueue for Queue {
     ) -> anyhow::Result<()> {
         debug!("Producing checkpoint async info to Redis: checkpoint_id before: {}", item.compact.l2_block_state.checkpoint_id);
         let mut conn = self.pool.get().await?;
-        conn.rpush::<&str, Vec<u8>, ()>(self.realm_checkpoint_key().as_str(), item.to_bytes()?)
+        conn.rpush(self.realm_checkpoint_key().as_str(), item.to_bytes()?)
             .await?;
 
         debug!("Checkpoint async info produced to Redis: checkpoint_id after: {}", item.compact.l2_block_state.checkpoint_id);
