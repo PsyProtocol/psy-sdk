@@ -20,7 +20,6 @@ tracing.workspace = true
 rand = { workspace = true }
 once_cell = { workspace = true }
 serde = { workspace = true }
-lazy_static = { workspace = true }
 qed_node_common = { workspace = true }
 qed_store = { workspace = true }
 qed_rollup_circuit = { workspace = true }
@@ -31,3 +30,13 @@ reqwest = {workspace = true}
 qed_user_cli = { workspace = true }
 chrono = {workspace = true}
 reth-libmdbx = {workspace = true}
+qed_rollup_utils = {workspace = true}
+jsonwebtoken = {workspace = true}
+axum = {workspace = true}
+hyper = {workspace = true}
+futures = {workspace = true}
+thiserror = {workspace = true}
+headers = { version = "0.4" }
+tower = { version = "0.5" }
+#tower-http = "0.4"
+http = "1"
