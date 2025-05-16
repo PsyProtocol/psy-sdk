@@ -76,16 +76,6 @@ impl CheckpointDrainQueueEmitterAsyncImm for DrainQueueFred {
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
-    async fn cdq_get_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
-        let key = format!("CDQ_2_{}_{}",channel_id, checkpoint_id);
-        let members: Vec<Vec<u8>> = self.pool.lrange::<Vec<Vec<u8>>, String>(key.clone(), 0, -1).await?;
-        members.into_iter().map(|x| T::from_bytes(&x)).collect()
-    }
-
     async fn cdq_drain_imm<T: DQSerializable>(
         &self,
         channel_id: u64,

@@ -12,6 +12,7 @@ use crate::rpc::request::{
 };
 
 use anyhow::Ok;
+use rand::Rng;
 
 use reqwest::blocking::Client;
 
@@ -29,8 +30,8 @@ const USERS_PER_REALM_VALUE: u64 = 1u64 << (REALM_USER_TREE_HEIGHT as u64);
 #[derive(Debug, Clone)]
 pub struct RpcProvider {
     pub client: Arc<Client>,
-    pub realm_configs: HashMap<u64, String>,
-    pub coordinator_configs: HashMap<u64, String>,
+    pub realm_configs: HashMap<u64, Vec<String>>,
+    pub coordinator_configs: HashMap<u64, Vec<String>>,
     pub users_per_realm: u64,
     pub current_user_id: u64,
 }
@@ -194,12 +195,14 @@ impl RpcProvider {
         let mut coordinator_configs = HashMap::new();
 
         config.realm_configs.iter().for_each(|realm_config| {
+            assert!(realm_config.rpc_url.len() > 0);
             realm_configs.insert(realm_config.id, realm_config.rpc_url.clone());
         });
         config
             .coordinator_configs
             .iter()
             .for_each(|coordinator_config| {
+                assert!(coordinator_config.rpc_url.len() > 0);
                 coordinator_configs
                     .insert(coordinator_config.id, coordinator_config.rpc_url.clone());
             });
@@ -240,6 +243,7 @@ macro_rules! qed_rpc_call {
 #[macro_export]
 macro_rules! qed_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
+        tracing::info!("qed rpc call: {}", $rpc_url);
         $instance
             .client
             .post($rpc_url)
@@ -351,17 +355,25 @@ impl RpcProvider {
     pub fn get_realm_url(&self, user_id: u64) -> anyhow::Result<&String> {
         let realm_id = self.get_realm_id(user_id);
 
-        self.realm_configs.get(&realm_id).ok_or(anyhow::format_err!(
-            "realm id `{}` not found, please check the config",
-            realm_id
-        ))
+        let realm_urls = self
+            .realm_configs
+            .get(&realm_id)
+            .ok_or(anyhow::format_err!(
+                "realm id `{}` not found, please check the config",
+                realm_id
+            ))?;
+        let random_index = rand::thread_rng().gen_range(0..realm_urls.len());
+
+        Ok(&realm_urls[random_index])
     }
 
     pub fn get_coordinator_url(&self) -> anyhow::Result<&String> {
-        self.coordinator_configs.get(&0).ok_or(anyhow::format_err!(
+        let coordinator_urls = self.coordinator_configs.get(&0).ok_or(anyhow::format_err!(
             "coordinator id `{}` not found, please check the config",
             0
-        ))
+        ))?;
+        let random_index = rand::thread_rng().gen_range(0..coordinator_urls.len());
+        Ok(&coordinator_urls[random_index])
     }
 }
 
@@ -379,16 +391,16 @@ impl Default for RpcConfig {
             realm_configs: vec![
                 RealmRpcConfig {
                     id: 0,
-                    rpc_url: "http://127.0.0.1:8546".into(),
+                    rpc_url: vec!["http://127.0.0.1:8546".into()],
                 },
                 RealmRpcConfig {
                     id: 2048,
-                    rpc_url: "http://127.0.0.1:8547".into(),
+                    rpc_url: vec!["http://127.0.0.1:8547".into()],
                 },
             ],
             coordinator_configs: vec![CoordinatorRpcConfig {
                 id: 0,
-                rpc_url: "http://127.0.0.1:8545".into(),
+                rpc_url: vec!["http://127.0.0.1:8545".into()],
             }],
         }
     }
@@ -405,13 +417,13 @@ pub fn parse_coordinator_rpc_args(s: &str) -> anyhow::Result<Vec<CoordinatorRpcC
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RealmRpcConfig {
     pub id: u64,
-    pub rpc_url: String,
+    pub rpc_url: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CoordinatorRpcConfig {
     pub id: u64,
-    pub rpc_url: String,
+    pub rpc_url: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

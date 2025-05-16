@@ -1,21 +1,18 @@
-use tracing::info;
 use qed_coordinator_node::CoordinatorWorkerArgs;
+use tracing::info;
 
 use qed_worker::{CoordinatorWorker, Worker, WorkerState};
 
 async fn run_worker(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
-    let state= WorkerState::new(
-        args.coordinator_redis_uri,
-        args.coordinator_pool_size as usize,
-        &args.coordinator_processor_queue_args
-            .coordinator_worker_queue_suffix,
-        &args.coordinator_processor_queue_args
-            .coordinator_notifications_queue_suffix,
-        &args.coordinator_processor_queue_args
-            .coordinator_proof_store_key_suffix,
-        &args.coordinator_processor_queue_args
-            .coordinator_proof_store_key_suffix,
-    ).await?;
+    let state = WorkerState::new(
+        args.redis_uri,
+        args.pool_size as usize,
+        &args.queue_args.worker_queue_suffix,
+        &args.queue_args.notifications_queue_suffix,
+        &args.queue_args.proof_store_key_suffix,
+        &args.queue_args.proof_store_key_suffix,
+    )
+    .await?;
     let coordinator_worker = CoordinatorWorker::from(state);
     coordinator_worker.run().await
 }

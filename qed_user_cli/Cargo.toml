@@ -52,3 +52,5 @@ repl-rs = { workspace = true }
 shadow-rs = { workspace = true }
 
 qed_crypto = { workspace = true }
+
+rand = { workspace = true }
