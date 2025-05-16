@@ -126,7 +126,7 @@ where
             guta_proof_common_data,
             guta_proof_verifier_data_cap_height,
             32,
-            REALM_USER_TREE_HEIGHT as usize,
+            GLOBAL_USER_TREE_HEIGHT as usize,
         );
 
         let verify_guta_to_cap = GUTAVerifyGUTAToCapCircuit::<C, D>::new(

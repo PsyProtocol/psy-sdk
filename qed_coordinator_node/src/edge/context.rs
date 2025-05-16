@@ -42,26 +42,26 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     info!("🚀 Initializing coordinator edge node...");
 
     // Check if the coordinator_db_path exists, 12 times, 5 seconds interval
-    wait_for_path_exists(&config.coordinator_db_path, 12, 5).await?;
+    wait_for_path_exists(&config.db_path, 12, 5).await?;
 
     // initialize lmdb
-    let store = KVQlibmdbxStore::new_read(&config.coordinator_db_path)?;
+    let store = KVQlibmdbxStore::new_read(&config.db_path)?;
     let store_wrapper = KVQArcImmutableStoreWrapper::new(store);
     let store_reader = Arc::new(store_wrapper.dup());
 
-    let redis_pool = new_fred_pool(&config.coordinator_redis_uri, 8).await?;
+    let redis_pool = new_fred_pool(&config.redis_uri, 8).await?;
     init_node_redis_pool(redis_pool.clone())?;
 
-    let sync_queue = DrainQueueRedis::new(&config.coordinator_redis_uri)?;
+    let sync_queue = DrainQueueRedis::new(&config.redis_uri)?;
 
-    let qe_args = &config.coordinator_edge_queue_args;
+    let qe_args = &config.queue_args;
 
     let proof_store = Arc::new(ProofStoreFred::new2(
         redis_pool.clone(),
-        &qe_args.coordinator_worker_queue_suffix,
-        &qe_args.coordinator_notifications_queue_suffix,
-        &qe_args.coordinator_proof_store_key_suffix,
-        &qe_args.coordinator_proof_store_key_suffix,
+        &qe_args.worker_queue_suffix,
+        &qe_args.notifications_queue_suffix,
+        &qe_args.proof_store_key_suffix,
+        &qe_args.proof_store_key_suffix,
     ));
 
     // init verifier

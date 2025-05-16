@@ -68,7 +68,7 @@ pub struct CoordinatorEdgeHandler {
 
 impl CoordinatorEdgeHandler {
     pub fn new(args: CoordinatorEdgeArgs) -> anyhow::Result<Self> {
-        let redis_uri = args.coordinator_redis_uri.clone();
+        let redis_uri = args.redis_uri.clone();
         Ok(Self {
             notify_queue: RedisQueue::new(redis_uri.as_str())?,
             cp_listener: Arc::new(Mutex::new(None)),

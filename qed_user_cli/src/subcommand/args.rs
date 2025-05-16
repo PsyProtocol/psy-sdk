@@ -188,8 +188,6 @@ pub struct SubmitEndCapArgs {
     pub method_name: String,
     #[arg(long, default_value = "[]", env)]
     pub inputs: Vec<u64>,
-    #[arg(long, default_value = "1", env)]
-    pub nonce: u64,
 }
 
 #[derive(Clone, Args)]

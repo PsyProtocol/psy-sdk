@@ -20,7 +20,7 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     let (rpc_module, handler) = build_rpc_module(config.clone())?;
     handler.spawn_cp_sync_listener().await?;
 
-    let addr: SocketAddr = config.coordinator_edge_listen_addr.parse()?;
+    let addr: SocketAddr = config.listen_addr.parse()?;
 
     let jwt_secret = match get_jwt_secret() {
         Some(jwt_secret) => JwtSecret::from_hex(&jwt_secret.as_bytes())?,
@@ -38,7 +38,7 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
 
     info!(
         "🚀 Coordinator Edge RPC server now running on http://{}",
-        config.coordinator_edge_listen_addr
+        config.listen_addr
     );
     let handle = server.start(rpc_module);
     handle.stopped().await;

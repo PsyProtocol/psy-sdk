@@ -591,6 +591,7 @@ impl<
             .store
             .injest_user_tree_nodes_imm(checkpoint_id, REALM_USER_TREE_HEIGHT, &mnu)
             .await?;
+        eprintln!("DEBUGPRINT[700]: processor.rs:590: res={}", serde_json::to_string_pretty(&res).unwrap());
 
         let mut updates = Vec::with_capacity(res.nca_proofs.len());
         let mut combo_stats = Vec::with_capacity(res.nca_proofs.len());
@@ -599,6 +600,7 @@ impl<
         for (i, p) in res.nca_proofs.iter().enumerate() {
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
             if l_dep_ind == -1 && r_dep_ind == -1 {
+                eprintln!("DEBUGPRINT[701]: processor.rs:602 (after if l_dep_ind == -1 && r_dep_ind == -1 )");
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoEndCapCircuitInput {
                         guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
@@ -635,6 +637,7 @@ impl<
                     value: bincode::serialize(&x)?,
                 });
             } else if r_dep_ind != -1 && l_dep_ind != -1 {
+                eprintln!("DEBUGPRINT[702]: processor.rs:639 (after  else if r_dep_ind != -1 && l_dep_ind !=…)");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
 
@@ -664,6 +667,7 @@ impl<
                     value: bincode::serialize(&x)?,
                 });
             } else if l_dep_ind != -1 {
+                eprintln!("DEBUGPRINT[703]: processor.rs:669 (after  else if l_dep_ind != -1 )");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
 
                 let x = CircuitInputWithDependencies {
@@ -730,6 +734,9 @@ impl<
             },
             stats: combo_stats[res.root_proof_index].1,
         };
+
+        eprintln!("DEBUGPRINT[704]: processor.rs:738: guta={}", serde_json::to_string_pretty(&guta).unwrap());
+        eprintln!("DEBUGPRINT[704]: processor.rs:738: guta_hash={}", serde_json::to_string_pretty(&guta.qfhash::<QEDHasher>()).unwrap());
 
         Ok((levels, guta, res.link_proof))
     }
