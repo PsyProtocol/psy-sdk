@@ -95,7 +95,7 @@ class QEDClient:
         output = self._run_command(cmd)
         return output.strip()
 
-    def transfer(self, private_key_or_id, receiver_id=8388608, amount=500, contract_id=0, nonce=2):
+    def transfer(self, private_key_or_id, receiver_id=536870912, amount=500, contract_id=0, nonce=2):
         """Transfer tokens"""
         private_key = self._get_private_key(private_key_or_id)
         cmd = f"RUST_LOG={self.log_level} {self.target_dir}/{self.profile}/qed_user_cli submit-end-caproof -p {private_key} --contract-id {contract_id} --method-name simple_transfer --inputs {receiver_id} --inputs {amount} --nonce {nonce}"

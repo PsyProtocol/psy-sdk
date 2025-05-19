@@ -9,7 +9,7 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    builder::hash::core::CircuitBuilderHashCore, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
 use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
@@ -60,7 +60,7 @@ where
             guta_proof_common_data,
             guta_proof_verifier_data_cap_height,
         );
-        
+
 
         let a_guta_header = a_end_cap_gadget.get_guta_header::<C::Hasher, C::F>(
             &mut builder,
@@ -71,7 +71,7 @@ where
             &mut builder,
             b_guta_gadget.guta_proof_header_gadget.guta_circuit_whitelist
         );
-        
+
 
         let nca_state_transition_gadget = TwoNCAStateTransitionGadget::add_virtual_to::<C::Hasher, C::F, D>(
             &mut builder,
@@ -84,6 +84,7 @@ where
         builder.register_public_inputs(&public_inputs_hash.elements);
 
         builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
+        pad_circuit_degree(&mut builder, 13);
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(
@@ -98,7 +99,7 @@ where
             b_guta_gadget,
         }
     }
-    
+
     pub fn prove_base(
         &self,
         input: &VerifyLeftEndCapRightGUTAInput<C::F>,
@@ -128,7 +129,7 @@ where
         )?;
 
         self.nca_state_transition_gadget.set_witness_partial(
-            &mut pw, 
+            &mut pw,
             &input.nca_proof
         )?;
 
@@ -193,7 +194,7 @@ where
         let guta_inclusion_proof_b =
             library.get_group_inclusion_proof(job_id.circuit_type, dep_b_type)?;
 
-        
+
 
         let result = self.prove_base(
             &VerifyLeftEndCapRightGUTAInput { checkpoint_tree_root: r.input.checkpoint_tree_root, stats_b:r.input.stats_b, a_end_cap: r.input.a_end_cap, nca_proof: r.input.nca_proof, guta_inclusion_proof_b},

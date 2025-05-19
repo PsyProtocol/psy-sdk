@@ -323,7 +323,7 @@ impl<
             .checkpoint_queue
             .cdq_drain_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID, 0)
             .await?;
-        //println!("usr: {:?}", user_registrations);
+        eprintln!("DEBUGPRINT[724]: processor.rs:326: user_registrations={}", serde_json::to_string_pretty(&user_registrations).unwrap());
 
         let start_user_id = last_l2_blockstate.next_user_id;
 
@@ -936,6 +936,7 @@ impl<
                 guta_jobs.last().as_ref().unwrap().last().unwrap().get_output_id(),
             ],
         };
+        eprintln!("DEBUGPRINT[727]: processor.rs:939: part_1_input={}", serde_json::to_string_pretty(&part_1_input).unwrap());
 
         self.proof_store
             .set_bytes_by_id(
@@ -957,6 +958,7 @@ impl<
                 block_time: F::from_canonical_u64(Utc::now().timestamp_millis() as u64),
                 final_random_seed_contribution: QHashOut::rand(),
         };
+        eprintln!("DEBUGPRINT[728]: processor.rs:955: partial_input={}", serde_json::to_string_pretty(&partial_input).unwrap());
 
         //let old_checkpoint_leaf = partial_input.get_old_checkpoint_leaf::<QEDHasher>();
         let new_checkpoint_leaf = partial_input.get_new_checkpoint_leaf::<QEDHasher>();

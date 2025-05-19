@@ -65,7 +65,7 @@ where
 
         builder.register_public_inputs(&public_inputs_hash.elements);
         builder.add_qed_type_c_common_gates();
-        pad_circuit_degree(&mut builder, 12);
+        pad_circuit_degree(&mut builder, 13);
 
         //builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
         let circuit_data = builder.build::<C>();
