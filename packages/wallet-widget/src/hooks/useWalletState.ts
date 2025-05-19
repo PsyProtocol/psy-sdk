@@ -1,5 +1,4 @@
 import {
-  DogeLinkElectrsRPC,
   DogeMemoryWalletProvider,
   DogeNetworkId,
   IAddressStatsResponse,
