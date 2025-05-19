@@ -109,7 +109,7 @@ LEAF_CHECKPOINT_ID       := ${CHECKPOINT_ID}
 USER_ID                  := 0
 CONTRACT_ID              := 0
 SLOT_ID                  := 0
-CONTRACT_STATE_HEIGHT    := 30
+CONTRACT_STATE_HEIGHT    := 32
 REALM_ID                 := 0
 
 COORDINATOR_RPC_URL      := http://127.0.0.1:8545
