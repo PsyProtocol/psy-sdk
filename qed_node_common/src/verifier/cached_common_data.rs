@@ -2,7 +2,7 @@
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use qed_common_circuit::circuits::lookalikes::{
     get_agg_state_transition_type_d_common_data, get_end_cap_type_e_common_data,
-    get_guta_type_c_common_data,
+    get_guta_type_c_common_data
 };
 use qed_crypto::common::generic_circuit_verifier::{
     GenericCircuitCommonDataLibrary, SerializedGenericCircuitCommonDataLibraryInfo,
@@ -15,7 +15,7 @@ where
 {
     let serialized_library =
         serde_json::from_str::<SerializedGenericCircuitCommonDataLibraryInfo>(
-            r#"{"common_data_hashes":["acd2052c5f2d49c2a931d3c8545876e51ce9c42ca1f7713d46cdac5e2e0f7f19","70724c5b671675652c93e738c2ec3296b6366994fae960f747f03c2156720c11","7ea492b556ffc919706ac50511cadc6c6b3b38afe4810c7b5ef3320652b50f0e","078f14f90d76c1bd8b6bdb1aaca27fc92cd06cee8c09a9a30064cb03ff204c63"],"common_circuit_list":[[226,7,15,8,10,13,9,11],[227,0,1,48,18,19,32,54],[6,228],[14,12]]}"#
+            r#"{"common_data_hashes":["078f14f90d76c1bd8b6bdb1aaca27fc92cd06cee8c09a9a30064cb03ff204c63","70724c5b671675652c93e738c2ec3296b6366994fae960f747f03c2156720c11","7ea492b556ffc919706ac50511cadc6c6b3b38afe4810c7b5ef3320652b50f0e"],"common_circuit_list":[[12,15,14,8,13,9,10,7,226,11],[19,54,48,32,18,0,1,227],[6,228]]}"#
         ).unwrap();
 
     GenericCircuitCommonDataLibrary::<C, D>::from_serialized(

@@ -9,7 +9,7 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
+    builder::pad_circuit::pad_circuit_degree, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
 use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
@@ -77,7 +77,7 @@ where
             register_batch_gadget,
         }
     }
-    
+
     pub fn prove_base(
         &self,
         guta_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,

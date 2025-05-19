@@ -134,10 +134,10 @@ fn run_check_sig_lookalike() -> anyhow::Result<()> {
     timer.lap("built lookalike_circuit");
     let wallet = SimpleQEDZKSignatureManager::<C,D>::new();
     timer.lap("built wallet");
-    
+
     let get_lookalike_fast = get_simple_sig_common_data::<C, D>();
     timer.lap("got fast lookalike");
-    
+
     //println!("\n\nlookalike_circuit.common (cap_height: {}):\n{:?}\n\n",lookalike_circuit.circuit_data.verifier_only.constants_sigmas_cap.height(), &lookalike_circuit.circuit_data.common);
 
     println!("\n\nlookalike_circuit.common (cap_height: {}):\n{:?}\n\n",lookalike_circuit.circuit_data.verifier_only.constants_sigmas_cap.height(), &lookalike_circuit.circuit_data.common);
