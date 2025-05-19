@@ -1,3 +1,4 @@
+.idea
 node_modules
 **/dist
 results
@@ -5,3 +6,12 @@ results
 *.tsbuildinfo
 .DS_Store
 **/.DS_Store
+# SpecStory explanation file
+.specstory
+.cursorrules
+.cursorignore
+.cursor
+.cursorindexingignore
+# SpecStory explanation file
+.specstory/.what-is-this.md
+.specstory/**
