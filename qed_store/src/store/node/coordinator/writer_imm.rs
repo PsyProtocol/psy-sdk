@@ -75,7 +75,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsyn
     async fn injest_user_tree_nodes_imm(
         &self,
         checkpoint_id: u64,
-        root_level: u8, 
+        root_level: u8,
         nodes: &[QMerkleNode<F>],
     ) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>> {
         UserTreeStore::smart_injest_nca_fc_imm(self, root_level, checkpoint_id, nodes)
@@ -237,7 +237,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsyn
         &self,
         checkpoint_id: u64,
         leaf_data: &QEDCheckpointLeaf<F>,
-    ) -> anyhow::Result<()> {       
+    ) -> anyhow::Result<()> {
 
         <Self as QMetaDataStoreWriterSync<F>>::set_checkpoint_leaf_data(
             self,
@@ -306,7 +306,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsyn
             // database not initialized with data for the genesis block
 
             let genesis_l2_block_state = QEDL2BlockState::get_genesis_value();
-            
+
             let genesis_checkpoint_stats = QEDCheckpointLeafStats::get_genesis_value();
             let stats_hash = genesis_checkpoint_stats.qfhash::<QEDHasher>();
             let genesis_global_state_roots = self.get_checkpoint_global_state_roots(1).await?;
@@ -320,12 +320,12 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsyn
 
             println!("genesis_global_state_roots: {}",serde_json::to_string_pretty(&genesis_global_state_roots).unwrap());
             println!("genesis_checkpoint_leaf: {}",serde_json::to_string_pretty(&genesis_checkpoint_leaf).unwrap());
-            
+
             self.set_l2_block_state_imm(&genesis_l2_block_state).await?;
             self.set_checkpoint_leaf_data_imm(0, &genesis_checkpoint_leaf).await?;
             let r = self.set_checkpoint_tree_leaf_hash_imm(0, genesis_checkpoint_leaf.qfhash::<QEDHasher>()).await?;
 
-            let sync_info = QEDCheckpointSyncInfoCompact { 
+            let sync_info = QEDCheckpointSyncInfoCompact {
                 l2_block_state: genesis_l2_block_state,
                 stats:genesis_checkpoint_stats,
                 state_roots: genesis_global_state_roots,
@@ -333,12 +333,12 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsyn
                 regsitered_users_start_pivot_siblings: vec![],
                 registered_users: vec![],
 
-            }; 
+            };
             self.set_checkpoint_sync_info_imm(sync_info).await?;
 
             Ok(0)
 
         }
-        
+
     }
 }

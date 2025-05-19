@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use kvq::traits::KVQSerializable;
 use plonky2::{
     hash::hash_types::{HashOut, RichField},
@@ -196,7 +198,7 @@ impl<Hash: PartialEq + Copy> MerkleProofCore<Hash> {
             siblings,
         }
     }
-    pub fn verify<Hasher: MerkleHasher<Hash>>(&self) -> bool {
+    pub fn verify<Hasher: MerkleHasher<Hash>>(&self) -> bool where Hash: Display{
         verify_merkle_proof_core::<Hash, Hasher>(self)
     }
     pub fn verify_marked<Hasher: MerkleHasherWithMarkedLeaf<Hash>>(&self) -> bool {
@@ -369,16 +371,18 @@ impl<Hash: PartialEq + Copy> DeltaMerkleProofCore<Hash> {
         verify_delta_merkle_proof_marked_leaves_core::<Hash, Hasher>(self)
     }
 }
-pub fn verify_merkle_proof_core<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(
+pub fn verify_merkle_proof_core<Hash: PartialEq + Copy + Display, Hasher: MerkleHasher<Hash>>(
     proof: &MerkleProofCore<Hash>,
 ) -> bool {
     let mut current = proof.value;
     for (i, sibling) in proof.siblings.iter().enumerate() {
+        eprintln!("DEBUGPRINT[725]: core.rs:377: current={},sibling={}", current, sibling);
         if proof.index & (1 << i) == 0 {
             current = Hasher::two_to_one(&current, sibling);
         } else {
             current = Hasher::two_to_one(sibling, &current);
         }
+        eprintln!("DEBUGPRINT[725]: core.rs:383: current={},sibling={}", current, sibling);
     }
     current == proof.root
 }
