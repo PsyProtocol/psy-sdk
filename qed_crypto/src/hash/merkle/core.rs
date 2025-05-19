@@ -376,13 +376,11 @@ pub fn verify_merkle_proof_core<Hash: PartialEq + Copy + Display, Hasher: Merkle
 ) -> bool {
     let mut current = proof.value;
     for (i, sibling) in proof.siblings.iter().enumerate() {
-        eprintln!("DEBUGPRINT[725]: core.rs:377: current={},sibling={}", current, sibling);
         if proof.index & (1 << i) == 0 {
             current = Hasher::two_to_one(&current, sibling);
         } else {
             current = Hasher::two_to_one(sibling, &current);
         }
-        eprintln!("DEBUGPRINT[725]: core.rs:383: current={},sibling={}", current, sibling);
     }
     current == proof.root
 }
