@@ -48,6 +48,8 @@ qed_node_common = { workspace = true }
 kvq_store_lmdbx = { workspace = true }
 
 repl-rs = { workspace = true }
+ts-rs =  { workspace = true }
+
 [build-dependencies]
 shadow-rs = { workspace = true }
 

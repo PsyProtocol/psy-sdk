@@ -29,6 +29,7 @@ use serde::Serialize;
 use serde::Serializer;
 use serde_with::serde_as;
 use std::borrow::Cow;
+use ts_rs::TS;
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
@@ -574,8 +575,9 @@ pub struct QUserRegistrationTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub leaf_index: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QUserRegistrationTreeMerkleProofFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub leaf_index: F,
