@@ -4,8 +4,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@qstudio/components/*": ["packages/components/src/*"],
-      "@qstudio/*": ["packages/*/src"]
+      "@qed/*": ["packages/*/src"]
     },
     "noEmit": true
   }

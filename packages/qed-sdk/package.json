@@ -1,5 +1,5 @@
 {
-  "name": "@qstudio/city-sdk",
+  "name": "@qed/qed-ts-sdk",
   "version": "1.0.0",
   "main": "dist/index",
   "types": "dist/index",

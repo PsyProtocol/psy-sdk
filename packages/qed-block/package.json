@@ -1,5 +1,5 @@
 {
-  "name": "@qstudio/city-block",
+  "name": "@qed/qed-ts-block",
   "version": "1.0.0",
   "main": "dist/index",
   "types": "dist/index",
@@ -14,7 +14,7 @@
   },
 
   "dependencies": {
-    "@qstudio/city-sdk": "workspace:*"
+    "@qed/qed-ts-sdk": "workspace:*"
   },
   "devDependencies": {
     "rimraf": "~5.0.0",

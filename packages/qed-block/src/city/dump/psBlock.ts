@@ -1,4 +1,4 @@
-import { CityRPCProviderWithCache, ICityRPCProvider } from "@qstudio/city-sdk";
+import { CityRPCProviderWithCache, ICityRPCProvider } from "@qed/qed-ts-sdk";
 import { depSerializedToProofNodes } from "../bench/dependencyResolver";
 import { ICityOpJobConfig, ICitySynthBlockResult, IDumpProofStoreConfig, IQJobWithDependenciesSerialized, ISimpleCityBlock } from "../bench/types";
 import { synthPlanner } from "../planner/synth";

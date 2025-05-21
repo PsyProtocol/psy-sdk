@@ -1,4 +1,4 @@
-import { CityRPCProvider } from "@qstudio/city-sdk";
+import { CityRPCProvider } from "@qed/qed-ts-sdk";
 
 import {
   getJobSubGroupCounterGoalId,

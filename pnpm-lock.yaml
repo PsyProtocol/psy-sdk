@@ -23,7 +23,7 @@ importers:
 
   packages/qed-block:
     dependencies:
-      '@qstudio/city-sdk':
+      '@qed/qed-ts-sdk':
         specifier: workspace:*
         version: link:../qed-sdk
     devDependencies:

@@ -11,6 +11,7 @@ results
 .cursorrules
 .cursorignore
 .cursor
+.vscode
 .cursorindexingignore
 # SpecStory explanation file
 .specstory/.what-is-this.md
