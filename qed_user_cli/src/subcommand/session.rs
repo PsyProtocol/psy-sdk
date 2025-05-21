@@ -6,18 +6,26 @@ use plonky2::{
         types::{Field, PrimeField64},
     },
     hash::poseidon::PoseidonHash,
-    plonk::config::PoseidonGoldilocksConfig,
+    plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use qed_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,
 };
 use qed_core::{
-    config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
+    config::network_constants::{
+        GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT,
+    },
     data::qhashout::QHashOut,
     ups::circuits::LocalCircuitType,
 };
-use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
+use qed_crypto::{
+    hash::traits::qhashable::QFieldHashable,
+    signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
+};
+use qed_data::{
+    guta::end_cap_input::SubmitUserEndCapNonProofInput,
+    qblock::cmds::deploy_contract::QBCDeployContract,
+};
 use qed_prover::ups::{
     circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager,
 };
@@ -29,6 +37,7 @@ use qed_store::{
     store::imm::cmd_processor::QEDReadCommandProcessorSync,
     traits::qdatastore::qmetadata::QMetaDataStoreReaderSync,
 };
+use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use crate::rpc::{
     provider::{QUserRpcProvider, RpcConfig, RpcProvider},
@@ -37,6 +46,7 @@ use crate::rpc::{
 
 use super::{
     args::{ContractCallArgs, WalletSessionArgs},
+    deploy_contract::gen_contract_deploy_and_circuits_for_functions,
     utils::prove_func,
 };
 
@@ -210,13 +220,32 @@ impl WalletSession {
         Ok(())
     }
 
-    pub fn sign_and_submit(&mut self) -> anyhow::Result<()> {
-        let sighash = self.mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, self.nonce);
-        tracing::info!("zk sign for signhash: {}", sighash.to_string());
+    pub fn get_sig_hash(&self, network_magic: u64) -> anyhow::Result<QHashOut<GoldilocksField>> {
+        let sighash = self.mgr.get_sighash(network_magic, self.nonce);
+        tracing::info!("get sig hash: {}", sighash.to_string());
+        Ok(sighash)
+    }
+
+    pub fn get_zk_signature(
+        &self,
+        sighash: QHashOut<GoldilocksField>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        tracing::info!("get zk signature proof");
         let signature_proof = self
             .wallet
             .zk_sign_for_private_key_value(self.private_key, sighash)?;
+        Ok(signature_proof)
+    }
 
+    pub fn get_end_cap_proof(
+        &mut self,
+        signature_proof: ProofWithPublicInputs<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        tracing::info!("get end cap proof");
+
+        self.mgr
+            .proof_tree_state
+            .finalize_tree(&self.main_circuits.proof_tree_agg_circuits)?;
         self.mgr
             .proof_tree_state
             .finalize_tree(&self.main_circuits.proof_tree_agg_circuits)?;
@@ -246,11 +275,26 @@ impl WalletSession {
             "get user ec input: {}",
             serde_json::to_string_pretty(&user_ec_input)?
         );
+        Ok(end_cap_proof)
+    }
 
-        // tracing::info!(
-        //     "submit end cap proof: {}",
-        //     serde_json::to_string_pretty(&end_cap_proof)?
-        // );
+    pub fn get_user_ec_input(&mut self) -> anyhow::Result<SubmitUserEndCapNonProofInput<F>> {
+        self.mgr.get_api_input()
+    }
+
+    pub fn sign_and_submit(&mut self) -> anyhow::Result<()> {
+        let sighash = self.get_sig_hash(QED_NETWORK_MAGIC_REGTEST)?;
+        tracing::info!("zk sign for signhash: {}", sighash.to_string());
+
+        let signature_proof = self.get_zk_signature(sighash)?;
+
+        let end_cap_proof = self.get_end_cap_proof(signature_proof)?;
+
+        let user_ec_input = self.get_user_ec_input()?;
+        tracing::info!(
+            "get user ec input: {}",
+            serde_json::to_string_pretty(&user_ec_input)?
+        );
         let req = QSubmitEndCapRPCRequest {
             user_ec_input,
             proof: end_cap_proof,
@@ -259,6 +303,35 @@ impl WalletSession {
         self.st_provider.submit_end_cap_proof::<F>(req)?;
 
         Ok(())
+    }
+
+    pub fn get_deploy_contract_cmd(
+        &self,
+        circuit_defs: Vec<DPNFunctionCircuitDefinition>,
+    ) -> anyhow::Result<QBCDeployContract<GoldilocksField>> {
+        let pk = self.wallet.get_public_key_info(SimpleQEDPrivateKey {
+            private_key: self.private_key,
+        });
+        let deployer = pk.qfhash::<QEDHasher>();
+
+        let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
+
+        let (_result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+            deployer,
+            contract_state_tree_height as u8,
+            &circuit_defs,
+        )?;
+        Ok(deploy_cmd)
+    }
+
+    pub fn get_zk_public_key(
+        &self,
+        private_key: QHashOut<GoldilocksField>,
+    ) -> anyhow::Result<ZKPublicKeyInfo<GoldilocksField>> {
+        let pk = self
+            .wallet
+            .get_public_key_info(SimpleQEDPrivateKey { private_key });
+        Ok(pk)
     }
 }
 
