@@ -5,7 +5,7 @@ use plonky2::{
 };
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
-
+use ts_rs::TS;
 use crate::hash::traits::hasher::{MerkleHasher, MerkleHasherWithMarkedLeaf, MerkleZeroHasher, QHasher};
 
 
@@ -243,7 +243,8 @@ pub struct DeltaMerkleProofCorePartial<Hash: PartialEq + Copy> {
     pub siblings: Vec<Hash>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize,TS)]
+#[ts(export, concrete(Hash = u64))]
 pub struct DeltaMerkleProofCore<Hash: PartialEq + Copy> {
     pub old_root: Hash,
     pub old_value: Hash,

@@ -191,8 +191,8 @@ strum = { version = "0.27", features = ["derive"] }
 
 # plonky2 = { path = "../plonky2-hwa/plonky2" }
 # plonky2_maybe_rayon = { path = "../plonky2-hwa/maybe_rayon" }
-plonky2 = { git = "https://github.com/clint-long/plonky2-hwa", rev = "61956b1998650f45a5b90506679dc8b285899c68" }
-plonky2_maybe_rayon = { git = "https://github.com/clint-long/plonky2-hwa", rev = "61956b1998650f45a5b90506679dc8b285899c68", default-features = false }
+plonky2 = { git = "https://github.com/clint-long/plonky2-hwa", rev = "a809ae1a982baf2c4aba63335f8177aee5c0a4ca" }
+plonky2_maybe_rayon = { git = "https://github.com/clint-long/plonky2-hwa", rev = "a809ae1a982baf2c4aba63335f8177aee5c0a4ca", default-features = false }
 
 tracing-appender = "0.2"
 

@@ -3,6 +3,7 @@ use plonky2::hash::hash_types::RichField;
 use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
 use qed_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -74,7 +75,8 @@ impl<F: RichField> QFieldHashable<F> for QEDContractLeaf<F> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default,TS)]
+#[ts(export)]
 pub struct ContractFunctionCodeDefinition {
     // TODO: in the future method id = sha256(functionName(arg0[arg0_size],arg1[arg1_size]))&0xffffffff
     // CURRENT: sha256(functionName + "-|-" + args_count)&0xffffffff
@@ -95,7 +97,8 @@ impl KVQSerializable for ContractFunctionCodeDefinition {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash,TS)]
+#[ts(export)]
 pub struct ContractCodeDefinition {
     pub state_tree_height: u16,
     pub functions: Vec<ContractFunctionCodeDefinition>,

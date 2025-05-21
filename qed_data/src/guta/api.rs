@@ -4,6 +4,7 @@ use plonky2::{
     hash::hash_types::RichField,
     plonk::{config::GenericConfig, proof::ProofWithPublicInputs},
 };
+use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::{data::qhashout::QHashOut, job::{drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID}}};
 use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
@@ -12,6 +13,7 @@ use crate::{qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLea
 
 use super::{end_cap_input::SubmitUserEndCapNonProofInput, proof_input::VerifyEndCapSimpleStandardInput, stats::GUTAStats};
 use std::collections::HashMap;
+use ts_rs::TS; 
 
 #[derive(Clone, Debug)]
 pub struct SimpleContractHeightCache<F: RichField> {
@@ -42,8 +44,9 @@ impl<F: RichField> SimpleContractHeightCache<F> {
 }
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash,TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QEDContractStateUpdateHistory<F: RichField> {
     pub user_contract_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
     pub contract_state_tree_updates: Vec<DeltaMerkleProofCore<QHashOut<F>>>,
@@ -140,8 +143,9 @@ impl<F: RichField> KVQSerializable for UserEndCapNonProofCoreInputQueueItem<F> {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct SubmitUserEndCapNonProofCoreInput<F: RichField> {
     pub checkpoint_id: F,
     pub stats: GUTAStats<F>,
