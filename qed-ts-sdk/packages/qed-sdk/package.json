@@ -1,0 +1,26 @@
+{
+  "name": "@qed/qed-ts-sdk",
+  "version": "1.0.0",
+  "main": "dist/index",
+  "types": "dist/index",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm run clean && pnpm run compile",
+    "clean": "rimraf ./dist",
+    "compile": "tsc -p tsconfig.build.json",
+    "bind": "npx barrelsby -w -d src/types",
+    "prepublishOnly": "pnpm run build"
+  },
+  "devDependencies": {
+    "barrelsby": "^2.8.1",
+    "rimraf": "~5.0.0",
+    "typescript": "~4.9.0"
+  },
+  "dependencies": {
+    "doge-sdk": "^0.4.1",
+    "lossless-json": "^4.0.1",
+    "poseidon-goldilocks-lite": "^0.2.3"
+  }
+}
