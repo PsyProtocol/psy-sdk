@@ -1,5 +1,4 @@
-import { Hash256 } from "@qed/qed-ts-sdk"
-import { SCFelt } from "@qed/qed-ts-sdk/src/rpc/baseTypes";
+import { SCFelt, Hash256 } from "@qed/qed-ts-sdk"
 
 interface ICitySerializedTx {
   version: number;

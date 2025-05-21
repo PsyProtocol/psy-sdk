@@ -66,6 +66,7 @@ export type {
 export type {
   CityHash,
   Hash256,
+  SCFelt,
   Hash160,
   CompressedPublicKeyHex,
   QProvingJobDataIDSerializedWrapped,
