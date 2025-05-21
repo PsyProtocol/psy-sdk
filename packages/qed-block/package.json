@@ -14,8 +14,7 @@
   },
 
   "dependencies": {
-    "@qstudio/city-sdk": "workspace:*",
-    "doge-sdk": "^0.4.1"
+    "@qstudio/city-sdk": "workspace:*"
   },
   "devDependencies": {
     "rimraf": "~5.0.0",

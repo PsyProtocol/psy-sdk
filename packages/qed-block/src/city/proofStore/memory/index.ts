@@ -85,7 +85,7 @@ pub trait QProofStoreWriterSync {
 
 */
 
-import { readU32LEFromBytes } from "packages/city-block/src/utils/byteView";
+import { readU32LEFromBytes } from "../../../../src/utils/byteView";
 import { CityProofWithPublicInputs } from "../../commonTypes";
 import { IQProvingJobDataID, serializeJobIdHex } from "../../job/id";
 import { getJobSubGroupCounterGoalId, getJobSubGroupCounterId, getSubGroupCounterGoalNextJobsId } from "../../job/idHelpers";
