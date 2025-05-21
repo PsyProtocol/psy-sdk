@@ -321,7 +321,7 @@ class CityRPCCommandProcessor implements ICityRPCCommandRequestProcessor {
   processRequest(request: ClaimDepositRequest): Promise<void>;
   processRequest(request: TokenTransferRequest): Promise<void>;
   processRequest(request: ProduceBlockRequest): Promise<void>;
-  async processRequest(request: CityRPCCommandRequest) {
+  async processRequest(request: CityRPCCommandRequest): Promise<any> {
     if (!Object.hasOwnProperty.call(CommandHandler, request.commandType)) {
       throw new Error(
         `CityRPCCommandProcessor: Unknown command type: ${request.commandType}`
