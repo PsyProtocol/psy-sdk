@@ -26,6 +26,9 @@ importers:
       '@qed/qed-ts-sdk':
         specifier: workspace:*
         version: link:../qed-sdk
+      doge-sdk:
+        specifier: ^0.4.1
+        version: 0.4.2
     devDependencies:
       rimraf:
         specifier: ~5.0.0

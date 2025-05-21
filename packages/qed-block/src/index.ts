@@ -1,1 +1,1 @@
-export * from './city';
+export * from './qed';

@@ -14,6 +14,7 @@
   },
 
   "dependencies": {
+    "doge-sdk": "^0.4.1",
     "@qed/qed-ts-sdk": "workspace:*"
   },
   "devDependencies": {
