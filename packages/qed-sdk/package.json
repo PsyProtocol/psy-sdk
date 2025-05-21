@@ -10,9 +10,11 @@
     "build": "pnpm run clean && pnpm run compile",
     "clean": "rimraf ./dist",
     "compile": "tsc -p tsconfig.build.json",
+    "bind": "npx barrelsby -w -d src/types",
     "prepublishOnly": "pnpm run build"
   },
   "devDependencies": {
+    "barrelsby": "^2.8.1",
     "rimraf": "~5.0.0",
     "typescript": "~4.9.0"
   },
