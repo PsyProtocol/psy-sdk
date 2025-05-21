@@ -20,14 +20,14 @@ struct PackageConfig {
     dependencies: BTreeMap<String, DependencyConfig>,
 }
 
-const STD_GIT_PATH_HTTPS: &str = "https://github.com/QEDProtocol/qed-lang";
+const STD_GIT_PATH_HTTPS: &str = "https://github.com/QEDProtocol/qedlang-rust";
 
-const STD_GIT_PATH_SSH: &str = "git@github.com:QEDProtocol/qed-lang.git";
+const STD_GIT_PATH_SSH: &str = "git@github.com:QEDProtocol/qedlang-rust.git";
 
 //If you need to specify a version, use this tag instead of TAG_LATEST
 const STD_TAG: &str = "v0.0.1-rc";
 const TAG_LATEST: &str = "latest";
-const STD_FILE: &str = "qed-std/std.qed";
+const STD_FILE: &str = "qed_compiler/qed-std/std.qed";
 
 impl PackageConfig {
     fn resolve_to_package(
@@ -47,11 +47,17 @@ impl PackageConfig {
             });
         };
         if std::env::var("DARGO_STD_PATH").is_err() {
-            let qed_path = try_clone_std(TAG_LATEST)?;
+            let qed_path = try_clone_std("feature/qed-lang-realms")?;
 
             unsafe {
                 std::env::set_var("DARGO_STD_PATH", qed_path.join(STD_FILE));
             }
+        }
+        // Print the value of DARGO_STD_PATH environment variable
+        if let Ok(std_path) = std::env::var("DARGO_STD_PATH") {
+            println!("DARGO_STD_PATH is set to: {}", std_path);
+        } else {
+            println!("DARGO_STD_PATH is not set");
         }
         let mut dependencies: BTreeMap<CrateName, Dependency> = BTreeMap::new();
         for (name, dep_config) in self.dependencies.iter() {
