@@ -181,11 +181,16 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         .iter()
                         .find(|&&id| ctx.symbols[id].name == segment_name.id)
                     {
-                        if !ctx.symbols[target_module_id].visibility.is_public() {
-                            return Err(Error::ModuleNotPublic {
-                                location: path.location,
-                                module: ctx.symbols[target_module_id].name.id,
-                            });
+                        let target_module = &ctx.symbols[target_module_id];
+                        println!("child module: {:?}", target_module.name);
+                        if target_module.visibility.is_private() {
+                            if target_module.parent != Some(current_module.id) {
+                                println!("target module {:?}", target_module.name);
+                                return Err(Error::ModuleNotPublic {
+                                    location: path.location,
+                                    module: ctx.symbols[target_module_id].name.id,
+                                });
+                            }
                         }
                         src_module = target_module_id;
                     } else {
@@ -252,7 +257,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 .find(|&&id| ctx.symbols[id].name == segment.id)
                 .copied()
             {
-                if ctx.symbols[module].visibility.is_public() {
+                let target_module = &ctx.symbols[module];
+                if target_module.visibility.is_public()
+                    || target_module.parent == Some(current_module.id)
+                {
                     ctx.add_module_reference(module, segment.location, false);
                     Ok(module)
                 } else {
