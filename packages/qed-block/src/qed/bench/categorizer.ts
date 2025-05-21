@@ -2,17 +2,12 @@ import { IQProvingJobDataID } from "../job/id";
 import { ICityAggregatedOpJobCircuitType } from "./types";
 
 interface IOpTreeAggProofCategory {
-  triplet: ICityAggregatedOpJobCircuitType;
-  levels: IQProvingJobDataID[][];
-  root: IQProvingJobDataID;
+    triplet: ICityAggregatedOpJobCircuitType;
+    levels: IQProvingJobDataID[][];
+    root: IQProvingJobDataID;
 }
 interface IProofCategories {
-
-  treeAgg: IOpTreeAggProofCategory[];
-  
-
+    treeAgg: IOpTreeAggProofCategory[];
 }
 
-export type {
-  IOpTreeAggProofCategory,
-}
+export type { IOpTreeAggProofCategory };

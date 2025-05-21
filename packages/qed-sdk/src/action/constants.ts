@@ -14,29 +14,27 @@ const SIG_ACTION_CLAIM_DEPOSIT_MAGIC = "6073477172600063043";
 // 'WITHDRAW' = 0x5741524448544957n (little-endian) = 6287397008010660183n
 const SIG_ACTION_WITHDRAW_MAGIC = "6287397008010660183";
 
-// 'SENDDOGE' = 0x45474F44444E4553n (little-endian) = 
-const SIG_ACTION_TRANSFER_MAGIC = '4992045866585834835';
+// 'SENDDOGE' = 0x45474F44444E4553n (little-endian) =
+const SIG_ACTION_TRANSFER_MAGIC = "4992045866585834835";
 
-
-function getCityNetworkMagicForNetworkId(networkId: DogeNetworkId){
-  if(networkId === "doge"){
-    return NETWORK_MAGIC_DOGE_MAINNET;
-  }else if(networkId === "dogeTestnet"){
-    return NETWORK_MAGIC_DOGE_TESTNET;
-  }else if(networkId === "dogeRegtest"){
-    return NETWORK_MAGIC_DOGE_REGTEST;
-  }else{
-    throw new Error("Invalid networkId: '"+networkId+"'");
-  }
-
+function getCityNetworkMagicForNetworkId(networkId: DogeNetworkId) {
+    if (networkId === "doge") {
+        return NETWORK_MAGIC_DOGE_MAINNET;
+    } else if (networkId === "dogeTestnet") {
+        return NETWORK_MAGIC_DOGE_TESTNET;
+    } else if (networkId === "dogeRegtest") {
+        return NETWORK_MAGIC_DOGE_REGTEST;
+    } else {
+        throw new Error("Invalid networkId: '" + networkId + "'");
+    }
 }
 
 export {
-  NETWORK_MAGIC_DOGE_MAINNET,
-  NETWORK_MAGIC_DOGE_TESTNET,
-  NETWORK_MAGIC_DOGE_REGTEST,
-  SIG_ACTION_CLAIM_DEPOSIT_MAGIC,
-  SIG_ACTION_WITHDRAW_MAGIC,
-  SIG_ACTION_TRANSFER_MAGIC,
-  getCityNetworkMagicForNetworkId,
-}
+    NETWORK_MAGIC_DOGE_MAINNET,
+    NETWORK_MAGIC_DOGE_TESTNET,
+    NETWORK_MAGIC_DOGE_REGTEST,
+    SIG_ACTION_CLAIM_DEPOSIT_MAGIC,
+    SIG_ACTION_WITHDRAW_MAGIC,
+    SIG_ACTION_TRANSFER_MAGIC,
+    getCityNetworkMagicForNetworkId,
+};

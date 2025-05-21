@@ -1,6 +1,3 @@
 type CityProofWithPublicInputs = any;
 
-
-export type {
-  CityProofWithPublicInputs,
-}
+export type { CityProofWithPublicInputs };

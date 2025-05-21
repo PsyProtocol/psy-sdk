@@ -1,4 +1,3 @@
-
 /*
 
 pub trait QProofStoreReaderSync {
@@ -88,95 +87,96 @@ pub trait QProofStoreWriterSync {
 import { readU32LEFromBytes } from "../../../../src/utils/byteView";
 import { CityProofWithPublicInputs } from "../../commonTypes";
 import { IQProvingJobDataID, serializeJobIdHex } from "../../job/id";
-import { getJobSubGroupCounterGoalId, getJobSubGroupCounterId, getSubGroupCounterGoalNextJobsId } from "../../job/idHelpers";
+import {
+    getJobSubGroupCounterGoalId,
+    getJobSubGroupCounterId,
+    getSubGroupCounterGoalNextJobsId,
+} from "../../job/idHelpers";
 import { IQProofStore } from "../types";
 import { deserializeJobIdArray, serializeJobIdArray } from "../../job/idBincode";
 
-
 class SimpleProofStoreMemory implements IQProofStore {
-  data: Record<string, Uint8Array> = {};
+    data: Record<string, Uint8Array> = {};
 
-  private getDataByJobId(id: IQProvingJobDataID): Uint8Array {
-    const key = serializeJobIdHex(id);
-    if(Object.hasOwnProperty.call(this.data, key)) {
-      const value = this.data[key];
-      if(value instanceof Uint8Array) {
-        return value;
-      }
+    private getDataByJobId(id: IQProvingJobDataID): Uint8Array {
+        const key = serializeJobIdHex(id);
+        if (Object.hasOwnProperty.call(this.data, key)) {
+            const value = this.data[key];
+            if (value instanceof Uint8Array) {
+                return value;
+            }
+        }
+        throw new Error(`SimpleProofStoreMemory: No data found for id: ${key}`);
     }
-    throw new Error(`SimpleProofStoreMemory: No data found for id: ${key}`);
-  }
 
-  get_proof_by_id(id: IQProvingJobDataID): CityProofWithPublicInputs {
-    throw new Error("Method not implemented.");
-  }
-  set_proof_by_id(id: IQProvingJobDataID, proof: CityProofWithPublicInputs): void {
-    throw new Error("Method not implemented.");
-  }
+    get_proof_by_id(id: IQProvingJobDataID): CityProofWithPublicInputs {
+        throw new Error("Method not implemented.");
+    }
+    set_proof_by_id(id: IQProvingJobDataID, proof: CityProofWithPublicInputs): void {
+        throw new Error("Method not implemented.");
+    }
 
-  
-  get_bytes_by_id(id: IQProvingJobDataID): Uint8Array {
-    return this.getDataByJobId(id);
-  }
-  get_goal_by_job_id(id: IQProvingJobDataID): number {
-    const counter_id = getJobSubGroupCounterId(id);
-    const goal_id = getJobSubGroupCounterGoalId(counter_id);
-    const bytes = this.getDataByJobId(goal_id);
-    if(bytes.length !== 4) {
-      throw new Error(`SimpleProofStoreMemory: Invalid goal bytes length: ${bytes.length}`);
+    get_bytes_by_id(id: IQProvingJobDataID): Uint8Array {
+        return this.getDataByJobId(id);
     }
-    return readU32LEFromBytes(bytes);
-  }
-  get_next_jobs_by_job_id(id: IQProvingJobDataID): IQProvingJobDataID[] {
-    const counter_id = getJobSubGroupCounterId(id);
-    const next_jobs_id = getSubGroupCounterGoalNextJobsId(counter_id);
-    const bytes = this.getDataByJobId(next_jobs_id);
-    return deserializeJobIdArray(bytes);
-
-  }
-  set_bytes_by_id(id: IQProvingJobDataID, data: Uint8Array): void {
-    const key = serializeJobIdHex(id);
-    this.data[key] = data;
-  }
-  inc_counter_by_id(id: IQProvingJobDataID): number {
-    const key = serializeJobIdHex(id);
-    const bytes = this.getDataByJobId(id);
-    if(bytes.length !== 4) {
-      throw new Error(`SimpleProofStoreMemory: Invalid counter bytes length: ${bytes.length}`);
+    get_goal_by_job_id(id: IQProvingJobDataID): number {
+        const counter_id = getJobSubGroupCounterId(id);
+        const goal_id = getJobSubGroupCounterGoalId(counter_id);
+        const bytes = this.getDataByJobId(goal_id);
+        if (bytes.length !== 4) {
+            throw new Error(`SimpleProofStoreMemory: Invalid goal bytes length: ${bytes.length}`);
+        }
+        return readU32LEFromBytes(bytes);
     }
-    const value = readU32LEFromBytes(bytes);
-    const newValue = value + 1;
-    this.data[key] = new Uint8Array(new Uint32Array([newValue]).buffer);
-    return newValue;
-  }
-  write_next_jobs_core(jobs: IQProvingJobDataID[], next_jobs: IQProvingJobDataID[]): void {
-    const counter_id = getJobSubGroupCounterId(jobs[0]);
-    const goal_id = getJobSubGroupCounterGoalId(counter_id);
-    const next_jobs_id = getSubGroupCounterGoalNextJobsId(counter_id);
-    this.set_bytes_by_id(counter_id, new Uint8Array([0,0,0,0]));
-    this.set_bytes_by_id(goal_id, new Uint8Array(new Uint32Array([jobs.length]).buffer));
-    this.set_bytes_by_id(next_jobs_id,serializeJobIdArray(next_jobs));
-  }
-  write_multidimensional_jobs_core(jobs: IQProvingJobDataID[][], next_jobs: IQProvingJobDataID[]): void {
-    let job_levels_count = jobs.length;
-    for(let i = 0; i < job_levels_count; i++) {
-      const counter_id = getJobSubGroupCounterId(jobs[i][0]);
-      const goal_id = getJobSubGroupCounterGoalId(counter_id);
-      const next_jobs_id = getSubGroupCounterGoalNextJobsId(counter_id);
-      this.set_bytes_by_id(counter_id, new Uint8Array([0,0,0,0]));
-      this.set_bytes_by_id(goal_id, new Uint8Array(new Uint32Array([jobs[i].length]).buffer));
-      this.set_bytes_by_id(next_jobs_id, serializeJobIdArray(i === (job_levels_count - 1) ? next_jobs : jobs[i + 1]));
+    get_next_jobs_by_job_id(id: IQProvingJobDataID): IQProvingJobDataID[] {
+        const counter_id = getJobSubGroupCounterId(id);
+        const next_jobs_id = getSubGroupCounterGoalNextJobsId(counter_id);
+        const bytes = this.getDataByJobId(next_jobs_id);
+        return deserializeJobIdArray(bytes);
     }
-  }
-  write_next_jobs(jobs: IQProvingJobDataID[], next_jobs: IQProvingJobDataID[]): void {
-    return this.write_next_jobs_core(jobs, next_jobs);
-  }
-  write_multidimensional_jobs(jobs_levels: IQProvingJobDataID[][], next_jobs: IQProvingJobDataID[]): void {
-    return this.write_multidimensional_jobs_core(jobs_levels, next_jobs);
-  }
+    set_bytes_by_id(id: IQProvingJobDataID, data: Uint8Array): void {
+        const key = serializeJobIdHex(id);
+        this.data[key] = data;
+    }
+    inc_counter_by_id(id: IQProvingJobDataID): number {
+        const key = serializeJobIdHex(id);
+        const bytes = this.getDataByJobId(id);
+        if (bytes.length !== 4) {
+            throw new Error(`SimpleProofStoreMemory: Invalid counter bytes length: ${bytes.length}`);
+        }
+        const value = readU32LEFromBytes(bytes);
+        const newValue = value + 1;
+        this.data[key] = new Uint8Array(new Uint32Array([newValue]).buffer);
+        return newValue;
+    }
+    write_next_jobs_core(jobs: IQProvingJobDataID[], next_jobs: IQProvingJobDataID[]): void {
+        const counter_id = getJobSubGroupCounterId(jobs[0]);
+        const goal_id = getJobSubGroupCounterGoalId(counter_id);
+        const next_jobs_id = getSubGroupCounterGoalNextJobsId(counter_id);
+        this.set_bytes_by_id(counter_id, new Uint8Array([0, 0, 0, 0]));
+        this.set_bytes_by_id(goal_id, new Uint8Array(new Uint32Array([jobs.length]).buffer));
+        this.set_bytes_by_id(next_jobs_id, serializeJobIdArray(next_jobs));
+    }
+    write_multidimensional_jobs_core(jobs: IQProvingJobDataID[][], next_jobs: IQProvingJobDataID[]): void {
+        let job_levels_count = jobs.length;
+        for (let i = 0; i < job_levels_count; i++) {
+            const counter_id = getJobSubGroupCounterId(jobs[i][0]);
+            const goal_id = getJobSubGroupCounterGoalId(counter_id);
+            const next_jobs_id = getSubGroupCounterGoalNextJobsId(counter_id);
+            this.set_bytes_by_id(counter_id, new Uint8Array([0, 0, 0, 0]));
+            this.set_bytes_by_id(goal_id, new Uint8Array(new Uint32Array([jobs[i].length]).buffer));
+            this.set_bytes_by_id(
+                next_jobs_id,
+                serializeJobIdArray(i === job_levels_count - 1 ? next_jobs : jobs[i + 1])
+            );
+        }
+    }
+    write_next_jobs(jobs: IQProvingJobDataID[], next_jobs: IQProvingJobDataID[]): void {
+        return this.write_next_jobs_core(jobs, next_jobs);
+    }
+    write_multidimensional_jobs(jobs_levels: IQProvingJobDataID[][], next_jobs: IQProvingJobDataID[]): void {
+        return this.write_multidimensional_jobs_core(jobs_levels, next_jobs);
+    }
 }
 
-export {
-  SimpleProofStoreMemory,
-}
-
+export { SimpleProofStoreMemory };

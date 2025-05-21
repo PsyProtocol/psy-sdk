@@ -1,10 +1,10 @@
-import { SCFelt, Hash256 } from "@qed/qed-ts-sdk"
+import { SCFelt, Hash256 } from "@qed/qed-ts-sdk";
 
 interface ICitySerializedTx {
-  version: number;
-  inputs: ICitySerializedTxInput[];
-  outputs: ICitySerializedTxOutput[];
-  locktime: number;
+    version: number;
+    inputs: ICitySerializedTxInput[];
+    outputs: ICitySerializedTxOutput[];
+    locktime: number;
 }
 interface ICitySerializedTxInput {
     hash: Hash256;
@@ -18,8 +18,8 @@ interface ICitySerializedTxOutput {
 }
 
 interface ISigHashPreimage {
-  transaction: ICitySerializedTx;
-  sighash_type: number;
+    transaction: ICitySerializedTx;
+    sighash_type: number;
 }
 
 /*
@@ -37,20 +37,18 @@ interface ISigHashPreimage {
     pub next_block_redeem_script: Vec<u8>,
     */
 interface IBlockSpendIntrospectionHint {
-  sighash_preimage: ISigHashPreimage;
-  last_block_spend_index: number;
-  block_spend_index: number;
-  current_spend_index: number;
-  funding_transactions: ICitySerializedTx[];
-  next_block_redeem_script: string;
+    sighash_preimage: ISigHashPreimage;
+    last_block_spend_index: number;
+    block_spend_index: number;
+    current_spend_index: number;
+    funding_transactions: ICitySerializedTx[];
+    next_block_redeem_script: string;
 }
-
-
 
 export type {
-  ICitySerializedTx,
-  ICitySerializedTxInput,
-  ICitySerializedTxOutput,
-  ISigHashPreimage,
-  IBlockSpendIntrospectionHint,
-}
+    ICitySerializedTx,
+    ICitySerializedTxInput,
+    ICitySerializedTxOutput,
+    ISigHashPreimage,
+    IBlockSpendIntrospectionHint,
+};

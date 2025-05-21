@@ -1,6 +1,2 @@
-export * from './memory';
-export type {
-  IQProofStoreReaderSync,
-  IQProofStoreWriterSync,
-  IQProofStore,
-} from './types';
+export * from "./memory";
+export type { IQProofStoreReaderSync, IQProofStoreWriterSync, IQProofStore } from "./types";
