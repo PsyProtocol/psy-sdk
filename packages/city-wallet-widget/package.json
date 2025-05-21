@@ -17,7 +17,6 @@
     "@mantine/core": "^7.10.2",
     "@mantine/hooks": "^7.10.2",
     "@noble/secp256k1": "^2.1.0",
-    "@qstudio/blokies-react": "workspace:*",
     "@qstudio/city-sdk": "workspace:*",
     "@tabler/icons-react": "^3.7.0",
     "classnames": "^2.5.1",
