@@ -33,6 +33,10 @@ impl<I: From<usize> + Into<usize> + Copy, T> TreeNode<I, T> {
         &self.children
     }
 
+    pub fn children_mut(&mut self) -> &mut Vec<I> {
+        &mut self.children
+    }
+
     pub fn data(&self) -> &T {
         &self.data
     }
@@ -79,7 +83,9 @@ impl<I: From<usize> + Into<usize> + Copy, T> Tree<I, T> {
     }
 
     pub fn add_child(&mut self, parent_id: Option<I>, child_id: I) -> I {
-        self.nodes[child_id].parent = parent_id;
+        if self.nodes[child_id].parent.is_none() {
+            self.nodes[child_id].parent = parent_id;
+        }
         if let Some(parent_id) = parent_id {
             self.nodes[parent_id].children.push(child_id);
         }

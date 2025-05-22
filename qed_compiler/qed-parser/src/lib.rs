@@ -1,6 +1,9 @@
 pub mod error;
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
 use error::UserError;
 use indexmap::IndexMap;
@@ -209,6 +212,45 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
 
             visited.insert(current_path, module_id);
         }
+
+        for module in self.program.modules.clone().iter() {
+            let parent_module_id = module.id();
+            let module = module.data();
+            let mut use_module_ids = vec![];
+            for def in module.definitions.iter() {
+                let def_node = &self.program.defs[*def];
+                if let DefinitionNode::Use(node) = def_node {
+                    let target = match &node.target {
+                        Some(target) => Some(target),
+                        None => match node.segments.last() {
+                            Some(target) => Some(target),
+                            None => None,
+                        },
+                    };
+                    if let Some(target) = target {
+                        use_module_ids.push(target.id);
+                    };
+                }
+            }
+
+            let modules = &mut self.program.modules;
+            for use_module_ident_id in use_module_ids.into_iter() {
+                let use_module_id = modules
+                    .iter()
+                    .find(|m| m.data().name.id == use_module_ident_id)
+                    .map(|m| m.id());
+                if let Some(use_module_id) = use_module_id {
+                    modules.add_child(Some(parent_module_id), use_module_id);
+                }
+            }
+        }
+
+        // Remove duplicates children
+        self.program.modules.iter_mut().for_each(|module| {
+            let children = module.children_mut();
+            children.sort_unstable();
+            children.dedup();
+        });
 
         self.program.dependency_graph = self.program.modules.to_graph();
 
