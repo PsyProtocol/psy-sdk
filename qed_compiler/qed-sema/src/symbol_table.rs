@@ -304,6 +304,20 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         self.module_stack.last().cloned()
     }
 
+    pub fn is_module_visible(&self, module_id: ModuleId) -> bool {
+        let module = &self[module_id];
+        if module.visibility == Visibility::Public {
+            return true;
+        }
+        if let Some(current_module_id) = self.current_module_id() {
+            let current_module = &self[current_module_id];
+            if module.parent == Some(current_module_id) || module.parent == current_module.parent {
+                return true;
+            }
+        }
+        return false;
+    }
+
     pub fn next_type_id(&self, offset: usize) -> TypeId {
         (self.types.len() + offset).into()
     }

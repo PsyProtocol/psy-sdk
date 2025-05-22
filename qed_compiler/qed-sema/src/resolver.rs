@@ -172,7 +172,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             }
         };
 
-        let current_module = &ctx.symbols[src_module];
         for (i, segment) in path.segments.iter().enumerate() {
             // only last segment and target can be generic
             match segment {
@@ -182,12 +181,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         .iter()
                         .find(|&&id| ctx.symbols[id].name == segment_name.id)
                     {
-                        let target_module = &ctx.symbols[target_module_id];
-                        println!("child module: {:?}", target_module.name);
-                        if !(ctx.symbols[target_module_id].visibility.is_public()
-                            || target_module.parent == Some(current_module.id)
-                            || target_module.parent == current_module.parent)
-                        {
+                        if !ctx.symbols[target_module_id].visibility.is_public() {
                             return Err(Error::ModuleNotPublic {
                                 location: path.location,
                                 module: ctx.symbols[target_module_id].name.id,
@@ -309,13 +303,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             .find(|&&id| ctx.symbols[id].name == segment.id)
             .copied()
         {
-            let target_module = &ctx.symbols[target_module_id];
-            let current_module_id = ctx.symbols.current_module_id().unwrap();
-            let current_module = &ctx.symbols[current_module_id];
-            if target_module.visibility.is_public()
-                || target_module.parent == Some(current_module.id)
-                || target_module.parent == current_module.parent
-            {
+            if ctx.symbols.is_module_visible(target_module_id) {
                 ctx.add_module_reference(target_module_id, segment.location, false);
                 Ok(target_module_id)
             } else {
