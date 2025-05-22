@@ -1,13 +1,15 @@
-use plonky2::{hash::{hash_types::RichField, poseidon::PoseidonHash}, plonk::config::Hasher};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::{hash_types::RichField, poseidon::PoseidonHash}, plonk::config::Hasher};
 use qed_core::traits::to_qfelts::{QFeltSized, ToQFelts};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 
 // TODO: Make a constant size commitment scheme for proof miners
 // for now, we can just use a partial merkle tree for testing,  
 // but in the future we want miners to be able to prove that they participated
 // by only knowing the final block commitment + the element which proves their participation
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct PMRewardCommitment<F: RichField> {
     pub commitment: [F; 4],

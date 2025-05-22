@@ -1,5 +1,5 @@
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::{HashOut, RichField};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::{HashOut, RichField}};
 use qed_core::{
     config::network_constants::DA_CHALLENGE_WINDOW,
     data::qhashout::QHashOut,
@@ -10,10 +10,12 @@ use qed_crypto::hash::traits::{
     qhashable::QFieldHashable,
 };
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use super::pm_reward_commitment::PMRewardCommitment;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointLeafStats<F: RichField> {
     pub fees_collected: F,
@@ -125,7 +127,8 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafStats<F> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointGlobalStateRoots<F: RichField> {
     pub contract_tree_root: QHashOut<F>,
@@ -216,7 +219,8 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointGlobalStateRoots<F> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointLeaf<F: RichField> {
     pub global_chain_root: QHashOut<F>,
@@ -288,7 +292,8 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeaf<F> {
 }
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointLeafCompact<F: RichField> {
     pub global_chain_root: QHashOut<F>,
@@ -344,7 +349,8 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafCompact<F> {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Copy, Hash, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Copy, Hash, Eq, PartialEq,TS)]
+#[ts(export)]
 pub struct QEDL2BlockState {
     pub checkpoint_id: u64,
 
@@ -433,7 +439,8 @@ impl KVQSerializable for QEDL2BlockState {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointLeafCompactWithStateRoots<F: RichField> {
     pub checkpoint_leaf: QEDCheckpointLeafCompact<F>,
