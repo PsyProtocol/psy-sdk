@@ -4401,14 +4401,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-ts-type"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "qed_user_cli",
-]
-
-[[package]]
 name = "qed-utils"
 version = "0.1.0"
 dependencies = [

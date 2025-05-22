@@ -457,7 +457,7 @@ pub struct QDeployContractRPCRequest<F: RichField> {
 #[serde(bound = "")]
 pub struct QSubmitEndCapRPCRequest<F: RichField> {
     pub user_ec_input: SubmitUserEndCapNonProofInput<F>,
-    #[ts(skip)]
+    #[ts(type  = "any")]
     pub proof: ProofWithPublicInputs<GoldilocksField, C, D>,
 }
 
