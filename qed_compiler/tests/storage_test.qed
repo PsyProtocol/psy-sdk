@@ -31,23 +31,19 @@ impl SimpleContract {
                 height: 0,
                 year_of_birth: 0,
             },
-            e: [
-                new Person {
+            e: [new Person {
                     age: 0,
                     height: 0,
                     year_of_birth: 0,
-                },
-                new Person {
+                }, new Person {
                     age: 0,
                     height: 0,
                     year_of_birth: 0,
-                },
-                new Person {
+                }, new Person {
                     age: 0,
                     height: 0,
                     year_of_birth: 0,
-                },
-            ],
+                }],
             f: [5, 6, 7, 8],
         };
     }
@@ -70,25 +66,19 @@ fn main() -> Felt {
     assert_eq(SimpleContract::size(), 21, "Error: Contract::size() should be 21");
     assert_eq(<[Felt; 2]>::size(), 2, "Error: [Felt;2]::size() should be 2");
     assert_eq(<[Felt; 4]>::size(), 4, "Error: [Felt;4]::size() should be 4");
-    SimpleContract::set_e(
-        [
-            new Person {
-                age: 23,
-                height: 183,
-                year_of_birth: 2003,
-            },
-            new Person {
-                age: 22,
-                height: 182,
-                year_of_birth: 2002,
-            },
-            new Person {
-                age: 21,
-                height: 181,
-                year_of_birth: 2001,
-            }
-        ]
-    );
+    SimpleContract::set_e([new Person {
+            age: 23,
+            height: 183,
+            year_of_birth: 2003,
+        }, new Person {
+            age: 22,
+            height: 182,
+            year_of_birth: 2002,
+        }, new Person {
+            age: 21,
+            height: 181,
+            year_of_birth: 2001,
+        }]);
     SimpleContract::set_d(new Person {
         age: 40,
         height: 170,
@@ -134,4 +124,3 @@ fn main() -> Felt {
     assert_eq(<[Felt; 2]>::size(), 2, "Error: [Felt; 2]::size() should be 2");
     return a;
 }
-
