@@ -41,10 +41,9 @@ pub async fn run_server(args: ProverArgs) -> anyhow::Result<()> {
         .await?;
 
     let rpc_config: RpcConfig = serde_json::from_str(&std::fs::read_to_string(args.rpc_config)?)?;
-    let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)
-        .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
+
     let store = Arc::new(Mutex::new(UserProverWorkerStore::new()));
-    let wallet_session = Arc::new(RwLock::new(WalletSession::new(&rpc_config, private_key)?));
+    let wallet_session = Arc::new(RwLock::new(WalletSession::new(&rpc_config)?));
 
     let store_rpc = store.clone();
     let rpc_server_impl = RpcServerImpl::new(store_rpc, wallet_session);

@@ -5042,6 +5042,7 @@ dependencies = [
  "anyhow",
  "clap",
  "dotenv",
+ "hashbrown 0.14.5",
  "hex",
  "k256",
  "kvq",

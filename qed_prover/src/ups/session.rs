@@ -129,6 +129,26 @@ impl<
             tx_log: vec![],
         })
     }
+    pub fn new_dummy(
+        lps: QEDLocalProvingSessionStore<F, R>,
+        circuit_info: SessionCircuitInfoStore<F>,
+    ) -> anyhow::Result<Self> {
+        let proof_tree_state = PortableQTreeRecursionManager::<C, D>::new(
+            UPS_SESSION_PROOF_TREE_HEIGHT as usize
+        );
+
+
+        Ok(Self {
+            lps,
+            proof_tree_state,
+            current_ups_header: UserProvingSessionHeader::default(),
+            current_checkpoint_leaf: QEDCheckpointLeaf::default(),
+            current_global_state_roots: QEDCheckpointGlobalStateRoots::default(),
+            last_ups_step_proof_info: TreeAwareTreeProofRecord::default(),
+            circuit_info,
+            tx_log: vec![],
+        })
+    }
 
     pub fn get_ups_start_witness(
         &mut self,

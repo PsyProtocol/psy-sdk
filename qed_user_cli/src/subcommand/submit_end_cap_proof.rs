@@ -20,7 +20,9 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
 
-    let mut wallet_session = WalletSession::new(&rpc_config, private_key)?;
+    let mut wallet_session = WalletSession::new(&rpc_config)?;
+    let user_pk_hash = wallet_session.add_user(private_key)?;
+    wallet_session.switch_user(user_pk_hash)?;
     wallet_session.start_session()?;
     wallet_session.prove_contract_calls(contract_call_args)?;
     wallet_session.sign_and_submit()?;

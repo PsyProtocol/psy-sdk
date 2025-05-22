@@ -109,6 +109,10 @@ C::Hasher: AlgebraicHasher<C::F> {
             )
         }
     }
+
+    pub fn contains_key(&self, public_key: QHashOut<C::F>) -> bool {
+        self.public_key_to_private_key_store.contains_key(&public_key)
+    }
 }
 
 
