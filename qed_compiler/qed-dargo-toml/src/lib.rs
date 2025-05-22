@@ -53,12 +53,6 @@ impl PackageConfig {
                 std::env::set_var("DARGO_STD_PATH", qed_path.join(STD_FILE));
             }
         }
-        // Print the value of DARGO_STD_PATH environment variable
-        if let Ok(std_path) = std::env::var("DARGO_STD_PATH") {
-            println!("DARGO_STD_PATH is set to: {}", std_path);
-        } else {
-            println!("DARGO_STD_PATH is not set");
-        }
         let mut dependencies: BTreeMap<CrateName, Dependency> = BTreeMap::new();
         for (name, dep_config) in self.dependencies.iter() {
             let name = name

@@ -213,6 +213,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
             visited.insert(current_path, module_id);
         }
 
+        // Add modules imported by use statements to the dependency
         for module in self.program.modules.clone().iter() {
             let parent_module_id = module.id();
             let module = module.data();
