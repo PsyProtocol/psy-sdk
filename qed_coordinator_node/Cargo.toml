@@ -37,6 +37,6 @@ hyper = {workspace = true}
 futures = {workspace = true}
 thiserror = {workspace = true}
 headers = { version = "0.4" }
-tower = { version = "0.5" }
+tower = { workspace = true }
 #tower-http = "0.4"
 http = "1"

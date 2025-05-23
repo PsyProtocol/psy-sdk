@@ -423,36 +423,51 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     // TODO: remove clone
                     .clone()
                     .into_iter()
-                    .map(|v| self.visit_expr(v, ctx))
+                    .map(|v| {
+                        self.indent();
+                        let res = self.visit_expr(v, ctx);
+                        self.dedent();
+                        res
+                    })
                     .collect::<Result<Vec<_>, Self::Error>>()?
                     .join(", ")
             ),
             ValueNode::Struct(name, generic_parameters, field_values, _location) => {
                 let name = self.visit_path(name, ctx)?;
+
+                self.indent();
+                let field_names = field_values
+                    .iter()
+                    .map(|(field_name, _)| ctx.ident(field_name).to_string())
+                    .collect::<Vec<_>>();
+                let field_values = field_values
+                    .iter()
+                    .map(|(_, field_expr)| -> Result<Self::ExprResult, Self::Error> {
+                        self.visit_expr(*field_expr, ctx)
+                    })
+                    .collect::<Result<Vec<String>, Self::Error>>()?;
+                let fiels_content = field_names
+                    .iter()
+                    .zip(field_values.iter())
+                    .map(|(field_name, field_value)| {
+                        format!("{}{}: {},\n", self.read_indent(0), field_name, field_value)
+                    })
+                    .collect::<String>();
+                self.dedent();
                 let generic_parameters =
                     self.visit_unchecked_generic_parameters(&generic_parameters, ctx);
-                let mut result = format!(
-                    "new {}{} {{\n",
+
+                format!(
+                    "new {}{} {{\n{}{}}}",
                     name,
                     if generic_parameters.is_empty() {
                         "".to_string()
                     } else {
                         format!("#{}", generic_parameters)
-                    }
-                );
-
-                for (field, value) in field_values {
-                    result.push_str(&self.read_indent(1));
-                    result.push_str(&format!(
-                        "{}: {},\n",
-                        ctx.ident(field).to_owned(),
-                        self.visit_expr(value, ctx)?
-                    ));
-                }
-
-                result.push_str(&self.read_indent(0));
-                result.push_str("}");
-                result
+                    },
+                    fiels_content,
+                    self.read_indent(0),
+                )
             }
         })
     }

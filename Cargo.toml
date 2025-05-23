@@ -43,7 +43,8 @@ members = [
     "qed_compiler/qed-dargo-cli",
     "qed_common",
     "qed_user_cli",
-    "qed_benchmark"
+    "qed_benchmark",
+    "qed_user_prover"
 ]
 resolver = "2"
 
@@ -283,6 +284,9 @@ qed-ts-type = { path = "./qed-ts-type" }
 futures-util = "0.3.28"
 axum = "0.8.3"
 ts-rs = "10.1.0"
+
+tower-http = { version = "0.6", features = ["full"] }
+tower = { version = "0.5", features = ["full"] }
 
 [profile.release]
 debug = true

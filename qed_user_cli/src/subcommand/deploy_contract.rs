@@ -31,7 +31,7 @@ use super::args::DeployContractArgs;
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
-fn gen_contract_deploy_and_circuits_for_functions(
+pub fn gen_contract_deploy_and_circuits_for_functions(
     deployer: QHashOut<GoldilocksField>,
     contract_state_tree_height: u8,
     defs: &[DPNFunctionCircuitDefinition],

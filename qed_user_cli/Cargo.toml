@@ -46,6 +46,7 @@ qed_node = { workspace = true }
 reth-libmdbx = { workspace = true }
 qed_node_common = { workspace = true }
 kvq_store_lmdbx = { workspace = true }
+hashbrown = { workspace = true }
 
 repl-rs = { workspace = true }
 ts-rs =  { workspace = true }

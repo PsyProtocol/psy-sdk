@@ -263,7 +263,7 @@ pub struct WalletSessionArgs {
     pub rpc_config: String,
     #[arg(
         long,
-        default_value = "0d47fda4480f045506b085ba6921fc86d8cc6feb1b533292db4b1a3af8f89eab",
+        default_value = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
         env
     )]
     pub private_key: String,
