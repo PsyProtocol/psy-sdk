@@ -1,18 +1,13 @@
 pub mod error;
 
-use std::{
-    collections::HashSet,
-    path::{Path, PathBuf},
-};
-
 use error::UserError;
+pub use error::{Error, Result};
 use indexmap::IndexMap;
 use lalrpop_util::lalrpop_mod;
-
-pub use error::{Error, Result};
 use qed_ast::*;
 use qed_lexer::{GenericTokenTransformer, Lexer, Loc, Token};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
+use std::path::{Path, PathBuf};
 
 use qed_ast::Program;
 
@@ -32,6 +27,14 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
             program,
             _marker: std::marker::PhantomData,
         }
+    }
+
+    pub fn find_module_by_name(&self, name: IdentId) -> Option<ModuleId> {
+        self.program
+            .modules
+            .iter()
+            .find(|module| module.data().name == name)
+            .map(|module| module.id())
     }
 
     // std/
@@ -71,13 +74,16 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
             }
 
             let mut module: ModuleNode = if !is_inline {
+                let module_name = self.resolve_module_name(&current_path);
+                if let Some(module_id) = self.find_module_by_name(module_name) {
+                    self.program.modules.add_child(parent_module_id, module_id);
+                    continue;
+                }
+
                 let file_id = self
                     .program
                     .file_resolver
                     .resolve_file(current_path.clone())?;
-                let module_name =
-                    Self::resolve_module_name(&mut self.program.interner, &current_path);
-
                 let file_content = self
                     .program
                     .file_resolver
@@ -86,84 +92,34 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
 
                 let is_self_std = module_name == IdentId::STD;
                 let is_std = is_parent_std || is_self_std;
-
-                let module_id = self
-                    .program
-                    .modules
-                    .iter()
-                    .find(|module| module.data().name == module_name)
-                    .map(|module| module.id());
-                if module_id
-                    .map(|module_id| self.program.modules.add_child(parent_module_id, module_id))
-                    .is_some()
-                {
-                    continue;
-                }
-
                 let lexer = Lexer::new(file_content);
                 let transformer = GenericTokenTransformer::new(lexer);
                 let tokens: Vec<_> = transformer.collect::<qed_lexer::Result<Vec<_>>>()?;
-                let module = match qed::ModuleParser::new().parse(
-                    file_content,
-                    file_id,
-                    Identifier::new(
-                        module_name,
-                        Location::new(file_id, location.start, location.end),
-                    ),
-                    &mut self.program.exprs,
-                    &mut self.program.stmts,
-                    &mut self.program.defs,
-                    &mut self.program.interner,
-                    visibility,
-                    is_std,
-                    is_self_std,
-                    ctx,
-                    tokens,
-                ) {
-                    Ok(module) => module,
-                    Err(e) => {
-                        return Err(match e {
-                            lalrpop_util::ParseError::InvalidToken { location } => {
-                                Error::InvalidToken {
-                                    location: Location::new(file_id, location, location + 1),
-                                }
-                            }
-                            lalrpop_util::ParseError::UnrecognizedEof { location, expected } => {
-                                Error::UnrecognizedEof {
-                                    location: Location::new(file_id, location, location + 1),
-                                    expected,
-                                }
-                            }
-                            lalrpop_util::ParseError::UnrecognizedToken {
-                                token: (start, token, end),
-                                expected,
-                            } => Error::UnrecognizedToken {
-                                token: token.to_string(),
-                                expected: expected,
-                                location: Location::new(file_id, start, end),
-                            },
-                            lalrpop_util::ParseError::ExtraToken {
-                                token: (start, token, end),
-                            } => Error::ExtraToken {
-                                token: token.to_string(),
-                                location: Location::new(file_id, start, end),
-                            },
-                            lalrpop_util::ParseError::User { error } => match error {
-                                UserError::LexicalError(error) => Error::LexicalError(error),
-                                UserError::CommonError(error) => Error::CommonError(error),
-                                UserError::IoError(error) => Error::IoError(error),
-                                UserError::FileUnresolved => Error::FileUnresolved,
-                                UserError::InvalidModuleName => Error::InvalidModuleName,
-                                UserError::ExternFnNotInStd => Error::ExternFnNotInStd,
-                                UserError::FunctionBodyMissing => Error::FunctionBodyMissing,
-                                UserError::InvalidSelfParameter => Error::InvalidSelfParameter,
-                            },
-                        })
-                    }
-                };
+                let module = qed::ModuleParser::new()
+                    .parse(
+                        file_content,
+                        file_id,
+                        Identifier::new(
+                            module_name,
+                            Location::new(file_id, location.start, location.end),
+                        ),
+                        &mut self.program.exprs,
+                        &mut self.program.stmts,
+                        &mut self.program.defs,
+                        &mut self.program.interner,
+                        visibility,
+                        is_std,
+                        is_self_std,
+                        ctx,
+                        tokens,
+                    )
+                    .map_err(|e| Error::from_lalrpop_error(e, file_id))?;
                 module
             } else {
-                inline_modules.get(&current_path).unwrap().clone()
+                inline_modules
+                    .get(&current_path)
+                    .expect("Inline module not found")
+                    .clone()
             };
 
             module.definitions.sort_by(|a, b| {
@@ -260,7 +216,8 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
         Ok(())
     }
 
-    fn resolve_module_name(interner: &mut Interner, file_path: &Path) -> IdentId {
+    fn resolve_module_name(&mut self, file_path: &Path) -> IdentId {
+        let interner = &mut self.program.interner;
         let file_name_without_extension = file_path.file_stem().and_then(|s| s.to_str()).unwrap();
         let module_name = match file_name_without_extension {
             "lib" | "main" => {
