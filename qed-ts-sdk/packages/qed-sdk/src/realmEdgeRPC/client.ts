@@ -10,7 +10,7 @@ import {
     QEDUserLeaf,
     QHashOut,
     RealmEdgeRPCCommand,
-    SubmitUserEndCapNonProofInput
+    SubmitUserEndCapNonProofInput,
 } from "./types";
 
 /**
@@ -50,7 +50,7 @@ interface RetryConfig {
  */
 interface MultiProviderConfig {
     /** Load balancing strategy (default: 'failover') */
-    strategy?: 'failover' | 'round-robin' | 'fastest' | 'parallel-first';
+    strategy?: "failover" | "round-robin" | "fastest" | "parallel-first";
     /** Health check interval in milliseconds (default: 30000) */
     healthCheckInterval?: number;
     /** Health check timeout in milliseconds (default: 5000) */
@@ -98,20 +98,20 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
     private httpClient: ICityHTTPClient;
     private urls: string[];
     private config: EnhancedClientConfig;
-    
+
     // Cache system
     private cache = new Map<string, CacheEntry<any>>();
     private cacheConfig: Required<CacheConfig>;
-    
+
     // Retry system
     private retryConfig: Required<RetryConfig>;
-    
+
     // Multi-provider system
     private multiProviderConfig: Required<MultiProviderConfig>;
     private providerHealthMap = new Map<string, ProviderHealth>();
     private currentProviderIndex = 0;
     private healthCheckTimer?: ReturnType<typeof setInterval>;
-    
+
     // Read-only methods that can be cached
     private readonly readOnlyMethods = new Set<string>([
         RealmEdgeRPCCommand.CheckUserIdInRealm,
@@ -152,7 +152,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
         RealmEdgeRPCCommand.GetUserSubTreeMerkleProof,
         RealmEdgeRPCCommand.GetUserSubTreeMerkleProofF,
         RealmEdgeRPCCommand.GetUserTreeMerkleProof,
-        RealmEdgeRPCCommand.GetUserTreeMerkleProofF
+        RealmEdgeRPCCommand.GetUserTreeMerkleProofF,
     ]);
 
     constructor(
@@ -161,10 +161,10 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
         httpClient?: ICityHTTPClient
     ) {
         // Parse constructor arguments for backward compatibility
-        if (typeof urlOrUrls === 'string') {
+        if (typeof urlOrUrls === "string") {
             this.urls = [urlOrUrls];
-            
-            if (configOrHttpClient && 'sendRequest' in configOrHttpClient) {
+
+            if (configOrHttpClient && "sendRequest" in configOrHttpClient) {
                 // Legacy usage: (url, httpClient)
                 this.httpClient = configOrHttpClient;
                 this.config = {};
@@ -185,7 +185,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
             ttl: this.config.cache?.ttl ?? 60000,
             maxSize: this.config.cache?.maxSize ?? 1000,
             enabledMethods: this.config.cache?.enabledMethods ?? this.readOnlyMethods,
-            customTtl: this.config.cache?.customTtl ?? new Map()
+            customTtl: this.config.cache?.customTtl ?? new Map(),
         };
 
         this.retryConfig = {
@@ -194,18 +194,23 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
             maxDelay: this.config.retry?.maxDelay ?? 30000,
             backoffMultiplier: this.config.retry?.backoffMultiplier ?? 2,
             retryableErrors: this.config.retry?.retryableErrors ?? [
-                'ECONNREFUSED', 'ENOTFOUND', 'ECONNRESET', 'ETIMEDOUT',
-                'NetworkError', 'TimeoutError', 'AbortError'
+                "ECONNREFUSED",
+                "ENOTFOUND",
+                "ECONNRESET",
+                "ETIMEDOUT",
+                "NetworkError",
+                "TimeoutError",
+                "AbortError",
             ],
-            jitter: this.config.retry?.jitter ?? true
+            jitter: this.config.retry?.jitter ?? true,
         };
 
         this.multiProviderConfig = {
-            strategy: this.config.multiProvider?.strategy ?? 'failover',
+            strategy: this.config.multiProvider?.strategy ?? "failover",
             healthCheckInterval: this.config.multiProvider?.healthCheckInterval ?? 30000,
             healthCheckTimeout: this.config.multiProvider?.healthCheckTimeout ?? 5000,
             parallelRequestTimeout: this.config.multiProvider?.parallelRequestTimeout ?? 10000,
-            maxConsecutiveFailures: this.config.multiProvider?.maxConsecutiveFailures ?? 3
+            maxConsecutiveFailures: this.config.multiProvider?.maxConsecutiveFailures ?? 3,
         };
 
         // Initialize provider health tracking
@@ -227,7 +232,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
                 isHealthy: true,
                 consecutiveFailures: 0,
                 lastResponseTime: 0,
-                lastChecked: 0
+                lastChecked: 0,
             });
         }
     }
@@ -249,9 +254,9 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
             try {
                 const startTime = Date.now();
                 // Use the latest checkpoint method for health check
-                await this.directRpc(url, RealmEdgeRPCCommand.GetLatestCheckpointTreeRoot as string, [], '1', '2.0');
+                await this.directRpc(url, RealmEdgeRPCCommand.GetLatestCheckpointTreeRoot as string, [], "1", "2.0");
                 const responseTime = Date.now() - startTime;
-                
+
                 const health = this.providerHealthMap.get(url)!;
                 health.isHealthy = true;
                 health.consecutiveFailures = 0;
@@ -262,7 +267,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
                 const health = this.providerHealthMap.get(url)!;
                 health.consecutiveFailures++;
                 health.lastChecked = Date.now();
-                
+
                 if (health.consecutiveFailures >= this.multiProviderConfig.maxConsecutiveFailures) {
                     health.isHealthy = false;
                 }
@@ -276,7 +281,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
      * Get healthy providers
      */
     private getHealthyProviders(): string[] {
-        return this.urls.filter(url => {
+        return this.urls.filter((url) => {
             const health = this.providerHealthMap.get(url);
             return health?.isHealthy ?? true;
         });
@@ -287,26 +292,26 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
      */
     private selectProvider(): string {
         const healthyProviders = this.getHealthyProviders();
-        
+
         if (healthyProviders.length === 0) {
             // Fallback to all providers if none are healthy
             return this.urls[0];
         }
 
         switch (this.multiProviderConfig.strategy) {
-            case 'round-robin':
+            case "round-robin":
                 const provider = healthyProviders[this.currentProviderIndex % healthyProviders.length];
                 this.currentProviderIndex++;
                 return provider;
 
-            case 'fastest':
+            case "fastest":
                 return healthyProviders.reduce((fastest, current) => {
                     const fastestHealth = this.providerHealthMap.get(fastest)!;
                     const currentHealth = this.providerHealthMap.get(current)!;
                     return currentHealth.lastResponseTime < fastestHealth.lastResponseTime ? current : fastest;
                 });
 
-            case 'failover':
+            case "failover":
             default:
                 return healthyProviders[0];
         }
@@ -351,7 +356,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
         this.cache.set(key, {
             value,
             timestamp: Date.now(),
-            ttl
+            ttl,
         });
     }
 
@@ -378,43 +383,35 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
      */
     private isRetryableError(error: any): boolean {
         if (!error) return false;
-        
+
         const errorMessage = error.message || error.toString();
-        return this.retryConfig.retryableErrors.some(retryableError => 
-            errorMessage.includes(retryableError)
-        );
+        return this.retryConfig.retryableErrors.some((retryableError) => errorMessage.includes(retryableError));
     }
 
     /**
      * Sleep for specified milliseconds
      */
     private sleep(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     /**
      * Make a direct JSON-RPC request to a specific provider
      */
-    private async directRpc<T>(
-        url: string,
-        method: string, 
-        params: any[], 
-        id = "1", 
-        jsonrpc = "2.0"
-    ): Promise<T> {
+    private async directRpc<T>(url: string, method: string, params: any[], id = "1", jsonrpc = "2.0"): Promise<T> {
         const response = await this.httpClient.sendRequest({
             method: "POST",
             url,
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
             body: JSON.stringify({
                 jsonrpc,
                 method,
                 params,
-                id
+                id,
             }),
-            responseType: "json"
+            responseType: "json",
         });
 
         if (response.statusCode >= 400) {
@@ -434,7 +431,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
      */
     private async rpc<T>(method: string | RealmEdgeRPCCommand, params: any[], id = "1", jsonrpc = "2.0"): Promise<T> {
         const isReadOperation = this.readOnlyMethods.has(method);
-        
+
         // Try cache first for read operations
         if (isReadOperation && this.config.cache && this.cacheConfig.enabledMethods.has(method)) {
             const cacheKey = this.getCacheKey(method, params);
@@ -445,7 +442,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
         }
 
         let lastError: Error | null = null;
-        
+
         // Retry logic
         for (let attempt = 0; attempt < this.retryConfig.maxAttempts; attempt++) {
             try {
@@ -457,7 +454,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
                 } else {
                     // Multi-provider logic
                     switch (this.multiProviderConfig.strategy) {
-                        case 'parallel-first':
+                        case "parallel-first":
                             result = await this.executeParallelFirst<T>(method, params, id, jsonrpc);
                             break;
                         default:
@@ -475,18 +472,18 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
                 return result;
             } catch (error) {
                 lastError = error as Error;
-                
+
                 // Update provider health on error
-                 if (this.urls.length > 1 && this.config.multiProvider) {
-                     const currentUrl = this.selectProvider();
-                     const health = this.providerHealthMap.get(currentUrl);
-                     if (health) {
-                         health.consecutiveFailures++;
-                         if (health.consecutiveFailures >= this.multiProviderConfig.maxConsecutiveFailures) {
-                             health.isHealthy = false;
-                         }
-                     }
-                 }
+                if (this.urls.length > 1 && this.config.multiProvider) {
+                    const currentUrl = this.selectProvider();
+                    const health = this.providerHealthMap.get(currentUrl);
+                    if (health) {
+                        health.consecutiveFailures++;
+                        if (health.consecutiveFailures >= this.multiProviderConfig.maxConsecutiveFailures) {
+                            health.isHealthy = false;
+                        }
+                    }
+                }
 
                 // Check if we should retry
                 if (attempt === this.retryConfig.maxAttempts - 1 || !this.isRetryableError(error)) {
@@ -499,35 +496,30 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
             }
         }
 
-        throw lastError || new Error('Unknown error occurred');
+        throw lastError || new Error("Unknown error occurred");
     }
 
     /**
      * Execute parallel-first strategy
      */
-    private async executeParallelFirst<T>(
-        method: string, 
-        params: any[], 
-        id: string, 
-        jsonrpc: string
-    ): Promise<T> {
+    private async executeParallelFirst<T>(method: string, params: any[], id: string, jsonrpc: string): Promise<T> {
         const healthyProviders = this.getHealthyProviders();
-        
+
         if (healthyProviders.length === 0) {
-            throw new Error('No healthy providers available');
+            throw new Error("No healthy providers available");
         }
 
-        const promises = healthyProviders.map(url => 
-            this.directRpc<T>(url, method, params, id, jsonrpc)
-        );
+        const promises = healthyProviders.map((url) => this.directRpc<T>(url, method, params, id, jsonrpc));
 
         try {
             return await Promise.race([
                 Promise.race(promises),
-                new Promise<never>((_, reject) => 
-                    setTimeout(() => reject(new Error('Parallel request timeout')), 
-                    this.multiProviderConfig.parallelRequestTimeout)
-                )
+                new Promise<never>((_, reject) =>
+                    setTimeout(
+                        () => reject(new Error("Parallel request timeout")),
+                        this.multiProviderConfig.parallelRequestTimeout
+                    )
+                ),
             ]);
         } catch (error) {
             // If all parallel requests fail, try them sequentially
@@ -556,7 +548,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
     public getCacheStats(): { size: number; maxSize: number; hitRate?: number } {
         return {
             size: this.cache.size,
-            maxSize: this.cacheConfig.maxSize
+            maxSize: this.cacheConfig.maxSize,
         };
     }
 
@@ -586,10 +578,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
     }
 
     // Submit user end cap
-    async submitUserEndCap(
-        userEcInput: SubmitUserEndCapNonProofInput, 
-        proof: ProofWithPublicInputs
-    ): Promise<string> {
+    async submitUserEndCap(userEcInput: SubmitUserEndCapNonProofInput, proof: ProofWithPublicInputs): Promise<string> {
         return this.rpc(RealmEdgeRPCCommand.SubmitUserEndCap, [userEcInput, proof]);
     }
 
@@ -635,198 +624,161 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
 
     // Get checkpoint tree leaf hash
     async getCheckpointTreeLeafHash(
-        checkpointId: bigint | number, 
+        checkpointId: bigint | number,
         leafCheckpointId: bigint | number
     ): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeLeafHash, [checkpointId, leafCheckpointId]);
     }
 
-    async getCheckpointTreeLeafHashF(
-        checkpointId: bigint, 
-        leafCheckpointId: bigint
-    ): Promise<QHashOut> {
+    async getCheckpointTreeLeafHashF(checkpointId: bigint, leafCheckpointId: bigint): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeLeafHashF, [checkpointId, leafCheckpointId]);
     }
 
     // Get checkpoint tree merkle proof
     async getCheckpointTreeMerkleProof(
-        checkpointId: bigint | number, 
+        checkpointId: bigint | number,
         leafCheckpointId: bigint | number
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeMerkleProof, [checkpointId, leafCheckpointId]);
     }
 
     async getCheckpointTreeMerkleProofF(
-        checkpointId: bigint, 
+        checkpointId: bigint,
         leafCheckpointId: bigint
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeMerkleProofF, [checkpointId, leafCheckpointId]);
     }
 
     // Get checkpoint global state roots
-    async getCheckpointGlobalStateRoots(
-        checkpointId: bigint | number
-    ): Promise<QEDCheckpointGlobalStateRoots> {
+    async getCheckpointGlobalStateRoots(checkpointId: bigint | number): Promise<QEDCheckpointGlobalStateRoots> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointGlobalStateRoots, [checkpointId]);
     }
 
     // Get user leaf data
-    async getUserLeafData(
-        checkpointId: bigint | number, 
-        userId: bigint | number
-    ): Promise<QEDUserLeaf> {
+    async getUserLeafData(checkpointId: bigint | number, userId: bigint | number): Promise<QEDUserLeaf> {
         return this.rpc(RealmEdgeRPCCommand.GetUserLeafData, [checkpointId, userId]);
     }
 
-    async getUserLeafDataF(
-        checkpointId: bigint, 
-        userId: bigint
-    ): Promise<QEDUserLeaf> {
+    async getUserLeafDataF(checkpointId: bigint, userId: bigint): Promise<QEDUserLeaf> {
         return this.rpc(RealmEdgeRPCCommand.GetUserLeafDataF, [checkpointId, userId]);
     }
 
     // Get user contract state tree root
     async getUserContractStateTreeRoot(
-        checkpointId: bigint | number, 
-        userId: bigint | number, 
+        checkpointId: bigint | number,
+        userId: bigint | number,
         contractId: bigint | number
     ): Promise<QHashOut> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserContractStateTreeRoot, 
-            [checkpointId, userId, contractId]
-        );
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeRoot, [checkpointId, userId, contractId]);
     }
 
-    async getUserContractStateTreeRootF(
-        checkpointId: bigint, 
-        userId: bigint, 
-        contractId: bigint
-    ): Promise<QHashOut> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserContractStateTreeRootF, 
-            [checkpointId, userId, contractId]
-        );
+    async getUserContractStateTreeRootF(checkpointId: bigint, userId: bigint, contractId: bigint): Promise<QHashOut> {
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeRootF, [checkpointId, userId, contractId]);
     }
 
     // Get user contract state tree leaf hash
     async getUserContractStateTreeLeafHash(
-        checkpointId: bigint | number, 
-        userId: bigint | number, 
+        checkpointId: bigint | number,
+        userId: bigint | number,
         contractId: bigint | number,
         height: number,
         leafId: bigint | number
     ): Promise<QHashOut> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserContractStateTreeLeafHash, 
-            [checkpointId, userId, contractId, height, leafId]
-        );
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeLeafHash, [
+            checkpointId,
+            userId,
+            contractId,
+            height,
+            leafId,
+        ]);
     }
 
     async getUserContractStateTreeLeafHashF(
-        checkpointId: bigint, 
-        userId: bigint, 
+        checkpointId: bigint,
+        userId: bigint,
         contractId: bigint,
         height: number,
         leafId: bigint
     ): Promise<QHashOut> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserContractStateTreeLeafHashF, 
-            [checkpointId, userId, contractId, height, leafId]
-        );
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeLeafHashF, [
+            checkpointId,
+            userId,
+            contractId,
+            height,
+            leafId,
+        ]);
     }
 
     // Get user contract state tree merkle proof
     async getUserContractStateTreeMerkleProof(
-        checkpointId: bigint | number, 
-        userId: bigint | number, 
+        checkpointId: bigint | number,
+        userId: bigint | number,
         contractId: bigint | number,
         height: number,
         leafId: bigint | number
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserContractStateTreeMerkleProof, 
-            [checkpointId, userId, contractId, height, leafId]
-        );
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeMerkleProof, [
+            checkpointId,
+            userId,
+            contractId,
+            height,
+            leafId,
+        ]);
     }
 
     async getUserContractStateTreeMerkleProofF(
-        checkpointId: bigint, 
-        userId: bigint, 
+        checkpointId: bigint,
+        userId: bigint,
         contractId: bigint,
         height: number,
         leafId: bigint
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserContractStateTreeMerkleProofF, 
-            [checkpointId, userId, contractId, height, leafId]
-        );
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeMerkleProofF, [
+            checkpointId,
+            userId,
+            contractId,
+            height,
+            leafId,
+        ]);
     }
 
     // Get user contract tree root
-    async getUserContractTreeRoot(
-        checkpointId: bigint | number, 
-        userId: bigint | number
-    ): Promise<QHashOut> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserContractTreeRoot, 
-            [checkpointId, userId]
-        );
+    async getUserContractTreeRoot(checkpointId: bigint | number, userId: bigint | number): Promise<QHashOut> {
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeRoot, [checkpointId, userId]);
     }
 
-    async getUserContractTreeRootF(
-        checkpointId: bigint, 
-        userId: bigint
-    ): Promise<QHashOut> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserContractTreeRootF, 
-            [checkpointId, userId]
-        );
+    async getUserContractTreeRootF(checkpointId: bigint, userId: bigint): Promise<QHashOut> {
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeRootF, [checkpointId, userId]);
     }
 
     // Get user contract tree leaf hash
     async getUserContractTreeLeafHash(
-        checkpointId: bigint | number, 
-        userId: bigint | number, 
+        checkpointId: bigint | number,
+        userId: bigint | number,
         contractId: bigint | number
     ): Promise<QHashOut> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserContractTreeLeafHash, 
-            [checkpointId, userId, contractId]
-        );
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeLeafHash, [checkpointId, userId, contractId]);
     }
 
-    async getUserContractTreeLeafHashF(
-        checkpointId: bigint, 
-        userId: bigint, 
-        contractId: bigint
-    ): Promise<QHashOut> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserContractTreeLeafHashF, 
-            [checkpointId, userId, contractId]
-        );
+    async getUserContractTreeLeafHashF(checkpointId: bigint, userId: bigint, contractId: bigint): Promise<QHashOut> {
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeLeafHashF, [checkpointId, userId, contractId]);
     }
 
     // Get user contract tree merkle proof
     async getUserContractTreeMerkleProof(
-        checkpointId: bigint | number, 
-        userId: bigint | number, 
+        checkpointId: bigint | number,
+        userId: bigint | number,
         contractId: bigint | number
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserContractTreeMerkleProof, 
-            [checkpointId, userId, contractId]
-        );
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeMerkleProof, [checkpointId, userId, contractId]);
     }
 
     async getUserContractTreeMerkleProofF(
-        checkpointId: bigint, 
-        userId: bigint, 
+        checkpointId: bigint,
+        userId: bigint,
         contractId: bigint
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserContractTreeMerkleProofF, 
-            [checkpointId, userId, contractId]
-        );
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeMerkleProofF, [checkpointId, userId, contractId]);
     }
 
     // Get user tree root
@@ -839,41 +791,29 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
     }
 
     // Get user tree leaf hash
-    async getUserTreeLeafHash(
-        checkpointId: bigint | number, 
-        userId: bigint | number
-    ): Promise<QHashOut> {
+    async getUserTreeLeafHash(checkpointId: bigint | number, userId: bigint | number): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserTreeLeafHash, [checkpointId, userId]);
     }
 
-    async getUserTreeLeafHashF(
-        checkpointId: bigint, 
-        userId: bigint
-    ): Promise<QHashOut> {
+    async getUserTreeLeafHashF(checkpointId: bigint, userId: bigint): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserTreeLeafHashF, [checkpointId, userId]);
     }
 
     // Get user bottom tree merkle proof
     async getUserBottomTreeMerkleProof(
         rootLevel: number,
-        checkpointId: bigint | number, 
+        checkpointId: bigint | number,
         userId: bigint | number
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserBottomTreeMerkleProof, 
-            [rootLevel, checkpointId, userId]
-        );
+        return this.rpc(RealmEdgeRPCCommand.GetUserBottomTreeMerkleProof, [rootLevel, checkpointId, userId]);
     }
 
     async getUserBottomTreeMerkleProofF(
         rootLevel: number,
-        checkpointId: bigint, 
+        checkpointId: bigint,
         userId: bigint
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserBottomTreeMerkleProofF, 
-            [rootLevel, checkpointId, userId]
-        );
+        return this.rpc(RealmEdgeRPCCommand.GetUserBottomTreeMerkleProofF, [rootLevel, checkpointId, userId]);
     }
 
     // Get user sub tree merkle proof
@@ -883,10 +823,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
         leafLevel: number,
         leafIndex: bigint | number
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserSubTreeMerkleProof, 
-            [checkpointId, rootLevel, leafLevel, leafIndex]
-        );
+        return this.rpc(RealmEdgeRPCCommand.GetUserSubTreeMerkleProof, [checkpointId, rootLevel, leafLevel, leafIndex]);
     }
 
     async getUserSubTreeMerkleProofF(
@@ -895,24 +832,23 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
         leafLevel: number,
         leafIndex: bigint
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc(
-            RealmEdgeRPCCommand.GetUserSubTreeMerkleProofF, 
-            [checkpointId, rootLevel, leafLevel, leafIndex]
-        );
+        return this.rpc(RealmEdgeRPCCommand.GetUserSubTreeMerkleProofF, [
+            checkpointId,
+            rootLevel,
+            leafLevel,
+            leafIndex,
+        ]);
     }
 
     // Get user tree merkle proof
     async getUserTreeMerkleProof(
-        checkpointId: bigint | number, 
+        checkpointId: bigint | number,
         userId: bigint | number
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserTreeMerkleProof, [checkpointId, userId]);
     }
 
-    async getUserTreeMerkleProofF(
-        checkpointId: bigint, 
-        userId: bigint
-    ): Promise<MerkleProofCore<QHashOut>> {
+    async getUserTreeMerkleProofF(checkpointId: bigint, userId: bigint): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserTreeMerkleProofF, [checkpointId, userId]);
     }
-} 
+}

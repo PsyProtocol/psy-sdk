@@ -9,7 +9,7 @@ import {
     QEDUserProverRPCCommand,
     SubmitUserEndCapNonProofInput,
     WalletKeyPair,
-    ZKPublicKeyInfo
+    ZKPublicKeyInfo,
 } from "./qedTypes";
 import { Hash256 } from "../rpc/baseTypes";
 
@@ -37,7 +37,7 @@ class QEDRPCUserProverProvider implements IQEDUserProverProvider {
             }),
             responseType: "json",
         });
-        
+
         if (result.statusCode >= 400) {
             throw new Error("Error in RPC call: " + JSON.stringify(result.body));
         } else if (result.body.error) {
@@ -121,4 +121,4 @@ class QEDRPCUserProverProvider implements IQEDUserProverProvider {
     }
 }
 
-export { QEDRPCUserProverProvider }; 
+export { QEDRPCUserProverProvider };

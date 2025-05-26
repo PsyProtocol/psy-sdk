@@ -92,3 +92,21 @@ export type {
 export * from "./zksigner/memory";
 export * from "./utils/felt";
 export * from "./utils/deposit";
+
+// Enhanced RPC Provider exports
+export {
+    Provider,
+    type CacheConfig,
+    type RetryConfig,
+    type MultiProviderConfig,
+    type ClientConfig,
+    type ProviderHealth,
+} from "./common";
+
+// Coordinator Edge RPC exports
+export { CoordinatorEdgeRpcProvider } from "./coordEdgeRPC/client";
+export type { ICoordinatorEdgeRpcProvider } from "./coordEdgeRPC/types";
+
+// Realm Edge RPC exports
+export { RealmEdgeRpcProvider } from "./realmEdgeRPC/client";
+export type { IRealmEdgeRpcProvider } from "./realmEdgeRPC/types";

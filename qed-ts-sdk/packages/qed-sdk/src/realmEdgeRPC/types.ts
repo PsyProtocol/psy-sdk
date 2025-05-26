@@ -115,176 +115,136 @@ export enum RealmEdgeRPCCommand {
     GetUserSubTreeMerkleProof = "qed_get_user_sub_tree_merkle_proof",
     GetUserSubTreeMerkleProofF = "qed_get_user_sub_tree_merkle_proof_f",
     GetUserTreeMerkleProof = "qed_get_user_tree_merkle_proof",
-    GetUserTreeMerkleProofF = "qed_get_user_tree_merkle_proof_f"
+    GetUserTreeMerkleProofF = "qed_get_user_tree_merkle_proof_f",
 }
 
 // Interface for the Realm Edge RPC client
 export interface IRealmEdgeRpcProvider {
     // Check user ID
     checkUserIdInRealm(userId: bigint | number): Promise<boolean>;
-    
+
     // Submit user end cap
-    submitUserEndCap(
-        userEcInput: SubmitUserEndCapNonProofInput, 
-        proof: ProofWithPublicInputs
-    ): Promise<string>;
-    
+    submitUserEndCap(userEcInput: SubmitUserEndCapNonProofInput, proof: ProofWithPublicInputs): Promise<string>;
+
     // Get checkpoint leaf data
     getCheckpointLeafData(checkpointId: bigint | number): Promise<QEDCheckpointLeaf>;
     getCheckpointLeafDataF(checkpointId: bigint): Promise<QEDCheckpointLeaf>;
-    
+
     // Get L2 block state
     getLatestL2BlockState(): Promise<QEDL2BlockState>;
     getL2BlockState(checkpointId: bigint | number): Promise<QEDL2BlockState>;
     getL2BlockStateF(checkpointId: bigint): Promise<QEDL2BlockState>;
-    
+
     // Get user registration tree root
     getUserRegistrationTreeRoot(checkpointId: bigint | number): Promise<QHashOut>;
-    
+
     // Get checkpoint tree roots
     getLatestCheckpointTreeRoot(): Promise<QHashOut>;
     getCheckpointTreeRoot(checkpointId: bigint | number): Promise<QHashOut>;
     getCheckpointTreeRootF(checkpointId: bigint): Promise<QHashOut>;
-    
+
     // Get checkpoint tree leaf hash
-    getCheckpointTreeLeafHash(
-        checkpointId: bigint | number, 
-        leafCheckpointId: bigint | number
-    ): Promise<QHashOut>;
-    getCheckpointTreeLeafHashF(
-        checkpointId: bigint, 
-        leafCheckpointId: bigint
-    ): Promise<QHashOut>;
-    
+    getCheckpointTreeLeafHash(checkpointId: bigint | number, leafCheckpointId: bigint | number): Promise<QHashOut>;
+    getCheckpointTreeLeafHashF(checkpointId: bigint, leafCheckpointId: bigint): Promise<QHashOut>;
+
     // Get checkpoint tree merkle proof
     getCheckpointTreeMerkleProof(
-        checkpointId: bigint | number, 
+        checkpointId: bigint | number,
         leafCheckpointId: bigint | number
     ): Promise<MerkleProofCore<QHashOut>>;
-    getCheckpointTreeMerkleProofF(
-        checkpointId: bigint, 
-        leafCheckpointId: bigint
-    ): Promise<MerkleProofCore<QHashOut>>;
-    
+    getCheckpointTreeMerkleProofF(checkpointId: bigint, leafCheckpointId: bigint): Promise<MerkleProofCore<QHashOut>>;
+
     // Get checkpoint global state roots
-    getCheckpointGlobalStateRoots(
-        checkpointId: bigint | number
-    ): Promise<QEDCheckpointGlobalStateRoots>;
-    
+    getCheckpointGlobalStateRoots(checkpointId: bigint | number): Promise<QEDCheckpointGlobalStateRoots>;
+
     // Get user leaf data
-    getUserLeafData(
-        checkpointId: bigint | number, 
-        userId: bigint | number
-    ): Promise<QEDUserLeaf>;
-    getUserLeafDataF(
-        checkpointId: bigint, 
-        userId: bigint
-    ): Promise<QEDUserLeaf>;
-    
+    getUserLeafData(checkpointId: bigint | number, userId: bigint | number): Promise<QEDUserLeaf>;
+    getUserLeafDataF(checkpointId: bigint, userId: bigint): Promise<QEDUserLeaf>;
+
     // Get user contract state tree root
     getUserContractStateTreeRoot(
-        checkpointId: bigint | number, 
-        userId: bigint | number, 
+        checkpointId: bigint | number,
+        userId: bigint | number,
         contractId: bigint | number
     ): Promise<QHashOut>;
-    getUserContractStateTreeRootF(
-        checkpointId: bigint, 
-        userId: bigint, 
-        contractId: bigint
-    ): Promise<QHashOut>;
-    
+    getUserContractStateTreeRootF(checkpointId: bigint, userId: bigint, contractId: bigint): Promise<QHashOut>;
+
     // Get user contract state tree leaf hash
     getUserContractStateTreeLeafHash(
-        checkpointId: bigint | number, 
-        userId: bigint | number, 
+        checkpointId: bigint | number,
+        userId: bigint | number,
         contractId: bigint | number,
         height: number,
         leafId: bigint | number
     ): Promise<QHashOut>;
     getUserContractStateTreeLeafHashF(
-        checkpointId: bigint, 
-        userId: bigint, 
+        checkpointId: bigint,
+        userId: bigint,
         contractId: bigint,
         height: number,
         leafId: bigint
     ): Promise<QHashOut>;
-    
+
     // Get user contract state tree merkle proof
     getUserContractStateTreeMerkleProof(
-        checkpointId: bigint | number, 
-        userId: bigint | number, 
+        checkpointId: bigint | number,
+        userId: bigint | number,
         contractId: bigint | number,
         height: number,
         leafId: bigint | number
     ): Promise<MerkleProofCore<QHashOut>>;
     getUserContractStateTreeMerkleProofF(
-        checkpointId: bigint, 
-        userId: bigint, 
+        checkpointId: bigint,
+        userId: bigint,
         contractId: bigint,
         height: number,
         leafId: bigint
     ): Promise<MerkleProofCore<QHashOut>>;
-    
+
     // Get user contract tree root
-    getUserContractTreeRoot(
-        checkpointId: bigint | number, 
-        userId: bigint | number
-    ): Promise<QHashOut>;
-    getUserContractTreeRootF(
-        checkpointId: bigint, 
-        userId: bigint
-    ): Promise<QHashOut>;
-    
+    getUserContractTreeRoot(checkpointId: bigint | number, userId: bigint | number): Promise<QHashOut>;
+    getUserContractTreeRootF(checkpointId: bigint, userId: bigint): Promise<QHashOut>;
+
     // Get user contract tree leaf hash
     getUserContractTreeLeafHash(
-        checkpointId: bigint | number, 
-        userId: bigint | number, 
+        checkpointId: bigint | number,
+        userId: bigint | number,
         contractId: bigint | number
     ): Promise<QHashOut>;
-    getUserContractTreeLeafHashF(
-        checkpointId: bigint, 
-        userId: bigint, 
-        contractId: bigint
-    ): Promise<QHashOut>;
-    
+    getUserContractTreeLeafHashF(checkpointId: bigint, userId: bigint, contractId: bigint): Promise<QHashOut>;
+
     // Get user contract tree merkle proof
     getUserContractTreeMerkleProof(
-        checkpointId: bigint | number, 
-        userId: bigint | number, 
+        checkpointId: bigint | number,
+        userId: bigint | number,
         contractId: bigint | number
     ): Promise<MerkleProofCore<QHashOut>>;
     getUserContractTreeMerkleProofF(
-        checkpointId: bigint, 
-        userId: bigint, 
+        checkpointId: bigint,
+        userId: bigint,
         contractId: bigint
     ): Promise<MerkleProofCore<QHashOut>>;
-    
+
     // Get user tree root
     getUserTreeRoot(checkpointId: bigint | number): Promise<QHashOut>;
     getUserTreeRootF(checkpointId: bigint): Promise<QHashOut>;
-    
+
     // Get user tree leaf hash
-    getUserTreeLeafHash(
-        checkpointId: bigint | number, 
-        userId: bigint | number
-    ): Promise<QHashOut>;
-    getUserTreeLeafHashF(
-        checkpointId: bigint, 
-        userId: bigint
-    ): Promise<QHashOut>;
-    
+    getUserTreeLeafHash(checkpointId: bigint | number, userId: bigint | number): Promise<QHashOut>;
+    getUserTreeLeafHashF(checkpointId: bigint, userId: bigint): Promise<QHashOut>;
+
     // Get user bottom tree merkle proof
     getUserBottomTreeMerkleProof(
         rootLevel: number,
-        checkpointId: bigint | number, 
+        checkpointId: bigint | number,
         userId: bigint | number
     ): Promise<MerkleProofCore<QHashOut>>;
     getUserBottomTreeMerkleProofF(
         rootLevel: number,
-        checkpointId: bigint, 
+        checkpointId: bigint,
         userId: bigint
     ): Promise<MerkleProofCore<QHashOut>>;
-    
+
     // Get user sub tree merkle proof
     getUserSubTreeMerkleProof(
         checkpointId: bigint | number,
@@ -298,14 +258,8 @@ export interface IRealmEdgeRpcProvider {
         leafLevel: number,
         leafIndex: bigint
     ): Promise<MerkleProofCore<QHashOut>>;
-    
+
     // Get user tree merkle proof
-    getUserTreeMerkleProof(
-        checkpointId: bigint | number, 
-        userId: bigint | number
-    ): Promise<MerkleProofCore<QHashOut>>;
-    getUserTreeMerkleProofF(
-        checkpointId: bigint, 
-        userId: bigint
-    ): Promise<MerkleProofCore<QHashOut>>;
-} 
+    getUserTreeMerkleProof(checkpointId: bigint | number, userId: bigint | number): Promise<MerkleProofCore<QHashOut>>;
+    getUserTreeMerkleProofF(checkpointId: bigint, userId: bigint): Promise<MerkleProofCore<QHashOut>>;
+}

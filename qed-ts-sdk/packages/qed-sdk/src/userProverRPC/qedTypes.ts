@@ -18,7 +18,7 @@ enum QEDUserProverRPCCommand {
     GetEndCapProof = "qed_get_end_cap_proof",
     GetUserECInput = "qed_get_user_ec_input",
     Ping = "qed_ping",
-    GetResult = "qed_get_result"
+    GetResult = "qed_get_result",
 }
 
 // Converted from Rust ContractCallArgs
@@ -119,7 +119,7 @@ interface ProofWithPublicInputs {
 // Core input for SubmitUserEndCapNonProofInput
 interface SubmitUserEndCapNonProofCoreInput {
     checkpoint_id: bigint;
-    stats: any; // GUTAStats 
+    stats: any; // GUTAStats
     state_transition: any; // UPSEndCapResultCompact
     new_user_leaf: any; // QEDUserLeaf
 }
@@ -165,9 +165,9 @@ interface IQEDUserProverProvider {
     getResult(id: Hash256): Promise<Uint8Array | string>;
 }
 
-export type { 
-    ContractCallArgs, 
-    WalletKeyPair, 
+export type {
+    ContractCallArgs,
+    WalletKeyPair,
     ZKPublicKeyInfo,
     QHashOut,
     DPNAssertEqInfoIndexed,
@@ -182,7 +182,7 @@ export type {
     SubmitUserEndCapNonProofCoreInput,
     QEDContractStateUpdateHistory,
     SubmitUserEndCapNonProofInput,
-    IQEDUserProverProvider 
+    IQEDUserProverProvider,
 };
 
-export { QEDUserProverRPCCommand }; 
+export { QEDUserProverRPCCommand };
