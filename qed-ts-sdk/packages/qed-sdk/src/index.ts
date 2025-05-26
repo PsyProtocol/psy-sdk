@@ -104,9 +104,10 @@ export {
 } from "./common";
 
 // Coordinator Edge RPC exports
-export { CoordinatorEdgeRpcProvider } from "./coordEdgeRPC/client";
-export type { ICoordinatorEdgeRpcProvider } from "./coordEdgeRPC/types";
+export { CoordinatorEdgeRpcProvider ,ICoordinatorEdgeRpcProvider} from "./coordEdgeRPC";
 
 // Realm Edge RPC exports
-export { RealmEdgeRpcProvider } from "./realmEdgeRPC/client";
-export type { IRealmEdgeRpcProvider } from "./realmEdgeRPC/types";
+export { RealmEdgeRpcProvider,IRealmEdgeRpcProvider } from "./realmEdgeRPC";
+
+// QED User Prover RPC exports
+export { QEDRPCUserProverProvider,IQEDUserProverProvider} from  "./qedUserProverRPC";

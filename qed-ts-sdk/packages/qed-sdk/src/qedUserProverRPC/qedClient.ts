@@ -12,6 +12,7 @@ import {
     ZKPublicKeyInfo,
 } from "./qedTypes";
 import { Hash256 } from "../rpc/baseTypes";
+import { waitMs } from "../utils";
 
 class QEDRPCUserProverProvider implements IQEDUserProverProvider {
     httpClient: ICityHTTPClient;
@@ -45,6 +46,19 @@ class QEDRPCUserProverProvider implements IQEDUserProverProvider {
         } else {
             return result.body.result as T;
         }
+    }
+
+    async getResultFinal(hash: Promise<string>, maxAttempts: number, delay: number) {
+        const resolvedHash = await hash;
+        for (let i = 0; i < maxAttempts; i++) {
+            try {
+                return await this.getResult(resolvedHash);
+            } catch (e) {
+                console.log("Error in RPC call: " + e);
+            }
+            await waitMs(delay);
+        }
+        throw new Error("Result not found after " + maxAttempts + " attempts");
     }
 
     // Local proving operations
