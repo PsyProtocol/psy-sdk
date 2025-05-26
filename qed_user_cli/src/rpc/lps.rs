@@ -581,6 +581,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 new_siblings.extend_from_slice(&top_proof.siblings);
                 merkle_proof.root = top_proof.root;
                 merkle_proof.siblings = new_siblings;
+                eprintln!("DEBUGPRINT[723]: lps.rs:583: merkle_proof={}", serde_json::to_string_pretty(&merkle_proof).unwrap());
 
                 debug!(
                     checkpoint_id = checkpoint_id,

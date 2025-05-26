@@ -5,12 +5,11 @@ use qed_core::job::id::QCircuitCommonGatesType;
 pub mod custom;
 
 
-pub fn get_guta_type_c_lookalike_circuit_data<C: GenericConfig<D>, const D: usize>(
-) -> CircuitData<C::F, C, D>
+pub fn get_guta_type_c_lookalike_circuit_data<C: GenericConfig<D>, const D: usize>() -> CircuitData<C::F, C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
-    get_lookalike_custom::<C, D>(QCircuitCommonGatesType::C, 13, 4)
+    get_lookalike_custom::<C, D>(QCircuitCommonGatesType::C, 14, 4)
 }
 
 pub fn get_guta_type_c_common_data<C: GenericConfig<D>, const D: usize>(

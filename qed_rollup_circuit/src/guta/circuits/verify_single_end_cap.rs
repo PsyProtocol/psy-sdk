@@ -61,7 +61,7 @@ where
         );
 
         let public_inputs_hash = a_end_cap_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
-        pad_circuit_degree(&mut builder, 12);
+        pad_circuit_degree(&mut builder, 13);
         builder.register_public_inputs(&public_inputs_hash.elements);
 
         let circuit_data = builder.build::<C>();
@@ -77,7 +77,7 @@ where
             fingerprint,
         }
     }
-    
+
     pub fn prove_base(
         &self,
         input: &VerifySingleEndCapInput<C::F>,

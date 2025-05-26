@@ -21,10 +21,10 @@ impl SimpleContract {
         return new SimpleContract {
             a: 0,
             b: new Person {
-                age: 0,
-                height: 0,
-                year_of_birth: 0,
-            },
+            age: 0,
+            height: 0,
+            year_of_birth: 0,
+        },
             c: 0,
             d: new Person {
                 age: 0,

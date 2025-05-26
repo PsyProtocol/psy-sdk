@@ -6,7 +6,7 @@ use qed_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,
 };
 use qed_core::{
-    config::network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
+    config::network_constants::{GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
 };
 use qed_crypto::{
@@ -90,7 +90,7 @@ pub fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     let defs_array: Vec<DPNFunctionCircuitDefinition> =
         serde_json::from_str(&fs::read_to_string(args.contract_path)?)?;
 
-    let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
+    let contract_state_tree_height = MAX_CONTRACT_STATE_TREE_HEIGHT as usize;
 
     let (_result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
         deployer,

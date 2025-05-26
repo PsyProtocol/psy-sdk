@@ -8,7 +8,7 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    builder::hash::core::CircuitBuilderHashCore, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
 use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}, utils::debug_timer::DebugTimer};
@@ -61,7 +61,7 @@ where
             end_cap_proof_verifier_data_cap_height,
             known_end_cap_fingerprint_hash,
         );
-        
+
 
         let a_end_cap_guta_header = a_end_cap_gadget.get_guta_header::<C::Hasher, C::F>(
             &mut builder,
@@ -83,6 +83,7 @@ where
 
         builder.register_public_inputs(&public_inputs_hash.elements);
         builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
+        pad_circuit_degree(&mut builder, 13);
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(
@@ -98,7 +99,7 @@ where
             fingerprint,
         }
     }
-    
+
     pub fn prove_base(
         &self,
         input: &VerifyTwoEndCapCircuitInput<C::F>,
@@ -128,7 +129,7 @@ where
         )?;
 
         self.nca_state_transition_gadget.set_witness_partial(
-            &mut pw, 
+            &mut pw,
             &input.nca_proof
         )?;
 
@@ -170,7 +171,7 @@ impl <
     L: CircuitInfoLibrary<C,D> + Send + Sync,
     C: GenericConfig<D>+ 'static,
     const D: usize,
-> QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for GUTAVerifyTwoEndCapCircuit<C,D> 
+> QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for GUTAVerifyTwoEndCapCircuit<C,D>
 where
 C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -181,7 +182,7 @@ C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
         job_id: QProvingJobDataID,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
 
-        let r: CircuitInputWithDependencies<VerifyTwoEndCapCircuitInput<C::F>> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?; 
+        let r: CircuitInputWithDependencies<VerifyTwoEndCapCircuitInput<C::F>> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
         if r.dependencies.len() != 2 {
             anyhow::bail!("invalid dependency count in two end cap input");
         }
