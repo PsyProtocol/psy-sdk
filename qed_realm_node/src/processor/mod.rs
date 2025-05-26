@@ -10,8 +10,6 @@ use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataId};
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
-use qed_node::nimpl::new_fred_pool;
-use qed_node::nimpl::proof_store_fred::{ProofStoreFred, PS_HISTORY_QUEUE_KEY_PREFIX};
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_store::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
@@ -19,23 +17,25 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
+use qed_node::nimpl::new_redis_async_pool;
 use qed_node_common::coordinator::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
+use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 
 type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     KVQArcImmutableStore,
-    ProofStoreFred,
-    ProofStoreFred,
-    ProofStoreFred,
-    ProofStoreFred,
+    ProofStoreRedisAsync,
+    ProofStoreRedisAsync,
+    ProofStoreRedisAsync,
+    ProofStoreRedisAsync,
 >;
 
 #[derive(Debug)]
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
-    pub sync_proof: ProofStoreFred,
+    pub sync_proof: ProofStoreRedisAsync,
     pub sync_checkpoint: Queue,
     pub store: KVQArcImmutableStore,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
@@ -47,20 +47,20 @@ pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> 
     Ok(())
 }
 
-pub const REALM_PROCESSOR_SUFFIX: &str = "RP";
-
 impl RealmProcessor {
     pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
-        let pool =
-            new_fred_pool(&config.redis.redis_uri, config.redis.pool_size.unwrap_or(10)).await?;
-        let realm_qps = ProofStoreFred::new2(
+        let pool = new_redis_async_pool(
+            config.redis.redis_uri.as_str(),
+            config.redis.pool_size.unwrap_or(10)
+        ).await?;
+        let realm_qps = ProofStoreRedisAsync::new2(
             pool,
             &config.queue.worker_queue_suffix,
             &config.queue.notifications_queue_suffix,
             &config.queue.proof_store_key_suffix,
             &config.queue.proof_store_key_suffix,
-        );
+        ).await?;
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write_with_size(
                 &config.db.path,

@@ -40,11 +40,7 @@ pub struct CoordinatorEdgeArgs {
         default_value = "redis://localhost:6379"
     )]
     pub redis_uri: String,
-    #[clap(
-        env = "COORDINATOR_LISTEN_ADDR",
-        long,
-        default_value = "0.0.0.0:8545"
-    )]
+    #[clap(env = "COORDINATOR_LISTEN_ADDR", long, default_value = "0.0.0.0:8545")]
     pub listen_addr: String,
     #[clap(env = "COORDINATOR_DB_PATH", long, default_value = "./db/coordinator")]
     pub db_path: String,

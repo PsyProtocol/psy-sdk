@@ -68,6 +68,17 @@ C::Hasher: AlgebraicHasher<C::F> {
 
 
     }
+
+    pub fn get_public_key_info(&self, private_key: SimpleQEDPrivateKey<C::F>) -> ZKPublicKeyInfo<C::F> {
+        let public_key_param = private_key.get_public_key_param::<C::Hasher>();
+        let fingerprint = self.get_zksig_circuit_fingerprint();
+
+        ZKPublicKeyInfo {
+            fingerprint,
+            public_key_param,
+        }
+    }
+
     pub fn add_private_key(&mut self, private_key: SimpleQEDPrivateKey<C::F>) -> QHashOut<C::F>{
         let public_key = private_key.get_public_key_for_fingerprint::<C::Hasher>(
             self.get_zksig_circuit_fingerprint()
@@ -97,6 +108,10 @@ C::Hasher: AlgebraicHasher<C::F> {
                 sig_hash,
             )
         }
+    }
+
+    pub fn contains_key(&self, public_key: QHashOut<C::F>) -> bool {
+        self.public_key_to_private_key_store.contains_key(&public_key)
     }
 }
 

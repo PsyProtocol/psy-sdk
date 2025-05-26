@@ -11,7 +11,7 @@ fix:
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
 build: common_config_generator
-	@cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin dargo
+	@cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin dargo --bin qed_user_prover
 
 fmt:
 	@cargo fmt
