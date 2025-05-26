@@ -1,6 +1,5 @@
 import { FetchHTTPClient } from "../http/fetchClient";
 import { ICityHTTPClient } from "../http/types";
-import { waitMs } from "../utils/time";
 import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,

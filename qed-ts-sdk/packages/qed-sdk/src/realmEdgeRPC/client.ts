@@ -113,7 +113,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
     private healthCheckTimer?: ReturnType<typeof setInterval>;
     
     // Read-only methods that can be cached
-    private readonly readOnlyMethods = new Set([
+    private readonly readOnlyMethods = new Set<string>([
         RealmEdgeRPCCommand.CheckUserIdInRealm,
         RealmEdgeRPCCommand.GetCheckpointLeafData,
         RealmEdgeRPCCommand.GetCheckpointLeafDataF,
@@ -258,6 +258,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
                 health.lastResponseTime = responseTime;
                 health.lastChecked = Date.now();
             } catch (error) {
+                console.error(`Health check failed for ${url}:`, error);
                 const health = this.providerHealthMap.get(url)!;
                 health.consecutiveFailures++;
                 health.lastChecked = Date.now();
@@ -460,8 +461,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
                             result = await this.executeParallelFirst<T>(method, params, id, jsonrpc);
                             break;
                         default:
-                            const selectedUrl = this.selectProvider();
-                            result = await this.directRpc<T>(selectedUrl, method, params, id, jsonrpc);
+                            result = await this.directRpc<T>(this.selectProvider(), method, params, id, jsonrpc);
                             break;
                     }
                 }
@@ -476,7 +476,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
             } catch (error) {
                 lastError = error as Error;
                 
-                                 // Update provider health on error
+                // Update provider health on error
                  if (this.urls.length > 1 && this.config.multiProvider) {
                      const currentUrl = this.selectProvider();
                      const health = this.providerHealthMap.get(currentUrl);
@@ -536,6 +536,7 @@ export class RealmEdgeRpcProvider implements IRealmEdgeRpcProvider {
                     return await this.directRpc<T>(url, method, params, id, jsonrpc);
                 } catch (sequentialError) {
                     // Continue to next provider
+                    console.error(`Sequential request failed: ${sequentialError}`);
                 }
             }
             throw error;
