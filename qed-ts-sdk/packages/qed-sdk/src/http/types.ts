@@ -11,8 +11,8 @@ interface ISimpleHTTPResponse {
     body: any;
 }
 
-interface ICityHTTPClient {
+interface IHTTPClient {
     sendRequest(request: ISimpleHTTPRequest): Promise<ISimpleHTTPResponse>;
 }
 
-export type { ISimpleHTTPRequest, ISimpleHTTPResponse, ICityHTTPClient };
+export type { ISimpleHTTPRequest, ISimpleHTTPResponse, IHTTPClient };

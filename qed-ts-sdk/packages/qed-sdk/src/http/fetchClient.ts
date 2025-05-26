@@ -1,6 +1,6 @@
-import { ICityHTTPClient, ISimpleHTTPRequest, ISimpleHTTPResponse } from "./types";
+import { IHTTPClient, ISimpleHTTPRequest, ISimpleHTTPResponse } from "./types";
 
-class FetchHTTPClient implements ICityHTTPClient {
+class FetchHTTPClient implements IHTTPClient {
     fetchImplementation: any;
     constructor(fetchImplementation?: any) {
         if (fetchImplementation) {

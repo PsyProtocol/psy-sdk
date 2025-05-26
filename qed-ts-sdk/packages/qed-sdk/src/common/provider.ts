@@ -1,4 +1,4 @@
-import { ICityHTTPClient } from "../http/types";
+import { IHTTPClient } from "../http/types";
 import { FetchHTTPClient } from "../http/fetchClient";
 
 /**
@@ -82,7 +82,7 @@ export interface ProviderHealth {
  * Enhanced RPC Provider base class with caching, retry logic, and multi-provider support
  */
 export abstract class Provider {
-    protected httpClient: ICityHTTPClient;
+    protected httpClient: IHTTPClient;
     protected urls: string[];
     protected config: ClientConfig;
 
@@ -107,8 +107,8 @@ export abstract class Provider {
 
     constructor(
         urlOrUrls: string | string[],
-        configOrHttpClient?: ClientConfig | ICityHTTPClient,
-        httpClient?: ICityHTTPClient
+        configOrHttpClient?: ClientConfig | IHTTPClient,
+        httpClient?: IHTTPClient
     ) {
         // Parse constructor arguments for backward compatibility
         if (typeof urlOrUrls === "string") {

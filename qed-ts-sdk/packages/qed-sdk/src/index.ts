@@ -1,4 +1,4 @@
-export type { ISimpleHTTPRequest, ISimpleHTTPResponse, ICityHTTPClient } from "./http/types";
+export type { ISimpleHTTPRequest, ISimpleHTTPResponse, IHTTPClient } from "./http/types";
 export { FetchHTTPClient } from "./http/fetchClient";
 
 export type {

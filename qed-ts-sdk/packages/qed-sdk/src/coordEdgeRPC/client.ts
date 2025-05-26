@@ -1,4 +1,4 @@
-import { ICityHTTPClient } from "../http/types";
+import { IHTTPClient } from "../http/types";
 import { Provider, ClientConfig } from "../common/provider";
 import {
     CheckpointSyncInfo,
@@ -95,8 +95,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      */
     constructor(
         urlOrUrls: string | string[],
-        configOrHttpClient?: ClientConfig | ICityHTTPClient,
-        httpClient?: ICityHTTPClient
+        configOrHttpClient?: ClientConfig | IHTTPClient,
+        httpClient?: IHTTPClient
     ) {
         super(urlOrUrls, configOrHttpClient, httpClient);
     }

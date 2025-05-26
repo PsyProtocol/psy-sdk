@@ -1,4 +1,4 @@
-import { ICityHTTPClient } from "../http/types";
+import { IHTTPClient } from "../http/types";
 import { Provider, ClientConfig } from "../common/provider";
 import { ProofWithPublicInputs } from "../rpc/plonkTypes";
 import {
@@ -68,8 +68,8 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
      */
     constructor(
         urlOrUrls: string | string[],
-        configOrHttpClient?: ClientConfig | ICityHTTPClient,
-        httpClient?: ICityHTTPClient
+        configOrHttpClient?: ClientConfig | IHTTPClient,
+        httpClient?: IHTTPClient
     ) {
         super(urlOrUrls, configOrHttpClient, httpClient);
     }

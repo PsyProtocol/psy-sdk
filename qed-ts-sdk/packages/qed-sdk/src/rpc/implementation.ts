@@ -1,4 +1,4 @@
-import type { ICityHTTPClient } from "../http/types";
+import type { IHTTPClient } from "../http/types";
 import type { ICityRPCProvider } from "./types";
 import type {
     CityHash,
@@ -25,10 +25,10 @@ import { getCityNetworkMagicForNetworkId } from "../action/constants";
 
 class CityRPCProvider implements ICityRPCProvider {
     url: string;
-    httpClient: ICityHTTPClient;
+    httpClient: IHTTPClient;
     networkId: DogeNetworkId;
     l2NetworkMagic: string;
-    constructor(url: string, httpClient?: ICityHTTPClient) {
+    constructor(url: string, httpClient?: IHTTPClient) {
         const tURL = new URL(url);
         this.networkId = (tURL.searchParams.get("networkId") || "doge") as DogeNetworkId;
         this.l2NetworkMagic = getCityNetworkMagicForNetworkId(this.networkId);

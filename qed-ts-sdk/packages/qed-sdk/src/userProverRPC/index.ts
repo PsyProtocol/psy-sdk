@@ -1,13 +1,13 @@
 import { FetchHTTPClient } from "../http/fetchClient";
-import { ICityHTTPClient } from "../http/types";
+import { IHTTPClient } from "../http/types";
 import { reverseHexBytes } from "../utils/felt";
 import { waitMs } from "../utils/time";
 import { CityUserProverRPCCommand, ICityUserProverProvider } from "./types";
 
 class CityRPCUserProverProvider implements ICityUserProverProvider {
-    httpClient: ICityHTTPClient;
+    httpClient: IHTTPClient;
     url: string;
-    constructor(url: string, httpClient?: ICityHTTPClient) {
+    constructor(url: string, httpClient?: IHTTPClient) {
         this.httpClient = httpClient || new FetchHTTPClient();
         this.url = url;
     }

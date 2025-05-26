@@ -1,5 +1,5 @@
 import { FetchHTTPClient } from "../http/fetchClient";
-import { ICityHTTPClient } from "../http/types";
+import { IHTTPClient } from "../http/types";
 import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
@@ -15,10 +15,10 @@ import { Hash256 } from "../rpc/baseTypes";
 import { waitMs } from "../utils";
 
 class QEDRPCUserProverProvider implements IQEDUserProverProvider {
-    httpClient: ICityHTTPClient;
+    httpClient: IHTTPClient;
     url: string;
 
-    constructor(url: string, httpClient?: ICityHTTPClient) {
+    constructor(url: string, httpClient?: IHTTPClient) {
         this.httpClient = httpClient || new FetchHTTPClient();
         this.url = url;
     }
