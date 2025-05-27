@@ -34,6 +34,7 @@ export interface QEDL2BlockState {
     total_deposits_claimed_epoch: bigint;
     next_user_id: bigint;
     end_balance: bigint;
+    next_contract_id: bigint;
 }
 
 // Checkpoint global state roots
