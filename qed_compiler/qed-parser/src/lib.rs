@@ -92,16 +92,12 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
         {
             if let Some(&module_id) = visited.get(&current_path) {
                 self.add_module_dependency(parent_module_id, module_id);
-                // self.add_module_child2(parent_module_id, module_id);
                 continue;
             }
 
             let mut module: ModuleNode = if !is_inline {
                 let module_name = self.resolve_module_name(&current_path);
                 if let Some(module_id) = self.find_module_by_name(module_name) {
-                    // self.program.modules.add_child(parent_module_id, module_id);
-                    // self.add_module_child2(parent_module_id, module_id);
-                    // self.add_module_dependency(parent_module_id, module_id);
                     continue;
                 }
 
@@ -196,37 +192,30 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
         // Add modules imported by use statements to the dependency
         for module in self.program.modules.clone().iter() {
             let parent_module_id = module.id();
-            let module = module.data();
-            let mut use_module_ids = vec![];
-            for def in module.definitions.iter() {
-                let def_node = &self.program.defs[*def];
-                if let DefinitionNode::Use(node) = def_node {
-                    let target = match &node.target {
-                        Some(target) => Some(target),
-                        None => match node.segments.last() {
-                            Some(target) => Some(target),
-                            None => None,
-                        },
+            let use_module_names = module
+                .data()
+                .definitions
+                .iter()
+                .filter_map(|def| {
+                    let def_node = &self.program.defs[*def];
+                    if let DefinitionNode::Use(node) = def_node {
+                        Some(node)
+                    } else {
+                        None
+                    }
+                })
+                .filter_map(|use_node| {
+                    let target = match use_node.target {
+                        Some(ref target) => Some(target),
+                        None => use_node.segments.last(),
                     };
-                    if let Some(target) = target {
-                        use_module_ids.push(target.id);
-                    };
-                }
-            }
+                    target.map(|t| t.id)
+                })
+                .collect::<Vec<_>>();
 
-            // let modules = &mut self.program.modules;
-            for use_module_ident_id in use_module_ids.into_iter() {
-                let use_module_id = self
-                    .program
-                    .modules
-                    .iter()
-                    .find(|m| m.data().name.id == use_module_ident_id)
-                    .map(|m| m.id());
-                if let Some(use_module_id) = use_module_id {
+            for use_module_name in use_module_names.into_iter() {
+                if let Some(use_module_id) = self.find_module_by_name(use_module_name) {
                     self.add_module_dependency(Some(parent_module_id), use_module_id);
-                    // self.program
-                    //     .modules
-                    //     .add_child(Some(parent_module_id), use_module_id);
                 }
             }
         }
@@ -238,8 +227,6 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
             children.dedup();
         });
 
-        // self.program.dependency_graph = self.program.modules.to_graph();
-
         println!("loaded module (symbol)");
         let interner = &self.program.interner;
         for module in self.program.modules.iter() {
@@ -248,6 +235,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                 interner[module.data().name.id],
                 module.id()
             );
+            println!("\tvisibility: {:?}", module.data().visibility);
             println!("\tchildren: ");
             for child in module.children() {
                 let child_module = &self.program.modules[*child];
