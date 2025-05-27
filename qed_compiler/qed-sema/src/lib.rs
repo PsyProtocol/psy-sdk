@@ -1868,7 +1868,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let module = ctx.module(module_id).clone();
                 ctx.add_module_reference(module_id, module.name.location, false);
 
-                if module.is_std && module.is_self_primitive {
+                if module.is_std() && module.is_self_primitive() {
                     self.typecheck_std_primitive_module(ctx)?;
                 }
                 for &def_id in &module.definitions {

@@ -52,9 +52,8 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
     }
 
     pub fn add_module_child(&mut self, parent: Option<ModuleId>, child: ModuleId) {
-        // let parent_module_id = parent.unwrap_or(ModuleId::root());
         if let Some(parent) = parent {
-            self.program.modules.add_child2(parent, child);
+            self.program.modules.add_child(parent, child);
         } else {
             println!("No parent module specified for child: {:?}", child);
         }
@@ -116,8 +115,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                     .resolve_content(&file_id)
                     .ok_or(Error::FileUnresolved)?;
 
-                let is_self_std = module_name == IdentId::STD;
-                let is_std = is_parent_std || is_self_std;
+                let is_std = is_parent_std || module_name == IdentId::STD;
                 let lexer = Lexer::new(file_content);
                 let transformer = GenericTokenTransformer::new(lexer);
                 let tokens: Vec<_> = transformer.collect::<qed_lexer::Result<Vec<_>>>()?;
@@ -135,7 +133,6 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                         &mut self.program.interner,
                         visibility,
                         is_std,
-                        is_self_std,
                         ctx,
                         tokens,
                     )

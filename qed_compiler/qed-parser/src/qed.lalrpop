@@ -13,7 +13,6 @@ grammar<'input, F, C>(
     interner: &mut Interner,
     _visibility_: Visibility,
     is_std: bool,
-    is_self_std: bool,
     ctx: &mut C
 ) where F: ContextFelt + From<u32>, C: DPNContext<F>;
 
@@ -38,7 +37,6 @@ pub Module: ModuleNode = {
         _visibility_,
         module_items,
         is_std,
-        is_self_std,
         def_nodes,
         back_comments,
         Location::new(file_id, l, r),
@@ -52,7 +50,6 @@ InlineModule: ModuleNode = {
         visibility,
         module_items,
         is_std,
-        is_self_std,
         def_nodes,
         comments.into_iter().chain(back_comments.into_iter()).collect(),
         Location::new(file_id, l, r),

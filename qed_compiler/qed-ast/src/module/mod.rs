@@ -41,14 +41,8 @@ pub struct ModuleNode {
     pub inline_modules: Vec<ModuleNode>,
     pub definitions: Vec<DefId>,
     pub visibility: Visibility,
-
     pub is_std: bool,
-    pub is_self_std: bool,
-    pub is_self_prelude: bool,
-    pub is_self_primitive: bool,
-
     pub comments: Vec<Comment>,
-
     pub location: Location,
 }
 
@@ -59,7 +53,6 @@ impl ModuleNode {
         visibility: Visibility,
         module_items: Vec<ModuleItemNode>,
         is_std: bool,
-        is_self_std: bool,
         def_nodes: &mut Arena<DefId, DefinitionNode>,
         comments: Vec<Comment>,
         location: Location,
@@ -112,13 +105,26 @@ impl ModuleNode {
             },
             visibility,
             is_std,
-            is_self_std,
-            is_self_prelude: name == IdentId::PRELUDE,
-            is_self_primitive: name == IdentId::PRIMITIVE,
             comments,
             location,
         };
         module
+    }
+
+    pub fn is_std(&self) -> bool {
+        self.is_std
+    }
+
+    pub fn is_self_std(&self) -> bool {
+        self.name == IdentId::STD
+    }
+
+    pub fn is_self_prelude(&self) -> bool {
+        self.name == IdentId::PRELUDE
+    }
+
+    pub fn is_self_primitive(&self) -> bool {
+        self.name == IdentId::PRIMITIVE
     }
 }
 

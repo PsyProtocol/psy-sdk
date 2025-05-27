@@ -1165,7 +1165,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
         let module = ctx.module(module_id).clone();
 
-        if module.is_self_std || module.is_self_primitive || module.is_self_prelude {
+        if module.is_self_std() || module.is_self_primitive() || module.is_self_prelude() {
             return Ok(());
         }
 
@@ -1526,7 +1526,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> Formatt
     ) -> Result<(), qed_common::Error> {
         let module = ctx.module(module_id).clone();
 
-        if module.is_std || module.is_self_std || module.is_self_primitive || module.is_self_prelude
+        if module.is_std() || module.is_self_std() || module.is_self_primitive() || module.is_self_prelude()
         {
             return Ok(());
         }
