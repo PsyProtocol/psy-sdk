@@ -346,7 +346,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 .symbols
                 .modules()
                 .iter()
-                .position(|x| x.name == name)
+                .position(|x| x.name == name && ctx.symbols.is_module_visible(x.id))
                 .map(ModuleId)
                 // Workaround: passing check for USE node
                 // .filter(|&id| ctx.symbols[current_module_id].children.contains(&id))
