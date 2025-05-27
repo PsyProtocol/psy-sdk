@@ -12,6 +12,10 @@ module.exports = {
         'plugin:@typescript-eslint/recommended',
         'prettier'
     ],
+    env: {
+        node: true,
+        jest: true
+    },
     rules: {
         // '@typescript-eslint/no-explicit-any': 'warn',
     },

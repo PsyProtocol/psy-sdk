@@ -16,4 +16,3 @@ export { QEDUserProverRPCCommand };
 export type { ContractCallArgs, WalletKeyPair, ZKPublicKeyInfo };
 export { QEDRPCUserProverProvider };
 export type { IQEDUserProverProvider };
-

@@ -104,10 +104,10 @@ export {
 } from "./common";
 
 // Coordinator Edge RPC exports
-export { CoordinatorEdgeRpcProvider ,ICoordinatorEdgeRpcProvider} from "./coordEdgeRPC";
+export { CoordinatorEdgeRpcProvider, ICoordinatorEdgeRpcProvider } from "./coordEdgeRPC";
 
 // Realm Edge RPC exports
-export { RealmEdgeRpcProvider,IRealmEdgeRpcProvider } from "./realmEdgeRPC";
+export { RealmEdgeRpcProvider, IRealmEdgeRpcProvider } from "./realmEdgeRPC";
 
 // QED User Prover RPC exports
-export { QEDRPCUserProverProvider,IQEDUserProverProvider} from  "./qedUserProverRPC";
+export { QEDRPCUserProverProvider, IQEDUserProverProvider } from "./qedUserProverRPC";
