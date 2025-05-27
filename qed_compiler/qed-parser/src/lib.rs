@@ -29,12 +29,35 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
         }
     }
 
-    pub fn find_module_by_name(&self, name: IdentId) -> Option<ModuleId> {
+    pub fn find_module_by_name(&self, name: impl Into<IdentId>) -> Option<ModuleId> {
+        let name = name.into();
+        println!("find_module_by_name: {}", self.program.interner[name].0);
         self.program
             .modules
             .iter()
-            .find(|module| module.data().name == name)
-            .map(|module| module.id())
+            .find(|m| m.data().name.id == name)
+            .map(|m| m.id())
+    }
+
+    pub fn add_module_dependency(&mut self, module: Option<ModuleId>, dep_module: ModuleId) {
+        // let module_id = module.unwrap_or(ModuleId::root());
+        if let Some(module) = module {
+            self.program.dependency_graph.add_edge(module, dep_module);
+        } else {
+            println!(
+                "No parent module specified for dependency: {:?}",
+                dep_module
+            );
+        }
+    }
+
+    pub fn add_module_child(&mut self, parent: Option<ModuleId>, child: ModuleId) {
+        // let parent_module_id = parent.unwrap_or(ModuleId::root());
+        if let Some(parent) = parent {
+            self.program.modules.add_child2(parent, child);
+        } else {
+            println!("No parent module specified for child: {:?}", child);
+        }
     }
 
     // std/
@@ -69,14 +92,17 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
         )) = module_stack.pop()
         {
             if let Some(&module_id) = visited.get(&current_path) {
-                self.program.modules.add_child(parent_module_id, module_id);
+                self.add_module_dependency(parent_module_id, module_id);
+                // self.add_module_child2(parent_module_id, module_id);
                 continue;
             }
 
             let mut module: ModuleNode = if !is_inline {
                 let module_name = self.resolve_module_name(&current_path);
                 if let Some(module_id) = self.find_module_by_name(module_name) {
-                    self.program.modules.add_child(parent_module_id, module_id);
+                    // self.program.modules.add_child(parent_module_id, module_id);
+                    // self.add_module_child2(parent_module_id, module_id);
+                    // self.add_module_dependency(parent_module_id, module_id);
                     continue;
                 }
 
@@ -164,7 +190,8 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
             }
 
             self.program.modules.add_node(module);
-            self.program.modules.add_child(parent_module_id, module_id);
+            self.add_module_child(parent_module_id, module_id);
+            self.add_module_dependency(parent_module_id, module_id);
 
             visited.insert(current_path, module_id);
         }
@@ -190,14 +217,19 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
                 }
             }
 
-            let modules = &mut self.program.modules;
+            // let modules = &mut self.program.modules;
             for use_module_ident_id in use_module_ids.into_iter() {
-                let use_module_id = modules
+                let use_module_id = self
+                    .program
+                    .modules
                     .iter()
                     .find(|m| m.data().name.id == use_module_ident_id)
                     .map(|m| m.id());
                 if let Some(use_module_id) = use_module_id {
-                    modules.add_child(Some(parent_module_id), use_module_id);
+                    self.add_module_dependency(Some(parent_module_id), use_module_id);
+                    // self.program
+                    //     .modules
+                    //     .add_child(Some(parent_module_id), use_module_id);
                 }
             }
         }
@@ -209,7 +241,33 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
             children.dedup();
         });
 
-        self.program.dependency_graph = self.program.modules.to_graph();
+        // self.program.dependency_graph = self.program.modules.to_graph();
+
+        println!("loaded module (symbol)");
+        let interner = &self.program.interner;
+        for module in self.program.modules.iter() {
+            println!(
+                "module: {}, {:?}",
+                interner[module.data().name.id],
+                module.id()
+            );
+            println!("\tchildren: ");
+            for child in module.children() {
+                let child_module = &self.program.modules[*child];
+                println!("\t\t{}, {:?}", interner[child_module.data().name.id], child);
+            }
+            println!("\tdependencies: ");
+            if let Some(dependencies) = self.program.dependency_graph.get(&module.id()) {
+                for dependency in dependencies.iter() {
+                    let dependency_module = &self.program.modules[*dependency];
+                    println!(
+                        "\t\t{}, {:?}",
+                        interner[dependency_module.data().name.id],
+                        dependency
+                    );
+                }
+            }
+        }
 
         self.program.dependency_graph.check_cycle::<Error>()?;
 

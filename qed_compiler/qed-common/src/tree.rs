@@ -92,6 +92,12 @@ impl<I: From<usize> + Into<usize> + Copy, T> Tree<I, T> {
 
         child_id
     }
+    pub fn add_child2(&mut self, parent_id: I, child_id: I) -> I {
+        self.nodes[child_id].parent = Some(parent_id);
+        self.nodes[parent_id].children.push(child_id);
+
+        child_id
+    }
 
     pub fn dfs(&self, node: I, visitor: &mut impl FnMut(&TreeNode<I, T>)) {
         visitor(&self.nodes[node]);
