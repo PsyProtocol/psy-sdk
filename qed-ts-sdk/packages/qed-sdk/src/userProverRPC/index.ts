@@ -3,6 +3,7 @@ import { IHTTPClient } from "../http/types";
 import { reverseHexBytes } from "../utils/felt";
 import { waitMs } from "../utils/time";
 import { CityUserProverRPCCommand, ICityUserProverProvider } from "./types";
+import { CityJSON } from "../utils";
 
 class CityRPCUserProverProvider implements ICityUserProverProvider {
     httpClient: IHTTPClient;
@@ -13,13 +14,13 @@ class CityRPCUserProverProvider implements ICityUserProverProvider {
     }
 
     async rpc<T>(method: string, params: any[], id = "1", jsonrpc = "2.0"): Promise<T> {
-        const result = await this.httpClient.sendRequest({
+        const response = await this.httpClient.sendRequest({
             method: "POST",
             url: this.url,
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({
+            body: CityJSON.stringify({
                 jsonrpc,
                 method,
                 params,
@@ -27,12 +28,15 @@ class CityRPCUserProverProvider implements ICityUserProverProvider {
             }),
             responseType: "json",
         });
-        if (result.statusCode >= 400) {
-            throw new Error("Error in RPC call: " + JSON.stringify(result.body));
-        } else if (result.body.error) {
-            throw new Error("Error in RPC call: " + JSON.stringify(result.body.error));
+        if (response.statusCode >= 400) {
+            throw new Error("Error in RPC call: " + JSON.stringify(response.body));
+        }
+
+        const result = CityJSON.parse(response.body);
+        if (result.error) {
+            throw new Error("Error in RPC call: " + JSON.stringify(result.error));
         } else {
-            return result.body.result as T;
+            return result.result as T;
         }
     }
     async getResultFinal(hash: Promise<string>, maxAttempts: number, delay: number) {

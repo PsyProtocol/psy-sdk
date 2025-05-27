@@ -1,15 +1,19 @@
 /* eslint-env node */
 module.exports = {
     preset: 'ts-jest',
-    testEnvironment: 'node',
+    testEnvironment: 'jest-environment-node',
     roots: ['./src'],
     testMatch: [
         '**/__tests__/**/*.test.ts',
         '**/?(*.)+(spec|test).ts'
     ],
     transform: {
-        '^.+\\.ts$': 'ts-jest',
+        '^.+\\.(ts|tsx|js|jsx|mjs|mts)$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
     },
+    extensionsToTreatAsEsm: ['.ts', '.tsx'],
+    transformIgnorePatterns: [
+        '/node_modules/(?!.*(?:@noble/secp256k1|doge-sdk))/'
+    ],
     collectCoverageFrom: [
         'src/**/*.ts',
         '!src/**/*.d.ts',
@@ -20,12 +24,5 @@ module.exports = {
     coverageReporters: ['text', 'lcov', 'html'],
     testTimeout: 30000,
     setupFilesAfterEnv: ['./jest.setup.ts'],
-    verbose: true,
-    // Environment variables for tests
-    globals: {
-        'ts-jest': {
-            tsconfig: 'tsconfig.json',
-            isolatedModules: true
-        }
-    }
+    verbose: true
 }; 

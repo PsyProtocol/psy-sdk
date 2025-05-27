@@ -12,7 +12,7 @@ import {
     ZKPublicKeyInfo,
 } from "./qedTypes";
 import { Hash256 } from "../rpc/baseTypes";
-import { waitMs } from "../utils";
+import { CityJSON, waitMs } from "../utils";
 
 class QEDRPCUserProverProvider implements IQEDUserProverProvider {
     httpClient: IHTTPClient;
@@ -24,25 +24,27 @@ class QEDRPCUserProverProvider implements IQEDUserProverProvider {
     }
 
     async rpc<T>(method: string, params: any[], id = "1", jsonrpc = "2.0"): Promise<T> {
-        const result = await this.httpClient.sendRequest({
+        const response = await this.httpClient.sendRequest({
             method: "POST",
             url: this.url,
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({
+            body: CityJSON.stringify({
                 jsonrpc,
                 method,
                 params,
                 id,
             }),
-            responseType: "json",
+            responseType: "text",
         });
 
-        if (result.statusCode >= 400) {
-            throw new Error("Error in RPC call: " + JSON.stringify(result.body));
-        } else if (result.body.error) {
-            throw new Error("Error in RPC call: " + JSON.stringify(result.body.error));
+        if (response.statusCode >= 400) {
+            throw new Error("Error in RPC call: " + CityJSON.stringify(response.body));
+        }
+        const result = CityJSON.parse(response.body);
+        if (result.error) {
+            throw new Error("Error in RPC call: " + CityJSON.stringify(result.error));
         } else {
             return result.body.result as T;
         }

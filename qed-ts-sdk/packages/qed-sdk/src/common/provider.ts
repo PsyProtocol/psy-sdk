@@ -1,5 +1,6 @@
 import { IHTTPClient } from "../http/types";
 import { FetchHTTPClient } from "../http/fetchClient";
+import { CityJSON } from "../utils";
 
 /**
  * Cache configuration interface
@@ -354,20 +355,19 @@ export abstract class Provider {
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({
+            body: CityJSON.stringify({
                 jsonrpc,
                 method,
                 params,
                 id,
             }),
-            responseType: "json",
+            responseType: "text",
         });
 
         if (response.statusCode >= 400) {
             throw new Error(`RPC error: ${response.statusCode} - ${response.body}`);
         }
-
-        const result = response.body;
+        const result = CityJSON.parse(response.body);
         if (result.error) {
             throw new Error(`RPC error: ${result.error.message || JSON.stringify(result.error)}`);
         }
@@ -517,7 +517,7 @@ export abstract class Provider {
             method: "POST",
             url,
             headers,
-            body: JSON.stringify({
+            body: CityJSON.stringify({
                 jsonrpc,
                 method,
                 params,
@@ -526,7 +526,11 @@ export abstract class Provider {
             responseType: "text",
         });
 
-        const result = JSON.parse(response.body);
+        if (response.statusCode >= 400) {
+            throw new Error("Error in RPC call: " + CityJSON.stringify(response.body));
+        }
+
+        const result = CityJSON.parse(response.body);
 
         if (result.error) {
             throw new Error(`RPC error: ${result.error.message || JSON.stringify(result.error)}`);
