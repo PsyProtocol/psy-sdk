@@ -71,19 +71,7 @@ impl ModuleNode {
         let module = Self {
             name,
             file_id,
-            modules: {
-                if !is_std {
-                    modules.insert(
-                        0,
-                        (
-                            Identifier::new(IdentId::STD, Location::new(file_id, 0, 0)),
-                            Visibility::Private,
-                            Location::new(file_id, 0, 0),
-                        ),
-                    );
-                }
-                modules
-            },
+            modules,
             inline_modules,
             definitions: {
                 if !is_std {

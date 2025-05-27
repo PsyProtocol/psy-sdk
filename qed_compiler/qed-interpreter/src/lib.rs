@@ -15,7 +15,7 @@ pub use preprocess::StorageProcessor;
 use qed_ast::*;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use qed_fmt::Formatter;
-use qed_parser::Parser;
+use qed_parser::{std_path, Parser};
 use qed_sema::Error as SemaError;
 use qed_sema::*;
 use qedlang_core::dpn::ops::exec_context::QExecContext;
@@ -340,6 +340,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     {
         let mut module_entry_paths = vec![entry];
         module_entry_paths.extend(dependencies_entry);
+        module_entry_paths.push(std_path());
         let mut program = Program::new();
         for module_entry in module_entry_paths {
             Parser::new(&mut program)
