@@ -1,5 +1,5 @@
 function setInObject(obj: any, path: string[], value: any) {
-    let cur = obj;
+    const cur = obj;
     for (let i = 0, l = path.length - 1; i < l; i++) {
         if (!Object.hasOwnProperty.call(cur, path[i])) {
             cur[path[i]] = {};

@@ -121,7 +121,7 @@ function createBinaryTreePlanner(numLeaves: number): IBinaryTreePlanner {
                 right_job: current[i * 2 + 1].position,
             });
         }
-        let nCurrent = nextLevel.slice();
+        const nCurrent = nextLevel.slice();
         levels.push(nextLevel);
         if (current.length % 2 === 1) {
             nCurrent.push(current[current.length - 1]);

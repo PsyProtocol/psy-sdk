@@ -7,7 +7,7 @@ function u8ArrayToHex(x: Uint8Array | number[]): string {
 }
 
 function hexToU8Array(hex: string): Uint8Array {
-    let hexString = hex.charAt(1) === "x" ? hex.substring(2) : hex;
+    const hexString = hex.charAt(1) === "x" ? hex.substring(2) : hex;
     if (hexString.length % 2 === 1) {
         throw new Error("hex strings must have an even number of characters");
     }

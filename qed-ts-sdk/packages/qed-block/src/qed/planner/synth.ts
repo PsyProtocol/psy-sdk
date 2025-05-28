@@ -15,45 +15,45 @@ import { getDummyTreeOpCircuitJobWithDependencies } from "./dummyTree";
 function synthPlanner(config: ICitySynthBlockConfig): ICitySynthBlockResult {
     const checkpointId = config.checkpoint_id;
 
-    let registerUsers = getDummyTreeOpCircuitJobWithDependencies(
+    const registerUsers = getDummyTreeOpCircuitJobWithDependencies(
         ProvingJobCircuitType.RegisterUser,
         ProvingJobCircuitType.DummyRegisterUserAggregate,
         checkpointId,
         config.job_config.register_user_count
     );
-    let claimDeposits = getDummyTreeOpCircuitJobWithDependencies(
+    const claimDeposits = getDummyTreeOpCircuitJobWithDependencies(
         ProvingJobCircuitType.ClaimL1Deposit,
         ProvingJobCircuitType.DummyClaimL1DepositAggregate,
         checkpointId,
         config.job_config.claim_deposit_count
     );
-    let tokenTransfers = getDummyTreeOpCircuitJobWithDependencies(
+    const tokenTransfers = getDummyTreeOpCircuitJobWithDependencies(
         ProvingJobCircuitType.TransferTokensL2,
         ProvingJobCircuitType.DummyTransferTokensL2Aggregate,
         checkpointId,
         config.job_config.token_transfer_count
     );
-    let addWithdrawals = getDummyTreeOpCircuitJobWithDependencies(
+    const addWithdrawals = getDummyTreeOpCircuitJobWithDependencies(
         ProvingJobCircuitType.AddL1Withdrawal,
         ProvingJobCircuitType.DummyAddL1WithdrawalAggregate,
         checkpointId,
         config.job_config.add_withdrawal_count
     );
-    let processWithdrawals = getDummyTreeOpCircuitJobWithDependencies(
+    const processWithdrawals = getDummyTreeOpCircuitJobWithDependencies(
         ProvingJobCircuitType.ProcessL1Withdrawal,
         ProvingJobCircuitType.DummyProcessL1WithdrawalAggregate,
         checkpointId,
         config.job_config.process_withdrawal_count
     );
-    let addDeposits = getDummyTreeOpCircuitJobWithDependencies(
+    const addDeposits = getDummyTreeOpCircuitJobWithDependencies(
         ProvingJobCircuitType.AddL1Deposit,
         ProvingJobCircuitType.DummyAddL1DepositAggregate,
         checkpointId,
         config.job_config.add_deposit_count
     );
 
-    let stateTransitionPart1Id = serializeJobIdHex(blockAggStatePart1InputWitnessJobId(checkpointId));
-    let stateTransitionPart2Id = serializeJobIdHex(blockAggStatePart2InputWitnessJobId(checkpointId));
+    const stateTransitionPart1Id = serializeJobIdHex(blockAggStatePart1InputWitnessJobId(checkpointId));
+    const stateTransitionPart2Id = serializeJobIdHex(blockAggStatePart2InputWitnessJobId(checkpointId));
 
     const stateTransitionPart1: IQJobWithDependenciesSerialized = {
         id: stateTransitionPart1Id,

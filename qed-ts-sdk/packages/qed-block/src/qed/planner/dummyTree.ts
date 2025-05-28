@@ -13,15 +13,15 @@ function getDummyWalkTreeProverIds<T>(
     } else {
         const leavesLen = leaves.length;
         const levels = createBinaryTreePlanner(leavesLen).levels;
-        let jobIds = [leaves];
-        let jobs = [leaves.map((id) => visitJob(id, []))];
+        const jobIds = [leaves];
+        const jobs = [leaves.map((id) => visitJob(id, []))];
 
-        for (let levelNodes of levels) {
-            let levelJobIds: IQProvingJobDataID[] = [];
-            let levelJobs: T[] = [];
-            for (let node of levelNodes) {
-                let leftProofId = getJobOutputId(jobIds[node.left_job.level][node.left_job.index]);
-                let selfWitnessId = getJobTreeParentProofInputId(leftProofId);
+        for (const levelNodes of levels) {
+            const levelJobIds: IQProvingJobDataID[] = [];
+            const levelJobs: T[] = [];
+            for (const node of levelNodes) {
+                const leftProofId = getJobOutputId(jobIds[node.left_job.level][node.left_job.index]);
+                const selfWitnessId = getJobTreeParentProofInputId(leftProofId);
                 const job = visitJob(selfWitnessId, [
                     jobs[node.left_job.level][node.left_job.index],
                     jobs[node.right_job.level][node.right_job.index],
@@ -41,13 +41,13 @@ function getDummyTreeProverIds(leaves: IQProvingJobDataID[], dummyId: IQProvingJ
     } else {
         const leavesLen = leaves.length;
         const levels = createBinaryTreePlanner(leavesLen).levels;
-        let jobIds = [leaves];
+        const jobIds = [leaves];
 
-        for (let levelNodes of levels) {
-            let levelJobIds: IQProvingJobDataID[] = [];
-            for (let node of levelNodes) {
-                let leftProofId = getJobOutputId(jobIds[node.left_job.level][node.left_job.index]);
-                let selfWitnessId = getJobTreeParentProofInputId(leftProofId);
+        for (const levelNodes of levels) {
+            const levelJobIds: IQProvingJobDataID[] = [];
+            for (const node of levelNodes) {
+                const leftProofId = getJobOutputId(jobIds[node.left_job.level][node.left_job.index]);
+                const selfWitnessId = getJobTreeParentProofInputId(leftProofId);
                 levelJobIds.push(selfWitnessId);
             }
             jobIds.push(levelJobIds);

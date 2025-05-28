@@ -33,7 +33,7 @@ function findInRST(jobId: string, rst: IQJobWithDependenciesSerialized): IQJobWi
     if (rst.id === jobId) {
         return rst;
     } else {
-        for (let dep of rst.dependencies) {
+        for (const dep of rst.dependencies) {
             const found = findInRST(jobId, dep);
             if (found) {
                 return found;

@@ -340,13 +340,13 @@ describe("QED User Prover RPC Integration Tests", () => {
     });
 
     describe("Contract Deployment", () => {
-        let sessionId: string;
+        // let sessionId: string;
         let userKeypair: WalletKeyPair;
         let userHash: Hash256;
 
         beforeAll(async () => {
             try {
-                sessionId = await provider.startSession();
+                // const sessionId = await provider.startSession();
                 userKeypair = await provider.getRandomKeypair();
                 userHash = await provider.addUser(userKeypair.private_key);
                 await provider.switchUser(userHash);
@@ -432,9 +432,9 @@ describe("QED User Prover RPC Integration Tests", () => {
     });
 
     describe("Signing and Submission", () => {
-        let sessionId: string;
-        let userKeypair: WalletKeyPair;
-        let userHash: Hash256;
+        // let sessionId: string;
+        // let userKeypair: WalletKeyPair;
+        // let userHash: Hash256;
 
         // beforeAll(async () => {
         //     try {

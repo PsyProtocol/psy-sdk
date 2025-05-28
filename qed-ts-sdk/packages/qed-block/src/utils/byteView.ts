@@ -19,7 +19,7 @@ function readU64LEFromBytes(bytes: Uint8Array | number[], offset = 0): bigint {
     return BigInt(readU32LEFromBytes(bytes, offset)) + (BigInt(readU32LEFromBytes(bytes, offset + 4)) << 32n);
 }
 
-function writeU64LEToBytes(value: BigInt | string | number, bytes: Uint8Array | number[], offset = 0): void {
+function writeU64LEToBytes(value: bigint | string | number, bytes: Uint8Array | number[], offset = 0): void {
     const realValue = BigInt(value + "");
     writeU32LEToBytes(Number(realValue & 0xffffffffn), bytes, offset);
     writeU32LEToBytes(Number(realValue >> 32n), bytes, offset + 4);

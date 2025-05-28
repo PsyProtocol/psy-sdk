@@ -158,7 +158,7 @@ class SimpleProofStoreMemory implements IQProofStore {
         this.set_bytes_by_id(next_jobs_id, serializeJobIdArray(next_jobs));
     }
     write_multidimensional_jobs_core(jobs: IQProvingJobDataID[][], next_jobs: IQProvingJobDataID[]): void {
-        let job_levels_count = jobs.length;
+        const job_levels_count = jobs.length;
         for (let i = 0; i < job_levels_count; i++) {
             const counter_id = getJobSubGroupCounterId(jobs[i][0]);
             const goal_id = getJobSubGroupCounterGoalId(counter_id);

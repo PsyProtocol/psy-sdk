@@ -1,5 +1,5 @@
 const pool: any[] = [];
-var width = 256, // each RC4 output is 0 <= x < 256
+let width = 256, // each RC4 output is 0 <= x < 256
     chunks = 6, // at least six RC4 outputs for each double
     digits = 52, // there are 52 significant digits in a double
     rngname = "random", // rngname: name for Math.random and Math.seedrandom
@@ -14,19 +14,19 @@ var width = 256, // each RC4 output is 0 <= x < 256
 // This is the seedrandom function described above.
 //
 function seedrandom(seed: string, options?: any, callback?: any) {
-    var key: any = [];
+    const key: any = [];
     options = options == true ? { entropy: true } : options || {};
 
     // Flatten the seed string or build one from local entropy if needed.
-    var shortseed = mixkey(flatten(options.entropy ? [seed, tostring(pool)] : seed, 3), key);
+    const shortseed = mixkey(flatten(options.entropy ? [seed, tostring(pool)] : seed, 3), key);
 
     // Use the seed to initialize an ARC4 generator.
-    var arc4 = new (ARC4 as any)(key);
+    const arc4 = new (ARC4 as any)(key);
 
     // This function returns a random double in [0, 1) that contains
     // randomness in every bit of the mantissa of the IEEE 754 value.
-    var prng: any = function () {
-        var n = arc4.g(chunks), // Start with a numerator n < 2 ^ 48
+    const prng: any = function () {
+        let n = arc4.g(chunks), // Start with a numerator n < 2 ^ 48
             d = startdenom, //   and denominator d = 2 ^ 48.
             x = 0; //   and no 'extra last byte'.
         while (n < significance) {
@@ -98,10 +98,10 @@ function seedrandom(seed: string, options?: any, callback?: any) {
 // that is in the range 0 <= x < (width ^ count).
 //
 function ARC4(key: any) {
-    var t,
+    let t,
         keylen = key.length;
     //@ts-ignore
-    var me: any = this,
+    let me: any = this,
         i = 0,
         j = (me.i = me.j = 0),
         s: any = (me.S = []);
@@ -123,7 +123,7 @@ function ARC4(key: any) {
     // The "g" method returns the next (count) outputs as one number.
     (me.g = function (count: any) {
         // Using instance members instead of closure state nearly doubles speed.
-        var t,
+        let t,
             r = 0,
             i = me.i,
             j = me.j,
@@ -157,7 +157,7 @@ function copy(f: any, t: any) {
 // Converts an object tree to nested arrays of strings.
 //
 function flatten(obj: any, depth: any) {
-    var result: any[] = [],
+    let result: any[] = [],
         typ = typeof obj,
         prop;
     if (depth && typ == "object") {
@@ -176,7 +176,7 @@ function flatten(obj: any, depth: any) {
 // returns a shortened string seed that is equivalent to the result key.
 //
 function mixkey(seed: any, key: any) {
-    var stringseed = seed + "",
+    let stringseed = seed + "",
         smear: any,
         j = 0;
     while (j < stringseed.length) {
