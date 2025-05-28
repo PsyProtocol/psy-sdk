@@ -29,9 +29,11 @@ interface ContractCallArgs {
 }
 
 // From QHashOut in the codebase
-interface QHashOut {
-    elements: bigint[];
-}
+// interface QHashOut {
+//     elements: bigint | number[];
+// }
+
+type QHashOut = string;
 
 // Converted from Rust ZKPublicKeyInfo
 interface ZKPublicKeyInfo {

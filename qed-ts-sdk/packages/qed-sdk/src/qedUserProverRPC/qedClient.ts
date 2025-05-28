@@ -46,7 +46,7 @@ class QEDRPCUserProverProvider implements IQEDUserProverProvider {
         if (result.error) {
             throw new Error("Error in RPC call: " + CityJSON.stringify(result.error));
         } else {
-            return result.body.result as T;
+            return result.result as T;
         }
     }
 
