@@ -68,47 +68,39 @@ impl<F: Clone + From<u32>> Program<F> {
         }
     }
 
-    pub fn print_module_name(&self) {
-        for module in self.modules.iter() {
-            println!(
-                "module name: {:?}, module id: {:?}",
-                self.interner[module.data().name.into()],
-                module.id()
-            );
-        }
+    pub fn module_name(&self, module_id: impl Into<ModuleId>) -> &Ident {
+        let module_id = module_id.into();
+        let module = self.modules[module_id].data();
+        &self.interner[module.name.id]
     }
 
     pub fn print_module_graph(&self) {
-        println!("After parse: modules in program");
+        println!("[Program modules]");
+        let interner = &self.interner;
         for module in self.modules.iter() {
             println!(
-                "module name: {:?}, module id: {:?}",
-                self.interner[module.data().name.into()],
+                "module: {}, {:?}",
+                // self.module_name(module_id),
+                interner[module.data().name.id],
                 module.id()
             );
-            for def_id in module.data().definitions.iter() {
-                let def_node = &self.defs[*def_id];
-                if let DefinitionNode::Use(node) = def_node {
-                    let ident_id = node.kind.id;
-                    let mut module_id = 0.into();
-                    for ii in self.modules.iter() {
-                        if ident_id == ii.data().name {
-                            module_id = ii.id();
-                            break;
-                        }
-                    }
+            println!("  visibility: {:?}", module.data().visibility);
+            println!("  children: ");
+            for child in module.children() {
+                let child_module = &self.modules[*child];
+                println!("    {}, {:?}", interner[child_module.data().name.id], child);
+            }
+            println!("  dependencies: ");
+            if let Some(dependencies) = self.dependency_graph.get(&module.id()) {
+                for dependency in dependencies.iter() {
+                    let dependency_module = &self.modules[*dependency];
                     println!(
-                        "USE: {:?}, module_id: {:?}",
-                        self.interner[ident_id], module_id,
+                        "    {}, {:?}",
+                        interner[dependency_module.data().name.id],
+                        dependency
                     );
                 }
             }
-            println!("module dependencies: {:?}", module.children());
         }
-        println!("module graph");
-        for (i, j) in self.dependency_graph.iter() {
-            println!("{:?} -> {:?}", i, j);
-        }
-        println!("----------------------");
     }
 }

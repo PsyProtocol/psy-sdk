@@ -31,7 +31,6 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
 
     pub fn find_module_by_name(&self, name: impl Into<IdentId>) -> Option<ModuleId> {
         let name = name.into();
-        println!("find_module_by_name: {}", self.program.interner[name].0);
         self.program
             .modules
             .iter()
@@ -40,22 +39,14 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
     }
 
     pub fn add_module_dependency(&mut self, module: Option<ModuleId>, dep_module: ModuleId) {
-        // let module_id = module.unwrap_or(ModuleId::root());
         if let Some(module) = module {
             self.program.dependency_graph.add_edge(module, dep_module);
-        } else {
-            println!(
-                "No parent module specified for dependency: {:?}",
-                dep_module
-            );
         }
     }
 
     pub fn add_module_child(&mut self, parent: Option<ModuleId>, child: ModuleId) {
         if let Some(parent) = parent {
             self.program.modules.add_child(parent, child);
-        } else {
-            println!("No parent module specified for child: {:?}", child);
         }
     }
 
@@ -227,32 +218,7 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
             children.dedup();
         });
 
-        println!("loaded module (symbol)");
-        let interner = &self.program.interner;
-        for module in self.program.modules.iter() {
-            println!(
-                "module: {}, {:?}",
-                interner[module.data().name.id],
-                module.id()
-            );
-            println!("\tvisibility: {:?}", module.data().visibility);
-            println!("\tchildren: ");
-            for child in module.children() {
-                let child_module = &self.program.modules[*child];
-                println!("\t\t{}, {:?}", interner[child_module.data().name.id], child);
-            }
-            println!("\tdependencies: ");
-            if let Some(dependencies) = self.program.dependency_graph.get(&module.id()) {
-                for dependency in dependencies.iter() {
-                    let dependency_module = &self.program.modules[*dependency];
-                    println!(
-                        "\t\t{}, {:?}",
-                        interner[dependency_module.data().name.id],
-                        dependency
-                    );
-                }
-            }
-        }
+        self.program.print_module_graph();
 
         self.program.dependency_graph.check_cycle::<Error>()?;
 
