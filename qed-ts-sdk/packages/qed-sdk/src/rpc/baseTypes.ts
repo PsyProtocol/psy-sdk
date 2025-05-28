@@ -1,5 +1,6 @@
 type SCNumberLike = bigint | number | string;
 type SCFelt = bigint | number;
+type Felt = bigint | number;
 type HexString = string;
 
 type CityHash = string;
@@ -7,6 +8,11 @@ type Hash256 = string;
 type Hash160 = string;
 type CompressedPublicKeyHex = string;
 type QProvingJobDataIDSerializedWrapped = string;
+type PrivateKey = string;
+type PublicKey = string;
+type HashOut = string;
+type QHashOut = string;
+type U8Bytes = string | Uint8Array;
 
 interface IMerkleProofCore<T> {
     root: T;
@@ -100,9 +106,14 @@ type TProofValueStoreKV = ISimpleKVPair<string, string>;
 export type {
     CityHash,
     SCFelt,
+    Felt,
     SCNumberLike,
     Hash256,
     Hash160,
+    PrivateKey,
+    PublicKey,
+    HashOut,
+    QHashOut,
     CompressedPublicKeyHex,
     QProvingJobDataIDSerializedWrapped,
     CityMerkleProof,
@@ -118,4 +129,5 @@ export type {
     ICityTokenTransferRPCRequest,
     TProofValueStoreKV,
     HexString,
+    U8Bytes,
 };

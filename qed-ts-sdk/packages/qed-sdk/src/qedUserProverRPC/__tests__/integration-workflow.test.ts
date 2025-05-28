@@ -51,8 +51,8 @@ describe("QED User Prover RPC Workflow Integration", () => {
                     // Step 5: Verify ZK public key
                     console.log("Step 5: Verifying ZK public key...");
                     const zkPublicKey = await provider.getZKPublicKey(keypair.private_key);
-                    expect(zkPublicKey.fingerprint.elements).toEqual(keypair.public_key.fingerprint.elements);
-                    expect(zkPublicKey.public_key_param.elements).toEqual(keypair.public_key.public_key_param.elements);
+                    expect(zkPublicKey.fingerprint).toEqual(keypair.public_key.fingerprint);
+                    expect(zkPublicKey.public_key_param).toEqual(keypair.public_key.public_key_param);
                     console.log("✓ ZK public key verified");
 
                     // Step 6: Test ping functionality
@@ -102,9 +102,7 @@ describe("QED User Prover RPC Workflow Integration", () => {
 
                         // Verify the user by checking ZK public key
                         const zkPublicKey = await provider.getZKPublicKey(users[i].keypair.private_key);
-                        expect(zkPublicKey.fingerprint.elements).toEqual(
-                            users[i].keypair.public_key.fingerprint.elements
-                        );
+                        expect(zkPublicKey.fingerprint).toEqual(users[i].keypair.public_key.fingerprint);
 
                         console.log(`✓ Successfully switched to and verified user ${i + 1}`);
                     }

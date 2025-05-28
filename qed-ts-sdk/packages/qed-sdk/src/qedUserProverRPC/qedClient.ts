@@ -11,7 +11,7 @@ import {
     WalletKeyPair,
     ZKPublicKeyInfo,
 } from "./qedTypes";
-import { Hash256 } from "../rpc/baseTypes";
+import { Hash256, PrivateKey, PublicKey } from "../rpc/baseTypes";
 import { CityJSON, waitMs } from "../utils";
 
 class QEDRPCUserProverProvider implements IQEDUserProverProvider {
@@ -81,15 +81,15 @@ class QEDRPCUserProverProvider implements IQEDUserProverProvider {
     }
 
     // User operations
-    async registerUser(privateKey: Hash256): Promise<Hash256> {
+    async registerUser(privateKey: PrivateKey): Promise<Hash256> {
         return this.rpc<Hash256>(QEDUserProverRPCCommand.RegisterUser, [privateKey]);
     }
 
-    async addUser(privateKey: Hash256): Promise<Hash256> {
-        return this.rpc<Hash256>(QEDUserProverRPCCommand.AddUser, [privateKey]);
+    async addUser(privateKey: PrivateKey): Promise<PublicKey> {
+        return this.rpc<PublicKey>(QEDUserProverRPCCommand.AddUser, [privateKey]);
     }
 
-    async switchUser(pkHash: Hash256): Promise<void> {
+    async switchUser(pkHash: PublicKey): Promise<void> {
         return this.rpc<void>(QEDUserProverRPCCommand.SwitchUser, [pkHash]);
     }
 

@@ -110,13 +110,9 @@ describe("QED User Prover RPC Integration Tests", () => {
                     expect(testKeypair.public_key).toBeDefined();
                     expect(testKeypair.public_key.fingerprint).toBeDefined();
                     expect(testKeypair.public_key.public_key_param).toBeDefined();
-                    expect(Array.isArray(testKeypair.public_key.fingerprint.elements)).toBe(true);
-                    expect(Array.isArray(testKeypair.public_key.public_key_param.elements)).toBe(true);
 
                     console.log("Generated keypair:", {
                         privateKeyLength: testKeypair.private_key.length,
-                        fingerprintElements: testKeypair.public_key.fingerprint.elements.length,
-                        publicKeyElements: testKeypair.public_key.public_key_param.elements.length,
                     });
                 } catch (error) {
                     console.error("Failed to generate keypair:", error);
@@ -135,7 +131,7 @@ describe("QED User Prover RPC Integration Tests", () => {
                     }
 
                     const zkPublicKey: ZKPublicKeyInfo = await provider.getZKPublicKey(testKeypair.private_key);
-                    console.log("zkPublicKey",zkPublicKey)
+                    console.log("zkPublicKey", zkPublicKey);
 
                     // expect(zkPublicKey).toBeDefined();
                     // expect(zkPublicKey.fingerprint).toBeDefined();
@@ -168,7 +164,7 @@ describe("QED User Prover RPC Integration Tests", () => {
 
                     userHash = await provider.registerUser(testKeypair.private_key);
 
-                    console.log("private_key: ",testKeypair.private_key);
+                    console.log("private_key: ", testKeypair.private_key);
 
                     expect(userHash).toBeDefined();
                     expect(typeof userHash).toBe("string");
@@ -229,9 +225,9 @@ describe("QED User Prover RPC Integration Tests", () => {
     });
 
     describe("Contract Operations", () => {
-        let sessionId: string;
-        let userKeypair: WalletKeyPair;
-        let userHash: Hash256;
+        // let sessionId: string;
+        // let userKeypair: WalletKeyPair;
+        // let userHash: Hash256;
 
         // beforeAll(async () => {
         //     // Setup session and user for contract operations
@@ -384,12 +380,12 @@ describe("QED User Prover RPC Integration Tests", () => {
                     expect(deployCmd.deployer).toBeDefined();
                     expect(deployCmd.code_definition).toBeDefined();
                     expect(deployCmd.function_whitelist).toBeDefined();
-                    expect(Array.isArray(deployCmd.deployer.elements)).toBe(true);
+                    expect(typeof deployCmd.deployer).toBe("string");
                     expect(typeof deployCmd.code_definition.state_tree_height).toBe("number");
                     expect(Array.isArray(deployCmd.code_definition.functions)).toBe(true);
 
                     console.log("Deploy contract command:", {
-                        deployerElements: deployCmd.deployer.elements.length,
+                        deployer: deployCmd.deployer,
                         stateTreeHeight: deployCmd.code_definition.state_tree_height,
                         functionsCount: deployCmd.code_definition.functions.length,
                         whitelistCount: deployCmd.function_whitelist.length,

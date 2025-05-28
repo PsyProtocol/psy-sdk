@@ -25,10 +25,6 @@ import {
     FriQueryStep,
 } from "../rpc/plonkTypes";
 
-
-import { ClientConfig } from "../common/provider";
-import { HexString,SCFelt } from "../rpc/baseTypes";
-
 // Note: These tests are integration tests and require a running QED Realm Edge RPC endpoint.
 // Configure the endpoint URL via the TEST_REALM_EDGE_RPC_URL environment variable.
 // You might need to set up Jest and ts-jest in your project if not already done.
@@ -121,7 +117,7 @@ const mockProofInstance: ProofWithPublicInputs = {
 // --- Assertion Helpers ---
 function expectQHashOut(value: any) {
     expect(value).toBeDefined();
-    expect(typeof value).toBe("string")
+    expect(typeof value).toBe("string");
 }
 
 function expectMerkleProofCoreQHashOut(value: any) {

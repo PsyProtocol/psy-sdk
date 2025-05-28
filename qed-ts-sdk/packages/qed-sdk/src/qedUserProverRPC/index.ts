@@ -12,7 +12,5 @@ import {
     ZKPublicKeyInfo,
 } from "./qedTypes";
 
-export { QEDUserProverRPCCommand };
-export type { ContractCallArgs, WalletKeyPair, ZKPublicKeyInfo };
-export { QEDRPCUserProverProvider };
-export type { IQEDUserProverProvider };
+export { QEDUserProverRPCCommand, QEDRPCUserProverProvider };
+export type { ContractCallArgs, WalletKeyPair, ZKPublicKeyInfo, IQEDUserProverProvider };

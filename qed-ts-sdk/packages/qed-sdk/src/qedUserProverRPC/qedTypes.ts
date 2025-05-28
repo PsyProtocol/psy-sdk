@@ -1,4 +1,5 @@
-import { Hash256, HexString, SCFelt } from "../rpc/baseTypes";
+import { Hash256, PrivateKey, PublicKey, QHashOut } from "../rpc/baseTypes";
+import { U8Bytes } from "../rpc/baseTypes";
 
 // Namespace corresponds to "qed" in Rust
 enum QEDUserProverRPCCommand {
@@ -28,13 +29,6 @@ interface ContractCallArgs {
     inputs: bigint[];
 }
 
-// From QHashOut in the codebase
-// interface QHashOut {
-//     elements: bigint | number[];
-// }
-
-type QHashOut = string;
-
 // Converted from Rust ZKPublicKeyInfo
 interface ZKPublicKeyInfo {
     fingerprint: QHashOut;
@@ -43,7 +37,7 @@ interface ZKPublicKeyInfo {
 
 // Converted from Rust WalletKeyPair
 interface WalletKeyPair {
-    private_key: Hash256;
+    private_key: PrivateKey;
     public_key: ZKPublicKeyInfo;
 }
 
@@ -146,10 +140,10 @@ interface IQEDUserProverProvider {
     signAndSubmit(): Promise<string>;
 
     // User operations
-    registerUser(privateKey: Hash256): Promise<Hash256>;
-    addUser(privateKey: Hash256): Promise<Hash256>;
-    switchUser(pkHash: Hash256): Promise<void>;
-    getZKPublicKey(privateKey: Hash256): Promise<ZKPublicKeyInfo>;
+    registerUser(privateKey: PrivateKey): Promise<QHashOut>;
+    addUser(privateKey: PrivateKey): Promise<PublicKey>;
+    switchUser(pkHash: PublicKey): Promise<void>;
+    getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo>;
     getRandomKeypair(): Promise<WalletKeyPair>;
 
     // Contract deployment
@@ -157,14 +151,14 @@ interface IQEDUserProverProvider {
     getDeployContractCmd(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
 
     // Signing and submission
-    getSigHash(networkMagic: bigint): Promise<Hash256>;
-    getZKSignature(sighash: Hash256): Promise<ProofWithPublicInputs>;
+    getSigHash(networkMagic: bigint): Promise<QHashOut>;
+    getZKSignature(sighash: QHashOut): Promise<ProofWithPublicInputs>;
     getEndCapProof(signatureProof: ProofWithPublicInputs): Promise<ProofWithPublicInputs>;
     getUserECInput(): Promise<SubmitUserEndCapNonProofInput>;
 
     // Utility methods
     ping(message: string): Promise<string>;
-    getResult(id: Hash256): Promise<Uint8Array | string>;
+    getResult(id: QHashOut): Promise<U8Bytes>;
 }
 
 export type {

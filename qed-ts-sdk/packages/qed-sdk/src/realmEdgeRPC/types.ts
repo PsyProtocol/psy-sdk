@@ -3,7 +3,7 @@ import { ProofWithPublicInputs } from "../rpc/plonkTypes";
 
 // QHash type from Rust: [u64; 4]
 // export interface QHashOut {
-//     elements: bigint[]; 
+//     elements: bigint[];
 // }
 
 export type QHashOut = string;
