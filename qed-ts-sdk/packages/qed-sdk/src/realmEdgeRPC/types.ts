@@ -1,16 +1,18 @@
-import { Hash256, HexString, SCFelt } from "../rpc/baseTypes";
+import { Hash256, HexString, SCFelt, CityHash } from "../rpc/baseTypes";
 import { ProofWithPublicInputs } from "../rpc/plonkTypes";
 
-// QHash type from Rust
-export interface QHashOut {
-    elements: bigint[];
-}
+// QHash type from Rust: [u64; 4]
+// export interface QHashOut {
+//     elements: bigint[]; 
+// }
+
+export type QHashOut = string;
 
 // Merkle proof core structure
 export interface MerkleProofCore<T> {
     root: T;
     value: T;
-    index: bigint;
+    index: SCFelt;
     siblings: T[];
 }
 
