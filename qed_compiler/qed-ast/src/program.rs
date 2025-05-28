@@ -54,6 +54,27 @@ impl<F: Clone + From<u32>> Program<F> {
         }
     }
 
+    pub fn find_module_by_name(&self, name: impl Into<IdentId>) -> Option<ModuleId> {
+        let name = name.into();
+        self.modules
+            .iter()
+            .find(|m| m.data().name.id == name)
+            .map(|m| m.id())
+    }
+
+    pub fn add_module_dependency(&mut self, module: Option<ModuleId>, dep_module: ModuleId) {
+        if let Some(module) = module {
+            self.dependency_graph.add_edge(module, dep_module);
+        }
+    }
+
+    pub fn add_module_child(&mut self, parent: Option<ModuleId>, child: ModuleId) {
+        if let Some(parent) = parent {
+            self.modules.add_child(parent, child);
+            self.dependency_graph.add_edge(parent, child);
+        }
+    }
+
     pub fn convert_location(&self, location: &Location) -> FileLocation {
         let path = self
             .file_resolver

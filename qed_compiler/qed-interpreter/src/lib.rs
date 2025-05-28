@@ -15,7 +15,7 @@ pub use preprocess::StorageProcessor;
 use qed_ast::*;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use qed_fmt::Formatter;
-use qed_parser::{std_path, Parser};
+use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
 use qedlang_core::dpn::ops::exec_context::QExecContext;
@@ -338,37 +338,20 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     where
         F: 'static,
     {
+        let mut program = Program::new();
+        let mut parser = Parser::new(&mut program, &mut self.context);
         let mut module_entry_paths = vec![entry];
         module_entry_paths.extend(dependencies_entry);
-        module_entry_paths.push(std_path());
-        let mut program = Program::new();
-        for module_entry in module_entry_paths {
-            Parser::new(&mut program)
-                .parse(&mut self.context, module_entry)
-                .map_err(|err| {
-                    let context = lowering_parse_error(&err, &program);
-                    anyhow::Error::from(err).context(context)
-                })?;
-        }
-
-        for module in program.modules.iter() {
-            let module_id = module.id();
-            for def_id in module.data().definitions.iter() {
-                let def_node = &program.defs[*def_id];
-                if let DefinitionNode::Use(node) = def_node {
-                    let use_mod_name = node.kind.id;
-                    for m in program.modules.iter() {
-                        if use_mod_name == m.data().name {
-                            program.dependency_graph.add_edge(module_id, m.id());
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        program
-            .dependency_graph
-            .check_cycle::<qed_parser::Error>()?;
+        module_entry_paths
+            .into_iter()
+            // .map(|path| parser.parse(&mut self.context, path))
+            .map(|path| parser.parse(path))
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|err| {
+                let context = lowering_parse_error(&err, &parser.program());
+                anyhow::Error::from(err).context(context)
+            })?;
+        parser.finish()?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
@@ -398,41 +381,23 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     where
         F: 'static,
     {
+        let mut program = Program::new();
+        let mut parser = Parser::new(&mut program, &mut self.context);
         let mut module_entry_paths = vec![entry];
         module_entry_paths.extend(dependencies_entry);
-        let mut program = Program::new();
-        for module_entry in module_entry_paths {
-            Parser::new(&mut program)
-                .parse(&mut self.context, module_entry.clone())
-                .map_err(|err| {
-                    let err_desc = parse_error_to_diagnostic(&err, &program);
-                    TypeCheckError::Parse(err_desc)
-                })?;
-        }
-
-        for module in program.modules.iter() {
-            let module_id = module.id();
-            for def_id in module.data().definitions.iter() {
-                let def_node = &program.defs[*def_id];
-                if let DefinitionNode::Use(node) = def_node {
-                    let use_mod_name = node.kind.id;
-                    for m in program.modules.iter() {
-                        if use_mod_name == m.data().name {
-                            program.dependency_graph.add_edge(module_id, m.id());
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        match program.dependency_graph.check_cycle::<qed_parser::Error>() {
-            Ok(_) => {}
-            Err(e) => {
-                let message = format!("Cycle error: {}", e);
-                eprintln!("Error: {}", message);
-                return Err(TypeCheckError::Cycle(message));
-            }
-        }
+        module_entry_paths
+            .into_iter()
+            .map(|path| parser.parse(path))
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|err| {
+                let err_desc = parse_error_to_diagnostic(&err, &parser.program());
+                TypeCheckError::Parse(err_desc)
+            })?;
+        parser.finish().map_err(|err| {
+            let message = format!("Cycle error: {}", err);
+            eprintln!("Error: {}", message);
+            TypeCheckError::Cycle(message)
+        })?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
@@ -1087,7 +1052,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             user_id,
                             contract_id,
                             offset,
-                            length
+                            length,
                         );
                         return Ok(CheckedValueRef::from_vec(UNKOWN_TYPE, values));
                     }
