@@ -349,30 +349,7 @@ export abstract class Provider {
      * Make a direct JSON-RPC request to a specific provider
      */
     protected async directRpc<T>(url: string, method: string, params: any[], id = "1", jsonrpc = "2.0"): Promise<T> {
-        const response = await this.httpClient.sendRequest({
-            method: "POST",
-            url,
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: CityJSON.stringify({
-                jsonrpc,
-                method,
-                params,
-                id,
-            }),
-            responseType: "text",
-        });
-
-        if (response.statusCode >= 400) {
-            throw new Error(`RPC error: ${response.statusCode} - ${response.body}`);
-        }
-        const result = CityJSON.parse(response.body);
-        if (result.error) {
-            throw new Error(`RPC error: ${result.error.message || JSON.stringify(result.error)}`);
-        }
-
-        return result.result as T;
+        return this.directRpcWithHeaders<T>(url, method, params, id, jsonrpc);
     }
 
     /**

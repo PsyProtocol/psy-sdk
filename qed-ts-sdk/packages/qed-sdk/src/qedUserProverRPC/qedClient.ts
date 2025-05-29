@@ -9,45 +9,14 @@ import {
     WalletKeyPair,
     ZKPublicKeyInfo,
 } from "./qedTypes";
-import { FetchHTTPClient } from "../http/fetchClient";
 import { IHTTPClient } from "../http/types";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../rpc/baseTypes";
-import { CityJSON, waitMs } from "../utils";
+import { waitMs } from "../utils";
+import { BaseProvider } from "../common";
 
-class QEDRPCUserProverProvider implements IQEDUserProverProvider {
-    httpClient: IHTTPClient;
-    url: string;
-
+class QEDRPCUserProverProvider extends BaseProvider implements IQEDUserProverProvider {
     constructor(url: string, httpClient?: IHTTPClient) {
-        this.httpClient = httpClient || new FetchHTTPClient();
-        this.url = url;
-    }
-
-    async rpc<T>(method: string, params: any[], id = "1", jsonrpc = "2.0"): Promise<T> {
-        const response = await this.httpClient.sendRequest({
-            method: "POST",
-            url: this.url,
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: CityJSON.stringify({
-                jsonrpc,
-                method,
-                params,
-                id,
-            }),
-            responseType: "text",
-        });
-
-        if (response.statusCode >= 400) {
-            throw new Error("Error in RPC call: " + CityJSON.stringify(response.body));
-        }
-        const result = CityJSON.parse(response.body);
-        if (result.error) {
-            throw new Error("Error in RPC call: " + CityJSON.stringify(result.error));
-        } else {
-            return result.result as T;
-        }
+        super(url, httpClient);
     }
 
     async getResultFinal(hash: Promise<string>, maxAttempts: number, delay: number) {

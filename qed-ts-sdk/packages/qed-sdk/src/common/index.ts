@@ -6,3 +6,5 @@ export {
     type ClientConfig,
     type ProviderHealth,
 } from "./provider";
+
+export { BaseProvider } from "./baseProvider";
