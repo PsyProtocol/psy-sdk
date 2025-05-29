@@ -67,6 +67,7 @@ pub fn lowering_parse_error<F: Clone + From<u32> + ContextFelt>(
         ParseError::CommonError(error) => format!("{}", error),
         ParseError::IoError(error) => format!("{}", error),
         ParseError::FileUnresolved => format!("{}", error),
+        ParseError::FileParsedMultipleTimes(path) => format!("{}", error),
         ParseError::InvalidModuleName => format!("{}", error),
         ParseError::ExternFnNotInStd => format!("{}", error),
         ParseError::FunctionBodyMissing => format!("{}", error),

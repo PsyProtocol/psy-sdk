@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use qed_ast::Location;
 use qed_common::FileId;
 use qed_lexer::{Loc, Token};
@@ -35,6 +37,8 @@ pub enum Error {
     IoError(#[from] std::io::Error),
     #[error("File could not be resolved")]
     FileUnresolved,
+    #[error("File parsed multiple times: {0}")]
+    FileParsedMultipleTimes(PathBuf),
     #[error("Invalid module name")]
     InvalidModuleName,
     #[error("Extern function can only be defined in std")]

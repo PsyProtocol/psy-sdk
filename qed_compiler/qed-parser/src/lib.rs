@@ -79,9 +79,8 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
             location,
         )) = module_stack.pop()
         {
-            if let Some(&module_id) = visited.get(&current_path) {
-                program.add_module_dependency(parent_module_id, module_id);
-                continue;
+            if visited.get(&current_path).is_some() {
+                return Err(Error::FileParsedMultipleTimes(current_path.clone()).into());
             }
 
             let mut module: ModuleNode = if !is_inline {
