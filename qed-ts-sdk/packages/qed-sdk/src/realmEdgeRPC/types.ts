@@ -1,4 +1,4 @@
-import { Hash256, HexString, SCFelt, CityHash } from "../rpc/baseTypes";
+import { SCFelt } from "../rpc/baseTypes";
 import { ProofWithPublicInputs } from "../rpc/plonkTypes";
 
 // QHash type from Rust: [u64; 4]

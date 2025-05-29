@@ -1,5 +1,5 @@
-import { ICityAggregatedOpJobCircuitType } from "../bench/types";
 import { IQProvingJobDataID, ProvingJobCircuitType } from "./id";
+import { ICityAggregatedOpJobCircuitType } from "../bench/types";
 
 const LeafOpCircuits: ProvingJobCircuitType[] = [
     ProvingJobCircuitType.RegisterUser,

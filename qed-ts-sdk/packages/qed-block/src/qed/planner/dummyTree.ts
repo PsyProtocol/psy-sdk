@@ -1,7 +1,7 @@
-import { IQJobWithDependenciesSerialized } from "../bench";
-import { IQProvingJobDataID, ProvingJobCircuitType, serializeJobId, serializeJobIdHex } from "../job/id";
-import { getJobOutputId, getJobTreeParentProofInputId, newCoreOpWitnessJobId, newProofJobId } from "../job/idHelpers";
 import { createBinaryTreePlanner } from "./binaryTree";
+import { IQJobWithDependenciesSerialized } from "../bench";
+import { IQProvingJobDataID, ProvingJobCircuitType, serializeJobIdHex } from "../job/id";
+import { getJobOutputId, getJobTreeParentProofInputId, newCoreOpWitnessJobId, newProofJobId } from "../job/idHelpers";
 
 function getDummyWalkTreeProverIds<T>(
     leaves: IQProvingJobDataID[],

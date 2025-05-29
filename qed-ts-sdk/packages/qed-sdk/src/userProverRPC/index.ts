@@ -1,9 +1,9 @@
+import { CityUserProverRPCCommand, ICityUserProverProvider } from "./types";
 import { FetchHTTPClient } from "../http/fetchClient";
 import { IHTTPClient } from "../http/types";
+import { CityJSON } from "../utils";
 import { reverseHexBytes } from "../utils/felt";
 import { waitMs } from "../utils/time";
-import { CityUserProverRPCCommand, ICityUserProverProvider } from "./types";
-import { CityJSON } from "../utils";
 
 class CityRPCUserProverProvider implements ICityUserProverProvider {
     httpClient: IHTTPClient;

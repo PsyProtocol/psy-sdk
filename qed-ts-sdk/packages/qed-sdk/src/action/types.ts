@@ -1,4 +1,4 @@
-import { Hash256, SCFelt, SCNumberLike } from "../rpc/baseTypes";
+import { Hash256, SCNumberLike } from "../rpc/baseTypes";
 
 interface IPreparedCitySigAction {
     network_magic: bigint;

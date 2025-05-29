@@ -1,5 +1,5 @@
-import { IQProvingJobDataID } from "../job/id";
 import { ICityAggregatedOpJobCircuitType } from "./types";
+import { IQProvingJobDataID } from "../job/id";
 
 interface IOpTreeAggProofCategory {
     triplet: ICityAggregatedOpJobCircuitType;

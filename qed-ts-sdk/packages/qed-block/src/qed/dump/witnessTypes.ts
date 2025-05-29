@@ -1,6 +1,6 @@
 import { CityDeltaMerkleProof, CityMerkleProof } from "@qed/qed-ts-sdk";
-import { IQProvingJobDataID, ProvingJobCircuitType } from "../job/id";
 import { IBlockSpendIntrospectionHint } from "./serializedTx";
+import { IQProvingJobDataID, ProvingJobCircuitType } from "../job/id";
 type SCFelt = bigint | number;
 
 type CityHash = string;

@@ -1,6 +1,6 @@
+import { Hash256 } from "../../rpc/baseTypes";
 import { QEDRPCUserProverProvider } from "../qedClient";
 import { ContractCallArgs, WalletKeyPair } from "../qedTypes";
-import { Hash256 } from "../../rpc/baseTypes";
 
 /**
  * End-to-end workflow integration tests

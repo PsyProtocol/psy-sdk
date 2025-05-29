@@ -1,4 +1,6 @@
 import { CityRPCProviderWithCache, ICityRPCProvider } from "@qed/qed-ts-sdk";
+import { IDogeLinkElectrsRPC } from "doge-sdk";
+import { ICityJobWitness } from "./witnessTypes";
 import { depSerializedToProofNodes } from "../bench/dependencyResolver";
 import {
     ICityOpJobConfig,
@@ -7,10 +9,8 @@ import {
     IQJobWithDependenciesSerialized,
     ISimpleCityBlock,
 } from "../bench/types";
-import { synthPlanner } from "../planner/synth";
-import { IDogeLinkElectrsRPC } from "doge-sdk";
-import { ICityJobWitness } from "./witnessTypes";
 import { deserializeJobId, getJobWitnessIdHex, ProvingJobCircuitType } from "../job";
+import { synthPlanner } from "../planner/synth";
 function normailzeRST(rst: IQJobWithDependenciesSerialized): IQJobWithDependenciesSerialized {
     return {
         id: getJobWitnessIdHex(rst.id),

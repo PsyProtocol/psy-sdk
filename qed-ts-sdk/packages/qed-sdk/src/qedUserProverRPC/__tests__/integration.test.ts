@@ -1,6 +1,6 @@
+import { Hash256 } from "../../rpc/baseTypes";
 import { QEDRPCUserProverProvider } from "../qedClient";
 import { ContractCallArgs, WalletKeyPair, ZKPublicKeyInfo, DPNFunctionCircuitDefinition } from "../qedTypes";
-import { Hash256 } from "../../rpc/baseTypes";
 
 /**
  * Integration tests for QED User Prover RPC Client

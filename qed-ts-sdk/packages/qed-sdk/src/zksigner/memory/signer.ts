@@ -1,10 +1,10 @@
 import { DogeNetworkId } from "doge-sdk";
-import { ICityTransactionSigner, TCityTransactionSignerAbility } from "../types";
 import { getCityNetworkMagicForNetworkId } from "../../action/constants";
-import { ICityUserProverProvider } from "../../userProverRPC/types";
-import { ICitySigAction } from "../../action/types";
 import { computeSigActionHash } from "../../action/sighash";
-import { hashOutHex, reverseHexBytes } from "../../utils/felt";
+import { ICitySigAction } from "../../action/types";
+import { ICityUserProverProvider } from "../../userProverRPC/types";
+import { hashOutHex } from "../../utils/felt";
+import { ICityTransactionSigner, TCityTransactionSignerAbility } from "../types";
 
 class CityMemoryTransactionSigner implements ICityTransactionSigner {
     networkId: DogeNetworkId;

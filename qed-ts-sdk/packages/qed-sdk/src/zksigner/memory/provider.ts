@@ -1,13 +1,13 @@
 import { DogeNetworkId } from "doge-sdk";
+import { CityMemoryTransactionSigner } from "./signer";
+import { getCityNetworkMagicForNetworkId } from "../../action/constants";
+import { ICityUserProverProvider } from "../../userProverRPC/types";
+import { cryptoRandomHashOutHex } from "../../utils/felt";
 import {
     ICityTransactionSigner,
     ICityTransactionSignerProvider,
     TCityTransactionSignerProviderAbility,
 } from "../types";
-import { getCityNetworkMagicForNetworkId } from "../../action/constants";
-import { CityMemoryTransactionSigner } from "./signer";
-import { ICityUserProverProvider } from "../../userProverRPC/types";
-import { cryptoRandomHashOutHex } from "../../utils/felt";
 
 class CityMemoryTransactionSignerProvider implements ICityTransactionSignerProvider {
     networkId: DogeNetworkId;

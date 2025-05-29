@@ -1,6 +1,3 @@
-import { IHTTPClient } from "../http/types";
-import { Provider, ClientConfig } from "../common/provider";
-import { ProofWithPublicInputs } from "../rpc/plonkTypes";
 import {
     IRealmEdgeRpcProvider,
     MerkleProofCore,
@@ -12,6 +9,9 @@ import {
     RealmEdgeRPCCommand,
     SubmitUserEndCapNonProofInput,
 } from "./types";
+import { Provider, ClientConfig } from "../common/provider";
+import { IHTTPClient } from "../http/types";
+import { ProofWithPublicInputs } from "../rpc/plonkTypes";
 
 /**
  * Enhanced RealmEdgeRpcProvider with caching, retry logic, and multi-provider support

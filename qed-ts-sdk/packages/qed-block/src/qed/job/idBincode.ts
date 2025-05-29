@@ -1,7 +1,7 @@
+import { IQProvingJobDataID, deserializeJobId, serializeJobId } from "./id";
 import { simpleBincodeDeserialize, simpleBincodeSerialize } from "../../utils/bincode";
 import { ISimpleBincodeSerializable, SimpleBincodeSerializer } from "../../utils/bincode/adapter";
 import { BincodeArraySerializeHelper } from "../../utils/bincode/array";
-import { IQProvingJobDataID, deserializeJobId, serializeJobId } from "./id";
 
 class CQJobIdSerializer implements ISimpleBincodeSerializable<IQProvingJobDataID> {
     serializeBincode(obj: IQProvingJobDataID): Uint8Array {

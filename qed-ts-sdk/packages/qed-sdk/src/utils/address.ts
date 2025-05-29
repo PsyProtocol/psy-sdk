@@ -1,4 +1,4 @@
-import { decodeAddress, decodeAddressFull, isP2PKHAddress } from "doge-sdk";
+import { decodeAddress, isP2PKHAddress } from "doge-sdk";
 
 const WITHDRAWAL_TYPE_P2PKH = BigInt("0");
 const WITHDRAWAL_TYPE_P2SH = BigInt("281474976710656");

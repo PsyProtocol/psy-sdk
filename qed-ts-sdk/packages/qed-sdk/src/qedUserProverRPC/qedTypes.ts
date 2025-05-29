@@ -1,5 +1,4 @@
-import { Hash256, PrivateKey, PublicKey, QHashOut } from "../rpc/baseTypes";
-import { U8Bytes } from "../rpc/baseTypes";
+import { PrivateKey, PublicKey, QHashOut , U8Bytes } from "../rpc/baseTypes";
 
 // Namespace corresponds to "qed" in Rust
 enum QEDUserProverRPCCommand {

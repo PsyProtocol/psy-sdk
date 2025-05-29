@@ -1,16 +1,10 @@
 import { RealmEdgeRpcProvider } from "./client";
 import {
     IRealmEdgeRpcProvider,
-    MerkleProofCore,
-    QEDCheckpointGlobalStateRoots,
-    QEDCheckpointLeaf,
-    QEDL2BlockState,
     QEDUserLeaf,
-    QHashOut,
     SubmitUserEndCapNonProofInput,
     SubmitUserEndCapNonProofCoreInput,
-    QEDContractStateUpdateHistory,
-    RealmEdgeRPCCommand, // For potential direct rpc calls if needed, or reference
+    QEDContractStateUpdateHistory, // For potential direct rpc calls if needed, or reference
 } from "./types";
 import {
     ProofWithPublicInputs,

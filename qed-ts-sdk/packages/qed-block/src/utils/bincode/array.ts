@@ -1,5 +1,5 @@
-import { readU64LEFromBytes } from "../byteView";
 import { IBincodeDeserializeResult, IBincodeSerializeHelper } from "./types";
+import { readU64LEFromBytes } from "../byteView";
 
 const MAX_ARRAY_LENGTH = 0xffffffff;
 

@@ -1,10 +1,10 @@
 import { IHashOut, hashNoPad } from "poseidon-goldilocks-lite";
-import { ICityClaimDepositRequest, ICitySigAction, ICityTransferRequest, ICityWithdrawalRequest } from "./types";
 import { SIG_ACTION_CLAIM_DEPOSIT_MAGIC, SIG_ACTION_TRANSFER_MAGIC, SIG_ACTION_WITHDRAW_MAGIC } from "./constants";
+import { ICityClaimDepositRequest, ICitySigAction, ICityTransferRequest, ICityWithdrawalRequest } from "./types";
 import { SCNumberLike } from "../rpc/baseTypes";
+import { getDecodedAddress } from "../utils/address";
 import { readBigIntU48FromBytesLE, readBigIntU56FromBytesLE } from "../utils/data";
 import { cityFelt, hash256ToHashOut224 } from "../utils/felt";
-import { getDecodedAddress } from "../utils/address";
 
 function getWithdrawalHashFromPublicKeyHash(
     value: bigint,

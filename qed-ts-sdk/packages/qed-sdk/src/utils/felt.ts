@@ -1,7 +1,7 @@
-import { IHashOut, hashOutToHex, hexToHashOut } from "poseidon-goldilocks-lite";
-import { SCFelt, SCNumberLike } from "../rpc/baseTypes";
-import { cryptoRandomBytes } from "./random";
 import { hexToU8Array, hexToU8ArrayReversed, u8ArrayToHex } from "doge-sdk";
+import { IHashOut, hashOutToHex } from "poseidon-goldilocks-lite";
+import { cryptoRandomBytes } from "./random";
+import { SCNumberLike } from "../rpc/baseTypes";
 
 const GOLDILOCKS_FP = BigInt("18446744069414584321");
 function cityFelt(x: SCNumberLike): bigint {

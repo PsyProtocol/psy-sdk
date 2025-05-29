@@ -1,10 +1,10 @@
 import { DogeNetworkId } from "doge-sdk/dist/types";
-import { ICityTransactionSignerProvider } from "../zksigner/types";
 import { ICityUserWallet, ICityUserWalletProvider } from "./types";
+import { CityUserWallet } from "./userWallet";
 import { getCityNetworkMagicForNetworkId } from "../action/constants";
 import { ICityRPCProvider } from "../rpc/types";
-import { CityUserWallet } from "./userWallet";
 import { ICityUserProverProvider } from "../userProverRPC/types";
+import { ICityTransactionSignerProvider } from "../zksigner/types";
 
 class CityUserWalletProvider implements ICityUserWalletProvider {
     networkId: DogeNetworkId;

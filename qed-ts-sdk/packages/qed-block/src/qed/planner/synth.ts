@@ -1,3 +1,4 @@
+import { getDummyTreeOpCircuitJobWithDependencies } from "./dummyTree";
 import { ICitySynthBlockConfig } from "../bench";
 import { ICitySighashGroth16ProofResult, ICitySynthBlockResult, IQJobWithDependenciesSerialized } from "../bench/types";
 import {
@@ -10,7 +11,6 @@ import {
     sighashIntrospectionInputWitnessJobId,
     wrapSighashFinalBls3812InputWitnessJobId,
 } from "../job";
-import { getDummyTreeOpCircuitJobWithDependencies } from "./dummyTree";
 
 function synthPlanner(config: ICitySynthBlockConfig): ICitySynthBlockResult {
     const checkpointId = config.checkpoint_id;

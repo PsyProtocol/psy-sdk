@@ -1,3 +1,4 @@
+import { ICityOpJobIds } from "./transition";
 import {
     blockAggStatePart1InputWitnessJobId,
     blockAggStatePart2InputWitnessJobId,
@@ -9,7 +10,6 @@ import {
     wrapSighashFinalBls3812InputWitnessJobId,
 } from "../job/idHelpers";
 import { IQProofStore } from "../proofStore/types";
-import { ICityOpJobIds } from "./transition";
 
 function planJobs(
     proof_store: IQProofStore,

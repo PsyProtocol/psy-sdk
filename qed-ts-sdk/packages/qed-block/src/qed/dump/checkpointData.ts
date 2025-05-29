@@ -1,5 +1,7 @@
 import { CityRPCProvider } from "@qed/qed-ts-sdk";
 
+import { hexToU8Array } from "../../utils/data";
+import { IDumpProofStoreConfig } from "../bench/types";
 import {
     getJobSubGroupCounterGoalId,
     newCoreOpWitnessJobId,
@@ -7,8 +9,6 @@ import {
     ProvingJobCircuitType,
     serializeJobIdHex,
 } from "../job";
-import { IDumpProofStoreConfig } from "../bench/types";
-import { hexToU8Array } from "../../utils/data";
 
 async function getLeafCountOrDummy(
     getPSBytes: (key: string) => Promise<Uint8Array>,

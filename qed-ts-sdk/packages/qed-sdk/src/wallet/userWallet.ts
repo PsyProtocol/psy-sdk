@@ -1,4 +1,15 @@
 import { DogeNetworkId, hexToU8ArrayReversed, u8ArrayToHex } from "doge-sdk";
+import { userWalletCache } from "./cache";
+import { ICityCompleteUserInfo, ICityUserWallet } from "./types";
+import { getCityNetworkMagicForNetworkId } from "../action/constants";
+import {
+    computeSigActionHash,
+    getClaimDepositSigAction,
+    getTransferSigAction,
+    getWithdrawalSigAction,
+} from "../action/sighash";
+import { ICitySigAction } from "../action/types";
+import { DEPOSIT_FEE_AMOUNT, MAX_CHECKPOINT_ID, WITHDRAWAL_FEE_AMOUNT } from "../constants";
 import {
     SCNumberLike,
     ICityTokenTransferRPCRequest,
@@ -7,22 +18,11 @@ import {
     ICityAddWithdrawalRPCRequest,
     ICityL1Deposit,
 } from "../rpc/baseTypes";
-import { ICityTransactionSigner } from "../zksigner/types";
-import { ICityCompleteUserInfo, ICityUserWallet } from "./types";
 import { ICityRPCProvider } from "../rpc/types";
-import { getCityNetworkMagicForNetworkId } from "../action/constants";
-import { DEPOSIT_FEE_AMOUNT, MAX_CHECKPOINT_ID, WITHDRAWAL_FEE_AMOUNT } from "../constants";
-import { cityFelt, hashOutHex, reverseHexBytes } from "../utils/felt";
 import { ICitySecp256K1SignatureProver } from "../userProverRPC/types";
-import {
-    computeSigActionHash,
-    getClaimDepositSigAction,
-    getTransferSigAction,
-    getWithdrawalSigAction,
-} from "../action/sighash";
-import { ICitySigAction } from "../action/types";
 import { getDecodedAddress } from "../utils/address";
-import { userWalletCache } from "./cache";
+import { cityFelt, hashOutHex, reverseHexBytes } from "../utils/felt";
+import { ICityTransactionSigner } from "../zksigner/types";
 
 class CityUserWallet implements ICityUserWallet {
     signer: ICityTransactionSigner;

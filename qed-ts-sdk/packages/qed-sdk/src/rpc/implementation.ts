@@ -1,5 +1,4 @@
-import type { IHTTPClient } from "../http/types";
-import type { ICityRPCProvider } from "./types";
+import { DogeNetworkId } from "doge-sdk/dist/types";
 import type {
     CityHash,
     ICityUserState,
@@ -17,11 +16,12 @@ import type {
     ICityTokenTransferRPCRequest,
     ISimpleKVPair,
 } from "./baseTypes";
-
-import { FetchHTTPClient } from "../http/fetchClient";
-import { CityJSON } from "../utils/json";
-import { DogeNetworkId } from "doge-sdk/dist/types";
+import type { ICityRPCProvider } from "./types";
 import { getCityNetworkMagicForNetworkId } from "../action/constants";
+import { FetchHTTPClient } from "../http/fetchClient";
+import type { IHTTPClient } from "../http/types";
+
+import { CityJSON } from "../utils/json";
 
 class CityRPCProvider implements ICityRPCProvider {
     url: string;

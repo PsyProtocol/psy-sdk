@@ -1,8 +1,7 @@
-import { ICityRPCProvider } from "../rpc/types";
 import { DEPOSIT_FEE_AMOUNT, MAX_CHECKPOINT_ID, WITHDRAWAL_FEE_AMOUNT } from "../constants";
-import { cityFelt } from "../utils/felt";
 import { ICityUserState, SCNumberLike } from "../rpc/baseTypes";
-import { ICityCompleteUserInfo } from "./types";
+import { ICityRPCProvider } from "../rpc/types";
+import { cityFelt } from "../utils/felt";
 
 interface IUserCacheRecord {
     localNonce: bigint;

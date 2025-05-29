@@ -1,5 +1,3 @@
-import { FetchHTTPClient } from "../http/fetchClient";
-import { IHTTPClient } from "../http/types";
 import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
@@ -11,7 +9,9 @@ import {
     WalletKeyPair,
     ZKPublicKeyInfo,
 } from "./qedTypes";
-import { Hash256, PrivateKey, PublicKey } from "../rpc/baseTypes";
+import { FetchHTTPClient } from "../http/fetchClient";
+import { IHTTPClient } from "../http/types";
+import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../rpc/baseTypes";
 import { CityJSON, waitMs } from "../utils";
 
 class QEDRPCUserProverProvider implements IQEDUserProverProvider {
@@ -81,8 +81,8 @@ class QEDRPCUserProverProvider implements IQEDUserProverProvider {
     }
 
     // User operations
-    async registerUser(privateKey: PrivateKey): Promise<Hash256> {
-        return this.rpc<Hash256>(QEDUserProverRPCCommand.RegisterUser, [privateKey]);
+    async registerUser(privateKey: PrivateKey): Promise<QHashOut> {
+        return this.rpc<QHashOut>(QEDUserProverRPCCommand.RegisterUser, [privateKey]);
     }
 
     async addUser(privateKey: PrivateKey): Promise<PublicKey> {
@@ -93,7 +93,7 @@ class QEDRPCUserProverProvider implements IQEDUserProverProvider {
         return this.rpc<void>(QEDUserProverRPCCommand.SwitchUser, [pkHash]);
     }
 
-    async getZKPublicKey(privateKey: Hash256): Promise<ZKPublicKeyInfo> {
+    async getZKPublicKey(privateKey: QHashOut): Promise<ZKPublicKeyInfo> {
         return this.rpc<ZKPublicKeyInfo>(QEDUserProverRPCCommand.GetZKPublicKey, [privateKey]);
     }
 
@@ -111,11 +111,11 @@ class QEDRPCUserProverProvider implements IQEDUserProverProvider {
     }
 
     // Signing and submission
-    async getSigHash(networkMagic: bigint): Promise<Hash256> {
-        return this.rpc<Hash256>(QEDUserProverRPCCommand.GetSigHash, [networkMagic]);
+    async getSigHash(networkMagic: bigint): Promise<QHashOut> {
+        return this.rpc<QHashOut>(QEDUserProverRPCCommand.GetSigHash, [networkMagic]);
     }
 
-    async getZKSignature(sighash: Hash256): Promise<ProofWithPublicInputs> {
+    async getZKSignature(sighash: QHashOut): Promise<ProofWithPublicInputs> {
         return this.rpc<ProofWithPublicInputs>(QEDUserProverRPCCommand.GetZKSignature, [sighash]);
     }
 
@@ -132,8 +132,8 @@ class QEDRPCUserProverProvider implements IQEDUserProverProvider {
         return this.rpc<string>(QEDUserProverRPCCommand.Ping, [message]);
     }
 
-    async getResult(id: Hash256): Promise<Uint8Array | string> {
-        return this.rpc<Uint8Array | string>(QEDUserProverRPCCommand.GetResult, [id]);
+    async getResult(id: QHashOut): Promise<U8Bytes> {
+        return this.rpc<U8Bytes>(QEDUserProverRPCCommand.GetResult, [id]);
     }
 }
 

@@ -1,5 +1,5 @@
-import { deserializeJobId, getJobWitnessIdHex } from "../job";
 import { ICSProofNode, IQJobWithDependencies, IQJobWithDependenciesSerialized } from "./types";
+import { getJobWitnessIdHex } from "../job";
 function walkIQJobWithDependenciesSerialized(
     root: IQJobWithDependenciesSerialized,
     visitor: (node: IQJobWithDependenciesSerialized) => void

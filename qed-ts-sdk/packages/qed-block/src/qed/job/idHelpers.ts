@@ -6,7 +6,6 @@ import {
     QJobTopic,
     deserializeJobId,
     getGroupIdForCircuitType,
-    serializeJobId,
     serializeJobIdHex,
 } from "./id";
 

@@ -1,5 +1,4 @@
 import { DogeNetworkId } from "doge-sdk";
-import { ICityTransactionSigner, ICityTransactionSignerProvider } from "../zksigner/types";
 import {
     Hash256,
     HexString,
@@ -10,6 +9,7 @@ import {
     SCNumberLike,
 } from "../rpc/baseTypes";
 import { ICitySecp256K1SignatureProver } from "../userProverRPC/types";
+import { ICityTransactionSigner, ICityTransactionSignerProvider } from "../zksigner/types";
 interface ICoreCityUserInfo {
     networkId: DogeNetworkId;
     l2NetworkMagic: string;

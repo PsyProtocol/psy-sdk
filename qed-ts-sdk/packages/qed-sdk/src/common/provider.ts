@@ -1,5 +1,5 @@
-import { IHTTPClient } from "../http/types";
 import { FetchHTTPClient } from "../http/fetchClient";
+import { IHTTPClient } from "../http/types";
 import { CityJSON } from "../utils";
 
 /**

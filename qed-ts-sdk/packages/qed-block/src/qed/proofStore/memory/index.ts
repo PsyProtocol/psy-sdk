@@ -87,13 +87,13 @@ pub trait QProofStoreWriterSync {
 import { readU32LEFromBytes } from "../../../../src/utils/byteView";
 import { CityProofWithPublicInputs } from "../../commonTypes";
 import { IQProvingJobDataID, serializeJobIdHex } from "../../job/id";
+import { deserializeJobIdArray, serializeJobIdArray } from "../../job/idBincode";
 import {
     getJobSubGroupCounterGoalId,
     getJobSubGroupCounterId,
     getSubGroupCounterGoalNextJobsId,
 } from "../../job/idHelpers";
 import { IQProofStore } from "../types";
-import { deserializeJobIdArray, serializeJobIdArray } from "../../job/idBincode";
 
 class SimpleProofStoreMemory implements IQProofStore {
     data: Record<string, Uint8Array> = {};
