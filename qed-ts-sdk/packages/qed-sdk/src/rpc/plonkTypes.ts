@@ -1,8 +1,8 @@
-type Field = string | bigint;
-type Hash = string;
+import { Felt, QHashOut } from "./baseTypes";
+type Hash = QHashOut;
 
 export interface ExtensionField {
-    elements: Field[];
+    elements: Felt[];
 }
 
 export interface MerkleCap {
@@ -17,7 +17,7 @@ export interface FriQueryStep {
 }
 
 export interface FriInitialTreeProof {
-    evals_proofs: Array<[Field[], { siblings: Hash[] }]>;
+    evals_proofs: Array<[Felt[], { siblings: Hash[] }]>;
 }
 
 export interface FriQueryRound {
@@ -33,7 +33,7 @@ export interface FriProof {
     commit_phase_merkle_caps: MerkleCap[];
     query_round_proofs: FriQueryRound[];
     final_poly: PolynomialCoeffs;
-    pow_witness: Field;
+    pow_witness: Felt;
 }
 
 export interface OpeningSet {
@@ -58,5 +58,5 @@ export interface Proof {
 
 export interface ProofWithPublicInputs {
     proof: Proof;
-    public_inputs: Field[];
+    public_inputs: Felt[];
 }

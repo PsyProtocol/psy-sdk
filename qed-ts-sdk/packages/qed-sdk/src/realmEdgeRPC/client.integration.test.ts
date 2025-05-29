@@ -72,16 +72,16 @@ const mockSubmitUserEndCapInput: SubmitUserEndCapNonProofInput = {
 
 // Simplified Mock for Proof (enough for type checking client calls)
 const mockMerkleCap: MerkleCap = { digests: ["0xhash1"] };
-const mockExtensionField: ExtensionField = { elements: ["1", 2n] }; // Field can be string or bigint
+const mockExtensionField: ExtensionField = { elements: [1n, 2n] }; // Field can be string or bigint
 const mockFriQueryStep: FriQueryStep = { evals: [mockExtensionField], merkle_proof: { siblings: ["0xhash2"] } };
-const mockFriInitialTreeProof: FriInitialTreeProof = { evals_proofs: [[["1"], { siblings: ["0xhash3"] }]] };
+const mockFriInitialTreeProof: FriInitialTreeProof = { evals_proofs: [[[1n], { siblings: ["0xhash3"] }]] };
 const mockFriQueryRound: FriQueryRound = { initial_trees_proof: mockFriInitialTreeProof, steps: [mockFriQueryStep] };
 const mockPolynomialCoeffs: PolynomialCoeffs = { coeffs: [mockExtensionField] };
 const mockFriProof: FriProof = {
     commit_phase_merkle_caps: [mockMerkleCap],
     query_round_proofs: [mockFriQueryRound],
     final_poly: mockPolynomialCoeffs,
-    pow_witness: "0xpowwitness",
+    pow_witness: 1n,
 };
 const mockOpeningSet: OpeningSet = {
     constants: [mockExtensionField],
@@ -105,7 +105,7 @@ const mockProofFullInstance: Proof = {
 
 const mockProofInstance: ProofWithPublicInputs = {
     proof: mockProofFullInstance,
-    public_inputs: ["0xinput1", 2n], // Field[]
+    public_inputs: [1n, 2n], // Field[]
 };
 
 // --- Assertion Helpers ---

@@ -1,4 +1,4 @@
-import { PrivateKey, PublicKey, QHashOut , U8Bytes } from "../rpc/baseTypes";
+import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../rpc/baseTypes";
 
 // Namespace corresponds to "qed" in Rust
 enum QEDUserProverRPCCommand {
@@ -108,7 +108,7 @@ interface Proof {
 // ProofWithPublicInputs based on plonky2 definition
 interface ProofWithPublicInputs {
     proof: Proof;
-    public_inputs: bigint[];
+    public_inputs: Felt[];
 }
 
 // Core input for SubmitUserEndCapNonProofInput

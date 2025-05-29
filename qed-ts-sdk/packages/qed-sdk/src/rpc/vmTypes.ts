@@ -16,7 +16,7 @@ export enum DPNBuiltInDataType {
 /**
  * Operation types in DPN
  */
-enum DPNOpType {
+export enum DPNOpType {
     InputTarget = 0,
     Constant = 1,
     ConstantTrue = 2,

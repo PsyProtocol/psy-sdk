@@ -5,10 +5,10 @@ import {
     QEDCheckpointLeaf,
     QEDL2BlockState,
     QEDUserLeaf,
-    QHashOut,
     RealmEdgeRPCCommand,
     SubmitUserEndCapNonProofInput,
 } from "./types";
+import { QHashOut } from "../rpc/baseTypes";
 import { Provider, ClientConfig } from "../common/provider";
 import { IHTTPClient } from "../http/types";
 import { ProofWithPublicInputs } from "../rpc/plonkTypes";

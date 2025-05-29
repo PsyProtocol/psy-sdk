@@ -1,18 +1,11 @@
-import { SCFelt } from "../rpc/baseTypes";
+import { Felt, QHashOut } from "../rpc/baseTypes";
 import { ProofWithPublicInputs } from "../rpc/plonkTypes";
-
-// QHash type from Rust: [u64; 4]
-// export interface QHashOut {
-//     elements: bigint[];
-// }
-
-export type QHashOut = string;
 
 // Merkle proof core structure
 export interface MerkleProofCore<T> {
     root: T;
     value: T;
-    index: SCFelt;
+    index: Felt;
     siblings: T[];
 }
 
