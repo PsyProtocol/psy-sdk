@@ -5,9 +5,7 @@
 export * from "./ContractCallArgs";
 export * from "./ContractCodeDefinition";
 export * from "./ContractFunctionCodeDefinition";
-export * from "./DeltaMerkleProofCore";
 export * from "./GUTAStats";
-export * from "./HashOut";
 export * from "./PMRewardCommitment";
 export * from "./QAddWithdrawalRPCRequest";
 export * from "./QBCDeployContract";
@@ -98,7 +96,6 @@ export * from "./QWithdrawalTreeRootFRPCRequest";
 export * from "./QWithdrawalTreeRootRPCRequest";
 export * from "./SubmitUserEndCapNonProofCoreInput";
 export * from "./SubmitUserEndCapNonProofInput";
-export * from "./U8Bytes";
 export * from "./UPSEndCapResultCompact";
 export * from "./ZKPublicKeyInfo";
 export * from "./plonkTypes";

@@ -1,21 +1,5 @@
+import { MerkleProofCore, QHashOut } from "../core";
 import { ProofWithPublicInputs } from "../types";
-
-/**
- * QHash output type with elements
- */
-export interface QHashOut {
-    elements: bigint[];
-}
-
-/**
- * Generic Merkle proof core structure
- */
-export interface MerkleProofCore<T> {
-    root: T;
-    value: T;
-    index: bigint;
-    siblings: T[];
-}
 
 /**
  * QED Checkpoint Leaf data structure

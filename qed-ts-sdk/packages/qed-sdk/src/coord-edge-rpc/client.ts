@@ -4,7 +4,6 @@ import {
     CoordinatorEdgeRPCCommand,
     ICoordinatorEdgeRpcProvider,
     LatestCheckpointResponse,
-    MerkleProofCore,
     QBCDeployContract,
     QEDCheckpointGlobalStateRoots,
     QEDCheckpointLeaf,
@@ -12,11 +11,11 @@ import {
     QEDContractLeaf,
     QEDUserLeaf,
     QEDL2BlockState,
-    QHashOut,
     ZKPublicKeyInfo,
 } from "./types";
 import { IHTTPClient } from "../http";
 import { Provider, ClientConfig } from "../provider";
+import { QHashOut, MerkleProofCore } from "../core";
 
 /**
  * Enhanced implementation of the Coordinator Edge RPC Provider with caching, retry logic, and multi-provider support

@@ -1,6 +1,5 @@
 import {
     IRealmEdgeRpcProvider,
-    MerkleProofCore,
     QEDCheckpointGlobalStateRoots,
     QEDCheckpointLeaf,
     QEDL2BlockState,
@@ -8,9 +7,9 @@ import {
     RealmEdgeRPCCommand,
     SubmitUserEndCapNonProofInput,
 } from "./types";
+import { QHashOut, MerkleProofCore } from "../core";
 import { IHTTPClient } from "../http";
 import { Provider, ClientConfig } from "../provider";
-import { QHashOut } from "../core";
 import { ProofWithPublicInputs } from "../types";
 
 /**

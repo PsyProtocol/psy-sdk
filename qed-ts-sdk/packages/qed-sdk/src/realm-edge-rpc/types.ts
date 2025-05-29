@@ -1,13 +1,5 @@
-import { Felt, QHashOut } from "../core";
+import { QHashOut, MerkleProofCore } from "../core";
 import { ProofWithPublicInputs } from "../types";
-
-// Merkle proof core structure
-export interface MerkleProofCore<T> {
-    root: T;
-    value: T;
-    index: Felt;
-    siblings: T[];
-}
 
 // Checkpoint leaf data
 export interface QEDCheckpointLeaf {
