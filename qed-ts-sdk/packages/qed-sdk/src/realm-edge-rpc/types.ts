@@ -1,5 +1,5 @@
-import { Felt, QHashOut } from "../rpc/baseTypes";
-import { ProofWithPublicInputs } from "../rpc/plonkTypes";
+import { Felt, QHashOut } from "../core";
+import { ProofWithPublicInputs } from "../types";
 
 // Merkle proof core structure
 export interface MerkleProofCore<T> {

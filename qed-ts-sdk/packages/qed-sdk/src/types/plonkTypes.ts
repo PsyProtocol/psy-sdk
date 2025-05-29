@@ -1,4 +1,4 @@
-import { Felt, QHashOut } from "./baseTypes";
+import { Felt, QHashOut } from "../core";
 type Hash = QHashOut;
 
 export interface ExtensionField {

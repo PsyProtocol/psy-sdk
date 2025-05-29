@@ -12,7 +12,6 @@ class FetchHTTPClient implements IHTTPClient {
         }
     }
     async sendRequest(request: ISimpleHTTPRequest): Promise<ISimpleHTTPResponse> {
-        //@ts-ignore
         const result = await fetch(request.url, {
             method: request.method,
             headers: request.headers,
@@ -28,6 +27,7 @@ class FetchHTTPClient implements IHTTPClient {
                         body,
                     };
                 } catch (e) {
+                    console.error("Error parsing JSON response", e);
                     return {
                         statusCode: result.status,
                         body: null,

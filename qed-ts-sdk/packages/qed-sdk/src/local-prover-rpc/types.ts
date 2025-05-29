@@ -1,4 +1,4 @@
-import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../rpc/baseTypes";
+import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 
 // Namespace corresponds to "qed" in Rust
 enum QEDUserProverRPCCommand {

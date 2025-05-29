@@ -15,7 +15,7 @@ import {
     QHashOut,
     ZKPublicKeyInfo,
 } from "./types";
-import { IHTTPClient } from "../http/types";
+import { IHTTPClient } from "../http";
 import { Provider, ClientConfig } from "../provider";
 
 /**

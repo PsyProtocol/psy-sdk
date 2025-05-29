@@ -101,3 +101,5 @@ export * from "./SubmitUserEndCapNonProofInput";
 export * from "./U8Bytes";
 export * from "./UPSEndCapResultCompact";
 export * from "./ZKPublicKeyInfo";
+export * from "./plonkTypes";
+export * from "./vmTypes";

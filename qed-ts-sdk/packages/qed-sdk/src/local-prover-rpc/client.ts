@@ -11,7 +11,7 @@ import {
 } from "./types";
 import { IHTTPClient } from "../http/types";
 import { BaseProvider } from "../provider";
-import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../rpc/baseTypes";
+import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import { waitMs } from "../utils";
 
 class QEDRPCUserProverProvider extends BaseProvider implements IQEDUserProverProvider {

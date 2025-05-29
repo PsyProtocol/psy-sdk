@@ -1,25 +1,16 @@
-export type { ISimpleHTTPRequest, ISimpleHTTPResponse, IHTTPClient } from "./http/types";
-export { FetchHTTPClient } from "./http/fetchClient";
+export type { ISimpleHTTPRequest, ISimpleHTTPResponse, IHTTPClient } from "./http";
+export { FetchHTTPClient } from "./http";
 export type {
-    CityHash,
+    QedHash,
     Hash256,
     SCFelt,
     Hash160,
     CompressedPublicKeyHex,
     QProvingJobDataIDSerializedWrapped,
-    CityMerkleProof,
-    CityDeltaMerkleProof,
-    ICityUserState,
-    ICityL1Deposit,
-    ICityL2BlockState,
-    ICityL1Withdrawal,
+    QedMerkleProof,
+    QedDeltaMerkleProof,
     ISimpleKVPair,
-    ICityRegisterUserRPCRequest,
-    ICityAddWithdrawalRPCRequest,
-    ICityClaimDepositRPCRequest,
-    ICityTokenTransferRPCRequest,
-    TProofValueStoreKV,
-} from "./rpc/baseTypes";
+} from "./core";
 
 export * from "./utils/felt";
 

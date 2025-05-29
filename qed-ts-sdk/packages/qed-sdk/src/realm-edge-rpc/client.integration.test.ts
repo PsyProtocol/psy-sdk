@@ -17,7 +17,7 @@ import {
     FriInitialTreeProof,
     FriQueryRound,
     FriQueryStep,
-} from "../rpc/plonkTypes";
+} from "../types/plonkTypes";
 
 // Note: These tests are integration tests and require a running QED Realm Edge RPC endpoint.
 // Configure the endpoint URL via the TEST_REALM_EDGE_RPC_URL environment variable.

@@ -1,4 +1,4 @@
-import { ProofWithPublicInputs } from "../rpc/plonkTypes";
+import { ProofWithPublicInputs } from "../types";
 
 /**
  * QHash output type with elements
