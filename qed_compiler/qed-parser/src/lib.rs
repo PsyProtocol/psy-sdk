@@ -7,7 +7,10 @@ use lalrpop_util::lalrpop_mod;
 use qed_ast::*;
 use qed_lexer::{GenericTokenTransformer, Lexer, Loc, Token};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
 use qed_ast::Program;
 
@@ -44,6 +47,45 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         Self::do_finish(program, ctx)
     }
 
+    fn parse_module(
+        program: &mut Program<F>,
+        ctx: &mut C,
+        current_path: &PathBuf,
+        location: Location,
+        visibility: Visibility,
+        is_parent_std: bool,
+    ) -> Result<ModuleNode> {
+        let module_name = resolve_module_name(program, current_path);
+        let file_id = program.file_resolver.resolve_file(current_path.clone())?;
+        let file_content = program
+            .file_resolver
+            .resolve_content(&file_id)
+            .ok_or(Error::FileUnresolved)?;
+
+        let lexer = Lexer::new(file_content);
+        let transformer = GenericTokenTransformer::new(lexer);
+        let tokens: Vec<_> = transformer.collect::<qed_lexer::Result<Vec<_>>>()?;
+        let module = qed::ModuleParser::new()
+            .parse(
+                file_content,
+                file_id,
+                Identifier::new(
+                    module_name,
+                    Location::new(file_id, location.start, location.end),
+                ),
+                &mut program.exprs,
+                &mut program.stmts,
+                &mut program.defs,
+                &mut program.interner,
+                visibility,
+                is_parent_std || module_name == IdentId::STD,
+                ctx,
+                tokens,
+            )
+            .map_err(|e| Error::from_lalrpop_error(e, file_id))?;
+        Ok(module)
+    }
+
     // std/
     //     prelude
     //
@@ -58,16 +100,15 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         ctx: &mut C,
         root_module_path: PathBuf,
     ) -> Result<()> {
-        let mut module_stack: Vec<(bool, PathBuf, Option<ModuleId>, Visibility, bool, Location)> =
-            vec![(
-                false,
-                root_module_path.clone(),
-                None,
-                Visibility::Public,
-                false,
-                Location::default(),
-            )];
-        let mut visited = IndexMap::new();
+        let mut module_stack = vec![(
+            false,
+            root_module_path.clone(),
+            Option::<ModuleId>::None,
+            Visibility::Public,
+            false,
+            Location::default(),
+        )];
+        let mut visited = HashSet::new();
         let mut inline_modules: IndexMap<PathBuf, ModuleNode> = IndexMap::new();
 
         while let Some((
@@ -79,50 +120,25 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
             location,
         )) = module_stack.pop()
         {
-            if visited.get(&current_path).is_some() {
+            if visited.contains(&current_path) {
                 return Err(Error::FileParsedMultipleTimes(current_path.clone()).into());
             }
-
+            let module_id = program.modules.next_idx();
             let mut module: ModuleNode = if !is_inline {
-                let module_name = resolve_module_name(program, &current_path);
-                if let Some(_module_id) = program.find_module_by_name(module_name) {
-                    continue;
-                }
-
-                let file_id = program.file_resolver.resolve_file(current_path.clone())?;
-                let file_content = program
-                    .file_resolver
-                    .resolve_content(&file_id)
-                    .ok_or(Error::FileUnresolved)?;
-
-                let is_std = is_parent_std || module_name == IdentId::STD;
-                let lexer = Lexer::new(file_content);
-                let transformer = GenericTokenTransformer::new(lexer);
-                let tokens: Vec<_> = transformer.collect::<qed_lexer::Result<Vec<_>>>()?;
-                let module = qed::ModuleParser::new()
-                    .parse(
-                        file_content,
-                        file_id,
-                        Identifier::new(
-                            module_name,
-                            Location::new(file_id, location.start, location.end),
-                        ),
-                        &mut program.exprs,
-                        &mut program.stmts,
-                        &mut program.defs,
-                        &mut program.interner,
-                        visibility,
-                        is_std,
-                        ctx,
-                        tokens,
-                    )
-                    .map_err(|e| Error::from_lalrpop_error(e, file_id))?;
+                let module = Self::parse_module(
+                    program,
+                    ctx,
+                    &current_path,
+                    location,
+                    visibility,
+                    is_parent_std,
+                )?;
+                program.file_resolver.register_module_id(module_id.0);
                 module
             } else {
                 inline_modules
-                    .get(&current_path)
+                    .remove(&current_path)
                     .expect("Inline module not found")
-                    .clone()
             };
 
             module.definitions.sort_by(|a, b| {
@@ -131,14 +147,8 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
                 b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Less)
             });
 
-            let module_id = program.modules.next_idx();
-
-            if !is_inline {
-                program.file_resolver.register_module_id(module_id.0);
-            }
-
             for (dep_module, visibility, _location) in module.modules.iter().rev() {
-                let dep_path = resolve_module_path(program, &dep_module.id, &current_path).unwrap();
+                let dep_path = resolve_module_path(program, dep_module.id, &current_path).unwrap();
                 module_stack.push((
                     false,
                     dep_path,
@@ -151,7 +161,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
 
             for inline_module in module.inline_modules.iter().rev() {
                 let dep_path =
-                    resolve_module_path(program, &inline_module.name.id, &current_path).unwrap();
+                    resolve_module_path(program, inline_module.name, &current_path).unwrap();
                 module_stack.push((
                     true,
                     dep_path.clone(),
@@ -166,7 +176,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
             program.modules.add_node(module);
             program.add_module_child(parent_module_id, module_id);
 
-            visited.insert(current_path, module_id);
+            visited.insert(current_path);
         }
 
         program.dependency_graph.check_cycle::<Error>()?;
@@ -225,13 +235,13 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
 
 pub fn resolve_module_path<F: Clone + From<u32>>(
     program: &mut Program<F>,
-    module_name: &IdentId,
+    module_name: impl Into<IdentId>,
     current_path: &PathBuf,
 ) -> Option<PathBuf> {
-    if module_name == &IdentId::STD {
+    let module_name = module_name.into();
+    if module_name == IdentId::STD {
         return Some(std_path());
     }
-
     let mut path = current_path.parent()?.to_path_buf();
     let ext = current_path.extension()?.to_str()?;
     path.push(format!("{}.{}", program.interner[module_name.clone()], ext));
