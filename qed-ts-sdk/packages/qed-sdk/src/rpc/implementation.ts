@@ -21,7 +21,7 @@ import { getCityNetworkMagicForNetworkId } from "../action/constants";
 import { FetchHTTPClient } from "../http/fetchClient";
 import type { IHTTPClient } from "../http/types";
 
-import { CityJSON } from "../utils/json";
+import { QedJSON } from "../utils/json";
 
 class CityRPCProvider implements ICityRPCProvider {
     url: string;
@@ -57,7 +57,7 @@ class CityRPCProvider implements ICityRPCProvider {
             }),
             responseType: "text",
         });
-        const result = CityJSON.parse(resultBase.body);
+        const result = QedJSON.parse(resultBase.body);
 
         if (result.statusCode >= 400) {
             throw new Error("Error in RPC call: " + resultBase.body);
@@ -72,7 +72,7 @@ class CityRPCProvider implements ICityRPCProvider {
             headers: {
                 "Content-Type": "application/json",
             },
-            body: CityJSON.stringify({
+            body: QedJSON.stringify({
                 jsonrpc,
                 method,
                 params,
@@ -80,10 +80,10 @@ class CityRPCProvider implements ICityRPCProvider {
             }),
             responseType: "text",
         });
-        const result = CityJSON.parse(resultBase.body);
+        const result = QedJSON.parse(resultBase.body);
 
         if (result.statusCode >= 400) {
-            throw new Error("Error in RPC call: " + CityJSON.stringify(resultBase.body));
+            throw new Error("Error in RPC call: " + QedJSON.stringify(resultBase.body));
         } else {
             return result.result as T;
         }

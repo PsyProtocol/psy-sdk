@@ -8,9 +8,9 @@ import {
     RealmEdgeRPCCommand,
     SubmitUserEndCapNonProofInput,
 } from "./types";
-import { QHashOut } from "../rpc/baseTypes";
-import { Provider, ClientConfig } from "../common/provider";
 import { IHTTPClient } from "../http/types";
+import { Provider, ClientConfig } from "../provider";
+import { QHashOut } from "../rpc/baseTypes";
 import { ProofWithPublicInputs } from "../rpc/plonkTypes";
 
 /**

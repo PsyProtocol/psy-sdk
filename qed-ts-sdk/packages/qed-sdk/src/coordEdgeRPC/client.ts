@@ -15,8 +15,8 @@ import {
     QHashOut,
     ZKPublicKeyInfo,
 } from "./types";
-import { Provider, ClientConfig } from "../common/provider";
 import { IHTTPClient } from "../http/types";
+import { Provider, ClientConfig } from "../provider";
 
 /**
  * Enhanced implementation of the Coordinator Edge RPC Provider with caching, retry logic, and multi-provider support

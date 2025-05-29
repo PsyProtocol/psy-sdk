@@ -1,6 +1,6 @@
 import { FetchHTTPClient } from "../http/fetchClient";
 import { IHTTPClient } from "../http/types";
-import { CityJSON } from "../utils";
+import { QedJSON } from "../utils";
 
 /**
  * Cache configuration interface
@@ -494,7 +494,7 @@ export abstract class Provider {
             method: "POST",
             url,
             headers,
-            body: CityJSON.stringify({
+            body: QedJSON.stringify({
                 jsonrpc,
                 method,
                 params,
@@ -504,10 +504,10 @@ export abstract class Provider {
         });
 
         if (response.statusCode >= 400) {
-            throw new Error("Error in RPC call: " + CityJSON.stringify(response.body));
+            throw new Error("Error in RPC call: " + QedJSON.stringify(response.body));
         }
 
-        const result = CityJSON.parse(response.body);
+        const result = QedJSON.parse(response.body);
 
         if (result.error) {
             throw new Error(`RPC error: ${result.error.message || JSON.stringify(result.error)}`);

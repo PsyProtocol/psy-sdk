@@ -1,7 +1,7 @@
 import { CityUserProverRPCCommand, ICityUserProverProvider } from "./types";
 import { FetchHTTPClient } from "../http/fetchClient";
 import { IHTTPClient } from "../http/types";
-import { CityJSON } from "../utils";
+import { QedJSON } from "../utils";
 import { reverseHexBytes } from "../utils/felt";
 import { waitMs } from "../utils/time";
 
@@ -20,7 +20,7 @@ class CityRPCUserProverProvider implements ICityUserProverProvider {
             headers: {
                 "Content-Type": "application/json",
             },
-            body: CityJSON.stringify({
+            body: QedJSON.stringify({
                 jsonrpc,
                 method,
                 params,
@@ -32,7 +32,7 @@ class CityRPCUserProverProvider implements ICityUserProverProvider {
             throw new Error("Error in RPC call: " + JSON.stringify(response.body));
         }
 
-        const result = CityJSON.parse(response.body);
+        const result = QedJSON.parse(response.body);
         if (result.error) {
             throw new Error("Error in RPC call: " + JSON.stringify(result.error));
         } else {

@@ -14,7 +14,7 @@ type HashOut = string;
 type QHashOut = string;
 type U8Bytes = string | Uint8Array;
 
-interface IMerkleProofCore<T> {
+interface MerkleProofCore<T> {
     root: T;
     value: T;
     index: SCFelt;
@@ -30,7 +30,7 @@ interface IDeltaMerkleProofCore<T> {
     siblings: T[];
 }
 
-type CityMerkleProof = IMerkleProofCore<CityHash>;
+type CityMerkleProof = MerkleProofCore<CityHash>;
 type CityDeltaMerkleProof = IDeltaMerkleProofCore<CityHash>;
 interface ICityUserState {
     user_id: number;

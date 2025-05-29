@@ -1,5 +1,5 @@
 import { FetchHTTPClient, IHTTPClient } from "../http";
-import { CityJSON } from "../utils/json";
+import { QedJSON } from "../utils/json";
 
 export class BaseProvider {
     httpClient: IHTTPClient;
@@ -17,7 +17,7 @@ export class BaseProvider {
             headers: {
                 "Content-Type": "application/json",
             },
-            body: CityJSON.stringify({
+            body: QedJSON.stringify({
                 jsonrpc,
                 method,
                 params,
@@ -27,11 +27,11 @@ export class BaseProvider {
         });
 
         if (response.statusCode >= 400) {
-            throw new Error("Error in RPC call: " + CityJSON.stringify(response.body));
+            throw new Error("Error in RPC call: " + QedJSON.stringify(response.body));
         }
-        const result = CityJSON.parse(response.body);
+        const result = QedJSON.parse(response.body);
         if (result.error) {
-            throw new Error("Error in RPC call: " + CityJSON.stringify(result.error));
+            throw new Error("Error in RPC call: " + QedJSON.stringify(result.error));
         } else {
             return result.result as T;
         }

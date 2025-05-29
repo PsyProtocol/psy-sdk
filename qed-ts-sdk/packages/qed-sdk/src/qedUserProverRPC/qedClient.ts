@@ -10,9 +10,9 @@ import {
     ZKPublicKeyInfo,
 } from "./qedTypes";
 import { IHTTPClient } from "../http/types";
+import { BaseProvider } from "../provider";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../rpc/baseTypes";
 import { waitMs } from "../utils";
-import { BaseProvider } from "../common";
 
 class QEDRPCUserProverProvider extends BaseProvider implements IQEDUserProverProvider {
     constructor(url: string, httpClient?: IHTTPClient) {

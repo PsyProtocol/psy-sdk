@@ -1,15 +1,5 @@
 export type { ISimpleHTTPRequest, ISimpleHTTPResponse, IHTTPClient } from "./http/types";
 export { FetchHTTPClient } from "./http/fetchClient";
-
-export type {
-    ICityUserProverProvider,
-    ICityZKSignatureProver,
-    ICitySecp256K1SignatureProver,
-    ICityWalletProver,
-} from "./userProverRPC/types";
-export { CityUserProverRPCCommand } from "./userProverRPC/types";
-export * from "./userProverRPC";
-
 export { CityRPCCommand } from "./rpc/types";
 export type {
     ICityRPCProvider,
@@ -91,7 +81,6 @@ export type {
 
 export * from "./zksigner/memory";
 export * from "./utils/felt";
-export * from "./utils/deposit";
 
 // Enhanced RPC Provider exports
 export {
@@ -101,7 +90,7 @@ export {
     type MultiProviderConfig,
     type ClientConfig,
     type ProviderHealth,
-} from "./common";
+} from "./provider";
 
 // Coordinator Edge RPC exports
 export { CoordinatorEdgeRpcProvider, ICoordinatorEdgeRpcProvider } from "./coordEdgeRPC";

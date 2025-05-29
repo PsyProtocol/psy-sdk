@@ -20,9 +20,9 @@ function stringifyBigIntJSON(json: any, spaces: number = 0): string {
     );
 }
 
-const CityJSON = Object.freeze({
+const QedJSON = Object.freeze({
     parse: parseBigIntJson,
     stringify: stringifyBigIntJSON,
 });
 
-export { CityJSON };
+export { QedJSON };
