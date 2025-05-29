@@ -124,3 +124,4 @@ fn main() -> Felt {
     assert_eq(<[Felt; 2]>::size(), 2, "Error: [Felt; 2]::size() should be 2");
     return a;
 }
+

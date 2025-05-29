@@ -1,8 +1,6 @@
-mod primitive;
-mod mem;
-mod context;
-
-use primitive::*;
+use super::primitive::*;
+use super::mem;
+use super::context;
 
 pub trait Storage {
     pub fn size() -> Felt;
