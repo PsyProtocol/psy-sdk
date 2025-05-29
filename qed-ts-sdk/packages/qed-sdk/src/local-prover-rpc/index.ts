@@ -1,16 +1,16 @@
 // Export new types and implementations
-export * from "./qedTypes";
-export * from "./qedClient";
+export * from "./types";
+export * from "./client";
 
 // Re-export related types for backward compatibility
-import { QEDRPCUserProverProvider } from "./qedClient";
+import { QEDRPCUserProverProvider } from "./client";
 import {
     ContractCallArgs,
     IQEDUserProverProvider,
     QEDUserProverRPCCommand,
     WalletKeyPair,
     ZKPublicKeyInfo,
-} from "./qedTypes";
+} from "./types";
 
 export { QEDUserProverRPCCommand, QEDRPCUserProverProvider };
 export type { ContractCallArgs, WalletKeyPair, ZKPublicKeyInfo, IQEDUserProverProvider };

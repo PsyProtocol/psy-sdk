@@ -8,7 +8,7 @@ import {
     SubmitUserEndCapNonProofInput,
     WalletKeyPair,
     ZKPublicKeyInfo,
-} from "./qedTypes";
+} from "./types";
 import { IHTTPClient } from "../http/types";
 import { BaseProvider } from "../provider";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../rpc/baseTypes";
