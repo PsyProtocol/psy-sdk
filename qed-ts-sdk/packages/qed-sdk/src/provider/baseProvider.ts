@@ -10,7 +10,7 @@ export class BaseProvider {
         this.url = url;
     }
 
-    async rpc<T>(method: string, params: any[], id = "1", jsonrpc = "2.0"): Promise<T> {
+    async rpc<T>(method: string, params: any[] | any, id = "1", jsonrpc = "2.0"): Promise<T> {
         const response = await this.httpClient.sendRequest({
             method: "POST",
             url: this.url,

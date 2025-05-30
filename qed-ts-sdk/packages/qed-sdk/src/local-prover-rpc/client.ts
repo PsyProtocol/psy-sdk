@@ -7,11 +7,12 @@ import {
     QEDUserProverRPCCommand,
     SubmitUserEndCapNonProofInput,
     WalletKeyPair,
-    ZKPublicKeyInfo,
 } from "./types";
+
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import { IHTTPClient } from "../http";
 import { BaseProvider } from "../provider";
+import { ZKPublicKeyInfo } from "../types";
 import { waitMs } from "../utils";
 
 class QEDRPCUserProverProvider extends BaseProvider implements IQEDUserProverProvider {

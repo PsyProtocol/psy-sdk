@@ -32,6 +32,7 @@ interface IDeltaMerkleProofCore<T> {
 
 type QedMerkleProof = MerkleProofCore<QedHash>;
 type QedDeltaMerkleProof = IDeltaMerkleProofCore<QedHash>;
+type DeltaMerkleProofCore = IDeltaMerkleProofCore<QedHash>;
 
 interface ISimpleKVPair<K, V> {
     key: K;
@@ -53,6 +54,7 @@ export type {
     QProvingJobDataIDSerializedWrapped,
     MerkleProofCore,
     IDeltaMerkleProofCore,
+    DeltaMerkleProofCore,
     QedMerkleProof,
     QedDeltaMerkleProof,
     ISimpleKVPair,

@@ -1,21 +1,21 @@
+import { IRealmEdgeRpcProvider, RealmEdgeRPCCommand } from "./types";
+import { QHashOut, MerkleProofCore } from "../core";
+import { IHTTPClient } from "../http";
+import { Provider, ClientConfig } from "../provider";
 import {
-    IRealmEdgeRpcProvider,
+    ProofWithPublicInputs,
     QEDCheckpointGlobalStateRoots,
     QEDCheckpointLeaf,
     QEDL2BlockState,
     QEDUserLeaf,
-    RealmEdgeRPCCommand,
     SubmitUserEndCapNonProofInput,
-} from "./types";
-import { QHashOut, MerkleProofCore } from "../core";
-import { IHTTPClient } from "../http";
-import { Provider, ClientConfig } from "../provider";
-import { ProofWithPublicInputs } from "../types";
+} from "../types";
 
 /**
  * Enhanced RealmEdgeRpcProvider with caching, retry logic, and multi-provider support
  */
 export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvider {
+    networkMagic: string;
     // Read-only methods that can be cached
     private readonly readOnlyMethods = new Set<string>([
         RealmEdgeRPCCommand.CheckUserIdInRealm,
@@ -68,9 +68,11 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
     constructor(
         urlOrUrls: string | string[],
         configOrHttpClient?: ClientConfig | IHTTPClient,
-        httpClient?: IHTTPClient
+        httpClient?: IHTTPClient,
+        networkMagic?: string
     ) {
         super(urlOrUrls, configOrHttpClient, httpClient);
+        this.networkMagic = networkMagic || "0x0n";
     }
 
     /**

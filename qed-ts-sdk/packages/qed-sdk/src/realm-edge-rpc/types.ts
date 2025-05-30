@@ -1,66 +1,12 @@
 import { QHashOut, MerkleProofCore } from "../core";
-import { ProofWithPublicInputs } from "../types";
-
-// Checkpoint leaf data
-export interface QEDCheckpointLeaf {
-    checkpoint_id: bigint;
-    next_add_withdrawal_id: bigint;
-    next_process_withdrawal_id: bigint;
-    next_deposit_id: bigint;
-    total_deposits_claimed_epoch: bigint;
-    next_user_id: bigint;
-    end_balance: bigint;
-}
-
-// L2 block state
-export interface QEDL2BlockState {
-    checkpoint_id: bigint;
-    next_add_withdrawal_id: bigint;
-    next_process_withdrawal_id: bigint;
-    next_deposit_id: bigint;
-    total_deposits_claimed_epoch: bigint;
-    next_user_id: bigint;
-    end_balance: bigint;
-    next_contract_id: bigint;
-}
-
-// Checkpoint global state roots
-export interface QEDCheckpointGlobalStateRoots {
-    user_tree_root: QHashOut;
-    checkpoint_tree_root: QHashOut;
-    withdrawal_tree_root: QHashOut;
-    deposit_tree_root: QHashOut;
-}
-
-// User leaf data
-export interface QEDUserLeaf {
-    user_id: bigint;
-    nonce: bigint;
-    last_checkpoint_id: bigint;
-    user_state_tree_root: QHashOut;
-    user_contract_tree_root: QHashOut;
-    user_pk_hash: QHashOut;
-}
-
-// Contract state updates
-export interface QEDContractStateUpdateHistory {
-    contract_id: bigint;
-    updates: any[]; // This is a placeholder, replace with actual type if needed
-}
-
-// User EndCap core input
-export interface SubmitUserEndCapNonProofCoreInput {
-    checkpoint_id: bigint;
-    stats: any; // GUTAStats
-    state_transition: any; // UPSEndCapResultCompact
-    new_user_leaf: QEDUserLeaf;
-}
-
-// Full NonProof input
-export interface SubmitUserEndCapNonProofInput {
-    core: SubmitUserEndCapNonProofCoreInput;
-    contract_state_updates: QEDContractStateUpdateHistory[];
-}
+import {
+    ProofWithPublicInputs,
+    QEDCheckpointGlobalStateRoots,
+    QEDCheckpointLeaf,
+    QEDL2BlockState,
+    QEDUserLeaf,
+    SubmitUserEndCapNonProofInput,
+} from "../types";
 
 // RPC Method commands enum
 export enum RealmEdgeRPCCommand {

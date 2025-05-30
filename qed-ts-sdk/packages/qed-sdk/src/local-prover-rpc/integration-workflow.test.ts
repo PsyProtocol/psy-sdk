@@ -1,6 +1,6 @@
 import { QEDRPCUserProverProvider } from "./client";
 import { ContractCallArgs, WalletKeyPair } from "./types";
-import { Hash256 } from "../core";
+import { QHashOut } from "../core";
 
 /**
  * End-to-end workflow integration tests
@@ -39,7 +39,7 @@ describe("QED User Prover RPC Workflow Integration", () => {
 
                     // Step 3: Add user to session
                     console.log("Step 3: Adding user to session...");
-                    const userHash: Hash256 = await provider.addUser(keypair.private_key);
+                    const userHash: QHashOut = await provider.addUser(keypair.private_key);
                     expect(userHash).toBeDefined();
                     console.log("✓ User added with hash:", userHash);
 
@@ -81,7 +81,7 @@ describe("QED User Prover RPC Workflow Integration", () => {
                     console.log("✓ Session started:", sessionId);
 
                     // Create and add multiple users
-                    const users: Array<{ keypair: WalletKeyPair; hash: Hash256 }> = [];
+                    const users: Array<{ keypair: WalletKeyPair; hash: QHashOut }> = [];
                     const userCount = 3;
 
                     for (let i = 0; i < userCount; i++) {
@@ -118,13 +118,13 @@ describe("QED User Prover RPC Workflow Integration", () => {
     });
 
     describe("Contract Interaction Workflow", () => {
-        let sessionId: string;
+        // let sessionId: string;
         let userKeypair: WalletKeyPair;
-        let userHash: Hash256;
+        let userHash: QHashOut;
 
         beforeAll(async () => {
             // Setup common session and user for contract tests
-            sessionId = await provider.startSession();
+            await provider.startSession();
             userKeypair = await provider.getRandomKeypair();
             userHash = await provider.addUser(userKeypair.private_key);
             await provider.switchUser(userHash);

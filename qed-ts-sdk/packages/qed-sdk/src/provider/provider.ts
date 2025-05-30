@@ -1,5 +1,4 @@
-import { FetchHTTPClient } from "../http/fetchClient";
-import { IHTTPClient } from "../http/types";
+import { FetchHTTPClient, IHTTPClient } from "../http";
 import { QedJSON } from "../utils";
 
 /**
@@ -270,7 +269,7 @@ export abstract class Provider {
     /**
      * Generate cache key for a request
      */
-    private getCacheKey(method: string, params: any[]): string {
+    private getCacheKey(method: string, params: any[] | any): string {
         return `${method}:${JSON.stringify(params)}`;
     }
 
@@ -348,14 +347,25 @@ export abstract class Provider {
     /**
      * Make a direct JSON-RPC request to a specific provider
      */
-    protected async directRpc<T>(url: string, method: string, params: any[], id = "1", jsonrpc = "2.0"): Promise<T> {
+    protected async directRpc<T>(
+        url: string,
+        method: string,
+        params: any[] | any,
+        id = "1",
+        jsonrpc = "2.0"
+    ): Promise<T> {
         return this.directRpcWithHeaders<T>(url, method, params, id, jsonrpc);
     }
 
     /**
      * Execute parallel-first strategy
      */
-    private async executeParallelFirst<T>(method: string, params: any[], id: string, jsonrpc: string): Promise<T> {
+    private async executeParallelFirst<T>(
+        method: string,
+        params: any[] | any,
+        id: string,
+        jsonrpc: string
+    ): Promise<T> {
         const healthyProviders = this.getHealthyProviders();
 
         if (healthyProviders.length === 0) {
@@ -393,7 +403,7 @@ export abstract class Provider {
      */
     protected async rpc<T>(
         method: string,
-        params: any[],
+        params: any[] | any,
         id = "1",
         jsonrpc = "2.0",
         headers?: Record<string, string>
@@ -480,7 +490,7 @@ export abstract class Provider {
     private async directRpcWithHeaders<T>(
         url: string,
         method: string,
-        params: any[],
+        params: any[] | any,
         id = "1",
         jsonrpc = "2.0",
         customHeaders?: Record<string, string>

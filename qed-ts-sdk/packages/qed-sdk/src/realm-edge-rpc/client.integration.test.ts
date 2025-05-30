@@ -1,11 +1,11 @@
 import { RealmEdgeRpcProvider } from "./client";
+import { IRealmEdgeRpcProvider } from "./types";
 import {
-    IRealmEdgeRpcProvider,
     QEDUserLeaf,
     SubmitUserEndCapNonProofInput,
     SubmitUserEndCapNonProofCoreInput,
     QEDContractStateUpdateHistory, // For potential direct rpc calls if needed, or reference
-} from "./types";
+} from "../types";
 import {
     ProofWithPublicInputs,
     Proof,

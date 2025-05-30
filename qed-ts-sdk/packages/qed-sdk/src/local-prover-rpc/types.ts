@@ -1,37 +1,11 @@
 import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
-
-// Namespace corresponds to "qed" in Rust
-enum QEDUserProverRPCCommand {
-    StartSession = "qed_start_session",
-    ProveContractCall = "qed_prove_contract_call",
-    ProveContractCalls = "qed_prove_contract_calls",
-    SignAndSubmit = "qed_sign_and_submit",
-    RegisterUser = "qed_register_user",
-    AddUser = "qed_add_user",
-    SwitchUser = "qed_switch_user",
-    GetZKPublicKey = "qed_get_zk_public_key",
-    GetRandomKeypair = "qed_get_random_keypair",
-    DeployContract = "qed_deploy_contract",
-    GetDeployContractCmd = "qed_get_deploy_contract_cmd",
-    GetSigHash = "qed_get_sighash",
-    GetZKSignature = "qed_get_zk_signature",
-    GetEndCapProof = "qed_get_end_cap_proof",
-    GetUserECInput = "qed_get_user_ec_input",
-    Ping = "qed_ping",
-    GetResult = "qed_get_result",
-}
+import { ZKPublicKeyInfo } from "../types";
 
 // Converted from Rust ContractCallArgs
 interface ContractCallArgs {
     contract_id: bigint;
     method_name: string;
     inputs: bigint[];
-}
-
-// Converted from Rust ZKPublicKeyInfo
-interface ZKPublicKeyInfo {
-    fingerprint: QHashOut;
-    public_key_param: QHashOut;
 }
 
 // Converted from Rust WalletKeyPair
@@ -131,6 +105,27 @@ interface SubmitUserEndCapNonProofInput {
     contract_state_updates: QEDContractStateUpdateHistory[];
 }
 
+// Namespace corresponds to "qed" in Rust
+enum QEDUserProverRPCCommand {
+    StartSession = "qed_start_session",
+    ProveContractCall = "qed_prove_contract_call",
+    ProveContractCalls = "qed_prove_contract_calls",
+    SignAndSubmit = "qed_sign_and_submit",
+    RegisterUser = "qed_register_user",
+    AddUser = "qed_add_user",
+    SwitchUser = "qed_switch_user",
+    GetZKPublicKey = "qed_get_zk_public_key",
+    GetRandomKeypair = "qed_get_random_keypair",
+    DeployContract = "qed_deploy_contract",
+    GetDeployContractCmd = "qed_get_deploy_contract_cmd",
+    GetSigHash = "qed_get_sighash",
+    GetZKSignature = "qed_get_zk_signature",
+    GetEndCapProof = "qed_get_end_cap_proof",
+    GetUserECInput = "qed_get_user_ec_input",
+    Ping = "qed_ping",
+    GetResult = "qed_get_result",
+}
+
 interface IQEDUserProverProvider {
     // Local proving operations
     startSession(): Promise<string>;
@@ -163,8 +158,6 @@ interface IQEDUserProverProvider {
 export type {
     ContractCallArgs,
     WalletKeyPair,
-    ZKPublicKeyInfo,
-    QHashOut,
     DPNAssertEqInfoIndexed,
     DPNIndexedVarDef,
     DPNStateCmd,

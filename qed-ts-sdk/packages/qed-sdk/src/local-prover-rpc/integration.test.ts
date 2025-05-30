@@ -1,6 +1,7 @@
 import { QEDRPCUserProverProvider } from "./client";
-import { ContractCallArgs, WalletKeyPair, ZKPublicKeyInfo, DPNFunctionCircuitDefinition } from "./types";
-import { Hash256 } from "../core";
+import { ContractCallArgs, WalletKeyPair, DPNFunctionCircuitDefinition } from "./types";
+import { QHashOut } from "../core";
+import { ZKPublicKeyInfo } from "../types";
 
 /**
  * Integration tests for QED User Prover RPC Client
@@ -97,7 +98,7 @@ describe("QED User Prover RPC Integration Tests", () => {
 
     describe("User Management", () => {
         let testKeypair: WalletKeyPair;
-        let userHash: Hash256;
+        let userHash: QHashOut;
 
         it(
             "should generate random keypair",
@@ -227,7 +228,7 @@ describe("QED User Prover RPC Integration Tests", () => {
     describe("Contract Operations", () => {
         // let sessionId: string;
         // let userKeypair: WalletKeyPair;
-        // let userHash: Hash256;
+        // let userHash: QHashOut;
 
         // beforeAll(async () => {
         //     // Setup session and user for contract operations
@@ -342,7 +343,7 @@ describe("QED User Prover RPC Integration Tests", () => {
     describe("Contract Deployment", () => {
         // let sessionId: string;
         let userKeypair: WalletKeyPair;
-        let userHash: Hash256;
+        let userHash: QHashOut;
 
         beforeAll(async () => {
             try {
@@ -434,7 +435,7 @@ describe("QED User Prover RPC Integration Tests", () => {
     describe("Signing and Submission", () => {
         // let sessionId: string;
         // let userKeypair: WalletKeyPair;
-        // let userHash: Hash256;
+        // let userHash: QHashOut;
 
         // beforeAll(async () => {
         //     try {
@@ -555,7 +556,7 @@ describe("QED User Prover RPC Integration Tests", () => {
             async () => {
                 try {
                     // Generate a test result ID (this might not exist)
-                    const testResultId: Hash256 = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+                    const testResultId: QHashOut = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
 
                     const result = await provider.getResult(testResultId);
 
