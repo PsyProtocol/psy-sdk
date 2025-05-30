@@ -1,5 +1,5 @@
 import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
-import { ZKPublicKeyInfo } from "../types";
+import { QBCDeployContract, ZKPublicKeyInfo } from "../types";
 
 // Converted from Rust ContractCallArgs
 interface ContractCallArgs {
@@ -61,13 +61,6 @@ interface ContractFunctionCodeDefinition {
     num_outputs: number;
     vm_type: number;
     code: Uint8Array | string;
-}
-
-// QBCDeployContract based on Rust definition
-interface QBCDeployContract {
-    deployer: QHashOut;
-    code_definition: ContractCodeDefinition;
-    function_whitelist: QHashOut[];
 }
 
 // Proof component from plonky2

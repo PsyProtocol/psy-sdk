@@ -105,7 +105,7 @@ export abstract class Provider {
     // Abstract method to get health check method
     protected abstract getHealthCheckMethod(): string;
 
-    constructor(
+    protected constructor(
         urlOrUrls: string | string[],
         configOrHttpClient?: ClientConfig | IHTTPClient,
         httpClient?: IHTTPClient
@@ -192,7 +192,7 @@ export abstract class Provider {
      */
     private startHealthChecks(): void {
         this.healthCheckTimer = setInterval(() => {
-            this.performHealthChecks();
+            this.performHealthChecks().then((r) => console.log(r));
         }, this.multiProviderConfig.healthCheckInterval);
     }
 
@@ -249,9 +249,7 @@ export abstract class Provider {
 
         switch (this.multiProviderConfig.strategy) {
             case "round-robin":
-                const provider = healthyProviders[this.currentProviderIndex % healthyProviders.length];
-                this.currentProviderIndex++;
-                return provider;
+                return healthyProviders[this.currentProviderIndex++ % healthyProviders.length];
 
             case "fastest":
                 return healthyProviders.reduce((fastest, current) => {
@@ -392,7 +390,7 @@ export abstract class Provider {
      */
     protected async rpc<T>(
         method: string,
-        params: any,
+        params: unknown,
         id = "1",
         jsonrpc = "2.0",
         headers?: Record<string, string>

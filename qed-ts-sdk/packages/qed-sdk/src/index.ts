@@ -2,14 +2,21 @@ export type { ISimpleHTTPRequest, ISimpleHTTPResponse, IHTTPClient } from "./htt
 export { FetchHTTPClient } from "./http";
 export type {
     QedHash,
+    Felt,
+    SCNumberLike,
+    U8Bytes,
+    PrivateKey,
+    PublicKey,
+    QHashOut,
     Hash256,
-    SCFelt,
     Hash160,
     CompressedPublicKeyHex,
     QProvingJobDataIDSerializedWrapped,
     QedMerkleProof,
     QedDeltaMerkleProof,
     ISimpleKVPair,
+    DeltaMerkleProofCore,
+    MerkleProofCore,
 } from "./core";
 
 export * from "./utils/felt";

@@ -17,7 +17,7 @@ module.exports = {
         jest: true
     },
     rules: {
-        // '@typescript-eslint/no-explicit-any': 'warn',
+        '@typescript-eslint/no-explicit-any': 'off',
         // 'import/no-unresolved': 'error',
         // 'import/no-webpack-loader-syntax': 'off',
         // 'import/no-useless-path-segments': 'warn',

@@ -1,5 +1,4 @@
 type SCNumberLike = bigint | number | string;
-type SCFelt = bigint | number;
 type Felt = bigint | number;
 type HexString = string;
 
@@ -10,7 +9,6 @@ type CompressedPublicKeyHex = string;
 type QProvingJobDataIDSerializedWrapped = string;
 type PrivateKey = string;
 type PublicKey = string;
-type HashOut = string;
 type QHashOut = string;
 type U8Bytes = string | Uint8Array;
 
@@ -41,14 +39,12 @@ interface ISimpleKVPair<K, V> {
 
 export type {
     QedHash,
-    SCFelt,
     Felt,
     SCNumberLike,
     Hash256,
     Hash160,
     PrivateKey,
     PublicKey,
-    HashOut,
     QHashOut,
     CompressedPublicKeyHex,
     QProvingJobDataIDSerializedWrapped,
