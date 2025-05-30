@@ -45,12 +45,13 @@ const mockLeafIndexNum = 8;
 const mockLeafIndexBigInt = 8n;
 
 const mockUserLeafInstance: QEDUserLeaf = {
-    user_id: mockUserIdBigInt,
-    nonce: 100n,
-    last_checkpoint_id: mockCheckpointIdBigInt,
+    public_key: "",
     user_state_tree_root: "",
-    user_contract_tree_root: "",
-    user_pk_hash: "",
+    balance: 0n,
+    nonce: 0n,
+    last_checkpoint_id: 0n,
+    event_index: 0n,
+    user_id: 0n,
 };
 
 const mockSubmitUserEndCapNonProofCoreInput: SubmitUserEndCapNonProofCoreInput = {
@@ -123,39 +124,39 @@ function expectMerkleProofCoreQHashOut(value: any) {
     value.siblings.forEach((sibling: any) => expectQHashOut(sibling));
 }
 
-function expectQEDCheckpointLeaf(value: any) {
-    expect(value).toBeDefined();
-    expect(typeof value.checkpoint_id).toBe("number");
-    expect(typeof value.next_add_withdrawal_id).toBe("number");
-    expect(typeof value.next_process_withdrawal_id).toBe("number");
-    expect(typeof value.next_deposit_id).toBe("number");
-    expect(typeof value.total_deposits_claimed_epoch).toBe("number");
-    expect(typeof value.next_user_id).toBe("bigint|number");
-    expect(typeof value.end_balance).toBe("number");
-}
+// function expectQEDCheckpointLeaf(value: any) {
+//     expect(value).toBeDefined();
+//     expect(typeof value.checkpoint_id).toBe("number");
+//     expect(typeof value.next_add_withdrawal_id).toBe("number");
+//     expect(typeof value.next_process_withdrawal_id).toBe("number");
+//     expect(typeof value.next_deposit_id).toBe("number");
+//     expect(typeof value.total_deposits_claimed_epoch).toBe("number");
+//     expect(typeof value.next_user_id).toBe("bigint|number");
+//     expect(typeof value.end_balance).toBe("number");
+// }
 
-function expectQEDL2BlockState(value: any) {
-    // QEDL2BlockState has the same structure as QEDCheckpointLeaf as per types.ts
-    expectQEDCheckpointLeaf(value);
-}
+// function expectQEDL2BlockState(value: any) {
+//     // QEDL2BlockState has the same structure as QEDCheckpointLeaf as per types.ts
+//     expectQEDCheckpointLeaf(value);
+// }
 
-function expectQEDCheckpointGlobalStateRoots(value: any) {
-    expect(value).toBeDefined();
-    expectQHashOut(value.user_tree_root);
-    expectQHashOut(value.checkpoint_tree_root);
-    expectQHashOut(value.withdrawal_tree_root);
-    expectQHashOut(value.deposit_tree_root);
-}
+// function expectQEDCheckpointGlobalStateRoots(value: any) {
+//     expect(value).toBeDefined();
+//     expectQHashOut(value.user_tree_root);
+//     expectQHashOut(value.checkpoint_tree_root);
+//     expectQHashOut(value.withdrawal_tree_root);
+//     expectQHashOut(value.deposit_tree_root);
+// }
 
-function expectQEDUserLeaf(value: any) {
-    expect(value).toBeDefined();
-    expect(typeof value.user_id).toBe("bigint");
-    expect(typeof value.nonce).toBe("bigint");
-    expect(typeof value.last_checkpoint_id).toBe("bigint");
-    expectQHashOut(value.user_state_tree_root);
-    expectQHashOut(value.user_contract_tree_root);
-    expectQHashOut(value.user_pk_hash);
-}
+// function expectQEDUserLeaf(value: any) {
+//     expect(value).toBeDefined();
+//     expect(typeof value.user_id).toBe("bigint");
+//     expect(typeof value.nonce).toBe("bigint");
+//     expect(typeof value.last_checkpoint_id).toBe("bigint");
+//     expectQHashOut(value.user_state_tree_root);
+//     expectQHashOut(value.user_contract_tree_root);
+//     expectQHashOut(value.user_pk_hash);
+// }
 
 describe("RealmEdgeRpcProvider Integration Tests", () => {
     let client: IRealmEdgeRpcProvider;

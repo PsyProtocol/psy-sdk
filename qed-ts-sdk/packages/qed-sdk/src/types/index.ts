@@ -1,4 +1,5 @@
 import { QEDCheckpointLeaf } from "./QEDCheckpointLeaf";
+import { QEDUserLeaf } from "./QEDUserLeaf";
 import { QHashOut } from "../core";
 
 /**
@@ -106,16 +107,6 @@ export * from "./plonkTypes";
 export * from "./vmTypes";
 
 
-// User leaf data
-export interface QEDUserLeaf {
-    user_id: bigint;
-    nonce: bigint;
-    last_checkpoint_id: bigint;
-    user_state_tree_root: QHashOut;
-    user_contract_tree_root: QHashOut;
-    user_pk_hash: QHashOut;
-}
-
 // Contract state updates
 export interface QEDContractStateUpdateHistory {
     contract_id: bigint;
@@ -147,28 +138,7 @@ export interface QEDL2BlockState {
     total_deposits_claimed_epoch: bigint;
     next_user_id: bigint;
     end_balance: bigint;
-}
-
-/**
- * QED Contract Leaf structure
- */
-export interface QEDContractLeaf {
-    contract_id: bigint;
-    owner_id: bigint;
-    code_hash: QHashOut;
-    whitelist_root: QHashOut;
-    is_core_contract: boolean;
-    create_checkpoint_id: bigint;
-}
-
-/**
- * QED Contract Code Definition
- */
-export interface ContractCodeDefinition {
-    contract_id: bigint;
-    code_hash: QHashOut;
-    code_path: string;
-    code_size: bigint;
+    next_contract_id: bigint;
 }
 
 /**
