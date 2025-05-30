@@ -314,11 +314,11 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
         leafLevel: number,
         leafIndex: number
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetUserTopTreeMerkleProof, {
-            checkpoint_id: checkpointId,
-            leaf_level: leafLevel,
-            leaf_index: leafIndex,
-        });
+        return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetUserTopTreeMerkleProof, [
+            checkpointId,
+            leafLevel,
+            leafIndex,
+        ]);
     }
 
     async getUserTopTreeCapRoot(checkpointId: number, capLevel: number, capIndex: number): Promise<QHashOut> {

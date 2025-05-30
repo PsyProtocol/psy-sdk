@@ -35,21 +35,22 @@ class FetchHTTPClient implements IHTTPClient {
                 }
             }
         }
-        if (request.responseType === "json") {
-            return {
-                statusCode: result.status,
-                body: await result.json(),
-            };
-        } else if (request.responseType === "text") {
-            return {
-                statusCode: result.status,
-                body: await result.text(),
-            };
-        } else {
-            return {
-                statusCode: result.status,
-                body: await result.arrayBuffer(),
-            };
+        switch (request.responseType) {
+            case "json":
+                return {
+                    statusCode: result.status,
+                    body: await result.json(),
+                };
+            case "text":
+                return {
+                    statusCode: result.status,
+                    body: await result.text(),
+                };
+            default:
+                return {
+                    statusCode: result.status,
+                    body: await result.arrayBuffer(),
+                };
         }
     }
 }
