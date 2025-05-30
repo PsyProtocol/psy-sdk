@@ -63,7 +63,7 @@ class QEDRPCUserProverProvider extends BaseProvider implements IQEDUserProverPro
         return this.rpc<void>(QEDUserProverRPCCommand.SwitchUser, [pkHash]);
     }
 
-    async getZKPublicKey(privateKey: QHashOut): Promise<ZKPublicKeyInfo> {
+    async getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo> {
         return this.rpc<ZKPublicKeyInfo>(QEDUserProverRPCCommand.GetZKPublicKey, [privateKey]);
     }
 

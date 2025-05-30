@@ -9,7 +9,7 @@ import { QHashOut } from "../core";
 
 describe("QED User Prover RPC Workflow Integration", () => {
     let provider: QEDRPCUserProverProvider;
-    const rpcUrl = process.env.QED_RPC_URL || "http://localhost:8545";
+    const rpcUrl = process.env.QED_RPC_URL || "http://localhost:8888";
     const timeout = 60000; // 60 seconds for complex workflows
 
     beforeAll(() => {

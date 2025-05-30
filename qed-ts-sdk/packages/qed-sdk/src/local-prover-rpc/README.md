@@ -13,10 +13,10 @@ npm install @qed/sdk
 ### QED API
 
 ```typescript
-import { QEDRPCUserProverProvider } from "@qed/sdk/userProverRPC";
+import { QEDRPCUserProverProvider } from "@qed/sdk/local-prover-rpc";
 
 // Create a new RPC client
-const userProverClient = new QEDRPCUserProverProvider("http://localhost:8545");
+const userProverClient = new QEDRPCUserProverProvider("http://localhost:8888");
 
 // Start a new session
 async function startSession() {

@@ -16,7 +16,7 @@ npm install @qed/sdk
 import { RealmEdgeRpcProvider } from "@qed/sdk";
 
 // Simple usage
-const client = new RealmEdgeRpcProvider("http://localhost:8545");
+const client = new RealmEdgeRpcProvider("http://localhost:8547");
 
 // Get latest checkpoint tree root
 const root = await client.getLatestCheckpointTreeRoot();
