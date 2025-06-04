@@ -116,9 +116,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
             }
             let module_id = program.modules.next_idx();
             let module: ModuleNode = if !is_inline {
-                let module = Self::parse_module(program, ctx, &current_path, location, visibility)?;
-                program.file_resolver.register_module_id(module_id.0);
-                module
+                Self::parse_module(program, ctx, &current_path, location, visibility)?
             } else {
                 inline_modules
                     .remove(&current_path)

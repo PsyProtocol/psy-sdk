@@ -10,7 +10,6 @@ pub struct FileResolver {
     file_contents: UnsafeCell<Vec<String>>,
     file_ids: UnsafeCell<IndexMap<PathBuf, FileId>>,
     file_paths: UnsafeCell<Vec<PathBuf>>,
-    module_ids: UnsafeCell<Vec<usize>>,
 }
 
 unsafe impl Sync for FileResolver {}
@@ -20,13 +19,11 @@ impl Clone for FileResolver {
         let file_contents = unsafe { &*self.file_contents.get() };
         let file_ids = unsafe { &*self.file_ids.get() };
         let file_paths = unsafe { &*self.file_paths.get() };
-        let module_ids = unsafe { &*self.module_ids.get() };
 
         FileResolver {
             file_contents: UnsafeCell::new(file_contents.clone()),
             file_ids: UnsafeCell::new(file_ids.clone()),
             file_paths: UnsafeCell::new(file_paths.clone()),
-            module_ids: UnsafeCell::new(module_ids.clone()),
         }
     }
 }
@@ -37,7 +34,6 @@ impl FileResolver {
             file_contents: UnsafeCell::new(Vec::with_capacity(20)),
             file_ids: UnsafeCell::new(IndexMap::new()),
             file_paths: UnsafeCell::new(Vec::with_capacity(20)),
-            module_ids: UnsafeCell::new(Vec::with_capacity(20)),
         }
     }
 
@@ -79,27 +75,6 @@ impl FileResolver {
         unsafe {
             let file_contents = &*self.file_contents.get();
             file_contents.get(file_id.0).map(|s| s.as_str())
-        }
-    }
-
-    pub fn register_module_id(&self, module_id: usize) {
-        unsafe {
-            let module_ids = &mut *self.module_ids.get();
-            module_ids.push(module_id);
-        }
-    }
-
-    pub fn resolve_module_id(&self, file_id: &FileId) -> Option<usize> {
-        unsafe {
-            let module_ids = &*self.module_ids.get();
-            module_ids.get(file_id.0).map(|n| *n)
-        }
-    }
-
-    pub fn is_inline_module(&self, module_id: usize) -> bool {
-        unsafe {
-            let module_ids = &*self.module_ids.get();
-            !module_ids.contains(&module_id)
         }
     }
 }
