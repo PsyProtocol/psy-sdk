@@ -73,24 +73,7 @@ impl ModuleNode {
             file_id,
             modules,
             inline_modules,
-            definitions: {
-                if !is_std {
-                    let def_id = def_nodes.alloc_item(DefinitionNode::Use(UseNode {
-                        visibility: Visibility::Private,
-                        kind: Identifier::new(IdentId::STD, Location::new(file_id, 0, 0)),
-                        segments: vec![Identifier::new(
-                            IdentId::PRELUDE,
-                            Location::new(file_id, 0, 0),
-                        )],
-                        target: None,
-                        comments: vec![],
-                        location: Location::new(file_id, 0, 0),
-                    }));
-
-                    definitions.insert(0, def_id);
-                }
-                definitions
-            },
+            definitions,
             visibility,
             is_std,
             comments,
@@ -99,16 +82,12 @@ impl ModuleNode {
         module
     }
 
+    // FIXME: this is a workaround to get the std module
     pub fn is_std(&self) -> bool {
-        self.is_std
-    }
-
-    pub fn is_self_std(&self) -> bool {
-        self.name == IdentId::STD
-    }
-
-    pub fn is_self_prelude(&self) -> bool {
-        self.name == IdentId::PRELUDE
+        matches!(
+            self.name.id,
+            IdentId::STD | IdentId::PRELUDE | IdentId::PRIMITIVE
+        )
     }
 
     pub fn is_self_primitive(&self) -> bool {

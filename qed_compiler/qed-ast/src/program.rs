@@ -95,6 +95,18 @@ impl<F: Clone + From<u32>> Program<F> {
         &self.interner[module.name.id]
     }
 
+    pub fn is_module_std(&self, module_id: impl Into<ModuleId>) -> bool {
+        let mut module_id = Some(module_id.into());
+        while let Some(id) = module_id {
+            let module = &self.modules[id];
+            if module.data().name.id == IdentId::STD {
+                return true;
+            }
+            module_id = module.parent();
+        }
+        return false;
+    }
+
     pub fn print_module_graph(&self) {
         println!("[Program modules]");
         let interner = &self.interner;

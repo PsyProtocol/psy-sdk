@@ -186,6 +186,29 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
 
     pub fn do_finish(program: &mut Program<F>, ctx: &mut C) -> Result<()> {
         Self::do_parse(program, ctx, std_path())?;
+
+        let module_ids = program.modules.iter().map(|n| n.id()).collect::<Vec<_>>();
+        for module_id in module_ids {
+            if !program.is_module_std(module_id) {
+                let file_id = program.modules[module_id].data().file_id;
+                let def_id = program.defs.alloc_item(DefinitionNode::Use(UseNode {
+                    visibility: Visibility::Private,
+                    kind: Identifier::new(IdentId::STD, Location::new(file_id, 0, 0)),
+                    segments: vec![Identifier::new(
+                        IdentId::PRELUDE,
+                        Location::new(file_id, 0, 0),
+                    )],
+                    target: None,
+                    comments: vec![],
+                    location: Location::new(file_id, 0, 0),
+                }));
+                program.modules[module_id]
+                    .data_mut()
+                    .definitions
+                    .insert(0, def_id);
+            }
+        }
+
         for module in program.modules.clone().iter() {
             let parent_module_id = module.id();
             let use_module_names = module
