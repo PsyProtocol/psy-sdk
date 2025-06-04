@@ -7,7 +7,7 @@ ScopeId(0) (Module)
     Types:
         trait PersonLike (TypeId(38))
             Body: [DefId(24)]
-            Unchecked Body: [DefId(4)]
+            Unchecked Body: [DefId(3)]
         struct Person (TypeId(40))
             Fields:
                 pub Tuple age_height (Identifier { id: IdentId(30), location: Location { file_id: FileId(0), start: 339, end: 349 } }, TypeId(40))
@@ -27,10 +27,10 @@ ScopeId(0) (Module)
             Body: ExprId(380)
         pub trait Storage (TypeId(24))
             Body: [DefId(11), DefId(12), DefId(13)]
-            Unchecked Body: [DefId(29), DefId(30), DefId(31)]
+            Unchecked Body: [DefId(27), DefId(28), DefId(29)]
         pub trait StorageAt (TypeId(28))
             Body: [DefId(15), DefId(16)]
-            Unchecked Body: [DefId(33), DefId(34)]
+            Unchecked Body: [DefId(31), DefId(32)]
             Generic Parameters: [TypeId(47), TypeId(48)]
         pub struct StorageRef (TypeId(30))
             Fields:
@@ -44,7 +44,7 @@ ScopeId(0) (Module)
                 pub Felt user_id (Identifier { id: IdentId(71), location: Location { file_id: FileId(3), start: 4303, end: 4310 } }, TypeId(31))
         pub trait StorageAt (TypeId(68))
             Body: [DefId(50), DefId(51)]
-            Unchecked Body: [DefId(33), DefId(34)]
+            Unchecked Body: [DefId(31), DefId(32)]
             Generic Parameters: [TypeId(64), TypeId(65)]
         pub struct StorageRef (TypeId(76))
             Fields:
@@ -107,7 +107,7 @@ ScopeId(0) (Module)
         pub CheckedValueRef(RwLock { data: U32(1u32), poisoned: false, .. }) (TypeId(81))
         pub trait Default (TypeId(33))
             Body: [DefId(20)]
-            Unchecked Body: [DefId(77)]
+            Unchecked Body: [DefId(75)]
         pub fn transmute (TypeId(10))
             Parameters:
                 T x (Identifier { id: IdentId(100), location: Location { file_id: FileId(7), start: 23, end: 24 } }, TypeId(10))
@@ -146,10 +146,10 @@ ScopeId(0) (Module)
                 Body: ExprId(214)
             pub trait Storage (TypeId(24))
                 Body: [DefId(11), DefId(12), DefId(13)]
-                Unchecked Body: [DefId(29), DefId(30), DefId(31)]
+                Unchecked Body: [DefId(27), DefId(28), DefId(29)]
             pub trait StorageAt (TypeId(28))
                 Body: [DefId(15), DefId(16)]
-                Unchecked Body: [DefId(33), DefId(34)]
+                Unchecked Body: [DefId(31), DefId(32)]
                 Generic Parameters: [TypeId(47), TypeId(48)]
             pub struct StorageRef (TypeId(30))
                 Fields:
@@ -163,7 +163,7 @@ ScopeId(0) (Module)
                     pub Felt user_id (Identifier { id: IdentId(71), location: Location { file_id: FileId(3), start: 4303, end: 4310 } }, TypeId(31))
             pub trait StorageAt (TypeId(68))
                 Body: [DefId(50), DefId(51)]
-                Unchecked Body: [DefId(33), DefId(34)]
+                Unchecked Body: [DefId(31), DefId(32)]
                 Generic Parameters: [TypeId(64), TypeId(65)]
             pub struct StorageRef (TypeId(76))
                 Fields:
@@ -226,7 +226,7 @@ ScopeId(0) (Module)
             pub CheckedValueRef(RwLock { data: U32(1u32), poisoned: false, .. }) (TypeId(81))
             pub trait Default (TypeId(33))
                 Body: [DefId(20)]
-                Unchecked Body: [DefId(77)]
+                Unchecked Body: [DefId(75)]
             pub fn transmute (TypeId(10))
                 Parameters:
                     T x (Identifier { id: IdentId(100), location: Location { file_id: FileId(7), start: 23, end: 24 } }, TypeId(10))
