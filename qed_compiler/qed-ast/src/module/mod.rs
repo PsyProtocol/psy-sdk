@@ -41,7 +41,6 @@ pub struct ModuleNode {
     pub inline_modules: Vec<ModuleNode>,
     pub definitions: Vec<DefId>,
     pub visibility: Visibility,
-    pub is_std: bool,
     pub comments: Vec<Comment>,
     pub location: Location,
 }
@@ -52,7 +51,6 @@ impl ModuleNode {
         file_id: FileId,
         visibility: Visibility,
         module_items: Vec<ModuleItemNode>,
-        is_std: bool,
         def_nodes: &mut Arena<DefId, DefinitionNode>,
         comments: Vec<Comment>,
         location: Location,
@@ -75,7 +73,6 @@ impl ModuleNode {
             inline_modules,
             definitions,
             visibility,
-            is_std,
             comments,
             location,
         };

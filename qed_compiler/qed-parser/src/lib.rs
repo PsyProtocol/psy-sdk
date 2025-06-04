@@ -53,7 +53,6 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         current_path: &PathBuf,
         location: Location,
         visibility: Visibility,
-        is_parent_std: bool,
     ) -> Result<ModuleNode> {
         let module_name = resolve_module_name(program, current_path);
         let file_id = program.file_resolver.resolve_file(current_path.clone())?;
@@ -78,7 +77,6 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
                 &mut program.defs,
                 &mut program.interner,
                 visibility,
-                is_parent_std || module_name == IdentId::STD,
                 ctx,
                 tokens,
             )
@@ -105,34 +103,20 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
             root_module_path.clone(),
             Option::<ModuleId>::None,
             Visibility::Public,
-            false,
             Location::default(),
         )];
         let mut visited = HashSet::new();
         let mut inline_modules: IndexMap<PathBuf, ModuleNode> = IndexMap::new();
 
-        while let Some((
-            is_inline,
-            current_path,
-            parent_module_id,
-            visibility,
-            is_parent_std,
-            location,
-        )) = module_stack.pop()
+        while let Some((is_inline, current_path, parent_module_id, visibility, location)) =
+            module_stack.pop()
         {
             if visited.contains(&current_path) {
                 return Err(Error::FileParsedMultipleTimes(current_path.clone()).into());
             }
             let module_id = program.modules.next_idx();
-            let mut module: ModuleNode = if !is_inline {
-                let module = Self::parse_module(
-                    program,
-                    ctx,
-                    &current_path,
-                    location,
-                    visibility,
-                    is_parent_std,
-                )?;
+            let module: ModuleNode = if !is_inline {
+                let module = Self::parse_module(program, ctx, &current_path, location, visibility)?;
                 program.file_resolver.register_module_id(module_id.0);
                 module
             } else {
@@ -141,12 +125,6 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
                     .expect("Inline module not found")
             };
 
-            module.definitions.sort_by(|a, b| {
-                let a = &program.defs[*a];
-                let b = &program.defs[*b];
-                b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Less)
-            });
-
             for (dep_module, visibility, _location) in module.modules.iter().rev() {
                 let dep_path = resolve_module_path(program, dep_module.id, &current_path).unwrap();
                 module_stack.push((
@@ -154,7 +132,6 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
                     dep_path,
                     Some(module_id),
                     visibility.clone(),
-                    is_parent_std || module.name == IdentId::STD,
                     dep_module.location,
                 ));
             }
@@ -167,7 +144,6 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
                     dep_path.clone(),
                     Some(module_id),
                     inline_module.visibility.clone(),
-                    is_parent_std || module.name == IdentId::STD,
                     inline_module.name.location,
                 ));
                 inline_modules.insert(dep_path, inline_module.clone());
@@ -202,10 +178,13 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
                     comments: vec![],
                     location: Location::new(file_id, 0, 0),
                 }));
-                program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .insert(0, def_id);
+                let definitions = &mut program.modules[module_id].data_mut().definitions;
+                definitions.insert(0, def_id);
+                definitions.sort_by(|a, b| {
+                    let a = &program.defs[*a];
+                    let b = &program.defs[*b];
+                    b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Less)
+                });
             }
         }
 
