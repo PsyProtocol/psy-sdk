@@ -37,7 +37,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         &self.program
     }
 
-    pub fn parse(&mut self, root_module_path: PathBuf) -> Result<()> {
+    pub fn parse(&mut self, root_module_path: PathBuf) -> Result<ModuleId> {
         let (program, ctx) = self.decouple();
         Self::do_parse(program, ctx, root_module_path)
     }
@@ -97,7 +97,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         program: &mut Program<F>,
         ctx: &mut C,
         root_module_path: PathBuf,
-    ) -> Result<()> {
+    ) -> Result<ModuleId> {
         let mut module_stack = vec![(
             false,
             root_module_path.clone(),
@@ -108,6 +108,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         let mut visited = HashSet::new();
         let mut inline_modules: IndexMap<PathBuf, ModuleNode> = IndexMap::new();
 
+        let mut entry_module_id = None;
         while let Some((is_inline, current_path, parent_module_id, visibility, location)) =
             module_stack.pop()
         {
@@ -115,6 +116,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
                 return Err(Error::FileParsedMultipleTimes(current_path.clone()).into());
             }
             let module_id = program.modules.next_idx();
+            entry_module_id.get_or_insert(module_id);
             let module: ModuleNode = if !is_inline {
                 Self::parse_module(program, ctx, &current_path, location, visibility)?
             } else {
@@ -154,8 +156,8 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         }
 
         program.dependency_graph.check_cycle::<Error>()?;
-
-        Ok(())
+        let entry_module_id = entry_module_id.ok_or(Error::NoEntryModule(root_module_path))?;
+        Ok(entry_module_id)
     }
 
     pub fn do_finish(program: &mut Program<F>, ctx: &mut C) -> Result<()> {
@@ -229,6 +231,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         });
 
         program.dependency_graph.check_cycle::<Error>()?;
+        program.print_module_graph();
         Ok(())
     }
 }

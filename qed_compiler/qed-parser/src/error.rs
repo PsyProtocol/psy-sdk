@@ -39,6 +39,8 @@ pub enum Error {
     FileUnresolved,
     #[error("File parsed multiple times: {0}")]
     FileParsedMultipleTimes(PathBuf),
+    #[error("No entry module found in {0}")]
+    NoEntryModule(PathBuf),
     #[error("Invalid module name")]
     InvalidModuleName,
     #[error("Extern function can only be defined in std")]
