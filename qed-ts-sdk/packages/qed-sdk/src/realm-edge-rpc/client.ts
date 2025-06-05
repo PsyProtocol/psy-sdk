@@ -1,5 +1,5 @@
 import { IRealmEdgeRpcProvider, RealmEdgeRPCCommand } from "./types";
-import { QHashOut, MerkleProofCore } from "../core";
+import { QHashOut, MerkleProofCore, Felt } from "../core";
 import { IHTTPClient } from "../http";
 import { Provider, ClientConfig } from "../provider";
 import {
@@ -15,7 +15,6 @@ import {
  * Enhanced RealmEdgeRpcProvider with caching, retry logic, and multi-provider support
  */
 export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvider {
-    networkMagic: string;
     // Read-only methods that can be cached
     private readonly readOnlyMethods = new Set<string>([
         RealmEdgeRPCCommand.CheckUserIdInRealm,
@@ -68,11 +67,9 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
     constructor(
         urlOrUrls: string | string[],
         configOrHttpClient?: ClientConfig | IHTTPClient,
-        httpClient?: IHTTPClient,
-        networkMagic?: string
+        httpClient?: IHTTPClient
     ) {
         super(urlOrUrls, configOrHttpClient, httpClient);
-        this.networkMagic = networkMagic || "0x0n";
     }
 
     /**
@@ -92,7 +89,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
     // ========== RPC Interface Methods ==========
 
     // Check user ID in realm
-    async checkUserIdInRealm(userId: bigint | number): Promise<boolean> {
+    async checkUserIdInRealm(userId: Felt): Promise<boolean> {
         return this.rpc(RealmEdgeRPCCommand.CheckUserIdInRealm, [userId]);
     }
 
@@ -102,11 +99,11 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
     }
 
     // Get checkpoint leaf data
-    async getCheckpointLeafData(checkpointId: bigint | number): Promise<QEDCheckpointLeaf> {
+    async getCheckpointLeafData(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointLeafData, [checkpointId]);
     }
 
-    async getCheckpointLeafDataF(checkpointId: bigint): Promise<QEDCheckpointLeaf> {
+    async getCheckpointLeafDataF(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointLeafDataF, [checkpointId]);
     }
 
@@ -115,16 +112,16 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         return this.rpc(RealmEdgeRPCCommand.GetLatestL2BlockState, []);
     }
 
-    async getL2BlockState(checkpointId: bigint | number): Promise<QEDL2BlockState> {
+    async getL2BlockState(checkpointId: Felt): Promise<QEDL2BlockState> {
         return this.rpc(RealmEdgeRPCCommand.GetL2BlockState, [checkpointId]);
     }
 
-    async getL2BlockStateF(checkpointId: bigint): Promise<QEDL2BlockState> {
+    async getL2BlockStateF(checkpointId: Felt): Promise<QEDL2BlockState> {
         return this.rpc(RealmEdgeRPCCommand.GetL2BlockStateF, [checkpointId]);
     }
 
     // Get user registration tree root
-    async getUserRegistrationTreeRoot(checkpointId: bigint | number): Promise<QHashOut> {
+    async getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserRegistrationTreeRoot, [checkpointId]);
     }
 
@@ -133,75 +130,65 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         return this.rpc(RealmEdgeRPCCommand.GetLatestCheckpointTreeRoot, []);
     }
 
-    async getCheckpointTreeRoot(checkpointId: bigint | number): Promise<QHashOut> {
+    async getCheckpointTreeRoot(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeRoot, [checkpointId]);
     }
 
-    async getCheckpointTreeRootF(checkpointId: bigint): Promise<QHashOut> {
+    async getCheckpointTreeRootF(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeRootF, [checkpointId]);
     }
 
     // Get checkpoint tree leaf hash
-    async getCheckpointTreeLeafHash(
-        checkpointId: bigint | number,
-        leafCheckpointId: bigint | number
-    ): Promise<QHashOut> {
+    async getCheckpointTreeLeafHash(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeLeafHash, [checkpointId, leafCheckpointId]);
     }
 
-    async getCheckpointTreeLeafHashF(checkpointId: bigint, leafCheckpointId: bigint): Promise<QHashOut> {
+    async getCheckpointTreeLeafHashF(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeLeafHashF, [checkpointId, leafCheckpointId]);
     }
 
     // Get checkpoint tree merkle proof
-    async getCheckpointTreeMerkleProof(
-        checkpointId: bigint | number,
-        leafCheckpointId: bigint | number
-    ): Promise<MerkleProofCore<QHashOut>> {
+    async getCheckpointTreeMerkleProof(checkpointId: Felt, leafCheckpointId: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeMerkleProof, [checkpointId, leafCheckpointId]);
     }
 
     async getCheckpointTreeMerkleProofF(
-        checkpointId: bigint,
-        leafCheckpointId: bigint
+        checkpointId: Felt,
+        leafCheckpointId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeMerkleProofF, [checkpointId, leafCheckpointId]);
     }
 
     // Get checkpoint global state roots
-    async getCheckpointGlobalStateRoots(checkpointId: bigint | number): Promise<QEDCheckpointGlobalStateRoots> {
+    async getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<QEDCheckpointGlobalStateRoots> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointGlobalStateRoots, [checkpointId]);
     }
 
     // Get user leaf data
-    async getUserLeafData(checkpointId: bigint | number, userId: bigint | number): Promise<QEDUserLeaf> {
+    async getUserLeafData(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
         return this.rpc(RealmEdgeRPCCommand.GetUserLeafData, [checkpointId, userId]);
     }
 
-    async getUserLeafDataF(checkpointId: bigint, userId: bigint): Promise<QEDUserLeaf> {
+    async getUserLeafDataF(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
         return this.rpc(RealmEdgeRPCCommand.GetUserLeafDataF, [checkpointId, userId]);
     }
 
     // Get user contract state tree root
-    async getUserContractStateTreeRoot(
-        checkpointId: bigint | number,
-        userId: bigint | number,
-        contractId: bigint | number
-    ): Promise<QHashOut> {
+    async getUserContractStateTreeRoot(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeRoot, [checkpointId, userId, contractId]);
     }
 
-    async getUserContractStateTreeRootF(checkpointId: bigint, userId: bigint, contractId: bigint): Promise<QHashOut> {
+    async getUserContractStateTreeRootF(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeRootF, [checkpointId, userId, contractId]);
     }
 
     // Get user contract state tree leaf hash
     async getUserContractStateTreeLeafHash(
-        checkpointId: bigint | number,
-        userId: bigint | number,
-        contractId: bigint | number,
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
         height: number,
-        leafId: bigint | number
+        leafId: Felt
     ): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeLeafHash, [
             checkpointId,
@@ -213,11 +200,11 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
     }
 
     async getUserContractStateTreeLeafHashF(
-        checkpointId: bigint,
-        userId: bigint,
-        contractId: bigint,
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
         height: number,
-        leafId: bigint
+        leafId: Felt
     ): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeLeafHashF, [
             checkpointId,
@@ -230,11 +217,11 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
 
     // Get user contract state tree merkle proof
     async getUserContractStateTreeMerkleProof(
-        checkpointId: bigint | number,
-        userId: bigint | number,
-        contractId: bigint | number,
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
         height: number,
-        leafId: bigint | number
+        leafId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeMerkleProof, [
             checkpointId,
@@ -246,11 +233,11 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
     }
 
     async getUserContractStateTreeMerkleProofF(
-        checkpointId: bigint,
-        userId: bigint,
-        contractId: bigint,
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
         height: number,
-        leafId: bigint
+        leafId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeMerkleProofF, [
             checkpointId,
@@ -262,94 +249,90 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
     }
 
     // Get user contract tree root
-    async getUserContractTreeRoot(checkpointId: bigint | number, userId: bigint | number): Promise<QHashOut> {
+    async getUserContractTreeRoot(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeRoot, [checkpointId, userId]);
     }
 
-    async getUserContractTreeRootF(checkpointId: bigint, userId: bigint): Promise<QHashOut> {
+    async getUserContractTreeRootF(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeRootF, [checkpointId, userId]);
     }
 
     // Get user contract tree leaf hash
-    async getUserContractTreeLeafHash(
-        checkpointId: bigint | number,
-        userId: bigint | number,
-        contractId: bigint | number
-    ): Promise<QHashOut> {
+    async getUserContractTreeLeafHash(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeLeafHash, [checkpointId, userId, contractId]);
     }
 
-    async getUserContractTreeLeafHashF(checkpointId: bigint, userId: bigint, contractId: bigint): Promise<QHashOut> {
+    async getUserContractTreeLeafHashF(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeLeafHashF, [checkpointId, userId, contractId]);
     }
 
     // Get user contract tree merkle proof
     async getUserContractTreeMerkleProof(
-        checkpointId: bigint | number,
-        userId: bigint | number,
-        contractId: bigint | number
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeMerkleProof, [checkpointId, userId, contractId]);
     }
 
     async getUserContractTreeMerkleProofF(
-        checkpointId: bigint,
-        userId: bigint,
-        contractId: bigint
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeMerkleProofF, [checkpointId, userId, contractId]);
     }
 
     // Get user tree root
-    async getUserTreeRoot(checkpointId: bigint | number): Promise<QHashOut> {
+    async getUserTreeRoot(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserTreeRoot, [checkpointId]);
     }
 
-    async getUserTreeRootF(checkpointId: bigint): Promise<QHashOut> {
+    async getUserTreeRootF(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserTreeRootF, [checkpointId]);
     }
 
     // Get user tree leaf hash
-    async getUserTreeLeafHash(checkpointId: bigint | number, userId: bigint | number): Promise<QHashOut> {
+    async getUserTreeLeafHash(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserTreeLeafHash, [checkpointId, userId]);
     }
 
-    async getUserTreeLeafHashF(checkpointId: bigint, userId: bigint): Promise<QHashOut> {
+    async getUserTreeLeafHashF(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserTreeLeafHashF, [checkpointId, userId]);
     }
 
     // Get user bottom tree merkle proof
     async getUserBottomTreeMerkleProof(
         rootLevel: number,
-        checkpointId: bigint | number,
-        userId: bigint | number
+        checkpointId: Felt,
+        userId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserBottomTreeMerkleProof, [rootLevel, checkpointId, userId]);
     }
 
     async getUserBottomTreeMerkleProofF(
         rootLevel: number,
-        checkpointId: bigint,
-        userId: bigint
+        checkpointId: Felt,
+        userId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserBottomTreeMerkleProofF, [rootLevel, checkpointId, userId]);
     }
 
     // Get user sub tree merkle proof
     async getUserSubTreeMerkleProof(
-        checkpointId: bigint | number,
+        checkpointId: Felt,
         rootLevel: number,
         leafLevel: number,
-        leafIndex: bigint | number
+        leafIndex: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserSubTreeMerkleProof, [checkpointId, rootLevel, leafLevel, leafIndex]);
     }
 
     async getUserSubTreeMerkleProofF(
-        checkpointId: bigint,
+        checkpointId: Felt,
         rootLevel: number,
         leafLevel: number,
-        leafIndex: bigint
+        leafIndex: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserSubTreeMerkleProofF, [
             checkpointId,
@@ -360,14 +343,11 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
     }
 
     // Get user tree merkle proof
-    async getUserTreeMerkleProof(
-        checkpointId: bigint | number,
-        userId: bigint | number
-    ): Promise<MerkleProofCore<QHashOut>> {
+    async getUserTreeMerkleProof(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserTreeMerkleProof, [checkpointId, userId]);
     }
 
-    async getUserTreeMerkleProofF(checkpointId: bigint, userId: bigint): Promise<MerkleProofCore<QHashOut>> {
+    async getUserTreeMerkleProofF(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserTreeMerkleProofF, [checkpointId, userId]);
     }
 }

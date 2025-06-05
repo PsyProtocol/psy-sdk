@@ -1,5 +1,5 @@
 import { FetchHTTPClient, IHTTPClient } from "../http";
-import { QedJSON } from "../utils/json";
+import { QedJSON } from "../utils";
 
 export class BaseProvider {
     httpClient: IHTTPClient;

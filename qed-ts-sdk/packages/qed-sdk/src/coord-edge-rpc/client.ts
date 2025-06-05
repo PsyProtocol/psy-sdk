@@ -1,6 +1,6 @@
 import { CoordinatorEdgeRPCCommand, ICoordinatorEdgeRpcProvider } from "./types";
 
-import { QHashOut, MerkleProofCore } from "../core";
+import { QHashOut, MerkleProofCore, Felt } from "../core";
 import { IHTTPClient } from "../http";
 import { Provider, ClientConfig } from "../provider";
 import {
@@ -21,7 +21,6 @@ import {
  * Enhanced implementation of the Coordinator Edge RPC Provider with caching, retry logic, and multi-provider support
  */
 export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinatorEdgeRpcProvider {
-    networkMagic: string;
     // Read-only methods that can be cached
     private readonly readOnlyMethods = new Set<string>([
         CoordinatorEdgeRPCCommand.GetUserId,
@@ -90,11 +89,9 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     constructor(
         urlOrUrls: string | string[],
         configOrHttpClient?: ClientConfig | IHTTPClient,
-        httpClient?: IHTTPClient,
-        networkMagic?: string
+        httpClient?: IHTTPClient
     ) {
         super(urlOrUrls, configOrHttpClient, httpClient);
-        this.networkMagic = networkMagic || "0x0n";
     }
 
     /**
@@ -159,7 +156,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param checkpointId The checkpoint ID
      * @returns Checkpoint sync information
      */
-    async getCheckpointSyncInfo(checkpointId: number): Promise<CheckpointSyncInfo> {
+    async getCheckpointSyncInfo(checkpointId: Felt): Promise<CheckpointSyncInfo> {
         return this.rpc<CheckpointSyncInfo>(CoordinatorEdgeRPCCommand.GetCheckpointSyncInfo, [checkpointId]);
     }
 
@@ -168,7 +165,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param contractId The contract ID
      * @returns Contract leaf data
      */
-    async getContractLeafData(contractId: number): Promise<QEDContractLeaf> {
+    async getContractLeafData(contractId: Felt): Promise<QEDContractLeaf> {
         return this.rpc<QEDContractLeaf>(CoordinatorEdgeRPCCommand.GetContractLeafData, [contractId]);
     }
 
@@ -177,7 +174,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param contractId The contract ID as a bigint
      * @returns Contract leaf data
      */
-    async getContractLeafDataF(contractId: bigint | number): Promise<QEDContractLeaf> {
+    async getContractLeafDataF(contractId: Felt): Promise<QEDContractLeaf> {
         return this.rpc<QEDContractLeaf>(CoordinatorEdgeRPCCommand.GetContractLeafDataF, [contractId]);
     }
 
@@ -186,7 +183,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param checkpointId The checkpoint ID
      * @returns Checkpoint leaf data
      */
-    async getCheckpointLeafData(checkpointId: number): Promise<QEDCheckpointLeaf> {
+    async getCheckpointLeafData(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
         return this.rpc<QEDCheckpointLeaf>(CoordinatorEdgeRPCCommand.GetCheckpointLeafData, [checkpointId]);
     }
 
@@ -195,7 +192,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param checkpointId The checkpoint ID as a bigint
      * @returns Checkpoint leaf data
      */
-    async getCheckpointLeafDataF(checkpointId: bigint): Promise<QEDCheckpointLeaf> {
+    async getCheckpointLeafDataF(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
         return this.rpc<QEDCheckpointLeaf>(CoordinatorEdgeRPCCommand.GetCheckpointLeafDataF, [checkpointId]);
     }
 
@@ -204,7 +201,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param contractId The contract ID
      * @returns Contract code definition
      */
-    async getContractCodeDefinition(contractId: number): Promise<ContractCodeDefinition> {
+    async getContractCodeDefinition(contractId: Felt): Promise<ContractCodeDefinition> {
         return this.rpc<ContractCodeDefinition>(CoordinatorEdgeRPCCommand.GetContractCodeDefinition, [contractId]);
     }
 
@@ -213,7 +210,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param contractId The contract ID as a bigint
      * @returns Contract code definition
      */
-    async getContractCodeDefinitionF(contractId: bigint): Promise<ContractCodeDefinition> {
+    async getContractCodeDefinitionF(contractId: Felt): Promise<ContractCodeDefinition> {
         return this.rpc<ContractCodeDefinition>(CoordinatorEdgeRPCCommand.GetContractCodeDefinitionF, [contractId]);
     }
 
@@ -230,7 +227,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param checkpointId The checkpoint ID
      * @returns L2 block state
      */
-    async getL2BlockState(checkpointId: number): Promise<QEDL2BlockState> {
+    async getL2BlockState(checkpointId: Felt): Promise<QEDL2BlockState> {
         return this.rpc<QEDL2BlockState>(CoordinatorEdgeRPCCommand.GetL2BlockState, [checkpointId]);
     }
 
@@ -239,47 +236,41 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param checkpointId The checkpoint ID as a bigint
      * @returns L2 block state
      */
-    async getL2BlockStateF(checkpointId: bigint): Promise<QEDL2BlockState> {
+    async getL2BlockStateF(checkpointId: Felt): Promise<QEDL2BlockState> {
         return this.rpc<QEDL2BlockState>(CoordinatorEdgeRPCCommand.GetL2BlockStateF, [checkpointId]);
     }
 
     // User Registration Tree methods
-    async getUserRegistrationTreeRoot(checkpointId: number): Promise<QHashOut> {
+    async getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetUserRegistrationTreeRoot, [checkpointId]);
     }
 
-    async getUserRegistrationTreeRootF(checkpointId: bigint): Promise<QHashOut> {
+    async getUserRegistrationTreeRootF(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetUserRegistrationTreeRootF, [checkpointId]);
     }
 
-    async getUserRegistrationTreeLeafHash(checkpointId: number, leafIndex: number): Promise<QHashOut> {
+    async getUserRegistrationTreeLeafHash(checkpointId: Felt, leafIndex: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetUserRegistrationTreeLeafHash, {
             checkpoint_id: checkpointId,
             leaf_index: leafIndex,
         });
     }
 
-    async getUserRegistrationTreeLeafHashF(checkpointId: bigint, leafIndex: bigint): Promise<QHashOut> {
+    async getUserRegistrationTreeLeafHashF(checkpointId: Felt, leafIndex: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetUserRegistrationTreeLeafHashF, {
             checkpoint_id: checkpointId,
             leaf_index: leafIndex,
         });
     }
 
-    async getUserRegistrationTreeMerkleProof(
-        checkpointId: number,
-        leafIndex: number
-    ): Promise<MerkleProofCore<QHashOut>> {
+    async getUserRegistrationTreeMerkleProof(checkpointId: Felt, leafIndex: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetUserRegistrationTreeMerkleProof, {
             checkpoint_id: checkpointId,
             leaf_index: leafIndex,
         });
     }
 
-    async getUserRegistrationTreeMerkleProofF(
-        checkpointId: bigint,
-        leafIndex: bigint
-    ): Promise<MerkleProofCore<QHashOut>> {
+    async getUserRegistrationTreeMerkleProofF(checkpointId: Felt, leafIndex: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetUserRegistrationTreeMerkleProofF, {
             checkpoint_id: checkpointId,
             leaf_index: leafIndex,
@@ -393,36 +384,36 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     }
 
     // Contract Tree methods
-    async getContractTreeRoot(checkpointId: number): Promise<QHashOut> {
+    async getContractTreeRoot(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetContractTreeRoot, [checkpointId]);
     }
 
-    async getContractTreeRootF(checkpointId: bigint): Promise<QHashOut> {
+    async getContractTreeRootF(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetContractTreeRootF, [checkpointId]);
     }
 
-    async getContractTreeLeafHash(checkpointId: number, contractId: number): Promise<QHashOut> {
+    async getContractTreeLeafHash(checkpointId: Felt, contractId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetContractTreeLeafHash, {
             checkpoint_id: checkpointId,
             contract_id: contractId,
         });
     }
 
-    async getContractTreeLeafHashF(checkpointId: bigint, contractId: bigint): Promise<QHashOut> {
+    async getContractTreeLeafHashF(checkpointId: Felt, contractId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetContractTreeLeafHashF, {
             checkpoint_id: checkpointId,
             contract_id: contractId,
         });
     }
 
-    async getContractTreeMerkleProof(checkpointId: number, contractId: number): Promise<MerkleProofCore<QHashOut>> {
+    async getContractTreeMerkleProof(checkpointId: Felt, contractId: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetContractTreeMerkleProof, {
             checkpoint_id: checkpointId,
             contract_id: contractId,
         });
     }
 
-    async getContractTreeMerkleProofF(checkpointId: bigint, contractId: bigint): Promise<MerkleProofCore<QHashOut>> {
+    async getContractTreeMerkleProofF(checkpointId: Felt, contractId: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetContractTreeMerkleProofF, {
             checkpoint_id: checkpointId,
             contract_id: contractId,
@@ -430,36 +421,36 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     }
 
     // Deposit Tree methods
-    async getDepositTreeRoot(checkpointId: number): Promise<QHashOut> {
+    async getDepositTreeRoot(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetDepositTreeRoot, [checkpointId]);
     }
 
-    async getDepositTreeRootF(checkpointId: bigint): Promise<QHashOut> {
+    async getDepositTreeRootF(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetDepositTreeRootF, [checkpointId]);
     }
 
-    async getDepositTreeLeafHash(checkpointId: number, depositId: number): Promise<QHashOut> {
+    async getDepositTreeLeafHash(checkpointId: Felt, depositId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetDepositTreeLeafHash, {
             checkpoint_id: checkpointId,
             deposit_id: depositId,
         });
     }
 
-    async getDepositTreeLeafHashF(checkpointId: bigint, depositId: bigint): Promise<QHashOut> {
+    async getDepositTreeLeafHashF(checkpointId: Felt, depositId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetDepositTreeLeafHashF, {
             checkpoint_id: checkpointId,
             deposit_id: depositId,
         });
     }
 
-    async getDepositTreeMerkleProof(checkpointId: number, depositId: number): Promise<MerkleProofCore<QHashOut>> {
+    async getDepositTreeMerkleProof(checkpointId: Felt, depositId: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetDepositTreeMerkleProof, {
             checkpoint_id: checkpointId,
             deposit_id: depositId,
         });
     }
 
-    async getDepositTreeMerkleProofF(checkpointId: bigint, depositId: bigint): Promise<MerkleProofCore<QHashOut>> {
+    async getDepositTreeMerkleProofF(checkpointId: Felt, depositId: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetDepositTreeMerkleProofF, {
             checkpoint_id: checkpointId,
             deposit_id: depositId,
@@ -467,39 +458,36 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     }
 
     // Withdrawal Tree methods
-    async getWithdrawalTreeRoot(checkpointId: number): Promise<QHashOut> {
+    async getWithdrawalTreeRoot(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetWithdrawalTreeRoot, [checkpointId]);
     }
 
-    async getWithdrawalTreeRootF(checkpointId: bigint): Promise<QHashOut> {
+    async getWithdrawalTreeRootF(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetWithdrawalTreeRootF, [checkpointId]);
     }
 
-    async getWithdrawalTreeLeafHash(checkpointId: number, withdrawalId: number): Promise<QHashOut> {
+    async getWithdrawalTreeLeafHash(checkpointId: Felt, withdrawalId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetWithdrawalTreeLeafHash, {
             checkpoint_id: checkpointId,
             withdrawal_id: withdrawalId,
         });
     }
 
-    async getWithdrawalTreeLeafHashF(checkpointId: bigint, withdrawalId: bigint): Promise<QHashOut> {
+    async getWithdrawalTreeLeafHashF(checkpointId: Felt, withdrawalId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetWithdrawalTreeLeafHashF, {
             checkpoint_id: checkpointId,
             withdrawal_id: withdrawalId,
         });
     }
 
-    async getWithdrawalTreeMerkleProof(checkpointId: number, withdrawalId: number): Promise<MerkleProofCore<QHashOut>> {
+    async getWithdrawalTreeMerkleProof(checkpointId: Felt, withdrawalId: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetWithdrawalTreeMerkleProof, {
             checkpoint_id: checkpointId,
             withdrawal_id: withdrawalId,
         });
     }
 
-    async getWithdrawalTreeMerkleProofF(
-        checkpointId: bigint,
-        withdrawalId: bigint
-    ): Promise<MerkleProofCore<QHashOut>> {
+    async getWithdrawalTreeMerkleProofF(checkpointId: Felt, withdrawalId: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetWithdrawalTreeMerkleProofF, {
             checkpoint_id: checkpointId,
             withdrawal_id: withdrawalId,
@@ -511,32 +499,29 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetLatestCheckpointTreeRoot, []);
     }
 
-    async getCheckpointTreeRoot(checkpointId: number): Promise<QHashOut> {
+    async getCheckpointTreeRoot(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetCheckpointTreeRoot, [checkpointId]);
     }
 
-    async getCheckpointTreeRootF(checkpointId: bigint): Promise<QHashOut> {
+    async getCheckpointTreeRootF(checkpointId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetCheckpointTreeRootF, [checkpointId]);
     }
 
-    async getCheckpointTreeLeafHash(checkpointId: number, leafCheckpointId: number): Promise<QHashOut> {
+    async getCheckpointTreeLeafHash(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetCheckpointTreeLeafHash, {
             checkpoint_id: checkpointId,
             leaf_checkpoint_id: leafCheckpointId,
         });
     }
 
-    async getCheckpointTreeLeafHashF(checkpointId: bigint, leafCheckpointId: bigint): Promise<QHashOut> {
+    async getCheckpointTreeLeafHashF(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut> {
         return this.rpc<QHashOut>(CoordinatorEdgeRPCCommand.GetCheckpointTreeLeafHashF, {
             checkpoint_id: checkpointId,
             leaf_checkpoint_id: leafCheckpointId,
         });
     }
 
-    async getCheckpointTreeMerkleProof(
-        checkpointId: number,
-        leafCheckpointId: number
-    ): Promise<MerkleProofCore<QHashOut>> {
+    async getCheckpointTreeMerkleProof(checkpointId: Felt, leafCheckpointId: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetCheckpointTreeMerkleProof, {
             checkpoint_id: checkpointId,
             leaf_checkpoint_id: leafCheckpointId,
@@ -544,8 +529,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     }
 
     async getCheckpointTreeMerkleProofF(
-        checkpointId: bigint,
-        leafCheckpointId: bigint
+        checkpointId: Felt,
+        leafCheckpointId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetCheckpointTreeMerkleProofF, {
             checkpoint_id: checkpointId,
@@ -554,13 +539,13 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     }
 
     // Global state and checkpoint info methods
-    async getCheckpointGlobalStateRoots(checkpointId: number): Promise<QEDCheckpointGlobalStateRoots> {
+    async getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<QEDCheckpointGlobalStateRoots> {
         return this.rpc<QEDCheckpointGlobalStateRoots>(CoordinatorEdgeRPCCommand.GetCheckpointGlobalStateRoots, [
             checkpointId,
         ]);
     }
 
-    async getCheckpointSyncInfoCompact(checkpointId: number): Promise<QEDCheckpointSyncInfoCompact> {
+    async getCheckpointSyncInfoCompact(checkpointId: Felt): Promise<QEDCheckpointSyncInfoCompact> {
         return this.rpc<QEDCheckpointSyncInfoCompact>(
             CoordinatorEdgeRPCCommand.GetCheckpointSyncInfoCompact,
             checkpointId
@@ -572,21 +557,21 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     }
 
     // User data methods
-    async getUserLeafData(checkpointId: number, userId: number): Promise<QEDUserLeaf> {
+    async getUserLeafData(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
         return this.rpc<QEDUserLeaf>(CoordinatorEdgeRPCCommand.GetUserLeafData, {
             checkpoint_id: checkpointId,
             user_id: userId,
         });
     }
 
-    async getUserTreeMerkleProof(checkpointId: number, userId: number): Promise<MerkleProofCore<QHashOut>> {
+    async getUserTreeMerkleProof(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetUserTreeMerkleProof, {
             checkpoint_id: checkpointId,
             user_id: userId,
         });
     }
 
-    async getUserTreeMerkleProofF(checkpointId: bigint, userId: bigint): Promise<MerkleProofCore<QHashOut>> {
+    async getUserTreeMerkleProofF(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc<MerkleProofCore<QHashOut>>(CoordinatorEdgeRPCCommand.GetUserTreeMerkleProofF, {
             checkpoint_id: checkpointId,
             user_id: userId,

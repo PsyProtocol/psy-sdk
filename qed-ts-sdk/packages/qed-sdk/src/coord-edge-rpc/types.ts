@@ -1,4 +1,4 @@
-import { MerkleProofCore, QHashOut } from "../core";
+import { MerkleProofCore, QHashOut, Felt } from "../core";
 import {
     CheckpointSyncInfo,
     ContractCodeDefinition,
@@ -92,80 +92,80 @@ export interface ICoordinatorEdgeRpcProvider {
     deployContract(contract: QBCDeployContract): Promise<string>;
     getLatestCheckpoint(): Promise<LatestCheckpointResponse>;
     buildBlock(): Promise<string>;
-    getCheckpointSyncInfo(checkpointId: number): Promise<CheckpointSyncInfo>;
-    getContractLeafData(contractId: number): Promise<QEDContractLeaf>;
-    getContractLeafDataF(contractId: bigint | number): Promise<QEDContractLeaf>;
-    getCheckpointLeafData(checkpointId: number): Promise<QEDCheckpointLeaf>;
-    getCheckpointLeafDataF(checkpointId: bigint): Promise<QEDCheckpointLeaf>;
-    getContractCodeDefinition(contractId: number): Promise<ContractCodeDefinition>;
-    getContractCodeDefinitionF(contractId: bigint): Promise<ContractCodeDefinition>;
+    getCheckpointSyncInfo(checkpointId: Felt): Promise<CheckpointSyncInfo>;
+    getContractLeafData(contractId: Felt): Promise<QEDContractLeaf>;
+    getContractLeafDataF(contractId: Felt): Promise<QEDContractLeaf>;
+    getCheckpointLeafData(checkpointId: Felt): Promise<QEDCheckpointLeaf>;
+    getCheckpointLeafDataF(checkpointId: Felt): Promise<QEDCheckpointLeaf>;
+    getContractCodeDefinition(contractId: Felt): Promise<ContractCodeDefinition>;
+    getContractCodeDefinitionF(contractId: Felt): Promise<ContractCodeDefinition>;
     getLatestL2BlockState(): Promise<QEDL2BlockState>;
-    getL2BlockState(checkpointId: number): Promise<QEDL2BlockState>;
-    getL2BlockStateF(checkpointId: bigint): Promise<QEDL2BlockState>;
-    getUserRegistrationTreeRoot(checkpointId: number): Promise<QHashOut>;
-    getUserRegistrationTreeRootF(checkpointId: bigint): Promise<QHashOut>;
-    getUserRegistrationTreeLeafHash(checkpointId: number, leafIndex: number): Promise<QHashOut>;
-    getUserRegistrationTreeLeafHashF(checkpointId: bigint, leafIndex: bigint): Promise<QHashOut>;
-    getUserRegistrationTreeMerkleProof(checkpointId: number, leafIndex: number): Promise<MerkleProofCore<QHashOut>>;
-    getUserRegistrationTreeMerkleProofF(checkpointId: bigint, leafIndex: bigint): Promise<MerkleProofCore<QHashOut>>;
-    getUserTreeRoot(checkpointId: number): Promise<QHashOut>;
-    getUserTreeRootF(checkpointId: bigint): Promise<QHashOut>;
+    getL2BlockState(checkpointId: Felt): Promise<QEDL2BlockState>;
+    getL2BlockStateF(checkpointId: Felt): Promise<QEDL2BlockState>;
+    getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut>;
+    getUserRegistrationTreeRootF(checkpointId: Felt): Promise<QHashOut>;
+    getUserRegistrationTreeLeafHash(checkpointId: Felt, leafIndex: number): Promise<QHashOut>;
+    getUserRegistrationTreeLeafHashF(checkpointId: Felt, leafIndex: bigint): Promise<QHashOut>;
+    getUserRegistrationTreeMerkleProof(checkpointId: Felt, leafIndex: number): Promise<MerkleProofCore<QHashOut>>;
+    getUserRegistrationTreeMerkleProofF(checkpointId: Felt, leafIndex: bigint): Promise<MerkleProofCore<QHashOut>>;
+    getUserTreeRoot(checkpointId: Felt): Promise<QHashOut>;
+    getUserTreeRootF(checkpointId: Felt): Promise<QHashOut>;
     getUserSubTreeMerkleProof(
-        checkpointId: number,
+        checkpointId: Felt,
         rootLevel: number,
         leafLevel: number,
         leafIndex: number
     ): Promise<MerkleProofCore<QHashOut>>;
     getUserTopTreeMerkleProof(
-        checkpointId: number,
+        checkpointId: Felt,
         leafLevel: number,
         leafIndex: number
     ): Promise<MerkleProofCore<QHashOut>>;
-    getUserTopTreeCapRoot(checkpointId: number, capLevel: number, capIndex: number): Promise<QHashOut>;
+    getUserTopTreeCapRoot(checkpointId: Felt, capLevel: number, capIndex: number): Promise<QHashOut>;
     getUserLatestTopTreeCapRoot(capLevel: number, capIndex: number): Promise<QHashOut>;
-    getContractFunctionTreeRoot(checkpointId: number, contractId: number): Promise<QHashOut>;
-    getContractFunctionTreeRootF(checkpointId: bigint, contractId: bigint): Promise<QHashOut>;
-    getContractFunctionTreeLeafHash(checkpointId: number, contractId: number, functionId: number): Promise<QHashOut>;
-    getContractFunctionTreeLeafHashF(checkpointId: bigint, contractId: bigint, functionId: bigint): Promise<QHashOut>;
+    getContractFunctionTreeRoot(checkpointId: Felt, contractId: Felt): Promise<QHashOut>;
+    getContractFunctionTreeRootF(checkpointId: Felt, contractId: Felt): Promise<QHashOut>;
+    getContractFunctionTreeLeafHash(checkpointId: Felt, contractId: Felt, functionId: number): Promise<QHashOut>;
+    getContractFunctionTreeLeafHashF(checkpointId: Felt, contractId: Felt, functionId: bigint): Promise<QHashOut>;
     getContractFunctionTreeMerkleProof(
-        checkpointId: number,
-        contractId: number,
+        checkpointId: Felt,
+        contractId: Felt,
         functionId: number
     ): Promise<MerkleProofCore<QHashOut>>;
     getContractFunctionTreeMerkleProofF(
-        checkpointId: bigint,
-        contractId: bigint,
+        checkpointId: Felt,
+        contractId: Felt,
         functionId: bigint
     ): Promise<MerkleProofCore<QHashOut>>;
-    getContractTreeRoot(checkpointId: number): Promise<QHashOut>;
-    getContractTreeRootF(checkpointId: bigint): Promise<QHashOut>;
-    getContractTreeLeafHash(checkpointId: number, contractId: number): Promise<QHashOut>;
-    getContractTreeLeafHashF(checkpointId: bigint, contractId: bigint): Promise<QHashOut>;
-    getContractTreeMerkleProof(checkpointId: number, contractId: number): Promise<MerkleProofCore<QHashOut>>;
-    getContractTreeMerkleProofF(checkpointId: bigint, contractId: bigint): Promise<MerkleProofCore<QHashOut>>;
-    getDepositTreeRoot(checkpointId: number): Promise<QHashOut>;
-    getDepositTreeRootF(checkpointId: bigint): Promise<QHashOut>;
-    getDepositTreeLeafHash(checkpointId: number, depositId: number): Promise<QHashOut>;
-    getDepositTreeLeafHashF(checkpointId: bigint, depositId: bigint): Promise<QHashOut>;
-    getDepositTreeMerkleProof(checkpointId: number, depositId: number): Promise<MerkleProofCore<QHashOut>>;
-    getDepositTreeMerkleProofF(checkpointId: bigint, depositId: bigint): Promise<MerkleProofCore<QHashOut>>;
-    getWithdrawalTreeRoot(checkpointId: number): Promise<QHashOut>;
-    getWithdrawalTreeRootF(checkpointId: bigint): Promise<QHashOut>;
-    getWithdrawalTreeLeafHash(checkpointId: number, withdrawalId: number): Promise<QHashOut>;
-    getWithdrawalTreeLeafHashF(checkpointId: bigint, withdrawalId: bigint): Promise<QHashOut>;
-    getWithdrawalTreeMerkleProof(checkpointId: number, withdrawalId: number): Promise<MerkleProofCore<QHashOut>>;
-    getWithdrawalTreeMerkleProofF(checkpointId: bigint, withdrawalId: bigint): Promise<MerkleProofCore<QHashOut>>;
+    getContractTreeRoot(checkpointId: Felt): Promise<QHashOut>;
+    getContractTreeRootF(checkpointId: Felt): Promise<QHashOut>;
+    getContractTreeLeafHash(checkpointId: Felt, contractId: Felt): Promise<QHashOut>;
+    getContractTreeLeafHashF(checkpointId: Felt, contractId: Felt): Promise<QHashOut>;
+    getContractTreeMerkleProof(checkpointId: Felt, contractId: Felt): Promise<MerkleProofCore<QHashOut>>;
+    getContractTreeMerkleProofF(checkpointId: Felt, contractId: Felt): Promise<MerkleProofCore<QHashOut>>;
+    getDepositTreeRoot(checkpointId: Felt): Promise<QHashOut>;
+    getDepositTreeRootF(checkpointId: Felt): Promise<QHashOut>;
+    getDepositTreeLeafHash(checkpointId: Felt, depositId: number): Promise<QHashOut>;
+    getDepositTreeLeafHashF(checkpointId: Felt, depositId: bigint): Promise<QHashOut>;
+    getDepositTreeMerkleProof(checkpointId: Felt, depositId: number): Promise<MerkleProofCore<QHashOut>>;
+    getDepositTreeMerkleProofF(checkpointId: Felt, depositId: bigint): Promise<MerkleProofCore<QHashOut>>;
+    getWithdrawalTreeRoot(checkpointId: Felt): Promise<QHashOut>;
+    getWithdrawalTreeRootF(checkpointId: Felt): Promise<QHashOut>;
+    getWithdrawalTreeLeafHash(checkpointId: Felt, withdrawalId: number): Promise<QHashOut>;
+    getWithdrawalTreeLeafHashF(checkpointId: Felt, withdrawalId: bigint): Promise<QHashOut>;
+    getWithdrawalTreeMerkleProof(checkpointId: Felt, withdrawalId: number): Promise<MerkleProofCore<QHashOut>>;
+    getWithdrawalTreeMerkleProofF(checkpointId: Felt, withdrawalId: bigint): Promise<MerkleProofCore<QHashOut>>;
     getLatestCheckpointTreeRoot(): Promise<QHashOut>;
-    getCheckpointTreeRoot(checkpointId: number): Promise<QHashOut>;
-    getCheckpointTreeRootF(checkpointId: bigint): Promise<QHashOut>;
-    getCheckpointTreeLeafHash(checkpointId: number, leafCheckpointId: number): Promise<QHashOut>;
-    getCheckpointTreeLeafHashF(checkpointId: bigint, leafCheckpointId: bigint): Promise<QHashOut>;
-    getCheckpointTreeMerkleProof(checkpointId: number, leafCheckpointId: number): Promise<MerkleProofCore<QHashOut>>;
-    getCheckpointTreeMerkleProofF(checkpointId: bigint, leafCheckpointId: bigint): Promise<MerkleProofCore<QHashOut>>;
-    getCheckpointGlobalStateRoots(checkpointId: number): Promise<QEDCheckpointGlobalStateRoots>;
-    getCheckpointSyncInfoCompact(checkpointId: number): Promise<QEDCheckpointSyncInfoCompact>;
+    getCheckpointTreeRoot(checkpointId: Felt): Promise<QHashOut>;
+    getCheckpointTreeRootF(checkpointId: Felt): Promise<QHashOut>;
+    getCheckpointTreeLeafHash(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut>;
+    getCheckpointTreeLeafHashF(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut>;
+    getCheckpointTreeMerkleProof(checkpointId: Felt, leafCheckpointId: Felt): Promise<MerkleProofCore<QHashOut>>;
+    getCheckpointTreeMerkleProofF(checkpointId: Felt, leafCheckpointId: Felt): Promise<MerkleProofCore<QHashOut>>;
+    getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<QEDCheckpointGlobalStateRoots>;
+    getCheckpointSyncInfoCompact(checkpointId: Felt): Promise<QEDCheckpointSyncInfoCompact>;
     latestCheckpoint(): Promise<number>;
-    getUserLeafData(checkpointId: number, userId: number): Promise<QEDUserLeaf>;
-    getUserTreeMerkleProof(checkpointId: number, userId: number): Promise<MerkleProofCore<QHashOut>>;
-    getUserTreeMerkleProofF(checkpointId: bigint, userId: bigint): Promise<MerkleProofCore<QHashOut>>;
+    getUserLeafData(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf>;
+    getUserTreeMerkleProof(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>>;
+    getUserTreeMerkleProofF(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>>;
 }
