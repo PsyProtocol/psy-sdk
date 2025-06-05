@@ -45,7 +45,26 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         self.nodes.get(node)
     }
 
-    pub fn dfs<'a>(
+    pub fn starting_nodes(&self) -> Vec<&T> {
+        let mut starting_nodes = self.nodes.keys().collect::<HashSet<_>>();
+        for node in self.nodes.keys() {
+            if let Some(neighbors) = self.nodes.get(node) {
+                for neighbor in neighbors {
+                    starting_nodes.remove(neighbor);
+                }
+            }
+        }
+        starting_nodes.into_iter().collect()
+    }
+
+    pub fn dfs<'a>(&'a self, visitor: &mut impl FnMut(&'a T, Option<&'a T>)) {
+        let starting_nodes = self.starting_nodes();
+        for node in starting_nodes {
+            self.inner_dfs(node, None, visitor);
+        }
+    }
+
+    fn inner_dfs<'a>(
         &'a self,
         node: &'a T,
         parent: Option<&'a T>,
@@ -55,12 +74,20 @@ impl<T: Clone + Eq + Hash> Graph<T> {
 
         if let Some(neighbors) = self.nodes.get(&node) {
             for neighbor in neighbors {
-                self.dfs(neighbor, Some(node), visitor);
+                self.inner_dfs(neighbor, Some(node), visitor);
             }
         }
     }
 
-    pub fn bfs<'a>(
+    pub fn bfs<'a>(&'a self, visitor: &mut impl FnMut(&'a T)) {
+        let starting_nodes = self.starting_nodes();
+        let mut visited = HashMap::new();
+        for node in starting_nodes {
+            self.inner_bfs(node, &mut visited, visitor);
+        }
+    }
+
+    fn inner_bfs<'a>(
         &'a self,
         node: &'a T,
         visited: &mut HashMap<&'a T, bool>,
@@ -82,6 +109,18 @@ impl<T: Clone + Eq + Hash> Graph<T> {
                 }
             }
         }
+    }
+
+    pub fn ts<'a, E: From<Error>>(
+        &'a self,
+        visitor: &mut impl FnMut(&'a T) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let starting_nodes = self.starting_nodes();
+        let mut colors = HashMap::new();
+        for node in starting_nodes {
+            self.inner_ts(node, &mut colors, visitor)?;
+        }
+        Ok(())
     }
 
     fn inner_ts<'a, E: From<Error>>(
@@ -107,27 +146,6 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         visitor(node)?;
         colors.insert(node, Color::Black);
 
-        Ok(())
-    }
-
-    pub fn ts<'a, E: From<Error>>(
-        &'a self,
-        visitor: &mut impl FnMut(&'a T) -> Result<(), E>,
-    ) -> Result<(), E> {
-        let mut colors = HashMap::new();
-
-        let mut starting_nodes = self.nodes.keys().collect::<HashSet<_>>();
-        for node in self.nodes.keys() {
-            if let Some(neighbors) = self.nodes.get(node) {
-                for neighbor in neighbors {
-                    starting_nodes.remove(neighbor);
-                }
-            }
-        }
-
-        for node in starting_nodes {
-            self.inner_ts(node, &mut colors, visitor)?;
-        }
         Ok(())
     }
 
