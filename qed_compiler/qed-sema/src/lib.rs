@@ -1857,46 +1857,37 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.symbols
             .load_modules(ctx.program().modules.clone().iter());
 
-        let mut colors = HashMap::new();
         let dependency_graph = ctx.dependency_graph();
 
-        dependency_graph.ts::<Self::Error>(
-            &ModuleId::root(),
-            &mut colors.clone(),
-            &mut |&module_id| {
-                ctx.symbols.enter_module(module_id);
-                let module = ctx.module(module_id).clone();
-                ctx.add_module_reference(module_id, module.name.location, false);
+        dependency_graph.ts::<Self::Error>(&mut |&module_id| {
+            ctx.symbols.enter_module(module_id);
+            let module = ctx.module(module_id).clone();
+            ctx.add_module_reference(module_id, module.name.location, false);
 
-                if module.is_std() && module.is_self_primitive() {
-                    self.typecheck_std_primitive_module(ctx)?;
-                }
-                for &def_id in &module.definitions {
-                    self.typecheck_definition_predecl(def_id, ctx)?;
-                }
+            if module.is_std() && module.is_self_primitive() {
+                self.typecheck_std_primitive_module(ctx)?;
+            }
+            for &def_id in &module.definitions {
+                self.typecheck_definition_predecl(def_id, ctx)?;
+            }
 
-                ctx.symbols.exit_module();
-                Ok(())
-            },
-        )?;
+            ctx.symbols.exit_module();
+            Ok(())
+        })?;
 
-        dependency_graph.ts::<Self::Error>(
-            &ModuleId::root(),
-            &mut colors.clone(),
-            &mut |&module_id| {
-                ctx.symbols.enter_module(module_id);
-                let module = ctx.module(module_id).clone();
+        dependency_graph.ts::<Self::Error>(&mut |&module_id| {
+            ctx.symbols.enter_module(module_id);
+            let module = ctx.module(module_id).clone();
 
-                for &def_id in &module.definitions {
-                    self.typecheck_definition_header(def_id, ctx)?;
-                }
+            for &def_id in &module.definitions {
+                self.typecheck_definition_header(def_id, ctx)?;
+            }
 
-                ctx.symbols.exit_module();
-                Ok(())
-            },
-        )?;
+            ctx.symbols.exit_module();
+            Ok(())
+        })?;
 
-        dependency_graph.ts::<Self::Error>(&ModuleId::root(), &mut colors, &mut |&module_id| {
+        dependency_graph.ts::<Self::Error>(&mut |&module_id| {
             ctx.symbols.enter_module(module_id);
             let module = ctx.module(module_id).clone();
 

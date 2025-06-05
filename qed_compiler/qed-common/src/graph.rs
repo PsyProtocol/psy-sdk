@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
 use std::ops::Deref;
 
@@ -84,7 +84,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         }
     }
 
-    pub fn ts<'a, E: From<Error>>(
+    fn inner_ts<'a, E: From<Error>>(
         &'a self,
         node: &'a T,
         colors: &mut HashMap<&'a T, Color>,
@@ -97,7 +97,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
                 match colors.get(neighbor) {
                     Some(Color::Grey) => return Err(E::from(Error::CycleGraph)),
                     None => {
-                        self.ts(neighbor, colors, visitor)?;
+                        self.inner_ts(neighbor, colors, visitor)?;
                     }
                     _ => {}
                 }
@@ -110,14 +110,28 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         Ok(())
     }
 
-    pub fn check_cycle<E: From<Error>>(&self) -> Result<(), E> {
-        for node in self.nodes.keys() {
-            let mut colors = HashMap::new();
-            let mut visitor = |_: &T| -> Result<(), E> { Ok(()) };
+    pub fn ts<'a, E: From<Error>>(
+        &'a self,
+        visitor: &mut impl FnMut(&'a T) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let mut colors = HashMap::new();
 
-            self.ts::<E>(node, &mut colors, &mut visitor)?;
+        let mut starting_nodes = self.nodes.keys().collect::<HashSet<_>>();
+        for node in self.nodes.keys() {
+            if let Some(neighbors) = self.nodes.get(node) {
+                for neighbor in neighbors {
+                    starting_nodes.remove(neighbor);
+                }
+            }
         }
 
+        for node in starting_nodes {
+            self.inner_ts(node, &mut colors, visitor)?;
+        }
         Ok(())
+    }
+
+    pub fn check_cycle<E: From<Error>>(&self) -> Result<(), E> {
+        self.ts::<E>(&mut |_| Ok(()))
     }
 }

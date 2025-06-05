@@ -121,12 +121,8 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
     }
 
     fn visit_program(&mut self, ctx: &mut Self::Context) -> Result<(), Self::Error> {
-        let mut visited = HashMap::new();
-        ctx.dependency_graph().ts::<Self::Error>(
-            &ModuleId::root(),
-            &mut visited,
-            &mut |&module_id| self.visit_module(module_id, ctx),
-        )?;
+        ctx.dependency_graph()
+            .ts::<Self::Error>(&mut |&module_id| self.visit_module(module_id, ctx))?;
 
         Ok(())
     }
