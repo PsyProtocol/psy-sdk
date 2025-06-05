@@ -39,12 +39,12 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
 
     pub fn parse(&mut self, root_module_path: PathBuf) -> Result<ModuleId> {
         let (program, ctx) = self.decouple();
-        Self::do_parse(program, ctx, root_module_path)
+        Self::inner_parse(program, ctx, root_module_path)
     }
 
     pub fn finish(&mut self) -> Result<()> {
         let (program, ctx) = self.decouple();
-        Self::do_finish(program, ctx)
+        Self::inner_finish(program, ctx)
     }
 
     fn parse_module(
@@ -93,7 +93,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
     // modB/
     //     std/
     //         prelude
-    pub fn do_parse(
+    fn inner_parse(
         program: &mut Program<F>,
         ctx: &mut C,
         root_module_path: PathBuf,
@@ -160,8 +160,8 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         Ok(entry_module_id)
     }
 
-    pub fn do_finish(program: &mut Program<F>, ctx: &mut C) -> Result<()> {
-        Self::do_parse(program, ctx, std_path())?;
+    fn inner_finish(program: &mut Program<F>, ctx: &mut C) -> Result<()> {
+        Self::inner_parse(program, ctx, std_path())?;
 
         let module_ids = program.modules.iter().map(|n| n.id()).collect::<Vec<_>>();
         for module_id in module_ids {
