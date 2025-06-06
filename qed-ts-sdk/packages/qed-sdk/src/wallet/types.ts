@@ -3,6 +3,7 @@ import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
     IQEDUserProverProvider,
+    QBCDeployContract,
     WalletKeyPair,
 } from "../local-prover-rpc";
 
@@ -26,7 +27,8 @@ interface IQedUserWallet {
     getZKPublicKey(): Promise<PublicKey>;
     importPrivateKey(privateKey: PrivateKey): Promise<PublicKey>;
     deployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
-    contractCall(contractCallArgs: ContractCallArgs[]): Promise<string>;
+    getDeployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
+    contractCall(contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
     transfer(recipient: SCNumberLike, amount: SCNumberLike, nonce?: SCNumberLike): Promise<void>;
 }
 

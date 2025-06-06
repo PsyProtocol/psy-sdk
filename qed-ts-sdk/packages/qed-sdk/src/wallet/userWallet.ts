@@ -7,6 +7,7 @@ import {
     WalletKeyPair,
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
+    QBCDeployContract,
 } from "../local-prover-rpc";
 import { QEDUserLeaf } from "../types";
 import { qedFelt } from "../utils";
@@ -79,8 +80,15 @@ class QedUserWallet implements IQedUserWallet {
         return this.singer.signAndSubmit(() => this.prover.deployContract(circuitDefs));
     }
 
-    async contractCall(contractCallArgs: ContractCallArgs[]): Promise<string> {
-        return this.singer.signAndSubmit(() => this.prover.proveContractCalls(contractCallArgs));
+    async getDeployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract> {
+        return this.prover.getDeployContractCmd(circuitDefs);
+    }
+
+    async contractCall(contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string> {
+        if (contractCallArgs instanceof Array) {
+            return this.singer.signAndSubmit(() => this.prover.proveContractCalls(contractCallArgs));
+        }
+        return this.singer.signAndSubmit(() => this.prover.proveContractCall(contractCallArgs));
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

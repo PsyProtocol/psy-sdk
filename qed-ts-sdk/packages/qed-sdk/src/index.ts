@@ -15,3 +15,5 @@ export * from "./realm-edge-rpc";
 export * from "./local-prover-rpc";
 
 export * from "./wallet";
+
+export * from "./zksigner";

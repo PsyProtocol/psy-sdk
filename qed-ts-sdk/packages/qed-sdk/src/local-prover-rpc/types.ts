@@ -1,18 +1,5 @@
 import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
-import { QBCDeployContract, ZKPublicKeyInfo } from "../types";
-
-// Converted from Rust ContractCallArgs
-interface ContractCallArgs {
-    contract_id: bigint;
-    method_name: string;
-    inputs: bigint[];
-}
-
-// Converted from Rust WalletKeyPair
-interface WalletKeyPair {
-    private_key: PrivateKey;
-    public_key: ZKPublicKeyInfo;
-}
+import { QBCDeployContract, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair } from "../types";
 
 // Assertion for DPN function circuits
 interface DPNAssertEqInfoIndexed {
@@ -60,7 +47,7 @@ interface ContractFunctionCodeDefinition {
     num_inputs: number;
     num_outputs: number;
     vm_type: number;
-    code: Uint8Array | string;
+    code: U8Bytes;
 }
 
 // Proof component from plonky2

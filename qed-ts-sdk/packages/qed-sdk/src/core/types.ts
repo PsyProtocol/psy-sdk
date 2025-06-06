@@ -4,9 +4,6 @@ type HexString = string;
 
 type QedHash = string;
 type Hash256 = string;
-type Hash160 = string;
-type CompressedPublicKeyHex = string;
-type QProvingJobDataIDSerializedWrapped = string;
 type PrivateKey = string;
 type PublicKey = string;
 type QHashOut = string;
@@ -42,12 +39,9 @@ export type {
     Felt,
     SCNumberLike,
     Hash256,
-    Hash160,
     PrivateKey,
     PublicKey,
     QHashOut,
-    CompressedPublicKeyHex,
-    QProvingJobDataIDSerializedWrapped,
     MerkleProofCore,
     IDeltaMerkleProofCore,
     DeltaMerkleProofCore,
