@@ -1,4 +1,4 @@
-import { PrivateKey, PublicKey, QHashOut } from "../core";
+import { PrivateKey, PublicKey } from "../core";
 import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
@@ -6,6 +6,7 @@ import {
     WalletKeyPair,
 } from "../local-prover-rpc";
 import { ZKPublicKeyInfo } from "../types";
+
 interface ICoreQedUserInfo {
     userId: number;
     publicKeyHex: string;
@@ -14,7 +15,7 @@ interface ICoreQedUserInfo {
 interface IQedUserWallet {
     prover: IQEDUserProverProvider;
     getRandomKeypair(): Promise<WalletKeyPair>;
-    registerUser(privateKey: PrivateKey): Promise<QHashOut>;
+    registerUser(privateKey: PrivateKey): Promise<PublicKey>;
     getZKPublicKey(): Promise<ZKPublicKeyInfo>;
     importPrivateKey(privateKey: PrivateKey): Promise<PublicKey>;
     deployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;

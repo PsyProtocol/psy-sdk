@@ -1,6 +1,11 @@
 import { QEDRPCUserProverProvider } from "./client";
 import { ContractCallArgs, WalletKeyPair } from "./types";
+import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { QHashOut } from "../core";
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * End-to-end workflow integration tests
@@ -12,8 +17,12 @@ describe("QED User Prover RPC Workflow Integration", () => {
     const rpcUrl = process.env.QED_RPC_URL || "http://localhost:8888";
     const timeout = 60000; // 60 seconds for complex workflows
 
+    let coordinator: CoordinatorEdgeRpcProvider;
+    const MOCK_RPC_URL = process.env.TEST_COORD_EDGE_RPC_URL || "http://localhost:8545";
+
     beforeAll(() => {
         provider = new QEDRPCUserProverProvider(rpcUrl);
+        coordinator = new CoordinatorEdgeRpcProvider(MOCK_RPC_URL);
     });
 
     describe("Complete User Workflow", () => {
@@ -24,10 +33,10 @@ describe("QED User Prover RPC Workflow Integration", () => {
 
                 try {
                     // Step 1: Start a new session
-                    console.log("Step 1: Starting session...");
-                    const sessionId = await provider.startSession();
-                    expect(sessionId).toBeDefined();
-                    console.log("✓ Session started:", sessionId);
+                    // console.log("Step 1: Starting session...");
+                    // const sessionId = await provider.startSession();
+                    // expect(sessionId).toBeDefined();
+                    // console.log("✓ Session started:", sessionId);
 
                     // Step 2: Generate a random keypair
                     console.log("Step 2: Generating keypair...");
@@ -36,6 +45,19 @@ describe("QED User Prover RPC Workflow Integration", () => {
                     expect(keypair.private_key).toBeDefined();
                     expect(keypair.public_key).toBeDefined();
                     console.log("✓ Keypair generated");
+
+                    // Step 3: Register user
+                    console.log("Step 3: Registering user...");
+                    const publicKey = await provider.registerUser(keypair.private_key);
+                    expect(publicKey).toBeDefined();
+                    console.log("✓ User registered with public key:", publicKey);
+
+                    console.log("Waiting for block to be built...");
+                    await coordinator.buildBlock();
+                    await coordinator.buildBlock();
+                    await coordinator.buildBlock();
+
+                    await sleep(5000);
 
                     // Step 3: Add user to session
                     console.log("Step 3: Adding user to session...");

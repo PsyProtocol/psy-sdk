@@ -127,7 +127,7 @@ interface IQEDUserProverProvider {
     signAndSubmit(): Promise<string>;
 
     // User operations
-    registerUser(privateKey: PrivateKey): Promise<QHashOut>;
+    registerUser(privateKey: PrivateKey): Promise<PublicKey>;
     addUser(privateKey: PrivateKey): Promise<PublicKey>;
     switchUser(pkHash: PublicKey): Promise<void>;
     getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo>;

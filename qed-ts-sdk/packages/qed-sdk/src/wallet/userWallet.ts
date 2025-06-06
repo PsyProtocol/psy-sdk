@@ -1,5 +1,5 @@
 import { IQedUserWallet } from "./types";
-import { PrivateKey, PublicKey, QHashOut } from "../core";
+import { PrivateKey, PublicKey } from "../core";
 import {
     IQEDUserProverProvider,
     WalletKeyPair,
@@ -17,7 +17,7 @@ class QedUserWallet implements IQedUserWallet {
         this.privateKey = privateKeyHex;
     }
 
-    async registerUser(privateKey: PrivateKey): Promise<QHashOut> {
+    async registerUser(privateKey: PrivateKey): Promise<PublicKey> {
         return this.prover.registerUser(privateKey);
     }
 
@@ -34,17 +34,17 @@ class QedUserWallet implements IQedUserWallet {
     }
 
     async deployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
+        const publicKey = await this.prover.getZKPublicKey(this.privateKey);
+        await this.prover.switchUser(publicKey.public_key_param);
         await this.prover.startSession();
-        const publicKey = await this.prover.addUser(this.privateKey);
-        await this.prover.switchUser(publicKey);
         await this.prover.deployContract(circuitDefs);
         return this.prover.signAndSubmit();
     }
 
     async contractCall(contractCallArgs: ContractCallArgs[]): Promise<string> {
+        const publicKey = await this.prover.getZKPublicKey(this.privateKey);
+        await this.prover.switchUser(publicKey.public_key_param);
         await this.prover.startSession();
-        const publicKey = await this.prover.addUser(this.privateKey);
-        await this.prover.switchUser(publicKey);
         await this.prover.proveContractCalls(contractCallArgs);
         return this.prover.signAndSubmit();
     }

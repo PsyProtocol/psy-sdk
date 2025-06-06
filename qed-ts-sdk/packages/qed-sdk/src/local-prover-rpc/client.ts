@@ -51,7 +51,7 @@ class QEDRPCUserProverProvider extends BaseProvider implements IQEDUserProverPro
     }
 
     // User operations
-    async registerUser(privateKey: PrivateKey): Promise<QHashOut> {
+    async registerUser(privateKey: PrivateKey): Promise<PublicKey> {
         return this.rpc<QHashOut>(QEDUserProverRPCCommand.RegisterUser, [privateKey]);
     }
 
