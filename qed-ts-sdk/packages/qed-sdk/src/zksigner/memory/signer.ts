@@ -1,15 +1,15 @@
-import { IQEDUserProverProvider, ProofWithPublicInputs } from "../../local-prover-rpc";
+import { ContractCallArgs, IQEDUserProverProvider, ProofWithPublicInputs } from "../../local-prover-rpc";
 import { QHashOut } from "../../types";
 import { IQedTransactionSigner, TQedTransactionSignerAbility } from "../types";
 
 class QedMemoryTransactionSigner implements IQedTransactionSigner {
     publicKeyHex: string;
     privateKeyHex: string;
-    proverProvider: IQEDUserProverProvider;
+    prover: IQEDUserProverProvider;
     private constructor(proverProvider: IQEDUserProverProvider, publicKeyHex: string, privateKeyHex: string) {
         this.publicKeyHex = publicKeyHex;
         this.privateKeyHex = privateKeyHex;
-        this.proverProvider = proverProvider;
+        this.prover = proverProvider;
     }
     static async create(proverProvider: IQEDUserProverProvider, privateKeyHex: string) {
         const publicKeyHex = await proverProvider.addUser(privateKeyHex);
@@ -19,14 +19,18 @@ class QedMemoryTransactionSigner implements IQedTransactionSigner {
         return Promise.resolve(this.privateKeyHex);
     }
     async signHash(hash: QHashOut): Promise<ProofWithPublicInputs> {
-        return this.proverProvider.getZKSignature(hash);
+        return this.prover.getZKSignature(hash);
     }
 
-    async signAndSubmit(callback: () => Promise<string>): Promise<string> {
-        await this.proverProvider.switchUser(this.publicKeyHex);
-        await this.proverProvider.startSession();
-        await callback();
-        return this.proverProvider.signAndSubmit();
+    async signAndSubmit(contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string> {
+        await this.prover.switchUser(this.publicKeyHex);
+        await this.prover.startSession();
+        if (contractCallArgs instanceof Array) {
+            await this.prover.proveContractCalls(contractCallArgs);
+        } else {
+            await this.prover.proveContractCall(contractCallArgs);
+        }
+        return this.prover.signAndSubmit();
     }
 
     getAbilities(): TQedTransactionSignerAbility[] {

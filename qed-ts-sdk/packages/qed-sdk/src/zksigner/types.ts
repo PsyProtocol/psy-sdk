@@ -1,4 +1,4 @@
-import { ProofWithPublicInputs } from "../local-prover-rpc";
+import { ContractCallArgs, ProofWithPublicInputs } from "../local-prover-rpc";
 import { QHashOut } from "../types";
 
 type TQedTransactionSignerAbility = "sign-hash" | "export-private-key-hex";
@@ -7,7 +7,7 @@ interface IQedTransactionSigner {
     getPublicKeyHex(): Promise<string>;
     getPrivateKeyHex?(): Promise<string>;
     signHash?(hash: QHashOut): Promise<ProofWithPublicInputs>;
-    signAndSubmit(callback: () => Promise<string>): Promise<string>;
+    signAndSubmit(contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
     getAbilities(): TQedTransactionSignerAbility[];
 }
 

@@ -77,18 +77,19 @@ class QedUserWallet implements IQedUserWallet {
     }
 
     async deployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
-        return this.singer.signAndSubmit(() => this.prover.deployContract(circuitDefs));
+        await this.prover.switchUser(await this.getZKPublicKey());
+        await this.prover.startSession();
+        return this.prover.deployContract(circuitDefs);
     }
 
     async getDeployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract> {
+        await this.prover.switchUser(await this.getZKPublicKey());
+        await this.prover.startSession();
         return this.prover.getDeployContractCmd(circuitDefs);
     }
 
     async contractCall(contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string> {
-        if (contractCallArgs instanceof Array) {
-            return this.singer.signAndSubmit(() => this.prover.proveContractCalls(contractCallArgs));
-        }
-        return this.singer.signAndSubmit(() => this.prover.proveContractCall(contractCallArgs));
+        return this.singer.signAndSubmit(contractCallArgs);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

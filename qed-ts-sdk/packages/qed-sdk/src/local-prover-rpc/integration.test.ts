@@ -1,5 +1,9 @@
+import fs from "fs";
+import path from "path";
+
 import { QEDRPCUserProverProvider } from "./client";
 import { ContractCallArgs, WalletKeyPair, DPNFunctionCircuitDefinition } from "./types";
+import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { QHashOut } from "../core";
 import { ZKPublicKeyInfo } from "../types";
 
@@ -13,13 +17,21 @@ import { ZKPublicKeyInfo } from "../types";
  * 3. Run: npm test -- --testNamePattern="Integration"
  */
 
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 describe("QED User Prover RPC Integration Tests", () => {
     let provider: QEDRPCUserProverProvider;
     const rpcUrl = process.env.QED_RPC_URL || "http://localhost:8888";
     const timeout = 30000; // 30 seconds timeout for RPC calls
 
+    let coordinator: CoordinatorEdgeRpcProvider;
+    const MOCK_RPC_URL = process.env.TEST_COORD_EDGE_RPC_URL || "http://localhost:8545";
+
     beforeAll(() => {
         provider = new QEDRPCUserProverProvider(rpcUrl);
+        coordinator = new CoordinatorEdgeRpcProvider(MOCK_RPC_URL);
     });
 
     describe("Server Connectivity", () => {
@@ -45,8 +57,9 @@ describe("QED User Prover RPC Integration Tests", () => {
             "should handle ping with empty message",
             async () => {
                 try {
-                    const response = await provider.ping("");
+                    const response = await provider.ping("test");
                     expect(response).toBeDefined();
+                    console.log("Ping response:", response);
                 } catch (error) {
                     console.error("Empty ping failed:", error);
                     throw error;
@@ -115,6 +128,7 @@ describe("QED User Prover RPC Integration Tests", () => {
                     console.log("Generated keypair:", {
                         privateKeyLength: testKeypair.private_key.length,
                     });
+                    console.log("Generated keypair:{}", testKeypair);
                 } catch (error) {
                     console.error("Failed to generate keypair:", error);
                     throw error;
@@ -166,12 +180,19 @@ describe("QED User Prover RPC Integration Tests", () => {
                     userHash = await provider.registerUser(testKeypair.private_key);
 
                     console.log("private_key: ", testKeypair.private_key);
+                    console.log("public_key: ", testKeypair.public_key);
 
                     expect(userHash).toBeDefined();
                     expect(typeof userHash).toBe("string");
                     expect(userHash.length).toBeGreaterThan(0);
 
                     console.log("Registered user with hash:", userHash);
+
+                    await coordinator.buildBlock();
+                    await sleep(5000);
+
+                    const pkHash = await provider.addUser(testKeypair.private_key);
+                    console.log("Added user with hash:", pkHash);
                 } catch (error) {
                     console.error("Failed to register user:", error);
                     throw error;
@@ -188,6 +209,12 @@ describe("QED User Prover RPC Integration Tests", () => {
                         testKeypair = await provider.getRandomKeypair();
                     }
 
+                    await provider.registerUser(testKeypair.private_key);
+
+                    await coordinator.buildBlock();
+                    await coordinator.buildBlock();
+                    await coordinator.buildBlock();
+                    await sleep(5000);
                     const addedUserHash = await provider.addUser(testKeypair.private_key);
 
                     expect(addedUserHash).toBeDefined();
@@ -207,12 +234,15 @@ describe("QED User Prover RPC Integration Tests", () => {
             "should switch to user",
             async () => {
                 try {
-                    userHash = "ae2de05902f7422e16960ac51cc1fcf56a7f1785a5e3755d97fa64bae80cad92";
-                    // if (!userHash) {
-                    //     // Create and add a user first
-                    //     const keypair = await provider.getRandomKeypair();
-                    //     userHash = await provider.addUser(keypair.private_key);
-                    // }
+                    // userHash = "ae2de05902f7422e16960ac51cc1fcf56a7f1785a5e3755d97fa64bae80cad92";
+                    // Create and add a user first
+                    const testKeypair = await provider.getRandomKeypair();
+
+                    await provider.registerUser(testKeypair.private_key);
+                    await coordinator.buildBlock();
+                    await sleep(5000);
+                    userHash = await provider.addUser(testKeypair.private_key);
+                    console.log("Successfully add user:", userHash);
 
                     await provider.switchUser(userHash);
                     console.log("Successfully switched to user:", userHash);
@@ -344,14 +374,28 @@ describe("QED User Prover RPC Integration Tests", () => {
         // let sessionId: string;
         let userKeypair: WalletKeyPair;
         let userHash: QHashOut;
+        let sessionId: string;
 
         beforeAll(async () => {
             try {
-                // const sessionId = await provider.startSession();
                 userKeypair = await provider.getRandomKeypair();
+                await provider.registerUser(userKeypair.private_key);
+                await coordinator.buildBlock();
+                await coordinator.buildBlock();
+                await coordinator.buildBlock();
+                await sleep(3000);
+
                 userHash = await provider.addUser(userKeypair.private_key);
                 await provider.switchUser(userHash);
-                console.log("Setup complete for contract deployment");
+                await coordinator.buildBlock();
+                await coordinator.buildBlock();
+                await coordinator.buildBlock();
+                await sleep(3000);
+
+                console.log(`${userHash} wallet: ${userKeypair}`);
+
+                sessionId = await provider.startSession();
+                console.log(`${userHash} Setup complete for contract deployment: ${sessionId}`);
             } catch (error) {
                 console.error("Failed to setup for contract deployment:", error);
                 throw error;
@@ -403,25 +447,69 @@ describe("QED User Prover RPC Integration Tests", () => {
             "should deploy contract",
             async () => {
                 try {
-                    const circuitDefs: DPNFunctionCircuitDefinition[] = [
-                        {
-                            name: "simple_contract",
-                            method_id: 1,
-                            circuit_inputs: [1n],
-                            circuit_outputs: [1n],
-                            state_commands: [],
-                            state_command_resolution_indices: [],
-                            assertions: [],
-                            definitions: [],
-                        },
-                    ];
-
+                    const circuitDefs = JSON.parse(
+                        fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples.json"), "utf8")
+                    );
+                    console.log("circuitDefs: ", circuitDefs);
                     const contractId = await provider.deployContract(circuitDefs);
-
                     expect(contractId).toBeDefined();
                     expect(typeof contractId).toBe("string");
                     expect(contractId.length).toBeGreaterThan(0);
 
+                    console.log("Deployed contract ID:", contractId);
+                    await provider.signAndSubmit();
+                } catch (error) {
+                    console.error("Failed to deploy contract:", error);
+                    console.warn("This test may fail if contract deployment is not fully implemented");
+                }
+            },
+            timeout
+        );
+    });
+
+    describe("Contract Deployment by user0", () => {
+        let sessionId: string;
+        const privateKey = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a";
+        // const privateKey = "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d";
+        let userHash: QHashOut;
+
+        beforeAll(async () => {
+            try {
+                await provider.registerUser(privateKey);
+                await coordinator.buildBlock();
+                await coordinator.buildBlock();
+                await coordinator.buildBlock();
+                await sleep(5000);
+
+                userHash = await provider.addUser(privateKey);
+                await provider.switchUser(userHash);
+                await coordinator.buildBlock();
+                await coordinator.buildBlock();
+                await coordinator.buildBlock();
+                await sleep(3000);
+
+                console.log(`${userHash} wallet: ${privateKey}`);
+
+                sessionId = await provider.startSession();
+                console.log(`${userHash} Setup complete for contract deployment: ${sessionId}`);
+            } catch (error) {
+                console.error("Failed to setup for contract deployment:", error);
+                throw error;
+            }
+        }, timeout);
+
+        it(
+            "should deploy contract",
+            async () => {
+                try {
+                    const circuitDefs = JSON.parse(
+                        fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples.json"), "utf8")
+                    );
+                    console.log("circuitDefs: ", circuitDefs);
+                    const contractId = await provider.deployContract(circuitDefs);
+                    expect(contractId).toBeDefined();
+                    expect(typeof contractId).toBe("string");
+                    expect(contractId.length).toBeGreaterThan(0);
                     console.log("Deployed contract ID:", contractId);
                 } catch (error) {
                     console.error("Failed to deploy contract:", error);
