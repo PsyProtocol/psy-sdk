@@ -7,7 +7,7 @@ interface IQedTransactionSigner {
     getPublicKeyHex(): Promise<string>;
     getPrivateKeyHex?(): Promise<string>;
     signHash?(hash: QHashOut): Promise<ProofWithPublicInputs>;
-    signAndSubmit(): Promise<string>;
+    signAndSubmit(callback: () => Promise<string>): Promise<string>;
     getAbilities(): TQedTransactionSignerAbility[];
 }
 

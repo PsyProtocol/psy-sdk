@@ -6,14 +6,14 @@ class QedMemoryTransactionSigner implements IQedTransactionSigner {
     publicKeyHex: string;
     privateKeyHex: string;
     proverProvider: IQEDUserProverProvider;
-    constructor(proverProvider: IQEDUserProverProvider, publicKeyHex: string, privateKeyHex: string) {
+    private constructor(proverProvider: IQEDUserProverProvider, publicKeyHex: string, privateKeyHex: string) {
         this.publicKeyHex = publicKeyHex;
         this.privateKeyHex = privateKeyHex;
         this.proverProvider = proverProvider;
     }
     static async create(proverProvider: IQEDUserProverProvider, privateKeyHex: string) {
-        const zkPublicKeyInfo = await proverProvider.getZKPublicKey(privateKeyHex);
-        return new QedMemoryTransactionSigner(proverProvider, zkPublicKeyInfo.public_key_param, privateKeyHex);
+        const publicKeyHex = await proverProvider.addUser(privateKeyHex);
+        return new QedMemoryTransactionSigner(proverProvider, publicKeyHex, privateKeyHex);
     }
     getPrivateKeyHex(): Promise<string> {
         return Promise.resolve(this.privateKeyHex);
@@ -22,7 +22,10 @@ class QedMemoryTransactionSigner implements IQedTransactionSigner {
         return this.proverProvider.getZKSignature(hash);
     }
 
-    async signAndSubmit(): Promise<string> {
+    async signAndSubmit(callback: () => Promise<string>): Promise<string> {
+        await this.proverProvider.switchUser(this.publicKeyHex);
+        await this.proverProvider.startSession();
+        await callback();
         return this.proverProvider.signAndSubmit();
     }
 

@@ -1,5 +1,5 @@
 {
-  "name": "@qed/qed-ts-sdk",
+  "name": "@qed/qed-sdk",
   "version": "1.0.0",
   "main": "dist/index",
   "types": "dist/index",
