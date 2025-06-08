@@ -3,6 +3,25 @@ use qed_common::{define_arena_id, Arena, FileId};
 use crate::{
     Comment, DefId, DefinitionNode, IdentId, Identifier, Location, NodeInfo, NodeType, Visibility,
 };
+pub struct CrateId(pub usize);
+
+impl CrateId {
+    pub fn from_module_id(module_id: ModuleId) -> Self {
+        Self(module_id.0)
+    }
+}
+
+impl From<ModuleId> for CrateId {
+    fn from(module_id: ModuleId) -> Self {
+        Self(module_id.0)
+    }
+}
+
+impl From<CrateId> for ModuleId {
+    fn from(crate_id: CrateId) -> Self {
+        Self(crate_id.0)
+    }
+}
 
 define_arena_id!(ModuleId);
 
