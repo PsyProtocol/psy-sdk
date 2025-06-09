@@ -5,6 +5,7 @@ pub use error::{Error, Result};
 use indexmap::IndexMap;
 use lalrpop_util::lalrpop_mod;
 use qed_ast::*;
+use qed_common::Graph;
 use qed_lexer::{GenericTokenTransformer, Lexer, Loc, Token};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use std::{
@@ -42,9 +43,9 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         Self::inner_parse(program, ctx, root_module_path)
     }
 
-    pub fn finish(&mut self) -> Result<()> {
+    pub fn finish(&mut self, dependency_graph: Graph<CrateId>) -> Result<()> {
         let (program, ctx) = self.decouple();
-        Self::inner_finish(program, ctx)
+        Self::inner_finish(program, ctx, dependency_graph)
     }
 
     fn parse_module(
@@ -160,8 +161,21 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         Ok(entry_module_id)
     }
 
-    fn inner_finish(program: &mut Program<F>, ctx: &mut C) -> Result<()> {
-        Self::inner_parse(program, ctx, std_path())?;
+    fn inner_finish(
+        program: &mut Program<F>,
+        ctx: &mut C,
+        mut dependency_graph: Graph<CrateId>,
+    ) -> Result<()> {
+        let std_module_id = Self::inner_parse(program, ctx, std_path())?;
+        let std_crate_id = CrateId::from_module_id(std_module_id);
+        let crate_ids = dependency_graph
+            .nodes()
+            .into_iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        for crate_id in crate_ids {
+            dependency_graph.add_edge(crate_id, std_crate_id);
+        }
 
         let module_ids = program.modules.iter().map(|n| n.id()).collect::<Vec<_>>();
         for module_id in module_ids {
@@ -222,6 +236,10 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
                 }
             }
         }
+
+        program.dependency_graph = dependency_graph;
+
+        println!("final dependency_graph: {:?}", program.dependency_graph);
 
         // Remove duplicates children
         program.modules.iter_mut().for_each(|module| {

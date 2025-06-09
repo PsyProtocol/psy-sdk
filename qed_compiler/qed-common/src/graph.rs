@@ -34,7 +34,8 @@ impl<T: Clone + Eq + Hash> Graph<T> {
     }
 
     pub fn add_edge(&mut self, from: T, to: T) {
-        self.nodes.entry(from).or_default().insert(to);
+        self.nodes.entry(from).or_default().insert(to.clone());
+        self.nodes.entry(to).or_default();
     }
 
     pub fn nodes(&self) -> Vec<&T> {

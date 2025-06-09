@@ -13,6 +13,7 @@ use error::{Error, Result};
 use indexmap::IndexMap;
 pub use preprocess::StorageProcessor;
 use qed_ast::*;
+use qed_common::Graph;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use qed_fmt::Formatter;
 use qed_parser::Parser;
@@ -236,7 +237,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 self.collect_test_functions_from_module_tree(entry_module_id, ctx, &mut type_ids)
                     .map_err(|e| match e {
                         Error::SemaError(se) => se,
-                        _ => panic!("Unexpected error type in collect_test_functions_from_module_tree"),
+                        _ => panic!(
+                            "Unexpected error type in collect_test_functions_from_module_tree"
+                        ),
                     })?;
                 Ok(())
             })?;
@@ -360,20 +363,36 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     where
         F: 'static,
     {
+        println!("entry: {:?}", entry);
+        println!("dependencies_entry: {:?}", dependencies_entry);
         let mut program = Program::new();
         let mut parser = Parser::new(&mut program, &mut self.context);
-        let mut module_entry_paths = vec![entry];
+        let mut module_entry_paths = vec![entry.clone()];
+        let mut entry_module_map = HashMap::new();
         module_entry_paths.extend(dependencies_entry);
-        module_entry_paths
-            .into_iter()
-            // .map(|path| parser.parse(&mut self.context, path))
-            .map(|path| parser.parse(path))
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(|err| {
+        for entry_path in module_entry_paths {
+            let module_id = parser.parse(entry_path.clone()).map_err(|err| {
                 let context = lowering_parse_error(&err, &parser.program());
                 anyhow::Error::from(err).context(context)
             })?;
-        parser.finish()?;
+            println!("path: {:?}, module_id: {:?}", entry_path, module_id);
+            entry_module_map.insert(entry_path, module_id);
+        }
+
+        let mut dependency_graph = Graph::new();
+        let entry_module_id = entry_module_map.get(&entry).unwrap();
+        for (entry_path, dependency_module_id) in entry_module_map.iter() {
+            if *entry_module_id == *dependency_module_id {
+                println!("{:?} == {:?}", entry_module_id, dependency_module_id);
+                continue;
+            }
+            dependency_graph.add_edge(
+                CrateId::from_module_id(*entry_module_id),
+                CrateId::from_module_id(*dependency_module_id),
+            );
+        }
+        println!("dependency_graph: {:?}", dependency_graph);
+        parser.finish(dependency_graph)?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
@@ -405,17 +424,28 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     {
         let mut program = Program::new();
         let mut parser = Parser::new(&mut program, &mut self.context);
-        let mut module_entry_paths = vec![entry];
-        module_entry_paths.extend(dependencies_entry);
-        module_entry_paths
-            .into_iter()
-            .map(|path| parser.parse(path))
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(|err| {
+        let mut module_entry_paths = vec![entry.clone()];
+        let mut entry_module_map = HashMap::new();
+        module_entry_paths.extend(dependencies_entry.clone());
+        for entry_path in module_entry_paths {
+            let module_id = parser.parse(entry_path.clone()).map_err(|err| {
                 let err_desc = parse_error_to_diagnostic(&err, &parser.program());
                 TypeCheckError::Parse(err_desc)
             })?;
-        parser.finish().map_err(|err| {
+            entry_module_map.insert(entry_path, module_id);
+        }
+        println!("entry_module_map: {:?}", entry_module_map);
+        let mut dependency_graph = Graph::new();
+        let entry_module_id = entry_module_map.get(&entry).unwrap();
+        for dependency_entry in dependencies_entry {
+            let dependency_module_id = entry_module_map.get(&dependency_entry).unwrap();
+            dependency_graph.add_edge(
+                CrateId::from_module_id(*entry_module_id),
+                CrateId::from_module_id(*dependency_module_id),
+            );
+        }
+        println!("dependency_graph: {:?}", dependency_graph);
+        parser.finish(dependency_graph).map_err(|err| {
             let message = format!("Cycle error: {}", err);
             eprintln!("Error: {}", message);
             TypeCheckError::Cycle(message)

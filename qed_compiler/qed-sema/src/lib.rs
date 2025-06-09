@@ -1863,6 +1863,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             }
             Ok(())
         })?;
+        println!("-------------------------------");
         self.traverse_module_tree(ctx, None, &mut |type_checker, module, ctx| {
             for &def_id in &module.definitions {
                 type_checker.typecheck_definition_header(def_id, ctx)?;
@@ -2499,6 +2500,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let module = ctx.module(module_id).clone();
 
         // Handle std primitive module processing only in predecl phase (when flag is provided)
+        println!("before std primitive");
         if let Some(primitive_flag) = std_primitive_processed {
             ctx.add_module_reference(module_id, module.name.location, false);
             if module.is_std() && module.is_self_primitive() && !*primitive_flag {
@@ -2506,6 +2508,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 *primitive_flag = true;
             }
         }
+        println!("after std primitive");
 
         // Process current module with the provided closure
         process_module(self, &module, ctx)?;
@@ -2514,6 +2517,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let modules_tree = &ctx.program().modules;
         let children = modules_tree[module_id].children().to_vec();
         for &child_module_id in &children {
+            let module_name = ctx.program.module_name(child_module_id);
+            println!("traverse_module_tree_inner: {}", module_name);
             self.traverse_module_tree_inner(
                 child_module_id,
                 ctx,
@@ -2541,6 +2546,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let dependency_graph = ctx.program().dependency_graph.clone();
         dependency_graph.ts::<Error>(&mut |&crate_id| {
             let crate_root_module_id = ModuleId::from(crate_id);
+            let name = ctx.program.module_name(crate_root_module_id);
+            println!("traverse_module_tree: {}", name);
             self.traverse_module_tree_inner(
                 crate_root_module_id,
                 ctx,
