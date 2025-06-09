@@ -1851,6 +1851,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         unreachable!()
     }
 
+
     #[instrument(level = "debug", skip_all)]
     fn visit_program(&mut self, ctx: &mut Self::Context) -> StdResult<(), Self::Error> {
         // TODO: remove clone
@@ -1859,46 +1860,25 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         let dependency_graph = ctx.dependency_graph();
 
+        let mut visited_modules = std::collections::HashSet::new();
+        let mut std_primitive_processed = false;
         dependency_graph.ts::<Self::Error>(&mut |&crate_id| {
-            let module_id = ModuleId::from(crate_id);
-            ctx.symbols.enter_module(module_id);
-            let module = ctx.module(module_id).clone();
-            ctx.add_module_reference(module_id, module.name.location, false);
-
-            if module.is_std() && module.is_self_primitive() {
-                self.typecheck_std_primitive_module(ctx)?;
-            }
-            for &def_id in &module.definitions {
-                self.typecheck_definition_predecl(def_id, ctx)?;
-            }
-
-            ctx.symbols.exit_module();
+            let crate_root_module_id = ModuleId::from(crate_id);
+            self.typecheck_module_tree_predecl(crate_root_module_id, ctx, &mut visited_modules, &mut std_primitive_processed)?;
             Ok(())
         })?;
 
+        let mut visited_modules = std::collections::HashSet::new();
         dependency_graph.ts::<Self::Error>(&mut |&crate_id| {
-            let module_id = ModuleId::from(crate_id);
-            ctx.symbols.enter_module(module_id);
-            let module = ctx.module(module_id).clone();
-
-            for &def_id in &module.definitions {
-                self.typecheck_definition_header(def_id, ctx)?;
-            }
-
-            ctx.symbols.exit_module();
+            let crate_root_module_id = ModuleId::from(crate_id);
+            self.typecheck_module_tree_header(crate_root_module_id, ctx, &mut visited_modules)?;
             Ok(())
         })?;
 
+        let mut visited_modules = std::collections::HashSet::new();
         dependency_graph.ts::<Self::Error>(&mut |&crate_id| {
-            let module_id = ModuleId::from(crate_id);
-            ctx.symbols.enter_module(module_id);
-            let module = ctx.module(module_id).clone();
-
-            for &def_id in &module.definitions {
-                self.typecheck_definition_body(def_id, ctx)?;
-            }
-
-            ctx.symbols.exit_module();
+            let crate_root_module_id = ModuleId::from(crate_id);
+            self.typecheck_module_tree_body(crate_root_module_id, ctx, &mut visited_modules)?;
             Ok(())
         })?;
 
@@ -2500,6 +2480,105 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             unchecked_checked: HashMap::new(),
             _marker: std::marker::PhantomData,
         }
+    }
+
+    /// Typecheck predeclarations for a module tree (DFS traversal)
+    fn typecheck_module_tree_predecl(
+        &mut self,
+        module_id: ModuleId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+        visited_modules: &mut std::collections::HashSet<ModuleId>,
+        std_primitive_processed: &mut bool,
+    ) -> Result<()> {
+        // Skip if we've already processed this module
+        if visited_modules.contains(&module_id) {
+            return Ok(());
+        }
+        visited_modules.insert(module_id);
+
+        ctx.symbols.enter_module(module_id);
+        let module = ctx.module(module_id).clone();
+        ctx.add_module_reference(module_id, module.name.location, false);
+
+        if module.is_std() && module.is_self_primitive() && !*std_primitive_processed {
+            self.typecheck_std_primitive_module(ctx)?;
+            *std_primitive_processed = true;
+        }
+        for &def_id in &module.definitions {
+            self.typecheck_definition_predecl(def_id, ctx)?;
+        }
+
+        // Recursively process child modules
+        let modules_tree = &ctx.program().modules;
+        let children = modules_tree[module_id].children().to_vec();
+        for &child_module_id in &children {
+            self.typecheck_module_tree_predecl(child_module_id, ctx, visited_modules, std_primitive_processed)?;
+        }
+
+        ctx.symbols.exit_module();
+        Ok(())
+    }
+
+    /// Typecheck headers for a module tree (DFS traversal)
+    fn typecheck_module_tree_header(
+        &mut self,
+        module_id: ModuleId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+        visited_modules: &mut std::collections::HashSet<ModuleId>,
+    ) -> Result<()> {
+        // Skip if we've already processed this module
+        if visited_modules.contains(&module_id) {
+            return Ok(());
+        }
+        visited_modules.insert(module_id);
+
+        ctx.symbols.enter_module(module_id);
+        let module = ctx.module(module_id).clone();
+
+        for &def_id in &module.definitions {
+            self.typecheck_definition_header(def_id, ctx)?;
+        }
+
+        // Recursively process child modules
+        let modules_tree = &ctx.program().modules;
+        let children = modules_tree[module_id].children().to_vec();
+        for &child_module_id in &children {
+            self.typecheck_module_tree_header(child_module_id, ctx, visited_modules)?;
+        }
+
+        ctx.symbols.exit_module();
+        Ok(())
+    }
+
+    /// Typecheck bodies for a module tree (DFS traversal)
+    fn typecheck_module_tree_body(
+        &mut self,
+        module_id: ModuleId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+        visited_modules: &mut std::collections::HashSet<ModuleId>,
+    ) -> Result<()> {
+        // Skip if we've already processed this module
+        if visited_modules.contains(&module_id) {
+            return Ok(());
+        }
+        visited_modules.insert(module_id);
+
+        ctx.symbols.enter_module(module_id);
+        let module = ctx.module(module_id).clone();
+
+        for &def_id in &module.definitions {
+            self.typecheck_definition_body(def_id, ctx)?;
+        }
+
+        // Recursively process child modules
+        let modules_tree = &ctx.program().modules;
+        let children = modules_tree[module_id].children().to_vec();
+        for &child_module_id in &children {
+            self.typecheck_module_tree_body(child_module_id, ctx, visited_modules)?;
+        }
+
+        ctx.symbols.exit_module();
+        Ok(())
     }
 
     #[instrument(level = "debug", skip_all)]
