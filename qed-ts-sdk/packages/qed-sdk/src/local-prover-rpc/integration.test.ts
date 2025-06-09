@@ -6,6 +6,7 @@ import { ContractCallArgs, WalletKeyPair, DPNFunctionCircuitDefinition } from ".
 import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { QHashOut } from "../core";
 import { ZKPublicKeyInfo } from "../types";
+import { waitMs } from "../utils";
 
 /**
  * Integration tests for QED User Prover RPC Client
@@ -17,8 +18,11 @@ import { ZKPublicKeyInfo } from "../types";
  * 3. Run: npm test -- --testNamePattern="Integration"
  */
 
-function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+async function waitBlock(coordinator: CoordinatorEdgeRpcProvider): Promise<void> {
+    await coordinator.buildBlock();
+    await coordinator.buildBlock();
+    await coordinator.buildBlock();
+    await waitMs(3000);
 }
 
 describe("QED User Prover RPC Integration Tests", () => {
@@ -148,17 +152,12 @@ describe("QED User Prover RPC Integration Tests", () => {
                     const zkPublicKey: ZKPublicKeyInfo = await provider.getZKPublicKey(testKeypair.private_key);
                     console.log("zkPublicKey", zkPublicKey);
 
-                    // expect(zkPublicKey).toBeDefined();
-                    // expect(zkPublicKey.fingerprint).toBeDefined();
-                    // expect(zkPublicKey.public_key_param).toBeDefined();
-                    // expect(Array.isArray(zkPublicKey.fingerprint.elements)).toBe(true);
-                    // expect(Array.isArray(zkPublicKey.public_key_param.elements)).toBe(true);
-
+                    expect(zkPublicKey).toBeDefined();
+                    expect(zkPublicKey.fingerprint).toBeDefined();
+                    expect(zkPublicKey.public_key_param).toBeDefined();
                     // Should match the public key from the keypair
-                    // expect(zkPublicKey.fingerprint.elements).toEqual(testKeypair.public_key.fingerprint.elements);
-                    // expect(zkPublicKey.public_key_param.elements).toEqual(
-                    //     testKeypair.public_key.public_key_param.elements
-                    // );
+                    expect(zkPublicKey.fingerprint).toEqual(testKeypair.public_key.fingerprint);
+                    expect(zkPublicKey.public_key_param).toEqual(testKeypair.public_key.public_key_param);
 
                     console.log("ZK Public Key verified");
                 } catch (error) {
@@ -188,8 +187,7 @@ describe("QED User Prover RPC Integration Tests", () => {
 
                     console.log("Registered user with hash:", userHash);
 
-                    await coordinator.buildBlock();
-                    await sleep(5000);
+                    await waitBlock(coordinator);
 
                     const pkHash = await provider.addUser(testKeypair.private_key);
                     console.log("Added user with hash:", pkHash);
@@ -211,10 +209,7 @@ describe("QED User Prover RPC Integration Tests", () => {
 
                     await provider.registerUser(testKeypair.private_key);
 
-                    await coordinator.buildBlock();
-                    await coordinator.buildBlock();
-                    await coordinator.buildBlock();
-                    await sleep(5000);
+                    await waitBlock(coordinator);
                     const addedUserHash = await provider.addUser(testKeypair.private_key);
 
                     expect(addedUserHash).toBeDefined();
@@ -239,8 +234,7 @@ describe("QED User Prover RPC Integration Tests", () => {
                     const testKeypair = await provider.getRandomKeypair();
 
                     await provider.registerUser(testKeypair.private_key);
-                    await coordinator.buildBlock();
-                    await sleep(5000);
+                    await waitBlock(coordinator);
                     userHash = await provider.addUser(testKeypair.private_key);
                     console.log("Successfully add user:", userHash);
 
@@ -380,17 +374,11 @@ describe("QED User Prover RPC Integration Tests", () => {
             try {
                 userKeypair = await provider.getRandomKeypair();
                 await provider.registerUser(userKeypair.private_key);
-                await coordinator.buildBlock();
-                await coordinator.buildBlock();
-                await coordinator.buildBlock();
-                await sleep(3000);
+                await waitBlock(coordinator);
 
                 userHash = await provider.addUser(userKeypair.private_key);
                 await provider.switchUser(userHash);
-                await coordinator.buildBlock();
-                await coordinator.buildBlock();
-                await coordinator.buildBlock();
-                await sleep(3000);
+                await waitBlock(coordinator);
 
                 console.log(`${userHash} wallet: ${userKeypair}`);
 
@@ -457,7 +445,6 @@ describe("QED User Prover RPC Integration Tests", () => {
                     expect(contractId.length).toBeGreaterThan(0);
 
                     console.log("Deployed contract ID:", contractId);
-                    await provider.signAndSubmit();
                 } catch (error) {
                     console.error("Failed to deploy contract:", error);
                     console.warn("This test may fail if contract deployment is not fully implemented");
@@ -476,17 +463,11 @@ describe("QED User Prover RPC Integration Tests", () => {
         beforeAll(async () => {
             try {
                 await provider.registerUser(privateKey);
-                await coordinator.buildBlock();
-                await coordinator.buildBlock();
-                await coordinator.buildBlock();
-                await sleep(5000);
+                await waitBlock(coordinator);
 
                 userHash = await provider.addUser(privateKey);
                 await provider.switchUser(userHash);
-                await coordinator.buildBlock();
-                await coordinator.buildBlock();
-                await coordinator.buildBlock();
-                await sleep(3000);
+                await waitBlock(coordinator);
 
                 console.log(`${userHash} wallet: ${privateKey}`);
 

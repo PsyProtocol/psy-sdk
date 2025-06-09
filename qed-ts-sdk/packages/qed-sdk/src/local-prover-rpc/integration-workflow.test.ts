@@ -2,9 +2,13 @@ import { QEDRPCUserProverProvider } from "./client";
 import { ContractCallArgs, WalletKeyPair } from "./types";
 import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { QHashOut } from "../core";
+import { waitMs } from "../utils";
 
-function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+async function waitBlock(coordinator: CoordinatorEdgeRpcProvider): Promise<void> {
+    await coordinator.buildBlock();
+    await coordinator.buildBlock();
+    await coordinator.buildBlock();
+    await waitMs(3000);
 }
 
 /**
@@ -53,11 +57,7 @@ describe("QED User Prover RPC Workflow Integration", () => {
                     console.log("✓ User registered with public key:", publicKey);
 
                     console.log("Waiting for block to be built...");
-                    await coordinator.buildBlock();
-                    await coordinator.buildBlock();
-                    await coordinator.buildBlock();
-
-                    await sleep(5000);
+                    await waitBlock(coordinator);
 
                     // Step 3: Add user to session
                     console.log("Step 3: Adding user to session...");
@@ -107,10 +107,7 @@ describe("QED User Prover RPC Workflow Integration", () => {
 
                         const keypair = await provider.getRandomKeypair();
                         await provider.registerUser(keypair.private_key);
-                        await coordinator.buildBlock();
-                        await coordinator.buildBlock();
-                        await coordinator.buildBlock();
-                        await sleep(5000);
+                        await waitBlock(coordinator);
                         const userHash = await provider.addUser(keypair.private_key);
 
                         users.push({ keypair, hash: userHash });
@@ -152,10 +149,7 @@ describe("QED User Prover RPC Workflow Integration", () => {
             // Setup common session and user for contract tests
             userKeypair = await provider.getRandomKeypair();
             await provider.registerUser(userKeypair.private_key);
-            await coordinator.buildBlock();
-            await coordinator.buildBlock();
-            await coordinator.buildBlock();
-            await sleep(5000);
+            await waitBlock(coordinator);
             userHash = await provider.addUser(userKeypair.private_key);
             await provider.switchUser(userHash);
             await provider.startSession();
@@ -326,18 +320,10 @@ describe("QED User Prover RPC Workflow Integration", () => {
                     const keypair1 = await provider.getRandomKeypair();
                     const keypair2 = await provider.getRandomKeypair();
                     await provider.registerUser(keypair1.private_key);
-                    await coordinator.buildBlock();
-                    await coordinator.buildBlock();
-                    await coordinator.buildBlock();
-                    await coordinator.buildBlock();
-                    await sleep(5000);
+                    await waitBlock(coordinator);
 
                     await provider.registerUser(keypair2.private_key);
-                    await coordinator.buildBlock();
-                    await coordinator.buildBlock();
-                    await coordinator.buildBlock();
-                    await coordinator.buildBlock();
-                    await sleep(5000);
+                    await waitBlock(coordinator);
 
                     const userHash1 = await provider.addUser(keypair1.private_key);
                     const userHash2 = await provider.addUser(keypair2.private_key);
