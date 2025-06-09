@@ -98,10 +98,6 @@ describe("QED User Prover RPC Workflow Integration", () => {
                 console.log("Starting multiple users workflow test...");
 
                 try {
-                    // Start session
-                    const sessionId = await provider.startSession();
-                    console.log("✓ Session started:", sessionId);
-
                     // Create and add multiple users
                     const users: Array<{ keypair: WalletKeyPair; hash: QHashOut }> = [];
                     const userCount = 3;
@@ -110,6 +106,11 @@ describe("QED User Prover RPC Workflow Integration", () => {
                         console.log(`Creating user ${i + 1}/${userCount}...`);
 
                         const keypair = await provider.getRandomKeypair();
+                        await provider.registerUser(keypair.private_key);
+                        await coordinator.buildBlock();
+                        await coordinator.buildBlock();
+                        await coordinator.buildBlock();
+                        await sleep(5000);
                         const userHash = await provider.addUser(keypair.private_key);
 
                         users.push({ keypair, hash: userHash });
@@ -121,6 +122,9 @@ describe("QED User Prover RPC Workflow Integration", () => {
                         console.log(`Switching to user ${i + 1}...`);
 
                         await provider.switchUser(users[i].hash);
+                        // Start session
+                        const sessionId = await provider.startSession();
+                        console.log("✓ Session started:", sessionId);
 
                         // Verify the user by checking ZK public key
                         const zkPublicKey = await provider.getZKPublicKey(users[i].keypair.private_key);
@@ -146,10 +150,15 @@ describe("QED User Prover RPC Workflow Integration", () => {
 
         beforeAll(async () => {
             // Setup common session and user for contract tests
-            await provider.startSession();
             userKeypair = await provider.getRandomKeypair();
+            await provider.registerUser(userKeypair.private_key);
+            await coordinator.buildBlock();
+            await coordinator.buildBlock();
+            await coordinator.buildBlock();
+            await sleep(5000);
             userHash = await provider.addUser(userKeypair.private_key);
             await provider.switchUser(userHash);
+            await provider.startSession();
             console.log("✓ Setup complete for contract workflow tests");
         });
 
@@ -182,6 +191,7 @@ describe("QED User Prover RPC Workflow Integration", () => {
                     const multipleProofId = await provider.proveContractCalls(multipleContractCalls);
                     expect(multipleProofId).toBeDefined();
                     console.log("✓ Multiple contract calls proven:", multipleProofId);
+                    await provider.signAndSubmit();
 
                     console.log("✅ Contract proving workflow test passed!");
                 } catch (error) {
@@ -313,19 +323,34 @@ describe("QED User Prover RPC Workflow Integration", () => {
                     const startTime = Date.now();
 
                     // Rapid sequence of operations
-                    const sessionId = await provider.startSession();
                     const keypair1 = await provider.getRandomKeypair();
                     const keypair2 = await provider.getRandomKeypair();
+                    await provider.registerUser(keypair1.private_key);
+                    await coordinator.buildBlock();
+                    await coordinator.buildBlock();
+                    await coordinator.buildBlock();
+                    await coordinator.buildBlock();
+                    await sleep(5000);
+
+                    await provider.registerUser(keypair2.private_key);
+                    await coordinator.buildBlock();
+                    await coordinator.buildBlock();
+                    await coordinator.buildBlock();
+                    await coordinator.buildBlock();
+                    await sleep(5000);
+
                     const userHash1 = await provider.addUser(keypair1.private_key);
                     const userHash2 = await provider.addUser(keypair2.private_key);
 
                     await provider.switchUser(userHash1);
                     const zkKey1 = await provider.getZKPublicKey(keypair1.private_key);
+                    let sessionId = await provider.startSession();
+                    const ping1 = await provider.ping("Performance test 1");
 
                     await provider.switchUser(userHash2);
+                    sessionId = await provider.startSession();
                     const zkKey2 = await provider.getZKPublicKey(keypair2.private_key);
 
-                    const ping1 = await provider.ping("Performance test 1");
                     const ping2 = await provider.ping("Performance test 2");
 
                     const endTime = Date.now();
