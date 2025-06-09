@@ -2,7 +2,7 @@ use enum_as_inner::EnumAsInner;
 use qed_common::Graph;
 
 use crate::{
-    DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, ModuleId, ModuleNode, NodeInfo,
+    CrateId, DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, ModuleId, ModuleNode, NodeInfo,
     Program, StmtId, StmtNode,
 };
 
@@ -113,8 +113,9 @@ pub trait VisitorContext<F: Clone + From<u32>, C> {
     fn ident(&self, id: impl Into<IdentId>) -> &Ident;
     fn intern<S: Into<Ident>>(&mut self, s: S) -> IdentId;
     fn module(&self, module_id: ModuleId) -> &ModuleNode;
+    fn module_children(&self, module_id: ModuleId) -> &[ModuleId];
     fn program(&self) -> &Self::Program;
-    fn dependency_graph(&self) -> Graph<ModuleId>;
+    fn dependency_graph(&self) -> Graph<CrateId>;
     fn alloc_expression(&mut self, expr: Self::Expr) -> ExprId;
     fn alloc_statement(&mut self, stmt: Self::Stmt) -> StmtId;
     fn alloc_definition(&mut self, definition: Self::Definition) -> DefId;
@@ -202,11 +203,15 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
         self.program.modules[module_id].data()
     }
 
+    fn module_children(&self, module_id: ModuleId) -> &[ModuleId] {
+        self.program.modules[module_id].children()
+    }
+
     fn program(&self) -> &Program<F> {
         &self.program
     }
 
-    fn dependency_graph(&self) -> Graph<ModuleId> {
+    fn dependency_graph(&self) -> Graph<CrateId> {
         self.program.dependency_graph.clone()
     }
 

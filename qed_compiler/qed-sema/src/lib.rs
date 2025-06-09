@@ -1859,7 +1859,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
 
         let dependency_graph = ctx.dependency_graph();
 
-        dependency_graph.ts::<Self::Error>(&mut |&module_id| {
+        dependency_graph.ts::<Self::Error>(&mut |&crate_id| {
+            let module_id = ModuleId::from(crate_id);
             ctx.symbols.enter_module(module_id);
             let module = ctx.module(module_id).clone();
             ctx.add_module_reference(module_id, module.name.location, false);
@@ -1875,7 +1876,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             Ok(())
         })?;
 
-        dependency_graph.ts::<Self::Error>(&mut |&module_id| {
+        dependency_graph.ts::<Self::Error>(&mut |&crate_id| {
+            let module_id = ModuleId::from(crate_id);
             ctx.symbols.enter_module(module_id);
             let module = ctx.module(module_id).clone();
 
@@ -1887,7 +1889,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             Ok(())
         })?;
 
-        dependency_graph.ts::<Self::Error>(&mut |&module_id| {
+        dependency_graph.ts::<Self::Error>(&mut |&crate_id| {
+            let module_id = ModuleId::from(crate_id);
             ctx.symbols.enter_module(module_id);
             let module = ctx.module(module_id).clone();
 

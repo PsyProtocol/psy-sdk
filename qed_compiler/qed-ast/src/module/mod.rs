@@ -3,6 +3,7 @@ use qed_common::{define_arena_id, Arena, FileId};
 use crate::{
     Comment, DefId, DefinitionNode, IdentId, Identifier, Location, NodeInfo, NodeType, Visibility,
 };
+#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
 pub struct CrateId(pub usize);
 
 impl CrateId {

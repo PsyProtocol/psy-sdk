@@ -230,21 +230,14 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         ctx.program
             .dependency_graph
             .clone()
-            .ts::<SemaError>(&mut |&module_id| {
-                let scope_id = ctx.symbols[module_id].scope_id;
-                let functions = ctx.symbols[scope_id]
-                    .types
-                    .iter()
-                    .filter(|(_, &v)| {
-                        ctx.symbols[v.clone()].is_function()
-                            && ctx.symbols[v.clone()]
-                                .as_function()
-                                .map(|x| x.attrs.iter().any(|y| y.is_test()))
-                                .unwrap_or(false)
-                    })
-                    .map(|(_, v)| v.clone())
-                    .collect::<Vec<_>>();
-                type_ids.push((module_id, functions));
+            .ts::<SemaError>(&mut |&crate_id| {
+                // Visit the entry module and all its children for this crate
+                let entry_module_id = ModuleId::from(crate_id);
+                self.collect_test_functions_from_module_tree(entry_module_id, ctx, &mut type_ids)
+                    .map_err(|e| match e {
+                        Error::SemaError(se) => se,
+                        _ => panic!("Unexpected error type in collect_test_functions_from_module_tree"),
+                    })?;
                 Ok(())
             })?;
 
@@ -296,6 +289,37 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         }
 
         Ok(outputs)
+    }
+
+    fn collect_test_functions_from_module_tree(
+        &self,
+        module_id: ModuleId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+        type_ids: &mut Vec<(ModuleId, Vec<TypeId>)>,
+    ) -> Result<()> {
+        // Collect test functions from current module
+        let scope_id = ctx.symbols[module_id].scope_id;
+        let functions = ctx.symbols[scope_id]
+            .types
+            .iter()
+            .filter(|(_, &v)| {
+                ctx.symbols[v.clone()].is_function()
+                    && ctx.symbols[v.clone()]
+                        .as_function()
+                        .map(|x| x.attrs.iter().any(|y| y.is_test()))
+                        .unwrap_or(false)
+            })
+            .map(|(_, v)| v.clone())
+            .collect::<Vec<_>>();
+        type_ids.push((module_id, functions));
+
+        // Visit all child modules recursively
+        let children = ctx.module_children(module_id).to_vec();
+        for child_id in children {
+            self.collect_test_functions_from_module_tree(child_id, ctx, type_ids)?;
+        }
+
+        Ok(())
     }
 
     fn __interpret__(

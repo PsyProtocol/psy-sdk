@@ -3,14 +3,14 @@ use std::ops::{Index, IndexMut};
 use qed_common::{Arena, FileResolver, Graph, Tree, TreeNode};
 
 use crate::{
-    DefId, DefinitionNode, ExprId, ExprNode, FileLocation, Ident, IdentId, Interner, Location,
+    CrateId, DefId, DefinitionNode, ExprId, ExprNode, FileLocation, Ident, IdentId, Interner, Location,
     ModuleId, ModuleNode, StmtId, StmtNode,
 };
 
 #[derive(Debug)]
 pub struct Program<F: Clone + From<u32>> {
     pub modules: Tree<ModuleId, ModuleNode>,
-    pub dependency_graph: Graph<ModuleId>,
+    pub dependency_graph: Graph<CrateId>,
     pub file_resolver: FileResolver,
     pub exprs: Arena<ExprId, ExprNode<F>>,
     pub stmts: Arena<StmtId, StmtNode>,
@@ -64,14 +64,14 @@ impl<F: Clone + From<u32>> Program<F> {
 
     pub fn add_module_dependency(&mut self, module: Option<ModuleId>, dep_module: ModuleId) {
         if let Some(module) = module {
-            self.dependency_graph.add_edge(module, dep_module);
+            self.dependency_graph.add_edge(CrateId::from(module), CrateId::from(dep_module));
         }
     }
 
     pub fn add_module_child(&mut self, parent: Option<ModuleId>, child: ModuleId) {
         if let Some(parent) = parent {
             self.modules.add_child(parent, child);
-            self.dependency_graph.add_edge(parent, child);
+            self.dependency_graph.add_edge(CrateId::from(parent), CrateId::from(child));
         }
     }
 
@@ -124,13 +124,14 @@ impl<F: Clone + From<u32>> Program<F> {
                 println!("    {}, {:?}", interner[child_module.data().name.id], child);
             }
             println!("  dependencies: ");
-            if let Some(dependencies) = self.dependency_graph.get(&module.id()) {
+            if let Some(dependencies) = self.dependency_graph.get(&CrateId::from(module.id())) {
                 for dependency in dependencies.iter() {
-                    let dependency_module = &self.modules[*dependency];
+                    let dependency_module_id = ModuleId::from(*dependency);
+                    let dependency_module = &self.modules[dependency_module_id];
                     println!(
                         "    {}, {:?}",
                         interner[dependency_module.data().name.id],
-                        dependency
+                        dependency_module_id
                     );
                 }
             }
