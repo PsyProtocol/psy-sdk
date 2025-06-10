@@ -63,11 +63,11 @@ impl<T: Clone + Eq + Hash> Graph<T> {
     pub fn dfs<'a>(&'a self, visitor: &mut impl FnMut(&'a T, Option<&'a T>)) {
         let starting_nodes = self.starting_nodes();
         for node in starting_nodes {
-            self.inner_dfs(node, None, visitor);
+            self.dfs_inner(node, None, visitor);
         }
     }
 
-    fn inner_dfs<'a>(
+    fn dfs_inner<'a>(
         &'a self,
         node: &'a T,
         parent: Option<&'a T>,
@@ -77,7 +77,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
 
         if let Some(neighbors) = self.nodes.get(&node) {
             for neighbor in neighbors {
-                self.inner_dfs(neighbor, Some(node), visitor);
+                self.dfs_inner(neighbor, Some(node), visitor);
             }
         }
     }
@@ -86,11 +86,11 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         let starting_nodes = self.starting_nodes();
         let mut visited = HashMap::new();
         for node in starting_nodes {
-            self.inner_bfs(node, &mut visited, visitor);
+            self.bfs_inner(node, &mut visited, visitor);
         }
     }
 
-    fn inner_bfs<'a>(
+    fn bfs_inner<'a>(
         &'a self,
         node: &'a T,
         visited: &mut HashMap<&'a T, bool>,
@@ -121,12 +121,12 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         let starting_nodes = self.starting_nodes();
         let mut colors = HashMap::new();
         for node in starting_nodes {
-            self.inner_ts(node, &mut colors, visitor)?;
+            self.ts_inner(node, &mut colors, visitor)?;
         }
         Ok(())
     }
 
-    fn inner_ts<'a, E: From<Error>>(
+    fn ts_inner<'a, E: From<Error>>(
         &'a self,
         node: &'a T,
         colors: &mut HashMap<&'a T, Color>,
@@ -139,7 +139,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
                 match colors.get(neighbor) {
                     Some(Color::Grey) => return Err(E::from(Error::CycleGraph)),
                     None => {
-                        self.inner_ts(neighbor, colors, visitor)?;
+                        self.ts_inner(neighbor, colors, visitor)?;
                     }
                     _ => {}
                 }

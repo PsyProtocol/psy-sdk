@@ -40,12 +40,12 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
 
     pub fn parse(&mut self, root_module_path: PathBuf) -> Result<ModuleId> {
         let (program, ctx) = self.decouple();
-        Self::inner_parse(program, ctx, root_module_path)
+        Self::parse_inner(program, ctx, root_module_path)
     }
 
     pub fn finish(&mut self, dependency_graph: Graph<CrateId>) -> Result<()> {
         let (program, ctx) = self.decouple();
-        Self::inner_finish(program, ctx, dependency_graph)
+        Self::finish_inner(program, ctx, dependency_graph)
     }
 
     fn parse_module(
@@ -94,7 +94,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
     // modB/
     //     std/
     //         prelude
-    fn inner_parse(
+    fn parse_inner(
         program: &mut Program<F>,
         ctx: &mut C,
         root_module_path: PathBuf,
@@ -161,12 +161,12 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         Ok(entry_module_id)
     }
 
-    fn inner_finish(
+    fn finish_inner(
         program: &mut Program<F>,
         ctx: &mut C,
         mut dependency_graph: Graph<CrateId>,
     ) -> Result<()> {
-        let std_module_id = Self::inner_parse(program, ctx, std_path())?;
+        let std_module_id = Self::parse_inner(program, ctx, std_path())?;
         let std_crate_id = std_module_id.into();
         let crate_ids = dependency_graph
             .nodes()
