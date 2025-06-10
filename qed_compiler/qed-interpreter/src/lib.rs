@@ -379,20 +379,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             entry_module_map.insert(entry_path, module_id);
         }
 
-        let mut dependency_graph = Graph::new();
-        let entry_module_id = entry_module_map.get(&entry).unwrap();
-        for (entry_path, dependency_module_id) in entry_module_map.iter() {
-            if *entry_module_id == *dependency_module_id {
-                println!("{:?} == {:?}", entry_module_id, dependency_module_id);
-                continue;
-            }
-            dependency_graph.add_edge(
-                CrateId::from_module_id(*entry_module_id),
-                CrateId::from_module_id(*dependency_module_id),
-            );
+        let mut dependency_graph = Graph::<CrateId>::new();
+        let entry_module_id = entry_module_map.get(&entry).expect("entry not found");
+        for (_entry_path, dependency_module_id) in entry_module_map.iter() {
+            dependency_graph.add_edge(entry_module_id.into(), dependency_module_id.into());
         }
-        println!("dependency_graph: {:?}", dependency_graph);
         parser.finish(dependency_graph)?;
+        println!("final dependency_graph: {:?}", program.dependency_graph);
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();

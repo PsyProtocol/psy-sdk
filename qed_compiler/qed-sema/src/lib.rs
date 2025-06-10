@@ -2495,30 +2495,26 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             return Ok(());
         }
         visited_modules.insert(module_id);
+        let module_name = ctx.program.module_name(module_id);
+        println!("traverse_module_tree_inner: {}", module_name);
 
         ctx.symbols.enter_module(module_id);
         let module = ctx.module(module_id).clone();
 
-        // Handle std primitive module processing only in predecl phase (when flag is provided)
-        println!("before std primitive");
         if let Some(primitive_flag) = std_primitive_processed {
-            ctx.add_module_reference(module_id, module.name.location, false);
             if module.is_std() && module.is_self_primitive() && !*primitive_flag {
+                ctx.add_module_reference(module_id, module.name.location, false);
                 self.typecheck_std_primitive_module(ctx)?;
                 *primitive_flag = true;
             }
         }
-        println!("after std primitive");
 
-        // Process current module with the provided closure
         process_module(self, &module, ctx)?;
 
         // Recursively process child modules
         let modules_tree = &ctx.program().modules;
         let children = modules_tree[module_id].children().to_vec();
         for &child_module_id in &children {
-            let module_name = ctx.program.module_name(child_module_id);
-            println!("traverse_module_tree_inner: {}", module_name);
             self.traverse_module_tree_inner(
                 child_module_id,
                 ctx,

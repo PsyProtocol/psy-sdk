@@ -18,6 +18,12 @@ impl From<ModuleId> for CrateId {
     }
 }
 
+impl From<&ModuleId> for CrateId {
+    fn from(module_id: &ModuleId) -> Self {
+        Self(module_id.0)
+    }
+}
+
 impl From<CrateId> for ModuleId {
     fn from(crate_id: CrateId) -> Self {
         Self(crate_id.0)
