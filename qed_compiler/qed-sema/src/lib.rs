@@ -2508,7 +2508,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
         ctx.symbols.enter_module(module_id);
         let module = ctx.module(module_id).clone();
-        process_module(self, module_id, &module, ctx)?;
 
         // Recursively process child modules
         let modules_tree = &ctx.program().modules;
@@ -2516,6 +2515,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         for &child_module_id in &children {
             self.traverse_module_tree_inner(child_module_id, ctx, visited_modules, process_module)?;
         }
+        process_module(self, module_id, &module, ctx)?;
 
         ctx.symbols.exit_module();
         Ok(())
