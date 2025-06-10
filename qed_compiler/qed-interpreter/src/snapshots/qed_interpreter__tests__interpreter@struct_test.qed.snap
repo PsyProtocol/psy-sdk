@@ -5,26 +5,26 @@ input_file: qed_compiler/tests/struct_test.qed
 ---
 ScopeId(0) (Module)
     Types:
-        trait PersonLike (TypeId(36))
-            Body: [DefId(22)]
+        trait PersonLike (TypeId(38))
+            Body: [DefId(24)]
             Unchecked Body: [DefId(3)]
-        struct Person (TypeId(38))
+        struct Person (TypeId(40))
             Fields:
-                pub Tuple age_height (Identifier { id: IdentId(30), location: Location { file_id: FileId(0), start: 339, end: 349 } }, TypeId(38))
-                pub Felt year_of_birth (Identifier { id: IdentId(31), location: Location { file_id: FileId(0), start: 383, end: 396 } }, TypeId(38))
-        struct Family (TypeId(39))
+                pub Tuple age_height (Identifier { id: IdentId(30), location: Location { file_id: FileId(0), start: 339, end: 349 } }, TypeId(40))
+                pub Felt year_of_birth (Identifier { id: IdentId(31), location: Location { file_id: FileId(0), start: 383, end: 396 } }, TypeId(40))
+        struct Family (TypeId(41))
             Fields:
-                Person father (Identifier { id: IdentId(33), location: Location { file_id: FileId(0), start: 541, end: 547 } }, TypeId(39))
-                Person mother (Identifier { id: IdentId(34), location: Location { file_id: FileId(0), start: 561, end: 567 } }, TypeId(39))
-                pub Array children (Identifier { id: IdentId(35), location: Location { file_id: FileId(0), start: 585, end: 593 } }, TypeId(39))
-        struct ContractStorage (TypeId(40))
+                Person father (Identifier { id: IdentId(33), location: Location { file_id: FileId(0), start: 541, end: 547 } }, TypeId(41))
+                Person mother (Identifier { id: IdentId(34), location: Location { file_id: FileId(0), start: 561, end: 567 } }, TypeId(41))
+                pub Array children (Identifier { id: IdentId(35), location: Location { file_id: FileId(0), start: 585, end: 593 } }, TypeId(41))
+        struct ContractStorage (TypeId(42))
             Fields:
-                Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 1263, end: 1264 } }, TypeId(40))
-                Array b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 1276, end: 1277 } }, TypeId(40))
-                Person c (Identifier { id: IdentId(46), location: Location { file_id: FileId(0), start: 1294, end: 1295 } }, TypeId(40))
-        fn main (TypeId(41))
+                Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 1263, end: 1264 } }, TypeId(42))
+                Array b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 1276, end: 1277 } }, TypeId(42))
+                Person c (Identifier { id: IdentId(46), location: Location { file_id: FileId(0), start: 1294, end: 1295 } }, TypeId(42))
+        fn main (TypeId(43))
             Return Type: void (TypeId(1))
-            Body: ExprId(349)
+            Body: ExprId(377)
         pub trait Storage (TypeId(13))
             Body: [DefId(0), DefId(1), DefId(2)]
             Unchecked Body: [DefId(27), DefId(28), DefId(29)]
@@ -42,6 +42,20 @@ ScopeId(0) (Module)
                 pub Felt contract_state_tree_height (Identifier { id: IdentId(70), location: Location { file_id: FileId(4), start: 4234, end: 4260 } }, TypeId(20))
                 pub Felt contract_id (Identifier { id: IdentId(72), location: Location { file_id: FileId(4), start: 4276, end: 4287 } }, TypeId(20))
                 pub Felt user_id (Identifier { id: IdentId(71), location: Location { file_id: FileId(4), start: 4303, end: 4310 } }, TypeId(20))
+        pub trait StorageAt (TypeId(65))
+            Body: [DefId(49), DefId(50)]
+            Unchecked Body: [DefId(31), DefId(32)]
+            Generic Parameters: [TypeId(61), TypeId(62)]
+        pub struct StorageRef (TypeId(73))
+            Fields:
+                pub Felt offset (Identifier { id: IdentId(73), location: Location { file_id: FileId(4), start: 3362, end: 3368 } }, TypeId(73))
+                pub ContractMetadata metadata (Identifier { id: IdentId(82), location: Location { file_id: FileId(4), start: 3384, end: 3392 } }, TypeId(73))
+            Generic Parameters: [TypeId(71), TypeId(72)]
+        pub struct StorageRef (TypeId(79))
+            Fields:
+                pub Felt offset (Identifier { id: IdentId(73), location: Location { file_id: FileId(4), start: 3362, end: 3368 } }, TypeId(79))
+                pub ContractMetadata metadata (Identifier { id: IdentId(82), location: Location { file_id: FileId(4), start: 3384, end: 3392 } }, TypeId(79))
+            Generic Parameters: [TypeId(71), TypeId(78)]
         pub fn get_user_id (TypeId(21))
             Return Type: Felt (TypeId(3))
             Body: ExprId(146)
@@ -88,6 +102,9 @@ ScopeId(0) (Module)
         pub CheckedValueRef(RwLock { data: U32(4u32), poisoned: false, .. }) (TypeId(8))
         pub Array (TypeId(9))
         pub Array (TypeId(9))
+        pub Array (TypeId(57))
+        pub Array (TypeId(66))
+        pub CheckedValueRef(RwLock { data: U32(1u32), poisoned: false, .. }) (TypeId(78))
         pub trait Default (TypeId(31))
             Body: [DefId(18)]
             Unchecked Body: [DefId(75)]
@@ -101,32 +118,32 @@ ScopeId(0) (Module)
             Return Type: Felt (TypeId(3))
             Body: ExprId(183)
             Generic Parameters: [TypeId(89)]
-        pub fn max (TypeId(42))
+        pub fn max (TypeId(35))
             Parameters:
-                Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 26, end: 27 } }, TypeId(42))
-                Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 35, end: 36 } }, TypeId(42))
+                Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 26, end: 27 } }, TypeId(35))
+                Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 35, end: 36 } }, TypeId(35))
             Return Type: Felt (TypeId(3))
-            Body: ExprId(363)
-        pub fn min (TypeId(43))
+            Body: ExprId(197)
+        pub fn min (TypeId(36))
             Parameters:
-                Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 143, end: 144 } }, TypeId(43))
-                Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 152, end: 153 } }, TypeId(43))
+                Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 143, end: 144 } }, TypeId(36))
+                Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 152, end: 153 } }, TypeId(36))
             Return Type: Felt (TypeId(3))
-            Body: ExprId(377)
+            Body: ExprId(211)
     ScopeId(1) (Module)
         Types:
-            pub fn max (TypeId(42))
+            pub fn max (TypeId(35))
                 Parameters:
-                    Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 26, end: 27 } }, TypeId(42))
-                    Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 35, end: 36 } }, TypeId(42))
+                    Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 26, end: 27 } }, TypeId(35))
+                    Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 35, end: 36 } }, TypeId(35))
                 Return Type: Felt (TypeId(3))
-                Body: ExprId(363)
-            pub fn min (TypeId(43))
+                Body: ExprId(197)
+            pub fn min (TypeId(36))
                 Parameters:
-                    Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 143, end: 144 } }, TypeId(43))
-                    Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 152, end: 153 } }, TypeId(43))
+                    Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 143, end: 144 } }, TypeId(36))
+                    Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 152, end: 153 } }, TypeId(36))
                 Return Type: Felt (TypeId(3))
-                Body: ExprId(377)
+                Body: ExprId(211)
             pub trait Storage (TypeId(13))
                 Body: [DefId(0), DefId(1), DefId(2)]
                 Unchecked Body: [DefId(27), DefId(28), DefId(29)]
@@ -144,6 +161,20 @@ ScopeId(0) (Module)
                     pub Felt contract_state_tree_height (Identifier { id: IdentId(70), location: Location { file_id: FileId(4), start: 4234, end: 4260 } }, TypeId(20))
                     pub Felt contract_id (Identifier { id: IdentId(72), location: Location { file_id: FileId(4), start: 4276, end: 4287 } }, TypeId(20))
                     pub Felt user_id (Identifier { id: IdentId(71), location: Location { file_id: FileId(4), start: 4303, end: 4310 } }, TypeId(20))
+            pub trait StorageAt (TypeId(65))
+                Body: [DefId(49), DefId(50)]
+                Unchecked Body: [DefId(31), DefId(32)]
+                Generic Parameters: [TypeId(61), TypeId(62)]
+            pub struct StorageRef (TypeId(73))
+                Fields:
+                    pub Felt offset (Identifier { id: IdentId(73), location: Location { file_id: FileId(4), start: 3362, end: 3368 } }, TypeId(73))
+                    pub ContractMetadata metadata (Identifier { id: IdentId(82), location: Location { file_id: FileId(4), start: 3384, end: 3392 } }, TypeId(73))
+                Generic Parameters: [TypeId(71), TypeId(72)]
+            pub struct StorageRef (TypeId(79))
+                Fields:
+                    pub Felt offset (Identifier { id: IdentId(73), location: Location { file_id: FileId(4), start: 3362, end: 3368 } }, TypeId(79))
+                    pub ContractMetadata metadata (Identifier { id: IdentId(82), location: Location { file_id: FileId(4), start: 3384, end: 3392 } }, TypeId(79))
+                Generic Parameters: [TypeId(71), TypeId(78)]
             pub fn get_user_id (TypeId(21))
                 Return Type: Felt (TypeId(3))
                 Body: ExprId(146)
@@ -190,6 +221,9 @@ ScopeId(0) (Module)
             pub CheckedValueRef(RwLock { data: U32(4u32), poisoned: false, .. }) (TypeId(8))
             pub Array (TypeId(9))
             pub Array (TypeId(9))
+            pub Array (TypeId(57))
+            pub Array (TypeId(66))
+            pub CheckedValueRef(RwLock { data: U32(1u32), poisoned: false, .. }) (TypeId(78))
             pub trait Default (TypeId(31))
                 Body: [DefId(18)]
                 Unchecked Body: [DefId(75)]
@@ -203,31 +237,31 @@ ScopeId(0) (Module)
                 Return Type: Felt (TypeId(3))
                 Body: ExprId(183)
                 Generic Parameters: [TypeId(89)]
-        ScopeId(38) (Function)
+        ScopeId(32) (Function)
             Variables:
                 a: Felt
                 b: Felt
-            ScopeId(130) (Block)
-        ScopeId(39) (Function)
+            ScopeId(120) (Block)
+        ScopeId(33) (Function)
             Variables:
                 a: Felt
                 b: Felt
-            ScopeId(131) (Block)
-    ScopeId(32) (Trait)
+            ScopeId(121) (Block)
+    ScopeId(34) (Trait)
         Types:
-            pub fn age (TypeId(35))
+            pub fn age (TypeId(37))
                 Parameters:
-                    Self self (Identifier { id: IdentId(9), location: Location { file_id: FileId(0), start: 291, end: 295 } }, TypeId(35))
+                    Self self (Identifier { id: IdentId(9), location: Location { file_id: FileId(0), start: 291, end: 295 } }, TypeId(37))
                 Return Type: Felt (TypeId(3))
-            pub Self (TypeId(37))
-        ScopeId(33) (TraitMethod)
+            pub Self (TypeId(39))
+        ScopeId(35) (TraitMethod)
             Variables:
                 self: Self
-    ScopeId(34) (Struct)
-    ScopeId(35) (Struct)
     ScopeId(36) (Struct)
-    ScopeId(37) (Function)
-        ScopeId(127) (Block)
+    ScopeId(37) (Struct)
+    ScopeId(38) (Struct)
+    ScopeId(39) (Function)
+        ScopeId(129) (Block)
             Variables:
                 a: Felt
                 b: Felt
@@ -254,90 +288,90 @@ ScopeId(0) (Module)
                         Felt a (Identifier { id: IdentId(24), location: Location { file_id: FileId(0), start: 1688, end: 1689 } }, TypeId(103))
                         Felt b (Identifier { id: IdentId(25), location: Location { file_id: FileId(0), start: 1697, end: 1698 } }, TypeId(103))
                     Return Type: Felt (TypeId(3))
-                    Body: ExprId(282)
-            ScopeId(128) (Function)
+                    Body: ExprId(310)
+            ScopeId(130) (Function)
                 Variables:
                     a: Felt
                     b: Felt
-                ScopeId(129) (Block)
+                ScopeId(131) (Block)
     ScopeId(75) (Impl)
         Types:
-            struct Person (TypeId(38))
+            struct Person (TypeId(40))
                 Fields:
-                    pub Tuple age_height (Identifier { id: IdentId(30), location: Location { file_id: FileId(0), start: 339, end: 349 } }, TypeId(38))
-                    pub Felt year_of_birth (Identifier { id: IdentId(31), location: Location { file_id: FileId(0), start: 383, end: 396 } }, TypeId(38))
+                    pub Tuple age_height (Identifier { id: IdentId(30), location: Location { file_id: FileId(0), start: 339, end: 349 } }, TypeId(40))
+                    pub Felt year_of_birth (Identifier { id: IdentId(31), location: Location { file_id: FileId(0), start: 383, end: 396 } }, TypeId(40))
             pub fn age (TypeId(93))
                 Parameters:
                     Person self (Identifier { id: IdentId(9), location: Location { file_id: FileId(0), start: 451, end: 455 } }, TypeId(93))
                 Return Type: Felt (TypeId(3))
-                Body: ExprId(189)
+                Body: ExprId(217)
         ScopeId(76) (TraitMethod)
             Variables:
                 self: Person
-            ScopeId(120) (Block)
+            ScopeId(122) (Block)
     ScopeId(77) (Impl)
         Types:
-            struct Person (TypeId(38))
+            struct Person (TypeId(40))
                 Fields:
-                    pub Tuple age_height (Identifier { id: IdentId(30), location: Location { file_id: FileId(0), start: 339, end: 349 } }, TypeId(38))
-                    pub Felt year_of_birth (Identifier { id: IdentId(31), location: Location { file_id: FileId(0), start: 383, end: 396 } }, TypeId(38))
+                    pub Tuple age_height (Identifier { id: IdentId(30), location: Location { file_id: FileId(0), start: 339, end: 349 } }, TypeId(40))
+                    pub Felt year_of_birth (Identifier { id: IdentId(31), location: Location { file_id: FileId(0), start: 383, end: 396 } }, TypeId(40))
             pub fn set_age (TypeId(95))
                 Parameters:
                     mut Person self (Identifier { id: IdentId(9), location: Location { file_id: FileId(0), start: 648, end: 652 } }, TypeId(95))
                     Felt new_age (Identifier { id: IdentId(37), location: Location { file_id: FileId(0), start: 662, end: 669 } }, TypeId(95))
                 Return Type: void (TypeId(1))
-                Body: ExprId(196)
+                Body: ExprId(224)
             pub fn get_age (TypeId(96))
                 Parameters:
                     Person self (Identifier { id: IdentId(9), location: Location { file_id: FileId(0), start: 744, end: 748 } }, TypeId(96))
                 Return Type: Felt (TypeId(3))
-                Body: ExprId(202)
+                Body: ExprId(230)
             pub fn set_height (TypeId(97))
                 Parameters:
                     mut Person self (Identifier { id: IdentId(9), location: Location { file_id: FileId(0), start: 837, end: 841 } }, TypeId(97))
                     Felt new_height (Identifier { id: IdentId(40), location: Location { file_id: FileId(0), start: 851, end: 861 } }, TypeId(97))
                 Return Type: void (TypeId(1))
-                Body: ExprId(209)
+                Body: ExprId(237)
             pub fn get_height (TypeId(98))
                 Parameters:
                     Person self (Identifier { id: IdentId(9), location: Location { file_id: FileId(0), start: 942, end: 946 } }, TypeId(98))
                 Return Type: Felt (TypeId(3))
-                Body: ExprId(215)
+                Body: ExprId(243)
             pub fn get_year_of_birth (TypeId(99))
                 Parameters:
                     Person self (Identifier { id: IdentId(9), location: Location { file_id: FileId(0), start: 1038, end: 1042 } }, TypeId(99))
                 Return Type: Felt (TypeId(3))
-                Body: ExprId(218)
+                Body: ExprId(246)
             pub fn set_year_of_birth (TypeId(100))
                 Parameters:
                     mut Person self (Identifier { id: IdentId(9), location: Location { file_id: FileId(0), start: 1136, end: 1140 } }, TypeId(100))
                     Felt new_year_of_birth (Identifier { id: IdentId(44), location: Location { file_id: FileId(0), start: 1150, end: 1167 } }, TypeId(100))
                 Return Type: void (TypeId(1))
-                Body: ExprId(222)
+                Body: ExprId(250)
         ScopeId(78) (ImplMethod)
             Variables:
                 mut self: Person
                 new_age: Felt
-            ScopeId(121) (Block)
+            ScopeId(123) (Block)
         ScopeId(79) (ImplMethod)
             Variables:
                 self: Person
-            ScopeId(122) (Block)
+            ScopeId(124) (Block)
         ScopeId(80) (ImplMethod)
             Variables:
                 mut self: Person
                 new_height: Felt
-            ScopeId(123) (Block)
+            ScopeId(125) (Block)
         ScopeId(81) (ImplMethod)
             Variables:
                 self: Person
-            ScopeId(124) (Block)
+            ScopeId(126) (Block)
         ScopeId(82) (ImplMethod)
             Variables:
                 self: Person
-            ScopeId(125) (Block)
+            ScopeId(127) (Block)
         ScopeId(83) (ImplMethod)
             Variables:
                 mut self: Person
                 new_year_of_birth: Felt
-            ScopeId(126) (Block)
+            ScopeId(128) (Block)

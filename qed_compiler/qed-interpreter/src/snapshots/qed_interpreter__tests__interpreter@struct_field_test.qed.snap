@@ -34,6 +34,20 @@ ScopeId(0) (Module)
                 pub Felt contract_state_tree_height (Identifier { id: IdentId(40), location: Location { file_id: FileId(4), start: 4234, end: 4260 } }, TypeId(20))
                 pub Felt contract_id (Identifier { id: IdentId(42), location: Location { file_id: FileId(4), start: 4276, end: 4287 } }, TypeId(20))
                 pub Felt user_id (Identifier { id: IdentId(41), location: Location { file_id: FileId(4), start: 4303, end: 4310 } }, TypeId(20))
+        pub trait StorageAt (TypeId(59))
+            Body: [DefId(44), DefId(45)]
+            Unchecked Body: [DefId(15), DefId(16)]
+            Generic Parameters: [TypeId(55), TypeId(56)]
+        pub struct StorageRef (TypeId(67))
+            Fields:
+                pub Felt offset (Identifier { id: IdentId(43), location: Location { file_id: FileId(4), start: 3362, end: 3368 } }, TypeId(67))
+                pub ContractMetadata metadata (Identifier { id: IdentId(52), location: Location { file_id: FileId(4), start: 3384, end: 3392 } }, TypeId(67))
+            Generic Parameters: [TypeId(65), TypeId(66)]
+        pub struct StorageRef (TypeId(73))
+            Fields:
+                pub Felt offset (Identifier { id: IdentId(43), location: Location { file_id: FileId(4), start: 3362, end: 3368 } }, TypeId(73))
+                pub ContractMetadata metadata (Identifier { id: IdentId(52), location: Location { file_id: FileId(4), start: 3384, end: 3392 } }, TypeId(73))
+            Generic Parameters: [TypeId(65), TypeId(72)]
         pub fn get_user_id (TypeId(21))
             Return Type: Felt (TypeId(3))
             Body: ExprId(146)
@@ -80,6 +94,9 @@ ScopeId(0) (Module)
         pub CheckedValueRef(RwLock { data: U32(4u32), poisoned: false, .. }) (TypeId(8))
         pub Array (TypeId(9))
         pub Array (TypeId(9))
+        pub Array (TypeId(51))
+        pub Array (TypeId(60))
+        pub CheckedValueRef(RwLock { data: U32(1u32), poisoned: false, .. }) (TypeId(72))
         pub trait Default (TypeId(31))
             Body: [DefId(18)]
             Unchecked Body: [DefId(59)]
