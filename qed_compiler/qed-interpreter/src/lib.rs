@@ -432,10 +432,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let entry_module_id = entry_module_map.get(&entry).unwrap();
         for dependency_entry in dependencies_entry {
             let dependency_module_id = entry_module_map.get(&dependency_entry).unwrap();
-            dependency_graph.add_edge(
-                CrateId::from_module_id(*entry_module_id),
-                CrateId::from_module_id(*dependency_module_id),
-            );
+            dependency_graph.add_edge(entry_module_id.into(), dependency_module_id.into());
         }
         println!("dependency_graph: {:?}", dependency_graph);
         parser.finish(dependency_graph).map_err(|err| {

@@ -167,7 +167,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         mut dependency_graph: Graph<CrateId>,
     ) -> Result<()> {
         let std_module_id = Self::inner_parse(program, ctx, std_path())?;
-        let std_crate_id = CrateId::from_module_id(std_module_id);
+        let std_crate_id = std_module_id.into();
         let crate_ids = dependency_graph
             .nodes()
             .into_iter()
@@ -176,6 +176,8 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         for crate_id in crate_ids {
             dependency_graph.add_edge(crate_id, std_crate_id);
         }
+        program.dependency_graph = dependency_graph;
+        program.dependency_graph.check_cycle::<Error>()?;
 
         let module_ids = program.modules.iter().map(|n| n.id()).collect::<Vec<_>>();
         for module_id in module_ids {
@@ -202,45 +204,6 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
             }
         }
 
-        for module in program.modules.clone().iter() {
-            let parent_module_id = module.id();
-            let use_module_names = module
-                .data()
-                .definitions
-                .iter()
-                .filter_map(|def| {
-                    let def_node = &program.defs[*def];
-                    if let DefinitionNode::Use(node) = def_node {
-                        Some(node)
-                    } else {
-                        None
-                    }
-                })
-                .map(|use_node| {
-                    let mut targets = vec![];
-                    targets.push(use_node.kind.id);
-                    targets.extend(use_node.segments.iter().map(|segment| segment.id));
-                    if let Some(ref target) = use_node.target {
-                        targets.push(target.id);
-                    }
-                    targets
-                })
-                .collect::<Vec<_>>();
-
-            for use_module_name in use_module_names.into_iter() {
-                for n in use_module_name.into_iter().rev() {
-                    if let Some(use_module_id) = program.find_module_by_name(n) {
-                        program.add_module_dependency(Some(parent_module_id), use_module_id);
-                        break;
-                    }
-                }
-            }
-        }
-
-        program.dependency_graph = dependency_graph;
-
-        println!("final dependency_graph: {:?}", program.dependency_graph);
-
         // Remove duplicates children
         program.modules.iter_mut().for_each(|module| {
             let children = module.children_mut();
@@ -248,7 +211,6 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
             children.dedup();
         });
 
-        program.dependency_graph.check_cycle::<Error>()?;
         program.print_module_graph();
         Ok(())
     }

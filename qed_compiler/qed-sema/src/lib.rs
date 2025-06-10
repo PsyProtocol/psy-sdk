@@ -1857,21 +1857,29 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         ctx.symbols
             .load_modules(ctx.program().modules.clone().iter());
 
-        self.traverse_module_tree(ctx, Some(false), &mut |type_checker, module, ctx| {
+        let mut std_primitive_processed = false;
+        self.traverse_module_tree(ctx, &mut |type_checker, module_id, module, ctx| {
+            if !std_primitive_processed {
+                if module.is_std() && module.is_self_primitive() {
+                    ctx.add_module_reference(module_id, module.name.location, false);
+                    type_checker.typecheck_std_primitive_module(ctx)?;
+                    std_primitive_processed = true;
+                }
+            }
             for &def_id in &module.definitions {
                 type_checker.typecheck_definition_predecl(def_id, ctx)?;
             }
             Ok(())
         })?;
         println!("-------------------------------");
-        self.traverse_module_tree(ctx, None, &mut |type_checker, module, ctx| {
+        self.traverse_module_tree(ctx, &mut |type_checker, _, module, ctx| {
             for &def_id in &module.definitions {
                 type_checker.typecheck_definition_header(def_id, ctx)?;
             }
             Ok(())
         })?;
 
-        self.traverse_module_tree(ctx, None, &mut |type_checker, module, ctx| {
+        self.traverse_module_tree(ctx, &mut |type_checker, _, module, ctx| {
             for &def_id in &module.definitions {
                 type_checker.typecheck_definition_body(def_id, ctx)?;
             }
@@ -2484,9 +2492,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         module_id: ModuleId,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
         visited_modules: &mut std::collections::HashSet<ModuleId>,
-        std_primitive_processed: &mut Option<bool>,
         process_module: &mut dyn FnMut(
             &mut Self,
+            ModuleId,
             &ModuleNode,
             &mut TypeCheckerVisitorContext<F, C>,
         ) -> Result<()>,
@@ -2500,28 +2508,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
         ctx.symbols.enter_module(module_id);
         let module = ctx.module(module_id).clone();
-
-        if let Some(primitive_flag) = std_primitive_processed {
-            if module.is_std() && module.is_self_primitive() && !*primitive_flag {
-                ctx.add_module_reference(module_id, module.name.location, false);
-                self.typecheck_std_primitive_module(ctx)?;
-                *primitive_flag = true;
-            }
-        }
-
-        process_module(self, &module, ctx)?;
+        process_module(self, module_id, &module, ctx)?;
 
         // Recursively process child modules
         let modules_tree = &ctx.program().modules;
         let children = modules_tree[module_id].children().to_vec();
         for &child_module_id in &children {
-            self.traverse_module_tree_inner(
-                child_module_id,
-                ctx,
-                visited_modules,
-                std_primitive_processed,
-                process_module,
-            )?;
+            self.traverse_module_tree_inner(child_module_id, ctx, visited_modules, process_module)?;
         }
 
         ctx.symbols.exit_module();
@@ -2531,9 +2524,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     fn traverse_module_tree(
         &mut self,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
-        mut std_primitive_processed: Option<bool>,
         process_module: &mut dyn FnMut(
             &mut Self,
+            ModuleId,
             &ModuleNode,
             &mut TypeCheckerVisitorContext<F, C>,
         ) -> Result<()>,
@@ -2548,7 +2541,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 crate_root_module_id,
                 ctx,
                 &mut visited_modules,
-                &mut std_primitive_processed,
                 process_module,
             )?;
             Ok(())
