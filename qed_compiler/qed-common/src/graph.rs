@@ -45,6 +45,10 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         self.edges.get(node)
     }
 
+    pub fn contains_node(&self, node: &T) -> bool {
+        self.edges.contains_key(node)
+    }
+
     pub fn starting_nodes(&self) -> Vec<&T> {
         let mut starting_nodes = self.edges.keys().collect::<HashSet<_>>();
         for node in self.edges.keys() {
@@ -79,26 +83,30 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         }
     }
 
-    pub fn bfs<'a>(&'a self, visitor: &mut impl FnMut(&'a T)) {
+    pub fn bfs<'a, E: From<Error>>(
+        &'a self,
+        visitor: &mut impl FnMut(&'a T) -> Result<(), E>,
+    ) -> Result<(), E> {
         let starting_nodes = self.starting_nodes();
         let mut visited = HashMap::new();
         for node in starting_nodes {
-            self.bfs_inner(node, &mut visited, visitor);
+            self.bfs_inner(node, &mut visited, visitor)?;
         }
+        Ok(())
     }
 
-    fn bfs_inner<'a>(
+    fn bfs_inner<'a, E: From<Error>>(
         &'a self,
         node: &'a T,
         visited: &mut HashMap<&'a T, bool>,
-        visitor: &mut impl FnMut(&'a T),
-    ) {
+        visitor: &mut impl FnMut(&'a T) -> Result<(), E>,
+    ) -> Result<(), E> {
         let mut queue = VecDeque::new();
         queue.push_back(node);
         visited.insert(node, true);
 
         while let Some(node) = queue.pop_front() {
-            visitor(node);
+            visitor(node)?;
 
             if let Some(neighbors) = self.edges.get(node) {
                 for neighbor in neighbors {
@@ -109,6 +117,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
                 }
             }
         }
+        Ok(())
     }
 
     pub fn ts<'a, E: From<Error>>(

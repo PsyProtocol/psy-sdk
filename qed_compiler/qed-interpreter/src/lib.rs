@@ -363,30 +363,18 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
     where
         F: 'static,
     {
-        println!("entry: {:?}", entry);
-        println!("dependencies_entry: {:?}", dependencies_entry);
         let mut program = Program::new();
-        let mut parser = Parser::new(&mut program, &mut self.context);
-        let mut module_entry_paths = vec![entry.clone()];
-        let mut entry_module_map = HashMap::new();
-        module_entry_paths.extend(dependencies_entry);
-        for entry_path in module_entry_paths {
-            let module_id = parser.parse(entry_path.clone()).map_err(|err| {
-                let context = lowering_parse_error(&err, &parser.program());
-                anyhow::Error::from(err).context(context)
-            })?;
-            println!("path: {:?}, module_id: {:?}", entry_path, module_id);
-            entry_module_map.insert(entry_path, module_id);
+        let mut crate_path_graph = Graph::new();
+        crate_path_graph.add_node(entry.clone());
+        for dependency_entry in dependencies_entry {
+            crate_path_graph.add_edge(entry.clone(), dependency_entry.clone());
         }
 
-        let mut dependency_graph = Graph::<CrateId>::new();
-        let entry_module_id = entry_module_map.get(&entry).expect("entry not found");
-        dependency_graph.add_node(entry_module_id.into());
-        for (_entry_path, dependency_module_id) in entry_module_map.iter() {
-            dependency_graph.add_edge(entry_module_id.into(), dependency_module_id.into());
-        }
-        parser.finish(dependency_graph)?;
-        println!("final dependency_graph: {:?}", program.dependency_graph);
+        let mut parser = Parser::new(&mut program, &mut self.context, crate_path_graph);
+        parser.parse().map_err(|err| {
+            let context = lowering_parse_error(&err, &program);
+            anyhow::Error::from(err).context(context)
+        })?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
@@ -417,30 +405,17 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         F: 'static,
     {
         let mut program = Program::new();
-        let mut parser = Parser::new(&mut program, &mut self.context);
-        let mut module_entry_paths = vec![entry.clone()];
-        let mut entry_module_map = HashMap::new();
-        module_entry_paths.extend(dependencies_entry.clone());
-        for entry_path in module_entry_paths {
-            let module_id = parser.parse(entry_path.clone()).map_err(|err| {
-                let err_desc = parse_error_to_diagnostic(&err, &parser.program());
-                TypeCheckError::Parse(err_desc)
-            })?;
-            entry_module_map.insert(entry_path, module_id);
-        }
-        println!("entry_module_map: {:?}", entry_module_map);
-        let mut dependency_graph = Graph::new();
-        let entry_module_id = entry_module_map.get(&entry).unwrap();
-        dependency_graph.add_node(entry_module_id.into());
+
+        let mut crate_path_graph = Graph::new();
+        crate_path_graph.add_node(entry.clone());
         for dependency_entry in dependencies_entry {
-            let dependency_module_id = entry_module_map.get(&dependency_entry).unwrap();
-            dependency_graph.add_edge(entry_module_id.into(), dependency_module_id.into());
+            crate_path_graph.add_edge(entry.clone(), dependency_entry.clone());
         }
-        println!("dependency_graph: {:?}", dependency_graph);
-        parser.finish(dependency_graph).map_err(|err| {
-            let message = format!("Cycle error: {}", err);
-            eprintln!("Error: {}", message);
-            TypeCheckError::Cycle(message)
+
+        let mut parser = Parser::new(&mut program, &mut self.context, crate_path_graph);
+        parser.parse().map_err(|err| {
+            let err_desc = parse_error_to_diagnostic(&err, &program);
+            TypeCheckError::Parse(err_desc)
         })?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));

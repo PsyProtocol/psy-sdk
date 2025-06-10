@@ -9,7 +9,7 @@ use qed_common::Graph;
 use qed_lexer::{GenericTokenTransformer, Lexer, Loc, Token};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
 
@@ -23,29 +23,47 @@ lalrpop_mod!(pub qed);
 pub struct Parser<'a, 'b, F: Clone + From<u32>, C> {
     program: &'a mut Program<F>,
     ctx: &'b mut C,
+    crate_path_graph: Graph<PathBuf>,
 }
 
 impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> {
-    pub fn new(program: &'a mut Program<F>, ctx: &'b mut C) -> Self {
-        Self { program, ctx }
+    pub fn new(
+        program: &'a mut Program<F>,
+        ctx: &'b mut C,
+        crate_path_graph: Graph<PathBuf>,
+    ) -> Self {
+        Self {
+            program,
+            ctx,
+            crate_path_graph,
+        }
     }
 
-    fn decouple(&mut self) -> (&mut Program<F>, &mut C) {
-        (self.program, self.ctx)
-    }
-
-    pub fn program(&self) -> &Program<F> {
-        &self.program
-    }
-
-    pub fn parse(&mut self, root_module_path: PathBuf) -> Result<ModuleId> {
-        let (program, ctx) = self.decouple();
-        Self::parse_inner(program, ctx, root_module_path)
-    }
-
-    pub fn finish(&mut self, dependency_graph: Graph<CrateId>) -> Result<()> {
-        let (program, ctx) = self.decouple();
-        Self::finish_inner(program, ctx, dependency_graph)
+    pub fn parse(&mut self) -> Result<()> {
+        let mut crate_id_map = HashMap::new();
+        let entry_paths = self.crate_path_graph.clone();
+        entry_paths.bfs(&mut |entry_path| {
+            let Self { program, ctx, .. } = self;
+            let module_id = Self::parse_inner(program, ctx, entry_path.clone())?;
+            crate_id_map.insert(entry_path.clone(), CrateId::from(module_id));
+            Ok::<(), Error>(())
+        })?;
+        let mut crate_dependency_graph = Graph::new();
+        for entry_path in entry_paths.nodes() {
+            let node_crate_id = *crate_id_map
+                .get(entry_path)
+                .unwrap_or_else(|| panic!("crate_id not found for entry_path: {:?}", entry_path));
+            crate_dependency_graph.add_node(node_crate_id.clone());
+            for dependency in entry_paths.edges(entry_path).unwrap() {
+                let dep_crate_id = *crate_id_map.get(dependency).unwrap_or_else(|| {
+                    panic!("crate_id not found for entry_path: {:?}", entry_path)
+                });
+                crate_dependency_graph.add_edge(node_crate_id, dep_crate_id);
+            }
+        }
+        let Self { program, ctx, .. } = self;
+        Self::finish_inner(program, ctx, crate_dependency_graph)?;
+        Ok(())
     }
 
     fn parse_module(
@@ -156,7 +174,6 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
             visited.insert(current_path);
         }
 
-        program.dependency_graph.check_cycle::<Error>()?;
         let entry_module_id = entry_module_id.ok_or(Error::NoEntryModule(root_module_path))?;
         Ok(entry_module_id)
     }
@@ -177,6 +194,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         for crate_id in crate_ids {
             dependency_graph.add_edge(crate_id, std_crate_id);
         }
+        println!("final dependency_graph: {:?}", dependency_graph);
         program.dependency_graph = dependency_graph;
         program.dependency_graph.check_cycle::<Error>()?;
 
@@ -267,24 +285,16 @@ fn std_path() -> PathBuf {
 mod tests {
     use super::Parser;
     use qed_ast::Program;
+    use qed_common::Graph;
     use qedlang_core::dpn::ops::exec_context::QExecContext;
     use std::path::PathBuf;
     #[test]
     fn test_qed_parser() {
         let mut program = Program::new();
         let mut ctx = QExecContext::new();
-        let mut parser = Parser::new(&mut program, &mut ctx);
-
-        let entry_file = PathBuf::from("../tests/storage_test.qed");
-        let result = parser.parse(entry_file);
-
-        match result {
-            Ok(program) => {
-                println!("{:#?}", program);
-            }
-            Err(e) => {
-                panic!("Parsing failed: {:?}", e);
-            }
-        }
+        let mut crate_path_graph = Graph::new();
+        crate_path_graph.add_node(PathBuf::from("../tests/storage_test.qed"));
+        let mut parser = Parser::new(&mut program, &mut ctx, crate_path_graph);
+        parser.parse().unwrap();
     }
 }
