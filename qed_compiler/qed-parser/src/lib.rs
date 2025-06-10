@@ -150,7 +150,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
                     false,
                     dep_path,
                     Some(module_id),
-                    visibility.clone(),
+                    *visibility,
                     dep_module.location,
                 ));
             }
@@ -194,7 +194,6 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         for crate_id in crate_ids {
             dependency_graph.add_edge(crate_id, std_crate_id);
         }
-        println!("final dependency_graph: {:?}", dependency_graph);
         program.dependency_graph = dependency_graph;
         program.dependency_graph.check_cycle::<Error>()?;
 
@@ -215,9 +214,9 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
                 }));
                 let definitions = &mut program.modules[module_id].data_mut().definitions;
                 definitions.insert(0, def_id);
-                definitions.sort_by(|a, b| {
-                    let a = &program.defs[*a];
-                    let b = &program.defs[*b];
+                definitions.sort_by(|&a, &b| {
+                    let a = &program.defs[a];
+                    let b = &program.defs[b];
                     b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Less)
                 });
             }
@@ -230,7 +229,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
             children.dedup();
         });
 
-        program.print_module_graph();
+        // program.print_module_graph();
         Ok(())
     }
 }

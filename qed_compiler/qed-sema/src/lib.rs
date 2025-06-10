@@ -1871,7 +1871,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             }
             Ok(())
         })?;
-        println!("-------------------------------");
         self.traverse_module_tree(ctx, &mut |type_checker, _, module, ctx| {
             for &def_id in &module.definitions {
                 type_checker.typecheck_definition_header(def_id, ctx)?;
@@ -2503,22 +2502,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             return Ok(());
         }
         visited_modules.insert(module_id);
-        let module_name = ctx.program.module_name(module_id);
-        println!("traverse_module_tree_inner: {}", module_name);
 
         ctx.symbols.enter_module(module_id);
-
         // Recursively process child modules
         let modules_tree = &ctx.program().modules;
         let children = modules_tree[module_id].children().to_vec();
         for &child_module_id in &children {
             self.traverse_module_tree_inner(child_module_id, ctx, visited_modules, process_module)?;
         }
-
         let module = ctx.module(module_id).clone();
         process_module(self, module_id, &module, ctx)?;
-
         ctx.symbols.exit_module();
+
         Ok(())
     }
 
@@ -2536,8 +2531,6 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         let dependency_graph = ctx.program().dependency_graph.clone();
         dependency_graph.ts::<Error>(&mut |&crate_id| {
             let crate_root_module_id = ModuleId::from(crate_id);
-            let name = ctx.program.module_name(crate_root_module_id);
-            println!("traverse_module_tree: {}", name);
             self.traverse_module_tree_inner(
                 crate_root_module_id,
                 ctx,

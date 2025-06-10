@@ -62,6 +62,12 @@ impl<F: Clone + From<u32>> Program<F> {
             .map(|m| m.id())
     }
 
+    pub fn module_name(&self, module_id: impl Into<ModuleId>) -> &Ident {
+        let module_id = module_id.into();
+        let module = self.modules[module_id].data();
+        &self.interner[module.name.id]
+    }
+
     pub fn add_module_child(&mut self, parent: Option<ModuleId>, child: ModuleId) {
         if let Some(parent) = parent {
             self.modules.add_child(parent, child);
@@ -80,12 +86,6 @@ impl<F: Clone + From<u32>> Program<F> {
             start: location.start,
             end: location.end,
         }
-    }
-
-    pub fn module_name(&self, module_id: impl Into<ModuleId>) -> &Ident {
-        let module_id = module_id.into();
-        let module = self.modules[module_id].data();
-        &self.interner[module.name.id]
     }
 
     pub fn is_module_std(&self, module_id: impl Into<ModuleId>) -> bool {
