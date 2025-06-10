@@ -381,6 +381,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         let mut dependency_graph = Graph::<CrateId>::new();
         let entry_module_id = entry_module_map.get(&entry).expect("entry not found");
+        dependency_graph.add_node(entry_module_id.into());
         for (_entry_path, dependency_module_id) in entry_module_map.iter() {
             dependency_graph.add_edge(entry_module_id.into(), dependency_module_id.into());
         }
@@ -430,6 +431,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         println!("entry_module_map: {:?}", entry_module_map);
         let mut dependency_graph = Graph::new();
         let entry_module_id = entry_module_map.get(&entry).unwrap();
+        dependency_graph.add_node(entry_module_id.into());
         for dependency_entry in dependencies_entry {
             let dependency_module_id = entry_module_map.get(&dependency_entry).unwrap();
             dependency_graph.add_edge(entry_module_id.into(), dependency_module_id.into());

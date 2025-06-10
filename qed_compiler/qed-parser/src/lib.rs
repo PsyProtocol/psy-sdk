@@ -168,6 +168,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
     ) -> Result<()> {
         let std_module_id = Self::parse_inner(program, ctx, std_path())?;
         let std_crate_id = std_module_id.into();
+        dependency_graph.add_node(std_crate_id);
         let crate_ids = dependency_graph
             .nodes()
             .into_iter()

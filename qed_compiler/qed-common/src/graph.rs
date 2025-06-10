@@ -16,42 +16,39 @@ pub enum Color {
 
 #[derive(Clone, Debug)]
 pub struct Graph<T> {
-    nodes: HashMap<T, IndexSet<T>>,
-}
-
-impl<T> Deref for Graph<T> {
-    type Target = HashMap<T, IndexSet<T>>;
-    fn deref(&self) -> &Self::Target {
-        &self.nodes
-    }
+    edges: HashMap<T, IndexSet<T>>,
 }
 
 impl<T: Clone + Eq + Hash> Graph<T> {
     pub fn new() -> Self {
         Self {
-            nodes: HashMap::new(),
+            edges: HashMap::new(),
         }
+    }
+
+    pub fn add_node(&mut self, node: T) {
+        self.edges.entry(node).or_default();
     }
 
     pub fn add_edge(&mut self, from: T, to: T) {
         if from != to {
-            self.nodes.entry(from).or_default().insert(to.clone());
+            self.edges.entry(from).or_default().insert(to.clone());
         }
-        self.nodes.entry(to).or_default();
+        self.edges.entry(to).or_default();
     }
 
     pub fn nodes(&self) -> Vec<&T> {
-        self.nodes.keys().collect()
+        self.edges.keys().collect()
     }
 
     pub fn edges(&self, node: &T) -> Option<&IndexSet<T>> {
-        self.nodes.get(node)
+        self.edges.get(node)
     }
 
     pub fn starting_nodes(&self) -> Vec<&T> {
-        let mut starting_nodes = self.nodes.keys().collect::<HashSet<_>>();
-        for node in self.nodes.keys() {
-            if let Some(neighbors) = self.nodes.get(node) {
+        let mut starting_nodes = self.edges.keys().collect::<HashSet<_>>();
+        for node in self.edges.keys() {
+            if let Some(neighbors) = self.edges.get(node) {
                 for neighbor in neighbors {
                     starting_nodes.remove(neighbor);
                 }
@@ -75,7 +72,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
     ) {
         visitor(node, parent);
 
-        if let Some(neighbors) = self.nodes.get(&node) {
+        if let Some(neighbors) = self.edges.get(&node) {
             for neighbor in neighbors {
                 self.dfs_inner(neighbor, Some(node), visitor);
             }
@@ -103,7 +100,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         while let Some(node) = queue.pop_front() {
             visitor(node);
 
-            if let Some(neighbors) = self.nodes.get(node) {
+            if let Some(neighbors) = self.edges.get(node) {
                 for neighbor in neighbors {
                     if !visited.contains_key(neighbor) {
                         visited.insert(neighbor, true);
@@ -134,7 +131,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
     ) -> Result<(), E> {
         colors.insert(node, Color::Grey);
 
-        if let Some(neighbors) = self.nodes.get(&node) {
+        if let Some(neighbors) = self.edges.get(&node) {
             for neighbor in neighbors {
                 match colors.get(neighbor) {
                     Some(Color::Grey) => return Err(E::from(Error::CycleGraph)),
