@@ -45,19 +45,15 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         entry_paths.bfs(&mut |entry_path| {
             let Self { program, ctx, .. } = self;
             let module_id = Self::parse_inner(program, ctx, entry_path.clone())?;
-            crate_id_map.insert(entry_path.clone(), CrateId::from(module_id));
+            crate_id_map.insert(entry_path, CrateId::from(module_id));
             Ok::<(), Error>(())
         })?;
         let mut crate_dependency_graph = Graph::new();
         for entry_path in entry_paths.nodes() {
-            let node_crate_id = *crate_id_map
-                .get(entry_path)
-                .unwrap_or_else(|| panic!("crate_id not found for entry_path: {:?}", entry_path));
-            crate_dependency_graph.add_node(node_crate_id.clone());
-            for dependency in entry_paths.edges(entry_path).unwrap() {
-                let dep_crate_id = *crate_id_map.get(dependency).unwrap_or_else(|| {
-                    panic!("crate_id not found for entry_path: {:?}", entry_path)
-                });
+            let node_crate_id = crate_id_map[entry_path];
+            crate_dependency_graph.add_node(node_crate_id);
+            for dep_path in entry_paths.edges(entry_path).unwrap() {
+                let dep_crate_id = crate_id_map[dep_path];
                 crate_dependency_graph.add_edge(node_crate_id, dep_crate_id);
             }
         }

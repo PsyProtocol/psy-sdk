@@ -4336,6 +4336,7 @@ dependencies = [
  "kvq",
  "plonky2",
  "qed-ast",
+ "qed-common",
  "qed-fmt",
  "qed-interpreter",
  "qed-parser",

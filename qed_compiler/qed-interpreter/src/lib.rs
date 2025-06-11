@@ -42,12 +42,10 @@ pub struct InterpretResult {
 pub fn interpret(
     contract_name: Option<String>,
     method_names: Vec<String>,
-    entry: PathBuf,
-    dependencies_entries: Vec<PathBuf>,
+    crate_path_graph: Graph<PathBuf>,
 ) -> anyhow::Result<InterpretResult> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let (mut typechecker, mut ctx) =
-        interpreter.typecheck(entry, dependencies_entries.into_iter().collect())?;
+    let (mut typechecker, mut ctx) = interpreter.typecheck(crate_path_graph)?;
     let compile_results = interpreter.interpret(
         &mut typechecker,
         &mut ctx,
@@ -355,21 +353,26 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         Ok((method_name, method_id, outputs.to_felts()))
     }
 
+    pub fn typecheck_single(
+        &mut self,
+        file: PathBuf,
+    ) -> anyhow::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>)>
+    where
+        F: 'static,
+    {
+        let mut crate_path_graph = Graph::new();
+        crate_path_graph.add_node(file);
+        self.typecheck(crate_path_graph)
+    }
+
     pub fn typecheck(
         &mut self,
-        entry: PathBuf,
-        dependencies_entry: Vec<PathBuf>,
+        crate_path_graph: Graph<PathBuf>,
     ) -> anyhow::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>)>
     where
         F: 'static,
     {
         let mut program = Program::new();
-        let mut crate_path_graph = Graph::new();
-        crate_path_graph.add_node(entry.clone());
-        for dependency_entry in dependencies_entry {
-            crate_path_graph.add_edge(entry.clone(), dependency_entry.clone());
-        }
-
         let mut parser = Parser::new(&mut program, &mut self.context, crate_path_graph);
         parser.parse().map_err(|err| {
             let context = lowering_parse_error(&err, &program);
@@ -398,19 +401,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
     pub fn typecheck_lsp(
         &mut self,
-        entry: PathBuf,
-        dependencies_entry: Vec<PathBuf>,
+        crate_path_graph: Graph<PathBuf>,
     ) -> std::result::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>), TypeCheckError>
     where
         F: 'static,
     {
         let mut program = Program::new();
-
-        let mut crate_path_graph = Graph::new();
-        crate_path_graph.add_node(entry.clone());
-        for dependency_entry in dependencies_entry {
-            crate_path_graph.add_edge(entry.clone(), dependency_entry.clone());
-        }
 
         let mut parser = Parser::new(&mut program, &mut self.context, crate_path_graph);
         parser.parse().map_err(|err| {
@@ -1642,12 +1638,16 @@ mod tests {
     #[serial]
     fn test_crates_resolve() {
         let entry: PathBuf = "../tests/module_test/foo/src/main.qed".into();
-        let dependencies_entries = vec!["../tests/module_test/bar/src/lib.qed".into()];
+        let dependency_entry: PathBuf = "../tests/module_test/bar/src/lib.qed".into();
+
+        let mut crate_path_graph = Graph::new();
+        crate_path_graph.add_node(entry.clone());
+        crate_path_graph.add_edge(entry.clone(), dependency_entry);
+
         let result = super::interpret(
             Option::<String>::None,
             vec!["main".into()],
-            entry.clone(),
-            dependencies_entries,
+            crate_path_graph,
         )
         .unwrap();
         println!("compile_result: {:?}", result.compile_results);
@@ -1667,8 +1667,7 @@ mod tests {
             "{struct*.qed,fn_test.qed,fn_chain_call_test.qed}",
             |path| {
                 let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-                let (mut typechecker, mut ctx) =
-                    interpreter.typecheck(path.into(), vec![]).unwrap();
+                let (mut typechecker, mut ctx) = interpreter.typecheck_single(path.into()).unwrap();
 
                 let compile_results = interpreter
                     .interpret(
@@ -1731,7 +1730,7 @@ mod tests {
         insta::glob!("../../tests", "*_test.qed", |path| {
             let entry: PathBuf = path.into();
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-            let (_typechecker, mut ctx) = interpreter.typecheck(entry.clone(), vec![]).unwrap();
+            let (_typechecker, mut ctx) = interpreter.typecheck_single(entry.clone()).unwrap();
 
             #[allow(static_mut_refs)]
             unsafe {
@@ -1746,7 +1745,7 @@ mod tests {
             writer.flush().unwrap();
 
             assert!(
-                interpreter.typecheck(entry.clone(), vec![]).is_ok(),
+                interpreter.typecheck_single(entry.clone()).is_ok(),
                 "{}",
                 entry.display()
             );

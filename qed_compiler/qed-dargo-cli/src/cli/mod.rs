@@ -91,34 +91,16 @@ where
     run(cmd, workspace)
 }
 
-#[derive(Clone, Debug)]
-pub struct EntryManager {
-    pub entry: PathBuf,
-    pub dependencies_entries: HashSet<PathBuf>,
-}
-
-impl EntryManager {
-    pub fn new(entry: PathBuf) -> Self {
-        Self {
-            entry,
-            dependencies_entries: HashSet::new(),
-        }
-    }
-
-    pub fn add_dependency_entry(&mut self, entry: PathBuf) -> bool {
-        self.dependencies_entries.insert(entry)
-    }
-}
-
 pub fn resolve_crate_path_graph(
     workspace: &Workspace,
     entry_path: Option<PathBuf>,
 ) -> Graph<PathBuf> {
-    let package = workspace.package.clone();
+    let mut package = workspace.package.clone();
     let package_entry_path = match entry_path {
         Some(entry_path) => entry_path,
         None => package.entry_canonical_path(),
     };
+    package.entry_path = package_entry_path;
     let mut graph = Graph::new();
     let mut package_stack = VecDeque::new();
     package_stack.push_back(&package);
@@ -139,36 +121,6 @@ pub fn resolve_crate_path_graph(
         }
     }
     graph
-}
-
-pub fn resolve_entries(workspace: &Workspace, entry_path: Option<PathBuf>) -> Result<EntryManager> {
-    let package = workspace.package.clone();
-    let package_entry_path = match entry_path {
-        Some(entry_path) => entry_path,
-        None => package.entry_canonical_path(),
-    };
-
-    if !package_entry_path.exists() {
-        return Err(CliError::MissingEntryFile {
-            toml: workspace.root_dir.join("Dargo.toml"),
-            entry: package_entry_path,
-        });
-    }
-    let mut entry_manager = EntryManager::new(package_entry_path);
-    let mut package_stack = vec![package];
-    while let Some(package) = package_stack.pop() {
-        for dep in package.dependencies.values() {
-            match dep {
-                Dependency::Remote { package } | Dependency::Local { package } => {
-                    let entry_path = package.entry_canonical_path();
-                    if entry_manager.add_dependency_entry(entry_path) {
-                        package_stack.push(package.clone());
-                    }
-                }
-            }
-        }
-    }
-    Ok(entry_manager)
 }
 
 pub(crate) fn save_build_artifact_to_file<T: ?Sized + serde::Serialize>(

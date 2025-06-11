@@ -31,13 +31,13 @@ pub(super) fn compile_workspace_full(
     workspace: &Workspace,
     compile_options: &CompileOptions,
 ) -> Result<CompilationResult> {
-    let entry_manager = super::resolve_entries(workspace, compile_options.entry_path.clone())?;
+    let crate_path_graph =
+        super::resolve_crate_path_graph(workspace, compile_options.entry_path.clone());
 
     let mut interpret_result = qed_interpreter::interpret(
         compile_options.contract_name.clone(),
         compile_options.method_names.clone(),
-        entry_manager.entry,
-        entry_manager.dependencies_entries.into_iter().collect(),
+        crate_path_graph,
     )?;
 
     let function_metadata = extract_function_metadata_from_context(

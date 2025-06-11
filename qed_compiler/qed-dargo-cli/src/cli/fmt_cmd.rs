@@ -13,7 +13,7 @@ pub(crate) struct FmtCommand {
 pub(crate) fn run(args: FmtCommand) -> Result<()> {
     let entry = args.file;
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let (_, mut ctx) = interpreter.typecheck(entry.clone(), vec![])?;
+    let (_, mut ctx) = interpreter.typecheck_single(entry.clone())?;
     let formatted_content = ctx.format_file(&entry)?;
     write_to_file(formatted_content.as_bytes(), &entry)?;
     Ok(())
