@@ -7,7 +7,6 @@ use qed_rollup_circuit::{coordinator::coordinator_helper::QEDCoordinatorCircuitM
 use qed_store::config::store_config::QEDFelt;
 use std::fs::File;
 use std::io::Write;
-use homedir::my_home;
 
 fn run_gen_config() -> anyhow::Result<()> {
     const D: usize = 2;

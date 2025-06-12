@@ -218,7 +218,7 @@ fn sha256_digest_u32_array_with_length<F: RichField + Extendable<D>, const D: us
             block_data[i] = data[standard_rounds * 16 + i];
         }
         block_data[remaining] = builder.constant_u32(0x80000000);
-        block_data[14] = builder.constant_u32((length_bits >> 32) as u32);
+        block_data[14] = builder.constant_u32((length_bits as u64 >> 32u64) as u32);
         block_data[15] = builder.constant_u32((length_bits & 0xffffffff) as u32);
 
         sha256_digest_block(builder, &mut state, &block_data, &round_constants);
@@ -287,7 +287,7 @@ fn sha256_digest_u32_array_with_byte_length<F: RichField + Extendable<D>, const 
             block_data[remaining] = builder.constant_u32(0x80000000);
         }
 
-        block_data[14] = builder.constant_u32((length_bits >> 32) as u32);
+        block_data[14] = builder.constant_u32((length_bits as u64 >> 32u64) as u32);
         block_data[15] = builder.constant_u32((length_bits & 0xffffffff) as u32);
 
         sha256_digest_block(builder, &mut state, &block_data, &round_constants);
