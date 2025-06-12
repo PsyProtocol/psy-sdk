@@ -4,11 +4,16 @@ use qed_core::{config::network_constants::COORD_API_REGISTER_USER_CHANNEL_ID, da
 use serde::{Deserialize, Serialize};
 
 use crate::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
+use plonky2::field::goldilocks_field::GoldilocksField;
+use ts_rs::TS;
+
+
 
 
 #[derive(
-    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash
+    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash,TS
 )]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct ZKPublicKeyInfo<F: RichField> {
     pub fingerprint: QHashOut<F>,

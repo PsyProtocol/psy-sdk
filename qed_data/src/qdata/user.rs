@@ -1,12 +1,15 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{hash::hash_types::RichField, plonk::config::AlgebraicHasher};
+use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
 use qed_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QEDUserLeaf<F: RichField> {
     pub public_key: QHashOut<F>,
     pub user_state_tree_root: QHashOut<F>,

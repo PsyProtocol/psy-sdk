@@ -29,6 +29,7 @@ use serde::Serialize;
 use serde::Serializer;
 use serde_with::serde_as;
 use std::borrow::Cow;
+use ts_rs::TS;
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
@@ -375,48 +376,59 @@ impl From<ErrorCode> for RpcError {
 }
 
 #[serde_as]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export)]
 pub struct QTokenTransferRPCRequest {
     pub user_id: u64,
     pub to: u64,
     pub value: u64,
     pub nonce: u64,
 
+    #[ts(as = "String")]
     #[serde_as(as = "serde_with::hex::Hex")]
     pub signature_proof: Vec<u8>,
 }
 
 #[serde_as]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export)]
 pub struct QClaimDepositRPCRequest {
     pub user_id: u64,
     pub deposit_id: u64,
     pub value: u64,
 
+    #[ts(as = "String")]
     pub txid: Hash256,
 
+    #[ts(as = "String")]
     #[serde_as(as = "serde_with::hex::Hex")]
     pub public_key: [u8; 33],
 
+    #[ts(as = "String")]
     #[serde_as(as = "serde_with::hex::Hex")]
     pub signature_proof: Vec<u8>,
 }
 
 #[serde_as]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export)]
 pub struct QAddWithdrawalRPCRequest {
     pub user_id: u64,
     pub value: u64,
     pub nonce: u64,
 
     pub destination_type: u8,
+
+    #[ts(type = "String")]
     pub destination: Hash160,
 
+    #[ts(type = "String")]
     #[serde_as(as = "serde_with::hex::Hex")]
     pub signature_proof: Vec<u8>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 #[serde(transparent)]
 pub struct QRegisterUserRPCRequest<F: RichField> {
@@ -432,30 +444,35 @@ impl<F: RichField> QRegisterUserRPCRequest<F> {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 #[serde(transparent)]
 pub struct QDeployContractRPCRequest<F: RichField> {
     pub deploy_contract: QBCDeployContract<F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QSubmitEndCapRPCRequest<F: RichField> {
     pub user_ec_input: SubmitUserEndCapNonProofInput<F>,
+    #[ts(type  = "any")]
     pub proof: ProofWithPublicInputs<GoldilocksField, C, D>,
 }
 
 // lps
 // QTreeDataStoreReaderSync
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QUserContractStateTreeRootRPCRequest {
     pub checkpoint_id: u64,
     pub user_id: u64,
     pub contract_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractStateTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
@@ -463,7 +480,8 @@ pub struct QUserContractStateTreeRootFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export)]
 #[serde(bound = "")]
 pub struct QUserContractStateTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
@@ -472,7 +490,8 @@ pub struct QUserContractStateTreeLeafHashRPCRequest {
     pub height: u8,
     pub leaf_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractStateTreeLeafHashFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
@@ -482,7 +501,8 @@ pub struct QUserContractStateTreeLeafHashFRPCRequest<F: RichField> {
     pub leaf_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export)]
 #[serde(bound = "")]
 pub struct QUserContractStateTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
@@ -491,7 +511,8 @@ pub struct QUserContractStateTreeMerkleProofRPCRequest {
     pub height: u8,
     pub leaf_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractStateTreeMerkleProofFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
@@ -501,27 +522,31 @@ pub struct QUserContractStateTreeMerkleProofFRPCRequest<F: RichField> {
     pub leaf_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractTreeRootRPCRequest {
     pub checkpoint_id: u64,
     pub user_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub user_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export)]
 #[serde(bound = "")]
 pub struct QUserContractTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub user_id: u64,
     pub contract_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractTreeLeafHashFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
@@ -529,14 +554,16 @@ pub struct QUserContractTreeLeafHashFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export)]
 #[serde(bound = "")]
 pub struct QUserContractTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub user_id: u64,
     pub contract_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractTreeMerkleProofFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
@@ -544,82 +571,95 @@ pub struct QUserContractTreeMerkleProofFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export)]
 #[serde(bound = "")]
 pub struct QUserRegistrationTreeRootRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserRegistrationTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export)]
 #[serde(bound = "")]
 pub struct QUserRegistrationTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub leaf_index: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserRegistrationTreeLeafHashFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub leaf_index: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export)]
 #[serde(bound = "")]
 pub struct QUserRegistrationTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub leaf_index: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserRegistrationTreeMerkleProofFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub leaf_index: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QUserTreeRootRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QUserTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QUserTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub user_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QUserTreeLeafHashFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub user_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QUserTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub user_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QUserTreeMerkleProofFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub user_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QUserSubTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub root_level: u8,
@@ -627,272 +667,316 @@ pub struct QUserSubTreeMerkleProofRPCRequest {
     pub leaf_index: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QContractFunctionTreeRootRPCRequest {
     pub checkpoint_id: u64,
     pub contract_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractFunctionTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QContractFunctionTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub contract_id: u32,
     pub function_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractFunctionTreeLeafHashFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub contract_id: F,
     pub function_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QContractFunctionTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub contract_id: u32,
     pub function_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractFunctionTreeMerkleProofFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub contract_id: F,
     pub function_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QContractTreeRootRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QContractTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub contract_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractTreeLeafHashFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QContractTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub contract_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractTreeMerkleProofFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QDepositTreeRootRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QDepositTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QDepositTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub deposit_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QDepositTreeLeafHashFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub deposit_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QDepositTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub deposit_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QDepositTreeMerkleProofFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub deposit_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QWithdrawalTreeRootRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QWithdrawalTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QWithdrawalTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub withdrawal_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QWithdrawalTreeLeafHashFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub withdrawal_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QWithdrawalTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub withdrawal_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QWithdrawalTreeMerkleProofFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub withdrawal_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QLatestCheckpointTreeRootRPCRequest {}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QCheckpointTreeRootRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QCheckpointTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QCheckpointTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub leaf_checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QCheckpointTreeLeafHashFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub leaf_checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QCheckpointTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub leaf_checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QCheckpointTreeMerkleProofFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub leaf_checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QCheckpointGlobalStateRootsRPCRequest {
     pub checkpoint_id: u64,
 }
 
 // QMetaDataStoreReaderSync
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QUserLeafDataRPCRequest {
     pub checkpoint_id: u64,
     pub user_id: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QUserLeafDataFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
     pub user_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QContractLeafDataRPCRequest {
     pub contract_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractLeafDataFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QCheckpointLeafDataRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QCheckpointLeafDataFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QContractCodeDefinitionRPCRequest {
     pub contract_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractCodeDefinitionFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QLatestL2BlockStateRPCRequest {}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export)]
 pub struct QL2BlockStateRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QL2BlockStateFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
 #[serde(untagged)]
 pub enum QRPCRequest<F: RichField> {
     QTokenTransferRPCRequest((u32, QTokenTransferRPCRequest)),

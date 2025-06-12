@@ -10,15 +10,20 @@ use plonky2::{
     hash::hash_types::{HashOut, RichField},
     plonk::config::GenericHashOut,
 };
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::serde_as;
 
 use super::base_types::{
     felt248::felt248_hashout_to_hash256_le, felt252::{felt252_hashout_to_hash256_le, hashout_to_felt252_hashout}, hash256::Hash256
 };
+use ts_rs::TS;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash,TS)]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QHashOut<F: Field>(pub HashOut<F>);
+
 pub type GoldilocksHashOut = QHashOut<GoldilocksField>;
 
 #[serde_as]

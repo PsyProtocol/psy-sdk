@@ -3,7 +3,7 @@ use clap::{Args, Parser};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
-
+use ts_rs::TS;
 #[derive(Clone, Args)]
 pub struct RandomWalletArgs {}
 
@@ -202,7 +202,8 @@ pub struct LPSArgs {
     pub contract_call_path: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Parser)]
+#[derive(Debug, Clone, Deserialize, Serialize, Parser, TS)]
+#[ts(export)]
 pub struct ContractCallArgs {
     #[arg(long, default_value = "0", env)]
     pub contract_id: u64,

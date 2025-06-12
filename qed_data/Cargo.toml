@@ -24,3 +24,4 @@ serde_json = { workspace = true }
 kvq = { path = "../kvq" }
 qed_core = { path = "../qed_core" }
 qed_crypto = { path = "../qed_crypto" }
+ts-rs =  { workspace = true }

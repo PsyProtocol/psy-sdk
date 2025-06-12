@@ -2,6 +2,7 @@ use hex::FromHexError;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use ts_rs::TS;
 use std::fmt::Display;
 
 #[serde_as]
@@ -14,8 +15,13 @@ impl<const N: usize> Display for U8BytesFixed<N> {
     }
 }
 #[serde_as]
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
-pub struct U8Bytes(#[serde_as(as = "serde_with::hex::Hex")] pub Vec<u8>);
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug, TS)]
+#[ts(export)]
+pub struct U8Bytes(
+    #[serde_as(as = "serde_with::hex::Hex")]
+    #[ts(as = "String")]
+    pub Vec<u8>
+);
 
 impl U8Bytes {
     pub fn from_hex_string(s: &str) -> Result<Self, FromHexError> {

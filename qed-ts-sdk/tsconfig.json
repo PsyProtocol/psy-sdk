@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.build.json",
+
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@qed/*": ["packages/*/src"]
+    },
+    "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  }
+}
