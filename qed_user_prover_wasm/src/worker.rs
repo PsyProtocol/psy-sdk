@@ -309,11 +309,11 @@ impl ProverWorkerStore {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[wasm_bindgen]
 pub struct StorageStats {
-    pub results_count: usize,
-    pub sessions_count: usize,
-    pub users_count: usize,
-    pub contracts_count: usize,
-    pub total_memory_usage: usize,
+    results_count: usize,
+    sessions_count: usize,
+    users_count: usize,
+    contracts_count: usize,
+    total_memory_usage: usize,
 }
 
 // WASM bindings for storage stats

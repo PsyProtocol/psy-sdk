@@ -3,11 +3,17 @@
 //! This module provides a WebAssembly interface for the QED user-side zero-knowledge proof prover.
 //! It implements all RPC methods from the Rust local prover for browser environments.
 
+// #[cfg(not(target_arch = "wasm32"))]
+// compile_error!("This crate is designed to work only with WebAssembly targets. Please use --target wasm32-unknown-unknown");
+
 mod error;
 mod session;
 mod types;
 mod utils;
 mod worker;
+mod provider;
+
+mod request;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::future_to_promise;
@@ -22,7 +28,6 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_core::data::qhashout::QHashOut;
-use qed_user_cli::subcommand::session::WalletSession;
 
 // WASM-specific imports
 use console_error_panic_hook;
