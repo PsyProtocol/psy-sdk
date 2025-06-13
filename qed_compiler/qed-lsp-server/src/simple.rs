@@ -228,12 +228,12 @@ impl QLspSimple {
     pub fn collect_diagnostics_sync(&self, root_path: &PathBuf) -> QLspResult<DiagnosticBundle> {
         self.set_root_path(root_path)?;
 
-        //use cached entry manager if available
+        //use cached crate graph if available
         let crate_path_graph = if let Some(cached) = self.get_cached_crate_path_graph(root_path) {
-            dbg!("Using cached entry manager");
+            dbg!("Using cached crate graph");
             cached
         } else {
-            dbg!("Cannot find cached entry manager, creating a new one");
+            dbg!("Cannot find cached crate graph, creating a new one");
 
             let package_dir = find_file_manifest_root(&root_path)
                 .map_err(|e| QLspError::Internal(format!("Failed to find manifest root: {}", e)))?;
