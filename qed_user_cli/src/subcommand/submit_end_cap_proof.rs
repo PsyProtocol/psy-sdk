@@ -1,9 +1,10 @@
 use std::str::FromStr;
 
 use super::args::{ContractCallArgs, SubmitEndCapArgs};
-use crate::{rpc::provider::RpcConfig, subcommand::session::WalletSession};
+use crate::{rpc::provider::RpcConfig};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
+use crate::session::WalletSession;
 
 pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     tracing::info!(

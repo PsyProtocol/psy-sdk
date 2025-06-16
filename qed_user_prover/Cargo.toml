@@ -5,25 +5,38 @@ edition = "2021"
 
 [dependencies]
 qed_core = { workspace = true }
-qed_common_circuit = { workspace = true }
 qed_crypto = { workspace = true }
 qed_user_cli = { workspace = true }
 qed_data = { workspace = true }
 qedlang_core = { workspace = true }
 qed_rollup_utils = { workspace = true }
-
 plonky2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-bincode = { workspace = true }
-jsonrpsee = { workspace = true }
-tokio = { workspace = true }
 anyhow = { workspace = true }
-hex = { workspace = true }
+tracing = { workspace = true }
+clap = { workspace = true }
+dotenv = { workspace = true }
+
+# Native-only dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 futures = { workspace = true }
+tokio = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true }
 hyper = { workspace = true }
-clap = { workspace = true }
-dotenv = { workspace = true }
-tracing = { workspace = true }
+jsonrpsee = { workspace = true }
+
+# WASM-specific dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+web-sys = "0.3"
+js-sys = "0.3"
+wasm-bindgen-futures = "0.4"
+serde-wasm-bindgen = "0.6"
+console_error_panic_hook = "0.1"
+wasm-logger = "0.2"
+wasm-tracing = "2.0"
+#reqwest = { version = "0.12", default-features = false }
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+pollster = "0.4.0"

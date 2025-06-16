@@ -1,3 +1,5 @@
+#![cfg(not(target_arch = "wasm32"))]
+
 pub mod api;
 pub mod args;
 pub mod common;
@@ -5,13 +7,10 @@ pub mod store;
 
 use hyper::Method;
 use jsonrpsee::server::Server;
-use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::base_types::hash256::Hash256;
-use qed_core::data::qhashout::QHashOut;
 use qed_user_cli::rpc::provider::RpcConfig;
-use qed_user_cli::subcommand::session::WalletSession;
+use qed_user_cli::session::WalletSession;
 use std::net::SocketAddr;
-use std::str::FromStr;
 use std::sync::{Arc, Mutex, RwLock};
 use tower_http::cors::{Any, CorsLayer};
 

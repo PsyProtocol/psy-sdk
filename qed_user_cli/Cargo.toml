@@ -6,8 +6,10 @@ version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
+[lib]
+crate-type = ["cdylib", "rlib"]
 
+[dependencies]
 plonky2 = { workspace = true }
 anyhow = { workspace = true }
 serde_json = { workspace = true }
@@ -16,44 +18,46 @@ serde_with = { workspace = true }
 rand = { workspace = true }
 qed_crypto = { workspace = true }
 qed_common_circuit = { workspace = true }
-qed_rollup_circuit = { workspace = true }
-# qed_common           = { path = "../qed_common" }
-# qed_rollup_user_prover_api           = { path = "../qed_rollup_user_prover_api" }
-# qed_rollup_common    = { path = "../qed_rollup_common" }
-# qed_rollup_core_node    = { path = "../qed_rollup_core_node" }
-# qed_rollup_core_orchestrator = { path = "../qed_rollup_core_orchestrator" }
-# bitcoincore-rpc       = { workspace = true }
-clap = { workspace = true }
-dotenv = { workspace = true }
 hex = { workspace = true }
-k256 = { workspace = true }
-shadow-rs = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
 tracing = { workspace = true }
-reqwest = { workspace = true }
 kvq = { workspace = true }
 qed_store = { workspace = true }
 qed_core = { workspace = true }
 qed_common = { workspace = true }
 qedlang_core = { workspace = true }
-qed_exec = { workspace = true }
 qed_prover = { workspace = true }
 qed_data = { workspace = true }
 qed_rollup_utils = { workspace = true }
-
-qed_node = { workspace = true }
-reth-libmdbx = { workspace = true }
-qed_node_common = { workspace = true }
-kvq_store_lmdbx = { workspace = true }
 hashbrown = { workspace = true }
-
-repl-rs = { workspace = true }
 ts-rs =  { workspace = true }
+clap = { workspace = true }
+dotenv = { workspace = true }
 
-[build-dependencies]
+# Native-only dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+kvq_store_lmdbx = { workspace = true }
+reqwest = { workspace = true }
 shadow-rs = { workspace = true }
 
-qed_crypto = { workspace = true }
+# Native-only build dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.build-dependencies]
+shadow-rs = { workspace = true }
 
-rand = { workspace = true }
+# WASM-specific dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+web-sys = "0.3"
+js-sys = "0.3"
+wasm-bindgen-futures = "0.4"
+serde-wasm-bindgen = "0.6"
+console_error_panic_hook = "0.1"
+wasm-logger = "0.2"
+wasm-tracing = "2.0"
+#reqwest = { version = "0.12", default-features = false }
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+pollster = "0.4.0"
+
+[features]
+default = []
+wasm = []

@@ -42,12 +42,9 @@ use crate::rpc::{
     provider::{QUserRpcProvider, RpcConfig, RpcProvider},
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
-
-use super::{
-    args::{ContractCallArgs, WalletSessionArgs},
-    deploy_contract::gen_contract_deploy_and_circuits_for_functions,
-    utils::prove_func,
-};
+use crate::subcommand::args::{ContractCallArgs, WalletSessionArgs};
+use crate::subcommand::deploy_contract::gen_contract_deploy_and_circuits_for_functions;
+use crate::subcommand::utils::prove_func;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
