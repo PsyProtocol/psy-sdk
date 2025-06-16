@@ -11,7 +11,8 @@ use qed_common_circuit::circuits::{
 };
 use qed_core::{
     config::network_constants::{
-        GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT,
+        GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST,
+        UPS_SESSION_PROOF_TREE_HEIGHT,
     },
     data::qhashout::QHashOut,
     ups::circuits::LocalCircuitType,
@@ -256,7 +257,7 @@ impl WalletSession {
             tracing::info!("create new user session manager");
             self.user_session_mgr = UserSessionStateManager::new(
                 self.st_provider.current_user_id,
-                latest_nonce + F::from_noncanonical_u64(1),
+                latest_nonce,
                 latest_l2_block_state.checkpoint_id,
                 self.st_provider.clone(),
                 self.circuit_info.clone(),
@@ -417,7 +418,7 @@ impl WalletSession {
             ));
         }
 
-        let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
+        let contract_state_tree_height = MAX_CONTRACT_STATE_TREE_HEIGHT as usize;
 
         let (_result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
             deployer,
@@ -500,7 +501,7 @@ mod tests {
         let private_key0 = QHashOut::<GoldilocksField>::from_str(
             "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
         )?;
-        let private_key8388608 = QHashOut::<GoldilocksField>::from_str(
+        let private_key536870912 = QHashOut::<GoldilocksField>::from_str(
             "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d",
         )?;
 
@@ -516,17 +517,17 @@ mod tests {
         let mut wallet_session = super::WalletSession::new(&rpc_config)?;
 
         let user0 = wallet_session.register_user(private_key0)?;
-        let user8388608 = wallet_session.register_user(private_key8388608)?;
+        let user536870912 = wallet_session.register_user(private_key536870912)?;
 
         wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(5));
+        thread::sleep(Duration::from_secs(10));
 
         wallet_session.switch_user(user0)?;
 
         wallet_session.deploy_contract(circuit_defs)?;
 
         wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(5));
+        thread::sleep(Duration::from_secs(10));
 
         // user0 mint 1000
         wallet_session.start_session()?;
@@ -538,26 +539,26 @@ mod tests {
         wallet_session.sign_and_submit()?;
 
         wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(5));
+        thread::sleep(Duration::from_secs(10));
         wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(5));
+        thread::sleep(Duration::from_secs(10));
 
-        // user0 transfer 500 to user8388608
+        // user0 transfer 500 to user536870912
         wallet_session.start_session()?;
         wallet_session.prove_contract_call(ContractCallArgs {
             contract_id: 0,
             method_name: "simple_transfer".to_string(),
-            inputs: vec![8388608, 500],
+            inputs: vec![536870912, 500],
         })?;
         wallet_session.sign_and_submit()?;
 
         wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(5));
+        thread::sleep(Duration::from_secs(10));
         wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(5));
+        thread::sleep(Duration::from_secs(10));
 
-        // user8388608 claim
-        wallet_session.switch_user(user8388608)?;
+        // user536870912 claim
+        wallet_session.switch_user(user536870912)?;
         wallet_session.start_session()?;
         wallet_session.prove_contract_call(ContractCallArgs {
             contract_id: 0,
@@ -567,11 +568,11 @@ mod tests {
         wallet_session.sign_and_submit()?;
 
         wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(5));
+        thread::sleep(Duration::from_secs(10));
         wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(5));
+        thread::sleep(Duration::from_secs(10));
 
-        // user8388608 transfer 500 to user0
+        // user536870912 transfer 500 to user0
         wallet_session.start_session()?;
         wallet_session.prove_contract_call(ContractCallArgs {
             contract_id: 0,
@@ -581,9 +582,9 @@ mod tests {
         wallet_session.sign_and_submit()?;
 
         wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(5));
+        thread::sleep(Duration::from_secs(10));
         wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(5));
+        thread::sleep(Duration::from_secs(10));
 
         Ok(())
     }
