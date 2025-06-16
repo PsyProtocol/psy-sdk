@@ -24,7 +24,7 @@ pub(crate) struct TestCommand {
 }
 pub(crate) fn run(args: TestCommand) -> crate::errors::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let (mut typechecker, mut ctx) = interpreter.typecheck(args.file, vec![])?;
+    let (mut typechecker, mut ctx) = interpreter.typecheck_single(args.file.clone())?;
     let compile_results = interpreter.test(
         &mut typechecker,
         &mut ctx,

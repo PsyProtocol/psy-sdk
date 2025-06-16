@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
 use std::ops::Deref;
 
@@ -16,36 +16,59 @@ pub enum Color {
 
 #[derive(Clone, Debug)]
 pub struct Graph<T> {
-    nodes: HashMap<T, IndexSet<T>>,
-}
-
-impl<T> Deref for Graph<T> {
-    type Target = HashMap<T, IndexSet<T>>;
-    fn deref(&self) -> &Self::Target {
-        &self.nodes
-    }
+    edges: HashMap<T, IndexSet<T>>,
 }
 
 impl<T: Clone + Eq + Hash> Graph<T> {
     pub fn new() -> Self {
         Self {
-            nodes: HashMap::new(),
+            edges: HashMap::new(),
         }
     }
 
+    pub fn add_node(&mut self, node: T) {
+        self.edges.entry(node).or_default();
+    }
+
     pub fn add_edge(&mut self, from: T, to: T) {
-        self.nodes.entry(from).or_default().insert(to);
+        if from != to {
+            self.edges.entry(from).or_default().insert(to.clone());
+        }
+        self.edges.entry(to).or_default();
     }
 
     pub fn nodes(&self) -> Vec<&T> {
-        self.nodes.keys().collect()
+        self.edges.keys().collect()
     }
 
     pub fn edges(&self, node: &T) -> Option<&IndexSet<T>> {
-        self.nodes.get(node)
+        self.edges.get(node)
     }
 
-    pub fn dfs<'a>(
+    pub fn contains_node(&self, node: &T) -> bool {
+        self.edges.contains_key(node)
+    }
+
+    pub fn starting_nodes(&self) -> Vec<&T> {
+        let mut starting_nodes = self.edges.keys().collect::<HashSet<_>>();
+        for node in self.edges.keys() {
+            if let Some(neighbors) = self.edges.get(node) {
+                for neighbor in neighbors {
+                    starting_nodes.remove(neighbor);
+                }
+            }
+        }
+        starting_nodes.into_iter().collect()
+    }
+
+    pub fn dfs<'a>(&'a self, visitor: &mut impl FnMut(&'a T, Option<&'a T>)) {
+        let starting_nodes = self.starting_nodes();
+        for node in starting_nodes {
+            self.dfs_inner(node, None, visitor);
+        }
+    }
+
+    fn dfs_inner<'a>(
         &'a self,
         node: &'a T,
         parent: Option<&'a T>,
@@ -53,27 +76,39 @@ impl<T: Clone + Eq + Hash> Graph<T> {
     ) {
         visitor(node, parent);
 
-        if let Some(neighbors) = self.nodes.get(&node) {
+        if let Some(neighbors) = self.edges.get(&node) {
             for neighbor in neighbors {
-                self.dfs(neighbor, Some(node), visitor);
+                self.dfs_inner(neighbor, Some(node), visitor);
             }
         }
     }
 
-    pub fn bfs<'a>(
+    pub fn bfs<'a, E: From<Error>>(
+        &'a self,
+        visitor: &mut impl FnMut(&'a T) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let starting_nodes = self.starting_nodes();
+        let mut visited = HashMap::new();
+        for node in starting_nodes {
+            self.bfs_inner(node, &mut visited, visitor)?;
+        }
+        Ok(())
+    }
+
+    fn bfs_inner<'a, E: From<Error>>(
         &'a self,
         node: &'a T,
         visited: &mut HashMap<&'a T, bool>,
-        visitor: &mut impl FnMut(&'a T),
-    ) {
+        visitor: &mut impl FnMut(&'a T) -> Result<(), E>,
+    ) -> Result<(), E> {
         let mut queue = VecDeque::new();
         queue.push_back(node);
         visited.insert(node, true);
 
         while let Some(node) = queue.pop_front() {
-            visitor(node);
+            visitor(node)?;
 
-            if let Some(neighbors) = self.nodes.get(node) {
+            if let Some(neighbors) = self.edges.get(node) {
                 for neighbor in neighbors {
                     if !visited.contains_key(neighbor) {
                         visited.insert(neighbor, true);
@@ -82,9 +117,22 @@ impl<T: Clone + Eq + Hash> Graph<T> {
                 }
             }
         }
+        Ok(())
     }
 
     pub fn ts<'a, E: From<Error>>(
+        &'a self,
+        visitor: &mut impl FnMut(&'a T) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let starting_nodes = self.starting_nodes();
+        let mut colors = HashMap::new();
+        for node in starting_nodes {
+            self.ts_inner(node, &mut colors, visitor)?;
+        }
+        Ok(())
+    }
+
+    fn ts_inner<'a, E: From<Error>>(
         &'a self,
         node: &'a T,
         colors: &mut HashMap<&'a T, Color>,
@@ -92,12 +140,12 @@ impl<T: Clone + Eq + Hash> Graph<T> {
     ) -> Result<(), E> {
         colors.insert(node, Color::Grey);
 
-        if let Some(neighbors) = self.nodes.get(&node) {
+        if let Some(neighbors) = self.edges.get(&node) {
             for neighbor in neighbors {
                 match colors.get(neighbor) {
                     Some(Color::Grey) => return Err(E::from(Error::CycleGraph)),
                     None => {
-                        self.ts(neighbor, colors, visitor)?;
+                        self.ts_inner(neighbor, colors, visitor)?;
                     }
                     _ => {}
                 }
@@ -111,13 +159,6 @@ impl<T: Clone + Eq + Hash> Graph<T> {
     }
 
     pub fn check_cycle<E: From<Error>>(&self) -> Result<(), E> {
-        for node in self.nodes.keys() {
-            let mut colors = HashMap::new();
-            let mut visitor = |_: &T| -> Result<(), E> { Ok(()) };
-
-            self.ts::<E>(node, &mut colors, &mut visitor)?;
-        }
-
-        Ok(())
+        self.ts::<E>(&mut |_| Ok(()))
     }
 }

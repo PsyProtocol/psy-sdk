@@ -3,14 +3,14 @@ use std::ops::{Index, IndexMut};
 use qed_common::{Arena, FileResolver, Graph, Tree, TreeNode};
 
 use crate::{
-    DefId, DefinitionNode, ExprId, ExprNode, FileLocation, Ident, IdentId, Interner, Location,
-    ModuleId, ModuleNode, StmtId, StmtNode,
+    CrateId, DefId, DefinitionNode, ExprId, ExprNode, FileLocation, Ident, IdentId, Interner,
+    Location, ModuleId, ModuleNode, StmtId, StmtNode,
 };
 
 #[derive(Debug)]
 pub struct Program<F: Clone + From<u32>> {
     pub modules: Tree<ModuleId, ModuleNode>,
-    pub dependency_graph: Graph<ModuleId>,
+    pub dependency_graph: Graph<CrateId>,
     pub file_resolver: FileResolver,
     pub exprs: Arena<ExprId, ExprNode<F>>,
     pub stmts: Arena<StmtId, StmtNode>,
@@ -54,6 +54,26 @@ impl<F: Clone + From<u32>> Program<F> {
         }
     }
 
+    pub fn find_module_by_name(&self, name: impl Into<IdentId>) -> Option<ModuleId> {
+        let name = name.into();
+        self.modules
+            .iter()
+            .find(|m| m.data().name.id == name)
+            .map(|m| m.id())
+    }
+
+    pub fn module_name(&self, module_id: impl Into<ModuleId>) -> &Ident {
+        let module_id = module_id.into();
+        let module = self.modules[module_id].data();
+        &self.interner[module.name.id]
+    }
+
+    pub fn add_module_child(&mut self, parent: Option<ModuleId>, child: ModuleId) {
+        if let Some(parent) = parent {
+            self.modules.add_child(parent, child);
+        }
+    }
+
     pub fn convert_location(&self, location: &Location) -> FileLocation {
         let path = self
             .file_resolver
@@ -68,47 +88,46 @@ impl<F: Clone + From<u32>> Program<F> {
         }
     }
 
-    pub fn print_module_name(&self) {
-        for module in self.modules.iter() {
-            println!(
-                "module name: {:?}, module id: {:?}",
-                self.interner[module.data().name.into()],
-                module.id()
-            );
+    pub fn is_module_std(&self, module_id: impl Into<ModuleId>) -> bool {
+        let mut module_id = Some(module_id.into());
+        while let Some(id) = module_id {
+            let module = &self.modules[id];
+            if module.data().name.id == IdentId::STD {
+                return true;
+            }
+            module_id = module.parent();
         }
+        return false;
     }
 
     pub fn print_module_graph(&self) {
-        println!("After parse: modules in program");
+        println!("[Program modules]");
+        let interner = &self.interner;
         for module in self.modules.iter() {
             println!(
-                "module name: {:?}, module id: {:?}",
-                self.interner[module.data().name.into()],
+                "module: {}, {:?}",
+                // self.module_name(module_id),
+                interner[module.data().name.id],
                 module.id()
             );
-            for def_id in module.data().definitions.iter() {
-                let def_node = &self.defs[*def_id];
-                if let DefinitionNode::Use(node) = def_node {
-                    let ident_id = node.kind.id;
-                    let mut module_id = 0.into();
-                    for ii in self.modules.iter() {
-                        if ident_id == ii.data().name {
-                            module_id = ii.id();
-                            break;
-                        }
-                    }
+            println!("  visibility: {:?}", module.data().visibility);
+            println!("  children: ");
+            for child in module.children() {
+                let child_module = &self.modules[*child];
+                println!("    {}, {:?}", interner[child_module.data().name.id], child);
+            }
+            println!("  dependencies: ");
+            if let Some(dependencies) = self.dependency_graph.edges(&CrateId::from(module.id())) {
+                for dependency in dependencies.iter() {
+                    let dependency_module_id = ModuleId::from(*dependency);
+                    let dependency_module = &self.modules[dependency_module_id];
                     println!(
-                        "USE: {:?}, module_id: {:?}",
-                        self.interner[ident_id], module_id,
+                        "    {}, {:?}",
+                        interner[dependency_module.data().name.id],
+                        dependency_module_id
                     );
                 }
             }
-            println!("module dependencies: {:?}", module.children());
         }
-        println!("module graph");
-        for (i, j) in self.dependency_graph.iter() {
-            println!("{:?} -> {:?}", i, j);
-        }
-        println!("----------------------");
     }
 }

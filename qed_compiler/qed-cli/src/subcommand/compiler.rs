@@ -1,3 +1,4 @@
+use qed_common::Graph;
 use qed_interpreter::Interpreter;
 use qed_utils::CompilerArgs;
 use qedlang_core::dpn::{
@@ -7,7 +8,7 @@ use qedlang_core::dpn::{
 
 pub fn run(args: CompilerArgs) -> anyhow::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let (mut typechecker, mut ctx) = interpreter.typecheck(args.file.into(), vec![])?;
+    let (mut typechecker, mut ctx) = interpreter.typecheck_single(args.file.into())?;
     let compile_results = interpreter.interpret(
         &mut typechecker,
         &mut ctx,

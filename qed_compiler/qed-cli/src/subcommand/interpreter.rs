@@ -18,7 +18,7 @@ use qedlang_core::dpn::{
 pub fn run(mut args: InterpreterArgs) -> anyhow::Result<()> {
     args.parameters.resize(args.method_names.len(), Vec::new());
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let (mut typechecker, mut ctx) = interpreter.typecheck(args.file.into(), vec![])?;
+    let (mut typechecker, mut ctx) = interpreter.typecheck_single(args.file.into())?;
     let compile_results = interpreter.interpret(
         &mut typechecker,
         &mut ctx,

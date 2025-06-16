@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use qed_ast::{DefaultVisitorContext, ModuleId};
 
+use qed_common::FileId;
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
 use crate::TypeCheckerVisitorContext;
@@ -22,15 +23,13 @@ impl<F: ContextFelt + From<u32> + 'static, C: DPNContext<F>> TypeCheckerVisitorC
                     "cant resolve file `{}`",
                     file_path.display().to_string()
                 )))?;
-        let module_id = self
-            .program
-            .file_resolver
-            .resolve_module_id(file_id)
-            .ok_or(Error::AnyhowError(anyhow::anyhow!(
-                "cant resolve module file `{}`",
-                file_path.display().to_string()
-            )))?;
-        self.format_module(ModuleId(module_id))
+        let module_id =
+            self.find_module_id(*file_id)
+                .ok_or(Error::AnyhowError(anyhow::anyhow!(
+                    "cant resolve module file `{}`",
+                    file_path.display().to_string()
+                )))?;
+        self.format_module(module_id)
             .map(|ctx| ctx.trim_end().to_owned())
     }
 
@@ -43,5 +42,21 @@ impl<F: ContextFelt + From<u32> + 'static, C: DPNContext<F>> TypeCheckerVisitorC
             .map_err(|err| Error::AnyhowError(anyhow::anyhow!("{}", err)))?;
 
         Ok(formatter.get_output().to_owned())
+    }
+
+    fn find_module_id(&self, file_path: impl Into<FileId>) -> Option<ModuleId> {
+        let file_id = file_path.into();
+        for node in self.program.modules.iter() {
+            let id = node.id();
+            let module = node.data();
+            let location = module.location;
+            // This is just a workaround to find the module id for the file id.
+            // As self.program.modules is ordered so it works.
+            // TODO: find a correct way to do it
+            if location.file_id == file_id {
+                return Some(id);
+            }
+        }
+        None
     }
 }

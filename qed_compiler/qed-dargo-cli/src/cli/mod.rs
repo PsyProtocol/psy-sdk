@@ -9,11 +9,12 @@ mod test_cmd;
 
 use crate::errors::{CliError, Result};
 use clap::{Args, Parser, Subcommand};
+use qed_common::Graph;
 use qed_dargo::package::Dependency;
 use qed_dargo::workspace::Workspace;
 use qed_dargo_toml::files::{find_file_manifest_root, get_package_manifest};
 use qed_dargo_toml::resolve_workspace_from_toml;
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 
 pub(crate) fn start_cli() -> Result<()> {
@@ -90,53 +91,36 @@ where
     run(cmd, workspace)
 }
 
-#[derive(Clone, Debug)]
-pub struct EntryManager {
-    pub entry: PathBuf,
-    pub dependencies_entries: HashSet<PathBuf>,
-}
-
-impl EntryManager {
-    pub fn new(entry: PathBuf) -> Self {
-        Self {
-            entry,
-            dependencies_entries: HashSet::new(),
-        }
-    }
-
-    pub fn add_dependency_entry(&mut self, entry: PathBuf) -> bool {
-        self.dependencies_entries.insert(entry)
-    }
-}
-
-pub fn resolve_entries(workspace: &Workspace, entry_path: Option<PathBuf>) -> Result<EntryManager> {
-    let package = workspace.package.clone();
+pub fn resolve_crate_path_graph(
+    workspace: &Workspace,
+    entry_path: Option<PathBuf>,
+) -> Graph<PathBuf> {
+    let mut package = workspace.package.clone();
     let package_entry_path = match entry_path {
         Some(entry_path) => entry_path,
         None => package.entry_canonical_path(),
     };
-
-    if !package_entry_path.exists() {
-        return Err(CliError::MissingEntryFile {
-            toml: workspace.root_dir.join("Dargo.toml"),
-            entry: package_entry_path,
-        });
-    }
-    let mut entry_manager = EntryManager::new(package_entry_path);
-    let mut package_stack = vec![package];
-    while let Some(package) = package_stack.pop() {
+    package.entry_path = package_entry_path;
+    let mut graph = Graph::new();
+    let mut package_stack = VecDeque::new();
+    package_stack.push_back(&package);
+    while let Some(package) = package_stack.pop_front() {
+        let entry_path = package.entry_canonical_path();
+        if graph.contains_node(&entry_path) {
+            continue;
+        }
+        graph.add_node(entry_path.clone());
         for dep in package.dependencies.values() {
             match dep {
                 Dependency::Remote { package } | Dependency::Local { package } => {
-                    let entry_path = package.entry_canonical_path();
-                    if entry_manager.add_dependency_entry(entry_path) {
-                        package_stack.push(package.clone());
-                    }
+                    let dep_path = package.entry_canonical_path();
+                    graph.add_edge(entry_path.clone(), dep_path.clone());
+                    package_stack.push_back(package);
                 }
             }
         }
     }
-    Ok(entry_manager)
+    graph
 }
 
 pub(crate) fn save_build_artifact_to_file<T: ?Sized + serde::Serialize>(

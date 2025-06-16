@@ -12,8 +12,6 @@ grammar<'input, F, C>(
     def_nodes: &mut Arena<DefId, DefinitionNode>,
     interner: &mut Interner,
     _visibility_: Visibility,
-    is_std: bool,
-    is_self_std: bool,
     ctx: &mut C
 ) where F: ContextFelt + From<u32>, C: DPNContext<F>;
 
@@ -37,8 +35,6 @@ pub Module: ModuleNode = {
         file_id,
         _visibility_,
         module_items,
-        is_std,
-        is_self_std,
         def_nodes,
         back_comments,
         Location::new(file_id, l, r),
@@ -51,8 +47,6 @@ InlineModule: ModuleNode = {
         file_id,
         visibility,
         module_items,
-        is_std,
-        is_self_std,
         def_nodes,
         comments.into_iter().chain(back_comments.into_iter()).collect(),
         Location::new(file_id, l, r),
@@ -305,12 +299,7 @@ FunctionDef: DefinitionNode = {
         generic_parameters,
         body: Some(expr_nodes.alloc_item(block_expr)),
         return_type,
-        qualifier: {
-           if qualifier.is_extern && !is_std {
-             return Err(LalrpopError::User { error: UserError::ExternFnNotInStd });
-           }
-           qualifier
-        },
+        qualifier,
         visibility,
         attrs,
         comments,
@@ -322,12 +311,7 @@ FunctionDef: DefinitionNode = {
         generic_parameters,
         body: None,
         return_type,
-        qualifier: {
-           if qualifier.is_extern && !is_std {
-             return Err(LalrpopError::User { error: UserError::ExternFnNotInStd });
-           }
-           qualifier
-        },
+        qualifier,
         visibility,
         attrs,
         comments,

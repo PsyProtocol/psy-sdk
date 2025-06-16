@@ -21,8 +21,8 @@ use tower_lsp::jsonrpc::{Error as TError, Result as TResult};
 
 use crate::error::{QLspError, QLspResult};
 use crate::utils::span_to_range;
-use dargo::{resolve_entries, EntryManager};
-use qed_common::FileId;
+use dargo::resolve_crate_path_graph;
+use qed_common::{FileId, Graph};
 use qed_dargo_toml::files::{find_file_manifest_root, get_package_manifest};
 use qed_dargo_toml::resolve_workspace_from_toml;
 use qed_sema::{offset_from_position, TypeCheckError, TypeCheckerVisitorContext};
@@ -44,7 +44,7 @@ pub struct QLspSimple {
     client: Client,
     ctx: Arc<RwLock<TypeCheckerVisitorContext<SymFeltRef, QExecContext>>>,
     root_path: Arc<RwLock<PathBuf>>,
-    entry_manager_cache: Arc<RwLock<HashMap<PathBuf, EntryManager>>>,
+    crate_path_graph_cache: Arc<RwLock<HashMap<PathBuf, Graph<PathBuf>>>>,
     last_diagnostics: Arc<RwLock<Option<DiagnosticBundle>>>,
 }
 
@@ -54,7 +54,7 @@ impl QLspSimple {
             client,
             ctx: Arc::new(RwLock::new(TypeCheckerVisitorContext::new(Program::new()))),
             root_path: Arc::new(RwLock::new(PathBuf::new())),
-            entry_manager_cache: Arc::new(RwLock::new(HashMap::new())),
+            crate_path_graph_cache: Arc::new(RwLock::new(HashMap::new())),
             last_diagnostics: Arc::new(RwLock::new(None)),
         }
     }
@@ -100,22 +100,22 @@ impl QLspSimple {
         Ok(())
     }
 
-    pub fn get_cached_entry_manager(&self, path: &PathBuf) -> Option<EntryManager> {
-        self.entry_manager_cache
+    pub fn get_cached_crate_path_graph(&self, path: &PathBuf) -> Option<Graph<PathBuf>> {
+        self.crate_path_graph_cache
             .read()
             .ok()
             .and_then(|map| map.get(path).cloned())
     }
-    pub fn set_entry_manager_cache(&self, path: PathBuf, manager: EntryManager) {
-        let mut map = self.entry_manager_cache.write().expect("lock poisoned");
-        map.insert(path, manager);
+    pub fn set_crate_path_graph_cache(&self, path: PathBuf, graph: Graph<PathBuf>) {
+        let mut map = self.crate_path_graph_cache.write().expect("lock poisoned");
+        map.insert(path, graph);
     }
-    pub fn clear_all_entry_manager_cache(&self) {
-        let mut map = self.entry_manager_cache.write().expect("lock poisoned");
+    pub fn clear_all_crate_path_graph_cache(&self) {
+        let mut map = self.crate_path_graph_cache.write().expect("lock poisoned");
         map.clear();
     }
-    pub fn remove_entry_manager_cache(&self, path: &PathBuf) {
-        let mut map = self.entry_manager_cache.write().expect("lock poisoned");
+    pub fn remove_crate_path_graph_cache(&self, path: &PathBuf) {
+        let mut map = self.crate_path_graph_cache.write().expect("lock poisoned");
         map.remove(path);
     }
 
@@ -228,12 +228,12 @@ impl QLspSimple {
     pub fn collect_diagnostics_sync(&self, root_path: &PathBuf) -> QLspResult<DiagnosticBundle> {
         self.set_root_path(root_path)?;
 
-        //use cached entry manager if available
-        let entry_manager = if let Some(cached) = self.get_cached_entry_manager(root_path) {
-            dbg!("Using cached entry manager");
+        //use cached crate graph if available
+        let crate_path_graph = if let Some(cached) = self.get_cached_crate_path_graph(root_path) {
+            dbg!("Using cached crate graph");
             cached
         } else {
-            dbg!("Cannot find cached entry manager, creating a new one");
+            dbg!("Cannot find cached crate graph, creating a new one");
 
             let package_dir = find_file_manifest_root(&root_path)
                 .map_err(|e| QLspError::Internal(format!("Failed to find manifest root: {}", e)))?;
@@ -245,19 +245,15 @@ impl QLspSimple {
             let workspace = resolve_workspace_from_toml(&toml_path)
                 .map_err(|e| QLspError::Internal(format!("Failed to resolve workspace: {}", e)))?;
 
-            let new_manager = resolve_entries(&workspace, None)
-                .map_err(|e| QLspError::Internal(format!("Error resolving entries: {}", e)))?;
+            let crate_path_graph = resolve_crate_path_graph(&workspace, None);
 
-            self.set_entry_manager_cache(root_path.clone(), new_manager.clone());
-            new_manager
+            self.set_crate_path_graph_cache(root_path.clone(), crate_path_graph.clone());
+            crate_path_graph
         };
 
         let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
 
-        let result = interpreter.typecheck_lsp(
-            entry_manager.entry,
-            entry_manager.dependencies_entries.into_iter().collect(),
-        );
+        let result = interpreter.typecheck_lsp(crate_path_graph);
 
         match result {
             Ok((_typechecker, ctx)) => {
