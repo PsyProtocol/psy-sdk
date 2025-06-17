@@ -117,8 +117,6 @@ pub struct WasmRpcServer {
 impl WasmRpcServer {
     #[wasm_bindgen(constructor)]
     pub fn new(rpc_config_json: &str) -> Result<WasmRpcServer, JsError> {
-        console_error_panic_hook::set_once();
-        
         let rpc_config: RpcConfig = serde_json::from_str(rpc_config_json)
             .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
             
@@ -434,7 +432,10 @@ impl RpcServerImpl {
     }
 
     pub fn ping_internal(&self, message: String) -> anyhow::Result<String> {
-        Ok(message.chars().rev().collect::<String>())
+        tracing::trace!("Processing ping internally with message: {}", message);
+        let response = message.chars().rev().collect::<String>();
+        tracing::trace!("Ping internal response generated: {}", response);
+        Ok(response)
     }
 
     pub fn get_result_internal(&self, id: Hash256) -> anyhow::Result<U8Bytes> {

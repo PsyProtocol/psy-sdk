@@ -7,6 +7,36 @@ pub mod args;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod common;
 
+// WASM-specific initialization
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(start)]
+pub fn wasm_main() {
+    // Initialize panic hook for better error messages in browser console
+    console_error_panic_hook::set_once();
+    
+    // Initialize wasm-logger for log crate compatibility
+    wasm_logger::init(wasm_logger::Config::default());
+    
+    // Initialize tracing subscriber for WASM
+    wasm_tracing::set_as_global_default();
+    
+    // Log initialization success
+    tracing::info!("WASM module initialized successfully with tracing support");
+}
+
+// Optional manual initialization function
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn init_logging() {
+    console_error_panic_hook::set_once();
+    wasm_logger::init(wasm_logger::Config::default());
+    wasm_tracing::set_as_global_default();
+    tracing::info!("Logging initialized manually");
+}
+
 // Only export what's necessary for WASM
 #[cfg(target_arch = "wasm32")]
 pub use api::WasmRpcServer;
