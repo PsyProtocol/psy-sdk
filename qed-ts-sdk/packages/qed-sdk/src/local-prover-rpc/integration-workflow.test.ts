@@ -1,4 +1,4 @@
-import { QEDRPCUserProverProvider } from "./client";
+import { QedRPCUserProverProvider } from "./client";
 import { ContractCallArgs, WalletKeyPair } from "./types";
 import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { QHashOut } from "../core";
@@ -17,7 +17,7 @@ async function waitBlock(coordinator: CoordinatorEdgeRpcProvider): Promise<void>
  */
 
 describe("QED User Prover RPC Workflow Integration", () => {
-    let provider: QEDRPCUserProverProvider;
+    let provider: QedRPCUserProverProvider;
     const rpcUrl = process.env.QED_RPC_URL || "http://localhost:8888";
     const timeout = 60000; // 60 seconds for complex workflows
 
@@ -25,7 +25,7 @@ describe("QED User Prover RPC Workflow Integration", () => {
     const MOCK_RPC_URL = process.env.TEST_COORD_EDGE_RPC_URL || "http://localhost:8545";
 
     beforeAll(() => {
-        provider = new QEDRPCUserProverProvider(rpcUrl);
+        provider = new QedRPCUserProverProvider(rpcUrl);
         coordinator = new CoordinatorEdgeRpcProvider(MOCK_RPC_URL);
     });
 

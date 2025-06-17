@@ -2,7 +2,7 @@ import { Felt, PrivateKey, PublicKey, SCNumberLike } from "../core";
 import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
-    IQEDUserProverProvider,
+    IQedUserProverProvider,
     QBCDeployContract,
     WalletKeyPair,
 } from "../local-prover-rpc";
@@ -22,7 +22,7 @@ interface IQedCompleteUserInfo extends ICoreQedUserInfo {
 }
 
 interface IQedUserWallet {
-    // prover: IQEDUserProverProvider;
+    // prover: IQedUserProverProvider;
     signer: IQedTransactionSigner;
     getUserInfo(): Promise<IQedCompleteUserInfo>;
     getBalance(): Promise<bigint>;

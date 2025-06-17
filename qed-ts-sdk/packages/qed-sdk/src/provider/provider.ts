@@ -433,14 +433,7 @@ export abstract class Provider {
                             result = await this.executeParallelFirst<T>(method, params, id, jsonrpc);
                             break;
                         default:
-                            result = await this.directRpcWithHeaders<T>(
-                                url,
-                                method,
-                                params,
-                                id,
-                                jsonrpc,
-                                headers
-                            );
+                            result = await this.directRpcWithHeaders<T>(url, method, params, id, jsonrpc, headers);
                             break;
                     }
                 }

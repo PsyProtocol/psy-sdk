@@ -86,7 +86,7 @@ interface SubmitUserEndCapNonProofInput {
 }
 
 // Namespace corresponds to "qed" in Rust
-enum QEDUserProverRPCCommand {
+enum QedUserProverRPCCommand {
     ExecContractCall = "qed_exec_contract_call",
     StartSession = "qed_start_session",
     ProveContractCall = "qed_prove_contract_call",
@@ -107,7 +107,7 @@ enum QEDUserProverRPCCommand {
     GetResult = "qed_get_result",
 }
 
-interface IQEDUserProverProvider {
+interface IQedUserProverProvider {
     // Local proving operations
     execContractCall(pk_hash: string, contractCallArg: ContractCallArgs[]): Promise<string>;
     startSession(pk_hash: string): Promise<string>;
@@ -152,7 +152,7 @@ export type {
     SubmitUserEndCapNonProofCoreInput,
     QEDContractStateUpdateHistory,
     SubmitUserEndCapNonProofInput,
-    IQEDUserProverProvider,
+    IQedUserProverProvider,
 };
 
-export { QEDUserProverRPCCommand };
+export { QedUserProverRPCCommand };

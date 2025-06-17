@@ -13,10 +13,10 @@ npm install @qed/sdk
 ### QED API
 
 ```typescript
-import { QEDRPCUserProverProvider } from "@qed/sdk/local-prover-rpc";
+import { QedRPCUserProverProvider } from "@qed/sdk/local-prover-rpc";
 
 // Create a new RPC client
-const userProverClient = new QEDRPCUserProverProvider("http://localhost:8888");
+const userProverClient = new QedRPCUserProverProvider("http://localhost:8888");
 
 // Start a new session
 async function startSession() {
@@ -79,7 +79,7 @@ runExample();
 
 ## API Reference
 
-### QEDRPCUserProverProvider
+### QedRPCUserProverProvider
 
 This class implements the Rust RPC server functionality in TypeScript.
 

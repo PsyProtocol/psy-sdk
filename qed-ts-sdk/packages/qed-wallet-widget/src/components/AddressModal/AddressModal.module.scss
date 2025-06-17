@@ -1,0 +1,59 @@
+$adddress-modal-padding: 16px;
+$adddress-modal-padding-double: 32px;
+.addressModal {
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  z-index: 99999;
+  display: flex;
+  padding: 48px $adddress-modal-padding $adddress-modal-padding $adddress-modal-padding;
+  overflow: hidden;
+  background-color: #111;
+  align-items: center;
+  justify-content: flex-start;
+  flex-direction: column;
+  .addressModalInner {
+    position: relative;
+    top:0;
+    left:0;
+    padding: $adddress-modal-padding $adddress-modal-padding $adddress-modal-padding $adddress-modal-padding;
+    width:100%;
+    display: block;
+    max-width: 700px;
+    max-height: 800px;
+    background-color: #222;
+    overflow: hidden;
+  }
+  .modalTop {
+    position: absolute;
+    top:0px;
+    left:$adddress-modal-padding;
+    padding: 32px $adddress-modal-padding $adddress-modal-padding 0px;
+    height: 32px;
+    width: calc(100% - 16px);
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 24px;
+    z-index: 88;
+  }
+  .modalContent {
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    top: 0px;
+    left: 0;
+    width: 100%;
+    padding: 32px 0px 0px 0px;
+
+  }
+}
+.addressModalTitle {
+  font-family: var(--wallet-widget-font-sans);
+  font-size: 24px;
+  font-weight: 300;
+  color:#fff;
+}

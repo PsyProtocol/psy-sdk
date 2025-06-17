@@ -3,12 +3,12 @@ import { IQedUserWallet, IQedCompleteUserInfo } from "./types";
 import { CoordinatorEdgeRpcProvider, ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { PrivateKey, PublicKey } from "../core";
 import {
-    IQEDUserProverProvider,
+    IQedUserProverProvider,
     WalletKeyPair,
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
     QBCDeployContract,
-    QEDRPCUserProverProvider,
+    QedRPCUserProverProvider,
 } from "../local-prover-rpc";
 import { QEDUserLeaf } from "../types";
 import { qedFelt } from "../utils";
@@ -21,14 +21,20 @@ class QedUserWallet implements IQedUserWallet {
     networkMagic: bigint;
     coordinator: ICoordinatorEdgeRpcProvider;
     realm: IRealmEdgeRpcProvider;
-    // prover: IQEDUserProverProvider;
+    // prover: IQedUserProverProvider;
     signer: IQedTransactionSigner;
 
     userId: number;
     publicKeyHex: string;
 
-    constructor(networkId: NetworkId, signer: IQedTransactionSigner, coordinator: ICoordinatorEdgeRpcProvider,
-        realm: IRealmEdgeRpcProvider, userId: number, publicKeyHex: string) {
+    constructor(
+        networkId: NetworkId,
+        signer: IQedTransactionSigner,
+        coordinator: ICoordinatorEdgeRpcProvider,
+        realm: IRealmEdgeRpcProvider,
+        userId: number,
+        publicKeyHex: string
+    ) {
         this.networkId = networkId;
         this.networkMagic = getQedNetworkMagicForNetworkId(this.networkId);
         this.signer = signer;

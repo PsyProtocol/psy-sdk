@@ -1,4 +1,3 @@
-
 import { DPNFunctionCircuitDefinition } from "../local-prover-rpc/types";
 import { ContractCallArgs } from "../types";
 
@@ -20,8 +19,12 @@ interface IQedTransactionSignerProvider {
     getAbilities(): TQedTransactionSignerProviderAbility[];
     importPrivateKey?(privateKeyHex: string): Promise<IQedTransactionSigner>;
     addRandomPrivateKey?(): Promise<IQedTransactionSigner>;
+    registerUser(privateKeyHex: string): Promise<string>;
 }
 
 export type {
-    IQedTransactionSigner, TQedTransactionSignerAbility, IQedTransactionSignerProvider, TQedTransactionSignerProviderAbility
+    IQedTransactionSigner,
+    TQedTransactionSignerAbility,
+    IQedTransactionSignerProvider,
+    TQedTransactionSignerProviderAbility,
 };

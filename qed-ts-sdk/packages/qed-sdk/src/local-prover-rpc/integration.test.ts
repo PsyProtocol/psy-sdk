@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-import { QEDRPCUserProverProvider } from "./client";
+import { QedRPCUserProverProvider } from "./client";
 import { ContractCallArgs, WalletKeyPair, DPNFunctionCircuitDefinition } from "./types";
 import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { QHashOut } from "../core";
@@ -26,7 +26,7 @@ async function waitBlock(coordinator: CoordinatorEdgeRpcProvider): Promise<void>
 }
 
 describe("QED User Prover RPC Integration Tests", () => {
-    let provider: QEDRPCUserProverProvider;
+    let provider: QedRPCUserProverProvider;
     const rpcUrl = process.env.QED_RPC_URL || "http://localhost:8888";
     const timeout = 30000; // 30 seconds timeout for RPC calls
 
@@ -34,7 +34,7 @@ describe("QED User Prover RPC Integration Tests", () => {
     const MOCK_RPC_URL = process.env.TEST_COORD_EDGE_RPC_URL || "http://localhost:8545";
 
     beforeAll(() => {
-        provider = new QEDRPCUserProverProvider(rpcUrl);
+        provider = new QedRPCUserProverProvider(rpcUrl);
         coordinator = new CoordinatorEdgeRpcProvider(MOCK_RPC_URL);
     });
 
@@ -689,7 +689,7 @@ describe("QED User Prover RPC Integration Tests", () => {
 
         it("should handle network timeouts", async () => {
             // Create a provider with a non-existent endpoint
-            const invalidProvider = new QEDRPCUserProverProvider("http://localhost:9999");
+            const invalidProvider = new QedRPCUserProverProvider("http://localhost:9999");
 
             try {
                 await invalidProvider.ping("test");
