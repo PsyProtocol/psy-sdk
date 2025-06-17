@@ -1,28 +1,36 @@
-#![cfg(not(target_arch = "wasm32"))]
-
 pub mod api;
-pub mod args;
-pub mod common;
 pub mod store;
 
-use hyper::Method;
-use jsonrpsee::server::Server;
-use qed_core::data::base_types::hash256::Hash256;
-use qed_user_cli::rpc::provider::RpcConfig;
-use qed_user_cli::session::WalletSession;
-use std::net::SocketAddr;
-use std::sync::{Arc, Mutex, RwLock};
-use tower_http::cors::{Any, CorsLayer};
+#[cfg(not(target_arch = "wasm32"))]
+pub mod args;
 
-use crate::api::RpcServer;
-use crate::api::RpcServerImpl;
-use crate::args::ProverArgs;
-use crate::common::enc::SimpleZeroPadEncryptionHelper;
-use crate::store::UserProverWorkerStore;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod common;
 
-pub async fn run_server(args: ProverArgs) -> anyhow::Result<()> {
+// Only export what's necessary for WASM
+#[cfg(target_arch = "wasm32")]
+pub use api::WasmRpcServer;
+
+// For non-WASM targets
+#[cfg(not(target_arch = "wasm32"))]
+pub use store::UserProverWorkerStore;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn run_server(args: args::ProverArgs) -> anyhow::Result<()> {
+    use hyper::Method;
+    use jsonrpsee::server::Server;
+    use qed_core::data::base_types::hash256::Hash256;
+    use qed_user_cli::rpc::provider::RpcConfig;
+    use qed_user_cli::session::WalletSession;
+    use std::net::SocketAddr;
+    use std::sync::{Arc, Mutex, RwLock};
+    use tower_http::cors::{Any, CorsLayer};
+
+    use crate::api::{RpcServer, RpcServerImpl};
+    use crate::common::enc::SimpleZeroPadEncryptionHelper;
+
     let api_key = Hash256::from_hex_string(&args.api_key)?;
-    let encryption_helper = SimpleZeroPadEncryptionHelper::new(api_key);
+    let _encryption_helper = SimpleZeroPadEncryptionHelper::new(api_key);
 
     let cors = CorsLayer::new()
         // Allow `POST` when accessing the resource
