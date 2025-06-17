@@ -1,6 +1,6 @@
 import { Hash256, SCNumberLike } from "../core";
 
-interface IPreparedCitySigAction {
+interface IPreparedQedSigAction {
     network_magic: bigint;
     user: bigint;
     sig_action: bigint;
@@ -45,5 +45,5 @@ export type {
     IQedClaimDepositRequest,
     IQedTransferRequest,
     IQedWithdrawalRequest,
-    IPreparedCitySigAction,
+    IPreparedQedSigAction,
 };

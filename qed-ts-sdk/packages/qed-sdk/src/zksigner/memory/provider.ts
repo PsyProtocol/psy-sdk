@@ -1,0 +1,46 @@
+import { getQedNetworkMagicForNetworkId, NetworkId } from "../../action";
+import { IQEDUserProverProvider } from "../../local-prover-rpc";
+import { cryptoRandomHashOutHex } from "../../utils";
+import { IQedTransactionSigner, IQedTransactionSignerProvider, TQedTransactionSignerProviderAbility } from "../types";
+import { QedMemoryTransactionSigner } from "./signer";
+
+class QedMemoryTransactionSignerProvider implements IQedTransactionSignerProvider {
+  networkId: NetworkId;
+  l2NetworkMagic: bigint;
+  signers: QedMemoryTransactionSigner[] = [];
+  proverProvider: IQEDUserProverProvider;
+  constructor(proverProvider: IQEDUserProverProvider, networkId: NetworkId) {
+    this.networkId = networkId;
+    this.l2NetworkMagic = getQedNetworkMagicForNetworkId(networkId);
+    this.proverProvider = proverProvider
+  }
+  getSigners(): Promise<IQedTransactionSigner[]> {
+    return Promise.resolve(this.signers);
+  }
+  getPublicKeysHex(): Promise<string[]> {
+    return Promise.resolve(this.signers.map(signer => signer.publicKeyHex));
+  }
+  getSignerByPublicKeyHex(publicKeyHex: string): Promise<IQedTransactionSigner> {
+    const signer = this.signers.find(signer => signer.publicKeyHex === publicKeyHex);
+    if (!signer) return Promise.reject(new Error("Signer not found"));
+    return Promise.resolve(signer);
+  }
+  getAbilities(): TQedTransactionSignerProviderAbility[] {
+    return ['import-private-key', 'add-random-private-key'];
+  }
+  async importPrivateKey(privateKeyHex: string): Promise<IQedTransactionSigner> {
+    const existing = this.signers.find(signer => signer.privateKeyHex === privateKeyHex);
+    if (existing) return existing;
+    const signer = await QedMemoryTransactionSigner.create(this.proverProvider, this.networkId, privateKeyHex);
+    this.signers.push(signer);
+    return signer;
+  }
+  addRandomPrivateKey(): Promise<IQedTransactionSigner> {
+    return this.importPrivateKey(cryptoRandomHashOutHex());
+  }
+
+}
+
+export {
+  QedMemoryTransactionSignerProvider,
+}

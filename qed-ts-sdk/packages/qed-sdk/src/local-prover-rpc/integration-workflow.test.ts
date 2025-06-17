@@ -67,7 +67,7 @@ describe("QED User Prover RPC Workflow Integration", () => {
 
                     // Step 4: Switch to the user
                     console.log("Step 4: Switching to user...");
-                    await provider.switchUser(userHash);
+                    // await provider.switchUser(userHash);
                     console.log("✓ Switched to user");
 
                     // Step 5: Verify ZK public key
@@ -118,9 +118,9 @@ describe("QED User Prover RPC Workflow Integration", () => {
                     for (let i = 0; i < users.length; i++) {
                         console.log(`Switching to user ${i + 1}...`);
 
-                        await provider.switchUser(users[i].hash);
+                        // await provider.switchUser(users[i].hash);
                         // Start session
-                        const sessionId = await provider.startSession();
+                        const sessionId = await provider.startSession(users[i].hash);
                         console.log("✓ Session started:", sessionId);
 
                         // Verify the user by checking ZK public key
@@ -151,8 +151,8 @@ describe("QED User Prover RPC Workflow Integration", () => {
             await provider.registerUser(userKeypair.private_key);
             await waitBlock(coordinator);
             userHash = await provider.addUser(userKeypair.private_key);
-            await provider.switchUser(userHash);
-            await provider.startSession();
+            // await provider.switchUser(userHash);
+            await provider.startSession(userHash);
             console.log("✓ Setup complete for contract workflow tests");
         });
 
@@ -170,7 +170,7 @@ describe("QED User Prover RPC Workflow Integration", () => {
                         inputs: [42n, 100n],
                     };
 
-                    const singleProofId = await provider.proveContractCall(singleContractCall);
+                    const singleProofId = await provider.proveContractCall(userHash, singleContractCall);
                     expect(singleProofId).toBeDefined();
                     console.log("✓ Single contract call proven:", singleProofId);
 
@@ -182,10 +182,10 @@ describe("QED User Prover RPC Workflow Integration", () => {
                         { contract_id: 2n, method_name: "method_c", inputs: [30n, 40n] },
                     ];
 
-                    const multipleProofId = await provider.proveContractCalls(multipleContractCalls);
+                    const multipleProofId = await provider.proveContractCalls(userHash, multipleContractCalls);
                     expect(multipleProofId).toBeDefined();
                     console.log("✓ Multiple contract calls proven:", multipleProofId);
-                    await provider.signAndSubmit();
+                    await provider.signAndSubmit(userHash);
 
                     console.log("✅ Contract proving workflow test passed!");
                 } catch (error) {
@@ -209,40 +209,12 @@ describe("QED User Prover RPC Workflow Integration", () => {
                         { contract_id: 1n, method_name: "submit_test", inputs: [123n] },
                     ];
 
-                    await provider.proveContractCalls(contractCalls);
+                    await provider.proveContractCalls(userHash, contractCalls);
                     console.log("✓ Contract calls proven");
 
-                    // Step 2: Get signature hash
-                    console.log("Step 2: Getting signature hash...");
-                    const networkMagic = 12345n;
-                    const sigHash = await provider.getSigHash(networkMagic);
-                    expect(sigHash).toBeDefined();
-                    console.log("✓ Signature hash obtained:", sigHash);
-
-                    // Step 3: Get ZK signature
-                    console.log("Step 3: Getting ZK signature...");
-                    const zkSignature = await provider.getZKSignature(sigHash);
-                    expect(zkSignature).toBeDefined();
-                    expect(zkSignature.proof).toBeDefined();
-                    expect(zkSignature.public_inputs).toBeDefined();
-                    console.log("✓ ZK signature generated");
-
-                    // Step 4: Get end cap proof
-                    console.log("Step 4: Getting end cap proof...");
-                    const endCapProof = await provider.getEndCapProof(zkSignature);
-                    expect(endCapProof).toBeDefined();
-                    console.log("✓ End cap proof generated");
-
-                    // Step 5: Get user EC input
-                    console.log("Step 5: Getting user EC input...");
-                    const userECInput = await provider.getUserECInput();
-                    expect(userECInput).toBeDefined();
-                    expect(userECInput.core).toBeDefined();
-                    console.log("✓ User EC input obtained");
-
-                    // Step 6: Sign and submit
-                    console.log("Step 6: Signing and submitting...");
-                    const submitId = await provider.signAndSubmit();
+                    // Step 2: Sign and submit
+                    console.log("Step 2: Signing and submitting...");
+                    const submitId = await provider.signAndSubmit(userHash);
                     expect(submitId).toBeDefined();
                     console.log("✓ Transaction signed and submitted:", submitId);
 
@@ -260,6 +232,7 @@ describe("QED User Prover RPC Workflow Integration", () => {
     });
 
     describe("Error Recovery Workflow", () => {
+        let userHash = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a";
         it(
             "should handle and recover from session errors",
             async () => {
@@ -267,13 +240,13 @@ describe("QED User Prover RPC Workflow Integration", () => {
 
                 try {
                     // Step 1: Start a session
-                    const sessionId = await provider.startSession();
+                    const sessionId = await provider.startSession(userHash);
                     console.log("✓ Initial session started:", sessionId);
 
                     // Step 2: Try to perform operations that might fail
                     try {
                         // This might fail if no contracts exist
-                        await provider.proveContractCall({
+                        await provider.proveContractCall(userHash, {
                             contract_id: 999n,
                             method_name: "non_existent_method",
                             inputs: [1n],
@@ -288,7 +261,7 @@ describe("QED User Prover RPC Workflow Integration", () => {
                     console.log("✓ Session still functional after error");
 
                     // Step 4: Start a new session to recover
-                    const newSessionId = await provider.startSession();
+                    const newSessionId = await provider.startSession(userHash);
                     expect(newSessionId).toBeDefined();
                     console.log("✓ New session started for recovery:", newSessionId);
 
@@ -328,13 +301,13 @@ describe("QED User Prover RPC Workflow Integration", () => {
                     const userHash1 = await provider.addUser(keypair1.private_key);
                     const userHash2 = await provider.addUser(keypair2.private_key);
 
-                    await provider.switchUser(userHash1);
+                    // await provider.switchUser(userHash1);
                     const zkKey1 = await provider.getZKPublicKey(keypair1.private_key);
-                    let sessionId = await provider.startSession();
+                    let sessionId = await provider.startSession(userHash1);
                     const ping1 = await provider.ping("Performance test 1");
 
-                    await provider.switchUser(userHash2);
-                    sessionId = await provider.startSession();
+                    // await provider.switchUser(userHash2);
+                    sessionId = await provider.startSession(userHash2);
                     const zkKey2 = await provider.getZKPublicKey(keypair2.private_key);
 
                     const ping2 = await provider.ping("Performance test 2");

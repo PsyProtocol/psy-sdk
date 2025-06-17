@@ -34,20 +34,24 @@ class QEDRPCUserProverProvider extends BaseProvider implements IQEDUserProverPro
     }
 
     // Local proving operations
-    async startSession(): Promise<string> {
-        return this.rpc<string>(QEDUserProverRPCCommand.StartSession, []);
+    async execContractCall(pk_hash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
+        return this.rpc<string>(QEDUserProverRPCCommand.ExecContractCall, [pk_hash, contractCallArg]);
     }
 
-    async proveContractCall(contractCallArg: ContractCallArgs): Promise<string> {
-        return this.rpc<string>(QEDUserProverRPCCommand.ProveContractCall, [contractCallArg]);
+    async startSession(pk_hash: string): Promise<string> {
+        return this.rpc<string>(QEDUserProverRPCCommand.StartSession, [pk_hash]);
     }
 
-    async proveContractCalls(contractCallArgs: ContractCallArgs[]): Promise<string> {
-        return this.rpc<string>(QEDUserProverRPCCommand.ProveContractCalls, [contractCallArgs]);
+    async proveContractCall(pk_hash: string, contractCallArg: ContractCallArgs): Promise<string> {
+        return this.rpc<string>(QEDUserProverRPCCommand.ProveContractCall, [pk_hash, contractCallArg]);
     }
 
-    async signAndSubmit(): Promise<string> {
-        return this.rpc<string>(QEDUserProverRPCCommand.SignAndSubmit, []);
+    async proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string> {
+        return this.rpc<string>(QEDUserProverRPCCommand.ProveContractCalls, [pk_hash, contractCallArgs]);
+    }
+
+    async signAndSubmit(pk_hash: string): Promise<string> {
+        return this.rpc<string>(QEDUserProverRPCCommand.SignAndSubmit, [pk_hash]);
     }
 
     // User operations
@@ -59,9 +63,9 @@ class QEDRPCUserProverProvider extends BaseProvider implements IQEDUserProverPro
         return this.rpc<PublicKey>(QEDUserProverRPCCommand.AddUser, [privateKey]);
     }
 
-    async switchUser(pkHash: PublicKey): Promise<void> {
-        return this.rpc<void>(QEDUserProverRPCCommand.SwitchUser, [pkHash]);
-    }
+    // async switchUser(pkHash: PublicKey): Promise<void> {
+    //     return this.rpc<void>(QEDUserProverRPCCommand.SwitchUser, [pkHash]);
+    // }
 
     async getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo> {
         return this.rpc<ZKPublicKeyInfo>(QEDUserProverRPCCommand.GetZKPublicKey, [privateKey]);
@@ -72,30 +76,30 @@ class QEDRPCUserProverProvider extends BaseProvider implements IQEDUserProverPro
     }
 
     // Contract deployment
-    async deployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
-        return this.rpc<string>(QEDUserProverRPCCommand.DeployContract, [circuitDefs]);
+    async deployContract(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
+        return this.rpc<string>(QEDUserProverRPCCommand.DeployContract, [deployer, circuitDefs]);
     }
 
-    async getDeployContractCmd(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract> {
-        return this.rpc<QBCDeployContract>(QEDUserProverRPCCommand.GetDeployContractCmd, [circuitDefs]);
+    async getDeployContractCmd(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract> {
+        return this.rpc<QBCDeployContract>(QEDUserProverRPCCommand.GetDeployContractCmd, [deployer, circuitDefs]);
     }
 
     // Signing and submission
-    async getSigHash(networkMagic: bigint): Promise<QHashOut> {
-        return this.rpc<QHashOut>(QEDUserProverRPCCommand.GetSigHash, [networkMagic]);
-    }
+    // async getSigHash(networkMagic: bigint): Promise<QHashOut> {
+    //     return this.rpc<QHashOut>(QEDUserProverRPCCommand.GetSigHash, [networkMagic]);
+    // }
 
-    async getZKSignature(sighash: QHashOut): Promise<ProofWithPublicInputs> {
-        return this.rpc<ProofWithPublicInputs>(QEDUserProverRPCCommand.GetZKSignature, [sighash]);
-    }
+    // async getZKSignature(sighash: QHashOut): Promise<ProofWithPublicInputs> {
+    //     return this.rpc<ProofWithPublicInputs>(QEDUserProverRPCCommand.GetZKSignature, [sighash]);
+    // }
 
-    async getEndCapProof(signatureProof: ProofWithPublicInputs): Promise<ProofWithPublicInputs> {
-        return this.rpc<ProofWithPublicInputs>(QEDUserProverRPCCommand.GetEndCapProof, [signatureProof]);
-    }
+    // async getEndCapProof(signatureProof: ProofWithPublicInputs): Promise<ProofWithPublicInputs> {
+    //     return this.rpc<ProofWithPublicInputs>(QEDUserProverRPCCommand.GetEndCapProof, [signatureProof]);
+    // }
 
-    async getUserECInput(): Promise<SubmitUserEndCapNonProofInput> {
-        return this.rpc<SubmitUserEndCapNonProofInput>(QEDUserProverRPCCommand.GetUserECInput, []);
-    }
+    // async getUserECInput(): Promise<SubmitUserEndCapNonProofInput> {
+    //     return this.rpc<SubmitUserEndCapNonProofInput>(QEDUserProverRPCCommand.GetUserECInput, []);
+    // }
 
     // Utility methods
     async ping(message: string): Promise<string> {

@@ -87,6 +87,7 @@ interface SubmitUserEndCapNonProofInput {
 
 // Namespace corresponds to "qed" in Rust
 enum QEDUserProverRPCCommand {
+    ExecContractCall = "qed_exec_contract_call",
     StartSession = "qed_start_session",
     ProveContractCall = "qed_prove_contract_call",
     ProveContractCalls = "qed_prove_contract_calls",
@@ -108,27 +109,28 @@ enum QEDUserProverRPCCommand {
 
 interface IQEDUserProverProvider {
     // Local proving operations
-    startSession(): Promise<string>;
-    proveContractCall(contractCallArg: ContractCallArgs): Promise<string>;
-    proveContractCalls(contractCallArgs: ContractCallArgs[]): Promise<string>;
-    signAndSubmit(): Promise<string>;
+    execContractCall(pk_hash: string, contractCallArg: ContractCallArgs[]): Promise<string>;
+    startSession(pk_hash: string): Promise<string>;
+    proveContractCall(pk_hash: string, contractCallArg: ContractCallArgs): Promise<string>;
+    proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
+    signAndSubmit(pk_hash: string): Promise<string>;
 
     // User operations
     registerUser(privateKey: PrivateKey): Promise<PublicKey>;
     addUser(privateKey: PrivateKey): Promise<PublicKey>;
-    switchUser(pkHash: PublicKey): Promise<void>;
+    // switchUser(pkHash: PublicKey): Promise<void>;
     getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo>;
     getRandomKeypair(): Promise<WalletKeyPair>;
 
     // Contract deployment
-    deployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
-    getDeployContractCmd(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
+    deployContract(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
+    getDeployContractCmd(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
 
     // Signing and submission
-    getSigHash(networkMagic: bigint): Promise<QHashOut>;
-    getZKSignature(sighash: QHashOut): Promise<ProofWithPublicInputs>;
-    getEndCapProof(signatureProof: ProofWithPublicInputs): Promise<ProofWithPublicInputs>;
-    getUserECInput(): Promise<SubmitUserEndCapNonProofInput>;
+    // getSigHash(networkMagic: bigint): Promise<QHashOut>;
+    // getZKSignature(sighash: QHashOut): Promise<ProofWithPublicInputs>;
+    // getEndCapProof(signatureProof: ProofWithPublicInputs): Promise<ProofWithPublicInputs>;
+    // getUserECInput(): Promise<SubmitUserEndCapNonProofInput>;
 
     // Utility methods
     ping(message: string): Promise<string>;
