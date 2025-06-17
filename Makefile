@@ -422,5 +422,8 @@ image:
 		-t qedprotocol/qed-rollup:latest \
 		-f Dockerfile .
 
+wasm-build:
+	@cd qed_user_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover-server  --no-pack
+
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort
