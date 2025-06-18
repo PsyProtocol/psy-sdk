@@ -423,7 +423,8 @@ image:
 		-f Dockerfile .
 
 wasm-build:
-	@cd qed_user_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover-server  --no-pack
+	@cd qed_user_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed_user_prover --dev --reference-types
+	@cd qed_user_prover && wasm-pack build --target nodejs  --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --dev --reference-types
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

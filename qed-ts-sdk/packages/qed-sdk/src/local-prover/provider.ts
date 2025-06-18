@@ -1,19 +1,23 @@
-import {WasmRpcServer} from './qed_user_prover';
-import {PrivateKey, PublicKey, QHashOut, U8Bytes} from '../core';
-import {DPNFunctionCircuitDefinition,
+import { RpcConfig } from "./config";
+import { WasmRpcServer } from "./qed_user_prover";
+import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
+import {
+    DPNFunctionCircuitDefinition,
     ProofWithPublicInputs,
     QBCDeployContract,
     SubmitUserEndCapNonProofInput,
     ContractCallArgs,
     IQEDUserProverProvider,
-    WalletKeyPair} from '../local-prover-rpc/types';
-import {ZKPublicKeyInfo} from "../types";
+    WalletKeyPair,
+} from "../local-prover-rpc/types";
+import { ZKPublicKeyInfo } from "../types";
 
 export class QEDWasmUserProverProvider implements IQEDUserProverProvider {
     private wasmServer: WasmRpcServer;
 
-    constructor(rpcConfigJson: string) {
-        this.wasmServer = new WasmRpcServer(rpcConfigJson);
+    constructor(rpcConfigJson: RpcConfig) {
+        const json = JSON.stringify(rpcConfigJson);
+        this.wasmServer = new WasmRpcServer(json);
     }
 
     // Local proving operations

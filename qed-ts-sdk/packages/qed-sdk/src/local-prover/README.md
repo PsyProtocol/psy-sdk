@@ -27,10 +27,12 @@ const server = new WasmRpcServer(rpcConfigJson);
 #### Methods
 
 ##### Session Management
+
 - `start_session()`: Start a new proving session
 - `ping(message)`: Ping the server with a message
 
 ##### User Operations
+
 - `register_user(privateKeyStr)`: Register a new user
 - `add_user(privateKeyStr)`: Add an existing user
 - `switch_user(publicKeyHashStr)`: Switch to a different user
@@ -38,18 +40,21 @@ const server = new WasmRpcServer(rpcConfigJson);
 - `get_random_keypair_json()`: Generate a random keypair
 
 ##### Contract Operations
+
 - `deploy_contract_json(circuitDefsJson)`: Deploy a contract
 - `get_deploy_contract_cmd_json(circuitDefsJson)`: Get deployment command
 - `prove_contract_call_json(contractCallJson)`: Prove a single contract call
 - `prove_contract_calls_json(contractCallsJson)`: Prove multiple contract calls
 
 ##### Signature Operations
+
 - `get_sighash(networkMagic)`: Get signature hash
 - `get_zk_signature_json(sighashStr)`: Generate ZK signature
 - `get_end_cap_proof_json(signatureProofJson)`: Get end cap proof
 - `get_user_ec_input_json()`: Get user end cap input
 
 ##### Result Management
+
 - `sign_and_submit()`: Sign and submit transaction
 - `get_result(idStr)`: Get result by ID
 
@@ -57,34 +62,34 @@ const server = new WasmRpcServer(rpcConfigJson);
 
 ```javascript
 // Initialize the WASM module
-import init, { WasmRpcServer } from './pkg/qed_user_prover.js';
+import init, { WasmRpcServer } from "./pkg/qed_user_prover.js";
 
 async function main() {
     // Initialize WASM
     await init();
-    
+
     // Create RPC configuration
     const rpcConfig = {
         rpc_url: "http://localhost:8080",
         network: "testnet",
         // ... other config fields
     };
-    
+
     // Create RPC server
     const server = new WasmRpcServer(JSON.stringify(rpcConfig));
-    
+
     // Start a session
     const sessionResult = server.start_session();
     console.log("Session started:", sessionResult);
-    
+
     // Generate a random keypair
     const keypair = JSON.parse(server.get_random_keypair_json());
     console.log("Generated keypair:", keypair);
-    
+
     // Register the user
     const publicKey = server.register_user(keypair.private_key);
     console.log("User registered with public key:", publicKey);
-    
+
     // Test ping
     const pingResult = server.ping("Hello WASM!");
     console.log("Ping result:", pingResult); // Should return "!MSAW olleH"
@@ -116,6 +121,7 @@ wasm-pack build --target nodejs --out-dir pkg-node
 ### Build Outputs
 
 The build will generate:
+
 - `pkg/qed_user_prover.js` - JavaScript bindings
 - `pkg/qed_user_prover_bg.wasm` - WebAssembly binary
 - `pkg/qed_user_prover.d.ts` - TypeScript definitions
@@ -128,28 +134,28 @@ The build will generate:
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-    <script type="module">
-        import init, { WasmRpcServer } from './pkg/qed_user_prover.js';
-        
-        async function run() {
-            await init();
-            // Use the WASM module...
-        }
-        
-        run();
-    </script>
-</head>
-<body>
-    <!-- Your web app content -->
-</body>
+    <head>
+        <script type="module">
+            import init, { WasmRpcServer } from "./pkg/qed_user_prover.js";
+
+            async function run() {
+                await init();
+                // Use the WASM module...
+            }
+
+            run();
+        </script>
+    </head>
+    <body>
+        <!-- Your web app content -->
+    </body>
 </html>
 ```
 
 ### Node.js
 
 ```javascript
-const { WasmRpcServer } = require('./pkg-node/qed_user_prover.js');
+const { WasmRpcServer } = require("./pkg-node/qed_user_prover.js");
 
 // Use the modules...
 ```
@@ -172,7 +178,7 @@ try {
 The module includes TypeScript definitions for better development experience:
 
 ```typescript
-import { WasmRpcServer } from './pkg/qed_user_prover';
+import { WasmRpcServer } from "./pkg/qed_user_prover";
 
 const server: WasmRpcServer = new WasmRpcServer(configJson);
 const result: string = server.start_session();
@@ -206,4 +212,4 @@ wasm-pack build --target web --dev --out-dir pkg-debug
 1. Ensure all WASM methods handle errors gracefully
 2. Add comprehensive tests for new functionality
 3. Update documentation for API changes
-4. Test in multiple browser environments 
+4. Test in multiple browser environments

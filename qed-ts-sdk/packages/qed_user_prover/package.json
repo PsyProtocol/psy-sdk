@@ -1,0 +1,15 @@
+{
+  "name": "qed_user_prover",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "qed_user_prover_bg.wasm",
+    "qed_user_prover.js",
+    "qed_user_prover.d.ts"
+  ],
+  "main": "qed_user_prover.js",
+  "types": "qed_user_prover.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
