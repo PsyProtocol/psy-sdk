@@ -44,8 +44,7 @@ members = [
     "qed_common",
     "qed_user_cli",
     "qed_benchmark",
-    "qed_user_prover",
-    "qed_user_prover_wasm"
+    "qed_user_prover"
 ]
 resolver = "2"
 
