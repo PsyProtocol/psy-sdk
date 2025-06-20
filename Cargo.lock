@@ -4871,6 +4871,7 @@ dependencies = [
  "clap",
  "fred",
  "hex",
+ "hyper 1.6.0",
  "jsonrpsee",
  "kvq",
  "kvq_store_lmdbx",
@@ -4888,6 +4889,8 @@ dependencies = [
  "serde_with",
  "thiserror 2.0.12",
  "tokio",
+ "tower 0.5.2",
+ "tower-http",
  "tracing",
 ]
 

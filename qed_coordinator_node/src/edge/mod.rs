@@ -7,10 +7,10 @@ use crate::context::{get_jwt_secret, init_coordinator_edge};
 use crate::edge::rpc::router::build_rpc_module;
 use crate::rpc::jwt::{JwtSecret, ServerLayer};
 
-use jsonrpsee::server::Server;
-use tower_http::cors::{Any, CorsLayer};
 use hyper::Method;
+use jsonrpsee::server::Server;
 use std::net::SocketAddr;
+use tower_http::cors::{AllowHeaders, Any, CorsLayer};
 use tracing::info;
 
 pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
@@ -32,23 +32,16 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     };
 
     let cors_opts = CorsLayer::new()
-        // Allow `POST` when accessing the resource
-        .allow_methods([Method::POST, Method::GET, Method::OPTIONS])
-        // Allow requests from any origin
+        .allow_methods([
+            Method::POST,
+            Method::OPTIONS,
+        ])
         .allow_origin(Any)
-        .allow_headers([
-            hyper::header::CONTENT_TYPE,
-            hyper::header::AUTHORIZATION,
-            hyper::header::ACCEPT,
-        ]).allow_credentials(false);
-    let cors = tower::ServiceBuilder::new().layer(cors_opts);
-
-    let jwt = tower::ServiceBuilder::new()
-        .layer(ServerLayer(jwt_secret));
+        .allow_headers(Any);
+    let cors = tower::ServiceBuilder::new().layer(cors_opts).layer(ServerLayer(jwt_secret));
 
     let server = Server::builder()
         .set_http_middleware(cors)
-        .set_http_middleware(jwt)
         .build(addr)
         .await?;
 

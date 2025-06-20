@@ -90,10 +90,6 @@ run_service() {
     done
 }
 
-rm -rf ./db/*
-
-redis-cli flushall
-
 # Group 1: Start processor and worker services in background
 run_service "make run-coordinator-processor" "coordinator-processor" "$COORDINATOR_PROCESSOR_LOG" &
 PIDS+=($!)
@@ -129,6 +125,7 @@ PIDS+=($!)
 # run_service "make run-realm-edge8192" "realm-edge8192" "$REALM_EDGE8192_LOG" &
 # PIDS+=($!)
 
+sleep 1
 run_service "make run-user-prover" "local-user-prover" "$LOCAL_USER_PROVER_LOG" &
 PIDS+=($!)
 run_service "make run-web-wallet" "web-wallet" "$WEB_WALLET_LOG" &
