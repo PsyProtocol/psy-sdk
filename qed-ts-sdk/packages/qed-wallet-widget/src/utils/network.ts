@@ -2,11 +2,11 @@ import { NetworkId } from "@qed/qed-sdk/src/action";
 
 function getNetworkNameById(id: NetworkId) {
     if (id === "mainnet") {
-        return "Qed mainnet";
+        return "Psy Mainnet";
     } else if (id === "testnet") {
-        return "Qed Testnet";
+        return "Psy Testnet";
     } else if (id === "regtest") {
-        return "Qed Regtest";
+        return "Psy Regtest";
     } else {
         return "Unknown";
     }

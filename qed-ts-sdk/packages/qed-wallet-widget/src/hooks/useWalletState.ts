@@ -117,7 +117,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
         walletAbilities: [],
         networkId: "regtest",
         canAddWallet: true,
-        currency: "QED",
+        currency: "PSY",
         coordinatorEdgeRpcProvider: walletProvider.coordinatorEdgeRpcProvider,
         realmEdgeRpcProvider: walletProvider.realmEdgeRpcProvider,
         refreshCurrentWallet: () =>
