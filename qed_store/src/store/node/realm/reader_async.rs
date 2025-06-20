@@ -24,6 +24,7 @@ use qed_data::qdata::{
         user::QEDUserLeaf,
     };
 type F = GoldilocksField;
+#[cfg(feature = "is_sync")]
 #[async_trait]
 impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreReaderAsync<F> for T {
     async fn get_checkpoint_leaf_data(
@@ -183,7 +184,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreReaderAsync<F> fo
             checkpoint_id,
             user_id,
             contract_id,
-        )
+        ) 
     }
     async fn get_user_contract_state_tree_leaf_hash(
         &self,

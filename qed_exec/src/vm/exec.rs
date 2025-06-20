@@ -77,7 +77,7 @@ fn get_slot_mask(length: u64, sub_slot_index: u64) -> [u8; 4] {
     SLOT_MASK_TABLE[(length_minus_2_low_bits + sub_slot_index_low_bits) as usize]
 }
 */
-impl<R: QEDReadCommandProcessorSync<GF>> QEDCmdInputWitnessResolver<GF>
+impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolver<GF>
     for QEDLocalProvingSessionStore<GF, R>
 {
     fn resolve_vec(
@@ -1090,7 +1090,7 @@ impl<F: RichField> QEDEvalSessionResult<F> {
 }
 type GF = GoldilocksField;
 impl QEDEvalSessionResult<GF> {
-    pub fn process_state_cmd<R: QEDReadCommandProcessorSync<GF>>(
+    pub fn process_state_cmd<R: QEDReadCommandProcessorSync<GF> + Send +Sync>(
         &mut self,
         executor: &mut SimpleDPNExecutor<GF>,
         sesh: &mut QEDLocalProvingSessionStore<GF, R>,
@@ -1108,7 +1108,7 @@ impl QEDEvalSessionResult<GF> {
         Ok(())
     }
 
-    pub fn exec_contract_call<R: QEDReadCommandProcessorSync<GF>>(
+    pub fn exec_contract_call<R: QEDReadCommandProcessorSync<GF>  + Send + Sync>(
         self,
         sesh: &mut QEDLocalProvingSessionStore<GF, R>,
         contract_id: GF,
@@ -1123,7 +1123,7 @@ impl QEDEvalSessionResult<GF> {
         self.eval_session(fn_def, sesh, inputs)
     }
 
-    fn eval_session<R: QEDReadCommandProcessorSync<GF>>(
+    fn eval_session<R: QEDReadCommandProcessorSync<GF> + Send + Sync>(
         mut self,
         fn_def: &DPNFunctionCircuitDefinition,
         sesh: &mut QEDLocalProvingSessionStore<GF, R>,

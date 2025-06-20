@@ -289,6 +289,8 @@ ts-rs = "10.1.0"
 
 tower-http = { version = "0.6", features = ["full"] }
 tower = { version = "0.5", features = ["full"] }
+cfg-if = "1.0"
+maybe-async = "0.2"
 
 [profile.release]
 debug = true

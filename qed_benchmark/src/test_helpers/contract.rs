@@ -332,7 +332,7 @@ const D: usize = 2;
 type F = GoldilocksField;
 impl SimpleTestContract<C, D>
 {
-    pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
+    pub fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &self,
         circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,

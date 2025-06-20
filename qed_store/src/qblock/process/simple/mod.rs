@@ -31,22 +31,23 @@ use crate::{
 
 pub struct SimpleBlockProcessor {}
 
+#[maybe_async::maybe_async]
 impl SimpleBlockProcessor {
-    pub fn process_block<S: QEDStorageAdapterImmutable>(
+    pub async fn process_block<S: QEDStorageAdapterImmutable + Sync>(
         store: &S,
         cmds: &QEDBlockCommands<QEDFelt>,
         fingerprints: &QEDWorkerToolboxCoreCircuitFingerprints<QEDFelt>,
     ) -> anyhow::Result<QEDInternalBlockCircuitInputs<QEDFelt>> {
-        let current_block_state = store.get_latest_l2_block_state()?;
+        let current_block_state = store.get_latest_l2_block_state().await?;
         
         let old_checkpoint_id = current_block_state.checkpoint_id;
-        let old_checkpoint_leaf = store.get_checkpoint_leaf_data(old_checkpoint_id)?;
+        let old_checkpoint_leaf = store.get_checkpoint_leaf_data(old_checkpoint_id).await?;
         let old_state_roots = QEDCheckpointGlobalStateRoots{
-            contract_tree_root: store.get_contract_tree_root(old_checkpoint_id)?,
-            deposit_tree_root: store.get_deposit_tree_root(old_checkpoint_id)?,
-            user_tree_root: store.get_user_tree_root(old_checkpoint_id)?,
-            withdrawal_tree_root: store.get_withdrawal_tree_root(old_checkpoint_id)?,
-            user_registration_tree_root: store.get_user_registration_tree_root(old_checkpoint_id)?,
+            contract_tree_root: store.get_contract_tree_root(old_checkpoint_id).await?,
+            deposit_tree_root: store.get_deposit_tree_root(old_checkpoint_id).await?,
+            user_tree_root: store.get_user_tree_root(old_checkpoint_id).await?,
+            withdrawal_tree_root: store.get_withdrawal_tree_root(old_checkpoint_id).await?,
+            user_registration_tree_root: store.get_user_registration_tree_root(old_checkpoint_id).await?,
         };
         let new_checkpoint_id = old_checkpoint_id+1;
         let new_checkpoint_id_f = QEDFelt::from_canonical_u64(new_checkpoint_id);
@@ -86,7 +87,7 @@ impl SimpleBlockProcessor {
             witness_register_users.push(user_reg_witness);
         }
         let boundry_user_id = new_block_state.next_user_id;
-        let boundry_user_registration_merkle_proof = store.get_user_tree_merkle_proof(new_checkpoint_id, boundry_user_id)?;
+        let boundry_user_registration_merkle_proof = store.get_user_tree_merkle_proof(new_checkpoint_id, boundry_user_id).await?;
         new_block_state.next_user_id += cmds.register_users.len() as u64;
 
         for (i, d) in cmds.deploy_contracts.iter().enumerate() {
@@ -129,7 +130,7 @@ impl SimpleBlockProcessor {
         for upd_user in cmds.update_users.iter() {
             let user_id = upd_user.updated_leaf.user_id.to_canonical_u64();
 
-            let user = store.get_user_leaf_data(new_checkpoint_id, user_id)?;
+            let user = store.get_user_leaf_data(new_checkpoint_id, user_id).await?;
             if !user.public_key.eq(&upd_user.updated_leaf.public_key)
                 || user.last_checkpoint_id.to_canonical_u64()
                     >= upd_user.updated_leaf.last_checkpoint_id.to_canonical_u64()
@@ -149,7 +150,7 @@ impl SimpleBlockProcessor {
                 }
                 let contract_id = cs_upd.contract_id as u64;
                 let contract_state_height = store
-                    .get_contract_leaf_data(contract_id)?
+                    .get_contract_leaf_data(contract_id).await?
                     .state_tree_height
                     .to_canonical_u64() as u8;
                 let ucst = UserContractStateTreeId::new(
@@ -192,16 +193,16 @@ impl SimpleBlockProcessor {
             //r_users.push(user_witness);
         }
 
-        let boundry_user_update_merkle_proof= store.get_user_tree_merkle_proof(new_checkpoint_id, boundry_user_id)?;
+        let boundry_user_update_merkle_proof= store.get_user_tree_merkle_proof(new_checkpoint_id, boundry_user_id).await?;
         new_block_state.checkpoint_id = new_checkpoint_id;
         store.set_l2_block_state(&new_block_state)?;
 
         let new_state_roots = QEDCheckpointGlobalStateRoots{
-            contract_tree_root: store.get_contract_tree_root(new_checkpoint_id)?,
-            deposit_tree_root: store.get_deposit_tree_root(new_checkpoint_id)?,
-            user_tree_root: store.get_user_tree_root(new_checkpoint_id)?,
-            withdrawal_tree_root: store.get_withdrawal_tree_root(new_checkpoint_id)?,
-            user_registration_tree_root: store.get_user_registration_tree_root(new_checkpoint_id)?,
+            contract_tree_root: store.get_contract_tree_root(new_checkpoint_id).await?,
+            deposit_tree_root: store.get_deposit_tree_root(new_checkpoint_id).await?,
+            user_tree_root: store.get_user_tree_root(new_checkpoint_id).await?,
+            withdrawal_tree_root: store.get_withdrawal_tree_root(new_checkpoint_id).await?,
+            user_registration_tree_root: store.get_user_registration_tree_root(new_checkpoint_id).await?,
         };
         let mut new_leaf_stats = QEDCheckpointLeafStats::<QEDFelt>::new_empty();
         new_leaf_stats.block_time = QEDFelt::from_canonical_u64(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs());

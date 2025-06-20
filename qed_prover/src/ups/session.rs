@@ -28,7 +28,7 @@ const ZK_SIG_LEAF_TYPE: u64 = 3;
 pub struct UserProvingSessionManager<
     F: RichField + Extendable<D>,
     H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
-    R: QEDReadCommandProcessorSync<F>,
+    R: QEDReadCommandProcessorSync<F> + Send + Sync,
     C: GenericConfig<D, F = F, Hasher = H>,
     const D: usize,
 > {
@@ -49,7 +49,7 @@ type F = GoldilocksField;
 const D: usize = 2;
 impl<
         H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F> + FieldQHasher<F>,
-        R: QEDReadCommandProcessorSync<F>,
+        R: QEDReadCommandProcessorSync<F> + Send + Sync,
         C: GenericConfig<D, F = F, Hasher = H>,
     > UserProvingSessionManager<F, H, R, C, D>
 {

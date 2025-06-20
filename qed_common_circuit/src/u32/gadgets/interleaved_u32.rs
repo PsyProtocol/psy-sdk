@@ -493,7 +493,7 @@ mod tests {
 
             for t in tests {
                 let input = t;
-                let shift_amount = 32_u32.wrapping_sub(n);
+                let shift_amount = 32_u32.wrapping_sub(n as u32);
                 let output = (input << n) | (input >> shift_amount);
 
                 // test circuit

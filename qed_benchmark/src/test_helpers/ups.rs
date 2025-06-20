@@ -59,7 +59,7 @@ impl ExampleDemoUserInfoStore {
     
 }
 
-    pub fn run_tx_for_current_user<R: QEDReadCommandProcessorSync<F>>(
+    pub fn run_tx_for_current_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &self,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract: &SimpleTestContract<C,D>,
@@ -70,7 +70,7 @@ impl ExampleDemoUserInfoStore {
     ) -> anyhow::Result<()>{
         contract.prove_func(circuit_mgr, mgr, contract_id, fn_name, inputs)
     }
-    pub fn run_txs_for_current_user<R: QEDReadCommandProcessorSync<F>>(
+    pub fn run_txs_for_current_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &mut self,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract: &SimpleTestContract<C,D>,
@@ -84,7 +84,7 @@ impl ExampleDemoUserInfoStore {
         Ok(())
     }
 
-    pub fn new_run_txs_for_user<R: QEDReadCommandProcessorSync<F>>(
+    pub fn new_run_txs_for_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &mut self,
         mut mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
@@ -146,7 +146,7 @@ impl ExampleDemoUserInfoStore {
                 end_cap_proof
             ))
     }
-    pub fn run_txs_for_users<R: QEDReadCommandProcessorSync<F>>(
+    pub fn run_txs_for_users<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &mut self,
         mut mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
@@ -213,7 +213,7 @@ impl ExampleDemoUserInfoStore {
         } 
         Ok((mgr, results))
     }
-    pub fn run_txs_for_users_prep<R: QEDReadCommandProcessorSync<F>>(
+    pub fn run_txs_for_users_prep<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &mut self,
         mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 

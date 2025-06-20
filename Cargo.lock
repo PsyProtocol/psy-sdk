@@ -3396,6 +3396,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
+name = "maybe-async"
+version = "0.2.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5cf92c10c7e361d6b99666ec1c6f9805b0bea2c3bd8c78dc6fe98ac5bd78db11"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
+]
+
+[[package]]
 name = "md5"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4870,6 +4881,7 @@ dependencies = [
  "indexmap 2.9.0",
  "kvq",
  "lazy_static",
+ "maybe-async",
  "plonky2",
  "qed_core",
  "qed_crypto",
@@ -4925,6 +4937,7 @@ name = "qed_user_cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "clap",
  "console_error_panic_hook",
  "dotenv",
@@ -4933,6 +4946,7 @@ dependencies = [
  "js-sys",
  "kvq",
  "kvq_store_lmdbx",
+ "maybe-async",
  "plonky2",
  "pollster",
  "qed_common",
@@ -4967,6 +4981,7 @@ name = "qed_user_prover"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cfg-if",
  "clap",
  "console_error_panic_hook",
  "dotenv",
@@ -4974,6 +4989,7 @@ dependencies = [
  "hyper 1.6.0",
  "js-sys",
  "jsonrpsee",
+ "maybe-async",
  "plonky2",
  "pollster",
  "qed_core",
