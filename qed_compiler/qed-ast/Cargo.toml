@@ -14,3 +14,5 @@ indexmap = { workspace = true }
 once_cell = { workspace = true }
 ariadne = { workspace = true }
 derivative = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

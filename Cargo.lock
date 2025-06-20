@@ -4320,6 +4320,8 @@ dependencies = [
  "indexmap 2.9.0",
  "once_cell",
  "qed-common",
+ "serde",
+ "serde_json",
  "smol_str",
  "strum",
  "thiserror 2.0.12",

@@ -1,3 +1,5 @@
+mod abi;
+mod abi_extractor;
 mod arena;
 mod comment;
 mod definition;
@@ -14,6 +16,8 @@ mod r#type;
 mod value;
 mod visibility;
 
+pub use abi::*;
+pub use abi_extractor::*;
 pub use arena::*;
 pub use comment::*;
 pub use definition::*;
