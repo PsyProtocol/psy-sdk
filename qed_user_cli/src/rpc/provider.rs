@@ -331,12 +331,12 @@ impl QUserRpcProvider for RpcProvider {
 }
 
 impl RpcProvider {
-    pub fn get_user_id<F: RichField>(&self, public_key_param: QHashOut<F>) -> anyhow::Result<u64> {
-        tracing::info!("user: {:?}", public_key_param);
+    pub fn get_user_id<F: RichField>(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
+        tracing::info!("user: {:?}", public_key);
         let response = qed_rpc_call_back!(
             self,
             self.get_coordinator_url()?,
-            RequestParams::<F>::GetUserId(public_key_param),
+            RequestParams::<F>::GetUserId(public_key),
             u64
         );
         match response.result {

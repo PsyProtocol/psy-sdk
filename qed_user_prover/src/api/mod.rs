@@ -76,6 +76,7 @@ pub trait Rpc {
     #[method(name = "get_deploy_contract_cmd")]
     async fn get_deploy_contract_cmd(
         &self,
+        deployer: QHashOut<F>,
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
     ) -> Result<QBCDeployContract<GoldilocksField>, ErrorObjectOwned>;
 

@@ -1,6 +1,6 @@
 import React from "react";
 import { QedWalletWidget, createMemoryWalletProvider } from "@qed/qed-wallet-widget";
-import logoImage from "../../assets/city-rollup-logo.png";
+import logoImage from "../../assets/psy.png";
 import styles from "./Home.module.scss";
 
 const HomePage: React.FC = () => {
@@ -13,7 +13,7 @@ const HomePage: React.FC = () => {
     return (
         <QedWalletWidget provider={walletProvider}>
             <div className={styles.cityRollupLogoCon}>
-                <img src={logoImage} alt="Qed Wallet" className={styles.walletLogo} />
+                <img src={logoImage} alt="Psy Wallet" className={styles.walletLogo} />
             </div>
         </QedWalletWidget>
     );

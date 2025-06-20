@@ -27,13 +27,14 @@ pub async fn run_server(args: ProverArgs) -> anyhow::Result<()> {
 
     let cors = CorsLayer::new()
         // Allow `POST` when accessing the resource
-        .allow_methods([Method::POST])
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         // Allow requests from any origin
         .allow_origin(Any)
         .allow_headers([hyper::header::CONTENT_TYPE]);
     let middleware = tower::ServiceBuilder::new().layer(cors);
 
     let server_addr: SocketAddr = args.listen_addr.parse()?;
+    tracing::info!("Starting user prover server at {}", server_addr);
 
     let server = Server::builder()
         .set_http_middleware(middleware)

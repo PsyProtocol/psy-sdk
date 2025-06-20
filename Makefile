@@ -1,7 +1,7 @@
 export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 
 PROFILE                  := release
-LOG_LEVEL                := qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
+LOG_LEVEL                := qed_user_prover=info,qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
 
 check:
 	@cargo check --all-targets --examples
@@ -225,6 +225,12 @@ run-realm-edge16384-1:
       --proof-store-key-suffix=RP16384 \
       --path=./db/realm16384
 
+run-user-prover:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_prover
+
+run-web-wallet:
+	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev
+
 # run-realm-processor8192:
 # 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
 #       --redis-uri=redis://127.0.0.1:6382 \
@@ -355,7 +361,6 @@ get-l2-block-state:
 
 get-user-leaf-data:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
-
 
 get-realm-user-tree-root:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .

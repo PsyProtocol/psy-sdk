@@ -186,10 +186,10 @@ impl WalletSession {
         let pk_info = self
             .wallet
             .add_private_key_get_info(SimpleQEDPrivateKey { private_key });
-        let pk_hash = pk_info.qfhash::<QEDHasher>();
+        let public_key = pk_info.qfhash::<QEDHasher>();
         let user_id = self
             .st_provider
-            .get_user_id(pk_info.public_key_param)
+            .get_user_id(public_key)
             .map_err(|e| {
                 anyhow::format_err!(
                     "Error `{}`. user {} not found, please register it first",
@@ -198,14 +198,14 @@ impl WalletSession {
                 )
             })?;
 
-        if !self.wallet_keys_store.contains_key(&pk_hash) {
-            self.wallet_keys_store.insert(pk_hash, pk_info);
+        if !self.wallet_keys_store.contains_key(&public_key) {
+            self.wallet_keys_store.insert(public_key, pk_info);
             let checkpoint_id = self.st_provider.get_latest_l2_block_state()?.checkpoint_id;
             let user_leaf_data = self
                 .st_provider
                 .get_user_leaf_data(checkpoint_id, user_id)?;
             self.user_session_mgrs.insert(
-                pk_hash,
+                public_key,
                 UserSessionStateManager::new(
                     user_id,
                     user_leaf_data.nonce + F::from_canonical_u64(1),
@@ -228,7 +228,7 @@ impl WalletSession {
             );
         }
 
-        Ok(pk_hash)
+        Ok(public_key)
     }
 
     pub fn exec_contract_call(
