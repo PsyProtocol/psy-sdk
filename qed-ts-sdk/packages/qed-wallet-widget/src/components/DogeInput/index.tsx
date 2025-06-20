@@ -1,5 +1,5 @@
 import React from "react";
-import { NumberInput, NumberInputProps, TextInput, TextInputProps } from "@mantine/core";
+import { NumberInput, NumberInputProps } from "@mantine/core";
 import { decimalToSats, satsToDecimal } from "../../utils/sats";
 
 interface IDogeInputProps extends Omit<NumberInputProps, "value" | "onChange"> {

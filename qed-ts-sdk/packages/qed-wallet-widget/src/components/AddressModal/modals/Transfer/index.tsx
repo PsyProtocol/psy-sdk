@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useWalletState } from "../../../../hooks/useWalletState";
 import { TAddressModalComponent } from "../../index";
-import styles from "./Transfer.module.scss";
+import { FaucetFromWalletForm, FormControls, InputCon, HelpText } from "./Transfer.styles";
 import { Alert, Box, Button, Combobox, Input, InputBase, LoadingOverlay, TextInput, useCombobox } from "@mantine/core";
 import type { IQedWidgetWallet } from "../../../../types";
 import { IconInfoCircle } from "@tabler/icons-react";
@@ -101,7 +101,7 @@ const TransferForm: React.FC<ITransferFormProps> = ({ onSubmit, onComplete, clas
     const [loadingError, setLoadingError] = useState<string>();
 
     return (
-        <div className={styles.faucetFromWalletForm + (className ? " " + className : "")}>
+        <FaucetFromWalletForm className={className}>
             <Box pos="relative">
                 <LoadingOverlay
                     visible={loadingState === "loading"}
@@ -109,14 +109,14 @@ const TransferForm: React.FC<ITransferFormProps> = ({ onSubmit, onComplete, clas
                     overlayProps={{ radius: "sm", blur: 2 }}
                 />
 
-                <div className={styles.formBody}>
+                <div>
                     {loadingError ? (
                         <Alert variant="light" color="red" title="Transfer Error" icon={<IconInfoCircle />}>
                             {loadingError}
                         </Alert>
                     ) : null}
 
-                    <div className={styles.inputCon}>
+                    <InputCon>
                         <TextInput
                             label="Contract ID"
                             placeholder="Enter Contract ID..."
@@ -130,8 +130,8 @@ const TransferForm: React.FC<ITransferFormProps> = ({ onSubmit, onComplete, clas
                             }}
                             value={contract_id}
                         />
-                    </div>
-                    <div className={styles.inputCon}>
+                    </InputCon>
+                    <InputCon>
                         <TextInput
                             label="Method Name"
                             placeholder="Enter method name..."
@@ -144,8 +144,8 @@ const TransferForm: React.FC<ITransferFormProps> = ({ onSubmit, onComplete, clas
                                 }
                             }}
                         />
-                    </div>
-                    <div className={styles.inputCon}>
+                    </InputCon>
+                    <InputCon>
                         <TextInput
                             label="Parameters (comma-separated)"
                             placeholder="Enter parameters separated by commas..."
@@ -158,12 +158,12 @@ const TransferForm: React.FC<ITransferFormProps> = ({ onSubmit, onComplete, clas
                                 }
                             }}
                         />
-                        <div className={styles.helpText}>
+                        <HelpText>
                             Enter multiple values separated by commas (e.g., 100,200,300)
-                        </div>
-                    </div>
+                        </HelpText>
+                    </InputCon>
                 </div>
-                <div className={styles.formControls}>
+                <FormControls>
                     <Button
                         onClick={() => {
                             setLoadingError(undefined);
@@ -195,9 +195,9 @@ const TransferForm: React.FC<ITransferFormProps> = ({ onSubmit, onComplete, clas
                     >
                         ContractCall
                     </Button>
-                </div>
+                </FormControls>
             </Box>
-        </div>
+        </FaucetFromWalletForm>
     );
 };
 const TransferModal: TAddressModalComponent = ({ onCancel, onComplete }) => {

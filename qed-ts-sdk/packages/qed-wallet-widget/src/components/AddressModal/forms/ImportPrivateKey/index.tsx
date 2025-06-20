@@ -1,8 +1,7 @@
-import { Button, Group, Input, TextInput } from "@mantine/core";
-import { decodePrivateKeyAndNetworkFromWIF } from "doge-sdk";
+import { Button, TextInput } from "@mantine/core";
 import React, { useState } from "react";
-import { IImportWalletFormProps, TImportWalletForm } from "../../modals/ImportWallet";
-import styles from "../../modals/ImportWallet/ImportWallet.module.scss";
+import { TImportWalletForm } from "../../modals/ImportWallet";
+import { ImportForm, FormControls } from "../../modals/ImportWallet/ImportWallet.styles";
 import { useWalletState } from "../../../../hooks/useWalletState";
 
 function validatePrivateKeyHex(privateKey: string): boolean {
@@ -17,9 +16,9 @@ const ImportPrivateKeyForm: TImportWalletForm = ({ onImport, className }) => {
     const [error, setError] = useState<string>();
     const [addWalletFromPrivateKey] = useWalletState((state) => [state.addWalletFromPrivateKey]);
     return (
-        <div className={styles.importForm + " " + styles.importWIFForm + (className ? " " + className : "")}>
+        <ImportForm className={className}>
             <h3>Import Wallet from Private Key</h3>
-            <div className={styles.formBody}>
+            <div>
                 <TextInput
                     label="Private Key (Hex)"
                     description="Import a wallet from a private key"
@@ -33,7 +32,7 @@ const ImportPrivateKeyForm: TImportWalletForm = ({ onImport, className }) => {
                     }}
                 />
             </div>
-            <div className={styles.formControls}>
+            <FormControls>
                 <Button
                     onClick={() => {
                         if (!privateKey.length) {
@@ -42,10 +41,14 @@ const ImportPrivateKeyForm: TImportWalletForm = ({ onImport, className }) => {
                         } else {
                             if (validatePrivateKeyHex(privateKey)) {
                                 addWalletFromPrivateKey(privateKey, true)
-                                    .then(() => {
+                                    .then((result) => {
+                                        console.log("Import wallet result:", result);
                                         onImport(privateKey);
                                     })
-                                    .catch((err) => console.error("error importing private key", err));
+                                    .catch((err) => {
+                                        console.error("Error importing private key:", err);
+                                        setError("Failed to import wallet: " + err.message);
+                                    });
                             } else {
                                 setError("Invalid Private Key");
                             }
@@ -55,8 +58,8 @@ const ImportPrivateKeyForm: TImportWalletForm = ({ onImport, className }) => {
                 >
                     Import
                 </Button>
-            </div>
-        </div>
+            </FormControls>
+        </ImportForm>
     );
 };
 

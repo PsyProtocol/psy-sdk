@@ -3,7 +3,7 @@ import { useWalletState } from "../../../../hooks/useWalletState";
 import { TAddressModalComponent } from "../../index";
 import { ImportPrivateKeyForm } from "../../forms/ImportPrivateKey";
 type ImportAbility = "import-private-key";
-import styles from "./ImportWallet.module.scss";
+import { ImportWalletModal as StyledImportWalletModal, ModalTitle, ImportForm } from "./ImportWallet.styles";
 import { TQedTransactionSignerProviderAbility } from "@qed/qed-sdk";
 interface IImportWalletFormProps {
     onImport: (data: any) => void;
@@ -11,12 +11,12 @@ interface IImportWalletFormProps {
 }
 const TodoForm = ({ onImport, className }: IImportWalletFormProps) => {
     return (
-        <div className={styles.importForm + (className ? " " + className : "")}>
+        <ImportForm className={className}>
             <h3>Import Wallet</h3>
-            <div className={styles.formBody}>
+            <div>
                 <div>TODO</div>
             </div>
-        </div>
+        </ImportForm>
     );
 };
 type TImportWalletForm = React.FC<IImportWalletFormProps>;
@@ -36,15 +36,15 @@ const ImportWalletModal: TAddressModalComponent = ({ onCancel, onComplete }) => 
         return <Form onImport={(data) => onComplete({ data })} />;
     } else {
         return (
-            <div className={styles.importWalletModal}>
-                <div className={styles.modalTitle}>Import Wallet</div>
+            <StyledImportWalletModal>
+                <ModalTitle>Import Wallet</ModalTitle>
                 <div>
                     {supportedAbilities.map((ability) => {
                         const Form = ImportForms[ability];
                         return <Form key={ability} onImport={(privateKey) => onComplete({ privateKey })} />;
                     })}
                 </div>
-            </div>
+            </StyledImportWalletModal>
         );
     }
 };

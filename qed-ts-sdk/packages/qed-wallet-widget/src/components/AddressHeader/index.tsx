@@ -1,11 +1,18 @@
 import { ActionIcon, Button, CopyButton, Tooltip, rem } from "@mantine/core";
 import { IconCopy, IconCheck, IconRefresh } from "@tabler/icons-react";
 
-import styles from "./AddressHeader.module.scss";
 import React, { useState } from "react";
 import { WWCopyButton } from "../WWCopyButton";
 import { useWalletState } from "../../hooks/useWalletState";
 import { formatBalance } from "../../utils/balance";
+import {
+    AddressHeaderContainer,
+    AddressHeaderItem,
+    AddressHint,
+    AddressValue,
+    InnerValue,
+    NoWalletAddressHeader
+} from "./AddressHeader.styles";
 interface IAddressHeaderProps {
     address: string;
     balance: string;
@@ -15,18 +22,18 @@ interface IAddressHeaderProps {
 const AddressHeader: React.FC<IAddressHeaderProps> = ({ address, balance, onRefresh }) => {
     const [loading, setLoading] = useState(false);
     return (
-        <div className={styles.addressHeader}>
-            <div className={styles.addressHeaderItem}>
-                <div className={styles.addressHint}>Wallet Address</div>
-                <div className={styles.addressValue}>
-                    <span className={styles.address}>{address}</span>
+        <AddressHeaderContainer>
+            <AddressHeaderItem>
+                <AddressHint>Wallet Address</AddressHint>
+                <AddressValue>
+                    <span>{address}</span>
                     <WWCopyButton value={address} />
-                </div>
-            </div>
-            <div className={styles.addressHeaderItem}>
-                <div className={styles.addressHint}>Balance</div>
-                <div className={styles.addressValue}>
-                    <span className={styles.innerValue}>{balance}</span>
+                </AddressValue>
+            </AddressHeaderItem>
+            <AddressHeaderItem>
+                <AddressHint>Balance</AddressHint>
+                <AddressValue>
+                    <InnerValue>{balance}</InnerValue>
                     {onRefresh ? (
                         <ActionIcon
                             variant="subtle"
@@ -42,9 +49,9 @@ const AddressHeader: React.FC<IAddressHeaderProps> = ({ address, balance, onRefr
                             <IconRefresh style={{ width: rem(16) }} />
                         </ActionIcon>
                     ) : null}
-                </div>
-            </div>
-        </div>
+                </AddressValue>
+            </AddressHeaderItem>
+        </AddressHeaderContainer>
     );
 };
 
@@ -56,9 +63,9 @@ const StatefulAddressHeader: React.FC = () => {
     ]);
     if (!currentWallet) {
         return (
-            <div className={styles.noWalletAddressHeader}>
+            <NoWalletAddressHeader>
                 Please select a wallet above or import a wallet to get started.
-            </div>
+            </NoWalletAddressHeader>
         );
     }
 

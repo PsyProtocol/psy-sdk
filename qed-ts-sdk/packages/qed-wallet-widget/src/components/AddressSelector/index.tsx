@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { Combobox, Group, Input, InputBase, Text, useCombobox } from "@mantine/core";
 import { BlokiesIcon } from "@qed/blokies-react";
 import { getNetworkNameById } from "../../utils/network";
@@ -55,7 +55,6 @@ function SelectOption({ address, networkId, balanceString }: IAddressSelectorIte
 }
 
 const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
-    className,
     address,
     onChange,
     options,

@@ -1,6 +1,6 @@
 import React from "react";
-import { Tooltip, UnstyledButton } from "@mantine/core";
-import styles from "./WalletActionButton.module.scss";
+import { Tooltip } from "@mantine/core";
+import { StyledWalletActionButton, Icon, Label } from "./WalletActionButton.styles";
 interface IWalletActionButtonProps {
     icon: React.ReactNode;
     label: string;
@@ -11,21 +11,19 @@ interface IWalletActionButtonProps {
 const WalletActionButton: React.FC<IWalletActionButtonProps> = ({ disabledText, icon, label, onClick }) => {
     return disabledText ? (
         <Tooltip label={disabledText} position="top">
-            <UnstyledButton
+            <StyledWalletActionButton
                 onClick={() => 0}
                 disabled={true}
-                style={{ width: "100%" }}
-                className={styles.walletActionButton}
             >
-                <div className={styles.icon}>{icon}</div>
-                <div className={styles.label}>{label}</div>
-            </UnstyledButton>
+                <Icon>{icon}</Icon>
+                <Label>{label}</Label>
+            </StyledWalletActionButton>
         </Tooltip>
     ) : (
-        <UnstyledButton onClick={onClick} style={{ width: "100%" }} className={styles.walletActionButton}>
-            <div className={styles.icon}>{icon}</div>
-            <div className={styles.label}>{label}</div>
-        </UnstyledButton>
+        <StyledWalletActionButton onClick={onClick}>
+            <Icon>{icon}</Icon>
+            <Label>{label}</Label>
+        </StyledWalletActionButton>
     );
 };
 

@@ -1,0 +1,28 @@
+{
+  "theme": {
+    "colors": {
+      "background": "#ffffff",
+      "text": "#73e7ff",
+      "primary": "#73e7ff",
+      "primaryText": "#ffffff",
+      "border": "#73e7ff",
+      "accent": "#73e7ff"
+    }
+  },
+  "network": {
+    "rpcUrl": "https://mainnet.dogecoin.org",
+    "networkId": "mainnet",
+    "chainId": 1,
+    "name": "Dogecoin Mainnet"
+  },
+  "wallet": {
+    "defaultWalletName": "Wallet 1",
+    "enableAutoRefresh": true,
+    "refreshInterval": 30000
+  },
+  "extension": {
+    "width": 375,
+    "height": 600,
+    "title": "Psy: The Internet Unchained"
+  }
+}

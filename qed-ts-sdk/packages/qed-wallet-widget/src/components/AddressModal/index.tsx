@@ -1,5 +1,5 @@
 import React from "react";
-import styles from "./AddressModal.module.scss";
+import { AddressModalTitle } from "./AddressModal.styles";
 import { AddressModalType, useAddressModal } from "../../hooks/useAddressModal";
 import { Button, CloseButton, Group, Modal } from "@mantine/core";
 import { ImportWalletModal } from "./modals/ImportWallet";
@@ -56,7 +56,7 @@ const AddressModal: React.FC = () => {
             size={getModalSize(activeModalType)}
             opened={activeModalType !== AddressModalType.Closed}
             onClose={cancelModal}
-            title={<div className={styles.addressModalTitle}>{AddressModalTitles[activeModalType]}</div>}
+            title={<AddressModalTitle>{AddressModalTitles[activeModalType]}</AddressModalTitle>}
         >
             <ActiveModal activeModalData={activeModalData} onCancel={cancelModal} onComplete={completeModal} />
         </Modal>

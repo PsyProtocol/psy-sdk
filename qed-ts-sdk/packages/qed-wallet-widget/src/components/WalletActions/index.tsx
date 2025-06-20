@@ -2,7 +2,7 @@ import React from "react";
 import { SimpleGrid } from "@mantine/core";
 import { WalletActionButton } from "../WalletActionButton";
 import { IconBookUpload, IconCertificate, IconFileExport, IconSignLeft, IconTransfer } from "@tabler/icons-react";
-import styles from "./WalletActions.module.scss";
+import { WalletActionsContainer, WalletActionsInner } from "./WalletActions.styles";
 import { AddressModalType, useAddressModal } from "../../hooks/useAddressModal";
 import { useWalletState } from "../../hooks/useWalletState";
 import FaucetIcon from "../icons/FaucetIcon";
@@ -27,8 +27,8 @@ const WalletActions: React.FC = () => {
     const cols = ~~canExportWallet + 3;
 
     return (
-        <div className={styles.walletActionsContainer}>
-            <div className={styles.walletActionsInner}>
+        <WalletActionsContainer>
+            <WalletActionsInner>
                 <SimpleGrid type="container" cols={{ base: cols, "100px": cols, "400px": cols }} spacing={{ base: 4 }}>
                     {/* <div>
                         <WalletActionButton
@@ -69,8 +69,8 @@ const WalletActions: React.FC = () => {
                         </div>
                     ) : null}
                 </SimpleGrid>
-            </div>
-        </div>
+            </WalletActionsInner>
+        </WalletActionsContainer>
     );
 };
 

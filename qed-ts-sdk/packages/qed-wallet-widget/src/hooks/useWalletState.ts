@@ -56,10 +56,15 @@ type AsyncWidgetStoreAction = (helpers: {
 }) => Promise<Partial<IWalletStateStore> | IWalletStateStore>;
 
 async function getAllIQWallets(provider: QedUserWalletProvider): Promise<IQedWidgetWallet[]> {
+    console.log("getAllIQWallets: Getting user wallets from provider...");
     const users = await provider.getUserWallets();
+    console.log("getAllIQWallets: Found", users.length, "user wallets");
+    
     return Promise.all(
-        users.map(async (user: IQedUserWallet) => {
+        users.map(async (user: IQedUserWallet, index) => {
+            console.log(`getAllIQWallets: Getting user info for wallet ${index}...`);
             const userInfo = await user.getUserInfo();
+            console.log(`getAllIQWallets: Wallet ${index} info:`, userInfo);
             return {
                 ...userInfo,
                 wallet: user,
@@ -253,6 +258,8 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 }
 
                 const signer = await state.provider.signerProvider.addRandomPrivateKey();
+                const publicKeyHex = await signer.getPublicKeyHex();
+                
                 if (registerUser) {
                     if (typeof signer.getPrivateKeyHex !== "function") {
                         return {};
@@ -260,20 +267,40 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                     const privateKeyHex = await signer.getPrivateKeyHex();
                     await state.provider.signerProvider.registerUser(privateKeyHex);
                 }
-                return {};
+                
+                // Refresh wallet list and set new wallet as current
+                const iqWallets = await getAllIQWallets(state.provider);
+                const newWallet = iqWallets.filter((x) => x.publicKeyHex === publicKeyHex)[0];
+                
+                if (newWallet) {
+                    return {
+                        wallets: iqWallets,
+                        currentWallet: newWallet,
+                        walletAbilities: newWallet.wallet.signer.getAbilities(),
+                    };
+                }
+                
+                return {
+                    wallets: iqWallets,
+                };
             }),
 
         addWalletFromPrivateKey: (privateKeyHex: string, registerUser?: boolean, changeCurrent?: boolean) =>
             setAsync(async ({ set, get, state }) => {
+                console.log("addWalletFromPrivateKey called with:", { privateKeyHex, registerUser, changeCurrent });
+                
                 if (
                     !state.providerAbilities.includes("import-private-key") ||
                     typeof state.provider.signerProvider.importPrivateKey !== "function"
                 ) {
+                    console.log("Provider does not support import-private-key");
                     return {};
                 }
 
+                console.log("Calling importPrivateKey on provider...");
                 const signer = await state.provider.signerProvider.importPrivateKey(privateKeyHex);
                 const publicKeyHex = await signer.getPublicKeyHex();
+                console.log("Created signer with public key:", publicKeyHex);
 
                 if (registerUser) {
                     if (typeof signer.getPrivateKeyHex !== "function") {
@@ -281,17 +308,22 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                         return {};
                     }
                     const privateKeyHex = await signer.getPrivateKeyHex();
+                    console.log("Registering user with provider...");
                     await state.provider.signerProvider.registerUser(privateKeyHex);
                 }
 
+                console.log("Getting all IQ wallets...");
                 const iqWallets = await getAllIQWallets(state.provider);
+                console.log("Found", iqWallets.length, "wallets:", iqWallets.map(w => ({ userId: w.userId, address: w.address })));
 
                 if (changeCurrent) {
                     const wallet = iqWallets.filter((x) => x.publicKeyHex === publicKeyHex)[0];
+                    console.log("Found matching wallet for current:", wallet);
                     if (wallet) {
                         return {
                             wallets: iqWallets,
                             currentWallet: wallet,
+                            walletAbilities: wallet.wallet.signer.getAbilities(),
                         };
                     }
                 }

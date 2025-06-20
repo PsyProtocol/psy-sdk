@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useWalletState } from "../../../../hooks/useWalletState";
 import { TAddressModalComponent } from "../../index";
-import styles from "./ExportPrivateKey.module.scss";
+import { FaucetFromWalletForm, FormControls, InputCon } from "./ExportPrivateKey.styles";
 import { Box, Button, TextInput } from "@mantine/core";
 
 import { WWCopyButton } from "../../../WWCopyButton";
@@ -14,10 +14,10 @@ interface IExportPrivateKeyFormProps {
 
 const ExportPrivateKeyForm: React.FC<IExportPrivateKeyFormProps> = ({ onComplete, className, privateKey }) => {
     return (
-        <div className={styles.faucetFromWalletForm + (className ? " " + className : "")}>
+        <FaucetFromWalletForm className={className}>
             <Box pos="relative">
-                <div className={styles.formBody}>
-                    <div className={styles.inputCon}>
+                <div>
+                    <InputCon>
                         <TextInput
                             label="Private Key"
                             spellCheck={false}
@@ -26,9 +26,9 @@ const ExportPrivateKeyForm: React.FC<IExportPrivateKeyFormProps> = ({ onComplete
                             style={{ flexGrow: 1 }}
                         />
                         <WWCopyButton value={privateKey} />
-                    </div>
+                    </InputCon>
                 </div>
-                <div className={styles.formControls}>
+                <FormControls>
                     <Button
                         onClick={() => {
                             onComplete();
@@ -36,12 +36,12 @@ const ExportPrivateKeyForm: React.FC<IExportPrivateKeyFormProps> = ({ onComplete
                     >
                         Close
                     </Button>
-                </div>
+                </FormControls>
             </Box>
-        </div>
+        </FaucetFromWalletForm>
     );
 };
-const ExportPrivateKeyModal: TAddressModalComponent = ({ onCancel, onComplete }) => {
+const ExportPrivateKeyModal: TAddressModalComponent = ({ onComplete }) => {
     const currentWallet = useWalletState((state) => state.currentWallet);
     const [privateKey, setPrivateKey] = useState<string>("");
 
