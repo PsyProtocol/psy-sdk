@@ -1,4 +1,6 @@
 pub mod api;
+pub mod store;
+pub use store::UserProverWorkerStore;
 
 cfg_if::cfg_if! {
     if #[cfg(target_arch = "wasm32")] {
@@ -8,17 +10,14 @@ cfg_if::cfg_if! {
         // Only export what's necessary for WASM
         pub use api::WasmRpcServer;
     } else {
-
-        pub mod store;
         pub mod args;
         pub mod common;
-        pub use store::UserProverWorkerStore;
     }
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(start)]
-pub fn wasm_main() {
+pub fn main() {
     // Initialize panic hook for better error messages in browser console
     console_error_panic_hook::set_once();
     

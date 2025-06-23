@@ -147,7 +147,7 @@ macro_rules! qed_rpc_call_back {
     }};
 }
 
-#[cfg(any(target_arch = "wasm32", not(feature = "is_sync")))]
+#[cfg(target_arch = "wasm32")]
 #[macro_export]
 macro_rules! qed_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{

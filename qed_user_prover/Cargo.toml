@@ -9,7 +9,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 qed_core = { workspace = true }
 qed_crypto = { workspace = true }
-qed_user_cli = { workspace = true }
+qed_user_cli = { path = "../qed_user_cli" , default-features = false }
 qed_data = { workspace = true }
 qedlang_core = { workspace = true }
 qed_rollup_utils = { workspace = true }

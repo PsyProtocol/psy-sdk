@@ -118,8 +118,7 @@ pub struct WasmRpcServer {
 }
 
 
-#[cfg(not(feature = "is_sync"))]
-#[maybe_async::maybe_async]
+#[maybe_async::maybe_async(?Send)]
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl WasmRpcServer {
@@ -237,11 +236,11 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub async fn get_deploy_contract_cmd_json(&self, circuit_defs_json: &str) -> Result<String, JsError> {
+    pub fn get_deploy_contract_cmd_json(&self, circuit_defs_json: &str) -> Result<String, JsError> {
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(circuit_defs_json)
             .map_err(|e| JsError::new(&format!("Parse circuit definitions JSON error: {}", e)))?;
             
-        let result = self.wallet_session.get_deploy_contract_cmd(circuit_defs).await
+        let result = self.wallet_session.get_deploy_contract_cmd(circuit_defs)
             .map_err(|e| JsError::new(&format!("Get deploy contract cmd error: {}", e)))?;
             
         serde_json::to_string(&result)
@@ -282,8 +281,8 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub fn get_user_ec_input_json(&mut self) -> Result<String, JsError> {
-        let result = self.wallet_session.get_user_ec_input()
+    pub async fn get_user_ec_input_json(&mut self) -> Result<String, JsError> {
+        let result = self.wallet_session.get_user_ec_input().await
             .map_err(|e| JsError::new(&format!("Get user EC input error: {}", e)))?;
             
         serde_json::to_string(&result)
