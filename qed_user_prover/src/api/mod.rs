@@ -145,7 +145,7 @@ impl RpcServer for RpcServerImpl {
             serde_json::to_string_pretty(&contract_call_args).unwrap()
         );
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
@@ -158,7 +158,7 @@ impl RpcServer for RpcServerImpl {
     async fn start_session(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
         tracing::info!("start_session with `{:?}`", pk_hash.to_string());
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
@@ -177,7 +177,7 @@ impl RpcServer for RpcServerImpl {
             serde_json::to_string_pretty(&contract_call_arg).unwrap()
         );
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
@@ -198,7 +198,7 @@ impl RpcServer for RpcServerImpl {
             serde_json::to_string_pretty(&contract_call_args).unwrap()
         );
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
@@ -212,7 +212,7 @@ impl RpcServer for RpcServerImpl {
     async fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
         tracing::info!("sign_and_submit with `{:?}`", pk_hash.to_string());
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
@@ -275,7 +275,7 @@ impl RpcServer for RpcServerImpl {
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
     ) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
@@ -290,7 +290,7 @@ impl RpcServer for RpcServerImpl {
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
     ) -> Result<QBCDeployContract<F>, ErrorObjectOwned> {
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?

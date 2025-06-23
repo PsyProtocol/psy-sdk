@@ -5052,6 +5052,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "dashmap 6.1.0",
  "dotenv",
  "hashbrown 0.14.5",
  "hex",

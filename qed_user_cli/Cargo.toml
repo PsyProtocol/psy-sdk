@@ -14,6 +14,7 @@ serde_json = { workspace = true }
 serde = { workspace = true }
 serde_with = { workspace = true }
 rand = { workspace = true }
+dashmap = {workspace = true}
 qed_crypto = { workspace = true }
 qed_common_circuit = { workspace = true }
 qed_rollup_circuit = { workspace = true }

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Ok;
-use hashbrown::HashMap;
+use dashmap::DashMap;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     hash::poseidon::PoseidonHash,
@@ -128,12 +128,12 @@ impl UserSessionStateManager {
 
 pub struct WalletSession {
     pub wallet: SimpleQEDZKSignatureManager<C, D>,
-    wallet_keys_store: HashMap<QHashOut<F>, ZKPublicKeyInfo<F>>,
+    wallet_keys_store: DashMap<QHashOut<F>, ZKPublicKeyInfo<F>>,
     pub main_circuits: QEDUPSStepCircuitManager<C, D>,
     pub circuit_info: SessionCircuitInfoStore<F>,
     pub st_provider: RpcProvider,
 
-    pub user_session_mgrs: HashMap<QHashOut<F>, UserSessionStateManager>,
+    pub user_session_mgrs: DashMap<QHashOut<F>, UserSessionStateManager>,
 }
 
 impl WalletSession {
@@ -160,11 +160,11 @@ impl WalletSession {
 
         Ok(WalletSession {
             wallet,
-            wallet_keys_store: HashMap::new(),
+            wallet_keys_store: DashMap::new(),
             main_circuits,
             circuit_info,
             st_provider,
-            user_session_mgrs: HashMap::new(),
+            user_session_mgrs: DashMap::new(),
         })
     }
 
@@ -187,16 +187,13 @@ impl WalletSession {
             .wallet
             .add_private_key_get_info(SimpleQEDPrivateKey { private_key });
         let public_key = pk_info.qfhash::<QEDHasher>();
-        let user_id = self
-            .st_provider
-            .get_user_id(public_key)
-            .map_err(|e| {
-                anyhow::format_err!(
-                    "Error `{}`. user {} not found, please register it first",
-                    e.to_string(),
-                    pk_info.qfhash::<QEDHasher>().to_string()
-                )
-            })?;
+        let user_id = self.st_provider.get_user_id(public_key).map_err(|e| {
+            anyhow::format_err!(
+                "Error `{}`. user {} not found, please register it first",
+                e.to_string(),
+                pk_info.qfhash::<QEDHasher>().to_string()
+            )
+        })?;
 
         if !self.wallet_keys_store.contains_key(&public_key) {
             self.wallet_keys_store.insert(public_key, pk_info);
@@ -232,7 +229,7 @@ impl WalletSession {
     }
 
     pub fn exec_contract_call(
-        &mut self,
+        &self,
         pk_hash: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> anyhow::Result<()> {
@@ -246,9 +243,9 @@ impl WalletSession {
         Ok(())
     }
 
-    pub fn start_session(&mut self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
+    pub fn start_session(&self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
         tracing::info!("start new user proving session");
-        let user_session_mgr = self
+        let mut user_session_mgr = self
             .user_session_mgrs
             .get_mut(&pk_hash)
             .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
@@ -280,10 +277,10 @@ impl WalletSession {
 
         tracing::info!("local proving ups start");
 
-        let user_session_mgr = self
-            .user_session_mgrs
-            .get_mut(&pk_hash)
-            .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
+        // let mut user_session_mgr = self
+        //     .user_session_mgrs
+        //     .get_mut(&pk_hash)
+        //     .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
 
         tracing::info!("user session manager nonce: {}", user_session_mgr.nonce);
 
@@ -293,11 +290,11 @@ impl WalletSession {
     }
 
     pub fn prove_contract_call(
-        &mut self,
+        &self,
         pk_hash: QHashOut<F>,
         contract_call_arg: ContractCallArgs,
     ) -> anyhow::Result<()> {
-        let user_session_mgr = self
+        let mut user_session_mgr = self
             .user_session_mgrs
             .get_mut(&pk_hash)
             .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
@@ -307,7 +304,7 @@ impl WalletSession {
             contract_call_arg.method_name
         );
         prove_func(
-            &user_session_mgr.rpc_provider,
+            &user_session_mgr.rpc_provider.clone(),
             &self.main_circuits,
             &mut user_session_mgr.mgr,
             contract_call_arg.contract_id,
@@ -321,7 +318,7 @@ impl WalletSession {
     }
 
     pub fn prove_contract_calls(
-        &mut self,
+        &self,
         pk_hash: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> anyhow::Result<()> {
@@ -331,8 +328,8 @@ impl WalletSession {
         Ok(())
     }
 
-    pub fn sign_and_submit(&mut self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
-        let user_session_mgr = self
+    pub fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
+        let mut user_session_mgr = self
             .user_session_mgrs
             .get_mut(&pk_hash)
             .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
@@ -366,10 +363,11 @@ impl WalletSession {
             public_key_param,
             signature_proof.public_inputs
         );
+        let nonce = user_session_mgr.nonce.clone();
         let end_cap_proof = user_session_mgr.mgr.prove_end_cap(
             &self.main_circuits,
             QED_NETWORK_MAGIC_REGTEST,
-            user_session_mgr.nonce,
+            nonce,
             self.wallet.circuit.get_fingerprint(),
             public_key_param,
             signature_proof,
@@ -409,7 +407,7 @@ impl WalletSession {
     }
 
     pub fn deploy_contract(
-        &mut self,
+        &self,
         deployer: QHashOut<F>,
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
     ) -> anyhow::Result<()> {
