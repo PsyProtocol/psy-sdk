@@ -16,7 +16,8 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 
-pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
+#[maybe_async::maybe_async]
+pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
     st: &R,
     circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
     mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
@@ -25,7 +26,7 @@ pub fn prove_func<R: QEDReadCommandProcessorSync<F>>(
     inputs: Vec<F>,
 ) -> anyhow::Result<()> {
     let contract_code =
-        st.resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id })?;
+        st.resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id }).await?;
 
     for (i, func) in contract_code.functions.iter().enumerate() {
         let dapen_fc = cfc_code_definition_to_dapen_fc(&func)?;

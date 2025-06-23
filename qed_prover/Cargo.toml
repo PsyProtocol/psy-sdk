@@ -27,6 +27,11 @@ qed_rollup_circuit = { path = "../qed_rollup_circuit" }
 qedlang_core = { path = "../qedlang_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
-qed_store = { path = "../qed_store" }
-qed_exec = { path = "../qed_exec" }
+qed_exec = { path = "../qed_exec", default-features = false }
+qed_store = { path = "../qed_store", default-features = false }
 qedlang_macros = { path = "../qedlang_macros" }
+maybe-async = { workspace = true }
+
+[features]
+default = ["is_sync"]
+is_sync = ["qed_exec/is_sync","qed_store/is_sync","maybe-async/is_sync"]

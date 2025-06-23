@@ -1,15 +1,20 @@
 pub mod api;
-pub mod store;
 
-#[cfg(not(target_arch = "wasm32"))]
-pub mod args;
+cfg_if::cfg_if! {
+    if #[cfg(target_arch = "wasm32")] {
+           // WASM-specific initialization
+        use wasm_bindgen::prelude::*;
 
-#[cfg(not(target_arch = "wasm32"))]
-pub mod common;
+        // Only export what's necessary for WASM
+        pub use api::WasmRpcServer;
+    } else {
 
-// WASM-specific initialization
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
+        pub mod store;
+        pub mod args;
+        pub mod common;
+        pub use store::UserProverWorkerStore;
+    }
+}
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(start)]
@@ -36,14 +41,6 @@ pub fn init_logging() {
     wasm_tracing::set_as_global_default();
     tracing::info!("Logging initialized manually");
 }
-
-// Only export what's necessary for WASM
-#[cfg(target_arch = "wasm32")]
-pub use api::WasmRpcServer;
-
-// For non-WASM targets
-#[cfg(not(target_arch = "wasm32"))]
-pub use store::UserProverWorkerStore;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn run_server(args: args::ProverArgs) -> anyhow::Result<()> {

@@ -30,5 +30,6 @@ maybe-async = { workspace = true }
 
 [features]
 default = ["is_sync"]
+#default = []
 #is_sync = ["dep:maybe-async"]
 is_sync = ["maybe-async/is_sync"]

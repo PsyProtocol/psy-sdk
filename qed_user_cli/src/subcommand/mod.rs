@@ -2,23 +2,26 @@ use clap::command;
 use clap::Parser;
 use clap::Subcommand;
 
-pub mod add_withdrawal;
 pub mod args;
-pub mod block_state;
-pub mod claim_deposit;
-pub mod deploy_contract;
-pub mod get_public_key;
-pub mod l1_deposit;
-
-#[cfg(not(target_arch = "wasm32"))]
-pub mod lps;
-pub mod produce_block;
-pub mod random_wallet;
-pub mod register_user;
-pub mod sign_hash;
-pub mod submit_end_cap_proof;
-pub mod token_transfer;
 pub mod utils;
+pub mod deploy_contract;
+
+cfg_if::cfg_if! {
+    if #[cfg(not(target_arch = "wasm32"))] {
+        pub mod add_withdrawal;
+        pub mod block_state;
+        pub mod claim_deposit;
+        pub mod get_public_key;
+        pub mod l1_deposit;
+        pub mod lps;
+        pub mod produce_block;
+        pub mod random_wallet;
+        pub mod register_user;
+        pub mod sign_hash;
+        pub mod submit_end_cap_proof;
+        pub mod token_transfer;
+    }
+}
 
 #[derive(Parser)]
 pub struct Cli {

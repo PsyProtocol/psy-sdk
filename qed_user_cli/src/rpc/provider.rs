@@ -103,8 +103,7 @@ macro_rules! qed_rpc_call {
 #[cfg(target_arch = "wasm32")]
 macro_rules! qed_rpc_call {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
-        use pollster::FutureExt as _;
-        (async move {
+        async move {
             let response = $instance
                 .client
                 .post($rpc_url)
@@ -125,7 +124,7 @@ macro_rules! qed_rpc_call {
                 }
                 ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)),
             }
-        }).block_on()
+        }
     }};
 }
 
@@ -151,10 +150,10 @@ macro_rules! qed_rpc_call_back {
 #[macro_export]
 macro_rules! qed_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
-        use pollster::FutureExt as _;
-        (async move {
+        async move {    
             tracing::info!("qed rpc call: {}", $rpc_url);
-            $instance.client
+            $instance
+                .client
                 .post($rpc_url)
                 .json(&RpcRequest {
                     jsonrpc: Version::V2,
@@ -165,34 +164,36 @@ macro_rules! qed_rpc_call_back {
                 .await?
                 .json::<RpcResponse<$ret_ty>>()
                 .await
-        }).block_on()?
+        } 
     }};
 }
 
 // #[cfg(not(target_arch = "wasm32"))]
+#[maybe_async::maybe_async]
 pub trait QUserRpcProvider {
-    fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()>;
-    fn produce_block<F: RichField>(&self) -> anyhow::Result<()>;
-    fn add_withdrawal<F: RichField>(&self, req: QAddWithdrawalRPCRequest) -> anyhow::Result<()>;
+    async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()>;
+    async fn produce_block<F: RichField>(&self) -> anyhow::Result<()>;
+    async fn add_withdrawal<F: RichField>(&self, req: QAddWithdrawalRPCRequest) -> anyhow::Result<()>;
 
-    fn claim_deposit<F: RichField>(&self, req: QClaimDepositRPCRequest) -> anyhow::Result<()>;
+    async fn claim_deposit<F: RichField>(&self, req: QClaimDepositRPCRequest) -> anyhow::Result<()>;
 
-    fn token_transfer<F: RichField>(&self, req: QTokenTransferRPCRequest) -> anyhow::Result<()>;
+    async fn token_transfer<F: RichField>(&self, req: QTokenTransferRPCRequest) -> anyhow::Result<()>;
 
-    fn deploy_contract<F: RichField>(
+    async fn deploy_contract<F: RichField>(
         &self,
         req: QDeployContractRPCRequest<F>,
     ) -> anyhow::Result<()>;
 
-    fn submit_end_cap_proof<F: RichField>(
+    async fn submit_end_cap_proof<F: RichField>(
         &self,
         req: QSubmitEndCapRPCRequest<F>,
     ) -> anyhow::Result<()>;
 }
 
 // #[cfg(not(target_arch = "wasm32"))]
+#[maybe_async::maybe_async(AFIT)]
 impl QUserRpcProvider for RpcProvider {
-    fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()> {
+    async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()> {
         tracing::info!("register user: {:?}", req);
         qed_rpc_call!(
             self,
@@ -200,7 +201,7 @@ impl QUserRpcProvider for RpcProvider {
             RequestParams::<F>::RegisterUser(req)
         )
     }
-    fn produce_block<F: RichField>(&self) -> anyhow::Result<()> {
+    async fn produce_block<F: RichField>(&self) -> anyhow::Result<()> {
         tracing::info!("produce block");
         qed_rpc_call!(
             self,
@@ -208,19 +209,19 @@ impl QUserRpcProvider for RpcProvider {
             RequestParams::<F>::ProduceBlock
         )
     }
-    fn add_withdrawal<F: RichField>(&self, req: QAddWithdrawalRPCRequest) -> anyhow::Result<()> {
+    async fn add_withdrawal<F: RichField>(&self, req: QAddWithdrawalRPCRequest) -> anyhow::Result<()> {
         unimplemented!()
     }
 
-    fn claim_deposit<F: RichField>(&self, req: QClaimDepositRPCRequest) -> anyhow::Result<()> {
+    async fn claim_deposit<F: RichField>(&self, req: QClaimDepositRPCRequest) -> anyhow::Result<()> {
         unimplemented!()
     }
 
-    fn token_transfer<F: RichField>(&self, req: QTokenTransferRPCRequest) -> anyhow::Result<()> {
+    async fn token_transfer<F: RichField>(&self, req: QTokenTransferRPCRequest) -> anyhow::Result<()> {
         unimplemented!()
     }
 
-    fn deploy_contract<F: RichField>(
+    async fn deploy_contract<F: RichField>(
         &self,
         req: QDeployContractRPCRequest<F>,
     ) -> anyhow::Result<()> {
@@ -231,7 +232,7 @@ impl QUserRpcProvider for RpcProvider {
         )
     }
 
-    fn submit_end_cap_proof<F: RichField>(
+    async fn submit_end_cap_proof<F: RichField>(
         &self,
         req: QSubmitEndCapRPCRequest<F>,
     ) -> anyhow::Result<()> {
@@ -244,8 +245,9 @@ impl QUserRpcProvider for RpcProvider {
     }
 }
 
+#[maybe_async::maybe_async]
 impl RpcProvider {
-    pub fn get_user_id<F: RichField>(&self, public_key_param: QHashOut<F>) -> anyhow::Result<u64> {
+    pub async fn get_user_id<F: RichField>(&self, public_key_param: QHashOut<F>) -> anyhow::Result<u64> {
         tracing::info!("user: {:?}", public_key_param);
         let rpc_url = self.get_coordinator_url()?;  
         let response = qed_rpc_call_back!(

@@ -4034,12 +4034,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pollster"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
-
-[[package]]
 name = "postcard"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4629,11 +4623,13 @@ name = "qed_exec"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bincode",
  "hex",
  "hex-literal",
  "kvq",
  "lazy_static",
+ "maybe-async",
  "plonky2",
  "qed_core",
  "qed_crypto",
@@ -4729,6 +4725,7 @@ dependencies = [
  "hex-literal",
  "kvq",
  "lazy_static",
+ "maybe-async",
  "plonky2",
  "qed_common_circuit",
  "qed_core",
@@ -4938,6 +4935,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "cfg-if",
  "clap",
  "console_error_panic_hook",
  "dotenv",
@@ -4948,7 +4946,6 @@ dependencies = [
  "kvq_store_lmdbx",
  "maybe-async",
  "plonky2",
- "pollster",
  "qed_common",
  "qed_common_circuit",
  "qed_core",
@@ -4991,7 +4988,6 @@ dependencies = [
  "jsonrpsee",
  "maybe-async",
  "plonky2",
- "pollster",
  "qed_core",
  "qed_crypto",
  "qed_data",

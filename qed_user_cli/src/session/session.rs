@@ -126,6 +126,7 @@ pub struct WalletSession {
     pub user_session_mgr: UserSessionStateManager,
 }
 
+#[maybe_async::maybe_async]
 impl WalletSession {
     pub fn new(rpc_config: &RpcConfig) -> anyhow::Result<Self> {
         tracing::info!("init rpc provider");
@@ -162,14 +163,14 @@ impl WalletSession {
         })
     }
 
-    pub fn register_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
+    pub async fn register_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
         let pk_info = self
             .wallet
             .add_private_key_get_info(SimpleQEDPrivateKey { private_key });
         let pk_hash = pk_info.qfhash::<QEDHasher>();
         self.st_provider.register_user(QRegisterUserRPCRequest {
             public_key: pk_info,
-        })?;
+        }).await?;
         self.wallet_keys_store.insert(pk_hash, pk_info);
 
         tracing::info!("user `{}` registered", pk_hash);
@@ -177,14 +178,14 @@ impl WalletSession {
         Ok(pk_hash)
     }
 
-    pub fn add_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
+    pub async fn add_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
         let pk_info = self
             .wallet
             .add_private_key_get_info(SimpleQEDPrivateKey { private_key });
         let pk_hash = pk_info.qfhash::<QEDHasher>();
         let user_id = self
             .st_provider
-            .get_user_id(pk_info.public_key_param)
+            .get_user_id(pk_info.public_key_param).await
             .map_err(|e| {
                 anyhow::format_err!(
                     "Error `{}`. user {} not found, please register it first",
@@ -203,13 +204,13 @@ impl WalletSession {
         Ok(pk_hash)
     }
 
-    pub fn switch_user(&mut self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
+    pub async fn switch_user(&mut self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
         tracing::info!("switch user {}", pk_hash.to_string());
         let pk_info = self
             .wallet_keys_store
             .get(&pk_hash)
             .ok_or_else(|| anyhow::format_err!("switch user {} not found", pk_hash.to_string()))?;
-        let user_id = self.st_provider.get_user_id(pk_info.public_key_param)?;
+        let user_id = self.st_provider.get_user_id(pk_info.public_key_param).await?;
         if !self.wallet.contains_key(pk_info.qfhash::<QEDHasher>()) {
             tracing::error!(
                 "user {} not found, please add it first!",
@@ -232,9 +233,9 @@ impl WalletSession {
         }
     }
 
-    pub fn start_session(&mut self) -> anyhow::Result<()> {
+    pub async fn start_session(&mut self) -> anyhow::Result<()> {
         tracing::info!("start new user proving session");
-        let latest_l2_block_state = self.st_provider.resolve_get_latest_l2_block_state()?;
+        let latest_l2_block_state = self.st_provider.resolve_get_latest_l2_block_state().await?;
         let latest_nonce = self
             .st_provider
             .get_user_leaf_data(
@@ -270,7 +271,7 @@ impl WalletSession {
         Ok(())
     }
 
-    pub fn prove_contract_call(
+    pub async fn prove_contract_call(
         &mut self,
         contract_call_arg: ContractCallArgs,
     ) -> anyhow::Result<()> {
@@ -290,15 +291,15 @@ impl WalletSession {
                 .iter()
                 .map(|x| F::from_noncanonical_u64(*x))
                 .collect(),
-        )
+        ).await
     }
 
-    pub fn prove_contract_calls(
+    pub async fn prove_contract_calls(
         &mut self,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> anyhow::Result<()> {
         for contract_call_arg in contract_call_args {
-            self.prove_contract_call(contract_call_arg)?;
+            self.prove_contract_call(contract_call_arg).await?;
         }
         Ok(())
     }
@@ -375,7 +376,7 @@ impl WalletSession {
         self.user_session_mgr.mgr.get_api_input()
     }
 
-    pub fn sign_and_submit(&mut self) -> anyhow::Result<()> {
+    pub async fn sign_and_submit(&mut self) -> anyhow::Result<()> {
         let sighash = self.get_sig_hash(QED_NETWORK_MAGIC_REGTEST)?;
         tracing::info!("zk sign for signhash: {}", sighash.to_string());
 
@@ -393,7 +394,7 @@ impl WalletSession {
             proof: end_cap_proof,
         };
 
-        self.st_provider.submit_end_cap_proof::<F>(req)?;
+        self.st_provider.submit_end_cap_proof::<F>(req).await?;
 
         Ok(())
     }
@@ -424,7 +425,7 @@ impl WalletSession {
         Ok(deploy_cmd)
     }
 
-    pub fn deploy_contract(
+    pub async fn deploy_contract(
         &mut self,
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
     ) -> anyhow::Result<()> {
@@ -433,7 +434,7 @@ impl WalletSession {
         self.st_provider
             .deploy_contract::<F>(QDeployContractRPCRequest {
                 deploy_contract: deploy_cmd,
-            })?;
+            }).await?;
 
         Ok(())
     }
@@ -481,6 +482,7 @@ pub fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 mod tests {
     use super::*;
     use std::path::Path;

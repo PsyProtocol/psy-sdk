@@ -22,17 +22,18 @@ hex = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 kvq = { workspace = true }
-qed_store = { workspace = true }
+qed_store = { path = "../qed_store", default-features = false }
 qed_core = { workspace = true }
 qed_common = { workspace = true }
 qedlang_core = { workspace = true }
-qed_prover = { workspace = true }
+qed_prover = { path = "../qed_prover", default-features = false}
 qed_data = { workspace = true }
 qed_rollup_utils = { workspace = true }
 hashbrown = { workspace = true }
 ts-rs =  { workspace = true }
 clap = { workspace = true }
 dotenv = { workspace = true }
+async-trait = {workspace = true}
 wasm-bindgen = "0.2"
 serde-wasm-bindgen = "0.6"
 web-sys = "0.3"
@@ -41,6 +42,8 @@ wasm-bindgen-futures = "0.4"
 console_error_panic_hook = "0.1"
 wasm-logger = "0.2"
 wasm-tracing = "2.0"
+cfg-if = {workspace = true}
+maybe-async = { workspace = true }
 
 # Native-only dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -56,8 +59,8 @@ shadow-rs = { workspace = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 #reqwest = { version = "0.12", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
-pollster = "0.4.0"
 
 [features]
-default = []
-wasm = []
+default = ["is_sync"]
+is_sync = ["qed_prover/is_sync","maybe-async/is_sync", "qed_store/is_sync"]
+wasm32 = []

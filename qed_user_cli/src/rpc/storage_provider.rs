@@ -2,7 +2,7 @@ use std::fs;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
-use qed_store::store::imm::cmd_processor::QEDReadCommandProcessorSync;
+use qed_store::store::imm::cmd_processor::{QEDReadCommandBatchOutput, QEDReadCommandProcessorSync};
 use crate::rpc::provider::StoreConfig;
 
 #[derive(Debug)]
@@ -33,53 +33,53 @@ impl StorageProvider {
 }
 
 type F = GoldilocksField;
+
+#[maybe_async::maybe_async]
 impl QEDReadCommandProcessorSync<F> for StorageProvider {
-    fn resolve_batch(
+    async fn resolve_batch(
         &self,
         input: &qed_store::store::imm::cmd_processor::QEDReadCommandBatchInput,
-    ) -> anyhow::Result<qed_store::store::imm::cmd_processor::QEDReadCommandBatchOutput<F>> {
-        anyhow::Ok(
-            qed_store::store::imm::cmd_processor::QEDReadCommandBatchOutput::<F> {
-                get_user_leaf: input
-                    .get_user_leaf
-                    .iter()
-                    .map(|x| self.resolve_get_user_leaf(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-                get_contract_leaf: input
-                    .get_contract_leaf
-                    .iter()
-                    .map(|x| self.resolve_get_contract_leaf(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-                get_contract_code: input
-                    .get_contract_code
-                    .iter()
-                    .map(|x| self.resolve_get_contract_code(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-                get_checkpoint_leaf: input
-                    .get_checkpoint_leaf
-                    .iter()
-                    .map(|x| self.resolve_get_checkpoint_leaf(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-                get_l2_block_state: input
-                    .get_l2_block_state
-                    .iter()
-                    .map(|x| self.resolve_get_l2_block_state(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-                get_merkle_proof: input
-                    .get_merkle_proof
-                    .iter()
-                    .map(|x| self.resolve_get_merkle_proof(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-                get_hash: input
-                    .get_hash
-                    .iter()
-                    .map(|x| self.resolve_get_hash(x))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-            },
-        )
+    ) -> anyhow::Result<QEDReadCommandBatchOutput<F>> {
+        let mut get_user_leaf = Vec::new();
+        for x in &input.get_user_leaf {
+            get_user_leaf.push(self.resolve_get_user_leaf(x).await?);
+        }
+        let mut get_contract_leaf = Vec::new();
+        for x in &input.get_contract_leaf {
+            get_contract_leaf.push(self.resolve_get_contract_leaf(x).await?);
+        }
+        let mut get_contract_code = Vec::new();
+        for x in &input.get_contract_code {
+            get_contract_code.push(self.resolve_get_contract_code(x).await?);
+        }
+        let mut get_checkpoint_leaf = Vec::new();
+        for x in &input.get_checkpoint_leaf {
+            get_checkpoint_leaf.push(self.resolve_get_checkpoint_leaf(x).await?);
+        }
+        let mut get_l2_block_state = Vec::new();
+        for x in &input.get_l2_block_state {
+            get_l2_block_state.push(self.resolve_get_l2_block_state(x).await?);
+        }
+        let mut get_merkle_proof = Vec::new();
+        for x in &input.get_merkle_proof {
+            get_merkle_proof.push(self.resolve_get_merkle_proof(x).await?);
+        }
+        let mut get_hash = Vec::new();
+        for x in &input.get_hash {
+            get_hash.push(self.resolve_get_hash(x).await?);
+        }
+        Ok(QEDReadCommandBatchOutput {
+            get_user_leaf: get_user_leaf,
+            get_contract_leaf: get_contract_leaf,
+            get_contract_code: get_contract_code,
+            get_checkpoint_leaf: get_checkpoint_leaf,
+            get_l2_block_state: get_l2_block_state,
+            get_merkle_proof: get_merkle_proof,
+            get_hash: get_hash,
+        })
     }
 
-    fn resolve_get_hash(
+    async fn resolve_get_hash(
         &self,
         input: &qed_store::store::imm::cmd::QSRHashCmd,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
@@ -89,7 +89,7 @@ impl QEDReadCommandProcessorSync<F> for StorageProvider {
         self.coordinator_store.resolve_get_hash(input)
     }
 
-    fn resolve_get_merkle_proof(
+    async fn resolve_get_merkle_proof(
         &self,
         input: &qed_store::store::imm::cmd::QSRMerkleCmd,
     ) -> anyhow::Result<
@@ -101,42 +101,42 @@ impl QEDReadCommandProcessorSync<F> for StorageProvider {
         self.coordinator_store.resolve_get_merkle_proof(input)
     }
 
-    fn resolve_get_user_leaf(
+    async fn resolve_get_user_leaf(
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetUserLeafData,
     ) -> anyhow::Result<qed_data::qdata::user::QEDUserLeaf<F>> {
         self.realm_store.resolve_get_user_leaf(input)
     }
 
-    fn resolve_get_contract_leaf(
+    async fn resolve_get_contract_leaf(
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetContractLeafData,
     ) -> anyhow::Result<qed_data::qdata::contract::QEDContractLeaf<F>> {
         self.coordinator_store.resolve_get_contract_leaf(input)
     }
 
-    fn resolve_get_contract_code(
+    async fn resolve_get_contract_code(
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetContractCodeDefinition,
     ) -> anyhow::Result<qed_data::qdata::contract::ContractCodeDefinition> {
         self.coordinator_store.resolve_get_contract_code(input)
     }
 
-    fn resolve_get_checkpoint_leaf(
+    async fn resolve_get_checkpoint_leaf(
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetCheckpointLeafData,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDCheckpointLeaf<F>> {
         self.realm_store.resolve_get_checkpoint_leaf(input)
     }
 
-    fn resolve_get_l2_block_state(
+    async fn resolve_get_l2_block_state(
         &self,
         input: &qed_store::store::imm::cmd::QSRCmdGetL2BlockState,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
         self.coordinator_store.resolve_get_l2_block_state(input)
     }
 
-    fn resolve_get_latest_l2_block_state(
+    async fn resolve_get_latest_l2_block_state(
         &self,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
         self.coordinator_store.resolve_get_latest_l2_block_state()

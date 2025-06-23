@@ -24,5 +24,11 @@ qed_core = { path = "../qed_core" }
 qedlang_core = { path = "../qedlang_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
-qed_store = { path = "../qed_store" }
+async-trait = { workspace = true }
+maybe-async = {workspace = true}
+qed_store = { path = "../qed_store", default-features = false }
 qedlang_macros = { path = "../qedlang_macros" }
+
+[features]
+default = ["is_sync"]
+is_sync = ["maybe-async/is_sync", "qed_store/is_sync"]
