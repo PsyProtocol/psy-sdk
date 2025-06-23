@@ -288,7 +288,7 @@ impl<F: RichField> QEDReadCommandBatchOutput<F> {
     }
 }
 
-#[maybe_async::maybe_async]
+#[maybe_async::maybe_async(?Send)]
 pub trait QEDReadCommandProcessorSync<F: RichField> {
     async fn resolve_batch(&self, input: &QEDReadCommandBatchInput) -> anyhow::Result<QEDReadCommandBatchOutput<F>>;
     async fn resolve_get_hash(&self, input: &QSRHashCmd) -> anyhow::Result<QHashOut<F>>;
@@ -301,7 +301,7 @@ pub trait QEDReadCommandProcessorSync<F: RichField> {
     async fn resolve_get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState>;
 }
 
-#[maybe_async::maybe_async]
+#[maybe_async::maybe_async(?Send)]
 pub trait QEDReadCommandProcessorSyncMut<F: RichField> {
     async fn resolve_batch_mut(&mut self, input: &QEDReadCommandBatchInput) -> anyhow::Result<QEDReadCommandBatchOutput<F>>;
     async fn resolve_get_hash_mut(&mut self, input: &QSRHashCmd) -> anyhow::Result<QHashOut<F>>;

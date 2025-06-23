@@ -44,7 +44,7 @@ pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
                 &dapen_fc_circuit,
                 &dapen_fc,
                 inputs,
-            );
+            ).await;
         }
     }
     anyhow::bail!("unable to find function {}", fn_name);

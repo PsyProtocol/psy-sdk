@@ -55,7 +55,7 @@ impl <F: RichField, S: QEDReadCommandProcessorSync<F>> QEDCmdStoreWithCache<F, S
     }
 }
 
-#[maybe_async::maybe_async]
+#[maybe_async::maybe_async(?Send)]
 impl<F: RichField, S: QEDReadCommandProcessorSync<F> + Send> QEDReadCommandProcessorSyncMut<F> for QEDCmdStoreWithCache<F, S> {
     async fn resolve_batch_mut(&mut self, input: &QEDReadCommandBatchInput) -> anyhow::Result<QEDReadCommandBatchOutput<F>> {
         let filtered_get = QEDReadCommandBatchInput {

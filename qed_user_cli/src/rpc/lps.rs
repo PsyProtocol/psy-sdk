@@ -21,7 +21,7 @@ use tracing::{debug, error, info, instrument};
 
 type F = GoldilocksField;
 
-#[maybe_async::maybe_async]
+#[maybe_async::maybe_async(?Send)]
 impl QTreeDataStoreReaderSync<F> for RpcProvider {
     #[instrument(skip(self), fields(checkpoint_id, user_id, contract_id))]
    async fn get_user_contract_state_tree_root(
@@ -570,7 +570,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     0,
                     REALM_USER_TREE_HEIGHT,
                     self.get_realm_id(user_id),
-                )?;
+                ).await?;
                 eprintln!(
                     "DEBUGPRINT[528]: lps.rs:685: top_proof={}",
                     serde_json::to_string_pretty(&top_proof).unwrap()
@@ -1272,7 +1272,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 }
 
-#[maybe_async::maybe_async]
+#[maybe_async::maybe_async(?Send)]
 impl QMetaDataStoreReaderSync<F> for RpcProvider {
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
     async fn get_user_leaf_data(
@@ -1466,7 +1466,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
             rpc_url,
             RequestParams::<F>::GetL2BlockState(input),
             QEDL2BlockState
-        ).await;
+        );
         match response.result {
             ResponseResult::Success(block_state) => {
                 debug!(

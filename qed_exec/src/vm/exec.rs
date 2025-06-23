@@ -51,7 +51,7 @@ fn mp_to_dmp<H: PartialEq + Copy>(mp: MerkleProofCore<H>) -> DeltaMerkleProofCor
     }
 }
 
-#[maybe_async::maybe_async]
+#[maybe_async::maybe_async(?Send)]
 pub trait QEDCmdInputWitnessResolver<F: RichField> {
     async fn resolve_vec(
         &mut self,
@@ -80,7 +80,7 @@ fn get_slot_mask(length: u64, sub_slot_index: u64) -> [u8; 4] {
 }
 */
 
-#[maybe_async::maybe_async]
+#[maybe_async::maybe_async(?Send)]
 impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolver<GF>
     for QEDLocalProvingSessionStore<GF, R>
 {

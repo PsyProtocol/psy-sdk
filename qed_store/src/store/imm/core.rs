@@ -42,7 +42,7 @@ pub trait QEDStorageAdapterImmutable: KVQBinaryStoreImmutable {}
 impl<T: KVQBinaryStoreImmutable> QEDStorageAdapterImmutable for T {}
 type F = QEDFelt;
 
-#[maybe_async::maybe_async]
+#[maybe_async::maybe_async(?Send)]
 impl<T: QEDStorageAdapterImmutable + Sync> QMetaDataStoreReaderSync<F> for T {
     async fn get_user_leaf_data(
         &self,
@@ -196,7 +196,7 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreWriterSync<F> for T {
     }
 }
 
-#[maybe_async::maybe_async]
+#[maybe_async::maybe_async(?Send)]
 impl<T: QEDStorageAdapterImmutable + Sync> QTreeDataStoreReaderSync<F> for T {
     async fn get_user_contract_state_tree_root(
         &self,

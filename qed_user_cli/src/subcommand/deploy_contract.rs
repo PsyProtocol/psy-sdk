@@ -80,6 +80,7 @@ pub fn gen_contract_deploy_and_circuits_for_functions(
     Ok((circuits, deploy))
 }
 
+#[cfg(feature = "is_sync")]
 pub fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)?;
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();

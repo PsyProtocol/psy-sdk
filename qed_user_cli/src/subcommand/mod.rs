@@ -7,7 +7,7 @@ pub mod utils;
 pub mod deploy_contract;
 
 cfg_if::cfg_if! {
-    if #[cfg(not(target_arch = "wasm32"))] {
+    if #[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))] {
         pub mod add_withdrawal;
         pub mod block_state;
         pub mod claim_deposit;

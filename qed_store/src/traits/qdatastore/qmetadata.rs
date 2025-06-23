@@ -3,7 +3,7 @@ use plonky2::hash::hash_types::RichField;
 use qed_data::qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf};
 
 
-#[maybe_async::maybe_async]
+#[maybe_async::maybe_async(?Send)]
 pub trait QMetaDataStoreReaderSync<F: RichField> {
     async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QEDUserLeaf<F>>;
     async fn get_user_leaf_data_f(&self, checkpoint_id: F, user_id: F) -> anyhow::Result<QEDUserLeaf<F>> {

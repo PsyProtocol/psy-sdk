@@ -76,7 +76,7 @@ impl RpcProvider {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
 macro_rules! qed_rpc_call {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
         let response = $instance
@@ -100,35 +100,36 @@ macro_rules! qed_rpc_call {
     }};
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "is_sync")))]
 macro_rules! qed_rpc_call {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
         async move {
+            let request = RpcRequest {
+                jsonrpc: Version::V2,
+                request: $rpc_params,
+                id: Id::Number(1),
+            };
             let response = $instance
                 .client
                 .post($rpc_url)
-                .json(&RpcRequest {
-                    jsonrpc: Version::V2,
-                    request: $rpc_params,
-                    id: Id::Number(1),
-                })
+                .json(&request)
                 .send()
-                .await?
-                .json::<RpcResponse<String>>()
                 .await?;
-
-            match response.result {
+            let json_response: RpcResponse<String> = response
+                .json()
+                .await?;
+            match json_response.result {
                 ResponseResult::Success(s) => {
                     tracing::info!("{:?}", s);
                     Ok(())
                 }
                 ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)),
             }
-        }
+        }.await
     }};
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
 #[macro_export]
 macro_rules! qed_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
@@ -146,11 +147,11 @@ macro_rules! qed_rpc_call_back {
     }};
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "is_sync")))]
 #[macro_export]
 macro_rules! qed_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
-        async move {    
+        async move {
             tracing::info!("qed rpc call: {}", $rpc_url);
             $instance
                 .client
@@ -164,12 +165,11 @@ macro_rules! qed_rpc_call_back {
                 .await?
                 .json::<RpcResponse<$ret_ty>>()
                 .await
-        } 
+        }.await?
     }};
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
-#[maybe_async::maybe_async]
+#[maybe_async::maybe_async(?Send)]
 pub trait QUserRpcProvider {
     async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()>;
     async fn produce_block<F: RichField>(&self) -> anyhow::Result<()>;
@@ -190,8 +190,7 @@ pub trait QUserRpcProvider {
     ) -> anyhow::Result<()>;
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
-#[maybe_async::maybe_async(AFIT)]
+#[maybe_async::maybe_async(?Send)]
 impl QUserRpcProvider for RpcProvider {
     async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()> {
         tracing::info!("register user: {:?}", req);

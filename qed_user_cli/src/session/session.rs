@@ -57,8 +57,9 @@ pub struct UserSessionStateManager {
     pub current_checkpoint_id: u64,
 }
 
+#[maybe_async::maybe_async]
 impl UserSessionStateManager {
-    pub fn new(
+    pub async fn new(
         user_id: u64,
         nonce: F,
         checkpoint_id: u64,
@@ -80,7 +81,7 @@ impl UserSessionStateManager {
             lps,
             circuit_info,
             main_circuits.ups_circuit_whitelist_root,
-        )?;
+        ).await?;
 
         Ok(UserSessionStateManager {
             mgr,
@@ -241,7 +242,7 @@ impl WalletSession {
             .get_user_leaf_data(
                 latest_l2_block_state.checkpoint_id,
                 self.st_provider.current_user_id,
-            )?
+            ).await?
             .nonce
             + F::from_noncanonical_u64(1);
 
@@ -259,14 +260,14 @@ impl WalletSession {
                 self.st_provider.clone(),
                 self.circuit_info.clone(),
                 &self.main_circuits,
-            )?;
+            ).await?;
         };
 
         tracing::info!("local proving ups start");
 
         self.user_session_mgr
             .mgr
-            .prove_ups_start(&self.main_circuits)?;
+            .prove_ups_start(&self.main_circuits).await?;
 
         Ok(())
     }
@@ -372,8 +373,8 @@ impl WalletSession {
         Ok(end_cap_proof)
     }
 
-    pub fn get_user_ec_input(&mut self) -> anyhow::Result<SubmitUserEndCapNonProofInput<F>> {
-        self.user_session_mgr.mgr.get_api_input()
+    pub async fn get_user_ec_input(&mut self) -> anyhow::Result<SubmitUserEndCapNonProofInput<F>> {
+        self.user_session_mgr.mgr.get_api_input().await
     }
 
     pub async fn sign_and_submit(&mut self) -> anyhow::Result<()> {
@@ -384,7 +385,7 @@ impl WalletSession {
 
         let end_cap_proof = self.get_end_cap_proof(signature_proof)?;
 
-        let user_ec_input = self.get_user_ec_input()?;
+        let user_ec_input = self.get_user_ec_input().await?;
         tracing::info!(
             "get user ec input: {}",
             serde_json::to_string_pretty(&user_ec_input)?
@@ -465,6 +466,7 @@ pub struct WalletKeyPair {
     pub public_key: ZKPublicKeyInfo<F>,
 }
 
+#[cfg(feature = "is_sync")]
 pub fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     let rpc_config: RpcConfig = serde_json::from_str(&std::fs::read_to_string(args.rpc_config)?)?;
     let private_key = QHashOut::<F>::from_str(&args.private_key)
