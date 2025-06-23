@@ -1,0 +1,951 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'QED Protocol AWS Deployment - All ECS Services with Auto Scaling (Simplified Network)'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: qed-protocol
+    Description: Name of the project
+
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name
+
+  ContainerImage:
+    Type: String
+    Default: "466080142804.dkr.ecr.ap-northeast-1.amazonaws.com/qed-protocol-rollup:latest"
+    Description: Docker image for QED services
+
+  LogLevel:
+    Type: String
+    Default: qed_user_prover=info,qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
+    Description: Log level configuration
+
+  MinEdgeCount:
+    Type: Number
+    Default: 1
+    Description: Minimum number of edge instances
+
+  MaxEdgeCount:
+    Type: Number
+    Default: 10
+    Description: Maximum number of edge instances
+
+  MinWorkerCount:
+    Type: Number
+    Default: 1
+    Description: Minimum number of worker instances
+
+  MaxWorkerCount:
+    Type: Number
+    Default: 5
+    Description: Maximum number of worker instances
+
+  TargetCPUUtilization:
+    Type: Number
+    Default: 70
+    Description: Target CPU utilization percentage for auto scaling
+
+Resources:
+  # Task Definitions
+  CoordinatorProcessorTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${ProjectName}-coordinator-processor
+      NetworkMode: bridge
+      PidMode: host
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
+      Volumes:
+        - Name: coordinator-data
+          Host:
+            SourcePath: /data/coordinator
+      ContainerDefinitions:
+        - Name: coordinator-processor
+          Image: !Ref ContainerImage
+          Memory: 8192
+          MemoryReservation: 4096
+          LinuxParameters:
+            InitProcessEnabled: true
+          Command:
+            - coordinator-processor
+            - --db-path
+            - /data
+            - !Sub
+              - --redis-uri=redis://${RedisEndpoint}:6379
+              - RedisEndpoint:
+                  Fn::ImportValue: !Sub ${ProjectName}-coordinator-redis-private-ip
+          Environment:
+            - Name: RUST_LOG
+              Value: !Ref LogLevel
+            - Name: JWT_SECRET
+              Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
+          MountPoints:
+            - SourceVolume: coordinator-data
+              ContainerPath: /data
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub /ecs/${ProjectName}
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: coordinator-processor
+          Essential: true
+
+  CoordinatorWorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${ProjectName}-coordinator-worker
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      Cpu: '4096'
+      Memory: '8192'
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
+      ContainerDefinitions:
+        - Name: coordinator-worker
+          Image: !Ref ContainerImage
+          Command:
+            - coordinator-worker
+            - !Sub
+              - --redis-uri=redis://${RedisEndpoint}:6379
+              - RedisEndpoint:
+                  Fn::ImportValue: !Sub ${ProjectName}-coordinator-redis-private-ip
+          Environment:
+            - Name: RUST_LOG
+              Value: !Ref LogLevel
+            - Name: JWT_SECRET
+              Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
+            - Name: WORKER_THREADS
+              Value: "4"
+            - Name: WORKER_PERFORMANCE_MODE
+              Value: "high"
+          Memory: 8192
+          MemoryReservation: 6144
+          Cpu: 4096
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub /ecs/${ProjectName}
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: coordinator-worker
+          Essential: true
+
+  CoordinatorEdgeTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${ProjectName}-coordinator-edge
+      NetworkMode: bridge
+      PidMode: host
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
+      Volumes:
+        - Name: coordinator-data
+          Host:
+            SourcePath: /data/coordinator
+      ContainerDefinitions:
+        - Name: coordinator-edge
+          Image: !Ref ContainerImage
+          Memory: 4096
+          MemoryReservation: 2048
+          LinuxParameters:
+            InitProcessEnabled: true
+          Command:
+            - coordinator-edge
+            - --listen-addr=0.0.0.0:8545
+            - --db-path=/data
+            - !Sub
+              - --redis-uri=redis://${RedisEndpoint}:6379
+              - RedisEndpoint:
+                  Fn::ImportValue: !Sub ${ProjectName}-coordinator-redis-private-ip
+          Environment:
+            - Name: RUST_LOG
+              Value: !Ref LogLevel
+            - Name: JWT_SECRET
+              Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
+          MountPoints:
+            - SourceVolume: coordinator-data
+              ContainerPath: /data
+          PortMappings:
+            - ContainerPort: 8545
+              HostPort: 0
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub /ecs/${ProjectName}
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: coordinator-edge
+          Essential: true
+
+  Realm0ProcessorTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${ProjectName}-realm0-processor
+      NetworkMode: bridge
+      PidMode: host
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
+      Volumes:
+        - Name: realm0-data
+          Host:
+            SourcePath: /data/realm0
+      ContainerDefinitions:
+        - Name: realm0-processor
+          Image: !Ref ContainerImage
+          Memory: 8192
+          MemoryReservation: 4096
+          LinuxParameters:
+            InitProcessEnabled: true
+          Command:
+            - realm-processor
+            - --path=/data
+            - !Sub
+              - --redis-uri=redis://${RedisEndpoint}:6379
+              - RedisEndpoint:
+                  Fn::ImportValue: !Sub ${ProjectName}-realm0-redis-private-ip
+          Environment:
+            - Name: RUST_LOG
+              Value: !Ref LogLevel
+            - Name: JWT_SECRET
+              Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
+          MountPoints:
+            - SourceVolume: realm0-data
+              ContainerPath: /data
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub /ecs/${ProjectName}
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: realm0-processor
+          Essential: true
+
+  Realm0WorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${ProjectName}-realm0-worker
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      Cpu: '4096'
+      Memory: '8192'
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
+      ContainerDefinitions:
+        - Name: realm0-worker
+          Image: !Ref ContainerImage
+          Command:
+            - realm-worker
+            - !Sub
+              - --redis-uri=redis://${RedisEndpoint}:6379
+              - RedisEndpoint:
+                  Fn::ImportValue: !Sub ${ProjectName}-realm0-redis-private-ip
+          Environment:
+            - Name: RUST_LOG
+              Value: !Ref LogLevel
+            - Name: JWT_SECRET
+              Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
+            - Name: WORKER_THREADS
+              Value: "4"
+            - Name: WORKER_PERFORMANCE_MODE
+              Value: "high"
+          Memory: 8192
+          MemoryReservation: 6144
+          Cpu: 4096
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub /ecs/${ProjectName}
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: realm0-worker
+          Essential: true
+
+  Realm0EdgeTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${ProjectName}-realm0-edge
+      NetworkMode: bridge
+      PidMode: host
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
+      Volumes:
+        - Name: realm0-data
+          Host:
+            SourcePath: /data/realm0
+      ContainerDefinitions:
+        - Name: realm0-edge
+          Image: !Ref ContainerImage
+          Memory: 4096
+          MemoryReservation: 2048
+          LinuxParameters:
+            InitProcessEnabled: true
+          Command:
+            - realm-edge
+            - --listen-addr=0.0.0.0:8546
+            - --path=/data
+            - !Sub
+              - --redis-uri=redis://${RedisEndpoint}:6379
+              - RedisEndpoint:
+                  Fn::ImportValue: !Sub ${ProjectName}-realm0-redis-private-ip
+            - !Sub
+              - --coordinator-addr=http://${ALBDNS}:8545
+              - ALBDNS:
+                  Fn::ImportValue: !Sub ${ProjectName}-alb-dns
+          Environment:
+            - Name: RUST_LOG
+              Value: !Ref LogLevel
+            - Name: JWT_SECRET
+              Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
+          MountPoints:
+            - SourceVolume: realm0-data
+              ContainerPath: /data
+          PortMappings:
+            - ContainerPort: 8546
+              HostPort: 0
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub /ecs/${ProjectName}
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: realm0-edge
+          Essential: true
+
+  Realm16384ProcessorTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${ProjectName}-realm16384-processor
+      NetworkMode: bridge
+      PidMode: host
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
+      Volumes:
+        - Name: realm16384-data
+          Host:
+            SourcePath: /data/realm16384
+      ContainerDefinitions:
+        - Name: realm16384-processor
+          Image: !Ref ContainerImage
+          Memory: 8192
+          MemoryReservation: 4096
+          LinuxParameters:
+            InitProcessEnabled: true
+          Command:
+            - realm-processor
+            - --path=/data
+            - --node-id=2
+            - --realm-id=16384
+            - --worker-queue-suffix=rwq16384
+            - --notifications-queue-suffix=rnq16384
+            - --proof-store-key-suffix=RP16384
+            - !Sub
+              - --redis-uri=redis://${RedisEndpoint}:6379
+              - RedisEndpoint:
+                  Fn::ImportValue: !Sub ${ProjectName}-realm16384-redis-private-ip
+          Environment:
+            - Name: RUST_LOG
+              Value: !Ref LogLevel
+            - Name: JWT_SECRET
+              Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
+          MountPoints:
+            - SourceVolume: realm16384-data
+              ContainerPath: /data
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub /ecs/${ProjectName}
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: realm16384-processor
+          Essential: true
+
+  Realm16384WorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${ProjectName}-realm16384-worker
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      Cpu: '4096'
+      Memory: '8192'
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
+      ContainerDefinitions:
+        - Name: realm16384-worker
+          Image: !Ref ContainerImage
+          Command:
+            - realm-worker
+            - --worker-queue-suffix=rwq16384
+            - --notifications-queue-suffix=rnq16384
+            - --proof-store-key-suffix=RP16384
+            - !Sub
+              - --redis-uri=redis://${RedisEndpoint}:6379
+              - RedisEndpoint:
+                  Fn::ImportValue: !Sub ${ProjectName}-realm16384-redis-private-ip
+          Environment:
+            - Name: RUST_LOG
+              Value: !Ref LogLevel
+            - Name: JWT_SECRET
+              Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
+            - Name: WORKER_THREADS
+              Value: "4"
+            - Name: WORKER_PERFORMANCE_MODE
+              Value: "high"
+          Memory: 8192
+          MemoryReservation: 6144
+          Cpu: 4096
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub /ecs/${ProjectName}
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: realm16384-worker
+          Essential: true
+
+  Realm16384EdgeTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${ProjectName}-realm16384-edge
+      NetworkMode: bridge
+      PidMode: host
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
+      Volumes:
+        - Name: realm16384-data
+          Host:
+            SourcePath: /data/realm16384
+      ContainerDefinitions:
+        - Name: realm16384-edge
+          Image: !Ref ContainerImage
+          Memory: 4096
+          MemoryReservation: 2048
+          LinuxParameters:
+            InitProcessEnabled: true
+          Command:
+            - realm-edge
+            - --listen-addr=0.0.0.0:8547
+            - --path=/data
+            - --node-id=2
+            - --realm-id=16384
+            - --worker-queue-suffix=rwq16384
+            - --notifications-queue-suffix=rnq16384
+            - --proof-store-key-suffix=RP16384
+            - !Sub
+              - --redis-uri=redis://${RedisEndpoint}:6379
+              - RedisEndpoint:
+                  Fn::ImportValue: !Sub ${ProjectName}-realm16384-redis-private-ip
+            - !Sub
+              - --coordinator-addr=http://${ALBDNS}:8545
+              - ALBDNS:
+                  Fn::ImportValue: !Sub ${ProjectName}-alb-dns
+          Environment:
+            - Name: RUST_LOG
+              Value: !Ref LogLevel
+            - Name: JWT_SECRET
+              Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
+          MountPoints:
+            - SourceVolume: realm16384-data
+              ContainerPath: /data
+          PortMappings:
+            - ContainerPort: 8547
+              HostPort: 0
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub /ecs/${ProjectName}
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: realm16384-edge
+          Essential: true
+
+  # Target Groups for Load Balancer
+  CoordinatorEdgeTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${ProjectName}-coord-edge-tg
+      Port: 8545
+      Protocol: HTTP
+      VpcId: 
+        Fn::ImportValue: !Sub ${ProjectName}-vpc-id
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 10
+      Matcher:
+        HttpCode: "200,404,405"
+
+  Realm0EdgeTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${ProjectName}-realm0-edge-tg
+      Port: 8546
+      Protocol: HTTP
+      VpcId: 
+        Fn::ImportValue: !Sub ${ProjectName}-vpc-id
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 10
+      Matcher:
+        HttpCode: "200,404,405"
+
+  Realm16384EdgeTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${ProjectName}-realm16384-edge-tg
+      Port: 8547
+      Protocol: HTTP
+      VpcId: 
+        Fn::ImportValue: !Sub ${ProjectName}-vpc-id
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 10
+      Matcher:
+        HttpCode: "200,404,405"
+
+  # ALB Listeners
+  CoordinatorALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: 
+        Fn::ImportValue: !Sub ${ProjectName}-alb-arn
+      Port: 8545
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref CoordinatorEdgeTargetGroup
+
+  Realm0ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: 
+        Fn::ImportValue: !Sub ${ProjectName}-alb-arn
+      Port: 8546
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref Realm0EdgeTargetGroup
+
+  Realm16384ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: 
+        Fn::ImportValue: !Sub ${ProjectName}-alb-arn
+      Port: 8547
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref Realm16384EdgeTargetGroup
+
+  # ECS Services
+  CoordinatorProcessorService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub ${ProjectName}-coordinator-processor
+      Cluster:
+        Fn::ImportValue: !Sub ${ProjectName}-cluster-name
+      TaskDefinition: !Ref CoordinatorProcessorTaskDefinition
+      LaunchType: EC2
+      DesiredCount: 1
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:realm == coordinator'
+
+  CoordinatorWorkerService:
+    Type: AWS::ECS::Service
+    DependsOn: CoordinatorProcessorService
+    Properties:
+      ServiceName: !Sub ${ProjectName}-coordinator-worker
+      Cluster:
+        Fn::ImportValue: !Sub ${ProjectName}-cluster-name
+      TaskDefinition: !Ref CoordinatorWorkerTaskDefinition
+      LaunchType: EC2
+      DesiredCount: !Ref MinWorkerCount
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:ecs.instance-type =~ c6i.*'
+
+  CoordinatorEdgeService:
+    Type: AWS::ECS::Service
+    DependsOn: CoordinatorProcessorService
+    Properties:
+      ServiceName: !Sub ${ProjectName}-coordinator-edge
+      Cluster:
+        Fn::ImportValue: !Sub ${ProjectName}-cluster-name
+      TaskDefinition: !Ref CoordinatorEdgeTaskDefinition
+      LaunchType: EC2
+      DesiredCount: !Ref MinEdgeCount
+      LoadBalancers:
+        - ContainerName: coordinator-edge
+          ContainerPort: 8545
+          TargetGroupArn: !Ref CoordinatorEdgeTargetGroup
+      HealthCheckGracePeriodSeconds: 60
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:realm == coordinator'
+
+  Realm0ProcessorService:
+    Type: AWS::ECS::Service
+    DependsOn: CoordinatorProcessorService
+    Properties:
+      ServiceName: !Sub ${ProjectName}-realm0-processor
+      Cluster:
+        Fn::ImportValue: !Sub ${ProjectName}-cluster-name
+      TaskDefinition: !Ref Realm0ProcessorTaskDefinition
+      LaunchType: EC2
+      DesiredCount: 1
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:realm == realm0'
+
+  Realm0WorkerService:
+    Type: AWS::ECS::Service
+    DependsOn: Realm0ProcessorService
+    Properties:
+      ServiceName: !Sub ${ProjectName}-realm0-worker
+      Cluster:
+        Fn::ImportValue: !Sub ${ProjectName}-cluster-name
+      TaskDefinition: !Ref Realm0WorkerTaskDefinition
+      LaunchType: EC2
+      DesiredCount: !Ref MinWorkerCount
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:ecs.instance-type =~ c6i.*'
+
+  Realm0EdgeService:
+    Type: AWS::ECS::Service
+    DependsOn: Realm0ProcessorService
+    Properties:
+      ServiceName: !Sub ${ProjectName}-realm0-edge
+      Cluster:
+        Fn::ImportValue: !Sub ${ProjectName}-cluster-name
+      TaskDefinition: !Ref Realm0EdgeTaskDefinition
+      LaunchType: EC2
+      DesiredCount: !Ref MinEdgeCount
+      LoadBalancers:
+        - ContainerName: realm0-edge
+          ContainerPort: 8546
+          TargetGroupArn: !Ref Realm0EdgeTargetGroup
+      HealthCheckGracePeriodSeconds: 60
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:realm == realm0'
+
+  Realm16384ProcessorService:
+    Type: AWS::ECS::Service
+    DependsOn: CoordinatorProcessorService
+    Properties:
+      ServiceName: !Sub ${ProjectName}-realm16384-processor
+      Cluster:
+        Fn::ImportValue: !Sub ${ProjectName}-cluster-name
+      TaskDefinition: !Ref Realm16384ProcessorTaskDefinition
+      LaunchType: EC2
+      DesiredCount: 1
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:realm == realm16384'
+
+  Realm16384WorkerService:
+    Type: AWS::ECS::Service
+    DependsOn: Realm16384ProcessorService
+    Properties:
+      ServiceName: !Sub ${ProjectName}-realm16384-worker
+      Cluster:
+        Fn::ImportValue: !Sub ${ProjectName}-cluster-name
+      TaskDefinition: !Ref Realm16384WorkerTaskDefinition
+      LaunchType: EC2
+      DesiredCount: !Ref MinWorkerCount
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:ecs.instance-type =~ c6i.*'
+
+  Realm16384EdgeService:
+    Type: AWS::ECS::Service
+    DependsOn: Realm16384ProcessorService
+    Properties:
+      ServiceName: !Sub ${ProjectName}-realm16384-edge
+      Cluster:
+        Fn::ImportValue: !Sub ${ProjectName}-cluster-name
+      TaskDefinition: !Ref Realm16384EdgeTaskDefinition
+      LaunchType: EC2
+      DesiredCount: !Ref MinEdgeCount
+      LoadBalancers:
+        - ContainerName: realm16384-edge
+          ContainerPort: 8547
+          TargetGroupArn: !Ref Realm16384EdgeTargetGroup
+      HealthCheckGracePeriodSeconds: 60
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:realm == realm16384'
+
+  # Auto Scaling for Worker Services
+  CoordinatorWorkerScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    DependsOn: CoordinatorWorkerService
+    Properties:
+      MaxCapacity: !Ref MaxWorkerCount
+      MinCapacity: !Ref MinWorkerCount
+      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-coordinator-worker
+      RoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  CoordinatorWorkerCPUScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-coordinator-worker-cpu-scaling
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref CoordinatorWorkerScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: !Ref TargetCPUUtilization
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 60
+
+  Realm0WorkerScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    DependsOn: Realm0WorkerService
+    Properties:
+      MaxCapacity: !Ref MaxWorkerCount
+      MinCapacity: !Ref MinWorkerCount
+      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-realm0-worker
+      RoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  Realm0WorkerCPUScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-realm0-worker-cpu-scaling
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref Realm0WorkerScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: !Ref TargetCPUUtilization
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 60
+
+  Realm16384WorkerScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    DependsOn: Realm16384WorkerService
+    Properties:
+      MaxCapacity: !Ref MaxWorkerCount
+      MinCapacity: !Ref MinWorkerCount
+      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-realm16384-worker
+      RoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  Realm16384WorkerCPUScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-realm16384-worker-cpu-scaling
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref Realm16384WorkerScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: !Ref TargetCPUUtilization
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 60
+
+  # Auto Scaling for Edge Services
+  CoordinatorEdgeScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    DependsOn: CoordinatorEdgeService
+    Properties:
+      MaxCapacity: !Ref MaxEdgeCount
+      MinCapacity: !Ref MinEdgeCount
+      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-coordinator-edge
+      RoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  CoordinatorEdgeCPUScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-coordinator-edge-cpu-scaling
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref CoordinatorEdgeScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: !Ref TargetCPUUtilization
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 60
+
+  Realm0EdgeScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    DependsOn: Realm0EdgeService
+    Properties:
+      MaxCapacity: !Ref MaxEdgeCount
+      MinCapacity: !Ref MinEdgeCount
+      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-realm0-edge
+      RoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  Realm0EdgeCPUScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-realm0-edge-cpu-scaling
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref Realm0EdgeScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: !Ref TargetCPUUtilization
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 60
+
+  Realm16384EdgeScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    DependsOn: Realm16384EdgeService
+    Properties:
+      MaxCapacity: !Ref MaxEdgeCount
+      MinCapacity: !Ref MinEdgeCount
+      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-realm16384-edge
+      RoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  Realm16384EdgeCPUScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-realm16384-edge-cpu-scaling
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref Realm16384EdgeScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: !Ref TargetCPUUtilization
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 60
+
+  # CloudWatch Alarms for monitoring
+  CoordinatorEdgeHighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-coordinator-edge-high-cpu
+      AlarmDescription: Triggers when coordinator edge service CPU is too high
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ServiceName
+          Value: !Sub ${ProjectName}-coordinator-edge
+        - Name: ClusterName
+          Value: !Sub ${ProjectName}-cluster
+
+  Realm0EdgeHighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-realm0-edge-high-cpu
+      AlarmDescription: Triggers when realm 0 edge service CPU is too high
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ServiceName
+          Value: !Sub ${ProjectName}-realm0-edge
+        - Name: ClusterName
+          Value: !Sub ${ProjectName}-cluster
+
+  Realm16384EdgeHighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-realm16384-edge-high-cpu
+      AlarmDescription: Triggers when realm 16384 edge service CPU is too high
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ServiceName
+          Value: !Sub ${ProjectName}-realm16384-edge
+        - Name: ClusterName
+          Value: !Sub ${ProjectName}-cluster
+
+Outputs:
+  CoordinatorEndpoint:
+    Description: Coordinator public endpoint
+    Value: !Sub 
+      - http://${ALBDNS}:8545
+      - ALBDNS: 
+          Fn::ImportValue: !Sub ${ProjectName}-alb-dns
+    Export:
+      Name: !Sub ${ProjectName}-coordinator-endpoint
+
+  Realm0Endpoint:
+    Description: Realm 0 public endpoint
+    Value: !Sub 
+      - http://${ALBDNS}:8546
+      - ALBDNS: 
+          Fn::ImportValue: !Sub ${ProjectName}-alb-dns
+    Export:
+      Name: !Sub ${ProjectName}-realm0-endpoint
+
+  Realm16384Endpoint:
+    Description: Realm 16384 public endpoint
+    Value: !Sub 
+      - http://${ALBDNS}:8547
+      - ALBDNS: 
+          Fn::ImportValue: !Sub ${ProjectName}-alb-dns
+    Export:
+      Name: !Sub ${ProjectName}-realm16384-endpoint
+
+  CoordinatorEdgeTaskDefinition:
+    Description: Coordinator Edge Task Definition ARN
+    Value: !Ref CoordinatorEdgeTaskDefinition
+    Export:
+      Name: !Sub ${ProjectName}-coordinator-edge-task-def
+
+  Realm0EdgeTaskDefinition:
+    Description: Realm 0 Edge Task Definition ARN
+    Value: !Ref Realm0EdgeTaskDefinition
+    Export:
+      Name: !Sub ${ProjectName}-realm0-edge-task-def
+
+  Realm16384EdgeTaskDefinition:
+    Description: Realm 16384 Edge Task Definition ARN
+    Value: !Ref Realm16384EdgeTaskDefinition
+    Export:
+      Name: !Sub ${ProjectName}-realm16384-edge-task-def

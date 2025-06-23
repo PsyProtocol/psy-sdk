@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { QedWalletWidget, createMemoryWalletProvider } from "@qed/qed-wallet-widget";
 import logoImage from "../../assets/psy.png";
 import { useWalletConfig } from "../../config";
+import { TokensProvider } from "../../contexts/TokensContext";
 import ExtensionContent from "./ExtensionContent";
 import {
     ExtensionContainer,
@@ -14,10 +15,10 @@ import {
     ErrorHint
 } from "./ExtensionHome.styles";
 
-const ExtensionHomePage: React.FC = () => {
+const ExtensionHomeContent: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const { config } = useWalletConfig();
+    const { config, getCoordinatorUrl, getRealmUrl, getProverUrl } = useWalletConfig();
 
     useEffect(() => {
         // Check if we're in extension context
@@ -32,9 +33,9 @@ const ExtensionHomePage: React.FC = () => {
     }, []);
 
     const walletProvider = createMemoryWalletProvider(
-        "http://localhost:8545", // coordinator
-        "http://localhost:8546", // realm 
-        "http://localhost:8888", // prover
+        getCoordinatorUrl(), // coordinator
+        getRealmUrl(), // realm 
+        getProverUrl(), // prover
     );
 
     if (isLoading) {
@@ -65,10 +66,16 @@ const ExtensionHomePage: React.FC = () => {
     return (
         <ExtensionContainer>
             <QedWalletWidget provider={walletProvider} theme="extension">
-                <ExtensionContent />
+                <TokensProvider>
+                    <ExtensionContent />
+                </TokensProvider>
             </QedWalletWidget>
         </ExtensionContainer>
     );
+};
+
+const ExtensionHomePage: React.FC = () => {
+    return <ExtensionHomeContent />;
 };
 
 export default ExtensionHomePage;

@@ -122,19 +122,9 @@ init:
 
 .PHONY: launch
 launch: shutdown init compile
-	@docker-compose \
-		-f docker-compose.yml \
-		up \
-		--build \
-		-d \
-		--remove-orphans
 
 .PHONY: shutdown
 shutdown:
-	@docker-compose \
-		-f docker-compose.yml \
-		down \
-		--remove-orphans > /dev/null 2>&1 || true
 	@sudo rm -fr redis-data
 	@redis-cli 'FLUSHALL' > /dev/null 2>&1 || true
 	@redis-cli -u redis://127.0.0.1:6380 'FLUSHALL' > /dev/null 2>&1 || true
@@ -147,12 +137,6 @@ run-all:
 
 run-scenario0:
 	@./scripts/run_scenario0.sh
-
-logs:
-	@docker-compose \
-        -f docker-compose.yml \
-        logs \
-        --follow
 
 interpret:
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR} && ../target/${PROFILE}/dargo execute --debug --entry-path ${FILE} --parameters ${PARAMETERS}

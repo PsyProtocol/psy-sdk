@@ -19,7 +19,6 @@
     "axios": "^1.7.2",
     "classnames": "^2.5.1",
     "copy-to-clipboard": "^3.3.3",
-    "doge-sdk": "0.4.2",
     "@qed/qed-sdk": "workspace:*",
     "react": "~18.2.0",
     "react-dom": "~18.2.0",

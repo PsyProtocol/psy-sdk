@@ -1,6 +1,24 @@
 import React from 'react';
 
-// Configuration interface for the wallet
+// Configuration interfaces
+export interface RealmConfig {
+  id: number;
+  rpc_url: string[];
+}
+
+export interface CoordinatorConfig {
+  id: number;
+  rpc_url: string[];
+}
+
+export interface NetworkConfig {
+  users_per_realm: number;
+  realm_configs: RealmConfig[];
+  coordinator_configs: CoordinatorConfig[];
+  prover_url?: string;
+  nativeCurrency?: string; // contractId of the native currency token
+}
+
 export interface WalletConfig {
   theme: {
     colors: {
@@ -10,14 +28,12 @@ export interface WalletConfig {
       primaryText: string;
       border: string;
       accent: string;
+      success?: string;
+      error?: string;
+      textSecondary?: string;
     };
   };
-  network: {
-    rpcUrl: string;
-    networkId: string;
-    chainId: number;
-    name: string;
-  };
+  network: NetworkConfig;
   wallet: {
     defaultWalletName: string;
     enableAutoRefresh: boolean;
@@ -40,13 +56,35 @@ export const defaultConfig: WalletConfig = {
       primaryText: '#ffffff',
       border: '#73e7ff',
       accent: '#73e7ff',
+      success: '#00C851',
+      error: '#ff6b6b',
+      textSecondary: '#666666',
     },
   },
   network: {
-    rpcUrl: 'http://localhost:8545',
-    networkId: 'localhost',
-    chainId: 1337,
-    name: 'Local Network',
+    users_per_realm: 32768,
+    realm_configs: [
+      {
+        id: 0,
+        rpc_url: ["http://127.0.0.1:8546"]
+      },
+      {
+        id: 16384,
+        rpc_url: ["http://127.0.0.1:8547"]
+      },
+      {
+        id: 8192,
+        rpc_url: ["http://127.0.0.1:8548"]
+      }
+    ],
+    coordinator_configs: [
+      {
+        id: 0,
+        rpc_url: ["http://127.0.0.1:8545"]
+      }
+    ],
+    prover_url: "http://127.0.0.1:8888",
+    nativeCurrency: "0"
   },
   wallet: {
     defaultWalletName: 'Wallet 1',
@@ -84,6 +122,9 @@ export const loadConfig = (): WalletConfig => {
         network: {
           ...defaultConfig.network,
           ...parsed.network,
+          realm_configs: parsed.network?.realm_configs || defaultConfig.network.realm_configs,
+          coordinator_configs: parsed.network?.coordinator_configs || defaultConfig.network.coordinator_configs,
+          nativeCurrency: parsed.network?.nativeCurrency || defaultConfig.network.nativeCurrency,
         },
         wallet: {
           ...defaultConfig.wallet,
@@ -143,8 +184,39 @@ export const useWalletConfig = () => {
     saveConfig(updatedConfig);
   };
 
+  const getCoordinatorUrl = () => {
+    if (config.network.coordinator_configs.length > 0 && config.network.coordinator_configs[0].rpc_url.length > 0) {
+      return config.network.coordinator_configs[0].rpc_url[0];
+    }
+    return "http://127.0.0.1:8545"; // fallback
+  };
+
+  const getRealmUrl = (realmId?: number) => {
+    // If no specific realm ID provided, use the first one
+    const targetRealm = realmId !== undefined 
+      ? config.network.realm_configs.find(r => r.id === realmId)
+      : config.network.realm_configs[0];
+    
+    if (targetRealm && targetRealm.rpc_url.length > 0) {
+      return targetRealm.rpc_url[0];
+    }
+    return "http://127.0.0.1:8546"; // fallback
+  };
+
+  const getProverUrl = () => {
+    return config.network.prover_url || "http://127.0.0.1:8888";
+  };
+
+  const getNativeCurrency = () => {
+    return config.network.nativeCurrency || "0";
+  };
+
   return {
     config,
     updateConfig,
+    getCoordinatorUrl,
+    getRealmUrl,
+    getProverUrl,
+    getNativeCurrency,
   };
 };

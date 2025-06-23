@@ -1,0 +1,1331 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'QED Protocol AWS Deployment - Main Infrastructure with Realm Isolation (Simplified Network)'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: qed-protocol
+    Description: Name of the project
+  
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues:
+      - development
+      - staging
+      - production
+    Description: Environment name
+  
+  VpcCIDR:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CIDR block for VPC
+  
+  # Public Subnets (simplified - single AZ)
+  CoordinatorSubnetCIDR:
+    Type: String
+    Default: 10.0.10.0/24
+    Description: CIDR block for coordinator subnet
+  
+  Realm0SubnetCIDR:
+    Type: String
+    Default: 10.0.20.0/24
+    Description: CIDR block for realm 0 subnet
+  
+  Realm16384SubnetCIDR:
+    Type: String
+    Default: 10.0.30.0/24
+    Description: CIDR block for realm 16384 subnet
+  
+  WorkerInstanceType:
+    Type: String
+    Default: c6i.2xlarge
+    AllowedValues:
+      - c6i.xlarge    # 4 vCPU, 8 GiB RAM
+      - c6i.2xlarge   # 8 vCPU, 16 GiB RAM
+      - c6i.4xlarge   # 16 vCPU, 32 GiB RAM  
+      - c6i.8xlarge   # 32 vCPU, 64 GiB RAM
+      - c6i.12xlarge  # 48 vCPU, 96 GiB RAM
+      - c7i.2xlarge   # 8 vCPU, 16 GiB RAM (latest gen)
+      - c7i.4xlarge   # 16 vCPU, 32 GiB RAM (latest gen)
+    Description: EC2 instance type for high-performance workers
+  
+  KeyPairName:
+    Type: String
+    Default: ""
+    Description: EC2 Key Pair for SSH access (optional)
+
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id
+    Description: Latest Ubuntu 22.04 LTS AMI
+
+Conditions:
+  HasKeyPair: !Not [!Equals [!Ref KeyPairName, ""]]
+
+Resources:
+  # VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-vpc
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-igw
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  # Public Subnets (Different AZs for ALB requirement)
+  CoordinatorSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Ref CoordinatorSubnetCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-coordinator-subnet
+
+  Realm0Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Ref Realm0SubnetCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-realm0-subnet
+
+  Realm16384Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [2, !GetAZs '']
+      CidrBlock: !Ref Realm16384SubnetCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-realm16384-subnet
+
+  # Route Table for Public Subnets
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-public-routes
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  CoordinatorSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref CoordinatorSubnet
+
+  Realm0SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref Realm0Subnet
+
+  Realm16384SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref Realm16384Subnet
+
+  # Security Groups
+  CoordinatorSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-coordinator-sg
+      GroupDescription: Security group for coordinator services
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        # SSH access
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        # Allow traffic from ALB
+        - IpProtocol: tcp
+          FromPort: 8545
+          ToPort: 8545
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        # Allow ALB access to dynamic ports for ECS
+        - IpProtocol: tcp
+          FromPort: 32768
+          ToPort: 65535
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        # Allow internal coordinator communication
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: !Ref CoordinatorSubnetCIDR
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  Realm0SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-realm0-sg
+      GroupDescription: Security group for realm 0 services
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        # SSH access
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        # Allow traffic from ALB
+        - IpProtocol: tcp
+          FromPort: 8546
+          ToPort: 8546
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        # Allow ALB access to dynamic ports for ECS
+        - IpProtocol: tcp
+          FromPort: 32768
+          ToPort: 65535
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        # Allow internal realm 0 communication
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: !Ref Realm0SubnetCIDR
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  Realm16384SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-realm16384-sg
+      GroupDescription: Security group for realm 16384 services
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        # SSH access
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        # Allow traffic from ALB
+        - IpProtocol: tcp
+          FromPort: 8547
+          ToPort: 8547
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        # Allow ALB access to dynamic ports for ECS
+        - IpProtocol: tcp
+          FromPort: 32768
+          ToPort: 65535
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        # Allow internal realm 16384 communication
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: !Ref Realm16384SubnetCIDR
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  # Redis Security Groups
+  CoordinatorRedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-coordinator-redis-sg
+      GroupDescription: Security group for coordinator Redis
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: 10.0.0.0/16
+
+  Realm0RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-realm0-redis-sg
+      GroupDescription: Security group for realm 0 Redis
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: 10.0.0.0/16
+
+  Realm16384RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-realm16384-redis-sg
+      GroupDescription: Security group for realm 16384 Redis
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: 10.0.0.0/16
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-alb-sg
+      GroupDescription: Security group for ALB
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        # HTTP access for all ports
+        - IpProtocol: tcp
+          FromPort: 8545
+          ToPort: 8547
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  # ECS Cluster
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${ProjectName}-cluster
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+  # EBS Multi-Attach Volumes for shared MDBX database storage
+  CoordinatorEBSVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      VolumeType: gp3
+      Size: 100
+      Iops: 3000
+      Throughput: 125
+      Encrypted: true
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-coordinator-data
+        - Key: Project
+          Value: !Ref ProjectName
+
+  Realm0EBSVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      VolumeType: gp3
+      Size: 100
+      Iops: 3000
+      Throughput: 125
+      Encrypted: true
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-realm0-data
+        - Key: Project
+          Value: !Ref ProjectName
+
+  Realm16384EBSVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      VolumeType: gp3
+      Size: 100
+      Iops: 3000
+      Throughput: 125
+      Encrypted: true
+      AvailabilityZone: !Select [2, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-realm16384-data
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # EBS Volume Attachments for Multi-Attach volumes
+  # Note: Actual attachment will be done by EC2 user data scripts
+
+  # ECR Repository (managed externally)
+
+  # Redis on EC2 - Independent instances for each Realm
+  CoordinatorRedisInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: t3.small
+      KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
+      IamInstanceProfile: !Ref WorkerInstanceProfile
+      SubnetId: !Ref CoordinatorSubnet
+      SecurityGroupIds:
+        - !Ref CoordinatorRedisSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          exec > /var/log/user-data.log 2>&1
+          echo "Starting Coordinator Redis setup at $(date)..."
+          
+          # Update system
+          apt-get update -y || { echo "apt-get update failed"; exit 1; }
+          apt-get install -y docker.io awscli || { echo "Package install failed"; exit 1; }
+          systemctl enable docker
+          systemctl start docker
+          
+          # Wait for Docker to be ready
+          sleep 10
+          
+          # Create data directory
+          mkdir -p /data/redis
+          
+          # Run Redis container
+          echo "Starting Redis container..."
+          docker run -d \
+            --name redis \
+            -p 6379:6379 \
+            -v /data/redis:/data \
+            --restart always \
+            redis:7-alpine \
+            redis-server --appendonly yes --dir /data || { echo "Redis failed"; exit 1; }
+          
+          # Wait for container to be ready
+          sleep 10
+          echo "Redis container started successfully"
+          
+          # Store endpoint in SSM Parameter Store
+          echo "Getting instance IP and storing SSM parameter..."
+          INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+          echo "Instance IP: $INSTANCE_IP"
+          
+          aws ssm put-parameter \
+            --name "/${ProjectName}/redis/coordinator/endpoint" \
+            --value "$INSTANCE_IP:6379" \
+            --type String \
+            --overwrite \
+            --region ${AWS::Region} || { echo "SSM parameter failed"; exit 1; }
+          
+          echo "Coordinator Redis setup completed successfully at $(date)"
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-coordinator-redis
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Realm
+          Value: coordinator
+
+  Realm0RedisInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: t3.small
+      KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
+      IamInstanceProfile: !Ref WorkerInstanceProfile
+      SubnetId: !Ref Realm0Subnet
+      SecurityGroupIds:
+        - !Ref Realm0RedisSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          exec > /var/log/user-data.log 2>&1
+          echo "Starting Realm 0 Redis setup at $(date)..."
+          
+          # Update system
+          apt-get update -y || { echo "apt-get update failed"; exit 1; }
+          apt-get install -y docker.io awscli || { echo "Package install failed"; exit 1; }
+          systemctl enable docker
+          systemctl start docker
+          
+          # Wait for Docker to be ready
+          sleep 10
+          
+          # Create data directory
+          mkdir -p /data/redis
+          
+          # Run Redis container
+          echo "Starting Redis container..."
+          docker run -d \
+            --name redis \
+            -p 6379:6379 \
+            -v /data/redis:/data \
+            --restart always \
+            redis:7-alpine \
+            redis-server --appendonly yes --dir /data || { echo "Redis failed"; exit 1; }
+          
+          # Wait for container to be ready
+          sleep 10
+          echo "Redis container started successfully"
+          
+          # Store endpoint in SSM Parameter Store
+          echo "Getting instance IP and storing SSM parameter..."
+          INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+          echo "Instance IP: $INSTANCE_IP"
+          
+          aws ssm put-parameter \
+            --name "/${ProjectName}/redis/realm0/endpoint" \
+            --value "$INSTANCE_IP:6379" \
+            --type String \
+            --overwrite \
+            --region ${AWS::Region} || { echo "SSM parameter failed"; exit 1; }
+          
+          echo "Realm 0 Redis setup completed successfully at $(date)"
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-realm0-redis
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Realm
+          Value: realm0
+
+  Realm16384RedisInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: t3.small
+      KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
+      IamInstanceProfile: !Ref WorkerInstanceProfile
+      SubnetId: !Ref Realm16384Subnet
+      SecurityGroupIds:
+        - !Ref Realm16384RedisSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          exec > /var/log/user-data.log 2>&1
+          echo "Starting Realm 16384 Redis setup at $(date)..."
+          
+          # Update system
+          apt-get update -y || { echo "apt-get update failed"; exit 1; }
+          apt-get install -y docker.io awscli || { echo "Package install failed"; exit 1; }
+          systemctl enable docker
+          systemctl start docker
+          
+          # Wait for Docker to be ready
+          sleep 10
+          
+          # Create data directory
+          mkdir -p /data/redis
+          
+          # Run Redis container
+          echo "Starting Redis container..."
+          docker run -d \
+            --name redis \
+            -p 6379:6379 \
+            -v /data/redis:/data \
+            --restart always \
+            redis:7-alpine \
+            redis-server --appendonly yes --dir /data || { echo "Redis failed"; exit 1; }
+          
+          # Wait for container to be ready
+          sleep 10
+          echo "Redis container started successfully"
+          
+          # Store endpoint in SSM Parameter Store
+          echo "Getting instance IP and storing SSM parameter..."
+          INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+          echo "Instance IP: $INSTANCE_IP"
+          
+          aws ssm put-parameter \
+            --name "/${ProjectName}/redis/realm16384/endpoint" \
+            --value "$INSTANCE_IP:6379" \
+            --type String \
+            --overwrite \
+            --region ${AWS::Region} || { echo "SSM parameter failed"; exit 1; }
+          
+          echo "Realm 16384 Redis setup completed successfully at $(date)"
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-realm16384-redis
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Realm
+          Value: realm16384
+
+  # Single Application Load Balancer for all services (with multiple ports)
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${ProjectName}-alb
+      Type: application
+      IpAddressType: ipv4
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Subnets:
+        - !Ref CoordinatorSubnet
+        - !Ref Realm0Subnet
+        - !Ref Realm16384Subnet
+
+  # CloudWatch Log Group
+  CloudWatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${ProjectName}
+      RetentionInDays: 7
+
+  # IAM Roles
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-ecs-task-execution
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-ecs-task
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: TaskPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  WorkerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${ProjectName}-worker-instance-profile
+      Roles:
+        - !Ref WorkerInstanceRole
+
+  WorkerInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-worker-instance-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: WorkerInstancePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ssm:PutParameter
+                  - ssm:GetParameter
+                  - ssm:DeleteParameter
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/*'
+              - Effect: Allow
+                Action:
+                  - ec2:AttachVolume
+                  - ec2:DetachVolume
+                  - ec2:DescribeVolumes
+                  - ec2:DescribeVolumeStatus
+                  - ec2:DescribeVolumeAttribute
+                  - ec2:ModifyVolumeAttribute
+                Resource: '*'
+
+  # Auto Scaling Groups (each realm uses only its own subnet)
+  CoordinatorAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${ProjectName}-coordinator-asg
+      LaunchTemplate:
+        LaunchTemplateId: !Ref CoordinatorLaunchTemplate
+        Version: !GetAtt CoordinatorLaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 2
+      DesiredCapacity: 1
+      VPCZoneIdentifier:
+        - !Ref CoordinatorSubnet
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-coordinator-worker
+          PropagateAtLaunch: true
+        - Key: Project
+          Value: !Ref ProjectName
+          PropagateAtLaunch: true
+        - Key: Realm
+          Value: coordinator
+          PropagateAtLaunch: true
+
+  Realm0AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${ProjectName}-realm0-asg
+      LaunchTemplate:
+        LaunchTemplateId: !Ref Realm0LaunchTemplate
+        Version: !GetAtt Realm0LaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 2
+      DesiredCapacity: 1
+      VPCZoneIdentifier:
+        - !Ref Realm0Subnet
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-realm0-worker
+          PropagateAtLaunch: true
+        - Key: Project
+          Value: !Ref ProjectName
+          PropagateAtLaunch: true
+        - Key: Realm
+          Value: realm0
+          PropagateAtLaunch: true
+
+  Realm16384AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${ProjectName}-realm16384-asg
+      LaunchTemplate:
+        LaunchTemplateId: !Ref Realm16384LaunchTemplate
+        Version: !GetAtt Realm16384LaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 2
+      DesiredCapacity: 1
+      VPCZoneIdentifier:
+        - !Ref Realm16384Subnet
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-realm16384-worker
+          PropagateAtLaunch: true
+        - Key: Project
+          Value: !Ref ProjectName
+          PropagateAtLaunch: true
+        - Key: Realm
+          Value: realm16384
+          PropagateAtLaunch: true
+
+  # Launch Templates (only for coordinator and edge services that need EFS)
+  CoordinatorLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${ProjectName}-coordinator-template
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: !Ref WorkerInstanceType
+        KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
+        IamInstanceProfile:
+          Name: !Ref WorkerInstanceProfile
+        InstanceMarketOptions:
+          MarketType: spot
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            DeleteOnTermination: true
+            Groups:
+              - !Ref CoordinatorSecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+            
+            # Update system
+            apt-get update -y
+            apt-get upgrade -y
+            
+            # Install required packages
+            apt-get install -y docker.io awscli nvme-cli
+            systemctl enable docker
+            systemctl start docker
+            usermod -aG docker ubuntu
+            
+            # Attach and mount EBS Multi-Attach volume
+            echo "Attaching EBS volume for coordinator data..."
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+            
+            # Attach EBS volume
+            echo "Attaching EBS volume ${CoordinatorEBSVolume}..."
+            aws ec2 attach-volume \
+              --volume-id ${CoordinatorEBSVolume} \
+              --instance-id $INSTANCE_ID \
+              --device /dev/xvdf \
+              --region ${AWS::Region} || { echo "Failed to attach EBS volume"; exit 1; }
+            
+            # Wait for volume to be attached using improved detection for Nitro instances
+            echo "Waiting for EBS volume to be attached..."
+            START_TIME=$(date +%s)
+            DEVICE_NAME=""
+            
+            while [ -z "$DEVICE_NAME" ]; do
+              # For Nitro instances, check both NVMe and traditional device names
+              # Look for newly attached devices (not the root device)
+              
+              # Method 1: Check for NVMe devices (most likely on Nitro instances)
+              for nvme_dev in /dev/nvme*n1; do
+                if [ -b "$nvme_dev" ] && [ "$nvme_dev" != "/dev/nvme0n1" ]; then
+                  # Verify this is our attached volume by checking if it's not already mounted
+                  if ! mount | grep -q "$nvme_dev"; then
+                    DEVICE_NAME="$nvme_dev"
+                    echo "Found NVMe device: $DEVICE_NAME"
+                    break
+                  fi
+                fi
+              done
+              
+              # Method 2: Fallback to traditional device names if no NVMe found
+              if [ -z "$DEVICE_NAME" ]; then
+                for xvd_dev in /dev/xvd[f-z]; do
+                  if [ -b "$xvd_dev" ]; then
+                    DEVICE_NAME="$xvd_dev"
+                    echo "Found traditional device: $DEVICE_NAME"
+                    break
+                  fi
+                done
+              fi
+              
+              ELAPSED=$(( $(date +%s) - $START_TIME ))
+              if [ $ELAPSED -gt 300 ]; then
+                echo "ERROR: Timeout waiting for EBS device after 300s"
+                echo "Available block devices:"
+                lsblk -d -o NAME,TYPE,SIZE,STATE
+                echo "NVMe devices:"
+                ls -la /dev/nvme* 2>/dev/null || echo "No NVMe devices found"
+                echo "Traditional devices:"
+                ls -la /dev/xvd* 2>/dev/null || echo "No traditional devices found"
+                exit 1
+              fi
+              
+              if [ -z "$DEVICE_NAME" ]; then
+                echo "Waiting for EBS device to appear... ($ELAPSED s elapsed)"
+                sleep 5
+              fi
+            done
+            
+            echo "Final detected EBS device: $DEVICE_NAME"
+            
+            # Check if volume needs formatting (only format if empty)
+            if ! file -s "$DEVICE_NAME" | grep -q "filesystem"; then
+              echo "Formatting EBS volume with ext4..."
+              mkfs.ext4 -F "$DEVICE_NAME" || { echo "Failed to format EBS volume"; exit 1; }
+            else
+              echo "EBS volume already formatted"
+            fi
+            
+            # Create mount point and mount
+            mkdir -p /data/coordinator
+            # For Multi-Attach volumes, use specific mount options to prevent cache issues
+            mount -o noatime,nodiratime "$DEVICE_NAME" /data/coordinator || { echo "Failed to mount EBS volume"; exit 1; }
+            
+            # Add to fstab for persistent mounting (use UUID for reliability)
+            VOLUME_UUID=$(blkid -s UUID -o value "$DEVICE_NAME")
+            if [ -n "$VOLUME_UUID" ]; then
+              echo "UUID=$VOLUME_UUID /data/coordinator ext4 defaults,noatime 0 0" >> /etc/fstab
+            else
+              echo "$DEVICE_NAME /data/coordinator ext4 defaults,noatime 0 0" >> /etc/fstab
+            fi
+            
+            # Verify mount
+            if ! mountpoint -q /data/coordinator; then
+              echo "ERROR: EBS mount failed"; exit 1
+            fi
+            
+            # Set permissions for QED data
+            chown -R 1001:1001 /data/coordinator
+            
+            # Install ECS agent
+            curl -O https://s3.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.amd64.deb
+            dpkg -i amazon-ecs-init-latest.amd64.deb || apt-get install -f -y
+            
+            # Configure ECS
+            mkdir -p /etc/ecs
+            echo ECS_CLUSTER=${ProjectName}-cluster >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
+            echo 'ECS_INSTANCE_ATTRIBUTES={"realm":"coordinator"}' >> /etc/ecs/ecs.config
+            
+            # Start ECS agent
+            systemctl enable ecs
+            systemctl start ecs
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+              Iops: 3000
+              Throughput: 125
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub ${ProjectName}-coordinator
+              - Key: Project
+                Value: !Ref ProjectName
+              - Key: Environment
+                Value: !Ref Environment
+
+  Realm0LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${ProjectName}-realm0-template
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: !Ref WorkerInstanceType
+        KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
+        IamInstanceProfile:
+          Name: !Ref WorkerInstanceProfile
+        InstanceMarketOptions:
+          MarketType: spot
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            DeleteOnTermination: true
+            Groups:
+              - !Ref Realm0SecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+            
+            # Update system
+            apt-get update -y
+            apt-get upgrade -y
+            
+            # Install required packages
+            apt-get install -y docker.io awscli nvme-cli
+            systemctl enable docker
+            systemctl start docker
+            usermod -aG docker ubuntu
+            
+            # Attach and mount EBS Multi-Attach volume
+            echo "Attaching EBS volume for realm0 data..."
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+            
+            # Attach EBS volume
+            aws ec2 attach-volume \
+              --volume-id ${Realm0EBSVolume} \
+              --instance-id $INSTANCE_ID \
+              --device /dev/xvdf \
+              --region ${AWS::Region} || { echo "Failed to attach EBS volume"; exit 1; }
+            
+            # Wait for volume to be attached using improved detection for Nitro instances
+            echo "Waiting for EBS volume to be attached..."
+            START_TIME=$(date +%s)
+            DEVICE_NAME=""
+            
+            while [ -z "$DEVICE_NAME" ]; do
+              # For Nitro instances, check both NVMe and traditional device names
+              # Look for newly attached devices (not the root device)
+              
+              # Method 1: Check for NVMe devices (most likely on Nitro instances)
+              for nvme_dev in /dev/nvme*n1; do
+                if [ -b "$nvme_dev" ] && [ "$nvme_dev" != "/dev/nvme0n1" ]; then
+                  # Verify this is our attached volume by checking if it's not already mounted
+                  if ! mount | grep -q "$nvme_dev"; then
+                    DEVICE_NAME="$nvme_dev"
+                    echo "Found NVMe device: $DEVICE_NAME"
+                    break
+                  fi
+                fi
+              done
+              
+              # Method 2: Fallback to traditional device names if no NVMe found
+              if [ -z "$DEVICE_NAME" ]; then
+                for xvd_dev in /dev/xvd[f-z]; do
+                  if [ -b "$xvd_dev" ]; then
+                    DEVICE_NAME="$xvd_dev"
+                    echo "Found traditional device: $DEVICE_NAME"
+                    break
+                  fi
+                done
+              fi
+              
+              ELAPSED=$(( $(date +%s) - $START_TIME ))
+              if [ $ELAPSED -gt 300 ]; then
+                echo "ERROR: Timeout waiting for EBS device after 300s"
+                echo "Available block devices:"
+                lsblk -d -o NAME,TYPE,SIZE,STATE
+                echo "NVMe devices:"
+                ls -la /dev/nvme* 2>/dev/null || echo "No NVMe devices found"
+                echo "Traditional devices:"
+                ls -la /dev/xvd* 2>/dev/null || echo "No traditional devices found"
+                exit 1
+              fi
+              
+              if [ -z "$DEVICE_NAME" ]; then
+                echo "Waiting for EBS device to appear... ($ELAPSED s elapsed)"
+                sleep 5
+              fi
+            done
+            
+            echo "Final detected EBS device: $DEVICE_NAME"
+            
+            # Check if volume needs formatting (only format if empty)
+            if ! file -s "$DEVICE_NAME" | grep -q "filesystem"; then
+              echo "Formatting EBS volume with ext4..."
+              mkfs.ext4 -F "$DEVICE_NAME" || { echo "Failed to format EBS volume"; exit 1; }
+            else
+              echo "EBS volume already formatted"
+            fi
+            
+            # Create mount point and mount
+            mkdir -p /data/realm0
+            # For Multi-Attach volumes, use specific mount options to prevent cache issues
+            mount -o noatime,nodiratime "$DEVICE_NAME" /data/realm0 || { echo "Failed to mount EBS volume"; exit 1; }
+            
+            # Add to fstab for persistent mounting (use UUID for reliability)
+            VOLUME_UUID=$(blkid -s UUID -o value "$DEVICE_NAME")
+            if [ -n "$VOLUME_UUID" ]; then
+              echo "UUID=$VOLUME_UUID /data/realm0 ext4 defaults,noatime 0 0" >> /etc/fstab
+            else
+              echo "$DEVICE_NAME /data/realm0 ext4 defaults,noatime 0 0" >> /etc/fstab
+            fi
+            
+            # Verify mount
+            if ! mountpoint -q /data/realm0; then
+              echo "ERROR: EBS mount failed"; exit 1
+            fi
+            
+            # Set permissions for QED data
+            chown -R 1001:1001 /data/realm0
+            
+            # Install ECS agent
+            curl -O https://s3.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.amd64.deb
+            dpkg -i amazon-ecs-init-latest.amd64.deb || apt-get install -f -y
+            
+            # Configure ECS
+            mkdir -p /etc/ecs
+            echo ECS_CLUSTER=${ProjectName}-cluster >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
+            echo 'ECS_INSTANCE_ATTRIBUTES={"realm":"realm0"}' >> /etc/ecs/ecs.config
+            
+            # Start ECS agent
+            systemctl enable ecs
+            systemctl start ecs
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+              Iops: 3000
+              Throughput: 125
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub ${ProjectName}-realm0
+              - Key: Project
+                Value: !Ref ProjectName
+              - Key: Environment
+                Value: !Ref Environment
+
+  Realm16384LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${ProjectName}-realm16384-template
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: !Ref WorkerInstanceType
+        KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
+        IamInstanceProfile:
+          Name: !Ref WorkerInstanceProfile
+        InstanceMarketOptions:
+          MarketType: spot
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            DeleteOnTermination: true
+            Groups:
+              - !Ref Realm16384SecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+            
+            # Update system
+            apt-get update -y
+            apt-get upgrade -y
+            
+            # Install required packages
+            apt-get install -y docker.io awscli nvme-cli
+            systemctl enable docker
+            systemctl start docker
+            usermod -aG docker ubuntu
+            
+            # Attach and mount EBS Multi-Attach volume
+            echo "Attaching EBS volume for realm16384 data..."
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+            
+            # Attach EBS volume
+            aws ec2 attach-volume \
+              --volume-id ${Realm16384EBSVolume} \
+              --instance-id $INSTANCE_ID \
+              --device /dev/xvdf \
+              --region ${AWS::Region} || { echo "Failed to attach EBS volume"; exit 1; }
+            
+            # Wait for volume to be attached using improved detection for Nitro instances
+            echo "Waiting for EBS volume to be attached..."
+            START_TIME=$(date +%s)
+            DEVICE_NAME=""
+            
+            while [ -z "$DEVICE_NAME" ]; do
+              # For Nitro instances, check both NVMe and traditional device names
+              # Look for newly attached devices (not the root device)
+              
+              # Method 1: Check for NVMe devices (most likely on Nitro instances)
+              for nvme_dev in /dev/nvme*n1; do
+                if [ -b "$nvme_dev" ] && [ "$nvme_dev" != "/dev/nvme0n1" ]; then
+                  # Verify this is our attached volume by checking if it's not already mounted
+                  if ! mount | grep -q "$nvme_dev"; then
+                    DEVICE_NAME="$nvme_dev"
+                    echo "Found NVMe device: $DEVICE_NAME"
+                    break
+                  fi
+                fi
+              done
+              
+              # Method 2: Fallback to traditional device names if no NVMe found
+              if [ -z "$DEVICE_NAME" ]; then
+                for xvd_dev in /dev/xvd[f-z]; do
+                  if [ -b "$xvd_dev" ]; then
+                    DEVICE_NAME="$xvd_dev"
+                    echo "Found traditional device: $DEVICE_NAME"
+                    break
+                  fi
+                done
+              fi
+              
+              ELAPSED=$(( $(date +%s) - $START_TIME ))
+              if [ $ELAPSED -gt 300 ]; then
+                echo "ERROR: Timeout waiting for EBS device after 300s"
+                echo "Available block devices:"
+                lsblk -d -o NAME,TYPE,SIZE,STATE
+                echo "NVMe devices:"
+                ls -la /dev/nvme* 2>/dev/null || echo "No NVMe devices found"
+                echo "Traditional devices:"
+                ls -la /dev/xvd* 2>/dev/null || echo "No traditional devices found"
+                exit 1
+              fi
+              
+              if [ -z "$DEVICE_NAME" ]; then
+                echo "Waiting for EBS device to appear... ($ELAPSED s elapsed)"
+                sleep 5
+              fi
+            done
+            
+            echo "Final detected EBS device: $DEVICE_NAME"
+            
+            # Check if volume needs formatting (only format if empty)
+            if ! file -s "$DEVICE_NAME" | grep -q "filesystem"; then
+              echo "Formatting EBS volume with ext4..."
+              mkfs.ext4 -F "$DEVICE_NAME" || { echo "Failed to format EBS volume"; exit 1; }
+            else
+              echo "EBS volume already formatted"
+            fi
+            
+            # Create mount point and mount
+            mkdir -p /data/realm16384
+            # For Multi-Attach volumes, use specific mount options to prevent cache issues
+            mount -o noatime,nodiratime "$DEVICE_NAME" /data/realm16384 || { echo "Failed to mount EBS volume"; exit 1; }
+            
+            # Add to fstab for persistent mounting (use UUID for reliability)
+            VOLUME_UUID=$(blkid -s UUID -o value "$DEVICE_NAME")
+            if [ -n "$VOLUME_UUID" ]; then
+              echo "UUID=$VOLUME_UUID /data/realm16384 ext4 defaults,noatime 0 0" >> /etc/fstab
+            else
+              echo "$DEVICE_NAME /data/realm16384 ext4 defaults,noatime 0 0" >> /etc/fstab
+            fi
+            
+            # Verify mount
+            if ! mountpoint -q /data/realm16384; then
+              echo "ERROR: EBS mount failed"; exit 1
+            fi
+            
+            # Set permissions for QED data
+            chown -R 1001:1001 /data/realm16384
+            
+            # Install ECS agent
+            curl -O https://s3.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.amd64.deb
+            dpkg -i amazon-ecs-init-latest.amd64.deb || apt-get install -f -y
+            
+            # Configure ECS
+            mkdir -p /etc/ecs
+            echo ECS_CLUSTER=${ProjectName}-cluster >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
+            echo 'ECS_INSTANCE_ATTRIBUTES={"realm":"realm16384"}' >> /etc/ecs/ecs.config
+            
+            # Start ECS agent
+            systemctl enable ecs
+            systemctl start ecs
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+              Iops: 3000
+              Throughput: 125
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub ${ProjectName}-realm16384
+              - Key: Project
+                Value: !Ref ProjectName
+              - Key: Environment
+                Value: !Ref Environment
+
+Outputs:
+  VPCId:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${ProjectName}-vpc-id
+
+  CoordinatorSubnetId:
+    Description: Coordinator Subnet ID
+    Value: !Ref CoordinatorSubnet
+    Export:
+      Name: !Sub ${ProjectName}-coordinator-subnet-id
+
+  Realm0SubnetId:
+    Description: Realm 0 Subnet ID
+    Value: !Ref Realm0Subnet
+    Export:
+      Name: !Sub ${ProjectName}-realm0-subnet-id
+
+  Realm16384SubnetId:
+    Description: Realm 16384 Subnet ID
+    Value: !Ref Realm16384Subnet
+    Export:
+      Name: !Sub ${ProjectName}-realm16384-subnet-id
+
+  CoordinatorSecurityGroupId:
+    Description: Coordinator Security Group ID
+    Value: !Ref CoordinatorSecurityGroup
+    Export:
+      Name: !Sub ${ProjectName}-coordinator-sg
+
+  Realm0SecurityGroupId:
+    Description: Realm 0 Security Group ID
+    Value: !Ref Realm0SecurityGroup
+    Export:
+      Name: !Sub ${ProjectName}-realm0-sg
+
+  Realm16384SecurityGroupId:
+    Description: Realm 16384 Security Group ID
+    Value: !Ref Realm16384SecurityGroup
+    Export:
+      Name: !Sub ${ProjectName}-realm16384-sg
+
+  CoordinatorRedisInstanceId:
+    Description: Coordinator Redis EC2 Instance ID
+    Value: !Ref CoordinatorRedisInstance
+    Export:
+      Name: !Sub ${ProjectName}-coordinator-redis-instance-id
+
+  CoordinatorRedisPrivateIP:
+    Description: Coordinator Redis Instance Private IP
+    Value: !GetAtt CoordinatorRedisInstance.PrivateIp
+    Export:
+      Name: !Sub ${ProjectName}-coordinator-redis-private-ip
+
+  Realm0RedisInstanceId:
+    Description: Realm 0 Redis EC2 Instance ID
+    Value: !Ref Realm0RedisInstance
+    Export:
+      Name: !Sub ${ProjectName}-realm0-redis-instance-id
+
+  Realm0RedisPrivateIP:
+    Description: Realm 0 Redis Instance Private IP
+    Value: !GetAtt Realm0RedisInstance.PrivateIp
+    Export:
+      Name: !Sub ${ProjectName}-realm0-redis-private-ip
+
+  Realm16384RedisInstanceId:
+    Description: Realm 16384 Redis EC2 Instance ID
+    Value: !Ref Realm16384RedisInstance
+    Export:
+      Name: !Sub ${ProjectName}-realm16384-redis-instance-id
+
+  Realm16384RedisPrivateIP:
+    Description: Realm 16384 Redis Instance Private IP
+    Value: !GetAtt Realm16384RedisInstance.PrivateIp
+    Export:
+      Name: !Sub ${ProjectName}-realm16384-redis-private-ip
+
+  ECSClusterName:
+    Description: ECS Cluster Name
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub ${ProjectName}-cluster-name
+
+  ALBDNSName:
+    Description: ALB DNS Name
+    Value: !GetAtt ALB.DNSName
+    Export:
+      Name: !Sub ${ProjectName}-alb-dns
+
+  ALBArn:
+    Description: ALB ARN
+    Value: !Ref ALB
+    Export:
+      Name: !Sub ${ProjectName}-alb-arn
+
+  CoordinatorEBSVolumeId:
+    Description: EBS Volume ID for Coordinator
+    Value: !Ref CoordinatorEBSVolume
+    Export:
+      Name: !Sub ${ProjectName}-coordinator-ebs-volume-id
+
+  Realm0EBSVolumeId:
+    Description: EBS Volume ID for Realm 0
+    Value: !Ref Realm0EBSVolume
+    Export:
+      Name: !Sub ${ProjectName}-realm0-ebs-volume-id
+
+  Realm16384EBSVolumeId:
+    Description: EBS Volume ID for Realm 16384
+    Value: !Ref Realm16384EBSVolume
+    Export:
+      Name: !Sub ${ProjectName}-realm16384-ebs-volume-id

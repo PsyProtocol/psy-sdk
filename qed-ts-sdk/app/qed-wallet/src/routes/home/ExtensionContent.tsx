@@ -11,6 +11,7 @@ import BottomNavigation from "../../components/BottomNavigation";
 import TokensList from "../../components/TokensList";
 import WalletBalance from "../../components/WalletBalance";
 import TransactModal, { TransactType } from "../../components/TransactModal";
+import NetworkSettings from "../../components/NetworkSettings";
 import { usePersistentWallet } from "../../hooks/usePersistentWallet";
 import WalletOnboarding from "../../components/WalletOnboarding";
 import {
@@ -27,6 +28,7 @@ export const ExtensionContent: React.FC = () => {
         opened: boolean;
         type: TransactType | null;
     }>({ opened: false, type: null });
+    const [networkSettingsOpen, setNetworkSettingsOpen] = useState(false);
     const [isCheckingWallet, setIsCheckingWallet] = useState(true);
     const { config } = useWalletConfig();
     const navigate = useNavigate();
@@ -50,8 +52,9 @@ export const ExtensionContent: React.FC = () => {
     // Check wallet status after a short delay to allow wallet state to initialize
     React.useEffect(() => {
         const checkWalletTimer = setTimeout(() => {
+            console.log('Wallet initialization check - wallets count:', wallets.length);
             setIsCheckingWallet(false);
-        }, 1000); // Give wallet state time to initialize and potentially load stored wallets
+        }, 1500); // Give more time for wallet state and restoration to complete
 
         return () => clearTimeout(checkWalletTimer);
     }, []);
@@ -60,7 +63,7 @@ export const ExtensionContent: React.FC = () => {
     // Check if we have any wallets available
     const hasWallets = wallets.length > 0;
     
-    // Debug logging
+    // Debug logging and wallet restoration detection
     React.useEffect(() => {
         console.log('Wallet state:', { 
             walletsCount: wallets.length, 
@@ -69,6 +72,12 @@ export const ExtensionContent: React.FC = () => {
             isCheckingWallet,
             hasWallets 
         });
+        
+        // If wallets are restored while still checking, stop checking immediately
+        if (isCheckingWallet && wallets.length > 0) {
+            console.log('Wallets restored, stopping check');
+            setIsCheckingWallet(false);
+        }
     }, [wallets.length, currentWallet?.address, isCheckingWallet, hasWallets]);
 
     const handleNewWallet = async () => {
@@ -110,29 +119,8 @@ export const ExtensionContent: React.FC = () => {
     };
 
     const handleTransactConfirm = (data: any) => {
-        console.log(`${transactModal.type} transaction:`, data);
-        // Here you would implement the actual transaction logic
-        // For now, just show an alert
-        alert(`${transactModal.type} transaction submitted with data: ${JSON.stringify(data)}`);
+        console.log(`${transactModal.type} transaction completed:`, data);
     };
-
-    // 示例代币数据
-    const tokens = [
-        {
-            id: '1',
-            name: 'Dogecoin',
-            symbol: 'DOGE',
-            balance: '1,234.56',
-            value: '123.45'
-        },
-        {
-            id: '2',
-            name: 'QED Token',
-            symbol: 'QED',
-            balance: '999.99',
-            value: '99.99'
-        }
-    ];
 
     // Show loading state while checking wallets
     if (isCheckingWallet) {
@@ -197,7 +185,7 @@ export const ExtensionContent: React.FC = () => {
                     />
                 </HeaderLeft>
                 <HeaderRight>
-                    <SettingsButton onClick={() => navigate('/settings')}>
+                    <SettingsButton onClick={() => setNetworkSettingsOpen(true)}>
                         <IconSettings size={20} />
                     </SettingsButton>
                 </HeaderRight>
@@ -215,7 +203,7 @@ export const ExtensionContent: React.FC = () => {
                         />
                     </>
                 ) : (
-                    <TokensList tokens={tokens} />
+                    <TokensList />
                 )}
             </MainContent>
 
@@ -233,6 +221,12 @@ export const ExtensionContent: React.FC = () => {
                     onConfirm={handleTransactConfirm}
                 />
             )}
+
+            {/* Network Settings Modal */}
+            <NetworkSettings
+                opened={networkSettingsOpen}
+                onClose={() => setNetworkSettingsOpen(false)}
+            />
         </div>
     );
 };
