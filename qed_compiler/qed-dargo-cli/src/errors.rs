@@ -34,4 +34,7 @@ pub enum CliError {
 
     #[error("Semantic error: {0}")]
     SemanticError(#[from] qed_sema::Error),
+
+    #[error("Common error: {0}")]
+    CommonError(#[from] qed_common::Error),
 }
