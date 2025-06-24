@@ -207,12 +207,6 @@ function getArrayU8FromWasm0(ptr, len) {
     return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
 }
 
-function takeFromExternrefTable0(idx) {
-    const value = wasm.__wbindgen_export_2.get(idx);
-    wasm.__externref_table_dealloc(idx);
-    return value;
-}
-
 module.exports.init_logging = function() {
     wasm.init_logging();
 };
@@ -221,6 +215,11 @@ module.exports.main = function() {
     wasm.main();
 };
 
+function takeFromExternrefTable0(idx) {
+    const value = wasm.__wbindgen_export_2.get(idx);
+    wasm.__externref_table_dealloc(idx);
+    return value;
+}
 function __wbg_adapter_32(arg0, arg1) {
     wasm._dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h057c9d17e6681a94(arg0, arg1);
 }
@@ -230,7 +229,7 @@ function __wbg_adapter_35(arg0, arg1, arg2) {
 }
 
 function __wbg_adapter_164(arg0, arg1, arg2, arg3) {
-    wasm.closure2359_externref_shim(arg0, arg1, arg2, arg3);
+    wasm.closure2357_externref_shim(arg0, arg1, arg2, arg3);
 }
 
 const __wbindgen_enum_RequestCredentials = ["omit", "same-origin", "include"];
