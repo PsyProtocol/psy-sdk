@@ -1149,6 +1149,7 @@ impl QEDEvalSessionResult<GF> {
             sesh.get_current_contract_id(),
             sesh.get_current_start_checkpoint_id(),
             sesh.get_nonce(),
+            start_session_ctx.start_session_user_leaf.public_key.0.elements,
         );
         let state_cmd_len = fn_def.state_command_resolution_indices.len();
         let mut next_state_cmd_id = 0;

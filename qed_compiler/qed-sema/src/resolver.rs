@@ -242,58 +242,44 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         use_path: &UseNode,
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<Vec<(TypeKey, TypeId)>> {
-        let mut current_module_id = self.resolve_module(&use_path.kind, ctx)?;
-        ctx.add_module_reference(current_module_id, use_path.kind.location, false);
+        let top_module_id = self.resolve_module(&use_path.kind, ctx)?;
+        ctx.add_module_reference(top_module_id, use_path.kind.location, false);
 
-        let traverse_path_segment = |current: ModuleId, segment: &Identifier| {
-            if let Some(module) = ctx.symbols[current]
-                .children
-                .iter()
-                .find(|&&id| ctx.symbols[id].name == segment.id)
-                .copied()
-            {
-                if ctx.symbols[module].visibility.is_public() {
-                    ctx.add_module_reference(module, segment.location, false);
-                    Ok(module)
-                } else {
-                    Err(Error::ModuleNotPublic {
-                        location: use_path.location,
-                        module: segment.id,
-                    })
-                }
-            } else {
-                Err(Error::ModuleNotFound {
-                    location: use_path.location,
-                    module: segment.id,
-                })
-            }
-        };
-
-        current_module_id = use_path
+        let target_parent_module_id = use_path
             .segments
             .iter()
-            .try_fold(current_module_id, traverse_path_segment)?;
+            .try_fold(top_module_id, |module_id, segment| {
+                Self::traverse_path_segment(module_id, segment, use_path, ctx)
+            })?;
 
-        let scope_id = ctx.symbols[current_module_id].scope_id;
+        let scope_id = ctx.symbols[target_parent_module_id].scope_id;
 
         match use_path.target {
-            Some(target)
+            Some(target) => {
+                // If target is a type, then we need to check if it is public
                 if let Some((key, &type_id)) = ctx.symbols[scope_id]
                     .types
-                    .get_key_value::<TypeKey>(&target.id.into()) =>
-            {
-                if !key.visibility.is_public() || !ctx.symbols[type_id].visibility().is_public() {
-                    return Err(Error::TypeNotPublic {
-                        location: use_path.location,
-                        ty: type_id,
-                    });
+                    .get_key_value::<TypeKey>(&target.id.into())
+                {
+                    if !key.visibility.is_public() || !ctx.symbols[type_id].visibility().is_public()
+                    {
+                        return Err(Error::TypeNotPublic {
+                            location: use_path.location,
+                            ty: type_id,
+                        });
+                    }
+                    return Ok(vec![(key.clone(), type_id)]);
                 }
-                Ok(vec![(key.clone(), type_id)])
+                // Else target is a module.
+                match Self::traverse_path_segment(target_parent_module_id, &target, use_path, ctx) {
+                    // Return if it is visible to current module
+                    Ok(_) => Ok(vec![]),
+                    Err(_) => Err(Error::ModuleNotPublic {
+                        location: use_path.location,
+                        module: target.id,
+                    }),
+                }
             }
-            Some(target) => Err(Error::UnresolvedType {
-                location: use_path.location,
-                resolved_type: target.id,
-            }),
             None => Ok(ctx.symbols[scope_id]
                 .types
                 .iter()
@@ -302,6 +288,35 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         .then_some((k.clone(), id))
                 })
                 .collect()),
+        }
+    }
+
+    fn traverse_path_segment(
+        parent_module_id: ModuleId,
+        segment: &Identifier,
+        use_path: &UseNode,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+    ) -> Result<ModuleId> {
+        if let Some(target_module_id) = ctx.symbols[parent_module_id]
+            .children
+            .iter()
+            .find(|&&id| ctx.symbols[id].name == segment.id)
+            .copied()
+        {
+            if ctx.symbols.is_module_visible(target_module_id) {
+                ctx.add_module_reference(target_module_id, segment.location, false);
+                Ok(target_module_id)
+            } else {
+                Err(Error::ModuleNotPublic {
+                    location: use_path.location,
+                    module: segment.id,
+                })
+            }
+        } else {
+            Err(Error::ModuleNotFound {
+                location: use_path.location,
+                module: segment.id,
+            })
         }
     }
 
@@ -331,7 +346,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                 .symbols
                 .modules()
                 .iter()
-                .position(|x| x.name == name)
+                .position(|x| x.name == name && ctx.symbols.is_module_visible(x.id))
                 .map(ModuleId)
                 // Workaround: passing check for USE node
                 // .filter(|&id| ctx.symbols[current_module_id].children.contains(&id))

@@ -40,7 +40,9 @@ const path = __importStar(require("path"));
 const node_1 = require("vscode-languageclient/node");
 let client;
 function activate(context) {
-    const serverExecutable = path.join(context.extensionPath, '..', '..', 'target', 'release', 'qed-lsp-server');
+    const serverExecutable = path.join(
+    //waring: this path is hardcoded, it should be changed to a more dynamic path
+    context.extensionPath, '..', '..', '..', 'target', 'release', 'qed-lsp-server');
     const serverOptions = {
         run: { command: serverExecutable, transport: node_1.TransportKind.stdio },
         debug: { command: serverExecutable, transport: node_1.TransportKind.stdio }

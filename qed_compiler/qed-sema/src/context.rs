@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use qed_ast::{
-    DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, InsertPosition, ModuleId, ModuleNode,
+    CrateId, DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, InsertPosition, ModuleId, ModuleNode,
     NodeId, NodeInfo, NodeType, Program, StmtId, StmtNode, VisitorContext,
 };
 use qed_common::Graph;
@@ -98,11 +98,15 @@ impl<F: Clone + From<u32> + ContextFelt, C> VisitorContext<F, C>
         self.program.modules[module_id].data()
     }
 
+    fn module_children(&self, module_id: ModuleId) -> &[ModuleId] {
+        self.program.modules[module_id].children()
+    }
+
     fn program(&self) -> &Program<F> {
         &self.program
     }
 
-    fn dependency_graph(&self) -> Graph<ModuleId> {
+    fn dependency_graph(&self) -> Graph<CrateId> {
         self.program.dependency_graph.clone()
     }
 

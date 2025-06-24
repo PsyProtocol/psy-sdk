@@ -69,6 +69,7 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
         common_data: CommonCircuitData<C::F, D>,
     ) {
         let new_hash = Self::hash_common_circuit_data(&common_data);
+        eprintln!("DEBUGPRINT[731]: generic_circuit_verifier.rs:71: circuit_type={:?}, new_hash={}", circuit_type, new_hash);
         match self.common_data_hashes.iter().position(|x| new_hash.eq(x)) {
             Some(ind) => {
                 self.common_circuit_map.insert(circuit_type, ind);
@@ -86,7 +87,7 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
         ser: &SerializedGenericCircuitCommonDataLibraryInfo,
         common_data_items: Vec<CommonCircuitData<C::F, D>>,
     ) -> anyhow::Result<Self> {
-        if common_data_items.len() > ser.common_data_hashes.len() {
+        if common_data_items.len() != ser.common_data_hashes.len() {
             anyhow::bail!("ser.common_data_hashes.len() != common_data_items.len() (ser.common_data_hashes.len() = {}), got {}",ser.common_data_hashes.len(),common_data_items.len());
         }
         if ser.common_circuit_list.len() != ser.common_data_hashes.len() {
@@ -106,7 +107,6 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
         ser.common_circuit_list
             .iter()
             .enumerate()
-            .take(common_data_items.len())
             .for_each(|(index, l)| {
                 l.iter().for_each(|circuit_type| {
                     common_circuit_map.insert(*circuit_type, index);

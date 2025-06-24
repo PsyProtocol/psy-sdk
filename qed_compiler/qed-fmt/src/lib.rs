@@ -795,7 +795,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             visibility,
             comments,
             location: _location,
-            is_generated
+            is_generated,
         } = ctx.definition(def_id).as_struct().unwrap();
         if *is_generated {
             return Ok(Default::default());
@@ -1165,7 +1165,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 
         let module = ctx.module(module_id).clone();
 
-        if module.is_self_std || module.is_self_primitive || module.is_self_prelude {
+        if module.is_std() {
             return Ok(());
         }
 
@@ -1518,6 +1518,19 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
 }
 
 impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> Formatter<'a, F, C> {
+    fn is_inline_module(ctx: &DefaultVisitorContext<'a, F, C>, module_id: ModuleId) -> bool {
+        let all_inline_modules = ctx
+            .program()
+            .modules
+            .iter()
+            .flat_map(|m| m.data().inline_modules.iter())
+            .map(|m| m.name)
+            .collect::<Vec<_>>();
+        let target_module = ctx.module(module_id).name;
+
+        all_inline_modules.contains(&target_module)
+    }
+
     pub fn format_module_helper(
         &mut self,
         module_id: ModuleId,
@@ -1526,12 +1539,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> Formatt
     ) -> Result<(), qed_common::Error> {
         let module = ctx.module(module_id).clone();
 
-        if module.is_std || module.is_self_std || module.is_self_primitive || module.is_self_prelude
-        {
+        if module.is_std() {
             return Ok(());
         }
 
-        if !is_first && !ctx.program().file_resolver.is_inline_module(module_id.0) {
+        if !is_first && !Self::is_inline_module(ctx, module_id) {
             self.write_line(&format!(
                 "{}mod {};",
                 self.visit_visibility(&module.visibility),
@@ -1540,7 +1552,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> Formatt
             return Ok(());
         }
 
-        if ctx.program().file_resolver.is_inline_module(module_id.0) {
+        if Self::is_inline_module(ctx, module_id) {
             self.write_line(&format!(
                 "{}mod {} {{",
                 self.visit_visibility(&module.visibility),
@@ -1552,7 +1564,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> Formatt
         let child_modules = ctx.program().modules.nodes().clone()[module_id]
             .children()
             .iter()
-            .filter(|&child_module_id| !ctx.module(*child_module_id).is_std)
+            .filter(|&child_module_id| !ctx.module(*child_module_id).is_std())
             .cloned()
             .collect::<Vec<_>>();
 
@@ -1590,7 +1602,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> Formatt
             self.write_line(&last_definition_content);
         }
 
-        if ctx.program().file_resolver.is_inline_module(module_id.0) {
+        if Self::is_inline_module(ctx, module_id) {
             self.dedent();
             self.write_line(&format!("}}"));
         }

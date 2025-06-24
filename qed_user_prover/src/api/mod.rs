@@ -1,4 +1,3 @@
-#[cfg(not(target_arch = "wasm32"))]
 use jsonrpsee::core::async_trait;
 #[cfg(not(target_arch = "wasm32"))]
 use jsonrpsee::proc_macros::rpc;
@@ -32,74 +31,84 @@ const D: usize = 2;
 #[rpc(server, client, namespace = "qed")]
 pub trait Rpc {
     /// local proving operation
-    #[method(name = "start_session")]
-    fn start_session(&self) -> Result<String, ErrorObjectOwned>;
-    #[method(name = "prove_contract_call")]
-    fn prove_contract_call(
+    #[method(name = "exec_contract_call")]
+    async fn exec_contract_call(
         &self,
+        pk_hash: QHashOut<F>,
+        contract_call_args: Vec<ContractCallArgs>,
+    ) -> Result<String, ErrorObjectOwned>;
+    #[method(name = "start_session")]
+    async fn start_session(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned>;
+    #[method(name = "prove_contract_call")]
+    async fn prove_contract_call(
+        &self,
+        pk_hash: QHashOut<F>,
         contract_call_arg: ContractCallArgs,
     ) -> Result<String, ErrorObjectOwned>;
     #[method(name = "prove_contract_calls")]
-    fn prove_contract_calls(
+    async fn prove_contract_calls(
         &self,
+        pk_hash: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<String, ErrorObjectOwned>;
 
     #[method(name = "sign_and_submit")]
-    fn sign_and_submit(&self) -> Result<String, ErrorObjectOwned>;
+    async fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned>;
 
     /// user operation
     #[method(name = "register_user")]
-    fn register_user(
+    async fn register_user(
         &self,
         private_key: QHashOut<F>,
     ) -> Result<QHashOut<F>, ErrorObjectOwned>;
     #[method(name = "add_user")]
-    fn add_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned>;
-    #[method(name = "switch_user")]
-    fn switch_user(&self, pk_hash: QHashOut<F>) -> Result<(), ErrorObjectOwned>;
+    async fn add_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned>;
+    // #[method(name = "switch_user")]
+    // async fn switch_user(&self, pk_hash: QHashOut<F>) -> Result<(), ErrorObjectOwned>;
     #[method(name = "get_zk_public_key")]
-    fn get_zk_public_key(
+    async fn get_zk_public_key(
         &self,
         private_key: QHashOut<F>,
     ) -> Result<ZKPublicKeyInfo<F>, ErrorObjectOwned>;
     #[method(name = "get_random_keypair")]
-    fn get_random_keypair(&self) -> Result<WalletKeyPair, ErrorObjectOwned>;
+    async fn get_random_keypair(&self) -> Result<WalletKeyPair, ErrorObjectOwned>;
 
     /// deploy contract
     #[method(name = "deploy_contract")]
-    fn deploy_contract(
+    async fn deploy_contract(
         &self,
+        deployer: QHashOut<F>,
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
     ) -> Result<String, ErrorObjectOwned>;
     #[method(name = "get_deploy_contract_cmd")]
-    fn get_deploy_contract_cmd(
+    async fn get_deploy_contract_cmd(
         &self,
+        deployer: QHashOut<F>,
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
     ) -> Result<QBCDeployContract<GoldilocksField>, ErrorObjectOwned>;
 
     /// sign and submit
-    #[method(name = "get_sighash")]
-    fn get_sighash(&self, network_magic: u64) -> Result<QHashOut<F>, ErrorObjectOwned>;
-    #[method(name = "get_zk_signature")]
-    fn get_zk_signature(
-        &self,
-        sighash: QHashOut<F>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
-    #[method(name = "get_end_cap_proof")]
-    fn get_end_cap_proof(
-        &self,
-        signature_proof: ProofWithPublicInputs<F, C, D>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
-    #[method(name = "get_user_ec_input")]
-    fn get_user_ec_input(&self)
-        -> Result<SubmitUserEndCapNonProofInput<F>, ErrorObjectOwned>;
+    // #[method(name = "get_sighash")]
+    // async fn get_sighash(&self, network_magic: u64) -> Result<QHashOut<F>, ErrorObjectOwned>;
+    // #[method(name = "get_zk_signature")]
+    // async fn get_zk_signature(
+    //     &self,
+    //     sighash: QHashOut<F>,
+    // ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+    // #[method(name = "get_end_cap_proof")]
+    // async fn get_end_cap_proof(
+    //     &self,
+    //     signature_proof: ProofWithPublicInputs<F, C, D>,
+    // ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+    // #[method(name = "get_user_ec_input")]
+    // async fn get_user_ec_input(&self)
+    //     -> Result<SubmitUserEndCapNonProofInput<F>, ErrorObjectOwned>;
 
     #[method(name = "ping")]
-    fn ping(&self, message: String) -> Result<String, ErrorObjectOwned>;
+    async fn ping(&self, message: String) -> Result<String, ErrorObjectOwned>;
 
     #[method(name = "get_result")]
-    fn get_result(&self, id: Hash256) -> Result<U8Bytes, ErrorObjectOwned>;
+    async fn get_result(&self, id: Hash256) -> Result<U8Bytes, ErrorObjectOwned>;
 }
 
 // For non-WASM targets
@@ -126,10 +135,10 @@ impl WasmRpcServer {
     pub fn new(rpc_config_json: &str) -> Result<WasmRpcServer, JsError> {
         let rpc_config: RpcConfig = serde_json::from_str(rpc_config_json)
             .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
-            
+
         let wallet_session = WalletSession::new(&rpc_config)
             .map_err(|e| JsError::new(&format!("Create wallet session error: {}", e)))?;
-        
+
         Ok(WasmRpcServer {
             store: UserProverWorkerStore::new(),
             wallet_session,
@@ -148,7 +157,7 @@ impl WasmRpcServer {
     pub async fn prove_contract_call_json(&mut self, contract_call_json: &str) -> Result<String, JsError> {
         let contract_call_arg: ContractCallArgs = serde_json::from_str(contract_call_json)
             .map_err(|e| JsError::new(&format!("Parse contract call JSON error: {}", e)))?;
-            
+
         self.wallet_session.prove_contract_call(contract_call_arg).await
             .map_err(|e| JsError::new(&format!("Prove contract call error: {}", e)))?;
         Ok("prove contract call".to_string())
@@ -158,7 +167,7 @@ impl WasmRpcServer {
     pub async fn prove_contract_calls_json(&mut self, contract_calls_json: &str) -> Result<String, JsError> {
         let contract_call_args: Vec<ContractCallArgs> = serde_json::from_str(contract_calls_json)
             .map_err(|e| JsError::new(&format!("Parse contract calls JSON error: {}", e)))?;
-            
+
         self.wallet_session.prove_contract_calls(contract_call_args).await
             .map_err(|e| JsError::new(&format!("Prove contract calls error: {}", e)))?;
         Ok("prove contract calls".to_string())
@@ -176,10 +185,10 @@ impl WasmRpcServer {
     pub async fn register_user(&mut self, private_key_str: &str) -> Result<String, JsError> {
         let private_key = QHashOut::<F>::from_str(private_key_str)
             .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
-            
+
         let result = self.wallet_session.register_user(private_key).await
             .map_err(|e| JsError::new(&format!("Register user error: {}", e)))?;
-            
+
         Ok(result.to_string())
     }
 
@@ -187,10 +196,10 @@ impl WasmRpcServer {
     pub async fn add_user(&mut self, private_key_str: &str) -> Result<String, JsError> {
         let private_key = QHashOut::<F>::from_str(private_key_str)
             .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
-            
+
         let result = self.wallet_session.add_user(private_key).await
             .map_err(|e| JsError::new(&format!("Add user error: {}", e)))?;
-            
+
         Ok(result.to_string())
     }
 
@@ -198,7 +207,7 @@ impl WasmRpcServer {
     pub async fn switch_user(&mut self, pk_hash_str: &str) -> Result<(), JsError> {
         let pk_hash = QHashOut::<F>::from_str(pk_hash_str)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-            
+
         self.wallet_session.switch_user(pk_hash).await
             .map_err(|e| JsError::new(&format!("Switch user error: {}", e)))
     }
@@ -207,10 +216,10 @@ impl WasmRpcServer {
     pub fn get_zk_public_key_json(&self, private_key_str: &str) -> Result<String, JsError> {
         let private_key = QHashOut::<F>::from_str(private_key_str)
             .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
-            
+
         let result = self.wallet_session.get_zk_public_key(private_key)
             .map_err(|e| JsError::new(&format!("Get ZK public key error: {}", e)))?;
-            
+
         serde_json::to_string(&result)
             .map_err(|e| JsError::new(&format!("Serialize ZK public key error: {}", e)))
     }
@@ -219,7 +228,7 @@ impl WasmRpcServer {
     pub fn get_random_keypair_json(&self) -> Result<String, JsError> {
         let result = self.wallet_session.get_random_keypair()
             .map_err(|e| JsError::new(&format!("Get random keypair error: {}", e)))?;
-            
+
         serde_json::to_string(&result)
             .map_err(|e| JsError::new(&format!("Serialize keypair error: {}", e)))
     }
@@ -229,7 +238,7 @@ impl WasmRpcServer {
     pub async fn deploy_contract_json(&mut self, circuit_defs_json: &str) -> Result<String, JsError> {
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(circuit_defs_json)
             .map_err(|e| JsError::new(&format!("Parse circuit definitions JSON error: {}", e)))?;
-            
+
         self.wallet_session.deploy_contract(circuit_defs).await
             .map_err(|e| JsError::new(&format!("Deploy contract error: {}", e)))?;
         Ok("deploy contract".to_string())
@@ -239,10 +248,10 @@ impl WasmRpcServer {
     pub fn get_deploy_contract_cmd_json(&self, circuit_defs_json: &str) -> Result<String, JsError> {
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(circuit_defs_json)
             .map_err(|e| JsError::new(&format!("Parse circuit definitions JSON error: {}", e)))?;
-            
+
         let result = self.wallet_session.get_deploy_contract_cmd(circuit_defs)
             .map_err(|e| JsError::new(&format!("Get deploy contract cmd error: {}", e)))?;
-            
+
         serde_json::to_string(&result)
             .map_err(|e| JsError::new(&format!("Serialize deploy contract cmd error: {}", e)))
     }
@@ -252,7 +261,7 @@ impl WasmRpcServer {
     pub fn get_sighash(&self, network_magic: u64) -> Result<String, JsError> {
         let result = self.wallet_session.get_sig_hash(network_magic)
             .map_err(|e| JsError::new(&format!("Get sighash error: {}", e)))?;
-            
+
         Ok(result.to_string())
     }
 
@@ -260,10 +269,10 @@ impl WasmRpcServer {
     pub fn get_zk_signature_json(&mut self, sighash_str: &str) -> Result<String, JsError> {
         let sighash = QHashOut::<F>::from_str(sighash_str)
             .map_err(|e| JsError::new(&format!("Parse sighash error: {}", e)))?;
-            
+
         let result = self.wallet_session.get_zk_signature(sighash)
             .map_err(|e| JsError::new(&format!("Get ZK signature error: {}", e)))?;
-            
+
         serde_json::to_string(&result)
             .map_err(|e| JsError::new(&format!("Serialize ZK signature error: {}", e)))
     }
@@ -272,10 +281,10 @@ impl WasmRpcServer {
     pub fn get_end_cap_proof_json(&mut self, signature_proof_json: &str) -> Result<String, JsError> {
         let signature_proof: ProofWithPublicInputs<F, C, D> = serde_json::from_str(signature_proof_json)
             .map_err(|e| JsError::new(&format!("Parse signature proof JSON error: {}", e)))?;
-            
+
         let result = self.wallet_session.get_end_cap_proof(signature_proof)
             .map_err(|e| JsError::new(&format!("Get end cap proof error: {}", e)))?;
-            
+
         serde_json::to_string(&result)
             .map_err(|e| JsError::new(&format!("Serialize end cap proof error: {}", e)))
     }
@@ -284,7 +293,7 @@ impl WasmRpcServer {
     pub async fn get_user_ec_input_json(&mut self) -> Result<String, JsError> {
         let result = self.wallet_session.get_user_ec_input().await
             .map_err(|e| JsError::new(&format!("Get user EC input error: {}", e)))?;
-            
+
         serde_json::to_string(&result)
             .map_err(|e| JsError::new(&format!("Serialize user EC input error: {}", e)))
     }
@@ -300,9 +309,9 @@ impl WasmRpcServer {
     pub fn get_result(&mut self, id_str: &str) -> Result<Vec<u8>, JsError> {
         let id = Hash256::try_from(id_str)
             .map_err(|e| JsError::new(&format!("Parse hash ID error: {}", e)))?;
-            
+
         let result = self.store.get_result_and_clear(&id);
-        
+
         if result.is_none() {
             return Err(JsError::new("Result not found"));
         }
@@ -339,62 +348,98 @@ impl RpcServerImpl {
 #[cfg(not(target_arch = "wasm32"))]
 #[async_trait]
 impl RpcServer for RpcServerImpl {
-    fn start_session(&self) -> Result<String, ErrorObjectOwned> {
+    async fn exec_contract_call(
+        &self,
+        pk_hash: QHashOut<F>,
+        contract_call_args: Vec<ContractCallArgs>,
+    ) -> Result<String, ErrorObjectOwned> {
+        tracing::info!(
+            "exec_contract_call with `{:?}`: {:?}",
+            pk_hash.to_string(),
+            serde_json::to_string_pretty(&contract_call_args).unwrap()
+        );
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
-            .start_session()
+            .exec_contract_call(pk_hash, contract_call_args)
+            .map_err(|e| {
+                ErrorObject::owned(600, "Error exec contract call", Some(e.to_string()))
+            })?;
+        Ok("start session".to_string())
+    }
+    async fn start_session(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
+        tracing::info!("start_session with `{:?}`", pk_hash.to_string());
+        self.wallet_session
+            .read()
+            .map_err(|e| {
+                ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
+            })?
+            .start_session(pk_hash)
             .map_err(|e| ErrorObject::owned(601, "Error starting session", Some(e.to_string())))?;
         Ok("start session".to_string())
     }
-    fn prove_contract_call(
+    async fn prove_contract_call(
         &self,
+        pk_hash: QHashOut<F>,
         contract_call_arg: ContractCallArgs,
     ) -> Result<String, ErrorObjectOwned> {
+        tracing::info!(
+            "prove_contract_call with `{:?}`: {:?}",
+            pk_hash.to_string(),
+            serde_json::to_string_pretty(&contract_call_arg).unwrap()
+        );
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
-            .prove_contract_call(contract_call_arg)
+            .prove_contract_call(pk_hash, contract_call_arg)
             .map_err(|e| {
                 ErrorObject::owned(602, "Error prove contract call", Some(e.to_string()))
             })?;
         Ok("prove contract call".to_string())
     }
-    fn prove_contract_calls(
+    async fn prove_contract_calls(
         &self,
+        pk_hash: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<String, ErrorObjectOwned> {
+        tracing::info!(
+            "prove_contract_calls with `{:?}`: {:?}",
+            pk_hash.to_string(),
+            serde_json::to_string_pretty(&contract_call_args).unwrap()
+        );
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
-            .prove_contract_calls(contract_call_args)
+            .prove_contract_calls(pk_hash, contract_call_args)
             .map_err(|e| {
                 ErrorObject::owned(603, "Error prove contract calls", Some(e.to_string()))
             })?;
         Ok("prove contract calls".to_string())
     }
 
-    fn sign_and_submit(&self) -> Result<String, ErrorObjectOwned> {
+    async fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
+        tracing::info!("sign_and_submit with `{:?}`", pk_hash.to_string());
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
-            .sign_and_submit()
+            .sign_and_submit(pk_hash)
             .map_err(|e| ErrorObject::owned(604, "Error sign and submit", Some(e.to_string())))?;
         Ok("sign and submit".to_string())
     }
 
-    fn register_user(
+    async fn register_user(
         &self,
         private_key: QHashOut<F>,
     ) -> Result<QHashOut<F>, ErrorObjectOwned> {
+        tracing::info!("register_user with `{:?}`", private_key.to_string());
         self.wallet_session
             .write()
             .map_err(|e| {
@@ -404,7 +449,8 @@ impl RpcServer for RpcServerImpl {
             .map_err(|e| ErrorObject::owned(605, "Error sign and submit", Some(e.to_string())))
     }
 
-    fn add_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned> {
+    async fn add_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned> {
+        tracing::info!("register_user with `{:?}`", private_key.to_string());
         self.wallet_session
             .write()
             .map_err(|e| {
@@ -414,17 +460,7 @@ impl RpcServer for RpcServerImpl {
             .map_err(|e| ErrorObject::owned(606, "Error add user", Some(e.to_string())))
     }
 
-    fn switch_user(&self, pk_hash: QHashOut<F>) -> Result<(), ErrorObjectOwned> {
-        self.wallet_session
-            .write()
-            .map_err(|e| {
-                ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
-            })?
-            .switch_user(pk_hash)
-            .map_err(|e| ErrorObject::owned(607, "Error switch user", Some(e.to_string())))
-    }
-
-    fn get_zk_public_key(
+    async fn get_zk_public_key(
         &self,
         private_key: QHashOut<F>,
     ) -> Result<ZKPublicKeyInfo<F>, ErrorObjectOwned> {
@@ -437,7 +473,7 @@ impl RpcServer for RpcServerImpl {
             .map_err(|e| ErrorObject::owned(608, "Error get zk public key", Some(e.to_string())))
     }
 
-    fn get_random_keypair(&self) -> Result<WalletKeyPair, ErrorObjectOwned> {
+    async fn get_random_keypair(&self) -> Result<WalletKeyPair, ErrorObjectOwned> {
         self.wallet_session
             .read()
             .map_err(|e| {
@@ -447,87 +483,41 @@ impl RpcServer for RpcServerImpl {
             .map_err(|e| ErrorObject::owned(609, "Error get random keypair", Some(e.to_string())))
     }
 
-    fn deploy_contract(
+    async fn deploy_contract(
         &self,
+        deployer: QHashOut<F>,
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
     ) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
-            .deploy_contract(circuit_defs)
+            .deploy_contract(deployer, circuit_defs)
             .map_err(|e| ErrorObject::owned(610, "Error deploy contract", Some(e.to_string())))?;
         Ok("deploy contract".to_string())
     }
 
-    fn get_deploy_contract_cmd(
+    async fn get_deploy_contract_cmd(
         &self,
+        deployer: QHashOut<F>,
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
     ) -> Result<QBCDeployContract<F>, ErrorObjectOwned> {
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
-            .get_deploy_contract_cmd(circuit_defs)
+            .get_deploy_contract_cmd(deployer, circuit_defs)
             .map_err(|e| {
                 ErrorObject::owned(611, "Error get deploy contract cmd", Some(e.to_string()))
             })
     }
 
-    fn get_sighash(&self, network_magic: u64) -> Result<QHashOut<F>, ErrorObjectOwned> {
-        self.wallet_session
-            .read()
-            .map_err(|e| {
-                ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
-            })?
-            .get_sig_hash(network_magic)
-            .map_err(|e| ErrorObject::owned(612, "Error get sighash", Some(e.to_string())))
-    }
-
-    fn get_zk_signature(
-        &self,
-        sighash: QHashOut<F>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
-        self.wallet_session
-            .read()
-            .map_err(|e| {
-                ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
-            })?
-            .get_zk_signature(sighash)
-            .map_err(|e| ErrorObject::owned(613, "Error get zk signature", Some(e.to_string())))
-    }
-
-    fn get_end_cap_proof(
-        &self,
-        signature_proof: ProofWithPublicInputs<F, C, D>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
-        self.wallet_session
-            .write()
-            .map_err(|e| {
-                ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
-            })?
-            .get_end_cap_proof(signature_proof)
-            .map_err(|e| ErrorObject::owned(614, "Error get end cap proof", Some(e.to_string())))
-    }
-
-    fn get_user_ec_input(
-        &self,
-    ) -> Result<SubmitUserEndCapNonProofInput<F>, ErrorObjectOwned> {
-        self.wallet_session
-            .write()
-            .map_err(|e| {
-                ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
-            })?
-            .get_user_ec_input()
-            .map_err(|e| ErrorObject::owned(615, "Error get user ec input", Some(e.to_string())))
-    }
-
-    fn ping(&self, message: String) -> Result<String, ErrorObjectOwned> {
+    async fn ping(&self, message: String) -> Result<String, ErrorObjectOwned> {
         Ok(message.chars().rev().collect::<String>())
     }
-    fn get_result(&self, id: Hash256) -> Result<U8Bytes, ErrorObjectOwned> {
+    async fn get_result(&self, id: Hash256) -> Result<U8Bytes, ErrorObjectOwned> {
         let result = self.store.lock().unwrap().get_result_and_clear(&id);
 
         if result.is_none() {

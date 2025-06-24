@@ -13,6 +13,7 @@ use error::{Error, Result};
 use indexmap::IndexMap;
 pub use preprocess::StorageProcessor;
 use qed_ast::*;
+use qed_common::Graph;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use qed_fmt::Formatter;
 use qed_parser::Parser;
@@ -41,12 +42,10 @@ pub struct InterpretResult {
 pub fn interpret(
     contract_name: Option<String>,
     method_names: Vec<String>,
-    entry: PathBuf,
-    dependencies_entries: Vec<PathBuf>,
+    crate_path_graph: Graph<PathBuf>,
 ) -> anyhow::Result<InterpretResult> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-    let (mut typechecker, mut ctx) =
-        interpreter.typecheck(entry, dependencies_entries.into_iter().collect())?;
+    let (mut typechecker, mut ctx) = interpreter.typecheck(crate_path_graph)?;
     let compile_results = interpreter.interpret(
         &mut typechecker,
         &mut ctx,
@@ -227,28 +226,21 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         F: 'static,
     {
         let mut type_ids = Vec::new();
-        let mut visited = HashMap::new();
-        ctx.program.dependency_graph.clone().ts::<SemaError>(
-            &ModuleId::root(),
-            &mut visited,
-            &mut |&module_id| {
-                let scope_id = ctx.symbols[module_id].scope_id;
-                let functions = ctx.symbols[scope_id]
-                    .types
-                    .iter()
-                    .filter(|(_, &v)| {
-                        ctx.symbols[v.clone()].is_function()
-                            && ctx.symbols[v.clone()]
-                                .as_function()
-                                .map(|x| x.attrs.iter().any(|y| y.is_test()))
-                                .unwrap_or(false)
-                    })
-                    .map(|(_, v)| v.clone())
-                    .collect::<Vec<_>>();
-                type_ids.push((module_id, functions));
+        ctx.program
+            .dependency_graph
+            .clone()
+            .ts::<SemaError>(&mut |&crate_id| {
+                // Visit the entry module and all its children for this crate
+                let entry_module_id = ModuleId::from(crate_id);
+                self.collect_test_functions_from_module_tree(entry_module_id, ctx, &mut type_ids)
+                    .map_err(|e| match e {
+                        Error::SemaError(se) => se,
+                        _ => panic!(
+                            "Unexpected error type in collect_test_functions_from_module_tree"
+                        ),
+                    })?;
                 Ok(())
-            },
-        )?;
+            })?;
 
         let mut outputs = Vec::new();
         // backup context
@@ -300,6 +292,37 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         Ok(outputs)
     }
 
+    fn collect_test_functions_from_module_tree(
+        &self,
+        module_id: ModuleId,
+        ctx: &mut TypeCheckerVisitorContext<F, C>,
+        type_ids: &mut Vec<(ModuleId, Vec<TypeId>)>,
+    ) -> Result<()> {
+        // Collect test functions from current module
+        let scope_id = ctx.symbols[module_id].scope_id;
+        let functions = ctx.symbols[scope_id]
+            .types
+            .iter()
+            .filter(|(_, &v)| {
+                ctx.symbols[v.clone()].is_function()
+                    && ctx.symbols[v.clone()]
+                        .as_function()
+                        .map(|x| x.attrs.iter().any(|y| y.is_test()))
+                        .unwrap_or(false)
+            })
+            .map(|(_, v)| v.clone())
+            .collect::<Vec<_>>();
+        type_ids.push((module_id, functions));
+
+        // Visit all child modules recursively
+        let children = ctx.module_children(module_id).to_vec();
+        for child_id in children {
+            self.collect_test_functions_from_module_tree(child_id, ctx, type_ids)?;
+        }
+
+        Ok(())
+    }
+
     fn __interpret__(
         &mut self,
         program: &CheckedProgram<F>,
@@ -330,44 +353,31 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         Ok((method_name, method_id, outputs.to_felts()))
     }
 
-    pub fn typecheck(
+    pub fn typecheck_single(
         &mut self,
-        entry: PathBuf,
-        dependencies_entry: Vec<PathBuf>,
+        file: PathBuf,
     ) -> anyhow::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>)>
     where
         F: 'static,
     {
-        let mut module_entry_paths = vec![entry];
-        module_entry_paths.extend(dependencies_entry);
-        let mut program = Program::new();
-        for module_entry in module_entry_paths {
-            Parser::new(&mut program)
-                .parse(&mut self.context, module_entry)
-                .map_err(|err| {
-                    let context = lowering_parse_error(&err, &program);
-                    anyhow::Error::from(err).context(context)
-                })?;
-        }
+        let mut crate_path_graph = Graph::new();
+        crate_path_graph.add_node(file);
+        self.typecheck(crate_path_graph)
+    }
 
-        for module in program.modules.iter() {
-            let module_id = module.id();
-            for def_id in module.data().definitions.iter() {
-                let def_node = &program.defs[*def_id];
-                if let DefinitionNode::Use(node) = def_node {
-                    let use_mod_name = node.kind.id;
-                    for m in program.modules.iter() {
-                        if use_mod_name == m.data().name {
-                            program.dependency_graph.add_edge(module_id, m.id());
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        program
-            .dependency_graph
-            .check_cycle::<qed_parser::Error>()?;
+    pub fn typecheck(
+        &mut self,
+        crate_path_graph: Graph<PathBuf>,
+    ) -> anyhow::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>)>
+    where
+        F: 'static,
+    {
+        let mut program = Program::new();
+        let mut parser = Parser::new(&mut program, &mut self.context, crate_path_graph);
+        parser.parse().map_err(|err| {
+            let context = lowering_parse_error(&err, &program);
+            anyhow::Error::from(err).context(context)
+        })?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
@@ -391,47 +401,18 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
     pub fn typecheck_lsp(
         &mut self,
-        entry: PathBuf,
-        dependencies_entry: Vec<PathBuf>,
+        crate_path_graph: Graph<PathBuf>,
     ) -> std::result::Result<(TypeChecker<F, C>, TypeCheckerVisitorContext<F, C>), TypeCheckError>
     where
         F: 'static,
     {
-        let mut module_entry_paths = vec![entry];
-        module_entry_paths.extend(dependencies_entry);
         let mut program = Program::new();
-        for module_entry in module_entry_paths {
-            Parser::new(&mut program)
-                .parse(&mut self.context, module_entry.clone())
-                .map_err(|err| {
-                    let err_desc = parse_error_to_diagnostic(&err, &program);
-                    TypeCheckError::Parse(err_desc)
-                })?;
-        }
 
-        for module in program.modules.iter() {
-            let module_id = module.id();
-            for def_id in module.data().definitions.iter() {
-                let def_node = &program.defs[*def_id];
-                if let DefinitionNode::Use(node) = def_node {
-                    let use_mod_name = node.kind.id;
-                    for m in program.modules.iter() {
-                        if use_mod_name == m.data().name {
-                            program.dependency_graph.add_edge(module_id, m.id());
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        match program.dependency_graph.check_cycle::<qed_parser::Error>() {
-            Ok(_) => {}
-            Err(e) => {
-                let message = format!("Cycle error: {}", e);
-                eprintln!("Error: {}", message);
-                return Err(TypeCheckError::Cycle(message));
-            }
-        }
+        let mut parser = Parser::new(&mut program, &mut self.context, crate_path_graph);
+        parser.parse().map_err(|err| {
+            let err_desc = parse_error_to_diagnostic(&err, &program);
+            TypeCheckError::Parse(err_desc)
+        })?;
 
         let mut typechecker = TypeChecker::new(CheckedProgram::new(), Box::new(self.clone()));
         let mut storage_preprocessor: StorageProcessor = StorageProcessor::new();
@@ -1086,7 +1067,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             user_id,
                             contract_id,
                             offset,
-                            length
+                            length,
                         );
                         return Ok(CheckedValueRef::from_vec(UNKOWN_TYPE, values));
                     }
@@ -1657,12 +1638,16 @@ mod tests {
     #[serial]
     fn test_crates_resolve() {
         let entry: PathBuf = "../tests/module_test/foo/src/main.qed".into();
-        let dependencies_entries = vec!["../tests/module_test/bar/src/lib.qed".into()];
+        let dependency_entry: PathBuf = "../tests/module_test/bar/src/lib.qed".into();
+
+        let mut crate_path_graph = Graph::new();
+        crate_path_graph.add_node(entry.clone());
+        crate_path_graph.add_edge(entry.clone(), dependency_entry);
+
         let result = super::interpret(
             Option::<String>::None,
             vec!["main".into()],
-            entry.clone(),
-            dependencies_entries,
+            crate_path_graph,
         )
         .unwrap();
         println!("compile_result: {:?}", result.compile_results);
@@ -1682,8 +1667,7 @@ mod tests {
             "{struct*.qed,fn_test.qed,fn_chain_call_test.qed}",
             |path| {
                 let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-                let (mut typechecker, mut ctx) =
-                    interpreter.typecheck(path.into(), vec![]).unwrap();
+                let (mut typechecker, mut ctx) = interpreter.typecheck_single(path.into()).unwrap();
 
                 let compile_results = interpreter
                     .interpret(
@@ -1746,7 +1730,7 @@ mod tests {
         insta::glob!("../../tests", "*_test.qed", |path| {
             let entry: PathBuf = path.into();
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
-            let (_typechecker, mut ctx) = interpreter.typecheck(entry.clone(), vec![]).unwrap();
+            let (_typechecker, mut ctx) = interpreter.typecheck_single(entry.clone()).unwrap();
 
             #[allow(static_mut_refs)]
             unsafe {
@@ -1761,7 +1745,7 @@ mod tests {
             writer.flush().unwrap();
 
             assert!(
-                interpreter.typecheck(entry.clone(), vec![]).is_ok(),
+                interpreter.typecheck_single(entry.clone()).is_ok(),
                 "{}",
                 entry.display()
             );

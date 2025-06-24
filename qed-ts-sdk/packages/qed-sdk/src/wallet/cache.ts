@@ -1,5 +1,6 @@
 import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { SCNumberLike } from "../core";
+import { IRealmEdgeRpcProvider } from "../realm-edge-rpc";
 import { QEDUserLeaf } from "../types";
 import { qedFelt } from "../utils";
 
@@ -32,10 +33,10 @@ class UserWalletCache {
     }
 
     async refreshUserFull(
-        rpc: ICoordinatorEdgeRpcProvider,
+        rpc: IRealmEdgeRpcProvider,
         userId: number
     ): Promise<{ cache: IUserCacheRecord; user: QEDUserLeaf }> {
-        const currentBlock = await rpc.getLatestCheckpoint();
+        const currentBlock = await rpc.getLatestL2BlockState();
         const user = await rpc.getUserLeafData(currentBlock.checkpoint_id, userId);
         const cachedUser = this.getUserCached(userId);
         if (currentBlock.checkpoint_id > cachedUser.unprocessedCheckpointId) {
@@ -53,7 +54,7 @@ class UserWalletCache {
 
         return { cache: cachedUser, user };
     }
-    async refreshUser(rpc: ICoordinatorEdgeRpcProvider, userId: number): Promise<IUserCacheRecord> {
+    async refreshUser(rpc: IRealmEdgeRpcProvider, userId: number): Promise<IUserCacheRecord> {
         return (await this.refreshUserFull(rpc, userId)).cache;
     }
 
@@ -64,7 +65,7 @@ class UserWalletCache {
     }
 
     async processTransfer(
-        rpc: ICoordinatorEdgeRpcProvider,
+        rpc: IRealmEdgeRpcProvider,
         sender: SCNumberLike,
         recipient: SCNumberLike,
         amount: SCNumberLike

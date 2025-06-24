@@ -121,12 +121,25 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
     }
 
     fn visit_program(&mut self, ctx: &mut Self::Context) -> Result<(), Self::Error> {
-        let mut visited = HashMap::new();
-        ctx.dependency_graph().ts::<Self::Error>(
-            &ModuleId::root(),
-            &mut visited,
-            &mut |&module_id| self.visit_module(module_id, ctx),
-        )?;
+        ctx.dependency_graph()
+            .ts::<Self::Error>(&mut |&crate_id| self.visit_crate(crate_id, ctx))?;
+
+        Ok(())
+    }
+
+    fn visit_crate(&mut self, crate_id: CrateId, ctx: &mut Self::Context) -> Result<(), Self::Error> {
+        let entry_module_id = ModuleId::from(crate_id);
+        self.visit_module_tree(entry_module_id, ctx)
+    }
+
+    fn visit_module_tree(&mut self, module_id: ModuleId, ctx: &mut Self::Context) -> Result<(), Self::Error> {
+        // Visit all child modules recursively
+        let children = ctx.module_children(module_id).to_vec();
+        for child_id in children {
+            self.visit_module_tree(child_id, ctx)?;
+        }
+
+        self.visit_module(module_id, ctx)?;
 
         Ok(())
     }

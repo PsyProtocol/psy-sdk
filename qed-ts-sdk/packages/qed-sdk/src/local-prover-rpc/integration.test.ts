@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-import { QEDRPCUserProverProvider } from "./client";
+import { QedRPCUserProverProvider } from "./client";
 import { ContractCallArgs, WalletKeyPair, DPNFunctionCircuitDefinition } from "./types";
 import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { QHashOut } from "../core";
@@ -26,7 +26,7 @@ async function waitBlock(coordinator: CoordinatorEdgeRpcProvider): Promise<void>
 }
 
 describe("QED User Prover RPC Integration Tests", () => {
-    let provider: QEDRPCUserProverProvider;
+    let provider: QedRPCUserProverProvider;
     const rpcUrl = process.env.QED_RPC_URL || "http://localhost:8888";
     const timeout = 30000; // 30 seconds timeout for RPC calls
 
@@ -34,7 +34,7 @@ describe("QED User Prover RPC Integration Tests", () => {
     const MOCK_RPC_URL = process.env.TEST_COORD_EDGE_RPC_URL || "http://localhost:8545";
 
     beforeAll(() => {
-        provider = new QEDRPCUserProverProvider(rpcUrl);
+        provider = new QedRPCUserProverProvider(rpcUrl);
         coordinator = new CoordinatorEdgeRpcProvider(MOCK_RPC_URL);
     });
 
@@ -75,12 +75,13 @@ describe("QED User Prover RPC Integration Tests", () => {
 
     describe("Session Management", () => {
         let sessionId: string;
+        let pk_hash = "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5";
 
         it(
             "should start a new session",
             async () => {
                 try {
-                    sessionId = await provider.startSession();
+                    sessionId = await provider.startSession(pk_hash);
                     expect(sessionId).toBeDefined();
                     expect(typeof sessionId).toBe("string");
                     expect(sessionId.length).toBeGreaterThan(0);
@@ -97,8 +98,8 @@ describe("QED User Prover RPC Integration Tests", () => {
             "should start multiple sessions independently",
             async () => {
                 try {
-                    const session1 = await provider.startSession();
-                    const session2 = await provider.startSession();
+                    const session1 = await provider.startSession(pk_hash);
+                    const session2 = await provider.startSession(pk_hash);
 
                     expect(session1).toBeDefined();
                     expect(session2).toBeDefined();
@@ -224,29 +225,6 @@ describe("QED User Prover RPC Integration Tests", () => {
             },
             timeout
         );
-
-        it(
-            "should switch to user",
-            async () => {
-                try {
-                    // userHash = "ae2de05902f7422e16960ac51cc1fcf56a7f1785a5e3755d97fa64bae80cad92";
-                    // Create and add a user first
-                    const testKeypair = await provider.getRandomKeypair();
-
-                    await provider.registerUser(testKeypair.private_key);
-                    await waitBlock(coordinator);
-                    userHash = await provider.addUser(testKeypair.private_key);
-                    console.log("Successfully add user:", userHash);
-
-                    await provider.switchUser(userHash);
-                    console.log("Successfully switched to user:", userHash);
-                } catch (error) {
-                    console.error("Failed to switch user:", error);
-                    throw error;
-                }
-            },
-            timeout
-        );
     });
 
     describe("Contract Operations", () => {
@@ -268,6 +246,8 @@ describe("QED User Prover RPC Integration Tests", () => {
         //     }
         // }, timeout);
 
+        let pk_hash = "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5";
+
         it(
             "should prove a simple contract call",
             async () => {
@@ -278,7 +258,7 @@ describe("QED User Prover RPC Integration Tests", () => {
                         inputs: [1000n],
                     };
 
-                    const proofId = await provider.proveContractCall(contractCall);
+                    const proofId = await provider.proveContractCall(pk_hash, contractCall);
 
                     expect(proofId).toBeDefined();
                     expect(typeof proofId).toBe("string");
@@ -303,7 +283,7 @@ describe("QED User Prover RPC Integration Tests", () => {
                         { contract_id: 1n, method_name: "method2", inputs: [200n] },
                     ];
 
-                    const proofId = await provider.proveContractCalls(contractCalls);
+                    const proofId = await provider.proveContractCalls(pk_hash, contractCalls);
 
                     expect(proofId).toBeDefined();
                     expect(typeof proofId).toBe("string");
@@ -328,7 +308,7 @@ describe("QED User Prover RPC Integration Tests", () => {
                         inputs: [],
                     };
 
-                    const proofId = await provider.proveContractCall(contractCall);
+                    const proofId = await provider.proveContractCall(pk_hash, contractCall);
 
                     expect(proofId).toBeDefined();
                     console.log("Empty inputs contract call proof ID:", proofId);
@@ -351,7 +331,7 @@ describe("QED User Prover RPC Integration Tests", () => {
                         inputs: [largeValue, largeValue],
                     };
 
-                    const proofId = await provider.proveContractCall(contractCall);
+                    const proofId = await provider.proveContractCall(pk_hash, contractCall);
 
                     expect(proofId).toBeDefined();
                     console.log("Large inputs contract call proof ID:", proofId);
@@ -369,6 +349,8 @@ describe("QED User Prover RPC Integration Tests", () => {
         let userKeypair: WalletKeyPair;
         let userHash: QHashOut;
         let sessionId: string;
+        let pk_hash = "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5";
+        let deployer = pk_hash;
 
         beforeAll(async () => {
             try {
@@ -377,12 +359,12 @@ describe("QED User Prover RPC Integration Tests", () => {
                 await waitBlock(coordinator);
 
                 userHash = await provider.addUser(userKeypair.private_key);
-                await provider.switchUser(userHash);
+                // await provider.switchUser(userHash);
                 await waitBlock(coordinator);
 
                 console.log(`${userHash} wallet: ${userKeypair}`);
 
-                sessionId = await provider.startSession();
+                sessionId = await provider.startSession(pk_hash);
                 console.log(`${userHash} Setup complete for contract deployment: ${sessionId}`);
             } catch (error) {
                 console.error("Failed to setup for contract deployment:", error);
@@ -407,7 +389,7 @@ describe("QED User Prover RPC Integration Tests", () => {
                         },
                     ];
 
-                    const deployCmd = await provider.getDeployContractCmd(circuitDefs);
+                    const deployCmd = await provider.getDeployContractCmd(deployer, circuitDefs);
 
                     expect(deployCmd).toBeDefined();
                     expect(deployCmd.deployer).toBeDefined();
@@ -439,7 +421,7 @@ describe("QED User Prover RPC Integration Tests", () => {
                         fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples.json"), "utf8")
                     );
                     console.log("circuitDefs: ", circuitDefs);
-                    const contractId = await provider.deployContract(circuitDefs);
+                    const contractId = await provider.deployContract(deployer, circuitDefs);
                     expect(contractId).toBeDefined();
                     expect(typeof contractId).toBe("string");
                     expect(contractId.length).toBeGreaterThan(0);
@@ -459,6 +441,7 @@ describe("QED User Prover RPC Integration Tests", () => {
         const privateKey = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a";
         // const privateKey = "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d";
         let userHash: QHashOut;
+        let deployer: QHashOut;
 
         beforeAll(async () => {
             try {
@@ -466,12 +449,13 @@ describe("QED User Prover RPC Integration Tests", () => {
                 await waitBlock(coordinator);
 
                 userHash = await provider.addUser(privateKey);
-                await provider.switchUser(userHash);
+                deployer = userHash;
+                // await provider.switchUser(userHash);
                 await waitBlock(coordinator);
 
                 console.log(`${userHash} wallet: ${privateKey}`);
 
-                sessionId = await provider.startSession();
+                sessionId = await provider.startSession(userHash);
                 console.log(`${userHash} Setup complete for contract deployment: ${sessionId}`);
             } catch (error) {
                 console.error("Failed to setup for contract deployment:", error);
@@ -487,7 +471,7 @@ describe("QED User Prover RPC Integration Tests", () => {
                         fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples.json"), "utf8")
                     );
                     console.log("circuitDefs: ", circuitDefs);
-                    const contractId = await provider.deployContract(circuitDefs);
+                    const contractId = await provider.deployContract(deployer, circuitDefs);
                     expect(contractId).toBeDefined();
                     expect(typeof contractId).toBe("string");
                     expect(contractId.length).toBeGreaterThan(0);
@@ -518,77 +502,78 @@ describe("QED User Prover RPC Integration Tests", () => {
         //         throw error;
         //     }
         // }, timeout);
+        let pk_hash = "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5";
 
-        it(
-            "should get signature hash",
-            async () => {
-                try {
-                    const networkMagic = 12345n;
-                    const sigHash = await provider.getSigHash(networkMagic);
+        // it(
+        //     "should get signature hash",
+        //     async () => {
+        //         try {
+        //             const networkMagic = 12345n;
+        //             const sigHash = await provider.getSigHash(networkMagic);
 
-                    expect(sigHash).toBeDefined();
-                    expect(typeof sigHash).toBe("string");
-                    expect(sigHash.length).toBeGreaterThan(0);
+        //             expect(sigHash).toBeDefined();
+        //             expect(typeof sigHash).toBe("string");
+        //             expect(sigHash.length).toBeGreaterThan(0);
 
-                    console.log("Signature hash:", sigHash);
-                } catch (error) {
-                    console.error("Failed to get signature hash:", error);
-                    console.warn("This test may fail if no transaction is pending");
-                }
-            },
-            timeout
-        );
+        //             console.log("Signature hash:", sigHash);
+        //         } catch (error) {
+        //             console.error("Failed to get signature hash:", error);
+        //             console.warn("This test may fail if no transaction is pending");
+        //         }
+        //     },
+        //     timeout
+        // );
 
-        it(
-            "should get ZK signature",
-            async () => {
-                try {
-                    // First get a signature hash
-                    const networkMagic = 12345n;
-                    const sigHash = await provider.getSigHash(networkMagic);
+        // it(
+        //     "should get ZK signature",
+        //     async () => {
+        //         try {
+        //             // First get a signature hash
+        //             const networkMagic = 12345n;
+        //             const sigHash = await provider.getSigHash(networkMagic);
 
-                    const zkSignature = await provider.getZKSignature(sigHash);
+        //             const zkSignature = await provider.getZKSignature(sigHash);
 
-                    expect(zkSignature).toBeDefined();
-                    expect(zkSignature.proof).toBeDefined();
-                    expect(zkSignature.public_inputs).toBeDefined();
-                    expect(Array.isArray(zkSignature.public_inputs)).toBe(true);
+        //             expect(zkSignature).toBeDefined();
+        //             expect(zkSignature.proof).toBeDefined();
+        //             expect(zkSignature.public_inputs).toBeDefined();
+        //             expect(Array.isArray(zkSignature.public_inputs)).toBe(true);
 
-                    console.log("ZK signature:", {
-                        publicInputsCount: zkSignature.public_inputs.length,
-                        proofStructure: Object.keys(zkSignature.proof),
-                    });
-                } catch (error) {
-                    console.error("Failed to get ZK signature:", error);
-                    console.warn("This test may fail if no transaction is pending or ZK proving is not available");
-                }
-            },
-            timeout
-        );
+        //             console.log("ZK signature:", {
+        //                 publicInputsCount: zkSignature.public_inputs.length,
+        //                 proofStructure: Object.keys(zkSignature.proof),
+        //             });
+        //         } catch (error) {
+        //             console.error("Failed to get ZK signature:", error);
+        //             console.warn("This test may fail if no transaction is pending or ZK proving is not available");
+        //         }
+        //     },
+        //     timeout
+        // );
 
-        it(
-            "should get user EC input",
-            async () => {
-                try {
-                    const userECInput = await provider.getUserECInput();
+        // it(
+        //     "should get user EC input",
+        //     async () => {
+        //         try {
+        //             const userECInput = await provider.getUserECInput();
 
-                    expect(userECInput).toBeDefined();
-                    expect(userECInput.core).toBeDefined();
-                    expect(userECInput.contract_state_updates).toBeDefined();
-                    expect(Array.isArray(userECInput.contract_state_updates)).toBe(true);
-                    expect(typeof userECInput.core.checkpoint_id).toBe("bigint");
+        //             expect(userECInput).toBeDefined();
+        //             expect(userECInput.core).toBeDefined();
+        //             expect(userECInput.contract_state_updates).toBeDefined();
+        //             expect(Array.isArray(userECInput.contract_state_updates)).toBe(true);
+        //             expect(typeof userECInput.core.checkpoint_id).toBe("bigint");
 
-                    console.log("User EC input:", {
-                        checkpointId: userECInput.core.checkpoint_id.toString(),
-                        contractUpdatesCount: userECInput.contract_state_updates.length,
-                    });
-                } catch (error) {
-                    console.error("Failed to get user EC input:", error);
-                    console.warn("This test may fail if no transaction is pending");
-                }
-            },
-            timeout
-        );
+        //             console.log("User EC input:", {
+        //                 checkpointId: userECInput.core.checkpoint_id.toString(),
+        //                 contractUpdatesCount: userECInput.contract_state_updates.length,
+        //             });
+        //         } catch (error) {
+        //             console.error("Failed to get user EC input:", error);
+        //             console.warn("This test may fail if no transaction is pending");
+        //         }
+        //     },
+        //     timeout
+        // );
 
         it(
             "should sign and submit transaction",
@@ -603,7 +588,7 @@ describe("QED User Prover RPC Integration Tests", () => {
 
                     // await provider.proveContractCall(contractCall);
 
-                    const submitId = await provider.signAndSubmit();
+                    const submitId = await provider.signAndSubmit(pk_hash);
 
                     expect(submitId).toBeDefined();
                     expect(typeof submitId).toBe("string");
@@ -661,6 +646,7 @@ describe("QED User Prover RPC Integration Tests", () => {
     });
 
     describe("Error Handling", () => {
+        let pk_hash = "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5";
         it(
             "should handle invalid method calls gracefully",
             async () => {
@@ -689,7 +675,7 @@ describe("QED User Prover RPC Integration Tests", () => {
                         inputs: "invalid_inputs", // Should be array
                     } as any;
 
-                    await provider.proveContractCall(invalidContractCall);
+                    await provider.proveContractCall(pk_hash, invalidContractCall);
 
                     // Should not reach here
                     fail("Expected error for invalid parameters");
@@ -703,7 +689,7 @@ describe("QED User Prover RPC Integration Tests", () => {
 
         it("should handle network timeouts", async () => {
             // Create a provider with a non-existent endpoint
-            const invalidProvider = new QEDRPCUserProverProvider("http://localhost:9999");
+            const invalidProvider = new QedRPCUserProverProvider("http://localhost:9999");
 
             try {
                 await invalidProvider.ping("test");

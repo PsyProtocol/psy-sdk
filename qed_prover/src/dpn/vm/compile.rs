@@ -115,6 +115,10 @@ impl QEDContractFunctionBuilderGadget {
                 .proving_session_start_ctx
                 .start_session_user_leaf
                 .nonce,
+            self.tx_ctx_header
+                .proving_session_start_ctx
+                .start_session_user_leaf
+                .public_key,
         );
         let state_cmd_len = fn_def.state_command_resolution_indices.len();
         let mut next_state_cmd_id = 0;

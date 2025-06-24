@@ -1,15 +1,17 @@
 pub mod error;
 
-use std::path::{Path, PathBuf};
-
 use error::UserError;
+pub use error::{Error, Result};
 use indexmap::IndexMap;
 use lalrpop_util::lalrpop_mod;
-
-pub use error::{Error, Result};
 use qed_ast::*;
+use qed_common::Graph;
 use qed_lexer::{GenericTokenTransformer, Lexer, Loc, Token};
 use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
+use std::{
+    collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
+};
 
 use qed_ast::Program;
 
@@ -18,17 +20,83 @@ pub type LalrpopError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, Use
 lalrpop_mod!(pub qed);
 
 #[derive(Debug)]
-pub struct Parser<'a, F: Clone + From<u32>, C> {
+pub struct Parser<'a, 'b, F: Clone + From<u32>, C> {
     program: &'a mut Program<F>,
-    _marker: std::marker::PhantomData<C>,
+    ctx: &'b mut C,
+    crate_path_graph: Graph<PathBuf>,
 }
 
-impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
-    pub fn new(program: &'a mut Program<F>) -> Self {
+impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> {
+    pub fn new(
+        program: &'a mut Program<F>,
+        ctx: &'b mut C,
+        crate_path_graph: Graph<PathBuf>,
+    ) -> Self {
         Self {
             program,
-            _marker: std::marker::PhantomData,
+            ctx,
+            crate_path_graph,
         }
+    }
+
+    pub fn parse(&mut self) -> Result<()> {
+        let mut crate_id_map = HashMap::new();
+        let entry_paths = self.crate_path_graph.clone();
+        entry_paths.bfs(&mut |entry_path| {
+            let Self { program, ctx, .. } = self;
+            let module_id = Self::parse_inner(program, ctx, entry_path.clone())?;
+            crate_id_map.insert(entry_path, CrateId::from(module_id));
+            Ok::<(), Error>(())
+        })?;
+        let mut crate_dependency_graph = Graph::new();
+        for entry_path in entry_paths.nodes() {
+            let node_crate_id = crate_id_map[entry_path];
+            crate_dependency_graph.add_node(node_crate_id);
+            for dep_path in entry_paths.edges(entry_path).unwrap() {
+                let dep_crate_id = crate_id_map[dep_path];
+                crate_dependency_graph.add_edge(node_crate_id, dep_crate_id);
+            }
+        }
+        let Self { program, ctx, .. } = self;
+        Self::finish_inner(program, ctx, crate_dependency_graph)?;
+        Ok(())
+    }
+
+    fn parse_module(
+        program: &mut Program<F>,
+        ctx: &mut C,
+        current_path: &PathBuf,
+        location: Location,
+        visibility: Visibility,
+    ) -> Result<ModuleNode> {
+        let module_name = resolve_module_name(program, current_path);
+        let file_id = program.file_resolver.resolve_file(current_path.clone())?;
+        let file_content = program
+            .file_resolver
+            .resolve_content(&file_id)
+            .ok_or(Error::FileUnresolved)?;
+
+        let lexer = Lexer::new(file_content);
+        let transformer = GenericTokenTransformer::new(lexer);
+        let tokens: Vec<_> = transformer.collect::<qed_lexer::Result<Vec<_>>>()?;
+        let module = qed::ModuleParser::new()
+            .parse(
+                file_content,
+                file_id,
+                Identifier::new(
+                    module_name,
+                    Location::new(file_id, location.start, location.end),
+                ),
+                &mut program.exprs,
+                &mut program.stmts,
+                &mut program.defs,
+                &mut program.interner,
+                visibility,
+                ctx,
+                tokens,
+            )
+            .map_err(|e| Error::from_lalrpop_error(e, file_id))?;
+        Ok(module)
     }
 
     // std/
@@ -40,251 +108,188 @@ impl<'a, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, F, C> {
     // modB/
     //     std/
     //         prelude
-    pub fn parse(&mut self, ctx: &mut C, root_module_path: PathBuf) -> Result<()> {
-        let mut module_stack: Vec<(bool, PathBuf, Option<ModuleId>, Visibility, bool, Location)> =
-            vec![(
-                false,
-                root_module_path.clone(),
-                None,
-                Visibility::Public,
-                false,
-                Location::default(),
-            )];
-        let mut visited = IndexMap::new();
+    fn parse_inner(
+        program: &mut Program<F>,
+        ctx: &mut C,
+        root_module_path: PathBuf,
+    ) -> Result<ModuleId> {
+        let mut module_stack = vec![(
+            false,
+            root_module_path.clone(),
+            Option::<ModuleId>::None,
+            Visibility::Public,
+            Location::default(),
+        )];
+        let mut visited = HashSet::new();
         let mut inline_modules: IndexMap<PathBuf, ModuleNode> = IndexMap::new();
 
-        while let Some((
-            is_inline,
-            current_path,
-            parent_module_id,
-            visibility,
-            is_parent_std,
-            location,
-        )) = module_stack.pop()
+        let mut entry_module_id = None;
+        while let Some((is_inline, current_path, parent_module_id, visibility, location)) =
+            module_stack.pop()
         {
-            if let Some(&module_id) = visited.get(&current_path) {
-                self.program.modules.add_child(parent_module_id, module_id);
-                continue;
+            if visited.contains(&current_path) {
+                return Err(Error::FileParsedMultipleTimes(current_path.clone()).into());
             }
-
-            let mut module: ModuleNode = if !is_inline {
-                let file_id = self
-                    .program
-                    .file_resolver
-                    .resolve_file(current_path.clone())?;
-                let module_name =
-                    Self::resolve_module_name(&mut self.program.interner, &current_path);
-
-                let file_content = self
-                    .program
-                    .file_resolver
-                    .resolve_content(&file_id)
-                    .ok_or(Error::FileUnresolved)?;
-
-                let is_self_std = module_name == IdentId::STD;
-                let is_std = is_parent_std || is_self_std;
-
-                let module_id = self
-                    .program
-                    .modules
-                    .iter()
-                    .find(|module| module.data().name == module_name)
-                    .map(|module| module.id());
-                if module_id
-                    .map(|module_id| self.program.modules.add_child(parent_module_id, module_id))
-                    .is_some()
-                {
-                    continue;
-                }
-
-                let lexer = Lexer::new(file_content);
-                let transformer = GenericTokenTransformer::new(lexer);
-                let tokens: Vec<_> = transformer.collect::<qed_lexer::Result<Vec<_>>>()?;
-                let module = match qed::ModuleParser::new().parse(
-                    file_content,
-                    file_id,
-                    Identifier::new(
-                        module_name,
-                        Location::new(file_id, location.start, location.end),
-                    ),
-                    &mut self.program.exprs,
-                    &mut self.program.stmts,
-                    &mut self.program.defs,
-                    &mut self.program.interner,
-                    visibility,
-                    is_std,
-                    is_self_std,
-                    ctx,
-                    tokens,
-                ) {
-                    Ok(module) => module,
-                    Err(e) => {
-                        return Err(match e {
-                            lalrpop_util::ParseError::InvalidToken { location } => {
-                                Error::InvalidToken {
-                                    location: Location::new(file_id, location, location + 1),
-                                }
-                            }
-                            lalrpop_util::ParseError::UnrecognizedEof { location, expected } => {
-                                Error::UnrecognizedEof {
-                                    location: Location::new(file_id, location, location + 1),
-                                    expected,
-                                }
-                            }
-                            lalrpop_util::ParseError::UnrecognizedToken {
-                                token: (start, token, end),
-                                expected,
-                            } => Error::UnrecognizedToken {
-                                token: token.to_string(),
-                                expected: expected,
-                                location: Location::new(file_id, start, end),
-                            },
-                            lalrpop_util::ParseError::ExtraToken {
-                                token: (start, token, end),
-                            } => Error::ExtraToken {
-                                token: token.to_string(),
-                                location: Location::new(file_id, start, end),
-                            },
-                            lalrpop_util::ParseError::User { error } => match error {
-                                UserError::LexicalError(error) => Error::LexicalError(error),
-                                UserError::CommonError(error) => Error::CommonError(error),
-                                UserError::IoError(error) => Error::IoError(error),
-                                UserError::FileUnresolved => Error::FileUnresolved,
-                                UserError::InvalidModuleName => Error::InvalidModuleName,
-                                UserError::ExternFnNotInStd => Error::ExternFnNotInStd,
-                                UserError::FunctionBodyMissing => Error::FunctionBodyMissing,
-                                UserError::InvalidSelfParameter => Error::InvalidSelfParameter,
-                            },
-                        })
-                    }
-                };
-                module
+            let module_id = program.modules.next_idx();
+            entry_module_id.get_or_insert(module_id);
+            let module: ModuleNode = if !is_inline {
+                Self::parse_module(program, ctx, &current_path, location, visibility)?
             } else {
-                inline_modules.get(&current_path).unwrap().clone()
+                inline_modules
+                    .remove(&current_path)
+                    .expect("Inline module not found")
             };
 
-            module.definitions.sort_by(|a, b| {
-                let a = &self.program.defs[*a];
-                let b = &self.program.defs[*b];
-                b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Less)
-            });
-
-            let module_id = self.program.modules.next_idx();
-
-            if !is_inline {
-                self.program.file_resolver.register_module_id(module_id.0);
-            }
-
             for (dep_module, visibility, _location) in module.modules.iter().rev() {
-                let dep_path = self
-                    .resolve_module_path(&dep_module.id, &current_path)
-                    .unwrap();
+                let dep_path = resolve_module_path(program, dep_module.id, &current_path).unwrap();
                 module_stack.push((
                     false,
                     dep_path,
                     Some(module_id),
-                    visibility.clone(),
-                    is_parent_std || module.name == IdentId::STD,
+                    *visibility,
                     dep_module.location,
                 ));
             }
 
             for inline_module in module.inline_modules.iter().rev() {
-                let dep_path = self
-                    .resolve_module_path(&inline_module.name.id, &current_path)
-                    .unwrap();
+                let dep_path =
+                    resolve_module_path(program, inline_module.name, &current_path).unwrap();
                 module_stack.push((
                     true,
                     dep_path.clone(),
                     Some(module_id),
                     inline_module.visibility.clone(),
-                    is_parent_std || module.name == IdentId::STD,
                     inline_module.name.location,
                 ));
                 inline_modules.insert(dep_path, inline_module.clone());
             }
 
-            self.program.modules.add_node(module);
-            self.program.modules.add_child(parent_module_id, module_id);
+            program.modules.add_node(module);
+            program.add_module_child(parent_module_id, module_id);
 
-            visited.insert(current_path, module_id);
+            visited.insert(current_path);
         }
 
-        self.program.dependency_graph = self.program.modules.to_graph();
+        let entry_module_id = entry_module_id.ok_or(Error::NoEntryModule(root_module_path))?;
+        Ok(entry_module_id)
+    }
 
-        self.program.dependency_graph.check_cycle::<Error>()?;
+    fn finish_inner(
+        program: &mut Program<F>,
+        ctx: &mut C,
+        mut dependency_graph: Graph<CrateId>,
+    ) -> Result<()> {
+        let std_module_id = Self::parse_inner(program, ctx, std_path())?;
+        let std_crate_id = std_module_id.into();
+        dependency_graph.add_node(std_crate_id);
+        let crate_ids = dependency_graph
+            .nodes()
+            .into_iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        for crate_id in crate_ids {
+            dependency_graph.add_edge(crate_id, std_crate_id);
+        }
+        program.dependency_graph = dependency_graph;
+        program.dependency_graph.check_cycle::<Error>()?;
 
+        let module_ids = program.modules.iter().map(|n| n.id()).collect::<Vec<_>>();
+        for module_id in module_ids {
+            if !program.is_module_std(module_id) {
+                let file_id = program.modules[module_id].data().file_id;
+                let def_id = program.defs.alloc_item(DefinitionNode::Use(UseNode {
+                    visibility: Visibility::Private,
+                    kind: Identifier::new(IdentId::STD, Location::new(file_id, 0, 0)),
+                    segments: vec![Identifier::new(
+                        IdentId::PRELUDE,
+                        Location::new(file_id, 0, 0),
+                    )],
+                    target: None,
+                    comments: vec![],
+                    location: Location::new(file_id, 0, 0),
+                }));
+                let definitions = &mut program.modules[module_id].data_mut().definitions;
+                definitions.insert(0, def_id);
+                definitions.sort_by(|&a, &b| {
+                    let a = &program.defs[a];
+                    let b = &program.defs[b];
+                    b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Less)
+                });
+            }
+        }
+
+        // Remove duplicates children
+        program.modules.iter_mut().for_each(|module| {
+            let children = module.children_mut();
+            children.sort_unstable();
+            children.dedup();
+        });
+
+        // program.print_module_graph();
         Ok(())
     }
+}
 
-    fn resolve_module_name(interner: &mut Interner, file_path: &Path) -> IdentId {
-        let file_name_without_extension = file_path.file_stem().and_then(|s| s.to_str()).unwrap();
-        let module_name = match file_name_without_extension {
-            "lib" | "main" => {
-                // Get the parent directory name
-                file_path
-                    .parent()
-                    .and_then(|parent| parent.parent())
-                    .and_then(|p| p.file_stem())
-                    .and_then(|s| s.to_str())
-                    .unwrap()
-            }
-            s => s,
-        };
-        interner.intern_ident(module_name)
+pub fn resolve_module_path<F: Clone + From<u32>>(
+    program: &mut Program<F>,
+    module_name: impl Into<IdentId>,
+    current_path: &PathBuf,
+) -> Option<PathBuf> {
+    let module_name = module_name.into();
+    if module_name == IdentId::STD {
+        return Some(std_path());
     }
+    let mut path = current_path.parent()?.to_path_buf();
+    let ext = current_path.extension()?.to_str()?;
+    path.push(format!("{}.{}", program.interner[module_name.clone()], ext));
+    Some(path)
+}
 
-    fn resolve_module_path(
-        &self,
-        module_name: &IdentId,
-        current_path: &PathBuf,
-    ) -> Option<PathBuf> {
-        if module_name == &IdentId::STD {
-            if let Ok(cargo_dir) = std::env::var("CARGO_MANIFEST_DIR") {
-                // println!("cargo_dir: {}", cargo_dir);
-                let std_path = PathBuf::from(cargo_dir);
-                return Some(std_path.join("../qed-std/std.qed"));
-            }
-
-            let std_path = std::env::var("DARGO_STD_PATH").expect("Cannot find DARGO_STD_PATH");
-            return Some(PathBuf::from(std_path));
+pub fn resolve_module_name<F: Clone + From<u32>>(
+    program: &mut Program<F>,
+    file_path: &Path,
+) -> IdentId {
+    let interner = &mut program.interner;
+    let file_name_without_extension = file_path.file_stem().and_then(|s| s.to_str()).unwrap();
+    let module_name = match file_name_without_extension {
+        "lib" | "main" => {
+            // Get the parent directory name
+            file_path
+                .parent()
+                .and_then(|parent| parent.parent())
+                .and_then(|p| p.file_stem())
+                .and_then(|s| s.to_str())
+                .unwrap()
         }
+        s => s,
+    };
+    interner.intern_ident(module_name)
+}
 
-        let mut path = current_path.parent()?.to_path_buf();
-        let ext = current_path.extension()?.to_str()?;
-        path.push(format!(
-            "{}.{}",
-            self.program.interner[module_name.clone()],
-            ext
-        ));
-        Some(path)
+fn std_path() -> PathBuf {
+    if let Ok(cargo_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        let std_path = PathBuf::from(cargo_dir);
+        return std_path.join("../qed-std/std.qed");
     }
+
+    let std_path = std::env::var("DARGO_STD_PATH").expect("Cannot find DARGO_STD_PATH");
+    return PathBuf::from(std_path);
 }
 
 #[cfg(test)]
 mod tests {
     use super::Parser;
     use qed_ast::Program;
+    use qed_common::Graph;
     use qedlang_core::dpn::ops::exec_context::QExecContext;
     use std::path::PathBuf;
     #[test]
     fn test_qed_parser() {
         let mut program = Program::new();
-        let mut parser = Parser::new(&mut program);
-
         let mut ctx = QExecContext::new();
-
-        let entry_file = PathBuf::from("../tests/storage_test.qed");
-
-        let result = parser.parse(&mut ctx, entry_file);
-
-        match result {
-            Ok(program) => {
-                println!("{:#?}", program);
-            }
-            Err(e) => {
-                panic!("Parsing failed: {:?}", e);
-            }
-        }
+        let mut crate_path_graph = Graph::new();
+        crate_path_graph.add_node(PathBuf::from("../tests/storage_test.qed"));
+        let mut parser = Parser::new(&mut program, &mut ctx, crate_path_graph);
+        parser.parse().unwrap();
     }
 }

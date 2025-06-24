@@ -1,0 +1,16 @@
+import styled from 'styled-components';
+
+export const CityRollupLogoCon = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding-top: 24px;
+  margin-top: 24px;
+  border-top: 1px solid rgba(200, 200, 200, 0.1);
+  
+  img {
+    height: 140px;
+  }
+`;

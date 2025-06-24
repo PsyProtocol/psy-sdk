@@ -395,6 +395,16 @@ export abstract class Provider {
         jsonrpc = "2.0",
         headers?: Record<string, string>
     ): Promise<T> {
+        return this.rpc_with_url<T>(this.selectProvider(), method, params, id, jsonrpc, headers);
+    }
+    protected async rpc_with_url<T>(
+        url: string,
+        method: string,
+        params: unknown,
+        id = "1",
+        jsonrpc = "2.0",
+        headers?: Record<string, string>
+    ): Promise<T> {
         const isReadOperation = this.getReadOnlyMethods().has(method);
 
         // Try cache first for read operations
@@ -423,14 +433,7 @@ export abstract class Provider {
                             result = await this.executeParallelFirst<T>(method, params, id, jsonrpc);
                             break;
                         default:
-                            result = await this.directRpcWithHeaders<T>(
-                                this.selectProvider(),
-                                method,
-                                params,
-                                id,
-                                jsonrpc,
-                                headers
-                            );
+                            result = await this.directRpcWithHeaders<T>(url, method, params, id, jsonrpc, headers);
                             break;
                     }
                 }
@@ -447,7 +450,7 @@ export abstract class Provider {
 
                 // Update provider health on error
                 if (this.urls.length > 1 && this.config.multiProvider) {
-                    const currentUrl = this.selectProvider();
+                    const currentUrl = url;
                     const health = this.providerHealthMap.get(currentUrl);
                     if (health) {
                         health.consecutiveFailures++;

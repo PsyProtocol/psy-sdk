@@ -246,13 +246,12 @@ impl QUserRpcProvider for RpcProvider {
 
 #[maybe_async::maybe_async]
 impl RpcProvider {
-    pub async fn get_user_id<F: RichField>(&self, public_key_param: QHashOut<F>) -> anyhow::Result<u64> {
-        tracing::info!("user: {:?}", public_key_param);
-        let rpc_url = self.get_coordinator_url()?;  
+    pub async fn get_user_id<F: RichField>(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
+        tracing::info!("user: {:?}", public_key);
         let response = qed_rpc_call_back!(
             self,
-            rpc_url,
-            RequestParams::<F>::GetUserId(public_key_param),
+            self.get_coordinator_url()?,
+            RequestParams::<F>::GetUserId(public_key),
             u64
         );
         match response.result {
@@ -310,7 +309,7 @@ impl Default for RpcConfig {
                     rpc_url: vec!["http://127.0.0.1:8546".into()],
                 },
                 RealmRpcConfig {
-                    id: 2048,
+                    id: 16384,
                     rpc_url: vec!["http://127.0.0.1:8547".into()],
                 },
             ],

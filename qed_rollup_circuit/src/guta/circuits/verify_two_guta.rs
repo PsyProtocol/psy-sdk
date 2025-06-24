@@ -11,11 +11,10 @@ use plonky2::{
     },
 };
 use qed_common_circuit::{
-    circuits::traits::qstandard::{
+    builder::pad_circuit::pad_circuit_degree, circuits::traits::qstandard::{
         QStandardCircuit,
         QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
-    },
-    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    }, proof_minifier::pm_core::get_circuit_fingerprint_generic
 };
 use qed_core::{
     data::qhashout::QHashOut,
@@ -100,6 +99,7 @@ where
         builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(
             builder.config.num_constants,
         )));
+        pad_circuit_degree(&mut builder, 13);
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));

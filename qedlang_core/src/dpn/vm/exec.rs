@@ -15,6 +15,7 @@ pub struct SimpleDPNExecutor<F: RichField> {
     pub user_id: F,
     pub contract_id: F,
     pub checkpoint_id: F,
+    pub user_public_key: [F; 4],
     pub nonce: F,
     pub inputs: Vec<F>,
 }
@@ -33,12 +34,13 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             user_id: F::ZERO,
             contract_id: F::ZERO,
             checkpoint_id: F::ZERO,
+            user_public_key: [F::ZERO; 4],
             nonce: F::ZERO,
             inputs: Vec::new(),
             
         }
     }
-    pub fn new_with_contract_ctx(inputs: Vec<F>, user_id: F, contract_id: F, checkpoint_id: F, nonce: F) -> Self {
+    pub fn new_with_contract_ctx(inputs: Vec<F>, user_id: F, contract_id: F, checkpoint_id: F, nonce: F, user_public_key: [F; 4]) -> Self {
         SimpleDPNExecutor {
             targets: Vec::new(),
             target_arrays: Vec::new(),
@@ -51,6 +53,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             user_id,
             contract_id,
             checkpoint_id,
+            user_public_key,
             nonce,
             inputs,
             
@@ -308,8 +311,16 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 let right = self.resolve_bool(op.inputs[1]);
                 self.bools.push(left && right);
             },
-            DPNOpType::Xor => todo!(),
-            DPNOpType::Nor => todo!(),
+            DPNOpType::Xor => {
+                let left = self.resolve_bool(op.inputs[0]);
+                let right = self.resolve_bool(op.inputs[1]);
+                self.bools.push(left ^ right);
+            },
+            DPNOpType::Nor => {
+                let left = self.resolve_bool(op.inputs[0]);
+                let right = self.resolve_bool(op.inputs[1]);
+                self.bools.push(!(left || right));
+            },
             DPNOpType::Eq => {
                 let left = self.resolve_target(op.inputs[0]);
                 let right = self.resolve_target(op.inputs[1]);
@@ -335,8 +346,14 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 let right = self.resolve_target(op.inputs[1]).to_canonical_u64();
                 self.bools.push(left < right);
             },
-            DPNOpType::SplitBits => todo!(),
-            DPNOpType::SumBits => todo!(),
+            DPNOpType::SplitBits => {
+                let target = self.resolve_target(op.inputs[0]);
+                self.bool_arrays.push(split_bits(target.to_canonical_u64(), 64));
+            },
+            DPNOpType::SumBits => {
+                let sum = op.inputs.iter().map(|&input| self.resolve_bool(input) as u64).sum::<u64>();
+                self.targets.push(F::from_canonical_u64(sum));
+            },
             DPNOpType::TargetAt => {
                 let r = self.resolve_target_array_ref(op.inputs[0], op.inputs[1]);
                 self.targets.push(r);
@@ -345,7 +362,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 let values = self.resolve_targets(&op.inputs);
                 self.hashes.push(PoseidonHash::hash_no_pad(&values).elements);
             },
-            DPNOpType::HashPad => todo!(),
+            DPNOpType::HashPad => unimplemented!(),
             DPNOpType::Select => {
                 let condition = self.resolve_target(op.inputs[0]);
                 let result = if condition.to_canonical_u64() != 0 {
@@ -360,17 +377,40 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 let right = self.resolve_target(op.inputs[1]);
                 self.targets.push(left.exp_u64(right.to_canonical_u64()));
             },
-            DPNOpType::ExpConstantPower => todo!(),
-            DPNOpType::ExpConstantBase => todo!(),
+            DPNOpType::ExpConstantPower => {
+                let left = self.resolve_target(op.inputs[0]);
+                let (_optype, right) = decode_indexed_op_id(op.inputs[1]);
+                self.targets.push(left.exp_u64(right as u64))
+            },
+            DPNOpType::ExpConstantBase => {
+                let (_optype, left) = decode_indexed_op_id(op.inputs[0]);
+                let right = self.resolve_target(op.inputs[1]);
+                self.targets.push(F::from_noncanonical_u64(left as u64).exp_u64(right.to_canonical_u64()))
+            },
             DPNOpType::Mod => {
                 let left = self.resolve_target(op.inputs[0]).to_canonical_u64();
                 let right = self.resolve_target(op.inputs[1]).to_canonical_u64();
                 assert!(right != 0, "Mod by zero");
                 self.targets.push(F::from_canonical_u64(left % right));
             }
-            DPNOpType::ModConstantDividend => todo!(),
-            DPNOpType::ModConstantDivisor => todo!(),
-            DPNOpType::DivRem4 => todo!(),
+            DPNOpType::ModConstantDividend => {
+                let (_optype, left) = decode_indexed_op_id(op.inputs[0]);
+                let right = self.resolve_target(op.inputs[1]).to_canonical_u64();
+                assert!(right != 0, "Mod by zero");
+                self.targets.push(F::from_canonical_u64((left as u64) % right));
+            },
+            DPNOpType::ModConstantDivisor => {
+                let left = self.resolve_target(op.inputs[0]).to_canonical_u64();
+                let (_optype, right) = decode_indexed_op_id(op.inputs[1]);
+                assert!(right != 0, "Mod by zero");
+                self.targets.push(F::from_canonical_u64(left % (right as u64)));
+            },
+            DPNOpType::DivRem4 => {
+                let dividend = self.resolve_target(op.inputs[0]).to_canonical_u64();
+                let quotient = F::from_noncanonical_u64(dividend >> 2);
+                let remainder = F::from_noncanonical_u64(dividend & 3);
+                self.target_arrays.push(vec![quotient, remainder]);
+            },
             DPNOpType::CastU32 => {
                 let (t, index) = decode_indexed_op_id(op.inputs[0]);
                 let value = match t {
@@ -396,31 +436,89 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 };
                 self.u32s.push(value);
             }
-            DPNOpType::U32And => todo!(),
-            DPNOpType::U32AndConstant => todo!(),
-            DPNOpType::U32Or => todo!(),
-            DPNOpType::U32OrConstant => todo!(),
-            DPNOpType::U32Xor => todo!(),
-            DPNOpType::U32XorConstant => todo!(),
-            DPNOpType::U32ShiftLeft => todo!(),
-            DPNOpType::U32ShiftLeftConstantBitDistance => todo!(),
-            DPNOpType::U32ShiftLeftConstantValue => todo!(),
-            DPNOpType::U32ShiftRight => todo!(),
-            DPNOpType::U32ShiftRightConstantBitDistance => todo!(),
-            DPNOpType::U32ShiftRightConstantValue => todo!(),
-            DPNOpType::CalculateMerkleRoot => todo!(),
+            DPNOpType::U32And => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                self.u32s.push(left & right);
+            },
+            DPNOpType::U32AndConstant => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let (_optype, right) = decode_indexed_op_id(op.inputs[1]);
+                self.u32s.push(left & (right as u32));
+            },
+            DPNOpType::U32Or => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                self.u32s.push(left | right);
+            },
+            DPNOpType::U32OrConstant => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let (_optype, right) = decode_indexed_op_id(op.inputs[1]);
+                self.u32s.push(left | (right as u32));
+            },
+            DPNOpType::U32Xor => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                self.u32s.push(left ^ right);
+            },
+            DPNOpType::U32XorConstant => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let (_optype, right) = decode_indexed_op_id(op.inputs[1]);
+                self.u32s.push(left ^ (right as u32));
+            },
+            DPNOpType::U32ShiftLeft => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                self.u32s.push(left << right);
+            },
+            DPNOpType::U32ShiftLeftConstantBitDistance => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let (_op_type, right) = decode_indexed_op_id(op.inputs[1]);
+                self.u32s.push(left << (right as u32));
+            },
+            DPNOpType::U32ShiftLeftConstantValue => {
+                let (_op_type, left) = decode_indexed_op_id(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                self.u32s.push((left as u32) << right);
+            },
+            DPNOpType::U32ShiftRight => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                self.u32s.push(left >> right);
+            },
+            DPNOpType::U32ShiftRightConstantBitDistance => {
+                let left = self.resolve_u32(op.inputs[0]);
+                let (_op_type, right) = decode_indexed_op_id(op.inputs[1]);
+                self.u32s.push(left >> (right as u32));
+            },
+            DPNOpType::U32ShiftRightConstantValue => {
+                let (_op_type, left) = decode_indexed_op_id(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                self.u32s.push((left as u32) >> right);
+            },
+            DPNOpType::CalculateMerkleRoot => unimplemented!(),
             DPNOpType::GetUserId => self.targets.push(self.user_id),
             DPNOpType::GetContractId => self.targets.push(self.contract_id),
             DPNOpType::GetCheckpointId => self.targets.push(self.checkpoint_id),
             DPNOpType::GetNonce => self.targets.push(self.nonce),
-            DPNOpType::GetUserPublicKeyHash => todo!(),
-            DPNOpType::GetStateQueryResult => todo!(),
-            DPNOpType::GetStateQueryResultSingle => todo!(),
-            DPNOpType::GetStateCommandResultHash => todo!(),
-            DPNOpType::GetStateCommandResultSingle => todo!(),
-            DPNOpType::GetStateCommandResultArray => todo!(),
-            DPNOpType::UnaryInverse => todo!(),
-            DPNOpType::UnaryNegative => todo!(),
+            DPNOpType::GetUserPublicKeyHash => self.hashes.push(self.user_public_key),
+
+            // GetStateQueryResult is deprecated, use GetStateCommandResult instead
+            DPNOpType::GetStateQueryResult => unimplemented!("deprecated"),
+            DPNOpType::GetStateQueryResultSingle => unimplemented!("deprecated"),
+
+            DPNOpType::GetStateCommandResultHash => unreachable!(),
+            DPNOpType::GetStateCommandResultSingle => unreachable!(),
+            DPNOpType::GetStateCommandResultArray => unreachable!(),
+            DPNOpType::UnaryInverse => {
+                let left = self.resolve_target(op.inputs[0]);
+                assert_ne!(left, F::ZERO, "Cannot inverse zero");
+                self.targets.push(left.inverse());
+            },
+            DPNOpType::UnaryNegative => {
+                let left = self.resolve_target(op.inputs[0]);
+                self.targets.push(left.neg());
+            },
             DPNOpType::U32InputTarget => {
                 let index = op.inputs[0] as usize;
                 if index >= self.inputs.len() {
@@ -529,4 +627,12 @@ impl<F: RichField> SimpleDPNExecutor<F> {
         }
         
     }
+}
+
+fn split_bits(x: u64, num_bits: u64) -> Vec<bool> {
+    let mut result = vec![false; num_bits as usize];
+    for i in 0..num_bits {
+        result[i as usize] = ((x >> i) & 1) != 0;
+    }
+    result
 }

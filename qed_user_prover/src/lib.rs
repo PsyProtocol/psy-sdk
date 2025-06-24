@@ -58,18 +58,20 @@ pub async fn run_server(args: args::ProverArgs) -> anyhow::Result<()> {
     let api_key = Hash256::from_hex_string(&args.api_key)?;
     let _encryption_helper = SimpleZeroPadEncryptionHelper::new(api_key);
 
-    let cors = CorsLayer::new()
-        // Allow `POST` when accessing the resource
-        .allow_methods([Method::POST])
-        // Allow requests from any origin
+    let cors_opts = CorsLayer::new()
+        .allow_methods([
+            Method::POST,
+            Method::OPTIONS,
+        ])
         .allow_origin(Any)
-        .allow_headers([hyper::header::CONTENT_TYPE]);
-    let middleware = tower::ServiceBuilder::new().layer(cors);
+        .allow_headers(Any);
+    let cors = tower::ServiceBuilder::new().layer(cors_opts);
 
     let server_addr: SocketAddr = args.listen_addr.parse()?;
+    tracing::info!("Starting user prover server at {}", server_addr);
 
     let server = Server::builder()
-        .set_http_middleware(middleware)
+        .set_http_middleware(cors)
         .build(server_addr)
         .await?;
 
