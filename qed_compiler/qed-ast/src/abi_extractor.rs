@@ -3,6 +3,8 @@ use crate::{
     EnumVariant, ExprId, ExprNode, FieldAbi, FunctionAbi, FunctionNode, ParameterAbi, Program,
     StmtId, StmtNode, StructAbi, StructNode, TraitAbi, TraitNode, TypeAbi, VariantAbi,
     VariantTypeAbi, Visibility, VisitorContext, AssociatedTypeAbi,
+    // New spec-compliant ABI types
+    SpecCompliantAbi, StructAbiSpec, FieldAbiSpec, FunctionAbiSpec, ParamAbiSpec, TypeAbiSpec
 };
 
 pub struct AbiExtractor {
@@ -25,8 +27,145 @@ impl AbiExtractor {
         Ok(self.contract_abi)
     }
 
+    pub fn extract_spec_compliant_abi<F: Clone + From<u32> + 'static>(
+        self,
+        program: &'static mut Program<F>,
+    ) -> Result<SpecCompliantAbi, qed_common::Error> {
+        let ctx = DefaultVisitorContext::<F, ()>::new(program);
+        let mut spec_abi = SpecCompliantAbi::new("1.0.0".to_string());
+
+        // First pass: collect all struct information
+        let mut struct_map = std::collections::HashMap::new();
+        
+        // Collect all structs by iterating through all definitions in the arena
+        for i in 0..ctx.program().defs.len() {
+            let def_id = DefId::from(i);
+            if let Some(struct_node) = ctx.definition(def_id).as_struct() {
+                let is_contract = self.has_contract_attr(struct_node, &ctx);
+                // Include contract structs regardless of visibility, but require public for others
+                if Self::is_public(&struct_node.visibility) || is_contract {
+                    let struct_name = ctx.ident(struct_node.name).0.to_string();
+                    
+                    let fields = struct_node
+                        .fields
+                        .iter()
+                        .filter(|(_, field)| Self::is_public(&field.visibility))
+                        .map(|(name, field)| FieldAbiSpec {
+                            name: ctx.ident(*name).0.to_string(),
+                            field_type: TypeAbiSpec::from_unchecked_type(&field.ty, &ctx),
+                        })
+                        .collect();
+
+                    let mut struct_spec = StructAbiSpec {
+                        name: struct_name.clone(),
+                        is_contract,
+                        fields,
+                        functions: None,
+                    };
+
+                    // If it's a contract, find associated functions
+                    if is_contract {
+                        let functions = self.find_impl_functions(&struct_name, &ctx);
+                        if !functions.is_empty() {
+                            struct_spec.functions = Some(functions);
+                        }
+                    }
+
+                    struct_map.insert(struct_name, struct_spec);
+                }
+            }
+        }
+
+        // Add all structs to the ABI
+        for struct_spec in struct_map.into_values() {
+            spec_abi.add_struct(struct_spec);
+        }
+
+        Ok(spec_abi)
+    }
+
     fn is_public(visibility: &Visibility) -> bool {
         matches!(visibility, Visibility::Public)
+    }
+
+    fn has_contract_attr<F: Clone + From<u32>>(
+        &self, 
+        struct_node: &StructNode, 
+        ctx: &DefaultVisitorContext<F, ()>
+    ) -> bool {
+        struct_node.attrs.iter().any(|attr| {
+            let attr_name = ctx.ident(attr.name).0.as_str();
+            attr_name == "contract" || attr_name == "storage"
+        })
+    }
+
+    fn find_impl_functions<F: Clone + From<u32>>(
+        &self,
+        struct_name: &str,
+        ctx: &DefaultVisitorContext<F, ()>
+    ) -> Vec<FunctionAbiSpec> {
+        let mut functions = Vec::new();
+        
+        // Look for impl blocks that implement this struct
+        for i in 0..ctx.program().defs.len() {
+            let def_id = DefId::from(i);
+            if let Some(impl_node) = ctx.definition(def_id).as_impl() {
+                // Check if this impl is for our target struct or its Ref version
+                let impl_type_name = self.extract_type_name(&impl_node.ty, ctx);
+                if impl_type_name == struct_name || 
+                   impl_type_name == format!("{}Ref", struct_name) {
+                    
+                    // Extract functions from this impl block
+                    for &function_def_id in &impl_node.body {
+                        if let Some(function) = ctx.definition(function_def_id).as_function() {
+                            if Self::is_public(&function.visibility) {
+                                let function_spec = self.extract_function_abi_spec(function, ctx);
+                                functions.push(function_spec);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        functions
+    }
+
+    fn extract_type_name<F: Clone + From<u32>>(
+        &self,
+        unchecked_type: &crate::UncheckedType,
+        ctx: &DefaultVisitorContext<F, ()>
+    ) -> String {
+        match unchecked_type {
+            crate::UncheckedType::Basic(identifier) => {
+                ctx.ident(*identifier).0.to_string()
+            },
+            crate::UncheckedType::Path(path) => {
+                self.extract_type_name(&path.target, ctx)
+            },
+            _ => "unknown".to_string(),
+        }
+    }
+
+    fn extract_function_abi_spec<F: Clone + From<u32>>(
+        &self, 
+        function: &FunctionNode, 
+        ctx: &DefaultVisitorContext<F, ()>
+    ) -> FunctionAbiSpec {
+        let params = function
+            .parameters
+            .iter()
+            .map(|param| ParamAbiSpec {
+                name: ctx.ident(param.name).0.to_string(),
+                param_type: TypeAbiSpec::from_unchecked_type(&param.ty, ctx),
+            })
+            .collect();
+
+        FunctionAbiSpec {
+            name: ctx.ident(function.name).0.to_string(),
+            params,
+            return_type: vec![], // As per spec, always empty for now
+        }
     }
 
     fn extract_function_abi<F: Clone + From<u32>>(&self, function: &FunctionNode, ctx: &DefaultVisitorContext<F, ()>) -> FunctionAbi {
