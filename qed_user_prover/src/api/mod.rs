@@ -140,7 +140,7 @@ impl RpcServer for RpcServerImpl {
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<String, ErrorObjectOwned> {
         tracing::info!(
-            "exec_contract_call with `{:?}`: {:?}",
+            "exec_contract_call with `{}`: {}",
             pk_hash.to_string(),
             serde_json::to_string_pretty(&contract_call_args).unwrap()
         );
@@ -153,10 +153,10 @@ impl RpcServer for RpcServerImpl {
             .map_err(|e| {
                 ErrorObject::owned(600, "Error exec contract call", Some(e.to_string()))
             })?;
-        Ok("start session".to_string())
+        Ok("exec contract call".to_string())
     }
     async fn start_session(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
-        tracing::info!("start_session with `{:?}`", pk_hash.to_string());
+        tracing::info!("start_session with `{}`", pk_hash.to_string());
         self.wallet_session
             .read()
             .map_err(|e| {
@@ -172,7 +172,7 @@ impl RpcServer for RpcServerImpl {
         contract_call_arg: ContractCallArgs,
     ) -> Result<String, ErrorObjectOwned> {
         tracing::info!(
-            "prove_contract_call with `{:?}`: {:?}",
+            "prove_contract_call with `{}`: {}",
             pk_hash.to_string(),
             serde_json::to_string_pretty(&contract_call_arg).unwrap()
         );
@@ -193,7 +193,7 @@ impl RpcServer for RpcServerImpl {
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<String, ErrorObjectOwned> {
         tracing::info!(
-            "prove_contract_calls with `{:?}`: {:?}",
+            "prove_contract_calls with `{}`: {}",
             pk_hash.to_string(),
             serde_json::to_string_pretty(&contract_call_args).unwrap()
         );
@@ -210,7 +210,7 @@ impl RpcServer for RpcServerImpl {
     }
 
     async fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
-        tracing::info!("sign_and_submit with `{:?}`", pk_hash.to_string());
+        tracing::info!("sign_and_submit with `{}`", pk_hash.to_string());
         self.wallet_session
             .read()
             .map_err(|e| {
@@ -225,9 +225,9 @@ impl RpcServer for RpcServerImpl {
         &self,
         private_key: QHashOut<F>,
     ) -> Result<QHashOut<F>, ErrorObjectOwned> {
-        tracing::info!("register_user with `{:?}`", private_key.to_string());
+        tracing::info!("register_user with `{}`", private_key.to_string());
         self.wallet_session
-            .write()
+            .read()
             .map_err(|e| {
                 ErrorObject::owned(500, "Error write wallet session", Some(e.to_string()))
             })?
@@ -236,7 +236,7 @@ impl RpcServer for RpcServerImpl {
     }
 
     async fn add_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned> {
-        tracing::info!("register_user with `{:?}`", private_key.to_string());
+        tracing::info!("register_user with `{}`", private_key.to_string());
         self.wallet_session
             .write()
             .map_err(|e| {
