@@ -14,6 +14,8 @@ C_MEDIUMTURQUOISE="\x1b[38;5;80m"
 C_WHEAT1="\x1b[38;5;229m"
 C_DEEPSKYBLUE4="\x1b[48;5;23m"
 */
+
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 const TIME_LONG: &str = "\x1b[48;5;124m";
 const TIME_MEDIUM: &str = "\x1b[48;5;24m";
@@ -30,9 +32,12 @@ fn get_time_color(elapsed_ms: u64) -> &'static str {
 
 #[derive(Clone)]
 pub struct TraceTimer {
+    #[cfg(not(target_arch = "wasm32"))]
     pub start_time: Instant,
     pub name: String,
 }
+
+#[cfg(not(target_arch = "wasm32"))]
 impl TraceTimer {
     pub fn new(name: &str) -> Self {
         let n = name.to_string();
@@ -66,5 +71,21 @@ impl TraceTimer {
         );
         self.start_time = Instant::now();
         elapsed_ms
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl TraceTimer {
+    pub fn new(name: &str) -> Self {
+        let n = name.to_string();
+        Self {
+            name: n,
+        }
+    }
+    pub fn lap(&mut self, _event_name: &str) -> u64 {
+        0
+    }
+    pub fn event(&mut self, _event_name: String) -> u64 {
+        0
     }
 }

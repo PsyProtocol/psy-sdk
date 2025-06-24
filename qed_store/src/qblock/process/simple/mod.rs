@@ -1,3 +1,4 @@
+#![cfg(not(target_arch = "wasm32"))]
 use std::time::SystemTime;
 
 use plonky2::field::types::{Field, PrimeField64};

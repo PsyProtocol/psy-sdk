@@ -1,3 +1,4 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 const TIME_LONG: &str = "\x1b[48;5;124m";
 const TIME_MEDIUM: &str = "\x1b[48;5;24m";
@@ -12,9 +13,12 @@ fn get_time_color(elapsed_ms: u64) -> &'static str {
     }
 }
 pub struct DebugTimer {
+    #[cfg(not(target_arch = "wasm32"))]
     pub start_time: Instant,
     pub name: String,
 }
+
+#[cfg(not(target_arch = "wasm32"))]
 impl DebugTimer {
     pub fn new(name: &str) -> Self {
         let n = name.to_string();
@@ -72,5 +76,24 @@ impl DebugTimer {
         );
         self.start_time = Instant::now();
         (elapsed_ms, per_time)
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl DebugTimer {
+    pub fn new(name: &str) -> Self {
+        let n = name.to_string();
+        Self {
+            name: n,
+        }
+    }
+    pub fn lap(&mut self, event_name: &str) -> u64 {
+        0
+    }
+    pub fn event(&mut self, event_name: String) -> u64 {
+      0
+    }
+    pub fn batch_average(&mut self, event_name: &str, batch_item_type: &str, batch_size: usize) -> (u64, u64) {
+        (0, 0)
     }
 }
