@@ -33,8 +33,9 @@ const ExtensionHomeContent: React.FC = () => {
     }, []);
 
     const walletProvider = createMemoryWalletProvider(
-        getCoordinatorUrl(), // coordinator
-        getRealmUrl(), // realm 
+        config.network.coordinator_configs, // coordinator
+        config.network.realm_configs, // realm 
+        config.network.users_per_realm, 
         getProverUrl(), // prover
     );
 

@@ -1,14 +1,18 @@
 // import {QedRPCProvider, QedUserWalletProvider, QedMemoryTransactionSignerProvider, QedRPCUserProverProvider, IQedUserProverProvider} from "@qstudio/Qed-sdk";
 import { QedMemoryTransactionSignerProvider } from "@qed/qed-sdk/src/zksigner/memory/provider";
 import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
-import { CoordinatorEdgeRpcProvider } from "@qed/qed-sdk";
-import { RealmEdgeRpcProvider } from "@qed/qed-sdk";
+import { MultiCoordinatorRpcProvider, MultiRealmRpcProvider, RpcConfig } from "@qed/qed-sdk";
 import { QedRPCUserProverProvider } from "@qed/qed-sdk";
 
-function createMemoryWalletProvider(coordinatorRpcUrl: string, realmRpcUrl: string, proverUrl: string): QedUserWalletProvider {
+function createMemoryWalletProvider(
+    coordinatorRpcConfigs: RpcConfig[],
+    realmRpcConfigs: RpcConfig[],
+    userPerRealm: number,
+    proverUrl: string
+): QedUserWalletProvider {
     const networkId = "regtest";
-    const coordinator_rpc = new CoordinatorEdgeRpcProvider(coordinatorRpcUrl);
-    const realm_rpc = new RealmEdgeRpcProvider(realmRpcUrl);
+    const coordinator_rpc = new MultiCoordinatorRpcProvider(coordinatorRpcConfigs);
+    const realm_rpc = new MultiRealmRpcProvider(realmRpcConfigs, userPerRealm);
 
     const userProver = new QedRPCUserProverProvider(proverUrl);
 

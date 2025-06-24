@@ -59,7 +59,7 @@ async function getAllIQWallets(provider: QedUserWalletProvider): Promise<IQedWid
     console.log("getAllIQWallets: Getting user wallets from provider...");
     const users = await provider.getUserWallets();
     console.log("getAllIQWallets: Found", users.length, "user wallets");
-    
+
     return Promise.all(
         users.map(async (user: IQedUserWallet, index) => {
             console.log(`getAllIQWallets: Getting user info for wallet ${index}...`);
@@ -108,11 +108,37 @@ function waitMs(duration: number) {
     });
 }
 const useWalletState = create<IWalletStateStore>((set, get, api) => {
+    const newwork_config = {
+        users_per_realm: 32768,
+        realm_configs: [
+            {
+                id: 0,
+                rpc_url: ["http://127.0.0.1:8546"],
+            },
+            {
+                id: 16384,
+                rpc_url: ["http://127.0.0.1:8547"],
+            },
+            {
+                id: 8192,
+                rpc_url: ["http://127.0.0.1:8548"],
+            },
+        ],
+        coordinator_configs: [
+            {
+                id: 0,
+                rpc_url: ["http://127.0.0.1:8545"],
+            },
+        ],
+        prover_url: "http://127.0.0.1:8888",
+        nativeCurrency: "0",
+    };
     const setAsync = setAsyncFactory(set, get, api);
     const walletProvider = createMemoryWalletProvider(
-        "http://localhost:8545",
-        "http://localhost:8546",
-        "http://localhost:8888",
+        newwork_config.coordinator_configs, // coordinator
+        newwork_config.realm_configs, // realm 
+        newwork_config.users_per_realm,
+        newwork_config.prover_url, // prover
     );
     return {
         loadingState: WalletWidgetLoadingState.Ready,
@@ -259,7 +285,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
 
                 const signer = await state.provider.signerProvider.addRandomPrivateKey();
                 const publicKeyHex = await signer.getPublicKeyHex();
-                
+
                 if (registerUser) {
                     if (typeof signer.getPrivateKeyHex !== "function") {
                         return {};
@@ -267,11 +293,11 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                     const privateKeyHex = await signer.getPrivateKeyHex();
                     await state.provider.signerProvider.registerUser(privateKeyHex);
                 }
-                
+
                 // Refresh wallet list and set new wallet as current
                 const iqWallets = await getAllIQWallets(state.provider);
                 const newWallet = iqWallets.filter((x) => x.publicKeyHex === publicKeyHex)[0];
-                
+
                 if (newWallet) {
                     return {
                         wallets: iqWallets,
@@ -279,7 +305,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                         walletAbilities: newWallet.wallet.signer.getAbilities(),
                     };
                 }
-                
+
                 return {
                     wallets: iqWallets,
                 };
@@ -288,7 +314,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
         addWalletFromPrivateKey: (privateKeyHex: string, registerUser?: boolean, changeCurrent?: boolean) =>
             setAsync(async ({ set, get, state }) => {
                 console.log("addWalletFromPrivateKey called with:", { privateKeyHex, registerUser, changeCurrent });
-                
+
                 if (
                     !state.providerAbilities.includes("import-private-key") ||
                     typeof state.provider.signerProvider.importPrivateKey !== "function"

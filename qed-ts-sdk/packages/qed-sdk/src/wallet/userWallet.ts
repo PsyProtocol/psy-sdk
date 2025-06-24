@@ -47,13 +47,25 @@ class QedUserWallet implements IQedUserWallet {
 
     async refresh(): Promise<QEDUserLeaf> {
         const publicKeyHex = await this.signer.getPublicKeyHex();
-        const userId = await this.coordinator.getUserId(publicKeyHex);
-        const { user, cache } = await userWalletCache.refreshUserFull(this.realm, userId);
+        try {
+            const userId = await this.coordinator.getUserId(publicKeyHex);
+            const { user, cache } = await userWalletCache.refreshUserFull(this.realm, userId);
 
-        user.balance = cache.localBalance;
-        user.nonce = cache.localNonce;
-
-        return user;
+            user.balance = cache.localBalance;
+            user.nonce = cache.localNonce;
+            return user;
+        } catch (e) {
+            console.warn("Error refreshing user wallet:", e);
+            return {
+                public_key: this.publicKeyHex,
+                user_state_tree_root: this.publicKeyHex,
+                balance: BigInt(0),
+                nonce: BigInt(0),
+                last_checkpoint_id: BigInt(0),
+                event_index: BigInt(0),
+                user_id: BigInt(0),
+            };
+        }
     }
 
     async getUserInfo(): Promise<IQedCompleteUserInfo> {

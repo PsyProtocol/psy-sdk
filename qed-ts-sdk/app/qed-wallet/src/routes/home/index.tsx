@@ -2,12 +2,16 @@ import React from "react";
 import { QedWalletWidget, createMemoryWalletProvider } from "@qed/qed-wallet-widget";
 import logoImage from "../../assets/psy.png";
 import { CityRollupLogoCon } from "./Home.styles";
+import { useWalletConfig } from "../../config";
 
 const HomePage: React.FC = () => {
+    const { config, getCoordinatorUrl, getRealmUrl, getProverUrl } = useWalletConfig();
+    
     const walletProvider = createMemoryWalletProvider(
-        "http://localhost:8545",
-        "http://localhost:8546",
-        "http://localhost:8888",
+        config.network.coordinator_configs,
+        config.network.realm_configs,
+        config.network.users_per_realm,
+        getProverUrl(),
     );
 
     return (
