@@ -15,11 +15,6 @@ export interface CoordinatorRpcConfig {
     rpc_url: string[];
 }
 
-export interface StoreConfig {
-    coordinator_store_path: string;
-    realm_store_path: string;
-}
-
 // Default configuration factory function
 export function createDefaultRpcConfig(): RpcConfig {
     // const REALM_USER_TREE_HEIGHT = 15; // You may need to adjust this value based on your constants
@@ -105,8 +100,4 @@ export function isCoordinatorRpcConfig(obj: any): obj is CoordinatorRpcConfig {
         Array.isArray(obj.rpc_url) &&
         obj.rpc_url.every((url: any) => typeof url === "string")
     );
-}
-
-export function isStoreConfig(obj: any): obj is StoreConfig {
-    return obj && typeof obj.coordinator_store_path === "string" && typeof obj.realm_store_path === "string";
 }

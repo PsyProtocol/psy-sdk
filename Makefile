@@ -422,7 +422,7 @@ image:
 		-f Dockerfile .
 
 wasm-build:
-	@cd qed_user_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-user-prover --release --no-default-features --features wasm32
+	@cd qed_user_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features --features wasm32
 	@cd qed_user_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features --features wasm32
 
 help:

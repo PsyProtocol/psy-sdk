@@ -1,17 +1,17 @@
 import { RpcConfig } from "./config";
 import { WasmRpcServer } from "./qed_user_prover";
+import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
-    PrivateKey, PublicKey, QHashOut, U8Bytes,
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
     IQedUserProverProvider,
     QBCDeployContract,
     WalletKeyPair,
-    ZKPublicKeyInfo,
-    QedJSON,
-} from "@qed/qed-sdk";
+} from "../local-prover-rpc/types";
+import { ZKPublicKeyInfo } from "../types";
+import { QedJSON } from "../utils";
 
-export class QEDWasmUserProverProvider implements IQedUserProverProvider {
+export class QEDWasmWebProverProvider implements IQedUserProverProvider {
     private wasmServer: WasmRpcServer;
 
     constructor(rpcConfigJson: RpcConfig) {
