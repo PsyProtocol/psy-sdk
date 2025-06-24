@@ -38,30 +38,19 @@ pub(crate) fn run(args: GenerateAbiCommand, workspace: Workspace) -> Result<()> 
     // Create ABI extractor
     let extractor = AbiExtractor::new(args.contract_name.clone());
 
-    // Extract ABI from the program
+    // Extract spec-compliant ABI from the program
     // SAFETY: We're extending the lifetime to 'static for the duration of this function call only.
     // This is safe because we own the program and it lives for the entire duration of this function.
     let program_ptr: *mut _ = &mut ctx.program;
-    let contract_abi = unsafe {
+    let spec_abi = unsafe {
         let static_program = &mut *(program_ptr as *mut qed_ast::Program<qedlang_core::dpn::ops::sym_felt::SymFeltRef>);
-        extractor.extract_from_program(static_program)?
+        extractor.extract_spec_compliant_abi(static_program)?
     };
 
-    // Determine output directory
-    let output_dir = args.output_dir.unwrap_or_else(|| workspace.target_dir.clone());
-
-    // Generate ABI file name
-    let abi_filename = format!("{}_abi", args.contract_name);
-
-    if args.pretty {
-        // Pretty print to console
-        let json = contract_abi.to_json().map_err(|e| {
-            crate::errors::CliError::Generic(format!("Failed to serialize ABI to JSON: {}", e))
-        })?;
-        println!("{}", json);
-    }
-
-    // Save ABI to file
-    let abi_path = save_build_artifact_to_file(&contract_abi, &abi_filename, &output_dir)?;
+    // Output spec-compliant ABI to stdout
+    let json = spec_abi.to_json().map_err(|e| {
+        crate::errors::CliError::Generic(format!("Failed to serialize ABI to JSON: {}", e))
+    })?;
+    println!("{}", json);
     Ok(())
 }
