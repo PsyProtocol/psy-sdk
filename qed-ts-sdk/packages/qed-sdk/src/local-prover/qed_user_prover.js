@@ -213,12 +213,12 @@ function getArrayU8FromWasm0(ptr, len) {
     return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
 }
 
-module.exports.wasm_main = function() {
-    wasm.wasm_main();
-};
-
 module.exports.init_logging = function() {
     wasm.init_logging();
+};
+
+module.exports.main = function() {
+    wasm.main();
 };
 
 function __wbg_adapter_30(arg0, arg1) {
@@ -226,7 +226,11 @@ function __wbg_adapter_30(arg0, arg1) {
 }
 
 function __wbg_adapter_33(arg0, arg1, arg2) {
-    wasm.closure1221_externref_shim(arg0, arg1, arg2);
+    wasm.closure2076_externref_shim(arg0, arg1, arg2);
+}
+
+function __wbg_adapter_166(arg0, arg1, arg2, arg3) {
+    wasm.closure2327_externref_shim(arg0, arg1, arg2, arg3);
 }
 
 const __wbindgen_enum_RequestCredentials = ["omit", "same-origin", "include"];
@@ -265,153 +269,68 @@ class WasmRpcServer {
         return this;
     }
     /**
-     * @returns {string}
+     * @returns {Promise<string>}
      */
     start_session() {
-        let deferred2_0;
-        let deferred2_1;
-        try {
-            const ret = wasm.wasmrpcserver_start_session(this.__wbg_ptr);
-            var ptr1 = ret[0];
-            var len1 = ret[1];
-            if (ret[3]) {
-                ptr1 = 0; len1 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred2_0 = ptr1;
-            deferred2_1 = len1;
-            return getStringFromWasm0(ptr1, len1);
-        } finally {
-            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-        }
+        const ret = wasm.wasmrpcserver_start_session(this.__wbg_ptr);
+        return ret;
     }
     /**
      * @param {string} contract_call_json
-     * @returns {string}
+     * @returns {Promise<string>}
      */
     prove_contract_call_json(contract_call_json) {
-        let deferred3_0;
-        let deferred3_1;
-        try {
-            const ptr0 = passStringToWasm0(contract_call_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len0 = WASM_VECTOR_LEN;
-            const ret = wasm.wasmrpcserver_prove_contract_call_json(this.__wbg_ptr, ptr0, len0);
-            var ptr2 = ret[0];
-            var len2 = ret[1];
-            if (ret[3]) {
-                ptr2 = 0; len2 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred3_0 = ptr2;
-            deferred3_1 = len2;
-            return getStringFromWasm0(ptr2, len2);
-        } finally {
-            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-        }
+        const ptr0 = passStringToWasm0(contract_call_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_prove_contract_call_json(this.__wbg_ptr, ptr0, len0);
+        return ret;
     }
     /**
      * @param {string} contract_calls_json
-     * @returns {string}
+     * @returns {Promise<string>}
      */
     prove_contract_calls_json(contract_calls_json) {
-        let deferred3_0;
-        let deferred3_1;
-        try {
-            const ptr0 = passStringToWasm0(contract_calls_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len0 = WASM_VECTOR_LEN;
-            const ret = wasm.wasmrpcserver_prove_contract_calls_json(this.__wbg_ptr, ptr0, len0);
-            var ptr2 = ret[0];
-            var len2 = ret[1];
-            if (ret[3]) {
-                ptr2 = 0; len2 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred3_0 = ptr2;
-            deferred3_1 = len2;
-            return getStringFromWasm0(ptr2, len2);
-        } finally {
-            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-        }
+        const ptr0 = passStringToWasm0(contract_calls_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_prove_contract_calls_json(this.__wbg_ptr, ptr0, len0);
+        return ret;
     }
     /**
-     * @returns {string}
+     * @returns {Promise<string>}
      */
     sign_and_submit() {
-        let deferred2_0;
-        let deferred2_1;
-        try {
-            const ret = wasm.wasmrpcserver_sign_and_submit(this.__wbg_ptr);
-            var ptr1 = ret[0];
-            var len1 = ret[1];
-            if (ret[3]) {
-                ptr1 = 0; len1 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred2_0 = ptr1;
-            deferred2_1 = len1;
-            return getStringFromWasm0(ptr1, len1);
-        } finally {
-            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-        }
+        const ret = wasm.wasmrpcserver_sign_and_submit(this.__wbg_ptr);
+        return ret;
     }
     /**
      * @param {string} private_key_str
-     * @returns {string}
+     * @returns {Promise<string>}
      */
     register_user(private_key_str) {
-        let deferred3_0;
-        let deferred3_1;
-        try {
-            const ptr0 = passStringToWasm0(private_key_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len0 = WASM_VECTOR_LEN;
-            const ret = wasm.wasmrpcserver_register_user(this.__wbg_ptr, ptr0, len0);
-            var ptr2 = ret[0];
-            var len2 = ret[1];
-            if (ret[3]) {
-                ptr2 = 0; len2 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred3_0 = ptr2;
-            deferred3_1 = len2;
-            return getStringFromWasm0(ptr2, len2);
-        } finally {
-            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-        }
+        const ptr0 = passStringToWasm0(private_key_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_register_user(this.__wbg_ptr, ptr0, len0);
+        return ret;
     }
     /**
      * @param {string} private_key_str
-     * @returns {string}
+     * @returns {Promise<string>}
      */
     add_user(private_key_str) {
-        let deferred3_0;
-        let deferred3_1;
-        try {
-            const ptr0 = passStringToWasm0(private_key_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len0 = WASM_VECTOR_LEN;
-            const ret = wasm.wasmrpcserver_add_user(this.__wbg_ptr, ptr0, len0);
-            var ptr2 = ret[0];
-            var len2 = ret[1];
-            if (ret[3]) {
-                ptr2 = 0; len2 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred3_0 = ptr2;
-            deferred3_1 = len2;
-            return getStringFromWasm0(ptr2, len2);
-        } finally {
-            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-        }
+        const ptr0 = passStringToWasm0(private_key_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_add_user(this.__wbg_ptr, ptr0, len0);
+        return ret;
     }
     /**
      * @param {string} pk_hash_str
+     * @returns {Promise<void>}
      */
     switch_user(pk_hash_str) {
         const ptr0 = passStringToWasm0(pk_hash_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.wasmrpcserver_switch_user(this.__wbg_ptr, ptr0, len0);
-        if (ret[1]) {
-            throw takeFromExternrefTable0(ret[0]);
-        }
+        return ret;
     }
     /**
      * @param {string} private_key_str
@@ -460,27 +379,13 @@ class WasmRpcServer {
     }
     /**
      * @param {string} circuit_defs_json
-     * @returns {string}
+     * @returns {Promise<string>}
      */
     deploy_contract_json(circuit_defs_json) {
-        let deferred3_0;
-        let deferred3_1;
-        try {
-            const ptr0 = passStringToWasm0(circuit_defs_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len0 = WASM_VECTOR_LEN;
-            const ret = wasm.wasmrpcserver_deploy_contract_json(this.__wbg_ptr, ptr0, len0);
-            var ptr2 = ret[0];
-            var len2 = ret[1];
-            if (ret[3]) {
-                ptr2 = 0; len2 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred3_0 = ptr2;
-            deferred3_1 = len2;
-            return getStringFromWasm0(ptr2, len2);
-        } finally {
-            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-        }
+        const ptr0 = passStringToWasm0(circuit_defs_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_deploy_contract_json(this.__wbg_ptr, ptr0, len0);
+        return ret;
     }
     /**
      * @param {string} circuit_defs_json
@@ -577,25 +482,11 @@ class WasmRpcServer {
         }
     }
     /**
-     * @returns {string}
+     * @returns {Promise<string>}
      */
     get_user_ec_input_json() {
-        let deferred2_0;
-        let deferred2_1;
-        try {
-            const ret = wasm.wasmrpcserver_get_user_ec_input_json(this.__wbg_ptr);
-            var ptr1 = ret[0];
-            var len1 = ret[1];
-            if (ret[3]) {
-                ptr1 = 0; len1 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred2_0 = ptr1;
-            deferred2_1 = len1;
-            return getStringFromWasm0(ptr1, len1);
-        } finally {
-            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-        }
+        const ret = wasm.wasmrpcserver_get_user_ec_input_json(this.__wbg_ptr);
+        return ret;
     }
     /**
      * @param {string} message
@@ -823,6 +714,25 @@ module.exports.__wbg_new_018dcc2d6c8c2f6a = function() { return handleError(func
     return ret;
 }, arguments) };
 
+module.exports.__wbg_new_23a2665fac83c611 = function(arg0, arg1) {
+    try {
+        var state0 = {a: arg0, b: arg1};
+        var cb0 = (arg0, arg1) => {
+            const a = state0.a;
+            state0.a = 0;
+            try {
+                return __wbg_adapter_166(a, state0.b, arg0, arg1);
+            } finally {
+                state0.a = a;
+            }
+        };
+        const ret = new Promise(cb0);
+        return ret;
+    } finally {
+        state0.a = state0.b = 0;
+    }
+};
+
 module.exports.__wbg_new_405e22f390576ce2 = function() {
     const ret = new Object();
     return ret;
@@ -893,6 +803,15 @@ module.exports.__wbg_process_dc0fbacc7c1c06f7 = function(arg0) {
     return ret;
 };
 
+module.exports.__wbg_queueMicrotask_97d92b4fcc8a61c5 = function(arg0) {
+    queueMicrotask(arg0);
+};
+
+module.exports.__wbg_queueMicrotask_d3219def82552485 = function(arg0) {
+    const ret = arg0.queueMicrotask;
+    return ret;
+};
+
 module.exports.__wbg_randomFillSync_ac0988aba3254290 = function() { return handleError(function (arg0, arg1) {
     arg0.randomFillSync(arg1);
 }, arguments) };
@@ -901,6 +820,11 @@ module.exports.__wbg_require_60cc747a6bc5215a = function() { return handleError(
     const ret = module.require;
     return ret;
 }, arguments) };
+
+module.exports.__wbg_resolve_4851785c9c5f573d = function(arg0) {
+    const ret = Promise.resolve(arg0);
+    return ret;
+};
 
 module.exports.__wbg_setTimeout_2e707715f8cc9497 = function(arg0, arg1) {
     const ret = setTimeout(arg0, arg1);
@@ -983,6 +907,11 @@ module.exports.__wbg_subarray_aa9065fa9dc5df96 = function(arg0, arg1, arg2) {
     return ret;
 };
 
+module.exports.__wbg_then_44b73946d2fb3e7d = function(arg0, arg1) {
+    const ret = arg0.then(arg1);
+    return ret;
+};
+
 module.exports.__wbg_then_48b406749878a531 = function(arg0, arg1, arg2) {
     const ret = arg0.then(arg1, arg2);
     return ret;
@@ -1020,13 +949,13 @@ module.exports.__wbindgen_cb_drop = function(arg0) {
     return ret;
 };
 
-module.exports.__wbindgen_closure_wrapper3751 = function(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 1199, __wbg_adapter_30);
+module.exports.__wbindgen_closure_wrapper5483 = function(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 2054, __wbg_adapter_30);
     return ret;
 };
 
-module.exports.__wbindgen_closure_wrapper3787 = function(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 1222, __wbg_adapter_33);
+module.exports.__wbindgen_closure_wrapper5519 = function(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 2077, __wbg_adapter_33);
     return ret;
 };
 

@@ -17,6 +17,19 @@ import {
 } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair, QBCDeployContract } from "../types";
 import { waitMs } from "../utils";
+import {CoordinatorEdgeRpcProvider} from "../coord-edge-rpc";
+import {calculatePkHash} from "../types/pkhash";
+
+async function waitBlock(coordinator: CoordinatorEdgeRpcProvider): Promise<void> {
+    await coordinator.buildBlock();
+    await coordinator.buildBlock();
+    await coordinator.buildBlock();
+    await waitMs(3000);
+}
+
+function reverseString(str: string): string {
+    return str.split('').reverse().join('');
+}
 
 describe("QED WASM User Prover Provider Integration Tests", () => {
     let provider: QEDWasmUserProverProvider;
@@ -28,11 +41,15 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
     let testPublicKey: ZKPublicKeyInfo;
     let testKeypair: WalletKeyPair;
     let sessionId: string;
+    let coordinator: CoordinatorEdgeRpcProvider;
+    const MOCK_RPC_URL = process.env.TEST_COORD_EDGE_RPC_URL || "http://localhost:8545";
+
 
     beforeAll(async () => {
         // Initialize WASM provider with default configuration
         rpcConfig = createDefaultRpcConfig();
         provider = new QEDWasmUserProverProvider(rpcConfig);
+        coordinator = new CoordinatorEdgeRpcProvider(MOCK_RPC_URL);
 
         // Generate test keypair
         testKeypair = await provider.getRandomKeypair();
@@ -52,7 +69,7 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
                 const response = await provider.ping(message);
                 expect(response).toBeDefined();
                 expect(typeof response).toBe("string");
-                //expect(response).toContain(message);
+                expect(response).toContain(reverseString(message));
 
                 console.log("📡 Ping response:", response);
             },
@@ -89,6 +106,7 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
                 const registeredPublicKey: PublicKey = await provider.registerUser(testPrivateKey);
                 expect(registeredPublicKey).toBeDefined();
                 expect(typeof registeredPublicKey).toBe("string");
+                await waitBlock(coordinator);
 
                 console.log("👤 User registered with public key:", registeredPublicKey);
             },
@@ -99,6 +117,13 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
             "should add a user successfully",
             async () => {
                 const newKeypair = await provider.getRandomKeypair();
+                const registeredPublicKey: PublicKey = await provider.registerUser(newKeypair.private_key);
+                expect(registeredPublicKey).toBeDefined();
+                expect(typeof registeredPublicKey).toBe("string");
+
+                await waitBlock(coordinator);
+                console.log("👤 User registered with public key:", registeredPublicKey);
+
                 const addedPublicKey: PublicKey = await provider.addUser(newKeypair.private_key);
                 expect(addedPublicKey).toBeDefined();
                 expect(typeof addedPublicKey).toBe("string");
@@ -112,7 +137,8 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
             "should switch user successfully",
             async () => {
                 // Switch to the test user using fingerprint as PublicKey
-                await expect(provider.switchUser(testPublicKey.fingerprint)).resolves.not.toThrow();
+                const publicKeyHash = calculatePkHash(testPublicKey)
+                await expect(provider.switchUser(publicKeyHash)).resolves.not.toThrow();
 
                 console.log("🔄 Switched to user:", testPublicKey.fingerprint);
             },

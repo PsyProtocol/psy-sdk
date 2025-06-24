@@ -2,12 +2,12 @@ import { RpcConfig } from "./config";
 import { WasmRpcServer } from "./qed_user_prover";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
+    ContractCallArgs,
     DPNFunctionCircuitDefinition,
+    IQEDUserProverProvider,
     ProofWithPublicInputs,
     QBCDeployContract,
     SubmitUserEndCapNonProofInput,
-    ContractCallArgs,
-    IQEDUserProverProvider,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo } from "../types";
@@ -50,7 +50,7 @@ export class QEDWasmUserProverProvider implements IQEDUserProverProvider {
     }
 
     async switchUser(pkHash: PublicKey): Promise<void> {
-        this.wasmServer.switch_user(pkHash.toString());
+        return this.wasmServer.switch_user(pkHash.toString());
     }
 
     async getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo> {
@@ -77,8 +77,7 @@ export class QEDWasmUserProverProvider implements IQEDUserProverProvider {
 
     // Signing and submission
     async getSigHash(networkMagic: bigint): Promise<QHashOut> {
-        const result = this.wasmServer.get_sighash(networkMagic);
-        return result;
+        return this.wasmServer.get_sighash(networkMagic);
     }
 
     async getZKSignature(sighash: QHashOut): Promise<ProofWithPublicInputs> {
@@ -93,7 +92,7 @@ export class QEDWasmUserProverProvider implements IQEDUserProverProvider {
     }
 
     async getUserECInput(): Promise<SubmitUserEndCapNonProofInput> {
-        const json = this.wasmServer.get_user_ec_input_json();
+        const json = await this.wasmServer.get_user_ec_input_json();
         return QedJSON.parse(json);
     }
 
