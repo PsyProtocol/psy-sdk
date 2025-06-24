@@ -147,6 +147,19 @@ impl WasmRpcServer {
         })
     }
 
+    #[wasm_bindgen]
+    pub async fn exec_contract_call_json(&mut self, pk_hash: &str, contract_calls_json: &str) -> Result<String, JsError> {
+        let contract_call_args: Vec<ContractCallArgs> = serde_json::from_str(contract_calls_json)
+            .map_err(|e| JsError::new(&format!("Parse exec calls JSON error: {}", e)))?;
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        self.wallet_session.exec_contract_call(pk_hash, contract_call_args).await
+            .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
+        Ok("start session".to_string())
+    }
+
     // Local proving operations
     #[wasm_bindgen]
     pub async fn start_session(&self, pk_hash: &str) -> Result<String, JsError> {
