@@ -17,8 +17,8 @@ import {
 } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair, QBCDeployContract } from "../types";
 import { waitMs } from "../utils";
-import {CoordinatorEdgeRpcProvider} from "../coord-edge-rpc";
-import {calculatePkHash} from "../types/pkhash";
+import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
+import { calculatePkHash } from "../types/pkhash";
 
 async function waitBlock(coordinator: CoordinatorEdgeRpcProvider): Promise<void> {
     await coordinator.buildBlock();
@@ -28,7 +28,7 @@ async function waitBlock(coordinator: CoordinatorEdgeRpcProvider): Promise<void>
 }
 
 function reverseString(str: string): string {
-    return str.split('').reverse().join('');
+    return str.split("").reverse().join("");
 }
 
 describe("QED WASM User Prover Provider Integration Tests", () => {
@@ -43,7 +43,6 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
     let sessionId: string;
     let coordinator: CoordinatorEdgeRpcProvider;
     const MOCK_RPC_URL = process.env.TEST_COORD_EDGE_RPC_URL || "http://localhost:8545";
-
 
     beforeAll(async () => {
         // Initialize WASM provider with default configuration
@@ -137,7 +136,7 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
             "should switch user successfully",
             async () => {
                 // Switch to the test user using fingerprint as PublicKey
-                const publicKeyHash = calculatePkHash(testPublicKey)
+                const publicKeyHash = calculatePkHash(testPublicKey);
                 await expect(provider.switchUser(publicKeyHash)).resolves.not.toThrow();
 
                 console.log("🔄 Switched to user:", testPublicKey.fingerprint);
