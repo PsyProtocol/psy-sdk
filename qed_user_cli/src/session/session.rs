@@ -45,12 +45,10 @@ use crate::rpc::{
     provider::{QUserRpcProvider, RpcConfig, RpcProvider},
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
+use crate::subcommand::args::{ContractCallArgs, WalletSessionArgs};
+use crate::subcommand::deploy_contract::gen_contract_deploy_and_circuits_for_functions;
+use crate::subcommand::utils::prove_func;
 
-use super::{
-    args::{ContractCallArgs, WalletSessionArgs},
-    deploy_contract::gen_contract_deploy_and_circuits_for_functions,
-    utils::prove_func,
-};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -209,10 +207,10 @@ impl WalletSession {
                     user_id,
                     user_leaf_data.nonce + F::from_canonical_u64(1),
                     checkpoint_id,
-                    &self.st_provider,
+                    self.st_provider.clone(),
                     self.circuit_info.clone(),
                     &self.main_circuits,
-                )?,
+                ).await?,
             );
             tracing::info!(
                 "user {} {} added",
@@ -271,7 +269,7 @@ impl WalletSession {
                 user_session_mgr.user_id,
                 latest_nonce,
                 latest_l2_block_state.checkpoint_id,
-                &self.st_provider,
+                self.st_provider.clone(),
                 self.circuit_info.clone(),
                 &self.main_circuits,
             ).await?;
@@ -330,7 +328,7 @@ impl WalletSession {
         Ok(())
     }
 
-    pub fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
+    pub async fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
         let mut user_session_mgr = self
             .user_session_mgrs
             .get_mut(&pk_hash)
@@ -497,7 +495,7 @@ mod tests {
 
         let mut wallet_session = super::WalletSession::new(&rpc_config)?;
 
-        let deployer_pk_info = wallet_session.get_zk_public_key(private_key0);
+        let deployer_pk_info = wallet_session.get_zk_public_key(private_key0)?;
         wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
 
         let user0 = wallet_session.register_user(private_key0)?;

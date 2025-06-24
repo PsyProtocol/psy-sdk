@@ -194,17 +194,19 @@ pub trait QUserRpcProvider {
 impl QUserRpcProvider for RpcProvider {
     async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()> {
         tracing::info!("register user: {:?}", req);
+        let url = self.get_coordinator_url()?;
         qed_rpc_call!(
             self,
-            self.get_coordinator_url()?,
+            url,
             RequestParams::<F>::RegisterUser(req)
         )
     }
     async fn produce_block<F: RichField>(&self) -> anyhow::Result<()> {
         tracing::info!("produce block");
+        let url = self.get_coordinator_url()?;
         qed_rpc_call!(
             self,
-            self.get_coordinator_url()?,
+            url,
             RequestParams::<F>::ProduceBlock
         )
     }
@@ -248,9 +250,10 @@ impl QUserRpcProvider for RpcProvider {
 impl RpcProvider {
     pub async fn get_user_id<F: RichField>(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
         tracing::info!("user: {:?}", public_key);
+        let url =  self.get_coordinator_url()?;
         let response = qed_rpc_call_back!(
             self,
-            self.get_coordinator_url()?,
+           url,
             RequestParams::<F>::GetUserId(public_key),
             u64
         );
