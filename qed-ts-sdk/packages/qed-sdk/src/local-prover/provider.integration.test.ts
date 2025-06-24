@@ -8,7 +8,7 @@
  */
 
 import { createDefaultRpcConfig, RpcConfig } from "./config";
-import { QEDWasmUserProverProvider } from "./provider";
+import { QedWasmUserProverProvider } from "./provider";
 import { PrivateKey, PublicKey, QHashOut } from "../core";
 import {
     DPNFunctionCircuitDefinition,
@@ -32,7 +32,7 @@ function reverseString(str: string): string {
 }
 
 describe("QED WASM User Prover Provider Integration Tests", () => {
-    let provider: QEDWasmUserProverProvider;
+    let provider: QedWasmUserProverProvider;
     let rpcConfig: RpcConfig;
     const timeout = 60000; // 60 seconds timeout for WASM operations
 
@@ -48,7 +48,7 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
     beforeAll(async () => {
         // Initialize WASM provider with default configuration
         rpcConfig = createDefaultRpcConfig();
-        provider = new QEDWasmUserProverProvider(rpcConfig);
+        provider = new QedWasmUserProverProvider(rpcConfig);
         coordinator = new CoordinatorEdgeRpcProvider(MOCK_RPC_URL);
 
         // Generate test keypair

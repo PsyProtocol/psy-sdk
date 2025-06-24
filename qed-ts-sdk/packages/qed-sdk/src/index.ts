@@ -15,7 +15,7 @@ export * from "./realm-edge-rpc";
 // QED User Prover RPC exports
 export * from "./local-prover-rpc";
 
-export * from "./local-prover";
+export * from "./local-web-prover";
 
 export * from "./wallet";
 

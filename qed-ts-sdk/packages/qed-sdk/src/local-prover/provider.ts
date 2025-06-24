@@ -11,7 +11,7 @@ import {
 import { ZKPublicKeyInfo } from "../types";
 import { QedJSON } from "../utils";
 
-export class QEDWasmUserProverProvider implements IQedUserProverProvider {
+export class QedWasmUserProverProvider implements IQedUserProverProvider {
     private wasmServer: WasmRpcServer;
 
     constructor(rpcConfigJson: RpcConfig) {
