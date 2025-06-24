@@ -1,5 +1,5 @@
 {
-  "name": "qed_user_prover",
+  "name": "@qed/qed-user-prover",
   "type": "module",
   "version": "0.1.0",
   "files": [
@@ -11,5 +11,8 @@
   "types": "qed_user_prover.d.ts",
   "sideEffects": [
     "./snippets/*"
-  ]
+  ],
+  "dependencies": {
+    "@qed/qed-sdk": "workspace:*"
+  }
 }

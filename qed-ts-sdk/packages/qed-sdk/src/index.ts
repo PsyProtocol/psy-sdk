@@ -1,6 +1,7 @@
 export * from "./http";
 export * from "./core";
 export * from "./utils/felt";
+export * from "./utils/json";
 
 // Enhanced RPC Provider exports
 export * from "./provider";
@@ -19,3 +20,5 @@ export * from "./local-prover";
 export * from "./wallet";
 
 export * from "./zksigner";
+
+export { ZKPublicKeyInfo } from "./types";
