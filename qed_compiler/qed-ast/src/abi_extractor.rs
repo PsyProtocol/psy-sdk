@@ -35,7 +35,7 @@ impl AbiExtractor {
             .iter()
             .map(|param| ParameterAbi {
                 name: ctx.ident(param.name).0.to_string(),
-                param_type: TypeAbi::from_unchecked_type(&param.ty),
+                param_type: TypeAbi::from_unchecked_type(&param.ty, ctx),
                 qualifier: format!("{:?}", param.qualifier),
             })
             .collect();
@@ -49,7 +49,7 @@ impl AbiExtractor {
         FunctionAbi {
             name: ctx.ident(function.name).0.to_string(),
             parameters,
-            return_type: function.return_type.as_ref().map(TypeAbi::from_unchecked_type),
+            return_type: function.return_type.as_ref().map(|rt| TypeAbi::from_unchecked_type(rt, ctx)),
             generic_parameters,
             visibility: function.visibility.to_string(),
             is_const: function.qualifier.is_const,
@@ -66,7 +66,7 @@ impl AbiExtractor {
                     ctx.ident(*name).0.to_string(),
                     FieldAbi {
                         name: ctx.ident(*name).0.to_string(),
-                        field_type: TypeAbi::from_unchecked_type(&field.ty),
+                        field_type: TypeAbi::from_unchecked_type(&field.ty, ctx),
                         visibility: field.visibility.to_string(),
                     },
                 )
@@ -117,7 +117,7 @@ impl AbiExtractor {
             EnumVariant::Tuple(name, types) => VariantAbi {
                 name: ctx.ident(*name).0.to_string(),
                 variant_type: VariantTypeAbi::Tuple(
-                    types.iter().map(TypeAbi::from_unchecked_type).collect(),
+                    types.iter().map(|t| TypeAbi::from_unchecked_type(t, ctx)).collect(),
                 ),
             },
             EnumVariant::Struct(name, fields) => {
@@ -127,7 +127,7 @@ impl AbiExtractor {
                     .map(|(field_name, field)| {
                         (
                             ctx.ident(*field_name).0.to_string(),
-                            TypeAbi::from_unchecked_type(&field.ty),
+                            TypeAbi::from_unchecked_type(&field.ty, ctx),
                         )
                     })
                     .collect();
@@ -165,7 +165,7 @@ impl AbiExtractor {
                         constraints: assoc_type
                             .constraints
                             .iter()
-                            .map(TypeAbi::from_unchecked_type)
+                            .map(|c| TypeAbi::from_unchecked_type(c, ctx))
                             .collect(),
                         visibility: assoc_type.visibility.to_string(),
                     },

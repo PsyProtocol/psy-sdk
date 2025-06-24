@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, UncheckedType};
+use crate::{UncheckedType, VisitorContext};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ContractAbi {
@@ -128,10 +128,10 @@ impl ContractAbi {
 }
 
 impl TypeAbi {
-    pub fn from_unchecked_type(unchecked_type: &UncheckedType) -> Self {
+    pub fn from_unchecked_type<F: Clone + From<u32>>(unchecked_type: &UncheckedType, ctx: &crate::DefaultVisitorContext<F, ()>) -> Self {
         match unchecked_type {
             UncheckedType::Basic(identifier) => Self {
-                type_name: format!("{:?}", identifier),
+                type_name: ctx.ident(*identifier).0.to_string(),
                 generic_args: Vec::new(),
                 is_array: false,
                 array_size: None,
@@ -139,8 +139,8 @@ impl TypeAbi {
                 tuple_elements: Vec::new(),
             },
             UncheckedType::Generic(identifier, generics, _) => Self {
-                type_name: format!("{:?}", identifier),
-                generic_args: generics.iter().map(Self::from_unchecked_type).collect(),
+                type_name: ctx.ident(*identifier).0.to_string(),
+                generic_args: generics.iter().map(|g| Self::from_unchecked_type(g, ctx)).collect(),
                 is_array: false,
                 array_size: None,
                 is_tuple: false,
@@ -148,7 +148,7 @@ impl TypeAbi {
             },
             UncheckedType::Array(element_type, size, _) => Self {
                 type_name: "Array".to_string(),
-                generic_args: vec![Self::from_unchecked_type(element_type)],
+                generic_args: vec![Self::from_unchecked_type(element_type, ctx)],
                 is_array: true,
                 array_size: Some(*size),
                 is_tuple: false,
@@ -160,15 +160,11 @@ impl TypeAbi {
                 is_array: false,
                 array_size: None,
                 is_tuple: true,
-                tuple_elements: elements.iter().map(Self::from_unchecked_type).collect(),
+                tuple_elements: elements.iter().map(|e| Self::from_unchecked_type(e, ctx)).collect(),
             },
-            UncheckedType::Path(path) => Self {
-                type_name: format!("{:?}", path.target),
-                generic_args: Vec::new(),
-                is_array: false,
-                array_size: None,
-                is_tuple: false,
-                tuple_elements: Vec::new(),
+            UncheckedType::Path(path) => {
+                // For path types, recursively extract the target type
+                Self::from_unchecked_type(&path.target, ctx)
             },
             UncheckedType::FunctionSignature(_, _) => Self {
                 type_name: "Function".to_string(),
@@ -179,8 +175,8 @@ impl TypeAbi {
                 tuple_elements: Vec::new(),
             },
             UncheckedType::TraitCast(base_type, trait_type, _) => {
-                let mut base = Self::from_unchecked_type(base_type);
-                base.type_name = format!("{} as {}", base.type_name, Self::from_unchecked_type(trait_type).type_name);
+                let mut base = Self::from_unchecked_type(base_type, ctx);
+                base.type_name = format!("{} as {}", base.type_name, Self::from_unchecked_type(trait_type, ctx).type_name);
                 base
             },
             UncheckedType::Const(value, _) => Self {
