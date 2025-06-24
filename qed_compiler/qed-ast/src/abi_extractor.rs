@@ -41,11 +41,19 @@ impl AbiExtractor {
         for i in 0..ctx.program().defs.len() {
             let def_id = DefId::from(i);
             if let Some(struct_node) = ctx.definition(def_id).as_struct() {
+                let struct_name = ctx.ident(struct_node.name).0.to_string();
+                
+                // Skip internal types
+                if self.is_internal_type(&struct_name) {
+                    continue;
+                }
+                
                 let is_contract = self.has_contract_attr(struct_node, &ctx);
-                // Include contract structs regardless of visibility, but require public for others
-                if Self::is_public(&struct_node.visibility) || is_contract {
-                    let struct_name = ctx.ident(struct_node.name).0.to_string();
-                    
+                let is_public = Self::is_public(&struct_node.visibility);
+                
+                // Include all structs (both public and private)
+                // We'll let the user decide what should be in ABI
+                if true {
                     let fields = struct_node
                         .fields
                         .iter()
@@ -63,12 +71,10 @@ impl AbiExtractor {
                         functions: None,
                     };
 
-                    // If it's a contract, find associated functions
-                    if is_contract {
-                        let functions = self.find_impl_functions(&struct_name, &ctx);
-                        if !functions.is_empty() {
-                            struct_spec.functions = Some(functions);
-                        }
+                    // Find associated functions (only for contracts or when functions are explicitly associated)
+                    let functions = self.find_impl_functions(&struct_name, &ctx);
+                    if !functions.is_empty() {
+                        struct_spec.functions = Some(functions);
                     }
 
                     struct_map.insert(struct_name, struct_spec);
@@ -86,6 +92,26 @@ impl AbiExtractor {
 
     fn is_public(visibility: &Visibility) -> bool {
         matches!(visibility, Visibility::Public)
+    }
+
+    fn is_internal_type(&self, type_name: &str) -> bool {
+        // Filter out internal types that shouldn't appear in the ABI
+        // 1. Known internal types
+        if matches!(type_name, "ContractMetadata" | "StorageRef") {
+            return true;
+        }
+        
+        // 2. Generated Ref types (e.g., ContractRef, OtherUserInfoRef)
+        if type_name.ends_with("Ref") {
+            return true;
+        }
+        
+        false
+    }
+
+    fn is_internal_function(&self, function_name: &str) -> bool {
+        // Filter out internal functions that shouldn't appear in the ABI
+        matches!(function_name, "new" | "get" | "set")
     }
 
     fn has_contract_attr<F: Clone + From<u32>>(
@@ -118,7 +144,10 @@ impl AbiExtractor {
                     // Extract functions from this impl block
                     for &function_def_id in &impl_node.body {
                         if let Some(function) = ctx.definition(function_def_id).as_function() {
-                            if Self::is_public(&function.visibility) {
+                            let function_name = ctx.ident(function.name).0.to_string();
+                            
+                            // Skip internal functions and only include public functions
+                            if Self::is_public(&function.visibility) && !self.is_internal_function(&function_name) {
                                 let function_spec = self.extract_function_abi_spec(function, ctx);
                                 functions.push(function_spec);
                             }
