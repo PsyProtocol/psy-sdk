@@ -39,7 +39,7 @@ Parameters:
   
   WorkerInstanceType:
     Type: String
-    Default: c6i.2xlarge
+    Default: c6i.4xlarge
     AllowedValues:
       - c6i.xlarge    # 4 vCPU, 8 GiB RAM
       - c6i.2xlarge   # 8 vCPU, 16 GiB RAM
@@ -753,8 +753,6 @@ Resources:
         KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
         IamInstanceProfile:
           Name: !Ref WorkerInstanceProfile
-        InstanceMarketOptions:
-          MarketType: spot
         NetworkInterfaces:
           - DeviceIndex: 0
             DeleteOnTermination: true
@@ -911,8 +909,6 @@ Resources:
         KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
         IamInstanceProfile:
           Name: !Ref WorkerInstanceProfile
-        InstanceMarketOptions:
-          MarketType: spot
         NetworkInterfaces:
           - DeviceIndex: 0
             DeleteOnTermination: true
@@ -1068,8 +1064,6 @@ Resources:
         KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
         IamInstanceProfile:
           Name: !Ref WorkerInstanceProfile
-        InstanceMarketOptions:
-          MarketType: spot
         NetworkInterfaces:
           - DeviceIndex: 0
             DeleteOnTermination: true

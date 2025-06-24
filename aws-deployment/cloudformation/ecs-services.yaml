@@ -29,7 +29,7 @@ Parameters:
 
   MaxEdgeCount:
     Type: Number
-    Default: 10
+    Default: 3
     Description: Maximum number of edge instances
 
   MinWorkerCount:
@@ -39,7 +39,7 @@ Parameters:
 
   MaxWorkerCount:
     Type: Number
-    Default: 5
+    Default: 3
     Description: Maximum number of worker instances
 
   TargetCPUUtilization:
@@ -67,7 +67,8 @@ Resources:
         - Name: coordinator-processor
           Image: !Ref ContainerImage
           Memory: 8192
-          MemoryReservation: 4096
+          MemoryReservation: 6144
+          Cpu: 2048
           LinuxParameters:
             InitProcessEnabled: true
           Command:
@@ -101,8 +102,8 @@ Resources:
       NetworkMode: bridge
       RequiresCompatibilities:
         - EC2
-      Cpu: '4096'
-      Memory: '8192'
+      Cpu: '8192'
+      Memory: '16384'
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
       ContainerDefinitions:
@@ -120,11 +121,11 @@ Resources:
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
             - Name: WORKER_THREADS
-              Value: "4"
+              Value: "8"
             - Name: WORKER_PERFORMANCE_MODE
               Value: "high"
-          Memory: 8192
-          MemoryReservation: 6144
+          Memory: 12288
+          MemoryReservation: 8192
           Cpu: 4096
           LogConfiguration:
             LogDriver: awslogs
@@ -151,8 +152,9 @@ Resources:
       ContainerDefinitions:
         - Name: coordinator-edge
           Image: !Ref ContainerImage
-          Memory: 4096
-          MemoryReservation: 2048
+          Memory: 8192
+          MemoryReservation: 6144
+          Cpu: 2048
           LinuxParameters:
             InitProcessEnabled: true
           Command:
@@ -201,7 +203,8 @@ Resources:
         - Name: realm0-processor
           Image: !Ref ContainerImage
           Memory: 8192
-          MemoryReservation: 4096
+          MemoryReservation: 6144
+          Cpu: 2048
           LinuxParameters:
             InitProcessEnabled: true
           Command:
@@ -234,8 +237,8 @@ Resources:
       NetworkMode: bridge
       RequiresCompatibilities:
         - EC2
-      Cpu: '4096'
-      Memory: '8192'
+      Cpu: '8192'
+      Memory: '16384'
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
       ContainerDefinitions:
@@ -253,11 +256,11 @@ Resources:
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
             - Name: WORKER_THREADS
-              Value: "4"
+              Value: "8"
             - Name: WORKER_PERFORMANCE_MODE
               Value: "high"
-          Memory: 8192
-          MemoryReservation: 6144
+          Memory: 12288
+          MemoryReservation: 8192
           Cpu: 4096
           LogConfiguration:
             LogDriver: awslogs
@@ -284,8 +287,9 @@ Resources:
       ContainerDefinitions:
         - Name: realm0-edge
           Image: !Ref ContainerImage
-          Memory: 4096
-          MemoryReservation: 2048
+          Memory: 8192
+          MemoryReservation: 6144
+          Cpu: 2048
           LinuxParameters:
             InitProcessEnabled: true
           Command:
@@ -338,7 +342,8 @@ Resources:
         - Name: realm16384-processor
           Image: !Ref ContainerImage
           Memory: 8192
-          MemoryReservation: 4096
+          MemoryReservation: 6144
+          Cpu: 2048
           LinuxParameters:
             InitProcessEnabled: true
           Command:
@@ -376,8 +381,8 @@ Resources:
       NetworkMode: bridge
       RequiresCompatibilities:
         - EC2
-      Cpu: '4096'
-      Memory: '8192'
+      Cpu: '8192'
+      Memory: '16384'
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
       ContainerDefinitions:
@@ -398,11 +403,11 @@ Resources:
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
             - Name: WORKER_THREADS
-              Value: "4"
+              Value: "8"
             - Name: WORKER_PERFORMANCE_MODE
               Value: "high"
-          Memory: 8192
-          MemoryReservation: 6144
+          Memory: 12288
+          MemoryReservation: 8192
           Cpu: 4096
           LogConfiguration:
             LogDriver: awslogs
@@ -429,8 +434,9 @@ Resources:
       ContainerDefinitions:
         - Name: realm16384-edge
           Image: !Ref ContainerImage
-          Memory: 4096
-          MemoryReservation: 2048
+          Memory: 8192
+          MemoryReservation: 6144
+          Cpu: 2048
           LinuxParameters:
             InitProcessEnabled: true
           Command:
@@ -477,7 +483,7 @@ Resources:
       Name: !Sub ${ProjectName}-coord-edge-tg
       Port: 8545
       Protocol: HTTP
-      VpcId: 
+      VpcId:
         Fn::ImportValue: !Sub ${ProjectName}-vpc-id
       TargetType: instance
       HealthCheckEnabled: true
@@ -496,7 +502,7 @@ Resources:
       Name: !Sub ${ProjectName}-realm0-edge-tg
       Port: 8546
       Protocol: HTTP
-      VpcId: 
+      VpcId:
         Fn::ImportValue: !Sub ${ProjectName}-vpc-id
       TargetType: instance
       HealthCheckEnabled: true
@@ -515,7 +521,7 @@ Resources:
       Name: !Sub ${ProjectName}-realm16384-edge-tg
       Port: 8547
       Protocol: HTTP
-      VpcId: 
+      VpcId:
         Fn::ImportValue: !Sub ${ProjectName}-vpc-id
       TargetType: instance
       HealthCheckEnabled: true
@@ -532,7 +538,7 @@ Resources:
   CoordinatorALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      LoadBalancerArn: 
+      LoadBalancerArn:
         Fn::ImportValue: !Sub ${ProjectName}-alb-arn
       Port: 8545
       Protocol: HTTP
@@ -543,7 +549,7 @@ Resources:
   Realm0ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      LoadBalancerArn: 
+      LoadBalancerArn:
         Fn::ImportValue: !Sub ${ProjectName}-alb-arn
       Port: 8546
       Protocol: HTTP
@@ -554,7 +560,7 @@ Resources:
   Realm16384ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      LoadBalancerArn: 
+      LoadBalancerArn:
         Fn::ImportValue: !Sub ${ProjectName}-alb-arn
       Port: 8547
       Protocol: HTTP
@@ -907,27 +913,27 @@ Resources:
 Outputs:
   CoordinatorEndpoint:
     Description: Coordinator public endpoint
-    Value: !Sub 
+    Value: !Sub
       - http://${ALBDNS}:8545
-      - ALBDNS: 
+      - ALBDNS:
           Fn::ImportValue: !Sub ${ProjectName}-alb-dns
     Export:
       Name: !Sub ${ProjectName}-coordinator-endpoint
 
   Realm0Endpoint:
     Description: Realm 0 public endpoint
-    Value: !Sub 
+    Value: !Sub
       - http://${ALBDNS}:8546
-      - ALBDNS: 
+      - ALBDNS:
           Fn::ImportValue: !Sub ${ProjectName}-alb-dns
     Export:
       Name: !Sub ${ProjectName}-realm0-endpoint
 
   Realm16384Endpoint:
     Description: Realm 16384 public endpoint
-    Value: !Sub 
+    Value: !Sub
       - http://${ALBDNS}:8547
-      - ALBDNS: 
+      - ALBDNS:
           Fn::ImportValue: !Sub ${ProjectName}-alb-dns
     Export:
       Name: !Sub ${ProjectName}-realm16384-endpoint
