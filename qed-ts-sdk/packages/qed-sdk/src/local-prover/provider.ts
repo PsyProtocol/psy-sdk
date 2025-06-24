@@ -4,16 +4,14 @@ import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
-    IQEDUserProverProvider,
-    ProofWithPublicInputs,
+    IQedUserProverProvider,
     QBCDeployContract,
-    SubmitUserEndCapNonProofInput,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo } from "../types";
 import { QedJSON } from "../utils";
 
-export class QEDWasmUserProverProvider implements IQEDUserProverProvider {
+export class QEDWasmUserProverProvider implements IQedUserProverProvider {
     private wasmServer: WasmRpcServer;
 
     constructor(rpcConfigJson: RpcConfig) {
@@ -21,23 +19,28 @@ export class QEDWasmUserProverProvider implements IQEDUserProverProvider {
         this.wasmServer = new WasmRpcServer(json);
     }
 
-    // Local proving operations
-    async startSession(): Promise<string> {
-        return this.wasmServer.start_session();
-    }
-
-    async proveContractCall(contractCallArg: ContractCallArgs): Promise<string> {
+    async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
         const json = QedJSON.stringify(contractCallArg);
-        return this.wasmServer.prove_contract_call_json(json);
+        return this.wasmServer.exec_contract_call_json(pkHash, json);
     }
 
-    async proveContractCalls(contractCallArgs: ContractCallArgs[]): Promise<string> {
+    // Local proving operations
+    async startSession(pkHash: PublicKey): Promise<string> {
+        return this.wasmServer.start_session(pkHash);
+    }
+
+    async proveContractCall(pkHash: PublicKey, contractCallArg: ContractCallArgs): Promise<string> {
+        const json = QedJSON.stringify(contractCallArg);
+        return this.wasmServer.prove_contract_call_json(pkHash, json);
+    }
+
+    async proveContractCalls(pkHash: PublicKey, contractCallArgs: ContractCallArgs[]): Promise<string> {
         const json = QedJSON.stringify(contractCallArgs);
-        return this.wasmServer.prove_contract_calls_json(json);
+        return this.wasmServer.prove_contract_calls_json(pkHash, json);
     }
 
-    async signAndSubmit(): Promise<string> {
-        return this.wasmServer.sign_and_submit();
+    async signAndSubmit(pkHash: PublicKey): Promise<string> {
+        return this.wasmServer.sign_and_submit(pkHash);
     }
 
     // User operations
@@ -49,51 +52,29 @@ export class QEDWasmUserProverProvider implements IQEDUserProverProvider {
         return this.wasmServer.add_user(privateKey.toString());
     }
 
-    async switchUser(pkHash: PublicKey): Promise<void> {
-        return this.wasmServer.switch_user(pkHash.toString());
-    }
-
     async getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo> {
-        const json = this.wasmServer.get_zk_public_key_json(privateKey.toString());
+        const json = await this.wasmServer.get_zk_public_key_json(privateKey.toString());
         return QedJSON.parse(json);
     }
 
     async getRandomKeypair(): Promise<WalletKeyPair> {
-        const json = this.wasmServer.get_random_keypair_json();
+        const json = await this.wasmServer.get_random_keypair_json();
         return QedJSON.parse(json);
     }
 
     // Contract deployment
-    async deployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
+    async deployContract(deployer: PublicKey, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
         const json = QedJSON.stringify(circuitDefs);
-        return this.wasmServer.deploy_contract_json(json);
+        return this.wasmServer.deploy_contract_json(deployer, json);
     }
 
-    async getDeployContractCmd(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract> {
+    async getDeployContractCmd(
+        deployer: PublicKey,
+        circuitDefs: DPNFunctionCircuitDefinition[]
+    ): Promise<QBCDeployContract> {
         const json = QedJSON.stringify(circuitDefs);
-        const resultJson = this.wasmServer.get_deploy_contract_cmd_json(json);
+        const resultJson = await this.wasmServer.get_deploy_contract_cmd_json(deployer, json);
         return QedJSON.parse(resultJson);
-    }
-
-    // Signing and submission
-    async getSigHash(networkMagic: bigint): Promise<QHashOut> {
-        return this.wasmServer.get_sighash(networkMagic);
-    }
-
-    async getZKSignature(sighash: QHashOut): Promise<ProofWithPublicInputs> {
-        const json = this.wasmServer.get_zk_signature_json(sighash.toString());
-        return QedJSON.parse(json);
-    }
-
-    async getEndCapProof(signatureProof: ProofWithPublicInputs): Promise<ProofWithPublicInputs> {
-        const json = QedJSON.stringify(signatureProof);
-        const resultJson = this.wasmServer.get_end_cap_proof_json(json);
-        return QedJSON.parse(resultJson);
-    }
-
-    async getUserECInput(): Promise<SubmitUserEndCapNonProofInput> {
-        const json = await this.wasmServer.get_user_ec_input_json();
-        return QedJSON.parse(json);
     }
 
     // Utility methods

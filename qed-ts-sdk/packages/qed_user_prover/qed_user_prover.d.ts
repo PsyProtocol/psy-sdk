@@ -5,23 +5,19 @@ export function main(): void;
 export class WasmRpcServer {
     free(): void;
     constructor(rpc_config_json: string);
-    start_session(): Promise<string>;
-    prove_contract_call_json(contract_call_json: string): Promise<string>;
-    prove_contract_calls_json(contract_calls_json: string): Promise<string>;
-    sign_and_submit(): Promise<string>;
+    exec_contract_call_json(pk_hash: string, contract_calls_json: string): Promise<string>;
+    start_session(pk_hash: string): Promise<string>;
+    prove_contract_call_json(pk_hash: string, contract_call_json: string): Promise<string>;
+    prove_contract_calls_json(pk_hash: string, contract_calls_json: string): Promise<string>;
+    sign_and_submit(pk_hash: string): Promise<string>;
     register_user(private_key_str: string): Promise<string>;
     add_user(private_key_str: string): Promise<string>;
-    switch_user(pk_hash_str: string): Promise<void>;
-    get_zk_public_key_json(private_key_str: string): string;
-    get_random_keypair_json(): string;
-    deploy_contract_json(circuit_defs_json: string): Promise<string>;
-    get_deploy_contract_cmd_json(circuit_defs_json: string): string;
-    get_sighash(network_magic: bigint): string;
-    get_zk_signature_json(sighash_str: string): string;
-    get_end_cap_proof_json(signature_proof_json: string): string;
-    get_user_ec_input_json(): Promise<string>;
-    ping(message: string): string;
-    get_result(id_str: string): Uint8Array;
+    get_zk_public_key_json(private_key_str: string): Promise<string>;
+    get_random_keypair_json(): Promise<string>;
+    deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
+    get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): Promise<string>;
+    ping(message: string): Promise<string>;
+    get_result(id_str: string): Promise<Uint8Array>;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -30,35 +26,19 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_wasmrpcserver_free: (a: number, b: number) => void;
     readonly wasmrpcserver_new: (a: number, b: number) => [number, number, number];
-    readonly wasmrpcserver_start_session: (a: number) => any;
-    readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number) => any;
-    readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number) => any;
-    readonly wasmrpcserver_sign_and_submit: (a: number) => any;
+    readonly wasmrpcserver_exec_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
+    readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number) => any;
     readonly wasmrpcserver_register_user: (a: number, b: number, c: number) => any;
     readonly wasmrpcserver_add_user: (a: number, b: number, c: number) => any;
-    readonly wasmrpcserver_switch_user: (a: number, b: number, c: number) => any;
-    readonly wasmrpcserver_get_zk_public_key_json: (
-        a: number,
-        b: number,
-        c: number
-    ) => [number, number, number, number];
-    readonly wasmrpcserver_get_random_keypair_json: (a: number) => [number, number, number, number];
-    readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number) => any;
-    readonly wasmrpcserver_get_deploy_contract_cmd_json: (
-        a: number,
-        b: number,
-        c: number
-    ) => [number, number, number, number];
-    readonly wasmrpcserver_get_sighash: (a: number, b: bigint) => [number, number, number, number];
-    readonly wasmrpcserver_get_zk_signature_json: (a: number, b: number, c: number) => [number, number, number, number];
-    readonly wasmrpcserver_get_end_cap_proof_json: (
-        a: number,
-        b: number,
-        c: number
-    ) => [number, number, number, number];
-    readonly wasmrpcserver_get_user_ec_input_json: (a: number) => any;
-    readonly wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
-    readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
+    readonly wasmrpcserver_get_random_keypair_json: (a: number) => any;
+    readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_ping: (a: number, b: number, c: number) => any;
+    readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => any;
     readonly init_logging: () => void;
     readonly main: () => void;
     readonly __wbindgen_exn_store: (a: number) => void;
@@ -73,8 +53,8 @@ export interface InitOutput {
         a: number,
         b: number
     ) => void;
-    readonly closure2076_externref_shim: (a: number, b: number, c: any) => void;
-    readonly closure2327_externref_shim: (a: number, b: number, c: any, d: any) => void;
+    readonly closure2108_externref_shim: (a: number, b: number, c: any) => void;
+    readonly closure2359_externref_shim: (a: number, b: number, c: any, d: any) => void;
     readonly __wbindgen_start: () => void;
 }
 

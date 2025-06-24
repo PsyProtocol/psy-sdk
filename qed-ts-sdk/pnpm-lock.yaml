@@ -223,6 +223,8 @@ importers:
         specifier: ~5.0.0
         version: 5.0.7
 
+  packages/qed_user_prover: {}
+
   packages/utils:
     dependencies:
       uuid:

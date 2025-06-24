@@ -198,15 +198,15 @@ function debugString(val) {
     return className;
 }
 
+function getArrayU8FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
+}
+
 function takeFromExternrefTable0(idx) {
     const value = wasm.__wbindgen_export_2.get(idx);
     wasm.__externref_table_dealloc(idx);
     return value;
-}
-
-function getArrayU8FromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
 }
 
 export function init_logging() {
@@ -217,16 +217,16 @@ export function main() {
     wasm.main();
 }
 
-function __wbg_adapter_30(arg0, arg1) {
+function __wbg_adapter_32(arg0, arg1) {
     wasm._dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h057c9d17e6681a94(arg0, arg1);
 }
 
-function __wbg_adapter_33(arg0, arg1, arg2) {
-    wasm.closure2076_externref_shim(arg0, arg1, arg2);
+function __wbg_adapter_35(arg0, arg1, arg2) {
+    wasm.closure2108_externref_shim(arg0, arg1, arg2);
 }
 
-function __wbg_adapter_166(arg0, arg1, arg2, arg3) {
-    wasm.closure2327_externref_shim(arg0, arg1, arg2, arg3);
+function __wbg_adapter_164(arg0, arg1, arg2, arg3) {
+    wasm.closure2359_externref_shim(arg0, arg1, arg2, arg3);
 }
 
 const __wbindgen_enum_RequestCredentials = ["omit", "same-origin", "include"];
@@ -265,37 +265,62 @@ export class WasmRpcServer {
         return this;
     }
     /**
-     * @returns {Promise<string>}
-     */
-    start_session() {
-        const ret = wasm.wasmrpcserver_start_session(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @param {string} contract_call_json
-     * @returns {Promise<string>}
-     */
-    prove_contract_call_json(contract_call_json) {
-        const ptr0 = passStringToWasm0(contract_call_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.wasmrpcserver_prove_contract_call_json(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
+     * @param {string} pk_hash
      * @param {string} contract_calls_json
      * @returns {Promise<string>}
      */
-    prove_contract_calls_json(contract_calls_json) {
-        const ptr0 = passStringToWasm0(contract_calls_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    exec_contract_call_json(pk_hash, contract_calls_json) {
+        const ptr0 = passStringToWasm0(pk_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.wasmrpcserver_prove_contract_calls_json(this.__wbg_ptr, ptr0, len0);
+        const ptr1 = passStringToWasm0(contract_calls_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_exec_contract_call_json(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return ret;
     }
     /**
+     * @param {string} pk_hash
      * @returns {Promise<string>}
      */
-    sign_and_submit() {
-        const ret = wasm.wasmrpcserver_sign_and_submit(this.__wbg_ptr);
+    start_session(pk_hash) {
+        const ptr0 = passStringToWasm0(pk_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_start_session(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * @param {string} pk_hash
+     * @param {string} contract_call_json
+     * @returns {Promise<string>}
+     */
+    prove_contract_call_json(pk_hash, contract_call_json) {
+        const ptr0 = passStringToWasm0(pk_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(contract_call_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_prove_contract_call_json(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * @param {string} pk_hash
+     * @param {string} contract_calls_json
+     * @returns {Promise<string>}
+     */
+    prove_contract_calls_json(pk_hash, contract_calls_json) {
+        const ptr0 = passStringToWasm0(pk_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(contract_calls_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_prove_contract_calls_json(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * @param {string} pk_hash
+     * @returns {Promise<string>}
+     */
+    sign_and_submit(pk_hash) {
+        const ptr0 = passStringToWasm0(pk_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_sign_and_submit(this.__wbg_ptr, ptr0, len0);
         return ret;
     }
     /**
@@ -319,209 +344,67 @@ export class WasmRpcServer {
         return ret;
     }
     /**
-     * @param {string} pk_hash_str
-     * @returns {Promise<void>}
-     */
-    switch_user(pk_hash_str) {
-        const ptr0 = passStringToWasm0(pk_hash_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.wasmrpcserver_switch_user(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
      * @param {string} private_key_str
-     * @returns {string}
+     * @returns {Promise<string>}
      */
     get_zk_public_key_json(private_key_str) {
-        let deferred3_0;
-        let deferred3_1;
-        try {
-            const ptr0 = passStringToWasm0(private_key_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len0 = WASM_VECTOR_LEN;
-            const ret = wasm.wasmrpcserver_get_zk_public_key_json(this.__wbg_ptr, ptr0, len0);
-            var ptr2 = ret[0];
-            var len2 = ret[1];
-            if (ret[3]) {
-                ptr2 = 0; len2 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred3_0 = ptr2;
-            deferred3_1 = len2;
-            return getStringFromWasm0(ptr2, len2);
-        } finally {
-            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-        }
-    }
-    /**
-     * @returns {string}
-     */
-    get_random_keypair_json() {
-        let deferred2_0;
-        let deferred2_1;
-        try {
-            const ret = wasm.wasmrpcserver_get_random_keypair_json(this.__wbg_ptr);
-            var ptr1 = ret[0];
-            var len1 = ret[1];
-            if (ret[3]) {
-                ptr1 = 0; len1 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred2_0 = ptr1;
-            deferred2_1 = len1;
-            return getStringFromWasm0(ptr1, len1);
-        } finally {
-            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-        }
-    }
-    /**
-     * @param {string} circuit_defs_json
-     * @returns {Promise<string>}
-     */
-    deploy_contract_json(circuit_defs_json) {
-        const ptr0 = passStringToWasm0(circuit_defs_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr0 = passStringToWasm0(private_key_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.wasmrpcserver_deploy_contract_json(this.__wbg_ptr, ptr0, len0);
+        const ret = wasm.wasmrpcserver_get_zk_public_key_json(this.__wbg_ptr, ptr0, len0);
         return ret;
     }
     /**
-     * @param {string} circuit_defs_json
-     * @returns {string}
-     */
-    get_deploy_contract_cmd_json(circuit_defs_json) {
-        let deferred3_0;
-        let deferred3_1;
-        try {
-            const ptr0 = passStringToWasm0(circuit_defs_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len0 = WASM_VECTOR_LEN;
-            const ret = wasm.wasmrpcserver_get_deploy_contract_cmd_json(this.__wbg_ptr, ptr0, len0);
-            var ptr2 = ret[0];
-            var len2 = ret[1];
-            if (ret[3]) {
-                ptr2 = 0; len2 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred3_0 = ptr2;
-            deferred3_1 = len2;
-            return getStringFromWasm0(ptr2, len2);
-        } finally {
-            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-        }
-    }
-    /**
-     * @param {bigint} network_magic
-     * @returns {string}
-     */
-    get_sighash(network_magic) {
-        let deferred2_0;
-        let deferred2_1;
-        try {
-            const ret = wasm.wasmrpcserver_get_sighash(this.__wbg_ptr, network_magic);
-            var ptr1 = ret[0];
-            var len1 = ret[1];
-            if (ret[3]) {
-                ptr1 = 0; len1 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred2_0 = ptr1;
-            deferred2_1 = len1;
-            return getStringFromWasm0(ptr1, len1);
-        } finally {
-            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-        }
-    }
-    /**
-     * @param {string} sighash_str
-     * @returns {string}
-     */
-    get_zk_signature_json(sighash_str) {
-        let deferred3_0;
-        let deferred3_1;
-        try {
-            const ptr0 = passStringToWasm0(sighash_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len0 = WASM_VECTOR_LEN;
-            const ret = wasm.wasmrpcserver_get_zk_signature_json(this.__wbg_ptr, ptr0, len0);
-            var ptr2 = ret[0];
-            var len2 = ret[1];
-            if (ret[3]) {
-                ptr2 = 0; len2 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred3_0 = ptr2;
-            deferred3_1 = len2;
-            return getStringFromWasm0(ptr2, len2);
-        } finally {
-            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-        }
-    }
-    /**
-     * @param {string} signature_proof_json
-     * @returns {string}
-     */
-    get_end_cap_proof_json(signature_proof_json) {
-        let deferred3_0;
-        let deferred3_1;
-        try {
-            const ptr0 = passStringToWasm0(signature_proof_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len0 = WASM_VECTOR_LEN;
-            const ret = wasm.wasmrpcserver_get_end_cap_proof_json(this.__wbg_ptr, ptr0, len0);
-            var ptr2 = ret[0];
-            var len2 = ret[1];
-            if (ret[3]) {
-                ptr2 = 0; len2 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred3_0 = ptr2;
-            deferred3_1 = len2;
-            return getStringFromWasm0(ptr2, len2);
-        } finally {
-            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-        }
-    }
-    /**
      * @returns {Promise<string>}
      */
-    get_user_ec_input_json() {
-        const ret = wasm.wasmrpcserver_get_user_ec_input_json(this.__wbg_ptr);
+    get_random_keypair_json() {
+        const ret = wasm.wasmrpcserver_get_random_keypair_json(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @param {string} deployer
+     * @param {string} circuit_defs_json
+     * @returns {Promise<string>}
+     */
+    deploy_contract_json(deployer, circuit_defs_json) {
+        const ptr0 = passStringToWasm0(deployer, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(circuit_defs_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_deploy_contract_json(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * @param {string} deployer
+     * @param {string} circuit_defs_json
+     * @returns {Promise<string>}
+     */
+    get_deploy_contract_cmd_json(deployer, circuit_defs_json) {
+        const ptr0 = passStringToWasm0(deployer, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(circuit_defs_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_get_deploy_contract_cmd_json(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return ret;
     }
     /**
      * @param {string} message
-     * @returns {string}
+     * @returns {Promise<string>}
      */
     ping(message) {
-        let deferred3_0;
-        let deferred3_1;
-        try {
-            const ptr0 = passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len0 = WASM_VECTOR_LEN;
-            const ret = wasm.wasmrpcserver_ping(this.__wbg_ptr, ptr0, len0);
-            var ptr2 = ret[0];
-            var len2 = ret[1];
-            if (ret[3]) {
-                ptr2 = 0; len2 = 0;
-                throw takeFromExternrefTable0(ret[2]);
-            }
-            deferred3_0 = ptr2;
-            deferred3_1 = len2;
-            return getStringFromWasm0(ptr2, len2);
-        } finally {
-            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
-        }
+        const ptr0 = passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_ping(this.__wbg_ptr, ptr0, len0);
+        return ret;
     }
     /**
      * @param {string} id_str
-     * @returns {Uint8Array}
+     * @returns {Promise<Uint8Array>}
      */
     get_result(id_str) {
         const ptr0 = passStringToWasm0(id_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.wasmrpcserver_get_result(this.__wbg_ptr, ptr0, len0);
-        if (ret[3]) {
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-        return v2;
+        return ret;
     }
 }
 
@@ -719,7 +602,7 @@ function __wbg_get_imports() {
                 const a = state0.a;
                 state0.a = 0;
                 try {
-                    return __wbg_adapter_166(a, state0.b, arg0, arg1);
+                    return __wbg_adapter_164(a, state0.b, arg0, arg1);
                 } finally {
                     state0.a = a;
                 }
@@ -903,12 +786,12 @@ function __wbg_get_imports() {
         const ret = false;
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper5483 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 2054, __wbg_adapter_30);
+    imports.wbg.__wbindgen_closure_wrapper5304 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 2086, __wbg_adapter_32);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper5519 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 2077, __wbg_adapter_33);
+    imports.wbg.__wbindgen_closure_wrapper5340 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 2109, __wbg_adapter_35);
         return ret;
     };
     imports.wbg.__wbindgen_debug_string = function(arg0, arg1) {
@@ -967,6 +850,12 @@ function __wbg_get_imports() {
     };
     imports.wbg.__wbindgen_throw = function(arg0, arg1) {
         throw new Error(getStringFromWasm0(arg0, arg1));
+    };
+    imports.wbg.__wbindgen_uint8_array_new = function(arg0, arg1) {
+        var v0 = getArrayU8FromWasm0(arg0, arg1).slice();
+        wasm.__wbindgen_free(arg0, arg1 * 1, 1);
+        const ret = v0;
+        return ret;
     };
 
     return imports;

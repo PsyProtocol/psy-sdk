@@ -12,13 +12,11 @@ import { QEDWasmUserProverProvider } from "./provider";
 import { PrivateKey, PublicKey, QHashOut } from "../core";
 import {
     DPNFunctionCircuitDefinition,
-    ProofWithPublicInputs,
-    SubmitUserEndCapNonProofInput,
 } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair, QBCDeployContract } from "../types";
 import { waitMs } from "../utils";
 import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
-import { calculatePkHash } from "../types/pkhash";
+import {calculatePkHash} from "../types/pkhash";
 
 async function waitBlock(coordinator: CoordinatorEdgeRpcProvider): Promise<void> {
     await coordinator.buildBlock();
@@ -40,6 +38,7 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
     let testPrivateKey: PrivateKey;
     let testPublicKey: ZKPublicKeyInfo;
     let testKeypair: WalletKeyPair;
+    let testPkHash: PublicKey;
     let sessionId: string;
     let coordinator: CoordinatorEdgeRpcProvider;
     const MOCK_RPC_URL = process.env.TEST_COORD_EDGE_RPC_URL || "http://localhost:8545";
@@ -54,6 +53,7 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
         testKeypair = await provider.getRandomKeypair();
         testPrivateKey = testKeypair.private_key;
         testPublicKey = testKeypair.public_key;
+        testPkHash = calculatePkHash(testPublicKey);
 
         console.log("🔧 WASM Provider initialized with test keypair");
         console.log("🔑 Test Public Key fingerprint:", testPublicKey.fingerprint);
@@ -76,23 +76,23 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
         );
 
         it(
-            "should start a session successfully",
+            "should generate random keypair",
             async () => {
-                sessionId = await provider.startSession();
-                expect(sessionId).toBeDefined();
-                expect(typeof sessionId).toBe("string");
-                expect(sessionId.length).toBeGreaterThan(0);
-
-                console.log("🚀 Session started:", sessionId);
+                const keypair = await provider.getRandomKeypair();
+                console.log("🔑 Generated keypair:", keypair);
             },
             timeout
         );
 
         it(
-            "should generate random keypair",
+            "should start a session successfully",
             async () => {
-                const keypair = await provider.getRandomKeypair();
-                console.log("🔑 Generated keypair:", keypair);
+                sessionId = await provider.startSession(testPkHash);
+                expect(sessionId).toBeDefined();
+                expect(typeof sessionId).toBe("string");
+                expect(sessionId.length).toBeGreaterThan(0);
+
+                console.log("🚀 Session started:", sessionId);
             },
             timeout
         );
@@ -128,18 +128,6 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
                 expect(typeof addedPublicKey).toBe("string");
 
                 console.log("➕ User added with public key:", addedPublicKey);
-            },
-            timeout
-        );
-
-        it(
-            "should switch user successfully",
-            async () => {
-                // Switch to the test user using fingerprint as PublicKey
-                const publicKeyHash = calculatePkHash(testPublicKey);
-                await expect(provider.switchUser(publicKeyHash)).resolves.not.toThrow();
-
-                console.log("🔄 Switched to user:", testPublicKey.fingerprint);
             },
             timeout
         );
@@ -184,7 +172,7 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
         it(
             "should get deploy contract command",
             async () => {
-                deployContractCmd = await provider.getDeployContractCmd(mockCircuitDefs);
+                deployContractCmd = await provider.getDeployContractCmd(testPkHash, mockCircuitDefs);
                 expect(deployContractCmd).toBeDefined();
                 expect(deployContractCmd.deployer).toBeDefined();
                 expect(deployContractCmd.code_definition).toBeDefined();
@@ -202,7 +190,7 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
         it(
             "should deploy contract successfully",
             async () => {
-                const deployResult = await provider.deployContract(mockCircuitDefs);
+                const deployResult = await provider.deployContract(testPkHash, mockCircuitDefs);
                 expect(deployResult).toBeDefined();
                 expect(typeof deployResult).toBe("string");
 
@@ -220,7 +208,7 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
                     inputs: [BigInt(10), BigInt(20)],
                 };
 
-                const proofResult = await provider.proveContractCall(contractCallArgs);
+                const proofResult = await provider.proveContractCall(testPkHash, contractCallArgs);
                 expect(proofResult).toBeDefined();
                 expect(typeof proofResult).toBe("string");
 
@@ -245,7 +233,7 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
                     },
                 ];
 
-                const proofResult = await provider.proveContractCalls(contractCallArgs);
+                const proofResult = await provider.proveContractCalls(testPkHash, contractCallArgs);
                 expect(proofResult).toBeDefined();
                 expect(typeof proofResult).toBe("string");
 
@@ -256,81 +244,10 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
     });
 
     describe("Signing and Submission Operations", () => {
-        let sighash: QHashOut;
-        let zkSignature: ProofWithPublicInputs;
-        let endCapProof: ProofWithPublicInputs;
-
-        it(
-            "should get signature hash",
-            async () => {
-                const networkMagic = BigInt(12345);
-                sighash = await provider.getSigHash(networkMagic);
-                expect(sighash).toBeDefined();
-                expect(typeof sighash).toBe("string");
-
-                console.log("🔐 Signature hash:", sighash.substring(0, 20) + "...");
-            },
-            timeout
-        );
-
-        it(
-            "should get ZK signature",
-            async () => {
-                if (!sighash) {
-                    sighash = await provider.getSigHash(BigInt(12345));
-                }
-
-                zkSignature = await provider.getZKSignature(sighash);
-                expect(zkSignature).toBeDefined();
-                expect(zkSignature.proof).toBeDefined();
-                expect(zkSignature.public_inputs).toBeDefined();
-                expect(Array.isArray(zkSignature.public_inputs)).toBe(true);
-
-                console.log("✍️ ZK signature generated with", zkSignature.public_inputs.length, "public inputs");
-            },
-            timeout
-        );
-
-        it(
-            "should get end cap proof",
-            async () => {
-                if (!zkSignature) {
-                    const tempSighash = await provider.getSigHash(BigInt(12345));
-                    zkSignature = await provider.getZKSignature(tempSighash);
-                }
-
-                endCapProof = await provider.getEndCapProof(zkSignature);
-                expect(endCapProof).toBeDefined();
-                expect(endCapProof.proof).toBeDefined();
-                expect(endCapProof.public_inputs).toBeDefined();
-
-                console.log("🏁 End cap proof generated with", endCapProof.public_inputs.length, "public inputs");
-            },
-            timeout
-        );
-
-        it(
-            "should get user EC input",
-            async () => {
-                const userECInput: SubmitUserEndCapNonProofInput = await provider.getUserECInput();
-                expect(userECInput).toBeDefined();
-                expect(userECInput.core).toBeDefined();
-                expect(userECInput.contract_state_updates).toBeDefined();
-                expect(Array.isArray(userECInput.contract_state_updates)).toBe(true);
-
-                console.log(
-                    "📊 User EC input generated with",
-                    userECInput.contract_state_updates.length,
-                    "contract updates"
-                );
-            },
-            timeout
-        );
-
         it(
             "should sign and submit successfully",
             async () => {
-                const submitResult = await provider.signAndSubmit();
+                const submitResult = await provider.signAndSubmit(testPkHash);
                 expect(submitResult).toBeDefined();
                 expect(typeof submitResult).toBe("string");
 
@@ -382,7 +299,7 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
                     inputs: [],
                 };
 
-                await expect(provider.proveContractCall(invalidContractCall)).rejects.toThrow();
+                await expect(provider.proveContractCall(testPkHash, invalidContractCall)).rejects.toThrow();
                 console.log("❌ Invalid contract call properly rejected");
             },
             timeout
@@ -393,7 +310,7 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
             async () => {
                 const emptyCircuitDefs: DPNFunctionCircuitDefinition[] = [];
 
-                await expect(provider.deployContract(emptyCircuitDefs)).rejects.toThrow();
+                await expect(provider.deployContract(testPkHash, emptyCircuitDefs)).rejects.toThrow();
                 console.log("❌ Empty circuit definitions properly rejected");
             },
             timeout
