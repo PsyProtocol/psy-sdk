@@ -836,7 +836,7 @@ deploy_infrastructure() {
         --parameter-overrides \
             ProjectName=${PROJECT_NAME} \
             Environment=${ENVIRONMENT:-production} \
-            WorkerInstanceType=${WORKER_INSTANCE_TYPE:-c6i.2xlarge} \
+            WorkerInstanceType=${WORKER_INSTANCE_TYPE:-c6i.4xlarge} \
             KeyPairName=${KEY_PAIR_NAME} \
         --capabilities CAPABILITY_NAMED_IAM \
         --region ${AWS_REGION} \

@@ -112,8 +112,8 @@ SLOT_ID                  := 0
 CONTRACT_STATE_HEIGHT    := 32
 REALM_ID                 := 0
 
-COORDINATOR_RPC_URL      := http://127.0.0.1:8545
-REALM_RPC_URL            := http://127.0.0.1:8546
+COORDINATOR_RPC_URL      := $(shell jq -r '.coordinator_configs[].rpc_url[]' rpc.config)
+REALM_RPC_URL            := $(shell jq -r '.realm_configs[0].rpc_url[]' rpc.config)
 
 init:
 	@mkdir -p $(PWD)/db
