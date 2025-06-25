@@ -126,7 +126,7 @@ export const usePersistentWallet = () => {
                 // Clean the data to remove any BigInt or non-serializable values
                 const cleanWalletData = {
                   userId: typeof wallet.userId === 'bigint' ? Number(wallet.userId) : wallet.userId,
-                  name: wallet.name || `Wallet ${wallet.userId}`,
+                  name: wallet.name || `${wallet.userId}`,
                   address: wallet.address,
                   balance: typeof wallet.balance === 'bigint' ? wallet.balance.toString() : wallet.balance,
                   networkId: wallet.networkId,
@@ -141,7 +141,7 @@ export const usePersistentWallet = () => {
                 // Clean the fallback data too
                 return {
                   userId: typeof wallet.userId === 'bigint' ? Number(wallet.userId) : wallet.userId,
-                  name: wallet.name || `Wallet ${wallet.userId}`,
+                  name: wallet.name || `${wallet.userId}`,
                   address: wallet.address,
                   balance: typeof wallet.balance === 'bigint' ? wallet.balance.toString() : wallet.balance,
                   networkId: wallet.networkId,

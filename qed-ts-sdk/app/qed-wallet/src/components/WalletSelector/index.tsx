@@ -33,7 +33,7 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({
 
   const displayWallet = currentWallet || {
     name: config.wallet.defaultWalletName,
-    address: 'No wallet',
+    address: '******',
     avatar: '',
   };
 
@@ -56,6 +56,7 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({
               />
               <WalletInfo>
                 <WalletName>{displayWallet.name}</WalletName>
+                <WalletName>0x{displayWallet.address?.substring(0, 6)}</WalletName>
               </WalletInfo>
               <ChevronIcon
                 style={{
@@ -88,7 +89,8 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({
                     onSelectWallet?.(Number(wallet.userId));
                   }}
                 >
-                  {`${wallet.name}: 0x${wallet.address?.substring(0, 6)}`}
+                  <Text size="sm">{wallet.name}</Text>
+                  <Text size="sm">0x{wallet.address?.substring(0, 6)}</Text>
                 </Menu.Item>
               ))}
               <Menu.Divider />

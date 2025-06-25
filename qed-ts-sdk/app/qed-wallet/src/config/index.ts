@@ -87,7 +87,7 @@ export const defaultConfig: WalletConfig = {
     nativeCurrency: "0"
   },
   wallet: {
-    defaultWalletName: 'Wallet 1',
+    defaultWalletName: '0',
     enableAutoRefresh: true,
     refreshInterval: 30000, // 30 seconds
   },

@@ -47,11 +47,20 @@ export const WalletInfo = styled.div`
 export const WalletName = styled.span`
   color: ${config.theme.colors.text};
   font-weight: 500;
-  font-size: 14px;
+  font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 120px;
+  display: flex;
+`;
+
+export const CheckPoint = styled.span`
+  color: ${config.theme.colors.text};
+  flex: 1; 
+  font-size: 13px;
+  textAlign: 'center';
+  display: flex;
 `;
 
 export const ChevronIcon = styled.div`

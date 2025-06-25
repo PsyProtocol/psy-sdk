@@ -22,6 +22,7 @@ import {
     SettingsButton
 } from "./ExtensionHome.styles";
 import { useBlockNumber } from 'packages/qed-wallet-widget/src/utils/data';
+import { CheckPoint } from '../../components/WalletSelector/WalletSelector.styles';
 
 export const ExtensionContent: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'home' | 'tokens'>('home');
@@ -189,7 +190,7 @@ export const ExtensionContent: React.FC = () => {
                     <WalletSelector
                         wallets={wallets}
                         currentWallet={currentWallet ? {
-                            name: `Wallet ${currentWallet.name}: 0x${currentWallet.address?.substring(0, 6)}`,
+                            name: currentWallet.name,
                             address: currentWallet.address
                         } : undefined}
                         onNewWallet={handleNewWallet}
@@ -198,9 +199,9 @@ export const ExtensionContent: React.FC = () => {
                         onSelectWallet={handleSelectWallet}
                     />
                 </HeaderLeft>
-                <div style={{ flex: 1, textAlign: 'center', color: config.theme.colors.text }}>
+                <CheckPoint>
                     Checkpoint: {checkpointId}
-                </div>
+                </CheckPoint>
                 <HeaderRight>
                     <SettingsButton onClick={() => setNetworkSettingsOpen(true)}>
                         <IconSettings size={20} />
