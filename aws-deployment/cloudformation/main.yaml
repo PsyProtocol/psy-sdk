@@ -261,6 +261,10 @@ Resources:
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
           FromPort: 6379
           ToPort: 6379
           CidrIp: 10.0.0.0/16
@@ -273,8 +277,12 @@ Resources:
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 6379
-          ToPort: 6379
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 6380
+          ToPort: 6380
           CidrIp: 10.0.0.0/16
 
   Realm16384RedisSecurityGroup:
@@ -285,8 +293,12 @@ Resources:
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 6379
-          ToPort: 6379
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 6381
+          ToPort: 6381
           CidrIp: 10.0.0.0/16
 
   ALBSecurityGroup:
@@ -366,197 +378,152 @@ Resources:
   # ECR Repository (managed externally)
 
   # Redis on EC2 - Independent instances for each Realm
-  CoordinatorRedisInstance:
-    Type: AWS::EC2::Instance
+  # Redis Launch Template for Auto Scaling Group
+  RedisLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
     Properties:
-      ImageId: !Ref LatestAmiId
-      InstanceType: t3.small
-      KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
-      IamInstanceProfile: !Ref WorkerInstanceProfile
-      SubnetId: !Ref CoordinatorSubnet
-      SecurityGroupIds:
-        - !Ref CoordinatorRedisSecurityGroup
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          set -e
-          exec > /var/log/user-data.log 2>&1
-          echo "Starting Coordinator Redis setup at $(date)..."
-          
-          # Update system
-          apt-get update -y || { echo "apt-get update failed"; exit 1; }
-          apt-get install -y docker.io awscli || { echo "Package install failed"; exit 1; }
-          systemctl enable docker
-          systemctl start docker
-          
-          # Wait for Docker to be ready
-          sleep 10
-          
-          # Create data directory
-          mkdir -p /data/redis
-          
-          # Run Redis container
-          echo "Starting Redis container..."
-          docker run -d \
-            --name redis \
-            -p 6379:6379 \
-            -v /data/redis:/data \
-            --restart always \
-            redis:7-alpine \
-            redis-server --appendonly yes --dir /data || { echo "Redis failed"; exit 1; }
-          
-          # Wait for container to be ready
-          sleep 10
-          echo "Redis container started successfully"
-          
-          # Store endpoint in SSM Parameter Store
-          echo "Getting instance IP and storing SSM parameter..."
-          INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
-          echo "Instance IP: $INSTANCE_IP"
-          
-          aws ssm put-parameter \
-            --name "/${ProjectName}/redis/coordinator/endpoint" \
-            --value "$INSTANCE_IP:6379" \
-            --type String \
-            --overwrite \
-            --region ${AWS::Region} || { echo "SSM parameter failed"; exit 1; }
-          
-          echo "Coordinator Redis setup completed successfully at $(date)"
-      Tags:
-        - Key: Name
-          Value: !Sub ${ProjectName}-coordinator-redis
-        - Key: Project
-          Value: !Ref ProjectName
-        - Key: Realm
-          Value: coordinator
+      LaunchTemplateName: !Sub ${ProjectName}-redis-lt
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: r6i.2xlarge
+        KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
+        IamInstanceProfile:
+          Name: !Ref WorkerInstanceProfile
+        SecurityGroupIds:
+          - !Ref CoordinatorRedisSecurityGroup
+          - !Ref Realm0RedisSecurityGroup
+          - !Ref Realm16384RedisSecurityGroup
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Project
+                Value: !Ref ProjectName
+              - Key: Component
+                Value: redis
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+            exec > /var/log/user-data.log 2>&1
+            echo "Starting Multi-Redis setup at $(date)..."
+            
+            # Update system
+            apt-get update -y || { echo "apt-get update failed"; exit 1; }
+            apt-get install -y docker.io awscli || { echo "Package install failed"; exit 1; }
+            systemctl enable docker
+            systemctl start docker
+            
+            # Wait for Docker to be ready
+            sleep 10
+            
+            # Get instance IP
+            INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+            echo "Instance IP: $INSTANCE_IP"
+            
+            # Create data directories for 3 Redis instances
+            mkdir -p /data/redis-coordinator /data/redis-realm0 /data/redis-realm16384
+            
+            # Run Coordinator Redis (port 6379)
+            echo "Starting Coordinator Redis container..."
+            docker run -d \
+              --name redis-coordinator \
+              -p 6379:6379 \
+              -v /data/redis-coordinator:/data \
+              --restart always \
+              --memory=20g \
+              redis:7-alpine \
+              redis-server \
+                --appendonly yes \
+                --dir /data \
+                --maxmemory 18gb \
+                --maxmemory-policy allkeys-lru \
+                --port 6379 || { echo "Coordinator Redis failed"; exit 1; }
+            
+            # Run Realm0 Redis (port 6380)
+            echo "Starting Realm0 Redis container..."
+            docker run -d \
+              --name redis-realm0 \
+              -p 6380:6379 \
+              -v /data/redis-realm0:/data \
+              --restart always \
+              --memory=20g \
+              redis:7-alpine \
+              redis-server \
+                --appendonly yes \
+                --dir /data \
+                --maxmemory 18gb \
+                --maxmemory-policy allkeys-lru \
+                --port 6379 || { echo "Realm0 Redis failed"; exit 1; }
+            
+            # Run Realm16384 Redis (port 6381)
+            echo "Starting Realm16384 Redis container..."
+            docker run -d \
+              --name redis-realm16384 \
+              -p 6381:6379 \
+              -v /data/redis-realm16384:/data \
+              --restart always \
+              --memory=20g \
+              redis:7-alpine \
+              redis-server \
+                --appendonly yes \
+                --dir /data \
+                --maxmemory 18gb \
+                --maxmemory-policy allkeys-lru \
+                --port 6379 || { echo "Realm16384 Redis failed"; exit 1; }
+            
+            # Wait for containers to be ready
+            sleep 15
+            echo "All Redis containers started successfully"
+            
+            # Store endpoints in SSM Parameter Store
+            echo "Storing SSM parameters..."
+            aws ssm put-parameter \
+              --name "/${ProjectName}/redis/coordinator/endpoint" \
+              --value "$INSTANCE_IP:6379" \
+              --type String \
+              --overwrite \
+              --region ${AWS::Region} || echo "Coordinator SSM parameter failed"
+            
+            aws ssm put-parameter \
+              --name "/${ProjectName}/redis/realm0/endpoint" \
+              --value "$INSTANCE_IP:6380" \
+              --type String \
+              --overwrite \
+              --region ${AWS::Region} || echo "Realm0 SSM parameter failed"
+            
+            aws ssm put-parameter \
+              --name "/${ProjectName}/redis/realm16384/endpoint" \
+              --value "$INSTANCE_IP:6381" \
+              --type String \
+              --overwrite \
+              --region ${AWS::Region} || echo "Realm16384 SSM parameter failed"
+            
+            echo "Multi-Redis setup completed successfully at $(date)"
 
-  Realm0RedisInstance:
-    Type: AWS::EC2::Instance
+  # Redis Auto Scaling Group
+  RedisAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      ImageId: !Ref LatestAmiId
-      InstanceType: t3.small
-      KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
-      IamInstanceProfile: !Ref WorkerInstanceProfile
-      SubnetId: !Ref Realm0Subnet
-      SecurityGroupIds:
-        - !Ref Realm0RedisSecurityGroup
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          set -e
-          exec > /var/log/user-data.log 2>&1
-          echo "Starting Realm 0 Redis setup at $(date)..."
-          
-          # Update system
-          apt-get update -y || { echo "apt-get update failed"; exit 1; }
-          apt-get install -y docker.io awscli || { echo "Package install failed"; exit 1; }
-          systemctl enable docker
-          systemctl start docker
-          
-          # Wait for Docker to be ready
-          sleep 10
-          
-          # Create data directory
-          mkdir -p /data/redis
-          
-          # Run Redis container
-          echo "Starting Redis container..."
-          docker run -d \
-            --name redis \
-            -p 6379:6379 \
-            -v /data/redis:/data \
-            --restart always \
-            redis:7-alpine \
-            redis-server --appendonly yes --dir /data || { echo "Redis failed"; exit 1; }
-          
-          # Wait for container to be ready
-          sleep 10
-          echo "Redis container started successfully"
-          
-          # Store endpoint in SSM Parameter Store
-          echo "Getting instance IP and storing SSM parameter..."
-          INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
-          echo "Instance IP: $INSTANCE_IP"
-          
-          aws ssm put-parameter \
-            --name "/${ProjectName}/redis/realm0/endpoint" \
-            --value "$INSTANCE_IP:6379" \
-            --type String \
-            --overwrite \
-            --region ${AWS::Region} || { echo "SSM parameter failed"; exit 1; }
-          
-          echo "Realm 0 Redis setup completed successfully at $(date)"
+      AutoScalingGroupName: !Sub ${ProjectName}-redis-asg
+      LaunchTemplate:
+        LaunchTemplateId: !Ref RedisLaunchTemplate
+        Version: !GetAtt RedisLaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 3
+      DesiredCapacity: 1
+      VPCZoneIdentifier:
+        - !Ref CoordinatorSubnet
+        - !Ref Realm0Subnet
+        - !Ref Realm16384Subnet
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-realm0-redis
+          Value: !Sub ${ProjectName}-redis-cluster
+          PropagateAtLaunch: true
         - Key: Project
           Value: !Ref ProjectName
-        - Key: Realm
-          Value: realm0
-
-  Realm16384RedisInstance:
-    Type: AWS::EC2::Instance
-    Properties:
-      ImageId: !Ref LatestAmiId
-      InstanceType: t3.small
-      KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
-      IamInstanceProfile: !Ref WorkerInstanceProfile
-      SubnetId: !Ref Realm16384Subnet
-      SecurityGroupIds:
-        - !Ref Realm16384RedisSecurityGroup
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          set -e
-          exec > /var/log/user-data.log 2>&1
-          echo "Starting Realm 16384 Redis setup at $(date)..."
-          
-          # Update system
-          apt-get update -y || { echo "apt-get update failed"; exit 1; }
-          apt-get install -y docker.io awscli || { echo "Package install failed"; exit 1; }
-          systemctl enable docker
-          systemctl start docker
-          
-          # Wait for Docker to be ready
-          sleep 10
-          
-          # Create data directory
-          mkdir -p /data/redis
-          
-          # Run Redis container
-          echo "Starting Redis container..."
-          docker run -d \
-            --name redis \
-            -p 6379:6379 \
-            -v /data/redis:/data \
-            --restart always \
-            redis:7-alpine \
-            redis-server --appendonly yes --dir /data || { echo "Redis failed"; exit 1; }
-          
-          # Wait for container to be ready
-          sleep 10
-          echo "Redis container started successfully"
-          
-          # Store endpoint in SSM Parameter Store
-          echo "Getting instance IP and storing SSM parameter..."
-          INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
-          echo "Instance IP: $INSTANCE_IP"
-          
-          aws ssm put-parameter \
-            --name "/${ProjectName}/redis/realm16384/endpoint" \
-            --value "$INSTANCE_IP:6379" \
-            --type String \
-            --overwrite \
-            --region ${AWS::Region} || { echo "SSM parameter failed"; exit 1; }
-          
-          echo "Realm 16384 Redis setup completed successfully at $(date)"
-      Tags:
-        - Key: Name
-          Value: !Sub ${ProjectName}-realm16384-redis
-        - Key: Project
-          Value: !Ref ProjectName
-        - Key: Realm
-          Value: realm16384
+          PropagateAtLaunch: true
 
   # Single Application Load Balancer for all services (with multiple ports)
   ALB:
@@ -1252,41 +1219,11 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-realm16384-sg
 
-  CoordinatorRedisInstanceId:
-    Description: Coordinator Redis EC2 Instance ID
-    Value: !Ref CoordinatorRedisInstance
-    Export:
-      Name: !Sub ${ProjectName}-coordinator-redis-instance-id
-
-  CoordinatorRedisPrivateIP:
-    Description: Coordinator Redis Instance Private IP
-    Value: !GetAtt CoordinatorRedisInstance.PrivateIp
-    Export:
-      Name: !Sub ${ProjectName}-coordinator-redis-private-ip
-
-  Realm0RedisInstanceId:
-    Description: Realm 0 Redis EC2 Instance ID
-    Value: !Ref Realm0RedisInstance
-    Export:
-      Name: !Sub ${ProjectName}-realm0-redis-instance-id
-
-  Realm0RedisPrivateIP:
-    Description: Realm 0 Redis Instance Private IP
-    Value: !GetAtt Realm0RedisInstance.PrivateIp
-    Export:
-      Name: !Sub ${ProjectName}-realm0-redis-private-ip
-
-  Realm16384RedisInstanceId:
-    Description: Realm 16384 Redis EC2 Instance ID
-    Value: !Ref Realm16384RedisInstance
-    Export:
-      Name: !Sub ${ProjectName}-realm16384-redis-instance-id
-
-  Realm16384RedisPrivateIP:
-    Description: Realm 16384 Redis Instance Private IP
-    Value: !GetAtt Realm16384RedisInstance.PrivateIp
-    Export:
-      Name: !Sub ${ProjectName}-realm16384-redis-private-ip
+  # Redis endpoints are stored in SSM Parameter Store by the initialization script
+  # The following parameters are available:
+  # /${ProjectName}/redis/coordinator/endpoint
+  # /${ProjectName}/redis/realm0/endpoint
+  # /${ProjectName}/redis/realm16384/endpoint
 
   ECSClusterName:
     Description: ECS Cluster Name
@@ -1323,3 +1260,35 @@ Outputs:
     Value: !Ref Realm16384EBSVolume
     Export:
       Name: !Sub ${ProjectName}-realm16384-ebs-volume-id
+
+  # Redis Auto Scaling Group Outputs
+  RedisAutoScalingGroupName:
+    Description: Redis Auto Scaling Group Name
+    Value: !Ref RedisAutoScalingGroup
+    Export:
+      Name: !Sub ${ProjectName}-redis-asg-name
+
+  RedisLaunchTemplateName:
+    Description: Redis Launch Template Name
+    Value: !Ref RedisLaunchTemplate
+    Export:
+      Name: !Sub ${ProjectName}-redis-launch-template
+
+  # Redis Endpoints (will be set by instances via SSM)
+  CoordinatorRedisEndpoint:
+    Description: Coordinator Redis Endpoint (from SSM)
+    Value: !Sub "{{resolve:ssm:/${ProjectName}/redis/coordinator/endpoint}}"
+    Export:
+      Name: !Sub ${ProjectName}-coordinator-redis-private-ip
+
+  Realm0RedisEndpoint:
+    Description: Realm0 Redis Endpoint (from SSM)  
+    Value: !Sub "{{resolve:ssm:/${ProjectName}/redis/realm0/endpoint}}"
+    Export:
+      Name: !Sub ${ProjectName}-realm0-redis-private-ip
+
+  Realm16384RedisEndpoint:
+    Description: Realm16384 Redis Endpoint (from SSM)
+    Value: !Sub "{{resolve:ssm:/${ProjectName}/redis/realm16384/endpoint}}"
+    Export:
+      Name: !Sub ${ProjectName}-realm16384-redis-private-ip
