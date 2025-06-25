@@ -8,41 +8,8 @@ import { formatBalance } from "../../utils/balance";
 import { AddressModalType, useAddressModal } from "../../hooks/useAddressModal";
 import { sha256Buffer } from "@qed/utils";
 import { NetworkId } from "@qed/qed-sdk/src/action";
-import { QedUserWalletProvider } from "packages/qed-sdk/src/wallet/provider";
-
-const fetchBlockNumber = async (walletProvider: QedUserWalletProvider) => {
-    const latestBlockState = await walletProvider.coordinatorEdgeRpcProvider.getLatestL2BlockState();
-    if (latestBlockState) {
-        return Number(latestBlockState.checkpoint_id);
-    }
-    return 0;
-};
-
-const useBlockNumber = (walletProvider: QedUserWalletProvider, interval: number) => {
-    const [blockNumber, setBlockNumber] = useState<number>(0);
-
-    const fetchData = useCallback(async () => {
-        try {
-            const number = await fetchBlockNumber(walletProvider);
-            setBlockNumber(number);
-        } catch (error) {
-            console.error("Error fetching block number:", error);
-        }
-    }, [walletProvider]);
-
-    useEffect(() => {
-        fetchData();
-        const intervalId = setInterval(() => {
-            fetchData();
-        }, interval); // refresh every interval/1000 seconds
-
-        return () => {
-            clearInterval(intervalId);
-        };
-    }, [fetchData]);
-
-    return blockNumber;
-};
+import { useWalletConfig } from "../../config";
+import { useBlockNumber, useUserBalance } from "../../utils/data";
 
 interface IAddressSelectorBaseProps {
     className?: string;
@@ -71,12 +38,18 @@ interface IControlledAddressSelectorProps extends IAddressSelectorBaseProps {
 interface IStatefulAddressSelectorProps extends IAddressSelectorBaseProps { }
 
 function SelectOption({ address, networkId, balanceString }: IAddressSelectorItem) {
-    const { provider } = useWalletState((state) => ({
-        provider: state.provider
+    const { provider, currentWallet } = useWalletState((state) => ({
+        provider: state.provider,
+        currentWallet: state.currentWallet,
     }));
 
+    const { getNativeCurrency } = useWalletConfig();
+    const contractId = parseInt(getNativeCurrency(), 10);
+    console.warn("currentBalance:", contractId);
     // refresh checkpoint every 10 seconds
     const currentBlockNumber = useBlockNumber(provider, 10000);
+    const currentAddress = !currentWallet ? address : `${address}: ${currentWallet.publicKeyHex}`;
+    const balance = useUserBalance(provider, currentBlockNumber, parseInt(address), contractId, 10000);
     sha256Buffer;
     return (
         <Group>
@@ -87,10 +60,10 @@ function SelectOption({ address, networkId, balanceString }: IAddressSelectorIte
             />
             <div>
                 <Text fz="sm" fw={500}>
-                    {address}
+                    {currentAddress}
                 </Text>
                 <Text fz="xs" opacity={0.6}>
-                    {getNetworkNameById(networkId)} {typeof balanceString === "string" ? " - " + balanceString : ""}
+                    {getNetworkNameById(networkId)} {typeof balanceString === "string" ? " - " + balance.toString() : ""}
                     {currentBlockNumber !== null && ` - Checkpoint: ${currentBlockNumber}`}
                 </Text>
             </div>
