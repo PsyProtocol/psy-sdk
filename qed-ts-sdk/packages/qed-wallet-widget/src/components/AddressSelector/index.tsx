@@ -45,12 +45,10 @@ function SelectOption({ address, networkId, balanceString }: IAddressSelectorIte
 
     const { getNativeCurrency } = useWalletConfig();
     const contractId = parseInt(getNativeCurrency(), 10);
-    // refresh checkpoint every 10 seconds
-    const currentBlockNumber = useBlockNumber(provider, 10000);
+    // refresh checkpoint every 1 seconds
+    const currentBlockNumber = useBlockNumber(provider, 1000);
     const currentAddress = !currentWallet ? address : `${address}: ${currentWallet.publicKeyHex}`;
     const balance = useUserBalance(provider, currentBlockNumber, parseInt(address), contractId, 10000);
-    console.log("userId:", parseInt(address));
-    console.log("balance:", balance);
     sha256Buffer;
     return (
         <Group>

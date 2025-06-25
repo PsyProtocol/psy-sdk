@@ -32,14 +32,12 @@ export const useBlockNumber = (walletProvider: QedUserWalletProvider, interval: 
         return () => {
             clearInterval(intervalId);
         };
-    }, [fetchData]);
+    }, [interval, fetchData]);
 
     return blockNumber;
 };
 
 export const fetchUserBalance = async (walletProvider: QedUserWalletProvider, checkpointId: Felt, userId: Felt, userContractId: Felt) => {
-    console.log("fetchUserBalance:", checkpointId, userId, userContractId);
-    console.log("walletProvider:", walletProvider);
     const merkleProof = await walletProvider.realmEdgeRpcProvider.getRpcProviderByUserId(userId).getUserContractStateTreeMerkleProof(
         checkpointId,
         userId,
@@ -48,7 +46,11 @@ export const fetchUserBalance = async (walletProvider: QedUserWalletProvider, ch
         0
     );
     if (merkleProof) {
-        return parseInt(merkleProof.value, 16);
+        if (merkleProof.value.length != 64) {
+            console.warn("fetchUserBalance failed, merkleProof.value.length != 64");
+            return 0;
+        }
+        return parseInt(merkleProof.value?.substring(48, 64), 16);
     }
     console.warn("fetchUserBalance failed");
     return 0;
@@ -65,7 +67,7 @@ export const useUserBalance = (walletProvider: QedUserWalletProvider, checkpoint
             console.error("Error fetching user balance:", error);
             setBalance(0);
         }
-    }, [walletProvider]);
+    }, [walletProvider, checkpointId, userId, userContractId]);
 
     useEffect(() => {
         fetchData();
@@ -76,7 +78,7 @@ export const useUserBalance = (walletProvider: QedUserWalletProvider, checkpoint
         return () => {
             clearInterval(intervalId);
         };
-    }, [fetchData]);
+    }, [interval, fetchData]);
 
     return balance;
 };
@@ -96,7 +98,7 @@ export const useUserId = (walletProvider: QedUserWalletProvider, publicKeyHex: s
             console.error("Error fetching user id:", error);
             setUserId(0);
         }
-    }, [walletProvider]);
+    }, [walletProvider, publicKeyHex]);
 
     useEffect(() => {
         fetchData();
@@ -107,7 +109,7 @@ export const useUserId = (walletProvider: QedUserWalletProvider, publicKeyHex: s
         return () => {
             clearInterval(intervalId);
         };
-    }, [fetchData]);
+    }, [interval, fetchData]);
 
     return userId;
 };

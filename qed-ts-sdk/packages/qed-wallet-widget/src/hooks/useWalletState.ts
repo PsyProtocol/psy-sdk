@@ -185,6 +185,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 //await waitMs(2000);
                 const wallets = await getAllIQWallets(state.provider);
                 if (!state.currentWallet) {
+                    state.provider.realmEdgeRpcProvider.setUserId(wallets[0].userId);
                     return {
                         wallets: wallets,
                         currentWallet: wallets[0],
@@ -194,12 +195,14 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                     const currentWalletId = state.currentWallet?.userId;
                     const currentWallet = wallets.find((w) => w.userId === currentWalletId);
                     if (currentWallet) {
+                        state.provider.realmEdgeRpcProvider.setUserId(currentWallet.userId);
                         return {
                             wallets,
                             currentWallet: currentWallet,
                             walletAbilities: currentWallet.wallet.signer.getAbilities(),
                         };
                     } else {
+                        state.provider.realmEdgeRpcProvider.setUserId(wallets[0].userId);
                         return {
                             wallets,
                             currentWallet: wallets[0],
