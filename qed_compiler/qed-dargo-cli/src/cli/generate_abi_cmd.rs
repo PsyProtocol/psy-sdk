@@ -47,10 +47,23 @@ pub(crate) fn run(args: GenerateAbiCommand, workspace: Workspace) -> Result<()> 
         extractor.extract_spec_compliant_abi(static_program)?
     };
 
-    // Output spec-compliant ABI to stdout
+    // Determine output directory
+    let output_dir = args.output_dir.unwrap_or_else(|| workspace.target_dir.clone());
+    
+    // Generate the ABI file name (without extension, save_build_artifact_to_file adds .json)
+    let abi_filename = format!("{}.abi", args.contract_name);
+    
+    // Save ABI to file in target directory
+    let abi_path = save_build_artifact_to_file(&spec_abi, &abi_filename, &output_dir)?;
+    
+    // Also output to stdout for backward compatibility
     let json = spec_abi.to_json().map_err(|e| {
         crate::errors::CliError::Generic(format!("Failed to serialize ABI to JSON: {}", e))
     })?;
     println!("{}", json);
+    
+    // Print the location where the ABI file was saved
+    println!("ABI file saved to: {}", abi_path.display());
+    
     Ok(())
 }
