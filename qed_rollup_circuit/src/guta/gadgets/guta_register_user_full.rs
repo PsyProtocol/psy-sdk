@@ -96,8 +96,6 @@ impl GUTARegisterUserFullGadget {
         user_registration_tree_merkle_proof: &MerkleProofCore<QHashOut<F>>,
         global_user_tree_update_proof: &DeltaMerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
-        eprintln!("DEBUGPRINT[679]: guta_register_user_full.rs:113: user_registration_tree_merkle_proof={}", serde_json::to_string_pretty(&user_registration_tree_merkle_proof).unwrap());
-        eprintln!("DEBUGPRINT[680]: guta_register_user_full.rs:111: global_user_tree_update_proof={}", serde_json::to_string_pretty(&global_user_tree_update_proof).unwrap());
         self.user_registration_tree_merkle_proof.set_witness_core_proof_q_generic(
             witness,
             user_registration_tree_merkle_proof,

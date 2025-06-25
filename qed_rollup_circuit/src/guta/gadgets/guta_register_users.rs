@@ -130,7 +130,6 @@ impl GUTARegisterUsersGadget {
         dummy_public_key: QHashOut<F>,
         dummy_user_leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<()> {
-        eprintln!("DEBUGPRINT[678]: guta_register_users.rs:129: guta_register_user_inputs={}", serde_json::to_string_pretty(&guta_register_user_inputs).unwrap());
 
         let inputs_len = guta_register_user_inputs.len();
 

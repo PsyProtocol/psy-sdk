@@ -47,6 +47,21 @@ Parameters:
     Default: 70
     Description: Target CPU utilization percentage for auto scaling
 
+  CoordinatorRedisEndpoint:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /qed-protocol/redis/coordinator/endpoint
+    Description: SSM parameter for Coordinator Redis endpoint
+
+  Realm0RedisEndpoint:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /qed-protocol/redis/realm0/endpoint
+    Description: SSM parameter for Realm0 Redis endpoint
+
+  Realm16384RedisEndpoint:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /qed-protocol/redis/realm16384/endpoint
+    Description: SSM parameter for Realm16384 Redis endpoint
+
 Resources:
   # Task Definitions
   CoordinatorProcessorTaskDefinition:
@@ -75,10 +90,7 @@ Resources:
             - coordinator-processor
             - --db-path
             - /data
-            - !Sub
-              - --redis-uri=redis://${RedisEndpoint}:6379
-              - RedisEndpoint:
-                  Fn::ImportValue: !Sub ${ProjectName}-coordinator-redis-private-ip
+            - !Sub --redis-uri=redis://${CoordinatorRedisEndpoint}
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -111,10 +123,7 @@ Resources:
           Image: !Ref ContainerImage
           Command:
             - coordinator-worker
-            - !Sub
-              - --redis-uri=redis://${RedisEndpoint}:6379
-              - RedisEndpoint:
-                  Fn::ImportValue: !Sub ${ProjectName}-coordinator-redis-private-ip
+            - !Sub --redis-uri=redis://${CoordinatorRedisEndpoint}
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -161,10 +170,7 @@ Resources:
             - coordinator-edge
             - --listen-addr=0.0.0.0:8545
             - --db-path=/data
-            - !Sub
-              - --redis-uri=redis://${RedisEndpoint}:6379
-              - RedisEndpoint:
-                  Fn::ImportValue: !Sub ${ProjectName}-coordinator-redis-private-ip
+            - !Sub --redis-uri=redis://${CoordinatorRedisEndpoint}
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -210,10 +216,7 @@ Resources:
           Command:
             - realm-processor
             - --path=/data
-            - !Sub
-              - --redis-uri=redis://${RedisEndpoint}:6379
-              - RedisEndpoint:
-                  Fn::ImportValue: !Sub ${ProjectName}-realm0-redis-private-ip
+            - !Sub --redis-uri=redis://${Realm0RedisEndpoint}
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -246,10 +249,7 @@ Resources:
           Image: !Ref ContainerImage
           Command:
             - realm-worker
-            - !Sub
-              - --redis-uri=redis://${RedisEndpoint}:6379
-              - RedisEndpoint:
-                  Fn::ImportValue: !Sub ${ProjectName}-realm0-redis-private-ip
+            - !Sub --redis-uri=redis://${Realm0RedisEndpoint}
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -296,10 +296,7 @@ Resources:
             - realm-edge
             - --listen-addr=0.0.0.0:8546
             - --path=/data
-            - !Sub
-              - --redis-uri=redis://${RedisEndpoint}:6379
-              - RedisEndpoint:
-                  Fn::ImportValue: !Sub ${ProjectName}-realm0-redis-private-ip
+            - !Sub --redis-uri=redis://${Realm0RedisEndpoint}
             - !Sub
               - --coordinator-addr=http://${ALBDNS}:8545
               - ALBDNS:
@@ -354,10 +351,7 @@ Resources:
             - --worker-queue-suffix=rwq16384
             - --notifications-queue-suffix=rnq16384
             - --proof-store-key-suffix=RP16384
-            - !Sub
-              - --redis-uri=redis://${RedisEndpoint}:6379
-              - RedisEndpoint:
-                  Fn::ImportValue: !Sub ${ProjectName}-realm16384-redis-private-ip
+            - !Sub --redis-uri=redis://${Realm16384RedisEndpoint}
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -393,10 +387,7 @@ Resources:
             - --worker-queue-suffix=rwq16384
             - --notifications-queue-suffix=rnq16384
             - --proof-store-key-suffix=RP16384
-            - !Sub
-              - --redis-uri=redis://${RedisEndpoint}:6379
-              - RedisEndpoint:
-                  Fn::ImportValue: !Sub ${ProjectName}-realm16384-redis-private-ip
+            - !Sub --redis-uri=redis://${Realm16384RedisEndpoint}
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -448,10 +439,7 @@ Resources:
             - --worker-queue-suffix=rwq16384
             - --notifications-queue-suffix=rnq16384
             - --proof-store-key-suffix=RP16384
-            - !Sub
-              - --redis-uri=redis://${RedisEndpoint}:6379
-              - RedisEndpoint:
-                  Fn::ImportValue: !Sub ${ProjectName}-realm16384-redis-private-ip
+            - !Sub --redis-uri=redis://${Realm16384RedisEndpoint}
             - !Sub
               - --coordinator-addr=http://${ALBDNS}:8545
               - ALBDNS:

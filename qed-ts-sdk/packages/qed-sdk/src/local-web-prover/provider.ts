@@ -1,4 +1,4 @@
-import { RpcConfig } from "./config";
+import { WebProverConfig } from "./config";
 import { WasmRpcServer } from "./qed_user_prover";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
@@ -14,7 +14,7 @@ import { QedJSON } from "../utils";
 export class QedWasmWebProverProvider implements IQedUserProverProvider {
     private wasmServer: WasmRpcServer;
 
-    constructor(rpcConfigJson: RpcConfig) {
+    constructor(rpcConfigJson: WebProverConfig) {
         const json = QedJSON.stringify(rpcConfigJson);
         this.wasmServer = new WasmRpcServer(json);
     }

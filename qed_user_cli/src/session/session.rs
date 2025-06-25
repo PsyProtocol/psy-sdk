@@ -1,9 +1,8 @@
 use std::str::FromStr;
 
-use anyhow::Ok;
 use dashmap::DashMap;
 use plonky2::{
-    field::{goldilocks_field::GoldilocksField, types::Field},
+    field::{goldilocks_field::GoldilocksField, packed::PackedField, types::Field},
     hash::poseidon::PoseidonHash,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
@@ -49,12 +48,24 @@ use crate::subcommand::args::{ContractCallArgs, WalletSessionArgs};
 use crate::subcommand::deploy_contract::gen_contract_deploy_and_circuits_for_functions;
 use crate::subcommand::utils::prove_func;
 
+use super::{
+    args::{ContractCallArgs, WalletSessionArgs},
+    deploy_contract::gen_contract_deploy_and_circuits_for_functions,
+    utils::prove_func,
+};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 
+pub enum UserState {
+    Active,
+    Registering,
+    InActive,
+}
+
 pub struct UserSessionStateManager {
+    pub user_state: UserState,
     pub rpc_provider: RpcProvider,
     pub mgr: UserProvingSessionManager<F, PoseidonHash, RpcProvider, C, D>,
     pub user_id: u64,
@@ -91,6 +102,7 @@ impl UserSessionStateManager {
         ).await?;
 
         Ok(UserSessionStateManager {
+            user_state: UserState::Active,
             rpc_provider,
             mgr,
             user_id,
@@ -100,6 +112,7 @@ impl UserSessionStateManager {
     }
 
     pub fn new_with_dummy_mgr(
+        user_state: UserState,
         st_provider: RpcProvider,
         circuit_info: SessionCircuitInfoStore<F>,
     ) -> anyhow::Result<UserSessionStateManager> {
@@ -116,6 +129,7 @@ impl UserSessionStateManager {
         let mgr = UserProvingSessionManager::<F, QEDHasher, _, C, D>::new_dummy(lps, circuit_info)?;
 
         Ok(UserSessionStateManager {
+            user_state,
             rpc_provider: st_provider.clone(),
             mgr,
             user_id: 0,
@@ -168,11 +182,17 @@ impl WalletSession {
         })
     }
 
-    pub async fn register_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
+    pub async fn register_user(&self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
         let pk_info = self
             .wallet
             .get_public_key_info(SimpleQEDPrivateKey { private_key });
         let pk_hash = pk_info.qfhash::<QEDHasher>();
+
+        if let Ok(user_id) = self.st_provider.get_user_id(pk_hash) {
+            tracing::info!("user `{}` already registered with id {}", pk_hash, user_id);
+            return Ok(pk_hash);
+        }
+
         self.st_provider.register_user(QRegisterUserRPCRequest {
             public_key: pk_info,
         }).await?;
@@ -187,40 +207,63 @@ impl WalletSession {
             .wallet
             .add_private_key_get_info(SimpleQEDPrivateKey { private_key });
         let public_key = pk_info.qfhash::<QEDHasher>();
-        let user_id = self.st_provider.get_user_id(public_key).await.map_err(|e| {
-            anyhow::format_err!(
-                "Error `{}`. user {} not found, please register it first",
-                e.to_string(),
-                pk_info.qfhash::<QEDHasher>().to_string()
-            )
-        })?;
+        let checkpoint_id = self.st_provider.get_latest_l2_block_state().await?.checkpoint_id;
+
+        let (user_id, nonce, user_state) = match self.st_provider.get_user_id(public_key).await {
+            Ok(user_id) => match self.st_provider.get_user_leaf_data(checkpoint_id, user_id).await {
+                Ok(user_leaf_data) => (user_id, user_leaf_data.nonce, UserState::Active),
+                Err(e) => {
+                    tracing::warn!(
+                        "can not get user id for user `{}`, wait for 2 blocks after register: {}",
+                        public_key.to_string(),
+                        e
+                    );
+                    (user_id, F::ZERO, UserState::Registering)
+                }
+            },
+            Err(e) => {
+                tracing::warn!(
+                    "can not get user id for user `{}`, please register it first: {}",
+                    public_key.to_string(),
+                    e
+                );
+                (0, F::ZERO, UserState::InActive)
+            }
+        };
 
         if !self.wallet_keys_store.contains_key(&public_key) {
             self.wallet_keys_store.insert(public_key, pk_info);
-            let checkpoint_id = self.st_provider.get_latest_l2_block_state().await?.checkpoint_id;
-            let user_leaf_data = self
-                .st_provider
-                .get_user_leaf_data(checkpoint_id, user_id).await?;
-            self.user_session_mgrs.insert(
-                public_key,
-                UserSessionStateManager::new(
-                    user_id,
-                    user_leaf_data.nonce + F::from_canonical_u64(1),
-                    checkpoint_id,
-                    self.st_provider.clone(),
-                    self.circuit_info.clone(),
-                    &self.main_circuits,
-                ).await?,
-            );
-            tracing::info!(
-                "user {} {} added",
-                user_id,
-                pk_info.qfhash::<QEDHasher>().to_string()
-            );
+
+            match user_state {
+                UserState::Active => {
+                    self.user_session_mgrs.insert(
+                        public_key,
+                        UserSessionStateManager::new(
+                            user_id,
+                            nonce + F::from_canonical_u64(1),
+                            checkpoint_id,
+                            self.st_provider.clone(),
+                            self.circuit_info.clone(),
+                            &self.main_circuits,
+                        ).await?,
+                    );
+                }
+                UserState::Registering | UserState::InActive => {
+                    self.user_session_mgrs.insert(
+                        public_key,
+                        UserSessionStateManager::new_with_dummy_mgr(
+                            user_state,
+                            self.st_provider.clone(),
+                            self.circuit_info.clone(),
+                        )?,
+                    );
+                }
+            }
+
+            tracing::info!("user {} added", pk_info.qfhash::<QEDHasher>().to_string());
         } else {
             tracing::info!(
-                "user {} {} already added",
-                user_id,
+                "user {} already added",
                 pk_info.qfhash::<QEDHasher>().to_string()
             );
         }
@@ -237,8 +280,11 @@ impl WalletSession {
             "exec contract call: {}",
             serde_json::to_string_pretty(&contract_call_args)?
         );
+        tracing::info!("start session");
         self.start_session(pk_hash).await?;
+        tracing::info!("prove contract calls");
         self.prove_contract_calls(pk_hash, contract_call_args).await?;
+        tracing::info!("sign and submit");
         self.sign_and_submit(pk_hash).await?;
         Ok(())
     }
@@ -250,37 +296,65 @@ impl WalletSession {
             .get_mut(&pk_hash)
             .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
         let latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
-        let latest_nonce = self
-            .st_provider
-            .get_user_leaf_data(
-                latest_l2_block_state.checkpoint_id,
-                user_session_mgr.user_id,
-            ).await?
-            .nonce
-            + F::from_noncanonical_u64(1);
 
-        if latest_nonce == user_session_mgr.nonce
-            && latest_l2_block_state.checkpoint_id == user_session_mgr.current_checkpoint_id
-        {
-            tracing::info!("user session manager already exists");
-        } else {
-            tracing::info!("create new user session manager");
-            *user_session_mgr = UserSessionStateManager::new(
-                user_session_mgr.user_id,
-                latest_nonce,
-                latest_l2_block_state.checkpoint_id,
-                self.st_provider.clone(),
-                self.circuit_info.clone(),
-                &self.main_circuits,
-            ).await?;
-        };
+        match user_session_mgr.user_state {
+            UserState::Active => {
+                let latest_nonce = self
+                    .st_provider
+                    .get_user_leaf_data(
+                        latest_l2_block_state.checkpoint_id,
+                        user_session_mgr.user_id,
+                    ).await?
+                    .nonce
+                    + F::from_noncanonical_u64(1);
+
+                if latest_nonce == user_session_mgr.nonce
+                    && latest_l2_block_state.checkpoint_id == user_session_mgr.current_checkpoint_id
+                {
+                    tracing::info!("user session manager already exists");
+                } else {
+                    tracing::info!("create new user session manager");
+                    *user_session_mgr = UserSessionStateManager::new(
+                        user_session_mgr.user_id,
+                        latest_nonce,
+                        latest_l2_block_state.checkpoint_id,
+                        self.st_provider.clone(),
+                        self.circuit_info.clone(),
+                        &self.main_circuits,
+                    ).await?;
+                };
+            }
+            UserState::InActive | UserState::Registering => {
+                let user_id = self.st_provider.get_user_id(pk_hash).await.map_err(|e| {
+                    anyhow::format_err!(
+                        "can not get user id for user `{}`, please add it first: {}",
+                        pk_hash.to_string(),
+                        e
+                    )
+                })?;
+                let checkpoint_id = latest_l2_block_state.checkpoint_id;
+                let user_leaf_data = self
+                    .st_provider
+                    .get_user_leaf_data(checkpoint_id, user_id).await
+                    .map_err(|e| {
+                        anyhow::format_err!(
+                            "can not get user id for user `{}`, please wait for 2 blocks after register: {}",
+                            pk_hash.to_string(),
+                            e
+                        )
+                    })?;
+                *user_session_mgr = UserSessionStateManager::new(
+                    user_id,
+                    user_leaf_data.nonce + F::from_canonical_u64(1),
+                    checkpoint_id,
+                    self.st_provider.clone(),
+                    self.circuit_info.clone(),
+                    &self.main_circuits,
+                ).await?;
+            }
+        }
 
         tracing::info!("local proving ups start");
-
-        // let mut user_session_mgr = self
-        //     .user_session_mgrs
-        //     .get_mut(&pk_hash)
-        //     .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
 
         tracing::info!("user session manager nonce: {}", user_session_mgr.nonce);
 

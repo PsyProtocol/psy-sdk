@@ -36,13 +36,11 @@ impl<const D: usize> VerifyGUTAProofToLineGadget<D> {
         <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
     {
 
-        eprintln!("DEBUGPRINT[538]: verify_guta_proof_to_line.rs:38 (after <C as GenericConfig<D>>::Hasher: MerkleZ…)");
         let verify_guta_proof_gadget = VerifyGUTAProofGadget::<D>::add_virtual_to::<C,F>(
             builder,
             proof_common_data,
             verifier_data_cap_height
         );
-        eprintln!("DEBUGPRINT[539]: verify_guta_proof_to_line.rs:44 (after );)");
         let header_line_gadget = GUTAHeaderLineProofGadget::add_virtual_to::<C::Hasher,F,D>(
             builder,
             global_user_tree_realm_height,
@@ -65,10 +63,6 @@ impl<const D: usize> VerifyGUTAProofToLineGadget<D> {
         top_line_siblings: &[QHashOut<F>],
     ) -> anyhow::Result<()> where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
-        eprintln!("DEBUGPRINT[506]: verify_guta_proof_to_line.rs:68: guta_proof_header={}", serde_json::to_string_pretty(&guta_proof_header).unwrap());
-        eprintln!("DEBUGPRINT[509]: verify_guta_proof_to_line.rs:66: guta_whitelist_merkle_proof={}", serde_json::to_string_pretty(&guta_whitelist_merkle_proof).unwrap());
-        eprintln!("DEBUGPRINT[510]: verify_guta_proof_to_line.rs:67: proof={}", serde_json::to_string_pretty(&proof).unwrap());
-        // eprintln!("DEBUGPRINT[511]: verify_guta_proof_to_line.rs:68: verifier_data={}", serde_json::to_string_pretty(&verifier_data).unwrap());
         self.verify_guta_proof_gadget.set_witness(
             witness,
             guta_whitelist_merkle_proof,
@@ -76,7 +70,6 @@ impl<const D: usize> VerifyGUTAProofToLineGadget<D> {
             proof,
             verifier_data
         )?;
-        eprintln!("DEBUGPRINT[507]: verify_guta_proof_to_line.rs:75: top_line_siblings={}", serde_json::to_string_pretty(&top_line_siblings).unwrap());
         self.header_line_gadget.set_witness_params(
             witness,
             top_line_siblings

@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from "react";
-import {
-    QedWalletWidget,
-    // createMemoryWalletProvider,
-    createMemoryWalletProviderWithWebProver
-} from "@qed/qed-wallet-widget";
+import { QedWalletWidget,createMemoryWalletProviderWithWebProver } from "@qed/qed-wallet-widget";
 import logoImage from "../../assets/psy.png";
-import {defaultConfig, useWalletConfig} from "../../config";
+import { useWalletConfig } from "../../config";
 import { TokensProvider } from "../../contexts/TokensContext";
 import ExtensionContent from "./ExtensionContent";
 import {
@@ -21,8 +17,8 @@ import {
 
 const ExtensionHomeContent: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const { config, getCoordinatorUrl, getRealmUrl, getProverUrl } = useWalletConfig();
+    const [error] = useState<string | null>(null);
+    const { config } = useWalletConfig();
 
     useEffect(() => {
         // Check if we're in extension context
@@ -36,20 +32,10 @@ const ExtensionHomeContent: React.FC = () => {
         }, 10);
     }, []);
 
-    // const walletProvider = createMemoryWalletProvider(
-    //     getCoordinatorUrl(), // coordinator
-    //     getRealmUrl(), // realm
-    //     getProverUrl(), // prover
-    // );
-
     const walletProvider = createMemoryWalletProviderWithWebProver(
-        getCoordinatorUrl(), // coordinator
-        getRealmUrl(), // realm
-        {
-            users_per_realm: defaultConfig.network.users_per_realm,
-            realm_configs:defaultConfig.network.realm_configs,
-            coordinator_configs: defaultConfig.network.coordinator_configs,
-        }
+        config.network.coordinator_configs, // coordinator
+        config.network.realm_configs, // realm
+        config.network.users_per_realm,
     );
 
     if (isLoading) {

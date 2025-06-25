@@ -1,7 +1,7 @@
 import { IRealmEdgeRpcProvider, RealmEdgeRPCCommand } from "./types";
 import { QHashOut, MerkleProofCore, Felt } from "../core";
 import { IHTTPClient } from "../http";
-import { Provider, ClientConfig } from "../provider";
+import { Provider, ClientConfig, RpcConfig } from "../provider";
 import {
     ProofWithPublicInputs,
     QEDCheckpointGlobalStateRoots,
@@ -11,12 +11,10 @@ import {
     SubmitUserEndCapNonProofInput,
 } from "../types";
 
-const USER_PER_REALM = 2048;
 /**
  * Enhanced RealmEdgeRpcProvider with caching, retry logic, and multi-provider support
  */
 export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvider {
-    private userId: Felt;
     // Read-only methods that can be cached
     private readonly readOnlyMethods = new Set<string>([
         RealmEdgeRPCCommand.CheckUserIdInRealm,
@@ -72,33 +70,9 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         httpClient?: IHTTPClient
     ) {
         super(urlOrUrls, configOrHttpClient, httpClient);
-        this.userId = 0;
     }
 
     setUserId(userId: Felt): void {
-        this.userId = userId;
-    }
-
-    /**
-     * Select realm according to user ID
-     */
-    selectRealmUrl(userId: Felt): string {
-        var realm_id = Math.floor(Number(userId) / USER_PER_REALM);
-        if (realm_id >= this.urls.length) {
-            realm_id = 0;
-        }
-        return this.urls[realm_id];
-    }
-
-    protected async rpc_with_user_id<T>(
-        userId: Felt,
-        method: string,
-        params: unknown,
-        id = "1",
-        jsonrpc = "2.0",
-        headers?: Record<string, string>
-    ): Promise<T> {
-        return this.rpc_with_url<T>(this.selectRealmUrl(userId), method, params, id, jsonrpc, headers);
     }
 
     /**
@@ -117,118 +91,104 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
 
     // ========== RPC Interface Methods ==========
 
+    // Get RPC provider by user ID
+    getRpcProviderByUserId(userId: Felt): IRealmEdgeRpcProvider {
+        return this;
+    }
+
     // Check user ID in realm
     async checkUserIdInRealm(userId: Felt): Promise<boolean> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.CheckUserIdInRealm, [userId]);
+        return this.rpc(RealmEdgeRPCCommand.CheckUserIdInRealm, [userId]);
     }
 
     // Submit user end cap
     async submitUserEndCap(userEcInput: SubmitUserEndCapNonProofInput, proof: ProofWithPublicInputs): Promise<string> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.SubmitUserEndCap, [userEcInput, proof]);
+        return this.rpc(RealmEdgeRPCCommand.SubmitUserEndCap, [userEcInput, proof]);
     }
 
     // Get checkpoint leaf data
     async getCheckpointLeafData(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetCheckpointLeafData, [checkpointId]);
+        return this.rpc(RealmEdgeRPCCommand.GetCheckpointLeafData, [checkpointId]);
     }
 
     async getCheckpointLeafDataF(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetCheckpointLeafDataF, [checkpointId]);
+        return this.rpc(RealmEdgeRPCCommand.GetCheckpointLeafDataF, [checkpointId]);
     }
 
     // Get L2 block state
     async getLatestL2BlockState(): Promise<QEDL2BlockState> {
+        console.warn("getLatestL2BlockState");
         return this.rpc(RealmEdgeRPCCommand.GetLatestL2BlockState, []);
     }
 
     async getL2BlockState(checkpointId: Felt): Promise<QEDL2BlockState> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetL2BlockState, [checkpointId]);
+        return this.rpc(RealmEdgeRPCCommand.GetL2BlockState, [checkpointId]);
     }
 
     async getL2BlockStateF(checkpointId: Felt): Promise<QEDL2BlockState> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetL2BlockStateF, [checkpointId]);
+        return this.rpc(RealmEdgeRPCCommand.GetL2BlockStateF, [checkpointId]);
     }
 
     // Get user registration tree root
     async getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetUserRegistrationTreeRoot, [checkpointId]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserRegistrationTreeRoot, [checkpointId]);
     }
 
     // Get checkpoint tree roots
     async getLatestCheckpointTreeRoot(): Promise<QHashOut> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetLatestCheckpointTreeRoot, []);
+        return this.rpc(RealmEdgeRPCCommand.GetLatestCheckpointTreeRoot, []);
     }
 
     async getCheckpointTreeRoot(checkpointId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetCheckpointTreeRoot, [checkpointId]);
+        return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeRoot, [checkpointId]);
     }
 
     async getCheckpointTreeRootF(checkpointId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetCheckpointTreeRootF, [checkpointId]);
+        return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeRootF, [checkpointId]);
     }
 
     // Get checkpoint tree leaf hash
     async getCheckpointTreeLeafHash(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetCheckpointTreeLeafHash, [
-            checkpointId,
-            leafCheckpointId,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeLeafHash, [checkpointId, leafCheckpointId]);
     }
 
     async getCheckpointTreeLeafHashF(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetCheckpointTreeLeafHashF, [
-            checkpointId,
-            leafCheckpointId,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeLeafHashF, [checkpointId, leafCheckpointId]);
     }
 
     // Get checkpoint tree merkle proof
     async getCheckpointTreeMerkleProof(checkpointId: Felt, leafCheckpointId: Felt): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetCheckpointTreeMerkleProof, [
-            checkpointId,
-            leafCheckpointId,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeMerkleProof, [checkpointId, leafCheckpointId]);
     }
 
     async getCheckpointTreeMerkleProofF(
         checkpointId: Felt,
         leafCheckpointId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetCheckpointTreeMerkleProofF, [
-            checkpointId,
-            leafCheckpointId,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetCheckpointTreeMerkleProofF, [checkpointId, leafCheckpointId]);
     }
 
     // Get checkpoint global state roots
     async getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<QEDCheckpointGlobalStateRoots> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetCheckpointGlobalStateRoots, [checkpointId]);
+        return this.rpc(RealmEdgeRPCCommand.GetCheckpointGlobalStateRoots, [checkpointId]);
     }
 
     // Get user leaf data
     async getUserLeafData(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserLeafData, [checkpointId, userId]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserLeafData, [checkpointId, userId]);
     }
 
     async getUserLeafDataF(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserLeafDataF, [checkpointId, userId]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserLeafDataF, [checkpointId, userId]);
     }
 
     // Get user contract state tree root
     async getUserContractStateTreeRoot(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserContractStateTreeRoot, [
-            checkpointId,
-            userId,
-            contractId,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeRoot, [checkpointId, userId, contractId]);
     }
 
     async getUserContractStateTreeRootF(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserContractStateTreeRootF, [
-            checkpointId,
-            userId,
-            contractId,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeRootF, [checkpointId, userId, contractId]);
     }
 
     // Get user contract state tree leaf hash
@@ -239,7 +199,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         height: number,
         leafId: Felt
     ): Promise<QHashOut> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserContractStateTreeLeafHash, [
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeLeafHash, [
             checkpointId,
             userId,
             contractId,
@@ -255,7 +215,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         height: number,
         leafId: Felt
     ): Promise<QHashOut> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserContractStateTreeLeafHashF, [
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeLeafHashF, [
             checkpointId,
             userId,
             contractId,
@@ -272,7 +232,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         height: number,
         leafId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserContractStateTreeMerkleProof, [
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeMerkleProof, [
             checkpointId,
             userId,
             contractId,
@@ -288,7 +248,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         height: number,
         leafId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserContractStateTreeMerkleProofF, [
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeMerkleProofF, [
             checkpointId,
             userId,
             contractId,
@@ -299,7 +259,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
 
     // Get user contract tree root
     async getUserContractTreeRoot(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserContractTreeRoot, [checkpointId, userId]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeRoot, [checkpointId, userId]);
     }
 
     async getUserContractTreeRootF(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
@@ -308,19 +268,11 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
 
     // Get user contract tree leaf hash
     async getUserContractTreeLeafHash(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserContractTreeLeafHash, [
-            checkpointId,
-            userId,
-            contractId,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeLeafHash, [checkpointId, userId, contractId]);
     }
 
     async getUserContractTreeLeafHashF(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserContractTreeLeafHashF, [
-            checkpointId,
-            userId,
-            contractId,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeLeafHashF, [checkpointId, userId, contractId]);
     }
 
     // Get user contract tree merkle proof
@@ -329,11 +281,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         userId: Felt,
         contractId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserContractTreeMerkleProof, [
-            checkpointId,
-            userId,
-            contractId,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeMerkleProof, [checkpointId, userId, contractId]);
     }
 
     async getUserContractTreeMerkleProofF(
@@ -341,29 +289,25 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         userId: Felt,
         contractId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserContractTreeMerkleProofF, [
-            checkpointId,
-            userId,
-            contractId,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserContractTreeMerkleProofF, [checkpointId, userId, contractId]);
     }
 
     // Get user tree root
     async getUserTreeRoot(checkpointId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetUserTreeRoot, [checkpointId]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserTreeRoot, [checkpointId]);
     }
 
     async getUserTreeRootF(checkpointId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetUserTreeRootF, [checkpointId]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserTreeRootF, [checkpointId]);
     }
 
     // Get user tree leaf hash
     async getUserTreeLeafHash(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserTreeLeafHash, [checkpointId, userId]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserTreeLeafHash, [checkpointId, userId]);
     }
 
     async getUserTreeLeafHashF(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserTreeLeafHashF, [checkpointId, userId]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserTreeLeafHashF, [checkpointId, userId]);
     }
 
     // Get user bottom tree merkle proof
@@ -372,11 +316,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         checkpointId: Felt,
         userId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserBottomTreeMerkleProof, [
-            rootLevel,
-            checkpointId,
-            userId,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserBottomTreeMerkleProof, [rootLevel, checkpointId, userId]);
     }
 
     async getUserBottomTreeMerkleProofF(
@@ -384,11 +324,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         checkpointId: Felt,
         userId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserBottomTreeMerkleProofF, [
-            rootLevel,
-            checkpointId,
-            userId,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserBottomTreeMerkleProofF, [rootLevel, checkpointId, userId]);
     }
 
     // Get user sub tree merkle proof
@@ -398,12 +334,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         leafLevel: number,
         leafIndex: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetUserSubTreeMerkleProof, [
-            checkpointId,
-            rootLevel,
-            leafLevel,
-            leafIndex,
-        ]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserSubTreeMerkleProof, [checkpointId, rootLevel, leafLevel, leafIndex]);
     }
 
     async getUserSubTreeMerkleProofF(
@@ -412,7 +343,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         leafLevel: number,
         leafIndex: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc_with_user_id(this.userId, RealmEdgeRPCCommand.GetUserSubTreeMerkleProofF, [
+        return this.rpc(RealmEdgeRPCCommand.GetUserSubTreeMerkleProofF, [
             checkpointId,
             rootLevel,
             leafLevel,
@@ -422,10 +353,259 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
 
     // Get user tree merkle proof
     async getUserTreeMerkleProof(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserTreeMerkleProof, [checkpointId, userId]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserTreeMerkleProof, [checkpointId, userId]);
     }
 
     async getUserTreeMerkleProofF(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>> {
-        return this.rpc_with_user_id(userId, RealmEdgeRPCCommand.GetUserTreeMerkleProofF, [checkpointId, userId]);
+        return this.rpc(RealmEdgeRPCCommand.GetUserTreeMerkleProofF, [checkpointId, userId]);
+    }
+}
+
+export class MultiRealmRpcProvider implements IRealmEdgeRpcProvider {
+    currentUserId: number;
+    userPerRealm: number;
+    rpcs: Map<number, IRealmEdgeRpcProvider>;
+    constructor(realmRpcConfigs: RpcConfig[], userPerRealm: number) {
+        this.currentUserId = 0;
+        this.userPerRealm = userPerRealm;
+        this.rpcs = new Map<number, IRealmEdgeRpcProvider>();
+
+        for (const realmRpcConfig of realmRpcConfigs) {
+            this.rpcs.set(realmRpcConfig.id, new RealmEdgeRpcProvider(realmRpcConfig.rpc_url));
+        }
+    }
+
+    setUserId(userId: number) {
+        this.currentUserId = userId;
+    }
+
+    getRealmId(userId: number): number {
+        return userId / this.userPerRealm;
+    }
+
+    getRpcProviderByUserId(userId: Felt): IRealmEdgeRpcProvider {
+        const realmId = this.getRealmId(Number(userId));
+        console.log("!!!!!!!!!!!!! realmId:", realmId);
+        const provider = this.rpcs.get(realmId);
+
+        if (provider) {
+            return provider;
+        }
+        console.warn(`No RealmEdgeRpcProvider instance available for realmId: ${realmId}`);
+
+        const defaultProvider = this.rpcs.values().next().value;
+        if (defaultProvider) {
+            return defaultProvider;
+        }
+
+        throw new Error('No RealmEdgeRpcProvider instances available');
+    }
+
+    checkUserIdInRealm(userId: Felt): Promise<boolean> {
+        return this.rpcs.get(this.getRealmId(Number(userId)))!.checkUserIdInRealm(userId);
+    }
+    submitUserEndCap(userEcInput: SubmitUserEndCapNonProofInput, proof: ProofWithPublicInputs): Promise<string> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.submitUserEndCap(userEcInput, proof);
+    }
+    getCheckpointLeafData(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getCheckpointLeafData(checkpointId);
+    }
+    getCheckpointLeafDataF(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getCheckpointLeafDataF(checkpointId);
+    }
+    getLatestL2BlockState(): Promise<QEDL2BlockState> {
+        console.warn("getLatestL2BlockState");
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getLatestL2BlockState();
+    }
+    getL2BlockState(checkpointId: Felt): Promise<QEDL2BlockState> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getL2BlockState(checkpointId);
+    }
+    getL2BlockStateF(checkpointId: Felt): Promise<QEDL2BlockState> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getL2BlockStateF(checkpointId);
+    }
+    getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getUserRegistrationTreeRoot(checkpointId);
+    }
+    getLatestCheckpointTreeRoot(): Promise<QHashOut> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getLatestCheckpointTreeRoot();
+    }
+    getCheckpointTreeRoot(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getCheckpointTreeRoot(checkpointId);
+    }
+    getCheckpointTreeRootF(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getCheckpointTreeRootF(checkpointId);
+    }
+    getCheckpointTreeLeafHash(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut> {
+        return this.rpcs
+            .get(this.getRealmId(this.currentUserId))!
+            .getCheckpointTreeLeafHash(checkpointId, leafCheckpointId);
+    }
+    getCheckpointTreeLeafHashF(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut> {
+        return this.rpcs
+            .get(this.getRealmId(this.currentUserId))!
+            .getCheckpointTreeLeafHashF(checkpointId, leafCheckpointId);
+    }
+    getCheckpointTreeMerkleProof(checkpointId: Felt, leafCheckpointId: Felt): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getRealmId(this.currentUserId))!
+            .getCheckpointTreeMerkleProof(checkpointId, leafCheckpointId);
+    }
+    getCheckpointTreeMerkleProofF(checkpointId: Felt, leafCheckpointId: Felt): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getRealmId(this.currentUserId))!
+            .getCheckpointTreeMerkleProofF(checkpointId, leafCheckpointId);
+    }
+    getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<QEDCheckpointGlobalStateRoots> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getCheckpointGlobalStateRoots(checkpointId);
+    }
+    getUserLeafData(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
+        return this.rpcs.get(this.getRealmId(Number(userId)))!.getUserLeafData(checkpointId, userId);
+    }
+    getUserLeafDataF(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
+        return this.rpcs.get(this.getRealmId(Number(userId)))!.getUserLeafDataF(checkpointId, userId);
+    }
+    getUserContractStateTreeRoot(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {
+        return this.rpcs
+            .get(this.getRealmId(Number(userId)))!
+            .getUserContractStateTreeRoot(checkpointId, userId, contractId);
+    }
+    getUserContractStateTreeRootF(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {
+        return this.rpcs
+            .get(this.getRealmId(Number(userId)))!
+            .getUserContractStateTreeRootF(checkpointId, userId, contractId);
+    }
+    getUserContractStateTreeLeafHash(
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
+        height: number,
+        leafId: Felt
+    ): Promise<QHashOut> {
+        return this.rpcs
+            .get(this.getRealmId(Number(userId)))!
+            .getUserContractStateTreeLeafHash(checkpointId, userId, contractId, height, leafId);
+    }
+    getUserContractStateTreeLeafHashF(
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
+        height: number,
+        leafId: Felt
+    ): Promise<QHashOut> {
+        return this.rpcs
+            .get(this.getRealmId(Number(userId)))!
+            .getUserContractStateTreeLeafHashF(checkpointId, userId, contractId, height, leafId);
+    }
+    getUserContractStateTreeMerkleProof(
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
+        height: number,
+        leafId: Felt
+    ): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getRealmId(Number(userId)))!
+            .getUserContractStateTreeMerkleProof(checkpointId, userId, contractId, height, leafId);
+    }
+    getUserContractStateTreeMerkleProofF(
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
+        height: number,
+        leafId: Felt
+    ): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getRealmId(Number(userId)))!
+            .getUserContractStateTreeMerkleProofF(checkpointId, userId, contractId, height, leafId);
+    }
+    getUserContractTreeRoot(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getRealmId(Number(userId)))!.getUserContractTreeRoot(checkpointId, userId);
+    }
+    getUserContractTreeRootF(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getRealmId(Number(userId)))!.getUserContractTreeRootF(checkpointId, userId);
+    }
+    getUserContractTreeLeafHash(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {
+        return this.rpcs
+            .get(this.getRealmId(Number(userId)))!
+            .getUserContractTreeLeafHash(checkpointId, userId, contractId);
+    }
+    getUserContractTreeLeafHashF(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {
+        return this.rpcs
+            .get(this.getRealmId(Number(userId)))!
+            .getUserContractTreeLeafHashF(checkpointId, userId, contractId);
+    }
+    getUserContractTreeMerkleProof(
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt
+    ): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getRealmId(Number(userId)))!
+            .getUserContractTreeMerkleProof(checkpointId, userId, contractId);
+    }
+    getUserContractTreeMerkleProofF(
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt
+    ): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getRealmId(Number(userId)))!
+            .getUserContractTreeMerkleProofF(checkpointId, userId, contractId);
+    }
+    getUserTreeRoot(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getUserTreeRoot(checkpointId);
+    }
+    getUserTreeRootF(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getUserTreeRootF(checkpointId);
+    }
+    getUserTreeLeafHash(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getUserTreeLeafHash(checkpointId, userId);
+    }
+    getUserTreeLeafHashF(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getUserTreeLeafHashF(checkpointId, userId);
+    }
+    getUserBottomTreeMerkleProof(
+        rootLevel: number,
+        checkpointId: Felt,
+        userId: Felt
+    ): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getRealmId(this.currentUserId))!
+            .getUserBottomTreeMerkleProof(rootLevel, checkpointId, userId);
+    }
+    getUserBottomTreeMerkleProofF(
+        rootLevel: number,
+        checkpointId: Felt,
+        userId: Felt
+    ): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getRealmId(this.currentUserId))!
+            .getUserBottomTreeMerkleProofF(rootLevel, checkpointId, userId);
+    }
+    getUserSubTreeMerkleProof(
+        checkpointId: Felt,
+        rootLevel: number,
+        leafLevel: number,
+        leafIndex: bigint | number
+    ): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getRealmId(this.currentUserId))!
+            .getUserSubTreeMerkleProof(checkpointId, rootLevel, leafLevel, leafIndex);
+    }
+    getUserSubTreeMerkleProofF(
+        checkpointId: Felt,
+        rootLevel: number,
+        leafLevel: number,
+        leafIndex: bigint
+    ): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getRealmId(this.currentUserId))!
+            .getUserSubTreeMerkleProofF(checkpointId, rootLevel, leafLevel, leafIndex);
+    }
+    getUserTreeMerkleProof(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs.get(this.getRealmId(Number(userId)))!.getUserTreeMerkleProof(checkpointId, userId);
+    }
+    getUserTreeMerkleProofF(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs.get(this.getRealmId(Number(userId)))!.getUserTreeMerkleProofF(checkpointId, userId);
     }
 }

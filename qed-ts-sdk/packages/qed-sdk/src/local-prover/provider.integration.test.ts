@@ -7,7 +7,7 @@
  * 2. Run: npm test -- --testNamePattern="WASM.*Integration"
  */
 
-import { createDefaultRpcConfig, RpcConfig } from "./config";
+import { createDefaultRpcConfig, WebProverConfig } from "./config";
 import { QedWasmUserProverProvider } from "./provider";
 import { PrivateKey, PublicKey, QHashOut } from "../core";
 import {
@@ -33,7 +33,7 @@ function reverseString(str: string): string {
 
 describe("QED WASM User Prover Provider Integration Tests", () => {
     let provider: QedWasmUserProverProvider;
-    let rpcConfig: RpcConfig;
+    let rpcConfig: WebProverConfig;
     const timeout = 60000; // 60 seconds timeout for WASM operations
 
     // Test data

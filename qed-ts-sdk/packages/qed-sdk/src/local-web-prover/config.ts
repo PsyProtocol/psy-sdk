@@ -1,22 +1,17 @@
 // RPC configuration types
-export interface RpcConfig {
+export interface WebProverConfig {
     users_per_realm: number;
-    realm_configs: RealmRpcConfig[];
-    coordinator_configs: CoordinatorRpcConfig[];
+    realm_configs: RpcConfig[];
+    coordinator_configs: RpcConfig[];
 }
 
-export interface RealmRpcConfig {
-    id: number;
-    rpc_url: string[];
-}
-
-export interface CoordinatorRpcConfig {
+export interface RpcConfig {
     id: number;
     rpc_url: string[];
 }
 
 // Default configuration factory function
-export function createDefaultRpcConfig(): RpcConfig {
+export function createDefaultRpcConfig(): WebProverConfig {
     // const REALM_USER_TREE_HEIGHT = 15; // You may need to adjust this value based on your constants
     // const users_per_realm = 1 << REALM_USER_TREE_HEIGHT;
     // return {
@@ -70,35 +65,5 @@ export function createDefaultRpcConfig(): RpcConfig {
             }
         ]
     }
-}
-
-// Type guards for runtime type checking
-export function isRpcConfig(obj: any): obj is RpcConfig {
-    return (
-        obj &&
-        typeof obj.users_per_realm === "number" &&
-        Array.isArray(obj.realm_configs) &&
-        Array.isArray(obj.coordinator_configs) &&
-        obj.realm_configs.every(isRealmRpcConfig) &&
-        obj.coordinator_configs.every(isCoordinatorRpcConfig)
-    );
-}
-
-export function isRealmRpcConfig(obj: any): obj is RealmRpcConfig {
-    return (
-        obj &&
-        typeof obj.id === "number" &&
-        Array.isArray(obj.rpc_url) &&
-        obj.rpc_url.every((url: any) => typeof url === "string")
-    );
-}
-
-export function isCoordinatorRpcConfig(obj: any): obj is CoordinatorRpcConfig {
-    return (
-        obj &&
-        typeof obj.id === "number" &&
-        Array.isArray(obj.rpc_url) &&
-        obj.rpc_url.every((url: any) => typeof url === "string")
-    );
 }
 

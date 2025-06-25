@@ -56,6 +56,7 @@ export enum RealmEdgeRPCCommand {
 export interface IRealmEdgeRpcProvider {
     // Set UserId
     setUserId(userId: Felt): void;
+    getRpcProviderByUserId(userId: Felt): IRealmEdgeRpcProvider;
 
     // Check user ID
     checkUserIdInRealm(userId: Felt): Promise<boolean>;

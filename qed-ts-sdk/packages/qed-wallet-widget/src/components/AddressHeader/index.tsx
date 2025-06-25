@@ -13,6 +13,8 @@ import {
     InnerValue,
     NoWalletAddressHeader
 } from "./AddressHeader.styles";
+import { useWalletConfig } from "../../config";
+import { useBlockNumber, useUserBalance } from "../../utils/data";
 interface IAddressHeaderProps {
     address: string;
     balance: string;
@@ -56,11 +58,17 @@ const AddressHeader: React.FC<IAddressHeaderProps> = ({ address, balance, onRefr
 };
 
 const StatefulAddressHeader: React.FC = () => {
-    const [currency, currentWallet, refreshCurrentWallet] = useWalletState((state) => [
+    const [currency, currentWallet, refreshCurrentWallet, walletProvider] = useWalletState((state) => [
         state.currency,
         state.currentWallet,
         state.refreshCurrentWallet,
+        state.provider,
     ]);
+    const { getNativeCurrency } = useWalletConfig();
+    const contractId = parseInt(getNativeCurrency(), 10);
+    const userId = !currentWallet ? 0 : currentWallet.userId;
+    const checkpointId = useBlockNumber(walletProvider, 1000);
+    const userBalance = useUserBalance(walletProvider, checkpointId, userId, contractId, 1000);
     if (!currentWallet) {
         return (
             <NoWalletAddressHeader>
@@ -72,7 +80,7 @@ const StatefulAddressHeader: React.FC = () => {
     return (
         <AddressHeader
             address={currentWallet.userId + ""}
-            balance={formatBalance(currentWallet.balance, currency)}
+            balance={formatBalance(userBalance, currency)}
             onRefresh={() => refreshCurrentWallet()}
         />
     );

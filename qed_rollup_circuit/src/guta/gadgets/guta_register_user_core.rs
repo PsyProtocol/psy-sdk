@@ -118,7 +118,6 @@ impl GUTARegisterUserCoreGadget {
         public_key: QHashOut<F>,
         global_user_tree_update_proof: &DeltaMerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
-        eprintln!("DEBUGPRINT[615]: guta_register_user_core.rs:120 (after ) -> anyhow::Result<()> )");
         self.global_user_tree_update_proof.set_witness(
             witness,
             global_user_tree_update_proof,
