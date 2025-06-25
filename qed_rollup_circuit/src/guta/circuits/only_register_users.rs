@@ -92,8 +92,6 @@ where
         guta_register_user_inputs: &[GUTARegisterUserFullInput<C::F>],
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
-        eprintln!("DEBUGPRINT[610]: only_register_users.rs:95: checkpoint_tree_root={}", serde_json::to_string_pretty(&checkpoint_tree_root).unwrap());
-        eprintln!("DEBUGPRINT[609]: only_register_users.rs:95: guta_register_user_inputs={}", serde_json::to_string_pretty(&guta_register_user_inputs).unwrap());
 
 
         let default_user_state_tree_root = QHashOut::from_values(
@@ -120,7 +118,6 @@ where
         )?;
 
         let p = self.circuit_data.prove(pw)?;
-        eprintln!("DEBUGPRINT[681]: only_register_users.rs:123: p.public_inputs={}", serde_json::to_string_pretty(&p.public_inputs).unwrap());
         Ok(p)
     }
 }

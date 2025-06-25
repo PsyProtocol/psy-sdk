@@ -21,10 +21,7 @@ impl TwoNCAStateTransitionGadget {
         a_header: GlobalUserTreeAggregatorHeaderGadget,
         b_header: GlobalUserTreeAggregatorHeaderGadget,
     ) -> Self {
-        eprintln!("DEBUGPRINT[716]: two_nca_state_transition.rs:24: a_header={:#?}", a_header);
-        eprintln!("DEBUGPRINT[717]: two_nca_state_transition.rs:25: b_header={:#?}", b_header);
         let update_nca_proof_gadget = UpdateNearestCommonAncestorProofOptGadget::add_virtual_to_full::<H,F,D>(builder, GLOBAL_USER_TREE_HEIGHT as usize);
-        eprintln!("DEBUGPRINT[715]: two_nca_state_transition.rs:24: update_nca_proof_gadget={:#?}", update_nca_proof_gadget);
 
         builder.connect_hashes(
             a_header.checkpoint_tree_root,
@@ -74,13 +71,8 @@ impl TwoNCAStateTransitionGadget {
         );
 
         let new_stats = a_header.stats.combine_with(builder, &b_header.stats);
-        eprintln!("DEBUGPRINT[657]: two_nca_state_transition.rs:73: new_stats={:#?}", new_stats);
-        eprintln!("DEBUGPRINT[658]: two_nca_state_transition.rs:75: update_nca_proof_gadget={:#?}", update_nca_proof_gadget);
 
 
-        eprintln!("DEBUGPRINT[648]: two_nca_state_transition.rs:76: a_header.checkpoint_tree_root={:#?}", a_header.checkpoint_tree_root);
-        eprintln!("DEBUGPRINT[646]: two_nca_state_transition.rs:76: update_nca_proof_gadget.old_nearest_common_ancestor_value={:#?}", update_nca_proof_gadget.old_nearest_common_ancestor_value);
-        eprintln!("DEBUGPRINT[647]: two_nca_state_transition.rs:77: update_nca_proof_gadget.new_nearest_common_ancestor_value={:#?}", update_nca_proof_gadget.new_nearest_common_ancestor_value);
 
         let new_guta_header = GlobalUserTreeAggregatorHeaderGadget{
             guta_circuit_whitelist: a_header.guta_circuit_whitelist,
