@@ -1,7 +1,6 @@
 use crate::{
-    DefaultVisitorContext, DefId, FunctionNode, Program, StructNode, Visibility,
-    SpecCompliantAbi, StructAbiSpec, FieldAbiSpec, FunctionAbiSpec, ParamAbiSpec, TypeAbiSpec,
-    VisitorContext
+    DefId, DefaultVisitorContext, FieldAbiSpec, FunctionAbiSpec, FunctionNode, ParamAbiSpec,
+    Program, SpecCompliantAbi, StructAbiSpec, StructNode, TypeAbiSpec, Visibility, VisitorContext,
 };
 
 pub struct AbiExtractor {
@@ -10,9 +9,7 @@ pub struct AbiExtractor {
 
 impl AbiExtractor {
     pub fn new(contract_name: String) -> Self {
-        Self {
-            contract_name,
-        }
+        Self { contract_name }
     }
 
     pub fn extract_spec_compliant_abi<F: Clone + From<u32> + 'static>(
@@ -24,49 +21,47 @@ impl AbiExtractor {
 
         // First pass: collect all struct information
         let mut struct_map = std::collections::HashMap::new();
-        
+
         // Collect all structs by iterating through all definitions in the arena
         for i in 0..ctx.program().defs.len() {
             let def_id = DefId::from(i);
             if let Some(struct_node) = ctx.definition(def_id).as_struct() {
                 let struct_name = ctx.ident(struct_node.name).0.to_string();
-                
+
                 // Skip internal types
                 if self.is_internal_type(&struct_name) {
                     continue;
                 }
-                
+
                 let is_contract = self.has_contract_attr(struct_node, &ctx);
                 let is_public = Self::is_public(&struct_node.visibility);
-                
+
                 // Include all structs (both public and private)
                 // We'll let the user decide what should be in ABI
-                if true {
-                    let fields = struct_node
-                        .fields
-                        .iter()
-                        .filter(|(_, field)| Self::is_public(&field.visibility))
-                        .map(|(name, field)| FieldAbiSpec {
-                            name: ctx.ident(*name).0.to_string(),
-                            field_type: TypeAbiSpec::from_unchecked_type(&field.ty, &ctx),
-                        })
-                        .collect();
+                let fields = struct_node
+                    .fields
+                    .iter()
+                    .filter(|(_, field)| Self::is_public(&field.visibility))
+                    .map(|(name, field)| FieldAbiSpec {
+                        name: ctx.ident(*name).0.to_string(),
+                        field_type: TypeAbiSpec::from_unchecked_type(&field.ty, &ctx),
+                    })
+                    .collect();
 
-                    let mut struct_spec = StructAbiSpec {
-                        name: struct_name.clone(),
-                        is_contract,
-                        fields,
-                        functions: None,
-                    };
+                let mut struct_spec = StructAbiSpec {
+                    name: struct_name.clone(),
+                    is_contract,
+                    fields,
+                    functions: None,
+                };
 
-                    // Find associated functions (only for contracts or when functions are explicitly associated)
-                    let functions = self.find_impl_functions(&struct_name, &ctx);
-                    if !functions.is_empty() {
-                        struct_spec.functions = Some(functions);
-                    }
-
-                    struct_map.insert(struct_name, struct_spec);
+                // Find associated functions (only for contracts or when functions are explicitly associated)
+                let functions = self.find_impl_functions(&struct_name, &ctx);
+                if !functions.is_empty() {
+                    struct_spec.functions = Some(functions);
                 }
+
+                struct_map.insert(struct_name, struct_spec);
             }
         }
 
@@ -88,12 +83,12 @@ impl AbiExtractor {
         if matches!(type_name, "ContractMetadata" | "StorageRef") {
             return true;
         }
-        
+
         // 2. Generated Ref types (e.g., ContractRef, OtherUserInfoRef)
         if type_name.ends_with("Ref") {
             return true;
         }
-        
+
         false
     }
 
@@ -103,9 +98,9 @@ impl AbiExtractor {
     }
 
     fn has_contract_attr<F: Clone + From<u32>>(
-        &self, 
-        struct_node: &StructNode, 
-        ctx: &DefaultVisitorContext<F, ()>
+        &self,
+        struct_node: &StructNode,
+        ctx: &DefaultVisitorContext<F, ()>,
     ) -> bool {
         struct_node.attrs.iter().any(|attr| {
             let attr_name = ctx.ident(attr.name).0.as_str();
@@ -116,26 +111,27 @@ impl AbiExtractor {
     fn find_impl_functions<F: Clone + From<u32>>(
         &self,
         struct_name: &str,
-        ctx: &DefaultVisitorContext<F, ()>
+        ctx: &DefaultVisitorContext<F, ()>,
     ) -> Vec<FunctionAbiSpec> {
         let mut functions = Vec::new();
-        
+
         // Look for impl blocks that implement this struct
         for i in 0..ctx.program().defs.len() {
             let def_id = DefId::from(i);
             if let Some(impl_node) = ctx.definition(def_id).as_impl() {
                 // Check if this impl is for our target struct or its Ref version
                 let impl_type_name = self.extract_type_name(&impl_node.ty, ctx);
-                if impl_type_name == struct_name || 
-                   impl_type_name == format!("{}Ref", struct_name) {
-                    
+                if impl_type_name == struct_name || impl_type_name == format!("{}Ref", struct_name)
+                {
                     // Extract functions from this impl block
                     for &function_def_id in &impl_node.body {
                         if let Some(function) = ctx.definition(function_def_id).as_function() {
                             let function_name = ctx.ident(function.name).0.to_string();
-                            
+
                             // Skip internal functions and only include public functions
-                            if Self::is_public(&function.visibility) && !self.is_internal_function(&function_name) {
+                            if Self::is_public(&function.visibility)
+                                && !self.is_internal_function(&function_name)
+                            {
                                 let function_spec = self.extract_function_abi_spec(function, ctx);
                                 functions.push(function_spec);
                             }
@@ -144,30 +140,26 @@ impl AbiExtractor {
                 }
             }
         }
-        
+
         functions
     }
 
     fn extract_type_name<F: Clone + From<u32>>(
         &self,
         unchecked_type: &crate::UncheckedType,
-        ctx: &DefaultVisitorContext<F, ()>
+        ctx: &DefaultVisitorContext<F, ()>,
     ) -> String {
         match unchecked_type {
-            crate::UncheckedType::Basic(identifier) => {
-                ctx.ident(*identifier).0.to_string()
-            },
-            crate::UncheckedType::Path(path) => {
-                self.extract_type_name(&path.target, ctx)
-            },
+            crate::UncheckedType::Basic(identifier) => ctx.ident(*identifier).0.to_string(),
+            crate::UncheckedType::Path(path) => self.extract_type_name(&path.target, ctx),
             _ => "unknown".to_string(),
         }
     }
 
     fn extract_function_abi_spec<F: Clone + From<u32>>(
-        &self, 
-        function: &FunctionNode, 
-        ctx: &DefaultVisitorContext<F, ()>
+        &self,
+        function: &FunctionNode,
+        ctx: &DefaultVisitorContext<F, ()>,
     ) -> FunctionAbiSpec {
         let params = function
             .parameters
@@ -184,7 +176,6 @@ impl AbiExtractor {
             return_type: vec![], // As per spec, always empty for now
         }
     }
-
 }
 
 #[cfg(test)]
@@ -200,13 +191,13 @@ mod tests {
     #[test]
     fn test_internal_type_filtering() {
         let extractor = AbiExtractor::new("TestContract".to_string());
-        
+
         // Test internal types
         assert!(extractor.is_internal_type("ContractMetadata"));
         assert!(extractor.is_internal_type("StorageRef"));
         assert!(extractor.is_internal_type("ContractRef"));
         assert!(extractor.is_internal_type("SomeStructRef"));
-        
+
         // Test valid types
         assert!(!extractor.is_internal_type("Contract"));
         assert!(!extractor.is_internal_type("UserInfo"));
@@ -216,12 +207,12 @@ mod tests {
     #[test]
     fn test_internal_function_filtering() {
         let extractor = AbiExtractor::new("TestContract".to_string());
-        
+
         // Test internal functions
         assert!(extractor.is_internal_function("new"));
         assert!(extractor.is_internal_function("get"));
         assert!(extractor.is_internal_function("set"));
-        
+
         // Test valid functions
         assert!(!extractor.is_internal_function("transfer"));
         assert!(!extractor.is_internal_function("mint"));

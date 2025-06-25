@@ -52,7 +52,6 @@ pub enum TypeAbiSpec {
     },
 }
 
-
 impl SpecCompliantAbi {
     pub fn new(version: String) -> Self {
         Self {
@@ -72,13 +71,13 @@ impl SpecCompliantAbi {
 
 impl TypeAbiSpec {
     pub fn from_unchecked_type<F: Clone + From<u32>>(
-        unchecked_type: &UncheckedType, 
-        ctx: &crate::DefaultVisitorContext<F, ()>
+        unchecked_type: &UncheckedType,
+        ctx: &crate::DefaultVisitorContext<F, ()>,
     ) -> Self {
         match unchecked_type {
             UncheckedType::Basic(identifier) => {
                 TypeAbiSpec::Basic(ctx.ident(*identifier).0.to_string())
-            },
+            }
             UncheckedType::Array(element_type, size, _) => {
                 let inner_type = match Self::from_unchecked_type(element_type, ctx) {
                     TypeAbiSpec::Basic(name) => name,
@@ -89,13 +88,11 @@ impl TypeAbiSpec {
                     inner_type,
                     length: *size,
                 }
-            },
+            }
             UncheckedType::Generic(identifier, _generics, _) => {
                 TypeAbiSpec::Basic(ctx.ident(*identifier).0.to_string())
-            },
-            UncheckedType::Path(path) => {
-                Self::from_unchecked_type(&path.target, ctx)
-            },
+            }
+            UncheckedType::Path(path) => Self::from_unchecked_type(&path.target, ctx),
             _ => TypeAbiSpec::Basic("unknown".to_string()),
         }
     }
