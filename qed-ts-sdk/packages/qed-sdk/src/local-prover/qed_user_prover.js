@@ -831,12 +831,12 @@ module.exports.__wbindgen_cb_drop = function(arg0) {
     return ret;
 };
 
-module.exports.__wbindgen_closure_wrapper5304 = function(arg0, arg1, arg2) {
+module.exports.__wbindgen_closure_wrapper5308 = function(arg0, arg1, arg2) {
     const ret = makeMutClosure(arg0, arg1, 2086, __wbg_adapter_32);
     return ret;
 };
 
-module.exports.__wbindgen_closure_wrapper5340 = function(arg0, arg1, arg2) {
+module.exports.__wbindgen_closure_wrapper5344 = function(arg0, arg1, arg2) {
     const ret = makeMutClosure(arg0, arg1, 2109, __wbg_adapter_35);
     return ret;
 };

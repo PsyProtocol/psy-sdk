@@ -48,11 +48,6 @@ use crate::subcommand::args::{ContractCallArgs, WalletSessionArgs};
 use crate::subcommand::deploy_contract::gen_contract_deploy_and_circuits_for_functions;
 use crate::subcommand::utils::prove_func;
 
-use super::{
-    args::{ContractCallArgs, WalletSessionArgs},
-    deploy_contract::gen_contract_deploy_and_circuits_for_functions,
-    utils::prove_func,
-};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -188,7 +183,7 @@ impl WalletSession {
             .get_public_key_info(SimpleQEDPrivateKey { private_key });
         let pk_hash = pk_info.qfhash::<QEDHasher>();
 
-        if let Ok(user_id) = self.st_provider.get_user_id(pk_hash) {
+        if let Ok(user_id) = self.st_provider.get_user_id(pk_hash).await {
             tracing::info!("user `{}` already registered with id {}", pk_hash, user_id);
             return Ok(pk_hash);
         }
