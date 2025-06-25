@@ -21,6 +21,7 @@ import {
     MainContent,
     SettingsButton
 } from "./ExtensionHome.styles";
+import { useBlockNumber } from 'packages/qed-wallet-widget/src/utils/data';
 
 export const ExtensionContent: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'home' | 'tokens'>('home');
@@ -33,7 +34,7 @@ export const ExtensionContent: React.FC = () => {
     const { config } = useWalletConfig();
     const navigate = useNavigate();
 
-    const [wallets, currentWallet, addRandomWallet, refreshAllWallets, setActiveWalletAsync, providerAbilities] = useWalletState(
+    const [wallets, currentWallet, addRandomWallet, refreshAllWallets, setActiveWalletAsync, providerAbilities, provider] = useWalletState(
         (state) => [
             state.wallets,
             state.currentWallet,
@@ -41,6 +42,7 @@ export const ExtensionContent: React.FC = () => {
             state.refreshAllWallets,
             state.setActiveWalletAsync,
             state.providerAbilities,
+            state.provider
         ]
     );
     const [openModal, modalState] = useAddressModal(state => [state.openModal, state]);
@@ -70,7 +72,7 @@ export const ExtensionContent: React.FC = () => {
             isCheckingWallet,
             hasWallets
         });
-        
+
         // If wallets are restored while still checking, stop checking immediately
         if (isCheckingWallet && wallets.length > 0) {
             console.log('Wallets restored, stopping check');
@@ -129,6 +131,8 @@ export const ExtensionContent: React.FC = () => {
     const handleTransactConfirm = (data: any) => {
         console.log(`${transactModal.type} transaction completed:`, data);
     };
+
+    const checkpointId = useBlockNumber(provider, 1000);
 
     // Show loading state while checking wallets
     if (isCheckingWallet) {
@@ -194,6 +198,9 @@ export const ExtensionContent: React.FC = () => {
                         onSelectWallet={handleSelectWallet}
                     />
                 </HeaderLeft>
+                <div style={{ flex: 1, textAlign: 'center', color: config.theme.colors.text }}>
+                    Checkpoint: {checkpointId}
+                </div>
                 <HeaderRight>
                     <SettingsButton onClick={() => setNetworkSettingsOpen(true)}>
                         <IconSettings size={20} />
