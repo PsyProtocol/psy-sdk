@@ -63,7 +63,7 @@ impl RealmProcessor {
         ).await?;
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write_with_size(
-                &config.db.path,
+                &config.db.db_path,
                 config.db.size_gb,
             )?);
 

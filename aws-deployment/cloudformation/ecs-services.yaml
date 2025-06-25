@@ -215,7 +215,7 @@ Resources:
             InitProcessEnabled: true
           Command:
             - realm-processor
-            - --path=/data
+            - --db-path=/data
             - !Sub --redis-uri=redis://${Realm0RedisEndpoint}
           Environment:
             - Name: RUST_LOG
@@ -295,7 +295,7 @@ Resources:
           Command:
             - realm-edge
             - --listen-addr=0.0.0.0:8546
-            - --path=/data
+            - --db-path=/data
             - !Sub --redis-uri=redis://${Realm0RedisEndpoint}
             - !Sub
               - --coordinator-addr=http://${ALBDNS}:8545
@@ -345,7 +345,7 @@ Resources:
             InitProcessEnabled: true
           Command:
             - realm-processor
-            - --path=/data
+            - --db-path=/data
             - --node-id=2
             - --realm-id=16384
             - --worker-queue-suffix=rwq16384
@@ -433,7 +433,7 @@ Resources:
           Command:
             - realm-edge
             - --listen-addr=0.0.0.0:8547
-            - --path=/data
+            - --db-path=/data
             - --node-id=2
             - --realm-id=16384
             - --worker-queue-suffix=rwq16384

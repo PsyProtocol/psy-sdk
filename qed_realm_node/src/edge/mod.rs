@@ -79,7 +79,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
 
     // Create store reader
     let store_reader = KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(
-        KVQlibmdbxStore::new_read(&config.db.path)?,
+        KVQlibmdbxStore::new_read(&config.db.db_path)?,
     );
 
     let store_reader = Arc::new(store_reader);
