@@ -47,7 +47,7 @@ const transactConfigs: Record<TransactType, TransactConfig> = {
     confirmText: 'Send Transfer',
     getInputs: (data, selectedToken) => ({
       contractId: BigInt(selectedToken?.contractId || '0'),
-      inputs: [BigInt(Math.floor(data.amount * Math.pow(10, selectedToken?.decimals || 9)))],
+      inputs: [BigInt(parseInt(data.recipient)), BigInt(Math.floor(data.amount * Math.pow(10, selectedToken?.decimals || 9)))],
     }),
   },
   mint: {
@@ -69,7 +69,7 @@ const transactConfigs: Record<TransactType, TransactConfig> = {
     confirmText: 'Claim',
     getInputs: (data, selectedToken) => ({
       contractId: BigInt(selectedToken?.contractId || '0'),
-      inputs: [], // Claim typically doesn't need amount input, just sender info
+      inputs: [BigInt(parseInt(data.sender))], // Claim typically doesn't need amount input, just sender info
     }),
   }
 };
