@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useWalletState, useAddressModal, AddressModalType } from "@qed/qed-wallet-widget";
+import { useWalletState, useAddressModal, AddressModalType, IQedWidgetWallet } from "@qed/qed-wallet-widget";
 import logoImage from "../../assets/psy.png";
 import { useWalletConfig } from "../../config";
 import { IconSettings } from "@tabler/icons-react";
@@ -32,7 +32,7 @@ export const ExtensionContent: React.FC = () => {
     const [isCheckingWallet, setIsCheckingWallet] = useState(true);
     const { config } = useWalletConfig();
     const navigate = useNavigate();
-    
+
     const [wallets, currentWallet, addRandomWallet, refreshAllWallets, setActiveWalletAsync, providerAbilities] = useWalletState(
         (state) => [
             state.wallets,
@@ -43,9 +43,7 @@ export const ExtensionContent: React.FC = () => {
             state.providerAbilities,
         ]
     );
-    
     const [openModal, modalState] = useAddressModal(state => [state.openModal, state]);
-    
     // Initialize persistent wallet storage
     const { clearStoredWallets } = usePersistentWallet();
 
@@ -62,15 +60,15 @@ export const ExtensionContent: React.FC = () => {
 
     // Check if we have any wallets available
     const hasWallets = wallets.length > 0;
-    
+
     // Debug logging and wallet restoration detection
     React.useEffect(() => {
-        console.log('Wallet state:', { 
-            walletsCount: wallets.length, 
+        console.log('Wallet state:', {
+            walletsCount: wallets.length,
             hasCurrentWallet: !!currentWallet,
             currentWalletAddress: currentWallet?.address,
             isCheckingWallet,
-            hasWallets 
+            hasWallets
         });
         
         // If wallets are restored while still checking, stop checking immediately
@@ -96,6 +94,16 @@ export const ExtensionContent: React.FC = () => {
                 setIsCheckingWallet(false);
             }
         });
+    };
+
+    const handleSelectWallet = async (userId: number) => {
+        try {
+            await setActiveWalletAsync(userId);
+            await refreshAllWallets();
+            console.log('Wallet selected and refreshed successfully');
+        } catch (error) {
+            console.error('Error selecting wallet:', error);
+        }
     };
 
     const handleRefreshWallets = async () => {
@@ -125,10 +133,10 @@ export const ExtensionContent: React.FC = () => {
     // Show loading state while checking wallets
     if (isCheckingWallet) {
         return (
-            <div style={{ 
-                height: '100%', 
-                width: '100%', 
-                display: 'flex', 
+            <div style={{
+                height: '100%',
+                width: '100%',
+                display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: config.theme.colors.background,
@@ -146,14 +154,14 @@ export const ExtensionContent: React.FC = () => {
     // Show onboarding if no wallets exist
     if (!hasWallets) {
         return (
-            <div style={{ 
-                height: '100%', 
-                width: '100%', 
+            <div style={{
+                height: '100%',
+                width: '100%',
                 backgroundColor: config.theme.colors.background,
                 position: 'relative',
                 zIndex: 10
             }}>
-                <WalletOnboarding 
+                <WalletOnboarding
                     onCreateWallet={handleNewWallet}
                     onImportWallet={handleImportWallet}
                 />
@@ -163,10 +171,10 @@ export const ExtensionContent: React.FC = () => {
 
     // Show main wallet interface
     return (
-        <div style={{ 
-            height: '100%', 
-            width: '100%', 
-            display: 'flex', 
+        <div style={{
+            height: '100%',
+            width: '100%',
+            display: 'flex',
             flexDirection: 'column',
             backgroundColor: config.theme.colors.background,
             position: 'relative',
@@ -175,13 +183,15 @@ export const ExtensionContent: React.FC = () => {
             <Header>
                 <HeaderLeft>
                     <WalletSelector
+                        wallets={wallets}
                         currentWallet={currentWallet ? {
-                            name: currentWallet.name || config.wallet.defaultWalletName,
+                            name: `Wallet ${currentWallet.name}: 0x${currentWallet.address?.substring(0, 6)}`,
                             address: currentWallet.address
                         } : undefined}
                         onNewWallet={handleNewWallet}
                         onImportWallet={handleImportWallet}
                         onRefreshWallets={handleRefreshWallets}
+                        onSelectWallet={handleSelectWallet}
                     />
                 </HeaderLeft>
                 <HeaderRight>

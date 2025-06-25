@@ -45,11 +45,12 @@ function SelectOption({ address, networkId, balanceString }: IAddressSelectorIte
 
     const { getNativeCurrency } = useWalletConfig();
     const contractId = parseInt(getNativeCurrency(), 10);
-    console.warn("currentBalance:", contractId);
     // refresh checkpoint every 10 seconds
     const currentBlockNumber = useBlockNumber(provider, 10000);
     const currentAddress = !currentWallet ? address : `${address}: ${currentWallet.publicKeyHex}`;
     const balance = useUserBalance(provider, currentBlockNumber, parseInt(address), contractId, 10000);
+    console.log("userId:", parseInt(address));
+    console.log("balance:", balance);
     sha256Buffer;
     return (
         <Group>
@@ -92,7 +93,7 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
             </Combobox.Option>
         ));
         return addressOptions.concat([
-            <Combobox.Group label="Wallet Managment" key="wallet-management" style={{ color: 'black' }}>
+            <Combobox.Group label="Wallet Management" key="wallet-management" style={{ color: 'black' }}>
                 {showAddNew ? (
                     <Combobox.Option value="new-wallet">
                         <Group>

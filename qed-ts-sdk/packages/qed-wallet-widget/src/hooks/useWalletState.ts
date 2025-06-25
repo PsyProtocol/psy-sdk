@@ -67,6 +67,8 @@ async function getAllIQWallets(provider: QedUserWalletProvider): Promise<IQedWid
             console.log(`getAllIQWallets: Wallet ${index} info:`, userInfo);
             return {
                 ...userInfo,
+                name: userInfo.userId.toString(),
+                address: userInfo.publicKeyHex,
                 wallet: user,
             };
         })
