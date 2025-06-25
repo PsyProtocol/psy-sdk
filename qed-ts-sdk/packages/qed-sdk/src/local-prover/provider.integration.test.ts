@@ -392,11 +392,9 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
                 console.log("ZK Public Key: ", zkPublicKey);
 
                 try {
-                    sessionId = await provider.startSession(addedPublicKey);
-                    console.log(`${addedPublicKey} Setup complete for contract deployment: ${sessionId}`);
-
                     const circuitDefs = JSON.parse(
-                        fs.readFileSync(path.resolve(__dirname, "../../../../../qed_user_cli/contract.json"), "utf8")
+                        // fs.readFileSync(path.resolve(__dirname, "../../../../../qed_user_cli/contract.json"), "utf8")
+                        fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples.json"), "utf8")
                     );
                     console.log("circuitDefs: ", circuitDefs);
                     let result = await provider.deployContract(addedPublicKey, circuitDefs);
@@ -407,18 +405,32 @@ describe("QED WASM User Prover Provider Integration Tests", () => {
 
                     await waitBlock(coordinator);
                     await waitBlock(coordinator);
-                    const qbcDeployContract = await provider.getDeployContractCmd(addedPublicKey, circuitDefs);
-                    console.log("qbcDeployContract: ", qbcDeployContract);
 
-                    result = await provider.proveContractCall(addedPublicKey, {
+                    // const qbcDeployContract = await provider.getDeployContractCmd(addedPublicKey, circuitDefs);
+                    // console.log("qbcDeployContract: ", qbcDeployContract);
+                    // await waitBlock(coordinator);
+                    // await waitBlock(coordinator);
+                    // await waitBlock(coordinator);
+                    // result = await provider.proveContractCall(addedPublicKey, {
+                    //     contract_id: BigInt(0),
+                    //     method_name: "simple_mint_debug",
+                    //     inputs: [BigInt(200000)],
+                    // });
+                    // console.log("result: ", result);
+                    //
+                    // const submitResult = await provider.signAndSubmit(addedPublicKey);
+                    // console.log("submitResult: ", submitResult);
+                    // await waitBlock(coordinator);
+                    // await waitBlock(coordinator);
+
+                    result = await provider.execContractCall(addedPublicKey, [{
                         contract_id: BigInt(0),
                         method_name: "simple_mint",
                         inputs: [BigInt(200000)],
-                    });
+                    }]);
                     console.log("result: ", result);
 
-                    const submitResult = await provider.signAndSubmit(addedPublicKey);
-                    console.log("submitResult: ", submitResult);
+                    await waitBlock(coordinator);
                     await waitBlock(coordinator);
                     await waitBlock(coordinator);
 
