@@ -7,7 +7,7 @@ import {
     IRealmEdgeRpcProvider,
     IQedUserWallet,
 } from "@qed/qed-sdk";
-import { createMemoryWalletProvider } from "../utils/provider";
+import { createMemoryWalletProviderWithWebProver } from "../utils/provider";
 import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
 
 enum WalletWidgetLoadingState {
@@ -109,10 +109,38 @@ function waitMs(duration: number) {
 }
 const useWalletState = create<IWalletStateStore>((set, get, api) => {
     const setAsync = setAsyncFactory(set, get, api);
-    const walletProvider = createMemoryWalletProvider(
+    // const walletProvider = createMemoryWalletProvider(
+    //     "http://localhost:8545",
+    //     "http://localhost:8546",
+    //     "http://localhost:8888",
+    // );
+
+    const walletProvider = createMemoryWalletProviderWithWebProver(
         "http://localhost:8545",
         "http://localhost:8546",
-        "http://localhost:8888",
+        {
+            users_per_realm: 32768,
+            realm_configs: [
+                {
+                    id: 0,
+                    rpc_url: ["http://127.0.0.1:8546"]
+                },
+                {
+                    id: 16384,
+                    rpc_url: ["http://127.0.0.1:8547"]
+                },
+                {
+                    id: 8192,
+                    rpc_url: ["http://127.0.0.1:8548"]
+                }
+            ],
+            coordinator_configs: [
+                {
+                    id: 0,
+                    rpc_url: ["http://127.0.0.1:8545"]
+                }
+            ],
+        }
     );
     return {
         loadingState: WalletWidgetLoadingState.Ready,

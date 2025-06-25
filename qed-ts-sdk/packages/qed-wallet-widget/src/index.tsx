@@ -5,7 +5,7 @@ export { useAddressModal, AddressModalType } from "./hooks/useAddressModal";
 export type { IWalletWidgetRPC } from "./utils/rpc/types";
 export * from "./utils/rpc/walletRPC";
 
-export { createMemoryWalletProvider } from "./utils/provider";
+export { createMemoryWalletProvider, createMemoryWalletProviderWithWebProver} from "./utils/provider";
 
 // Theme exports
 export { WalletThemeProvider, useTheme } from "./themes/ThemeProvider";

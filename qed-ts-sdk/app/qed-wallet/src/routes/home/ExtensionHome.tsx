@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { QedWalletWidget, createMemoryWalletProvider } from "@qed/qed-wallet-widget";
+import {
+    QedWalletWidget,
+    // createMemoryWalletProvider,
+    createMemoryWalletProviderWithWebProver
+} from "@qed/qed-wallet-widget";
 import logoImage from "../../assets/psy.png";
-import { useWalletConfig } from "../../config";
+import {defaultConfig, useWalletConfig} from "../../config";
 import { TokensProvider } from "../../contexts/TokensContext";
 import ExtensionContent from "./ExtensionContent";
 import {
@@ -32,10 +36,20 @@ const ExtensionHomeContent: React.FC = () => {
         }, 10);
     }, []);
 
-    const walletProvider = createMemoryWalletProvider(
+    // const walletProvider = createMemoryWalletProvider(
+    //     getCoordinatorUrl(), // coordinator
+    //     getRealmUrl(), // realm
+    //     getProverUrl(), // prover
+    // );
+
+    const walletProvider = createMemoryWalletProviderWithWebProver(
         getCoordinatorUrl(), // coordinator
-        getRealmUrl(), // realm 
-        getProverUrl(), // prover
+        getRealmUrl(), // realm
+        {
+            users_per_realm: defaultConfig.network.users_per_realm,
+            realm_configs:defaultConfig.network.realm_configs,
+            coordinator_configs: defaultConfig.network.coordinator_configs,
+        }
     );
 
     if (isLoading) {
