@@ -11,6 +11,7 @@ import {
 // Import WASM binary data synchronously
 import { initSync } from "@qed/qed-sdk/src/local-web-prover";
 import wasmUrl from "@qed/qed-sdk/src/local-web-prover/qed_user_prover_bg.wasm?url";
+import { wasmBinary } from "@qed/qed-sdk/src/local-web-prover/wasm-binary";
 import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
 import { QedMemoryTransactionSignerProvider } from "@qed/qed-sdk/src/zksigner/memory/provider";
 
@@ -46,6 +47,20 @@ function initWasmSync(): void {
     }
 }
 
+
+// Synchronous WASM initialization function
+function initStaticWasmSync(): void {
+    try {
+        // Initialize synchronously with pre-compiled binary data
+        initSync(wasmBinary);
+        
+        console.log('WASM initialized synchronously from binary data');
+    } catch (error) {
+        console.error('Failed to initialize WASM:', error);
+        throw error;
+    }
+}
+
 function createMemoryWalletProvider(
     coordinatorRpcConfigs: RpcConfig[],
     realmRpcConfigs: RpcConfig[],
@@ -60,7 +75,8 @@ function createMemoryWalletProvider(
         userProver = new QedRPCUserProverProvider(proverUrl);
     } else {
         // Synchronously initialize WASM before creating provider
-        initWasmSync();
+        // initWasmSync();
+        initStaticWasmSync();
         userProver = new QedWasmWebProverProvider({
             users_per_realm: userPerRealm,
             realm_configs: realmRpcConfigs,
