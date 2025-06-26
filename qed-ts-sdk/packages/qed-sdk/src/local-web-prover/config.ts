@@ -5,7 +5,7 @@ export interface WebProverConfig {
     coordinator_configs: RpcConfig[];
 }
 
-export interface RpcConfig {
+interface RpcConfig {
     id: number;
     rpc_url: string[];
 }
