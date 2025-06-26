@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { QedWalletWidget,createMemoryWalletProviderWithWebProver } from "@qed/qed-wallet-widget";
+import {
+    QedWalletWidget,
+    createMemoryWalletProvider
+} from "@qed/qed-wallet-widget";
 import logoImage from "../../assets/psy.png";
 import { useWalletConfig } from "../../config";
 import { TokensProvider } from "../../contexts/TokensContext";
@@ -32,10 +35,11 @@ const ExtensionHomeContent: React.FC = () => {
         }, 10);
     }, []);
 
-    const walletProvider = createMemoryWalletProviderWithWebProver(
+    const walletProvider = createMemoryWalletProvider(
         config.network.coordinator_configs, // coordinator
         config.network.realm_configs, // realm
         config.network.users_per_realm,
+        config.network.prover_url as string,
     );
 
     if (isLoading) {

@@ -2,6 +2,7 @@
 import {QedMemoryTransactionSignerProvider} from "@qed/qed-sdk/src/zksigner/memory/provider";
 import {QedUserWalletProvider} from "@qed/qed-sdk/src/wallet/provider";
 import {
+    IQedUserProverProvider,
     MultiCoordinatorRpcProvider,
     MultiRealmRpcProvider,
     QedRPCUserProverProvider,
@@ -18,8 +19,16 @@ function createMemoryWalletProvider(
     const networkId = "regtest";
     const coordinator_rpc = new MultiCoordinatorRpcProvider(coordinatorRpcConfigs);
     const realm_rpc = new MultiRealmRpcProvider(realmRpcConfigs, userPerRealm);
-
-    const userProver = new QedRPCUserProverProvider(proverUrl);
+    let userProver: IQedUserProverProvider | undefined;
+    if (proverUrl != null) {
+        userProver = new QedRPCUserProverProvider(proverUrl);
+    } else {
+        userProver = new QedWasmWebProverProvider({
+            users_per_realm: userPerRealm,
+            realm_configs: realmRpcConfigs,
+            coordinator_configs: coordinatorRpcConfigs,
+        });
+    }
 
     const transactionSignerProvider = new QedMemoryTransactionSignerProvider(userProver, networkId);
 
@@ -33,28 +42,4 @@ function createMemoryWalletProvider(
     return walletProvider;
 }
 
-function createMemoryWalletProviderWithWebProver(
-    coordinatorRpcConfigs: RpcConfig[],
-    realmRpcConfigs: RpcConfig[],
-    userPerRealm: number,
-): QedUserWalletProvider {
-    const networkId = "regtest";
-    const coordinator_rpc = new MultiCoordinatorRpcProvider(coordinatorRpcConfigs);
-    const realm_rpc = new MultiRealmRpcProvider(realmRpcConfigs, userPerRealm);
-    const userProver = new QedWasmWebProverProvider({
-        users_per_realm: userPerRealm,
-        realm_configs: realmRpcConfigs,
-        coordinator_configs: coordinatorRpcConfigs,
-    });
-
-    const transactionSignerProvider = new QedMemoryTransactionSignerProvider(userProver, networkId);
-    return new QedUserWalletProvider(
-        networkId,
-        coordinator_rpc,
-        realm_rpc,
-        transactionSignerProvider,
-        userProver
-    );
-}
-
-export { createMemoryWalletProvider, createMemoryWalletProviderWithWebProver};
+export { createMemoryWalletProvider };

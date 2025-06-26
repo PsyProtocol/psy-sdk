@@ -7,7 +7,7 @@ import {
     IRealmEdgeRpcProvider,
     IQedUserWallet,
 } from "@qed/qed-sdk";
-import { createMemoryWalletProviderWithWebProver } from "../utils/provider";
+import {createMemoryWalletProvider} from "../utils/provider";
 import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
 
 enum WalletWidgetLoadingState {
@@ -136,17 +136,11 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
         nativeCurrency: "0",
     };
     const setAsync = setAsyncFactory(set, get, api);
-    // const walletProvider = createMemoryWalletProvider(
-    //     newwork_config.coordinator_configs, // coordinator
-    //     newwork_config.realm_configs, // realm
-    //     newwork_config.users_per_realm,
-    //     newwork_config.prover_url, // prover
-    // );
-
-    const walletProvider = createMemoryWalletProviderWithWebProver(
+    const walletProvider = createMemoryWalletProvider(
         newwork_config.coordinator_configs, // coordinator
         newwork_config.realm_configs, // realm
         newwork_config.users_per_realm,
+        newwork_config.prover_url, // prover
     );
     return {
         loadingState: WalletWidgetLoadingState.Ready,
