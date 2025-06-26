@@ -256,7 +256,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
 
                 const wallets = state.wallets.map((w) => {
                     if (w.userId === wallet.userId) {
-                        return { ...userInfo, wallet: wallet.wallet };
+                        return { ...userInfo, name: userInfo.userId.toString(), address: userInfo.publicKeyHex, wallet: wallet.wallet };
                     } else {
                         return w;
                     }
@@ -264,7 +264,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
 
                 return {
                     wallets,
-                    currentWallet: { ...userInfo, wallet: wallet.wallet },
+                    currentWallet: { ...userInfo, name: userInfo.userId.toString(), address: userInfo.publicKeyHex, wallet: wallet.wallet },
                 };
             }),
         setActiveWallet: (userId: number) =>

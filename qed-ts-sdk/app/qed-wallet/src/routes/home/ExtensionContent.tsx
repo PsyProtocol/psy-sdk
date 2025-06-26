@@ -192,7 +192,10 @@ export const ExtensionContent: React.FC = () => {
                         currentWallet={currentWallet ? {
                             name: currentWallet.name,
                             address: currentWallet.address
-                        } : undefined}
+                        } : {
+                            name: wallets[0].name,
+                            address: wallets[0].address
+                        }}
                         onNewWallet={handleNewWallet}
                         onImportWallet={handleImportWallet}
                         onRefreshWallets={handleRefreshWallets}
