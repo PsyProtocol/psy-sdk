@@ -1,7 +1,7 @@
 use crate::cli::{save_build_artifact_to_file, resolve_crate_path_graph};
 use crate::errors::Result;
 use clap::Args;
-use qed_ast::AbiExtractor;
+use qed_abi::AbiExtractor;
 use qed_dargo::workspace::Workspace;
 use qed_interpreter::Interpreter;
 use qedlang_core::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
