@@ -1385,6 +1385,7 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "plonky2",
+ "qed-abi",
  "qed-ast",
  "qed-common",
  "qed-dargo",
@@ -1585,6 +1586,12 @@ checksum = "ffdd80ce8ce993de27e9f063a444a4d53ce8e8db4c1f00cc03af5ad5a9867a1e"
 dependencies = [
  "cipher",
 ]
+
+[[package]]
+name = "diff"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
 
 [[package]]
 name = "digest"
@@ -4211,6 +4218,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c"
 
 [[package]]
+name = "pretty_assertions"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ae130e2f271fbc2ac3a40fb1d07180839cdbbe443c7a27e1e3c13c5cac0116d"
+dependencies = [
+ "diff",
+ "yansi 1.0.1",
+]
+
+[[package]]
 name = "prettyplease"
 version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4308,6 +4325,17 @@ dependencies = [
  "sha2",
  "tracing",
  "unroll",
+]
+
+[[package]]
+name = "qed-abi"
+version = "0.1.0"
+dependencies = [
+ "pretty_assertions",
+ "qed-ast",
+ "qed-common",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
