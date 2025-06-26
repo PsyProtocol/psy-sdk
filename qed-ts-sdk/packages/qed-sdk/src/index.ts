@@ -20,5 +20,3 @@ export * from "./local-web-prover";
 export * from "./wallet";
 
 export * from "./zksigner";
-
-export { ZKPublicKeyInfo } from "./types";
