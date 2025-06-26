@@ -8,6 +8,7 @@
   },
 
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "../qed-sdk/src/local-web-prover/wasm-modules.d.ts"
   ]
 }
