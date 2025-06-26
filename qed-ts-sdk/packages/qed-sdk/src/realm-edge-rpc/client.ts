@@ -72,8 +72,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         super(urlOrUrls, configOrHttpClient, httpClient);
     }
 
-    setUserId(userId: Felt): void {
-    }
+    setUserId(userId: Felt): void {}
 
     /**
      * Get read-only methods for caching
@@ -385,7 +384,6 @@ export class MultiRealmRpcProvider implements IRealmEdgeRpcProvider {
 
     getRpcProviderByUserId(userId: Felt): IRealmEdgeRpcProvider {
         const realmId = this.getRealmId(Number(userId));
-        console.log("!!!!!!!!!!!!! realmId:", realmId);
         const provider = this.rpcs.get(realmId);
 
         if (provider) {
@@ -398,7 +396,7 @@ export class MultiRealmRpcProvider implements IRealmEdgeRpcProvider {
             return defaultProvider;
         }
 
-        throw new Error('No RealmEdgeRpcProvider instances available');
+        throw new Error("No RealmEdgeRpcProvider instances available");
     }
 
     checkUserIdInRealm(userId: Felt): Promise<boolean> {
