@@ -1,3 +1,5 @@
+import { StoreApi, create } from "zustand";
+import { IQedWidgetWallet } from "../types";
 import {
     TQedTransactionSignerAbility,
     TQedTransactionSignerProviderAbility,
@@ -5,10 +7,9 @@ import {
     IRealmEdgeRpcProvider,
     IQedUserWallet,
 } from "@qed/qed-sdk";
+import { createMemoryWalletProvider } from "../utils/provider";
 import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
-import { StoreApi, create } from "zustand";
-import { IQedWidgetWallet } from "../types";
-import {createMemoryWalletProvider} from "../utils/provider";
+import { DEFAULT_PROVER_URL, loadConfig } from "../config";
 
 enum WalletWidgetLoadingState {
     Loading,
@@ -108,37 +109,13 @@ function setAsyncFactory(set: Setter, get: Getter, _api: WidgetStoreAPI) {
 }
 
 const useWalletState = create<IWalletStateStore>((set, get, api) => {
-    const newwork_config = {
-        users_per_realm: 32768,
-        realm_configs: [
-            {
-                id: 0,
-                rpc_url: ["http://127.0.0.1:8546"],
-            },
-            {
-                id: 16384,
-                rpc_url: ["http://127.0.0.1:8547"],
-            },
-            {
-                id: 8192,
-                rpc_url: ["http://127.0.0.1:8548"],
-            },
-        ],
-        coordinator_configs: [
-            {
-                id: 0,
-                rpc_url: ["http://127.0.0.1:8545"],
-            },
-        ],
-        prover_url: "http://127.0.0.1:8888",
-        nativeCurrency: "0",
-    };
+    const config = loadConfig();
     const setAsync = setAsyncFactory(set, get, api);
     const walletProvider = createMemoryWalletProvider(
-        newwork_config.coordinator_configs, // coordinator
-        newwork_config.realm_configs, // realm
-        newwork_config.users_per_realm,
-        newwork_config.prover_url, // prover
+        config.network.coordinator_configs, // coordinator
+        config.network.realm_configs, // realm
+        config.network.users_per_realm,
+        config.network.prover_url || DEFAULT_PROVER_URL, // prover
     );
     return {
         loadingState: WalletWidgetLoadingState.Ready,
@@ -156,8 +133,8 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 //await waitMs(2000);
                 const {
                     currentWallet,
-                    coordinatorEdgeRpcProvider: _coordinatorEdgeRpcProvider,
-                    realmEdgeRpcProvider: _realmEdgeRpcProvider,
+                    coordinatorEdgeRpcProvider,
+                    realmEdgeRpcProvider,
                     wallets: currentStateWallets,
                 } = state;
                 if (!currentWallet) {

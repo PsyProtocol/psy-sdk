@@ -646,4 +646,83 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_two_contracts() -> anyhow::Result<()> {
+        qed_rollup_utils::setup_logging("info".to_string())?;
+        tracing::info!("test_two_contracts");
+        let project_path = std::env::var("CARGO_MANIFEST_DIR")
+            .map_err(|e| anyhow::format_err!("Error `{}`, cannot get CARGO_MANIFEST_DIR env", e))?;
+
+        let private_key0 = QHashOut::<GoldilocksField>::from_str(
+            "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
+        )?;
+        let private_key536870912 = QHashOut::<GoldilocksField>::from_str(
+            "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d",
+        )?;
+
+        let rpc_config: RpcConfig = serde_json::from_str(&std::fs::read_to_string(
+            Path::new(&project_path).join("../rpc.config"),
+        )?)?;
+
+        let circuit_defs =
+            serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(&std::fs::read_to_string(
+                Path::new(&project_path).join("../examples/target/examples.json"),
+            )?)?;
+
+        let mut wallet_session = super::WalletSession::new(&rpc_config)?;
+
+        let deployer_pk_info = wallet_session.get_zk_public_key(private_key0)?;
+        wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs.clone())?;
+        wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
+
+        let user0 = wallet_session.register_user(private_key0)?;
+        let user536870912 = wallet_session.register_user(private_key536870912)?;
+
+        wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(10));
+
+        wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(10));
+        wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(10));
+
+        // add user0
+        wallet_session.add_user(private_key0)?;
+
+        // add user536870912
+        wallet_session.add_user(private_key536870912)?;
+
+        // user0 mint 1000 contract 0
+        wallet_session.exec_contract_call(
+            user0,
+            vec![ContractCallArgs {
+                contract_id: 0,
+                method_name: "simple_mint".to_string(),
+                inputs: vec![1000],
+            }],
+        )?;
+
+        wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(10));
+        wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(10));
+
+        // user0 mint 1000 contract 1
+        wallet_session.exec_contract_call(
+            user0,
+            vec![ContractCallArgs {
+                contract_id: 1,
+                method_name: "simple_mint".to_string(),
+                inputs: vec![1000],
+            }],
+        )?;
+
+        wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(10));
+        wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(10));
+
+        Ok(())
+    }
 }

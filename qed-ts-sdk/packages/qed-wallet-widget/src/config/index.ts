@@ -19,6 +19,8 @@ export interface NetworkConfig {
   nativeCurrency?: string; // contractId of the native currency token
 }
 
+export const DEFAULT_PROVER_URL = "http://127.0.0.1:8888";
+
 export interface WalletConfig {
   theme: {
     colors: {
