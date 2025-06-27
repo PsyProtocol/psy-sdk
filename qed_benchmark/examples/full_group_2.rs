@@ -1,5 +1,6 @@
 use fred::prelude::*;
-use kvq::memory::{arc_imm::KVQArcImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore};
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
+use std::sync::Arc;
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use qed_core::{config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync}, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer}
 ;
@@ -22,7 +23,7 @@ use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitMa
 use qed_store::{config::store_config::{QEDFelt, QEDHasher}, controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync}
 ;
 use qed_benchmark::test_helpers::{contract::gen_test_contract, ups::ExampleDemoUserInfoStore};
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 
 use plonky2::{
@@ -57,10 +58,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
     let realm_q = ProofStoreFred::new(pool, "rwq1".to_string(), "rnq1".to_string());
 
-    let store_reader: KVQArcImmutableStoreWrapper<KVQSimpleMemoryBackingStore> =
-        KVQArcImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
-            KVQSimpleMemoryBackingStore::new(),
-        );
+    let store_reader: Arc<KVQSimpleMemoryBackingStore> =
+        Arc::new(KVQSimpleMemoryBackingStore::new());
 
     store_reader.initialize_store()?;
     //let worker_count = 16usize;
@@ -72,7 +71,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let realm_qps = Arc::new(realm_q.clone());
 
-    let st = Arc::new(store_reader.dup());
+    let st = Arc::new(store_reader.clone());
 
     timer.lap("initialized store");
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -94,7 +93,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         .await?,
     };
 
-    let coordinator_processor_node = CoordinatorProcessorContext::new(
+    let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
         Arc::clone(&st),
         qps.clone(),
@@ -230,9 +229,9 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQArcImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        Arc<KVQSimpleMemoryBackingStore>,
     > = QEDLocalProvingSessionStore::new_at(
-        store_reader.dup(),
+        store_reader.clone(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
         GoldilocksField::from_noncanonical_u64(0),
         GoldilocksField::ONE,

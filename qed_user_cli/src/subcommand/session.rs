@@ -493,7 +493,7 @@ mod tests {
 
         let mut wallet_session = super::WalletSession::new(&rpc_config)?;
 
-        let deployer_pk_info = wallet_session.get_zk_public_key(private_key0);
+        let deployer_pk_info = wallet_session.get_zk_public_key(private_key0)?;
         wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
 
         let user0 = wallet_session.register_user(private_key0)?;

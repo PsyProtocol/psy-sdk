@@ -1,5 +1,5 @@
 use kvq::traits::{
-    KVQBinaryStoreReaderAsync, KVQBinaryStoreWriterAsync, KVQBinaryStoreWriterImmutableAsync,
+    KVQBinaryStoreAsync,
     KVQPair, KVQSerializable,
 };
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -136,13 +136,13 @@ mod edge_case_tests {
 
         // Test checkpoint_id = 0
         let key_zero = unchop_table_key(&node_uuid, 0);
-        store.imm_set(key_zero.clone(), value.clone()).await?;
+        store.set(key_zero.clone(), value.clone()).await?;
         let retrieved_zero = store.get_exact(&key_zero).await?;
         assert_eq!(retrieved_zero, value);
 
         // Test checkpoint_id = u64::MAX
         let key_max = unchop_table_key(&node_uuid, u64::MAX);
-        store.imm_set(key_max.clone(), value.clone()).await?;
+        store.set(key_max.clone(), value.clone()).await?;
         let retrieved_max = store.get_exact(&key_max).await?;
         assert_eq!(retrieved_max, value);
 
@@ -281,7 +281,7 @@ mod edge_case_tests {
                 let value = format!("concurrent_value_{}", i).into_bytes();
 
                 // Set and get concurrently
-                store_clone.imm_set(key.clone(), value.clone()).await?;
+                store_clone.set(key.clone(), value.clone()).await?;
                 let retrieved = store_clone.get_exact(&key).await?;
                 assert_eq!(retrieved, value);
 
@@ -362,7 +362,7 @@ mod edge_case_tests {
             let items_ref = create_kvq_pairs_ref(&keys, &values);
 
             // Batch set
-            store.imm_set_many_ref(&items_ref).await?;
+            store.set_many_ref(&items_ref).await?;
 
             // Batch get to verify
             let retrieved = store.get_many_exact(&keys).await?;
@@ -388,7 +388,7 @@ mod edge_case_tests {
         let values = generate_test_values(3);
 
         for (key, value) in keys.iter().zip(values.iter()) {
-            store.imm_set(key.clone(), value.clone()).await?;
+            store.set(key.clone(), value.clone()).await?;
         }
 
         // Test with different fuzzy_bytes values

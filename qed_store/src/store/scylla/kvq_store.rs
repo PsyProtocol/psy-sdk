@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures::StreamExt;
 use kvq::traits::{
-    KVQBinaryStoreAsync,
+    KVQBinaryStore, KVQBinaryStoreAsync,
     KVQPair,
 };
 use scylla::batch::{Batch, BatchType};
@@ -372,4 +372,5 @@ impl KVQBinaryStoreAsync for ScyllaKVQStore {
         self.set_many_ref(&items).await
     }
 }
+
 

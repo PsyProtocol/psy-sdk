@@ -1,6 +1,5 @@
 use kvq::traits::{
-    KVQBinaryStoreReaderAsync, KVQBinaryStoreWriterAsync, KVQStoreAdapterReaderAsync,
-    KVQStoreAdapterImmutableAsync,
+    KVQBinaryStoreAsync, KVQStoreAdapter, KVQStoreAdapterReaderAsync,
 };
 use qed_store::store::scylla::kvq_store::ScyllaKVQStore;
 use qed_store::config::store_config::CHECKPOINT_BLOCK_STATE_TABLE_TYPE;
@@ -56,9 +55,9 @@ async fn test_checkpoint_block_state_get_latest() -> anyhow::Result<()> {
     };
     
     // Insert block states
-    BlockStateAdapter::imm_set_ref(&store, &U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(0), &block_state_0).await?;
-    BlockStateAdapter::imm_set_ref(&store, &U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(1), &block_state_1).await?;
-    BlockStateAdapter::imm_set_ref(&store, &U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(5), &block_state_5).await?;
+    BlockStateAdapter::set_ref(&store, &U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(0), &block_state_0).await?;
+    BlockStateAdapter::set_ref(&store, &U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(1), &block_state_1).await?;
+    BlockStateAdapter::set_ref(&store, &U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(5), &block_state_5).await?;
     
     // Test get_leq for latest block state (simulating get_latest_block_state)
     let max_key = U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(0xffffffffffffff_u64);

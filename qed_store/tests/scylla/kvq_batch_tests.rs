@@ -1,5 +1,5 @@
 use kvq::traits::{
-    KVQBinaryStoreReaderAsync, KVQBinaryStoreWriterAsync, KVQBinaryStoreWriterImmutableAsync,
+    KVQBinaryStoreAsync,
     KVQPair,
 };
 use qed_store::store::scylla::kvq_store::ScyllaKVQStore;
@@ -138,7 +138,7 @@ mod kvq_immutable_batch_tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_kvq_imm_set_many_ref_small_batch() -> anyhow::Result<()> {
+    async fn test_kvq_set_many_ref_small_batch() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
         let store =
             ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
@@ -148,7 +148,7 @@ mod kvq_immutable_batch_tests {
         let items_ref = create_kvq_pairs_ref(&keys, &values);
 
         // Test immutable batch set
-        store.imm_set_many_ref(&items_ref).await?;
+        store.set_many_ref(&items_ref).await?;
 
         // Verify all items were set
         for (key, value) in keys.iter().zip(values.iter()) {
@@ -161,7 +161,7 @@ mod kvq_immutable_batch_tests {
     }
 
     #[tokio::test]
-    async fn test_kvq_imm_set_many_ref_large_batch() -> anyhow::Result<()> {
+    async fn test_kvq_set_many_ref_large_batch() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
         let store =
             ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
@@ -171,7 +171,7 @@ mod kvq_immutable_batch_tests {
         let items_ref = create_kvq_pairs_ref(&keys, &values);
 
         // Test large immutable batch set
-        store.imm_set_many_ref(&items_ref).await?;
+        store.set_many_ref(&items_ref).await?;
 
         // Verify all items were set
         for (key, value) in keys.iter().zip(values.iter()) {
@@ -184,7 +184,7 @@ mod kvq_immutable_batch_tests {
     }
 
     #[tokio::test]
-    async fn test_kvq_imm_set_many_vec() -> anyhow::Result<()> {
+    async fn test_kvq_set_many_vec() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
         let store =
             ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
@@ -192,7 +192,7 @@ mod kvq_immutable_batch_tests {
         let items = generate_test_kvpairs(7);
 
         // Test immutable set_many_vec
-        store.imm_set_many_vec(items.clone()).await?;
+        store.set_many_vec(items.clone()).await?;
 
         // Verify all items were set
         for item in &items {
@@ -205,7 +205,7 @@ mod kvq_immutable_batch_tests {
     }
 
     #[tokio::test]
-    async fn test_kvq_imm_set_many_split_ref() -> anyhow::Result<()> {
+    async fn test_kvq_set_many_split_ref() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
         let store =
             ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
@@ -214,7 +214,7 @@ mod kvq_immutable_batch_tests {
         let values = generate_test_values(4);
 
         // Test immutable set_many_split_ref
-        store.imm_set_many_split_ref(&keys, &values).await?;
+        store.set_many_split_ref(&keys, &values).await?;
 
         // Verify all items were set
         for (key, value) in keys.iter().zip(values.iter()) {
@@ -238,7 +238,7 @@ mod kvq_immutable_batch_tests {
         // Test individual sets (for comparison)
         let start = std::time::Instant::now();
         for (key, value) in keys.iter().take(50).zip(values.iter().take(50)) {
-            store.imm_set(key.clone(), value.clone()).await?;
+            store.set(key.clone(), value.clone()).await?;
         }
         let individual_duration = start.elapsed();
 
@@ -248,7 +248,7 @@ mod kvq_immutable_batch_tests {
         let items_ref = create_kvq_pairs_ref(remaining_keys, remaining_values);
 
         let start = std::time::Instant::now();
-        store.imm_set_many_ref(&items_ref).await?;
+        store.set_many_ref(&items_ref).await?;
         let batch_duration = start.elapsed();
 
         println!("Individual sets (50 items): {:?}", individual_duration);

@@ -52,7 +52,7 @@ use qed_store::{
 use qed_test_sandbox::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
 // use qed_user_cli::subcommand::lps::run_local;
 use reth_libmdbx::{Environment, EnvironmentFlags, Geometry, Mode, PageSize, SyncMode, RW};
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
@@ -75,7 +75,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
     let realm_q = ProofStoreFred::new(pool, "rwq1".to_string(), "rnq1".to_string());
     let store_reader =
-        KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write("db")?);
+        Arc::new(KVQlibmdbxStore::new_write("db")?);
 
     store_reader.initialize_store()?;
     //let worker_count = 16usize;
@@ -87,7 +87,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let realm_qps = Arc::new(realm_q.clone());
 
-    let st = Arc::new(store_reader.dup());
+    let st = Arc::new(store_reader.clone());
 
     timer.lap("initialized store");
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -109,7 +109,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         .await?,
     };
 
-    let coordinator_processor_node = CoordinatorProcessorContext::new(
+    let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
         Arc::clone(&st),
         qps.clone(),
@@ -281,9 +281,9 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
+        Arc<KVQlibmdbxStore>,
     > = QEDLocalProvingSessionStore::new_at(
-        store_reader.dup(),
+        store_reader.clone(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
         GoldilocksField::from_noncanonical_u64(0),
         GoldilocksField::ONE,

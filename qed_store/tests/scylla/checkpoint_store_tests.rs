@@ -1,4 +1,4 @@
-use kvq::traits::{KVQBinaryStoreReaderAsync, KVQBinaryStoreWriterImmutableAsync, KVQPair};
+use kvq::traits::{KVQBinaryStoreAsync,   KVQPair};
 use qed_store::store::scylla::checkpoint_store::{
     chop_table_key, unchop_table_key, ScyllaCheckpointStore,
 };
@@ -63,7 +63,7 @@ mod checkpoint_store_basic_tests {
         let full_key = unchop_table_key(&node_uuid, checkpoint_id);
 
         // Set and get
-        store.imm_set(full_key.clone(), value.clone()).await?;
+        store.set(full_key.clone(), value.clone()).await?;
         let retrieved = store.get_exact_if_exists(&full_key).await?;
         assert_eq!(retrieved, Some(value.clone()));
 
@@ -95,9 +95,9 @@ mod checkpoint_store_basic_tests {
         let key_v2 = unchop_table_key(&node_uuid, 200);
         let key_v3 = unchop_table_key(&node_uuid, 300);
 
-        store.imm_set(key_v1, value_v1.clone()).await?;
-        store.imm_set(key_v2, value_v2.clone()).await?;
-        store.imm_set(key_v3, value_v3.clone()).await?;
+        store.set(key_v1, value_v1.clone()).await?;
+        store.set(key_v2, value_v2.clone()).await?;
+        store.set(key_v3, value_v3.clone()).await?;
 
         // Test time travel queries using get_leq
 
@@ -140,7 +140,7 @@ mod checkpoint_store_basic_tests {
         let value = b"test_value_kv".to_vec();
 
         let full_key = unchop_table_key(&node_uuid, checkpoint_id);
-        store.imm_set(full_key.clone(), value.clone()).await?;
+        store.set(full_key.clone(), value.clone()).await?;
 
         // Test get_leq_kv
         let query_key = unchop_table_key(&node_uuid, 600); // Query at later checkpoint
@@ -171,7 +171,7 @@ mod checkpoint_store_basic_tests {
 
         // Set all key-value pairs
         for (key, value) in keys.iter().zip(values.iter()) {
-            store.imm_set(key.clone(), value.clone()).await?;
+            store.set(key.clone(), value.clone()).await?;
         }
 
         // Get multiple keys
@@ -197,7 +197,7 @@ mod checkpoint_store_basic_tests {
         let items_ref = create_kvq_pairs_ref(&keys, &values);
 
         // Test batch set
-        store.imm_set_many_ref(&items_ref).await?;
+        store.set_many_ref(&items_ref).await?;
 
         // Verify all items were set
         for (key, value) in keys.iter().zip(values.iter()) {
@@ -229,7 +229,7 @@ mod checkpoint_store_basic_tests {
         // Set all keys
         for (node_uuid, value) in node_uuids.iter().zip(values.iter()) {
             let full_key = unchop_table_key(node_uuid, checkpoint_id);
-            store.imm_set(full_key, value.clone()).await?;
+            store.set(full_key, value.clone()).await?;
         }
 
         // Test optimized batch query
@@ -265,7 +265,7 @@ mod checkpoint_store_basic_tests {
         // Set all keys
         for (node_uuid, value) in node_uuids.iter().zip(values.iter()) {
             let full_key = unchop_table_key(node_uuid, checkpoint_id);
-            store.imm_set(full_key, value.clone()).await?;
+            store.set(full_key, value.clone()).await?;
         }
 
         // Test get_many_values (should use optimized batching)

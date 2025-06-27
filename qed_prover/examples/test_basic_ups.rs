@@ -1,11 +1,6 @@
 use std::marker::PhantomData;
 
-use kvq::
-    memory::{
-        immutable::KVQImmutableStoreWrapper,
-        simple::KVQSimpleMemoryBackingStore,
-    }
-;
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer};
@@ -227,7 +222,7 @@ fn prepare_environment_with_real_contract(
 ) -> anyhow::Result<
     QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        KVQSimpleMemoryBackingStore,
     >,
 > {
     let whitelist_items_fake = vec![
@@ -236,9 +231,7 @@ fn prepare_environment_with_real_contract(
         QHashOut::rand(),
         QHashOut::rand(),
     ];
-    let st = KVQImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
-        KVQSimpleMemoryBackingStore::new(),
-    );
+    let st = KVQSimpleMemoryBackingStore::new();
     st.initialize_store()?;
     let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
     SimpleBlockProcessor::process_block(
@@ -309,7 +302,7 @@ fn prepare_environment_with_real_contract(
 
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        KVQSimpleMemoryBackingStore,
     > = QEDLocalProvingSessionStore::new_at(
         st,
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),

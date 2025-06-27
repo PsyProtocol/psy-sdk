@@ -1,5 +1,5 @@
 use kvq::traits::{
-    KVQBinaryStoreReaderAsync, KVQBinaryStoreWriterAsync, KVQBinaryStoreWriterImmutableAsync,
+    KVQBinaryStoreAsync,
     KVQPair,
 };
 use qed_store::store::scylla::kvq_store::ScyllaKVQStore;
@@ -162,14 +162,14 @@ mod kvq_immutable_tests {
         let value = b"test_value".to_vec();
 
         // Test immutable set operations
-        store.imm_set(key.clone(), value.clone()).await?;
+        store.set(key.clone(), value.clone()).await?;
         let retrieved = store.get_exact(&key).await?;
         assert_eq!(retrieved, value);
 
-        // Test imm_set_ref
+        // Test set_ref
         let key2 = b"test_key2".to_vec();
         let value2 = b"test_value2".to_vec();
-        store.imm_set_ref(&key2, &value2).await?;
+        store.set_ref(&key2, &value2).await?;
         let retrieved2 = store.get_exact(&key2).await?;
         assert_eq!(retrieved2, value2);
 
@@ -187,8 +187,8 @@ mod kvq_immutable_tests {
         let value = b"test_value".to_vec();
 
         // Set then delete immutably
-        store.imm_set(key.clone(), value.clone()).await?;
-        let deleted = store.imm_delete(&key).await?;
+        store.set(key.clone(), value.clone()).await?;
+        let deleted = store.delete(&key).await?;
         assert!(deleted);
 
         let exists = store.get_exact_if_exists(&key).await?;
@@ -209,11 +209,11 @@ mod kvq_immutable_tests {
 
         // Set multiple keys
         for (key, value) in keys.iter().zip(values.iter()) {
-            store.imm_set(key.clone(), value.clone()).await?;
+            store.set(key.clone(), value.clone()).await?;
         }
 
         // Delete multiple keys immutably
-        let delete_results = store.imm_delete_many(&keys).await?;
+        let delete_results = store.delete_many(&keys).await?;
         assert_eq!(delete_results.len(), 3);
         assert!(delete_results.iter().all(|&result| result));
 
@@ -246,9 +246,9 @@ mod kvq_fuzzy_tests {
         let value2 = b"value2".to_vec();
         let value3 = b"value3".to_vec();
 
-        store.imm_set(key1.clone(), value1.clone()).await?;
-        store.imm_set(key2.clone(), value2.clone()).await?;
-        store.imm_set(key3.clone(), value3.clone()).await?;
+        store.set(key1.clone(), value1.clone()).await?;
+        store.set(key2.clone(), value2.clone()).await?;
+        store.set(key3.clone(), value3.clone()).await?;
 
         // Test get_leq - should find the largest key <= search key
         let search_key = vec![1, 2, 3, 4, 6]; // Should match key2
@@ -281,7 +281,7 @@ mod kvq_fuzzy_tests {
         let values = vec![b"value1".to_vec(), b"value2".to_vec(), b"value3".to_vec()];
 
         for (key, value) in keys.iter().zip(values.iter()) {
-            store.imm_set(key.clone(), value.clone()).await?;
+            store.set(key.clone(), value.clone()).await?;
         }
 
         // Test get_many_leq

@@ -1,4 +1,4 @@
-use kvq::traits::{KVQBinaryStoreReaderAsync, KVQBinaryStoreWriterImmutableAsync, KVQPair};
+use kvq::traits::{KVQBinaryStoreAsync,   KVQPair};
 use qed_store::store::scylla::checkpoint_store::{
     chop_table_key, unchop_table_key, ScyllaCheckpointStore,
 };
@@ -28,14 +28,14 @@ mod checkpoint_delete_tests {
         let full_key = unchop_table_key(&node_uuid, checkpoint_id);
 
         // Set the value
-        store.imm_set(full_key.clone(), value.clone()).await?;
+        store.set(full_key.clone(), value.clone()).await?;
 
         // Verify it exists
         let exists_before = store.get_exact_if_exists(&full_key).await?;
         assert_eq!(exists_before, Some(value));
 
         // Delete it
-        let delete_result = store.imm_delete(&full_key).await?;
+        let delete_result = store.delete(&full_key).await?;
         assert!(delete_result); // Should return true if existed
 
         // Verify it's gone
@@ -61,7 +61,7 @@ mod checkpoint_delete_tests {
         let full_key = unchop_table_key(&node_uuid, checkpoint_id);
 
         // Try to delete non-existent key
-        let delete_result = store.imm_delete(&full_key).await?;
+        let delete_result = store.delete(&full_key).await?;
         assert!(!delete_result); // Should return false if didn't exist
 
         config.cleanup().await?;
@@ -95,7 +95,7 @@ mod checkpoint_delete_tests {
 
         // Set all values
         for (key, value) in keys.iter().zip(values.iter()) {
-            store.imm_set(key.clone(), value.clone()).await?;
+            store.set(key.clone(), value.clone()).await?;
         }
 
         // Verify all exist
@@ -105,7 +105,7 @@ mod checkpoint_delete_tests {
         }
 
         // Delete all keys
-        let delete_results = store.imm_delete_many(&keys).await?;
+        let delete_results = store.delete_many(&keys).await?;
         assert_eq!(delete_results.len(), 3);
         assert!(delete_results.iter().all(|&result| result)); // All should return true
 
@@ -145,7 +145,7 @@ mod checkpoint_delete_tests {
 
         // Set only the existing keys
         for (key, value) in existing_keys.iter().zip(values.iter()) {
-            store.imm_set(key.clone(), value.clone()).await?;
+            store.set(key.clone(), value.clone()).await?;
         }
 
         // Mix existing and non-existing keys
@@ -153,7 +153,7 @@ mod checkpoint_delete_tests {
         all_keys.extend(nonexistent_keys);
 
         // Delete all keys (mix of existing and non-existing)
-        let delete_results = store.imm_delete_many(&all_keys).await?;
+        let delete_results = store.delete_many(&all_keys).await?;
         assert_eq!(delete_results.len(), 4);
 
         // First two should return true (existed), last two should return false (didn't exist)
@@ -192,12 +192,12 @@ mod checkpoint_delete_tests {
 
         // Set all versions
         for (key, value) in keys.iter().zip(values.iter()) {
-            store.imm_set(key.clone(), value.clone()).await?;
+            store.set(key.clone(), value.clone()).await?;
         }
 
         // Delete only the middle version (checkpoint 200)
         let middle_key = unchop_table_key(&node_uuid, 200);
-        let delete_result = store.imm_delete(&middle_key).await?;
+        let delete_result = store.delete(&middle_key).await?;
         assert!(delete_result);
 
         // Verify only the middle version is gone
@@ -231,7 +231,7 @@ mod checkpoint_delete_tests {
         let empty_keys: Vec<Vec<u8>> = vec![];
 
         // Delete empty batch should not error
-        let delete_results = store.imm_delete_many(&empty_keys).await?;
+        let delete_results = store.delete_many(&empty_keys).await?;
         assert_eq!(delete_results.len(), 0);
 
         config.cleanup().await?;
@@ -256,8 +256,8 @@ mod checkpoint_delete_tests {
         let key_v2 = unchop_table_key(&node_uuid, 200);
 
         // Set two versions
-        store.imm_set(key_v1.clone(), value_v1.clone()).await?;
-        store.imm_set(key_v2.clone(), value_v2.clone()).await?;
+        store.set(key_v1.clone(), value_v1.clone()).await?;
+        store.set(key_v2.clone(), value_v2.clone()).await?;
 
         // Test time travel before deletion
         let query_key = unchop_table_key(&node_uuid, 150);
@@ -265,7 +265,7 @@ mod checkpoint_delete_tests {
         assert_eq!(result_before, Some(value_v1.clone()));
 
         // Delete the earlier version
-        let delete_result = store.imm_delete(&key_v1).await?;
+        let delete_result = store.delete(&key_v1).await?;
         assert!(delete_result);
 
         // Test time travel after deletion - should now return None for the same query

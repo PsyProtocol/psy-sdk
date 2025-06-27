@@ -1,4 +1,4 @@
-use kvq::traits::{KVQBinaryStoreReaderAsync, KVQBinaryStoreWriterImmutableAsync, KVQPair};
+use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
 use qed_store::store::scylla::checkpoint_store::{
     chop_table_key, unchop_table_key, ScyllaCheckpointStore,
 };
@@ -32,7 +32,7 @@ mod checkpoint_fuzzy_tests_fixed {
         // Set up test data
         for (&checkpoint_id, value) in checkpoint_ids.iter().zip(values.iter()) {
             let key = unchop_table_key(&node_uuid, checkpoint_id);
-            store.imm_set(key, value.clone()).await?;
+            store.set(key, value.clone()).await?;
         }
 
         // Test fuzzy query with standard fuzzy_bytes = 8 (CHECKPOINT_ID_FUZZY_SIZE)
@@ -63,7 +63,7 @@ mod checkpoint_fuzzy_tests_fixed {
         let value = b"exact_match_value".to_vec();
 
         let key = unchop_table_key(&node_uuid, checkpoint_id);
-        store.imm_set(key.clone(), value.clone()).await?;
+        store.set(key.clone(), value.clone()).await?;
 
         // Test exact match query
         let result = store.get_exact_if_exists(&key).await?;
@@ -105,7 +105,7 @@ mod checkpoint_fuzzy_tests_fixed {
             .collect();
 
         for (key, value) in keys.iter().zip(values.iter()) {
-            store.imm_set(key.clone(), value.clone()).await?;
+            store.set(key.clone(), value.clone()).await?;
         }
 
         // Test time travel queries at various points
@@ -153,7 +153,7 @@ mod checkpoint_fuzzy_tests_fixed {
             .collect();
 
         for (key, value) in keys.iter().zip(values.iter()) {
-            store.imm_set(key.clone(), value.clone()).await?;
+            store.set(key.clone(), value.clone()).await?;
         }
 
         // Test get_fuzzy_range_leq_kv
@@ -233,8 +233,8 @@ mod checkpoint_fuzzy_tests_fixed {
         let key_a = unchop_table_key(&node_uuid_a, checkpoint_id);
         let key_b = unchop_table_key(&node_uuid_b, checkpoint_id);
 
-        store.imm_set(key_a.clone(), value_a.clone()).await?;
-        store.imm_set(key_b.clone(), value_b.clone()).await?;
+        store.set(key_a.clone(), value_a.clone()).await?;
+        store.set(key_b.clone(), value_b.clone()).await?;
 
         // Query for node A should only return node A's value
         let result_a = store.get_leq(&key_a, 8).await?;
@@ -269,7 +269,7 @@ mod checkpoint_fuzzy_tests_fixed {
         let value = b"test_leq_kv_value".to_vec();
 
         let full_key = unchop_table_key(&node_uuid, checkpoint_id);
-        store.imm_set(full_key.clone(), value.clone()).await?;
+        store.set(full_key.clone(), value.clone()).await?;
 
         // Test get_leq_kv returns both key and value
         let query_key = unchop_table_key(&node_uuid, 600); // Query at later checkpoint
@@ -308,7 +308,7 @@ mod checkpoint_fuzzy_tests_fixed {
         // Set all data
         for (checkpoint_id, value) in &checkpoint_data {
             let key = unchop_table_key(&node_uuid, *checkpoint_id);
-            store.imm_set(key, value.clone()).await?;
+            store.set(key, value.clone()).await?;
         }
 
         // Test that get_leq consistently finds the correct "latest before" value

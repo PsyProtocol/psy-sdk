@@ -1,4 +1,4 @@
-use kvq::traits::{KVQBinaryStoreReaderAsync, KVQBinaryStoreWriterImmutableAsync, KVQPair};
+use kvq::traits::{KVQBinaryStoreAsync,   KVQPair};
 use qed_store::store::scylla::checkpoint_store::{
     chop_table_key, unchop_table_key, ScyllaCheckpointStore,
 };
@@ -32,7 +32,7 @@ mod checkpoint_fuzzy_tests {
         // Set up test data
         for (&checkpoint_id, value) in checkpoint_ids.iter().zip(values.iter()) {
             let key = unchop_table_key(&node_uuid, checkpoint_id);
-            store.imm_set(key, value.clone()).await?;
+            store.set(key, value.clone()).await?;
         }
 
         // Test fuzzy query with standard fuzzy_bytes = 8 (CHECKPOINT_ID_FUZZY_SIZE)
@@ -63,7 +63,7 @@ mod checkpoint_fuzzy_tests {
         let value = b"exact_match_value".to_vec();
 
         let key = unchop_table_key(&node_uuid, checkpoint_id);
-        store.imm_set(key.clone(), value.clone()).await?;
+        store.set(key.clone(), value.clone()).await?;
 
         // Test exact match with fuzzy_bytes = 0
         let result = store.get_leq(&key, 0).await?;
@@ -105,7 +105,7 @@ mod checkpoint_fuzzy_tests {
             .collect();
 
         for (key, value) in keys.iter().zip(values.iter()) {
-            store.imm_set(key.clone(), value.clone()).await?;
+            store.set(key.clone(), value.clone()).await?;
         }
 
         // Test with fuzzy_bytes = 4 (should match on 4 bytes of checkpoint)
@@ -151,7 +151,7 @@ mod checkpoint_fuzzy_tests {
             .collect();
 
         for (key, value) in keys.iter().zip(values.iter()) {
-            store.imm_set(key.clone(), value.clone()).await?;
+            store.set(key.clone(), value.clone()).await?;
         }
 
         // Test get_fuzzy_range_leq_kv
@@ -225,8 +225,8 @@ mod checkpoint_fuzzy_tests {
         let key_a = unchop_table_key(&node_uuid_a, checkpoint_id);
         let key_b = unchop_table_key(&node_uuid_b, checkpoint_id);
 
-        store.imm_set(key_a.clone(), value_a.clone()).await?;
-        store.imm_set(key_b.clone(), value_b.clone()).await?;
+        store.set(key_a.clone(), value_a.clone()).await?;
+        store.set(key_b.clone(), value_b.clone()).await?;
 
         // Query for node A should only return node A's value
         let result_a = store.get_leq(&key_a, 8).await?;
@@ -261,7 +261,7 @@ mod checkpoint_fuzzy_tests {
         let value = b"edge_case_value".to_vec();
 
         let key = unchop_table_key(&node_uuid, checkpoint_id);
-        store.imm_set(key.clone(), value.clone()).await?;
+        store.set(key.clone(), value.clone()).await?;
 
         // Test fuzzy_bytes larger than key size
         let result_large = store.get_leq(&key, 100).await?;

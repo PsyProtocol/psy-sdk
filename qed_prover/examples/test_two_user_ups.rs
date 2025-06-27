@@ -1,10 +1,6 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
-use kvq::
-    memory::{
-        arc_imm::KVQArcImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore
-    }
-;
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer};
@@ -192,9 +188,9 @@ fn prepare_environment_with_real_contract(
 ) -> anyhow::Result<
     (QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQArcImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        Arc<KVQSimpleMemoryBackingStore>,
     >,
-    KVQArcImmutableStoreWrapper<KVQSimpleMemoryBackingStore>
+    Arc<KVQSimpleMemoryBackingStore>
 )
 > {
     let whitelist_items_fake = vec![
@@ -203,9 +199,7 @@ fn prepare_environment_with_real_contract(
         QHashOut::rand(),
         QHashOut::rand(),
     ];
-    let st: KVQArcImmutableStoreWrapper<KVQSimpleMemoryBackingStore> = KVQArcImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
-        KVQSimpleMemoryBackingStore::new(),
-    );
+    let st = Arc::new(KVQSimpleMemoryBackingStore::new());
     
     st.initialize_store()?;
 
@@ -278,7 +272,7 @@ fn prepare_environment_with_real_contract(
 
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQArcImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        Arc<KVQSimpleMemoryBackingStore>,
     > = QEDLocalProvingSessionStore::new_at(
         st.clone(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),

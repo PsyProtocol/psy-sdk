@@ -1,8 +1,9 @@
 use fred::prelude::*;
 use kvq::{
-    memory::{arc_imm::KVQArcImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore},
-    traits::KVQBinaryStoreImmutable,
+    memory::simple::KVQSimpleMemoryBackingStore,
+    traits::KVQBinaryStore,
 };
+use std::sync::Arc;
 use qed_benchmark::test_helpers::{
     contract::{gen_test_contract, SimpleTestContract},
     ups::ExampleDemoUserInfoStore,
@@ -74,7 +75,7 @@ use qed_store::{
     },
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use plonky2::{
     field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field},
@@ -83,26 +84,26 @@ use plonky2::{
 };
 use qed_core::data::qhashout::QHashOut;
 struct TestGrouping<
-    CSR: QEDCoordinatorStoreReaderAsync<F> + Send + Sync + KVQBinaryStoreImmutable,
+    CSR: QEDCoordinatorStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
     CDQ: CheckpointDrainQueueEmitterAsyncImm + Send + Sync,
     CPS: QProofStoreAsyncImm + Send + Sync,
     CPSR: QEDCoordinatorStoreWriterAsyncImm<F>
         + QEDCoordinatorStoreReaderAsync<F>
         + Send
         + Sync
-        + KVQBinaryStoreImmutable,
+        + KVQBinaryStore,
     CPDQ: CheckpointDrainQueueConsumerAsyncImm + Send + Sync,
     CPHQ: CheckpointHistoryQueueEmitterAsyncImm,
     CPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     CPWQ: WorkerEventTransmitterAsyncImm,
-    RSR: QEDRealmStoreReaderAsync<F> + Send + Sync + KVQBinaryStoreImmutable,
+    RSR: QEDRealmStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
     RDQ: CheckpointDrainQueueEmitterAsyncImm,
     RPS: QProofStoreAsyncImm,
     RPSR: QEDCoordinatorStoreWriterAsyncImm<F>
         + QEDCoordinatorStoreReaderAsync<F>
         + Send
         + Sync
-        + KVQBinaryStoreImmutable,
+        + KVQBinaryStore,
     RPDQ: CheckpointDrainQueueConsumerAsyncImm,
     RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm,
     RPWQ: WorkerEventTransmitterAsyncImm,
@@ -125,26 +126,26 @@ type C = PoseidonGoldilocksConfig;
 type F = GoldilocksField;
 const D: usize = 2;
 impl<
-        CSR: QEDCoordinatorStoreReaderAsync<F> + Send + Sync + KVQBinaryStoreImmutable,
+        CSR: QEDCoordinatorStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
         CDQ: CheckpointDrainQueueEmitterAsyncImm + Send + Sync,
         CPS: QProofStoreAsyncImm + Send + Sync,
         CPSR: QEDCoordinatorStoreWriterAsyncImm<F>
             + QEDCoordinatorStoreReaderAsync<F>
             + Send
             + Sync
-            + KVQBinaryStoreImmutable,
+            + KVQBinaryStore,
         CPDQ: CheckpointDrainQueueConsumerAsyncImm + Send + Sync,
         CPHQ: CheckpointHistoryQueueEmitterAsyncImm,
         CPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
         CPWQ: WorkerEventTransmitterAsyncImm,
-        RSR: QEDRealmStoreReaderAsync<F> + Send + Sync + KVQBinaryStoreImmutable,
+        RSR: QEDRealmStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
         RDQ: CheckpointDrainQueueEmitterAsyncImm,
         RPS: QProofStoreAsyncImm,
         RPSR: QEDCoordinatorStoreWriterAsyncImm<F>
             + QEDCoordinatorStoreReaderAsync<F>
             + Send
             + Sync
-            + KVQBinaryStoreImmutable,
+            + KVQBinaryStore,
         RPDQ: CheckpointDrainQueueConsumerAsyncImm,
         RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm,
         RPWQ: WorkerEventTransmitterAsyncImm,
@@ -246,7 +247,7 @@ impl<
         )
         .await?;
 
-        let latest = self.coord_proc.store.get_latest_l2_block_state().await?;
+        let latest = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.coord_proc.store).await?;
         let new_sync = self
             .coord_proc
             .store
@@ -280,10 +281,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
     let realm_q = ProofStoreFred::new(pool, "rwq1".to_string(), "rnq1".to_string());
 
-    let store_reader: KVQArcImmutableStoreWrapper<KVQSimpleMemoryBackingStore> =
-        KVQArcImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
-            KVQSimpleMemoryBackingStore::new(),
-        );
+    let store_reader: Arc<KVQSimpleMemoryBackingStore> =
+        Arc::new(KVQSimpleMemoryBackingStore::new());
 
     let mut checkpoint_id =
         QEDCoordinatorStoreWriterAsyncImm::initialize_store(&store_reader).await?;
@@ -296,7 +295,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let realm_qps = Arc::new(realm_q.clone());
 
-    let st = Arc::new(store_reader.dup());
+    let st = Arc::new(store_reader.clone());
 
     timer.lap("initialized store");
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -318,7 +317,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         .await?,
     };
 
-    let coordinator_processor_node = CoordinatorProcessorContext::new(
+    let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
         Arc::clone(&st),
         qps.clone(),
@@ -440,9 +439,9 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQArcImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        Arc<KVQSimpleMemoryBackingStore>,
     > = QEDLocalProvingSessionStore::new_at(
-        store_reader.dup(),
+        store_reader.clone(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
         GoldilocksField::from_noncanonical_u64(0),
         GoldilocksField::ONE,
