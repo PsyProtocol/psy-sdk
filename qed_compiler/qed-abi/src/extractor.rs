@@ -1,11 +1,9 @@
 use qed_ast::{
-    DefId, DefaultVisitorContext, FunctionNode, 
-    Program, StructNode, Visibility, VisitorContext,
+    DefId, DefaultVisitorContext, FunctionNode, Program, StructNode, Visibility, VisitorContext,
 };
 
 use crate::{
-    FieldAbiSpec, FunctionAbiSpec, ParamAbiSpec, 
-    SpecCompliantAbi, StructAbiSpec, TypeAbiSpec
+    FieldAbiSpec, FunctionAbiSpec, ParamAbiSpec, SpecCompliantAbi, StructAbiSpec, TypeAbiSpec,
 };
 
 pub struct AbiExtractor {

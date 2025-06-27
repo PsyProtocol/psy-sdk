@@ -1,4 +1,4 @@
-use crate::cli::{save_build_artifact_to_file, resolve_crate_path_graph};
+use crate::cli::{resolve_crate_path_graph, save_build_artifact_to_file};
 use crate::errors::Result;
 use clap::Args;
 use qed_abi::AbiExtractor;
@@ -43,27 +43,22 @@ pub(crate) fn run(args: GenerateAbiCommand, workspace: Workspace) -> Result<()> 
     // This is safe because we own the program and it lives for the entire duration of this function.
     let program_ptr: *mut _ = &mut ctx.program;
     let spec_abi = unsafe {
-        let static_program = &mut *(program_ptr as *mut qed_ast::Program<qedlang_core::dpn::ops::sym_felt::SymFeltRef>);
+        let static_program = &mut *(program_ptr
+            as *mut qed_ast::Program<qedlang_core::dpn::ops::sym_felt::SymFeltRef>);
         extractor.extract_spec_compliant_abi(static_program)?
     };
 
     // Determine output directory
-    let output_dir = args.output_dir.unwrap_or_else(|| workspace.target_dir.clone());
-    
+    let output_dir = args
+        .output_dir
+        .unwrap_or_else(|| workspace.target_dir.clone());
+
     // Generate the ABI file name (without extension, save_build_artifact_to_file adds .json)
     let abi_filename = format!("{}.abi", args.contract_name);
-    
+
     // Save ABI to file in target directory
     let abi_path = save_build_artifact_to_file(&spec_abi, &abi_filename, &output_dir)?;
-    
-    // Also output to stdout for backward compatibility
-    let json = spec_abi.to_json().map_err(|e| {
-        crate::errors::CliError::Generic(format!("Failed to serialize ABI to JSON: {}", e))
-    })?;
-    println!("{}", json);
-    
-    // Print the location where the ABI file was saved
-    println!("ABI file saved to: {}", abi_path.display());
-    
+
+    println!("Generate ABI file successfully");
     Ok(())
 }
