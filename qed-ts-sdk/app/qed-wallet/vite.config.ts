@@ -1,10 +1,19 @@
 /* eslint-disable import/no-extraneous-dependencies */
-import { defineConfig } from "vite";
+import * as path from "node:path";
 import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
+import topLevelAwait from "vite-plugin-top-level-await";
+import wasm from "vite-plugin-wasm";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-    plugins: [react(), tsconfigPaths()],
+    plugins: [
+        react(),
+        tsconfigPaths(),
+        wasm(),
+        topLevelAwait()
+    ],
+    // ... existing code ...
     optimizeDeps: {
         esbuildOptions: {
             // Node.js global to browser globalThis
@@ -13,4 +22,6 @@ export default defineConfig({
             },
         },
     },
+    // Add WASM asset handling
+    assetsInclude: ['**/local-web-prover/*.wasm'],
 });

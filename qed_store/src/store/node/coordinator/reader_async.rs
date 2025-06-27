@@ -31,6 +31,8 @@ use qed_data::{
     qsync::coordinator::QEDCheckpointSyncInfoCompact,
 };
 type F = GoldilocksField;
+
+#[cfg(feature = "is_sync")]
 #[async_trait]
 impl<T: QEDStorageAdapterImmutable + Send + Sync>
     QEDCoordinatorStoreReaderAsync<F> for T

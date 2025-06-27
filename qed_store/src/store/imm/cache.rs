@@ -33,7 +33,7 @@ impl<F: RichField> QEDCmdDataStoreCache<F> {
 
 }
 #[derive(Debug, Clone)]
-pub struct QEDCmdStoreWithCache<F: RichField, S: QEDReadCommandProcessorSync<F>> {
+pub struct QEDCmdStoreWithCache<F: RichField, S: QEDReadCommandProcessorSync<F>>{
     pub last_checkpoint: F,
     pub last_checkpoint_u64: u64,
     pub cache: QEDCmdDataStoreCache<F>,
@@ -54,8 +54,10 @@ impl <F: RichField, S: QEDReadCommandProcessorSync<F>> QEDCmdStoreWithCache<F, S
         self.cache = QEDCmdDataStoreCache::new();
     }
 }
-impl<F: RichField, S: QEDReadCommandProcessorSync<F>> QEDReadCommandProcessorSyncMut<F> for QEDCmdStoreWithCache<F, S> {
-    fn resolve_batch_mut(&mut self, input: &QEDReadCommandBatchInput) -> anyhow::Result<QEDReadCommandBatchOutput<F>> {
+
+#[maybe_async::maybe_async(?Send)]
+impl<F: RichField, S: QEDReadCommandProcessorSync<F> + Send> QEDReadCommandProcessorSyncMut<F> for QEDCmdStoreWithCache<F, S> {
+    async fn resolve_batch_mut(&mut self, input: &QEDReadCommandBatchInput) -> anyhow::Result<QEDReadCommandBatchOutput<F>> {
         let filtered_get = QEDReadCommandBatchInput {
             get_user_leaf: input.get_user_leaf.iter().filter(|x| !self.cache.user_leaf_cache.contains_key(x)).cloned().collect(),
             get_contract_leaf: input.get_contract_leaf.iter().filter(|x| !self.cache.contract_leaf_cache.contains_key(&x.contract_id)).cloned().collect(),
@@ -65,7 +67,7 @@ impl<F: RichField, S: QEDReadCommandProcessorSync<F>> QEDReadCommandProcessorSyn
             get_hash: input.get_hash.iter().filter(|x| !self.cache.hash_cmd_cache.contains_key(x)).cloned().collect(),
             get_merkle_proof: input.get_merkle_proof.iter().filter(|x| !self.cache.merkle_cmd_cache.contains_key(x)).cloned().collect(),
         };
-        let base_output = self.read_store.resolve_batch(&filtered_get)?;
+        let base_output = self.read_store.resolve_batch(&filtered_get).await?;
         self.cache.user_leaf_cache.extend(filtered_get.get_user_leaf.iter().zip(base_output.get_user_leaf.iter()).map(|(i, x)| (i.clone(), x.clone())));
         self.cache.contract_leaf_cache.extend(filtered_get.get_contract_leaf.iter().map(|x|x.contract_id).zip(base_output.get_contract_leaf.clone()));
         self.cache.checkpoint_leaf_cache.extend(filtered_get.get_checkpoint_leaf.iter().map(|x|x.checkpoint_id).zip(base_output.get_checkpoint_leaf.clone()));
@@ -87,77 +89,77 @@ impl<F: RichField, S: QEDReadCommandProcessorSync<F>> QEDReadCommandProcessorSyn
 
     }
 
-    fn resolve_get_hash_mut(&mut self, input: &QSRHashCmd) -> anyhow::Result<QHashOut<F>> {
+    async fn resolve_get_hash_mut(&mut self, input: &QSRHashCmd) -> anyhow::Result<QHashOut<F>> {
         if self.cache.hash_cmd_cache.contains_key(input) {
             Ok(self.cache.hash_cmd_cache.get(input).unwrap().clone())
         }else{
-            let result = self.read_store.resolve_get_hash(input)?;
+            let result = self.read_store.resolve_get_hash(input).await?;
             self.cache.hash_cmd_cache.insert(input.clone(), result.clone());
             Ok(result)
         }
     }
 
-    fn resolve_get_merkle_proof_mut(&mut self, input: &QSRMerkleCmd) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+    async fn resolve_get_merkle_proof_mut(&mut self, input: &QSRMerkleCmd) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
         if self.cache.merkle_cmd_cache.contains_key(input) {
             Ok(self.cache.merkle_cmd_cache.get(input).unwrap().clone())
         }else{
-            let result = self.read_store.resolve_get_merkle_proof(input)?;
+            let result = self.read_store.resolve_get_merkle_proof(input).await?;
             self.cache.merkle_cmd_cache.insert(input.clone(), result.clone());
             Ok(result)
         }
     }
 
-    fn resolve_get_user_leaf_mut(&mut self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<QEDUserLeaf<F>> {
+    async fn resolve_get_user_leaf_mut(&mut self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<QEDUserLeaf<F>> {
         if self.cache.user_leaf_cache.contains_key(input) {
             Ok(self.cache.user_leaf_cache.get(input).unwrap().clone())
         }else{
-            let result = self.read_store.resolve_get_user_leaf(input)?;
+            let result = self.read_store.resolve_get_user_leaf(input).await?;
             self.cache.user_leaf_cache.insert(input.clone(), result.clone());
             Ok(result)
         }
     }
 
-    fn resolve_get_contract_leaf_mut(&mut self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<QEDContractLeaf<F>> {
+    async fn resolve_get_contract_leaf_mut(&mut self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<QEDContractLeaf<F>> {
         if self.cache.contract_leaf_cache.contains_key(&input.contract_id) {
             Ok(self.cache.contract_leaf_cache.get(&input.contract_id).unwrap().clone())
         }else{
-            let result = self.read_store.resolve_get_contract_leaf(input)?;
+            let result = self.read_store.resolve_get_contract_leaf(input).await?;
             self.cache.contract_leaf_cache.insert(input.contract_id, result.clone());
             Ok(result)
         }
     }
 
-    fn resolve_get_contract_code_mut(&mut self, input: &QSRCmdGetContractCodeDefinition) -> anyhow::Result<ContractCodeDefinition> {
+    async fn resolve_get_contract_code_mut(&mut self, input: &QSRCmdGetContractCodeDefinition) -> anyhow::Result<ContractCodeDefinition> {
         if self.cache.contract_code_definition_cache.contains_key(&input.contract_id) {
             Ok(self.cache.contract_code_definition_cache.get(&input.contract_id).unwrap().clone())
         }else{
-            let result = self.read_store.resolve_get_contract_code(input)?;
+            let result = self.read_store.resolve_get_contract_code(input).await?;
             self.cache.contract_code_definition_cache.insert(input.contract_id, result.clone());
             Ok(result)
         }
     }
 
-    fn resolve_get_checkpoint_leaf_mut(&mut self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+    async fn resolve_get_checkpoint_leaf_mut(&mut self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<QEDCheckpointLeaf<F>> {
         if self.cache.checkpoint_leaf_cache.contains_key(&input.checkpoint_id) {
             Ok(self.cache.checkpoint_leaf_cache.get(&input.checkpoint_id).unwrap().clone())
         }else{
-            let result = self.read_store.resolve_get_checkpoint_leaf(input)?;
+            let result = self.read_store.resolve_get_checkpoint_leaf(input).await?;
             self.cache.checkpoint_leaf_cache.insert(input.checkpoint_id, result.clone());
             Ok(result)
         }
     }
 
-    fn resolve_get_l2_block_state_mut(&mut self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<QEDL2BlockState> {
+    async fn resolve_get_l2_block_state_mut(&mut self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<QEDL2BlockState> {
         if self.cache.l2_block_state_cache.contains_key(&input.checkpoint_id) {
             Ok(self.cache.l2_block_state_cache.get(&input.checkpoint_id).unwrap().clone())
         }else{
-            let result = self.read_store.resolve_get_l2_block_state(input)?;
+            let result = self.read_store.resolve_get_l2_block_state(input).await?;
             self.cache.l2_block_state_cache.insert(input.checkpoint_id, result.clone());
             Ok(result)
         }
     }
-    
-    fn resolve_get_latest_l2_block_state_mut(&mut self) -> anyhow::Result<QEDL2BlockState> {
-        self.read_store.resolve_get_latest_l2_block_state()
+
+    async fn resolve_get_latest_l2_block_state_mut(&mut self) -> anyhow::Result<QEDL2BlockState> {
+        self.read_store.resolve_get_latest_l2_block_state().await
     }
 }

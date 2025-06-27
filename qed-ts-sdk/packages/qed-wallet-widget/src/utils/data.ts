@@ -1,5 +1,4 @@
-import { Felt } from "@qed/qed-sdk";
-import { QedUserWalletProvider } from "packages/qed-sdk/src/wallet/provider";
+import { Felt, QedUserWalletProvider } from "@qed/qed-sdk";
 import { useCallback, useEffect, useState } from "react";
 
 

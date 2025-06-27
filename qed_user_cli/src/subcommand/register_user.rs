@@ -69,16 +69,19 @@ pub fn run_random(args: RandomArgs) -> anyhow::Result<()> {
         };
 
         tracing::info!("user {}: {}", i, serde_json::to_string_pretty(&keypair)?,);
+        #[cfg(not(target_arch = "wasm32"))]
         std::thread::sleep(time::Duration::from_millis(100));
 
         if i % args.user_per_block == 0 && i != 0 {
             provider.produce_block::<GoldilocksField>()?;
+            #[cfg(not(target_arch = "wasm32"))]
             std::thread::sleep(time::Duration::from_secs(args.interval));
         }
     }
 
     if args.total_user % args.user_per_block != 0 {
         provider.produce_block::<GoldilocksField>()?;
+        #[cfg(not(target_arch = "wasm32"))]
         std::thread::sleep(time::Duration::from_secs(args.interval));
     }
 
