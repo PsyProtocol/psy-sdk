@@ -49,11 +49,6 @@ echo "Clearing log files..."
 # : > "$REALM_WORKER8192_LOG"
 # : > "$REALM_EDGE8192_LOG"
 
-# Run shutdown, init, compile
-make shutdown
-make init
-make compile
-
 # Array to store PIDs of background processes
 declare -a PIDS=()
 

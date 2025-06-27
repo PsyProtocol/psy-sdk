@@ -1,5 +1,5 @@
 use kvq::traits::{
-    KVQBinaryStoreImmutable, KVQBinaryStoreReader, KVQStoreAdapterImmutable, KVQStoreAdapterReader,
+    KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader,
 };
 use qed_data::qdata::{checkpoint_id_key::CheckpointTableIdKey, contract::ContractCodeDefinition};
 
@@ -7,7 +7,7 @@ use crate::models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE;
 
 pub trait ContractCodeModelReaderCore<
     const CONTRACT_CODE_TABLE_TYPE: u16,
-    S: KVQBinaryStoreReader,
+    S: KVQBinaryStore,
     IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<CONTRACT_CODE_TABLE_TYPE>, ContractCodeDefinition>,
 >
 {
@@ -36,29 +36,29 @@ pub trait ContractCodeModelReaderCore<
     }
 }
 
-pub trait ContractCodeModelCoreImmutable<
+pub trait ContractCodeModelCore<
     const CONTRACT_CODE_TABLE_TYPE: u16,
-    S: KVQBinaryStoreImmutable,
-    IDKVA: KVQStoreAdapterImmutable<S, CheckpointTableIdKey<CONTRACT_CODE_TABLE_TYPE>, ContractCodeDefinition>,
+    S: KVQBinaryStore,
+    IDKVA: KVQStoreAdapter<S, CheckpointTableIdKey<CONTRACT_CODE_TABLE_TYPE>, ContractCodeDefinition>,
 >: ContractCodeModelReaderCore<CONTRACT_CODE_TABLE_TYPE, S, IDKVA>
 {
-    fn set_contract_code_imm(store: &S, checkpoint_id: u64, contract_id: u64, contract: ContractCodeDefinition) -> anyhow::Result<()> {
+    fn set_contract_code(store: &S, checkpoint_id: u64, contract_id: u64, contract: ContractCodeDefinition) -> anyhow::Result<()> {
         let key_id = CheckpointTableIdKey::new(
             checkpoint_id,
             contract_id,
         );
-        IDKVA::imm_set(store, key_id, contract)?;
+        IDKVA::set(store, key_id, contract)?;
         Ok(())
     }
-    fn set_contract_code_ref_imm(store: &S, checkpoint_id: u64, contract_id: u64, contract: &ContractCodeDefinition) -> anyhow::Result<()> {
+    fn set_contract_code_ref(store: &S, checkpoint_id: u64, contract_id: u64, contract: &ContractCodeDefinition) -> anyhow::Result<()> {
         let key_id = CheckpointTableIdKey::new(
             checkpoint_id,
             contract_id,
         );
-        IDKVA::imm_set_ref(store, &key_id, contract)?;
+        IDKVA::set_ref(store, &key_id, contract)?;
         Ok(())
     }
-    fn set_contract_codes_imm(store: &S, checkpoint_id: u64, contract_ids: &[u64], contracts: &[ContractCodeDefinition]) -> anyhow::Result<()> {
+    fn set_contract_codes(store: &S, checkpoint_id: u64, contract_ids: &[u64], contracts: &[ContractCodeDefinition]) -> anyhow::Result<()> {
         let key_ids = contract_ids
             .iter()
             .map(|c| {
@@ -68,7 +68,7 @@ pub trait ContractCodeModelCoreImmutable<
                 )
             })
             .collect::<Vec<_>>();
-        IDKVA::imm_set_many_split_ref(store, &key_ids, contracts)?;
+        IDKVA::set_many_split_ref(store, &key_ids, contracts)?;
         Ok(())
     }
 }
@@ -80,7 +80,7 @@ pub struct ContractCodeModel<const CONTRACT_CODE_TABLE_TYPE: u16, S, IDKVA> {
 
 impl<
         const CONTRACT_CODE_TABLE_TYPE: u16,
-        S: KVQBinaryStoreReader,
+        S: KVQBinaryStore,
         IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<CONTRACT_CODE_TABLE_TYPE>, ContractCodeDefinition>,
     > ContractCodeModelReaderCore<CONTRACT_CODE_TABLE_TYPE, S, IDKVA>
     for ContractCodeModel<CONTRACT_CODE_TABLE_TYPE, S, IDKVA>
@@ -88,13 +88,13 @@ impl<
 }
 impl<
         const CONTRACT_CODE_TABLE_TYPE: u16,
-        S: KVQBinaryStoreImmutable,
-        IDKVA: KVQStoreAdapterImmutable<
+        S: KVQBinaryStore,
+        IDKVA: KVQStoreAdapter<
             S,
             CheckpointTableIdKey<CONTRACT_CODE_TABLE_TYPE>,
             ContractCodeDefinition,
         >,
-    > ContractCodeModelCoreImmutable<CONTRACT_CODE_TABLE_TYPE, S, IDKVA>
+    > ContractCodeModelCore<CONTRACT_CODE_TABLE_TYPE, S, IDKVA>
     for ContractCodeModel<CONTRACT_CODE_TABLE_TYPE, S, IDKVA>
 {
 }

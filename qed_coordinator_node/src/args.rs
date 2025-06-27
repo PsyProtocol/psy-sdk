@@ -24,10 +24,10 @@ pub struct CoordinatorProcessorArgs {
     pub redis_uri: String,
     #[clap(long, short, default_value = "20")]
     pub pool_size: u32,
-    #[clap(env = "COORDINATOR_DB_PATH", long, default_value = "./db/coordinator")]
-    pub db_path: String,
-    #[clap(env = "COORDINATOR_DB_SIZE_GB", long, default_value = "100")]
-    pub db_size_gb: usize,
+    #[clap(env = "COORDINATOR_SCYLLA_URI", long, default_value = "127.0.0.1:9042")]
+    pub scylla_uri: String,
+    #[clap(env = "COORDINATOR_SCYLLA_KEYSPACE", long, default_value = "qed_coordinator")]
+    pub scylla_keyspace: String,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
 }
@@ -42,8 +42,10 @@ pub struct CoordinatorEdgeArgs {
     pub redis_uri: String,
     #[clap(env = "COORDINATOR_LISTEN_ADDR", long, default_value = "0.0.0.0:8545")]
     pub listen_addr: String,
-    #[clap(env = "COORDINATOR_DB_PATH", long, default_value = "./db/coordinator")]
-    pub db_path: String,
+    #[clap(env = "COORDINATOR_SCYLLA_URI", long, default_value = "127.0.0.1:9042")]
+    pub scylla_uri: String,
+    #[clap(env = "COORDINATOR_SCYLLA_KEYSPACE", long, default_value = "qed_coordinator")]
+    pub scylla_keyspace: String,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
 }
@@ -67,7 +69,7 @@ pub struct CoordinatorQueueArgs {
     #[clap(
         env = "COORDINATOR_PROOF_STORE_KEY_SUFFIX",
         long,
-        short,
+        short = 'k',
         default_value = "CW"
     )]
     pub proof_store_key_suffix: String,

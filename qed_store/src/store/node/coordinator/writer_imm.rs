@@ -2,7 +2,7 @@ use crate::{
     config::store_config::{CheckpointSyncInfoTableStore, QEDHasher, UserTreeStore},
     models::{
         checkpoint::sync_info::{self, QEDCheckpointSyncInfoModelCore},
-        kvq_merkle::model::KVQFixedConfigMerkleTreeModelCoreImmutable,
+        kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore,
     },
     node::coordinator::store_traits::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
     store::imm::core::QEDStorageAdapterImmutable,
@@ -24,7 +24,7 @@ use qed_crypto::hash::{merkle::{
 }, traits::qhashable::QFieldHashable};
 use qed_data::{
     qdata::{
-        checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState},
+        checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState, QEDCheckpointGlobalStateRoots},
         contract::{ContractCodeDefinition, QEDContractLeaf},
     },
     qsync::coordinator::QEDCheckpointSyncInfoCompact,
@@ -78,7 +78,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsyn
         root_level: u8,
         nodes: &[QMerkleNode<F>],
     ) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>> {
-        UserTreeStore::smart_injest_nca_fc_imm(self, root_level, checkpoint_id, nodes)
+        UserTreeStore::smart_injest_nca_fc(self, root_level, checkpoint_id, nodes)
     }
     async fn set_deposit_tree_leaf_hash_imm(
         &self,
@@ -309,7 +309,22 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsyn
 
             let genesis_checkpoint_stats = QEDCheckpointLeafStats::get_genesis_value();
             let stats_hash = genesis_checkpoint_stats.qfhash::<QEDHasher>();
-            let genesis_global_state_roots = self.get_checkpoint_global_state_roots(1).await?;
+            
+            // For genesis, create the initial tree roots
+            let contract_tree_root = self.get_contract_tree_root(0).await.unwrap_or(QHashOut::ZERO);
+            let deposit_tree_root = self.get_deposit_tree_root(0).await.unwrap_or(QHashOut::ZERO);
+            let user_tree_root = self.get_user_tree_root(0).await.unwrap_or(QHashOut::ZERO);
+            let withdrawal_tree_root = self.get_withdrawal_tree_root(0).await.unwrap_or(QHashOut::ZERO);
+            let user_registration_tree_root = self.get_user_registration_tree_root(0).await.unwrap_or(QHashOut::ZERO);
+            
+            let genesis_global_state_roots = QEDCheckpointGlobalStateRoots {
+                contract_tree_root,
+                deposit_tree_root,
+                user_tree_root,
+                withdrawal_tree_root,
+                user_registration_tree_root,
+            };
+            
             let genesis_checkpoint_leaf = QEDCheckpointLeaf{
                 global_chain_root: genesis_global_state_roots.qfhash::<QEDHasher>(),
                 stats: genesis_checkpoint_stats,

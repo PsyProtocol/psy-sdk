@@ -28,8 +28,8 @@ use qed_store::{
 
 use super::{args::ContractCallArgs, utils::prove_func};
 
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
+use std::sync::Arc;
 
 use plonky2::plonk::proof::ProofWithPublicInputs;
 
@@ -38,7 +38,7 @@ const D: usize = 2;
 type F = GoldilocksField;
 
 pub fn run_local(
-    st_provider: KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
+    st_provider: Arc<KVQlibmdbxStore>,
     contract_call_path: &str,
     private_key: &str,
 ) -> anyhow::Result<(
@@ -61,7 +61,7 @@ pub fn run_local(
     let user_id = 0;
 
     let lps = QEDLocalProvingSessionStore::new_at(
-        st_provider.dup(),
+        st_provider.clone(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
         F::from_canonical_u64(user_id),
         GoldilocksField::ONE,
@@ -88,7 +88,7 @@ pub fn run_local(
 
     for contract_call_arg in contract_call_args {
         prove_func(
-            &st_provider.dup(),
+            &st_provider.clone(),
             &main_circuits,
             &mut mgr,
             contract_call_arg.contract_id,

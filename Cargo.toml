@@ -25,7 +25,6 @@ members = [
     "qed_rollup_cli",
     "qed_rollup_utils",
     "qed_worker",
-    "qed_scylla_store",
     "qed_test_sandbox",
     "qed_compiler/qed-fmt",
     "qed_compiler/qed-cli",

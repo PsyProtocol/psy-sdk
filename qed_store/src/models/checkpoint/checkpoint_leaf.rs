@@ -1,4 +1,4 @@
-use kvq::traits::{KVQBinaryStoreImmutable, KVQBinaryStoreReader, KVQStoreAdapterImmutable, KVQStoreAdapterReader};
+use kvq::traits::{KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader};
 use qed_data::qdata::u64_key::U64TableKey;
 
 use crate::{config::store_config::QCheckpointLeaf, models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE};
@@ -6,7 +6,7 @@ use crate::{config::store_config::QCheckpointLeaf, models::kvq_merkle::model::CH
 
 pub trait QEDCheckpointLeafModelReaderCore<
     const CHECKPOINT_LEAF_TABLE_TYPE: u16,
-    S: KVQBinaryStoreReader,
+    S: KVQBinaryStore,
     KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
 >
 {
@@ -39,8 +39,8 @@ pub trait QEDCheckpointLeafModelReaderCore<
 }
 pub trait QEDCheckpointLeafModelCore<
     const CHECKPOINT_LEAF_TABLE_TYPE: u16,
-    S: KVQBinaryStoreImmutable,
-    KVA: KVQStoreAdapterImmutable<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
+    S: KVQBinaryStore,
+    KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
 >: QEDCheckpointLeafModelReaderCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
 {
     fn delete_checkpoint_leaf_by_id(
@@ -51,7 +51,7 @@ pub trait QEDCheckpointLeafModelCore<
         let current = KVA::get_exact_if_exists(store, &key_id)?;
         if current.is_some() {
             let deposit = current.unwrap();
-            KVA::imm_delete(store, &key_id)?;
+            KVA::delete(store, &key_id)?;
             Ok(Some(deposit))
         } else {
             Ok(None)
@@ -59,12 +59,12 @@ pub trait QEDCheckpointLeafModelCore<
     }
     fn set_checkpoint_leaf(store: &S, checkpoint_id: u64, checkpoint_leaf: QCheckpointLeaf) -> anyhow::Result<()> {
         let key_id = U64TableKey::<CHECKPOINT_LEAF_TABLE_TYPE>(checkpoint_id);
-        KVA::imm_set(store, key_id, checkpoint_leaf)?;
+        KVA::set(store, key_id, checkpoint_leaf)?;
         Ok(())
     }
     fn set_checkpoint_leaf_ref(store: &S, checkpoint_id: u64, checkpoint_leaf: &QCheckpointLeaf) -> anyhow::Result<()> {
         let key_id = U64TableKey::<CHECKPOINT_LEAF_TABLE_TYPE>(checkpoint_id);
-        KVA::imm_set_ref(store, &key_id, &checkpoint_leaf)?;
+        KVA::set_ref(store, &key_id, &checkpoint_leaf)?;
         Ok(())
     }
 }
@@ -75,7 +75,7 @@ pub struct QEDCheckpointLeafModel<const CHECKPOINT_LEAF_TABLE_TYPE: u16, S, KVA>
 
 impl<
         const CHECKPOINT_LEAF_TABLE_TYPE: u16,
-        S: KVQBinaryStoreReader,
+        S: KVQBinaryStore,
         KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
     > QEDCheckpointLeafModelReaderCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
     for QEDCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
@@ -83,8 +83,8 @@ impl<
 }
 impl<
         const CHECKPOINT_LEAF_TABLE_TYPE: u16,
-        S: KVQBinaryStoreImmutable,
-        KVA: KVQStoreAdapterImmutable<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
+        S: KVQBinaryStore,
+        KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
     > QEDCheckpointLeafModelCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
     for QEDCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
 {

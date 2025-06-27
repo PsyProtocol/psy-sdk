@@ -1,5 +1,5 @@
 use kvq::traits::{
-    KVQBinaryStoreImmutable, KVQBinaryStoreReader, KVQStoreAdapterImmutable, KVQStoreAdapterReader,
+    KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader,
 };
 use qed_data::qdata::{checkpoint_id_key::CheckpointTableIdKey, contract::QEDContractLeaf};
 
@@ -7,7 +7,7 @@ use crate::{config::store_config::QEDFelt, models::kvq_merkle::model::CHECKPOINT
 
 pub trait ContractLeafModelReaderCore<
     const CONTRACT_LEAF_TABLE_TYPE: u16,
-    S: KVQBinaryStoreReader,
+    S: KVQBinaryStore,
     IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, QEDContractLeaf<QEDFelt>>,
 >
 {
@@ -36,29 +36,29 @@ pub trait ContractLeafModelReaderCore<
     }
 }
 
-pub trait ContractLeafModelCoreImmutable<
+pub trait ContractLeafModelCore<
     const CONTRACT_LEAF_TABLE_TYPE: u16,
-    S: KVQBinaryStoreImmutable,
-    IDKVA: KVQStoreAdapterImmutable<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, QEDContractLeaf<QEDFelt>>,
+    S: KVQBinaryStore,
+    IDKVA: KVQStoreAdapter<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, QEDContractLeaf<QEDFelt>>,
 >: ContractLeafModelReaderCore<CONTRACT_LEAF_TABLE_TYPE, S, IDKVA>
 {
-    fn set_contract_imm(store: &S, checkpoint_id: u64, contract_id: u64, contract: QEDContractLeaf<QEDFelt>) -> anyhow::Result<()> {
+    fn set_contract(store: &S, checkpoint_id: u64, contract_id: u64, contract: QEDContractLeaf<QEDFelt>) -> anyhow::Result<()> {
         let key_id = CheckpointTableIdKey::new(
             checkpoint_id,
             contract_id,
         );
-        IDKVA::imm_set(store, key_id, contract)?;
+        IDKVA::set(store, key_id, contract)?;
         Ok(())
     }
-    fn set_contract_ref_imm(store: &S, checkpoint_id: u64, contract_id: u64, contract: &QEDContractLeaf<QEDFelt>) -> anyhow::Result<()> {
+    fn set_contract_ref(store: &S, checkpoint_id: u64, contract_id: u64, contract: &QEDContractLeaf<QEDFelt>) -> anyhow::Result<()> {
         let key_id = CheckpointTableIdKey::new(
             checkpoint_id,
             contract_id,
         );
-        IDKVA::imm_set_ref(store, &key_id, contract)?;
+        IDKVA::set_ref(store, &key_id, contract)?;
         Ok(())
     }
-    fn set_contracts_imm(store: &S, checkpoint_id: u64, contract_ids: &[u64], contracts: &[QEDContractLeaf<QEDFelt>]) -> anyhow::Result<()> {
+    fn set_contracts(store: &S, checkpoint_id: u64, contract_ids: &[u64], contracts: &[QEDContractLeaf<QEDFelt>]) -> anyhow::Result<()> {
         let key_ids = contract_ids
             .iter()
             .map(|c| {
@@ -68,7 +68,7 @@ pub trait ContractLeafModelCoreImmutable<
                 )
             })
             .collect::<Vec<_>>();
-        IDKVA::imm_set_many_split_ref(store, &key_ids, contracts)?;
+        IDKVA::set_many_split_ref(store, &key_ids, contracts)?;
         Ok(())
     }
 }
@@ -80,7 +80,7 @@ pub struct ContractLeafModel<const CONTRACT_LEAF_TABLE_TYPE: u16, S, IDKVA> {
 
 impl<
         const CONTRACT_LEAF_TABLE_TYPE: u16,
-        S: KVQBinaryStoreReader,
+        S: KVQBinaryStore,
         IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, QEDContractLeaf<QEDFelt>>,
     > ContractLeafModelReaderCore<CONTRACT_LEAF_TABLE_TYPE, S, IDKVA>
     for ContractLeafModel<CONTRACT_LEAF_TABLE_TYPE, S, IDKVA>
@@ -88,13 +88,13 @@ impl<
 }
 impl<
         const CONTRACT_LEAF_TABLE_TYPE: u16,
-        S: KVQBinaryStoreImmutable,
-        IDKVA: KVQStoreAdapterImmutable<
+        S: KVQBinaryStore,
+        IDKVA: KVQStoreAdapter<
             S,
             CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>,
             QEDContractLeaf<QEDFelt>,
         >,
-    > ContractLeafModelCoreImmutable<CONTRACT_LEAF_TABLE_TYPE, S, IDKVA>
+    > ContractLeafModelCore<CONTRACT_LEAF_TABLE_TYPE, S, IDKVA>
     for ContractLeafModel<CONTRACT_LEAF_TABLE_TYPE, S, IDKVA>
 {
 }

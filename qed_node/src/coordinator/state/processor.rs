@@ -151,9 +151,6 @@ pub struct CoordinatorProcessorContext<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub latest_block_state: QEDL2BlockState,
     pub coordinator_config: CoordinatorConfig,
-    chkpoint_id: u64,
-    //pub checkpoint_id: u64,
-    //pub end_cap_verifier_data: VerifierOnlyCircuitData<C, D>,
 }
 
 impl<
@@ -185,8 +182,6 @@ impl<
             proof_store,
             proof_verifier,
             latest_block_state,
-            chkpoint_id: checkpoint_id,
-            //checkpoint_id,
         })
     }
 
@@ -794,7 +789,7 @@ impl<
         Ok((levels, guta))
     }
 
-    pub async fn build_block(&self) -> anyhow::Result<()> {
+    pub async fn build_block(&mut self) -> anyhow::Result<()> {
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
@@ -1051,9 +1046,10 @@ impl<
         //todo! mark, should commit the txn
         self.sync_queue.chq_push_imm(l2_sync).await?;
 
+        self.latest_block_state = new_l2_block_state;
         tracing::info!(
             "lastest block state: {:?}",
-            self.store.get_latest_l2_block_state().await?,
+            self.latest_block_state,
         );
 
         Ok(())

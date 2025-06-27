@@ -1,0 +1,508 @@
+use anyhow::Result;
+use std::sync::Arc;
+use scylla::{Session, SessionBuilder};
+
+use super::{
+    config::ScyllaDBConfig,
+    kvq_store::ScyllaKVQStore,
+    clustering_store::ScyllaClusteringStore,
+};
+
+use crate::config::store_config::{
+    PROTOCOL_TREE_TABLE_TYPE, USER_CONTRACT_TREE_TABLE_TYPE, USER_CONTRACT_STATE_TREE_TABLE_TYPE,
+    USER_LEAF_TABLE_TYPE, CHECKPOINT_LEAF_TABLE_TYPE, CHECKPOINT_BLOCK_STATE_TABLE_TYPE,
+    CONTRACT_LEAF_TABLE_TYPE, CONTRACT_CODE_TABLE_TYPE, CHECKPOINT_SYNC_INFO_TABLE_TYPE,
+    CHECKPOINT_HASH_HELPER_TABLE_TYPE, USER_PUBLIC_KEY_HELPER_TABLE_TYPE,
+};
+
+use kvq::traits::{
+    KVQBinaryStoreAsync,
+    KVQBinaryStore,
+    KVQPair, ScyllaKey
+};
+
+/// Trait for stores that can be stored in the array
+#[async_trait::async_trait]
+pub trait ScyllaStoreInstance: KVQBinaryStoreAsync + KVQBinaryStoreAsync + Send + Sync {
+    fn table_name(&self) -> &str;
+}
+
+#[async_trait::async_trait]
+impl ScyllaStoreInstance for ScyllaKVQStore {
+    fn table_name(&self) -> &str {
+        &self.table_name
+    }
+}
+
+#[async_trait::async_trait]
+impl ScyllaStoreInstance for ScyllaClusteringStore {
+    fn table_name(&self) -> &str {
+        &self.table_name
+    }
+}
+
+/// ScyllaStore - manages all tables using a fixed-size array
+pub struct ScyllaStore {
+    session: Arc<Session>,
+    config: ScyllaDBConfig,
+    // Fixed-size array indexed by table type
+    stores: [Option<Arc<dyn ScyllaStoreInstance>>; 50],
+}
+
+// Ensure ScyllaStore is Send + Sync
+unsafe impl Send for ScyllaStore {}
+unsafe impl Sync for ScyllaStore {}
+
+impl std::fmt::Debug for ScyllaStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScyllaStore")
+            .field("session", &"<Session>")
+            .field("config", &self.config)
+            .field("stores", &"<stores>")
+            .finish()
+    }
+}
+
+impl ScyllaStore {
+    pub async fn new(uri: &str, keyspace: &str) -> Result<Self> {
+        Self::new_with_config(uri, keyspace, None).await
+    }
+
+    pub async fn new_with_config(
+        uri: &str,
+        keyspace: &str,
+        config: Option<ScyllaDBConfig>,
+    ) -> Result<Self> {
+        let config = config.unwrap_or_default();
+        
+        // Create shared session
+        let session = SessionBuilder::new()
+            .known_node(uri)
+            .build()
+            .await?;
+
+        // Create keyspace
+        let replication_clause = if config.replication_class == "NetworkTopologyStrategy" {
+            format!(
+                "{{'class': 'NetworkTopologyStrategy', 'datacenter1': {}}}",
+                config.replication_factor
+            )
+        } else {
+            format!(
+                "{{'class': '{}', 'replication_factor': {}}}",
+                config.replication_class, config.replication_factor
+            )
+        };
+
+        session
+            .query_unpaged(
+                format!(
+                    "CREATE KEYSPACE IF NOT EXISTS {} WITH replication = {}",
+                    keyspace, replication_clause
+                ),
+                &[],
+            )
+            .await?;
+
+        let mut store = Self {
+            session: Arc::new(session),
+            config,
+            stores: [
+                None, None, None, None, None, None, None, None, None, None,
+                None, None, None, None, None, None, None, None, None, None,
+                None, None, None, None, None, None, None, None, None, None,
+                None, None, None, None, None, None, None, None, None, None,
+                None, None, None, None, None, None, None, None, None, None,
+            ],
+        };
+        
+        // Register all tables
+        store.register_all_tables(keyspace).await?;
+        
+        Ok(store)
+    }
+
+    /// Register all known table types
+    async fn register_all_tables(&mut self, keyspace: &str) -> Result<()> {
+        // Merkle tree tables - use Clustering Store (partition_key: tree_id, clustering_key: node_hash)
+        self.register_clustering_table(PROTOCOL_TREE_TABLE_TYPE, keyspace, "protocol_trees", 8).await?;
+        self.register_clustering_table(USER_CONTRACT_TREE_TABLE_TYPE, keyspace, "user_contract_trees", 8).await?;
+        self.register_clustering_table(USER_CONTRACT_STATE_TREE_TABLE_TYPE, keyspace, "user_contract_state_trees", 8).await?;
+        
+        // Tables requiring versioning - use Clustering Store (partition_key: id, clustering_key: version)
+        self.register_clustering_table(USER_LEAF_TABLE_TYPE, keyspace, "user_leaves", 8).await?;
+        self.register_clustering_table(CONTRACT_LEAF_TABLE_TYPE, keyspace, "contract_leaves", 8).await?;
+        self.register_clustering_table(CONTRACT_CODE_TABLE_TYPE, keyspace, "contract_codes", 8).await?;
+        
+        // Checkpoint-related tables - use Clustering Store to support get_leq
+        self.register_clustering_table(CHECKPOINT_LEAF_TABLE_TYPE, keyspace, "checkpoint_leaves", 2).await?;
+        self.register_clustering_table(CHECKPOINT_BLOCK_STATE_TABLE_TYPE, keyspace, "checkpoint_block_states", 2).await?;
+        self.register_clustering_table(CHECKPOINT_SYNC_INFO_TABLE_TYPE, keyspace, "checkpoint_sync_info", 2).await?;
+        
+        // Simple KV tables - use KVQ Store
+        self.register_kvq_table(CHECKPOINT_HASH_HELPER_TABLE_TYPE, keyspace, "checkpoint_hash_helpers").await?;
+        self.register_kvq_table(USER_PUBLIC_KEY_HELPER_TABLE_TYPE, keyspace, "user_public_key_helpers").await?;
+        
+        Ok(())
+    }
+
+    /// Register KVQ table
+    async fn register_kvq_table(&mut self, table_type: u16, keyspace: &str, table_name: &str) -> Result<()> {
+        if table_type as usize >= 50 {
+            return Err(anyhow::anyhow!("Table type {} exceeds maximum of 49", table_type));
+        }
+
+        let store = ScyllaKVQStore::new_with_session(
+            self.session.clone(),
+            keyspace,
+            table_name,
+        ).await?;
+
+        self.stores[table_type as usize] = Some(Arc::new(store));
+        Ok(())
+    }
+
+    /// Register Clustering table
+    async fn register_clustering_table(
+        &mut self,
+        table_type: u16,
+        keyspace: &str,
+        table_name: &str,
+        partition_key_size: usize,
+    ) -> Result<()> {
+        if table_type as usize >= 50 {
+            return Err(anyhow::anyhow!("Table type {} exceeds maximum of 49", table_type));
+        }
+
+        let store = ScyllaClusteringStore::new_with_session(
+            self.session.clone(),
+            keyspace,
+            table_name,
+            partition_key_size,
+        ).await?;
+
+        self.stores[table_type as usize] = Some(Arc::new(store));
+        Ok(())
+    }
+
+    /// Get store for specified table type
+    pub fn get_store(&self, table_type: u16) -> Result<Arc<dyn ScyllaStoreInstance>> {
+        let index = table_type as usize;
+        if index >= 50 {
+            return Err(anyhow::anyhow!("Table type {} exceeds maximum of 49", table_type));
+        }
+
+        self.stores[index]
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No store registered for table type {}", table_type))
+    }
+
+    /// Get description for table type
+    pub fn get_table_description(table_type: u16) -> &'static str {
+        match table_type {
+            PROTOCOL_TREE_TABLE_TYPE => "Protocol Merkle Tree",
+            USER_CONTRACT_TREE_TABLE_TYPE => "User Contract Merkle Tree",
+            USER_CONTRACT_STATE_TREE_TABLE_TYPE => "User Contract State Merkle Tree",
+            USER_LEAF_TABLE_TYPE => "User Leaf Data",
+            CHECKPOINT_LEAF_TABLE_TYPE => "Checkpoint Leaf Data",
+            CHECKPOINT_BLOCK_STATE_TABLE_TYPE => "Checkpoint Block State",
+            CONTRACT_LEAF_TABLE_TYPE => "Contract Leaf Data",
+            CONTRACT_CODE_TABLE_TYPE => "Contract Code Storage",
+            CHECKPOINT_SYNC_INFO_TABLE_TYPE => "Checkpoint Sync Info",
+            CHECKPOINT_HASH_HELPER_TABLE_TYPE => "Checkpoint Hash Helper",
+            USER_PUBLIC_KEY_HELPER_TABLE_TYPE => "User Public Key Helper",
+            _ => "Unknown Table Type",
+        }
+    }
+}
+
+// Implement KVQ traits, routing to correct table based on table type in key
+#[async_trait::async_trait]
+impl KVQBinaryStoreAsync for ScyllaStore {
+    async fn get_exact_if_exists(&self, key: &Vec<u8>) -> Result<Option<Vec<u8>>> {
+        // Extract table type from key
+        if key.len() < 2 {
+            return Err(anyhow::anyhow!("Key too short to extract table type"));
+        }
+        let table_type = u16::from_be_bytes([key[0], key[1]]);
+        let store = self.get_store(table_type)?;
+        store.get_exact_if_exists(key).await
+    }
+
+    async fn get_exact(&self, key: &Vec<u8>) -> Result<Vec<u8>> {
+        <Self as KVQBinaryStoreAsync>::get_exact_if_exists(self, key)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Key not found"))
+    }
+
+    async fn get_many_exact(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(<Self as KVQBinaryStoreAsync>::get_exact(self, key).await?);
+        }
+        Ok(results)
+    }
+
+    async fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Option<Vec<u8>>> {
+        if key.len() < 2 {
+            return Err(anyhow::anyhow!("Key too short to extract table type"));
+        }
+        let table_type = u16::from_be_bytes([key[0], key[1]]);
+        let store = self.get_store(table_type)?;
+        store.get_leq(key, fuzzy_bytes).await
+    }
+
+    async fn get_fuzzy_range_leq_kv(
+        &self,
+        key: &Vec<u8>,
+        fuzzy_bytes: usize,
+    ) -> Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+        if key.len() < 2 {
+            return Err(anyhow::anyhow!("Key too short to extract table type"));
+        }
+        let table_type = u16::from_be_bytes([key[0], key[1]]);
+        let store = self.get_store(table_type)?;
+        store.get_fuzzy_range_leq_kv(key, fuzzy_bytes).await
+    }
+
+    async fn get_leq_kv(
+        &self,
+        key: &Vec<u8>,
+        fuzzy_bytes: usize,
+    ) -> Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+        if key.len() < 2 {
+            return Err(anyhow::anyhow!("Key too short to extract table type"));
+        }
+        let table_type = u16::from_be_bytes([key[0], key[1]]);
+        let store = self.get_store(table_type)?;
+        store.get_leq_kv(key, fuzzy_bytes).await
+    }
+
+    async fn get_many_leq(
+        &self,
+        keys: &[Vec<u8>],
+        fuzzy_bytes: usize,
+    ) -> Result<Vec<Option<Vec<u8>>>> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(<Self as KVQBinaryStoreAsync>::get_leq(self, key, fuzzy_bytes).await?);
+        }
+        Ok(results)
+    }
+
+    async fn get_many_leq_kv(
+        &self,
+        keys: &[Vec<u8>],
+        fuzzy_bytes: usize,
+    ) -> Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(<Self as KVQBinaryStoreAsync>::get_leq_kv(self, key, fuzzy_bytes).await?);
+        }
+        Ok(results)
+    }
+
+    // Write operations
+    async fn set(&self, key: Vec<u8>, value: Vec<u8>) -> Result<()> {
+        if key.len() < 2 {
+            return Err(anyhow::anyhow!("Key too short to extract table type"));
+        }
+        let table_type = u16::from_be_bytes([key[0], key[1]]);
+        let store = self.get_store(table_type)?;
+        store.set(key, value).await
+    }
+
+    async fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> Result<()> {
+        <Self as KVQBinaryStoreAsync>::set(self, key.clone(), value.clone()).await
+    }
+
+    async fn set_many_ref<'a>(
+        &self,
+        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
+    ) -> Result<()> {
+        for item in items {
+            <Self as KVQBinaryStoreAsync>::set_ref(self, item.key, item.value).await?;
+        }
+        Ok(())
+    }
+
+    async fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> Result<()> {
+        for item in items {
+            <Self as KVQBinaryStoreAsync>::set(self, item.key, item.value).await?;
+        }
+        Ok(())
+    }
+
+    async fn delete(&self, key: &Vec<u8>) -> Result<bool> {
+        if key.len() < 2 {
+            return Err(anyhow::anyhow!("Key too short to extract table type"));
+        }
+        let table_type = u16::from_be_bytes([key[0], key[1]]);
+        let store = self.get_store(table_type)?;
+        store.delete(key).await
+    }
+
+    async fn delete_many(&self, keys: &[Vec<u8>]) -> Result<Vec<bool>> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(<Self as KVQBinaryStoreAsync>::delete(self, key).await?);
+        }
+        Ok(results)
+    }
+
+    async fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> Result<()> {
+        if keys.len() != values.len() {
+            return Err(anyhow::anyhow!("Keys and values must have the same length"));
+        }
+        for (key, value) in keys.iter().zip(values.iter()) {
+            <Self as KVQBinaryStoreAsync>::set_ref(self, key, value).await?;
+        }
+        Ok(())
+    }
+}
+
+// Sync trait implementations for compatibility
+impl KVQBinaryStore for ScyllaStore {
+    fn get_exact_if_exists(&self, key: &Vec<u8>) -> Result<Option<Vec<u8>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::get_exact_if_exists(self, key).await
+            })
+        })
+    }
+
+    fn get_exact(&self, key: &Vec<u8>) -> Result<Vec<u8>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::get_exact(self, key).await
+            })
+        })
+    }
+
+    fn get_many_exact(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::get_many_exact(self, keys).await
+            })
+        })
+    }
+
+    fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Option<Vec<u8>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::get_leq(self, key, fuzzy_bytes).await
+            })
+        })
+    }
+
+    fn get_fuzzy_range_leq_kv(
+        &self,
+        key: &Vec<u8>,
+        fuzzy_bytes: usize,
+    ) -> Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(self, key, fuzzy_bytes).await
+            })
+        })
+    }
+
+    fn get_leq_kv(
+        &self,
+        key: &Vec<u8>,
+        fuzzy_bytes: usize,
+    ) -> Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::get_leq_kv(self, key, fuzzy_bytes).await
+            })
+        })
+    }
+
+    fn get_many_leq(
+        &self,
+        keys: &[Vec<u8>],
+        fuzzy_bytes: usize,
+    ) -> Result<Vec<Option<Vec<u8>>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::get_many_leq(self, keys, fuzzy_bytes).await
+            })
+        })
+    }
+
+    fn get_many_leq_kv(
+        &self,
+        keys: &[Vec<u8>],
+        fuzzy_bytes: usize,
+    ) -> Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::get_many_leq_kv(self, keys, fuzzy_bytes).await
+            })
+        })
+    }
+
+    // Write operations
+    fn set(&self, key: Vec<u8>, value: Vec<u8>) -> Result<()> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::set(self, key, value).await
+            })
+        })
+    }
+
+    fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> Result<()> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::set_ref(self, key, value).await
+            })
+        })
+    }
+
+    fn set_many_ref<'a>(
+        &self,
+        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
+    ) -> Result<()> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::set_many_ref(self, items).await
+            })
+        })
+    }
+
+    fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> Result<()> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::set_many_vec(self, items).await
+            })
+        })
+    }
+
+    fn delete(&self, key: &Vec<u8>) -> Result<bool> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::delete(self, key).await
+            })
+        })
+    }
+
+    fn delete_many(&self, keys: &[Vec<u8>]) -> Result<Vec<bool>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::delete_many(self, keys).await
+            })
+        })
+    }
+
+    fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> Result<()> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::set_many_split_ref(self, keys, values).await
+            })
+        })
+    }
+}
+
+

@@ -1,5 +1,5 @@
 use kvq::traits::{
-    KVQBinaryStoreImmutable, KVQBinaryStoreReader, KVQPair, KVQStoreAdapterImmutable, KVQStoreAdapterReader
+    KVQBinaryStore, KVQPair, KVQStoreAdapter, KVQStoreAdapterReader
 };
 use qed_data::qdata::{hash_cache_result::QEDHashHelperResult, hash_key::Hash4x64Key};
 
@@ -9,7 +9,7 @@ use crate::
 
 pub trait QEDCheckpointHashHelperModelReaderCore<
     const CHECKPOINT_HASH_HELPER_TABLE_TYPE: u16,
-    S: KVQBinaryStoreReader,
+    S: KVQBinaryStore,
     KVA: KVQStoreAdapterReader<
         S,
         Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>,
@@ -34,8 +34,8 @@ pub trait QEDCheckpointHashHelperModelReaderCore<
 }
 pub trait QEDCheckpointHashHelperModelCore<
     const CHECKPOINT_HASH_HELPER_TABLE_TYPE: u16,
-    S: KVQBinaryStoreImmutable,
-    KVA: KVQStoreAdapterImmutable<
+    S: KVQBinaryStore,
+    KVA: KVQStoreAdapter<
         S,
         Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>,
         QEDHashHelperResult,
@@ -49,7 +49,7 @@ pub trait QEDCheckpointHashHelperModelCore<
         let current = KVA::get_exact_if_exists(store, &hash.into())?;
         if current.is_some() {
             let deposit = current.unwrap();
-            KVA::imm_delete(store, &hash.into())?;
+            KVA::delete(store, &hash.into())?;
             Ok(Some(deposit))
         } else {
             Ok(None)
@@ -61,7 +61,7 @@ pub trait QEDCheckpointHashHelperModelCore<
         checkpoint_leaf_hash: QEDHash,
         checkpoint_tree_root_hash: QEDHash,
     ) -> anyhow::Result<()> {
-        KVA::imm_set_many(
+        KVA::set_many(
             store,
             &[
                 KVQPair{
@@ -84,7 +84,7 @@ pub struct QEDCheckpointHashHelperModel<const CHECKPOINT_HASH_HELPER_TABLE_TYPE:
 
 impl<
         const CHECKPOINT_HASH_HELPER_TABLE_TYPE: u16,
-        S: KVQBinaryStoreReader,
+        S: KVQBinaryStore,
         KVA: KVQStoreAdapterReader<
             S,
             Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>,
@@ -96,8 +96,8 @@ impl<
 }
 impl<
         const CHECKPOINT_HASH_HELPER_TABLE_TYPE: u16,
-        S: KVQBinaryStoreImmutable,
-        KVA: KVQStoreAdapterImmutable<
+        S: KVQBinaryStore,
+        KVA: KVQStoreAdapter<
             S,
             Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>,
             QEDHashHelperResult,

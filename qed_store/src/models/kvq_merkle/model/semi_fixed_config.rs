@@ -1,9 +1,6 @@
 use kvq::traits::KVQBinaryStore;
-use kvq::traits::KVQBinaryStoreImmutable;
-use kvq::traits::KVQBinaryStoreReader;
 use kvq::traits::KVQSerializable;
 use kvq::traits::KVQStoreAdapter;
-use kvq::traits::KVQStoreAdapterImmutable;
 use kvq::traits::KVQStoreAdapterReader;
 use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
@@ -11,7 +8,7 @@ use qed_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
 
 use crate::models::kvq_merkle::key::KVQMerkleNodeKey;
 
-use super::{KVQMerkleTreeModelCore, KVQMerkleTreeModelCoreImmutable, KVQMerkleTreeModelReaderCore};
+use super::{KVQMerkleTreeModelCore, KVQMerkleTreeModelReaderCore};
 
 pub trait KVQSemiFixedConfigMerkleTreeModelReaderCore<
     const TREE_ID: u8,
@@ -19,7 +16,7 @@ pub trait KVQSemiFixedConfigMerkleTreeModelReaderCore<
     const SECONDARY_ID: u32,
     const TABLE_TYPE: u16,
     const MARK_LEAVES: bool,
-    S: KVQBinaryStoreReader,
+    S: KVQBinaryStore,
     KVA: KVQStoreAdapterReader<S, KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
     Hash: Copy + PartialEq + KVQSerializable,
     Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
@@ -118,7 +115,7 @@ pub trait KVQSemiFixedConfigMerkleTreeModelCore<
     >
 {
     fn set_leaf_sfc(
-        store: &mut S,
+        store: &S,
         checkpoint_id: u64,
         primary_id: u64,
         index: u64,
@@ -127,12 +124,12 @@ pub trait KVQSemiFixedConfigMerkleTreeModelCore<
         Self::set_leaf(store, &Self::new_leaf_key_sfc(checkpoint_id, primary_id, index), value)
     }
 
-    fn injest_merkle_proof_sfc(store: &mut S, 
+    fn injest_merkle_proof_sfc(store: &S, 
         primary_id: u64, checkpoint_id: u64, merkle_proof: &MerkleProofCore<Hash>) -> anyhow::Result<()> {
         Self::injest_merkle_proof(store, TREE_ID, primary_id, SECONDARY_ID, checkpoint_id, merkle_proof)
     }
     fn injest_merkle_proof_set_leaf_sfc(
-        store: &mut S, 
+        store: &S, 
         primary_id: u64,
         old_checkpoint_id: u64, 
         merkle_proof: &MerkleProofCore<Hash>, 
@@ -142,32 +139,7 @@ pub trait KVQSemiFixedConfigMerkleTreeModelCore<
         Self::injest_merkle_proof_sfc(store, primary_id, old_checkpoint_id, merkle_proof)?;
         Self::set_leaf(store, &Self::new_leaf_key_sfc(new_checkpoint_id, primary_id, merkle_proof.index), new_value)
     }
-}
-pub trait KVQSemiFixedConfigMerkleTreeModelCoreImmutable<
-    const TREE_ID: u8,
-    const TREE_HEIGHT: u8,
-    const SECONDARY_ID: u32,
-    const TABLE_TYPE: u16,
-    const MARK_LEAVES: bool,
-    S: KVQBinaryStoreImmutable,
-    KVA: KVQStoreAdapterImmutable<S, KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
-    Hash: Copy + PartialEq + KVQSerializable,
-    Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
->:
-    KVQMerkleTreeModelCoreImmutable<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
-    + KVQSemiFixedConfigMerkleTreeModelReaderCore<
-        TREE_ID,
-        TREE_HEIGHT,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
-{
-
+    
     fn injest_merkle_proof_sfc_imm(store: &S, 
         primary_id: u64, checkpoint_id: u64, merkle_proof: &MerkleProofCore<Hash>) -> anyhow::Result<()> {
         Self::injest_merkle_proof(store, TREE_ID, primary_id, SECONDARY_ID, checkpoint_id, merkle_proof)

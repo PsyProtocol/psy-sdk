@@ -1,15 +1,11 @@
-use std::{env, fs};
+use std::env;
 // std
 use crate::CoordinatorEdgeArgs;
 use anyhow::{anyhow, Context};
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use qed_store::store::scylla::ScyllaStore;
 use once_cell::sync::Lazy;
 use std::future::Future;
-use std::path::Path;
 use std::sync::{atomic::AtomicU64, Arc, OnceLock};
-use std::time::Duration;
-use tokio::time::sleep;
 use tracing::info;
 
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
@@ -19,7 +15,7 @@ use qed_node::nimpl::new_fred_pool;
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node_common::verifier::get_cached_generic_verifier;
 
-pub type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
+pub type StoreReader = ScyllaStore;
 pub type DrainQueue = ProofStoreFred;
 pub type ProofStore = ProofStoreFred;
 
@@ -28,7 +24,7 @@ pub static LATEST_CHECKPOINT_ID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0
 pub struct GlobalCoordinatorEdgeState {
     pub ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     pub sync_queue: DrainQueueRedisAsync,
-    pub store: StoreReader,
+    pub store: Arc<StoreReader>,
     pub jwt_secret: Arc<String>,
 }
 pub static GLOBAL_COORD_EDGE_STATE: OnceLock<GlobalCoordinatorEdgeState> = OnceLock::new();
@@ -41,13 +37,13 @@ pub enum UserRegisterState {
 pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Initializing coordinator edge node...");
 
-    // Check if the coordinator_db_path exists, 12 times, 5 seconds interval
-    wait_for_path_exists(&config.db_path, 12, 5).await?;
-
-    // initialize lmdb
-    let store = KVQlibmdbxStore::new_read(&config.db_path)?;
-    let store_wrapper = KVQArcImmutableStoreWrapper::new(store);
-    let store_reader = Arc::new(store_wrapper.dup());
+    // Create ScyllaDB store reader
+    info!("🗄️ Using ScyllaDB storage: {}:{}", config.scylla_uri, config.scylla_keyspace);
+    let scylla_store = ScyllaStore::new(
+        &config.scylla_uri,
+        &config.scylla_keyspace,
+    ).await?;
+    let store_reader = Arc::new(scylla_store);
 
     let redis_pool = new_fred_pool(&config.redis_uri, 8).await?;
     init_node_redis_pool(redis_pool.clone())?;
@@ -72,7 +68,7 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     // init context
     let ctx = CoordinatorEdgeContext::new(
         edge_config,
-        Arc::clone(&store_reader),
+        store_reader.clone(),
         Arc::clone(&proof_store),
         Arc::clone(&proof_store),
         verifier,
@@ -85,7 +81,7 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     let global = GlobalCoordinatorEdgeState {
         ctx,
         sync_queue,
-        store: store_wrapper,
+        store: store_reader,
         jwt_secret: Arc::new(jwt_secret),
     };
     GLOBAL_COORD_EDGE_STATE
@@ -97,35 +93,6 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     Ok(())
 }
 
-pub async fn wait_for_path_exists<P: AsRef<Path>>(
-    path: P,
-    max_attempts: usize,
-    interval_secs: u64,
-) -> anyhow::Result<()> {
-    let path_ref = path.as_ref();
-
-    for attempt in 0..max_attempts {
-        if fs::metadata(path_ref).is_ok() {
-            tracing::info!("✅ Found db path: {}", path_ref.display());
-            return Ok(());
-        } else {
-            tracing::warn!(
-                "⏳ Path not found: {} (attempt {}/{}) — waiting {}s...",
-                path_ref.display(),
-                attempt,
-                max_attempts,
-                interval_secs
-            );
-            sleep(Duration::from_secs(interval_secs)).await;
-        }
-    }
-
-    Err(anyhow!(
-        "❌ Path not found after {} attempts: {}",
-        max_attempts,
-        path_ref.display()
-    ))
-}
 
 pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(f: F) -> anyhow::Result<R>
 where

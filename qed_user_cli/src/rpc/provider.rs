@@ -21,7 +21,6 @@ use super::request::{
     QSubmitEndCapRPCRequest, QTokenTransferRPCRequest,
 };
 
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_core::{config::network_constants::REALM_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 
@@ -38,21 +37,19 @@ pub struct RpcProvider {
 
 #[derive(Debug)]
 pub struct StorageProvider {
-    pub coordinator_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
-    pub realm_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
+    pub coordinator_store: Arc<KVQlibmdbxStore>,
+    pub realm_store: Arc<KVQlibmdbxStore>,
 }
 
 impl StorageProvider {
     pub fn new(config_path: &str) -> anyhow::Result<Self> {
         let config: StoreConfig = serde_json::from_str(&fs::read_to_string(config_path)?)?;
 
-        let coordinator_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(
+        let coordinator_store = Arc::new(KVQlibmdbxStore::new_read(
                 &config.coordinator_store_path,
             )?);
 
-        let realm_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(
+        let realm_store = Arc::new(KVQlibmdbxStore::new_read(
                 &config.realm_store_path,
             )?);
 

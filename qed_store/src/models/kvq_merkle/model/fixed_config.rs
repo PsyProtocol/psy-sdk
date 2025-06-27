@@ -1,10 +1,7 @@
 use kvq::traits::KVQBinaryStore;
-use kvq::traits::KVQBinaryStoreImmutable;
-use kvq::traits::KVQBinaryStoreReader;
 use kvq::traits::KVQPair;
 use kvq::traits::KVQSerializable;
 use kvq::traits::KVQStoreAdapter;
-use kvq::traits::KVQStoreAdapterImmutable;
 use kvq::traits::KVQStoreAdapterReader;
 use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
@@ -14,7 +11,7 @@ use qed_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
 
 use crate::models::kvq_merkle::key::KVQMerkleNodeKey;
 
-use super::{KVQMerkleTreeModelCore, KVQMerkleTreeModelCoreImmutable, KVQMerkleTreeModelReaderCore};
+use super::{KVQMerkleTreeModelCore, KVQMerkleTreeModelReaderCore};
 
 pub trait KVQFixedConfigMerkleTreeModelReaderCore<
     const TREE_ID: u8,
@@ -23,7 +20,7 @@ pub trait KVQFixedConfigMerkleTreeModelReaderCore<
     const SECONDARY_ID: u32,
     const TABLE_TYPE: u16,
     const MARK_LEAVES: bool,
-    S: KVQBinaryStoreReader,
+    S: KVQBinaryStore,
     KVA: KVQStoreAdapterReader<S, KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
     Hash: Copy + PartialEq + KVQSerializable,
     Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
@@ -111,94 +108,6 @@ pub trait KVQFixedConfigMerkleTreeModelReaderCore<
 
 
 
-pub trait KVQFixedConfigMerkleTreeModelCoreImmutable<
-const TREE_ID: u8,
-const TREE_HEIGHT: u8,
-const PRIMARY_ID: u64,
-const SECONDARY_ID: u32,
-const TABLE_TYPE: u16,
-const MARK_LEAVES: bool,
-S: KVQBinaryStoreImmutable,
-KVA: KVQStoreAdapterImmutable<S, KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
-Hash: Copy + PartialEq + KVQSerializable,
-Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
->:
-KVQMerkleTreeModelCoreImmutable<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
-+ KVQFixedConfigMerkleTreeModelReaderCore<
-    TREE_ID,
-    TREE_HEIGHT,
-    PRIMARY_ID,
-    SECONDARY_ID,
-    TABLE_TYPE,
-    MARK_LEAVES,
-    S,
-    KVA,
-    Hash,
-    Hasher,
->
-{
-    fn injest_merkle_proof_fc_imm(store: &S, checkpoint_id: u64, merkle_proof: &MerkleProofCore<Hash>) -> anyhow::Result<()> {
-        Self::injest_merkle_proof(store, TREE_ID, PRIMARY_ID, SECONDARY_ID, checkpoint_id, merkle_proof)
-    }
-    fn injest_merkle_proof_set_leaf_fc_imm(
-        store: &S, 
-        old_checkpoint_id: u64, 
-        merkle_proof: &MerkleProofCore<Hash>, 
-        new_checkpoint_id: u64,
-        new_value: Hash
-    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
-        Self::injest_merkle_proof_fc_imm(store, old_checkpoint_id, merkle_proof)?;
-        Self::set_leaf(store, &Self::new_leaf_key_fc(new_checkpoint_id, merkle_proof.index), new_value)
-    }
-    fn set_leaf_fc(
-        store: &S,
-        checkpoint_id: u64,
-        index: u64,
-        value: Hash,
-    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
-        Self::set_leaf(store, &Self::new_leaf_key_fc(checkpoint_id, index), value)
-    }
-    fn set_leaf_fc_imm(
-        store: &S,
-        checkpoint_id: u64,
-        index: u64,
-        value: Hash,
-    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
-        Self::set_leaf(store, &Self::new_leaf_key_fc(checkpoint_id, index), value)
-    }
-
-
-    fn smart_injest_nca_fc_imm(
-        store: &S,
-        root_level: u8,
-        checkpoint_id: u64,
-        kvs: &[SimpleMerkleNode<Hash>],
-    ) -> anyhow::Result<UpdateNCAProofsWithDependencies<Hash>>{
-        let nodes = kvs.iter().map(|x| {
-            KVQPair{
-                key: Self::new_node_key_fc(checkpoint_id, x.key.level, x.key.index),
-                value: x.value,
-            }
-        }).collect();
-        
-        Self::smart_injest_nca(store, TREE_HEIGHT as usize, root_level, nodes)
-    }
-    fn smart_injest_nca_at_height_dmp_fc_imm(
-        store: &S,
-        root_level: u8,
-        checkpoint_id: u64,
-        kvs: &[SimpleMerkleNode<Hash>],
-    ) -> anyhow::Result<Vec<DeltaMerkleProofCore<Hash>>>{
-        let nodes = kvs.iter().map(|x| {
-            KVQPair{
-                key: Self::new_node_key_fc(checkpoint_id, x.key.level, x.key.index),
-                value: x.value,
-            }
-        }).collect::<Vec<_>>();
-        
-        Self::smart_injest_nca_at_height_dmp(store, TREE_HEIGHT as usize, root_level, &nodes)
-    }
-}
 
 
 
@@ -229,11 +138,11 @@ pub trait KVQFixedConfigMerkleTreeModelCore<
     >
 {
 
-    fn injest_merkle_proof_fc(store: &mut S, checkpoint_id: u64, merkle_proof: &MerkleProofCore<Hash>) -> anyhow::Result<()> {
+    fn injest_merkle_proof_fc(store: &S, checkpoint_id: u64, merkle_proof: &MerkleProofCore<Hash>) -> anyhow::Result<()> {
         Self::injest_merkle_proof(store, TREE_ID, PRIMARY_ID, SECONDARY_ID, checkpoint_id, merkle_proof)
     }
     fn injest_merkle_proof_set_leaf_fc(
-        store: &mut S, 
+        store: &S, 
         old_checkpoint_id: u64, 
         merkle_proof: &MerkleProofCore<Hash>, 
         new_checkpoint_id: u64,
@@ -243,11 +152,37 @@ pub trait KVQFixedConfigMerkleTreeModelCore<
         Self::set_leaf(store, &Self::new_leaf_key_fc(new_checkpoint_id, merkle_proof.index), new_value)
     }
     fn set_leaf_fc(
-        store: &mut S,
+        store: &S,
         checkpoint_id: u64,
         index: u64,
         value: Hash,
     ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
         Self::set_leaf(store, &Self::new_leaf_key_fc(checkpoint_id, index), value)
+    }
+    
+    fn smart_injest_nca_fc(
+        store: &S,
+        root_level: u8,
+        checkpoint_id: u64,
+        nodes: &[SimpleMerkleNode<Hash>]
+    ) -> anyhow::Result<UpdateNCAProofsWithDependencies<Hash>> {
+        let kvq_nodes: Vec<_> = nodes.iter().map(|n| KVQPair {
+            key: Self::new_node_key_fc(checkpoint_id, n.key.level, n.key.index),
+            value: n.value
+        }).collect();
+        Self::smart_injest_nca(store, TREE_HEIGHT as usize, root_level, kvq_nodes)
+    }
+    
+    fn smart_injest_nca_at_height_dmp_fc(
+        store: &S,
+        root_level: u8,
+        checkpoint_id: u64,
+        nodes: &[SimpleMerkleNode<Hash>]
+    ) -> anyhow::Result<Vec<DeltaMerkleProofCore<Hash>>> {
+        let kvq_nodes: Vec<_> = nodes.iter().map(|n| KVQPair {
+            key: Self::new_node_key_fc(checkpoint_id, n.key.level, n.key.index),
+            value: n.value
+        }).collect();
+        Self::smart_injest_nca_at_height_dmp(store, TREE_HEIGHT as usize, root_level, &kvq_nodes)
     }
 }

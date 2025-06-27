@@ -1,4 +1,4 @@
-use kvq::traits::KVQSerializable;
+use kvq::traits::{KVQSerializable, ScyllaKey};
 use serde::{Deserialize, Serialize};
 
 
@@ -61,5 +61,19 @@ impl<const TABLE_TYPE: u16> CheckpointTableIdKey<TABLE_TYPE> {
             id,
             checkpoint_id,
         }
+    }
+}
+
+impl<const TABLE_TYPE: u16> ScyllaKey for CheckpointTableIdKey<TABLE_TYPE> {
+    fn get_partition_key(&self) -> Vec<u8> {
+        self.id.to_be_bytes().to_vec()
+    }
+
+    fn get_clustering_key(&self) -> Option<Vec<u8>> {
+        Some(self.checkpoint_id.to_be_bytes().to_vec())
+    }
+
+    fn get_table_type(&self) -> u16 {
+        TABLE_TYPE
     }
 }

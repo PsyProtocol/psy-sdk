@@ -1,5 +1,5 @@
 use kvq::traits::{
-    KVQBinaryStoreImmutable, KVQBinaryStoreReader, KVQStoreAdapterImmutable, KVQStoreAdapterReader,
+    KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader,
 };
 use qed_data::qdata::u64_key::U64TableKey;
 
@@ -20,7 +20,7 @@ pub enum CheckpointError {
 
 pub trait QEDCheckpointSyncInfoModelReaderCore<
     const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
-    S: KVQBinaryStoreReader,
+    S: KVQBinaryStore,
     KVA: KVQStoreAdapterReader<
         S,
         U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>,
@@ -107,8 +107,8 @@ pub trait QEDCheckpointSyncInfoModelReaderCore<
 }
 pub trait QEDCheckpointSyncInfoModelCore<
     const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
-    S: KVQBinaryStoreImmutable,
-    KVA: KVQStoreAdapterImmutable<
+    S: KVQBinaryStore,
+    KVA: KVQStoreAdapter<
         S,
         U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>,
         QCheckpointSyncInfoCompact,
@@ -123,7 +123,7 @@ pub trait QEDCheckpointSyncInfoModelCore<
         let current = KVA::get_exact_if_exists(store, &key_id)?;
         if current.is_some() {
             let deposit = current.unwrap();
-            KVA::imm_delete(store, &key_id)?;
+            KVA::delete(store, &key_id)?;
             Ok(Some(deposit))
         } else {
             Ok(None)
@@ -134,7 +134,7 @@ pub trait QEDCheckpointSyncInfoModelCore<
         checkpoint_sync_info: QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
         let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_sync_info.l2_block_state.checkpoint_id);
-        KVA::imm_set(store, key_id, checkpoint_sync_info)?;
+        KVA::set(store, key_id, checkpoint_sync_info)?;
         Ok(())
     }
     fn set_checkpoint_sync_info_ref(
@@ -142,7 +142,7 @@ pub trait QEDCheckpointSyncInfoModelCore<
         checkpoint_sync_info: &QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
         let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_sync_info.l2_block_state.checkpoint_id);
-        KVA::imm_set_ref(store, &key_id, &checkpoint_sync_info)?;
+        KVA::set_ref(store, &key_id, &checkpoint_sync_info)?;
         Ok(())
     }
 }
@@ -153,7 +153,7 @@ pub struct QEDCheckpointSyncInfoModel<const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16
 
 impl<
         const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
-        S: KVQBinaryStoreReader,
+        S: KVQBinaryStore,
         KVA: KVQStoreAdapterReader<
             S,
             U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>,
@@ -165,8 +165,8 @@ impl<
 }
 impl<
         const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
-        S: KVQBinaryStoreImmutable,
-        KVA: KVQStoreAdapterImmutable<
+        S: KVQBinaryStore,
+        KVA: KVQStoreAdapter<
             S,
             U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>,
             QCheckpointSyncInfoCompact,

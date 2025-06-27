@@ -25,3 +25,27 @@ qed_core = { path = "../qed_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
 thiserror = { workspace = true }
+
+# ScyllaDB support
+scylla = { version = "0.15.1" }
+futures = { version = "0.3.0" }
+tokio = { version = "1.43.0", features = ["full"] }
+uuid = { version = "1.0", features = ["v4"] }
+
+[features]
+default = []
+
+[dev-dependencies]
+tempfile = "3.0"
+
+[[test]]
+name = "kvq_store_tests"
+path = "tests/scylla/kvq_store_tests.rs"
+
+[[test]]
+name = "test_checkpoint_get_leq"
+path = "tests/scylla/test_checkpoint_get_leq.rs"
+
+[[test]]
+name = "kvq_batch_tests"
+path = "tests/scylla/kvq_batch_tests.rs"

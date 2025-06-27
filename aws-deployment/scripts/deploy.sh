@@ -445,8 +445,8 @@ monitor_stack_progress() {
     local last_event_time=""
     local stack_status=""
     
-    log_info "🚀 开始监控CloudFormation部署进度: $stack_name"
-    log_info "📱 实时监控页面: https://${AWS_REGION}.console.aws.amazon.com/cloudformation/home?region=${AWS_REGION}#/stacks/stackinfo?stackId=${stack_name}"
+    log_info "🚀 Starting CloudFormation deployment monitoring: $stack_name"
+    log_info "📱 Real-time monitoring page: https://${AWS_REGION}.console.aws.amazon.com/cloudformation/home?region=${AWS_REGION}#/stacks/stackinfo?stackId=${stack_name}"
     echo ""
     
     while true; do
@@ -461,15 +461,15 @@ monitor_stack_progress() {
         case "$stack_status" in
             "CREATE_COMPLETE"|"UPDATE_COMPLETE")
                 echo ""
-                log_info "🎉 Stack部署成功完成!"
+                log_info "🎉 Stack deployment completed successfully!"
                 show_resource_summary "$stack_name"
                 break
                 ;;
             "CREATE_FAILED"|"UPDATE_FAILED"|"ROLLBACK_COMPLETE"|"UPDATE_ROLLBACK_COMPLETE")
                 echo ""
-                log_error "💥 Stack部署失败: $stack_status"
+                log_error "💥 Stack deployment failed: $stack_status"
                 echo ""
-                log_error "失败事件详情:"
+                log_error "Failed event details:"
                 aws cloudformation --no-cli-pager describe-stack-events \
                     --stack-name "$stack_name" \
                     --region ${AWS_REGION} \
@@ -480,7 +480,7 @@ monitor_stack_progress() {
                 return 1
                 ;;
             "STACK_NOT_EXISTS")
-                log_error "❌ Stack不存在: $stack_name"
+                log_error "❌ Stack does not exist: $stack_name"
                 return 1
                 ;;
         esac
@@ -496,7 +496,7 @@ monitor_stack_progress() {
             --output text 2>/dev/null)
         
         if [ -n "$events" ]; then
-            echo "📋 最新事件:"
+            echo "📋 Latest events:"
             echo "$events" | while IFS=$'\t' read -r timestamp resource_id resource_type status reason; do
                 if [ -n "$timestamp" ]; then
                     local time_formatted=$(date -d "$timestamp" '+%H:%M:%S' 2>/dev/null || echo "$timestamp")
@@ -510,7 +510,7 @@ monitor_stack_progress() {
                             ;;
                         *"FAILED")
                             echo "    ❌ $time_formatted │ $short_resource │ $status"
-                            [ -n "$reason" ] && echo "       └─ 原因: $reason"
+                            [ -n "$reason" ] && echo "       └─ Reason: $reason"
                             ;;
                         *)
                             echo "    ℹ️  $time_formatted │ $short_resource │ $status"
@@ -569,11 +569,11 @@ show_deployment_progress() {
     
     # Show progress bar
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "📊 部署进度: ${percentage}% (${completed_resources}/${total_resources} 资源完成)"
-    echo "🔄 状态: $stack_status"
+    echo "📊 Deployment progress: ${percentage}% (${completed_resources}/${total_resources} resources completed)"
+    echo "🔄 Status: $stack_status"
     
     if [ "$in_progress_resources" -gt 0 ]; then
-        echo "⏳ 正在创建: $in_progress_resources 个资源"
+        echo "⏳ Creating: $in_progress_resources resources"
         
         # Show what's currently being created
         aws cloudformation --no-cli-pager list-stack-resources \
@@ -586,7 +586,7 @@ show_deployment_progress() {
     fi
     
     if [ "$failed_resources" -gt 0 ]; then
-        echo "❌ 失败: $failed_resources 个资源"
+        echo "❌ Failed: $failed_resources resources"
     fi
     
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -597,7 +597,7 @@ show_resource_summary() {
     local stack_name=$1
     
     echo ""
-    echo "📝 部署完成资源摘要:"
+    echo "📝 Deployment completed resource summary:"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     # Group resources by type

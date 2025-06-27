@@ -1,4 +1,4 @@
-use kvq::traits::{KVQBinaryStoreImmutable, KVQBinaryStoreReader, KVQStoreAdapterImmutable, KVQStoreAdapterReader};
+use kvq::traits::{KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader};
 use qed_data::qdata::{checkpoint::QEDL2BlockState, u64_key::U64TableKey};
 
 use crate::models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE;
@@ -6,7 +6,7 @@ use crate::models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE;
 
 pub trait L2BlockStatesModelReaderCore<
     const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16,
-    S: KVQBinaryStoreReader,
+    S: KVQBinaryStore,
     KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
 >
 {
@@ -15,16 +15,13 @@ pub trait L2BlockStatesModelReaderCore<
         KVA::get_exact(store, &U64TableKey(checkpoint_id))
     }
     fn get_latest_block_state(store: &S) -> anyhow::Result<QEDL2BlockState> {
-        let result = KVA::get_leq(
+        // Try to get the highest checkpoint ID using get_leq
+        KVA::get_leq(
             store,
             &U64TableKey(0xffffffffffffffu64),
             CHECKPOINT_ID_FUZZY_SIZE,
-        )?;
-        if result.is_some() {
-            Ok(result.unwrap())
-        } else {
-            anyhow::bail!("error getting latest block state")
-        }
+        )?
+        .ok_or_else(|| anyhow::anyhow!("error getting latest block state"))
     }
     fn get_block_states_by_id(
         store: &S,
@@ -39,8 +36,8 @@ pub trait L2BlockStatesModelReaderCore<
 }
 pub trait L2BlockStatesModelCore<
     const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16,
-    S: KVQBinaryStoreImmutable,
-    KVA: KVQStoreAdapterImmutable<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
+    S: KVQBinaryStore,
+    KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
 >: L2BlockStatesModelReaderCore<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
 {
     fn delete_block_state_by_id(
@@ -51,7 +48,7 @@ pub trait L2BlockStatesModelCore<
         let current = KVA::get_exact_if_exists(store, &key_id)?;
         if current.is_some() {
             let deposit = current.unwrap();
-            KVA::imm_delete(store, &key_id)?;
+            KVA::delete(store, &key_id)?;
             Ok(Some(deposit))
         } else {
             Ok(None)
@@ -59,12 +56,12 @@ pub trait L2BlockStatesModelCore<
     }
     fn set_block_state(store: &S, block_state: QEDL2BlockState) -> anyhow::Result<()> {
         let key_id = U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(block_state.checkpoint_id);
-        KVA::imm_set(store, key_id, block_state)?;
+        KVA::set(store, key_id, block_state)?;
         Ok(())
     }
     fn set_block_state_ref(store: &S, block_state: &QEDL2BlockState) -> anyhow::Result<()> {
         let key_id = U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(block_state.checkpoint_id);
-        KVA::imm_set_ref(store, &key_id, &block_state)?;
+        KVA::set_ref(store, &key_id, &block_state)?;
         Ok(())
     }
     fn set_block_states(store: &S, block_states: &[QEDL2BlockState]) -> anyhow::Result<()> {
@@ -72,7 +69,7 @@ pub trait L2BlockStatesModelCore<
             .iter()
             .map(|s| U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(s.checkpoint_id))
             .collect::<Vec<_>>();
-        KVA::imm_set_many_split_ref(store, &key_ids, block_states)?;
+        KVA::set_many_split_ref(store, &key_ids, block_states)?;
 
         Ok(())
     }
@@ -84,7 +81,7 @@ pub struct L2BlockStatesModel<const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16, S, K
 
 impl<
         const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16,
-        S: KVQBinaryStoreReader,
+        S: KVQBinaryStore,
         KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
     > L2BlockStatesModelReaderCore<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
     for L2BlockStatesModel<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
@@ -92,8 +89,8 @@ impl<
 }
 impl<
         const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16,
-        S: KVQBinaryStoreImmutable,
-        KVA: KVQStoreAdapterImmutable<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
+        S: KVQBinaryStore,
+        KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
     > L2BlockStatesModelCore<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
     for L2BlockStatesModel<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
 {

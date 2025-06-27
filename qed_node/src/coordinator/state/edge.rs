@@ -49,14 +49,27 @@ impl<
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
-        let latest = store_reader.get_latest_l2_block_state().await?;
+        // Try to get the latest block state, but if it fails (e.g., database not initialized),
+        // use checkpoint_id 0 as a default
+        let last_chkpnt_id = match store_reader.get_latest_l2_block_state().await {
+            Ok(latest) => {
+                tracing::info!("Found latest checkpoint: {}", latest.checkpoint_id);
+                latest.checkpoint_id
+            }
+            Err(e) => {
+                tracing::warn!("Failed to get latest block state (database may not be initialized yet): {:?}", e);
+                tracing::info!("Using checkpoint_id 0 as default");
+                0
+            }
+        };
+        
         Ok(Self {
             coordinator_config,
             store_reader,
             checkpoint_queue,
             proof_store,
             proof_verifier,
-           last_chkpnt_id: latest.checkpoint_id,
+            last_chkpnt_id,
         })
     }
 

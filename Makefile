@@ -116,23 +116,34 @@ COORDINATOR_RPC_URL      := $(shell jq -r '.coordinator_configs[].rpc_url[]' rpc
 REALM_RPC_URL            := $(shell jq -r '.realm_configs[0].rpc_url[]' rpc.config)
 
 init:
-	@mkdir -p $(PWD)/db
-	@./target/${PROFILE}/dargo new ${PROJECT_DIR}
-	@cp qed_compiler/tests/new_token.qed ${FILE}
-
-.PHONY: launch
-launch: shutdown init compile
+	./target/${PROFILE}/dargo new ${PROJECT_DIR}; \
+	cp qed_compiler/tests/new_token.qed ${FILE}
+	@echo "Cleaning up any existing containers..."
+	@docker stop qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 2>/dev/null || true
+	@docker rm qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 2>/dev/null || true
+	@docker stop qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 2>/dev/null || true
+	@docker rm qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 2>/dev/null || true
+	@echo "Starting Redis containers..."
+	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine
+	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine
+	@docker run -d --name qed-redis-realm16384 -p 6381:6379 redis:alpine
+	@echo "Starting ScyllaDB containers..."
+	@docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest --developer-mode=1
+	@docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest --developer-mode=1
+	@docker run -d --name qed-scylla-realm16384 -p 9044:9042 scylladb/scylla:latest --developer-mode=1
+	@echo "Waiting for databases to be ready..."
+	@sleep 30
 
 .PHONY: shutdown
 shutdown:
-	@sudo rm -fr redis-data
-	@redis-cli 'FLUSHALL' > /dev/null 2>&1 || true
-	@redis-cli -u redis://127.0.0.1:6380 'FLUSHALL' > /dev/null 2>&1 || true
-	@redis-cli -u redis://127.0.0.1:6381 'FLUSHALL' > /dev/null 2>&1 || true
-	@sudo rm -fr $(PWD)/db
+	@echo "Stopping and removing database containers..."
+	@docker stop qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 2>/dev/null || true
+	@docker rm qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 2>/dev/null || true
+	@docker stop qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 2>/dev/null || true
+	@docker rm qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 2>/dev/null || true
 	@rm -fr ${PROJECT_DIR}
 
-run-all:
+run-all: shutdown init compile
 	@./scripts/run_all.sh
 
 run-scenario0:
@@ -145,38 +156,38 @@ compile:
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR} && ../target/${PROFILE}/dargo compile --entry-path ${FILE} --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
 
 run-coordinator-processor:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --scylla-uri=127.0.0.1:9042
 
 run-coordinator-edge:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge --scylla-uri=127.0.0.1:9042 --scylla-keyspace=qed_coordinator
 
 run-coordinator-edge-1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge --listen-addr=0.0.0.0:9545
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge --listen-addr=0.0.0.0:9545 --scylla-uri=127.0.0.1:9042 --scylla-keyspace=qed_coordinator
 
 run-coordinator-worker:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-worker
 
 run-realm-processor:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor --redis-uri=redis://127.0.0.1:6380
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor --redis-uri=redis://127.0.0.1:6380 --scylla-uri=127.0.0.1:9043
 
 run-realm-worker:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker --redis-uri=redis://127.0.0.1:6380
 
 run-realm-edge:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380 --scylla-uri=127.0.0.1:9043 --scylla-keyspace=qed_realm
 
 run-realm-edge-1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380 --listen-addr=0.0.0.0:9546
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380 --listen-addr=0.0.0.0:9546 --scylla-uri=127.0.0.1:9043 --scylla-keyspace=qed_realm
 
 run-realm-processor16384:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6381 \
+      --scylla-uri=127.0.0.1:9044 \
       --node-id=2 \
       --realm-id=16384 \
       --worker-queue-suffix=rwq16384 \
       --notifications-queue-suffix=rnq16384 \
-      --proof-store-key-suffix=RP16384 \
-      --path=./db/realm16384
+      --proof-store-key-suffix=RP16384
 
 run-realm-worker16384:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
@@ -189,25 +200,27 @@ run-realm-edge16384:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
       --listen-addr=0.0.0.0:8547 \
       --redis-uri=redis://127.0.0.1:6381 \
+      --scylla-uri=127.0.0.1:9044 \
+      --scylla-keyspace=qed_realm \
       --coordinator-addr=http://127.0.0.1:8545 \
       --node-id=2 \
       --realm-id=16384 \
       --worker-queue-suffix=rwq16384 \
       --notifications-queue-suffix=rnq16384 \
-      --proof-store-key-suffix=RP16384 \
-      --path=./db/realm16384
+      --proof-store-key-suffix=RP16384
 
 run-realm-edge16384-1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
       --listen-addr=0.0.0.0:9547 \
       --redis-uri=redis://127.0.0.1:6381 \
+      --scylla-uri=127.0.0.1:9044 \
+      --scylla-keyspace=qed_realm \
       --coordinator-addr=http://127.0.0.1:8545 \
       --node-id=2 \
       --realm-id=16384 \
       --worker-queue-suffix=rwq16384 \
       --notifications-queue-suffix=rnq16384 \
-      --proof-store-key-suffix=RP16384 \
-      --path=./db/realm16384
+      --proof-store-key-suffix=RP16384
 
 run-user-prover:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_prover
@@ -222,8 +235,7 @@ run-web-wallet:
 #       --realm-id=8192 \
 #       --worker-queue-suffix=rwq8192 \
 #       --notifications-queue-suffix=rnq8192 \
-#       --proof-store-key-suffix=RP8192 \
-#       --path=./db/realm8192
+#       --proof-store-key-suffix=RP8192
 
 # run-realm-worker8192:
 # 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
@@ -241,8 +253,7 @@ run-web-wallet:
 #       --realm-id=8192 \
 #       --worker-queue-suffix=rwq8192 \
 #       --notifications-queue-suffix=rnq8192 \
-#       --proof-store-key-suffix=RP8192 \
-#       --path=./db/realm8192
+#       --proof-store-key-suffix=RP8192
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli generate-access-token

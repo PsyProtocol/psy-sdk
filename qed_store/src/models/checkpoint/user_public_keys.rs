@@ -1,5 +1,5 @@
 use kvq::traits::{
-    KVQBinaryStoreImmutable, KVQBinaryStoreReader, KVQStoreAdapterImmutable,
+    KVQBinaryStore, KVQStoreAdapter,
     KVQStoreAdapterReader,
 };
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, utils::math::ceil_div_usize};
@@ -10,7 +10,7 @@ use crate::config::store_config::{QEDHash, QEDHasher, QUserPublicKeyRecord};
 
 pub trait QEDUserPublicKeyHelperModelReaderCore<
     const USER_PUBLIC_KEY_HELPER_TABLE_TYPE: u16,
-    S: KVQBinaryStoreReader,
+    S: KVQBinaryStore,
     KVA: KVQStoreAdapterReader<
         S,
         Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>,
@@ -54,8 +54,8 @@ pub trait QEDUserPublicKeyHelperModelReaderCore<
 }
 pub trait QEDUserPublicKeyHelperModelCore<
     const USER_PUBLIC_KEY_HELPER_TABLE_TYPE: u16,
-    S: KVQBinaryStoreImmutable,
-    KVA: KVQStoreAdapterImmutable<
+    S: KVQBinaryStore,
+    KVA: KVQStoreAdapter<
         S,
         Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>,
         QUserPublicKeyRecord,
@@ -71,14 +71,14 @@ pub trait QEDUserPublicKeyHelperModelCore<
             KVA::get_exact_if_exists(store, &Hash4x64KeyWithId::new(public_key, user_id))?;
         if current.is_some() {
             let deposit = current.unwrap();
-            KVA::imm_delete(store, &Hash4x64KeyWithId::new(public_key, user_id))?;
+            KVA::delete(store, &Hash4x64KeyWithId::new(public_key, user_id))?;
             Ok(Some(deposit))
         } else {
             Ok(None)
         }
     }
     fn set_user_public_key_record(store: &S, record: QUserPublicKeyRecord) -> anyhow::Result<()> {
-        KVA::imm_set(
+        KVA::set(
             store,
             Hash4x64KeyWithId::new(record.public_key, record.user_id),
             record,
@@ -92,7 +92,7 @@ pub trait QEDUserPublicKeyHelperModelCore<
             .iter()
             .map(|x| Hash4x64KeyWithId::new(x.public_key, x.user_id))
             .collect::<Vec<_>>();
-        KVA::imm_set_many_split_ref(store, &keys, records)
+        KVA::set_many_split_ref(store, &keys, records)
     }
     fn set_user_public_key_record_params(
         store: &S,
@@ -123,7 +123,7 @@ pub struct QEDUserPublicKeyHelperModel<const USER_PUBLIC_KEY_HELPER_TABLE_TYPE: 
 
 impl<
         const USER_PUBLIC_KEY_HELPER_TABLE_TYPE: u16,
-        S: KVQBinaryStoreReader,
+        S: KVQBinaryStore,
         KVA: KVQStoreAdapterReader<
             S,
             Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>,
@@ -135,8 +135,8 @@ impl<
 }
 impl<
         const USER_PUBLIC_KEY_HELPER_TABLE_TYPE: u16,
-        S: KVQBinaryStoreImmutable,
-        KVA: KVQStoreAdapterImmutable<
+        S: KVQBinaryStore,
+        KVA: KVQStoreAdapter<
             S,
             Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>,
             QUserPublicKeyRecord,

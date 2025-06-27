@@ -75,22 +75,40 @@ impl Default for QueueConfig {
     }
 }
 
+
 #[derive(Clone, Debug, Deserialize, Serialize, Parser)]
 #[serde(default)]
-pub struct DBConfig {
-    /// Database path
-    #[arg(long, env = "REALM_DB_PATH", default_value = "./db/realm0")]
-    pub db_path: String,
-
-    #[arg(long, env = "REALM_DB_SIZE_GB", default_value_t = 100)]
-    pub size_gb: usize,
+pub struct ScyllaDBConfig {
+    /// ScyllaDB URI
+    #[arg(long, env = "REALM_SCYLLA_URI", default_value = "127.0.0.1:9042")]
+    pub scylla_uri: String,
+    
+    /// ScyllaDB Keyspace
+    #[arg(long, env = "REALM_SCYLLA_KEYSPACE", default_value = "qed_realm")]
+    pub scylla_keyspace: String,
+    
+    
+    /// Replication factor for ScyllaDB keyspace
+    #[arg(long, env = "REALM_SCYLLA_REPLICATION_FACTOR", default_value_t = 3)]
+    pub replication_factor: u32,
+    
+    /// Replication strategy for ScyllaDB keyspace
+    #[arg(long, env = "REALM_SCYLLA_REPLICATION_STRATEGY", default_value = "SimpleStrategy")]
+    pub replication_strategy: String,
+    
+    /// Data center replication settings (for NetworkTopologyStrategy)
+    #[arg(long, env = "REALM_SCYLLA_DATACENTER_REPLICAS", default_value = "")]
+    pub datacenter_replicas: String,
 }
 
-impl Default for DBConfig {
+impl Default for ScyllaDBConfig {
     fn default() -> Self {
         Self {
-            db_path: "./db/realm0".to_string(),
-            size_gb: 100,
+            scylla_uri: "127.0.0.1:9042".to_string(),
+            scylla_keyspace: "qed_realm".to_string(),
+            replication_factor: 3,
+            replication_strategy: "SimpleStrategy".to_string(),
+            datacenter_replicas: "".to_string(),
         }
     }
 }
@@ -127,9 +145,9 @@ pub struct RealmNodeConfig {
     #[command(flatten)]
     pub realm: RealmConfig,
 
-    /// Database configuration
+    /// ScyllaDB configuration
     #[command(flatten)]
-    pub db: DBConfig,
+    pub scylla: ScyllaDBConfig,
 
     /// Redis configuration for queue and proof storage
     #[command(flatten)]
@@ -151,9 +169,9 @@ pub struct RealmEdgeConfig {
     #[command(flatten)]
     pub realm: RealmConfig,
 
-    /// Database configuration
+    /// ScyllaDB configuration
     #[command(flatten)]
-    pub db: DBConfig,
+    pub scylla: ScyllaDBConfig,
 
     /// Redis configuration for queue and proof storage
     #[command(flatten)]

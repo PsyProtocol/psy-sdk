@@ -1,4 +1,3 @@
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use reth_libmdbx::{Environment, EnvironmentFlags, Mode, SyncMode, RW};
 use std::path::PathBuf;

@@ -12,8 +12,7 @@ use crate::Queue;
 use crate::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
 use jsonrpsee::server::ServerBuilder;
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use qed_store::store::scylla::ScyllaStore;
 use qed_node::realm::state::processor::RealmConfig;
 use sync::spawn_active_checkpoint_sync_task;
 use qed_node_common::verifier::get_cached_generic_verifier;
@@ -62,6 +61,7 @@ pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedi
     Ok(proof_store)
 }
 
+
 /// Start Realm Edge node
 pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     info!(
@@ -77,12 +77,14 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let proof_store = Arc::new(proof_store);
     let checkpoint_queue = proof_store.clone();
 
-    // Create store reader
-    let store_reader = KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(
-        KVQlibmdbxStore::new_read(&config.db.db_path)?,
-    );
-
-    let store_reader = Arc::new(store_reader);
+    // Create ScyllaDB storage reader
+    info!("🗄️ Using ScyllaDB storage: {}:{}", config.scylla.scylla_uri, config.scylla.scylla_keyspace);
+    let scylla_store = ScyllaStore::new(
+        &config.scylla.scylla_uri,
+        &config.scylla.scylla_keyspace,
+    ).await?;
+    
+    let store_reader = Arc::new(scylla_store);
 
     debug!("created store reader successfully!");
     // Create proof verifier

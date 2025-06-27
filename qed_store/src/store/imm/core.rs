@@ -1,4 +1,4 @@
-use kvq::traits::KVQBinaryStoreImmutable;
+use kvq::traits::KVQBinaryStore;
 use plonky2::field::types::PrimeField64;
 use qed_core::{config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut};
 use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof};
@@ -18,15 +18,15 @@ use crate::{
             checkpoint_leaf::{QEDCheckpointLeafModelCore, QEDCheckpointLeafModelReaderCore},
         },
         contract::{
-            contract_code::{ContractCodeModelCoreImmutable, ContractCodeModelReaderCore},
-            contract_leaf::{ContractLeafModelCoreImmutable, ContractLeafModelReaderCore},
+            contract_code::{ContractCodeModelCore, ContractCodeModelReaderCore},
+            contract_leaf::{ContractLeafModelCore, ContractLeafModelReaderCore},
         },
         kvq_merkle::model::{
-            KVQFixedConfigMerkleTreeModelCoreImmutable, KVQFixedConfigMerkleTreeModelReaderCore, KVQMerkleTreeModelCoreImmutable, KVQSemiFixedConfigMerkleTreeModelCoreImmutable, KVQSemiFixedConfigMerkleTreeModelReaderCore
+            KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore, KVQMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelReaderCore
         },
         user::{
             contract_state_tree::UserContractStateTreeId,
-            user_leaf::{UserLeafModelCoreImmutable, UserLeafModelReaderCore},
+            user_leaf::{UserLeafModelCore, UserLeafModelReaderCore},
         },
     },
     traits::qdatastore::{
@@ -38,8 +38,11 @@ use crate::{
     },
 };
 
-pub trait QEDStorageAdapterImmutable: KVQBinaryStoreImmutable {}
-impl<T: KVQBinaryStoreImmutable> QEDStorageAdapterImmutable for T {}
+pub trait QEDStorageAdapterImmutable: KVQBinaryStore {}
+impl<T: KVQBinaryStore> QEDStorageAdapterImmutable for T {}
+
+pub trait QEDStorageAdapterImmutableAsync: kvq::traits::KVQBinaryStoreAsync {}
+impl<T: kvq::traits::KVQBinaryStoreAsync> QEDStorageAdapterImmutableAsync for T {}
 type F = QEDFelt;
 
 impl<T: QEDStorageAdapterImmutable> QMetaDataStoreReaderSync<F> for T {
@@ -116,7 +119,7 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreReaderSync<F> for T {
 
 impl<T: QEDStorageAdapterImmutable> QMetaDataStoreWriterSync<F> for T {
     fn set_user_leaf_data(&self, checkpoint_id: u64, leaf_data: &QEDUserLeaf<F>) -> anyhow::Result<()> {
-        UserLeafTableStore::set_user_ref_imm(self, checkpoint_id, leaf_data)
+        UserLeafTableStore::set_user_ref(self, checkpoint_id, leaf_data)
     }
 
     fn set_contract_leaf_data(
@@ -125,7 +128,7 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreWriterSync<F> for T {
         contract_id: u64,
         leaf_data: &QEDContractLeaf<F>,
     ) -> anyhow::Result<()> {
-        ContractLeafTableStore::set_contract_ref_imm(self, checkpoint_id, contract_id, leaf_data)
+        ContractLeafTableStore::set_contract_ref(self, checkpoint_id, contract_id, leaf_data)
     }
 
     fn set_contract_leaf_data_f(
@@ -134,7 +137,7 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreWriterSync<F> for T {
         contract_id: F,
         leaf_data: &QEDContractLeaf<F>,
     ) -> anyhow::Result<()> {
-        ContractLeafTableStore::set_contract_ref_imm(
+        ContractLeafTableStore::set_contract_ref(
             self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64(),
@@ -168,7 +171,7 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreWriterSync<F> for T {
         contract_id: u64,
         definition: &ContractCodeDefinition,
     ) -> anyhow::Result<()> {
-        ContractCodeTableStore::set_contract_code_ref_imm(
+        ContractCodeTableStore::set_contract_code_ref(
             self,
             checkpoint_id,
             contract_id,
@@ -182,7 +185,7 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreWriterSync<F> for T {
         contract_id: F,
         definition: &ContractCodeDefinition,
     ) -> anyhow::Result<()> {
-        ContractCodeTableStore::set_contract_code_ref_imm(
+        ContractCodeTableStore::set_contract_code_ref(
             self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64(),
@@ -711,7 +714,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         leaf_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        UserContractStateTreeId::new(user_id, contract_id, height).set_leaf_ucs_imm(
+        UserContractStateTreeId::new(user_id, contract_id, height).set_leaf_ucs(
             self,
             checkpoint_id,
             leaf_id,
@@ -733,7 +736,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
             contract_id.to_canonical_u64() as u32,
             height,
         )
-        .set_leaf_ucs_imm(
+        .set_leaf_ucs(
             self,
             checkpoint_id.to_canonical_u64(),
             leaf_id.to_canonical_u64(),
@@ -748,7 +751,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         contract_id: u32,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        UserContractTreeStore::set_leaf_sfc_imm(
+        UserContractTreeStore::set_leaf_sfc(
             self,
             checkpoint_id,
             user_id,
@@ -764,7 +767,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         contract_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        UserContractTreeStore::set_leaf_sfc_imm(
+        UserContractTreeStore::set_leaf_sfc(
             self,
             checkpoint_id.to_canonical_u64(),
             user_id.to_canonical_u64(),
@@ -779,7 +782,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         user_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        UserTreeStore::set_leaf_fc_imm(self, checkpoint_id, user_id, leaf_hash)
+        UserTreeStore::set_leaf_fc(self, checkpoint_id, user_id, leaf_hash)
     }
 
     fn set_user_tree_leaf_hash_f(
@@ -788,7 +791,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         user_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        UserTreeStore::set_leaf_fc_imm(
+        UserTreeStore::set_leaf_fc(
             self,
             checkpoint_id.to_canonical_u64(),
             user_id.to_canonical_u64(),
@@ -802,7 +805,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         deposit_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        DepositTreeStore::set_leaf_fc_imm(self, checkpoint_id, deposit_id, leaf_hash)
+        DepositTreeStore::set_leaf_fc(self, checkpoint_id, deposit_id, leaf_hash)
     }
 
     fn set_deposit_tree_leaf_hash_f(
@@ -811,7 +814,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         deposit_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        DepositTreeStore::set_leaf_fc_imm(
+        DepositTreeStore::set_leaf_fc(
             self,
             checkpoint_id.to_canonical_u64(),
             deposit_id.to_canonical_u64(),
@@ -825,7 +828,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         withdrawal_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        WithdrawalTreeStore::set_leaf_fc_imm(self, checkpoint_id, withdrawal_id, leaf_hash)
+        WithdrawalTreeStore::set_leaf_fc(self, checkpoint_id, withdrawal_id, leaf_hash)
     }
 
     fn set_withdrawal_tree_leaf_hash_f(
@@ -834,7 +837,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         withdrawal_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        WithdrawalTreeStore::set_leaf_fc_imm(
+        WithdrawalTreeStore::set_leaf_fc(
             self,
             checkpoint_id.to_canonical_u64(),
             withdrawal_id.to_canonical_u64(),
@@ -850,7 +853,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
     ) -> anyhow::Result<QHashOut<F>> {
         let mut root = QHashOut::from_values(0, 0, 0, 0);
         for (i, leaf) in leaves.iter().enumerate() {
-            root = ContractFunctionTreeStore::set_leaf_sfc_imm(
+            root = ContractFunctionTreeStore::set_leaf_sfc(
                 self,
                 checkpoint_id,
                 contract_id,
@@ -881,7 +884,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         contract_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        ContractTreeStore::set_leaf_fc_imm(self, checkpoint_id, contract_id, leaf_hash)
+        ContractTreeStore::set_leaf_fc(self, checkpoint_id, contract_id, leaf_hash)
     }
 
     fn set_contract_tree_leaf_hash_f(
@@ -890,7 +893,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         contract_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        ContractTreeStore::set_leaf_fc_imm(
+        ContractTreeStore::set_leaf_fc(
             self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64(),
@@ -903,7 +906,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         checkpoint_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        CheckpointTreeStore::set_leaf_fc_imm(self, checkpoint_id, checkpoint_id, leaf_hash)
+        CheckpointTreeStore::set_leaf_fc(self, checkpoint_id, checkpoint_id, leaf_hash)
     }
 
     fn set_checkpoint_tree_leaf_hash_f(
@@ -911,7 +914,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
         checkpoint_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        CheckpointTreeStore::set_leaf_fc_imm(
+        CheckpointTreeStore::set_leaf_fc(
             self,
             checkpoint_id.to_canonical_u64(),
             checkpoint_id.to_canonical_u64(),
@@ -940,7 +943,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
     }
 
     fn batch_append_contract_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>{
-        UserRegistrationTreeStore::append_leaves_spider_man(
+        ContractTreeStore::append_leaves_spider_man(
             self,
             GLOBAL_CONTRACT_TREE_HEIGHT as usize,
             &ContractTreeStore::<Self>::new_leaf_key_fc(checkpoint_id, start_leaf_index),

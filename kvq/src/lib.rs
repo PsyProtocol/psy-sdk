@@ -1,11 +1,8 @@
 pub mod adapters;
 pub mod base_types;
+pub mod cache;
 pub mod memory;
 pub mod traits;
-pub mod cache;
-pub mod db_traits;
-
-
 
 #[macro_export]
 macro_rules! impl_kvq_serialize {

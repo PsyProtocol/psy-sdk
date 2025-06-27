@@ -1,7 +1,5 @@
-use kvq::memory::{
-    arc_imm::KVQArcImmutableStoreWrapper, immutable::KVQImmutableStoreWrapper,
-    simple::KVQSimpleMemoryBackingStore,
-};
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
+use std::sync::Arc;
 use plonky2::hash::poseidon::PoseidonHash;
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use qed_store::{
@@ -15,9 +13,7 @@ use qed_store::{
 fn test_kvq_simple_store_arc() -> anyhow::Result<()> {
     let mut t = DebugTimer::new("test_kvq_simple_store_arc");
     t.lap("hiii");
-    let st = KVQArcImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
-        KVQSimpleMemoryBackingStore::new(),
-    );
+    let st = Arc::new(KVQSimpleMemoryBackingStore::new());
     let lf1 = UserTreeStore::set_leaf_fc_imm(&st, 0, 0, QHashOut::from_values(1, 2, 3, 4))?;
     println!("lf2 result: {}", lf1.verify::<PoseidonHash>());
 
@@ -43,9 +39,7 @@ fn test_kvq_simple_store_arc() -> anyhow::Result<()> {
 fn test_kvq_simple_store() -> anyhow::Result<()> {
     let mut t = DebugTimer::new("test_kvq_simple_store");
     t.lap("hiii");
-    let st = KVQImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
-        KVQSimpleMemoryBackingStore::new(),
-    );
+    let st = KVQSimpleMemoryBackingStore::new();
     let lf1 = UserTreeStore::set_leaf_fc_imm(&st, 0, 0, QHashOut::from_values(1, 2, 3, 4))?;
     println!("lf2 result: {}", lf1.verify::<PoseidonHash>());
 

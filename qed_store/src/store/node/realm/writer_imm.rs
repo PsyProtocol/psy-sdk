@@ -8,8 +8,8 @@ use crate::{
             checkpoint_leaf::QEDCheckpointLeafModelCore, sync_info::QEDCheckpointSyncInfoModelCore, user_public_keys::QEDUserPublicKeyHelperModelCore,
         },
         kvq_merkle::{key::KVQMerkleNodeKey, model::{
-            KVQFixedConfigMerkleTreeModelCoreImmutable, KVQFixedConfigMerkleTreeModelReaderCore,
-            KVQMerkleTreeModelCoreImmutable, KVQSemiFixedConfigMerkleTreeModelReaderCore,
+            KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore,
+            KVQMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelReaderCore,
         }},
     },
     node::
@@ -65,7 +65,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F>
                 },value: l.qfhash::<QEDHasher>()
             });
         }
-        UserTreeStore::<Self>::smart_injest_nca_at_height_dmp_fc_imm(self, root_level, checkpoint_id, &nodes)
+        UserTreeStore::<Self>::smart_injest_nca_at_height_dmp_fc(self, root_level, checkpoint_id, &nodes)
     }
     async fn injest_user_tree_nodes_imm(
         &self,
@@ -73,14 +73,14 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F>
         root_level: u8,
         nodes: &[QMerkleNode<F>],
     ) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>> {
-        UserTreeStore::smart_injest_nca_fc_imm(self, root_level, checkpoint_id, nodes)
+        UserTreeStore::smart_injest_nca_fc(self, root_level, checkpoint_id, nodes)
     }
     async fn injest_checkpoint_sync_data_imm(
         &self,
         sync_info: QEDCheckpointSyncInfo<F>,
     ) -> anyhow::Result<()> {
         let checkpoint_id = sync_info.core.l2_block_state.checkpoint_id;
-        CheckpointTreeStore::<Self>::set_leaf_fc_imm(
+        CheckpointTreeStore::<Self>::set_leaf_fc(
             self,
             checkpoint_id,
             checkpoint_id,

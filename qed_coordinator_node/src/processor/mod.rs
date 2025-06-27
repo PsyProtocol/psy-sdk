@@ -1,8 +1,6 @@
 use crate::args::CoordinatorProcessorArgs;
 use crate::communicate::push_latest_global_coordinator_status;
 use anyhow::bail;
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
-use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
@@ -24,6 +22,7 @@ use qed_node::{
 };
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use qed_store::store::scylla::ScyllaStore;
 use qed_store::{
     config::store_config::QEDFelt,
     node::coordinator::store_traits::{
@@ -127,7 +126,7 @@ impl<
 
 impl
     CoordinatorProcessNode<
-        KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
+        ScyllaStore,
         ProofStoreFred,
         ProofStoreFred,
         ProofStoreFred,
@@ -148,24 +147,13 @@ impl
             &cp_config.queue_args.proof_store_key_suffix,
         );
 
-        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(
-                KVQlibmdbxStore::new_write_with_size(&cp_config.db_path, cp_config.db_size_gb)?,
-            );
+        let scylla_store =
+            ScyllaStore::new(&cp_config.scylla_uri, &cp_config.scylla_keyspace)
+                .await?;
+        let store_reader = Arc::new(scylla_store);
 
-        //try to get the block 1's state
-        let st = Arc::new(store_reader.dup());
-        let need_init = match st.get_l2_block_state(1).await {
-            Ok(_) => false,
-            Err(e) => {
-                error!(
-                    "⚠️ Failed to get block 1 state: {:?}， need initialize the db",
-                    e
-                );
-                QEDComboDataStoreReaderWriterSync::initialize_store(&*st)?;
-                true
-            }
-        };
+        //try to get the latest block state
+        let st = store_reader.clone();
 
         //use sync_queue for checkpoint sync
         let sync_queue = Arc::new(DrainQueueRedisAsync::new(&cp_config.redis_uri).await?);
@@ -177,7 +165,9 @@ impl
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
-        let coordinator_processor_ctx = CoordinatorProcessorContext::new(
+        let latest_checkpoint_id = QEDComboDataStoreReaderWriterSync::initialize_store(&*st)?;
+
+        let mut coordinator_processor_ctx = CoordinatorProcessorContext::new(
             coord_config,
             Arc::clone(&st),
             qps.clone(),
@@ -188,11 +178,12 @@ impl
         )
         .await?;
 
-        //build block 1 only once
-        if need_init {
-            info!("build block 1");
+        if latest_checkpoint_id == 0 {
+            info!("Initialized database");
+            info!("Building block 1 after initialization");
             coordinator_processor_ctx.build_block().await?;
             push_latest_global_coordinator_status(sync_queue.clone(), 1, 1).await;
+            info!("✅ Database initialized with genesis block");
         }
 
         // worker
@@ -215,23 +206,11 @@ impl
 pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
     let mut coordinator_processor = CoordinatorProcessNode::new_with_config(args).await?;
 
-    let latest_checkpoint_id = match coordinator_processor
-        .ctx
-        .store
-        .get_latest_l2_block_state()
-        .await
-    {
-        Ok(state) => state.checkpoint_id,
-        Err(e) => {
-            bail!("❌ Failed to get latest l2 block state: {:?}", e);
-        }
-    };
-
-    let mut confirmed_checkpoint_id = latest_checkpoint_id;
-    let mut next_checkpoint = latest_checkpoint_id + 1;
+    let mut confirmed_checkpoint_id = coordinator_processor.ctx.latest_block_state.checkpoint_id;
+    let mut next_checkpoint = confirmed_checkpoint_id + 1;
     info!(
         "🚀 Start coordinator processor at checkpoint {}",
-        latest_checkpoint_id
+        confirmed_checkpoint_id
     );
 
     let task = tokio::spawn(async move {

@@ -160,7 +160,7 @@ impl SimpleBlockProcessor {
                 let mut last_root = QHashOut::ZERO;
                 for upd in cs_upd.updates.iter() {
                     last_root = ucst
-                        .set_leaf_ucs_imm(store, new_checkpoint_id, upd.state_slot_id, upd.value)?
+                        .set_leaf_ucs(store, new_checkpoint_id, upd.state_slot_id, upd.value)?
                         .new_root;
                 }
                 last_uct_root = store

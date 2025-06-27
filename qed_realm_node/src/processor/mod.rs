@@ -1,9 +1,8 @@
 use crate::config::RealmNodeConfig;
 use crate::{Queue, SyncCheckpointQueue, SyncProofQueue, C, D, F};
 use fred::prelude::KeysInterface;
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq::traits::KVQSerializable;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use qed_store::store::scylla::ScyllaStore;
 use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
 use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
 use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataId};
@@ -22,10 +21,8 @@ use qed_node_common::coordinator::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 
-type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
-
 type ConcreteRealmProcessorContext = RealmProcessorContext<
-    KVQArcImmutableStore,
+    ScyllaStore,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
@@ -37,7 +34,7 @@ pub struct RealmProcessor {
     pub realm_config: RealmConfig,
     pub sync_proof: ProofStoreRedisAsync,
     pub sync_checkpoint: Queue,
-    pub store: KVQArcImmutableStore,
+    pub store: Arc<ScyllaStore>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
 }
 
@@ -61,11 +58,11 @@ impl RealmProcessor {
             &config.queue.proof_store_key_suffix,
             &config.queue.proof_store_key_suffix,
         ).await?;
-        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_write_with_size(
-                &config.db.db_path,
-                config.db.size_gb,
-            )?);
+        let scylla_store = ScyllaStore::new(
+            &config.scylla.scylla_uri,
+            &config.scylla.scylla_keyspace,
+        ).await?;
+        let store_reader = Arc::new(scylla_store);
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
@@ -82,10 +79,15 @@ impl RealmProcessor {
 
     pub async fn start(mut self) -> anyhow::Result<JoinHandle<()>> {
         info!("Realm Processor starting");
-        let st = Arc::new(self.store.dup());
-        st.initialize_store()?;
+        let st = self.store.clone();
         let realm_qps = Arc::new(self.sync_proof.clone());
-        let mut context = RealmProcessorContext::new(
+        let mut context: ConcreteRealmProcessorContext = RealmProcessorContext::<
+            ScyllaStore,
+            ProofStoreRedisAsync,
+            ProofStoreRedisAsync,
+            ProofStoreRedisAsync,
+            ProofStoreRedisAsync,
+        >::new(
             self.realm_config,
             st.clone(),
             realm_qps.clone(),

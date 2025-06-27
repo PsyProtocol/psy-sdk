@@ -1,5 +1,5 @@
 use fred::prelude::*;
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
+use std::sync::Arc;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,

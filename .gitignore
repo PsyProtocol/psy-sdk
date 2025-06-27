@@ -1,5 +1,5 @@
 target
-*.log
+# *.log
 *.sublime*
 *~
 *.pyc
@@ -25,3 +25,6 @@ target/
 # SpecStory explanation file
 .specstory/.what-is-this.md
 /.vscode/
+
+*-key
+*-key.pub
