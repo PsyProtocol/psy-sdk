@@ -3,11 +3,11 @@ import { useWalletState } from "@qed/qed-wallet-widget";
 import { useWalletConfig } from '../../config';
 import { BalanceContainer, BalanceAmount, BalanceCurrency } from './WalletBalance.styles';
 import { useBlockNumber, useUserBalance } from 'packages/qed-wallet-widget/src/utils/data';
+import { useTokens } from '../../contexts/TokensContext';
 
 export const WalletBalance: React.FC = () => {
   const { getNativeCurrency } = useWalletConfig();
-  const [currency, currentWallet, refreshCurrentWallet, walletProvider] = useWalletState((state) => [
-    state.currency,
+  const [currentWallet, refreshCurrentWallet, walletProvider] = useWalletState((state) => [
     state.currentWallet,
     state.refreshCurrentWallet,
     state.provider,
@@ -25,6 +25,8 @@ export const WalletBalance: React.FC = () => {
   const checkpointId = useBlockNumber(walletProvider, 1000);
   const balance = useUserBalance(walletProvider, checkpointId, userId, contractId, 1000);
 
+  const { tokens } = useTokens();
+  const currency = tokens[contractId]?.symbol || "PSY";
 
   return (
     <BalanceContainer>
