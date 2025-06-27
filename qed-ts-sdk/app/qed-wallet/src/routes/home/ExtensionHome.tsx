@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { QedWalletWidget, createMemoryWalletProvider } from "@qed/qed-wallet-widget";
+import {
+    QedWalletWidget,
+    createMemoryWalletProvider
+} from "@qed/qed-wallet-widget";
 import logoImage from "../../assets/psy.png";
 import { useWalletConfig } from "../../config";
 import { TokensProvider } from "../../contexts/TokensContext";
@@ -17,8 +20,8 @@ import {
 
 const ExtensionHomeContent: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const { config, getCoordinatorUrl, getRealmUrl, getProverUrl } = useWalletConfig();
+    const [error] = useState<string | null>(null);
+    const { config } = useWalletConfig();
 
     useEffect(() => {
         // Check if we're in extension context
@@ -33,9 +36,10 @@ const ExtensionHomeContent: React.FC = () => {
     }, []);
 
     const walletProvider = createMemoryWalletProvider(
-        getCoordinatorUrl(), // coordinator
-        getRealmUrl(), // realm 
-        getProverUrl(), // prover
+        config.network.coordinator_configs, // coordinator
+        config.network.realm_configs, // realm
+        config.network.users_per_realm,
+        config.network.prover_url as string,
     );
 
     if (isLoading) {

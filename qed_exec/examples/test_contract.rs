@@ -132,7 +132,7 @@ fn prepare_environment_with_contract(
     Ok(lps)
 }
 
-fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField>>(
+fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>(
     contract_id: GoldilocksField,
     fn_circuit_def: &DPNFunctionCircuitDefinition,
     lps: &mut QEDLocalProvingSessionStore<GoldilocksField, R>,

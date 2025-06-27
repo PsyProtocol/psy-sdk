@@ -2,7 +2,7 @@ use super::provider::RpcProvider;
 use super::request::*;
 use crate::qed_rpc_call_back;
 use anyhow::Ok;
-use plonky2::field::{goldilocks_field::GoldilocksField, types::PrimeField64};
+use plonky2::field::{goldilocks_field::GoldilocksField};
 use qed_core::{config::network_constants::REALM_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::{
@@ -21,9 +21,10 @@ use tracing::{debug, error, info, instrument};
 
 type F = GoldilocksField;
 
+#[maybe_async::maybe_async(?Send)]
 impl QTreeDataStoreReaderSync<F> for RpcProvider {
     #[instrument(skip(self), fields(checkpoint_id, user_id, contract_id))]
-    fn get_user_contract_state_tree_root(
+   async fn get_user_contract_state_tree_root(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -72,7 +73,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         skip(self),
         fields(checkpoint_id, user_id, contract_id, height, leaf_id)
     )]
-    fn get_user_contract_state_tree_leaf_hash(
+   async fn get_user_contract_state_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -129,7 +130,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         skip(self),
         fields(checkpoint_id, user_id, contract_id, height, leaf_id)
     )]
-    fn get_user_contract_state_tree_merkle_proof(
+    async fn get_user_contract_state_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -185,7 +186,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
-    fn get_user_contract_tree_root(
+    async fn get_user_contract_tree_root(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -227,7 +228,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id, contract_id))]
-    fn get_user_contract_tree_leaf_hash(
+    async fn get_user_contract_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -273,7 +274,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id, contract_id))]
-    fn get_user_contract_tree_merkle_proof(
+    async fn get_user_contract_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -325,7 +326,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    fn get_user_registration_tree_root(
+    async fn get_user_registration_tree_root(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
@@ -361,7 +362,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, leaf_index))]
-    fn get_user_registration_tree_leaf_hash(
+    async fn get_user_registration_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         leaf_index: u64,
@@ -403,7 +404,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, leaf_index))]
-    fn get_user_registration_tree_merkle_proof(
+    async fn get_user_registration_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         leaf_index: u64,
@@ -447,7 +448,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    fn get_user_tree_root(
+    async fn get_user_tree_root(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
@@ -480,7 +481,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
-    fn get_user_tree_leaf_hash(
+    async fn get_user_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -521,7 +522,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
-    fn get_user_tree_merkle_proof(
+    async fn get_user_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -569,7 +570,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     0,
                     REALM_USER_TREE_HEIGHT,
                     self.get_realm_id(user_id),
-                )?;
+                ).await?;
                 eprintln!(
                     "DEBUGPRINT[528]: lps.rs:685: top_proof={}",
                     serde_json::to_string_pretty(&top_proof).unwrap()
@@ -602,7 +603,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, root_level, leaf_level, leaf_index))]
-    fn get_user_sub_tree_merkle_proof(
+    async fn get_user_sub_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         root_level: u8,
@@ -651,7 +652,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, contract_id))]
-    fn get_contract_function_tree_root(
+    async fn get_contract_function_tree_root(
         &self,
         checkpoint_id: u64,
         contract_id: u32,
@@ -693,7 +694,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, contract_id, function_id))]
-    fn get_contract_function_tree_leaf_hash(
+    async fn get_contract_function_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         contract_id: u32,
@@ -739,7 +740,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, contract_id, function_id))]
-    fn get_contract_function_tree_merkle_proof(
+    async fn get_contract_function_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         contract_id: u32,
@@ -787,7 +788,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    fn get_contract_tree_root(
+    async fn get_contract_tree_root(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
@@ -820,7 +821,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, contract_id))]
-    fn get_contract_tree_leaf_hash(
+    async fn get_contract_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         contract_id: u32,
@@ -861,7 +862,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, contract_id))]
-    fn get_contract_tree_merkle_proof(
+    async fn get_contract_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         contract_id: u32,
@@ -904,7 +905,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    fn get_deposit_tree_root(
+    async fn get_deposit_tree_root(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
@@ -937,7 +938,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, deposit_id))]
-    fn get_deposit_tree_leaf_hash(
+    async fn get_deposit_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         deposit_id: u32,
@@ -979,7 +980,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, deposit_id))]
-    fn get_deposit_tree_merkle_proof(
+    async fn get_deposit_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         deposit_id: u32,
@@ -1019,7 +1020,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    fn get_withdrawal_tree_root(
+    async fn get_withdrawal_tree_root(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
@@ -1052,7 +1053,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, withdrawal_id))]
-    fn get_withdrawal_tree_leaf_hash(
+    async fn get_withdrawal_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         withdrawal_id: u32,
@@ -1090,7 +1091,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, withdrawal_id))]
-    fn get_withdrawal_tree_merkle_proof(
+    async fn get_withdrawal_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         withdrawal_id: u32,
@@ -1130,7 +1131,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self))]
-    fn get_latest_checkpoint_tree_root(
+    async fn get_latest_checkpoint_tree_root(
         &self,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         info!("Fetching latest checkpoint tree root");
@@ -1161,7 +1162,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    fn get_checkpoint_tree_root(
+    async fn get_checkpoint_tree_root(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
@@ -1194,7 +1195,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, leaf_checkpoint_id))]
-    fn get_checkpoint_tree_leaf_hash(
+    async fn get_checkpoint_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         leaf_checkpoint_id: u64,
@@ -1232,7 +1233,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, leaf_checkpoint_id))]
-    fn get_checkpoint_tree_merkle_proof(
+    async fn get_checkpoint_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         leaf_checkpoint_id: u64,
@@ -1272,9 +1273,10 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl QMetaDataStoreReaderSync<F> for RpcProvider {
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
-    fn get_user_leaf_data(
+    async fn get_user_leaf_data(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -1317,7 +1319,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(contract_id))]
-    fn get_contract_leaf_data(
+    async fn get_contract_leaf_data(
         &self,
         contract_id: u64,
     ) -> anyhow::Result<qed_data::qdata::contract::QEDContractLeaf<F>> {
@@ -1350,7 +1352,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    fn get_checkpoint_leaf_data(
+    async fn get_checkpoint_leaf_data(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDCheckpointLeaf<F>> {
@@ -1386,7 +1388,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(contract_id))]
-    fn get_contract_code_definition(
+    async fn get_contract_code_definition(
         &self,
         contract_id: u64,
     ) -> anyhow::Result<qed_data::qdata::contract::ContractCodeDefinition> {
@@ -1422,7 +1424,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self))]
-    fn get_latest_l2_block_state(
+    async fn get_latest_l2_block_state(
         &self,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
         info!("Fetching latest L2 block state");
@@ -1453,7 +1455,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    fn get_l2_block_state(
+    async fn get_l2_block_state(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
@@ -1486,4 +1488,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     }
 }
 
+#[maybe_async::maybe_async]
 impl QEDComboDataStoreReaderSync<F> for RpcProvider {}
+
+//pub trait QEDComboDataStoreReaderSync<F: RichField>: QMetaDataStoreReaderSync<F> + QTreeDataStoreReaderSync<F> {}

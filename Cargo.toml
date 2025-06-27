@@ -78,6 +78,7 @@ homedir = "0.3"
 rand = "0.8.5"
 rand_core = "0.9"
 rand_pcg = "0.9"
+getrandom = { version = "0.2", features = ["js"] }
 rayon = { version = "1.10.0" }
 bincode = "=1.3.3"
 serde_cbor = { version = "0.11.2" }
@@ -190,8 +191,8 @@ strum = { version = "0.27", features = ["derive"] }
 
 # plonky2 = { path = "../plonky2-hwa/plonky2" }
 # plonky2_maybe_rayon = { path = "../plonky2-hwa/maybe_rayon" }
-plonky2 = { git = "https://github.com/clint-long/plonky2-hwa", rev = "a809ae1a982baf2c4aba63335f8177aee5c0a4ca" }
-plonky2_maybe_rayon = { git = "https://github.com/clint-long/plonky2-hwa", rev = "a809ae1a982baf2c4aba63335f8177aee5c0a4ca", default-features = false }
+plonky2 = { git = "https://github.com/clint-long/plonky2-hwa", rev = "5bf6940a3ea2d27e854931787e93bb46be27ffa3" }
+plonky2_maybe_rayon = { git = "https://github.com/clint-long/plonky2-hwa", rev = "5bf6940a3ea2d27e854931787e93bb46be27ffa3", default-features = false }
 
 tracing-appender = "0.2"
 
@@ -278,6 +279,7 @@ reqwest = { version = "0.11.22", default-features = false, features = [
 jsonwebtoken = "9.3.1"
 
 qed_user_cli = { path = "./qed_user_cli" }
+qed_user_prover = { path = "./qed_user_prover" }
 qed-ts-type = { path = "./qed-ts-type" }
 
 futures-util = "0.3.28"
@@ -286,6 +288,8 @@ ts-rs = "10.1.0"
 
 tower-http = { version = "0.6", features = ["full"] }
 tower = { version = "0.5", features = ["full"] }
+cfg-if = "1.0"
+maybe-async = "0.2"
 
 [profile.release]
 debug = true

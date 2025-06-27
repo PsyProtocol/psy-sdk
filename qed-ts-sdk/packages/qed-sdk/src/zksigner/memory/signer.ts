@@ -32,13 +32,10 @@ class QedMemoryTransactionSigner implements IQedTransactionSigner {
     // }
 
     async signAndSubmit(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string> {
-        await this.prover.startSession(pk_hash);
         if (contractCallArgs instanceof Array) {
-            await this.prover.proveContractCalls(pk_hash, contractCallArgs);
-        } else {
-            await this.prover.proveContractCall(pk_hash, contractCallArgs);
+            return this.prover.execContractCall(pk_hash, contractCallArgs);
         }
-        return this.prover.signAndSubmit(pk_hash);
+        return this.prover.execContractCall(pk_hash, [contractCallArgs]);
     }
 
     async deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {

@@ -46,10 +46,12 @@ export const usePersistentWallet = () => {
   const [
     wallets,
     currentWallet,
+    setActiveWalletAsync,
     addWalletFromPrivateKey
   ] = useWalletState((state) => [
     state.wallets,
     state.currentWallet,
+    state.setActiveWalletAsync,
     state.addWalletFromPrivateKey
   ]);
 
@@ -88,7 +90,12 @@ export const usePersistentWallet = () => {
                   }
                 }
               }
-              
+
+              // set current wallet
+              if (data.activeWalletId) {
+                await setActiveWalletAsync(data.activeWalletId);
+              }
+
               console.log('Wallet restoration completed');
             } else {
               console.log('Wallets already exist, skipping restoration');
@@ -126,8 +133,8 @@ export const usePersistentWallet = () => {
                 // Clean the data to remove any BigInt or non-serializable values
                 const cleanWalletData = {
                   userId: typeof wallet.userId === 'bigint' ? Number(wallet.userId) : wallet.userId,
-                  name: wallet.name || `Wallet ${wallet.userId}`,
-                  address: wallet.address,
+                  name: wallet.name || `${wallet.userId}`,
+                  address: wallet.address || wallet.publicKeyHex,
                   balance: typeof wallet.balance === 'bigint' ? wallet.balance.toString() : wallet.balance,
                   networkId: wallet.networkId,
                   publicKeyHex: wallet.publicKeyHex,
@@ -141,8 +148,8 @@ export const usePersistentWallet = () => {
                 // Clean the fallback data too
                 return {
                   userId: typeof wallet.userId === 'bigint' ? Number(wallet.userId) : wallet.userId,
-                  name: wallet.name || `Wallet ${wallet.userId}`,
-                  address: wallet.address,
+                  name: wallet.name || `${wallet.userId}`,
+                  address: wallet.address || wallet.publicKeyHex,
                   balance: typeof wallet.balance === 'bigint' ? wallet.balance.toString() : wallet.balance,
                   networkId: wallet.networkId,
                   publicKeyHex: wallet.publicKeyHex,

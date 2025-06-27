@@ -2,10 +2,8 @@ import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
     IQedUserProverProvider,
-    ProofWithPublicInputs,
     QBCDeployContract,
     QedUserProverRPCCommand,
-    SubmitUserEndCapNonProofInput,
     WalletKeyPair,
 } from "./types";
 

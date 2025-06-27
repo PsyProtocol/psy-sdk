@@ -9,6 +9,7 @@ import {
 } from "@qed/qed-sdk";
 import { createMemoryWalletProvider } from "../utils/provider";
 import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
+import { DEFAULT_PROVER_URL, loadConfig } from "../config";
 
 enum WalletWidgetLoadingState {
     Loading,
@@ -59,7 +60,7 @@ async function getAllIQWallets(provider: QedUserWalletProvider): Promise<IQedWid
     console.log("getAllIQWallets: Getting user wallets from provider...");
     const users = await provider.getUserWallets();
     console.log("getAllIQWallets: Found", users.length, "user wallets");
-    
+
     return Promise.all(
         users.map(async (user: IQedUserWallet, index) => {
             console.log(`getAllIQWallets: Getting user info for wallet ${index}...`);
@@ -67,12 +68,15 @@ async function getAllIQWallets(provider: QedUserWalletProvider): Promise<IQedWid
             console.log(`getAllIQWallets: Wallet ${index} info:`, userInfo);
             return {
                 ...userInfo,
+                name: userInfo.userId.toString(),
+                address: userInfo.publicKeyHex,
                 wallet: user,
-            };
+                isActive: false,
+            } as IQedWidgetWallet;
         })
     );
 }
-function setAsyncFactory(set: Setter, get: Getter, api: WidgetStoreAPI) {
+function setAsyncFactory(set: Setter, get: Getter, _api: WidgetStoreAPI) {
     return async (action: AsyncWidgetStoreAction, globalAction = false) => {
         if (globalAction) {
             set({ loadingState: WalletWidgetLoadingState.Loading });
@@ -85,6 +89,7 @@ function setAsyncFactory(set: Setter, get: Getter, api: WidgetStoreAPI) {
                 });
                 set({ ...result, loadingState: WalletWidgetLoadingState.Ready });
             } catch (err) {
+                console.log(err);
                 set({ loadingState: WalletWidgetLoadingState.FatalError });
             }
         } else {
@@ -102,17 +107,15 @@ function setAsyncFactory(set: Setter, get: Getter, api: WidgetStoreAPI) {
         }
     };
 }
-function waitMs(duration: number) {
-    return new Promise((resolve) => {
-        setTimeout(resolve, duration);
-    });
-}
+
 const useWalletState = create<IWalletStateStore>((set, get, api) => {
+    const config = loadConfig();
     const setAsync = setAsyncFactory(set, get, api);
     const walletProvider = createMemoryWalletProvider(
-        "http://localhost:8545",
-        "http://localhost:8546",
-        "http://localhost:8888",
+        config.network.coordinator_configs, // coordinator
+        config.network.realm_configs, // realm
+        config.network.users_per_realm,
+        config.network.prover_url || DEFAULT_PROVER_URL, // prover
     );
     return {
         loadingState: WalletWidgetLoadingState.Ready,
@@ -157,6 +160,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 //await waitMs(2000);
                 const wallets = await getAllIQWallets(state.provider);
                 if (!state.currentWallet) {
+                    state.provider.realmEdgeRpcProvider.setUserId(wallets[0].userId);
                     return {
                         wallets: wallets,
                         currentWallet: wallets[0],
@@ -166,12 +170,14 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                     const currentWalletId = state.currentWallet?.userId;
                     const currentWallet = wallets.find((w) => w.userId === currentWalletId);
                     if (currentWallet) {
+                        state.provider.realmEdgeRpcProvider.setUserId(currentWallet.userId);
                         return {
                             wallets,
                             currentWallet: currentWallet,
                             walletAbilities: currentWallet.wallet.signer.getAbilities(),
                         };
                     } else {
+                        state.provider.realmEdgeRpcProvider.setUserId(wallets[0].userId);
                         return {
                             wallets,
                             currentWallet: wallets[0],
@@ -208,7 +214,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 return { wallets };
             }),
         setRPC: (coordinatorEdgeRpcProvider, realmEdgeRpcProvider) =>
-            set((state) => {
+            set((_state) => {
                 return { coordinatorEdgeRpcProvider, realmEdgeRpcProvider };
             }),
         setActiveWalletAsync: (userId: number) =>
@@ -225,15 +231,18 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
 
                 const wallets = state.wallets.map((w) => {
                     if (w.userId === wallet.userId) {
-                        return { ...userInfo, wallet: wallet.wallet };
+                        return { ...userInfo, name: userInfo.userId.toString(), address: userInfo.publicKeyHex, wallet: wallet.wallet };
                     } else {
                         return w;
                     }
                 });
 
+                // Sync the RPC provider with the new active wallet
+                state.provider.realmEdgeRpcProvider.setUserId(userId);
+
                 return {
                     wallets,
-                    currentWallet: { ...userInfo, wallet: wallet.wallet },
+                    currentWallet: { ...userInfo, name: userInfo.userId.toString(), address: userInfo.publicKeyHex, wallet: wallet.wallet },
                 };
             }),
         setActiveWallet: (userId: number) =>
@@ -245,11 +254,13 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 if (!wallet) {
                     return {};
                 }
+                // Sync the RPC provider with the new active wallet
+                state.provider.realmEdgeRpcProvider.setUserId(userId);
                 return { currentWallet: wallet };
             }),
 
         addRandomWallet: (registerUser?: boolean) =>
-            setAsync(async ({ set, get, state }) => {
+            setAsync(async ({ set: _set, get: _get, state }) => {
                 if (
                     !state.providerAbilities.includes("add-random-private-key") ||
                     typeof state.provider.signerProvider.addRandomPrivateKey !== "function"
@@ -259,7 +270,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
 
                 const signer = await state.provider.signerProvider.addRandomPrivateKey();
                 const publicKeyHex = await signer.getPublicKeyHex();
-                
+
                 if (registerUser) {
                     if (typeof signer.getPrivateKeyHex !== "function") {
                         return {};
@@ -267,11 +278,11 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                     const privateKeyHex = await signer.getPrivateKeyHex();
                     await state.provider.signerProvider.registerUser(privateKeyHex);
                 }
-                
+
                 // Refresh wallet list and set new wallet as current
                 const iqWallets = await getAllIQWallets(state.provider);
                 const newWallet = iqWallets.filter((x) => x.publicKeyHex === publicKeyHex)[0];
-                
+
                 if (newWallet) {
                     return {
                         wallets: iqWallets,
@@ -279,16 +290,16 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                         walletAbilities: newWallet.wallet.signer.getAbilities(),
                     };
                 }
-                
+
                 return {
                     wallets: iqWallets,
                 };
             }),
 
         addWalletFromPrivateKey: (privateKeyHex: string, registerUser?: boolean, changeCurrent?: boolean) =>
-            setAsync(async ({ set, get, state }) => {
+            setAsync(async ({ set: _set, get: _get, state }) => {
                 console.log("addWalletFromPrivateKey called with:", { privateKeyHex, registerUser, changeCurrent });
-                
+
                 if (
                     !state.providerAbilities.includes("import-private-key") ||
                     typeof state.provider.signerProvider.importPrivateKey !== "function"
@@ -332,7 +343,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 };
             }),
         setWalletProvider: (provider: QedUserWalletProvider) =>
-            setAsync(async ({ set, get, state }) => {
+            setAsync(async ({ set: _set, get: _get, state }) => {
                 if (provider === state.provider) {
                     return {};
                 }

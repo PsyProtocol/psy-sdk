@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useCallback, useState, useEffect } from "react";
 import { Combobox, Group, Input, InputBase, Text, useCombobox } from "@mantine/core";
 import { BlokiesIcon } from "@qed/blokies-react";
 import { getNetworkNameById } from "../../utils/network";
@@ -8,6 +8,8 @@ import { formatBalance } from "../../utils/balance";
 import { AddressModalType, useAddressModal } from "../../hooks/useAddressModal";
 import { sha256Buffer } from "@qed/utils";
 import { NetworkId } from "@qed/qed-sdk/src/action";
+import { useWalletConfig } from "../../config";
+import { useBlockNumber, useUserBalance } from "../../utils/data";
 
 interface IAddressSelectorBaseProps {
     className?: string;
@@ -18,6 +20,7 @@ interface IAddressSelectorItem {
     address: string;
     networkId: NetworkId;
     balanceString?: string;
+    blockNumber?: number;
 }
 type WalletManagmentAction = "new-wallet" | "import-wallet" | "refresh-wallets";
 interface IControlledAddressSelectorProps extends IAddressSelectorBaseProps {
@@ -27,13 +30,25 @@ interface IControlledAddressSelectorProps extends IAddressSelectorBaseProps {
         address: string;
         networkId: NetworkId;
         balanceString?: string;
+        blockNumber?: number;
     }[];
     showAddNew?: boolean;
     showImport?: boolean;
 }
-interface IStatefulAddressSelectorProps extends IAddressSelectorBaseProps {}
+interface IStatefulAddressSelectorProps extends IAddressSelectorBaseProps { }
 
 function SelectOption({ address, networkId, balanceString }: IAddressSelectorItem) {
+    const { provider, currentWallet } = useWalletState((state) => ({
+        provider: state.provider,
+        currentWallet: state.currentWallet,
+    }));
+
+    const { getNativeCurrency } = useWalletConfig();
+    const contractId = parseInt(getNativeCurrency(), 10);
+    // refresh checkpoint every 1 seconds
+    const currentBlockNumber = useBlockNumber(provider, 1000);
+    const currentAddress = !currentWallet ? address : `${address}: ${currentWallet.publicKeyHex}`;
+    const balance = useUserBalance(provider, currentBlockNumber, parseInt(address), contractId, 10000);
     sha256Buffer;
     return (
         <Group>
@@ -44,10 +59,11 @@ function SelectOption({ address, networkId, balanceString }: IAddressSelectorIte
             />
             <div>
                 <Text fz="sm" fw={500}>
-                    {address}
+                    {currentAddress}
                 </Text>
                 <Text fz="xs" opacity={0.6}>
-                    {getNetworkNameById(networkId)} {typeof balanceString === "string" ? " - " + balanceString : ""}
+                    {getNetworkNameById(networkId)} {typeof balanceString === "string" ? " - " + balance.toString() : ""}
+                    {currentBlockNumber !== null && ` - Checkpoint: ${currentBlockNumber}`}
                 </Text>
             </div>
         </Group>
@@ -75,7 +91,7 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
             </Combobox.Option>
         ));
         return addressOptions.concat([
-            <Combobox.Group label="Wallet Managment" key="wallet-management">
+            <Combobox.Group label="Wallet Management" key="wallet-management" style={{ color: 'black' }}>
                 {showAddNew ? (
                     <Combobox.Option value="new-wallet">
                         <Group>
@@ -92,7 +108,7 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
                     </Combobox.Option>
                 ) : null}
                 {showImport ? (
-                    <Combobox.Option value="import-wallet">
+                    <Combobox.Option value="import-wallet" style={{ color: 'black' }}>
                         <Group>
                             <TfiImport size={20} />
                             <div>
@@ -107,7 +123,7 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
                     </Combobox.Option>
                 ) : null}
 
-                <Combobox.Option value="refresh-wallets">
+                <Combobox.Option value="refresh-wallets" style={{ color: 'black' }}>
                     <Group>
                         <TfiReload size={20} />
                         <div>
@@ -197,6 +213,7 @@ const StatefulAddressSelector: React.FC<IStatefulAddressSelectorProps> = ({ clas
                 address: wallet.userId + "",
                 networkId: wallet.networkId,
                 balanceString: formatBalance(wallet.balance, currency),
+                blockNumber: undefined
             }))}
             showAddNew={providerAbilities.includes("add-random-private-key")}
             showImport={providerAbilities.includes("import-private-key")}

@@ -3,6 +3,11 @@ export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 PROFILE                  := release
 LOG_LEVEL                := qed_user_prover=info,qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
 
+default: build-release wasm-build
+
+build-release:
+	@RUSTFLAGS="-A warnings"  cargo build --release
+
 check:
 	@cargo check --all-targets --examples
 
@@ -431,6 +436,10 @@ image:
 		-c 512 \
 		-t qedprotocol/qed-rollup:latest \
 		-f Dockerfile .
+
+wasm-build:
+	@cd qed_user_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features --features wasm32
+	@cd qed_user_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features --features wasm32
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

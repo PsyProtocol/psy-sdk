@@ -5,8 +5,10 @@ import { BlokiesIcon } from '@qed/blokies-react';
 import { sha256Buffer } from '@qed/utils';
 import { useWalletConfig } from '../../config';
 import { WalletSelectorContainer, WalletInfo, WalletName, ChevronIcon } from './WalletSelector.styles';
+import { IQedWidgetWallet } from '@qed/qed-wallet-widget';
 
 interface WalletSelectorProps {
+  wallets: IQedWidgetWallet[];
   currentWallet?: {
     name: string;
     address: string;
@@ -15,25 +17,28 @@ interface WalletSelectorProps {
   onNewWallet?: () => void;
   onImportWallet?: () => void;
   onRefreshWallets?: () => void;
+  onSelectWallet?: (userId: number) => void;
 }
 
 export const WalletSelector: React.FC<WalletSelectorProps> = ({
+  wallets,
   currentWallet,
   onNewWallet,
   onImportWallet,
   onRefreshWallets,
+  onSelectWallet
 }) => {
   const { config } = useWalletConfig();
   const [opened, setOpened] = useState(false);
 
   const displayWallet = currentWallet || {
     name: config.wallet.defaultWalletName,
-    address: 'No wallet',
+    address: '******',
     avatar: '',
   };
 
   // Generate Blokies seed for avatar
-  const avatarSeed = displayWallet.address !== 'No wallet' 
+  const avatarSeed = displayWallet.address !== 'No wallet'
     ? sha256Buffer(new TextEncoder().encode("psy-wallet:" + displayWallet.address), "hex")
     : sha256Buffer(new TextEncoder().encode("psy-wallet:default"), "hex");
 
@@ -51,9 +56,10 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({
               />
               <WalletInfo>
                 <WalletName>{displayWallet.name}</WalletName>
+                <WalletName>0x{displayWallet.address?.substring(0, 6)}</WalletName>
               </WalletInfo>
               <ChevronIcon
-                style={{ 
+                style={{
                   transform: opened ? 'rotate(180deg)' : 'none',
                   transition: 'transform 0.2s'
                 }}
@@ -65,6 +71,32 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({
         </Menu.Target>
 
         <Menu.Dropdown>
+          {wallets.length > 0 && (
+            <>
+              <Menu.Label>All Wallets</Menu.Label>
+              {wallets.map((wallet) => (
+                <Menu.Item
+                  key={wallet.address}
+                  leftSection={
+                    <BlokiesIcon
+                      seed={sha256Buffer(new TextEncoder().encode("psy-wallet:" + wallet.address), "hex")}
+                      size={4}
+                      scale={3}
+                      style={{ borderRadius: '50%' }}
+                    />
+                  }
+                  onClick={() => {
+                    onSelectWallet?.(Number(wallet.userId));
+                  }}
+                >
+                  <Text size="sm">{wallet.name}</Text>
+                  <Text size="sm">0x{wallet.address?.substring(0, 6)}</Text>
+                </Menu.Item>
+              ))}
+              <Menu.Divider />
+            </>
+          )}
+
           <Menu.Label>Wallet Management</Menu.Label>
           <Menu.Item
             leftSection={<IconPlus style={{ width: rem(14), height: rem(14) }} />}

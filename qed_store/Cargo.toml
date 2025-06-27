@@ -25,6 +25,7 @@ qed_core = { path = "../qed_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
 thiserror = { workspace = true }
+maybe-async = { workspace = true }
 
 # ScyllaDB support
 scylla = { version = "0.15.1" }
@@ -33,7 +34,8 @@ tokio = { version = "1.43.0", features = ["full"] }
 uuid = { version = "1.0", features = ["v4"] }
 
 [features]
-default = []
+default = ["is_sync"]
+is_sync = ["maybe-async/is_sync"]
 
 [dev-dependencies]
 tempfile = "3.0"
