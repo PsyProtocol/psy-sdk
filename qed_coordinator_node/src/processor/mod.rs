@@ -16,7 +16,7 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::coordinator::state::processor::CoordinatorConfig;
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
 use qed_node::nimpl::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
-use qed_node::nimpl::new_fred_pool;
+use qed_node::nimpl::{new_fred_pool, new_redis_async_pool};
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::{
     coordinator::state::processor::CoordinatorProcessorContext,
@@ -33,6 +33,7 @@ use qed_store::{
 };
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, warn};
+use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -128,25 +129,25 @@ impl<
 impl
     CoordinatorProcessNode<
         KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
-        ProofStoreFred,
-        ProofStoreFred,
-        ProofStoreFred,
-        ProofStoreFred,
-        ProofStoreFred,
+        ProofStoreRedisAsync,
+        ProofStoreRedisAsync,
+        ProofStoreRedisAsync,
+        ProofStoreRedisAsync,
+        ProofStoreRedisAsync,
         DrainQueueRedisAsync,
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
-        let pool = new_fred_pool(&cp_config.redis_uri, cp_config.pool_size as usize).await?;
+        let pool = new_redis_async_pool(&cp_config.redis_uri, cp_config.pool_size as usize).await?;
         init_node_redis_pool(pool.clone())?;
         info!("🐶 redis pool initialized");
-        let q = ProofStoreFred::new2(
+        let q = ProofStoreRedisAsync::new2(
             pool.clone(),
             &cp_config.queue_args.worker_queue_suffix,
             &cp_config.queue_args.notifications_queue_suffix,
             &cp_config.queue_args.proof_store_key_suffix,
             &cp_config.queue_args.proof_store_key_suffix,
-        );
+        ).await?;
 
         let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
             KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(

@@ -189,7 +189,7 @@ impl CoordinatorEdgeHandler {
         with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| {
             let queue = ctx.checkpoint_queue.clone();
             let config = ctx.coordinator_config.clone();
-            let contract = contract.clone(); // 如果需要
+            let contract = contract.clone();
 
             async move {
                 let with_root = contract.into_with_whitelist_root::<QEDHasher>()?;
