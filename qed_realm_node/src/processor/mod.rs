@@ -59,8 +59,8 @@ impl RealmProcessor {
             &config.queue.proof_store_key_suffix,
         ).await?;
         let scylla_store = ScyllaStore::new(
-            &config.scylla.scylla_uri,
-            &config.scylla.scylla_keyspace,
+            &config.scylla.uri,
+            &config.scylla.keyspace,
         ).await?;
         let store_reader = Arc::new(scylla_store);
 

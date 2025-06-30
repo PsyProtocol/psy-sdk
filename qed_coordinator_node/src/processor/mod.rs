@@ -14,7 +14,8 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::coordinator::state::processor::CoordinatorConfig;
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
 use qed_node::nimpl::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
-use qed_node::nimpl::new_fred_pool;
+use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_node::nimpl::{new_fred_pool, new_redis_async_pool};
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::{
     coordinator::state::processor::CoordinatorProcessorContext,
@@ -126,34 +127,46 @@ impl<
 
 impl
     CoordinatorProcessNode<
-        ScyllaStore,
-        ProofStoreFred,
-        ProofStoreFred,
-        ProofStoreFred,
-        ProofStoreFred,
-        ProofStoreFred,
+        Arc<ScyllaStore>,
+        ProofStoreRedisAsync,
+        ProofStoreRedisAsync,
+        ProofStoreRedisAsync,
+        ProofStoreRedisAsync,
+        ProofStoreRedisAsync,
         DrainQueueRedisAsync,
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
-        let pool = new_fred_pool(&cp_config.redis_uri, cp_config.pool_size as usize).await?;
-        init_node_redis_pool(pool.clone())?;
+        let pool = new_fred_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
+        let bb8_pool = new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
+        init_node_redis_pool(bb8_pool.clone())?;
         info!("🐶 redis pool initialized");
-        let q = ProofStoreFred::new2(
-            pool.clone(),
+        let q = ProofStoreRedisAsync::new2(
+            bb8_pool,
             &cp_config.queue_args.worker_queue_suffix,
             &cp_config.queue_args.notifications_queue_suffix,
             &cp_config.queue_args.proof_store_key_suffix,
             &cp_config.queue_args.proof_store_key_suffix,
-        );
+        ).await?;
 
         let scylla_store =
-            ScyllaStore::new(&cp_config.scylla_uri, &cp_config.scylla_keyspace)
+            ScyllaStore::new(&cp_config.scylla.uri, &cp_config.scylla.keyspace)
                 .await?;
         let store_reader = Arc::new(scylla_store);
 
-        //try to get the latest block state
-        let st = store_reader.clone();
+        //try to get the block 1's state
+        let st = Arc::new(store_reader.clone());
+        let need_init = match st.get_l2_block_state(1).await {
+            Ok(_) => false,
+            Err(e) => {
+                error!(
+                    "⚠️ Failed to get block 1 state: {:?}， need initialize the db",
+                    e
+                );
+                QEDComboDataStoreReaderWriterSync::initialize_store(&*st)?;
+                true
+            }
+        };
 
         //use sync_queue for checkpoint sync
         let sync_queue = Arc::new(DrainQueueRedisAsync::new(&cp_config.redis_uri).await?);
@@ -164,8 +177,6 @@ impl
         let qps = Arc::new(q.clone());
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
-
-        let latest_checkpoint_id = QEDComboDataStoreReaderWriterSync::initialize_store(&*st)?;
 
         let mut coordinator_processor_ctx = CoordinatorProcessorContext::new(
             coord_config,
@@ -178,12 +189,11 @@ impl
         )
         .await?;
 
-        if latest_checkpoint_id == 0 {
-            info!("Initialized database");
-            info!("Building block 1 after initialization");
+        //build block 1 only once
+        if need_init {
+            info!("build block 1");
             coordinator_processor_ctx.build_block().await?;
             push_latest_global_coordinator_status(sync_queue.clone(), 1, 1).await;
-            info!("✅ Database initialized with genesis block");
         }
 
         // worker
@@ -206,11 +216,23 @@ impl
 pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
     let mut coordinator_processor = CoordinatorProcessNode::new_with_config(args).await?;
 
-    let mut confirmed_checkpoint_id = coordinator_processor.ctx.latest_block_state.checkpoint_id;
-    let mut next_checkpoint = confirmed_checkpoint_id + 1;
+    let latest_checkpoint_id = match coordinator_processor
+        .ctx
+        .store
+        .get_latest_l2_block_state()
+        .await
+    {
+        Ok(state) => state.checkpoint_id,
+        Err(e) => {
+            bail!("❌ Failed to get latest l2 block state: {:?}", e);
+        }
+    };
+
+    let mut confirmed_checkpoint_id = latest_checkpoint_id;
+    let mut next_checkpoint = latest_checkpoint_id + 1;
     info!(
         "🚀 Start coordinator processor at checkpoint {}",
-        confirmed_checkpoint_id
+        latest_checkpoint_id
     );
 
     let task = tokio::spawn(async move {

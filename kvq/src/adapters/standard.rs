@@ -7,6 +7,7 @@ use crate::traits::KVQStoreAdapter;
 use crate::traits::KVQStoreAdapterReader;
 use crate::traits::KVQBinaryStoreAsync;
 use crate::traits::KVQStoreAdapterReaderAsync;
+use crate::traits::KVQStoreAdapterAsync;
 
 
 
@@ -309,6 +310,73 @@ impl<S: KVQBinaryStoreAsync+ Send + Sync, K: KVQSerializable + Send + Sync, V: K
                 })
             })
             .collect()
+    }
+}
+
+#[async_trait]
+impl<S: KVQBinaryStoreAsync + Send + Sync, K: KVQSerializable + Send + Sync, V: KVQSerializable + Send + Sync> KVQStoreAdapterAsync<S, K, V>
+    for KVQStandardAdapter<S, K, V>
+{
+    async fn set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()> {
+        s.set(key.to_bytes()?, value.to_bytes()?).await
+    }
+    
+    async fn set(s: &S, key: K, value: V) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait {
+        s.set(key.to_bytes()?, value.to_bytes()?).await
+    }
+
+    async fn set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()> {
+        let pairs: anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> = items
+            .iter()
+            .map(|kv| {
+                Ok(KVQPair {
+                    key: kv.key.to_bytes()?,
+                    value: kv.value.to_bytes()?,
+                })
+            })
+            .collect();
+        s.set_many_vec(pairs?).await
+    }
+
+    async fn set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait {
+        let pairs: anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> = items
+            .iter()
+            .map(|kv| {
+                Ok(KVQPair {
+                    key: kv.key.to_bytes()?,
+                    value: kv.value.to_bytes()?,
+                })
+            })
+            .collect();
+        s.set_many_vec(pairs?).await
+    }
+
+    async fn delete(s: &S, key: &K) -> anyhow::Result<bool> {
+        s.delete(&key.to_bytes()?).await
+    }
+
+    async fn delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>> {
+        let mut results: Vec<bool> = Vec::with_capacity(keys.len());
+
+        for k in keys {
+            let r = s.delete(&k.to_bytes()?).await?;
+            results.push(r)
+        }
+        Ok(results)
+    }
+
+    async fn set_many_split_ref(s: &S, keys: &[K], values: &[V]) -> anyhow::Result<()> {
+        if keys.len() != values.len() {
+            return Err(anyhow::anyhow!("Keys and values must have the same length"));
+        }
+        let mut keys_bytes: Vec<Vec<u8>> = Vec::with_capacity(keys.len());
+        let mut values_bytes: Vec<Vec<u8>> = Vec::with_capacity(values.len());
+        for (k, v) in keys.iter().zip(values.iter()) {
+            keys_bytes.push(k.to_bytes()?);
+            values_bytes.push(v.to_bytes()?);
+        }
+
+        s.set_many_split_ref(&keys_bytes, &values_bytes).await
     }
 }
 

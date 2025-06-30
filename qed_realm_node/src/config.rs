@@ -1,5 +1,6 @@
 use clap::Parser;
 use serde::{Deserialize, Serialize};
+use qed_store::store::scylla::config::ScyllaDBConfig;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Parser)]
 #[serde(default)]
@@ -76,42 +77,6 @@ impl Default for QueueConfig {
 }
 
 
-#[derive(Clone, Debug, Deserialize, Serialize, Parser)]
-#[serde(default)]
-pub struct ScyllaDBConfig {
-    /// ScyllaDB URI
-    #[arg(long, env = "REALM_SCYLLA_URI", default_value = "127.0.0.1:9042")]
-    pub scylla_uri: String,
-    
-    /// ScyllaDB Keyspace
-    #[arg(long, env = "REALM_SCYLLA_KEYSPACE", default_value = "qed_realm")]
-    pub scylla_keyspace: String,
-    
-    
-    /// Replication factor for ScyllaDB keyspace
-    #[arg(long, env = "REALM_SCYLLA_REPLICATION_FACTOR", default_value_t = 3)]
-    pub replication_factor: u32,
-    
-    /// Replication strategy for ScyllaDB keyspace
-    #[arg(long, env = "REALM_SCYLLA_REPLICATION_STRATEGY", default_value = "SimpleStrategy")]
-    pub replication_strategy: String,
-    
-    /// Data center replication settings (for NetworkTopologyStrategy)
-    #[arg(long, env = "REALM_SCYLLA_DATACENTER_REPLICAS", default_value = "")]
-    pub datacenter_replicas: String,
-}
-
-impl Default for ScyllaDBConfig {
-    fn default() -> Self {
-        Self {
-            scylla_uri: "127.0.0.1:9042".to_string(),
-            scylla_keyspace: "qed_realm".to_string(),
-            replication_factor: 3,
-            replication_strategy: "SimpleStrategy".to_string(),
-            datacenter_replicas: "".to_string(),
-        }
-    }
-}
 
 #[derive(Clone, Debug, Deserialize, Serialize, Parser)]
 #[serde(default)]
@@ -120,11 +85,11 @@ pub struct RPCConfig {
     #[arg(long, env = "REALM_EDGE_LISTEN_ADDR", default_value = "0.0.0.0:8546")]
     pub listen_addr: String,
 
-    /// Coordinator RPC listen address
+    /// Coordinator RPC address
     #[arg(
         long,
         env = "COORDINATOR_EDGE_ADDR",
-        default_value = "http://0.0.0.0:8545"
+        default_value = "http://127.0.0.1:8545"
     )]
     pub coordinator_addr: String,
 }
@@ -133,7 +98,7 @@ impl Default for RPCConfig {
     fn default() -> Self {
         Self {
             listen_addr: "0.0.0.0:8546".to_string(),
-            coordinator_addr: "0.0.0.0:8545".to_string(),
+            coordinator_addr: "http://127.0.0.1:8545".to_string(),
         }
     }
 }

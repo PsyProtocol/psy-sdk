@@ -569,6 +569,43 @@ pub trait KVQMerkleTreeModelCore<
         }
     }
 
+    fn rehash_from_node_to_level(
+        store: &S,
+        tree_height: usize,
+        node: KVQMerkleNodeKey<TABLE_TYPE>,
+        root_level: u8
+    ) -> anyhow::Result<()> {
+        // TODO: optimize to get all nodes at once
+            
+        let mut current = node;
+        let mut current_value = Self::get_node(store, tree_height, &node)?;
+
+        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity((current.level-root_level) as usize);
+        while current.level > root_level {
+            let parent_key = current.parent();
+            let sibling_value = Self::get_node(store, tree_height, &current.sibling())?;
+
+            let parent_value = if current.index & 1 == 0 {
+                if MARK_LEAVES && current.level == tree_height as u8 {
+                    Hasher::two_to_one_marked_leaf(&current_value, &sibling_value)
+                } else {
+                    Hasher::two_to_one(&current_value, &sibling_value)
+                }
+            } else {
+                if MARK_LEAVES && current.level == tree_height as u8 {
+                    Hasher::two_to_one_marked_leaf(&sibling_value, &current_value)
+                } else {
+                    Hasher::two_to_one(&sibling_value, &current_value)
+                }
+            };
+            updates.push(KVQPair { key: parent_key, value: parent_value });
+            current = parent_key;
+            current_value = parent_value;
+        }
+        Self::set_nodes(store, &updates)?;
+        Ok(())
+    }
+    
     fn set_rehash_from_node_to_level_dmp_with_updates(
         store: &S,
         tree_height: usize,
@@ -641,8 +678,320 @@ pub trait KVQMerkleTreeModelCore<
         sub_tree_height: u8,
         leaves: &[Hash],
     ) -> anyhow::Result<Vec<SpidermanUpdateProof<Hash>>> {
-        // TODO: Implement append_leaves_spider_man
-        // This is a placeholder implementation
-        unimplemented!("append_leaves_spider_man needs to be implemented")
+        let leaves_per_subtree = 1usize << sub_tree_height;
+        let max_leaves = 1u64 << tree_height;
+        let append_index = first_empty_leaf_key.index;
+        if (append_index) + (leaves.len() as u64) > max_leaves {
+            anyhow::bail!("tree cannot fit an additional {} leaves", leaves.len());
+        }
+        let cur_sub_tree_id = append_index / (leaves_per_subtree as u64);
+        let cur_sub_tree_leaf_index =
+            ((append_index as u64) & ((leaves_per_subtree as u64) - 1u64)) as u64;
+
+        let subtree_count =
+            qed_core::utils::math::ceil_div_usize((append_index as usize) + leaves.len(), leaves_per_subtree)
+                - (cur_sub_tree_id as usize);
+
+        let mut results = Vec::with_capacity(subtree_count);
+        if subtree_count == 0 {
+            return Ok(results);
+        }
+
+        let mut old_leaves = Vec::with_capacity(leaves_per_subtree);
+        let mut new_leaves = Vec::with_capacity(leaves_per_subtree);
+
+        let start_existing_index = cur_sub_tree_id * (leaves_per_subtree as u64);
+        let start_added_index = start_existing_index + cur_sub_tree_leaf_index;
+
+        let existing_leaf_keys = (start_existing_index..start_added_index).map(|i| first_empty_leaf_key.at_index(i)).collect::<Vec<_>>();
+        let existing_leaf_values = Self::get_nodes(store, tree_height, &existing_leaf_keys)?;
+        old_leaves.extend_from_slice(&existing_leaf_values);
+        new_leaves.extend_from_slice(&existing_leaf_values);
+
+        let first_tree_new_slots = leaves_per_subtree - new_leaves.len();
+
+        new_leaves.extend_from_slice(&leaves[0..first_tree_new_slots.min(leaves.len())]);
+
+        let first_tree_zero_hashes = leaves_per_subtree - new_leaves.len();
+
+        let zero_hash = Hasher::get_zero_hash(0);
+        let mut leaves_used = leaves_per_subtree - (cur_sub_tree_leaf_index as usize);
+        for _ in 0..leaves_used {
+            old_leaves.push(zero_hash);
+        }
+        for _ in 0..first_tree_zero_hashes {
+            new_leaves.push(zero_hash);
+        }
+
+        let mut node_updates = Vec::with_capacity(leaves_used.min(leaves.len()));
+
+        for (i, l) in leaves[0..leaves_used.min(leaves.len())].iter().enumerate() {
+            node_updates.push(KVQPair {
+                key: first_empty_leaf_key.at_index(i as u64 + start_added_index),
+                value: *l,
+            });
+        }
+
+        Self::set_nodes(store, &node_updates)?;
+        let dmp = Self::rehash_sub_tree_dmp(store, tree_height, &first_empty_leaf_key.n_th_ancestor(sub_tree_height))?;
+
+        results.push(SpidermanUpdateProof {
+            top_line_proof: dmp,
+            web_proof_old_leaves: old_leaves,
+            web_proof_new_leaves: new_leaves,
+        });
+
+        if subtree_count > 2 {
+            let ll = leaves_used;
+            let old_leaves = (0..leaves_per_subtree)
+                .map(|_| zero_hash)
+                .collect::<Vec<_>>();
+
+            for t in 0..(subtree_count - 3) {
+                let base_ind = ll + t * leaves_per_subtree;
+                let new_leaves = leaves[base_ind..(base_ind + leaves_per_subtree)].to_vec();
+                let bb1 = (cur_sub_tree_id as usize + t + 1) * leaves_per_subtree;
+                let mut node_updates = Vec::with_capacity(new_leaves.len());
+
+                for (i, l) in new_leaves.iter().enumerate() {
+                    node_updates.push(
+                        KVQPair {
+                            key: first_empty_leaf_key.at_index((bb1 + i) as u64),
+                            value: *l,
+                        }
+                    );
+                }
+
+                Self::set_nodes(store, &node_updates)?;
+
+                results.push(SpidermanUpdateProof {
+                    top_line_proof: Self::rehash_sub_tree_dmp(store, tree_height, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height))?,
+                    web_proof_old_leaves: old_leaves.clone(),
+                    web_proof_new_leaves: new_leaves,
+                });
+            }
+
+            // OPT: don't waste the old_leaves.clone()
+
+            // Process the second-to-last subtree
+            let ll = leaves_used;
+            let old_leaves = (0..leaves_per_subtree)
+                .map(|_| zero_hash)
+                .collect::<Vec<_>>();
+            
+            let t = subtree_count - 3;
+            let base_ind = ll + t * leaves_per_subtree;
+            let new_leaves = leaves[base_ind..(base_ind + leaves_per_subtree)].to_vec();
+            let bb1 = (cur_sub_tree_id as usize + t + 1) * leaves_per_subtree;
+            let mut node_updates = Vec::with_capacity(new_leaves.len());
+
+            for (i, l) in new_leaves.iter().enumerate() {
+                node_updates.push(
+                    KVQPair {
+                        key: first_empty_leaf_key.at_index((bb1 + i) as u64),
+                        value: *l,
+                    }
+                );
+            }
+
+            Self::set_nodes(store, &node_updates)?;
+
+            results.push(SpidermanUpdateProof {
+                top_line_proof: Self::rehash_sub_tree_dmp(store, tree_height, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height))?,
+                web_proof_old_leaves: old_leaves,
+                web_proof_new_leaves: new_leaves,
+            });
+
+            leaves_used += (subtree_count - 2) * leaves_per_subtree;
+        }
+
+        if subtree_count > 1 {
+            let old_leaves = (0..leaves_per_subtree)
+                .map(|_| zero_hash)
+                .collect::<Vec<_>>();
+            
+            let mut new_leaves = Vec::with_capacity(leaves_per_subtree);
+            new_leaves.extend_from_slice(&leaves[leaves_used..]);
+            
+            let zeros_to_add = leaves_per_subtree - new_leaves.len();
+            for _ in 0..zeros_to_add {
+                new_leaves.push(zero_hash);
+            }
+
+            let bb1 = ((cur_sub_tree_id as usize + subtree_count - 1) * leaves_per_subtree) as u64;
+            let mut node_updates = Vec::with_capacity(leaves.len() - leaves_used);
+            
+            for (i, l) in leaves[leaves_used..].iter().enumerate() {
+                node_updates.push(KVQPair {
+                    key: first_empty_leaf_key.at_index(bb1 + i as u64),
+                    value: *l,
+                });
+            }
+
+            Self::set_nodes(store, &node_updates)?;
+
+            results.push(SpidermanUpdateProof {
+                top_line_proof: Self::rehash_sub_tree_dmp(store, tree_height, &first_empty_leaf_key.at_index(bb1).n_th_ancestor(sub_tree_height))?,
+                web_proof_old_leaves: old_leaves,
+                web_proof_new_leaves: new_leaves,
+            });
+        }
+
+        Ok(results)
+    }
+    
+    fn rehash_sub_tree(
+        store: &S,
+        tree_height: usize,
+        sub_root_key: &KVQMerkleNodeKey<TABLE_TYPE>,
+    ) -> anyhow::Result<()> {
+        let sub_tree_height = tree_height - (sub_root_key.level as usize);
+        
+        if sub_tree_height == 0 {
+            return Ok(());
+        } else if sub_tree_height == 1 {
+            let left_key = sub_root_key.left_child();
+            let right_key = sub_root_key.right_child();
+            let nodes = Self::get_nodes(store, tree_height, &[left_key, right_key])?;
+
+            let sub_root_value = if MARK_LEAVES {
+                Hasher::two_to_one_marked_leaf(&nodes[0], &nodes[1])
+            } else {
+                Hasher::two_to_one(&nodes[0], &nodes[1])
+            };
+            Self::set_node(store, sub_root_key, &sub_root_value)?;
+            return Ok(());
+        }
+
+        let mut child_base_key = sub_root_key.first_leaf_child(tree_height as u8);
+
+        let mut nodes_at_current_level = 1usize << (sub_tree_height - 1);
+
+        let mut child_values = Vec::with_capacity(nodes_at_current_level);
+        let mut child_keys = Vec::with_capacity(nodes_at_current_level*2);
+        let mut node_updates = Vec::with_capacity((1usize<<sub_tree_height)-1);
+
+        for i in 0..(nodes_at_current_level as u64) {
+            let left_key = child_base_key.at_index(i*2+child_base_key.index);
+            child_keys.push(left_key);
+            child_keys.push(left_key.sibling());
+        }
+        for (i, x) in Self::get_nodes(store, tree_height, &child_keys)?.chunks_exact(2).enumerate() {
+            let parent_value = if MARK_LEAVES {
+                Hasher::two_to_one_marked_leaf(&x[0], &x[1])
+            } else {
+                Hasher::two_to_one(&x[0], &x[1])
+            };
+
+            let parent_key = child_base_key.at_index((i as u64)*2+child_base_key.index).parent();
+
+            node_updates.push(
+                KVQPair{
+                    key: parent_key,
+                    value: parent_value,
+                }
+            );
+            child_values.push(parent_value);
+        }
+
+        nodes_at_current_level = nodes_at_current_level >> 1;
+        child_base_key = child_base_key.parent();
+
+        while child_base_key.level > sub_root_key.level {
+            let mut parent_values = Vec::with_capacity(nodes_at_current_level as usize);
+            for i in 0..nodes_at_current_level {
+                let parent_key = child_base_key.parent().at_index(i as u64 + (child_base_key.index >> 1u64));
+
+                let parent_value = if MARK_LEAVES {
+                    Hasher::two_to_one_marked_leaf(&child_values[i * 2], &child_values[i * 2 + 1])
+                } else {
+                    Hasher::two_to_one(&child_values[i * 2], &child_values[i * 2 + 1])
+                };
+                node_updates.push(KVQPair { key: parent_key, value: parent_value });
+
+                parent_values.push(parent_value);
+            }
+            nodes_at_current_level = nodes_at_current_level >> 1;
+            child_base_key = child_base_key.parent();
+            child_values = parent_values;
+        }
+
+        Self::set_nodes(store, &node_updates)?;
+
+        Self::rehash_from_node_to_level(store, tree_height, child_base_key, 0)?;
+
+        Ok(())
+    }
+    
+    fn rehash_sub_tree_top(
+        store: &S,
+        tree_height: usize,
+        first_node_at_level: &KVQMerkleNodeKey<TABLE_TYPE>,
+    ) -> anyhow::Result<()> {
+        if first_node_at_level.level == 0 {
+            return Ok(());
+        }
+        let current_leaf_keys_count = 1usize<<(first_node_at_level.level as usize);
+        let current_leaf_keys = (0..current_leaf_keys_count).map(|x| {
+            first_node_at_level.at_index(x as u64)
+        }).collect::<Vec<_>>();
+
+        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity(current_leaf_keys_count-1);
+
+        let mut current_leaves = Self::get_nodes(store, tree_height, &current_leaf_keys)?;
+
+        let mut child_level = first_node_at_level.level;
+        while child_level > 0 {
+            let new_leaf_keys_count = 1usize<<(child_level as usize - 1);
+            let mut new_leaves = Vec::with_capacity(new_leaf_keys_count);
+
+            for i in 0..new_leaf_keys_count {
+                let value = if MARK_LEAVES && child_level == (tree_height as u8) {
+                    Hasher::two_to_one_marked_leaf(&current_leaves[i*2], &current_leaves[i*2+1])
+                } else {
+                    Hasher::two_to_one(&current_leaves[i*2], &current_leaves[i*2+1])
+                };
+                new_leaves.push(value);
+                updates.push(KVQPair {
+                    key: first_node_at_level.n_th_ancestor(first_node_at_level.level - child_level + 1).at_index(i as u64),
+                    value,
+                });
+            }
+            current_leaves = new_leaves;
+            child_level -= 1;
+        }
+        
+        Self::set_nodes(store, &updates)?;
+        Ok(())
+    }
+    
+    fn rehash_sub_tree_dmp(
+        store: &S,
+        tree_height: usize,
+        sub_root_key: &KVQMerkleNodeKey<TABLE_TYPE>,
+    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+        let old_sub_tree_root = Self::get_node(store, tree_height, sub_root_key)?;
+        let old_tree_root = Self::get_node(store, tree_height, &sub_root_key.root())?;
+
+        Self::rehash_sub_tree(store, tree_height, sub_root_key)?;
+
+        let mut keys = Vec::with_capacity(sub_root_key.level as usize + 2);
+        keys.extend_from_slice(&sub_root_key.siblings());
+        keys.push(sub_root_key.root());
+        keys.push(*sub_root_key);
+
+        let mut values = Self::get_nodes(store, tree_height, &keys)?;
+
+        let new_sub_tree_root = values.pop().unwrap();
+        let new_tree_root = values.pop().unwrap();
+
+        Ok(DeltaMerkleProofCore {
+            old_root: old_tree_root,
+            old_value: old_sub_tree_root,
+            new_root: new_tree_root,
+            new_value: new_sub_tree_root,
+            index: sub_root_key.index,
+            siblings: values,
+        })
     }
 }

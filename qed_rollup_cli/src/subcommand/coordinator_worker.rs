@@ -6,7 +6,7 @@ use qed_worker::{CoordinatorWorker, Worker, WorkerState};
 async fn run_worker(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
     let state = WorkerState::new(
         args.redis_uri,
-        args.pool_size as usize,
+        args.redis_pool_size as usize,
         &args.queue_args.worker_queue_suffix,
         &args.queue_args.notifications_queue_suffix,
         &args.queue_args.proof_store_key_suffix,

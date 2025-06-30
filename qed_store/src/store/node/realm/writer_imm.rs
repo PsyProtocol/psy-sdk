@@ -31,7 +31,7 @@ use qed_core::{
     data::qhashout::QHashOut,
 };
 use qed_crypto::{common::user_id::get_user_id_from_registration_id, hash::{
-    merkle::{core::DeltaMerkleProofCore,
+    merkle::{core::{DeltaMerkleProofCore, MerkleProofCore},
         utils::{common::{QMerkleNode, SimpleMerkleNode, SimpleMerkleNodeKey}, sub_tree_nca::UpdateNCAProofsWithDependencies}}
     ,
     traits::qhashable::QFieldHashable,
@@ -80,10 +80,21 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F>
         sync_info: QEDCheckpointSyncInfo<F>,
     ) -> anyhow::Result<()> {
         let checkpoint_id = sync_info.core.l2_block_state.checkpoint_id;
-        CheckpointTreeStore::<Self>::set_leaf_fc(
+        
+        // First, injest the old checkpoint merkle proof to establish the tree structure
+        let old_checkpoint_proof = MerkleProofCore {
+            root: sync_info.checkpoint_tree_update_proof.old_root,
+            value: sync_info.checkpoint_tree_update_proof.old_value,
+            index: sync_info.checkpoint_tree_update_proof.index,
+            siblings: sync_info.checkpoint_tree_update_proof.siblings.clone(),
+        };
+        
+        // Use injest_merkle_proof_set_leaf to properly set up the tree structure
+        CheckpointTreeStore::<Self>::injest_merkle_proof_set_leaf_fc(
             self,
-            checkpoint_id,
-            checkpoint_id,
+            checkpoint_id,  // This is used as the checkpoint_id for the proof
+            &old_checkpoint_proof,
+            checkpoint_id,  // New checkpoint_id for the leaf
             sync_info.core.checkpoint_leaf_hash,
         )?;
         CheckpointLeafTableStore::<Self>::set_checkpoint_leaf(

@@ -309,22 +309,9 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsyn
 
             let genesis_checkpoint_stats = QEDCheckpointLeafStats::get_genesis_value();
             let stats_hash = genesis_checkpoint_stats.qfhash::<QEDHasher>();
-            
-            // For genesis, create the initial tree roots
-            let contract_tree_root = self.get_contract_tree_root(0).await.unwrap_or(QHashOut::ZERO);
-            let deposit_tree_root = self.get_deposit_tree_root(0).await.unwrap_or(QHashOut::ZERO);
-            let user_tree_root = self.get_user_tree_root(0).await.unwrap_or(QHashOut::ZERO);
-            let withdrawal_tree_root = self.get_withdrawal_tree_root(0).await.unwrap_or(QHashOut::ZERO);
-            let user_registration_tree_root = self.get_user_registration_tree_root(0).await.unwrap_or(QHashOut::ZERO);
-            
-            let genesis_global_state_roots = QEDCheckpointGlobalStateRoots {
-                contract_tree_root,
-                deposit_tree_root,
-                user_tree_root,
-                withdrawal_tree_root,
-                user_registration_tree_root,
-            };
-            
+
+            let genesis_global_state_roots = self.get_checkpoint_global_state_roots(1).await?;
+
             let genesis_checkpoint_leaf = QEDCheckpointLeaf{
                 global_chain_root: genesis_global_state_roots.qfhash::<QEDHasher>(),
                 stats: genesis_checkpoint_stats,
@@ -347,7 +334,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsyn
                 checkpoint_tree_update_siblings: r.siblings.clone(),
                 regsitered_users_start_pivot_siblings: vec![],
                 registered_users: vec![],
-
+                old_checkpoint_leaf_hash: r.old_value,
             };
             self.set_checkpoint_sync_info_imm(sync_info).await?;
 

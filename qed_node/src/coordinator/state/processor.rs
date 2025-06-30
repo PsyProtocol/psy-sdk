@@ -980,6 +980,7 @@ impl<
         
         
         let checkpoint_tree_update_siblings = checkpoint_dmp.siblings.clone();
+        let old_checkpoint_leaf_hash = checkpoint_dmp.old_value;
         let witness_checkpoint_state_transition = CircuitInputWithDependencies{
             input: QCQEDCheckpointStateTransitionInput::<F>{
                 partial: partial_input,
@@ -1037,6 +1038,7 @@ impl<
             checkpoint_tree_update_siblings,
             regsitered_users_start_pivot_siblings,
             registered_users: new_accounts,
+            old_checkpoint_leaf_hash,
         };
         eprintln!("DEBUGPRINT[591]: processor.rs:1007: l2_sync={}", serde_json::to_string_pretty(&l2_sync).unwrap());
         self.store

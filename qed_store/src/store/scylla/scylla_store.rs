@@ -1,29 +1,24 @@
 use anyhow::Result;
-use std::sync::Arc;
 use scylla::{Session, SessionBuilder};
+use std::sync::Arc;
 
 use super::{
-    config::ScyllaDBConfig,
-    kvq_store::ScyllaKVQStore,
-    clustering_store::ScyllaClusteringStore,
+    clustering_store::ScyllaClusteringStore, config::ScyllaDBConfig, kvq_store::ScyllaKVQStore,
 };
 
 use crate::config::store_config::{
-    PROTOCOL_TREE_TABLE_TYPE, USER_CONTRACT_TREE_TABLE_TYPE, USER_CONTRACT_STATE_TREE_TABLE_TYPE,
-    USER_LEAF_TABLE_TYPE, CHECKPOINT_LEAF_TABLE_TYPE, CHECKPOINT_BLOCK_STATE_TABLE_TYPE,
-    CONTRACT_LEAF_TABLE_TYPE, CONTRACT_CODE_TABLE_TYPE, CHECKPOINT_SYNC_INFO_TABLE_TYPE,
-    CHECKPOINT_HASH_HELPER_TABLE_TYPE, USER_PUBLIC_KEY_HELPER_TABLE_TYPE,
+    CHECKPOINT_BLOCK_STATE_TABLE_TYPE, CHECKPOINT_HASH_HELPER_TABLE_TYPE,
+    CHECKPOINT_LEAF_TABLE_TYPE, CHECKPOINT_SYNC_INFO_TABLE_TYPE, CHECKPOINT_TREE_TABLE_TYPE,
+    CONTRACT_CODE_TABLE_TYPE, CONTRACT_FUNCTION_TREE_TABLE_TYPE, CONTRACT_LEAF_TABLE_TYPE,
+    CONTRACT_TREE_TABLE_TYPE, DEPOSIT_TREE_TABLE_TYPE, USER_CONTRACT_STATE_TREE_TABLE_TYPE,
+    USER_CONTRACT_TREE_TABLE_TYPE, USER_LEAF_TABLE_TYPE, USER_PUBLIC_KEY_HELPER_TABLE_TYPE,
+    USER_REGISTRATION_TREE_TABLE_TYPE, USER_TREE_TABLE_TYPE, WITHDRAWAL_TREE_TABLE_TYPE,
 };
 
-use kvq::traits::{
-    KVQBinaryStoreAsync,
-    KVQBinaryStore,
-    KVQPair, ScyllaKey
-};
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair, ScyllaKey};
 
-/// Trait for stores that can be stored in the array
 #[async_trait::async_trait]
-pub trait ScyllaStoreInstance: KVQBinaryStoreAsync + KVQBinaryStoreAsync + Send + Sync {
+pub trait ScyllaStoreInstance: KVQBinaryStoreAsync + Send + Sync {
     fn table_name(&self) -> &str;
 }
 
@@ -41,15 +36,12 @@ impl ScyllaStoreInstance for ScyllaClusteringStore {
     }
 }
 
-/// ScyllaStore - manages all tables using a fixed-size array
 pub struct ScyllaStore {
     session: Arc<Session>,
     config: ScyllaDBConfig,
-    // Fixed-size array indexed by table type
     stores: [Option<Arc<dyn ScyllaStoreInstance>>; 50],
 }
 
-// Ensure ScyllaStore is Send + Sync
 unsafe impl Send for ScyllaStore {}
 unsafe impl Sync for ScyllaStore {}
 
@@ -74,14 +66,9 @@ impl ScyllaStore {
         config: Option<ScyllaDBConfig>,
     ) -> Result<Self> {
         let config = config.unwrap_or_default();
-        
-        // Create shared session
-        let session = SessionBuilder::new()
-            .known_node(uri)
-            .build()
-            .await?;
 
-        // Create keyspace
+        let session = SessionBuilder::new().known_node(uri).build().await?;
+
         let replication_clause = if config.replication_class == "NetworkTopologyStrategy" {
             format!(
                 "{{'class': 'NetworkTopologyStrategy', 'datacenter1': {}}}",
@@ -108,88 +95,161 @@ impl ScyllaStore {
             session: Arc::new(session),
             config,
             stores: [
-                None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None,
+                None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+                None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+                None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+                None, None, None, None, None, None, None, None,
             ],
         };
-        
-        // Register all tables
+
         store.register_all_tables(keyspace).await?;
-        
+
         Ok(store)
     }
 
-    /// Register all known table types
     async fn register_all_tables(&mut self, keyspace: &str) -> Result<()> {
-        // Merkle tree tables - use Clustering Store (partition_key: tree_id, clustering_key: node_hash)
-        self.register_clustering_table(PROTOCOL_TREE_TABLE_TYPE, keyspace, "protocol_trees", 8).await?;
-        self.register_clustering_table(USER_CONTRACT_TREE_TABLE_TYPE, keyspace, "user_contract_trees", 8).await?;
-        self.register_clustering_table(USER_CONTRACT_STATE_TREE_TABLE_TYPE, keyspace, "user_contract_state_trees", 8).await?;
-        
-        // Tables requiring versioning - use Clustering Store (partition_key: id, clustering_key: version)
-        self.register_clustering_table(USER_LEAF_TABLE_TYPE, keyspace, "user_leaves", 8).await?;
-        self.register_clustering_table(CONTRACT_LEAF_TABLE_TYPE, keyspace, "contract_leaves", 8).await?;
-        self.register_clustering_table(CONTRACT_CODE_TABLE_TYPE, keyspace, "contract_codes", 8).await?;
-        
-        // Checkpoint-related tables - use Clustering Store to support get_leq
-        self.register_clustering_table(CHECKPOINT_LEAF_TABLE_TYPE, keyspace, "checkpoint_leaves", 2).await?;
-        self.register_clustering_table(CHECKPOINT_BLOCK_STATE_TABLE_TYPE, keyspace, "checkpoint_block_states", 2).await?;
-        self.register_clustering_table(CHECKPOINT_SYNC_INFO_TABLE_TYPE, keyspace, "checkpoint_sync_info", 2).await?;
-        
-        // Simple KV tables - use KVQ Store
-        self.register_kvq_table(CHECKPOINT_HASH_HELPER_TABLE_TYPE, keyspace, "checkpoint_hash_helpers").await?;
-        self.register_kvq_table(USER_PUBLIC_KEY_HELPER_TABLE_TYPE, keyspace, "user_public_key_helpers").await?;
-        
+        self.register_clustering_table(CHECKPOINT_TREE_TABLE_TYPE, keyspace, "checkpoint_trees", 8)
+            .await?;
+        self.register_clustering_table(USER_TREE_TABLE_TYPE, keyspace, "user_trees", 8)
+            .await?;
+        self.register_clustering_table(CONTRACT_TREE_TABLE_TYPE, keyspace, "contract_trees", 8)
+            .await?;
+        self.register_clustering_table(
+            CONTRACT_FUNCTION_TREE_TABLE_TYPE,
+            keyspace,
+            "contract_function_trees",
+            8,
+        )
+        .await?;
+        self.register_clustering_table(DEPOSIT_TREE_TABLE_TYPE, keyspace, "deposit_trees", 8)
+            .await?;
+        self.register_clustering_table(WITHDRAWAL_TREE_TABLE_TYPE, keyspace, "withdrawal_trees", 8)
+            .await?;
+        self.register_clustering_table(
+            USER_REGISTRATION_TREE_TABLE_TYPE,
+            keyspace,
+            "user_registration_trees",
+            8,
+        )
+        .await?;
+        self.register_clustering_table(
+            USER_CONTRACT_TREE_TABLE_TYPE,
+            keyspace,
+            "user_contract_trees",
+            8,
+        )
+        .await?;
+        self.register_clustering_table(
+            USER_CONTRACT_STATE_TREE_TABLE_TYPE,
+            keyspace,
+            "user_contract_state_trees",
+            8,
+        )
+        .await?;
+
+        self.register_clustering_table(USER_LEAF_TABLE_TYPE, keyspace, "user_leaves", 4)
+            .await?;
+
+        self.register_clustering_table(
+            CHECKPOINT_LEAF_TABLE_TYPE,
+            keyspace,
+            "checkpoint_leaves",
+            8,
+        )
+        .await?;
+
+        self.register_clustering_table(
+            CHECKPOINT_BLOCK_STATE_TABLE_TYPE,
+            keyspace,
+            "checkpoint_block_states",
+            8,
+        )
+        .await?;
+
+        self.register_clustering_table(CONTRACT_LEAF_TABLE_TYPE, keyspace, "contract_leaves", 4)
+            .await?;
+
+        self.register_clustering_table(CONTRACT_CODE_TABLE_TYPE, keyspace, "contract_codes", 4)
+            .await?;
+
+        self.register_clustering_table(
+            CHECKPOINT_SYNC_INFO_TABLE_TYPE,
+            keyspace,
+            "checkpoint_sync_info",
+            8,
+        )
+        .await?;
+
+        self.register_kvq_table(
+            CHECKPOINT_HASH_HELPER_TABLE_TYPE,
+            keyspace,
+            "checkpoint_hash_helpers",
+        )
+        .await?;
+
+        self.register_kvq_table(
+            USER_PUBLIC_KEY_HELPER_TABLE_TYPE,
+            keyspace,
+            "user_public_key_helpers",
+        )
+        .await?;
+
         Ok(())
     }
 
-    /// Register KVQ table
-    async fn register_kvq_table(&mut self, table_type: u16, keyspace: &str, table_name: &str) -> Result<()> {
+    async fn register_kvq_table(
+        &mut self,
+        table_type: u16,
+        keyspace: &str,
+        table_name: &str,
+    ) -> Result<()> {
         if table_type as usize >= 50 {
-            return Err(anyhow::anyhow!("Table type {} exceeds maximum of 49", table_type));
+            return Err(anyhow::anyhow!(
+                "Table type {} exceeds maximum of 49",
+                table_type
+            ));
         }
 
-        let store = ScyllaKVQStore::new_with_session(
-            self.session.clone(),
-            keyspace,
-            table_name,
-        ).await?;
+        let store =
+            ScyllaKVQStore::new_with_session(self.session.clone(), keyspace, table_name).await?;
 
         self.stores[table_type as usize] = Some(Arc::new(store));
         Ok(())
     }
 
-    /// Register Clustering table
     async fn register_clustering_table(
         &mut self,
         table_type: u16,
         keyspace: &str,
         table_name: &str,
-        partition_key_size: usize,
+        clustering_key_size: usize,
     ) -> Result<()> {
         if table_type as usize >= 50 {
-            return Err(anyhow::anyhow!("Table type {} exceeds maximum of 49", table_type));
+            return Err(anyhow::anyhow!(
+                "Table type {} exceeds maximum of 49",
+                table_type
+            ));
         }
 
         let store = ScyllaClusteringStore::new_with_session(
             self.session.clone(),
             keyspace,
             table_name,
-            partition_key_size,
-        ).await?;
+            clustering_key_size,
+        )
+        .await?;
 
         self.stores[table_type as usize] = Some(Arc::new(store));
         Ok(())
     }
 
-    /// Get store for specified table type
     pub fn get_store(&self, table_type: u16) -> Result<Arc<dyn ScyllaStoreInstance>> {
         let index = table_type as usize;
         if index >= 50 {
-            return Err(anyhow::anyhow!("Table type {} exceeds maximum of 49", table_type));
+            return Err(anyhow::anyhow!(
+                "Table type {} exceeds maximum of 49",
+                table_type
+            ));
         }
 
         self.stores[index]
@@ -198,10 +258,15 @@ impl ScyllaStore {
             .ok_or_else(|| anyhow::anyhow!("No store registered for table type {}", table_type))
     }
 
-    /// Get description for table type
     pub fn get_table_description(table_type: u16) -> &'static str {
         match table_type {
-            PROTOCOL_TREE_TABLE_TYPE => "Protocol Merkle Tree",
+            CHECKPOINT_TREE_TABLE_TYPE => "Checkpoint Merkle Tree",
+            USER_TREE_TABLE_TYPE => "User Merkle Tree",
+            CONTRACT_TREE_TABLE_TYPE => "Contract Merkle Tree",
+            CONTRACT_FUNCTION_TREE_TABLE_TYPE => "Contract Function Merkle Tree",
+            DEPOSIT_TREE_TABLE_TYPE => "Deposit Merkle Tree",
+            WITHDRAWAL_TREE_TABLE_TYPE => "Withdrawal Merkle Tree",
+            USER_REGISTRATION_TREE_TABLE_TYPE => "User Registration Merkle Tree",
             USER_CONTRACT_TREE_TABLE_TYPE => "User Contract Merkle Tree",
             USER_CONTRACT_STATE_TREE_TABLE_TYPE => "User Contract State Merkle Tree",
             USER_LEAF_TABLE_TYPE => "User Leaf Data",
@@ -217,11 +282,9 @@ impl ScyllaStore {
     }
 }
 
-// Implement KVQ traits, routing to correct table based on table type in key
 #[async_trait::async_trait]
 impl KVQBinaryStoreAsync for ScyllaStore {
     async fn get_exact_if_exists(&self, key: &Vec<u8>) -> Result<Option<Vec<u8>>> {
-        // Extract table type from key
         if key.len() < 2 {
             return Err(anyhow::anyhow!("Key too short to extract table type"));
         }
@@ -303,7 +366,6 @@ impl KVQBinaryStoreAsync for ScyllaStore {
         Ok(results)
     }
 
-    // Write operations
     async fn set(&self, key: Vec<u8>, value: Vec<u8>) -> Result<()> {
         if key.len() < 2 {
             return Err(anyhow::anyhow!("Key too short to extract table type"));
@@ -317,10 +379,7 @@ impl KVQBinaryStoreAsync for ScyllaStore {
         <Self as KVQBinaryStoreAsync>::set(self, key.clone(), value.clone()).await
     }
 
-    async fn set_many_ref<'a>(
-        &self,
-        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
-    ) -> Result<()> {
+    async fn set_many_ref<'a>(&self, items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>]) -> Result<()> {
         for item in items {
             <Self as KVQBinaryStoreAsync>::set_ref(self, item.key, item.value).await?;
         }
@@ -362,7 +421,6 @@ impl KVQBinaryStoreAsync for ScyllaStore {
     }
 }
 
-// Sync trait implementations for compatibility
 impl KVQBinaryStore for ScyllaStore {
     fn get_exact_if_exists(&self, key: &Vec<u8>) -> Result<Option<Vec<u8>>> {
         tokio::task::block_in_place(|| {
@@ -374,17 +432,15 @@ impl KVQBinaryStore for ScyllaStore {
 
     fn get_exact(&self, key: &Vec<u8>) -> Result<Vec<u8>> {
         tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                <Self as KVQBinaryStoreAsync>::get_exact(self, key).await
-            })
+            tokio::runtime::Handle::current()
+                .block_on(async { <Self as KVQBinaryStoreAsync>::get_exact(self, key).await })
         })
     }
 
     fn get_many_exact(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
         tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                <Self as KVQBinaryStoreAsync>::get_many_exact(self, keys).await
-            })
+            tokio::runtime::Handle::current()
+                .block_on(async { <Self as KVQBinaryStoreAsync>::get_many_exact(self, keys).await })
         })
     }
 
@@ -420,11 +476,7 @@ impl KVQBinaryStore for ScyllaStore {
         })
     }
 
-    fn get_many_leq(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> Result<Vec<Option<Vec<u8>>>> {
+    fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> Result<Vec<Option<Vec<u8>>>> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 <Self as KVQBinaryStoreAsync>::get_many_leq(self, keys, fuzzy_bytes).await
@@ -444,55 +496,45 @@ impl KVQBinaryStore for ScyllaStore {
         })
     }
 
-    // Write operations
     fn set(&self, key: Vec<u8>, value: Vec<u8>) -> Result<()> {
         tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                <Self as KVQBinaryStoreAsync>::set(self, key, value).await
-            })
+            tokio::runtime::Handle::current()
+                .block_on(async { <Self as KVQBinaryStoreAsync>::set(self, key, value).await })
         })
     }
 
     fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> Result<()> {
         tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                <Self as KVQBinaryStoreAsync>::set_ref(self, key, value).await
-            })
+            tokio::runtime::Handle::current()
+                .block_on(async { <Self as KVQBinaryStoreAsync>::set_ref(self, key, value).await })
         })
     }
 
-    fn set_many_ref<'a>(
-        &self,
-        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
-    ) -> Result<()> {
+    fn set_many_ref<'a>(&self, items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>]) -> Result<()> {
         tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                <Self as KVQBinaryStoreAsync>::set_many_ref(self, items).await
-            })
+            tokio::runtime::Handle::current()
+                .block_on(async { <Self as KVQBinaryStoreAsync>::set_many_ref(self, items).await })
         })
     }
 
     fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> Result<()> {
         tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                <Self as KVQBinaryStoreAsync>::set_many_vec(self, items).await
-            })
+            tokio::runtime::Handle::current()
+                .block_on(async { <Self as KVQBinaryStoreAsync>::set_many_vec(self, items).await })
         })
     }
 
     fn delete(&self, key: &Vec<u8>) -> Result<bool> {
         tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                <Self as KVQBinaryStoreAsync>::delete(self, key).await
-            })
+            tokio::runtime::Handle::current()
+                .block_on(async { <Self as KVQBinaryStoreAsync>::delete(self, key).await })
         })
     }
 
     fn delete_many(&self, keys: &[Vec<u8>]) -> Result<Vec<bool>> {
         tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                <Self as KVQBinaryStoreAsync>::delete_many(self, keys).await
-            })
+            tokio::runtime::Handle::current()
+                .block_on(async { <Self as KVQBinaryStoreAsync>::delete_many(self, keys).await })
         })
     }
 
@@ -504,5 +546,3 @@ impl KVQBinaryStore for ScyllaStore {
         })
     }
 }
-
-

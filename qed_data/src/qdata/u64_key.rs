@@ -46,11 +46,13 @@ impl<const TABLE_TYPE: u16> From<U64TableKey<TABLE_TYPE>> for u64 {
 
 impl<const TABLE_TYPE: u16> ScyllaKey for U64TableKey<TABLE_TYPE> {
     fn get_partition_key(&self) -> Vec<u8> {
-        self.0.to_be_bytes().to_vec()
+        // Use table_type as partition key so all entries of same type are in same partition
+        TABLE_TYPE.to_be_bytes().to_vec()
     }
 
     fn get_clustering_key(&self) -> Option<Vec<u8>> {
-        None
+        // Use checkpoint_id as clustering key for proper sorting
+        Some(self.0.to_be_bytes().to_vec())
     }
 
     fn get_table_type(&self) -> u16 {

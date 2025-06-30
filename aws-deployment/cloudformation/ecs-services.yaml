@@ -62,6 +62,21 @@ Parameters:
     Default: /qed-protocol/redis/realm16384/endpoint
     Description: SSM parameter for Realm16384 Redis endpoint
 
+  CoordinatorScyllaDBEndpoint:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /qed-protocol/scylladb/coordinator-endpoint
+    Description: SSM parameter for Coordinator ScyllaDB endpoint
+
+  Realm0ScyllaDBEndpoint:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /qed-protocol/scylladb/realm0-endpoint
+    Description: SSM parameter for Realm0 ScyllaDB endpoint
+
+  Realm16384ScyllaDBEndpoint:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /qed-protocol/scylladb/realm16384-endpoint
+    Description: SSM parameter for Realm16384 ScyllaDB endpoint
+
 Resources:
   # Task Definitions
   CoordinatorProcessorTaskDefinition:
@@ -74,10 +89,6 @@ Resources:
         - EC2
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
-      Volumes:
-        - Name: coordinator-data
-          Host:
-            SourcePath: /data/coordinator
       ContainerDefinitions:
         - Name: coordinator-processor
           Image: !Ref ContainerImage
@@ -88,17 +99,14 @@ Resources:
             InitProcessEnabled: true
           Command:
             - coordinator-processor
-            - --db-path
-            - /data
             - !Sub --redis-uri=redis://${CoordinatorRedisEndpoint}
+            - !Sub --scylla-uri=${CoordinatorScyllaDBEndpoint}
+            - --scylla-keyspace=qed_coordinator
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
-          MountPoints:
-            - SourceVolume: coordinator-data
-              ContainerPath: /data
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -154,10 +162,6 @@ Resources:
         - EC2
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
-      Volumes:
-        - Name: coordinator-data
-          Host:
-            SourcePath: /data/coordinator
       ContainerDefinitions:
         - Name: coordinator-edge
           Image: !Ref ContainerImage
@@ -169,16 +173,14 @@ Resources:
           Command:
             - coordinator-edge
             - --listen-addr=0.0.0.0:8545
-            - --db-path=/data
             - !Sub --redis-uri=redis://${CoordinatorRedisEndpoint}
+            - !Sub --scylla-uri=${CoordinatorScyllaDBEndpoint}
+            - --scylla-keyspace=qed_coordinator
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
-          MountPoints:
-            - SourceVolume: coordinator-data
-              ContainerPath: /data
           PortMappings:
             - ContainerPort: 8545
               HostPort: 0
@@ -201,10 +203,6 @@ Resources:
         - EC2
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
-      Volumes:
-        - Name: realm0-data
-          Host:
-            SourcePath: /data/realm0
       ContainerDefinitions:
         - Name: realm0-processor
           Image: !Ref ContainerImage
@@ -215,16 +213,14 @@ Resources:
             InitProcessEnabled: true
           Command:
             - realm-processor
-            - --db-path=/data
             - !Sub --redis-uri=redis://${Realm0RedisEndpoint}
+            - !Sub --scylla-uri=${Realm0ScyllaDBEndpoint}
+            - --scylla-keyspace=qed_realm_0
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
-          MountPoints:
-            - SourceVolume: realm0-data
-              ContainerPath: /data
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -250,6 +246,9 @@ Resources:
           Command:
             - realm-worker
             - !Sub --redis-uri=redis://${Realm0RedisEndpoint}
+            - --worker-queue-suffix=rwq0
+            - --notifications-queue-suffix=rnq0
+            - --proof-store-key-suffix=RP0
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -280,10 +279,6 @@ Resources:
         - EC2
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
-      Volumes:
-        - Name: realm0-data
-          Host:
-            SourcePath: /data/realm0
       ContainerDefinitions:
         - Name: realm0-edge
           Image: !Ref ContainerImage
@@ -295,8 +290,9 @@ Resources:
           Command:
             - realm-edge
             - --listen-addr=0.0.0.0:8546
-            - --db-path=/data
             - !Sub --redis-uri=redis://${Realm0RedisEndpoint}
+            - !Sub --scylla-uri=${Realm0ScyllaDBEndpoint}
+            - --scylla-keyspace=qed_realm_0
             - !Sub
               - --coordinator-addr=http://${ALBDNS}:8545
               - ALBDNS:
@@ -306,9 +302,6 @@ Resources:
               Value: !Ref LogLevel
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
-          MountPoints:
-            - SourceVolume: realm0-data
-              ContainerPath: /data
           PortMappings:
             - ContainerPort: 8546
               HostPort: 0
@@ -331,10 +324,6 @@ Resources:
         - EC2
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
-      Volumes:
-        - Name: realm16384-data
-          Host:
-            SourcePath: /data/realm16384
       ContainerDefinitions:
         - Name: realm16384-processor
           Image: !Ref ContainerImage
@@ -345,21 +334,19 @@ Resources:
             InitProcessEnabled: true
           Command:
             - realm-processor
-            - --db-path=/data
             - --node-id=2
             - --realm-id=16384
             - --worker-queue-suffix=rwq16384
             - --notifications-queue-suffix=rnq16384
             - --proof-store-key-suffix=RP16384
             - !Sub --redis-uri=redis://${Realm16384RedisEndpoint}
+            - !Sub --scylla-uri=${Realm16384ScyllaDBEndpoint}
+            - --scylla-keyspace=qed_realm_16384
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
-          MountPoints:
-            - SourceVolume: realm16384-data
-              ContainerPath: /data
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -384,10 +371,10 @@ Resources:
           Image: !Ref ContainerImage
           Command:
             - realm-worker
+            - !Sub --redis-uri=redis://${Realm16384RedisEndpoint}
             - --worker-queue-suffix=rwq16384
             - --notifications-queue-suffix=rnq16384
             - --proof-store-key-suffix=RP16384
-            - !Sub --redis-uri=redis://${Realm16384RedisEndpoint}
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -418,10 +405,6 @@ Resources:
         - EC2
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
-      Volumes:
-        - Name: realm16384-data
-          Host:
-            SourcePath: /data/realm16384
       ContainerDefinitions:
         - Name: realm16384-edge
           Image: !Ref ContainerImage
@@ -433,13 +416,14 @@ Resources:
           Command:
             - realm-edge
             - --listen-addr=0.0.0.0:8547
-            - --db-path=/data
             - --node-id=2
             - --realm-id=16384
             - --worker-queue-suffix=rwq16384
             - --notifications-queue-suffix=rnq16384
             - --proof-store-key-suffix=RP16384
             - !Sub --redis-uri=redis://${Realm16384RedisEndpoint}
+            - !Sub --scylla-uri=${Realm16384ScyllaDBEndpoint}
+            - --scylla-keyspace=qed_realm_16384
             - !Sub
               - --coordinator-addr=http://${ALBDNS}:8545
               - ALBDNS:
@@ -449,9 +433,6 @@ Resources:
               Value: !Ref LogLevel
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
-          MountPoints:
-            - SourceVolume: realm16384-data
-              ContainerPath: /data
           PortMappings:
             - ContainerPort: 8547
               HostPort: 0

@@ -1,29 +1,27 @@
 use std::fs;
+use std::sync::Arc;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_store::store::imm::cmd_processor::{QEDReadCommandBatchOutput, QEDReadCommandProcessorSync};
 use crate::rpc::provider::StoreConfig;
 
 #[derive(Debug)]
 pub struct StorageProvider {
-    pub coordinator_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
-    pub realm_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
+    pub coordinator_store: Arc<KVQlibmdbxStore>,
+    pub realm_store: Arc<KVQlibmdbxStore>,
 }
 
 impl StorageProvider {
     pub fn new(config_path: &str) -> anyhow::Result<Self> {
         let config: StoreConfig = serde_json::from_str(&fs::read_to_string(config_path)?)?;
 
-        let coordinator_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(
-                &config.coordinator_store_path,
-            )?);
+        let coordinator_store = Arc::new(KVQlibmdbxStore::new_read(
+            &config.coordinator_store_path,
+        )?);
 
-        let realm_store: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(KVQlibmdbxStore::new_read(
-                &config.realm_store_path,
-            )?);
+        let realm_store = Arc::new(KVQlibmdbxStore::new_read(
+            &config.realm_store_path,
+        )?);
 
         anyhow::Ok(Self {
             coordinator_store,

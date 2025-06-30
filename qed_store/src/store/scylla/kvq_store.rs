@@ -1,17 +1,18 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use futures::StreamExt;
-use kvq::traits::{
-    KVQBinaryStore, KVQBinaryStoreAsync,
-    KVQPair,
-};
+use futures::{future::BoxFuture, stream::FuturesUnordered, StreamExt};
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 use scylla::batch::{Batch, BatchType};
 use scylla::prepared_statement::PreparedStatement;
 use scylla::{Session, SessionBuilder};
 use std::sync::Arc;
+use tokio::sync::Semaphore;
 
-use serde::{Deserialize, Serialize};
 use super::config::ScyllaDBConfig;
+use serde::{Deserialize, Serialize};
+
+const BATCH_SIZE: usize = 15;
+const MAX_CONCURRENT_REQUESTS: usize = 30;
 
 #[derive(Debug)]
 pub struct ScyllaKVQStore {
@@ -20,6 +21,9 @@ pub struct ScyllaKVQStore {
     prepared_insert: PreparedStatement,
     prepared_select: PreparedStatement,
     prepared_delete: PreparedStatement,
+    prepared_select_15: PreparedStatement,
+    prepared_delete_15: PreparedStatement,
+    semaphore: Arc<Semaphore>,
 }
 
 impl ScyllaKVQStore {
@@ -28,28 +32,38 @@ impl ScyllaKVQStore {
     }
 
     pub async fn new_with_config(
-        uri: &str, 
-        keyspace: &str, 
-        table_name: &str, 
-        config: Option<&ScyllaDBConfig>
+        uri: &str,
+        keyspace: &str,
+        table_name: &str,
+        config: Option<&ScyllaDBConfig>,
     ) -> Result<Self> {
         let session = SessionBuilder::new().known_node(uri).build().await?;
-        
-        // Create keyspace if using standalone
+
         let default_config = ScyllaDBConfig::default();
         let config = config.unwrap_or(&default_config);
-        
+
         let replication_clause = if config.replication_class == "NetworkTopologyStrategy" {
-            format!("{{'class': 'NetworkTopologyStrategy', 'datacenter1': {}}}", config.replication_factor)
+            format!(
+                "{{'class': 'NetworkTopologyStrategy', 'datacenter1': {}}}",
+                config.replication_factor
+            )
         } else {
-            format!("{{'class': '{}', 'replication_factor': {}}}", config.replication_class, config.replication_factor)
+            format!(
+                "{{'class': '{}', 'replication_factor': {}}}",
+                config.replication_class, config.replication_factor
+            )
         };
 
-        session.query_unpaged(format!(
-            "CREATE KEYSPACE IF NOT EXISTS {} WITH replication = {}",
-            keyspace, replication_clause
-        ), &[]).await?;
-        
+        session
+            .query_unpaged(
+                format!(
+                    "CREATE KEYSPACE IF NOT EXISTS {} WITH replication = {}",
+                    keyspace, replication_clause
+                ),
+                &[],
+            )
+            .await?;
+
         Self::new_with_session(Arc::new(session), keyspace, table_name).await
     }
 
@@ -58,8 +72,6 @@ impl ScyllaKVQStore {
         keyspace: &str,
         table_name: &str,
     ) -> Result<Self> {
-        // Keyspace should already be created by ScyllaStore
-
         session
             .query_unpaged(
                 format!(
@@ -72,7 +84,6 @@ impl ScyllaKVQStore {
 
         let table_name = format!("{}.{}", keyspace, table_name);
 
-        // Prepare statements.
         let prepared_insert = session
             .prepare(format!(
                 "INSERT INTO {} (key, value) VALUES (?, ?)",
@@ -88,12 +99,32 @@ impl ScyllaKVQStore {
             .prepare(format!("DELETE FROM {} WHERE key = ?", table_name))
             .await?;
 
+        let placeholders: Vec<&str> = vec!["?"; BATCH_SIZE];
+        let prepared_select_15 = session
+            .prepare(format!(
+                "SELECT key, value FROM {} WHERE key IN ({})",
+                table_name,
+                placeholders.join(",")
+            ))
+            .await?;
+
+        let prepared_delete_15 = session
+            .prepare(format!(
+                "DELETE FROM {} WHERE key IN ({})",
+                table_name,
+                placeholders.join(",")
+            ))
+            .await?;
+
         Ok(Self {
             session: session.clone(),
             table_name,
             prepared_insert,
             prepared_select,
             prepared_delete,
+            prepared_select_15,
+            prepared_delete_15,
+            semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_REQUESTS)),
         })
     }
 }
@@ -119,111 +150,131 @@ impl KVQBinaryStoreAsync for ScyllaKVQStore {
     }
 
     async fn get_many_exact(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
-        // TODO: query all at once
-        let mut result = Vec::with_capacity(keys.len());
-        for key in keys {
-            result.push(self.get_exact(key).await?);
+        if keys.is_empty() {
+            return Ok(Vec::new());
         }
-        Ok(result)
+
+        let mut all_results = std::collections::HashMap::new();
+        let mut futures: FuturesUnordered<
+            BoxFuture<'_, Result<std::collections::HashMap<Vec<u8>, Vec<u8>>>>,
+        > = FuturesUnordered::new();
+
+        for chunk in keys.chunks(BATCH_SIZE) {
+            let semaphore = self.semaphore.clone();
+            let session = self.session.clone();
+            let table_name = self.table_name.clone();
+            let prepared = if chunk.len() == BATCH_SIZE {
+                self.prepared_select_15.clone()
+            } else {
+                let placeholders: Vec<&str> = vec!["?"; chunk.len()];
+                session
+                    .prepare(format!(
+                        "SELECT key, value FROM {} WHERE key IN ({})",
+                        table_name,
+                        placeholders.join(",")
+                    ))
+                    .await?
+            };
+
+            let mut values: Vec<&[u8]> = chunk.iter().map(|k| k.as_slice()).collect();
+            if chunk.len() < BATCH_SIZE {
+                values.resize(chunk.len(), &[]);
+            } else {
+                values.resize(BATCH_SIZE, &[]);
+            }
+
+            let chunk_owned: Vec<Vec<u8>> = chunk.to_vec();
+
+            futures.push(Box::pin(async move {
+                let _permit = semaphore.acquire().await.unwrap();
+                let res = session
+                    .execute_unpaged(&prepared, values)
+                    .await?
+                    .into_rows_result()?;
+
+                let mut chunk_results = std::collections::HashMap::new();
+                if let Ok(rows) = res.rows() {
+                    for row in rows {
+                        let (key, value): (Vec<u8>, Vec<u8>) = row?;
+                        chunk_results.insert(key, value);
+                    }
+                }
+
+                for key in chunk_owned {
+                    if !chunk_results.contains_key(&key) {
+                        return Err(anyhow::anyhow!("Key not found"));
+                    }
+                }
+
+                Ok::<_, anyhow::Error>(chunk_results)
+            }));
+        }
+
+        while let Some(chunk_results) = futures.next().await {
+            let chunk_results = chunk_results?;
+            all_results.extend(chunk_results);
+        }
+
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            match all_results.remove(key) {
+                Some(value) => results.push(value),
+                None => return Err(anyhow::anyhow!("Key not found")),
+            }
+        }
+
+        Ok(results)
     }
 
     async fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Option<Vec<u8>>> {
-        // Special case for checkpoint block state table
-        // Handle both cases:
-        // 1. When called through composite adapter: table type prefix is stripped, fuzzy_bytes = 6
-        // 2. When called directly: table type prefix is present, fuzzy_bytes = 8
-        
-        let is_checkpoint_table = self.table_name.ends_with("checkpoint_block_states");
-        
-        
-        if is_checkpoint_table && ((key.len() >= 8 && fuzzy_bytes == 6) || (key.len() >= 10 && fuzzy_bytes == 8)) {
-            // Extract the requested checkpoint ID from the key
-            let requested_id = if key.len() >= 10 && fuzzy_bytes == 8 {
-                // Direct call: table type prefix is present
-                u64::from_be_bytes([
-                    key[2], key[3], key[4], key[5],
-                    key[6], key[7], key[8], key[9],
-                ])
-            } else {
-                // Through composite adapter: table type prefix is stripped
-                u64::from_be_bytes([
-                    key[0], key[1], key[2], key[3],
-                    key[4], key[5], key[6], key[7],
-                ])
-            };
-            
-            // Just scan all checkpoints and find the maximum that's <= requested
-            let query = format!("SELECT key, value FROM {} ALLOW FILTERING", self.table_name);
-            let prepared = self.session.prepare(query).await?;
-            
-            let res = self
-                .session
-                .execute_unpaged(&prepared, ())
-                .await?
-                .into_rows_result()?;
-            
-            let mut best_match: Option<(Vec<u8>, Vec<u8>)> = None;
-            
-            if let Ok(rows) = res.rows() {
-                let mut row_count = 0;
-                for row in rows {
-                    row_count += 1;
-                    let (row_key, row_value): (Vec<u8>, Vec<u8>) = row?;
-                    
-                    // Handle both cases: with or without table type prefix
-                    let row_id = if row_key.len() >= 10 {
-                        // Key includes table type prefix
-                        u64::from_be_bytes([
-                            row_key[2], row_key[3], row_key[4], row_key[5],
-                            row_key[6], row_key[7], row_key[8], row_key[9],
-                        ])
-                    } else if row_key.len() >= 8 {
-                        // Key without table type prefix
-                        u64::from_be_bytes([
-                            row_key[0], row_key[1], row_key[2], row_key[3],
-                            row_key[4], row_key[5], row_key[6], row_key[7],
-                        ])
-                    } else {
-                        continue; // Skip invalid keys
-                    };
-                        
-                    // Only consider rows where checkpoint_id <= requested_id
-                    if row_id <= requested_id {
-                        match &best_match {
-                            None => best_match = Some((row_key, row_value)),
-                            Some((best_key, _)) => {
-                                // Compare checkpoint IDs
-                                let best_id = if best_key.len() >= 10 {
-                                    u64::from_be_bytes([
-                                        best_key[2], best_key[3], best_key[4], best_key[5],
-                                        best_key[6], best_key[7], best_key[8], best_key[9],
-                                    ])
-                                } else if best_key.len() >= 8 {
-                                    u64::from_be_bytes([
-                                        best_key[0], best_key[1], best_key[2], best_key[3],
-                                        best_key[4], best_key[5], best_key[6], best_key[7],
-                                    ])
-                                } else {
-                                    0 // Should not happen
-                                };
-                                if row_id > best_id {
-                                    best_match = Some((row_key, row_value));
-                                }
+        if fuzzy_bytes == 0 {
+            return self.get_exact_if_exists(key).await;
+        }
+
+        if key.len() < fuzzy_bytes {
+            return Ok(None);
+        }
+
+        let prefix_len = key.len() - fuzzy_bytes;
+        let prefix = &key[..prefix_len];
+
+        let mut start_key = prefix.to_vec();
+        start_key.extend(vec![0x00; fuzzy_bytes]);
+
+        let end_key = key;
+
+        let query = format!(
+            "SELECT key, value FROM {} WHERE key >= ? AND key <= ? ALLOW FILTERING",
+            self.table_name
+        );
+        let prepared = self.session.prepare(query).await?;
+
+        let res = self
+            .session
+            .execute_unpaged(&prepared, (&start_key, end_key))
+            .await?
+            .into_rows_result()?;
+
+        let mut best_match: Option<(Vec<u8>, Vec<u8>)> = None;
+
+        if let Ok(rows) = res.rows() {
+            for row in rows {
+                let (row_key, row_value): (Vec<u8>, Vec<u8>) = row?;
+
+                if row_key.len() == key.len() && row_key.starts_with(prefix) {
+                    match &best_match {
+                        None => best_match = Some((row_key, row_value)),
+                        Some((best_key, _)) => {
+                            if row_key > *best_key {
+                                best_match = Some((row_key, row_value));
                             }
                         }
                     }
                 }
             }
-            
-            return Ok(best_match.map(|(_, value)| value));
         }
-        
-        // For other cases, try exact match but return None if not found
-        // TODO: Implement proper fuzzy matching for other table types
-        match self.get_exact_if_exists(key).await? {
-            Some(value) => Ok(Some(value)),
-            None => Ok(None),
-        }
+
+        Ok(best_match.map(|(_, value)| value))
     }
 
     async fn get_fuzzy_range_leq_kv(
@@ -231,33 +282,58 @@ impl KVQBinaryStoreAsync for ScyllaKVQStore {
         key: &Vec<u8>,
         fuzzy_bytes: usize,
     ) -> Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
-        // For now, we'll do a simple scan of all keys and filter
-        // This is not efficient but works for small datasets
-        let query = format!(
-            "SELECT key, value FROM {}",
-            self.table_name
-        );
-        let prepared = self.session.prepare(query).await?;
-        let mut rows_stream = self
-            .session
-            .execute_iter(prepared, ())
-            .await?
-            .rows_stream::<(Vec<u8>, Vec<u8>)>()?;
-
-        let mut result = Vec::new();
-        let key_prefix = &key[..key.len().saturating_sub(fuzzy_bytes)];
-
-        while let Some(next_row_res) = rows_stream.next().await {
-            let (k, v) = next_row_res?;
-            // Check if key matches prefix and is <= target key
-            if k.len() >= key_prefix.len() && &k[..key_prefix.len()] == key_prefix && k <= *key {
-                result.push(KVQPair { key: k, value: v });
+        if fuzzy_bytes == 0 {
+            match self.get_exact_if_exists(key).await? {
+                Some(value) => Ok(vec![KVQPair {
+                    key: key.clone(),
+                    value,
+                }]),
+                None => Ok(vec![]),
             }
-        }
+        } else {
+            if key.len() < fuzzy_bytes {
+                return Ok(vec![]);
+            }
 
-        // Sort by key to ensure proper ordering
-        result.sort_by(|a, b| a.key.cmp(&b.key));
-        Ok(result)
+            let prefix_len = key.len() - fuzzy_bytes;
+            let prefix = &key[..prefix_len];
+
+            let mut start_key = prefix.to_vec();
+            start_key.extend(vec![0x00; fuzzy_bytes]);
+
+            let end_key = key;
+
+            let query = format!(
+                "SELECT key, value FROM {} WHERE key >= ? AND key <= ? ALLOW FILTERING",
+                self.table_name
+            );
+            let prepared = self.session.prepare(query).await?;
+
+            let res = self
+                .session
+                .execute_unpaged(&prepared, (&start_key, end_key))
+                .await?
+                .into_rows_result()?;
+
+            let mut results = Vec::new();
+
+            if let Ok(rows) = res.rows() {
+                for row in rows {
+                    let (row_key, row_value): (Vec<u8>, Vec<u8>) = row?;
+
+                    if row_key.len() == key.len() && row_key.starts_with(prefix) {
+                        results.push(KVQPair {
+                            key: row_key,
+                            value: row_value,
+                        });
+                    }
+                }
+            }
+
+            results.sort_by(|a, b| a.key.cmp(&b.key));
+
+            Ok(results)
+        }
     }
 
     async fn get_leq_kv(
@@ -274,11 +350,42 @@ impl KVQBinaryStoreAsync for ScyllaKVQStore {
         keys: &[Vec<u8>],
         fuzzy_bytes: usize,
     ) -> Result<Vec<Option<Vec<u8>>>> {
-        let mut results = Vec::with_capacity(keys.len());
-        for key in keys {
-            results.push(self.get_leq(key, fuzzy_bytes).await?);
+        if keys.is_empty() {
+            return Ok(Vec::new());
         }
-        Ok(results)
+
+        let mut futures: FuturesUnordered<BoxFuture<'_, Result<(usize, Vec<Option<Vec<u8>>>)>>> =
+            FuturesUnordered::new();
+
+        for (chunk_idx, chunk) in keys.chunks(BATCH_SIZE).enumerate() {
+            let semaphore = self.semaphore.clone();
+            let chunk_owned: Vec<Vec<u8>> = chunk.to_vec();
+
+            futures.push(Box::pin(async move {
+                let _permit = semaphore.acquire().await.unwrap();
+                let mut chunk_results = Vec::with_capacity(chunk_owned.len());
+
+                for key in &chunk_owned {
+                    chunk_results.push(self.get_leq(key, fuzzy_bytes).await?);
+                }
+
+                Ok::<_, anyhow::Error>((chunk_idx, chunk_results))
+            }));
+        }
+
+        let mut indexed_results = Vec::new();
+        while let Some(result) = futures.next().await {
+            indexed_results.push(result?);
+        }
+
+        indexed_results.sort_by_key(|(idx, _)| *idx);
+
+        let mut all_results = Vec::with_capacity(keys.len());
+        for (_, chunk_results) in indexed_results {
+            all_results.extend(chunk_results);
+        }
+
+        Ok(all_results)
     }
 
     async fn get_many_leq_kv(
@@ -286,14 +393,45 @@ impl KVQBinaryStoreAsync for ScyllaKVQStore {
         keys: &[Vec<u8>],
         fuzzy_bytes: usize,
     ) -> Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
-        let mut results = Vec::with_capacity(keys.len());
-        for key in keys {
-            results.push(self.get_leq_kv(key, fuzzy_bytes).await?);
+        if keys.is_empty() {
+            return Ok(Vec::new());
         }
-        Ok(results)
+
+        let mut futures: FuturesUnordered<
+            BoxFuture<'_, Result<(usize, Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>)>>,
+        > = FuturesUnordered::new();
+
+        for (chunk_idx, chunk) in keys.chunks(BATCH_SIZE).enumerate() {
+            let semaphore = self.semaphore.clone();
+            let chunk_owned: Vec<Vec<u8>> = chunk.to_vec();
+
+            futures.push(Box::pin(async move {
+                let _permit = semaphore.acquire().await.unwrap();
+                let mut chunk_results = Vec::with_capacity(chunk_owned.len());
+
+                for key in &chunk_owned {
+                    chunk_results.push(self.get_leq_kv(key, fuzzy_bytes).await?);
+                }
+
+                Ok::<_, anyhow::Error>((chunk_idx, chunk_results))
+            }));
+        }
+
+        let mut indexed_results = Vec::new();
+        while let Some(result) = futures.next().await {
+            indexed_results.push(result?);
+        }
+
+        indexed_results.sort_by_key(|(idx, _)| *idx);
+
+        let mut all_results = Vec::with_capacity(keys.len());
+        for (_, chunk_results) in indexed_results {
+            all_results.extend(chunk_results);
+        }
+
+        Ok(all_results)
     }
 
-    // Write operations
     async fn set(&self, key: Vec<u8>, value: Vec<u8>) -> Result<()> {
         self.session
             .execute_unpaged(&self.prepared_insert, (key, value))
@@ -305,32 +443,38 @@ impl KVQBinaryStoreAsync for ScyllaKVQStore {
         self.set(key.clone(), value.clone()).await
     }
 
-    async fn set_many_ref<'a>(
-        &self,
-        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
-    ) -> Result<()> {
+    async fn set_many_ref<'a>(&self, items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>]) -> Result<()> {
         if items.is_empty() {
             return Ok(());
         }
 
-        // For small batches, use prepared batches for better performance
-        if items.len() <= 16 {
+        let mut futures: FuturesUnordered<BoxFuture<'_, Result<()>>> = FuturesUnordered::new();
+
+        for chunk in items.chunks(BATCH_SIZE) {
+            let semaphore = self.semaphore.clone();
+            let session = self.session.clone();
+            let prepared_insert = self.prepared_insert.clone();
+
             let mut batch = Batch::new(BatchType::Logged);
             batch.set_is_idempotent(true);
 
             let mut values = Vec::new();
-            for item in items {
-                batch.append_statement(self.prepared_insert.clone());
+            for item in chunk {
+                batch.append_statement(prepared_insert.clone());
                 values.push((item.key.clone(), item.value.clone()));
             }
 
-            self.session.batch(&batch, values).await?;
-        } else {
-            // For large batches, fall back to individual inserts to avoid timeouts
-            for item in items.iter() {
-                self.set_ref(item.key, item.value).await?;
-            }
+            futures.push(Box::pin(async move {
+                let _permit = semaphore.acquire().await.unwrap();
+                session.batch(&batch, values).await?;
+                Ok::<_, anyhow::Error>(())
+            }));
         }
+
+        while let Some(result) = futures.next().await {
+            result?;
+        }
+
         Ok(())
     }
 
@@ -349,15 +493,53 @@ impl KVQBinaryStoreAsync for ScyllaKVQStore {
         self.session
             .execute_unpaged(&self.prepared_delete, (key,))
             .await?;
-        Ok(true) // Assume success since ScyllaDB doesn't indicate if the key existed.
+        Ok(true)
     }
 
     async fn delete_many(&self, keys: &[Vec<u8>]) -> Result<Vec<bool>> {
-        let mut results = Vec::with_capacity(keys.len());
-        for key in keys {
-            results.push(self.delete(key).await?);
+        if keys.is_empty() {
+            return Ok(Vec::new());
         }
-        Ok(results)
+
+        let mut futures: FuturesUnordered<BoxFuture<'_, Result<()>>> = FuturesUnordered::new();
+
+        for chunk in keys.chunks(BATCH_SIZE) {
+            let semaphore = self.semaphore.clone();
+            let session = self.session.clone();
+            let prepared_delete = self.prepared_delete.clone();
+
+            if chunk.len() == BATCH_SIZE {
+                let values: Vec<&[u8]> = chunk.iter().map(|k| k.as_slice()).collect();
+                let prepared = self.prepared_delete_15.clone();
+
+                futures.push(Box::pin(async move {
+                    let _permit = semaphore.acquire().await.unwrap();
+                    session.execute_unpaged(&prepared, values).await?;
+                    Ok::<_, anyhow::Error>(())
+                }));
+            } else {
+                let mut batch = Batch::new(BatchType::Logged);
+                batch.set_is_idempotent(true);
+
+                let mut values = Vec::new();
+                for key in chunk {
+                    batch.append_statement(prepared_delete.clone());
+                    values.push((key.clone(),));
+                }
+
+                futures.push(Box::pin(async move {
+                    let _permit = semaphore.acquire().await.unwrap();
+                    session.batch(&batch, values).await?;
+                    Ok::<_, anyhow::Error>(())
+                }));
+            }
+        }
+
+        while let Some(result) = futures.next().await {
+            result?;
+        }
+
+        Ok(vec![true; keys.len()])
     }
 
     async fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> Result<()> {
@@ -372,5 +554,3 @@ impl KVQBinaryStoreAsync for ScyllaKVQStore {
         self.set_many_ref(&items).await
     }
 }
-
-

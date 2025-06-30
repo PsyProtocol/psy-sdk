@@ -1,5 +1,5 @@
 use kvq::traits::{
-    KVQBinaryStoreAsync, KVQStoreAdapter, KVQStoreAdapterReaderAsync,
+    KVQBinaryStoreAsync, KVQStoreAdapterAsync, KVQStoreAdapterReaderAsync,
 };
 use qed_store::store::scylla::kvq_store::ScyllaKVQStore;
 use qed_store::config::store_config::CHECKPOINT_BLOCK_STATE_TABLE_TYPE;

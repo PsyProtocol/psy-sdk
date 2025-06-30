@@ -1,4 +1,5 @@
 use clap::Args;
+use qed_store::store::scylla::config::ScyllaDBConfig;
 
 #[derive(Clone, Debug, Args)]
 pub struct CoordinatorWorkerArgs {
@@ -8,8 +9,8 @@ pub struct CoordinatorWorkerArgs {
         default_value = "redis://localhost:6379"
     )]
     pub redis_uri: String,
-    #[clap(long, short, default_value = "20")]
-    pub pool_size: u32,
+    #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
+    pub redis_pool_size: u32,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
 }
@@ -22,12 +23,10 @@ pub struct CoordinatorProcessorArgs {
         default_value = "redis://localhost:6379"
     )]
     pub redis_uri: String,
-    #[clap(long, short, default_value = "20")]
-    pub pool_size: u32,
-    #[clap(env = "COORDINATOR_SCYLLA_URI", long, default_value = "127.0.0.1:9042")]
-    pub scylla_uri: String,
-    #[clap(env = "COORDINATOR_SCYLLA_KEYSPACE", long, default_value = "qed_coordinator")]
-    pub scylla_keyspace: String,
+    #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
+    pub redis_pool_size: u32,
+    #[clap(flatten)]
+    pub scylla: ScyllaDBConfig,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
 }
@@ -42,10 +41,8 @@ pub struct CoordinatorEdgeArgs {
     pub redis_uri: String,
     #[clap(env = "COORDINATOR_LISTEN_ADDR", long, default_value = "0.0.0.0:8545")]
     pub listen_addr: String,
-    #[clap(env = "COORDINATOR_SCYLLA_URI", long, default_value = "127.0.0.1:9042")]
-    pub scylla_uri: String,
-    #[clap(env = "COORDINATOR_SCYLLA_KEYSPACE", long, default_value = "qed_coordinator")]
-    pub scylla_keyspace: String,
+    #[clap(flatten)]
+    pub scylla: ScyllaDBConfig,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
 }

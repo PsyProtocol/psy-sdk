@@ -133,6 +133,20 @@ pub trait KVQStoreAdapterReaderAsync<S: Sync, K: KVQSerializable + Sync, V: KVQS
     }
 }
 
+#[async_trait]
+pub trait KVQStoreAdapterAsync<S: Sync, K: KVQSerializable + Sync, V: KVQSerializable + Sync>:
+    KVQStoreAdapterReaderAsync<S, K, V>
+{
+    async fn set(s: &S, key: K, value: V) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait;
+    async fn set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()>;
+    async fn set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()> where K: 'a, V: 'a;
+    async fn set_many_split_ref(s: &S, keys: &[K], values: &[V]) -> anyhow::Result<()>;
+    async fn set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait;
+
+    async fn delete(s: &S, key: &K) -> anyhow::Result<bool>;
+    async fn delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>>;
+}
+
 pub trait KVQStoreAdapter<S, K: KVQSerializable, V: KVQSerializable>:
     KVQStoreAdapterReader<S, K, V>
 {

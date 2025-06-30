@@ -19,6 +19,7 @@ plonky2 = { workspace = true }
 twox-hash = { workspace = true }
 tracing = { workspace = true }
 indexmap = { workspace = true }
+clap = { workspace = true }
 
 kvq = { path = "../kvq" }
 qed_core = { path = "../qed_core" }
@@ -39,6 +40,8 @@ is_sync = ["maybe-async/is_sync"]
 
 [dev-dependencies]
 tempfile = "3.0"
+kvq_store_lmdbx = { path = "../kvq_store_lmdbx" }
+futures = "0.3"
 
 [[test]]
 name = "kvq_store_tests"
@@ -51,3 +54,23 @@ path = "tests/scylla/test_checkpoint_get_leq.rs"
 [[test]]
 name = "kvq_batch_tests"
 path = "tests/scylla/kvq_batch_tests.rs"
+
+[[test]]
+name = "test_batch_operations"
+path = "tests/scylla/test_batch_operations.rs"
+
+[[test]]
+name = "test_performance_comparison"
+path = "tests/scylla/test_performance_comparison.rs"
+
+[[test]]
+name = "test_clustering_optimizations"
+path = "tests/scylla/test_clustering_optimizations.rs"
+
+[[test]]
+name = "test_debug_get_leq"
+path = "tests/scylla/test_debug_get_leq.rs"
+
+[[test]]
+name = "test_performance_detailed"
+path = "tests/scylla/test_performance_detailed.rs"

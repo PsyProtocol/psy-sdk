@@ -480,19 +480,18 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
 
 impl<const TABLE_TYPE: u16> ScyllaKey for KVQMerkleNodeKey<TABLE_TYPE> {
     fn get_partition_key(&self) -> Vec<u8> {
-        let mut result = Vec::with_capacity(13);
+        let mut result = Vec::with_capacity(22);
         result.push(self.tree_id);
         result.extend_from_slice(&self.primary_id.to_be_bytes());
         result.extend_from_slice(&self.secondary_id.to_be_bytes());
+        result.push(self.level);
+        result.extend_from_slice(&self.index.to_be_bytes());
         result
     }
 
     fn get_clustering_key(&self) -> Option<Vec<u8>> {
-        let mut result = Vec::with_capacity(17);
-        result.push(self.level);
-        result.extend_from_slice(&self.index.to_be_bytes());
-        result.extend_from_slice(&self.checkpoint_id.to_be_bytes());
-        Some(result)
+        // Only checkpoint_id as clustering key for proper sorting
+        Some(self.checkpoint_id.to_be_bytes().to_vec())
     }
 
     fn get_table_type(&self) -> u16 {

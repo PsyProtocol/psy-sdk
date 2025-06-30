@@ -719,7 +719,7 @@ build_and_push_image() {
     log_info "Building image with Docker BuildKit..."
     DOCKER_BUILDKIT=1 docker build \
         -t ${PROJECT_NAME}-rollup:latest \
-        -f Dockerfile \
+        -f aws-deployment/docker/Dockerfile \
         . || {
         log_error "Docker build failed"
         exit 1
@@ -829,15 +829,35 @@ deploy_infrastructure() {
     log_info "📋 Monitor progress at: https://${AWS_REGION}.console.aws.amazon.com/cloudformation/home?region=${AWS_REGION}#/stacks/stackinfo?stackId=${STACK_NAME}"
     log_info "💻 Or use CLI: aws cloudformation --no-cli-pager describe-stack-events --stack-name ${STACK_NAME} --region ${AWS_REGION}"
     
+    # Create S3 bucket for CloudFormation templates
+    ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+    S3_BUCKET="cf-templates-${ACCOUNT_ID}-${AWS_REGION}"
+    
+    if aws s3 ls "s3://${S3_BUCKET}" 2>/dev/null; then
+        log_info "Using existing S3 bucket: ${S3_BUCKET}"
+    else
+        log_info "Creating S3 bucket for CloudFormation templates: ${S3_BUCKET}"
+        if [ "$AWS_REGION" = "us-east-1" ]; then
+            aws s3 mb "s3://${S3_BUCKET}"
+        else
+            aws s3 mb "s3://${S3_BUCKET}" --region ${AWS_REGION}
+        fi
+    fi
+    
     # Start deployment in background and monitor immediately
     aws cloudformation --no-cli-pager deploy \
         --template-file aws-deployment/cloudformation/main.yaml \
         --stack-name ${STACK_NAME} \
+        --s3-bucket ${S3_BUCKET} \
         --parameter-overrides \
             ProjectName=${PROJECT_NAME} \
             Environment=${ENVIRONMENT:-production} \
             WorkerInstanceType=${WORKER_INSTANCE_TYPE:-c6i.4xlarge} \
             KeyPairName=${KEY_PAIR_NAME} \
+            ScyllaDBInstanceType=${SCYLLA_INSTANCE_TYPE:-r6i.large} \
+            ScyllaDBInstanceCount=${SCYLLA_INSTANCE_COUNT:-3} \
+            ScyllaDBDataVolumeSize=${SCYLLA_DATA_VOLUME_SIZE:-1000} \
+            ScyllaDBCommitLogVolumeSize=${SCYLLA_COMMITLOG_VOLUME_SIZE:-200} \
         --capabilities CAPABILITY_NAMED_IAM \
         --region ${AWS_REGION} \
         --no-fail-on-empty-changeset &
@@ -860,13 +880,69 @@ deploy_infrastructure() {
 deploy_ecs_services() {
     log_info "Deploying ECS services..."
     
-    # Wait for Redis instance to be ready and SSM parameters to be set
-    log_info "Waiting for Redis instance to initialize..."
-    sleep 30
+    # Initial wait for instances to start
+    log_info "Waiting for EC2 instances to initialize..."
+    sleep 60  # Give instances time to boot and start UserData scripts
+    
+    # Wait for ScyllaDB SSM parameters to be available
+    log_info "Waiting for ScyllaDB endpoints to be configured..."
+    local max_attempts=30
+    local attempt=0
+    local all_params_ready=false
+    
+    while [ $attempt -lt $max_attempts ] && [ "$all_params_ready" = "false" ]; do
+        all_params_ready=true
+        
+        # Check if all required SSM parameters exist
+        # Check ScyllaDB endpoints
+        for param in "coordinator-endpoint" "realm0-endpoint" "realm16384-endpoint"; do
+            if ! aws ssm get-parameter --name "/${PROJECT_NAME}/scylladb/${param}" --region ${AWS_REGION} &>/dev/null; then
+                all_params_ready=false
+                log_warning "Waiting for /${PROJECT_NAME}/scylladb/${param}..."
+                break
+            fi
+        done
+        
+        # Check Redis endpoints
+        for param in "coordinator/endpoint" "realm0/endpoint" "realm16384/endpoint"; do
+            if ! aws ssm get-parameter --name "/${PROJECT_NAME}/redis/${param}" --region ${AWS_REGION} &>/dev/null; then
+                all_params_ready=false
+                log_warning "Waiting for /${PROJECT_NAME}/redis/${param}..."
+                break
+            fi
+        done
+        
+        if [ "$all_params_ready" = "false" ]; then
+            sleep 10
+            ((attempt++))
+        fi
+    done
+    
+    if [ "$all_params_ready" = "false" ]; then
+        log_error "ScyllaDB endpoints not configured after $max_attempts attempts"
+        return 1
+    fi
+    
+    log_info "✅ All ScyllaDB endpoints are configured"
+    
+    # Display all configured endpoints
+    log_info "📍 Configured endpoints:"
+    log_info "ScyllaDB:"
+    for param in "coordinator-endpoint" "realm0-endpoint" "realm16384-endpoint"; do
+        endpoint=$(aws ssm get-parameter --name "/${PROJECT_NAME}/scylladb/${param}" --region ${AWS_REGION} --query 'Parameter.Value' --output text 2>/dev/null || echo "Error reading parameter")
+        log_info "  /${PROJECT_NAME}/scylladb/${param}: $endpoint"
+    done
+    
+    log_info "Redis:"
+    for param in "coordinator/endpoint" "realm0/endpoint" "realm16384/endpoint"; do
+        endpoint=$(aws ssm get-parameter --name "/${PROJECT_NAME}/redis/${param}" --region ${AWS_REGION} --query 'Parameter.Value' --output text 2>/dev/null || echo "Error reading parameter")
+        log_info "  /${PROJECT_NAME}/redis/${param}: $endpoint"
+    done
     
     aws cloudformation --no-cli-pager deploy \
         --template-file aws-deployment/cloudformation/ecs-services.yaml \
         --stack-name ${PROJECT_NAME}-ecs-services \
+        --s3-bucket ${S3_BUCKET} \
         --parameter-overrides \
             ProjectName=${PROJECT_NAME} \
             Environment=${ENVIRONMENT:-production} \
@@ -876,6 +952,92 @@ deploy_ecs_services() {
         --no-fail-on-empty-changeset
     
     log_info "ECS services deployed successfully."
+    
+    # Update RPC config with ALB URL
+    update_rpc_config
+}
+
+# Function to update rpc.config with deployed ALB URL
+update_rpc_config() {
+    log_info "Updating rpc.config with deployed endpoints..."
+    
+    # Get ALB DNS name
+    ALB_DNS=$(aws cloudformation describe-stacks \
+        --stack-name ${PROJECT_NAME}-infrastructure \
+        --region ${AWS_REGION} \
+        --query 'Stacks[0].Outputs[?OutputKey==`ALBDNSName`].OutputValue' \
+        --output text)
+    
+    if [ -z "$ALB_DNS" ]; then
+        log_warning "Could not retrieve ALB DNS name"
+        return
+    fi
+    
+    # Create new rpc.config
+    cat > rpc.config << EOF
+{
+	"users_per_realm": 32768,
+	"realm_configs": [
+		{
+			"id": 0,
+			"rpc_url": [
+				"http://${ALB_DNS}:8546"
+			]
+		},
+		{
+			"id": 16384,
+			"rpc_url": [
+				"http://${ALB_DNS}:8547"
+			]
+		}
+	],
+	"coordinator_configs": [
+		{
+			"id": 0,
+			"rpc_url": [
+				"http://${ALB_DNS}:8545"
+			]
+		}
+	]
+}
+EOF
+    
+    log_info "✅ Updated rpc.config with ALB URL: ${ALB_DNS}"
+    
+    # Print helpful log commands
+    print_log_commands
+}
+
+# Function to print log viewing commands
+print_log_commands() {
+    cat << EOF
+
+📋 Useful commands for monitoring:
+
+# ECS Service Logs (replace TASK_ID with actual task ID):
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "coordinator-processor/coordinator-processor/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "coordinator-worker/coordinator-worker/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "coordinator-edge/coordinator-edge/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm0-processor/realm0-processor/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm0-worker/realm0-worker/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm0-edge/realm0-edge/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm16384-processor/realm16384-processor/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm16384-worker/realm16384-worker/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm16384-edge/realm16384-edge/TASK_ID" --follow --region ${AWS_REGION}
+
+# List all log streams:
+aws logs describe-log-streams --log-group-name /ecs/${PROJECT_NAME} --region ${AWS_REGION} --query 'logStreams[*].logStreamName' --output table
+
+# Redis logs (on Redis instance):
+aws ssm send-command --instance-ids REDIS_INSTANCE_ID --document-name AWS-RunShellScript --parameters 'commands=["tail -f /var/log/redis/*.log"]' --region ${AWS_REGION}
+
+# ScyllaDB logs (on ScyllaDB instances):
+aws ssm send-command --instance-ids SCYLLA_INSTANCE_ID --document-name AWS-RunShellScript --parameters 'commands=["docker logs -f scylladb"]' --region ${AWS_REGION}
+
+# Get instance IDs:
+aws ec2 describe-instances --filters "Name=tag:Project,Values=${PROJECT_NAME}" "Name=instance-state-name,Values=running" --region ${AWS_REGION} --query 'Reservations[].Instances[].[Tags[?Key==\`Name\`].Value|[0],InstanceId]' --output table
+
+EOF
 }
 
 # Main cleanup function (enhanced with specialized EFS cleanup)

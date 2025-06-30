@@ -72,18 +72,18 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     debug!("Realm Edge node config: {:?}", config);
 
     // Create storage and queues
-    let proof_store = creat_fred_store(config.clone()).await?;
+    let proof_store = creat_redis_store(config.clone()).await?;
     // Create proof storage
     let proof_store = Arc::new(proof_store);
     let checkpoint_queue = proof_store.clone();
 
     // Create ScyllaDB storage reader
-    info!("🗄️ Using ScyllaDB storage: {}:{}", config.scylla.scylla_uri, config.scylla.scylla_keyspace);
+    info!("🗄️ Using ScyllaDB storage: {}:{}", config.scylla.uri, config.scylla.keyspace);
     let scylla_store = ScyllaStore::new(
-        &config.scylla.scylla_uri,
-        &config.scylla.scylla_keyspace,
+        &config.scylla.uri,
+        &config.scylla.keyspace,
     ).await?;
-    
+
     let store_reader = Arc::new(scylla_store);
 
     debug!("created store reader successfully!");
