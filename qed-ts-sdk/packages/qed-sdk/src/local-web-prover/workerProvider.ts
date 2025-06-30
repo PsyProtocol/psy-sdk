@@ -1,26 +1,16 @@
 import { WebProverConfig } from "./config";
+import { WorkerMessage, WorkerResponse } from "./worker";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
     IQedUserProverProvider,
     QBCDeployContract,
+    QedUserProverRPCCommand,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo } from "../types";
 
-// Message types for worker communication
-interface WorkerMessage {
-    id: string;
-    method: string;
-    params: any[];
-}
-
-interface WorkerResponse {
-    id: string;
-    result?: any;
-    error?: string;
-}
 
 export class QedWasmWebWorkerProverProvider implements IQedUserProverProvider {
     private worker: Worker;
@@ -94,62 +84,62 @@ export class QedWasmWebWorkerProverProvider implements IQedUserProverProvider {
     }
 
     async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
-        return this.callWorkerMethod('execContractCall', [pkHash, contractCallArg]);
+        return this.callWorkerMethod(QedUserProverRPCCommand.ExecContractCall, [pkHash, contractCallArg]);
     }
 
     // Local proving operations
     async startSession(pkHash: PublicKey): Promise<string> {
-        return this.callWorkerMethod('startSession', [pkHash]);
+        return this.callWorkerMethod(QedUserProverRPCCommand.StartSession, [pkHash]);
     }
 
     async proveContractCall(pkHash: PublicKey, contractCallArg: ContractCallArgs): Promise<string> {
-        return this.callWorkerMethod('proveContractCall', [pkHash, contractCallArg]);
+        return this.callWorkerMethod(QedUserProverRPCCommand.ProveContractCall, [pkHash, contractCallArg]);
     }
 
     async proveContractCalls(pkHash: PublicKey, contractCallArgs: ContractCallArgs[]): Promise<string> {
-        return this.callWorkerMethod('proveContractCalls', [pkHash, contractCallArgs]);
+        return this.callWorkerMethod(QedUserProverRPCCommand.ProveContractCalls, [pkHash, contractCallArgs]);
     }
 
     async signAndSubmit(pkHash: PublicKey): Promise<string> {
-        return this.callWorkerMethod('signAndSubmit', [pkHash]);
+        return this.callWorkerMethod(QedUserProverRPCCommand.SignAndSubmit, [pkHash]);
     }
 
     // User operations
     async registerUser(privateKey: PrivateKey): Promise<PublicKey> {
-        return this.callWorkerMethod('registerUser', [privateKey.toString()]);
+        return this.callWorkerMethod(QedUserProverRPCCommand.RegisterUser, [privateKey]);
     }
 
     async addUser(privateKey: PrivateKey): Promise<PublicKey> {
-        return this.callWorkerMethod('addUser', [privateKey.toString()]);
+        return this.callWorkerMethod(QedUserProverRPCCommand.AddUser, [privateKey]);
     }
 
     async getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo> {
-        return this.callWorkerMethod('getZKPublicKey', [privateKey.toString()]);
+        return this.callWorkerMethod(QedUserProverRPCCommand.GetZKPublicKey, [privateKey]);
     }
 
     async getRandomKeypair(): Promise<WalletKeyPair> {
-        return this.callWorkerMethod('getRandomKeypair', []);
+        return this.callWorkerMethod(QedUserProverRPCCommand.GetRandomKeypair, []);
     }
 
     // Contract deployment
     async deployContract(deployer: PublicKey, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
-        return this.callWorkerMethod('deployContract', [deployer, circuitDefs]);
+        return this.callWorkerMethod(QedUserProverRPCCommand.DeployContract, [deployer, circuitDefs]);
     }
 
     async getDeployContractCmd(
         deployer: PublicKey,
         circuitDefs: DPNFunctionCircuitDefinition[]
     ): Promise<QBCDeployContract> {
-        return this.callWorkerMethod('getDeployContractCmd', [deployer, circuitDefs]);
+        return this.callWorkerMethod(QedUserProverRPCCommand.GetDeployContractCmd, [deployer, circuitDefs]);
     }
 
     // Utility methods
     async ping(message: string): Promise<string> {
-        return this.callWorkerMethod('ping', [message]);
+        return this.callWorkerMethod(QedUserProverRPCCommand.Ping, [message]);
     }
 
     async getResult(id: QHashOut): Promise<U8Bytes> {
-        return this.callWorkerMethod('getResult', [id.toString()]);
+        return this.callWorkerMethod(QedUserProverRPCCommand.GetResult, [id]);
     }
 
     // Clean up resources

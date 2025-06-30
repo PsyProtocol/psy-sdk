@@ -1,5 +1,6 @@
 import { WebProverConfig } from "./config";
 import initWasm, { WasmRpcServer } from "./qed_user_prover";
+import { QedUserProverRPCCommand } from "../local-prover-rpc/types";
 import { QedJSON } from "../utils";
 
 // Message types for worker communication
@@ -42,49 +43,49 @@ async function handleMethodCall(method: string, params: any[]): Promise<any> {
     }
 
     switch (method) {
-        case 'execContractCall':
+        case QedUserProverRPCCommand.ExecContractCall:
             return wasmServer.exec_contract_call_json(params[0], QedJSON.stringify(params[1]));
         
-        case 'startSession':
+        case QedUserProverRPCCommand.StartSession:
             return wasmServer.start_session(params[0]);
         
-        case 'proveContractCall':
+        case QedUserProverRPCCommand.ProveContractCall:
             return wasmServer.prove_contract_call_json(params[0], QedJSON.stringify(params[1]));
         
-        case 'proveContractCalls':
+        case QedUserProverRPCCommand.ProveContractCalls:
             return wasmServer.prove_contract_calls_json(params[0], QedJSON.stringify(params[1]));
         
-        case 'signAndSubmit':
+        case QedUserProverRPCCommand.SignAndSubmit:
             return wasmServer.sign_and_submit(params[0]);
         
-        case 'registerUser':
+        case QedUserProverRPCCommand.RegisterUser:
             return wasmServer.register_user(params[0]);
         
-        case 'addUser':
+        case QedUserProverRPCCommand.AddUser:
             return wasmServer.add_user(params[0]);
         
-        case 'getZKPublicKey': {
+        case QedUserProverRPCCommand.GetZKPublicKey: {
             const zkResult = await wasmServer.get_zk_public_key_json(params[0]);
             return QedJSON.parse(zkResult);
         }
         
-        case 'getRandomKeypair': {
+        case QedUserProverRPCCommand.GetRandomKeypair: {
             const keypairResult = await wasmServer.get_random_keypair_json();
             return QedJSON.parse(keypairResult);
         }
         
-        case 'deployContract':
+        case QedUserProverRPCCommand.DeployContract:
             return wasmServer.deploy_contract_json(params[0], QedJSON.stringify(params[1]));
         
-        case 'getDeployContractCmd': {
+        case QedUserProverRPCCommand.GetDeployContractCmd: {
             const deployResult = await wasmServer.get_deploy_contract_cmd_json(params[0], QedJSON.stringify(params[1]));
             return QedJSON.parse(deployResult);
         }
         
-        case 'ping':
+        case QedUserProverRPCCommand.Ping:
             return wasmServer.ping(params[0]);
         
-        case 'getResult':
+        case QedUserProverRPCCommand.GetResult:
             return wasmServer.get_result(params[0]);
         
         default:
