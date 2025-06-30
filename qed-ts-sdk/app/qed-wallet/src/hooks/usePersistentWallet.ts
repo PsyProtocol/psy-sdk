@@ -163,7 +163,7 @@ export const usePersistentWallet = () => {
             wallets: walletsData,
             activeWalletId: currentWallet?.userId ? 
               (typeof currentWallet.userId === 'bigint' ? Number(currentWallet.userId) : currentWallet.userId) : 
-              undefined,
+              walletsData[0]?.userId,
             lastUpdated: Date.now(),
           };
 
