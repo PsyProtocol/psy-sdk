@@ -9,7 +9,6 @@ use std::marker::PhantomData;
 mod core;
 mod fixed_config;
 mod semi_fixed_config;
-// pub mod core_imm; // Commented out due to missing traits in kvq
 
 pub use core::{
     KVQMerkleTreeModelReaderCore,
