@@ -28,7 +28,8 @@ qed_crypto = { path = "../qed_crypto" }
 thiserror = { workspace = true }
 maybe-async = { workspace = true }
 
-# ScyllaDB support
+# ScyllaDB support - only for non-WASM targets
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 scylla = { version = "0.15.1" }
 futures = { version = "0.3.0" }
 tokio = { version = "1.43.0", features = ["full"] }
