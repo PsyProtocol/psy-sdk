@@ -76,7 +76,7 @@ function createMemoryWalletProvider(
     } else {
         // Synchronously initialize WASM before creating provider
         // initWasmSync();
-        initStaticWasmSync();
+        // initStaticWasmSync();
         userProver = new QedWasmWebProverProvider({
             users_per_realm: userPerRealm,
             realm_configs: realmRpcConfigs,

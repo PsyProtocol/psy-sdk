@@ -25,14 +25,7 @@ export async function createQedProverProvider(
             return new QedWasmWebProverProvider(config);
         }
         
-        const workerProvider = new QedWasmWebWorkerProverProvider(workerScript, config);
-        // Wait for worker initialization
-        await new Promise((resolve) => {
-            // The worker provider handles initialization internally
-            // This is just to ensure the API is consistent
-            setTimeout(resolve, 100);
-        });
-        return workerProvider;
+        return new QedWasmWebWorkerProverProvider(workerScript, config);
     } else {
         return new QedWasmWebProverProvider(config);
     }
