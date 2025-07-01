@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use chrono::Utc;
 use fred::prelude::{KeysInterface, Pool};
@@ -790,6 +790,8 @@ impl<
     }
 
     pub async fn build_block(&mut self) -> anyhow::Result<()> {
+        let start = Instant::now();
+        info!("coordinator STARTED new block");
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
@@ -1053,6 +1055,8 @@ impl<
             "lastest block state: {:?}",
             self.latest_block_state,
         );
+
+        info!("coordinator FINISHED block {} in {}ms", self.latest_block_state.checkpoint_id, start.elapsed().as_millis());
 
         Ok(())
     }
