@@ -1,6 +1,6 @@
 import { WebProverConfig, createDefaultRpcConfig } from "./config";
 import { QedWasmWebProverProvider } from "./provider";
-import { QedWasmWebWorkerProverProvider } from "./workerProvider";
+import { QedProverClient } from "./workerProvider";
 import { IQedUserProverProvider } from "../local-prover-rpc/types";
 
 export interface ProverFactoryOptions {
@@ -10,9 +10,9 @@ export interface ProverFactoryOptions {
 }
 
 
-export async function createQedProverProvider(
+export function createQedProverProvider(
     options: ProverFactoryOptions = {}
-): Promise<IQedUserProverProvider> {
+): IQedUserProverProvider {
     const {
         useWorker = false,
         workerScript = './worker.js', // Default worker script path
@@ -25,7 +25,7 @@ export async function createQedProverProvider(
             return new QedWasmWebProverProvider(config);
         }
         
-        return new QedWasmWebWorkerProverProvider(workerScript, config);
+        return new QedProverClient(workerScript, config);
     } else {
         return new QedWasmWebProverProvider(config);
     }
@@ -39,6 +39,6 @@ export function createMainThreadProvider(config?: WebProverConfig): QedWasmWebPr
 export function createWebWorkerProvider(
     workerScript: string,
     config?: WebProverConfig
-): QedWasmWebWorkerProverProvider {
-    return new QedWasmWebWorkerProverProvider(workerScript, config || createDefaultRpcConfig());
+): QedProverClient {
+    return new QedProverClient(workerScript, config || createDefaultRpcConfig());
 } 
