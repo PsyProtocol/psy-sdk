@@ -227,6 +227,9 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 if (!wallet) {
                     return {};
                 }
+                if (!wallet.wallet.status) {
+                    return {};
+                }
                 const userInfo = await wallet.wallet.getUserInfo();
 
                 const wallets = state.wallets.map((w) => {
@@ -252,6 +255,9 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 }
                 const wallet = state.wallets.find((wallet) => wallet.userId === userId);
                 if (!wallet) {
+                    return {};
+                }
+                if (!wallet.wallet.status) {
                     return {};
                 }
                 // Sync the RPC provider with the new active wallet
@@ -283,7 +289,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 const iqWallets = await getAllIQWallets(state.provider);
                 const newWallet = iqWallets.filter((x) => x.publicKeyHex === publicKeyHex)[0];
 
-                if (newWallet) {
+                if (newWallet && newWallet.wallet.status) {
                     return {
                         wallets: iqWallets,
                         currentWallet: newWallet,
@@ -330,7 +336,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 if (changeCurrent) {
                     const wallet = iqWallets.filter((x) => x.publicKeyHex === publicKeyHex)[0];
                     console.log("Found matching wallet for current:", wallet);
-                    if (wallet) {
+                    if (wallet && wallet.wallet.status) {
                         return {
                             wallets: iqWallets,
                             currentWallet: wallet,
