@@ -1,5 +1,5 @@
 import { StoreApi, create } from "zustand";
-import { IQedWidgetWallet } from "../types";
+import { IQedWidgetWallet, DEFAULT_WALLET_NAME } from "../types";
 import {
     TQedTransactionSignerAbility,
     TQedTransactionSignerProviderAbility,
@@ -68,7 +68,7 @@ async function getAllIQWallets(provider: QedUserWalletProvider): Promise<IQedWid
             console.log(`getAllIQWallets: Wallet ${index} info:`, userInfo);
             return {
                 ...userInfo,
-                name: userInfo.userId.toString(),
+                name: user.status ? userInfo.userId.toString() : DEFAULT_WALLET_NAME,
                 address: userInfo.publicKeyHex,
                 wallet: user,
                 isActive: false,
@@ -230,7 +230,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 const userInfo = await wallet.wallet.getUserInfo();
 
                 const wallets = state.wallets.map((w) => {
-                    if (w.userId === wallet.userId) {
+                    if (w.wallet.statue && w.userId === wallet.userId) {
                         return { ...userInfo, name: userInfo.userId.toString(), address: userInfo.publicKeyHex, wallet: wallet.wallet };
                     } else {
                         return w;
@@ -242,7 +242,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
 
                 return {
                     wallets,
-                    currentWallet: { ...userInfo, name: userInfo.userId.toString(), address: userInfo.publicKeyHex, wallet: wallet.wallet },
+                    currentWallet: { ...userInfo, name: wallet.wallet ? userInfo.userId.toString() : DEFAULT_WALLET_NAME, address: userInfo.publicKeyHex, wallet: wallet.wallet },
                 };
             }),
         setActiveWallet: (userId: number) =>

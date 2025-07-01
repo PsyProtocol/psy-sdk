@@ -26,6 +26,7 @@ class QedUserWallet implements IQedUserWallet {
 
     userId: number;
     publicKeyHex: string;
+    status: boolean;
 
     constructor(
         networkId: NetworkId,
@@ -33,7 +34,8 @@ class QedUserWallet implements IQedUserWallet {
         coordinator: ICoordinatorEdgeRpcProvider,
         realm: IRealmEdgeRpcProvider,
         userId: number,
-        publicKeyHex: string
+        publicKeyHex: string,
+        status: boolean,
     ) {
         this.networkId = networkId;
         this.networkMagic = getQedNetworkMagicForNetworkId(this.networkId);
@@ -43,6 +45,7 @@ class QedUserWallet implements IQedUserWallet {
 
         this.userId = userId;
         this.publicKeyHex = publicKeyHex;
+        this.status = status;
     }
 
     async refresh(): Promise<QEDUserLeaf> {
@@ -53,9 +56,11 @@ class QedUserWallet implements IQedUserWallet {
 
             user.balance = cache.localBalance;
             user.nonce = cache.localNonce;
+            this.status = true;
             return user;
         } catch (e) {
             console.warn("Error refreshing user wallet:", e);
+            this.status = false;
             return {
                 public_key: this.publicKeyHex,
                 user_state_tree_root: this.publicKeyHex,

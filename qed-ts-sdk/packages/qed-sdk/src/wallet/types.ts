@@ -23,6 +23,7 @@ interface IQedCompleteUserInfo extends ICoreQedUserInfo {
 
 interface IQedUserWallet {
     // prover: IQedUserProverProvider;
+    status: bool;
     signer: IQedTransactionSigner;
     getUserInfo(): Promise<IQedCompleteUserInfo>;
     getBalance(): Promise<bigint>;
