@@ -204,6 +204,7 @@ where
         let result = self.prove_base(
             &VerifyTwoGUTAProofGadgetStandardInput {
                 checkpoint_tree_root: r.input.checkpoint_tree_root,
+                b_checkpoint_tree_root: r.input.b_checkpoint_tree_root,
                 stats_a: r.input.stats_a,
                 stats_b: r.input.stats_b,
                 nca_proof: r.input.nca_proof,

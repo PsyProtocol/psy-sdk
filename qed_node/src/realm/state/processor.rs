@@ -652,9 +652,13 @@ impl<
                     0,
                 );
                 combo_stats.push((w_id.get_output_id(), l_stats.combine_with(&r_stats)));
+
+                let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
+                let b_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[r_dep_ind as usize].value)?.input.checkpoint_tree_root;
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoGUTAProofGadgetStandardInputSimple {
-                        checkpoint_tree_root,
+                        checkpoint_tree_root: a_checkpoint_tree_root,
+                        b_checkpoint_tree_root,
                         stats_a: l_stats,
                         stats_b: r_stats,
                         nca_proof: res.nca_proofs[i].to_partial(),
@@ -669,10 +673,11 @@ impl<
             } else if l_dep_ind != -1 {
                 eprintln!("DEBUGPRINT[703]: processor.rs:669 (after  else if l_dep_ind != -1 )");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
-
+                let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoGUTAProofGadgetStandardInputSimple {
-                        checkpoint_tree_root,
+                        checkpoint_tree_root: a_checkpoint_tree_root,
+                        b_checkpoint_tree_root: guta_queue_items.last().as_ref().unwrap().checkpoint_tree_proof.root,
                         stats_a: l_stats,
                         stats_b: guta_queue_items
                             .last()

@@ -172,6 +172,7 @@ impl<
         let checkpoint_id = self.get_checkpoint_id_async().await?;
         let next_checkpoint_id = checkpoint_id + 2;
         if end_cap_checkpoint_id > checkpoint_id {
+            tracing::info!("ensure end cap checkpoint id: {} {} {}", checkpoint_id, end_cap_checkpoint_id, next_checkpoint_id);
             anyhow::bail!("invalid checkpoint id");
         }
 

@@ -26,10 +26,10 @@ impl TwoNCAStateTransitionGadget {
         let update_nca_proof_gadget = UpdateNearestCommonAncestorProofOptGadget::add_virtual_to_full::<H,F,D>(builder, GLOBAL_USER_TREE_HEIGHT as usize);
         eprintln!("DEBUGPRINT[715]: two_nca_state_transition.rs:24: update_nca_proof_gadget={:#?}", update_nca_proof_gadget);
 
-        builder.connect_hashes(
-            a_header.checkpoint_tree_root,
-            b_header.checkpoint_tree_root,
-        );
+        // builder.connect_hashes(
+        //     a_header.checkpoint_tree_root,
+        //     b_header.checkpoint_tree_root,
+        // );
         builder.connect_hashes(
             a_header.guta_circuit_whitelist,
             b_header.guta_circuit_whitelist,
