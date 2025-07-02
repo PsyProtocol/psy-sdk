@@ -7,5 +7,7 @@ interface IQedWidgetWallet extends IQedCompleteUserInfo {
   isActive: boolean;
 }
 
+export const DEFAULT_WALLET_NAME = "******";
+
 
 export type { IQedWidgetWallet };

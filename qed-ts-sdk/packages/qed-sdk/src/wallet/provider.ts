@@ -34,22 +34,23 @@ class QedUserWalletProvider implements IQedUserWalletProvider {
         const userIds = await Promise.all(
             publicKeys.map(async (publicKey) => {
                 try {
-                    return await this.coordinatorEdgeRpcProvider.getUserId(publicKey);
+                    return [await this.coordinatorEdgeRpcProvider.getUserId(publicKey), true];
                 } catch (error) {
                     console.warn(`Failed to get user ID for public key ${publicKey}:`, error);
-                    return 0;
+                    return [0, false];
                 }
             })
         );
         return userIds.map(
-            (uid, index) =>
+            ([uid, status], index) =>
                 new QedUserWallet(
                     this.networkId,
                     signers[index],
                     this.coordinatorEdgeRpcProvider,
                     this.realmEdgeRpcProvider.getRpcProviderByUserId(uid),
                     uid,
-                    publicKeys[index]
+                    publicKeys[index],
+                    status,
                 )
         );
     }
