@@ -1,10 +1,6 @@
-import { Felt, PrivateKey, PublicKey, SCNumberLike } from "../core";
+import { Felt } from "../core";
 import {
     ContractCallArgs,
-    DPNFunctionCircuitDefinition,
-    IQedUserProverProvider,
-    QBCDeployContract,
-    WalletKeyPair,
 } from "../local-prover-rpc";
 import { IQedTransactionSigner, IQedTransactionSignerProvider } from "../zksigner";
 import { NetworkId } from "../action";
@@ -23,7 +19,7 @@ interface IQedCompleteUserInfo extends ICoreQedUserInfo {
 
 interface IQedUserWallet {
     // prover: IQedUserProverProvider;
-    status: bool;
+    status: boolean;
     signer: IQedTransactionSigner;
     getUserInfo(): Promise<IQedCompleteUserInfo>;
     getBalance(): Promise<bigint>;
