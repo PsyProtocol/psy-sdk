@@ -25,13 +25,11 @@ function createMemoryWalletProvider(
         userProver = new QedRPCUserProverProvider(proverUrl);
     } else {
         // Synchronously initialize WASM before creating provider
-        const now = new Date().getTime();
         userProver = new QedWasmWebProverProvider({
             users_per_realm: userPerRealm,
             realm_configs: realmRpcConfigs,
             coordinator_configs: coordinatorRpcConfigs,
         });
-        console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
     }
 
     const transactionSignerProvider = new QedMemoryTransactionSignerProvider(userProver, networkId);

@@ -32,15 +32,30 @@ export class QedWasmWebProverProvider implements IQedUserProverProvider {
     constructor(rpcConfigJson: WebProverConfig) {
         const json = QedJSON.stringify(rpcConfigJson);
         if (!QedWasmWebProverProvider.wasmServer) {
+            const now = new Date().getTime();
             initWasmSync();
             QedWasmWebProverProvider.wasmServer = new WasmRpcServer(json);
+            console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
         }
     }
 
+    // async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
+    //     const now = new Date().getTime();
+    //     const json = QedJSON.stringify(contractCallArg);
+    //     const result = await QedWasmWebProverProvider.wasmServer.exec_contract_call_json(pkHash, json);
+    //     console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
+    //     return result;
+    // }
 
     async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
-        const json = QedJSON.stringify(contractCallArg);
-        return QedWasmWebProverProvider.wasmServer.exec_contract_call_json(pkHash, json);
+        const now = new Date().getTime();
+        
+        await this.startSession(pkHash);
+        const result = await this.proveContractCalls(pkHash, contractCallArg);
+        await this.signAndSubmit(pkHash);
+
+        console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
+        return result;
     }
 
     // Local proving operations
@@ -49,22 +64,34 @@ export class QedWasmWebProverProvider implements IQedUserProverProvider {
     }
 
     async proveContractCall(pkHash: PublicKey, contractCallArg: ContractCallArgs): Promise<string> {
+        const now = new Date().getTime();
         const json = QedJSON.stringify(contractCallArg);
-        return QedWasmWebProverProvider.wasmServer.prove_contract_call_json(pkHash, json);
+        const result = await QedWasmWebProverProvider.wasmServer.prove_contract_call_json(pkHash, json);
+        console.log(`proveContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
+        return result;
     }
 
     async proveContractCalls(pkHash: PublicKey, contractCallArgs: ContractCallArgs[]): Promise<string> {
+        const now = new Date().getTime();
         const json = QedJSON.stringify(contractCallArgs);
-        return QedWasmWebProverProvider.wasmServer.prove_contract_calls_json(pkHash, json);
+        const result = await QedWasmWebProverProvider.wasmServer.prove_contract_calls_json(pkHash, json);
+        console.log(`proveContractCalls in ${(new Date().getTime() - now) / 1000} seconds`);
+        return result;
     }
 
     async signAndSubmit(pkHash: PublicKey): Promise<string> {
-        return QedWasmWebProverProvider.wasmServer.sign_and_submit(pkHash);
+        const now = new Date().getTime();
+        const result = await QedWasmWebProverProvider.wasmServer.sign_and_submit(pkHash);
+        console.log(`signAndSubmit in ${(new Date().getTime() - now) / 1000} seconds`);
+        return result;
     }
 
     // User operations
     async registerUser(privateKey: PrivateKey): Promise<PublicKey> {
-        return QedWasmWebProverProvider.wasmServer.register_user(privateKey.toString());
+        const now = new Date().getTime();
+        const result = await QedWasmWebProverProvider.wasmServer.register_user(privateKey.toString());
+        console.log(`registerUser in ${(new Date().getTime() - now) / 1000} seconds`);
+        return result;
     }
 
     async addUser(privateKey: PrivateKey): Promise<PublicKey> {
