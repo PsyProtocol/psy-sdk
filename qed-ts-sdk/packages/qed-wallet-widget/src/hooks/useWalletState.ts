@@ -9,7 +9,7 @@ import {
 } from "@qed/qed-sdk";
 import { createMemoryWalletProvider } from "../utils/provider";
 import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
-import { DEFAULT_PROVER_URL, loadConfig } from "../config";
+import { loadConfig } from "../config";
 
 enum WalletWidgetLoadingState {
     Loading,
@@ -115,7 +115,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
         config.network.coordinator_configs, // coordinator
         config.network.realm_configs, // realm
         config.network.users_per_realm,
-        config.network.prover_url || DEFAULT_PROVER_URL, // prover
+        config.network.prover_url, // prover
     );
     return {
         loadingState: WalletWidgetLoadingState.Ready,
