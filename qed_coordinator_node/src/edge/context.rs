@@ -15,13 +15,14 @@ use tracing::info;
 use qed_node::coordinator::state::edge::CoordinatorEdgeContext;
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
 use qed_node::nimpl::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
-use qed_node::nimpl::new_fred_pool;
+use qed_node::nimpl::{new_fred_pool, new_redis_async_pool};
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
+use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 use qed_node_common::verifier::get_cached_generic_verifier;
 
 pub type StoreReader = KVQArcImmutableStoreWrapper<KVQlibmdbxStore>;
-pub type DrainQueue = ProofStoreFred;
-pub type ProofStore = ProofStoreFred;
+pub type DrainQueue = ProofStoreRedisAsync;
+pub type ProofStore = ProofStoreRedisAsync;
 
 pub static LATEST_CHECKPOINT_ID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(0));
 
@@ -49,20 +50,23 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     let store_wrapper = KVQArcImmutableStoreWrapper::new(store);
     let store_reader = Arc::new(store_wrapper.dup());
 
-    let redis_pool = new_fred_pool(&config.redis_uri, 8).await?;
+    let redis_pool = new_redis_async_pool(
+        &config.redis_uri,
+        8
+    ).await?;
     init_node_redis_pool(redis_pool.clone())?;
 
     let sync_queue = DrainQueueRedisAsync::new(&config.redis_uri).await?;
 
     let qe_args = &config.queue_args;
 
-    let proof_store = Arc::new(ProofStoreFred::new2(
+    let proof_store = Arc::new(ProofStoreRedisAsync::new2(
         redis_pool.clone(),
         &qe_args.worker_queue_suffix,
         &qe_args.notifications_queue_suffix,
         &qe_args.proof_store_key_suffix,
         &qe_args.proof_store_key_suffix,
-    ));
+    ).await?);
 
     // init verifier
     let verifier = Arc::new(get_cached_generic_verifier::<_, 2>());
