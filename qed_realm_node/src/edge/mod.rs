@@ -22,6 +22,8 @@ use tracing::{debug, info};
 use qed_node::nimpl::{new_fred_pool, new_redis_async_pool};
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
+use hyper::Method;
+use tower_http::cors::{AllowHeaders, Any, CorsLayer};
 
 pub async fn creat_fred_store(config: RealmEdgeConfig) -> Result<ProofStoreFred> {
     // Create storage and queues
@@ -48,7 +50,7 @@ pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedi
         config.redis.redis_uri.as_str(),
         config.redis.pool_size.unwrap_or(10)
     ).await?;
-    // Create storage and queues  
+    // Create storage and queues
     let proof_store = ProofStoreRedisAsync::new2(
         pool,
         &config.queue.worker_queue_suffix,
@@ -90,7 +92,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     // Create Realm configuration
     let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
     debug!("created realm config successfully!");
-    
+
     let queue = Queue::new(config.redis.redis_uri.as_str(), config.redis.pool_size.unwrap_or(10), config.queue.worker_queue_suffix.clone()).await?;
 
     let queue = Arc::new(queue);
@@ -105,16 +107,26 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     )
     .await?;
 
+    let cors_opts = CorsLayer::new()
+        .allow_methods([
+            Method::POST,
+            Method::OPTIONS,
+        ])
+        .allow_origin(Any)
+        .allow_headers(Any);
+    let cors = tower::ServiceBuilder::new().layer(cors_opts);
+
     // Start RPC server
     let server_handle = ServerBuilder::default()
+        .set_http_middleware(cors)
         .build(&config.rpc.listen_addr)
         .await?;
 
     let handle = server_handle.start(edge_ctx.into_rpc());
     info!("Realm Edge node started on {}", config.rpc.listen_addr.clone());
-    
+
     let proof_store = creat_redis_store(config.clone()).await?;
-    
+
     // Spawn task to send proof to coordinator
     spawn_realm_job_update_task(
         Arc::from(proof_store),

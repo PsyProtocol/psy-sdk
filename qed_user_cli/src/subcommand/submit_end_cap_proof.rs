@@ -1,9 +1,10 @@
 use std::str::FromStr;
 
 use super::args::{ContractCallArgs, SubmitEndCapArgs};
-use crate::{rpc::provider::RpcConfig, subcommand::session::WalletSession};
+use crate::{rpc::provider::RpcConfig};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
+use crate::session::WalletSession;
 
 pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     tracing::info!(
@@ -22,10 +23,8 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
 
     let mut wallet_session = WalletSession::new(&rpc_config)?;
     let user_pk_hash = wallet_session.add_user(private_key)?;
-    wallet_session.switch_user(user_pk_hash)?;
-    wallet_session.start_session()?;
-    wallet_session.prove_contract_calls(contract_call_args)?;
-    wallet_session.sign_and_submit()?;
+
+    wallet_session.exec_contract_call(user_pk_hash, contract_call_args)?;
 
     tracing::info!("local proving end");
 

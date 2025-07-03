@@ -17,8 +17,9 @@ serde = { workspace = true }
 serde_with = { workspace = true }
 hex = { workspace = true }
 rand = { workspace = true }
+getrandom = { workspace = true }
 bitflags = { workspace = true }
-bitcoin = { workspace = true }
+# bitcoin = { workspace = true }
 sha2 = { workspace = true }
 ripemd = { workspace = true }
 log = { workspace = true }

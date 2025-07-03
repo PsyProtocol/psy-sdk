@@ -28,7 +28,7 @@ const ZK_SIG_LEAF_TYPE: u64 = 3;
 pub struct UserProvingSessionManager<
     F: RichField + Extendable<D>,
     H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
-    R: QEDReadCommandProcessorSync<F>,
+    R: QEDReadCommandProcessorSync<F> + Send + Sync,
     C: GenericConfig<D, F = F, Hasher = H>,
     const D: usize,
 > {
@@ -47,9 +47,11 @@ pub struct UserProvingSessionManager<
 
 type F = GoldilocksField;
 const D: usize = 2;
+
+#[maybe_async::maybe_async]
 impl<
         H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F> + FieldQHasher<F>,
-        R: QEDReadCommandProcessorSync<F>,
+        R: QEDReadCommandProcessorSync<F> + Send + Sync,
         C: GenericConfig<D, F = F, Hasher = H>,
     > UserProvingSessionManager<F, H, R, C, D>
 {
@@ -58,12 +60,12 @@ impl<
         self.lps.into_cmd_store()
     }
 
-    pub fn into_clean_for_user(self, user_id: F) -> anyhow::Result<Self> {
+    pub async fn into_clean_for_user(self, user_id: F) -> anyhow::Result<Self> {
         let ups_step_circuit_whitelist_root = self.current_ups_header.ups_step_circuit_whitelist_root;
         let circuit_info = self.circuit_info;
-        let lps = self.lps.into_clean_for_user(user_id)?;
+        let lps = self.lps.into_clean_for_user(user_id).await?;
 
-        Self::new(lps, circuit_info, ups_step_circuit_whitelist_root)
+        Self::new(lps, circuit_info, ups_step_circuit_whitelist_root).await
     }
     pub fn get_checkpoint_state(&self) -> QEDCheckpointLeafCompactWithStateRoots<F> {
         QEDCheckpointLeafCompactWithStateRoots {
@@ -74,7 +76,7 @@ impl<
             global_state_roots: self.current_global_state_roots,
         }
     }
-    pub fn new(
+    pub async fn new(
         mut lps: QEDLocalProvingSessionStore<F, R>,
         circuit_info: SessionCircuitInfoStore<F>,
         ups_step_circuit_whitelist_root: QHashOut<F>,
@@ -82,7 +84,7 @@ impl<
         let proof_tree_state = PortableQTreeRecursionManager::<C, D>::new(
             UPS_SESSION_PROOF_TREE_HEIGHT as usize
         );
-        let session_start_context = lps.get_ups_start_ctx()?;
+        let session_start_context = lps.get_ups_start_ctx().await?;
         
         let mut new_user=  session_start_context.start_session_user_leaf.clone();
 
@@ -95,9 +97,9 @@ impl<
 
         let current_checkpoint_leaf = lps
             .cmd_store
-            .resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData { checkpoint_id: latest_checkpoint_id_u64 })?;
+            .resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData { checkpoint_id: latest_checkpoint_id_u64 }).await?;
 
-        let current_global_state_roots = lps.get_global_state_tree_roots(latest_checkpoint_id_u64)?;
+        let current_global_state_roots = lps.get_global_state_tree_roots(latest_checkpoint_id_u64).await?;
 
         println!("current_state_roots: {}",serde_json::to_string_pretty(&current_global_state_roots).unwrap());
 
@@ -150,7 +152,7 @@ impl<
         })
     }
 
-    pub fn get_ups_start_witness(
+    pub async fn get_ups_start_witness(
         &mut self,
     ) -> anyhow::Result<UPSStartStepInput<F>> {
         tracing::info!(
@@ -161,7 +163,7 @@ impl<
         let checkpoint_tree_proof= self.lps.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetCheckpointTreeMerkleProof(QSRMerkleCmdGetCheckpointTreeMerkleProof{
             checkpoint_id: self.lps.get_current_write_checkpoint_id_u64(),
             leaf_checkpoint_id: self.lps.get_current_start_checkpoint_id_u64(),
-        }))?;
+        })).await?;
 
         tracing::info!(
             "resolve user tree proof at checkpoint {}, user {}",
@@ -175,7 +177,7 @@ impl<
                         checkpoint_id: self.lps.get_current_write_checkpoint_id_u64(),
                         user_id: self.lps.get_current_user_id_64(),
                     },
-                ))?;
+                )).await?;
 
 
         let input = UPSStartStepInput {
@@ -196,11 +198,11 @@ impl<
         new_hash_tip
     }
 
-    pub fn prove_ups_start(&mut self, circuit_mgr: &QEDUPSStepCircuitManager<C, D>) -> anyhow::Result<()> {
+    pub async fn prove_ups_start(&mut self, circuit_mgr: &QEDUPSStepCircuitManager<C, D>) -> anyhow::Result<()> {
         let mut timer = DebugTimer::new("prove_ups_start");
         timer.lap("start");
         tracing::info!("get_ups_start_witness");
-        let input = self.get_ups_start_witness()?;
+        let input = self.get_ups_start_witness().await?;
         //println!("witness:\n{:?}",input);
         //println!("\n\n\nwitness json:\n{}\n\n\n\n\n\n",serde_json::to_string_pretty(&input).unwrap());
         /*let st_roots = input.state_roots.qfhash::<QEDHasher>();
@@ -295,7 +297,7 @@ impl<
         })
 
     }
-    pub fn prove_contract_call(
+    pub async fn prove_contract_call(
         &mut self,
         circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
         contract_id: F,
@@ -316,7 +318,7 @@ impl<
             inputs: inputs.clone(),
         };
 
-        let cfc_proof_input = self.exec_contract_call(contract_id, fn_circuit_def, inputs)?;
+        let cfc_proof_input = self.exec_contract_call(contract_id, fn_circuit_def, inputs).await?;
 
         
         let cfc_proof = fn_circuit.prove_base(&cfc_proof_input)?;
@@ -330,7 +332,7 @@ impl<
         let cfc_inclusion_proof = self.lps.get_contract_function_inclusion_proof(
             contract_id.to_canonical_u64() as u32,
             fn_id,
-        )?;
+        ).await?;
         //println!("cfc_proof_input.session_proof_tree_root: {:?}",&cfc_proof_input.session_proof_tree_root);
         let historical_root_proof =  match self.proof_tree_state.find_zero_hash_proof_for_historical_root(cfc_proof_input.session_proof_tree_root) {
             Some(mp) => mp,
@@ -553,7 +555,7 @@ impl<
         Ok(proof)
 
     }
-    pub fn exec_contract_call(
+    pub async fn exec_contract_call(
         &mut self,
         contract_id: F,
         fn_circuit_def: &DPNFunctionCircuitDefinition,
@@ -568,14 +570,14 @@ impl<
                 contract_id,
                 fn_circuit_def,
                 inputs
-            )
+            ).await
     }
 
-    pub fn get_api_input(&mut self) -> anyhow::Result<SubmitUserEndCapNonProofInput<F>> {
+    pub async fn get_api_input(&mut self) -> anyhow::Result<SubmitUserEndCapNonProofInput<F>> {
 
         let checkpoint_id = self.current_ups_header.session_start_context.checkpoint_id;
 
-        let updates = self.get_user_session_update_history()?;
+        let updates = self.get_user_session_update_history().await?;
 
 
         let core = SubmitUserEndCapNonProofCoreInput {
@@ -601,8 +603,8 @@ impl<
             contract_state_updates,
         })
     }
-    pub fn get_user_session_update_history(&mut self) -> anyhow::Result<QEDUserSessionUpdateHistory<F>> {
-        let (contract_updates, total_slots_modified) = self.lps.get_all_state_updates()?;
+    pub async fn get_user_session_update_history(&mut self) -> anyhow::Result<QEDUserSessionUpdateHistory<F>> {
+        let (contract_updates, total_slots_modified) = self.lps.get_all_state_updates().await?;
         //println!("contract_updates: {:?}",contract_updates);
         //println!("contract_updates: {}",serde_json::to_string_pretty(&contract_updates).unwrap());
         

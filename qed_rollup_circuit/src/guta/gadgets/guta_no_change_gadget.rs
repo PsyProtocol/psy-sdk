@@ -90,12 +90,9 @@ impl GUTANoChangeGadget {
         checkpoint_tree_proof: &MerkleProofCore<QHashOut<F>>,
         checkpoint_leaf: &QEDCheckpointLeafCompactWithStateRoots<F>,
     ) -> anyhow::Result<()> {
-        eprintln!("DEBUGPRINT[540]: guta_no_change_gadget.rs:97: checkpoint_tree_proof={}", serde_json::to_string_pretty(&checkpoint_tree_proof).unwrap());
         self.checkpoint_tree_proof
             .set_witness_core_proof_q_generic(witness, checkpoint_tree_proof)?;
 
-        eprintln!("DEBUGPRINT[541]: guta_no_change_gadget.rs:102: checkpoint_leaf={}", serde_json::to_string_pretty(&checkpoint_leaf).unwrap());
-        eprintln!("DEBUGPRINT[542]: guta_no_change_gadget.rs:102: checkpoint_leaf.qfhash::<PoseidonHash>()={}", checkpoint_leaf.qfhash::<PoseidonHash>());
         self.checkpoint_leaf_gadget
             .set_witness(witness, checkpoint_leaf)?;
 

@@ -2,7 +2,7 @@ import { CoordinatorEdgeRPCCommand, ICoordinatorEdgeRpcProvider } from "./types"
 
 import { QHashOut, MerkleProofCore, Felt } from "../core";
 import { IHTTPClient } from "../http";
-import { Provider, ClientConfig } from "../provider";
+import { Provider, ClientConfig, RpcConfig } from "../provider";
 import {
     CheckpointSyncInfo,
     ContractCodeDefinition,
@@ -576,5 +576,249 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
             checkpoint_id: checkpointId,
             user_id: userId,
         });
+    }
+}
+export class MultiCoordinatorRpcProvider implements ICoordinatorEdgeRpcProvider {
+    rpcs: Map<number, ICoordinatorEdgeRpcProvider>;
+    constructor(coordinatorRpcConfigs: RpcConfig[]) {
+        this.rpcs = new Map<number, ICoordinatorEdgeRpcProvider>();
+        for (const coordinatorRpcConfig of coordinatorRpcConfigs) {
+            this.rpcs.set(coordinatorRpcConfig.id, new CoordinatorEdgeRpcProvider(coordinatorRpcConfig.rpc_url));
+        }
+    }
+
+    getCurrentCoordinatorId(): number {
+        return 0;
+    }
+    registerUser(pubKey: ZKPublicKeyInfo): Promise<string> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.registerUser(pubKey);
+    }
+    getUserId(qhash: QHashOut): Promise<number> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserId(qhash);
+    }
+    deployContract(contract: QBCDeployContract): Promise<string> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.deployContract(contract);
+    }
+    getLatestCheckpoint(): Promise<LatestCheckpointResponse> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getLatestCheckpoint();
+    }
+    buildBlock(): Promise<string> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.buildBlock();
+    }
+    getCheckpointSyncInfo(checkpointId: Felt): Promise<CheckpointSyncInfo> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointSyncInfo(checkpointId);
+    }
+    getContractLeafData(contractId: Felt): Promise<QEDContractLeaf> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractLeafData(contractId);
+    }
+    getContractLeafDataF(contractId: Felt): Promise<QEDContractLeaf> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractLeafDataF(contractId);
+    }
+    getCheckpointLeafData(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointLeafData(checkpointId);
+    }
+    getCheckpointLeafDataF(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointLeafDataF(checkpointId);
+    }
+    getContractCodeDefinition(contractId: Felt): Promise<ContractCodeDefinition> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractCodeDefinition(contractId);
+    }
+    getContractCodeDefinitionF(contractId: Felt): Promise<ContractCodeDefinition> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractCodeDefinitionF(contractId);
+    }
+    getLatestL2BlockState(): Promise<QEDL2BlockState> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getLatestL2BlockState();
+    }
+    getL2BlockState(checkpointId: Felt): Promise<QEDL2BlockState> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getL2BlockState(checkpointId);
+    }
+    getL2BlockStateF(checkpointId: Felt): Promise<QEDL2BlockState> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getL2BlockStateF(checkpointId);
+    }
+    getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserRegistrationTreeRoot(checkpointId);
+    }
+    getUserRegistrationTreeRootF(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserRegistrationTreeRootF(checkpointId);
+    }
+    getUserRegistrationTreeLeafHash(checkpointId: Felt, leafIndex: number): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserRegistrationTreeLeafHash(checkpointId, leafIndex);
+    }
+    getUserRegistrationTreeLeafHashF(checkpointId: Felt, leafIndex: bigint): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserRegistrationTreeLeafHashF(checkpointId, leafIndex);
+    }
+    getUserRegistrationTreeMerkleProof(checkpointId: Felt, leafIndex: number): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getCurrentCoordinatorId())!
+            .getUserRegistrationTreeMerkleProof(checkpointId, leafIndex);
+    }
+    getUserRegistrationTreeMerkleProofF(checkpointId: Felt, leafIndex: bigint): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getCurrentCoordinatorId())!
+            .getUserRegistrationTreeMerkleProofF(checkpointId, leafIndex);
+    }
+    getUserTreeRoot(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserTreeRoot(checkpointId);
+    }
+    getUserTreeRootF(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserTreeRootF(checkpointId);
+    }
+    getUserSubTreeMerkleProof(
+        checkpointId: Felt,
+        rootLevel: number,
+        leafLevel: number,
+        leafIndex: number
+    ): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getCurrentCoordinatorId())!
+            .getUserSubTreeMerkleProof(checkpointId, rootLevel, leafLevel, leafIndex);
+    }
+    getUserTopTreeMerkleProof(
+        checkpointId: Felt,
+        leafLevel: number,
+        leafIndex: number
+    ): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getCurrentCoordinatorId())!
+            .getUserTopTreeMerkleProof(checkpointId, leafLevel, leafIndex);
+    }
+    getUserTopTreeCapRoot(checkpointId: Felt, capLevel: number, capIndex: number): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserTopTreeCapRoot(checkpointId, capLevel, capIndex);
+    }
+    getUserLatestTopTreeCapRoot(capLevel: number, capIndex: number): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserLatestTopTreeCapRoot(capLevel, capIndex);
+    }
+    getContractFunctionTreeRoot(checkpointId: Felt, contractId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractFunctionTreeRoot(checkpointId, contractId);
+    }
+    getContractFunctionTreeRootF(checkpointId: Felt, contractId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractFunctionTreeRootF(checkpointId, contractId);
+    }
+    getContractFunctionTreeLeafHash(checkpointId: Felt, contractId: Felt, functionId: number): Promise<QHashOut> {
+        return this.rpcs
+            .get(this.getCurrentCoordinatorId())!
+            .getContractFunctionTreeLeafHash(checkpointId, contractId, functionId);
+    }
+    getContractFunctionTreeLeafHashF(checkpointId: Felt, contractId: Felt, functionId: bigint): Promise<QHashOut> {
+        return this.rpcs
+            .get(this.getCurrentCoordinatorId())!
+            .getContractFunctionTreeLeafHashF(checkpointId, contractId, functionId);
+    }
+    getContractFunctionTreeMerkleProof(
+        checkpointId: Felt,
+        contractId: Felt,
+        functionId: number
+    ): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getCurrentCoordinatorId())!
+            .getContractFunctionTreeMerkleProof(checkpointId, contractId, functionId);
+    }
+    getContractFunctionTreeMerkleProofF(
+        checkpointId: Felt,
+        contractId: Felt,
+        functionId: bigint
+    ): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getCurrentCoordinatorId())!
+            .getContractFunctionTreeMerkleProofF(checkpointId, contractId, functionId);
+    }
+    getContractTreeRoot(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractTreeRoot(checkpointId);
+    }
+    getContractTreeRootF(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractTreeRootF(checkpointId);
+    }
+    getContractTreeLeafHash(checkpointId: Felt, contractId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractTreeLeafHash(checkpointId, contractId);
+    }
+    getContractTreeLeafHashF(checkpointId: Felt, contractId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractTreeLeafHashF(checkpointId, contractId);
+    }
+    getContractTreeMerkleProof(checkpointId: Felt, contractId: Felt): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractTreeMerkleProof(checkpointId, contractId);
+    }
+    getContractTreeMerkleProofF(checkpointId: Felt, contractId: Felt): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractTreeMerkleProofF(checkpointId, contractId);
+    }
+    getDepositTreeRoot(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getDepositTreeRoot(checkpointId);
+    }
+    getDepositTreeRootF(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getDepositTreeRootF(checkpointId);
+    }
+    getDepositTreeLeafHash(checkpointId: Felt, depositId: number): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getDepositTreeLeafHash(checkpointId, depositId);
+    }
+    getDepositTreeLeafHashF(checkpointId: Felt, depositId: bigint): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getDepositTreeLeafHashF(checkpointId, depositId);
+    }
+    getDepositTreeMerkleProof(checkpointId: Felt, depositId: number): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getDepositTreeMerkleProof(checkpointId, depositId);
+    }
+    getDepositTreeMerkleProofF(checkpointId: Felt, depositId: bigint): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getDepositTreeMerkleProofF(checkpointId, depositId);
+    }
+    getWithdrawalTreeRoot(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getWithdrawalTreeRoot(checkpointId);
+    }
+    getWithdrawalTreeRootF(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getWithdrawalTreeRootF(checkpointId);
+    }
+    getWithdrawalTreeLeafHash(checkpointId: Felt, withdrawalId: number): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getWithdrawalTreeLeafHash(checkpointId, withdrawalId);
+    }
+    getWithdrawalTreeLeafHashF(checkpointId: Felt, withdrawalId: bigint): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getWithdrawalTreeLeafHashF(checkpointId, withdrawalId);
+    }
+    getWithdrawalTreeMerkleProof(checkpointId: Felt, withdrawalId: number): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getWithdrawalTreeMerkleProof(checkpointId, withdrawalId);
+    }
+    getWithdrawalTreeMerkleProofF(checkpointId: Felt, withdrawalId: bigint): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getWithdrawalTreeMerkleProofF(checkpointId, withdrawalId);
+    }
+    getLatestCheckpointTreeRoot(): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getLatestCheckpointTreeRoot();
+    }
+    getCheckpointTreeRoot(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointTreeRoot(checkpointId);
+    }
+    getCheckpointTreeRootF(checkpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointTreeRootF(checkpointId);
+    }
+    getCheckpointTreeLeafHash(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointTreeLeafHash(checkpointId, leafCheckpointId);
+    }
+    getCheckpointTreeLeafHashF(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut> {
+        return this.rpcs
+            .get(this.getCurrentCoordinatorId())!
+            .getCheckpointTreeLeafHashF(checkpointId, leafCheckpointId);
+    }
+    getCheckpointTreeMerkleProof(checkpointId: Felt, leafCheckpointId: Felt): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getCurrentCoordinatorId())!
+            .getCheckpointTreeMerkleProof(checkpointId, leafCheckpointId);
+    }
+    getCheckpointTreeMerkleProofF(checkpointId: Felt, leafCheckpointId: Felt): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs
+            .get(this.getCurrentCoordinatorId())!
+            .getCheckpointTreeMerkleProofF(checkpointId, leafCheckpointId);
+    }
+    getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<QEDCheckpointGlobalStateRoots> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointGlobalStateRoots(checkpointId);
+    }
+    getCheckpointSyncInfoCompact(checkpointId: Felt): Promise<QEDCheckpointSyncInfoCompact> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointSyncInfoCompact(checkpointId);
+    }
+    latestCheckpoint(): Promise<number> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.latestCheckpoint();
+    }
+    getUserLeafData(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserLeafData(checkpointId, userId);
+    }
+    getUserTreeMerkleProof(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserTreeMerkleProof(checkpointId, userId);
+    }
+    getUserTreeMerkleProofF(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserTreeMerkleProofF(checkpointId, userId);
     }
 }

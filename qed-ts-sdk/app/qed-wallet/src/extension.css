@@ -1,0 +1,69 @@
+/* Chrome Extension specific styles */
+html {
+  width: 375px;
+  height: 600px;
+  overflow: hidden;
+}
+
+body {
+  width: 375px;
+  height: 600px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #ffffff;
+  color: #73e7ff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+}
+
+#root {
+  width: 375px;
+  height: 600px;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure wallet widget fits in extension popup */
+.wallet-widget {
+  width: 100%;
+  height: 100%;
+}
+
+/* Override the fixed positioning from index.css */
+body, html, #root, #root > div {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+}
+
+/* Adjust Mantine container for extension */
+.mantine-AppShell-root {
+  min-height: 600px;
+}
+
+/* Prevent horizontal scroll */
+* {
+  box-sizing: border-box;
+}
+
+/* Adjust padding for extension context */
+.mantine-Container-root {
+  padding: 1rem;
+}
+
+/* Override any conflicting styles from the main app */
+.mantine-AppShell-main {
+  padding: 0;
+}
+
+/* Make sure the router view takes full height */
+#root > div > div {
+  height: 100%;
+}

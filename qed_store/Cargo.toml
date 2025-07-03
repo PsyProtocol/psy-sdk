@@ -25,3 +25,11 @@ qed_core = { path = "../qed_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
 thiserror = { workspace = true }
+maybe-async = { workspace = true }
+#maybe-async = { workspace = true, optional = true }
+
+[features]
+default = ["is_sync"]
+#default = []
+#is_sync = ["dep:maybe-async"]
+is_sync = ["maybe-async/is_sync"]

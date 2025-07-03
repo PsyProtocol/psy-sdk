@@ -79,7 +79,6 @@ where
 
         let mut pw = PartialWitness::<C::F>::new();
 
-        eprintln!("DEBUGPRINT[504]: verify_guta_to_cap.rs:81 (after let mut pw = PartialWitness::<C::F>::new…)");
         self.verify_to_line_gadget.set_witness(
             &mut pw,
             guta_whitelist_merkle_proof,
@@ -89,7 +88,6 @@ where
             top_line_siblings,
         )?;
 
-        eprintln!("DEBUGPRINT[505]: verify_guta_to_cap.rs:91 (after )?;)");
         self.circuit_data.prove(pw)
 
     }
@@ -135,7 +133,6 @@ where
         let r: CircuitInputWithDependencies<VerifyGUTAToCapCircuitInputSimple<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
-        eprintln!("DEBUGPRINT[561]: verify_guta_to_cap.rs:138: r={}", serde_json::to_string_pretty(&r).unwrap());
 
         if r.dependencies.len() != 1 {
             anyhow::bail!("invalid dependency count in two end guta input");
@@ -143,10 +140,8 @@ where
 
 
         let child_a_proof = store.get_proof_by_id(r.dependencies[0]).await?;
-        eprintln!("DEBUGPRINT[562]: verify_guta_to_cap.rs:146: child_a_proof={}", serde_json::to_string_pretty(&child_a_proof).unwrap());
 
         let dep_a_type = r.dependencies[0].circuit_type;
-        eprintln!("DEBUGPRINT[563]: verify_guta_to_cap.rs:148: dep_a_type={}", dep_a_type.to_u8());
 
         let child_a_verifier_data = library.get_verifier_data(dep_a_type)?;
 
