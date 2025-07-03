@@ -16,9 +16,7 @@
     "fix": "pnpm run fmt && npx eslint --fix --ext js,ts,tsx .",
     "contract:generate": "pnpm --filter packages/contract-sdk run generate:default",
     "contract:build": "pnpm --filter packages/contract-sdk run build",
-    "contract:demo": "pnpm --filter contract-sdk demo",
-    "contract:demo:advanced": "pnpm --filter contract-sdk demo-advanced",
-    "contract:demo:real": "pnpm --filter contract-sdk demo-real"
+    "contract:demo": "pnpm --filter contract-sdk demo"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.32.1",
