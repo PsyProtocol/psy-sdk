@@ -206,7 +206,7 @@ export const useWalletConfig = () => {
   };
 
   const getProverUrl = () => {
-    return config.network.prover_url || "http://127.0.0.1:8888";
+    return config.network.prover_url;
   };
 
   const getNativeCurrency = () => {

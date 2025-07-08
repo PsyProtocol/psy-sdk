@@ -86,7 +86,11 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({
                     />
                   }
                   onClick={() => {
-                    onSelectWallet?.(Number(wallet.userId));
+                    if (wallet.wallet.status) {
+                      onSelectWallet?.(Number(wallet.userId));
+                    } else {
+                      console.warn("Wallet is not active");
+                    }
                   }}
                 >
                   <Text size="sm">{wallet.name}</Text>

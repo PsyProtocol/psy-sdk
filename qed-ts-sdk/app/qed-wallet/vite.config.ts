@@ -1,5 +1,4 @@
 /* eslint-disable import/no-extraneous-dependencies */
-import * as path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import topLevelAwait from "vite-plugin-top-level-await";
@@ -24,4 +23,8 @@ export default defineConfig({
     },
     // Add WASM asset handling
     assetsInclude: ['**/local-web-prover/*.wasm'],
+    server: {
+        host: '0.0.0.0',
+        port: 5173,
+    },
 });
