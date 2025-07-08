@@ -35,30 +35,12 @@ pub async fn save_user_mapping_to_redis(
     Ok(())
 }
 
-pub async fn get_pubkey_info_by_user_id(
-    redis_pool: &Pool<RedisConnectionManager>,
-    user_id: u64,
-) -> anyhow::Result<Option<ZKPublicKeyInfo<QEDFelt>>> {
-    let user_key = format!("{}{}", USER_ID_KEY_PREFIX, user_id);
-
-    let mut conn = redis_pool.get().await?;
-    let result: Option<Vec<u8>> = conn.get(&user_key).await?;
-
-    if let Some(bytes) = result {
-        let info = bincode::deserialize::<ZKPublicKeyInfo<QEDFelt>>(&bytes)?;
-        Ok(Some(info))
-    } else {
-        Ok(None)
-    }
-}
-
 pub async fn get_user_id_by_pubkey(
     redis_pool: &Pool<RedisConnectionManager>,
     public_key: &str,
 ) -> anyhow::Result<Option<u64>> {
     let public_key = format!("{}{}", PUBKEY_KEY_PREFIX, public_key);
     let mut conn = redis_pool.get().await?;
-    let a = conn.get(&public_key).await?;
     let result: Option<String> = conn.get(&public_key).await?;
 
     Ok(result.and_then(|s| s.parse::<u64>().ok()))
