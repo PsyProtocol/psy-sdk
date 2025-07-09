@@ -407,14 +407,17 @@ impl<
         };
         self.current_ups_header = new_ups_header;
         self.tx_log.push(tx_log_item);
+
         let deferred_debt_items = self.lps.transaction_records
             .last()
             .unwrap()
             .added_deferred_tx_items
             .clone();
+
         for debt_item in &deferred_debt_items {
             self.repay_deferred_debt(circuit_mgr, debt_item).await?;
         }
+
         Ok(())
     }
     pub fn get_sighash(&self, network_magic: u64, nonce: F) -> QHashOut<F>{
@@ -554,6 +557,28 @@ impl<
     async fn repay_deferred_debt(
         &mut self,
         circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
+        initial_debt_item: &qed_data::dpn::proving_session::DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
+    ) -> anyhow::Result<()> {
+        let mut debt_queue = vec![initial_debt_item.clone()];
+
+        while let Some(debt_item) = debt_queue.pop() {
+            self.repay_single_deferred_debt(circuit_mgr, &debt_item).await?;
+
+            let new_debt_items = self.lps.transaction_records
+                .last()
+                .unwrap()
+                .added_deferred_tx_items
+                .clone();
+
+            debt_queue.extend(new_debt_items);
+        }
+
+        Ok(())
+    }
+
+    async fn repay_single_deferred_debt(
+        &mut self,
+        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
         debt_item: &qed_data::dpn::proving_session::DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
     ) -> anyhow::Result<()> {
         let (_, debt_removal_proof) = self.lps.repay_deferred_tx_debt(debt_item.tree_index)?;
@@ -687,14 +712,6 @@ impl<
         };
         self.current_ups_header = new_ups_header;
         self.tx_log.push(tx_log_item);
-        let deferred_debt_items = self.lps.transaction_records
-            .last()
-            .unwrap()
-            .added_deferred_tx_items
-            .clone();
-        for debt_item in &deferred_debt_items {
-            self.repay_deferred_debt(circuit_mgr, debt_item).await?;
-        }
         Ok(())
     }
 
