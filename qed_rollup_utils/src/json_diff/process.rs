@@ -4,10 +4,7 @@ use std::collections::HashSet;
 use serde_json::Map;
 use serde_json::Value;
 
-use super::constants::Message;
-use super::ds::key_node::KeyNode;
-use super::ds::mismatch::Mismatch;
-
+use super::types::{KeyNode, Message, Mismatch};
 
 pub fn compare_jsons(a: &str, b: &str) -> Result<Mismatch, Message> {
     let value1 = match serde_json::from_str(a) {
@@ -76,13 +73,13 @@ fn insert_child_key_map(parent: KeyNode, child: KeyNode, key: &String) -> KeyNod
     }
     if let KeyNode::Node(mut map) = parent {
         map.insert(String::from(key), child);
-        KeyNode::Node(map) // This is weird! I just wanted to return back `parent` here
+        KeyNode::Node(map)
     } else if let KeyNode::Nil = parent {
         let mut map = HashMap::new();
         map.insert(String::from(key), child);
         KeyNode::Node(map)
     } else {
-        parent // TODO Trying to insert child node in a Value variant : Should not happen => Throw an error instead.
+        parent
     }
 }
 

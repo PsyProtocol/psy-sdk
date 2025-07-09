@@ -15,8 +15,6 @@ members = [
     "qed_data",
     "qed_common_circuit",
     "qed_rollup_circuit",
-    "qcircuit_config_db",
-    "qcircuit_config_db_generator",
     "qed_node_common",
     "qed_node",
     "qed_realm_node",

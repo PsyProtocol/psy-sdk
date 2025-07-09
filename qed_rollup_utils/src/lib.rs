@@ -9,6 +9,8 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
+pub mod json_diff;
+
 pub const JWT_COMPANY: &str = "QEDProtocol";
 pub const JWT_SUBJECT: &str = "qedlang-rust";
 
