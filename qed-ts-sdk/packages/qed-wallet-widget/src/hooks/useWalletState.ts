@@ -1,5 +1,5 @@
 import { StoreApi, create } from "zustand";
-import { IQedWidgetWallet } from "../types";
+import { IQedWidgetWallet, DEFAULT_WALLET_NAME } from "../types";
 import {
     TQedTransactionSignerAbility,
     TQedTransactionSignerProviderAbility,
@@ -9,7 +9,7 @@ import {
 } from "@qed/qed-sdk";
 import { createMemoryWalletProvider } from "../utils/provider";
 import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
-import { DEFAULT_PROVER_URL, loadConfig } from "../config";
+import { loadConfig } from "../config";
 
 enum WalletWidgetLoadingState {
     Loading,
@@ -68,7 +68,7 @@ async function getAllIQWallets(provider: QedUserWalletProvider): Promise<IQedWid
             console.log(`getAllIQWallets: Wallet ${index} info:`, userInfo);
             return {
                 ...userInfo,
-                name: userInfo.userId.toString(),
+                name: user.status ? userInfo.userId.toString() : DEFAULT_WALLET_NAME,
                 address: userInfo.publicKeyHex,
                 wallet: user,
                 isActive: false,
@@ -115,7 +115,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
         config.network.coordinator_configs, // coordinator
         config.network.realm_configs, // realm
         config.network.users_per_realm,
-        config.network.prover_url || DEFAULT_PROVER_URL, // prover
+        config.network.prover_url, // prover
     );
     return {
         loadingState: WalletWidgetLoadingState.Ready,
@@ -227,10 +227,13 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 if (!wallet) {
                     return {};
                 }
+                if (!wallet.wallet.status) {
+                    return {};
+                }
                 const userInfo = await wallet.wallet.getUserInfo();
 
                 const wallets = state.wallets.map((w) => {
-                    if (w.userId === wallet.userId) {
+                    if (w.wallet.statue && w.userId === wallet.userId) {
                         return { ...userInfo, name: userInfo.userId.toString(), address: userInfo.publicKeyHex, wallet: wallet.wallet };
                     } else {
                         return w;
@@ -242,7 +245,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
 
                 return {
                     wallets,
-                    currentWallet: { ...userInfo, name: userInfo.userId.toString(), address: userInfo.publicKeyHex, wallet: wallet.wallet },
+                    currentWallet: { ...userInfo, name: wallet.wallet ? userInfo.userId.toString() : DEFAULT_WALLET_NAME, address: userInfo.publicKeyHex, wallet: wallet.wallet },
                 };
             }),
         setActiveWallet: (userId: number) =>
@@ -252,6 +255,9 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 }
                 const wallet = state.wallets.find((wallet) => wallet.userId === userId);
                 if (!wallet) {
+                    return {};
+                }
+                if (!wallet.wallet.status) {
                     return {};
                 }
                 // Sync the RPC provider with the new active wallet
@@ -283,7 +289,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 const iqWallets = await getAllIQWallets(state.provider);
                 const newWallet = iqWallets.filter((x) => x.publicKeyHex === publicKeyHex)[0];
 
-                if (newWallet) {
+                if (newWallet && newWallet.wallet.status) {
                     return {
                         wallets: iqWallets,
                         currentWallet: newWallet,
@@ -330,7 +336,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 if (changeCurrent) {
                     const wallet = iqWallets.filter((x) => x.publicKeyHex === publicKeyHex)[0];
                     console.log("Found matching wallet for current:", wallet);
-                    if (wallet) {
+                    if (wallet && wallet.wallet.status) {
                         return {
                             wallets: iqWallets,
                             currentWallet: wallet,

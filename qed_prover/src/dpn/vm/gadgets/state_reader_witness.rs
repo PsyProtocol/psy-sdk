@@ -121,7 +121,6 @@ impl StateReaderGadget {
         cmd_witness: &QEDCmdWithInputAndWitness<F>,
         wb_state: &mut StateReaderGadgetWitnessBuilderState,
     ) -> anyhow::Result<()>{
-        eprintln!("DEBUGPRINT[619]: state_reader_witness.rs:124: def_cmd={}", serde_json::to_string_pretty(&def_cmd).unwrap());
         match &def_cmd {
             DPNStateCmd::SetContractStateSlotHash(c) => {
                 let ck = StateCommandCacheKey::new_write_current_contract_slot(
@@ -181,7 +180,7 @@ impl StateReaderGadget {
                 self.set_witness_for_key_dmp(
                     witness,
                     &ck,
-                    cmd_witness.witness.get_delta_merkle_proof_ref()
+                    &cmd_witness.witness.get_invoke_external_function_deferred_ref().insertion_proof
                 )?;
                 wb_state.inc_deferred_tx_count();
 
@@ -450,7 +449,6 @@ impl StateReaderGadget {
         input: &DapenContractFunctionCircuitInput<F>,
         fn_def: &DPNFunctionCircuitDefinition,
     ) {
-        eprintln!("DEBUGPRINT[632]: state_reader_witness.rs:453: input={}", serde_json::to_string_pretty(&input).unwrap());
         let mut wb = StateReaderGadgetWitnessBuilderState::new();
 
         for (dsc, ciw) in fn_def.state_commands.iter().zip(input.cmd_witnesses.iter()) {

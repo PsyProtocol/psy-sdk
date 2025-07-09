@@ -77,6 +77,19 @@ pub enum IntrinsicExprNode {
         data: ExprId,
         location: Location,
     },
+    InvokeSync {
+        contract_id: ExprId,
+        method_id: ExprId,
+        inputs: ExprId,
+        return_type:  UncheckedType,
+        location: Location,
+    },
+    InvokeDeferred {
+        contract_id: ExprId,
+        method_id: ExprId,
+        inputs: ExprId,
+        location: Location,
+    }
 }
 
 impl NodeInfo for IntrinsicExprNode {

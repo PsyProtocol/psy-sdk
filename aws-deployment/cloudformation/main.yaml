@@ -819,7 +819,9 @@ Resources:
               --memory=20g \
               redis:7-alpine \
               redis-server \
+                --save "" \
                 --appendonly yes \
+                --appendfsync everysec \
                 --dir /data \
                 --maxmemory 18gb \
                 --maxmemory-policy allkeys-lru \
@@ -835,7 +837,9 @@ Resources:
               --memory=20g \
               redis:7-alpine \
               redis-server \
+                --save "" \
                 --appendonly yes \
+                --appendfsync everysec \
                 --dir /data \
                 --maxmemory 18gb \
                 --maxmemory-policy allkeys-lru \
@@ -851,7 +855,9 @@ Resources:
               --memory=20g \
               redis:7-alpine \
               redis-server \
+                --save "" \
                 --appendonly yes \
+                --appendfsync everysec \
                 --dir /data \
                 --maxmemory 18gb \
                 --maxmemory-policy allkeys-lru \

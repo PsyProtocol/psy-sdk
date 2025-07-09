@@ -129,9 +129,9 @@ init:
 	@docker stop qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 > /dev/null 2>&1 || true
 	@docker rm qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 > /dev/null 2>&1 || true
 	@echo "Starting Redis containers..."
-	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine
-	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine
-	@docker run -d --name qed-redis-realm16384 -p 6381:6379 redis:alpine
+	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
+	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
+	@docker run -d --name qed-redis-realm16384 -p 6381:6379 redis:alpine redis-server --save ""
 	@echo "Starting ScyllaDB containers..."
 	@docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
 	@docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest

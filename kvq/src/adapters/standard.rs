@@ -320,7 +320,7 @@ impl<S: KVQBinaryStoreAsync + Send + Sync, K: KVQSerializable + Send + Sync, V: 
     async fn set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()> {
         s.set(key.to_bytes()?, value.to_bytes()?).await
     }
-    
+
     async fn set(s: &S, key: K, value: V) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait {
         s.set(key.to_bytes()?, value.to_bytes()?).await
     }

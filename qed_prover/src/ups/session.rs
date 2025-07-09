@@ -8,7 +8,7 @@ use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
 use qed_crypto::{common::witnesses::qrecursion::{header::{AttestProofInTreeInput, AttestTreeAwareProofInTreeInput}, proof_data::{InputLeafProof, TreeAwareTreeProofRecord}}, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use qed_data::{
-    dpn::proving_session::{DPNProvingSessionSimpleMethodCall, QEDLocalTransactionRecord}, guta::{api::SubmitUserEndCapNonProofCoreInput, end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_end_cap_result::UPSEndCapResultCompact, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf}, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
+    dpn::proving_session::{DPNProvingSessionSimpleMethodCall, DPNProvingSessionCompactMethodCall, QEDLocalTransactionRecord}, guta::{api::SubmitUserEndCapNonProofCoreInput, end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_end_cap_result::UPSEndCapResultCompact, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf}, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::{UPSCFCStandardTransactionCircuitInput, UPSCFCDeferredTransactionCircuitInput}, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput, UPSVerifyPopDeferredTxStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_store::{
@@ -40,7 +40,7 @@ pub struct UserProvingSessionManager<
     current_global_state_roots: QEDCheckpointGlobalStateRoots<F>,
     last_ups_step_proof_info: TreeAwareTreeProofRecord<F>,
 
-    
+
     tx_log: Vec<DPNProvingSessionSimpleMethodCall<F>>,
 }
 
@@ -85,8 +85,8 @@ impl<
             UPS_SESSION_PROOF_TREE_HEIGHT as usize
         );
         let session_start_context = lps.get_ups_start_ctx().await?;
-        
-        let mut new_user=  session_start_context.start_session_user_leaf.clone();
+
+        let mut new_user = session_start_context.start_session_user_leaf.clone();
 
         //let l2_bstate = lps.cmd_store.resolve_get_latest_l2_block_state_mut()?;
 
@@ -241,7 +241,7 @@ impl<
         tracing::info!("circuit_mgr.ups_start.prove_base start");
         let proof = circuit_mgr.ups_start.prove_base(&input)?;
         timer.lap("circuit_mgr.ups_start.prove_base");
-        
+
         timer.lap("prove_ups_start");
         let known_proof_tree_root = self.proof_tree_state.get_proof_tree_root();
         let inner_public_inputs_hash = input.ups_header.qfhash::<H>();
@@ -263,7 +263,7 @@ impl<
 
         Ok(())
     }
-    /* 
+    /*
     pub fn get_verify_previous_ups_step_proof_input_std_cfc(&self, ups_circuit_whitelist_merkle_proof: MerkleProofCore<QHashOut<F>>) -> anyhow::Result<VerifyPreviousUPSStepProofInProofTreeInput<F>> {
         let x = VerifyPreviousUPSStepProofInProofTreeInput {
             proof_attestation_witness: todo!(),
@@ -310,19 +310,13 @@ impl<
         //let ups_standard_whitelist_merkle_proof = circuit_mgr.ups_cfc_standard_tx_whitelist_proof.clone();
         let deferred_tx_pivot_index = self.lps.get_deferred_tx_debt_latest_index();
         let inline_tx_pivot_index = self.lps.get_inline_tx_debt_latest_index();
-
-        
         let tx_log_item = DPNProvingSessionSimpleMethodCall {
             contract_id,
             method_id: F::from_canonical_u32(fn_circuit_def.method_id),
             inputs: inputs.clone(),
         };
-
         let cfc_proof_input = self.exec_contract_call(contract_id, fn_circuit_def, inputs).await?;
-
-        
         let cfc_proof = fn_circuit.prove_base(&cfc_proof_input)?;
-
         let cfc_proof_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
             leaf_circuit_type: CFC_LEAF_TYPE,
             fingerprint: fn_circuit.get_fingerprint(),
@@ -334,11 +328,10 @@ impl<
             fn_id,
         ).await?;
         //println!("cfc_proof_input.session_proof_tree_root: {:?}",&cfc_proof_input.session_proof_tree_root);
-        let historical_root_proof =  match self.proof_tree_state.find_zero_hash_proof_for_historical_root(cfc_proof_input.session_proof_tree_root) {
+        let historical_root_proof = match self.proof_tree_state.find_zero_hash_proof_for_historical_root(cfc_proof_input.session_proof_tree_root) {
             Some(mp) => mp,
             None => anyhow::bail!("error finding historical root proof in proof_tree_state"),
         };
-
         let checkpoint_state = self.get_checkpoint_state();
         let last_tx_rec: &QEDLocalTransactionRecord<GoldilocksField> = self.lps.transaction_records.last().unwrap();
         let user_contract_tree_update_proof = last_tx_rec.user_contract_tree_update_proof.clone();
@@ -346,7 +339,6 @@ impl<
         let inline_tx_debt_pivot_proof = self.lps.get_inline_tx_tree_leaf(inline_tx_pivot_index)?;
         let new_step_deferred_tx_debt_tree_root = deferred_tx_debt_pivot_proof.root;
         let new_step_inline_tx_debt_tree_root = inline_tx_debt_pivot_proof.root;
-        
         let proof_tree_inclusion_proof = self.proof_tree_state.get_leaf_merkle_proof(cfc_proof_index);
         let new_step_known_proof_tree_root = proof_tree_inclusion_proof.root;
         let verify_cfc_proof_input = AttestTreeAwareProofInTreeInput {
@@ -361,9 +353,6 @@ impl<
             deferred_tx_debt_pivot_proof,
             inline_tx_debt_pivot_proof,
         };
-
-
-
         let new_step_user_leaf = QEDUserLeaf {
             public_key: self.current_ups_header.current_state.user_leaf.public_key,
             user_state_tree_root: process_cfc_state_delta_input.user_contract_tree_update_proof.new_root,
@@ -373,15 +362,12 @@ impl<
             last_checkpoint_id: self.current_ups_header.current_state.user_leaf.last_checkpoint_id,
             user_id:  self.current_ups_header.current_state.user_leaf.user_id,
         };
-
         let tx_log_item_hash = tx_log_item.qfhash::<H>();
         let new_step_tx_hash_stack = H::q_two_to_one(
             self.current_ups_header.current_state.tx_hash_stack,
             tx_log_item_hash,
         );
         let new_step_tx_count = self.current_ups_header.current_state.tx_count + F::ONE;
-
-
         let new_step_current_state = UserProvingSessionCurrentState {
             user_leaf: new_step_user_leaf,
             deferred_tx_debt_tree_root: new_step_deferred_tx_debt_tree_root,
@@ -389,9 +375,6 @@ impl<
             tx_hash_stack: new_step_tx_hash_stack,
             tx_count: new_step_tx_count,
         };
-
-
-
         let ups_cfc_standard_input = UPSVerifyCFCStandardStepInput {
             checkpoint_state,
             verify_cfc_proof_input,
@@ -399,21 +382,17 @@ impl<
             process_cfc_state_delta_input,
         };
         let verify_previous_ups_step = self.get_verify_previous_ups_step_proof()?;
-
         let circuit_input = UPSCFCStandardTransactionCircuitInput {
             verify_previous_ups_step,
             standard_cfc_step: ups_cfc_standard_input,
         };
-
         let ups_proof = circuit_mgr.ups_cfc_standard_tx.prove_base(&circuit_input)?;
         self.last_ups_step_proof_info.circuit_id = LocalCircuitType::UPSCFCStandard.into();
-        
         let new_ups_header = UserProvingSessionHeader {
             ups_step_circuit_whitelist_root: self.current_ups_header.ups_step_circuit_whitelist_root,
             session_start_context: self.current_ups_header.session_start_context.clone(),
             current_state: new_step_current_state,
         };
-
         let ups_step_proof_tree_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
             leaf_circuit_type: UPS_STEP_LEAF_TYPE,
             fingerprint: circuit_mgr.ups_cfc_standard_tx.get_fingerprint(),
@@ -429,15 +408,17 @@ impl<
         self.current_ups_header = new_ups_header;
         self.tx_log.push(tx_log_item);
 
-        
+        let deferred_debt_items = self.lps.transaction_records
+            .last()
+            .unwrap()
+            .added_deferred_tx_items
+            .clone();
+
+        for debt_item in &deferred_debt_items {
+            self.repay_deferred_debt(circuit_mgr, debt_item).await?;
+        }
 
         Ok(())
-        
-
-
-
-
-
     }
     pub fn get_sighash(&self, network_magic: u64, nonce: F) -> QHashOut<F>{
         let mut end_user_leaf = self.current_ups_header.current_state.user_leaf.clone();
@@ -462,7 +443,7 @@ impl<
     pub fn prove_end_cap(
         &mut self,
         circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
-        network_magic: u64, 
+        network_magic: u64,
         nonce: F,
         zk_sig_fingerprint: QHashOut<F>,
         public_key_param: QHashOut<F>,
@@ -505,7 +486,7 @@ impl<
             verifier_data,
         });
 
-        
+
         // compress all proofs into a sign tree proof
         tracing::info!("compress all proofs into a sign tree proof");
         self.proof_tree_state.finalize_tree(&circuit_mgr.proof_tree_agg_circuits)?;
@@ -530,7 +511,7 @@ impl<
         let agg_whitelist_merkle_proof = circuit_mgr.proof_tree_agg_circuits.circuit_inclusion_proofs.get_inclusion_proof_for_type(finalized_proof_tree_record.circuit_type);
         let agg_root_verifier_data = self.circuit_info.get_circuit_info_by_fingerprint(finalized_proof_tree_record.fingerprint)?.verifier_data.to_verifier_data::<C,D>();
 
-        
+
         let proof = circuit_mgr.ups_end_cap.prove_base(
             &end_cap_from_proof_tree_input,
             agg_whitelist_merkle_proof,
@@ -539,10 +520,10 @@ impl<
             &agg_root_verifier_data
         )?;
 
-        /* 
+        /*
         let root_proof = self.proof_tree_state.get_root_verified_proof(&circuit_mgr.proof_tree_agg_circuits)?;
 
-        
+
         let proof = circuit_mgr.ups_end_cap.prove_base(
             &end_cap_from_proof_tree_input,
             &root_proof,
@@ -565,12 +546,173 @@ impl<
             self.proof_tree_state.get_proof_tree_root()
         );
         QEDEvalSessionResult::new()
-            .exec_contract_call( 
+            .exec_contract_call(
                 &mut self.lps,
                 contract_id,
                 fn_circuit_def,
                 inputs
             ).await
+    }
+
+    async fn repay_deferred_debt(
+        &mut self,
+        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
+        initial_debt_item: &qed_data::dpn::proving_session::DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
+    ) -> anyhow::Result<()> {
+        let mut debt_queue = vec![initial_debt_item.clone()];
+
+        while let Some(debt_item) = debt_queue.pop() {
+            self.repay_single_deferred_debt(circuit_mgr, &debt_item).await?;
+
+            let new_debt_items = self.lps.transaction_records
+                .last()
+                .unwrap()
+                .added_deferred_tx_items
+                .clone();
+
+            debt_queue.extend(new_debt_items);
+        }
+
+        Ok(())
+    }
+
+    async fn repay_single_deferred_debt(
+        &mut self,
+        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
+        debt_item: &qed_data::dpn::proving_session::DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
+    ) -> anyhow::Result<()> {
+        let (_, debt_removal_proof) = self.lps.repay_deferred_tx_debt(debt_item.tree_index)?;
+        let deferred_tx = &debt_item.call_data;
+        let method_id = deferred_tx.method_id.to_canonical_u64() as u32;
+        let contract_def = self.lps.cmd_store.resolve_get_contract_code_mut(
+            &qed_store::store::imm::cmd::QSRCmdGetContractCodeDefinition {
+                contract_id: deferred_tx.contract_id.to_canonical_u64(),
+            }
+        ).await?;
+        let (fn_id, fn_code_def) = contract_def.functions
+            .iter()
+            .enumerate()
+            .find_map(|(fn_id, f)| {
+             if f.method_id == method_id {
+                    Some((fn_id, f))
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| anyhow::anyhow!("Function {} not found in contract {}", method_id, deferred_tx.contract_id))?;
+        let fn_circuit_def = crate::dpn::data::cfc_code_definition_to_dapen_fc(fn_code_def)?;
+        let cfc_proof_input = self.exec_contract_call(
+            deferred_tx.contract_id,
+            &fn_circuit_def,
+            deferred_tx.inputs.clone(),
+        ).await?;
+        let fn_circuit = DapenContractFunctionCircuit::<C, D>::new(
+            &fn_circuit_def,
+            contract_def.state_tree_height as usize,
+            UPS_SESSION_PROOF_TREE_HEIGHT as usize,
+            false,
+        );
+        let cfc_proof = fn_circuit.prove_base(&cfc_proof_input)?;
+        let cfc_proof_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
+            leaf_circuit_type: CFC_LEAF_TYPE,
+            fingerprint: fn_circuit.get_fingerprint(),
+            verifier_data: fn_circuit.get_verifier_config_ref().to_owned(),
+            proof: cfc_proof,
+        });
+        let historical_root_proof = match self.proof_tree_state.find_zero_hash_proof_for_historical_root(cfc_proof_input.session_proof_tree_root) {
+            Some(mp) => mp,
+            None => anyhow::bail!("error finding historical root proof in proof_tree_state"),
+        };
+        let checkpoint_state = self.get_checkpoint_state();
+        let last_tx_rec = self.lps.transaction_records.last().unwrap();
+        let user_contract_tree_update_proof = last_tx_rec.user_contract_tree_update_proof.clone();
+        let deferred_tx_pivot_index = debt_item.tree_index;
+        let inline_tx_pivot_index = self.lps.get_inline_tx_debt_latest_index();
+        let deferred_tx_debt_pivot_proof = self.lps.get_deferred_tx_tree_leaf(deferred_tx_pivot_index)?;
+        let inline_tx_debt_pivot_proof = self.lps.get_inline_tx_tree_leaf(inline_tx_pivot_index)?;
+        let proof_tree_inclusion_proof = self.proof_tree_state.get_leaf_merkle_proof(cfc_proof_index);
+        let new_step_known_proof_tree_root = proof_tree_inclusion_proof.root;
+        let verify_cfc_proof_input = AttestTreeAwareProofInTreeInput {
+            fingerprint: fn_circuit.get_fingerprint(),
+            inner_public_inputs_hash: cfc_proof_input.tx_input_ctx.qfhash::<H>(),
+            historical_root_proof,
+            inclusion_proof: proof_tree_inclusion_proof,
+        };
+        let process_cfc_state_delta_input = UPSCFCStandardStateDeltaInput {
+            cfc_transaction_input_context: cfc_proof_input.tx_input_ctx,
+            user_contract_tree_update_proof,
+            deferred_tx_debt_pivot_proof: deferred_tx_debt_pivot_proof.clone(),
+            inline_tx_debt_pivot_proof: inline_tx_debt_pivot_proof.clone(),
+        };
+        let cfc_inclusion_proof = self.lps.get_contract_function_inclusion_proof(
+            deferred_tx.contract_id.to_canonical_u64() as u32,
+            fn_id.try_into().unwrap(),
+        ).await?;
+        let ups_cfc_standard_input = UPSVerifyCFCStandardStepInput {
+            checkpoint_state,
+            verify_cfc_proof_input,
+            cfc_inclusion_proof,
+            process_cfc_state_delta_input: process_cfc_state_delta_input.clone(),
+        };
+        let verify_previous_ups_step = self.get_verify_previous_ups_step_proof()?;
+        let deferred_input = UPSCFCDeferredTransactionCircuitInput {
+            verify_previous_ups_step,
+            deferred_tx_cfc_step: UPSVerifyPopDeferredTxStepInput {
+                standard_cfc_verify_input: ups_cfc_standard_input,
+                ups_pop_deferred_tx_proof: debt_removal_proof,
+            },
+        };
+        let ups_proof = circuit_mgr.ups_cfc_deferred_tx.prove_base(&deferred_input)?;
+        self.last_ups_step_proof_info.circuit_id = LocalCircuitType::UPSCFCDeferred.into();
+        let new_step_user_leaf = QEDUserLeaf {
+            public_key: self.current_ups_header.current_state.user_leaf.public_key,
+            user_state_tree_root: process_cfc_state_delta_input.user_contract_tree_update_proof.new_root,
+            balance: process_cfc_state_delta_input.cfc_transaction_input_context.transaction_call_start_ctx.start_user_balance
+                + process_cfc_state_delta_input.cfc_transaction_input_context.transaction_end_ctx.total_balance_spent,
+            event_index: process_cfc_state_delta_input.cfc_transaction_input_context.transaction_call_start_ctx.start_user_event_index
+                + process_cfc_state_delta_input.cfc_transaction_input_context.transaction_end_ctx.total_events_emitted,
+            nonce: self.current_ups_header.current_state.user_leaf.nonce,
+            last_checkpoint_id: self.current_ups_header.current_state.user_leaf.last_checkpoint_id,
+            user_id: self.current_ups_header.current_state.user_leaf.user_id,
+        };
+        let tx_log_item = DPNProvingSessionSimpleMethodCall {
+            contract_id: deferred_tx.contract_id,
+            method_id: deferred_tx.method_id,
+            inputs: deferred_tx.inputs.clone(),
+        };
+        let tx_log_item_hash = tx_log_item.qfhash::<H>();
+        let new_step_tx_hash_stack = H::q_two_to_one(
+            self.current_ups_header.current_state.tx_hash_stack,
+            tx_log_item_hash,
+        );
+        let new_step_tx_count = self.current_ups_header.current_state.tx_count + F::ONE;
+        let new_step_current_state = UserProvingSessionCurrentState {
+            user_leaf: new_step_user_leaf,
+            deferred_tx_debt_tree_root: deferred_tx_debt_pivot_proof.root,
+            inline_tx_debt_tree_root: inline_tx_debt_pivot_proof.root,
+            tx_hash_stack: new_step_tx_hash_stack,
+            tx_count: new_step_tx_count,
+        };
+        let new_ups_header = UserProvingSessionHeader {
+            ups_step_circuit_whitelist_root: self.current_ups_header.ups_step_circuit_whitelist_root,
+            session_start_context: self.current_ups_header.session_start_context.clone(),
+            current_state: new_step_current_state,
+        };
+        let ups_step_proof_tree_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
+            leaf_circuit_type: UPS_STEP_LEAF_TYPE,
+            fingerprint: circuit_mgr.ups_cfc_deferred_tx.get_fingerprint(),
+            verifier_data: circuit_mgr.ups_cfc_deferred_tx.get_verifier_config_ref().to_owned(),
+            proof: ups_proof,
+        });
+        self.last_ups_step_proof_info = TreeAwareTreeProofRecord{
+            inner_public_inputs_hash: new_ups_header.qfhash::<H>(),
+            circuit_id: LocalCircuitType::UPSCFCDeferred.into(),
+            known_proof_tree_root: new_step_known_proof_tree_root,
+            proof_tree_index: ups_step_proof_tree_index,
+        };
+        self.current_ups_header = new_ups_header;
+        self.tx_log.push(tx_log_item);
+        Ok(())
     }
 
     pub async fn get_api_input(&mut self) -> anyhow::Result<SubmitUserEndCapNonProofInput<F>> {
@@ -607,7 +749,7 @@ impl<
         let (contract_updates, total_slots_modified) = self.lps.get_all_state_updates().await?;
         //println!("contract_updates: {:?}",contract_updates);
         //println!("contract_updates: {}",serde_json::to_string_pretty(&contract_updates).unwrap());
-        
+
         Ok(
             QEDUserSessionUpdateHistory{
                 start_user_leaf: self.current_ups_header.session_start_context.start_session_user_leaf,
@@ -617,7 +759,7 @@ impl<
             }
         )
 
-        
+
 
     }
 

@@ -1021,7 +1021,6 @@ impl StateReaderGadget {
         dpn: &SimpleDPNBuilder<F, D>,
         cmd: &DPNStateCmd<u64>,
     ) -> Vec<Target> {
-        eprintln!("DEBUGPRINT[620]: state_readers.rs:904: cmd={}", serde_json::to_string_pretty(&cmd).unwrap());
         let value = match cmd {
             DPNStateCmd::SetContractStateSlotHash(c) => {
                 let dmp = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(
@@ -1386,10 +1385,9 @@ impl StateReaderGadget {
                 builder.connect_hashes_if_true(condition_target, dmp.old_value, zero_hash);
 
                 let _ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
+                self.deferred_tx_count += 1;
 
                 tx_hash.elements.to_vec()
-
-                
             },
         };
         value

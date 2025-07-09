@@ -79,8 +79,9 @@ const StatefulAddressHeader: React.FC = () => {
 
     return (
         <AddressHeader
-            address={currentWallet.userId + ""}
-            balance={formatBalance(userBalance, currency)}
+            address={currentWallet.userId + ":" + currentWallet.publicKeyHex}
+            // balance={formatBalance(userBalance, currency)}
+            balance={userBalance + currency}
             onRefresh={() => refreshCurrentWallet()}
         />
     );

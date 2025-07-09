@@ -18,7 +18,7 @@ const HomePage: React.FC = () => {
         config.network.coordinator_configs,
         config.network.realm_configs,
         config.network.users_per_realm,
-        getProverUrl() as string,
+        getProverUrl(),
     );
 
     return (

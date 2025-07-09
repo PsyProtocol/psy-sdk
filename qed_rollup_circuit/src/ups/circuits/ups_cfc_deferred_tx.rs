@@ -62,12 +62,12 @@ where
             current_proof_tree_root,
             ups_session_proof_tree_height,
         );
-        
+
 
         let inner_public_inputs_hash = deferred_tx_cfc_step_gadget.standard_cfc_verify_gadget.new_header_gadget.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         let public_inputs_hash = compute_tree_aware_proof_public_inputs::<C::Hasher, C::F, D>(
-            &mut builder, 
+            &mut builder,
             current_proof_tree_root,
             inner_public_inputs_hash,
         );
@@ -89,7 +89,7 @@ where
             fingerprint,
         }
     }
-    
+
     fn prove_base_inner(
         &self,
         target: &UPSCFCDeferredTransactionCircuitInput<C::F>,
@@ -97,7 +97,7 @@ where
         let mut pw = PartialWitness::<C::F>::new();
 
         self.verify_previous_ups_step_gadget.set_witness(&mut pw, &target.verify_previous_ups_step)?;
-        self.verify_previous_ups_step_gadget.set_witness(&mut pw, &target.verify_previous_ups_step)?;
+        self.deferred_tx_cfc_step_gadget.set_witness(&mut pw, &target.deferred_tx_cfc_step)?;
 
 
         self.circuit_data.prove(pw)
@@ -108,7 +108,7 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_base_inner(target)
     }
-    
+
 }
 
 

@@ -94,6 +94,20 @@ pub enum CheckedIntrinsicExprNode {
         type_id: TypeId,
         location: Location,
     },
+    InvokeSync {
+        contract_id: ExprId,
+        method_id: ExprId,
+        inputs: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    InvokeDeferred {
+        contract_id: ExprId,
+        method_id: ExprId,
+        inputs: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
 }
 
 impl NodeInfo for CheckedIntrinsicExprNode {

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use kvq::traits::KVQPair;
 use plonky2::{
@@ -741,6 +741,8 @@ impl<
         Ok((levels, guta, res.link_proof))
     }
     pub async fn build_block(&mut self) -> anyhow::Result<()> {
+        let start = Instant::now();
+        info!("realm STARTED new block");
         //let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
@@ -774,7 +776,7 @@ impl<
         self.prover_queue.enqueue_jobs_imm(&guta_jobs[0]).await?;
 
 
-
+        info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(())
     }
 }

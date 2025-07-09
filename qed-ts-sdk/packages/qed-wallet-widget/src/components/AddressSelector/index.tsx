@@ -85,15 +85,18 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
     const selectedOption = options.find((option) => option.address === address) || null;
 
     const comboOptions: React.JSX.Element[] = useMemo(() => {
-        const addressOptions = options.map((item) => (
-            <Combobox.Option value={item.address} key={item.address}>
+        const addressOptions = options.map((item, index) => (
+            <Combobox.Option 
+                value={item.address} 
+                key={`option-${item.address}-${index}`}
+            >
                 <SelectOption {...item} />
             </Combobox.Option>
         ));
         return addressOptions.concat([
             <Combobox.Group label="Wallet Management" key="wallet-management" style={{ color: 'black' }}>
                 {showAddNew ? (
-                    <Combobox.Option value="new-wallet">
+                    <Combobox.Option value="new-wallet" key="new-wallet">
                         <Group>
                             <TfiPlus size={20} />
                             <div>
@@ -108,7 +111,7 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
                     </Combobox.Option>
                 ) : null}
                 {showImport ? (
-                    <Combobox.Option value="import-wallet" style={{ color: 'black' }}>
+                    <Combobox.Option value="import-wallet" key="import-wallet" style={{ color: 'black' }}>
                         <Group>
                             <TfiImport size={20} />
                             <div>
@@ -123,7 +126,7 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
                     </Combobox.Option>
                 ) : null}
 
-                <Combobox.Option value="refresh-wallets" style={{ color: 'black' }}>
+                <Combobox.Option value="refresh-wallets" key="refresh-wallets" style={{ color: 'black' }}>
                     <Group>
                         <TfiReload size={20} />
                         <div>
@@ -209,11 +212,12 @@ const StatefulAddressSelector: React.FC<IStatefulAddressSelectorProps> = ({ clas
             onChange={(address) => {
                 setActiveWalletAsync(parseFloat(address));
             }}
-            options={wallets.map((wallet) => ({
+            options={wallets.map((wallet, index) => ({
                 address: wallet.userId + "",
                 networkId: wallet.networkId,
                 balanceString: formatBalance(wallet.balance, currency),
-                blockNumber: undefined
+                blockNumber: undefined,
+                uniqueKey: `${wallet.publicKeyHex}-${index}`
             }))}
             showAddNew={providerAbilities.includes("add-random-private-key")}
             showImport={providerAbilities.includes("import-private-key")}
