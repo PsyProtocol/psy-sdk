@@ -10,7 +10,6 @@ cfg_if::cfg_if! {
     if #[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))] {
         pub mod block_state;
         pub mod get_public_key;
-        pub mod lps;
         pub mod produce_block;
         pub mod random_wallet;
         pub mod register_user;
@@ -41,9 +40,6 @@ pub enum Commands {
     DeployContract(crate::subcommand::args::DeployContractArgs),
     ProduceBlock(crate::subcommand::args::ProduceBlockArgs),
     SubmitEndCaproof(crate::subcommand::args::SubmitEndCapArgs),
-    // Lps(crate::subcommand::args::LPSArgs),
-    // Repl(crate::subcommand::args::RPCReplArgs),
-    // ProverRPC(crate::subcommand::args::ProverRPCArgs),
 
     // get block data
     GetBlockState(crate::subcommand::args::BlockStateArgs),
