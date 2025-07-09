@@ -1,10 +1,8 @@
-use plonky2::hash::hash_types::RichField;
-use serde::{Deserialize, Serialize};
 use kvq::traits::KVQSerializable;
+use plonky2::hash::hash_types::RichField;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_store::config::store_config::QEDFelt;
-
-pub mod api;
+use serde::{Deserialize, Serialize};
 
 /// push the latest checkpoint sync info
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
@@ -17,8 +15,9 @@ pub struct CheckpointSyncInfo<F: RichField> {
     pub compact: QEDCheckpointSyncInfoCompact<F>,
 }
 
-
-impl<F: RichField + Serialize + for<'de> Deserialize<'de>> KVQSerializable for CheckpointSyncInfo<F> {
+impl<F: RichField + Serialize + for<'de> Deserialize<'de>> KVQSerializable
+    for CheckpointSyncInfo<F>
+{
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -27,3 +26,4 @@ impl<F: RichField + Serialize + for<'de> Deserialize<'de>> KVQSerializable for C
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
+
