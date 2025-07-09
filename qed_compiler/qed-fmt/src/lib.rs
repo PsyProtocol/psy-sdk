@@ -1082,14 +1082,27 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 "__mem_size_of#<{}>",
                 self.visit_unchecked_type(&ty, false, ctx)
             )),
-            IntrinsicExprNode::StorageRead { contract_state_tree_height, user_id, contract_id, offset, .. } => {
-                Ok(format!("__storage_read({}, {}, {}, {})",
-                    self.visit_expr(contract_state_tree_height, ctx)?,
-                    self.visit_expr(user_id, ctx)?,
-                    self.visit_expr(contract_id, ctx)?,
-                    self.visit_expr(offset, ctx)?))
-            }
-            IntrinsicExprNode::StorageReadRange { contract_state_tree_height, user_id, contract_id, offset, length, .. } => Ok(format!(
+            IntrinsicExprNode::StorageRead {
+                contract_state_tree_height,
+                user_id,
+                contract_id,
+                offset,
+                ..
+            } => Ok(format!(
+                "__storage_read({}, {}, {}, {})",
+                self.visit_expr(contract_state_tree_height, ctx)?,
+                self.visit_expr(user_id, ctx)?,
+                self.visit_expr(contract_id, ctx)?,
+                self.visit_expr(offset, ctx)?
+            )),
+            IntrinsicExprNode::StorageReadRange {
+                contract_state_tree_height,
+                user_id,
+                contract_id,
+                offset,
+                length,
+                ..
+            } => Ok(format!(
                 "__storage_read_range({}, {}, {}, {},{})",
                 self.visit_expr(contract_state_tree_height, ctx)?,
                 self.visit_expr(user_id, ctx)?,
@@ -1110,6 +1123,30 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             IntrinsicExprNode::Hash { data, .. } => {
                 Ok(format!("hash({})", self.visit_expr(data, ctx)?,))
             }
+            IntrinsicExprNode::InvokeSync {
+                contract_id,
+                method_id,
+                inputs,
+                return_type,
+                ..
+            } => Ok(format!(
+                "__invoke_sync#<{}>({}, {}, {})",
+                self.visit_unchecked_type(&return_type, false, ctx),
+                self.visit_expr(contract_id, ctx)?,
+                self.visit_expr(method_id, ctx)?,
+                self.visit_expr(inputs, ctx)?,
+            )),
+            IntrinsicExprNode::InvokeDeferred {
+                contract_id,
+                method_id,
+                inputs,
+                ..
+            } => Ok(format!(
+                "__invoke_deferred({}, {}, {})",
+                self.visit_expr(contract_id, ctx)?,
+                self.visit_expr(method_id, ctx)?,
+                self.visit_expr(inputs, ctx)?,
+            )),
         }
     }
 

@@ -62,12 +62,12 @@ where
             current_proof_tree_root,
             ups_session_proof_tree_height,
         );
-        
+
 
         let inner_public_inputs_hash = standard_cfc_step_gadget.new_header_gadget.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         let public_inputs_hash = compute_tree_aware_proof_public_inputs::<C::Hasher, C::F, D>(
-            &mut builder, 
+            &mut builder,
             current_proof_tree_root,
             inner_public_inputs_hash,
         );
@@ -89,7 +89,7 @@ where
             fingerprint,
         }
     }
-    
+
     fn prove_base_inner(
         &self,
         target: &UPSCFCStandardTransactionCircuitInput<C::F>,
@@ -111,7 +111,7 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_base_inner(target)
     }
-    
+
 }
 
 

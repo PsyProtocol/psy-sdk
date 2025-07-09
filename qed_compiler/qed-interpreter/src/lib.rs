@@ -1078,6 +1078,53 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             .cset_state_range_at(offset.to_felt(), &values.to_felts());
                         return Ok(CheckedValueRef::new_rc(CheckedValue::Type(VOID_TYPE)));
                     }
+                    CheckedIntrinsicExprNode::InvokeSync {
+                        contract_id,
+                        method_id,
+                        inputs,
+                        type_id,
+                        location,
+                    } => {
+                        let contract_id = self
+                            .interpret_expr(program, contract_id.clone(), ctx)?
+                            .to_felt();
+                        let method_id = self
+                            .interpret_expr(program, method_id.clone(), ctx)?
+                            .to_felt();
+                        let inputs = self.interpret_expr(program, *inputs, ctx)?.to_vec();
+                        let outputs = self.context.cinvoke_external_contract_function_sync(
+                            contract_id,
+                            method_id,
+                            inputs,
+                            ctx.size_of(type_id.clone()).try_into().unwrap(),
+                        );
+                        return Ok(CheckedValueRef::decode_felts(
+                            &outputs,
+                            ctx,
+                            type_id.clone(),
+                        ));
+                    }
+                    CheckedIntrinsicExprNode::InvokeDeferred {
+                        contract_id,
+                        method_id,
+                        inputs,
+                        type_id,
+                        location,
+                    } => {
+                        let contract_id = self
+                            .interpret_expr(program, contract_id.clone(), ctx)?
+                            .to_felt();
+                        let method_id = self
+                            .interpret_expr(program, method_id.clone(), ctx)?
+                            .to_felt();
+                        let inputs = self.interpret_expr(program, *inputs, ctx)?.to_vec();
+                        self.context.cinvoke_external_contract_function_deferred(
+                            contract_id,
+                            method_id,
+                            inputs,
+                        );
+                        return Ok(CheckedValueRef::new_rc(CheckedValue::Type(type_id.clone())));
+                    }
                 }
             }),
             CheckedExprNode::Value(value_node) => Ok(CheckedValueRef::new_rc(
