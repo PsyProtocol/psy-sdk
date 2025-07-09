@@ -1,10 +1,8 @@
 [workspace]
 members = [
     "qedlang_core",
-    "qedlang_ex",
-    "qedlang_macros",
-    "qedlang_macro2",
-    "qedlang_macro3",
+    "qed_compiler/qedlang_ex",
+    "qed_compiler/qedlang_macros",
     "kvq",
     "kvq_store_lmdbx",
     "qed_core",

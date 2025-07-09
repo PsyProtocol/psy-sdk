@@ -29,7 +29,7 @@ qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
 qed_exec = { path = "../qed_exec", default-features = false }
 qed_store = { path = "../qed_store", default-features = false }
-qedlang_macros = { path = "../qedlang_macros" }
+qedlang_macros = { path = "../qed_compiler/qedlang_macros" }
 maybe-async = { workspace = true }
 
 [features]

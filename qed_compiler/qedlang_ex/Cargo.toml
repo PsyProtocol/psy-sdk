@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name    = "qedlang_macros"
+name    = "qedlang_ex"
 version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -13,11 +13,7 @@ hex = { workspace = true }
 hex-literal = { workspace = true }
 lazy_static = { workspace = true }
 plonky2 = { workspace = true }
+twox-hash = { workspace = true }
+qedlang_core = { path = "../../qedlang_core" }
+qedlang_macros = { path = "../qedlang_macros" }
 
-qedlang_core = { path = "../qedlang_core" }
-syn = { version = "2.0", features = ["derive", "parsing", "printing", "full", "fold", "extra-traits"] }
-quote = "1.0"
-proc-macro2 = { version = "1.0", features = ["span-locations"] }
-
-[lib]
-proc-macro = true

@@ -1625,12 +1625,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
-name = "either_n"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c91ae510829160d5cfb19eb4ae7b6e01d44b767ca8f727c6cee936e53cc9ae5"
-
-[[package]]
 name = "elliptic-curve"
 version = "0.13.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5006,42 +5000,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qedlang_macro2"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "hex",
- "hex-literal",
- "lazy_static",
- "plonky2",
- "proc-macro2",
- "qedlang_core",
- "quote",
- "serde",
- "serde_with",
- "syn 2.0.101",
- "syn-helpers",
-]
-
-[[package]]
-name = "qedlang_macro3"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "hex",
- "hex-literal",
- "lazy_static",
- "plonky2",
- "proc-macro2",
- "qedlang_core",
- "quote",
- "serde",
- "serde_with",
- "syn 2.0.101",
- "syn-helpers",
-]
-
-[[package]]
 name = "qedlang_macros"
 version = "0.1.0"
 dependencies = [
@@ -6426,18 +6384,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "syn-helpers"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59c391dcee7e7a1efd7dc921922b97b4be54129a195b6baec95bb2a223203d9d"
-dependencies = [
- "either_n",
- "proc-macro2",
- "quote",
- "syn 2.0.101",
 ]
 
 [[package]]
