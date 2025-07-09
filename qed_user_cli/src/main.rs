@@ -1,5 +1,4 @@
 #![cfg(feature = "is_sync")]
-mod constant;
 mod error;
 mod rpc;
 mod subcommand;
