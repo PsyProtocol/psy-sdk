@@ -8,7 +8,7 @@ use plonky2::{
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use qed_core::{
-    config::network_constants::{COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, CST_USER_UPDATE_CHANNEL_ID, DEFAULT_USER_STATE_TREE_ROOT, GLOBAL_USER_TREE_HEIGHT, REALM_API_GUTA_FROM_USER_CHANNEL_ID, REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID, REALM_USER_TREE_HEIGHT},
+    config::network_constants::{CST_USER_UPDATE_CHANNEL_ID, DEFAULT_USER_STATE_TREE_ROOT, GLOBAL_USER_TREE_HEIGHT, REALM_API_GUTA_FROM_USER_CHANNEL_ID, REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID, REALM_USER_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::{
         drain_queue::CheckpointDrainQueueConsumerAsyncImm,
@@ -28,14 +28,14 @@ use qed_crypto::{
 };
 use qed_data::{
     guta::{
-        api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPIQueueItem, UserEndCapNonProofCoreInputQueueItem},
+        api::{GUTARealmCheckpointResult, UserEndCapNonProofCoreInputQueueItem},
         header::GlobalUserTreeAggregatorHeader,
         proof_input::{
             GUTANoChangeFullInput, GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyEndCapSimpleStandardInput, VerifyGUTAToCapCircuitInputSimple, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput, VerifyTwoGUTAProofGadgetStandardInputSimple
         },
         stats::GUTAStats,
     },
-    qdata::{checkpoint::{QEDCheckpointLeafCompactWithStateRoots, QEDL2BlockState}, user::QEDUserLeaf},
+    qdata::{checkpoint::{QEDCheckpointLeafCompactWithStateRoots}, user::QEDUserLeaf},
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
 use qed_store::{
