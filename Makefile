@@ -1,7 +1,12 @@
 export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 
 PROFILE                  := release
-LOG_LEVEL                := qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
+LOG_LEVEL                := qed_user_prover=info,qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
+
+default: build-release wasm-build
+
+build-release:
+	@RUSTFLAGS="-A warnings"  cargo build --release
 
 check:
 	@cargo check --all-targets --examples
@@ -112,8 +117,8 @@ SLOT_ID                  := 0
 CONTRACT_STATE_HEIGHT    := 32
 REALM_ID                 := 0
 
-COORDINATOR_RPC_URL      := http://127.0.0.1:8545
-REALM_RPC_URL            := http://127.0.0.1:8546
+COORDINATOR_RPC_URL      := $(shell jq -r '.coordinator_configs[].rpc_url[]' rpc.config)
+REALM_RPC_URL            := $(shell jq -r '.realm_configs[0].rpc_url[]' rpc.config)
 
 init:
 	@mkdir -p $(PWD)/db
@@ -122,19 +127,9 @@ init:
 
 .PHONY: launch
 launch: shutdown init compile
-	@docker-compose \
-		-f docker-compose.yml \
-		up \
-		--build \
-		-d \
-		--remove-orphans
 
 .PHONY: shutdown
 shutdown:
-	@docker-compose \
-		-f docker-compose.yml \
-		down \
-		--remove-orphans > /dev/null 2>&1 || true
 	@sudo rm -fr redis-data
 	@redis-cli 'FLUSHALL' > /dev/null 2>&1 || true
 	@redis-cli -u redis://127.0.0.1:6380 'FLUSHALL' > /dev/null 2>&1 || true
@@ -147,12 +142,6 @@ run-all:
 
 run-scenario0:
 	@./scripts/run_scenario0.sh
-
-logs:
-	@docker-compose \
-        -f docker-compose.yml \
-        logs \
-        --follow
 
 interpret:
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR} && ../target/${PROFILE}/dargo execute --debug --entry-path ${FILE} --parameters ${PARAMETERS}
@@ -224,6 +213,12 @@ run-realm-edge16384-1:
       --notifications-queue-suffix=rnq16384 \
       --proof-store-key-suffix=RP16384 \
       --path=./db/realm16384
+
+run-user-prover:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_prover
+
+run-web-wallet:
+	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev
 
 # run-realm-processor8192:
 # 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
@@ -356,7 +351,6 @@ get-l2-block-state:
 get-user-leaf-data:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
 
-
 get-realm-user-tree-root:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
 
@@ -431,6 +425,10 @@ image:
 		-c 512 \
 		-t qedprotocol/qed-rollup:latest \
 		-f Dockerfile .
+
+wasm-build:
+	@cd qed_user_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features --features wasm32
+	@cd qed_user_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features --features wasm32
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

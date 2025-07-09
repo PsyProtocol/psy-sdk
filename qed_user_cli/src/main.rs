@@ -1,15 +1,18 @@
+#![cfg(feature = "is_sync")]
 mod constant;
 mod error;
 mod rpc;
 mod subcommand;
+mod session;
 
+#[cfg(not(target_arch = "wasm32"))]
 use shadow_rs::shadow;
 
+#[cfg(not(target_arch = "wasm32"))]
 shadow!(build);
 
 use clap::Parser;
 use error::Result;
-
 use crate::subcommand::add_withdrawal;
 use crate::subcommand::block_state;
 use crate::subcommand::claim_deposit;
@@ -19,7 +22,6 @@ use crate::subcommand::l1_deposit;
 use crate::subcommand::produce_block;
 use crate::subcommand::random_wallet;
 use crate::subcommand::register_user;
-use crate::subcommand::session;
 use crate::subcommand::sign_hash;
 use crate::subcommand::submit_end_cap_proof;
 use crate::subcommand::token_transfer;

@@ -121,7 +121,6 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
-        eprintln!("DEBUGPRINT[565]: checkpoint_state_transition.rs:125: input={}", serde_json::to_string_pretty(&input).unwrap());
 
         self.child_proofs_gadget.set_witness_params(
             &mut pw,

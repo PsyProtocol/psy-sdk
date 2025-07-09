@@ -20,8 +20,6 @@ rand = { workspace = true }
 bincode = { workspace = true }
 async-trait = { workspace = true }
 
-tracing-subscriber = { workspace = true }
-tracing = { workspace = true }
 ts-rs = { workspace = true }
 
 kvq = { path = "../kvq" }

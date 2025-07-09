@@ -1,6 +1,6 @@
 .idea
 node_modules
-**/dist
+**/dist*
 results
 .nyc_output
 *.tsbuildinfo
@@ -19,3 +19,4 @@ results
 packages/contract-sdk/generated/
 packages/contract-sdk/dist/
 packages/qed-sdk/src/generated-contracts/
+package-lock.json

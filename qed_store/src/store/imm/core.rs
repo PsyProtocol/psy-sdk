@@ -42,8 +42,9 @@ pub trait QEDStorageAdapterImmutable: KVQBinaryStoreImmutable {}
 impl<T: KVQBinaryStoreImmutable> QEDStorageAdapterImmutable for T {}
 type F = QEDFelt;
 
-impl<T: QEDStorageAdapterImmutable> QMetaDataStoreReaderSync<F> for T {
-    fn get_user_leaf_data(
+#[maybe_async::maybe_async(?Send)]
+impl<T: QEDStorageAdapterImmutable + Sync> QMetaDataStoreReaderSync<F> for T {
+    async fn get_user_leaf_data(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -51,11 +52,11 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreReaderSync<F> for T {
         UserLeafTableStore::get_user_by_id(self, checkpoint_id, user_id)
     }
 
-    fn get_user_leaf_data_f(
+    async fn get_user_leaf_data_f(
         &self,
         checkpoint_id: F,
         user_id: F,
-    ) -> anyhow::Result<qed_data::qdata::user::QEDUserLeaf<F>> {
+    ) -> anyhow::Result<QEDUserLeaf<F>> {
         UserLeafTableStore::get_user_by_id(
             self,
             checkpoint_id.to_canonical_u64(),
@@ -63,11 +64,11 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>> {
+    async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>> {
         ContractLeafTableStore::get_contract_by_id(self, MAX_CHECKPOINT, contract_id)
     }
 
-    fn get_contract_leaf_data_f(&self, contract_id: F) -> anyhow::Result<QEDContractLeaf<F>> {
+    async fn get_contract_leaf_data_f(&self, contract_id: F) -> anyhow::Result<QEDContractLeaf<F>> {
         ContractLeafTableStore::get_contract_by_id(
             self,
             MAX_CHECKPOINT,
@@ -75,22 +76,22 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>> {
         CheckpointLeafTableStore::get_checkpoint_leaf_by_id(self, checkpoint_id)
     }
 
-    fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> anyhow::Result<QEDCheckpointLeaf<F>> {
         CheckpointLeafTableStore::get_checkpoint_leaf_by_id(self, checkpoint_id.to_canonical_u64())
     }
 
-    fn get_contract_code_definition(
+    async fn get_contract_code_definition(
         &self,
         contract_id: u64,
     ) -> anyhow::Result<ContractCodeDefinition> {
         ContractCodeTableStore::get_contract_code_by_id(self, MAX_CHECKPOINT, contract_id)
     }
 
-    fn get_contract_code_definition_f(
+    async fn get_contract_code_definition_f(
         &self,
         contract_id: F,
     ) -> anyhow::Result<ContractCodeDefinition> {
@@ -101,15 +102,15 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState> {
+    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState> {
         L2BlockStateTableStore::get_block_state_by_id(self, checkpoint_id)
     }
 
-    fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<QEDL2BlockState> {
+    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<QEDL2BlockState> {
         L2BlockStateTableStore::get_block_state_by_id(self, checkpoint_id.to_canonical_u64())
     }
 
-    fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
+    async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
         L2BlockStateTableStore::get_latest_block_state(self)
     }
 }
@@ -195,8 +196,9 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreWriterSync<F> for T {
     }
 }
 
-impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
-    fn get_user_contract_state_tree_root(
+#[maybe_async::maybe_async(?Send)]
+impl<T: QEDStorageAdapterImmutable + Sync> QTreeDataStoreReaderSync<F> for T {
+    async fn get_user_contract_state_tree_root(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -205,7 +207,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         UserContractTreeStore::get_leaf_value_fc(self, checkpoint_id, user_id, contract_id.into())
     }
 
-    fn get_user_contract_state_tree_root_f(
+    async fn get_user_contract_state_tree_root_f(
         &self,
         checkpoint_id: F,
         user_id: F,
@@ -215,10 +217,10 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
             checkpoint_id.to_canonical_u64(),
             user_id.to_canonical_u64(),
             contract_id.to_canonical_u64() as u32,
-        )
+        ).await
     }
 
-    fn get_user_contract_state_tree_leaf_hash(
+    async fn get_user_contract_state_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -233,7 +235,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_user_contract_state_tree_leaf_hash_f(
+    async fn get_user_contract_state_tree_leaf_hash_f(
         &self,
         checkpoint_id: F,
         user_id: F,
@@ -247,10 +249,10 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
             contract_id.to_canonical_u64() as u32,
             height,
             leaf_id.to_canonical_u64(),
-        )
+        ).await
     }
 
-    fn get_user_contract_state_tree_merkle_proof(
+    async fn get_user_contract_state_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -265,7 +267,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_user_contract_state_tree_merkle_proof_f(
+    async fn get_user_contract_state_tree_merkle_proof_f(
         &self,
         checkpoint_id: F,
         user_id: F,
@@ -279,10 +281,10 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
             contract_id.to_canonical_u64() as u32,
             height,
             leaf_id.to_canonical_u64(),
-        )
+        ).await
     }
 
-    fn get_user_contract_tree_root(
+    async fn get_user_contract_tree_root(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -290,7 +292,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         UserContractTreeStore::get_root_fc(self, checkpoint_id, user_id)
     }
 
-    fn get_user_contract_tree_root_f(
+    async fn get_user_contract_tree_root_f(
         &self,
         checkpoint_id: F,
         user_id: F,
@@ -298,10 +300,10 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         self.get_user_contract_tree_root(
             checkpoint_id.to_canonical_u64(),
             user_id.to_canonical_u64(),
-        )
+        ).await
     }
 
-    fn get_user_contract_tree_leaf_hash(
+    async fn get_user_contract_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -310,7 +312,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         UserContractTreeStore::get_leaf_value_fc(self, checkpoint_id, user_id, contract_id.into())
     }
 
-    fn get_user_contract_tree_leaf_hash_f(
+    async fn get_user_contract_tree_leaf_hash_f(
         &self,
         checkpoint_id: F,
         user_id: F,
@@ -320,10 +322,10 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
             checkpoint_id.to_canonical_u64(),
             user_id.to_canonical_u64(),
             contract_id.to_canonical_u64() as u32,
-        )
+        ).await
     }
 
-    fn get_user_contract_tree_merkle_proof(
+    async fn get_user_contract_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -332,7 +334,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         UserContractTreeStore::get_leaf_sfc(self, checkpoint_id, user_id, contract_id.into())
     }
 
-    fn get_user_contract_tree_merkle_proof_f(
+    async fn get_user_contract_tree_merkle_proof_f(
         &self,
         checkpoint_id: F,
         user_id: F,
@@ -342,18 +344,18 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
             checkpoint_id.to_canonical_u64(),
             user_id.to_canonical_u64(),
             contract_id.to_canonical_u64() as u32,
-        )
+        ).await
     }
 
-    fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
+    async fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
         UserTreeStore::get_root_fc(self, checkpoint_id)
     }
 
-    fn get_user_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
-        self.get_user_tree_root(checkpoint_id.to_canonical_u64())
+    async fn get_user_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
+        self.get_user_tree_root(checkpoint_id.to_canonical_u64()).await
     }
 
-    fn get_user_tree_leaf_hash(
+    async fn get_user_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -361,15 +363,15 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         UserTreeStore::get_leaf_value_fc(self, checkpoint_id, user_id.into())
     }
 
-    fn get_user_tree_leaf_hash_f(
+    async fn get_user_tree_leaf_hash_f(
         &self,
         checkpoint_id: F,
         user_id: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        self.get_user_tree_leaf_hash(checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64())
+        self.get_user_tree_leaf_hash(checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64()).await
     }
 
-    fn get_user_tree_merkle_proof(
+    async fn get_user_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -377,7 +379,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         UserTreeStore::get_leaf_fc(self, checkpoint_id, user_id.into())
     }
 
-    fn get_user_tree_merkle_proof_f(
+    async fn get_user_tree_merkle_proof_f(
         &self,
         checkpoint_id: F,
         user_id: F,
@@ -385,10 +387,10 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         self.get_user_tree_merkle_proof(
             checkpoint_id.to_canonical_u64(),
             user_id.to_canonical_u64(),
-        )
+        ).await
     }
 
-    fn get_user_sub_tree_merkle_proof(
+    async fn get_user_sub_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         root_level: u8,
@@ -404,7 +406,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_contract_function_tree_root(
+    async fn get_contract_function_tree_root(
         &self,
         checkpoint_id: u64,
         contract_id: u32,
@@ -412,7 +414,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         ContractFunctionTreeStore::get_root_fc(self, checkpoint_id, contract_id.into())
     }
 
-    fn get_contract_function_tree_root_f(
+    async fn get_contract_function_tree_root_f(
         &self,
         checkpoint_id: F,
         contract_id: F,
@@ -420,10 +422,10 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         self.get_contract_function_tree_root(
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64() as u32,
-        )
+        ).await
     }
 
-    fn get_contract_function_tree_leaf_hash(
+    async fn get_contract_function_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         contract_id: u32,
@@ -437,7 +439,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_contract_function_tree_leaf_hash_f(
+    async fn get_contract_function_tree_leaf_hash_f(
         &self,
         checkpoint_id: F,
         contract_id: F,
@@ -451,7 +453,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_contract_function_tree_merkle_proof(
+    async fn get_contract_function_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         contract_id: u32,
@@ -466,7 +468,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_contract_function_tree_merkle_proof_f(
+    async fn get_contract_function_tree_merkle_proof_f(
         &self,
         checkpoint_id: F,
         contract_id: F,
@@ -476,18 +478,18 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64() as u32,
             function_id.to_canonical_u64() as u32,
-        )
+        ).await
     }
 
-    fn get_contract_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
+    async fn get_contract_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
         ContractTreeStore::get_root_fc(self, checkpoint_id)
     }
 
-    fn get_contract_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
+    async fn get_contract_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
         ContractTreeStore::get_root_fc(self, checkpoint_id.to_canonical_u64())
     }
 
-    fn get_contract_tree_leaf_hash(
+    async fn get_contract_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         contract_id: u32,
@@ -495,7 +497,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         ContractTreeStore::get_leaf_value_fc(self, checkpoint_id, contract_id.into())
     }
 
-    fn get_contract_tree_leaf_hash_f(
+    async fn get_contract_tree_leaf_hash_f(
         &self,
         checkpoint_id: F,
         contract_id: F,
@@ -507,7 +509,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_contract_tree_merkle_proof(
+    async fn get_contract_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         contract_id: u32,
@@ -515,7 +517,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         ContractTreeStore::get_leaf_fc(self, checkpoint_id, contract_id.into())
     }
 
-    fn get_contract_tree_merkle_proof_f(
+    async fn get_contract_tree_merkle_proof_f(
         &self,
         checkpoint_id: F,
         contract_id: F,
@@ -527,15 +529,15 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_deposit_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
+    async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
         DepositTreeStore::get_root_fc(self, checkpoint_id)
     }
 
-    fn get_deposit_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
+    async fn get_deposit_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
         DepositTreeStore::get_root_fc(self, checkpoint_id.to_canonical_u64())
     }
 
-    fn get_deposit_tree_leaf_hash(
+    async fn get_deposit_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         deposit_id: u32,
@@ -543,7 +545,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         DepositTreeStore::get_leaf_value_fc(self, checkpoint_id, deposit_id.into())
     }
 
-    fn get_deposit_tree_leaf_hash_f(
+    async fn get_deposit_tree_leaf_hash_f(
         &self,
         checkpoint_id: F,
         deposit_id: F,
@@ -555,7 +557,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_deposit_tree_merkle_proof(
+    async fn get_deposit_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         deposit_id: u32,
@@ -563,7 +565,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         DepositTreeStore::get_leaf_fc(self, checkpoint_id, deposit_id.into())
     }
 
-    fn get_deposit_tree_merkle_proof_f(
+    async fn get_deposit_tree_merkle_proof_f(
         &self,
         checkpoint_id: F,
         deposit_id: F,
@@ -575,15 +577,15 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
+    async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
         WithdrawalTreeStore::get_root_fc(self, checkpoint_id)
     }
 
-    fn get_withdrawal_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
+    async fn get_withdrawal_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
         WithdrawalTreeStore::get_root_fc(self, checkpoint_id.to_canonical_u64())
     }
 
-    fn get_withdrawal_tree_leaf_hash(
+    async fn get_withdrawal_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         withdrawal_id: u32,
@@ -591,7 +593,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         WithdrawalTreeStore::get_leaf_value_fc(self, checkpoint_id, withdrawal_id.into())
     }
 
-    fn get_withdrawal_tree_leaf_hash_f(
+    async fn get_withdrawal_tree_leaf_hash_f(
         &self,
         checkpoint_id: F,
         withdrawal_id: F,
@@ -603,7 +605,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_withdrawal_tree_merkle_proof(
+    async fn get_withdrawal_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         withdrawal_id: u32,
@@ -611,7 +613,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         WithdrawalTreeStore::get_leaf_fc(self, checkpoint_id, withdrawal_id.into())
     }
 
-    fn get_withdrawal_tree_merkle_proof_f(
+    async fn get_withdrawal_tree_merkle_proof_f(
         &self,
         checkpoint_id: F,
         withdrawal_id: F,
@@ -623,19 +625,19 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_latest_checkpoint_tree_root(&self) -> anyhow::Result<QHashOut<F>> {
+    async fn get_latest_checkpoint_tree_root(&self) -> anyhow::Result<QHashOut<F>> {
         CheckpointTreeStore::get_root_fc(self, MAX_CHECKPOINT)
     }
 
-    fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
+    async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
         CheckpointTreeStore::get_root_fc(self, checkpoint_id)
     }
 
-    fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
+    async fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
         CheckpointTreeStore::get_root_fc(self, checkpoint_id.to_canonical_u64())
     }
 
-    fn get_checkpoint_tree_leaf_hash(
+    async fn get_checkpoint_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         leaf_checkpoint_id: u64,
@@ -643,7 +645,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         CheckpointTreeStore::get_leaf_value_fc(self, checkpoint_id, leaf_checkpoint_id.into())
     }
 
-    fn get_checkpoint_tree_leaf_hash_f(
+    async fn get_checkpoint_tree_leaf_hash_f(
         &self,
         checkpoint_id: F,
         leaf_checkpoint_id: F,
@@ -655,7 +657,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
 
-    fn get_checkpoint_tree_merkle_proof(
+    async fn get_checkpoint_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         leaf_checkpoint_id: u64,
@@ -663,7 +665,7 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         CheckpointTreeStore::get_leaf_fc(self, checkpoint_id, leaf_checkpoint_id.into())
     }
 
-    fn get_checkpoint_tree_merkle_proof_f(
+    async fn get_checkpoint_tree_merkle_proof_f(
         &self,
         checkpoint_id: F,
         leaf_checkpoint_id: F,
@@ -675,28 +677,28 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreReaderSync<F> for T {
         )
     }
     
-    fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
+    async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
         UserRegistrationTreeStore::get_root_fc(self, checkpoint_id)
     }
     
-    fn get_user_registration_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
+    async fn get_user_registration_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
         UserRegistrationTreeStore::get_root_fc(self, checkpoint_id.to_canonical_u64())
     }
     
-    fn get_user_registration_tree_leaf_hash(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<QHashOut<F>> {
+    async fn get_user_registration_tree_leaf_hash(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<QHashOut<F>> {
         UserRegistrationTreeStore::get_leaf_value_fc(self, checkpoint_id, leaf_index)
 
     }
     
-    fn get_user_registration_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<QHashOut<F>> {
+    async fn get_user_registration_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<QHashOut<F>> {
         UserRegistrationTreeStore::get_leaf_value_fc(self, checkpoint_id.to_canonical_u64(), leaf_index.to_canonical_u64())
     }
     
-    fn get_user_registration_tree_merkle_proof(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+    async fn get_user_registration_tree_merkle_proof(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
         UserRegistrationTreeStore::get_leaf_fc(self, checkpoint_id, leaf_index)
     }
     
-    fn get_user_registration_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+    async fn get_user_registration_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
         UserRegistrationTreeStore::get_leaf_fc(self, checkpoint_id.to_canonical_u64(), leaf_index.to_canonical_u64())
     }
 }
@@ -952,6 +954,8 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
 
 impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreWriterSync<F> for T {}
 
-impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreReaderSync<F> for T {}
+#[maybe_async::maybe_async]
+impl<T: QEDStorageAdapterImmutable + Sync> QEDComboDataStoreReaderSync<F> for T {}
 
-impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreReaderWriterSync<F> for T {}
+#[maybe_async::maybe_async]
+impl<T: QEDStorageAdapterImmutable + Sync> QEDComboDataStoreReaderWriterSync<F> for T {}

@@ -1,3 +1,5 @@
+#![cfg(not(target_arch = "wasm32"))]
+
 use clap::Parser;
 use qed_user_prover::{args::ProverArgs, run_server};
 

@@ -56,6 +56,8 @@ use crate::context::{with_temp_ctx_read_async, GLOBAL_COORD_EDGE_STATE};
 use crate::edge::context::LATEST_CHECKPOINT_ID;
 use crate::CoordinatorEdgeArgs;
 
+use qed_crypto::hash::traits::qhashable::QFieldHashable;
+
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -142,11 +144,10 @@ impl CoordinatorEdgeHandler {
         &self,
         zk_user_info: ZKPublicKeyInfo<QEDFelt>,
     ) -> anyhow::Result<()> {
-        let hash = zk_user_info.public_key_param;
-        let pk_hex = hex::encode(hash.to_bytes()?);
+        let public_key = zk_user_info.qfhash::<QEDHasher>().to_string();
 
         let redis_pool = get_node_redis_pool()?;
-        let result = get_user_id_by_pubkey(redis_pool.as_ref(), &pk_hex).await?;
+        let result = get_user_id_by_pubkey(redis_pool.as_ref(), &public_key).await?;
 
         if let Some(user_id) = result {
             info!("🛑 User already registered in Redis, user_id = {}", user_id);
@@ -168,11 +169,10 @@ impl CoordinatorEdgeHandler {
         Ok(())
     }
 
-    pub async fn get_user_id(&self, qhash: QHashOut<QEDFelt>) -> anyhow::Result<u64> {
-        let pubkey_hex = hex::encode(qhash.to_bytes()?);
+    pub async fn get_user_id(&self, public_key: QHashOut<QEDFelt>) -> anyhow::Result<u64> {
         let redis_pool = get_node_redis_pool()?;
 
-        let result = get_user_id_by_pubkey(redis_pool.as_ref(), &pubkey_hex).await;
+        let result = get_user_id_by_pubkey(redis_pool.as_ref(), &public_key.to_string()).await;
 
         let Some(user_id) = result? else {
             error!("❌ User not found");

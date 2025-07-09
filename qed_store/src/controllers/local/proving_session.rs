@@ -63,7 +63,7 @@ use super::{
 };
 
 #[derive(Clone, Debug)]
-pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorSync<F>> {
+pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> {
     pub cmd_store: QEDCmdStoreWithCache<F, R>,
     pub state_tree_store: KVQSimpleMemoryBackingStore,
     pub active_tx_session_data_store: KVQSimpleMemoryBackingStore,
@@ -96,7 +96,8 @@ pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorS
 }
 
 // read helpers
-impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStore<F, R> {
+#[maybe_async::maybe_async]
+impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProvingSessionStore<F, R> {
     pub fn get_current_contract_id(&self) -> F {
         self.active_transaction_record
             .call_data
@@ -158,7 +159,9 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
         self.session_proof_tree_root
     }
 }
-impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStore<F, R> {
+
+#[maybe_async::maybe_async]
+impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProvingSessionStore<F, R> {
     pub fn new_at(
         read_store: R,
         start_checkpoint: F,
@@ -210,8 +213,8 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
     pub fn into_cmd_store(self) -> QEDCmdStoreWithCache<F, R> {
         self.cmd_store
     }
-    pub fn into_clean_for_user(mut self, user_id: F) -> anyhow::Result<Self> {
-        let blk_state = self.cmd_store.resolve_get_latest_l2_block_state_mut()?;
+    pub async fn into_clean_for_user(mut self, user_id: F) -> anyhow::Result<Self> {
+        let blk_state = self.cmd_store.resolve_get_latest_l2_block_state_mut().await?;
 
         let start_checkpoint = F::from_canonical_u64(blk_state.checkpoint_id);
         let nonce = self
@@ -219,7 +222,7 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
             .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
                 checkpoint_id: blk_state.checkpoint_id,
                 user_id: user_id.to_canonical_u64(),
-            })?
+            }).await?
             .nonce;
 
         Ok(self.into_clean_for_user_at_checkpoint(user_id, nonce, start_checkpoint))
@@ -244,13 +247,13 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
     pub fn set_proof_tree_root(&mut self, session_proof_tree_root: QHashOut<F>) {
         self.session_proof_tree_root = session_proof_tree_root;
     }
-    pub fn new_at_head(
+    pub async fn new_at_head(
         read_store: R,
         user_id: F,
         nonce: F,
         q_recursion_tree_height: usize,
     ) -> anyhow::Result<Self> {
-        let start_checkpoint = read_store.resolve_get_latest_l2_block_state()?;
+        let start_checkpoint = read_store.resolve_get_latest_l2_block_state().await?;
 
         Ok(Self::new_at(
             read_store,
@@ -274,7 +277,9 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F>> QEDLocalProvingSessionStor
 }
 
 type GF = GoldilocksField;
-impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
+
+#[maybe_async::maybe_async]
+impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
     QEDLocalProvingSessionStore<GoldilocksField, R>
 {
     pub fn get_deferred_tx_debt_latest_index(&self) -> u64 {
@@ -305,19 +310,19 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                 .get_leaf(leaf_index),
         )
     }
-    pub fn init_transaction(
+    pub async fn init_transaction(
         &mut self,
         call_data: DPNProvingSessionSimpleMethodCall<GF>,
     ) -> anyhow::Result<()> {
         let uct_proof = self
-            .get_self_user_contract_tree_leaf(call_data.contract_id)?
+            .get_self_user_contract_tree_leaf(call_data.contract_id).await?
             .to_delta_merkle_proof_inplace();
         let start_contract_state_tree_root = if uct_proof.old_value.eq(&QHashOut::ZERO) {
             let state_tree_height = self
                 .cmd_store
                 .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
                     contract_id: call_data.contract_id.to_canonical_u64(),
-                })?
+                }).await?
                 .state_tree_height
                 .to_canonical_u64() as usize;
             QEDHasher::get_zero_hash(state_tree_height)
@@ -348,13 +353,13 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
     pub fn get_full_data(&mut self, contract_id: GF, method_id: GF, inputs: &[GF], outputs: &[GF]) -> anyhow::Result<DapenCFCUserTransactionCallStartContext<GF>> {
     }*/
 
-    pub fn get_call_start_data(
+    pub async fn get_call_start_data(
         &mut self,
         contract_id: GF,
         method_id: GF,
         inputs: &[GF],
     ) -> anyhow::Result<DapenCFCUserTransactionCallStartContext<GF>> {
-        let contract_state_root_proof = self.get_self_user_contract_tree_leaf(contract_id)?;
+        let contract_state_root_proof = self.get_self_user_contract_tree_leaf(contract_id).await?;
 
         let start_user_contract_tree_root = contract_state_root_proof.root;
         let start_contract_state_tree_root = if contract_state_root_proof.value.eq(&QHashOut::ZERO)
@@ -363,7 +368,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                 .cmd_store
                 .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
                     contract_id: contract_id.to_canonical_u64(),
-                })?
+                }).await?
                 .state_tree_height
                 .to_canonical_u64() as usize;
             QEDHasher::get_zero_hash(state_tree_height)
@@ -391,7 +396,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             start_user_event_index,
         })
     }
-    pub fn get_global_state_tree_roots(
+    pub async fn get_global_state_tree_roots(
         &mut self,
         checkpoint_id: u64,
     ) -> anyhow::Result<QEDCheckpointGlobalStateRoots<GF>> {
@@ -399,28 +404,28 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             self.cmd_store
                 .resolve_get_hash_mut(&QSRHashCmd::GetContractTreeRoot(
                     QSRHashCmdGetContractTreeRoot { checkpoint_id },
-                ))?;
+                )).await?;
 
         let deposit_tree_root =
             self.cmd_store
                 .resolve_get_hash_mut(&QSRHashCmd::GetDepositTreeRoot(
                     QSRHashCmdGetDepositTreeRoot { checkpoint_id },
-                ))?;
+                )).await?;
         let user_tree_root = self
             .cmd_store
             .resolve_get_hash_mut(&QSRHashCmd::GetUserTreeRoot(QSRHashCmdGetUserTreeRoot {
                 checkpoint_id,
-            }))?;
+            })).await?;
         let withdrawal_tree_root =
             self.cmd_store
                 .resolve_get_hash_mut(&QSRHashCmd::GetWithdrawalTreeRoot(
                     QSRHashCmdGetWithdrawalTreeRoot { checkpoint_id },
-                ))?;
+                )).await?;
         let user_registration_tree_root =
             self.cmd_store
                 .resolve_get_hash_mut(&QSRHashCmd::GetUserRegistrationTreeRoot(
                     QSRHashCmdGetUserRegistrationTreeRoot { checkpoint_id },
-                ))?;
+                )).await?;
 
         Ok(QEDCheckpointGlobalStateRoots {
             contract_tree_root,
@@ -430,7 +435,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             user_registration_tree_root,
         })
     }
-    pub fn get_fresh_start_ctx_for_user(
+    pub async fn get_fresh_start_ctx_for_user(
         &mut self,
         user: GF,
     ) -> anyhow::Result<DapenCFCProvingSessionStartContext<GF>> {
@@ -441,20 +446,20 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         );*/
         let checkpoint_leaf = self
             .cmd_store
-            .resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData { checkpoint_id })?;
+            .resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData { checkpoint_id }).await?;
         let checkpoint_tree_root =
             self.cmd_store
                 .resolve_get_hash_mut(&QSRHashCmd::GetCheckpointTreeRoot(
                     QSRHashCmdGetCheckpointTreeRoot { checkpoint_id },
-                ))?;
-        let state_roots = self.get_global_state_tree_roots(checkpoint_id)?;
+                )).await?;
+        let state_roots = self.get_global_state_tree_roots(checkpoint_id).await?;
 
         let user_leaf = self
             .cmd_store
             .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
                 checkpoint_id: self.start_checkpoint_u64 + 1000,
                 user_id: user.to_canonical_u64(),
-            })?;
+            }).await?;
         /*println!(
             "got user_leaf: {}",
             serde_json::to_string_pretty(&user_leaf).unwrap()
@@ -474,7 +479,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
 
         Ok(res)
     }
-    fn set_contract_state_slot_inner(
+    async fn set_contract_state_slot_inner(
         &mut self,
         contract: GF,
         slot: GF,
@@ -484,7 +489,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             .cmd_store
             .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
                 contract_id: contract.to_canonical_u64(),
-            })?
+            }).await?
             .state_tree_height
             .to_canonical_u64() as u8;
         let id = UserContractStateTreeId::new(
@@ -502,7 +507,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                     leaf_id: slot.to_canonical_u64(),
                 },
             ),
-        )?;
+        ).await?;
         id.injest_merkle_proof_ucs(
             &mut self.state_tree_store,
             self.start_checkpoint_u64,
@@ -524,19 +529,19 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         Ok(dmp)
         // self.state_tree_store.map.insert((self.user_id_u64, contract, slot), value);
     }
-    pub fn set_contract_state_slot(
+    pub async fn set_contract_state_slot(
         &mut self,
         contract: GF,
         slot: GF,
         value: QHashOut<GF>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
         eprintln!("DEBUGPRINT[586]: proving_session.rs:530: slot={}, value:{}", slot, value);
-        let result = self.set_contract_state_slot_inner(contract, slot, value)?;
+        let result = self.set_contract_state_slot_inner(contract, slot, value).await?;
         self.local_state_tracker
             .notify_update_slot_dmp(contract.to_canonical_u64(), &result);
         Ok(result)
     }
-    pub fn get_contract_state_slot(
+    pub async fn get_contract_state_slot(
         &mut self,
         contract: GF,
         slot: GF,
@@ -545,7 +550,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             .cmd_store
             .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
                 contract_id: contract.to_canonical_u64(),
-            })?
+            }).await?
             .state_tree_height
             .to_canonical_u64() as u8;
         let id = UserContractStateTreeId::new(
@@ -563,7 +568,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                     leaf_id: slot.to_canonical_u64(),
                 },
             ),
-        )?;
+        ).await?;
         id.injest_merkle_proof_ucs(
             &mut self.state_tree_store,
             self.start_checkpoint_u64,
@@ -576,7 +581,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         )
         // self.state_tree_store.map.insert((self.user_id_u64, contract, slot), value);
     }
-    pub fn get_self_user_contract_tree_leaf(
+    pub async fn get_self_user_contract_tree_leaf(
         &mut self,
         contract_id: GF,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
@@ -588,7 +593,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                     contract_id: contract_id.to_canonical_u64() as u32,
                 },
             ),
-        )?;
+        ).await?;
 
         UserContractTreeStore::injest_merkle_proof_sfc(
             &mut self.state_tree_store,
@@ -603,7 +608,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             contract_id.to_canonical_u64(),
         )
     }
-    fn set_user_contract_tree_leaf(
+    async fn set_user_contract_tree_leaf(
         &mut self,
         contract_id: GF,
         leaf: QHashOut<GF>,
@@ -618,7 +623,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                     contract_id: contract_id.to_canonical_u64() as u32,
                 },
             ),
-        )?;
+        ).await?;
 
         UserContractTreeStore::injest_merkle_proof_sfc(
             &mut self.state_tree_store,
@@ -635,11 +640,11 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         )
     }
 
-    fn update_contract_state_root_in_user_contract_tree(
+    async fn update_contract_state_root_in_user_contract_tree(
         &mut self,
         contract_id: GF,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
-        let latest_root = self.get_contract_state_slot(contract_id, GF::ZERO)?.root;
+        let latest_root = self.get_contract_state_slot(contract_id, GF::ZERO).await?.root;
 
         let old_upper_merkle_proof = self.cmd_store.resolve_get_merkle_proof_mut(
             &QSRMerkleCmd::GetUserContractTreeMerkleProof(
@@ -649,7 +654,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                     contract_id: contract_id.to_canonical_u64() as u32,
                 },
             ),
-        )?;
+        ).await?;
 
         UserContractTreeStore::injest_merkle_proof_sfc(
             &mut self.state_tree_store,
@@ -665,7 +670,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             latest_root,
         )
     }
-    pub fn get_external_user_leaf_proof(
+    pub async fn get_external_user_leaf_proof(
         &mut self,
         user_id: GF,
     ) -> anyhow::Result<DPNReadOtherUserLeafMerkleProof<GF>> {
@@ -676,13 +681,13 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                         checkpoint_id: self.start_checkpoint_u64,
                         user_id: user_id.to_canonical_u64(),
                     },
-                ))?;
+                )).await?;
         let user_leaf = self
             .cmd_store
             .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
                 checkpoint_id: self.start_checkpoint_u64,
                 user_id: user_id.to_canonical_u64(),
-            })?;
+            }).await?;
         Ok(DPNReadOtherUserLeafMerkleProof {
             user_tree_proof,
             user_leaf,
@@ -729,14 +734,14 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             .repay_tx_debt(&mut self.active_tx_session_data_store, tree_leaf_index)
     }
 
-    pub fn finalize_transaction(&mut self) -> anyhow::Result<()> {
+    pub async fn finalize_transaction(&mut self) -> anyhow::Result<()> {
         let contract_id = self
             .active_transaction_record
             .call_data
             .call_data
             .contract_id;
 
-        let uct_proof = self.update_contract_state_root_in_user_contract_tree(contract_id)?;
+        let uct_proof = self.update_contract_state_root_in_user_contract_tree(contract_id).await?;
         self.active_transaction_record.set_uct_proof(uct_proof);
 
         /*
@@ -755,7 +760,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
 
         Ok(())
     }
-    pub fn get_ups_start_ctx(&mut self) -> anyhow::Result<UserProvingSessionStartContext<GF>> {
+    pub async fn get_ups_start_ctx(&mut self) -> anyhow::Result<UserProvingSessionStartContext<GF>> {
         let checkpoint_id = self.start_checkpoint_u64;
         println!(
             "[get_fresh_start_ctx_for_user]: checkpoint_id = {}",
@@ -763,19 +768,19 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         );
         let checkpoint_leaf = self
             .cmd_store
-            .resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData { checkpoint_id })?;
+            .resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData { checkpoint_id }).await?;
         let checkpoint_tree_root =
             self.cmd_store
                 .resolve_get_hash_mut(&QSRHashCmd::GetCheckpointTreeRoot(
                     QSRHashCmdGetCheckpointTreeRoot { checkpoint_id },
-                ))?;
+                )).await?;
 
         let user_leaf = self
             .cmd_store
             .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
                 checkpoint_id: self.start_checkpoint_u64 + 1000,
                 user_id: self.user_id.to_canonical_u64(),
-            })?;
+            }).await?;
         let start_ctx = UserProvingSessionStartContext::<GF> {
             checkpoint_id: self.start_checkpoint,
             checkpoint_tree_root,
@@ -785,7 +790,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         Ok(start_ctx)
     }
 
-    pub fn get_contract_inclusion_proof(
+    pub async fn get_contract_inclusion_proof(
         &mut self,
         contract_id: u32,
     ) -> anyhow::Result<QEDContractInclusionProof<GF>> {
@@ -793,13 +798,13 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
             self.cmd_store
                 .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
                     contract_id: contract_id as u64,
-                })?;
+                }).await?;
         let contract_tree_merkle_proof = self.cmd_store.resolve_get_merkle_proof_mut(
             &QSRMerkleCmd::GetContractTreeMerkleProof(QSRMerkleCmdGetContractTreeMerkleProof {
                 checkpoint_id: self.start_checkpoint_u64,
                 contract_id: contract_id,
             }),
-        )?;
+        ).await?;
 
         Ok(QEDContractInclusionProof {
             contract_leaf,
@@ -807,12 +812,12 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         })
     }
 
-    pub fn get_contract_function_inclusion_proof(
+    pub async fn get_contract_function_inclusion_proof(
         &mut self,
         contract_id: u32,
         function_id: u32,
     ) -> anyhow::Result<QEDContractFunctionInclusionProof<GF>> {
-        let contract_inclusion_proof = self.get_contract_inclusion_proof(contract_id)?;
+        let contract_inclusion_proof = self.get_contract_inclusion_proof(contract_id).await?;
         let contract_function_merkle_proof = self.cmd_store.resolve_get_merkle_proof_mut(
             &QSRMerkleCmd::GetContractFunctionTreeMerkleProof(
                 QSRMerkleCmdGetContractFunctionTreeMerkleProof {
@@ -821,7 +826,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                     function_id,
                 },
             ),
-        )?;
+        ).await?;
 
         Ok(QEDContractFunctionInclusionProof {
             contract_inclusion_proof,
@@ -829,7 +834,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
         })
     }
 
-    pub fn get_all_state_updates(
+    pub async fn get_all_state_updates(
         &mut self,
     ) -> anyhow::Result<(Vec<QEDContractStateUpdateHistory<GF>>, u32)> {
 
@@ -843,17 +848,17 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                     c,
                     GF::from_canonical_u64(slot.index),
                     slot.start_value,
-                )?;
+                ).await?;
             }
             //self.set_user_contract_tree_leaf(c, r.start_state_root)?;
-            self.update_contract_state_root_in_user_contract_tree(c)?;
+            self.update_contract_state_root_in_user_contract_tree(c).await?;
         }
 
         let start_state_roots = self.get_start_contract_state_roots();
         //println!("start_state_roots: {}", serde_json::to_string_pretty(&start_state_roots).unwrap());
 
         for (c, h) in start_state_roots.into_iter() {
-            self.set_user_contract_tree_leaf(GF::from_canonical_u64(c), h)?;
+            self.set_user_contract_tree_leaf(GF::from_canonical_u64(c), h).await?;
         }
 
 
@@ -875,10 +880,10 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField>>
                     c,
                     GF::from_canonical_u64(slot.index),
                     slot.end_value,
-                )?);
+                ).await?);
             }
             let user_contract_tree_update_proof =
-                self.update_contract_state_root_in_user_contract_tree(c)?;
+                self.update_contract_state_root_in_user_contract_tree(c).await?;
             update_results.push(QEDContractStateUpdateHistory {
                 user_contract_tree_update_proof,
                 contract_state_tree_updates,

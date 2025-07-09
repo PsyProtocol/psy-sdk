@@ -4,6 +4,8 @@ pub use tracing::Level;
 use tracing_subscriber::{prelude::*, EnvFilter};
 
 use chrono::{Duration, Utc};
+
+#[cfg(not(target_arch = "wasm32"))]
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +20,7 @@ pub struct Claims {
     pub exp: i64,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn generate_jwt_token(
     secret_key: &str,
     realm_id: u64,
@@ -36,6 +39,7 @@ pub fn generate_jwt_token(
     encode(&header, &claims, &encoding_key)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn decrypt_jwt_token(
     secret_key: &str,
     token: &str,
@@ -78,6 +82,7 @@ pub fn setup_logging(log_level: String) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 mod tests {
     #[test]
     fn test_jwt_token() {

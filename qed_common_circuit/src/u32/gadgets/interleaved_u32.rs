@@ -493,7 +493,8 @@ mod tests {
 
             for t in tests {
                 let input = t;
-                let output = (input << n) | (input >> (32 - n));
+                let shift_amount = 32_u32.wrapping_sub(n as u32);
+                let output = (input << n) | (input >> shift_amount);
 
                 // test circuit
                 let mut pw = PartialWitness::new();
@@ -739,7 +740,8 @@ mod tests {
 
         for (low, high) in tests {
             let res = ((low + (high << 32)) << 2) & 0xffffffffffffffff;
-            let (new_low, new_high) = (res & 0x00000000ffffffff, (res & 0xffffffff00000000) >> 32);
+            let new_low = res & 0x00000000ffffffff;
+            let new_high = if res & 0xffffffff00000000 != 0 { (res & 0xffffffff00000000) >> 32 } else { 0 };
 
             // test circuit
             let mut pw = PartialWitness::new();
@@ -779,7 +781,8 @@ mod tests {
 
         for (low, high) in tests {
             let res = ((low + (high << 32)) >> 2) & 0xffffffffffffffff;
-            let (new_low, new_high) = (res & 0x00000000ffffffff, (res & 0xffffffff00000000) >> 32);
+            let new_low = res & 0x00000000ffffffff;
+            let new_high = if res & 0xffffffff00000000 != 0 { (res & 0xffffffff00000000) >> 32 } else { 0 };
 
             // test circuit
             let mut pw = PartialWitness::new();
