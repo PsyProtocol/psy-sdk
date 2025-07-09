@@ -7,6 +7,9 @@ use qed_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpoint
 
 use qed_data::models::kvq_merkle::key::KVQMerkleNodeKey;
 
+pub mod reader_async;
+pub mod writer_imm;
+
 #[async_trait]
 pub trait QEDRealmStoreReaderAsync<F: RichField> {
     async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>>;

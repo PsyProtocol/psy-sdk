@@ -4,6 +4,9 @@ use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof, utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}};
 use qed_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}}, qsync::coordinator::QEDCheckpointSyncInfoCompact};
 
+pub mod reader_async;
+pub mod writer_imm;
+
 #[async_trait]
 pub trait QEDCoordinatorStoreReaderAsync<F: RichField> {
     async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
