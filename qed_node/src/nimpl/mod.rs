@@ -7,11 +7,9 @@ use fred::{
 use fred::types::{ClusterHash, CustomCommand};
 
 pub mod drain_queue_fred;
-pub mod drain_queue_redis;
 pub mod drain_queue_redis_async;
 pub mod proof_store_fred;
 pub mod proof_store_redis_async;
-pub mod proof_store_redis;
 pub mod worker_queue_redis;
 
 /// Create a new Redis connection pool
