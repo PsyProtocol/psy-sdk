@@ -1,7 +1,7 @@
 export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 
 PROFILE                  := release
-LOG_LEVEL                := qed_user_prover=info,qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
+LOG_LEVEL                := qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
 
 default: build-release wasm-build
 
@@ -16,7 +16,7 @@ fix:
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
 build: common_config_generator
-	@cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin dargo --bin qed_user_prover
+	@cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin dargo
 
 fmt:
 	@cargo fmt
@@ -210,7 +210,7 @@ run-realm-edge16384:
       --proof-store-key-suffix=RP16384
 
 run-user-prover:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_prover
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli local-prover
 
 run-web-wallet:
 	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev
@@ -400,8 +400,8 @@ image:
 		-f Dockerfile .
 
 wasm-build:
-	@cd qed_user_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features --features wasm32
-	@cd qed_user_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features --features wasm32
+	@cd qed_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features
+	@cd qed_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

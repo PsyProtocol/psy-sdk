@@ -692,9 +692,9 @@ build_and_push_image() {
     log_info "Building Rust binaries..."
     
     # Build Rust binaries first
-    if [ ! -f "target/release/qed_rollup_cli" ] || [ ! -f "target/release/qed_user_prover" ]; then
+    if [ ! -f "target/release/qed_rollup_cli" ]; then
         log_info "Compiling Rust binaries..."
-        cargo build --release --bin qed_rollup_cli --bin qed_user_prover || {
+        cargo build --release --bin qed_rollup_cli || {
             log_error "Rust compilation failed"
             exit 1
         }

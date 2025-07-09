@@ -19,7 +19,7 @@ Parameters:
 
   LogLevel:
     Type: String
-    Default: qed_user_prover=info,qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
+    Default: qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
     Description: Log level configuration
 
   MinEdgeCount:

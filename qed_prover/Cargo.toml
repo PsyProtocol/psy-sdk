@@ -5,6 +5,9 @@ version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 anyhow     = { workspace = true }
 bincode      = { workspace = true }
@@ -18,12 +21,18 @@ lazy_static = { workspace = true }
 plonky2 = { workspace = true }
 twox-hash = { workspace = true }
 tracing = { workspace = true }
-serde_cbor ={ workspace = true}
+serde_cbor = { workspace = true}
+rand = { workspace = true }
+reqwest = { workspace = true }
+clap = { workspace = true }
+ts-rs = { workspace = true }
+dashmap = { workspace = true }
 
 kvq = { path = "../kvq" }
 qed_core = { path = "../qed_core" }
 qed_common_circuit = { path = "../qed_common_circuit" }
 qed_rollup_circuit = { path = "../qed_rollup_circuit" }
+qed_rollup_utils = { workspace = true }
 qedlang_core = { path = "../qedlang_core" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
@@ -31,7 +40,31 @@ qed_exec = { path = "../qed_exec", default-features = false }
 qed_store = { path = "../qed_store", default-features = false }
 qedlang_macros = { path = "../qed_compiler/qedlang_macros" }
 maybe-async = { workspace = true }
+dotenv = { workspace = true }
+wasm-bindgen = "0.2"
+web-sys = "0.3"
+js-sys = "0.3"
+wasm-bindgen-futures = "0.4"
+serde-wasm-bindgen = "0.6"
+console_error_panic_hook = "0.1"
+wasm-logger = "0.2"
+wasm-tracing = "2.0"
+cfg-if = {workspace = true}
 
 [features]
 default = ["is_sync"]
 is_sync = ["qed_exec/is_sync","qed_store/is_sync","maybe-async/is_sync"]
+
+
+# Native-only dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+futures = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+hyper = { workspace = true }
+jsonrpsee = { workspace = true }
+
+# WASM-specific dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json"] }

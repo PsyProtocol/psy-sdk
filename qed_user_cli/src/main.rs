@@ -1,9 +1,8 @@
 #![cfg(feature = "is_sync")]
 mod error;
-mod rpc;
 mod subcommand;
-mod session;
 
+use qed_prover::session;
 #[cfg(not(target_arch = "wasm32"))]
 use shadow_rs::shadow;
 
@@ -22,7 +21,9 @@ use crate::subcommand::submit_end_cap_proof;
 use crate::subcommand::Cli;
 use crate::subcommand::Commands;
 
-fn main() -> Result<()> {
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
     let cli = Cli::parse();
@@ -49,6 +50,7 @@ fn main() -> Result<()> {
 
         // wallet session
         Commands::WalletSession(wallet_session_args) => session::run(wallet_session_args)?,
+        Commands::LocalProver(prover_args) => qed_prover::run_server(prover_args).await?,
     }
     Ok(())
 }

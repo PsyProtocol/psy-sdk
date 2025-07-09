@@ -12,7 +12,7 @@ use qed_crypto::{
 use qed_store::config::store_config::QEDHasher;
 use serde::{Deserialize, Serialize};
 
-use crate::rpc::{
+use qed_prover::api::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
 };

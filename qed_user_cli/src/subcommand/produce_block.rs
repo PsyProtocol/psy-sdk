@@ -1,6 +1,6 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 
-use crate::rpc::provider::{QUserRpcProvider, RpcProvider};
+use qed_prover::api::provider::{QUserRpcProvider, RpcProvider};
 
 use super::args::ProduceBlockArgs;
 use anyhow::Result;

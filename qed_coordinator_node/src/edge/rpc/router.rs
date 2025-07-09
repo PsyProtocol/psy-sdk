@@ -17,7 +17,7 @@ use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_realm_node::F;
 use qed_store::config::store_config::{QEDFelt, QEDHasher};
 
-use qed_user_cli::rpc::request::*;
+use qed_prover::api::request::*;
 
 use crate::context::get_jwt_secret;
 use qed_rollup_utils::{decrypt_jwt_token, JWT_COMPANY, JWT_SUBJECT};

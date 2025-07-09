@@ -33,6 +33,7 @@ hashbrown = { workspace = true }
 ts-rs =  { workspace = true }
 clap = { workspace = true }
 dotenv = { workspace = true }
+tokio = { workspace = true }
 async-trait = { workspace = true }
 wasm-bindgen = "0.2"
 serde-wasm-bindgen = "0.6"

@@ -1,8 +1,8 @@
 use std::{collections::HashMap, fs, sync::Arc};
-use plonky2::{hash::hash_types::RichField};
+use plonky2::hash::hash_types::RichField;
 use serde::{Deserialize, Serialize};
 
-use crate::rpc::request::{
+use crate::api::request::{
     Id, QRegisterUserRPCRequest, RequestParams, ResponseResult, RpcRequest,
     RpcResponse, Version,
 };

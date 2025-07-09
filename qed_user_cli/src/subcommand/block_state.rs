@@ -1,5 +1,5 @@
 use super::args::{BlockStateArgs, LatestBlockStateArgs, UserIdArgs, UserLeafArgs};
-use crate::rpc::provider::RpcProvider;
+use qed_prover::api::provider::RpcProvider;
 use anyhow::{Ok, Result};
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_store::{

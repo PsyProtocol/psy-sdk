@@ -38,7 +38,6 @@ members = [
     "qed_compiler/qed-dargo-cli",
     "qed_user_cli",
     "qed_benchmark",
-    "qed_user_prover"
 ]
 resolver = "2"
 
@@ -273,7 +272,6 @@ reqwest = { version = "0.11.22", default-features = false, features = [
 jsonwebtoken = "9.3.1"
 
 qed_user_cli = { path = "./qed_user_cli" }
-qed_user_prover = { path = "./qed_user_prover" }
 qed-ts-type = { path = "./qed-ts-type" }
 
 futures-util = "0.3.28"

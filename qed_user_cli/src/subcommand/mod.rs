@@ -1,9 +1,10 @@
 use clap::command;
 use clap::Parser;
 use clap::Subcommand;
+use qed_prover::api::args::WalletSessionArgs;
+use qed_prover::local::args::ProverArgs;
 
 pub mod args;
-pub mod utils;
 pub mod deploy_contract;
 
 cfg_if::cfg_if! {
@@ -48,5 +49,6 @@ pub enum Commands {
     GetUserLeaf(crate::subcommand::args::UserLeafArgs),
 
     // session
-    WalletSession(crate::subcommand::args::WalletSessionArgs),
+    WalletSession(WalletSessionArgs),
+    LocalProver(ProverArgs),
 }

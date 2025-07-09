@@ -3,7 +3,7 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::hash_types::HashOut;
 use serde::{Deserialize, Serialize};
 use qed_core::data::qhashout::QHashOut;
-use crate::rpc::request::QUserRegistrationTreeMerkleProofFRPCRequest;
+use crate::api::request::QUserRegistrationTreeMerkleProofFRPCRequest;
 
 pub fn ts_export() -> anyhow::Result<()> {
     HashOut::<GoldilocksField>::export_all()?;

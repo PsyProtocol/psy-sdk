@@ -23,35 +23,116 @@ use qed_crypto::{
 };
 use qed_data::{
     guta::end_cap_input::SubmitUserEndCapNonProofInput,
-    qblock::cmds::deploy_contract::QBCDeployContract,
+    qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
 };
-use qed_prover::ups::{
+use crate::{api::args::ContractCallArgs, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}}, ups::{
     circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager,
-};
+}};
 use qed_store::{
     config::store_config::QEDHasher,
     controllers::local::{
         proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
     },
     models::user,
-    store::imm::cmd_processor::QEDReadCommandProcessorSync,
+    store::imm::{cmd::QSRCmdGetContractCodeDefinition, cmd_processor::QEDReadCommandProcessorSync},
     traits::qdatastore::qmetadata::QMetaDataStoreReaderSync,
 };
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use serde::{Deserialize, Serialize};
 
-use crate::rpc::{
+use crate::api::{
     provider::{QUserRpcProvider, RpcConfig, RpcProvider},
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
-use crate::subcommand::args::{ContractCallArgs, WalletSessionArgs};
-use crate::subcommand::deploy_contract::gen_contract_deploy_and_circuits_for_functions;
-use crate::subcommand::utils::prove_func;
+use crate::api::args::WalletSessionArgs;
+
+pub fn gen_contract_deploy_and_circuits_for_functions(
+    deployer: QHashOut<GoldilocksField>,
+    contract_state_tree_height: u8,
+    defs: &[DPNFunctionCircuitDefinition],
+) -> anyhow::Result<(
+    Vec<DapenContractFunctionCircuit<C, D>>,
+    QBCDeployContract<GoldilocksField>,
+)> {
+    let code_defs = defs
+        .iter()
+        .map(|x| dapen_fc_to_cfc_code_definition(x))
+        .collect::<Vec<_>>();
+    let mut fingerprints = Vec::with_capacity(defs.len() * 2);
+    let circuits = defs
+        .iter()
+        .map(|x| {
+            let c = DapenContractFunctionCircuit::<C, D>::new(
+                x,
+                contract_state_tree_height as usize,
+                UPS_SESSION_PROOF_TREE_HEIGHT as usize,
+                false,
+            );
+            fingerprints.push(c.get_fingerprint());
+
+            // sibling is [method_id, (num_outputs<<32)|num_inputs, 0, 0]
+            let inputs_outputs_combo =
+                ((x.circuit_outputs.len() as u64) << 32u64) | (x.circuit_inputs.len() as u64);
+            fingerprints.push(QHashOut::from_values(
+                x.method_id as u64,
+                inputs_outputs_combo,
+                0,
+                0,
+            ));
+            c
+        })
+        .collect::<Vec<_>>();
+
+    let deploy = QBCDeployContract {
+        deployer,
+        code_definition: ContractCodeDefinition {
+            state_tree_height: contract_state_tree_height as u16,
+            functions: code_defs,
+        },
+        function_whitelist: fingerprints,
+    };
+
+    Ok((circuits, deploy))
+}
 
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
+
+#[maybe_async::maybe_async]
+pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    st: &R,
+    circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
+    mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
+    contract_id: u64,
+    fn_name: &str,
+    inputs: Vec<F>,
+) -> anyhow::Result<()> {
+    let contract_code =
+        st.resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id }).await?;
+
+    for (i, func) in contract_code.functions.iter().enumerate() {
+        let dapen_fc = cfc_code_definition_to_dapen_fc(&func)?;
+        let dapen_fc_circuit = DapenContractFunctionCircuit::<C, D>::new(
+            &dapen_fc,
+            contract_code.state_tree_height as usize,
+            UPS_SESSION_PROOF_TREE_HEIGHT as usize,
+            false,
+        );
+        if dapen_fc.name == fn_name {
+            return mgr.prove_contract_call(
+                circuit_mgr,
+                F::from_canonical_u64(contract_id),
+                i as u32,
+                &dapen_fc_circuit,
+                &dapen_fc,
+                inputs,
+            ).await;
+        }
+    }
+    anyhow::bail!("unable to find function {}", fn_name);
+}
 
 pub enum UserState {
     Active,
@@ -518,6 +599,7 @@ pub struct WalletKeyPair {
 
 #[cfg(feature = "is_sync")]
 pub fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
+
     let rpc_config: RpcConfig = serde_json::from_str(&std::fs::read_to_string(args.rpc_config)?)?;
     let private_key = QHashOut::<F>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;

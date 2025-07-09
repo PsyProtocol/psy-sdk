@@ -15,14 +15,22 @@ use qed_core::data::u8bytes::U8Bytes;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
-use qed_user_cli::subcommand::args::ContractCallArgs;
-use qed_user_cli::session::{WalletKeyPair, WalletSession};
-use qed_user_cli::rpc::provider::RpcConfig;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::api::args::ContractCallArgs;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::session::{WalletKeyPair, WalletSession};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::api::provider::RpcConfig;
+
+#[cfg(target_arch = "wasm32")]
+use crate::local::types::{ContractCallArgs, WalletKeyPair, RpcConfig};
+#[cfg(target_arch = "wasm32")]
+use crate::local::wallet_session::WalletSession;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
-use crate::store::UserProverWorkerStore;
+use crate::local::store::UserProverWorkerStore;
 
 type C = PoseidonGoldilocksConfig;
 type F = GoldilocksField;
