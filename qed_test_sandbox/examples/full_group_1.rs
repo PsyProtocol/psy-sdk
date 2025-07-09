@@ -60,7 +60,6 @@ use plonky2::{
 };
 use qed_core::data::qhashout::QHashOut;
 use qed_node::nimpl::new_fred_pool;
-use qed_node_common::store::new_lmdbx_env;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
