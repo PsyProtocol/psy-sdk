@@ -318,12 +318,22 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         todo!()
     }
 
+    fn cinvoke_external_contract_function_sync(
+        &mut self,
+        _contract_id: F,
+        _method_id: F,
+        _inputs: Vec<F>,
+        num_outputs: u32,
+    ) -> Vec<F> {
+        todo!()
+    }
+
     fn cinvoke_external_contract_function_deferred(
         &mut self,
-        _contract_id: SymFeltRef,
-        _method_id: SymFeltRef,
-        _inputs: Vec<SymFeltRef>,
-    ) -> [SymFeltRef; 4] {
+        _contract_id: F,
+        _method_id: F,
+        _inputs: Vec<F>,
+    ) -> [F; 4] {
         todo!()
     }
 

@@ -35,3 +35,11 @@ pub fn get_other_user_contract_state_hash_at(contract_state_tree_height: Felt, u
 pub fn cset_state_hash_at(slot_index: Felt, new_value: Hash) -> Hash {
     __ctx_set_state_hash_at(slot_index, new_value)
 }
+
+pub fn invoke_sync<T, U>(contract_id: Felt, method_id: Felt, inputs: U) -> T {
+    __invoke_sync#<T>(contract_id, method_id, inputs)
+}
+
+pub fn invoke_deferred<T, U>(contract_id: Felt, method_id: Felt, inputs: U) {
+    __invoke_deferred(contract_id, method_id, inputs);
+}

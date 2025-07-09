@@ -5,15 +5,7 @@ use super::{
     op_types::{DPNBuiltInDataType, DPNOpType},
     state_cmd::{
         data::{
-            DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash,
-            DPNStateCmdGetOtherUserContractStateSlotRange,
-            DPNStateCmdGetOtherUserContractStateSlotSingle,
-            DPNStateCmdGetSelfUserCurrentContractStateSlotHash,
-            DPNStateCmdGetSelfUserCurrentContractStateSlotRange,
-            DPNStateCmdGetSelfUserCurrentContractStateSlotSingle,
-            DPNStateCmdGetSelfUserExternalContractStateSlotHash,
-            DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdSetContractStateSlotHash,
-            DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle,
+            DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotRange, DPNStateCmdGetSelfUserCurrentContractStateSlotSingle, DPNStateCmdGetSelfUserExternalContractStateSlotHash, DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdInvokeExternalContractFunctionSync, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle
         },
         store::DPNStateCommandStore,
         types::DPNStateCmdCore,
@@ -902,6 +894,27 @@ impl DPNContext<SymFeltRef> for QExecContext {
 
     fn cset_state_at<V: ToFelts<SymFeltRef>>(&mut self, sub_index: SymFeltRef, new_value: V) -> V {
         self.op_set_state_obj(sub_index, new_value)
+    }
+
+    fn cinvoke_external_contract_function_sync(
+        &mut self,
+        contract_id: SymFeltRef,
+        method_id: SymFeltRef,
+        input_args: Vec<SymFeltRef>,
+        num_outputs: u32,
+    ) -> Vec<SymFeltRef> {
+        let condition = self.get_set_invoke_current_condition();
+
+        let b = self.resolve_state_cmd_base(DPNStateCmd::InvokeExternalContractFunctionSync(
+            DPNStateCmdInvokeExternalContractFunctionSync {
+                condition,
+                contract_id,
+                method_id,
+                input_args,
+                num_outputs,
+            },
+        ));
+        self.op_target_at_vec(b, num_outputs as u64)
     }
 
     fn cinvoke_external_contract_function_deferred(
