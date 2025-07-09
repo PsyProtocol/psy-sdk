@@ -4402,21 +4402,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_common"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bs58",
- "plonky2",
- "qed_core",
- "qed_crypto",
- "serde",
- "serde_json",
- "serde_repr",
- "serde_with",
-]
-
-[[package]]
 name = "qed_common_circuit"
 version = "0.1.0"
 dependencies = [
@@ -4873,7 +4858,6 @@ dependencies = [
  "kvq_store_lmdbx",
  "maybe-async",
  "plonky2",
- "qed_common",
  "qed_common_circuit",
  "qed_core",
  "qed_crypto",

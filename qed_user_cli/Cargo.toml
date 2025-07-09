@@ -25,7 +25,6 @@ tracing = { workspace = true }
 kvq = { workspace = true }
 qed_store = { path = "../qed_store", default-features = false }
 qed_core = { workspace = true }
-qed_common = { workspace = true }
 qedlang_core = { workspace = true }
 qed_prover = { path = "../qed_prover", default-features = false}
 qed_data = { workspace = true }

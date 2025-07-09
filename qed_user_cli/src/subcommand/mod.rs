@@ -8,18 +8,13 @@ pub mod deploy_contract;
 
 cfg_if::cfg_if! {
     if #[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))] {
-        pub mod add_withdrawal;
         pub mod block_state;
-        pub mod claim_deposit;
         pub mod get_public_key;
-        pub mod l1_deposit;
         pub mod lps;
         pub mod produce_block;
         pub mod random_wallet;
         pub mod register_user;
-        pub mod sign_hash;
         pub mod submit_end_cap_proof;
-        pub mod token_transfer;
     }
 }
 
@@ -37,14 +32,9 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    AddWithdrawal(crate::subcommand::args::AddWithdrawalArgs),
-    ClaimDeposit(crate::subcommand::args::ClaimDepositArgs),
     RegisterUser(crate::subcommand::args::RegisterUserArgs),
     RandomRegisterUserBatch(crate::subcommand::args::RandomArgs),
-    TokenTransfer(crate::subcommand::args::TokenTransferArgs),
-    L1Deposit(crate::subcommand::args::L1DepositArgs),
 
-    SignHash(crate::subcommand::args::SignHashArgs),
     GetPublicKey(crate::subcommand::args::GetPublicKeyArgs),
     RandomWallet(crate::subcommand::args::RandomWalletArgs),
 

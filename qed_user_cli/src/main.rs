@@ -13,18 +13,13 @@ shadow!(build);
 
 use clap::Parser;
 use error::Result;
-use crate::subcommand::add_withdrawal;
 use crate::subcommand::block_state;
-use crate::subcommand::claim_deposit;
 use crate::subcommand::deploy_contract;
 use crate::subcommand::get_public_key;
-use crate::subcommand::l1_deposit;
 use crate::subcommand::produce_block;
 use crate::subcommand::random_wallet;
 use crate::subcommand::register_user;
-use crate::subcommand::sign_hash;
 use crate::subcommand::submit_end_cap_proof;
-use crate::subcommand::token_transfer;
 use crate::subcommand::Cli;
 use crate::subcommand::Commands;
 
@@ -35,13 +30,8 @@ fn main() -> Result<()> {
     qed_rollup_utils::setup_logging(cli.log_level)?;
     tracing::info!("qed user cli");
     match cli.command {
-        Commands::AddWithdrawal(args) => add_withdrawal::run(args)?,
-        Commands::ClaimDeposit(args) => claim_deposit::run(args)?,
         Commands::RegisterUser(args) => register_user::run(args)?,
         Commands::RandomRegisterUserBatch(args) => register_user::run_random(args)?,
-        Commands::TokenTransfer(args) => token_transfer::run(args)?,
-        Commands::L1Deposit(args) => l1_deposit::run(args)?,
-        Commands::SignHash(args) => sign_hash::run(args)?,
         Commands::GetPublicKey(args) => get_public_key::run(args)?,
         Commands::RandomWallet(args) => random_wallet::run(args)?,
         Commands::DeployContract(args) => deploy_contract::run(args)?,

@@ -36,7 +36,6 @@ members = [
     "qed_compiler/qed-dargo",
     "qed_compiler/qed-dargo-toml",
     "qed_compiler/qed-dargo-cli",
-    "qed_common",
     "qed_user_cli",
     "qed_benchmark",
     "qed_user_prover"
@@ -234,7 +233,6 @@ qed_data = { path = "./qed_data" }
 qed_core = { path = "./qed_core" }
 qed_node = { path = "./qed_node" }
 qed_prover = { path = "./qed_prover" }
-qed_common = { path = "./qed_common" }
 qed_common_circuit = { path = "./qed_common_circuit" }
 kvq = { path = "./kvq" }
 qed_node_common = { path = "./qed_node_common" }
