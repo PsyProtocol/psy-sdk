@@ -1,7 +1,7 @@
 use kvq::traits::{
     KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader,
 };
-use qed_data::qdata::u64_key::U64TableKey;
+use crate::qdata::u64_key::U64TableKey;
 
 use crate::{
     config::store_config::QCheckpointSyncInfoCompact,

@@ -41,14 +41,16 @@ use qed_prover::ups::{
     circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager,
 };
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_store::{
+use qed_data::{
     config::store_config::{QEDFelt, QEDHasher},
-    controllers::local::{
-        proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
-    },
-    node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync,
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
+use qed_store::{controllers::local::{
+        proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
+    },
+    node::coordinator::QEDCoordinatorStoreReaderAsync,
+};
+
 use qed_test_sandbox::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
 // use qed_user_cli::subcommand::lps::run_local;
 use reth_libmdbx::{Environment, EnvironmentFlags, Geometry, Mode, PageSize, SyncMode, RW};

@@ -12,11 +12,12 @@ use qed_data::{
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
 };
 use qed_exec::vm::exec::QEDEvalSessionResult;
-use qed_store::{
-    config::store_config::QEDHasher, controllers::local::proving_session::QEDLocalProvingSessionStore, qblock::process::simple::SimpleBlockProcessor, store::imm::cmd_processor::QEDReadCommandProcessorSync, traits::qdatastore::
+use qed_data::{
+    config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, qstore::imm::cmd_processor::QEDReadCommandProcessorSync, traits::qdatastore::
         qtreedata::
             QEDComboDataStoreReaderWriterSync
 };
+use qed_store::controllers::local::proving_session::QEDLocalProvingSessionStore;
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},

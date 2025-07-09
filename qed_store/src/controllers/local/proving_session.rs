@@ -37,7 +37,7 @@ use qed_data::{
     }
 };
 
-use crate::{
+use qed_data::{
     config::store_config::{QEDHasher, UserContractTreeStore},
     models::{
         kvq_merkle::model::{
@@ -45,7 +45,7 @@ use crate::{
         },
         user::contract_state_tree::UserContractStateTreeId,
     },
-    store::imm::{
+    qstore::imm::{
         cache::QEDCmdStoreWithCache,
         cmd::{
             QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot, QSRHashCmdGetDepositTreeRoot, QSRHashCmdGetUserRegistrationTreeRoot, QSRHashCmdGetUserTreeRoot, QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd, QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof

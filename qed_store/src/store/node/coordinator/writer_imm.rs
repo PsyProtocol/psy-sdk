@@ -1,15 +1,15 @@
-use crate::{
+use qed_data::{
     config::store_config::{CheckpointSyncInfoTableStore, QEDHasher, UserTreeStore},
     models::{
         checkpoint::sync_info::{self, QEDCheckpointSyncInfoModelCore},
         kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore,
     },
-    node::coordinator::store_traits::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
-    store::imm::core::QEDStorageAdapterImmutable,
+    qstore::imm::core::QEDStorageAdapterImmutable,
     traits::qdatastore::{
         qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync,
     },
 };
+use crate::node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm};
 
 use async_trait::async_trait;
 use plonky2::field::goldilocks_field::GoldilocksField;

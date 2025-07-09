@@ -4,7 +4,7 @@ use qed_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, data::qhash
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
 use qed_rollup_circuit::{coordinator::coordinator_helper::QEDCoordinatorCircuitManager, guta::guta_helper::QEDGUTACircuitManager};
-use qed_store::config::store_config::QEDFelt;
+use qed_data::config::store_config::QEDFelt;
 use std::fs::File;
 use std::io::Write;
 

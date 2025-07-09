@@ -24,13 +24,14 @@ use qed_node::{
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::store::scylla::ScyllaStore;
-use qed_store::{
+use qed_data::{
     config::store_config::QEDFelt,
-    node::coordinator::store_traits::{
-        QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
-    },
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
+use qed_store::node::coordinator::{
+    QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
+};
+
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, warn};
 

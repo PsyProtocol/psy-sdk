@@ -4,7 +4,7 @@ use kvq::traits::{
 };
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, utils::math::ceil_div_usize};
 use qed_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::data::ZKPublicKeyInfo};
-use qed_data::qdata::hash_key_with_id::Hash4x64KeyWithId;
+use crate::qdata::hash_key_with_id::Hash4x64KeyWithId;
 
 use crate::config::store_config::{QEDHash, QEDHasher, QUserPublicKeyRecord};
 

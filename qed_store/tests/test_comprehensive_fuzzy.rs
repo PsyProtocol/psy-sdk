@@ -2,7 +2,7 @@ use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
-use qed_store::config::store_config::*;
+use qed_data::config::store_config::*;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_comprehensive_fuzzy_operations() -> Result<()> {

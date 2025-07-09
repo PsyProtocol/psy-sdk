@@ -11,8 +11,8 @@ use bb8_redis::redis::AsyncCommands;
 use bincode;
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
-use qed_store::config::store_config::QEDFelt;
-use qed_store::config::store_config::QEDHasher;
+use qed_data::config::store_config::QEDFelt;
+use qed_data::config::store_config::QEDHasher;
 
 pub const USER_ID_KEY_PREFIX: &str = "qed:reg:user_id:";
 pub const PUBKEY_KEY_PREFIX: &str = "qed:reg:pubkey:";

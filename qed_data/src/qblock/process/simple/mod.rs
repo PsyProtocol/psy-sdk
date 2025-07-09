@@ -7,8 +7,8 @@ use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::traits::
     qhashable::QFieldHashable
 ;
-use qed_data::qblock::process::witnesses::QEDCheckpointStateTransitionCircuitInput;
-use qed_data::{
+use crate::qblock::process::witnesses::QEDCheckpointStateTransitionCircuitInput;
+use crate::{
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
     qblock::{
         cmds::core::QEDBlockCommands,
@@ -23,12 +23,13 @@ use qed_data::{
 use crate::{
     config::store_config::{QEDFelt, QEDHasher},
     models::user::contract_state_tree::UserContractStateTreeId,
-    store::imm::core::QEDStorageAdapterImmutable,
     traits::qdatastore::{
         qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync},
         qtreedata::{QTreeDataStoreReaderSync, QTreeDataStoreWriterSync},
     },
 };
+use crate::qstore::imm::core::QEDStorageAdapterImmutable;
+
 
 pub struct SimpleBlockProcessor {}
 
@@ -40,7 +41,7 @@ impl SimpleBlockProcessor {
         fingerprints: &QEDWorkerToolboxCoreCircuitFingerprints<QEDFelt>,
     ) -> anyhow::Result<QEDInternalBlockCircuitInputs<QEDFelt>> {
         let current_block_state = store.get_latest_l2_block_state().await?;
-        
+
         let old_checkpoint_id = current_block_state.checkpoint_id;
         let old_checkpoint_leaf = store.get_checkpoint_leaf_data(old_checkpoint_id).await?;
         let old_state_roots = QEDCheckpointGlobalStateRoots{
@@ -127,7 +128,7 @@ impl SimpleBlockProcessor {
             witness_deploy_contracts.push(contract_reg_witness);
         }
         new_block_state.next_contract_id += cmds.deploy_contracts.len() as u32;
-        
+
         for upd_user in cmds.update_users.iter() {
             let user_id = upd_user.updated_leaf.user_id.to_canonical_u64();
 

@@ -11,9 +11,10 @@ use qed_data::{
     dpn::proving_session::{DPNProvingSessionSimpleMethodCall, DPNProvingSessionCompactMethodCall, QEDLocalTransactionRecord}, guta::{api::SubmitUserEndCapNonProofCoreInput, end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_end_cap_result::UPSEndCapResultCompact, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf}, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::{UPSCFCStandardTransactionCircuitInput, UPSCFCDeferredTransactionCircuitInput}, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput, UPSVerifyPopDeferredTxStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
-use qed_store::{
-    config::store_config::QEDHasher, controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::QEDUserSessionUpdateHistory}, store::imm::{cache::QEDCmdStoreWithCache, cmd::{QSRCmdGetCheckpointLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
+use qed_data::{
+    config::store_config::QEDHasher, qstore::imm::{cache::QEDCmdStoreWithCache, cmd::{QSRCmdGetCheckpointLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
 };
+use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::QEDUserSessionUpdateHistory};
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use crate::dpn::circuits::cfc::DapenContractFunctionCircuit;
@@ -585,7 +586,7 @@ impl<
         let deferred_tx = &debt_item.call_data;
         let method_id = deferred_tx.method_id.to_canonical_u64() as u32;
         let contract_def = self.lps.cmd_store.resolve_get_contract_code_mut(
-            &qed_store::store::imm::cmd::QSRCmdGetContractCodeDefinition {
+            &qed_data::qstore::imm::cmd::QSRCmdGetContractCodeDefinition {
                 contract_id: deferred_tx.contract_id.to_canonical_u64(),
             }
         ).await?;

@@ -2,7 +2,7 @@
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
-use qed_data::{dpn::proving_session::DPNProvingSessionSimpleMethodCall, qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}};
+use crate::{dpn::proving_session::DPNProvingSessionSimpleMethodCall, qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}};
 use serde::{Deserialize, Serialize};
 
 
@@ -122,7 +122,7 @@ pub enum DPNStateCmdWitness<F: RichField> {
 }
 
 impl<F: RichField> DPNStateCmdWitness<F> {
-    
+
     pub fn get_merkle_proof_ref(&self) -> &MerkleProofCore<QHashOut<F>> {
         match &self {
             DPNStateCmdWitness::MerkleProof(merkle_proof) => {
@@ -314,5 +314,5 @@ pub trait QEDReadCommandProcessorSyncMut<F: RichField> {
     async fn resolve_get_latest_l2_block_state_mut(&mut self) -> anyhow::Result<QEDL2BlockState>;
 
 }
-/* 
+/*
 */

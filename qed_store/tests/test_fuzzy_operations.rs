@@ -2,7 +2,7 @@ use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
-use qed_store::config::store_config::*;
+use qed_data::config::store_config::*;
 use std::sync::Arc;
 
 // Helper function to construct keys based on table type

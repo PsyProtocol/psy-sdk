@@ -21,21 +21,16 @@ use qed_data::{
     qblock::cmds::{
         core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser,
     },
-    qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
+    qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition}, qstore::imm::cmd_processor::QEDReadCommandProcessorSync,
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_prover::dpn::{
     circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition,
 };
-use qed_store::{
-    config::store_config::QEDHasher,
-    controllers::local::proving_session::QEDLocalProvingSessionStore,
-    qblock::process::simple::SimpleBlockProcessor,
-    store::imm::cmd_processor::QEDReadCommandProcessorSync,
-    traits::qdatastore::{
-        qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync,
-    },
+use qed_data::{
+    config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };
+use qed_store::controllers::local::proving_session::QEDLocalProvingSessionStore;
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},

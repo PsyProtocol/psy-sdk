@@ -7,7 +7,7 @@ use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, tr
 use qed_data::dpn::proving_session::DPNTransactionDebtItem;
 use serde::{Deserialize, Serialize};
 
-use crate::{config::store_config::{QEDFelt, QEDHasher}, models::kvq_merkle::model::{KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore}};
+use qed_data::{config::store_config::{QEDFelt, QEDHasher}, models::kvq_merkle::model::{KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore}};
 
 use super::config::LocalProvingSessionTreeStore;
 
@@ -76,7 +76,7 @@ impl<TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const HE
             }
         }
     }
-    
+
 }
 
 
@@ -101,9 +101,9 @@ impl<TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, con
             insertion_proof: insertion_proof.clone(),
         };
         self.remaining_debt.push(debt_item);
-        Ok(insertion_proof)        
-    } 
-    
+        Ok(insertion_proof)
+    }
+
     pub fn add_tx_debt_imm<S: KVQBinaryStore>(&mut self, store: &S, call_data: TX) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
         let new_index = self.next_index as u64;
         self.next_index += 1;
@@ -117,16 +117,16 @@ impl<TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, con
             insertion_proof: insertion_proof.clone(),
         };
         self.remaining_debt.push(debt_item);
-        Ok(insertion_proof)        
+        Ok(insertion_proof)
     }
     pub fn repay_tx_debt<S: KVQBinaryStore>(&mut self, store: &S, tree_leaf_index: u64) -> anyhow::Result<(DPNTransactionDebtItem<TX, GF>, DeltaMerkleProofCore<QHashOut<GF>>)> {
         let removed = self.remove_proof_debt_item_by_tree_index_u64(tree_leaf_index);
         match removed {
             Some(item) => {
                 let removal_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT>::set_leaf_fc(
-                    store, 
-                    self.checkpoint_id, 
-                    tree_leaf_index, 
+                    store,
+                    self.checkpoint_id,
+                    tree_leaf_index,
                     QHashOut::ZERO
                 )?;
 
@@ -143,16 +143,16 @@ impl<TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, con
 
             },
             None => anyhow::bail!("transaction debt not found at tree index {}", tree_leaf_index),
-        }  
+        }
     }
     pub fn repay_tx_debt_imm<S: KVQBinaryStore>(&mut self, store: &S, tree_leaf_index: u64) -> anyhow::Result<(DPNTransactionDebtItem<TX, GF>, DeltaMerkleProofCore<QHashOut<GF>>)> {
         let removed = self.remove_proof_debt_item_by_tree_index_u64(tree_leaf_index);
         match removed {
             Some(item) => {
                 let removal_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT>::set_leaf_fc(
-                    store, 
-                    self.checkpoint_id, 
-                    tree_leaf_index, 
+                    store,
+                    self.checkpoint_id,
+                    tree_leaf_index,
                     QHashOut::ZERO
                 )?;
 
@@ -169,7 +169,7 @@ impl<TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, con
 
             },
             None => anyhow::bail!("transaction debt not found at tree index {}", tree_leaf_index),
-        }  
+        }
     }
 
 }

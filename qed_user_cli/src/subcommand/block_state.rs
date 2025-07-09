@@ -2,7 +2,7 @@ use super::args::{BlockStateArgs, LatestBlockStateArgs, UserIdArgs, UserLeafArgs
 use qed_prover::api::provider::RpcProvider;
 use anyhow::{Ok, Result};
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
-use qed_store::{
+use qed_data::{
     config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync,
 };
 

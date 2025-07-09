@@ -2,7 +2,7 @@ use super::provider::RpcProvider;
 use super::request::*;
 use crate::qed_rpc_call_back;
 use anyhow::Ok;
-use plonky2::field::{goldilocks_field::GoldilocksField};
+use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::{config::network_constants::REALM_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::{
@@ -10,7 +10,7 @@ use qed_data::qdata::{
     contract::{ContractCodeDefinition, QEDContractLeaf},
     user::{self, QEDUserLeaf},
 };
-use qed_store::{
+use qed_data::{
     config::store_config::QEDHasher,
     traits::qdatastore::{
         qmetadata::QMetaDataStoreReaderSync,

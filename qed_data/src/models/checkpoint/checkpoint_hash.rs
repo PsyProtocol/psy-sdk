@@ -1,7 +1,7 @@
 use kvq::traits::{
     KVQBinaryStore, KVQPair, KVQStoreAdapter, KVQStoreAdapterReader
 };
-use qed_data::qdata::{hash_cache_result::QEDHashHelperResult, hash_key::Hash4x64Key};
+use crate::qdata::{hash_cache_result::QEDHashHelperResult, hash_key::Hash4x64Key};
 
 use crate::
     config::store_config::QEDHash

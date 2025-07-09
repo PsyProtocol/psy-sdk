@@ -9,7 +9,7 @@ use qed_crypto::{
     hash::traits::qhashable::QFieldHashable,
     signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
 };
-use qed_store::config::store_config::QEDHasher;
+use qed_data::config::store_config::QEDHasher;
 use serde::{Deserialize, Serialize};
 
 use qed_prover::api::{

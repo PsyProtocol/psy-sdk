@@ -35,12 +35,8 @@ use qed_prover::{
     dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition},
     ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager},
 };
-use qed_store::{
-    controllers::local::
-        session_info::SessionCircuitInfoStore
-    ,
-    store::imm::cmd_processor::QEDReadCommandProcessorSync,
-};
+use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
+use qed_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
@@ -344,8 +340,8 @@ impl SimpleTestContract<C, D>
             if f.def.name.eq(fn_name) {
                 mgr.prove_contract_call(
                     circuit_mgr,
-                    F::from_canonical_u32(contract_id), 
-                    i as u32,//f.def.method_id, 
+                    F::from_canonical_u32(contract_id),
+                    i as u32,//f.def.method_id,
                     &f.circuit,
                     &f.def,
                     inputs

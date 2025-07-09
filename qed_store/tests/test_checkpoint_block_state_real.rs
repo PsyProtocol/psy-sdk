@@ -2,7 +2,7 @@ use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQSerializable};
 use kvq_store_lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
-use qed_store::config::store_config::*;
+use qed_data::config::store_config::*;
 use qed_data::qdata::u64_key::U64TableKey;
 
 const CHECKPOINT_ID_FUZZY_SIZE: usize = 8;

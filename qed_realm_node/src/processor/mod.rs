@@ -11,7 +11,7 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use qed_node_common::verifier::get_cached_generic_verifier;
-use qed_store::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
+use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;

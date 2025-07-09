@@ -28,14 +28,14 @@ use qed_data::{
 use crate::{api::args::ContractCallArgs, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}}, ups::{
     circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager,
 }};
-use qed_store::{
+use qed_data::{
     config::store_config::QEDHasher,
-    controllers::local::{
-        proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
-    },
     models::user,
-    store::imm::{cmd::QSRCmdGetContractCodeDefinition, cmd_processor::QEDReadCommandProcessorSync},
+    qstore::imm::{cmd::QSRCmdGetContractCodeDefinition, cmd_processor::QEDReadCommandProcessorSync},
     traits::qdatastore::qmetadata::QMetaDataStoreReaderSync,
+};
+use qed_store::controllers::local::{
+    proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
 };
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use serde::{Deserialize, Serialize};

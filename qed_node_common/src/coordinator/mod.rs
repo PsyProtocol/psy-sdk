@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
-use qed_store::config::store_config::QEDFelt;
+use qed_data::config::store_config::QEDFelt;
 use serde::{Deserialize, Serialize};
 
 /// push the latest checkpoint sync info

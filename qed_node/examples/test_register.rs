@@ -19,9 +19,7 @@ use qed_node::{
 };
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_store::
-    traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync
-;
+use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::{sync::Arc, time::Duration};
 
 

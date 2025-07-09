@@ -2,7 +2,7 @@ use kvq::traits::{
     KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader,
 };
 use plonky2::field::types::PrimeField64;
-use qed_data::qdata::{checkpoint_id_key::CheckpointTableIdKey, user::QEDUserLeaf};
+use crate::qdata::{checkpoint_id_key::CheckpointTableIdKey, user::QEDUserLeaf};
 
 use crate::{config::store_config::QEDFelt, models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE};
 

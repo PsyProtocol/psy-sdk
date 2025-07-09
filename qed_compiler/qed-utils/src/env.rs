@@ -17,14 +17,14 @@ use qed_data::{
 use qed_prover::dpn::{
     circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition,
 };
-use qed_store::{
+use qed_data::{
     config::store_config::QEDHasher,
-    controllers::local::proving_session::QEDLocalProvingSessionStore,
     qblock::process::simple::SimpleBlockProcessor,
     traits::qdatastore::{
         qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync,
     },
 };
+use qed_store::controllers::local::proving_session::QEDLocalProvingSessionStore;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 pub const D: usize = 2;

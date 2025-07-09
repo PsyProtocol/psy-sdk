@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_data::qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf};
+use crate::qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf};
 
 
 use super::{cmd::{QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetL2BlockState, QSRCmdGetUserLeafData, QSRHashCmd, QSRMerkleCmd}, cmd_processor::{QEDReadCommandBatchInput, QEDReadCommandBatchOutput, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}};
@@ -73,7 +73,7 @@ impl<F: RichField, S: QEDReadCommandProcessorSync<F> + Send> QEDReadCommandProce
         self.cache.checkpoint_leaf_cache.extend(filtered_get.get_checkpoint_leaf.iter().map(|x|x.checkpoint_id).zip(base_output.get_checkpoint_leaf.clone()));
         self.cache.contract_code_definition_cache.extend(filtered_get.get_contract_code.iter().map(|x|x.contract_id).zip(base_output.get_contract_code.clone()));
         self.cache.l2_block_state_cache.extend(filtered_get.get_l2_block_state.iter().map(|x|x.checkpoint_id).zip(base_output.get_l2_block_state.clone()));
-        
+
         self.cache.hash_cmd_cache.extend(filtered_get.get_hash.iter().zip(base_output.get_hash.iter()).map(|(i, x)| (i.clone(), x.clone())));
         self.cache.merkle_cmd_cache.extend(filtered_get.get_merkle_proof.iter().zip(base_output.get_merkle_proof.iter()).map(|(i, x)| (i.clone(), x.clone())));
 

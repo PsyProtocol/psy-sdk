@@ -21,7 +21,7 @@ pub trait MerkleNodeStoreReaderImmutableAsync<Hash: QMerkleStoreHash, const TABL
 
 
 
-    /* 
+    /*
     async fn get_node_latest(&self, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>;
     async fn get_node(&self, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>;
     async fn get_node_if_exists(&self, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<Option<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>>;
@@ -56,5 +56,5 @@ pub trait MerkleNodeStoreImmutableAsync<Hash: QMerkleStoreHash, const TABLE_TYPE
 }
 
 impl<S:MerkleNodeStoreReaderImmutableAsync<Hash, TABLE_TYPE> + MerkleNodeStoreWriterImmutableAsync<Hash, TABLE_TYPE>, Hash: QMerkleStoreHash, const TABLE_TYPE: u16> MerkleNodeStoreImmutableAsync<Hash, TABLE_TYPE> for S {
-    
+
 }

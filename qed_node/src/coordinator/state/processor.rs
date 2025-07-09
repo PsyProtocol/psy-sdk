@@ -63,10 +63,11 @@ use qed_data::{
     },
 };
 use qed_rollup_circuit::guta::gadgets::guta_header;
-use qed_store::{
-    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, UserTreeStore}, models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore, node::coordinator::store_traits::{
-        QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
-    }
+use qed_data::{
+    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, UserTreeStore}, models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore,
+};
+use qed_store::node::coordinator::{
+    QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;

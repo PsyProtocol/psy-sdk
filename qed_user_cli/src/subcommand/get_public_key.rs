@@ -8,7 +8,7 @@ use qed_core::data::base_types::hash256::Hash256;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::signature::secp256k1::wallet::{CompressedPublicKeyToP2PKH, MemorySecp256K1Wallet};
 use qed_crypto::signature::zk::wallet::{SimpleL2PrivateKey, SimpleQEDPrivateKey};
-use qed_store::config::store_config::QEDHasher;
+use qed_data::config::store_config::QEDHasher;
 
 use super::args::GetPublicKeyArgs;
 

@@ -7,7 +7,8 @@ use qed_crypto::{common::user_id::get_user_id_from_registration_id, signature::z
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_node::{coordinator::state::edge::CoordinatorEdgeContext, realm::state::edge::RealmEdgeContext};
 use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager};
-use qed_store::{config::store_config::QEDHasher, node::{coordinator::store_traits::QEDCoordinatorStoreReaderAsync, realm::QEDRealmStoreReaderAsync}, store::imm::cmd_processor::QEDReadCommandProcessorSync};
+use qed_data::{config::store_config::QEDHasher, qstore::imm::cmd_processor::QEDReadCommandProcessorSync};
+use qed_store::node::{coordinator::QEDCoordinatorStoreReaderAsync, realm::QEDRealmStoreReaderAsync};
 
 use super::contract::SimpleTestContract;
 
@@ -56,14 +57,14 @@ impl ExampleDemoUserInfoStore {
     }
 
     Ok(user_ids)
-    
+
 }
 
     pub fn run_tx_for_current_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &self,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract: &SimpleTestContract<C,D>,
-        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,        
+        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
         contract_id: u32,
         fn_name: &str,
         inputs: Vec<F>,
@@ -74,7 +75,7 @@ impl ExampleDemoUserInfoStore {
         &mut self,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract: &SimpleTestContract<C,D>,
-        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,        
+        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
         contract_id: u32,
         calls: Vec<(&str,Vec<F>)>
     ) -> anyhow::Result<()>{
@@ -89,7 +90,7 @@ impl ExampleDemoUserInfoStore {
         mut mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
         contract: &SimpleTestContract<C,D>,
-        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,        
+        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
         contract_id: u32,
         user_id_u64: u64,
         calls: Vec<(&str,Vec<F>)>
@@ -124,17 +125,17 @@ impl ExampleDemoUserInfoStore {
                  F::from_canonical_u64(new_nonce),
                  self.wallet.circuit.get_fingerprint(),
                  public_key_param,
-                signature_proof, 
+                signature_proof,
                  self.wallet.circuit.get_verifier_config_ref().to_owned()
             )?;
             timer.lap("Proved End Cap for UPS Session 🎉");
-        
+
             // the end cap proof the proof that we send off to the network 🎉
-        
+
             //main_circuits.ups_end_cap.circuit_data.verify(end_cap_proof)?;
             timer.lap("✅ Verified End Cap Proof");
-        
-        /* 
+
+        /*
             let user_a_api_input = SubmitUserEndCapProofAPIInput{
                 input: mgr.get_api_input()?,
                 proof: end_cap_proof,
@@ -151,7 +152,7 @@ impl ExampleDemoUserInfoStore {
         mut mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
         contract: &SimpleTestContract<C,D>,
-        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,        
+        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
         contract_id: u32,
         user_calls: Vec<(u64, Vec<(&str,Vec<F>)>)>
     ) -> anyhow::Result<(UserProvingSessionManager<F, PoseidonHash, R, C, D>, Vec<(SubmitUserEndCapNonProofInput<F>, ProofWithPublicInputs<F,C,D>)>)>{
@@ -190,27 +191,27 @@ impl ExampleDemoUserInfoStore {
                  F::from_canonical_u64(new_nonce),
                  self.wallet.circuit.get_fingerprint(),
                  public_key_param,
-                signature_proof, 
+                signature_proof,
                  self.wallet.circuit.get_verifier_config_ref().to_owned()
             )?;
             timer.lap("Proved End Cap for UPS Session 🎉");
-        
+
             // the end cap proof the proof that we send off to the network 🎉
-        
+
             //main_circuits.ups_end_cap.circuit_data.verify(end_cap_proof)?;
             timer.lap("✅ Verified End Cap Proof");
-        
-        /* 
+
+        /*
             let user_a_api_input = SubmitUserEndCapProofAPIInput{
                 input: mgr.get_api_input()?,
                 proof: end_cap_proof,
             };*/
-        
+
             results.push((
                 mgr.get_api_input()?,
                 end_cap_proof
             ));
-        } 
+        }
         Ok((mgr, results))
     }
     pub fn run_txs_for_users_prep<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
@@ -218,7 +219,7 @@ impl ExampleDemoUserInfoStore {
         mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
         contract: &SimpleTestContract<C,D>,
-        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,        
+        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
         contract_id: u32,
         user_calls: Vec<(u64, Vec<(&str,Vec<F>)>)>
     ) -> anyhow::Result<(UserProvingSessionManager<F, PoseidonHash, R, C, D>)>{

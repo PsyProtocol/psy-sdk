@@ -11,10 +11,8 @@ use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use qed_data::{
     api::coordinator::register_user::QEDAPIRegisterUserRequestForUserId, guta::api::SubmitUserEndCapProofAPIInput
 };
-use qed_store::{
-    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
-    node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
-};
+use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
+use qed_store::node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm};
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -70,7 +68,7 @@ pub trait EdgeContext {
 
 #[async_trait]
 pub trait CoordinatorAPIStateHelperImm: EdgeContext {
-    fn realm_contains_user_id(&self, user_id: u64) -> bool; 
+    fn realm_contains_user_id(&self, user_id: u64) -> bool;
     async fn recv_checkpoint_sync_base<
         S: QEDRealmStoreReaderAsync<F> + QEDRealmStoreWriterAsyncImm<F> + Sync,
         PS: QProofStoreWriterSyncImm + Sync,

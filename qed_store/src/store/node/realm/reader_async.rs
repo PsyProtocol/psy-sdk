@@ -1,4 +1,4 @@
-use crate::{
+use qed_data::{
     config::store_config::{CheckpointSyncInfoTableStore, UserTreeStore},
     models::{
         checkpoint::sync_info::QEDCheckpointSyncInfoModelReaderCore,
@@ -6,14 +6,13 @@ use crate::{
             KVQFixedConfigMerkleTreeModelReaderCore
         ,
     },
-    node::
-        realm::QEDRealmStoreReaderAsync
-    ,
-    store::imm::core::QEDStorageAdapterImmutable,
+    qstore::imm::core::QEDStorageAdapterImmutable,
     traits::qdatastore::{
         qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync,
     },
 };
+use crate::node::realm::QEDRealmStoreReaderAsync;
+
 
 use async_trait::async_trait;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::PrimeField64};
@@ -184,7 +183,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreReaderAsync<F> fo
             checkpoint_id,
             user_id,
             contract_id,
-        ) 
+        )
     }
     async fn get_user_contract_state_tree_leaf_hash(
         &self,

@@ -45,10 +45,10 @@ use qed_node::nimpl::worker_queue_redis::redis_queue::{
 };
 use qed_node_common::coordinator::CheckpointSyncInfo;
 // qed_store
-use qed_store::config::store_config::{QEDFelt, QEDHasher};
-use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use qed_store::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
+use qed_data::config::store_config::{QEDFelt, QEDHasher};
+use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
+use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use reth_libmdbx::error;
 // crate inner
 use crate::communicate::GlobalCoordinatorStatus;

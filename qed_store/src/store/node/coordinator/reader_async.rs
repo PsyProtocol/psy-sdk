@@ -1,4 +1,4 @@
-use crate::{
+use qed_data::{
     config::store_config::{CheckpointSyncInfoTableStore, UserTreeStore},
     models::{
         checkpoint::
@@ -8,8 +8,7 @@ use crate::{
             KVQFixedConfigMerkleTreeModelReaderCore, KVQMerkleTreeModelReaderCore,
         },
     },
-    node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync,
-    store::imm::core::QEDStorageAdapterImmutable,
+    qstore::imm::core::QEDStorageAdapterImmutable,
     traits::qdatastore::{
         qmetadata::QMetaDataStoreReaderSync,
         qtreedata::
@@ -17,6 +16,8 @@ use crate::{
         ,
     },
 };
+use crate::node::coordinator::QEDCoordinatorStoreReaderAsync;
+
 
 use async_trait::async_trait;
 use plonky2::field::goldilocks_field::GoldilocksField;

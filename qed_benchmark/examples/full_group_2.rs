@@ -20,8 +20,8 @@ use qed_node::{
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_store::{config::store_config::{QEDFelt, QEDHasher}, controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync}
-;
+use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
+use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync};
 use qed_benchmark::test_helpers::{contract::gen_test_contract, ups::ExampleDemoUserInfoStore};
 use std::time::Duration;
 
@@ -170,8 +170,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &coordinator_worker_circuits,
         &proof_verifier.library,
     ).await?;
-    
-    
+
+
     let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id).await?;
 
@@ -213,7 +213,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
 
 
-    
+
     let latest_l2_block_state = st.get_latest_l2_block_state().await?;
 
     //let stroots = st.get_checkpoint_global_state_roots(latest_l2_block_state.checkpoint_id).await?;
@@ -277,7 +277,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     helper.send_txs_to_edge(&realm_edge_node).await?;
     timer.lap("sent all to edge");
-    
+
 
     realm_processor_node.build_block().await?;
     timer.lap("built block");
@@ -294,8 +294,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &coordinator_worker_circuits,
         &proof_verifier.library,
     ).await?;
-    
-    
+
+
     let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
     println!("rr: {:?}",realm_result);
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
@@ -334,7 +334,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("finished jobs");
 
 
-    
+
 
     realm_processor_node.build_block().await?;
     timer.lap("built block");
@@ -351,8 +351,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &coordinator_worker_circuits,
         &proof_verifier.library,
     ).await?;
-    
-    
+
+
     let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
     println!("rr: {:?}",realm_result);
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;

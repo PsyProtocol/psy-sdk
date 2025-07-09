@@ -1,4 +1,4 @@
-use crate::{
+use qed_data::{
     config::store_config::{
         BaseContractStateTreeStore, CheckpointHashHelperTableStore, CheckpointLeafTableStore, CheckpointSyncInfoTableStore, CheckpointTreeStore, QEDHasher, UserContractTreeStore, UserPublicKeyTableStore, UserRegistrationTreeStore, UserTreeStore, CONTRACT_STATE_TREE_ID, USER_CONTRACT_STATE_TREE_TABLE_TYPE
     },
@@ -12,14 +12,12 @@ use crate::{
             KVQMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelReaderCore,
         }},
     },
-    node::
-        realm::QEDRealmStoreWriterAsyncImm
-    ,
-    store::imm::core::QEDStorageAdapterImmutable,
+    qstore::imm::core::QEDStorageAdapterImmutable,
     traits::qdatastore::
         qmetadata::QMetaDataStoreWriterSync
     ,
 };
+use crate::node::realm::QEDRealmStoreWriterAsyncImm;
 use async_trait::async_trait;
 use kvq::traits::KVQPair;
 use plonky2::{
@@ -80,7 +78,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F>
         sync_info: QEDCheckpointSyncInfo<F>,
     ) -> anyhow::Result<()> {
         let checkpoint_id = sync_info.core.l2_block_state.checkpoint_id;
-        
+
         // First, injest the old checkpoint merkle proof to establish the tree structure
         let old_checkpoint_proof = MerkleProofCore {
             root: sync_info.checkpoint_tree_update_proof.old_root,
@@ -88,7 +86,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F>
             index: sync_info.checkpoint_tree_update_proof.index,
             siblings: sync_info.checkpoint_tree_update_proof.siblings.clone(),
         };
-        
+
         // Use injest_merkle_proof_set_leaf to properly set up the tree structure
         CheckpointTreeStore::<Self>::injest_merkle_proof_set_leaf_fc(
             self,

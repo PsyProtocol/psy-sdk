@@ -19,6 +19,10 @@ rand = { workspace = true }
 bincode = { workspace = true }
 chrono = { workspace = true }
 serde_json = { workspace = true }
+maybe-async = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+hashbrown = { workspace = true }
 
 
 kvq = { path = "../kvq" }

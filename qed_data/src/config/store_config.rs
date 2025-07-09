@@ -8,7 +8,7 @@ use qed_core::{
     data::qhashout::QHashOut,
 };
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
-use qed_data::{qdata::{
+use crate::{qdata::{
     checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, checkpoint_id_key::CheckpointTableIdKey, contract::{ContractCodeDefinition, QEDContractLeaf}, hash_cache_result::QEDHashHelperResult, hash_key::Hash4x64Key, hash_key_with_id::Hash4x64KeyWithId, u64_key::U64TableKey, user::QEDUserLeaf, user_public_key::QEDUserPublicKeyRecord
 }, qsync::coordinator::QEDCheckpointSyncInfoCompact};
 
@@ -187,7 +187,7 @@ mod tests {
 
     #[test]
     fn check_default_user_state_tree_root() {
-        
+
         let expected_empty_user_state_tree_root = PoseidonHasher::get_zero_hash(GLOBAL_CONTRACT_TREE_HEIGHT as usize);
         assert_eq!(DEFAULT_USER_STATE_TREE_ROOT, expected_empty_user_state_tree_root, "DEFAULT_USER_STATE_TREE_ROOT does not match the expected value");
         // TODO: make sure the default user tree root is correct

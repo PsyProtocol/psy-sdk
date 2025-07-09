@@ -18,7 +18,7 @@ use qed_data::{
 use qed_prover::dpn::{
     circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition,
 };
-use qed_store::config::store_config::QEDHasher;
+use qed_data::config::store_config::QEDHasher;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use qed_prover::api::{

@@ -20,8 +20,8 @@ use qed_node::{
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_store::{config::store_config::{QEDFelt, QEDHasher}, controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync}
-;
+use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
+use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync};
 use qed_benchmark::test_helpers::contract::gen_test_contract;
 use std::time::Duration;
 
@@ -169,8 +169,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &coordinator_worker_circuits,
         &proof_verifier.library,
     ).await?;
-    
-    
+
+
     let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id).await?;
 
@@ -199,7 +199,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
 
 
-    
+
     let latest_l2_block_state = st.get_latest_l2_block_state().await?;
 
     //let stroots = st.get_checkpoint_global_state_roots(latest_l2_block_state.checkpoint_id).await?;
@@ -262,10 +262,10 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("proved ups_start");
 
     contract_helper.prove_func(
-        &main_circuits, 
-        &mut mgr, 
-        0, 
-        "simple_mint_debug", 
+        &main_circuits,
+        &mut mgr,
+        0,
+        "simple_mint_debug",
         vec![
             GoldilocksField::from_noncanonical_u64(1000),
         ]
@@ -274,10 +274,10 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
 
     contract_helper.prove_func(
-        &main_circuits, 
-        &mut mgr, 
-        0, 
-        "simple_transfer", 
+        &main_circuits,
+        &mut mgr,
+        0,
+        "simple_transfer",
         vec![
             GoldilocksField::from_noncanonical_u64(1),
             GoldilocksField::from_noncanonical_u64(100),
@@ -299,7 +299,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
          new_nonce,
          wallet.circuit.get_fingerprint(),
          public_key_param,
-        signature_proof, 
+        signature_proof,
          wallet.circuit.get_verifier_config_ref().to_owned()
     )?;
     timer.lap("Proved End Cap for UPS Session 🎉");
@@ -309,7 +309,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     //main_circuits.ups_end_cap.circuit_data.verify(end_cap_proof)?;
     timer.lap("✅ Verified End Cap Proof");
 
-/* 
+/*
     let user_a_api_input = SubmitUserEndCapProofAPIInput{
         input: mgr.get_api_input()?,
         proof: end_cap_proof,
@@ -334,8 +334,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &coordinator_worker_circuits,
         &proof_verifier.library,
     ).await?;
-    
-    
+
+
     let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
 

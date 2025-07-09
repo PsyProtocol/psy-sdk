@@ -15,7 +15,7 @@ use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_realm_node::F;
-use qed_store::config::store_config::{QEDFelt, QEDHasher};
+use qed_data::config::store_config::{QEDFelt, QEDHasher};
 
 use qed_prover::api::request::*;
 

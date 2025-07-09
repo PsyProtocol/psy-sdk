@@ -22,10 +22,9 @@ use qed_prover::{
     dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition},
     ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager},
 };
-use qed_store::{
-    controllers::local::session_info::SessionCircuitInfoStore,
-    store::imm::cmd_processor::QEDReadCommandProcessorSync,
-};
+use qed_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
+use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
+
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},

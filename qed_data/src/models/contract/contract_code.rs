@@ -1,7 +1,7 @@
 use kvq::traits::{
     KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader,
 };
-use qed_data::qdata::{checkpoint_id_key::CheckpointTableIdKey, contract::ContractCodeDefinition};
+use crate::qdata::{checkpoint_id_key::CheckpointTableIdKey, contract::ContractCodeDefinition};
 
 use crate::models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE;
 

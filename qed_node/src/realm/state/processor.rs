@@ -38,10 +38,8 @@ use qed_data::{
     qdata::{checkpoint::{QEDCheckpointLeafCompactWithStateRoots, QEDL2BlockState}, user::QEDUserLeaf},
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
-use qed_store::{
-    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
-    node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
-};
+use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
+use qed_store::node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 

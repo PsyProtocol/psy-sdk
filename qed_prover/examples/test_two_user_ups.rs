@@ -12,11 +12,10 @@ use qed_data::{
 };
 use qed_prover::{api::simple::SimpleAPI, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager}};
 use qed_rollup_circuit::guta::guta_helper::QEDGUTACircuitManager;
-use qed_store::{
-    config::store_config::QEDHasher, controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, 
-        qtreedata::
-            QEDComboDataStoreReaderWriterSync}
+use qed_data::{
+    config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };
+use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
@@ -65,7 +64,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         recipient: Felt,
         amount: Felt,
     ) -> Felt {
-        
+
         let self_user_id = ctx.get_user_id();
         let self_user_leaf = ctx.get_state_hash_at(self_user_id);
 
@@ -99,14 +98,14 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
             p2p_leaf[3],
         ]);
         current_balance
-        
+
     }
     pub fn simple_claim(
         &mut self,
         ctx: &mut C,
         sender: Felt,
     ) -> Felt {
-        
+
         let self_user_id = ctx.get_user_id();
         ctx.assert_true(sender != self_user_id, "you cannot claim from your self");
 
@@ -145,7 +144,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         ]);
 
         new_balance
-        
+
     }
 }
 
@@ -159,7 +158,7 @@ fn gen_contract_deploy_and_circuits_for_functions(
 ) -> anyhow::Result<(Vec<DapenContractFunctionCircuit<C,D>>, QBCDeployContract<GoldilocksField>)>{
 
     let code_defs = defs.iter().map(|x| dapen_fc_to_cfc_code_definition(x)).collect::<Vec<_>>();
-    let mut fingerprints = Vec::with_capacity(defs.len()*2); 
+    let mut fingerprints = Vec::with_capacity(defs.len()*2);
     let circuits = defs.iter().map(|x| {
 
         let c = DapenContractFunctionCircuit::<C, D>::new(x, contract_state_tree_height as usize, UPS_SESSION_PROOF_TREE_HEIGHT as usize, false);
@@ -200,10 +199,10 @@ fn prepare_environment_with_real_contract(
         QHashOut::rand(),
     ];
     let st = Arc::new(KVQSimpleMemoryBackingStore::new());
-    
+
     st.initialize_store()?;
 
-    
+
     let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
     SimpleBlockProcessor::process_block(
         &st,
@@ -268,7 +267,7 @@ fn prepare_environment_with_real_contract(
     )?;
 
     let latest_l2_block_state = st.get_latest_l2_block_state()?;
-    
+
 
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
@@ -404,10 +403,10 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     let pub_key_0 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_0));
     let pub_key_1 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_1));
     timer.lap("finished building wallet/zksig circuits");
-    
+
 
     timer.lap("prepared environement");
-    
+
 
     let contract_id = GoldilocksField::from_canonical_u64(2);
 
@@ -438,12 +437,12 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     timer.lap("end: init QEDUPSStepCircuitManager");
 
 
-    
+
     let (lps, st) = prepare_environment_with_real_contract(
         vec![pub_key_0.into(), pub_key_1.into()],
         deploy_cmd,
     )?;
-    
+
     timer.lap("start build guta circuits");
 
 
@@ -454,7 +453,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     );
     timer.lap("built guta circuits");
     let proof_store = SimpleProofStoreMemory::new();
-    
+
     let mut api = SimpleAPI::<_,_,GoldilocksField,C,D>::new(proof_store, st, guta_circuits)?;
     //main_circuits.print_common_config();
     api.guta_circuits.print_common_config();
@@ -472,7 +471,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     main_circuits.register_info(&mut circuit_info);
     circuit_info.register_circuit(
         LocalCircuitId::new_cfc(
-            contract_id.to_canonical_u64() as u32, 
+            contract_id.to_canonical_u64() as u32,
             simple_mint_debug_def.method_id
         ),
         simple_mint_debug_circuit.get_fingerprint(),
@@ -480,7 +479,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     );
     circuit_info.register_circuit(
         LocalCircuitId::new_cfc(
-            contract_id.to_canonical_u64() as u32, 
+            contract_id.to_canonical_u64() as u32,
             simple_transfer_def.method_id
         ),
         simple_transfer_circuit.get_fingerprint(),
@@ -488,7 +487,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     );
     circuit_info.register_circuit(
         LocalCircuitId::new_cfc(
-            contract_id.to_canonical_u64() as u32, 
+            contract_id.to_canonical_u64() as u32,
             simple_claim_def.method_id
         ),
         simple_claim_circuit.get_fingerprint(),
@@ -507,10 +506,10 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     timer.lap("proved ups_start");
 
     mgr.prove_contract_call(
-        &main_circuits, 
-        contract_id, 
-        0, 
-        &simple_mint_debug_circuit, 
+        &main_circuits,
+        contract_id,
+        0,
+        &simple_mint_debug_circuit,
         &simple_mint_debug_def,
         vec![
             GoldilocksField::from_noncanonical_u64(1000)
@@ -518,13 +517,13 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     )?;
     timer.lap("proved token.simple_mint_debug(amount: 1000)");
 
-    
+
 
     mgr.prove_contract_call(
-        &main_circuits, 
-        contract_id, 
-        1, 
-        &simple_transfer_circuit, 
+        &main_circuits,
+        contract_id,
+        1,
+        &simple_transfer_circuit,
         &simple_transfer_def,
         vec![
             GoldilocksField::from_noncanonical_u64(2),
@@ -547,7 +546,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
          new_nonce,
          wallet.circuit.get_fingerprint(),
          public_key_param,
-        signature_proof, 
+        signature_proof,
          wallet.circuit.get_verifier_config_ref().to_owned()
     )?;
     timer.lap("Proved End Cap for UPS Session 🎉");
@@ -573,10 +572,10 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     timer.lap("proved ups_start");
 
     mgr.prove_contract_call(
-        &main_circuits, 
-        contract_id, 
-        0, 
-        &simple_mint_debug_circuit, 
+        &main_circuits,
+        contract_id,
+        0,
+        &simple_mint_debug_circuit,
         &simple_mint_debug_def,
         vec![
             GoldilocksField::from_noncanonical_u64(10000)
@@ -584,13 +583,13 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     )?;
     timer.lap("proved token.simple_mint_debug(amount: 10000)");
 
-    
+
 
     mgr.prove_contract_call(
-        &main_circuits, 
-        contract_id, 
-        1, 
-        &simple_transfer_circuit, 
+        &main_circuits,
+        contract_id,
+        1,
+        &simple_transfer_circuit,
         &simple_transfer_def,
         vec![
             GoldilocksField::from_noncanonical_u64(3),
@@ -613,7 +612,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
          new_nonce,
          wallet.circuit.get_fingerprint(),
          public_key_param,
-        signature_proof, 
+        signature_proof,
          wallet.circuit.get_verifier_config_ref().to_owned()
     )?;
     timer.lap("Proved End Cap for UPS Session 🎉");
@@ -646,10 +645,10 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
 
 
     //guta_circuits.verify_two_end_cap.prove_base(input, child_a_proof, child_b_proof, end_cap_verifier_data)
-    
-    
 
-    
+
+
+
 
 
 

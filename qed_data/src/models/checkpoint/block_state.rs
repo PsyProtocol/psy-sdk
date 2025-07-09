@@ -1,5 +1,5 @@
 use kvq::traits::{KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader};
-use qed_data::qdata::{checkpoint::QEDL2BlockState, u64_key::U64TableKey};
+use crate::qdata::{checkpoint::QEDL2BlockState, u64_key::U64TableKey};
 
 use crate::models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE;
 

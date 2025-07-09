@@ -15,11 +15,9 @@ use qed_data::{
     },
     qdata::contract::QEDContractLeaf,
 };
-use qed_store::{
-    config::store_config::QEDFelt,
-    node::coordinator::store_traits::{
-        QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
-    },
+use qed_data::config::store_config::QEDFelt;
+use qed_store::node::coordinator::{
+    QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
 };
 
 use super::processor::CoordinatorProcessorContext;
