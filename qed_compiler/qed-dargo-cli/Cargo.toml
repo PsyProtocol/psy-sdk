@@ -29,6 +29,7 @@ qed_common_circuit = { workspace = true }
 qed-common = { workspace = true }
 qed-sema = { workspace = true }
 qed-ast = { workspace = true }
+qed-abi = { path = "../qed-abi" }
 num-bigint = { workspace = true }
 
 
