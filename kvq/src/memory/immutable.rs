@@ -187,6 +187,12 @@ impl<KVQ: KVQBinaryStore> KVQBinaryStoreWriterImmutable for KVQImmutableStoreWra
             self.write()?.delete_many(keys)
         }
     }
+
+    fn imm_flush_change(&self) -> anyhow::Result<()> {
+        {
+            self.write()?.flush_change()
+        }
+    }
 }
 
 impl<KVQ: KVQBinaryStore> KVQBinaryStoreImmutable for KVQImmutableStoreWrapper<KVQ> {}

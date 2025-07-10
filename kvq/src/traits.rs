@@ -333,6 +333,8 @@ pub trait KVQBinaryStoreWriter {
 
     fn delete(&mut self, key: &Vec<u8>) -> anyhow::Result<bool>;
     fn delete_many(&mut self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
+
+    fn flush_change(&mut self) -> anyhow::Result<()> { Ok(()) }
 }
 
 
@@ -348,6 +350,8 @@ pub trait KVQBinaryStoreWriterImmutable {
 
     fn imm_delete(&self, key: &Vec<u8>) -> anyhow::Result<bool>;
     fn imm_delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
+
+    fn imm_flush_change(&self) -> anyhow::Result<()>;
 }
 
 #[async_trait]
@@ -411,6 +415,10 @@ impl<T: KVQBinaryStoreWriterAutoImmutable> KVQBinaryStoreWriter for T {
 
     fn delete_many(&mut self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>> {
         self.imm_delete_many(keys)
+    }
+
+    fn flush_change(&mut self) -> anyhow::Result<()> {
+        self.imm_flush_change()
     }
 }
 

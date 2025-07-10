@@ -1,7 +1,6 @@
-use std::{collections::BTreeMap, sync::Arc};
+use crate::traits::{KVQBinaryStore, KVQBinaryStoreReader, KVQBinaryStoreWriter, KVQPair};
 use std::ops::Bound::Included;
-
-use crate::traits::{KVQBinaryStore, KVQBinaryStoreImmutable, KVQBinaryStoreReader, KVQBinaryStoreWriter, KVQPair};
+use std::collections::BTreeMap;
 pub trait KVQBinaryStoreCachedTrait: KVQBinaryStore {
     fn flush_changes(&mut self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
     fn flush_simple(&mut self) -> anyhow::Result<()>;
@@ -14,14 +13,14 @@ pub enum CacheValueType {
     Bytes(Vec<u8>),
     Removed,
 }
-pub struct KVQBinaryStoreCached<S: KVQBinaryStoreReader> {
-    pub store: Arc<S>,
+pub struct KVQBinaryStoreCached<S: KVQBinaryStore> {
+    pub store: S,
     pub map: BTreeMap<Vec<u8>, CacheValueType>,
     pub proper_delete_return: bool,
 }
 
-impl<S: KVQBinaryStoreReader> KVQBinaryStoreCached<S> {
-    pub fn new(store: Arc<S>) -> Self {
+impl<S: KVQBinaryStore> KVQBinaryStoreCached<S> {
+    pub fn new(store: S) -> Self {
         Self {
             store,
             map: BTreeMap::new(),
@@ -29,7 +28,7 @@ impl<S: KVQBinaryStoreReader> KVQBinaryStoreCached<S> {
         }
     }
 }
-impl<S: KVQBinaryStoreImmutable> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
+impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
     fn is_removed(&self, key: &Vec<u8>) -> bool {
         match self.map.get(key) {
             Some(v) => match v {
@@ -100,16 +99,19 @@ impl<S: KVQBinaryStoreImmutable> KVQBinaryStoreCachedTrait for KVQBinaryStoreCac
                 CacheValueType::Removed => Err(anyhow::anyhow!("Cannot flush changes with removed keys")),
             }
         }).collect::<anyhow::Result<Vec<_>>>()?;
-        self.store.imm_set_many_ref(&keys_to_set)?;
+        if keys_to_set.is_empty() {
+            return Ok(());
+        }
+        self.store.set_many_ref(&keys_to_set)?;
         let removed_keys = self.get_removed_keys();
 
-        self.store.imm_delete_many(&removed_keys)?;
+        self.store.delete_many(&removed_keys)?;
         self.map.clear();
         Ok(())
     }
 }
 
-impl<S: KVQBinaryStoreReader> KVQBinaryStoreReader for KVQBinaryStoreCached<S> {
+impl<S: KVQBinaryStore> KVQBinaryStoreReader for KVQBinaryStoreCached<S> {
     fn get_exact(&self, key: &Vec<u8>) -> anyhow::Result<Vec<u8>> {
         match self.map.get(key) {
             Some(v) => match v {
@@ -333,7 +335,7 @@ impl<S: KVQBinaryStoreReader> KVQBinaryStoreReader for KVQBinaryStoreCached<S> {
     }
 }
 
-impl<S: KVQBinaryStoreReader> KVQBinaryStoreWriter for KVQBinaryStoreCached<S> {
+impl<S: KVQBinaryStore> KVQBinaryStoreWriter for KVQBinaryStoreCached<S> {
     fn set(&mut self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()> {
         self.map.insert(key, CacheValueType::Bytes(value));
         Ok(())
@@ -400,6 +402,10 @@ impl<S: KVQBinaryStoreReader> KVQBinaryStoreWriter for KVQBinaryStoreCached<S> {
             }
             Ok(())
         }
+    }
+
+    fn flush_change(&mut self) -> anyhow::Result<()> {
+        self.flush_simple()
     }
 }
 
