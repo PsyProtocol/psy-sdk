@@ -36,7 +36,7 @@ use qed_node::{
         simple_async_realm::SimpleAsyncRealmWorker,
     },
 };
-use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_prover::ups::{
     circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager,
 };

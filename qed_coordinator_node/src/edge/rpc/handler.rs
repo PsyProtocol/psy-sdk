@@ -43,7 +43,7 @@ use qed_node::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by
 use qed_node::nimpl::worker_queue_redis::redis_queue::{
     CEQueueNotification, RedisQueue, CE_NOTIFICATIONS,
 };
-use qed_node_common::coordinator::CheckpointSyncInfo;
+use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 // qed_store
 use qed_data::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;

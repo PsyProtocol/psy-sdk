@@ -10,14 +10,14 @@ use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
-use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 use qed_node::nimpl::new_redis_async_pool;
-use qed_node_common::coordinator::CheckpointSyncInfo;
+use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 

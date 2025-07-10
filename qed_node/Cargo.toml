@@ -27,7 +27,6 @@ qed_rollup_circuit = { path = "../qed_rollup_circuit" }
 qed_data = { path = "../qed_data" }
 qed_crypto = { path = "../qed_crypto" }
 qed_store = { path = "../qed_store" }
-qed_node_common = { path = "../qed_node_common" }
 
 rand = { workspace = true }
 tokio = { workspace = true }

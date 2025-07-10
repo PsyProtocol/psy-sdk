@@ -5,7 +5,7 @@ use qed_node::nimpl::{new_fred_pool, new_redis_async_pool};
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::worker::simple_async_coord::SimpleAsyncCoordinatorWorker;
 use qed_node::worker::simple_async_realm::SimpleAsyncRealmWorker;
-use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::config::store_config::QEDHasher;
 use std::ops::Deref;

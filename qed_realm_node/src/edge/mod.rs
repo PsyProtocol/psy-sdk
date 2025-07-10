@@ -15,7 +15,7 @@ use jsonrpsee::server::ServerBuilder;
 use qed_store::store::QEDStore;
 use qed_node::realm::state::processor::RealmConfig;
 use sync::spawn_active_checkpoint_sync_task;
-use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_node::common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use tracing::{debug, info};
 use qed_node::nimpl::{new_fred_pool, new_redis_async_pool};

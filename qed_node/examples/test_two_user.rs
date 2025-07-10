@@ -17,7 +17,7 @@ use qed_node::{
     nimpl::proof_store_fred::ProofStoreFred,
     worker::simple_async_coord::SimpleAsyncCoordinatorWorker,
 };
-use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::{sync::Arc, time::Duration};

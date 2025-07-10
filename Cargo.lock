@@ -4183,7 +4183,6 @@ dependencies = [
  "qed_data",
  "qed_exec",
  "qed_node",
- "qed_node_common",
  "qed_prover",
  "qed_rollup_circuit",
  "qed_store",
@@ -4257,7 +4256,6 @@ dependencies = [
  "qed_crypto",
  "qed_data",
  "qed_node",
- "qed_node_common",
  "qed_prover",
  "qed_realm_node",
  "qed_rollup_circuit",
@@ -4405,7 +4403,6 @@ dependencies = [
  "qed_core",
  "qed_crypto",
  "qed_data",
- "qed_node_common",
  "qed_rollup_circuit",
  "qed_store",
  "r2d2",
@@ -4421,33 +4418,6 @@ dependencies = [
  "tracing",
  "twox-hash",
  "url",
-]
-
-[[package]]
-name = "qed_node_common"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "chrono",
- "hex",
- "hex-literal",
- "kvq",
- "lazy_static",
- "log",
- "plonky2",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_store",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "serde_repr",
- "serde_with",
- "tracing",
- "twox-hash",
 ]
 
 [[package]]
@@ -4523,7 +4493,6 @@ dependencies = [
  "qed_crypto",
  "qed_data",
  "qed_node",
- "qed_node_common",
  "qed_rollup_utils",
  "qed_store",
  "redis 0.30.0",
@@ -4643,7 +4612,6 @@ dependencies = [
  "qed_data",
  "qed_exec",
  "qed_node",
- "qed_node_common",
  "qed_prover",
  "qed_rollup_circuit",
  "qed_store",
@@ -4718,7 +4686,6 @@ dependencies = [
  "qed_crypto",
  "qed_data",
  "qed_node",
- "qed_node_common",
  "qed_rollup_circuit",
  "qed_store",
  "serde",

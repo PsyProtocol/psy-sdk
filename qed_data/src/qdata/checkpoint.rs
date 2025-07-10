@@ -11,6 +11,8 @@ use qed_crypto::hash::traits::{
 };
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+use crate::qsync::coordinator::QEDCheckpointSyncInfoCompact;
+use crate::config::store_config::QEDFelt;
 
 use super::pm_reward_commitment::PMRewardCommitment;
 
@@ -61,7 +63,7 @@ impl<F: RichField> QEDCheckpointLeafStats<F> {
             pm_rewards_commitment: PMRewardCommitment::default(),
             da_challenges_claimed: [F::ZERO; DA_CHALLENGE_WINDOW],
         }
-        
+
     }
 }
 impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafStats<F> {
@@ -197,18 +199,18 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointGlobalStateRoots<F> {
 impl<F: RichField> QFieldHashable<F> for QEDCheckpointGlobalStateRoots<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         let contract_and_deposit = H::q_two_to_one(
-            self.contract_tree_root, 
+            self.contract_tree_root,
             self.deposit_tree_root
         );
 
         let user_and_withdrawal = H::q_two_to_one(
-            self.user_tree_root, 
+            self.user_tree_root,
             self.withdrawal_tree_root
         );
 
 
         let base_combo = H::q_two_to_one(
-            contract_and_deposit, 
+            contract_and_deposit,
             user_and_withdrawal
         );
 
@@ -444,7 +446,7 @@ impl KVQSerializable for QEDL2BlockState {
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointLeafCompactWithStateRoots<F: RichField> {
     pub checkpoint_leaf: QEDCheckpointLeafCompact<F>,
-    pub global_state_roots: QEDCheckpointGlobalStateRoots<F>, 
+    pub global_state_roots: QEDCheckpointGlobalStateRoots<F>,
 }
 
 impl<F: RichField> KVQSerializable for QEDCheckpointLeafCompactWithStateRoots<F> {
@@ -489,3 +491,27 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafCompactWithStateRoots<
         self.checkpoint_leaf.qfhash::<H>()
     }
 }
+
+/// push the latest checkpoint sync info
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct CheckpointSyncInfo<F: RichField> {
+    pub latest_checkpoint_id: u64, // latest checkpoint id
+    pub description: Option<String>,
+    pub source_coordinator_edge_id: Option<String>,
+    pub sync_timestamp: u64, // sync timestamp
+    pub compact: QEDCheckpointSyncInfoCompact<F>,
+}
+
+impl<F: RichField + Serialize + for<'de> Deserialize<'de>> KVQSerializable
+    for CheckpointSyncInfo<F>
+{
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+

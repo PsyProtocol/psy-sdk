@@ -9,7 +9,7 @@ use tracing::{info, error, warn, debug};
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use anyhow::Result;
 use qed_data::models::checkpoint::sync_info::CheckpointError;
-use qed_node_common::coordinator::CheckpointSyncInfo;
+use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 
 const SYNC_INTERVAL: Duration = Duration::from_millis(500);
 

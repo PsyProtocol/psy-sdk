@@ -1,5 +1,4 @@
 
-
 use std::{collections::VecDeque, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}};
 
 use qed_core::job::{id::{QProvingJobDataID, QWorkerJobBenchmark}, worker_queue::{WorkerEventReceiverSync, WorkerEventReceiverSyncImm, WorkerEventTransmitterSync, WorkerEventTransmitterSyncImm}};
@@ -43,7 +42,7 @@ impl WorkerEventReceiverSync for QEDEventProcessorMemory {
         self.core_job_completed = true;
         Ok(())
     }
-    
+
     fn record_job_bench_mut(&mut self, job: QProvingJobDataID, duration: u64) -> anyhow::Result<()> {
         if self.benchmarks_enabled {
             self.benchmarks.push(QWorkerJobBenchmark {

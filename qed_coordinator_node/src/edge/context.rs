@@ -14,7 +14,7 @@ use qed_node::nimpl::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
 use qed_node::nimpl::{new_fred_pool, new_redis_async_pool};
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
-use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_node::common::verifier::get_cached_generic_verifier;
 
 pub type StoreReader = QEDStore;
 pub type DrainQueue = ProofStoreRedisAsync;
