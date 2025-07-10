@@ -1,6 +1,6 @@
 use anyhow::Result;
-use kvq::traits::KVQBinaryStore;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
 use qed_data::config::store_config::*;
 
@@ -40,7 +40,7 @@ async fn test_checkpoint_block_state_get_leq_issue() -> Result<()> {
         let value = format!("block_state_{}", checkpoint_id).into_bytes();
         
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
         
         println!("\n   Inserted checkpoint {} - key: {:?}", checkpoint_id, key);
     }
@@ -56,7 +56,7 @@ async fn test_checkpoint_block_state_get_leq_issue() -> Result<()> {
     println!("\n   Query key for checkpoint {}: {:?}", query_id, query_key);
     
     let mdbx_result = mdbx_store.get_leq(&query_key, 8)?;
-    let scylla_result = scylla_store.get_leq(&query_key, 8)?;
+    let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, 8).await?;
     
     println!("\n   Results with fuzzy_bytes = 8:");
     println!("   - LibMDBX: {:?}", mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v)));
@@ -79,7 +79,7 @@ async fn test_checkpoint_block_state_get_leq_issue() -> Result<()> {
     exact_key.extend_from_slice(&200u64.to_be_bytes());
     
     let mdbx_exact = mdbx_store.get_leq(&exact_key, 0)?;
-    let scylla_exact = scylla_store.get_leq(&exact_key, 0)?;
+    let scylla_exact = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &exact_key, 0).await?;
     
     println!("   - LibMDBX: {:?}", mdbx_exact.as_ref().map(|v| String::from_utf8_lossy(v)));
     println!("   - ScyllaDB: {:?}", scylla_exact.as_ref().map(|v| String::from_utf8_lossy(v)));
@@ -91,7 +91,7 @@ async fn test_checkpoint_block_state_get_leq_issue() -> Result<()> {
     max_key_final.extend_from_slice(&0xFFFFFFFFFFFFFFFFu64.to_be_bytes());
     
     let mdbx_latest = mdbx_store.get_leq(&max_key_final, 8)?;
-    let scylla_latest = scylla_store.get_leq(&max_key_final, 8)?;
+    let scylla_latest = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &max_key_final, 8).await?;
     
     println!("   Query with max checkpoint_id (0xFFFFFFFFFFFFFFFF):");
     println!("   - LibMDBX: {:?}", mdbx_latest.as_ref().map(|v| String::from_utf8_lossy(v)));

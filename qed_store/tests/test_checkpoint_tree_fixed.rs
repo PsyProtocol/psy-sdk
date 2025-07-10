@@ -1,6 +1,6 @@
 use anyhow::Result;
-use kvq::traits::KVQBinaryStore;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
 use qed_data::config::store_config::*;
 
@@ -55,7 +55,7 @@ async fn test_checkpoint_tree_fixed() -> Result<()> {
         let value = format!("checkpoint_{}", height).into_bytes();
         
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
     
     // Test exact match
@@ -66,7 +66,7 @@ async fn test_checkpoint_tree_fixed() -> Result<()> {
     exact_key.extend_from_slice(&0u32.to_be_bytes());
     
     let mdbx_exact = mdbx_store.get_exact_if_exists(&exact_key)?;
-    let scylla_exact = scylla_store.get_exact_if_exists(&exact_key)?;
+    let scylla_exact = <ScyllaStore as KVQBinaryStoreAsync>::get_exact_if_exists(&scylla_store, &exact_key).await?;
     
     println!("   LibMDBX: {:?}", mdbx_exact.is_some());
     println!("   ScyllaDB: {:?}", scylla_exact.is_some());

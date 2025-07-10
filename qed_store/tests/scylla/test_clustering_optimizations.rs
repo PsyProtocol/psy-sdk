@@ -1,7 +1,7 @@
-use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
 use qed_store::store::scylla::clustering_store::ScyllaClusteringStore;
 use std::time::Instant;
 use anyhow::Result;
+use kvq::traits::{KVQPair, KVQBinaryStoreAsync};
 
 mod common;
 use common::*;

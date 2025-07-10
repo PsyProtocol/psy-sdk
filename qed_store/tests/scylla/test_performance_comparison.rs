@@ -1,6 +1,7 @@
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 use qed_store::store::scylla::kvq_store::ScyllaKVQStore;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use qed_store::store::scylla::ScyllaStore;
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use std::time::Instant;
 use anyhow::Result;
 use tempfile::TempDir;

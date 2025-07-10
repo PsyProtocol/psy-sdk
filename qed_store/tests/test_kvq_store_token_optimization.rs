@@ -1,6 +1,6 @@
 use anyhow::Result;
-use kvq::traits::KVQBinaryStore;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
 use qed_data::config::store_config::*;
 
@@ -49,7 +49,7 @@ async fn test_kvq_store_token_analysis() -> Result<()> {
         let value = format!("user_{}_v{}", user_id, version).into_bytes();
         
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
     
     println!("\n4. Example: User Public Key Helper");
@@ -65,7 +65,7 @@ async fn test_kvq_store_token_analysis() -> Result<()> {
     println!("   - Fixed prefix: first 10 bytes [table_type + user_id]");
     println!("   - Variable suffix: last 4 bytes [version]");
     
-    let result = scylla_store.get_leq(&query_key, 4)?;
+    let result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, 4).await?;
     println!("   Result: {:?}", result.as_ref().map(|v| String::from_utf8_lossy(v)));
     
     println!("\n6. Token Optimization Analysis:");

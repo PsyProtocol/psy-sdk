@@ -1,4 +1,4 @@
-use kvq::traits::{
+use kvq::traits::KVQPair;
     KVQBinaryStoreAsync,   
     KVQPair, KVQSerializable,
 };

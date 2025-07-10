@@ -1,6 +1,6 @@
 use fred::prelude::*;
 use std::sync::Arc;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,
 };
@@ -53,7 +53,7 @@ use qed_store::{controllers::local::{
 
 use qed_test_sandbox::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
 // use qed_user_cli::subcommand::lps::run_local;
-use reth_libmdbx::{Environment, EnvironmentFlags, Geometry, Mode, PageSize, SyncMode, RW};
+// use reth_libmdbx::{Environment, EnvironmentFlags, Geometry, Mode, PageSize, SyncMode, RW};
 use std::{path::PathBuf, time::Duration};
 
 use plonky2::{

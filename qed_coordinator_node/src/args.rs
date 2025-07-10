@@ -1,5 +1,5 @@
 use clap::Args;
-use qed_store::store::scylla::config::ScyllaDBConfig;
+use qed_store::store::backend::BackendConfig;
 
 #[derive(Clone, Debug, Args)]
 pub struct CoordinatorWorkerArgs {
@@ -26,7 +26,7 @@ pub struct CoordinatorProcessorArgs {
     #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
     pub redis_pool_size: u32,
     #[clap(flatten)]
-    pub scylla: ScyllaDBConfig,
+    pub backend: BackendConfig,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
 }
@@ -42,7 +42,7 @@ pub struct CoordinatorEdgeArgs {
     #[clap(env = "COORDINATOR_LISTEN_ADDR", long, default_value = "0.0.0.0:8545")]
     pub listen_addr: String,
     #[clap(flatten)]
-    pub scylla: ScyllaDBConfig,
+    pub backend: BackendConfig,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
 }

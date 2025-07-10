@@ -12,7 +12,7 @@ use crate::Queue;
 use crate::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
 use jsonrpsee::server::ServerBuilder;
-use qed_store::store::scylla::ScyllaStore;
+use qed_store::store::QEDStore;
 use qed_node::realm::state::processor::RealmConfig;
 use sync::spawn_active_checkpoint_sync_task;
 use qed_node_common::verifier::get_cached_generic_verifier;
@@ -77,14 +77,9 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let proof_store = Arc::new(proof_store);
     let checkpoint_queue = proof_store.clone();
 
-    // Create ScyllaDB storage reader
-    info!("🗄️ Using ScyllaDB storage: {}:{}", config.scylla.uri, config.scylla.keyspace);
-    let scylla_store = ScyllaStore::new(
-        &config.scylla.uri,
-        &config.scylla.keyspace,
-    ).await?;
-
-    let store_reader = Arc::new(scylla_store);
+    // Create storage reader based on backend configuration
+    let store = QEDStore::new(&config.backend.to_backend()).await?;
+    let store_reader = Arc::new(store);
 
     debug!("created store reader successfully!");
     // Create proof verifier

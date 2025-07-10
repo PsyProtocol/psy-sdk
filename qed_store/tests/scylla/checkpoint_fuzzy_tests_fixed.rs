@@ -1,4 +1,4 @@
-use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
+use kvq::traits::KVQBinaryStoreAsync;
 use qed_store::store::scylla::checkpoint_store::{
     chop_table_key, unchop_table_key, ScyllaCheckpointStore,
 };

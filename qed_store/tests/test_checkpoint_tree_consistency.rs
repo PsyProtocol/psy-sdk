@@ -1,6 +1,6 @@
 use anyhow::Result;
-use kvq::traits::{KVQBinaryStore, KVQSerializable};
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQSerializable};
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
 use qed_data::config::store_config::*;
 use qed_data::models::kvq_merkle::key::KVQMerkleNodeKey;
@@ -49,7 +49,7 @@ async fn test_checkpoint_tree_consistency() -> Result<()> {
     println!("   Root node key: {:?} (len={})", root_key_bytes, root_key_bytes.len());
 
     mdbx_store.set_ref(&root_key_bytes, &root_value)?;
-    scylla_store.set_ref(&root_key_bytes, &root_value)?;
+    <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &root_key_bytes, &root_value).await?;
 
     // Insert some intermediate nodes
     for level in 0..3 {
@@ -67,7 +67,7 @@ async fn test_checkpoint_tree_consistency() -> Result<()> {
             let key_bytes = node.to_bytes()?;
 
             mdbx_store.set_ref(&key_bytes, &value)?;
-            scylla_store.set_ref(&key_bytes, &value)?;
+            <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key_bytes, &value).await?;
         }
     }
 
@@ -76,7 +76,7 @@ async fn test_checkpoint_tree_consistency() -> Result<()> {
     // Test exact match (fuzzy_bytes = 0)
     println!("   Testing exact match:");
     let mdbx_result = mdbx_store.get_leq(&root_key_bytes, 0)?;
-    let scylla_result = scylla_store.get_leq(&root_key_bytes, 0)?;
+    let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &root_key_bytes, 0).await?;
 
     if mdbx_result == scylla_result {
         println!("   ✓ Exact match consistent");
@@ -101,7 +101,7 @@ async fn test_checkpoint_tree_consistency() -> Result<()> {
     let query_key_bytes = query_node.to_bytes()?;
 
     let mdbx_result = mdbx_store.get_leq(&query_key_bytes, 8)?;
-    let scylla_result = scylla_store.get_leq(&query_key_bytes, 8)?;
+    let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key_bytes, 8).await?;
 
     if mdbx_result == scylla_result {
         println!("   ✓ Fuzzy match consistent");
@@ -126,7 +126,7 @@ async fn test_checkpoint_tree_consistency() -> Result<()> {
 
     for fuzzy_bytes in [0, 4, 8] {
         let mdbx_result = mdbx_store.get_leq(&non_exist_key_bytes, fuzzy_bytes)?;
-        let scylla_result = scylla_store.get_leq(&non_exist_key_bytes, fuzzy_bytes)?;
+        let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &non_exist_key_bytes, fuzzy_bytes).await?;
 
         if mdbx_result == scylla_result {
             println!("   ✓ Non-existent node with fuzzy_bytes={} consistent", fuzzy_bytes);
@@ -152,7 +152,7 @@ async fn test_checkpoint_tree_consistency() -> Result<()> {
 
     // Should find exact match
     let mdbx_root = mdbx_store.get_exact_if_exists(&root_pattern_bytes)?;
-    let scylla_root = scylla_store.get_exact_if_exists(&root_pattern_bytes)?;
+    let scylla_root = <ScyllaStore as KVQBinaryStoreAsync>::get_exact_if_exists(&scylla_store, &root_pattern_bytes).await?;
 
     match (&mdbx_root, &scylla_root) {
         (Some(m), Some(s)) if m == s => {
@@ -163,8 +163,8 @@ async fn test_checkpoint_tree_consistency() -> Result<()> {
         }
         _ => {
             println!("   ❌ Root retrieval MISMATCH!");
-            println!("      LibMDBX: {:?}", mdbx_root.as_ref().map(|v| String::from_utf8_lossy(&v)));
-            println!("      ScyllaDB: {:?}", scylla_root.as_ref().map(|v| String::from_utf8_lossy(&v)));
+            println!("      LibMDBX: {:?}", mdbx_root.as_ref().map(|v| String::from_utf8_lossy(v)));
+            println!("      ScyllaDB: {:?}", scylla_root.as_ref().map(|v| String::from_utf8_lossy(v)));
         }
     }
 

@@ -1,6 +1,6 @@
 use anyhow::Result;
-use kvq::traits::{KVQBinaryStore, KVQSerializable};
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQSerializable};
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
 use qed_data::config::store_config::*;
 use qed_data::models::kvq_merkle::key::KVQMerkleNodeKey;
@@ -55,7 +55,7 @@ async fn test_tree_clustering_correct() -> Result<()> {
         let value = format!("node_checkpoint_{}", checkpoint_id).into_bytes();
 
         mdbx_store.set_ref(&key_bytes, &value)?;
-        scylla_store.set_ref(&key_bytes, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key_bytes, &value).await?;
 
         println!("   Checkpoint {} - key bytes: {:?} (len={})",
                  checkpoint_id, key_bytes, key_bytes.len());
@@ -76,7 +76,7 @@ async fn test_tree_clustering_correct() -> Result<()> {
     let query_bytes = query_key.to_bytes()?;
 
     let mdbx_result = mdbx_store.get_leq(&query_bytes, 8)?;
-    let scylla_result = scylla_store.get_leq(&query_bytes, 8)?;
+    let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_bytes, 8).await?;
 
     println!("   Query for checkpoint 250:");
     println!("   - LibMDBX: {:?}", mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v)));
@@ -106,7 +106,7 @@ async fn test_tree_clustering_correct() -> Result<()> {
     let exact_bytes = exact_key.to_bytes()?;
 
     let mdbx_exact = mdbx_store.get_exact_if_exists(&exact_bytes)?;
-    let scylla_exact = scylla_store.get_exact_if_exists(&exact_bytes)?;
+    let scylla_exact = <ScyllaStore as KVQBinaryStoreAsync>::get_exact_if_exists(&scylla_store, &exact_bytes).await?;
 
     println!("   - LibMDBX: {:?}", mdbx_exact.as_ref().map(|v| String::from_utf8_lossy(v)));
     println!("   - ScyllaDB: {:?}", scylla_exact.as_ref().map(|v| String::from_utf8_lossy(v)));

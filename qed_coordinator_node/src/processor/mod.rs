@@ -23,7 +23,7 @@ use qed_node::{
 };
 use qed_node_common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_store::store::scylla::ScyllaStore;
+use qed_store::store::{QEDStore, Backend};
 use qed_data::{
     config::store_config::QEDFelt,
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
@@ -128,7 +128,7 @@ impl<
 
 impl
     CoordinatorProcessNode<
-        Arc<ScyllaStore>,
+        Arc<QEDStore>,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
@@ -150,10 +150,8 @@ impl
             &cp_config.queue_args.proof_store_key_suffix,
         ).await?;
 
-        let scylla_store =
-            ScyllaStore::new(&cp_config.scylla.uri, &cp_config.scylla.keyspace)
-                .await?;
-        let store_reader = Arc::new(scylla_store);
+        let qed_store = QEDStore::from_backend(cp_config.backend.to_backend()).await?;
+        let store_reader = Arc::new(qed_store);
 
         //try to get the block 1's state
         let st = Arc::new(store_reader.clone());

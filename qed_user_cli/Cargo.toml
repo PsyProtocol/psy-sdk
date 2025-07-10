@@ -48,7 +48,6 @@ maybe-async = { workspace = true }
 
 # Native-only dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-kvq_store_lmdbx = { workspace = true }
 reqwest = { workspace = true }
 shadow-rs = { workspace = true }
 

@@ -1,6 +1,6 @@
 use anyhow::Result;
-use kvq::traits::{KVQBinaryStore, KVQPair};
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
 use qed_data::config::store_config::*;
 
@@ -34,7 +34,7 @@ async fn test_range_query_investigation() -> Result<()> {
         let value = format!("user_1000_v{}", version).into_bytes();
         
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
         
         println!("   Inserted version {} - key: {:?}", version, key);
     }
@@ -48,7 +48,7 @@ async fn test_range_query_investigation() -> Result<()> {
         let value = format!("user_{}_v1", user_id).into_bytes();
         
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
         
         println!("   Also inserted user {} version 1", user_id);
     }
@@ -64,7 +64,7 @@ async fn test_range_query_investigation() -> Result<()> {
     println!("   Expected: Only exact matches with key <= query_key");
     
     let mdbx_range = mdbx_store.get_fuzzy_range_leq_kv(&query_key, 0)?;
-    let scylla_range = scylla_store.get_fuzzy_range_leq_kv(&query_key, 0)?;
+    let scylla_range = <ScyllaStore as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(&scylla_store, &query_key, 0).await?;
     
     println!("\n   LibMDBX results ({} items):", mdbx_range.len());
     for (i, item) in mdbx_range.iter().enumerate() {
@@ -98,7 +98,7 @@ async fn test_range_query_investigation() -> Result<()> {
     println!("\n4. Testing with fuzzy_bytes = 4:");
     
     let mdbx_range_4 = mdbx_store.get_fuzzy_range_leq_kv(&query_key, 4)?;
-    let scylla_range_4 = scylla_store.get_fuzzy_range_leq_kv(&query_key, 4)?;
+    let scylla_range_4 = <ScyllaStore as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(&scylla_store, &query_key, 4).await?;
     
     println!("   LibMDBX: {} results", mdbx_range_4.len());
     println!("   ScyllaDB: {} results", scylla_range_4.len());

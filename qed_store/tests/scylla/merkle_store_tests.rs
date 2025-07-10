@@ -1,4 +1,4 @@
-use kvq::traits::{KVQSerializable, KVQPair};
+use kvq::traits::KVQPair;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
 use qed_store::store::scylla::merkle_store::ScyllaMerkleStore;

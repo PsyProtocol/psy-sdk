@@ -1,6 +1,6 @@
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use qed_store::store::scylla::config::ScyllaDBConfig;
+use qed_store::store::backend::BackendConfig;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Parser)]
 #[serde(default)]
@@ -110,9 +110,9 @@ pub struct RealmNodeConfig {
     #[command(flatten)]
     pub realm: RealmConfig,
 
-    /// ScyllaDB configuration
+    /// Store backend configuration
     #[command(flatten)]
-    pub scylla: ScyllaDBConfig,
+    pub backend: BackendConfig,
 
     /// Redis configuration for queue and proof storage
     #[command(flatten)]
@@ -134,9 +134,9 @@ pub struct RealmEdgeConfig {
     #[command(flatten)]
     pub realm: RealmConfig,
 
-    /// ScyllaDB configuration
+    /// Store backend configuration
     #[command(flatten)]
-    pub scylla: ScyllaDBConfig,
+    pub backend: BackendConfig,
 
     /// Redis configuration for queue and proof storage
     #[command(flatten)]

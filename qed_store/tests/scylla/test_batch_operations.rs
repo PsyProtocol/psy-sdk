@@ -1,4 +1,5 @@
-use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
+use kvq::traits::KVQBinaryStoreAsync;
+use kvq::traits::KVQPair;
 use qed_store::store::scylla::kvq_store::ScyllaKVQStore;
 use qed_store::store::scylla::clustering_store::ScyllaClusteringStore;
 use anyhow::Result;

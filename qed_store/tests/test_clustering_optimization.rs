@@ -1,6 +1,6 @@
 use anyhow::Result;
-use kvq::traits::KVQBinaryStore;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
 use qed_data::config::store_config::*;
 
@@ -37,7 +37,7 @@ async fn test_clustering_optimization() -> Result<()> {
         let value = format!("checkpoint_{}", checkpoint_id).into_bytes();
         
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
     
     println!("\n2. Test Case 1: fuzzy_bytes = 3 (within clustering key)");
@@ -49,13 +49,13 @@ async fn test_clustering_optimization() -> Result<()> {
     let mut query_key = table_type.to_be_bytes().to_vec();
     query_key.extend_from_slice(&250u64.to_be_bytes());
     
-    let result = scylla_store.get_leq(&query_key, 3)?;
+    let result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, 3).await?;
     println!("   Result: {:?}", result.as_ref().map(|v| String::from_utf8_lossy(v)));
     
     println!("\n3. Test Case 2: fuzzy_bytes = 8 (matches clustering key)");
     println!("   ✅ Best case: Use efficient prepared statement");
     
-    let result = scylla_store.get_leq(&query_key, 8)?;
+    let result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, 8).await?;
     println!("   Result: {:?}", result.as_ref().map(|v| String::from_utf8_lossy(v)));
     
     println!("\n4. Test Case 3: fuzzy_bytes = 9 (spans partition boundary)");
@@ -64,7 +64,7 @@ async fn test_clustering_optimization() -> Result<()> {
     println!("   Since 1 < 2, partition key is partially variable");
     println!("   ❌ Must scan all partitions");
     
-    let result = scylla_store.get_leq(&query_key, 9)?;
+    let result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, 9).await?;
     println!("   Result: {:?}", result.as_ref().map(|v| String::from_utf8_lossy(v)));
     
     // Test with tree table

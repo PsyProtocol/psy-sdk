@@ -1,6 +1,7 @@
 use anyhow::Result;
 use kvq::traits::KVQBinaryStore;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::KVQBinaryStoreAsync;
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
 use qed_data::config::store_config::*;
 
@@ -47,7 +48,7 @@ async fn test_token_range_query() -> Result<()> {
         let value = format!("checkpoint_{}", checkpoint_id).into_bytes();
         
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
     
     println!("\n4. For checkpoint block states:");

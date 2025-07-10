@@ -21,8 +21,6 @@ tracing = { workspace = true }
 homedir = { workspace = true }
 
 kvq = { path = "../kvq" }
-kvq_store_lmdbx = { workspace = true }
-reth-libmdbx = { workspace = true }
 tempfile = { workspace = true }
 qed_core = { path = "../qed_core" }
 qed_common_circuit = { path = "../qed_common_circuit" }

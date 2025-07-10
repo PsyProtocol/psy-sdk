@@ -2,7 +2,7 @@ use crate::config::RealmNodeConfig;
 use crate::{Queue, SyncCheckpointQueue, SyncProofQueue, C, D, F};
 use fred::prelude::KeysInterface;
 use kvq::traits::KVQSerializable;
-use qed_store::store::scylla::ScyllaStore;
+use qed_store::store::QEDStore;
 use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
 use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
 use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataId};
@@ -22,7 +22,7 @@ use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
-    ScyllaStore,
+    QEDStore,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
@@ -34,7 +34,7 @@ pub struct RealmProcessor {
     pub realm_config: RealmConfig,
     pub sync_proof: ProofStoreRedisAsync,
     pub sync_checkpoint: Queue,
-    pub store: Arc<ScyllaStore>,
+    pub store: Arc<QEDStore>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
 }
 
@@ -58,11 +58,8 @@ impl RealmProcessor {
             &config.queue.proof_store_key_suffix,
             &config.queue.proof_store_key_suffix,
         ).await?;
-        let scylla_store = ScyllaStore::new(
-            &config.scylla.uri,
-            &config.scylla.keyspace,
-        ).await?;
-        let store_reader = Arc::new(scylla_store);
+        let store = QEDStore::new(&config.backend.to_backend()).await?;
+        let store_reader = Arc::new(store);
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
@@ -82,7 +79,7 @@ impl RealmProcessor {
         let st = self.store.clone();
         let realm_qps = Arc::new(self.sync_proof.clone());
         let mut context: ConcreteRealmProcessorContext = RealmProcessorContext::<
-            ScyllaStore,
+            QEDStore,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,

@@ -1,6 +1,7 @@
+use kvq::traits::KVQPair;
 use anyhow::Result;
-use kvq::traits::KVQBinaryStore;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_data::config::store_config::*;
 
 // Test only libmdbx for now as ScyllaDB requires special runtime handling

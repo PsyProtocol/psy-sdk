@@ -5,7 +5,6 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = { workspace = true }
-kvq_store_lmdbx = { workspace = true }
 jsonrpsee = { workspace = true }
 qed_node = { workspace = true }
 qed_crypto = { workspace = true }
@@ -29,7 +28,6 @@ qed_realm_node = {workspace = true}
 reqwest = {workspace = true}
 qed_user_cli = { workspace = true }
 chrono = {workspace = true}
-reth-libmdbx = {workspace = true}
 qed_rollup_utils = {workspace = true}
 jsonwebtoken = {workspace = true}
 axum = {workspace = true}

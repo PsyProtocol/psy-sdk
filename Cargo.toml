@@ -4,7 +4,6 @@ members = [
     "qed_compiler/qedlang_ex",
     "qed_compiler/qedlang_macros",
     "kvq",
-    "kvq_store_lmdbx",
     "qed_core",
     "qed_crypto",
     "qed_store",
@@ -143,12 +142,9 @@ bb8-redis = "0.22.0"
 bb8 = "0.9"
 fred = "10.0.4"
 
-reth-mdbx-sys = { path = "./kvq_store_lmdbx/libmdbx-rs/mdbx-sys" }
-reth-libmdbx = { path = "./kvq_store_lmdbx/libmdbx-rs" }
 criterion = "0.5"
 pprof = "0.14"
 tempfile = "3.19"
-kvq_store_lmdbx = { path = "./kvq_store_lmdbx" }
 
 miette = { version = "7.2", features = ["fancy"] }
 dotenv = "0.15"

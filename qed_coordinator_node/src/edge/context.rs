@@ -2,7 +2,7 @@ use std::env;
 // std
 use crate::CoordinatorEdgeArgs;
 use anyhow::{anyhow, Context};
-use qed_store::store::scylla::ScyllaStore;
+use qed_store::store::{QEDStore, Backend};
 use once_cell::sync::Lazy;
 use std::future::Future;
 use std::sync::{atomic::AtomicU64, Arc, OnceLock};
@@ -16,7 +16,7 @@ use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 use qed_node_common::verifier::get_cached_generic_verifier;
 
-pub type StoreReader = ScyllaStore;
+pub type StoreReader = QEDStore;
 pub type DrainQueue = ProofStoreRedisAsync;
 pub type ProofStore = ProofStoreRedisAsync;
 
@@ -38,13 +38,10 @@ pub enum UserRegisterState {
 pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Initializing coordinator edge node...");
 
-    // Create ScyllaDB store reader
-    info!("🗄️ Using ScyllaDB storage: {}:{}", config.scylla.uri, config.scylla.keyspace);
-    let scylla_store = ScyllaStore::new(
-        &config.scylla.uri,
-        &config.scylla.keyspace,
-    ).await?;
-    let store_reader = Arc::new(scylla_store);
+    // Create QED store reader from backend configuration
+    info!("🗄️ Initializing storage backend...");
+    let qed_store = QEDStore::from_backend(config.backend.to_backend()).await?;
+    let store_reader = Arc::new(qed_store);
 
     let redis_pool = new_redis_async_pool(&config.redis_uri, 8).await?;
     init_node_redis_pool(redis_pool.clone())?;

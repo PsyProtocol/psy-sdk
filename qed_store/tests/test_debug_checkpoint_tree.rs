@@ -1,6 +1,6 @@
 use anyhow::Result;
-use kvq::traits::KVQBinaryStore;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
 use qed_data::config::store_config::*;
 
@@ -36,7 +36,7 @@ async fn test_debug_checkpoint_tree() -> Result<()> {
     
     println!("   Key1: {:?} (len={})", key1, key1.len());
     mdbx_store.set_ref(&key1, &value1)?;
-    scylla_store.set_ref(&key1, &value1)?;
+    <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key1, &value1).await?;
     
     // Query for height 150
     let mut query_key = table_type.to_be_bytes().to_vec();
@@ -52,7 +52,7 @@ async fn test_debug_checkpoint_tree() -> Result<()> {
         println!("\n   Testing with fuzzy_bytes = {}", fuzzy_bytes);
         
         let mdbx_result = mdbx_store.get_leq(&query_key, *fuzzy_bytes)?;
-        let scylla_result = scylla_store.get_leq(&query_key, *fuzzy_bytes)?;
+        let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, *fuzzy_bytes).await?;
         
         println!("     LibMDBX: {:?}", mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v)));
         println!("     ScyllaDB: {:?}", scylla_result.as_ref().map(|v| String::from_utf8_lossy(v)));

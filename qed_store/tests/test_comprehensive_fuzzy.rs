@@ -1,6 +1,6 @@
 use anyhow::Result;
-use kvq::traits::{KVQBinaryStore, KVQPair};
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
 use qed_data::config::store_config::*;
 
@@ -80,7 +80,7 @@ async fn test_tree_table_get_leq(
         
         let value = format!("node_{}_{}", node_id, level).into_bytes();
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
     
     // Test exact match
@@ -91,7 +91,7 @@ async fn test_tree_table_get_leq(
     test_key.extend_from_slice(&1u32.to_be_bytes());
     
     let mdbx_exact = mdbx_store.get_leq(&test_key, 0)?;
-    let scylla_exact = scylla_store.get_leq(&test_key, 0)?;
+    let scylla_exact = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &test_key, 0).await?;
     
     println!("    LibMDBX: {:?}", mdbx_exact.as_ref().map(|v| String::from_utf8_lossy(v)));
     println!("    ScyllaDB: {:?}", scylla_exact.as_ref().map(|v| String::from_utf8_lossy(v)));
@@ -105,7 +105,7 @@ async fn test_tree_table_get_leq(
     fuzzy_key.extend_from_slice(&3u32.to_be_bytes()); // Non-existent level
     
     let mdbx_fuzzy = mdbx_store.get_leq(&fuzzy_key, 4)?;
-    let scylla_fuzzy = scylla_store.get_leq(&fuzzy_key, 4)?;
+    let scylla_fuzzy = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &fuzzy_key, 4).await?;
     
     println!("    Query: node_175_3");
     println!("    LibMDBX: {:?}", mdbx_fuzzy.as_ref().map(|v| String::from_utf8_lossy(v)));
@@ -136,7 +136,7 @@ async fn test_leaf_table_get_leq(
         
         let value = format!("user_{}_v{}", user_id, version).into_bytes();
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
     
     // Test within same partition
@@ -146,7 +146,7 @@ async fn test_leaf_table_get_leq(
     query_key.extend_from_slice(&5u32.to_be_bytes()); // Higher than any version
     
     let mdbx_result = mdbx_store.get_leq(&query_key, 0)?;
-    let scylla_result = scylla_store.get_leq(&query_key, 0)?;
+    let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, 0).await?;
     
     println!("    LibMDBX: {:?}", mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v)));
     println!("    ScyllaDB: {:?}", scylla_result.as_ref().map(|v| String::from_utf8_lossy(v)));
@@ -170,13 +170,13 @@ async fn test_helper_table_get_leq(
     for (i, key) in keys.iter().enumerate() {
         let value = format!("helper_{}", i).into_bytes();
         mdbx_store.set_ref(key, &value)?;
-        scylla_store.set_ref(key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, key, &value).await?;
     }
     
     // Test exact match
     println!("  Exact match:");
     let exact_result_mdbx = mdbx_store.get_leq(&keys[1], 0)?;
-    let exact_result_scylla = scylla_store.get_leq(&keys[1], 0)?;
+    let exact_result_scylla = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &keys[1], 0).await?;
     
     println!("    LibMDBX: {:?}", exact_result_mdbx.is_some());
     println!("    ScyllaDB: {:?}", exact_result_scylla.is_some());
@@ -187,7 +187,7 @@ async fn test_helper_table_get_leq(
     let fuzzy_key = vec![0, 17, 0, 0, 0, 7]; // Between 5 and 10
     
     let fuzzy_result_mdbx = mdbx_store.get_leq(&fuzzy_key, 2)?;
-    let fuzzy_result_scylla = scylla_store.get_leq(&fuzzy_key, 2)?;
+    let fuzzy_result_scylla = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &fuzzy_key, 2).await?;
     
     println!("    LibMDBX: {:?}", fuzzy_result_mdbx.as_ref().map(|v| String::from_utf8_lossy(v)));
     println!("    ScyllaDB: {:?}", fuzzy_result_scylla.as_ref().map(|v| String::from_utf8_lossy(v)));
@@ -211,7 +211,7 @@ async fn test_checkpoint_block_state(
         
         let value = format!("checkpoint_{}", cp_id).into_bytes();
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
     
     // Test the special implementation
@@ -219,7 +219,7 @@ async fn test_checkpoint_block_state(
     query_key.extend_from_slice(&2500u64.to_be_bytes());
     
     let mdbx_result = mdbx_store.get_leq(&query_key, 8)?;
-    let scylla_result = scylla_store.get_leq(&query_key, 8)?;
+    let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, 8).await?;
     
     println!("    Query checkpoint 2500:");
     println!("    LibMDBX: {:?}", mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v)));
@@ -245,7 +245,7 @@ async fn test_fuzzy_range_operations(
         
         let value = format!("contract_node_{}", i * 100).into_bytes();
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
     
     // Test get_fuzzy_range_leq_kv
@@ -256,7 +256,7 @@ async fn test_fuzzy_range_operations(
     range_key.extend_from_slice(&0xFFFFFFFFu32.to_be_bytes());
     
     let mdbx_range = mdbx_store.get_fuzzy_range_leq_kv(&range_key, 4)?;
-    let scylla_range = scylla_store.get_fuzzy_range_leq_kv(&range_key, 4)?;
+    let scylla_range = <ScyllaStore as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(&scylla_store, &range_key, 4).await?;
     
     println!("    Query: nodes <= 500");
     println!("    LibMDBX found: {} entries", mdbx_range.len());

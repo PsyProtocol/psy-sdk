@@ -1,6 +1,6 @@
 use anyhow::Result;
-use kvq::traits::KVQBinaryStore;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
 use qed_data::config::store_config::*;
 
@@ -45,7 +45,7 @@ async fn test_fuzzy_across_partitions() -> Result<()> {
             let value = format!("user_{}_v{}", user_id, version).into_bytes();
             
             mdbx_store.set_ref(&key, &value)?;
-            scylla_store.set_ref(&key, &value)?;
+            <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
             
             println!("   Inserted user {} version {} - key: {:?}", user_id, version, key);
         }
@@ -64,7 +64,7 @@ async fn test_fuzzy_across_partitions() -> Result<()> {
     println!("   Key bytes: {:?}", query_key);
     
     let mdbx_result = mdbx_store.get_leq(&query_key, 6)?;
-    let scylla_result = scylla_store.get_leq(&query_key, 6)?;
+    let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, 6).await?;
     
     println!("\n   Results with fuzzy_bytes = 6:");
     println!("   - LibMDBX: {:?}", mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v)));
@@ -78,7 +78,7 @@ async fn test_fuzzy_across_partitions() -> Result<()> {
     println!("\n3. Testing fuzzy_bytes = 4 (matches clustering key size):");
     
     let mdbx_result_4 = mdbx_store.get_leq(&query_key, 4)?;
-    let scylla_result_4 = scylla_store.get_leq(&query_key, 4)?;
+    let scylla_result_4 = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, 4).await?;
     
     println!("   - LibMDBX: {:?}", mdbx_result_4.as_ref().map(|v| String::from_utf8_lossy(v)));
     println!("   - ScyllaDB: {:?}", scylla_result_4.as_ref().map(|v| String::from_utf8_lossy(v)));
@@ -86,7 +86,7 @@ async fn test_fuzzy_across_partitions() -> Result<()> {
     println!("\n4. Testing fuzzy_bytes = 12 (almost entire key):");
     
     let mdbx_result_12 = mdbx_store.get_leq(&query_key, 12)?;
-    let scylla_result_12 = scylla_store.get_leq(&query_key, 12)?;
+    let scylla_result_12 = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, 12).await?;
     
     println!("   - LibMDBX: {:?}", mdbx_result_12.as_ref().map(|v| String::from_utf8_lossy(v)));
     println!("   - ScyllaDB: {:?}", scylla_result_12.as_ref().map(|v| String::from_utf8_lossy(v)));

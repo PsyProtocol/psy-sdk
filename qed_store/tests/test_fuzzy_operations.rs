@@ -1,6 +1,6 @@
 use anyhow::Result;
-use kvq::traits::{KVQBinaryStore, KVQPair};
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
+use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
 use qed_data::config::store_config::*;
 use std::sync::Arc;
@@ -57,7 +57,7 @@ async fn test_get_leq_consistency() -> Result<()> {
         let value = format!("user_data_v{}", version).into_bytes();
         
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
         
         println!("   Inserted version {} - key: {:?}", version, key);
     }
@@ -71,7 +71,7 @@ async fn test_get_leq_consistency() -> Result<()> {
         let key = construct_key(table_type, &key_suffix);
         
         let mdbx_result = mdbx_store.get_leq(&key, 0)?;
-        let scylla_result = scylla_store.get_leq(&key, 0)?;
+        let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &key, 0).await?;
         
         println!("   Version {} - LibMDBX: {:?}, ScyllaDB: {:?}", 
                  version, 
@@ -100,7 +100,7 @@ async fn test_get_leq_consistency() -> Result<()> {
         
         // Use fuzzy_bytes = 4 to allow matching on the last 4 bytes (version field)
         let mdbx_result = mdbx_store.get_leq(&key, 4)?;
-        let scylla_result = scylla_store.get_leq(&key, 4)?;
+        let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &key, 4).await?;
         
         let mdbx_str = mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v));
         let scylla_str = scylla_result.as_ref().map(|v| String::from_utf8_lossy(v));
@@ -167,7 +167,7 @@ async fn test_get_fuzzy_range_leq_kv_consistency() -> Result<()> {
         let value = vec![i * 10, i * 10 + 1, i * 10 + 2];
         
         mdbx_store.set_ref(&full_key, &value)?;
-        scylla_store.set_ref(&full_key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &full_key, &value).await?;
         
         println!("   Inserted entry {} - key: {:?}, value: {:?}", i, full_key, value);
     }
@@ -185,7 +185,7 @@ async fn test_get_fuzzy_range_leq_kv_consistency() -> Result<()> {
         println!("\n   Testing query key: {:?}", query_key);
         
         let mdbx_results = mdbx_store.get_fuzzy_range_leq_kv(&query_key, 1)?;
-        let scylla_results = scylla_store.get_fuzzy_range_leq_kv(&query_key, 1)?;
+        let scylla_results = <ScyllaStore as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(&scylla_store, &query_key, 1).await?;
         
         println!("   LibMDBX returned {} entries", mdbx_results.len());
         println!("   ScyllaDB returned {} entries", scylla_results.len());
@@ -220,7 +220,7 @@ async fn test_get_fuzzy_range_leq_kv_consistency() -> Result<()> {
     let non_existent_key = vec![0x00, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
     
     let mdbx_empty = mdbx_store.get_fuzzy_range_leq_kv(&non_existent_key, 1)?;
-    let scylla_empty = scylla_store.get_fuzzy_range_leq_kv(&non_existent_key, 1)?;
+    let scylla_empty = <ScyllaStore as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(&scylla_store, &non_existent_key, 1).await?;
     
     println!("   Non-existent prefix - LibMDBX: {} entries, ScyllaDB: {} entries", 
              mdbx_empty.len(), scylla_empty.len());
@@ -267,7 +267,7 @@ async fn test_checkpoint_tree_fuzzy_operations() -> Result<()> {
         let value = format!("checkpoint_at_{}", height).into_bytes();
         
         mdbx_store.set_ref(&key, &value)?;
-        scylla_store.set_ref(&key, &value)?;
+        <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
         
         println!("   Created checkpoint at height {}", height);
     }
@@ -286,7 +286,7 @@ async fn test_checkpoint_tree_fuzzy_operations() -> Result<()> {
         // Use fuzzy_bytes = 12 to match on tree_id + height (ignoring node_id)
         let fuzzy_bytes = 12;
         let mdbx_result = mdbx_store.get_leq(&query_key, fuzzy_bytes)?;
-        let scylla_result = scylla_store.get_leq(&query_key, fuzzy_bytes)?;
+        let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, fuzzy_bytes).await?;
         
         let mdbx_str = mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v));
         let scylla_str = scylla_result.as_ref().map(|v| String::from_utf8_lossy(v));

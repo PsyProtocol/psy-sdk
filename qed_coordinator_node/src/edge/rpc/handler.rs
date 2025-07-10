@@ -49,7 +49,6 @@ use qed_data::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
-use reth_libmdbx::error;
 // crate inner
 use crate::communicate::GlobalCoordinatorStatus;
 use crate::context::{with_temp_ctx_read_async, GLOBAL_COORD_EDGE_STATE};
@@ -255,9 +254,9 @@ impl CoordinatorEdgeHandler {
                 Err(e) => {
                     error!("❌ Failed to get old root: {:?}", e);
 
-                    if let Some(mdbx_err) = e.downcast_ref::<error::Error>() {
-                        error!("❌ MDBX explain: {}", mdbx_err.explain());
-                    }
+                    // if let Some(mdbx_err) = e.downcast_ref::<error::Error>() {
+                    //     error!("❌ MDBX explain: {}", mdbx_err.explain());
+                    // }
 
                     let mut source = e.source();
                     while let Some(err) = source {
