@@ -70,10 +70,10 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
 
         let current_balance = self_user_leaf[0];
 
-        ctx.assert_true(amount <= current_balance, "insufficient balance");
+        ctx.assert_true((amount <= current_balance).into(), "insufficient balance");
 
         let new_balance = current_balance - amount;
-        ctx.assert_true(new_balance < current_balance, "user balance overflow");
+        ctx.assert_true((new_balance < current_balance).into(), "user balance overflow");
 
         ctx.cset_state_hash_at(
             self_user_id,
@@ -90,7 +90,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
 
         let new_total_sent_to_recipient = previous_total_sent_to_recipient + amount;
         ctx.assert_true(
-            new_total_sent_to_recipient > previous_total_sent_to_recipient,
+            (new_total_sent_to_recipient > previous_total_sent_to_recipient).into(),
             "sent amount overflow",
         );
 
@@ -107,7 +107,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     }
     pub fn simple_claim(&mut self, ctx: &mut C, sender: Felt) -> Felt {
         let self_user_id = ctx.get_user_id();
-        ctx.assert_true(sender != self_user_id, "you cannot claim from your self");
+        ctx.assert_true((sender != self_user_id).into(), "you cannot claim from your self");
 
         let self_leaf = ctx.get_state_hash_at(self_user_id);
         let current_balance = self_leaf[0];
@@ -144,7 +144,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         );
 
         let new_balance = tokens_to_claim + current_balance;
-        ctx.assert_true(current_balance < new_balance, "balance overflow");
+        ctx.assert_true((current_balance < new_balance).into(), "balance overflow");
 
         ctx.cset_state_hash_at(
             self_user_id,
@@ -406,7 +406,7 @@ where
     timer.lap("start");
 
     let mut artifact: Vec<DPNFunctionCircuitDefinition> =
-        serde_json::from_str(&fs::read_to_string("./qed_test_sandbox/basic_ups/target/basic_ups.json")?)?;
+        serde_json::from_str(&fs::read_to_string("./qed_dev_cli/basic_ups/target/basic_ups.json")?)?;
     let simple_claim_def = artifact.pop().unwrap();
     timer.lap("compiled simple_claim");
     let simple_transfer_def = artifact.pop().unwrap();

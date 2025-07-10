@@ -17,8 +17,6 @@ use qed_prover::api::{
     request::QRegisterUserRPCRequest,
 };
 
-use super::args::{RandomArgs, RegisterUserArgs};
-
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
@@ -28,7 +26,7 @@ pub struct KeyPair {
     pub public_key: ZKPublicKeyInfo<GoldilocksField>,
 }
 
-pub fn run(args: RegisterUserArgs) -> anyhow::Result<()> {
+pub fn run(args: super::RegisterUserArgs) -> anyhow::Result<()> {
     let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
     if args.private_key.is_empty() {
         anyhow::bail!("you must provide --private-key");
@@ -50,7 +48,7 @@ pub fn run(args: RegisterUserArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn run_random(args: RandomArgs) -> anyhow::Result<()> {
+pub fn run_random(args: super::RandomArgs) -> anyhow::Result<()> {
     let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
 
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();

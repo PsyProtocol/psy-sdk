@@ -6,7 +6,6 @@ use subcommand::realm_worker;
 use crate::subcommand::coordinator_edge;
 use crate::subcommand::coordinator_processor;
 use crate::subcommand::coordinator_worker;
-use crate::subcommand::generate_token;
 use crate::subcommand::realm_edge;
 use crate::subcommand::realm_processor;
 
@@ -41,10 +40,6 @@ async fn main() -> anyhow::Result<()> {
         } => {
             realm_worker::run(redis_config, queue_config).await?;
         }
-        Commands::GenerateAccessToken {
-            private_key,
-            realm_id,
-        } => generate_token::run(&private_key, realm_id).await?,
     };
     Ok::<_, anyhow::Error>(())
 }

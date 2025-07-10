@@ -17,9 +17,9 @@ members = [
     "qed_coordinator_node",
     "qed_user_cli",
     "qed_rollup_cli",
+    "qed_dev_cli",
     "qed_rollup_utils",
     "qed_worker",
-    "qed_test_sandbox",
     "qed_compiler/qed-fmt",
     "qed_compiler/qed-cli",
     "qed_compiler/qed-lsp-server",
@@ -34,8 +34,6 @@ members = [
     "qed_compiler/qed-dargo",
     "qed_compiler/qed-dargo-toml",
     "qed_compiler/qed-dargo-cli",
-    "qed_user_cli",
-    "qed_benchmark",
 ]
 resolver = "2"
 

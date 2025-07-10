@@ -2256,18 +2256,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "homedir"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bdbbd5bc8c5749697ccaa352fa45aff8730cf21c68029c0eef1ffed7c3d6ba2"
-dependencies = [
- "cfg-if",
- "nix",
- "widestring",
- "windows",
-]
-
-[[package]]
 name = "http"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2436,7 +2424,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.61.0",
+ "windows-core",
 ]
 
 [[package]]
@@ -3315,18 +3303,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
-name = "nix"
-version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
-dependencies = [
- "bitflags 2.9.1",
- "cfg-if",
- "cfg_aliases",
- "libc",
-]
-
-[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4166,38 +4142,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_benchmark"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "fred",
- "hex",
- "hex-literal",
- "kvq",
- "lazy_static",
- "plonky2",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_exec",
- "qed_node",
- "qed_prover",
- "qed_rollup_circuit",
- "qed_store",
- "qedlang_core",
- "qedlang_macros",
- "serde",
- "serde_json",
- "serde_repr",
- "serde_with",
- "tokio",
- "tracing",
- "twox-hash",
-]
-
-[[package]]
 name = "qed_common_circuit"
 version = "0.1.0"
 dependencies = [
@@ -4352,6 +4296,37 @@ dependencies = [
  "thiserror 2.0.12",
  "ts-rs",
  "twox-hash",
+]
+
+[[package]]
+name = "qed_dev_cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "clap",
+ "dotenv",
+ "fred",
+ "hex",
+ "kvq",
+ "plonky2",
+ "qed_common_circuit",
+ "qed_core",
+ "qed_crypto",
+ "qed_data",
+ "qed_exec",
+ "qed_node",
+ "qed_prover",
+ "qed_rollup_circuit",
+ "qed_rollup_utils",
+ "qed_store",
+ "qedlang_core",
+ "qedlang_macros",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -4590,41 +4565,6 @@ dependencies = [
  "tracing",
  "twox-hash",
  "uuid",
-]
-
-[[package]]
-name = "qed_test_sandbox"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "fred",
- "hex",
- "hex-literal",
- "homedir",
- "kvq",
- "lazy_static",
- "plonky2",
- "qed-interpreter",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_exec",
- "qed_node",
- "qed_prover",
- "qed_rollup_circuit",
- "qed_store",
- "qedlang_core",
- "qedlang_macros",
- "serde",
- "serde_json",
- "serde_repr",
- "serde_with",
- "tempfile",
- "tokio",
- "tracing",
- "twox-hash",
 ]
 
 [[package]]
@@ -6950,12 +6890,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "widestring"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd7cf3379ca1aac9eea11fba24fd7e315d621f8dfe35c8d7d2be8b793726e07d"
-
-[[package]]
 name = "winapi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6987,49 +6921,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
-name = "windows"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12342cb4d8e3b046f3d80effd474a7a02447231330ef77d71daa6fbc40681143"
-dependencies = [
- "windows-core 0.57.0",
- "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "windows-core"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2ed2439a290666cd67ecce2b0ffaad89c2a56b976b736e6ece670297897832d"
-dependencies = [
- "windows-implement 0.57.0",
- "windows-interface 0.57.0",
- "windows-result 0.1.2",
- "windows-targets 0.52.6",
-]
-
-[[package]]
 name = "windows-core"
 version = "0.61.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4763c1de310c86d75a878046489e2e5ba02c649d185f21c67d4cf8a56d098980"
 dependencies = [
- "windows-implement 0.60.0",
- "windows-interface 0.59.1",
+ "windows-implement",
+ "windows-interface",
  "windows-link",
- "windows-result 0.3.2",
+ "windows-result",
  "windows-strings 0.4.0",
-]
-
-[[package]]
-name = "windows-implement"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9107ddc059d5b6fbfbffdfa7a7fe3e22a226def0b2608f72e9d552763d3e1ad7"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.101",
 ]
 
 [[package]]
@@ -7037,17 +6938,6 @@ name = "windows-implement"
 version = "0.60.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a47fddd13af08290e67f4acabf4b459f647552718f683a7b415d290ac744a836"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.101",
-]
-
-[[package]]
-name = "windows-interface"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29bee4b38ea3cde66011baa44dba677c432a78593e202392d1e9070cf2a7fca7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7077,18 +6967,9 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4286ad90ddb45071efd1a66dfa43eb02dd0dfbae1545ad6cc3c51cf34d7e8ba3"
 dependencies = [
- "windows-result 0.3.2",
+ "windows-result",
  "windows-strings 0.3.1",
  "windows-targets 0.53.0",
-]
-
-[[package]]
-name = "windows-result"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e383302e8ec8515204254685643de10811af0ed97ea37210dc26fb0032647f8"
-dependencies = [
- "windows-targets 0.52.6",
 ]
 
 [[package]]

@@ -22,7 +22,7 @@ use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
 use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync};
-use qed_benchmark::test_helpers::contract::gen_test_contract;
+use qed_dev_cli::test_helpers::contract::gen_test_contract;
 use std::time::Duration;
 
 
@@ -361,7 +361,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     Ok(())
 }
-#[tokio::main]
-async fn main() {
-    run_fred_test3().await.unwrap();
+pub async fn run(args: super::BenchmarkRegisterV2Args) -> anyhow::Result<()> {
+    run_fred_test3().await
 }

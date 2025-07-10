@@ -1,23 +1,13 @@
 use fred::prelude::*;
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use std::sync::Arc;
-use qed_store::store::lmdbx::KVQlibmdbxStore;
-use qed_common_circuit::circuits::{
-    traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,
-};
-use qed_core::{
-    config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
-    job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync},
-    ups::circuits::{LocalCircuitId, LocalCircuitType},
-    utils::debug_timer::DebugTimer,
-};
+use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
+use qed_core::{config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync}, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer}
+;
 use qed_crypto::{
-    common::simple_circuit_library::SimpleCircuitLibrary,
-    hash::traits::qhashable::QFieldHashable,
-    signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
+    common::simple_circuit_library::SimpleCircuitLibrary, hash::traits::qhashable::QFieldHashable, signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey}
 };
-use qed_data::guta::api::{
-    GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput, SubmitUserEndCapProofAPIInput,
-};
+use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput, SubmitUserEndCapProofAPIInput};
 use qed_node::{
     coordinator::{
         demo::CoordinatorDemoEdgeNode,
@@ -25,43 +15,27 @@ use qed_node::{
             edge::CoordinatorEdgeContext,
             processor::{CoordinatorConfig, CoordinatorProcessorContext},
         },
-    },
-    nimpl::proof_store_fred::ProofStoreFred,
-    realm::state::{
-        edge::RealmEdgeContext,
-        processor::{RealmConfig, RealmProcessorContext},
-    },
-    worker::{
-        simple_async_coord::SimpleAsyncCoordinatorWorker,
-        simple_async_realm::SimpleAsyncRealmWorker,
-    },
+    }, nimpl::proof_store_fred::ProofStoreFred, realm::state::{edge::RealmEdgeContext, processor::{RealmConfig, RealmProcessorContext}}, worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker}
 };
 use qed_node::common::verifier::get_cached_generic_verifier;
-use qed_prover::ups::{
-    circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager,
-};
+use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_data::{
-    config::store_config::{QEDFelt, QEDHasher},
-    traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
-};
-use qed_store::{controllers::local::{
-        proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
-    },
-    node::coordinator::QEDCoordinatorStoreReaderAsync,
-};
+use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
+use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync};
+use qed_dev_cli::test_helpers::{contract::gen_test_contract, ups::ExampleDemoUserInfoStore};
+use std::time::Duration;
 
-use qed_test_sandbox::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
-// use qed_user_cli::subcommand::lps::run_local;
-// use reth_libmdbx::{Environment, EnvironmentFlags, Geometry, Mode, PageSize, SyncMode, RW};
-use std::{path::PathBuf, time::Duration};
 
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
-    plonk::config::PoseidonGoldilocksConfig,
+    plonk::
+        config::PoseidonGoldilocksConfig
+    ,
 };
-use qed_core::data::qhashout::QHashOut;
-use qed_node::nimpl::new_fred_pool;
+use qed_core::
+    data::qhashout::QHashOut
+;
+
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -69,14 +43,24 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+    let pool_size = 8;
+    let config = Config::from_url("redis://127.0.0.1:6379")?;
+    let pool = Builder::from_config(config)
+        .with_connection_config(|config| {
+            config.connection_timeout = Duration::from_secs(10);
+        })
+        // use exponential backoff, starting at 100 ms and doubling on each failed attempt up to 30 sec
+        .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
+        .build_pool(pool_size)?;
 
+    pool.init().await?;
     timer.lap("connected to redis");
 
     let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
     let realm_q = ProofStoreFred::new(pool, "rwq1".to_string(), "rnq1".to_string());
-    let store_reader =
-        Arc::new(KVQlibmdbxStore::new_write("db")?);
+
+    let store_reader: Arc<KVQSimpleMemoryBackingStore> =
+        Arc::new(KVQSimpleMemoryBackingStore::new());
 
     store_reader.initialize_store()?;
     //let worker_count = 16usize;
@@ -122,21 +106,18 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     .await?;
     timer.lap("created coordinator nodes");
 
+
     let priv_key_0 = QHashOut::rand();
     let priv_key_1 = QHashOut::rand();
-    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+    let mut wallet = SimpleQEDZKSignatureManager::<C,D>::new();
     let pub_key_0 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_0));
-    let pub_alt_0 = SimpleQEDPrivateKey::new(priv_key_0)
-        .get_public_key_for_fingerprint::<QEDHasher>(wallet.circuit.get_fingerprint());
+    let pub_alt_0 =SimpleQEDPrivateKey::new(priv_key_0).get_public_key_for_fingerprint::<QEDHasher>(wallet.circuit.get_fingerprint());
+
 
     let pub_key_1 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_1));
     timer.lap("finished building wallet/zksig circuits");
-    let (contract_helper, contract_deploy_cmd) =
-        gen_test_contract_2::<C, D>(pub_key_1.qfhash::<QEDHasher>())?;
-    coordinator_edge_node
-        .ctx
-        .handle_deploy_contract(contract_deploy_cmd)
-        .await?;
+    let (contract_helper, contract_deploy_cmd) =gen_test_contract::<C,D>(pub_key_1.qfhash::<QEDHasher>())?;
+    coordinator_edge_node.ctx.handle_deploy_contract(contract_deploy_cmd).await?;
 
     coordinator_edge_node
         .ctx
@@ -162,8 +143,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &q.clone(),
         &coordinator_worker_circuits,
         &proof_verifier.library,
-    )
-    .await?;
+    ).await?;
 
     let realm_config = RealmConfig::get_standard(0, 0);
 
@@ -173,8 +153,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         realm_qps.clone(),
         realm_qps.clone(),
         Arc::clone(&proof_verifier),
-    )
-    .await?;
+    ).await?;
     let mut realm_processor_node = RealmProcessorContext::new(
         realm_config,
         st.clone(),
@@ -183,14 +162,10 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         realm_qps.clone(),
         realm_qps.clone(),
         Arc::clone(&proof_verifier),
-    )
-    .await?;
+    ).await?;
     //realm_edge_node.handle_recv_checkpoint_sync(coordinator_processor_node.store.get_checkpoint_sync_info_compact(1).await?).await?;
 
-    let sync1 = coordinator_processor_node
-        .store
-        .get_checkpoint_sync_info_compact(1)
-        .await?;
+    let sync1 = coordinator_processor_node.store.get_checkpoint_sync_info_compact(1).await?;
     realm_processor_node.handle_checkpoint_sync(sync1).await?;
     realm_processor_node.build_block().await?;
     let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
@@ -205,31 +180,20 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &realm_q.clone(),
         &coordinator_worker_circuits,
         &proof_verifier.library,
-    )
-    .await?;
+    ).await?;
 
-    let realm_result: GUTARealmCheckpointResult<QEDFelt> = bincode::deserialize(
-        &realm_qps
-            .get_bytes_by_id(realm_worker_output_job_id)
-            .await?,
-    )
-    .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id).await?;
 
-    coordinator_edge_node
-        .ctx
-        .handle_recv_guta_from_realm(
-            SubmitGUTARealmResultAPINoProofInput {
-                realm_id: 0,
-                checkpoint_id: realm_result.checkpoint_id,
-                guta_stats: realm_result.guta_stats,
-                top_line_proof: realm_result.top_line_proof,
-                checkpoint_tree_root: realm_result.checkpoint_tree_root,
-                circuit_type: realm_result.proof_id.circuit_type,
-            },
-            &realm_proof,
-        )
-        .await?;
+    coordinator_edge_node.ctx.handle_recv_guta_from_realm(SubmitGUTARealmResultAPINoProofInput{
+        realm_id: 0,
+        checkpoint_id: realm_result.checkpoint_id,
+        guta_stats: realm_result.guta_stats,
+        top_line_proof: realm_result.top_line_proof,
+        checkpoint_tree_root: realm_result.checkpoint_tree_root,
+        circuit_type:realm_result.proof_id.circuit_type,
+    }, &realm_proof).await?;
 
     coordinator_processor_node.build_block().await?;
     SimpleAsyncCoordinatorWorker::run_worker_until_done::<
@@ -244,51 +208,55 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &q.clone(),
         &coordinator_worker_circuits,
         &proof_verifier.library,
-    )
-    .await?;
+    ).await?;
 
-    let latest = store_reader.get_latest_l2_block_state().await?;
-    let new_sync = store_reader
-        .get_checkpoint_sync_info_compact(latest.checkpoint_id)
-        .await?;
+    let latest=store_reader.get_latest_l2_block_state().await?;
+    let new_sync = store_reader.get_checkpoint_sync_info_compact(latest.checkpoint_id).await?;
 
-    realm_processor_node
-        .handle_checkpoint_sync(new_sync)
-        .await?;
+    realm_processor_node.handle_checkpoint_sync(
+        new_sync
+    ).await?;
+
+
+
+
+
+
+
+
 
     let latest_l2_block_state = st.get_latest_l2_block_state().await?;
 
     //let stroots = st.get_checkpoint_global_state_roots(latest_l2_block_state.checkpoint_id).await?;
     //println!("[mainfnc] current_state_roots: {}",serde_json::to_string_pretty(&stroots).unwrap());
 
+
     timer.lap("start: init QEDUPSStepCircuitManager");
 
-    let main_circuits =
-        QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
+    let main_circuits = QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
     //main_circuits.print_common_config();
 
     timer.lap("end: init QEDUPSStepCircuitManager");
 
-    let user_0_pub_key = st
-        .get_user_registration_tree_leaf_hash(latest_l2_block_state.checkpoint_id, 0)
-        .await?;
+    let user_0_pub_key = st.get_user_registration_tree_leaf_hash(latest_l2_block_state.checkpoint_id,0).await?;
     let priv_key_user_0 = if pub_key_0.qfhash::<QEDHasher>() == user_0_pub_key {
         priv_key_0
-    } else if pub_key_1.qfhash::<QEDHasher>() == user_0_pub_key {
+    }else if pub_key_1.qfhash::<QEDHasher>() == user_0_pub_key {
         priv_key_1
-    } else {
+    }else{
         anyhow::bail!("missing private key!");
     };
 
+
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
-        Arc<KVQlibmdbxStore>,
+        Arc<KVQSimpleMemoryBackingStore>,
     > = QEDLocalProvingSessionStore::new_at(
         store_reader.clone(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
         GoldilocksField::from_noncanonical_u64(0),
         GoldilocksField::ONE,
-        UPS_SESSION_PROOF_TREE_HEIGHT as usize,
+        UPS_SESSION_PROOF_TREE_HEIGHT as usize
     );
 
     let mut circuit_info = SessionCircuitInfoStore::new();
@@ -302,15 +270,16 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     main_circuits.register_info(&mut circuit_info);
     contract_helper.register_funcs(0, &mut circuit_info);
 
-    let mut mgr = UserProvingSessionManager::<GoldilocksField, QEDHasher, _, C, D>::new(
+    let mut mgr = UserProvingSessionManager::<GoldilocksField,QEDHasher,_,C,D>::new(
         lps,
         circuit_info,
-        main_circuits.ups_circuit_whitelist_root,
+        main_circuits.ups_circuit_whitelist_root
     )?;
 
     timer.lap("setup mgr");
 
     timer.lap("started up");
+
 
     timer.lap("START USER PROVING SESSION");
 
@@ -322,9 +291,12 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &mut mgr,
         0,
         "simple_mint_debug",
-        vec![GoldilocksField::from_noncanonical_u64(1000)],
+        vec![
+            GoldilocksField::from_noncanonical_u64(1000),
+        ]
     )?;
     timer.lap("proved token.simple_mint_debug(amount: 1000)");
+
 
     contract_helper.prove_func(
         &main_circuits,
@@ -334,7 +306,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         vec![
             GoldilocksField::from_noncanonical_u64(1),
             GoldilocksField::from_noncanonical_u64(100),
-        ],
+        ]
     )?;
     timer.lap("proved token.simple_transfer(recipient: 2, amount: 100)");
 
@@ -343,19 +315,17 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_user_0, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
-    mgr.proof_tree_state
-        .finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
+    mgr.proof_tree_state.finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
     timer.lap("aggregated all UPS proofs into a single proof");
-    let public_key_param =
-        SimpleQEDPrivateKey::new(priv_key_user_0).get_public_key_param::<QEDHasher>();
+    let public_key_param =SimpleQEDPrivateKey::new(priv_key_user_0).get_public_key_param::<QEDHasher>();
     let end_cap_proof = mgr.prove_end_cap(
         &main_circuits,
-        QED_NETWORK_MAGIC_REGTEST,
-        new_nonce,
-        wallet.circuit.get_fingerprint(),
-        public_key_param,
+         QED_NETWORK_MAGIC_REGTEST,
+         new_nonce,
+         wallet.circuit.get_fingerprint(),
+         public_key_param,
         signature_proof,
-        wallet.circuit.get_verifier_config_ref().to_owned(),
+         wallet.circuit.get_verifier_config_ref().to_owned()
     )?;
     timer.lap("Proved End Cap for UPS Session 🎉");
 
@@ -364,7 +334,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     //main_circuits.ups_end_cap.circuit_data.verify(end_cap_proof)?;
     timer.lap("✅ Verified End Cap Proof");
 
-    /*
+/*
     let user_a_api_input = SubmitUserEndCapProofAPIInput{
         input: mgr.get_api_input()?,
         proof: end_cap_proof,
@@ -374,23 +344,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         mgr.get_api_input()?,
         &end_cap_proof
     ).await?;
-
-
-    // let user_0_pub_key = st.get_user_registration_tree_leaf_hash(latest_l2_block_state.checkpoint_id,0).await?;
-    // let priv_key_user_0 = if pub_key_0.qfhash::<QEDHasher>() == user_0_pub_key {
-    //     priv_key_0
-    // }else if pub_key_1.qfhash::<QEDHasher>() == user_0_pub_key {
-    //     priv_key_1
-    // }else{
-    //     anyhow::bail!("missing private key!");
-    // };
-
-    // let (exec_input , end_cap_proof) = run_local(st.dup(), "/home/longer/workspace/private/qedlang-rust-dev/contract_call.json", &priv_key_user_0.to_string())?;
-
-    // realm_edge_node.handle_recv_end_cap_from_user(
-    //     exec_input,
-    //     &end_cap_proof
-    // ).await?;
 
     realm_processor_node.build_block().await?;
     let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
@@ -405,34 +358,21 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &realm_q.clone(),
         &coordinator_worker_circuits,
         &proof_verifier.library,
-    )
-    .await?;
+    ).await?;
 
-    let realm_result: GUTARealmCheckpointResult<QEDFelt> = bincode::deserialize(
-        &realm_qps
-            .get_bytes_by_id(realm_worker_output_job_id)
-            .await?,
-    )
-    .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-    println!("rr: {:?}", realm_result);
-    let realm_proof = realm_qps
-        .get_proof_by_id(realm_result.proof_id.get_output_id())
-        .await?;
 
-    coordinator_edge_node
-        .ctx
-        .handle_recv_guta_from_realm(
-            SubmitGUTARealmResultAPINoProofInput {
-                realm_id: 0,
-                checkpoint_id: realm_result.checkpoint_id,
-                guta_stats: realm_result.guta_stats,
-                top_line_proof: realm_result.top_line_proof,
-                checkpoint_tree_root: realm_result.checkpoint_tree_root,
-                circuit_type: realm_result.proof_id.circuit_type,
-            },
-            &realm_proof,
-        )
-        .await?;
+    let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
+    println!("rr: {:?}",realm_result);
+    let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
+
+    coordinator_edge_node.ctx.handle_recv_guta_from_realm(SubmitGUTARealmResultAPINoProofInput{
+        realm_id: 0,
+        checkpoint_id: realm_result.checkpoint_id,
+        guta_stats: realm_result.guta_stats,
+        top_line_proof: realm_result.top_line_proof,
+        checkpoint_tree_root: realm_result.checkpoint_tree_root,
+        circuit_type:realm_result.proof_id.circuit_type,
+    }, &realm_proof).await?;
     coordinator_processor_node.build_block().await?;
     SimpleAsyncCoordinatorWorker::run_worker_until_done::<
         _,
@@ -446,22 +386,73 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &q.clone(),
         &coordinator_worker_circuits,
         &proof_verifier.library,
-    )
-    .await?;
+    ).await?;
 
-    let latest = store_reader.get_latest_l2_block_state().await?;
-    let new_sync = store_reader
-        .get_checkpoint_sync_info_compact(latest.checkpoint_id)
-        .await?;
 
-    realm_processor_node
-        .handle_checkpoint_sync(new_sync)
-        .await?;
+    let latest=store_reader.get_latest_l2_block_state().await?;
+    let new_sync = store_reader.get_checkpoint_sync_info_compact(latest.checkpoint_id).await?;
+
+    realm_processor_node.handle_checkpoint_sync(
+        new_sync
+    ).await?;
 
     timer.lap("finished jobs");
+
+    realm_processor_node.build_block().await?;
+    let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
+        _,
+        _,
+        SimpleCircuitLibrary<GoldilocksField>,
+        QEDCoordinatorCircuitManager<C, D>,
+        C,
+        D,
+    >(
+        &realm_q.clone(),
+        &realm_q.clone(),
+        &coordinator_worker_circuits,
+        &proof_verifier.library,
+    ).await?;
+
+
+    let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
+    println!("rr: {:?}",realm_result);
+    let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
+
+    coordinator_edge_node.ctx.handle_recv_guta_from_realm(SubmitGUTARealmResultAPINoProofInput{
+        realm_id: 0,
+        checkpoint_id: realm_result.checkpoint_id,
+        guta_stats: realm_result.guta_stats,
+        top_line_proof: realm_result.top_line_proof,
+        checkpoint_tree_root: realm_result.checkpoint_tree_root,
+        circuit_type:realm_result.proof_id.circuit_type,
+    }, &realm_proof).await?;
+    coordinator_processor_node.build_block().await?;
+    SimpleAsyncCoordinatorWorker::run_worker_until_done::<
+        _,
+        _,
+        SimpleCircuitLibrary<GoldilocksField>,
+        QEDCoordinatorCircuitManager<C, D>,
+        C,
+        D,
+    >(
+        &q.clone(),
+        &q.clone(),
+        &coordinator_worker_circuits,
+        &proof_verifier.library,
+    ).await?;
+
+
+    let latest=store_reader.get_latest_l2_block_state().await?;
+    let new_sync = store_reader.get_checkpoint_sync_info_compact(latest.checkpoint_id).await?;
+
+    realm_processor_node.handle_checkpoint_sync(
+        new_sync
+    ).await?;
+
+    timer.lap("finished jobs");
+
     Ok(())
 }
-#[tokio::main]
-async fn main() {
-    run_fred_test3().await.unwrap();
+pub async fn run(args: super::BenchmarkFullGroup1Args) -> anyhow::Result<()> {
+    run_fred_test3().await
 }

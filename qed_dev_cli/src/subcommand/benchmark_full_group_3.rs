@@ -4,7 +4,7 @@ use kvq::{
     traits::KVQBinaryStore,
 };
 use std::sync::Arc;
-use qed_benchmark::test_helpers::{
+use qed_dev_cli::test_helpers::{
     contract::{gen_test_contract, SimpleTestContract},
     ups::ExampleDemoUserInfoStore,
 };
@@ -507,7 +507,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     Ok(())
 }
-#[tokio::main]
-async fn main() {
-    run_fred_test3().await.unwrap();
+pub async fn run(args: super::BenchmarkFullGroup3Args) -> anyhow::Result<()> {
+    run_fred_test3().await
 }

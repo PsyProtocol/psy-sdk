@@ -14,24 +14,6 @@ pub struct GetPublicKeyArgs {
     pub private_key: String,
 }
 
-#[derive(Clone, Args)]
-pub struct RegisterUserArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
-    pub rpc_config: String,
-    /// user private key
-    #[clap(
-        long,
-        short,
-        default_value = "f93ee5497d94c7d216bb5daaf77a60a4903cb7c69b752c3e1a24753691505998"
-    )]
-    pub private_key: String,
-}
-
-#[derive(Clone, Args)]
-pub struct ProduceBlockArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
-    pub rpc_config: String,
-}
 
 #[derive(Clone, Args)]
 pub struct DeployContractArgs {
@@ -57,19 +39,6 @@ pub struct SubmitEndCapArgs {
     pub inputs: Vec<u64>,
 }
 
-#[derive(Clone, Args)]
-pub struct BlockStateArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
-    pub rpc_config: String,
-    #[arg(long, default_value = "0", env)]
-    pub checkpoint_id: u64,
-}
-
-#[derive(Clone, Args)]
-pub struct LatestBlockStateArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
-    pub rpc_config: String,
-}
 
 #[derive(Clone, Args)]
 pub struct UserIdArgs {
@@ -97,14 +66,3 @@ pub struct UserLeafArgs {
     pub checkpoint_id: u64,
 }
 
-#[derive(Clone, Args)]
-pub struct RandomArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
-    pub rpc_config: String,
-    #[clap(long, default_value = "128", env)]
-    pub user_per_block: u64,
-    #[clap(long, default_value = "4096", env)]
-    pub total_user: u64,
-    #[clap(long, default_value = "3", env)]
-    pub interval: u64,
-}

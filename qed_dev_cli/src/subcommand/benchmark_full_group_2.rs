@@ -22,7 +22,7 @@ use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
 use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync};
-use qed_benchmark::test_helpers::{contract::gen_test_contract, ups::ExampleDemoUserInfoStore};
+use qed_dev_cli::test_helpers::{contract::gen_test_contract, ups::ExampleDemoUserInfoStore};
 use std::time::Duration;
 
 
@@ -35,7 +35,6 @@ use plonky2::{
 use qed_core::
     data::qhashout::QHashOut
 ;
-
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -106,28 +105,18 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     .await?;
     timer.lap("created coordinator nodes");
 
-
-    let priv_key_0 = QHashOut::rand();
-    let priv_key_1 = QHashOut::rand();
-    let mut wallet = SimpleQEDZKSignatureManager::<C,D>::new();
-    let pub_key_0 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_0));
-    let pub_alt_0 =SimpleQEDPrivateKey::new(priv_key_0).get_public_key_for_fingerprint::<QEDHasher>(wallet.circuit.get_fingerprint());
+    let mut helper = ExampleDemoUserInfoStore::new();
 
 
-    let pub_key_1 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_1));
-    timer.lap("finished building wallet/zksig circuits");
-    let (contract_helper, contract_deploy_cmd) =gen_test_contract::<C,D>(pub_key_1.qfhash::<QEDHasher>())?;
+    timer.lap("finished building wallet/zksig/helper circuits");
+    let (contract_helper, contract_deploy_cmd) =gen_test_contract::<C,D>(QHashOut::rand())?;
     coordinator_edge_node.ctx.handle_deploy_contract(contract_deploy_cmd).await?;
 
-    coordinator_edge_node
-        .ctx
-        .handle_process_regsiter_user(pub_key_0)
-        .await?;
-    coordinator_edge_node
-        .ctx
-        .handle_process_regsiter_user(pub_key_1)
-        .await?;
-    timer.lap("sent requests");
+    let mut current_g_reg_id = 0;
+    let priv_keys_batch_1 = (0..100).map(|x| QHashOut::rand()).collect::<Vec<_>>();
+    let mut g_users = helper.register_users(&coordinator_edge_node.ctx, current_g_reg_id, &priv_keys_batch_1).await?;
+
+    timer.lap("deployed contract and registered users");
 
     coordinator_processor_node.build_block().await?;
 
@@ -238,16 +227,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("end: init QEDUPSStepCircuitManager");
 
-    let user_0_pub_key = st.get_user_registration_tree_leaf_hash(latest_l2_block_state.checkpoint_id,0).await?;
-    let priv_key_user_0 = if pub_key_0.qfhash::<QEDHasher>() == user_0_pub_key {
-        priv_key_0
-    }else if pub_key_1.qfhash::<QEDHasher>() == user_0_pub_key {
-        priv_key_1
-    }else{
-        anyhow::bail!("missing private key!");
-    };
-
-
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
         Arc<KVQSimpleMemoryBackingStore>,
@@ -263,8 +242,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     circuit_info.register_circuit(
         LocalCircuitType::SimpleZKSignature.into(),
-        wallet.circuit.get_fingerprint(),
-        wallet.circuit.get_verifier_config_ref().into(),
+        helper.wallet.circuit.get_fingerprint(),
+        helper.wallet.circuit.get_verifier_config_ref().into(),
     );
 
     main_circuits.register_info(&mut circuit_info);
@@ -282,70 +261,26 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
 
     timer.lap("START USER PROVING SESSION");
+    type F = GoldilocksField;
+    let mut mgr = helper.run_txs_for_users_prep(mgr, &contract_helper, &main_circuits, 0, vec![
+        (
+            g_users[0],
+            vec![
+                ("simple_mint_debug", vec![F::from_canonical_u64(1000)]),
+                ("simple_transfer", vec![F::from_canonical_u64(g_users[1]), F::from_canonical_u64(100)]),
+            ],
 
-    mgr.prove_ups_start(&main_circuits)?;
-    timer.lap("proved ups_start");
+        ),
+    ])?;
 
-    contract_helper.prove_func(
-        &main_circuits,
-        &mut mgr,
-        0,
-        "simple_mint_debug",
-        vec![
-            GoldilocksField::from_noncanonical_u64(1000),
-        ]
-    )?;
-    timer.lap("proved token.simple_mint_debug(amount: 1000)");
+    timer.lap("proved group");
 
+    helper.send_txs_to_edge(&realm_edge_node).await?;
+    timer.lap("sent all to edge");
 
-    contract_helper.prove_func(
-        &main_circuits,
-        &mut mgr,
-        0,
-        "simple_transfer",
-        vec![
-            GoldilocksField::from_noncanonical_u64(1),
-            GoldilocksField::from_noncanonical_u64(100),
-        ]
-    )?;
-    timer.lap("proved token.simple_transfer(recipient: 2, amount: 100)");
-
-    let new_nonce = GoldilocksField::from_noncanonical_u64(1);
-    let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
-
-    let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_user_0, sighash)?;
-    timer.lap("generated zk signature for UPS transaction batch");
-    mgr.proof_tree_state.finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
-    timer.lap("aggregated all UPS proofs into a single proof");
-    let public_key_param =SimpleQEDPrivateKey::new(priv_key_user_0).get_public_key_param::<QEDHasher>();
-    let end_cap_proof = mgr.prove_end_cap(
-        &main_circuits,
-         QED_NETWORK_MAGIC_REGTEST,
-         new_nonce,
-         wallet.circuit.get_fingerprint(),
-         public_key_param,
-        signature_proof,
-         wallet.circuit.get_verifier_config_ref().to_owned()
-    )?;
-    timer.lap("Proved End Cap for UPS Session 🎉");
-
-    // the end cap proof the proof that we send off to the network 🎉
-
-    //main_circuits.ups_end_cap.circuit_data.verify(end_cap_proof)?;
-    timer.lap("✅ Verified End Cap Proof");
-
-/*
-    let user_a_api_input = SubmitUserEndCapProofAPIInput{
-        input: mgr.get_api_input()?,
-        proof: end_cap_proof,
-    };*/
-
-    realm_edge_node.handle_recv_end_cap_from_user(
-        mgr.get_api_input()?,
-        &end_cap_proof
-    ).await?;
 
     realm_processor_node.build_block().await?;
+    timer.lap("built block");
     let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
         _,
         _,
@@ -398,7 +333,11 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("finished jobs");
 
+
+
+
     realm_processor_node.build_block().await?;
+    timer.lap("built block");
     let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
         _,
         _,
@@ -453,7 +392,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     Ok(())
 }
-#[tokio::main]
-async fn main() {
-    run_fred_test3().await.unwrap();
+pub async fn run(args: super::BenchmarkFullGroup2Args) -> anyhow::Result<()> {
+    run_fred_test3().await
 }
