@@ -38,7 +38,7 @@ use qed_crypto::{
         },
         traits::qhashable::QFieldHashable,
     },
-    signature::zk::data::ZKPublicKeyInfo,
+    signature::zk::data::{PublicKeyInfo, ZKPublicKeyInfo},
 };
 use qed_data::{
     guta::{
@@ -315,14 +315,22 @@ impl<
         AggStateTransition<F>,
         Vec<ZKPublicKeyInfo<F>>,
         Vec<QHashOut<F>>,
+        Vec<QHashOut<F>>,
     )> {
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
 
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
-        let user_registrations = self
+        let user_registrations_info = self
             .checkpoint_queue
-            .cdq_drain_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID, 0)
+            .cdq_drain_imm::<PublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID, 0)
             .await?;
+        let (user_registrations, secp256k1_public_key_hashes): (
+            Vec<ZKPublicKeyInfo<F>>,
+            Vec<QHashOut<F>>,
+        ) = user_registrations_info
+            .iter()
+            .map(|user_info| (user_info.zk_public_key, user_info.secp256k1_public_key_hash))
+            .unzip();
         eprintln!("DEBUGPRINT[724]: processor.rs:326: user_registrations={}", serde_json::to_string_pretty(&user_registrations).unwrap());
 
         let start_user_id = last_l2_blockstate.next_user_id;
@@ -408,6 +416,7 @@ impl<
                 state_transition_end: new_user_registration_tree_root,
             },
             user_registrations,
+            secp256k1_public_key_hashes,
             siblings,
         ))
     }
@@ -810,6 +819,7 @@ impl<
             user_registration_jobs,
             user_registration_transition,
             new_accounts,
+            new_secp256k1_public_keys,
             regsitered_users_start_pivot_siblings,
         ) = self.handle_user_registrations(new_checkpoint_id).await?;
 
@@ -1042,6 +1052,7 @@ impl<
             checkpoint_tree_update_siblings,
             regsitered_users_start_pivot_siblings,
             registered_users: new_accounts,
+            registered_users_secp256k1_public_keys: new_secp256k1_public_keys,
         };
         eprintln!("DEBUGPRINT[591]: processor.rs:1007: l2_sync={}", serde_json::to_string_pretty(&l2_sync).unwrap());
         self.store

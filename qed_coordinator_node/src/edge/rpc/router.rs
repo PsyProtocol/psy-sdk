@@ -8,7 +8,7 @@ use serde::Serialize;
 use crate::edge::context::LATEST_CHECKPOINT_ID;
 use crate::edge::rpc::handler::CoordinatorEdgeHandler;
 use crate::edge::rpc::types::SubmitGUTAParams;
-use crate::rpc::types::LatestCheckpointResponse;
+use crate::rpc::types::{LatestCheckpointResponse, RegisterUserParams};
 use crate::CoordinatorEdgeArgs;
 
 use qed_core::data::qhashout::QHashOut;
@@ -38,7 +38,10 @@ pub fn build_rpc_module(
             params
         );
 
-        let pub_key = match params.parse::<ZKPublicKeyInfo<QEDFelt>>() {
+        let RegisterUserParams {
+            public_key,
+            secp256k1_public_key_hash,
+        } = match params.parse() {
             Ok(p) => p,
             Err(e) => {
                 tracing::warn!("❌ Failed to parse params for register_user: {}", e);
@@ -50,13 +53,13 @@ pub fn build_rpc_module(
             }
         };
 
-        tracing::debug!("✅ register_user {:?}", pub_key.qfhash::<QEDHasher>());
+        tracing::debug!("✅ register_user {:?}", public_key.qfhash::<QEDHasher>());
         tracing::debug!(
             "✅ register_user {:?}",
-            pub_key.qfhash::<QEDHasher>().to_string()
+            public_key.qfhash::<QEDHasher>().to_string()
         );
 
-        match handler.register_user(pub_key).await {
+        match handler.register_user(public_key, secp256k1_public_key_hash).await {
             Ok(_) => {
                 tracing::info!("✅ register_user success");
                 Ok::<_, ErrorObjectOwned>("ok")

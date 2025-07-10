@@ -3,25 +3,27 @@ use std::str::FromStr;
 use dashmap::DashMap;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
-    hash::poseidon::PoseidonHash,
+    hash::{
+        hashing::hash_n_to_hash_no_pad,
+        poseidon::{PoseidonHash, PoseidonPermutation},
+    },
     plonk::config::PoseidonGoldilocksConfig,
 };
 use qed_common_circuit::{
-    circuits::traits::qstandard::QStandardCircuit, crypto::secp256k1,
-    wallet::memory_wallet::QEDMemoryWallet,
+    circuits::traits::qstandard::QStandardCircuit, wallet::memory_wallet::QEDMemoryWallet,
 };
 use qed_core::{
     config::network_constants::{
         MAX_CONTRACT_STATE_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT,
     },
-    data::{qhashout::QHashOut, secp256k1::CompressedPublicKey},
+    data::{
+        qhashout::QHashOut,
+        secp256k1::{bytes_to_u32_vec_be, CompressedPublicKey},
+    },
     ups::circuits::LocalCircuitType,
 };
-use qed_crypto::{
-    common::generic_circuit_verifier, hash::traits::qhashable::QFieldHashable,
-    signature::zk::data::ZKPublicKeyInfo,
-};
-use qed_data::{protocol::circuit_fingerprints, qblock::cmds::deploy_contract::QBCDeployContract};
+use qed_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::data::ZKPublicKeyInfo};
+use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_prover::ups::{
     circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager,
 };
@@ -207,6 +209,15 @@ impl WalletSession {
     pub async fn register_user(&self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
         let pk_info = self.wallet.get_public_key_info(private_key);
         let pk_hash = pk_info.qfhash::<QEDHasher>();
+        let secp256k1_public_key = self.wallet.get_secp256k1_public_key(private_key)?;
+        let secp256k1_public_key_f = bytes_to_u32_vec_be(&secp256k1_public_key.0)
+            .iter()
+            .map(|n| GoldilocksField::from_canonical_u32(*n))
+            .collect::<Vec<_>>();
+        let secp256k1_public_key_hash = QHashOut(hash_n_to_hash_no_pad::<
+            GoldilocksField,
+            PoseidonPermutation<GoldilocksField>,
+        >(&secp256k1_public_key_f));
 
         if let Ok(user_id) = self.st_provider.get_user_id(pk_hash).await {
             tracing::info!("user `{}` already registered with id {}", pk_hash, user_id);
@@ -216,6 +227,7 @@ impl WalletSession {
         self.st_provider
             .register_user(QRegisterUserRPCRequest {
                 public_key: pk_info,
+                secp256k1_public_key_hash,
             })
             .await?;
 

@@ -16,6 +16,7 @@ pub struct QEDCheckpointSyncInfoCompact<F: RichField> {
     pub checkpoint_tree_update_siblings: Vec<QHashOut<F>>,
     pub regsitered_users_start_pivot_siblings: Vec<QHashOut<F>>,
     pub registered_users: Vec<ZKPublicKeyInfo<F>>,
+    pub registered_users_secp256k1_public_keys: Vec<QHashOut<F>>,
 }
 
 impl<F: RichField> QEDCheckpointSyncInfoCompact<F> {
@@ -79,6 +80,7 @@ impl<F: RichField> QEDCheckpointSyncInfoCompact<F> {
             checkpoint_tree_update_proof,
             regsitered_users_start_pivot_siblings: self.regsitered_users_start_pivot_siblings,
             registered_users: self.registered_users,
+            registered_users_secp256k1_public_keys: self.registered_users_secp256k1_public_keys,
         }
 
 
@@ -94,6 +96,7 @@ impl<F: RichField> From<QEDCheckpointSyncInfo<F>> for QEDCheckpointSyncInfoCompa
             checkpoint_tree_update_siblings: value.checkpoint_tree_update_proof.siblings,
             regsitered_users_start_pivot_siblings: value.regsitered_users_start_pivot_siblings,
             registered_users: value.registered_users,
+            registered_users_secp256k1_public_keys: value.registered_users_secp256k1_public_keys,
         }
         
     }
@@ -107,6 +110,7 @@ impl<F: RichField> From<&QEDCheckpointSyncInfo<F>> for QEDCheckpointSyncInfoComp
             checkpoint_tree_update_siblings: value.checkpoint_tree_update_proof.siblings.clone(),
             regsitered_users_start_pivot_siblings: value.regsitered_users_start_pivot_siblings.clone(),
             registered_users: value.registered_users.clone(),
+            registered_users_secp256k1_public_keys: value.registered_users_secp256k1_public_keys.clone(),
         }
         
     }
@@ -153,6 +157,7 @@ pub struct QEDCheckpointSyncInfo<F: RichField> {
     pub checkpoint_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
     pub regsitered_users_start_pivot_siblings: Vec<QHashOut<F>>,
     pub registered_users: Vec<ZKPublicKeyInfo<F>>,
+    pub registered_users_secp256k1_public_keys: Vec<QHashOut<F>>,
 }
 impl<F: RichField> QEDCheckpointSyncInfo<F> {
 

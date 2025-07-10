@@ -66,6 +66,12 @@ where
         self.zk_wallet
             .add_private_key_get_info(SimpleQEDPrivateKey { private_key })
     }
+    pub fn get_secp256k1_public_key(
+        &self,
+        private_key: QHashOut<C::F>,
+    ) -> anyhow::Result<CompressedPublicKey> {
+        self.secp256k1_wallet.get_public_key(private_key.into())
+    }
     pub fn add_secp256k1_private_key(
         &mut self,
         private_key: QHashOut<C::F>,

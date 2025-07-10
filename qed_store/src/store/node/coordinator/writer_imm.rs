@@ -332,7 +332,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsyn
                 checkpoint_tree_update_siblings: r.siblings.clone(),
                 regsitered_users_start_pivot_siblings: vec![],
                 registered_users: vec![],
-
+                registered_users_secp256k1_public_keys: vec![],
             };
             self.set_checkpoint_sync_info_imm(sync_info).await?;
 

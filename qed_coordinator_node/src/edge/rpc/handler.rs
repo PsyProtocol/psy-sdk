@@ -26,7 +26,7 @@ use qed_core::job::worker_queue::ProvingDispatcher;
 
 // qed_crypto
 use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
+use qed_crypto::signature::zk::data::{PublicKeyInfo, ZKPublicKeyInfo};
 
 // qed_data
 use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
@@ -143,6 +143,7 @@ impl CoordinatorEdgeHandler {
     pub async fn register_user(
         &self,
         zk_user_info: ZKPublicKeyInfo<QEDFelt>,
+        secp256k1_public_key_hash: QHashOut<QEDFelt>,
     ) -> anyhow::Result<()> {
         let public_key = zk_user_info.qfhash::<QEDHasher>().to_string();
 
@@ -158,9 +159,13 @@ impl CoordinatorEdgeHandler {
         with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| {
             let queue = ctx.checkpoint_queue.clone();
             let zk_user = zk_user_info.clone();
+            let secp256k1_public_key_hash = secp256k1_public_key_hash.clone();
 
             async move {
-                queue.cdq_push_imm(zk_user).await?;
+                queue.cdq_push_imm(PublicKeyInfo{
+                    zk_public_key: zk_user,
+                    secp256k1_public_key_hash,
+                }).await?;
                 info!("✅ User pushed to checkpoint queue.");
                 Ok(())
             }

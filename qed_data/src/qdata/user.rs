@@ -18,9 +18,10 @@ pub struct QEDUserLeaf<F: RichField> {
     pub last_checkpoint_id: F,
     pub event_index: F,
     pub user_id: F,
+    pub secp256k1_public_key_hash: QHashOut<F>,
 }
 impl<F: RichField> QEDUserLeaf<F> {
-    pub fn new_user_default(user_id: F, public_key: QHashOut<F>, user_state_tree_root: QHashOut<F>) -> Self {
+    pub fn new_user_default(user_id: F, public_key: QHashOut<F>, secp256k1_public_key_hash: QHashOut<F>, user_state_tree_root: QHashOut<F>) -> Self {
         Self {
             public_key,
             user_state_tree_root,
@@ -29,6 +30,7 @@ impl<F: RichField> QEDUserLeaf<F> {
             last_checkpoint_id: F::ZERO,
             event_index: F::ZERO,
             user_id,
+            secp256k1_public_key_hash,
         }
     }
 
@@ -45,7 +47,7 @@ impl<F: RichField> KVQSerializable for QEDUserLeaf<F> {
 
 impl<F: RichField> QFeltSized for QEDUserLeaf<F> {
     fn q_felt_size() -> usize {
-        13
+        17
     }
 }
 impl<F: RichField> ToQFelts<F> for QEDUserLeaf<F> {
@@ -64,11 +66,15 @@ impl<F: RichField> ToQFelts<F> for QEDUserLeaf<F> {
             self.last_checkpoint_id,
             self.event_index,
             self.user_id,
+            self.secp256k1_public_key_hash.0.elements[0],
+            self.secp256k1_public_key_hash.0.elements[1],
+            self.secp256k1_public_key_hash.0.elements[2],
+            self.secp256k1_public_key_hash.0.elements[3],
         ]
     }
 
     fn from_qfelts(felts: &[F]) -> Self {
-        if felts.len() != 13 {
+        if felts.len() != 17 {
             panic!("Invalid number of elements for QEDUserLeaf");
         }
         let public_key = QHashOut::from_qfelts(&felts[0..4]);
@@ -78,6 +84,7 @@ impl<F: RichField> ToQFelts<F> for QEDUserLeaf<F> {
         let last_checkpoint_id = felts[10];
         let event_index = felts[11];
         let user_id = felts[12];
+        let secp256k1_public_key_hash = QHashOut::from_qfelts(&felts[13..17]);
         QEDUserLeaf {
             public_key,
             user_state_tree_root,
@@ -86,6 +93,7 @@ impl<F: RichField> ToQFelts<F> for QEDUserLeaf<F> {
             last_checkpoint_id,
             event_index,
             user_id,
+            secp256k1_public_key_hash,
         }
     }
 }
@@ -105,7 +113,11 @@ impl<F: RichField> QFieldHashable<F> for QEDUserLeaf<F> {
             self.nonce,
             self.last_checkpoint_id,
             self.event_index,
-            self.user_id
+            self.user_id,
+            // self.secp256k1_public_key_hash.0.elements[0],
+            // self.secp256k1_public_key_hash.0.elements[1],
+            // self.secp256k1_public_key_hash.0.elements[2],
+            // self.secp256k1_public_key_hash.0.elements[3],
         ])
     }
 }
@@ -126,7 +138,11 @@ impl<F: RichField> QEDUserLeaf<F> {
             self.nonce,
             self.last_checkpoint_id,
             self.event_index,
-            self.user_id
+            self.user_id,
+            // self.secp256k1_public_key_hash.0.elements[0],
+            // self.secp256k1_public_key_hash.0.elements[1],
+            // self.secp256k1_public_key_hash.0.elements[2],
+            // self.secp256k1_public_key_hash.0.elements[3],
         ]))
     }
 }
