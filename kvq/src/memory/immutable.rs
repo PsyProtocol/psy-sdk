@@ -193,6 +193,18 @@ impl<KVQ: KVQBinaryStore> KVQBinaryStoreWriterImmutable for KVQImmutableStoreWra
             self.write()?.flush_change()
         }
     }
+
+    fn imm_flush_change(&self) -> anyhow::Result<()> {
+        {
+            self.write()?.flush_change()
+        }
+    }
+
+    fn imm_clear_change(&self) -> anyhow::Result<()> {
+        {
+            self.write()?.clear_change()
+        }
+    }
 }
 
 impl<KVQ: KVQBinaryStore> KVQBinaryStoreImmutable for KVQImmutableStoreWrapper<KVQ> {}

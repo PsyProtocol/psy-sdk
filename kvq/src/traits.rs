@@ -321,6 +321,7 @@ pub trait KVQBinaryStoreReaderAsync {
     }
 }
 
+#[async_trait]
 pub trait KVQBinaryStoreWriter {
     fn set(&mut self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
     fn set_ref(&mut self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()>;
@@ -335,9 +336,11 @@ pub trait KVQBinaryStoreWriter {
     fn delete_many(&mut self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
 
     fn flush_change(&mut self) -> anyhow::Result<()> { Ok(()) }
+
+    fn clear_change(&mut self) -> anyhow::Result<()> { Ok(()) }
 }
 
-
+#[async_trait]
 pub trait KVQBinaryStoreWriterImmutable {
     fn imm_set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
     fn imm_set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()>;
@@ -352,6 +355,8 @@ pub trait KVQBinaryStoreWriterImmutable {
     fn imm_delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
 
     fn imm_flush_change(&self) -> anyhow::Result<()>;
+
+    fn imm_clear_change(&self) -> anyhow::Result<()>;
 }
 
 #[async_trait]
@@ -419,6 +424,10 @@ impl<T: KVQBinaryStoreWriterAutoImmutable> KVQBinaryStoreWriter for T {
 
     fn flush_change(&mut self) -> anyhow::Result<()> {
         self.imm_flush_change()
+    }
+
+    fn clear_change(&mut self) -> anyhow::Result<()> {
+        self.imm_clear_change()
     }
 }
 

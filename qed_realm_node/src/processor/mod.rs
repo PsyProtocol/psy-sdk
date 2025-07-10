@@ -177,7 +177,10 @@ impl RealmProcessor {
         let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await;
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
         self.store.commit_block_imm(local_latest_checkpoint_id).await?;
-        context.build_block().await?;
+        if let Err(err) = context.build_block().await {
+            self.store.rollback_block_imm(next_checkpoint_id).await?;
+            return Err(err);
+        }
         let realm_worker_output_job_id = self
             .sync_proof
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)

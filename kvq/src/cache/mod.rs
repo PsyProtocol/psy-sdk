@@ -407,6 +407,11 @@ impl<S: KVQBinaryStore> KVQBinaryStoreWriter for KVQBinaryStoreCached<S> {
     fn flush_change(&mut self) -> anyhow::Result<()> {
         self.flush_simple()
     }
+
+    fn clear_change(&mut self) -> anyhow::Result<()> {
+        self.map.clear();
+        Ok(())
+    }
 }
 
 
