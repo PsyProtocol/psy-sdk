@@ -25,7 +25,6 @@ const UPS_STEP_LEAF_TYPE: u64 = 1;
 const CFC_LEAF_TYPE: u64 = 2;
 const ZK_SIG_LEAF_TYPE: u64 = 3;
 
-#[derive(Clone, Debug)]
 pub struct UserProvingSessionManager<
     F: RichField + Extendable<D>,
     H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,

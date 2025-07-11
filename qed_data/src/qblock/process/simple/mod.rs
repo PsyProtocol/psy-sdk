@@ -155,7 +155,7 @@ impl SimpleBlockProcessor {
                     .get_contract_leaf_data(contract_id).await?
                     .state_tree_height
                     .to_canonical_u64() as u8;
-                let ucst = UserContractStateTreeId::new(
+                let ucst = UserContractStateTreeId::<kvq::adapters::standard::KVQStandardAdapter<S, crate::models::kvq_merkle::key::KVQMerkleNodeKey<{ crate::config::store_config::USER_CONTRACT_STATE_TREE_TABLE_TYPE }>, crate::config::store_config::QEDHash>>::new(
                     user_id,
                     contract_id as u32,
                     contract_state_height,

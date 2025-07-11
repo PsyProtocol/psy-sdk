@@ -71,7 +71,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F>
         root_level: u8,
         nodes: &[QMerkleNode<F>],
     ) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>> {
-        UserTreeStore::smart_injest_nca_fc(self, root_level, checkpoint_id, nodes)
+        UserTreeStore::<Self>::smart_injest_nca_fc(self, root_level, checkpoint_id, nodes)
     }
     async fn injest_checkpoint_sync_data_imm(
         &self,
@@ -142,7 +142,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F>
         )?;
 
         let checkpoint_sync_info: QEDCheckpointSyncInfoCompact<F> = sync_info.into();
-        CheckpointSyncInfoTableStore::set_checkpoint_sync_info(self, checkpoint_sync_info)?;
+        CheckpointSyncInfoTableStore::<Self>::set_checkpoint_sync_info(self, checkpoint_sync_info)?;
 
         Ok(())
     }

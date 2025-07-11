@@ -72,56 +72,56 @@ pub type QCheckpointSyncInfoCompact = QEDCheckpointSyncInfoCompact<QEDFelt>;
 pub type QUserPublicKeyRecord = QEDUserPublicKeyRecord<QEDFelt>;
 //pub type QEDParams = QEDTestnetTreeConfig;
 
-pub type UserLeafTableStore<S> = UserLeafModel<
+pub type UserLeafTableStore<S, A = KVQStandardAdapter<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, QEDUserLeaf<QEDFelt>>> = UserLeafModel<
     USER_LEAF_TABLE_TYPE,
     S,
-    KVQStandardAdapter<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, QEDUserLeaf<QEDFelt>>,
+    A,
 >;
-pub type ContractLeafTableStore<S> = ContractLeafModel<
+pub type ContractLeafTableStore<S, A = KVQStandardAdapter<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, QEDContractLeaf<QEDFelt>>> = ContractLeafModel<
     CONTRACT_LEAF_TABLE_TYPE,
     S,
-    KVQStandardAdapter<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, QEDContractLeaf<QEDFelt>>,
+    A,
 >;
-pub type ContractCodeTableStore<S> = ContractCodeModel<
+pub type ContractCodeTableStore<S, A = KVQStandardAdapter<S, CheckpointTableIdKey<CONTRACT_CODE_TABLE_TYPE>, ContractCodeDefinition>> = ContractCodeModel<
     CONTRACT_CODE_TABLE_TYPE,
     S,
-    KVQStandardAdapter<S, CheckpointTableIdKey<CONTRACT_CODE_TABLE_TYPE>, ContractCodeDefinition>,
+    A,
 >;
 
-pub type CheckpointLeafTableStore<S> = QEDCheckpointLeafModel<
+pub type CheckpointLeafTableStore<S, A = KVQStandardAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>> = QEDCheckpointLeafModel<
     CHECKPOINT_LEAF_TABLE_TYPE,
     S,
-    KVQStandardAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
+    A,
 >;
 
-pub type L2BlockStateTableStore<S> = L2BlockStatesModel<
+pub type L2BlockStateTableStore<S, A = KVQStandardAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>> = L2BlockStatesModel<
     CHECKPOINT_BLOCK_STATE_TABLE_TYPE,
     S,
-    KVQStandardAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
+    A,
 >;
 
 
-pub type CheckpointSyncInfoTableStore<S> = QEDCheckpointSyncInfoModel<
+pub type CheckpointSyncInfoTableStore<S, A = KVQStandardAdapter<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>> = QEDCheckpointSyncInfoModel<
     CHECKPOINT_SYNC_INFO_TABLE_TYPE,
     S,
-    KVQStandardAdapter<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>,
+    A,
 >;
 
-pub type CheckpointHashHelperTableStore<S> = QEDCheckpointHashHelperModel<
+pub type CheckpointHashHelperTableStore<S, A = KVQStandardAdapter<S, Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>, QEDHashHelperResult>> = QEDCheckpointHashHelperModel<
     CHECKPOINT_HASH_HELPER_TABLE_TYPE,
     S,
-    KVQStandardAdapter<S, Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>, QEDHashHelperResult>,
+    A,
 >;
 
-pub type UserPublicKeyTableStore<S> = QEDUserPublicKeyHelperModel<
+pub type UserPublicKeyTableStore<S, A = KVQStandardAdapter<S, Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>, QUserPublicKeyRecord>> = QEDUserPublicKeyHelperModel<
     USER_PUBLIC_KEY_HELPER_TABLE_TYPE,
     S,
-    KVQStandardAdapter<S, Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>, QUserPublicKeyRecord>,
+    A,
 >;
 
 
 // Generic protocol tree template - no longer used directly
-pub type ProtocolTreeStore<S, const TREE_ID: u8, const HEIGHT: u8, const TABLE_TYPE: u16> = KVQFixedConfigMerkleTreeModel<
+pub type ProtocolTreeStore<S, const TREE_ID: u8, const HEIGHT: u8, const TABLE_TYPE: u16, A = KVQStandardAdapter<S, KVQMerkleNodeKey<TABLE_TYPE>, QEDHash>> = KVQFixedConfigMerkleTreeModel<
     TREE_ID,
     HEIGHT,
     0,
@@ -129,52 +129,52 @@ pub type ProtocolTreeStore<S, const TREE_ID: u8, const HEIGHT: u8, const TABLE_T
     TABLE_TYPE,
     false,
     S,
-    KVQStandardAdapter<S, KVQMerkleNodeKey<TABLE_TYPE>, QEDHash>,
+    A,
     QEDHash,
     QEDHasher,
 >;
 
-pub type UserContractTreeStore<S> = KVQSemiFixedConfigMerkleTreeModel<
+pub type UserContractTreeStore<S, A = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_TREE_TABLE_TYPE>, QEDHash>> = KVQSemiFixedConfigMerkleTreeModel<
     USER_CONTRACT_TREE_ID,
     GLOBAL_CONTRACT_TREE_HEIGHT,
     0,
     USER_CONTRACT_TREE_TABLE_TYPE,
     false,
     S,
-    KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_TREE_TABLE_TYPE>, QEDHash>,
+    A,
     QEDHash,
     QEDHasher,
 >;
 
-pub type BaseContractStateTreeStore<S> = KVQMerkleTreeModel<
+pub type BaseContractStateTreeStore<S, A = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QEDHash>> = KVQMerkleTreeModel<
     USER_CONTRACT_STATE_TREE_TABLE_TYPE,
     false,
     S,
-    KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QEDHash>,
+    A,
     QEDHash,
     QEDHasher,
 >;
 
 // Protocol tree stores with their own table types
-pub type UserRegistrationTreeStore<S> = ProtocolTreeStore<S, USER_REGISTRATION_TREE_ID, GLOBAL_USER_TREE_HEIGHT, USER_REGISTRATION_TREE_TABLE_TYPE>;
-pub type CheckpointTreeStore<S> = ProtocolTreeStore<S, CHECKPOINT_TREE_ID, CHECKPOINT_TREE_HEIGHT, CHECKPOINT_TREE_TABLE_TYPE>;
-pub type UserTreeStore<S> = ProtocolTreeStore<S, USER_TREE_ID, GLOBAL_USER_TREE_HEIGHT, USER_TREE_TABLE_TYPE>;
-pub type ContractTreeStore<S> = ProtocolTreeStore<S, CONTRACT_TREE_ID, GLOBAL_CONTRACT_TREE_HEIGHT, CONTRACT_TREE_TABLE_TYPE>;
+pub type UserRegistrationTreeStore<S, A = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_REGISTRATION_TREE_TABLE_TYPE>, QEDHash>> = ProtocolTreeStore<S, USER_REGISTRATION_TREE_ID, GLOBAL_USER_TREE_HEIGHT, USER_REGISTRATION_TREE_TABLE_TYPE, A>;
+pub type CheckpointTreeStore<S, A = KVQStandardAdapter<S, KVQMerkleNodeKey<CHECKPOINT_TREE_TABLE_TYPE>, QEDHash>> = ProtocolTreeStore<S, CHECKPOINT_TREE_ID, CHECKPOINT_TREE_HEIGHT, CHECKPOINT_TREE_TABLE_TYPE, A>;
+pub type UserTreeStore<S, A = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_TREE_TABLE_TYPE>, QEDHash>> = ProtocolTreeStore<S, USER_TREE_ID, GLOBAL_USER_TREE_HEIGHT, USER_TREE_TABLE_TYPE, A>;
+pub type ContractTreeStore<S, A = KVQStandardAdapter<S, KVQMerkleNodeKey<CONTRACT_TREE_TABLE_TYPE>, QEDHash>> = ProtocolTreeStore<S, CONTRACT_TREE_ID, GLOBAL_CONTRACT_TREE_HEIGHT, CONTRACT_TREE_TABLE_TYPE, A>;
 
-pub type ContractFunctionTreeStore<S> = KVQSemiFixedConfigMerkleTreeModel<
+pub type ContractFunctionTreeStore<S, A = KVQStandardAdapter<S, KVQMerkleNodeKey<CONTRACT_FUNCTION_TREE_TABLE_TYPE>, QEDHash>> = KVQSemiFixedConfigMerkleTreeModel<
     CONTRACT_FUNCTION_TREE_ID,
     CONTRACT_FUNCTION_TREE_HEIGHT,
     0,
     CONTRACT_FUNCTION_TREE_TABLE_TYPE,
     false,
     S,
-    KVQStandardAdapter<S, KVQMerkleNodeKey<CONTRACT_FUNCTION_TREE_TABLE_TYPE>, QEDHash>,
+    A,
     QEDHash,
     QEDHasher,
 >;
 
-pub type DepositTreeStore<S> = ProtocolTreeStore<S, DEPOSIT_TREE_ID, GLOBAL_DEPOSIT_TREE_HEIGHT, DEPOSIT_TREE_TABLE_TYPE>;
-pub type WithdrawalTreeStore<S> = ProtocolTreeStore<S, WITHDRAWAL_TREE_ID, GLOBAL_WITHDRAWAL_TREE_HEIGHT, WITHDRAWAL_TREE_TABLE_TYPE>;
+pub type DepositTreeStore<S, A = KVQStandardAdapter<S, KVQMerkleNodeKey<DEPOSIT_TREE_TABLE_TYPE>, QEDHash>> = ProtocolTreeStore<S, DEPOSIT_TREE_ID, GLOBAL_DEPOSIT_TREE_HEIGHT, DEPOSIT_TREE_TABLE_TYPE, A>;
+pub type WithdrawalTreeStore<S, A = KVQStandardAdapter<S, KVQMerkleNodeKey<WITHDRAWAL_TREE_TABLE_TYPE>, QEDHash>> = ProtocolTreeStore<S, WITHDRAWAL_TREE_ID, GLOBAL_WITHDRAWAL_TREE_HEIGHT, WITHDRAWAL_TREE_TABLE_TYPE, A>;
 
 // GLOBAL_CONTRACT_TREE_HEIGHT-th zero hash
 #[cfg(test)]

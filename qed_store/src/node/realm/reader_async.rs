@@ -13,16 +13,17 @@ use qed_data::{
 };
 use crate::node::realm::QEDRealmStoreReaderAsync;
 
-
 use async_trait::async_trait;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::PrimeField64};
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::{
-        checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState},
-        user::QEDUserLeaf,
-    };
+    checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState},
+    user::QEDUserLeaf,
+};
+
 type F = GoldilocksField;
+
 #[cfg(feature = "is_sync")]
 #[async_trait]
 impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreReaderAsync<F> for T {

@@ -78,7 +78,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsyn
         root_level: u8,
         nodes: &[QMerkleNode<F>],
     ) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>> {
-        UserTreeStore::smart_injest_nca_fc(self, root_level, checkpoint_id, nodes)
+        UserTreeStore::<Self>::smart_injest_nca_fc(self, root_level, checkpoint_id, nodes)
     }
     async fn set_deposit_tree_leaf_hash_imm(
         &self,

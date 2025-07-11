@@ -170,7 +170,7 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync>
         leaf_level: u8,
         leaf_index: u64,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        UserTreeStore::get_sub_tree_proof(
+        UserTreeStore::<Self>::get_sub_tree_proof(
             self,
             GLOBAL_USER_TREE_HEIGHT as usize,
             0,
@@ -178,14 +178,14 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync>
         )
     }
     async fn get_user_top_tree_cap_root(&self, checkpoint_id: u64, cap_level: u8, cap_index: u64) -> anyhow::Result<QHashOut<F>> {
-        UserTreeStore::get_node(
+        UserTreeStore::<Self>::get_node(
             self,
             GLOBAL_USER_TREE_HEIGHT as usize,
             &UserTreeStore::<Self>::new_node_key_fc(checkpoint_id, cap_level, cap_index),
         )
     }
     async fn get_user_latest_top_tree_cap_root(&self, cap_level: u8, cap_index: u64) -> anyhow::Result<QHashOut<F>> {
-        UserTreeStore::get_node(
+        UserTreeStore::<Self>::get_node(
             self,
             GLOBAL_USER_TREE_HEIGHT as usize,
             &UserTreeStore::<Self>::new_node_key_fc(0xffffffffffu64, cap_level, cap_index),
