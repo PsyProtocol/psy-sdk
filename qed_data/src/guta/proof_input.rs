@@ -360,6 +360,7 @@ pub struct GUTANoChangeFullInput<F: RichField> {
 pub struct GUTARegisterUserFullInput<F: RichField> {
     pub user_registration_tree_merkle_proof: MerkleProofCore<QHashOut<F>>,
     pub global_user_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
+    pub secp256k1_public_key_hash: QHashOut<F>,
 }
 impl<F: RichField> GUTARegisterUserFullInput<F> {
 
@@ -389,6 +390,7 @@ impl<F: RichField> GUTARegisterUserFullInput<F> {
         Self {
             user_registration_tree_merkle_proof,
             global_user_tree_update_proof,
+            secp256k1_public_key_hash: fake_public_key,
         }
 
     }
@@ -416,6 +418,7 @@ impl<F: RichField> GUTARegisterUserFullInput<F> {
         Self {
             user_registration_tree_merkle_proof,
             global_user_tree_update_proof,
+            secp256k1_public_key_hash: fake_public_key,
         }
 
     }

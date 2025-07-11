@@ -114,10 +114,10 @@ impl<F: RichField> QFieldHashable<F> for QEDUserLeaf<F> {
             self.last_checkpoint_id,
             self.event_index,
             self.user_id,
-            // self.secp256k1_public_key_hash.0.elements[0],
-            // self.secp256k1_public_key_hash.0.elements[1],
-            // self.secp256k1_public_key_hash.0.elements[2],
-            // self.secp256k1_public_key_hash.0.elements[3],
+            self.secp256k1_public_key_hash.0.elements[0],
+            self.secp256k1_public_key_hash.0.elements[1],
+            self.secp256k1_public_key_hash.0.elements[2],
+            self.secp256k1_public_key_hash.0.elements[3],
         ])
     }
 }
@@ -139,10 +139,10 @@ impl<F: RichField> QEDUserLeaf<F> {
             self.last_checkpoint_id,
             self.event_index,
             self.user_id,
-            // self.secp256k1_public_key_hash.0.elements[0],
-            // self.secp256k1_public_key_hash.0.elements[1],
-            // self.secp256k1_public_key_hash.0.elements[2],
-            // self.secp256k1_public_key_hash.0.elements[3],
+            self.secp256k1_public_key_hash.0.elements[0],
+            self.secp256k1_public_key_hash.0.elements[1],
+            self.secp256k1_public_key_hash.0.elements[2],
+            self.secp256k1_public_key_hash.0.elements[3],
         ]))
     }
 }

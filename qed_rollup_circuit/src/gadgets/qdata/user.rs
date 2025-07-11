@@ -21,6 +21,8 @@ pub struct QEDUserLeafGadget {
     pub last_checkpoint_id: Target,
     pub event_index: Target,
     pub user_id: Target,
+
+    pub secp256k1_public_key_hash: HashOutTarget,
 }
 
 impl QEDUserLeafGadget {
@@ -29,6 +31,7 @@ impl QEDUserLeafGadget {
         user_id: Target,
         public_key: HashOutTarget,
         default_user_state_tree_root: QHashOut<F>,
+        secp256k1_public_key_hash: HashOutTarget,
     ) -> Self {
         let zero = builder.zero();
         Self {
@@ -39,6 +42,7 @@ impl QEDUserLeafGadget {
             last_checkpoint_id: zero,
             event_index: zero,
             user_id,
+            secp256k1_public_key_hash,
         }
     }
 
@@ -54,7 +58,9 @@ impl QEDUserLeafGadget {
         witness.set_target(self.nonce, target.nonce)?;
         witness.set_target(self.last_checkpoint_id, target.last_checkpoint_id)?;
         witness.set_target(self.event_index, target.event_index)?;
-        witness.set_target(self.user_id, target.user_id)
+        witness.set_target(self.user_id, target.user_id);
+
+        witness.set_hash_target(self.secp256k1_public_key_hash, target.secp256k1_public_key_hash.0)
     }
     pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -143,6 +149,7 @@ impl CreatableTarget for QEDUserLeafGadget {
         let last_checkpoint_id = builder.add_virtual_target();
         let event_index = builder.add_virtual_target();
         let user_id = builder.add_virtual_target();
+        let secp256k1_public_key_hash = builder.add_virtual_hash();
 
         Self {
             public_key,
@@ -152,6 +159,7 @@ impl CreatableTarget for QEDUserLeafGadget {
             last_checkpoint_id,
             event_index,
             user_id,
+            secp256k1_public_key_hash,
         }
     }
 }
@@ -171,12 +179,16 @@ impl ToTargets for QEDUserLeafGadget {
             self.last_checkpoint_id,
             self.event_index,
             self.user_id,
+            self.secp256k1_public_key_hash.elements[0],
+            self.secp256k1_public_key_hash.elements[1],
+            self.secp256k1_public_key_hash.elements[2],
+            self.secp256k1_public_key_hash.elements[3],
         ]
     }
 }
 impl FromTargets for QEDUserLeafGadget {
     fn from_targets(targets: &[Target]) -> Self {
-        if targets.len() != 13 {
+        if targets.len() != 17 {
             panic!("tried to create QEDUserLeafGadget from an array of {} targets, but expected an array of 13 targets", targets.len());
         }
         let public_key = HashOutTarget {
@@ -190,6 +202,9 @@ impl FromTargets for QEDUserLeafGadget {
         let last_checkpoint_id = targets[10];
         let event_index = targets[11];
         let user_id = targets[12];
+        let secp256k1_public_key_hash = HashOutTarget {
+            elements: [targets[13], targets[14], targets[15], targets[16]],
+        };
         Self {
             public_key,
             user_state_tree_root,
@@ -198,6 +213,7 @@ impl FromTargets for QEDUserLeafGadget {
             last_checkpoint_id,
             event_index,
             user_id,
+            secp256k1_public_key_hash,
         }
     }
 }

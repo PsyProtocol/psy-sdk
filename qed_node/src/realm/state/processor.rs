@@ -247,9 +247,11 @@ impl<
                     let regs = dmps
                         .into_iter()
                         .zip(pending_register_users.iter())
-                        .map(|(upd, mp)| GUTARegisterUserFullInput {
+                        .zip(pending_register_users_secp256k1_public_keys.iter())
+                        .map(|((upd, mp), &secp256k1_public_key_hash)| GUTARegisterUserFullInput {
                             user_registration_tree_merkle_proof: mp.to_owned(),
                             global_user_tree_update_proof: upd,
+                            secp256k1_public_key_hash,
                         })
                         .collect::<Vec<_>>();
 
