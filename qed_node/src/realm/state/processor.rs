@@ -744,6 +744,7 @@ impl<
         //let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+        // todo fix the bug!!!
         let pending_users = if self.pending_register_users.len() > 32 {
             self.pending_register_users.split_off(self.pending_register_users.len()-32)
         }else{
